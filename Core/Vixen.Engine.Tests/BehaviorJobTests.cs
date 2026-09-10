@@ -93,6 +93,38 @@ public sealed class BehaviorJobTests {
     ///     not ask. A build where the attribute was read from the wrong place would pass the test
     ///     above and fail this one.
     /// </summary>
+    /// <summary>
+    ///     The same marked batch, dispatched across a scheduler with no workers at all and across one
+    ///     with two, has to reach the same answer.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A <see cref="JobScheduler" /> with nought workers is what the browser head builds by
+    ///     construction</b>, and it is the configuration in which "dispatch and never wait" looks
+    ///     exactly like "dispatch and complete" from every counter — the batch is handed over, the
+    ///     frame ends, and the instances are simply never updated. Every other fixture in this file
+    ///     runs two workers, so none of them can tell those apart (#328).
+    ///     <para>
+    ///         The oracle is per-instance work rather than a count of batches: <c>Updates</c> is
+    ///         written by the behaviour itself, so <c>Assert.Equal(1, …)</c> on all sixty-four is
+    ///         false both when the work is dropped and when it is done twice.
+    ///     </para>
+    /// </remarks>
+    [Trait("Workers", "0")]
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    public void AMarkedBatchReachesEveryInstanceWhateverTheWorkerCount(int workers) {
+        using var jobs = new JobScheduler(workers);
+        using var loop = new EngineLoop(jobs: jobs);
+        var behaviors = Fill(loop, 64);
+
+        Run(loop);
+
+        Assert.All(behaviors, behavior => Assert.Equal(1, behavior.Updates));
+        Assert.All(behaviors, behavior => Assert.Equal(1, behavior.LateUpdates));
+        Assert.Equal(4, loop.Behaviors.DispatchedBatches);
+    }
+
     [Fact]
     public void AnUnmarkedBatchIsWalkedOnTheCallingThreadEvenWithASchedulerPresent() {
         using var jobs = new JobScheduler(2);
