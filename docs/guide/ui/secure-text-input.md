@@ -49,11 +49,12 @@ in the wrong place the first time somebody changed the font size.
 
 ## Examples
 
-**A sign-in row.** It is a `TextField`, so `Submitted` and `bind:` behave exactly as they do on a
-`TextBox` — the only difference is what is drawn:
+**A sign-in row.** It is a `TextField`, so `on:submit` — the `SubmitEvent` a field raises when Enter
+finishes it — and `bind:` behave exactly as they do on a `TextBox`; the only difference is what is
+drawn:
 
 ```vxml no-compile="a fragment; the model is the application's own"
-<SecureTextBox Placeholder="Password" bind:Value="@Model.Password.Value" on:Submitted={SignIn} />
+<SecureTextBox Placeholder="Password" bind:Value="@Model.Password.Value" on:submit="@SignIn" />
 ```
 
 **Revealing what was typed.** The control holds the real string, so a reveal toggle is a swap of the
