@@ -239,7 +239,21 @@ set, the session wraps and publishes the wrapper as `NetworkSession.Simulation`.
   assembly moves, no public type crosses a baseline, and the default is *visible and editable* at the
   place a game author is already reading — which is what a simulated link that announces itself
   should look like. It is recorded rather than taken, because it settles the same decision the two
-  bullets above pose and that decision is Jiu's.
+  bullets above pose and that decision is Jiu's. ⚠ **One correction to its own costing: it is two
+  lines, not one.** `NetworkSimulationSettings` is in `Vixen.Net.Transport` and that file imports
+  `Vixen.Net.Sessions` and `Vixen.Net.Transport.Udp` but not `Vixen.Net.Transport`, so the ternary
+  needs a `using` beside it. Everything else about the option checks out at HEAD: `BuildVariants` is
+  `namespace Vixen.App` (`Core/Vixen.App.Hosting/BuildVariant.cs:6,57`) and the template file's first
+  seven lines already carry `using Vixen.App;`.
+- ⚠ **And the fifth place an implementer would look does not work, which is worth writing down
+  because it is the obvious one.** `Vixen.Net.Engine` is *the* assembly that joins networking to the
+  engine, so it reads as the natural home for a variant-aware default — but it references
+  `Vixen.Net` and `Vixen.Engine` and **not** `Vixen.App.Hosting`, so it would need exactly the new
+  edge the first bullet rejects, and it would be a worse one: `Vixen.Net.Engine` is what a dedicated
+  server links, and `Vixen.App.Hosting` drags the renderer, the post-effects, the water and the
+  platform layer behind it. ⚠ `Vixen.App.Hosting` is referenced by **two** projects in the whole tree
+  — `Tools/Vixen.App` and `Tools/Vixen.AotProbe` — so there is no existing shared library for the
+  join to sit in, which is what the third and fourth options are each a way around.
 - ⚠ **The seam had no caller outside its own tests until `Samples/08-Multiplayer` was ported onto
   it**, which is this repository's commonest defect wearing its usual clothes. That sample now asks
   for the bad wire on `SessionOptions.Simulation` and reads its announcement off
