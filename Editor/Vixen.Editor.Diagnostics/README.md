@@ -25,13 +25,15 @@ ignorant of each other.
 
 What this assembly decides: that the statistics panel counts *this* world, that the GPU timeline
 reads *this* device, that the frame debugger captures *this* frame, that the remote inspector talks
-over loopback, and that the network panel reads *this* session's ledger.
+over loopback, that the network panel reads *this* session's ledger, and that an exported trace lands
+in *this* project's `Traces` folder — which is where `vixen trace record` puts a game's, so the two
+kinds of recording sort as one list.
 
 ## What it asks the host for
 
 | | |
 |---|---|
-| `EditorProject` | the memory panel's asset counts |
+| `EditorProject` | the memory panel's asset counts, and where the profiler's **Export Trace** writes |
 | `IActiveScene` | ⚠ **which scene is being *shown***, which is not which scene is open — an editor inspecting a prefab must count the prefab, or Refresh reports the level behind it |
 | `IDeviceDeploy` | optional. Building a player is a project, a target, a content build and a process; a host with none greys Deploy with a sentence rather than hiding the panel |
 
