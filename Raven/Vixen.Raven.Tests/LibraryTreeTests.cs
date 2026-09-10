@@ -676,6 +676,33 @@ public class LibraryTreeTests {
     ///         hard-coded back into the pass, because <c>SubsurfaceShading</c> and <c>CelShading</c>
     ///         have parameters and those arrived either way.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The second claim used to be <c>Assert.NotEqual</c> over the emitted GLSL as
+    ///         <em>text</em>, and that is a syntactic proxy for a semantic question — #1249.</b> A
+    ///         model rewritten to shade exactly like <c>StandardShading</c> passed it: with
+    ///         <c>OrenNayarShading.Shade</c> calling <c>DiffuseModels.Lambert</c> the two units still
+    ///         compared unequal, because the body kept one extra local and a declared local
+    ///         renumbers every temporary after it. Two units that shade identically are two
+    ///         different strings as soon as one of them spells the arithmetic differently, so the
+    ///         text comparison could only ever catch an <em>exact</em> transcription.
+    ///     </para>
+    ///     <para>
+    ///         <b>So the claim is now over what the pass <em>calls</em>.</b> <see cref="Callees" />
+    ///         takes the set of function names the emitted unit names, and this composition's set
+    ///         must differ from <c>StandardShading</c>'s — which is a claim about the library
+    ///         reached rather than about the characters emitted, and which renaming a temporary
+    ///         cannot satisfy. The sabotage above goes red on it: with <c>Shade</c> calling
+    ///         <c>Lambert</c>, <c>OrenNayar</c> is pruned from the unit and the two sets are equal.
+    ///         The text comparison is kept beside it, because it is orthogonal rather than weaker —
+    ///         it is the half that can see a model differing only in a constant.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this shape asks of a future row.</b> Every model here reaches a library
+    ///         function <c>StandardShading</c> does not, or fails to reach one it does; a model whose
+    ///         whole difference was arithmetic written inline would be red here and would need its
+    ///         own claim rather than a row. That is the trade deliberately taken: an assertion that
+    ///         admits every model admits the model that has stopped doing anything.
+    ///     </para>
     /// </remarks>
     [Theory]
     [InlineData("AnisotropicShading")]
@@ -700,6 +727,31 @@ public class LibraryTreeTests {
 
         Assert.NotEqual(standard, source);
         Assert.Contains("Shade", source, StringComparison.Ordinal);
+
+        var mine = Callees(source);
+        var theirs = Callees(standard);
+
+        // ⚠ The instrument, and it is the whole of why this is trustworthy: two empty sets are
+        // equal, so a `Callees` that stopped matching anything would fail loudly here rather than
+        // quietly agree. 87 on 2026-09-10 for both compositions.
+        Assert.True(
+            mine.Count > 40 && theirs.Count > 40,
+            $"{model}'s pass names {mine.Count} functions and StandardShading's names {theirs.Count}, "
+            + "which is far too few for the forward pass -- so nothing was compared."
+        );
+
+        var apart = mine.Except(theirs, StringComparer.Ordinal)
+            .Concat(theirs.Except(mine, StringComparer.Ordinal))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.True(
+            apart.Length > 0,
+            $"the pass composed with {model} calls exactly the functions StandardShading's pass calls. "
+            + "A model that shades like the default compiles, looks lit and is not the model the "
+            + "material asked for -- and comparing the emitted text cannot see it, because one extra "
+            + "local renumbers every temporary after it (#1249)."
+        );
 
         foreach (var target in (string[])["glsl", "spirv"]) {
             var bag = new DiagnosticBag();
@@ -1441,6 +1493,56 @@ public class LibraryTreeTests {
                     && unit.Stage == ShaderStage.Compute
             )
             .Code;
+    }
+
+    /// <summary>Every name an emitted unit applies to an argument list.</summary>
+    /// <param name="glsl">An emitted GLSL unit.</param>
+    /// <returns>The identifiers it calls, declares or constructs, without duplicates.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A set of names rather than the emitted text, because the text answers a
+    ///         different question than the one being asked</b> — #1249. Two units that shade
+    ///         identically differ as text the moment one of them declares a local the other does not,
+    ///         since every temporary after it renumbers; and two units that shade
+    ///         <em>differently</em> are guaranteed to differ in what they call only when the
+    ///         difference is a library function, which is exactly what a shading model is.
+    ///     </para>
+    ///     <para>
+    ///         It is deliberately not a parser. <c>if</c>, <c>while</c> and a constructor such as
+    ///         <c>vec3</c> land in the set beside <c>Ggx</c> and <c>OrenNayar</c>, and that costs
+    ///         nothing: the comparison is between two sets from the same emitter over the same pass,
+    ///         so everything neither model brought cancels.
+    ///     </para>
+    /// </remarks>
+    static HashSet<string> Callees(string glsl) {
+        var found = new HashSet<string>(StringComparer.Ordinal);
+
+        for (var at = 0; at < glsl.Length; at++) {
+            if (glsl[at] != '(') {
+                continue;
+            }
+
+            var end = at;
+
+            while (end > 0 && char.IsWhiteSpace(glsl[end - 1])) {
+                end--;
+            }
+
+            var start = end;
+
+            while (start > 0 && (char.IsLetterOrDigit(glsl[start - 1]) || glsl[start - 1] == '_')) {
+                start--;
+            }
+
+            // A bare `(`, and a numeric literal against a parenthesis, are not names.
+            if (start == end || char.IsDigit(glsl[start])) {
+                continue;
+            }
+
+            found.Add(glsl[start..end]);
+        }
+
+        return found;
     }
 
     /// <summary>The fragment stage of the shipped forward pass, as GLSL.</summary>
