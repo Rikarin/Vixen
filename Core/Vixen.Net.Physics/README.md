@@ -177,9 +177,10 @@ bodies** — `Samples/08`, `09`, `10` and `14` reference `Vixen.Net` and none re
 `Vixen.Net.Physics` has **no registration surface at all** — no `AddNetworkPhysics`, no
 `AddLagCompensation`, nothing of the `AddPhysics` / `AddAnimation` shape every other subsystem in this
 engine is reached by. So the answer to "is this nothing-calls-it, or is the seam one level up?" is
-*both*, and the second half is [#1254](https://github.com/Rikarin/Vixen/issues/1254): a game that wanted networked physics **today** would
-hand-construct four systems, and would have to read the source to learn that
-`NetworkRigidBodyCaptureSystem` must sit between the physics writeback and the replication capture.
+*both*, and the second half is [#1254](https://github.com/Rikarin/Vixen/issues/1254): a game that
+wanted networked physics **today** would hand-construct four systems, and would have to read the
+source to learn that `NetworkRigidBodyCaptureSystem` must sit between the physics writeback and the
+replication capture.
 
 That knowledge is not actually loose — the systems carry `[UpdateInGroup]`, `[UpdateAfter]` and
 `[UpdateBefore]` themselves, so a runner orders them correctly once they are in it — which is exactly
