@@ -21,3 +21,5 @@ VXS0413 | Vixen.Engine | Error | A Behavior holds an Entity, which is a slot in 
 VXS0414 | Vixen.Engine | Error | A Behavior holds a copy of a component the world is already the authority on
 VXS0415 | Vixen.Engine | Warning | A structural change made inside a query body, a chunk walk or a struct visitor
 VXS0416 | Vixen.Engine | Error | A component carrying [Component] and [DataContract] holds an Entity, which is written down as a slot number that means nothing elsewhere
+VXS0417 | Vixen.Engine | Error | A [BehaviorJob] Update or LateUpdate touches a lifecycle queue, the coroutine scheduler, a managed component or the archetype graph, none of which survive being run on several threads at once
+VXS0418 | Vixen.Engine | Warning | A [BehaviorJob] type does not derive from Behavior, so no bucket reads the attribute and the parallelism it names never happens
