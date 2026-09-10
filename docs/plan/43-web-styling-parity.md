@@ -466,8 +466,9 @@ needs a pass that binds `ui-text.frag` with the colour forced to white, a surfac
 `UiLayer` that names a *coverage* source separately from its colour source.
 
 One further thing is absent and would be needed for the general form, and it is recorded against its
-own row: an ordered filter list on `UiLayer` (today it carries a `Blur`, a `Filter` and a `Mask` as
-discrete fields, which is enough because their order is fixed by the specification).
+own row: an ordered filter list on `UiLayer` (today it carries a `Blur` and a `Filter` as discrete
+fields — the mask half became a `MaskFirst`/`MaskCount` range into `DrawList.Masks` with the list
+work below — which is enough because their order is fixed by the specification).
 
 ⚠ **This paragraph named a second absence, `mask-composite`, and that half is refuted — it landed
 with the mask list and the generated row has read `works` since.** `mask-add`, `mask-subtract`,
