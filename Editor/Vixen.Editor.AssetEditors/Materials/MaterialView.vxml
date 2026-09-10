@@ -204,11 +204,28 @@
 
     /// <summary>Raised when the preview's subject changes — a different shape, or an edited value.</summary>
     /// <remarks>
-    ///     ⚠ <b>An edited <em>header</em> is one of them, and it was not</b> —
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/1180">#1180</a>. What a material is drawn
-    ///     with is the whole of the header, so editing <c>Shader</c>, <c>Shading</c> or <c>Graph</c>
-    ///     changes the picture — silently in the direction that looks fine, because a preview that is
-    ///     merely stale is indistinguishable from one that is right.
+    ///     <para>
+    ///         ⚠ <b>Nothing subscribes it, so the preview image is blank for the whole session
+    ///         however the material is edited</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1204">#1204</a>). The only
+    ///         <c>+=</c> anywhere in the tree is <c>MaterialGraphPropertyTests</c>'. Every repaint
+    ///         decision in this panel — the shape picker, the parameter rows, <see cref="Rebuild" />,
+    ///         the header — is correct bookkeeping for a consumer that does not exist yet: drawing a
+    ///         lit sphere needs a device, a compositor and a compiled effect, and the assembly that
+    ///         has all three has no arm for this event. <c>EditorApplication.Joined</c> is where it
+    ///         will go, beside <c>TexturePreviewImages.Follow</c> and the
+    ///         <see cref="OpenGraphRequested" /> subscription that is already there. ⚠ Whoever
+    ///         writes it should know the oracle question is a pixel: a preview that is merely blank
+    ///         is what a material with nothing on it looks like, so "the image has a number" is
+    ///         satisfied by any placeholder.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An edited <em>header</em> is one of them, and it was not</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1180">#1180</a>. What a material is
+    ///         drawn with is the whole of the header, so editing <c>Shader</c>, <c>Shading</c> or
+    ///         <c>Graph</c> changes the picture — silently in the direction that looks fine, because
+    ///         a preview that is merely stale is indistinguishable from one that is right.
+    ///     </para>
     /// </remarks>
     public event Action<MaterialView>? PreviewChanged;
 

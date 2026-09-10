@@ -39,6 +39,18 @@ public enum MaterialPreviewShape {
 ///         number on the image. The same split the scene panel and the texture editor already have.
 ///     </para>
 ///     <para>
+///         ⚠ <b>And the second half of that sentence is a plan rather than a description: nothing
+///         subscribes <c>PreviewChanged</c>, so the image is never given a texture number and the
+///         preview is blank in every editor built so far</b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/1204">#1204</a>). The texture editor's
+///         equivalent is wired — <c>TexturePreviewImages</c>, from <c>EditorApplication.Joined</c> —
+///         and it uploads decoded texels, which is a far smaller job than rendering a lit shape; a
+///         material has no picture that is not a render of it, which is doc 20's E5 preview work.
+///         ⚠ <b>The graph button is <em>not</em> in that state</b>, and an audit that said so was
+///         wrong: <c>Joined</c> subscribes <c>OpenGraphRequested</c>, so "Open shader graph" opens
+///         the graph.
+///     </para>
+///     <para>
 ///         <b>The shader-graph link is a button and a state.</b> A material naming a graph offers
 ///         "Open graph"; one that names a graph the project no longer has says so rather than
 ///         offering a button that opens nothing. What happens when it is pressed is the shell's —
