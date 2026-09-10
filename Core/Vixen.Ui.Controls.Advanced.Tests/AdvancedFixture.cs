@@ -174,6 +174,31 @@ sealed class AdvancedFixture : IDisposable {
         Update();
     }
 
+    /// <summary>Sends an input method's pre-edit, the way a platform head does.</summary>
+    /// <param name="text">The pre-edit, or empty to abandon the composition.</param>
+    /// <param name="caret">
+    ///     Where the input method's own cursor sits inside it, or −1 for its end.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b>Provisional text, and pointedly not <see cref="TypeText" />.</b> A composition is
+    ///     replaced in place on every keystroke and is only real when it commits — as an ordinary
+    ///     <c>TextInputEvent</c>, which is what <see cref="TypeText" /> sends. <c>UiTest.Compose</c>
+    ///     is the same driver for the suites built on that harness.
+    /// </remarks>
+    public void Compose(string text, int caret = -1) {
+        clock += TimeSpan.FromMilliseconds(16);
+
+        Document.Dispatch(
+            new TextCompositionEvent {
+                Text = text,
+                Start = caret < 0 ? text.Length : caret,
+                Timestamp = clock
+            }
+        );
+
+        Update();
+    }
+
     /// <summary>Turns the wheel at a bare point, which is what a cursor-anchored zoom needs.</summary>
     /// <remarks>
     ///     ⚠ The element-centred overload cannot test one: the centre is the fixed point of a

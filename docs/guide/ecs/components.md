@@ -8,7 +8,7 @@ api: [T:Vixen.Core.ComponentAttribute, T:Vixen.Core.DataContractAttribute]
 tags: [ecs, components, scenes]
 since: 0.1
 status: stable
-related: [ecs/queries, ecs/component-defaults, engine/world-serialisation, engine/players-and-possession]
+related: [ecs/queries, ecs/component-defaults, engine/world-serialisation, engine/players-and-possession, engine/unity-migration]
 ---
 
 ## What it is

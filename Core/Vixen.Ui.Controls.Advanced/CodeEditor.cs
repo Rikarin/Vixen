@@ -163,6 +163,7 @@ sealed class CodeOverlay : UiElement {
         }
 
         if (Kind == OverlayKind.Caret) {
+            editor.DrawComposition(context);
             editor.DrawCaret(context);
         } else {
             editor.DrawSelection(context);
@@ -259,6 +260,18 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
     int caretColorStandard;
     int currentLineColor;
     bool editing;
+
+    /// <summary>The input method's pre-edit, or empty while nothing is being composed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Never in the buffer.</b> A pre-edit is replaced in place on every keystroke and may
+    ///     be abandoned entirely, so putting it in <see cref="CodeBuffer" /> would put provisional
+    ///     text through the undo stack, the tokenizer's cached line states and — in the editor —
+    ///     the document's dirty flag. It is spliced into what a line *shows* and nowhere else.
+    /// </remarks>
+    string composition = string.Empty;
+
+    /// <summary>Where the input method's own cursor sits inside the pre-edit, in UTF-16 units.</summary>
+    int compositionCaret;
 
     /// <summary>How many lines are realised above and below the viewport.</summary>
     public const int Overscan = 2;
@@ -429,6 +442,32 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
 
     /// <summary>The selected text, or an empty string.</summary>
     public string SelectedText => HasSelection ? buffer.Slice(Anchor, Caret) : string.Empty;
+
+    /// <summary>The pre-edit an input method is composing at the caret, or an empty string.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Internal rather than public, unlike <c>TextField.Composition</c>, and that is a
+    ///     scope decision rather than an oversight.</b> Nothing outside this assembly has a use for
+    ///     a provisional string it must not commit, and the two members would otherwise be a public
+    ///     surface addition on a change whose point is that the editor stops being blind to
+    ///     compositions. Promote them when something outside asks.
+    /// </remarks>
+    internal string Composition => composition;
+
+    /// <summary>Whether an input method has a pre-edit open in this editor.</summary>
+    internal bool IsComposing => composition.Length > 0;
+
+    /// <summary>
+    ///     Where the caret is <em>drawn</em>: the buffer caret, plus the input method's own cursor
+    ///     inside the pre-edit.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The pre-edit's cursor is not always its end.</b> It is what puts the caret in the
+    ///     middle of a half-converted phrase, where the input method thinks it is; dropped, the
+    ///     caret sits in front of the whole pre-edit and every candidate window is placed against
+    ///     the wrong character.
+    /// </remarks>
+    internal TextPosition DisplayCaret =>
+        IsComposing ? new TextPosition(Caret.Line, Caret.Column + compositionCaret) : Caret;
 
     /// <summary>What is being said about the file.</summary>
     public IReadOnlyList<CodeDiagnostic> Diagnostics => diagnostics;
@@ -610,6 +649,24 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
         AddHandler<TextInputEvent>(static (element, args) => ((CodeEditor) element).Typed(args));
         AddHandler<PointerEvent>(static (element, args) => ((CodeEditor) element).Pointed(args));
         AddHandler<TapEvent>(static (element, args) => ((CodeEditor) element).Tapped(args));
+
+        // ⚠ **The fourth event, and its absence was not a missing line but a whole invisible mode.**
+        // Without it a Japanese, Chinese or Korean pre-edit is not drawn at all until it commits, so
+        // the editor shows nothing while somebody types into it and the candidate list floats over
+        // an unchanged file. `TextField` has handled it since it was written; this control declared
+        // `AcceptsTextInput` and then ignored half of what that turns on.
+        AddHandler<TextCompositionEvent>(static (element, args) => ((CodeEditor) element).Composing(args));
+
+        // ⚠ Only for the losing half. A pre-edit belongs to whatever has the focus, and the platform
+        // sends the end of an abandoned one to whatever *took* the focus — so an editor that lost it
+        // mid-composition keeps a pre-edit drawn for ever, uncommittable and belonging to an input
+        // method that has forgotten about it. Deliberately without `TextField`'s select-all on gain:
+        // Tab into a code file must not select the file.
+        AddHandler<FocusEvent>(static (element, args) => {
+            if (!args.Gained) {
+                ((CodeEditor) element).CancelComposition();
+            }
+        });
     }
 
     // ── Metrics ──────────────────────────────────────────────────────────────
@@ -777,6 +834,47 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
     /// <summary>Whether a row is the last one its line occupies, so the swallowed newline is drawn on it.</summary>
     bool IsLastRowOf(int row) => row + 1 >= rows.Count || rows[row + 1] != rows[row];
 
+    /// <summary>What a row shows, which is its line with any pre-edit spliced in at the caret.</summary>
+    /// <param name="line">The buffer line the row belongs to.</param>
+    /// <param name="row">The visual row.</param>
+    /// <param name="to">Where the row's slice ends in the returned text.</param>
+    /// <returns>The line's characters, and the pre-edit if the caret is on this row.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Display only.</b> The buffer never sees a pre-edit, so nothing that reads the
+    ///         buffer — the undo stack, the diagnostics, the folds, <c>Source</c>, the document's
+    ///         dirty flag — can be made provisional by an input method.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The row's end moves with the splice and the row list does not.</b> A pre-edit
+    ///         that is wider than the space left on a wrapped row therefore runs past the wrap
+    ///         column for as long as it is being typed, rather than re-wrapping the file on every
+    ///         keystroke of a composition that may be abandoned. Committing it re-wraps, because
+    ///         committing goes through <see cref="Insert" />.
+    ///     </para>
+    /// </remarks>
+    string Shown(int line, int row, out int to) {
+        to = EndOf(row);
+
+        var text = buffer[line];
+
+        if (!IsComposing || Caret.Line != line) {
+            return text;
+        }
+
+        var at = Math.Clamp(Caret.Column, 0, text.Length);
+
+        // The caret's own row, and only it: a wrapped line shows the pre-edit on the row the caret
+        // is on, and the rows after it keep the columns they had.
+        if (at < starts[row] || (!IsLastRowOf(row) && at > to)) {
+            return text;
+        }
+
+        to += composition.Length;
+
+        return string.Concat(text.AsSpan(0, at), composition, text.AsSpan(at));
+    }
+
     /// <summary>The furthest column a caret may sit at and still be drawn on this row.</summary>
     /// <remarks>
     ///     ⚠ <b>One short of the next row's start, and that is not an off-by-one.</b>
@@ -829,9 +927,15 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
             // runs along the line — a string, a block comment — so tokenizing from the middle of one
             // would recolour the second visual row of every wrapped line as though the file started
             // there.
+            // ⚠ The pre-edit is spliced in here and nowhere else — see `Composition`. The tokenizer
+            // then runs over the spliced text, which is deliberate: a half-typed pre-edit inside a
+            // string literal must colour like the literal it is inside, and re-colouring after the
+            // commit is what would look like a bug.
+            var text = Shown(index, row, out var to);
+
             scratch.Clear();
-            Tokenizer.Tokenize(buffer[index], StateAt(index), scratch);
-            line.Bind(buffer[index], scratch, starts[row], EndOf(row));
+            Tokenizer.Tokenize(text, StateAt(index), scratch);
+            line.Bind(text, scratch, starts[row], to);
 
             line.SetStyle("top", Inline.Px(row * cell));
             line.SetStyle("height", Inline.Px(cell));
@@ -1234,6 +1338,12 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
     ///     which is why an input method's candidate window could not be placed against it.</b> The
     ///     draw now reads this, so the caret an editor shows and the caret the operating system is
     ///     told about cannot drift apart.
+    ///     <para>
+    ///         ⚠ <b>And it is <see cref="DisplayCaret" />'s column rather than the buffer caret's.</b>
+    ///         A candidate list placed against the buffer caret sits in front of the whole pre-edit
+    ///         instead of under the character the input method is converting — which is the one
+    ///         placement the whole wire exists to get right.
+    ///     </para>
     /// </remarks>
     public Rectangle CaretArea {
         get {
@@ -1246,7 +1356,7 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
             return row < 0
                 ? new(content.AbsoluteLeft, content.AbsoluteTop, 1f, MathF.Max(RowHeight, 1f))
                 : new Rectangle(
-                    content.AbsoluteLeft + ((Caret.Column - starts[row]) * CharacterWidth),
+                    content.AbsoluteLeft + ((DisplayCaret.Column - starts[row]) * CharacterWidth),
                     content.AbsoluteTop + (row * RowHeight),
                     MathF.Max(1f, CharacterWidth * 0.1f),
                     RowHeight
@@ -1254,13 +1364,58 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
         }
     }
 
+    /// <summary>Underlines the pre-edit, so provisional text is visibly provisional.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Drawn in front of the lines rather than behind them</b>, on the caret overlay, for
+    ///         the reason <see cref="CodeOverlay" /> gives: the selection is under the text and the
+    ///         caret is over it, and a marked-range underline belongs on the same side as the caret.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A rectangle rather than a text decoration, because a row here is a grid.</b> The
+    ///         columns are the pre-edit's own, so the bar starts where the pre-edit starts and ends
+    ///         where it ends whatever the tokenizer decided to do with the spliced text.
+    ///     </para>
+    /// </remarks>
+    internal void DrawComposition(DrawContext context) {
+        if (!IsComposing) {
+            return;
+        }
+
+        var row = RowAt(Caret);
+
+        if (row < 0) {
+            return;
+        }
+
+        var content = Scroller.Content;
+        var width = CharacterWidth;
+        var cell = RowHeight;
+        var start = Math.Clamp(Caret.Column, 0, buffer[Caret.Line].Length);
+        var thickness = MathF.Max(1f, cell * 0.06f);
+
+        context.FillRectangle(
+            new Rectangle(
+                content.AbsoluteLeft + ((start - starts[row]) * width),
+                content.AbsoluteTop + (row * cell) + cell - thickness,
+                MathF.Max(0f, composition.Length * width),
+                thickness
+            ),
+            Document.ColorOf(Style, caretColorStandard)
+            ?? Document.ColorOf(Style, caretColor)
+            ?? Document.ForegroundOf(this)
+        );
+    }
+
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>True, and this editor still cannot render a composition.</b> It registers no
-    ///     <c>TextCompositionEvent</c> handler, so a pre-edit is invisible until it commits — see
-    ///     issue #673. Refusing to activate would be worse rather than better: text input is off by
-    ///     default on the web and on mobile, so an editor that never activated would receive no
-    ///     characters at all, and on the desktop it would lose the ones SDL currently leaves it.
+    ///     ⚠ <b>True, and the editor now draws what an input method is composing.</b> It was true
+    ///     for a control that registered no <c>TextCompositionEvent</c> handler, so a pre-edit was
+    ///     invisible until it committed (#673); the handler exists and the pre-edit is spliced into
+    ///     the caret's line — see <see cref="Composition" />. Refusing to activate would have been
+    ///     worse rather than better even then: text input is off by default on the web and on
+    ///     mobile, so an editor that never activated would receive no characters at all, and on the
+    ///     desktop it would lose the ones SDL currently leaves it.
     /// </remarks>
     public bool AcceptsTextInput => !ReadOnly && !Disabled;
 
@@ -1444,6 +1599,14 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
             return;
         }
 
+        // ⚠ **The commit arrives here and not on the composition event, and the pre-edit has to be
+        // cleared BEFORE the insert.** A platform ends a composition by delivering the committed
+        // text as ordinary typed text, so this event is both the end of the run and the edit; a
+        // clear afterwards would splice the pre-edit into the line the insert has already changed
+        // for one `Realise`, which draws the committed word twice.
+        composition = string.Empty;
+        compositionCaret = 0;
+
         Insert(args.Text);
 
         // A popup that is up filters as the word grows, and closes when the word ends. That is what
@@ -1453,6 +1616,54 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
         }
 
         args.Handled = true;
+    }
+
+    /// <summary>Takes an input method's pre-edit, which is shown and never committed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An empty <c>Text</c> is a <i>cancellation</i>, not "nothing happened".</b> Every
+    ///         platform ends an abandoned composition by sending one, so a handler that returned
+    ///         early on an empty string would leave the last pre-edit drawn in the file for ever.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The selection is deleted when a composition <i>starts</i>.</b> A pre-edit
+    ///         replaces what was selected, exactly as typing would — and only on the first event of
+    ///         a run, because the updates that follow replace the pre-edit and not the file.
+    ///     </para>
+    /// </remarks>
+    void Composing(TextCompositionEvent args) {
+        if (ReadOnly || Disabled) {
+            return;
+        }
+
+        if (!IsComposing && HasSelection) {
+            DeleteSelection();
+            Refresh();
+        }
+
+        composition = args.Text;
+        compositionCaret = Math.Clamp(args.Start, 0, composition.Length);
+
+        // Not `Refresh`: the buffer has not changed, so the row list, the folds and the scroll range
+        // are all still right. What has changed is what one line shows.
+        Realise();
+        Reveal();
+        Document.Invalidate();
+
+        args.Handled = true;
+    }
+
+    /// <summary>Abandons any pre-edit, for an editor that has stopped being the one typed into.</summary>
+    void CancelComposition() {
+        if (!IsComposing) {
+            return;
+        }
+
+        composition = string.Empty;
+        compositionCaret = 0;
+
+        Realise();
+        Document.Invalidate();
     }
 
     void Keyed(KeyEvent args) {
