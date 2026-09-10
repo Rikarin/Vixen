@@ -177,6 +177,84 @@ public sealed class ProfilerModel {
         Changed?.Invoke(this);
     }
 
+    /// <summary>Writes the current capture where a trace viewer can open it.</summary>
+    /// <param name="directory">The folder to write into. Created if it is not there.</param>
+    /// <param name="when">What timestamp the file's name carries. Defaults to now.</param>
+    /// <returns>The file written, or <see langword="null" /> when there was nothing to write.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="directory" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The second of doc 13's two entry points</b> — "<c>vixen trace record</c> from the
+    ///         CLI, or the editor's capture button". The CLI half runs the game with
+    ///         <c>--vixen-trace</c>; this half exports a capture that is already in the panel, so it
+    ///         reaches the one process the CLI cannot record: the editor itself.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An empty capture is refused rather than written.</b>
+    ///         <c>TraceExporter.WriteChromeTrace</c> over no threads produces a well-formed document
+    ///         with no events in it, which opens happily and reads as a process that did nothing —
+    ///         the same failure the CLI verb refuses a zero duration for. Returning the path of a
+    ///         file like that is worse than returning nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It writes Chrome <c>trace_event</c> JSON and says so</b>, per
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/25">#25</a>: it opens in
+    ///         <c>ui.perfetto.dev</c>, which is what doc 13 wants it for, and it is not the Perfetto
+    ///         protobuf that section commits to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The moment is a parameter.</b> A name built from a clock read inside this method
+    ///         is one no test can predict, and the alternative — asserting the file merely exists
+    ///         somewhere — is how a test stops noticing that two captures taken in one session
+    ///         overwrite each other.
+    ///     </para>
+    /// </remarks>
+    public string? ExportTrace(string directory, DateTimeOffset? when = null) {
+        ArgumentNullException.ThrowIfNull(directory);
+
+        if (Capture.IsEmpty) {
+            return null;
+        }
+
+        var samples = Capture.Threads
+            .Select(thread => new Vixen.Core.Diagnostics.ProfilerThreadSamples(
+                    thread.ThreadId,
+                    thread.ThreadName,
+                    thread.Samples
+                )
+            )
+            .ToArray();
+
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, TraceFileName(Capture.Source, when ?? DateTimeOffset.Now));
+
+        Vixen.Core.Diagnostics.TraceExporter.WriteChromeTrace(samples, path);
+        return path;
+    }
+
+    /// <summary>What one exported capture is called.</summary>
+    /// <param name="source">The source the capture came from.</param>
+    /// <param name="when">When it was exported.</param>
+    /// <returns>The file name.</returns>
+    /// <remarks>
+    ///     The CLI verb's <c>&lt;name&gt;-&lt;timestamp&gt;.json</c>, so a folder holding both kinds
+    ///     of recording sorts as one list. ⚠ The source is folded to the characters a file name may
+    ///     hold, because a source is named by whoever added it — an attached device announces its own
+    ///     name, and "Pixel 8 / usb" is a directory that does not exist.
+    /// </remarks>
+    internal static string TraceFileName(string source, DateTimeOffset when) {
+        var cleaned = new string(
+            [
+                .. source.Select(character =>
+                    char.IsLetterOrDigit(character) || character is '-' or '_' ? character : '-'
+                )
+            ]
+        ).Trim('-');
+
+        var name = cleaned.Length > 0 ? cleaned : "capture";
+        return $"{name}-{when.ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture)}.json";
+    }
+
     /// <summary>Makes the current capture the thing later captures are compared against.</summary>
     /// <remarks>
     ///     ⚠ <b>The workflow doc 20's E4 asks for, in one button.</b> Capture, press this, make the

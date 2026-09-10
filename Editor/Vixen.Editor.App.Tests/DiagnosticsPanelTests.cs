@@ -146,6 +146,67 @@ public class DiagnosticsPanelTests {
     }
 
     /// <summary>
+    ///     Doc 13's second entry point for a trace: "<c>vixen trace record</c> from the CLI, or the
+    ///     editor's capture button".
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Pressed rather than called</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/346">#346</a>. What was missing here
+    ///         was never the exporter; it was that nothing reached it. A test that called
+    ///         <c>ExportTrace</c> would pass with the button wired to nothing and with the panel
+    ///         holding no directory to write into, which is precisely the shape this repository keeps
+    ///         producing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the destination comes from the project</b>, so the editor's own trace lands
+    ///         where <c>vixen trace record</c> puts the game's.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_profiler_panel_exports_a_trace_of_what_it_captured() {
+        using var session = EditorSession.Start();
+
+        var view = Find<ProfilerView>(session, "profiler");
+        var model = Assert.IsType<ProfilerModel>(view.Model);
+        var traces = Path.Combine(session.ProjectRoot, "Traces");
+
+        Assert.Equal(traces, view.TraceDirectory);
+
+        // Nothing captured yet, so the button says so by being unavailable rather than by writing an
+        // empty document somebody would open expecting their frames.
+        Assert.True(view.Export.Disabled, "Export Trace is offered with no capture to export.");
+
+        model.Start();
+
+        using (Vixen.Core.Diagnostics.Profiler.Begin(EditorApplication.EditorKeys.Update)) {
+            session.Frames(2);
+        }
+
+        model.Stop();
+        session.Frames(2);
+
+        Assert.False(view.Export.Disabled, "Export Trace is unavailable with a capture in hand.");
+
+        // ⚠ Activated rather than clicked at a coordinate. `ButtonBase.Activate` is the documented
+        // entry point for a test and applies the same `Disabled` guard a pointer would — and the
+        // panel's toolbar is wider than a narrowly docked panel, so a click at a coordinate would be
+        // asserting where the dock put the button rather than what pressing it does.
+        view.Export.Activate();
+        session.Frames(2);
+
+        Assert.True(
+            Directory.Exists(traces),
+            $"Export Trace was pressed and wrote nothing. The panel says: '{view.Status.Text}'."
+        );
+
+        var written = Assert.Single(Directory.EnumerateFiles(traces, "*.json"));
+
+        Assert.Contains("Editor.Update", File.ReadAllText(written), StringComparison.Ordinal);
+        Assert.Contains(written, view.Status.Text, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     ⚠ A headless session has no device, and the panel says which rather than drawing an empty
     ///     chart — "no timeline" and "a frame with no passes" look identical otherwise.
     /// </summary>

@@ -284,7 +284,15 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
 
                 panel.WhenPressedIn(() => shell.Context = DiagnosticsContext);
 
-                panel.Add<ProfilerView>().Show(profiler);
+                var view = panel.Add<ProfilerView>();
+
+                // ⚠ Where doc 13's other entry point writes, so the two land in one folder: `vixen
+                // trace record` defaults to <project>/Traces/<name>-<timestamp>.json, and a trace of
+                // the editor's own frame belongs beside the traces of the game it is editing. The
+                // panel is given the folder rather than finding it, which is what keeps this
+                // assembly the only one that knows there is a project.
+                view.TraceDirectory = Path.Combine(project.Paths.Root, "Traces");
+                view.Show(profiler);
             }
         );
 
