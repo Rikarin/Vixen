@@ -170,20 +170,42 @@ public sealed class StandardFrameTierImageTests {
             pictures[tier] = scene.Frames(Frames);
         }
 
+        // ⚠ Every pair measured before anything is asserted, rather than an assertion inside the
+        // loop. Six pairs share one cause when they move at all — a knob that stopped reaching the
+        // frame, or a scene that stopped containing what it moves — and a first-failure abort
+        // reports one of them and hides the other five, which is how the shape of a regression here
+        // gets misread. It also makes the measured floors below re-derivable from a single run.
+        var measured = new List<string>();
+        var quiet = new List<string>();
+
         foreach (var (left, right) in Pairs(pictures.Keys)) {
             var comparison = GoldenImage.Compare(pictures[left], pictures[right], Tolerance.Shaded);
             var required = Least(left, right);
 
-            Assert.True(
-                comparison.Fraction > required,
-                $"{left} and {right} render the same picture: only {comparison.DifferingPixels} of "
-                + $"{comparison.TotalPixels} pixels ({comparison.Fraction:P3}) differ by more than "
-                + $"{Tolerance.Shaded.Channel}/255 where {required:P3} is the least this pair may, and "
-                + $"the worst channel anywhere is {comparison.WorstChannel}/255. Either the tiers' "
-                + "knobs stopped reaching the frame, or the scene stopped containing anything they "
-                + "move."
+            measured.Add(
+                $"{left}/{right}: {comparison.Fraction:P3} of pixels over {Tolerance.Shaded.Channel}/255 "
+                + $"(worst {comparison.WorstChannel}/255), floor {required:P3}"
             );
+
+            if (comparison.Fraction <= required) {
+                quiet.Add(
+                    $"{left} and {right} render the same picture: only {comparison.DifferingPixels} of "
+                    + $"{comparison.TotalPixels} pixels ({comparison.Fraction:P3}) differ by more than "
+                    + $"{Tolerance.Shaded.Channel}/255 where {required:P3} is the least this pair may, and "
+                    + $"the worst channel anywhere is {comparison.WorstChannel}/255."
+                );
+            }
         }
+
+        Assert.True(
+            quiet.Count == 0,
+            string.Join(Environment.NewLine, quiet)
+            + Environment.NewLine
+            + "Either the tiers' knobs stopped reaching the frame, or the scene stopped containing "
+            + "anything they move. Every pair, for comparison:"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, measured)
+        );
     }
 
     /// <summary>
@@ -645,26 +667,41 @@ public sealed class StandardFrameTierImageTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         Two per cent everywhere except <b>High against Epic, which is measured at 0.061% — ten
-    ///         pixels — and is a finding rather than a threshold</b>. Everything Epic adds over High in
-    ///         this frame is either invisible at 128² or gated off by the frame's own knobs: the
-    ///         volumetric grid goes from 64 slices to 128 and the shadow through it is already smooth;
-    ///         bloom goes from five pyramid levels to six, and level six of a 128-pixel frame is two
-    ///         pixels across; depth of field goes from 16 gather samples to 24 of the same radius;
-    ///         FXAA goes from Balanced to Quality, which moves the pixels either side of one edge; and
-    ///         its remaining moves — reflection steps, the probe tile size, the AO scales — belong to
-    ///         the GI and reflection stacks this fixture cannot host.
+    ///         Measured on this scene rather than chosen, and re-measured on 2026-09-10 when
+    ///         <c>!Bloom</c>'s and <c>!LensFlare</c>'s thresholds became photometric (#1212). All six
+    ///         pairs, from one run of <see cref="TheFourTiersDoNotAgree" />, as the fraction of pixels
+    ///         differing by more than <c>Tolerance.Shaded</c>'s 12/255: Low/Medium <b>0.922%</b>,
+    ///         Low/High 33.875%, Low/Epic 33.795%, Medium/High 32.825%, Medium/Epic 32.709%,
+    ///         High/Epic <b>0.519%</b>.
     ///     </para>
     ///     <para>
-    ///         So the pair is held to "differ at all" rather than exempted. Ten pixels is not evidence
-    ///         that Epic is worth its cost; zero would be evidence that the tier stopped resolving,
-    ///         which is the regression this test is for.
+    ///         ⚠ <b>Low against Medium was over two per cent until that change, and what it was
+    ///         measuring was the defect.</b> Medium adds exactly two things to Low here — the analytic
+    ///         fog and bloom — and a bloom thresholded at one candela in a frame whose radiance is
+    ///         thousands passed the <i>entire picture</i> through its bright pass, so "Medium differs
+    ///         from Low" was a blurred copy of the whole frame laid over it. A bloom that finds only
+    ///         the emissive block finds 151 pixels, and the fog is a gentle gradient that mostly stays
+    ///         inside the 12/255 tolerance. The floor is therefore 0.5%: under the honest 0.922% by
+    ///         enough to survive a driver, and far above the zero that a knob which stopped reaching
+    ///         the frame would produce.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>High against Epic moved the other way, and that is the same fix seen from the
+    ///         other side.</b> It was 0.061% — ten pixels — because everything Epic adds over High was
+    ///         invisible at 128² <i>against a frame-wide haze</i>; bloom going from five pyramid levels
+    ///         to six now moves 0.519%, because there is finally a local highlight for the extra level
+    ///         to spread. The pair is still held to "differ at all" rather than to that number: it is
+    ///         one machine's measurement of an eight-times-smaller difference than any other pair's,
+    ///         and the goldens' own runner is Linux. Zero would still be evidence that the tier
+    ///         stopped resolving, which is the regression this test is for.
     ///     </para>
     /// </remarks>
     static double Least(QualityTier left, QualityTier right) =>
-        (left, right) is (QualityTier.High, QualityTier.Epic) or (QualityTier.Epic, QualityTier.High)
-            ? 0d
-            : 0.02;
+        (left, right) switch {
+            (QualityTier.High, QualityTier.Epic) or (QualityTier.Epic, QualityTier.High) => 0d,
+            (QualityTier.Low, QualityTier.Medium) or (QualityTier.Medium, QualityTier.Low) => 0.005,
+            _ => 0.02
+        };
 
     static IEnumerable<(QualityTier Left, QualityTier Right)> Pairs(IEnumerable<QualityTier> tiers) {
         var list = tiers.ToArray();

@@ -375,20 +375,25 @@ public class BloomTests : IDisposable {
     public void A_looks_threshold_and_knee_reach_the_prefilter() {
         using var h = Build();
 
+        // ⚠ Both in cd/m², like the node's own defaults asserted below: a look that authored a
+        // threshold of two would be authoring a frame in which everything blooms, and a fixture is
+        // where the next reader learns what these numbers are in.
         var overlay = PostProcessOverlay.None;
-        overlay.Add(new() { BloomThreshold = 2f, BloomKnee = 0.1f }, 1f);
+        overlay.Add(new() { BloomThreshold = 6_000f, BloomKnee = 750f }, 1f);
 
         h.Bloom.Apply(overlay);
         Frame(h);
 
-        Assert.Equal(2f, h.Bloom.Passes[0].Parameters.Get(BloomKeys.Threshold), 5);
-        Assert.Equal(0.1f, h.Bloom.Passes[0].Parameters.Get(BloomKeys.Knee), 5);
+        Assert.Equal(6_000f, h.Bloom.Passes[0].Parameters.Get(BloomKeys.Threshold), 5);
+        Assert.Equal(750f, h.Bloom.Passes[0].Parameters.Get(BloomKeys.Knee), 5);
 
         h.Bloom.Apply(PostProcessOverlay.None);
         Frame(h);
 
-        Assert.Equal(1f, h.Bloom.Passes[0].Parameters.Get(BloomKeys.Threshold), 5);
-        Assert.Equal(0.5f, h.Bloom.Passes[0].Parameters.Get(BloomKeys.Knee), 5);
+        // The renderer's own photometric defaults, which is what "leaves with the look" means here.
+        // ⚠ These were 1 and 0.5 until #1212: a threshold of one is every pixel of a cd/m² frame.
+        Assert.Equal(3_000f, h.Bloom.Passes[0].Parameters.Get(BloomKeys.Threshold), 5);
+        Assert.Equal(1_500f, h.Bloom.Passes[0].Parameters.Get(BloomKeys.Knee), 5);
     }
 
     sealed class Harness : IDisposable {

@@ -62,8 +62,13 @@ public sealed class LensFlareRenderer : SceneRenderer, IDisposable, IPostProcess
     /// <summary>The format of the target it declares.</summary>
     public PixelFormat Format { get; set; } = PixelFormat.Rgba16Float;
 
-    /// <summary>Luminance above which a pixel contributes to a flare.</summary>
-    public float Threshold { get; set; } = 1f;
+    /// <summary>Luminance above which a pixel contributes to a flare, in the source's units.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Photometric, and it was one until 2026-09-10 — see <c>LensFlareAsset.Threshold</c>.</b>
+    ///     A threshold of one in a cd/m² frame ghosts the floor, and the effect stops being a lens and
+    ///     becomes a second copy of the picture offset through the centre.
+    /// </remarks>
+    public float Threshold { get; set; } = 40_000f;
 
     /// <summary>How many ghosts are traced along the centre vector.</summary>
     public int Ghosts { get; set; } = 5;

@@ -1252,7 +1252,19 @@ static class StandardFrame {
         }
 
         if (tier.Vignette) {
-            nodes.Add(new VignetteAsset { Name = "Glass", Source = colour, Output = frame.Output });
+            // ⚠ `useDither` on, and this is the one node in the expansion it can be on: a dither is
+            // one code of the *stored* value, broken up immediately before the encode makes it, and
+            // this is the pass that writes the frame's output resource. Dithering an intermediate
+            // dithers the wrong quantity.
+            //
+            // The amplitude is not a number spelt here and could not be: `Format` is
+            // `Rgba8UNormSrgb`, so one stored code is a linear step whose size changes by a factor
+            // of forty-five between the shadows and the highlights. The shader carries an
+            // `SrgbTarget` permutation for exactly that, set from the attachment's own format by
+            // `VignetteRenderer.Configure` rather than from an author's belief about it — see #1181.
+            nodes.Add(
+                new VignetteAsset { Name = "Glass", Source = colour, Output = frame.Output, UseDither = true }
+            );
         }
 
         Splice(nodes, frame.Extensions.BeforeUi);

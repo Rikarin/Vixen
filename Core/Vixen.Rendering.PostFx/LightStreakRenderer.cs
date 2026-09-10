@@ -77,8 +77,9 @@ public sealed class LightStreakRenderer : SceneRenderer, IDisposable, IPostProce
 
     /// <summary>Luminance above which a pixel streaks, in the source's units.</summary>
     /// <remarks>
-    ///     ⚠ <b>Photometric, and deliberately not the one every other threshold in this assembly
-    ///     defaults to.</b> The renderer works in cd/m² and nothing there is near one, so a threshold
+    ///     ⚠ <b>Photometric, and the first of the three bright-pass thresholds in this assembly to
+    ///     be — <c>!Bloom</c>'s and <c>!LensFlare</c>'s followed on 2026-09-10 (#1212).</b> The
+    ///     renderer works in cd/m² and nothing there is near one, so a threshold
     ///     of one streaks the floor — the smear stops being a shape put where a highlight is and
     ///     becomes a second copy of the whole picture. Measured on the Epic tier fixture: at one it
     ///     moves the frame's average channel by 23.1 of 255, which is a whole-frame shading change

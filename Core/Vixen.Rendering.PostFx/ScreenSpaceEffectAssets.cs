@@ -872,9 +872,13 @@ public sealed record LocalExposureAsset : ISceneRendererAsset {
 ///         highlight already at white would gain a ghost brighter than itself.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Threshold" /> is in the source's units.</b> In a physically lit frame that
-///         is cd/m² and nothing is near one, so the default of one flares the floor. The same argument
-///         <c>!Bloom</c>'s threshold makes, and the same failure if it is left alone.
+///         ⚠ <b><see cref="Threshold" /> is in the source's units, and it defaulted to one until
+///         2026-09-10.</b> In a physically lit frame that is cd/m² and nothing is near one, so a
+///         threshold of one flares the floor — every pixel of the picture reaches the bright pass and
+///         the ghosts become a second copy of the frame rather than a shape put where a highlight is.
+///         The same argument <c>!Bloom</c>'s threshold makes, and the two moved together because a
+///         frame that blooms everything while flaring only the sun is a third state neither was
+///         designed for.
 ///     </para>
 /// </remarks>
 [DataContract("LensFlare")]
@@ -897,8 +901,15 @@ public sealed record LensFlareAsset : ISceneRendererAsset {
     /// <summary>The format of the target it declares.</summary>
     public PixelFormat Format { get; init; } = PixelFormat.Rgba16Float;
 
-    /// <summary>Luminance above which a pixel contributes to a flare.</summary>
-    public float Threshold { get; init; } = 1f;
+    /// <summary>Luminance above which a pixel contributes to a flare, in the source's units.</summary>
+    /// <remarks>
+    ///     Forty thousand, which is what sample 13's hand-authored frame gives this node and what
+    ///     <see cref="LightStreakAsset.Threshold" /> defaults to: about a quarter of a floodlight lens
+    ///     and well under the sky beside the sun, so what ghosts is the handful of things that would
+    ///     ghost through a real lens. A flare is rarer than a bloom by construction — it is light that
+    ///     bounced between two elements — which is why this is an order above <c>!Bloom</c>'s.
+    /// </remarks>
+    public float Threshold { get; init; } = 40_000f;
 
     /// <summary>How many ghosts are traced along the centre vector.</summary>
     public int Ghosts { get; init; } = 5;
@@ -984,8 +995,10 @@ public sealed record LightStreakAsset : ISceneRendererAsset {
 
     /// <summary>Luminance above which a pixel streaks, in the source's units.</summary>
     /// <remarks>
-    ///     ⚠ <b>Photometric, and not the one <see cref="LensFlareAsset.Threshold" /> and
-    ///     <c>!Bloom</c> default to.</b> The renderer works in cd/m², where nothing is near one, so a
+    ///     ⚠ <b>Photometric, and the first of the three to be — <see cref="LensFlareAsset.Threshold" />
+    ///     and <c>!Bloom</c>'s followed on 2026-09-10 (#1212), which is what closed the state where a
+    ///     frame streaked only the sun and bloomed everything.</b> The renderer works in cd/m², where
+    ///     nothing is near one, so a
     ///     threshold of one streaks the floor and the smear becomes a second copy of the picture
     ///     rather than a shape put where a highlight is.
     /// </remarks>

@@ -566,6 +566,87 @@ public class StandardFrameTests {
         Assert.Equal(RenderSortMode.BackToFront, embers.SortMode);
     }
 
+    /// <summary>The dimmest thing in a physically lit frame anyone would call a highlight, in cd/m².</summary>
+    /// <remarks>
+    ///     A heavily overcast sky. Two orders of magnitude under what the three nodes actually ask
+    ///     for, so this floor is a statement that the numbers are photometric at all rather than a
+    ///     second copy of them — a fixture that asserted 3 000 and 40 000 would fail the day somebody
+    ///     art-directed the frame and would say nothing about the defect.
+    /// </remarks>
+    const float DimmestHighlight = 100f;
+
+    /// <summary>
+    ///     Every bright pass the expansion emits is thresholded in cd/m², not at one.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The tier goldens cannot see this and never could (#1212).</b> They were recorded
+    ///         against the frame as it was, so a bloom that passed the <i>entire picture</i> through
+    ///         its bright pass is simply what <c>tier-high</c> and <c>tier-epic</c> looked like. What
+    ///         surfaced it was adding <c>!LightStreak</c> — a third pass of the same shape — whose
+    ///         reference did not exist yet: at a threshold of one it moved <c>tier-epic</c>'s average
+    ///         channel by 23.1 of 255 against a tolerance of 0.35.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>All three together, because the failure is a frame in a mixed state.</b> Two
+    ///         thresholds over one bright pass conceptually: a frame that blooms everything while
+    ///         flaring only the sun is a third picture neither node was designed for, and that is
+    ///         exactly what the tree shipped between <c>!LightStreak</c> landing photometric and the
+    ///         other two following it.
+    ///     </para>
+    ///     <para>
+    ///         The floor rather than the values: see <see cref="DimmestHighlight" />.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_bright_pass_the_expansion_emits_is_thresholded_in_candelas() {
+        var document = Expand(AllOn);
+
+        var thresholds = new (string Node, float Value)[] {
+            ("Flare", Node<LensFlareAsset>(document, "Flare").Threshold),
+            ("Streak", Node<LightStreakAsset>(document, "Streak").Threshold),
+            ("Glow", Node<BloomAsset>(document, "Glow").Threshold)
+        };
+
+        foreach (var (node, value) in thresholds) {
+            Assert.True(
+                value >= DimmestHighlight,
+                $"!{node} is thresholded at {value} in a frame whose radiance is cd/m², so it passes "
+                + "the whole picture through its bright pass rather than the highlights."
+            );
+        }
+
+        // ⚠ The knee is in the threshold's units and not a fraction, so it moves with it. Half a
+        // candela either side of three thousand is a hard threshold with a soft-knee shader
+        // evaluating it — which is the popping the knee exists to stop, and is what a partial fix
+        // that moved only the threshold would ship.
+        var glow = Node<BloomAsset>(document, "Glow");
+
+        Assert.True(
+            glow.Knee > glow.Threshold / 100f,
+            $"!Glow's knee of {glow.Knee} is negligible beside its threshold of {glow.Threshold}."
+        );
+    }
+
+    /// <summary>The frame's last pass dithers, because its target is eight bits (#1181).</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one node in the expansion that writes the frame's output resource, which is why
+    ///     it is the seat for this.</b> A dither is one code of the <i>stored</i> value broken up
+    ///     just before the encode, so it belongs on the last pass and nowhere earlier; the tonemap
+    ///     and the antialiasing hand along intermediates. The amplitude is the shader's — a
+    ///     permutation on the target's transfer curve, since one stored code of
+    ///     <see cref="PixelFormat.Rgba8UNormSrgb" /> is a linear step that varies by a factor of
+    ///     forty-five across the range.
+    /// </remarks>
+    [Fact]
+    public void The_frame_that_ends_in_a_vignette_dithers_its_eight_bit_encode() {
+        var glass = Node<VignetteAsset>(Expand(AllOn), "Glass");
+
+        Assert.True(glass.UseDither, "the last pass of the frame does not dither its encode");
+        Assert.Equal(255f, glass.DitherLevels);
+        Assert.Equal(PixelFormat.Rgba8UNormSrgb, glass.Format);
+    }
+
     [Fact]
     public void The_same_knobs_expand_to_the_same_document() {
         var first = Expand(AllOn);
