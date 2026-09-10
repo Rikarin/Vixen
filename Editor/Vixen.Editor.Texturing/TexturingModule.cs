@@ -543,6 +543,11 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         project = context.Services.Require<EditorProject>();
         shell = context.Shell;
 
+        // ⚠ The toolset's own words, handed over the way its panels and its commands are. An
+        // `All` list nothing walks is in no translator's template, which is the state
+        // `StringFamily` exists to end one level down (#1202).
+        StringContributions.Declare(TexturingStrings.All);
+
         // ⚠ Asked here and *read* on every show, and the difference is the finding. This used to
         // resolve to a `TexturePreviewBlocker` once, on the grounds that a host does not start
         // publishing a device halfway through a session — and the editor does exactly that: it

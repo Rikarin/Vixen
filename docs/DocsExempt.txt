@@ -1630,6 +1630,7 @@ T:Vixen.Editor.Ui.SettingsCategory sweep-pending
 T:Vixen.Editor.Ui.SettingsPage sweep-pending
 T:Vixen.Editor.Ui.SettingsScope sweep-pending
 T:Vixen.Editor.Ui.SettingsView sweep-pending
+T:Vixen.Editor.Ui.StringContributions sweep-pending
 T:Vixen.Editor.Ui.ThemeMode sweep-pending
 T:Vixen.Editor.Ui.ThemeService sweep-pending
 T:Vixen.Editor.Ui.ToolbarBox sweep-pending

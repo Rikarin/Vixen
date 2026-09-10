@@ -311,8 +311,10 @@ public class DocCommentRuleTests {
                 ///     </code>
                 /// </remarks>
                 public void Example() {
-                    /// <summary>A local function is a member here too.</summary>
-                    /// <param name="value">Its parameter.</param>
+                    // ⚠ A `//` comment, because a `///` block here is CS1587 and would be a finding.
+                    // This fixture asserted the opposite until #1219: a `///` block on a local
+                    // function sat in the "shapes that are not defects" list, which is exactly the
+                    // claim that issue refuted.
                     static int Inner(int value) => value;
 
                     Inner(0);
@@ -324,7 +326,61 @@ public class DocCommentRuleTests {
     }
 
     /// <summary>
-    ///     ⚠ The rule's three checks each fail on their own, and each on a file the others call clean.
+    ///     ⚠ <a href="https://github.com/Rikarin/Vixen/issues/1219">#1219</a>: a <c>///</c> block on
+    ///     a local function is CS1587, and both of the ones this repository had are here.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Verbatim from <c>cf46fa247^</c>, and both were carrying a real argument.</b>
+    ///         <c>SubGraphs.Held</c> explained what the local function answers; <c>Consolidate</c>'s
+    ///         eleven lines explained why 5 500 fixtures are carried verbatim rather than translated.
+    ///         The compiler threw both away, and the only reason anybody found out is that
+    ///         <c>GenerateDocumentationFile</c> was switched on for those two projects.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Consolidate</c> is in a top-level-statements file, where <em>every</em>
+    ///         function is a local function.</b> That is the shape a <c>dotnet new</c> template is
+    ///         made of, and <c>Tools/Vixen.Templates/templates/**</c> is outside #821's ratchet — so
+    ///         the projects most likely to hold this defect are the ones the compiler warning can
+    ///         never reach, which is the argument for asking the question here.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_doc_comment_on_a_local_function_is_reported() {
+        const string flattener = """
+            static class SubGraphs {
+                static void Flatten() {
+                    /// <summary>The constant behind a wire that runs back to an entry port nobody fed.</summary>
+                    float[]? Held(PortRef upstream) =>
+                        upstream.Node == entry && constants.TryGetValue(upstream.Port, out var value) ? value : null;
+                }
+            }
+            """;
+
+        const string topLevel = """
+            Run();
+
+            /// <summary>
+            ///     One file per category, each fixture's XML embedded verbatim.
+            /// </summary>
+            /// <remarks>
+            ///     ⚠ <b>Verbatim, and consolidated, are both deliberate.</b> Taffy's fixtures are
+            ///     already language-neutral, so the honest move is to carry them unchanged.
+            /// </remarks>
+            static string Consolidate(string category, string version) => category + version;
+            """;
+
+        foreach (var (name, text) in new[] { ("SubGraphs.cs", flattener), ("Program.cs", topLevel) }) {
+            var findings = DocCommentRule.Check(name, text);
+
+            Assert.Single(findings);
+            Assert.Contains("local function", findings[0].Message, StringComparison.Ordinal);
+            Assert.Contains("CS1587", findings[0].Message, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ The rule's four checks each fail on their own, and each on a file the others call clean.
     /// </summary>
     /// <remarks>
     ///     <b>A predicate with no false case is worse than the gap it filled.</b> The two fixtures
@@ -337,6 +393,7 @@ public class DocCommentRuleTests {
     [InlineData("/// <param name=\"a\">One.</param>\n/// <param name=\"a\">Again.</param>\npublic void M(int a) { }", "`a` 2 times")]
     [InlineData("/// <param name=\"b\">Not a parameter.</param>\npublic void M(int a) { }", "`b`")]
     [InlineData("/// <param name=\"b\">Not a parameter.</param>\npublic int Value => 0;", "takes no parameters at all")]
+    [InlineData("public void M() {\n/// <summary>Discarded.</summary>\nstatic int Inner() => 0;\nInner();\n}", "local function `Inner`")]
     public void Each_check_fails_on_its_own(string member, string expected) {
         var findings = DocCommentRule.Check("One.cs", "class Fixture {\n" + member + "\n}");
 

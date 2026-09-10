@@ -8,6 +8,7 @@ using System.Text.RegularExpressions;
 using Nuke.Common;
 using Nuke.Common.IO;
 using Serilog;
+using Vixen.Build;
 
 /// <summary>
 ///     The half of doc 11's `Strings.Resource` property that no single compilation can see.
@@ -75,29 +76,20 @@ partial class Build {
         RegexOptions.Compiled
     );
 
-    /// <summary>Every construction of a <c>StringId</c> whose id is a literal, anywhere.</summary>
+    /// <summary>
+    ///     Every id a file builds out of a literal, under all three of the shapes a <c>StringId</c>
+    ///     is written in.
+    /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Two shapes, because for a year this saw only the first and the second is the one a
-    ///     call site is most naturally written in.</b> A field or property initialiser target-types
-    ///     its <c>new</c> — <c>static readonly StringId CategoryWater = new("editor.category.water",
-    ///     "Water");</c> — and the type name that this pattern anchors on is then simply not in the
-    ///     text. Twenty-one production ids were built that way and neither the census nor
-    ///     <see cref="Repeated" /> could see any of them; <c>editor.category.scene</c> was
-    ///     constructed three times, in three files, and the gate written to stop exactly that
-    ///     reported nothing. The second pattern is anchored on the declared type instead, which is
-    ///     what an initialiser does carry.
+    ///     ⚠ <b>The shapes and the member set live in <c>build/StringIdCensus.cs</c></b>, which
+    ///     <c>Tools/Vixen.ApiCheck.Tests</c> compiles as well — the arrangement
+    ///     <see cref="CheckDocComments" />'s rule is in, and for the same reason. A pattern set
+    ///     whose only observable answer is a green gate is one nobody has watched produce one, and
+    ///     the third shape was added because two of them had been silently missing an id for as
+    ///     long as it existed (#1203).
     /// </remarks>
-    static readonly Regex[] LooseIdPatterns = [
-        new("""new\s+StringId\(\s*"(?<id>[^"]+)"\s*,""", RegexOptions.Compiled),
-        new(
-            """StringId\s+\w+\s*(?:\{\s*get;\s*\}\s*)?=\s*new\(\s*"(?<id>[^"]+)"\s*,""",
-            RegexOptions.Compiled
-        )
-    ];
-
-    /// <summary>Every id a file builds, under either shape.</summary>
-    static IEnumerable<Match> LooseIds(string contents) =>
-        LooseIdPatterns.SelectMany(pattern => pattern.Matches(contents));
+    static IEnumerable<(string Id, int Index)> LooseIds(string contents, IReadOnlySet<string> members) =>
+        StringIdCensus.LiteralIds(contents, members);
 
     /// <summary>
     ///     This checkout's own <c>.claude/</c>, with a separator, so a prefix test cannot match a
@@ -143,11 +135,39 @@ partial class Build {
                     // excludes Tools/Vixen.Templates/templates/ — which is not this repository's code
                     // either.
                     .Where(path => !path.ToString().Contains("/Vixen.Ui.Generators.Tests/", StringComparison.Ordinal))
+
+                    // ⚠ And the census's own fixtures, for the same reason one gate along. They are
+                    // the pre-migration text of the sites this gate exists to catch — a real id, a
+                    // real source string, verbatim from the commit that removed them — so reading
+                    // them as source makes the gate fail on the tests that prove it fires. Verbatim
+                    // rather than reduced is deliberate: a reduction is a claim about what the
+                    // defect looked like (`SplicedShaderFixture` says the same thing next door).
+                    .Where(path => !path.ToString().EndsWith("Vixen.ApiCheck.Tests/StringIdCensusTests.cs", StringComparison.Ordinal))
                     .ToList();
 
                 Assert.True(sources.Count > 0, "Found no sources to check — the glob is wrong.");
 
                 var text = sources.ToDictionary(path => path, path => path.ReadAllText());
+
+                // ⚠ The type an object initialiser does not carry, recovered from the tree's own
+                // declarations. An initialiser assigning `Unavailable` is building a StringId
+                // because Vixen.Ui.Controls/EditorCommand.cs declares that member as one, an
+                // assembly away from the file that assigns it — so this is tree-wide or nothing.
+                //
+                // ⚠ The shape is described here rather than written out, because a `//` line is not
+                // a `///` line and the census excludes only the second. Spelling the example out
+                // made this comment a call site twice over, and the gate failed on it both times.
+                var members = StringIdCensus.Members(text.Values);
+
+                // ⚠ And the instrument, because this half fails silently in exactly one direction.
+                // A member pattern that stopped matching yields an empty set, every
+                // object-initialiser construction stops being recognised, and the two ceilings
+                // below go DOWN — which reads as progress and is the shape #1203 is about.
+                Assert.True(
+                    members.Contains("Unavailable") && members.Count > 100,
+                    $"Only {members.Count} StringId member names were read out of the tree. The member pattern is "
+                    + "wrong, and a census that recognises no members reports every object-initialiser id as absent."
+                );
                 var declarations = new List<(string Class, string Member, string Id, AbsolutePath File)>();
 
                 foreach (var (path, contents) in text) {
@@ -186,9 +206,9 @@ partial class Build {
                 var violations = new List<string>();
 
                 Unused(declarations, text, violations);
-                Repeated(declared, text, violations);
-                Undeclared(declared, text, violations);
-                Constructed(text, violations);
+                Repeated(declared, text, members, violations);
+                Undeclared(declared, text, members, violations);
+                Constructed(text, members, violations);
 
                 foreach (var violation in violations) {
                     Log.Error("{Violation}", violation);
@@ -255,17 +275,16 @@ partial class Build {
     static void Repeated(
         IReadOnlyDictionary<string, (string Class, string Member, string Id, AbsolutePath File)> declared,
         IReadOnlyDictionary<AbsolutePath, string> text,
+        IReadOnlySet<string> members,
         List<string> violations
     ) {
         foreach (var (path, contents) in text) {
-            foreach (var loose in LooseIds(contents)) {
-                var id = loose.Groups["id"].Value;
-
+            foreach (var (id, index) in LooseIds(contents, members)) {
                 if (!declared.TryGetValue(id, out var declaration) || declaration.File == path) {
                     continue;
                 }
 
-                if (InDocComment(contents, loose.Index)) {
+                if (StringIdCensus.InDocComment(contents, index)) {
                     continue;
                 }
 
@@ -326,6 +345,7 @@ partial class Build {
     static void Undeclared(
         IReadOnlyDictionary<string, (string Class, string Member, string Id, AbsolutePath File)> declared,
         IReadOnlyDictionary<AbsolutePath, string> text,
+        IReadOnlySet<string> members,
         List<string> violations
     ) {
         var undeclared = new SortedDictionary<string, string>(StringComparer.Ordinal);
@@ -335,10 +355,8 @@ partial class Build {
                 continue;
             }
 
-            foreach (var loose in LooseIds(contents)) {
-                var id = loose.Groups["id"].Value;
-
-                if (declared.ContainsKey(id) || InDocComment(contents, loose.Index)) {
+            foreach (var (id, index) in LooseIds(contents, members)) {
+                if (declared.ContainsKey(id) || StringIdCensus.InDocComment(contents, index)) {
                     continue;
                 }
 
@@ -368,20 +386,6 @@ partial class Build {
             + "decided rather than one that drifted."
         );
     }
-
-    /// <summary>Every construction of a <c>StringId</c>, whatever its first argument is.</summary>
-    /// <remarks>
-    ///     Anchored on the <c>new</c> alone rather than on a literal, because the whole point of this
-    ///     half is the constructions the literal patterns cannot see. What follows the bracket is
-    ///     read separately by <see cref="LiteralFirstArgument" />.
-    /// </remarks>
-    static readonly Regex[] ConstructionPatterns = [
-        new("""new\s+StringId\(""", RegexOptions.Compiled),
-        new("""\bStringId\s+\w+\s*(?:\{\s*get;\s*\}\s*)?=\s*new\(""", RegexOptions.Compiled)
-    ];
-
-    /// <summary>A first argument that is a plain string literal and nothing else.</summary>
-    static readonly Regex LiteralFirstArgument = new("""^\s*"(?:[^"\\]|\\.)*"\s*,""", RegexOptions.Compiled);
 
     /// <summary>
     ///     How many ids a shipping surface builds out of a run-time value — the half of the census
@@ -441,22 +445,28 @@ partial class Build {
     ///         has a declaration class, so those four cannot regress by one site.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Neither this census nor <see cref="Undeclared" /> can see an id built in an
-    ///         object initialiser.</b> <c>Unavailable = new("editor.command.…", "…")</c> carries
-    ///         neither a <c>new StringId</c> for these patterns nor the declared type name
-    ///         <see cref="LooseIdPatterns" /> anchors on, so <c>FoliageMode</c>'s was in no count and
-    ///         in no violation for as long as it existed. Migrating <c>Vixen.Editor.Terrain</c>
-    ///         found it, because the analyzer reads types rather than text — which is the honest
-    ///         summary of what a textual census is for: the assemblies no declaration class has
-    ///         reached yet.
+    ///         ⚠ <b>An id built in an object initialiser was in neither half of this census, and it
+    ///         is the third shape now</b> (#1203). <c>Unavailable = new("editor.command.…", "…")</c>
+    ///         carries neither a <c>new StringId</c> nor a declared type name, because the target's
+    ///         type is only in the semantic model — so <c>FoliageMode</c>'s was in no count, in no
+    ///         violation and in no translator's template for as long as it existed, and migrating
+    ///         <c>Vixen.Editor.Terrain</c> found it only because the analyzer reads types rather
+    ///         than text. <c>StringIdCensus</c> recovers the type from the tree's own declarations
+    ///         instead: the member set is what tells <c>Unavailable</c> from the forty-nine object
+    ///         initialisers in this repository that build something else.
     ///     </para>
     /// </remarks>
     const int ConstructedCeiling = 17;
 
     /// <summary>Applies <see cref="ConstructedCeiling" />.</summary>
     /// <param name="text">Every source file, by path.</param>
+    /// <param name="members">Every name the tree declares as a <c>StringId</c>.</param>
     /// <param name="violations">Where a breach is recorded.</param>
-    static void Constructed(IReadOnlyDictionary<AbsolutePath, string> text, List<string> violations) {
+    static void Constructed(
+        IReadOnlyDictionary<AbsolutePath, string> text,
+        IReadOnlySet<string> members,
+        List<string> violations
+    ) {
         var built = new SortedSet<string>(StringComparer.Ordinal);
 
         foreach (var (path, contents) in text) {
@@ -472,19 +482,14 @@ partial class Build {
                 continue;
             }
 
-            foreach (var pattern in ConstructionPatterns) {
-                foreach (Match construction in pattern.Matches(contents)) {
-                    var argument = construction.Index + construction.Length;
-
-                    if (LiteralFirstArgument.IsMatch(contents[argument..])
-                        || InDocComment(contents, construction.Index)) {
-                        continue;
-                    }
-
-                    var line = contents.AsSpan(0, construction.Index).Count('\n') + 1;
-
-                    built.Add($"{RootDirectory.GetRelativePathTo(path)}:{line}");
+            foreach (var (index, literal) in StringIdCensus.Constructions(contents, members)) {
+                if (literal || StringIdCensus.InDocComment(contents, index)) {
+                    continue;
                 }
+
+                var line = contents.AsSpan(0, index).Count('\n') + 1;
+
+                built.Add($"{RootDirectory.GetRelativePathTo(path)}:{line}");
             }
         }
 
@@ -508,15 +513,5 @@ partial class Build {
             + "ConstructedCeiling to what the tree now has, so the number stays one somebody decided "
             + "rather than one that drifted."
         );
-    }
-
-    /// <summary>Whether an offset falls on a <c>///</c> line.</summary>
-    /// <param name="contents">The file.</param>
-    /// <param name="index">Where the match started.</param>
-    /// <returns>Whether the line it is on is a documentation comment.</returns>
-    static bool InDocComment(string contents, int index) {
-        var start = contents.LastIndexOf('\n', Math.Max(index - 1, 0)) + 1;
-
-        return contents.AsSpan(start, index - start).TrimStart().StartsWith("///", StringComparison.Ordinal);
     }
 }

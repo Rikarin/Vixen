@@ -227,6 +227,12 @@ zero is a valid-looking value.
   shaders. That half asks a different question, because prose has no `<summary>` to count: a line
   finishing a sentence well short of the wrap column with a new sentence on the next line and no
   `///` separator is two blocks spliced into one.
+  ⚠ **And it refuses a `///` block on a local function**, which is CS1587 — the compiler discards it,
+  so the prose reads as documentation and reaches no XML file, no tooltip and no doc generator.
+  Turning the warning on cannot reach where that is likeliest: a
+  `Tools/Vixen.Templates/templates/**` project is top-level statements, where *every* function is a
+  local function, and `-p:NoWarn=…` on a command line **replaces** `$(NoWarn)` rather than appending,
+  so a census suppressing CS1591 and CS1573 the obvious way suppresses CS1587 with them.
 - **`CheckArchitecture`** globs directories rather than reading the solution, so it sees the
   out-of-solution mobile/web projects that `Test`, `CheckFormat`, `CheckApi` and `Pack` never evaluate.
 

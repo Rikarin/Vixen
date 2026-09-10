@@ -196,10 +196,16 @@ public class ServiceTests : IDisposable {
         Assert.Equal(text, reloaded.Save());
     }
 
+    /// <remarks>
+    ///     ⚠ <b>Plus whatever a toolset has contributed</b> (#1202). <c>StringContributions</c> is
+    ///     process-wide, so a suite that registered a list before this test ran would otherwise make
+    ///     the count wrong — and the registration is the point: the template is the editor's
+    ///     declarations <em>and</em> every activated toolset's, which is what a translator needs.
+    /// </remarks>
     [Fact]
     public void A_template_holds_every_string_the_editor_declares() {
         var template = EditorStrings.Template("cs");
-        Assert.Equal(EditorStrings.All.Count, template.Count);
+        Assert.Equal(EditorStrings.All.Count + StringContributions.Declared.Count, template.Count);
 
         Strings.Use(template);
 

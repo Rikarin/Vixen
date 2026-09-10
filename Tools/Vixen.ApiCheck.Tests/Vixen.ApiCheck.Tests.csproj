@@ -132,6 +132,16 @@
             about a second — no workspace, no Release build, no CI leg.
         -->
         <Compile Include="..\..\build\PathCaseRule.cs" Link="PathCaseRule.cs" />
+
+        <!--
+            ⚠ And `CheckStrings`' pattern set (#1203), where the argument is the case rule's exactly
+            once removed: its true answer on this tree is "no object-initialiser id", so the gate
+            alone cannot distinguish a clean repository from a pattern that stopped matching — and
+            the shape it was blind to was blind for as long as the id existed. `StringIdCensusTests`
+            runs it over the pre-migration `FoliageMode` text and over the forty-nine object
+            initialisers in this tree that build something else.
+        -->
+        <Compile Include="..\..\build\StringIdCensus.cs" Link="StringIdCensus.cs" />
     </ItemGroup>
 
     <!--
