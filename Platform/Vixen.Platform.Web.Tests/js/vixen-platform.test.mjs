@@ -150,7 +150,14 @@ const platform = await import(
 );
 
 const RECORD = 12;
+
+// ⚠ The typed array stands in for WebAssembly memory; `bufferView` is what the marshaller would
+// really hand drainEvents, and it is `bufferView` that every call below passes. Reading the records
+// back off `buffer` is fine — that is the heap — but handing `buffer` itself to a view-taking
+// function is the mistake this whole file exists to catch: a real Float64Array has an indexer and a
+// fill(), so it sails through a body a browser throws out of on the first frame of every build.
 const buffer = new Float64Array(RECORD * 64);
+const bufferView = new MemoryView(buffer);
 
 /** Kind, to keep the assertions readable. Mirrors PlatformEventKind. */
 const Kind = {
@@ -178,7 +185,7 @@ equal(platform.createCanvas("#nothing"), 0, "a selector matching nothing is refu
 
 // ── The ring ─────────────────────────────────────────────────────────────────────────────────
 
-let taken = platform.drainEvents(buffer);
+let taken = platform.drainEvents(bufferView);
 
 equal(taken, 1, "creating the canvas queued its size");
 equal(buffer[0], Kind.windowResized, "…as a WindowResized");
@@ -195,7 +202,7 @@ fire(canvasElement, "keyup", {
     code: "AltRight", timeStamp: 13, altKey: true, getModifierState: () => false
 });
 
-taken = platform.drainEvents(buffer);
+taken = platform.drainEvents(bufferView);
 
 equal(taken, 2, "two key events");
 equal(buffer[0], Kind.keyDown, "a key down");
@@ -207,7 +214,7 @@ equal(buffer[RECORD + 9], 230, "AltRight is HID 230");
 equal(buffer[RECORD + 3], 1 << 5, "…and corrects the modifier mask to the right-hand bit, which is AltGr");
 
 fire(canvasElement, "keydown", { code: "Unidentified", timeStamp: 1, getModifierState: () => false });
-platform.drainEvents(buffer);
+platform.drainEvents(bufferView);
 equal(buffer[9], 0, "a key with no HID position is Key.Unknown, for .NET to drop");
 
 // ── Wheel: three units, one contract ─────────────────────────────────────────────────────────
@@ -216,7 +223,7 @@ fire(canvasElement, "wheel", { deltaMode: 1, deltaX: 0, deltaY: -3, offsetX: 10,
 fire(canvasElement, "wheel", { deltaMode: 0, deltaX: 0, deltaY: -100, offsetX: 10, offsetY: 20, timeStamp: 2 });
 fire(canvasElement, "wheel", { deltaMode: 2, deltaX: 0, deltaY: -1, offsetX: 10, offsetY: 20, timeStamp: 3 });
 
-taken = platform.drainEvents(buffer);
+taken = platform.drainEvents(bufferView);
 
 equal(taken, 3, "three wheel events");
 equal(buffer[0], Kind.mouseWheel, "a wheel event");
@@ -230,7 +237,7 @@ fire(canvasElement, "pointerdown", {
     pointerType: "mouse", button: 2, offsetX: 5, offsetY: 6, detail: 2, timeStamp: 3, pointerId: 1
 });
 
-taken = platform.drainEvents(buffer);
+taken = platform.drainEvents(bufferView);
 
 equal(taken, 1, "a mouse button");
 equal(buffer[0], Kind.mouseButtonDown, "…down");
@@ -243,7 +250,7 @@ fire(canvasElement, "pointerdown", {
     pointerType: "touch", button: 0, offsetX: 1, offsetY: 1, timeStamp: 4, pointerId: 2
 });
 
-equal(platform.drainEvents(buffer), 0, "a touch is not also reported as a pointer, or every finger arrives twice");
+equal(platform.drainEvents(bufferView), 0, "a touch is not also reported as a pointer, or every finger arrives twice");
 
 // ── Touch: the browser's identifier and its pressure ─────────────────────────────────────────
 
@@ -251,7 +258,7 @@ fire(canvasElement, "touchstart", {
     changedTouches: [{ identifier: 99, clientX: 30, clientY: 40, force: 0.5 }], timeStamp: 4
 });
 
-taken = platform.drainEvents(buffer);
+taken = platform.drainEvents(bufferView);
 
 equal(taken, 1, "a touch down");
 equal(buffer[0], Kind.touchDown, "…as TouchDown");
@@ -266,7 +273,7 @@ fire(canvasElement, "drop", {
     offsetX: 1, offsetY: 2, timeStamp: 5
 });
 
-taken = platform.drainEvents(buffer);
+taken = platform.drainEvents(bufferView);
 
 // The files are bracketed, so that .NET can tell one drag of five files from five drags of one.
 // A browser hands the whole DataTransfer list over in a single event and this used to flatten it.
@@ -292,10 +299,11 @@ for (let index = 0; index < 10; index++) {
 }
 
 const small = new Float64Array(RECORD * 4);
+const smallView = new MemoryView(small);
 const seen = [];
 
 do {
-    taken = platform.drainEvents(small);
+    taken = platform.drainEvents(smallView);
 
     for (let index = 0; index < taken; index++) {
         seen.push(small[index * RECORD + 2]);
@@ -334,7 +342,7 @@ check(
     "reading a released buffer refuses rather than throwing"
 );
 
-// ── The other three view-taking functions, through the same stub ─────────────────────────────
+// ── The other four view-taking functions, through the same stub ──────────────────────────────
 
 const drain = new Float64Array(RECORD * 4);
 fire(canvasElement, "keydown", { code: "KeyA", timeStamp: 1, repeat: false, getModifierState: () => false });
@@ -362,11 +370,211 @@ const area = new Float64Array(4);
 platform.onScreenKeyboardArea(new MemoryView(area));
 equal(area.length, 4, "onScreenKeyboardArea writes four doubles without throwing on set()");
 
+// ── The pasted image, which is the one view-taking function nothing covered ───────────────────
+//
+// ⚠ ImageData.data is a Uint8ClampedArray, and MemoryView.set compares constructors by identity —
+// so `view.set(image.pixels)` throws `Assert failed: Expected function Uint8Array` rather than
+// converting. That was a real defect, and until this case existed nothing in the repository would
+// have seen it come back: readClipboardImage was the only MemoryView entry point across the three
+// browser modules with no test at all.
+//
+// The route is the paste listener rather than a poke at module state, because decodeClipboardImage
+// is what produces the clamped array in the first place. A stub that handed the module a
+// Uint8Array would be testing the fix out of existence.
+
+globalThis.createImageBitmap = async () => ({ width: 2, height: 2, close() { } });
+
+// 2×2 RGBA, distinct in every channel so a run of zeros or an off-by-one row cannot pass.
+const clamped = Uint8ClampedArray.of(
+    10, 20, 30, 40,
+    50, 60, 70, 80,
+    90, 100, 110, 120,
+    130, 140, 150, 160
+);
+
+globalThis.OffscreenCanvas = class {
+    getContext() {
+        return { drawImage() { }, getImageData: () => ({ data: clamped }) };
+    }
+};
+
+platform.initialise();
+
+fire(globalThis.document, "paste", {
+    clipboardData: {
+        types: ["text/plain"],
+        getData: type => (type === "text/plain" ? "pasted" : ""),
+        items: [{ type: "image/png", getAsFile: () => ({ name: "shot.png" }) }]
+    }
+});
+
+// ⚠ A turn of the event loop, not a delay. decodeClipboardImage awaits createImageBitmap, so the
+// rest of it runs as a microtask; setImmediate is queued behind every one of those. Nothing here
+// is timed and nothing here would be slower on a loaded machine — it is an ordering, not a budget.
+await new Promise(resolve => setImmediate(resolve));
+
+equal(platform.clipboardText(), "pasted", "the paste carried its text");
+equal(platform.clipboardImageWidth(), 2, "…and decoded the image it carried");
+equal(platform.clipboardImageHeight(), 2, "…at its own height");
+
+const pixels = new Uint8Array(16);
+
+check(
+    platform.readClipboardImage(new MemoryView(pixels)),
+    "readClipboardImage writes through a MemoryView without throwing on the clamped source"
+);
+
+equal(pixels[0], 10, "…and the first pixel's red is the one the canvas held");
+equal(pixels[3], 40, "…its alpha, so the channel order survived");
+equal(pixels[15], 160, "…and the last byte of the last pixel, not a correctly sized run of zeros");
+
+check(
+    !platform.readClipboardImage(new MemoryView(new Uint8Array(15))),
+    "…and a view one byte short is refused rather than half-filled"
+);
+
 // ── Screen ───────────────────────────────────────────────────────────────────────────────────
 
 equal(platform.screenWidth(), 1920, "the screen's width");
 equal(platform.screenAvailHeight(), 1040, "…and the work area, which is availHeight");
 equal(platform.hardwareConcurrency(), 8, "the hardware count, which is a hint and not a thread count");
 equal(platform.isCrossOriginIsolated(), false, "…and no isolation, so .NET has one thread");
+
+// ── A parked view is a WINDOW, and what is stored has to be the window ────────────────────────
+//
+// ⚠ The header above says IndexedDB and fetch are deliberately not touched, and for the browser
+// half of them that is still true — this stubs both, and it is not pretending to test either. What
+// it tests is one line of arithmetic in writeDatabase that no browser is needed to get wrong.
+//
+// holdBuffer parks whatever typed array it is handed. stageBuffer hands it a slice(), which owns
+// its whole ArrayBuffer, so `data.buffer` and the view were the same bytes and writeDatabase stored
+// `data.buffer`. fetchRange hands it `bytes.subarray(offset, offset + length)` — a window with a
+// non-zero byteOffset into a whole response body — and routing one of those into writeDatabase
+// persisted the ENTIRE response under that path. No error, the right byte count returned to .NET,
+// and the wrong bytes on disk. readBuffer was already immune because it spells the window out.
+//
+// So the fixture parks a real subarray the only way the module makes one, and writes THAT.
+
+const responseBody = Uint8Array.of(
+    0xF0, 0xF1, 0xF2, 0xF3,
+    0xA0, 0xA1, 0xA2, 0xA3,
+    0xE0, 0xE1, 0xE2, 0xE3
+);
+
+// ⚠ 200 rather than 206, which is the case fetchRange takes the subarray in: a server that ignores
+// a Range header answers with the whole body, legally, and the slice is taken here.
+globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    arrayBuffer: async () => responseBody.buffer.slice(0)
+});
+
+// ── An IndexedDB stub, faithful in the one respect this asks about ────────────────────────────
+//
+// ⚠ put() structured-clones the record, exactly as IndexedDB does — a real store never hands back
+// the object that went in. A stub that parked it by reference would answer the read with the
+// caller's own typed array, and the defect this fixture exists to catch would be invisible through
+// it: the whole 12-byte ArrayBuffer would still be *called* 4 bytes on the way out. There is no
+// indexedDB in Node, so a run where this stub failed to install throws rather than passing.
+
+const records = new Map();
+
+function idbRequest(work) {
+    const request = { result: undefined, error: null, onsuccess: null, onerror: null };
+
+    queueMicrotask(() => {
+        try {
+            request.result = work();
+            request.onsuccess?.();
+        } catch (error) {
+            request.error = error;
+            request.onerror?.();
+        }
+    });
+
+    return request;
+}
+
+const idbStore = {
+    put(record) {
+        return idbRequest(() => void records.set(record.path, structuredClone(record)));
+    },
+    get(path) {
+        return idbRequest(() => structuredClone(records.get(path)));
+    },
+    delete(path) {
+        return idbRequest(() => void records.delete(path));
+    },
+    openCursor() {
+        const rows = [...records.values()];
+        const request = { result: null, error: null, onsuccess: null, onerror: null };
+        let index = 0;
+
+        const step = () => queueMicrotask(() => {
+            request.result = index < rows.length
+                ? { value: structuredClone(rows[index++]), continue: step }
+                : null;
+
+            request.onsuccess?.();
+        });
+
+        step();
+        return request;
+    }
+};
+
+globalThis.indexedDB = {
+    open() {
+        const request = { result: null, error: null, onsuccess: null, onerror: null, onupgradeneeded: null };
+
+        request.result = {
+            objectStoreNames: { contains: () => false },
+            createObjectStore() { },
+            close() { },
+            transaction: () => ({ objectStore: () => idbStore })
+        };
+
+        queueMicrotask(() => {
+            request.onupgradeneeded?.();
+            request.onsuccess?.();
+        });
+
+        return request;
+    }
+};
+
+const parked = await platform.fetchRange("/whole.bin", 4, 4);
+
+equal(platform.bufferLength(parked), 4, "a range a server answered whole is sliced down to the range");
+
+const database = await platform.openDatabase("vixen-test");
+
+equal(await platform.writeDatabase(database, "/range.bin", parked, 1234), 4, "writing it reports four bytes");
+equal(await platform.listDatabase(database), 1, "the directory has the one key");
+
+equal(
+    platform.listingLength(0),
+    4,
+    "…⚠ and its length is the window's, not the whole response body's — this is the file size a "
+    + "provider serves, so a wrong one here is a truncated read on the way back out"
+);
+
+const stored = await platform.readDatabase(database, "/range.bin");
+
+equal(platform.bufferLength(stored), 4, "reading it back gives four bytes");
+
+const bytes = new Uint8Array(4);
+
+check(platform.readBuffer(stored, new MemoryView(bytes)), "…which read back through a MemoryView");
+equal(bytes[0], 0xA0, "…starting at the range's first byte and not the response's");
+equal(bytes[3], 0xA3, "…and ending at the range's last");
+
+platform.releaseBuffer(stored);
+
+check(await platform.deleteDatabase(database, "/range.bin"), "and the key deletes");
+equal(await platform.listDatabase(database), 0, "…leaving the directory empty");
+
+platform.closeDatabase(database);
 
 console.log(`${passed} assertions passed`);

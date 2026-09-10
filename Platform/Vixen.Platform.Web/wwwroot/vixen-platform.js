@@ -1646,7 +1646,16 @@ export async function writeDatabase(handle, path, bufferHandle, modified) {
     const data = state.buffers.get(bufferHandle) ?? new Uint8Array(0);
     state.buffers.delete(bufferHandle);
 
-    await awaited(transact(handle, "readwrite").put({ path, data: data.buffer, modified }));
+    // ⚠ The view's window, not the whole backing store. `data.buffer` is the ArrayBuffer the view
+    // sits in, which is only the same bytes when the view happens to span all of it. Every buffer
+    // stageBuffer() parks does — it holds a slice() — but holdBuffer() is also fed
+    // `bytes.subarray(offset, offset + length)` by fetchRange, a window with a non-zero byteOffset
+    // into a whole response body. Routing one of those here stored the ENTIRE response under the
+    // path, with no error and the right call reported: a write that succeeds and persists the
+    // wrong bytes. readBuffer already spells the window out the same way, for the same reason.
+    const bytes = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+
+    await awaited(transact(handle, "readwrite").put({ path, data: bytes, modified }));
     return data.byteLength;
 }
 
