@@ -86,6 +86,14 @@ public sealed class SceneLines {
     /// </remarks>
     public Color4 SelectedColour { get; set; } = new(1f, 0.62f, 0.15f, 1f);
 
+    /// <summary>What a selected LOD group's switch shells are drawn in.</summary>
+    /// <remarks>
+    ///     A cool grey-blue, and deliberately not the selection's amber: the ring is not the object
+    ///     you selected, it is a distance measured from it, and a shell tens of metres across in the
+    ///     selection colour would read as the selection having grown.
+    /// </remarks>
+    public Color4 LodRangeColour { get; set; } = new(0.45f, 0.72f, 0.88f, 0.6f);
+
     /// <summary>What an unselected post-process volume is drawn in.</summary>
     /// <remarks>
     ///     A cool violet, chosen to be nothing else on screen: a light is tinted its own colour, a
@@ -138,6 +146,11 @@ public sealed class SceneLines {
         // be switchable — the same argument the reference volumes, the tape and the element cage make
         // twenty lines further down, and it is strongest here. See `SelectionCage`.
         Cage(document, viewport, height);
+
+        // ⚠ Not behind a show flag either, and for the cage's reason rather than the grid's: a LOD
+        // group's thresholds are a thing you are adjusting at the moment you have the group selected,
+        // and a switch shell drawn round every group in the scene would be a scene full of circles.
+        LodRanges(document, viewport);
 
         if ((show & SceneShow.Volumes) != 0) {
             Volumes(document);
@@ -360,6 +373,112 @@ public sealed class SceneLines {
                 SelectedColour
             );
         }
+    }
+
+    /// <summary>Where each of a selected LOD group's thresholds actually falls, as a ring on the ground.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A threshold is a fraction of the viewport's height and an author is standing in a
+    ///         viewport</b>, so the two are only relatable by walking backwards until the mesh
+    ///         changes and reading the number off. What decides the switch is
+    ///         <c>height = radius × ScreenHeightScale / distance</c>
+    ///         (<c>LodRenderFeature.Height</c>), so the camera positions at which a given threshold
+    ///         is met are a sphere of <c>radius × ScreenHeightScale / threshold</c> about the group —
+    ///         and one ring of that sphere, on the ground, is a distance somebody can walk.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The field of view is why this lives here and not in a contributed gizmo.</b>
+    ///         <c>GizmoDrawer</c> is handed a draw, a component and a placement and <em>no view</em>
+    ///         (<c>ComponentGizmo.cs</c>), and without the <c>1 / tan(fov / 2)</c> term a ring is
+    ///         wrong by about 1.7× at the pane's 60° default — a handle that disagrees with the
+    ///         runtime is worse than no handle. <see cref="SceneViewport.Camera" /> has the number.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The radius is the runtime's own, and the reason that is possible is not obvious:
+    ///         the extraction's sphere is derived from the same box this already has.</b>
+    ///         <c>SurfaceGeometry.BoundsOf</c> is <c>BoundingSphere.FromBox(mesh.Bounds)</c> for any
+    ///         mesh with an extent, and <c>MeshExtractionSystem.Transformed</c> then scales it by the
+    ///         largest of the three axis scales — so both halves are computable here exactly rather
+    ///         than approximated, which is what an earlier audit of this concluded was blocked on
+    ///         plumbing the render object's sphere into the editor.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured on the finest level, and the runtime measures whichever member it walked
+    ///         last</b> — <c>LodRenderFeature.Select</c> overwrites the group's height per visible
+    ///         member, so the ring is exact for a group whose levels share a bound and differs by the
+    ///         ratio of their radii for one whose levels do not. That order dependence is the
+    ///         runtime's rather than this drawing's; it is filed rather than approximated over.
+    ///     </para>
+    ///     <para>
+    ///         Nothing for an orthographic pane, which is not a gap: a plan view has no cone, its own
+    ///         <c>ScreenHeightScale</c> is zero, and <c>LodRenderFeature</c> chooses no level for it —
+    ///         so there is no distance at which anything switches and a ring would be a promise the
+    ///         frame does not keep.
+    ///     </para>
+    /// </remarks>
+    void LodRanges(SceneDocument document, SceneViewport viewport) {
+        if (document.Selection.IsEmpty || viewport.Camera.IsOrthographic) {
+            return;
+        }
+
+        var scale = 1f / MathF.Tan(viewport.Camera.FieldOfView * 0.5f);
+
+        foreach (var entity in document.Selection) {
+            if (!document.World.IsAlive(entity)
+                || document.IsHidden(entity)
+                || !document.World.Has<LodGroupComponent>(entity)
+                || document.World.Read<LodGroupComponent>(entity).Thresholds is not { Length: > 0 } thresholds
+                || !Measured(document, viewport, entity, out var bounds)) {
+                continue;
+            }
+
+            foreach (var threshold in thresholds) {
+                // A threshold of nothing is a level that never gives way, so its shell is at
+                // infinity. `LodRenderFeature.Add` refuses a list that does not descend, but nothing
+                // refuses a zero at the end of one.
+                if (threshold <= 0f || !float.IsFinite(threshold)) {
+                    continue;
+                }
+
+                Ring(bounds.Center, Vector3.UnitX, Vector3.UnitZ, bounds.Radius * scale / threshold, LodRangeColour);
+            }
+        }
+    }
+
+    /// <summary>The world-space sphere a LOD group is measured by, taken from its finest level.</summary>
+    /// <param name="document">The scene.</param>
+    /// <param name="viewport">The pane, for its mesh source.</param>
+    /// <param name="group">The entity carrying <see cref="LodGroupComponent" />.</param>
+    /// <param name="bounds">The sphere.</param>
+    /// <returns>Whether a level with an extent was found.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The group's children, not the group.</b> A group parent is an empty in every scene the
+    ///     editor's own <c>entity.group-lod</c> makes — the levels are what hang off it — so an extent
+    ///     taken from the parent is no extent at all and the drawing would never appear on the one
+    ///     hierarchy the editor itself builds.
+    /// </remarks>
+    bool Measured(SceneDocument document, SceneViewport viewport, Entity group, out BoundingSphere bounds) {
+        var level = int.MaxValue;
+
+        bounds = default;
+
+        foreach (var child in Hierarchy.ChildrenOf(document.World, group)) {
+            if (!document.World.Has<LodLevel>(child)
+                || !document.World.Has<WorldTransform>(child)
+                || document.World.Read<LodLevel>(child).Level >= level
+                || !Extent(document, viewport, child, out var box)) {
+                continue;
+            }
+
+            level = document.World.Read<LodLevel>(child).Level;
+
+            bounds = MeshExtractionSystem.Transformed(
+                BoundingSphere.FromBox(box),
+                document.World.Read<WorldTransform>(child).Value
+            );
+        }
+
+        return level != int.MaxValue && bounds.Radius > 0f;
     }
 
     /// <summary>What an entity's own extent is, whichever of the three ways it has geometry.</summary>
