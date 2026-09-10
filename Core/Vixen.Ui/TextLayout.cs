@@ -49,7 +49,15 @@ public sealed class TextLayout {
             // indented first line occupies its indent as surely as it occupies its glyphs, so a
             // shrink-to-fit box measured on `Width` alone would come out an indent too narrow and
             // clip the end of the line it was measuring.
-            widest = MathF.Max(widest, lines[i].Offset + lines[i].Width);
+            //
+            // ⚠ <b>And `Trimmed` rather than `Width`, which is not the same number on an unwrapped
+            // line and is the whole of #1211's real half.</b> CSS Text § 5.2 leaves hanging white
+            // space out of an intrinsic measure, so a shrink-to-fit box around `ab` and two spaces
+            // is exactly as wide as one around `ab` — measured in Chrome 152, where it is also true
+            // that the same two spaces do *not* leave the line box for `text-align`. Reading `Width`
+            // here made every label ending in a space that much too wide, with a gap on the end that
+            // reads as a padding mistake.
+            widest = MathF.Max(widest, lines[i].Offset + lines[i].Trimmed);
         }
 
         Height = y;

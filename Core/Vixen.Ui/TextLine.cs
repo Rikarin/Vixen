@@ -111,6 +111,18 @@ public sealed class TextLine {
     ///         where it arrives.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>And that paragraph is true of a line the wrapper <i>broke</i> and of no other,
+    ///         which is not what it used to claim.</b> Preserved trailing white space leaves the line
+    ///         box at a soft wrap and stays in it everywhere else: measured in Chrome 152, a
+    ///         right-aligned <c>pre-wrap</c> line ending the text with two spaces draws its glyphs
+    ///         8.891 points — exactly the two spaces — short of the box's right edge, and so does one
+    ///         ending at a forced break, while the wrapped line above it puts its spaces outside the
+    ///         box entirely. So a line built here with no width of its own is *supposed* to carry
+    ///         them, and <see cref="Trimmed" /> is the separate number the intrinsic measure wants.
+    ///         See <c>TrailingSpaceAlignmentTests</c>, which holds all four measurements, and
+    ///         <c>Rikarin/Vixen#1211</c>, whose premise this corrects.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>And the offset is separable from the width, which is the distinction
     ///         <c>text-indent</c> turns on.</b> <see cref="Width" /> is how wide the glyphs are and is
     ///         what the alignment subtracts from the content box; <see cref="Offset" /> is where they
@@ -185,11 +197,96 @@ public sealed class TextLine {
         }
 
         Width = float.IsNaN(width) ? pen : width;
+
+        // ⚠ <b>A width the caller gave is already trimmed and must not be trimmed twice.</b> Every
+        // explicit width here comes from `LineWrapper.Width`, which walks back over the range's
+        // trailing white space before it measures — so subtracting the run's own spaces from it
+        // again would report a soft-wrapped line as narrower than its glyphs by the spaces it does
+        // not contain. Only the summed width has anything hanging in it.
+        Trimmed = float.IsNaN(width) ? Hung(runs, widths, pen) : Width;
+
         Baseline = above;
         Height = above + below;
 
         Start = ToSource(runs[0].Start);
         Length = ToSource(runs[^1].Start + runs[^1].Shaped.Text.Length) - Start;
+    }
+
+    /// <summary>How wide the line's runs are with the white space at their end left out.</summary>
+    /// <param name="runs">The runs, in text order.</param>
+    /// <param name="widths">How wide each of them is on this line.</param>
+    /// <param name="width">Their total.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Walked from the last run backwards and not over the line's own string, because a
+    ///         line does not have one.</b> The runs carry the text they were shaped from, so the
+    ///         trailing white space can span several of them — a run that is nothing but spaces goes
+    ///         whole, and the walk stops at the first run that ends in something else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Summed out of <see cref="LineWrapper.Advances" /> rather than measured as the
+    ///         difference of two caret offsets</b>, for the reason that method's own remark gives: a
+    ///         right-to-left run hands its glyphs back in visual order, so the tail of the *text* is
+    ///         not the tail of the pen. Advances are recorded per cluster and summing a range picks
+    ///         the same set either way round.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A tab counts as white space and goes at <see cref="WidthOf" />'s number</b>, not
+    ///         at its font's — a tab's advance is the distance to its stop, and taking the run's own
+    ///         width would leave a line ending in a tab measuring a .notdef box wider than nothing.
+    ///     </para>
+    /// </remarks>
+    static float Hung(ImmutableArray<TextRun> runs, float[] widths, float width) {
+        for (var i = runs.Length - 1; i >= 0; i--) {
+            var text = runs[i].Shaped.Text;
+            var last = text.Length;
+
+            while (last > 0 && char.IsWhiteSpace(text[last - 1])) {
+                last--;
+            }
+
+            // This run ends in something that is drawn, so nothing before it can be hanging.
+            if (last == text.Length) {
+                break;
+            }
+
+            // All of it hangs, and the run before it may hang too.
+            if (last == 0) {
+                width -= widths[i];
+                continue;
+            }
+
+            width -= Tail(runs[i], last);
+            break;
+        }
+
+        return width;
+    }
+
+    /// <summary>How wide the white space at the end of a run is, in pixels.</summary>
+    /// <param name="run">The run. Not a tab, which <see cref="Hung" /> takes whole.</param>
+    /// <param name="from">Where its trailing white space begins, in its own text.</param>
+    /// <remarks>
+    ///     ⚠ <b><c>letter-spacing</c> and <c>word-spacing</c> are added back the way
+    ///     <see cref="TextRun.Width" /> adds them</b>, or a tracked line would report a width its own
+    ///     runs do not sum to. One cluster per character is exact here and nowhere else in this file:
+    ///     the range is white space, and no white space combines with what precedes it.
+    /// </remarks>
+    static float Tail(TextRun run, int from) {
+        var advances = LineWrapper.Advances(run.Shaped);
+        var text = run.Shaped.Text;
+        var design = 0f;
+        var separators = 0;
+
+        for (var i = from; i < text.Length; i++) {
+            design += advances[i];
+
+            if (text[i] is '\u0020' or '\u00a0') {
+                separators++;
+            }
+        }
+
+        return (design * run.Scale) + (run.Tracking * (text.Length - from)) + (run.WordSpacing * separators);
     }
 
     /// <summary>Turns an index into the shaped text into one into the element's own.</summary>
@@ -242,6 +339,33 @@ public sealed class TextLine {
     ///     <c>Offset + Width</c>, which is what <see cref="TextLayout.Width" /> maximises over.
     /// </remarks>
     public float Width { get; }
+
+    /// <summary>The same width with the white space at the line's end left hanging.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The two are different questions and CSS answers them differently, which is the
+    ///         whole reason this is not just <see cref="Width" />.</b> <see cref="Width" /> is the
+    ///         line box's content — what <c>text-align</c> distributes and what a caret is measured
+    ///         against — and preserved white space at the end of a line only leaves it where the line
+    ///         ended at a <i>soft wrap</i>. This is the intrinsic measure, and CSS Text § 5.2 excludes
+    ///         hanging white space from that unconditionally: a shrink-to-fit box around <c>ab</c>
+    ///         and two spaces is exactly as wide as one around <c>ab</c>, and one around nothing but
+    ///         spaces is not there at all. Both measured in Chrome 152, which is why they are
+    ///         separated rather than reconciled.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Equal to <see cref="Width" /> for every line the wrapper measured</b>, because
+    ///         <c>LineWrapper.Width</c> already trimmed it — see the constructor. It differs only for
+    ///         a line built from its runs alone, which is <c>UiElement.Block</c>'s unwrapped path and
+    ///         is every label short enough not to wrap.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Internal, and it is <see cref="TextLayout" /> that reads it.</b> A consumer
+    ///         drawing or hit-testing a line wants <see cref="Width" />; the block is the only thing
+    ///         that is being measured rather than positioned.
+    ///     </para>
+    /// </remarks>
+    internal float Trimmed { get; }
 
     /// <summary>Where the first glyph sits, in pixels from the start of the line box.</summary>
     /// <remarks>
