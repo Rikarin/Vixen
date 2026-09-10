@@ -29,17 +29,80 @@
     </PropertyGroup>
 
     <!--
-        The runtime-profile assemblies rooted today — 29 of them, and ⚠ NOT "every runtime assembly",
-        which is what this comment and README.md both used to claim. Measured 2026-09-03: 22 of the
-        80 net10.0 non-test projects under Core/ and 7 of the 15 under Platform/. The other 66 are
-        not a reasoned exclusion list; they are assemblies nobody added, and Vixen.Ui, Vixen.Rendering
-        and Vixen.Net are among them. See README.md § What it covers and issue #506.
+        The runtime-profile assemblies rooted today — 82 of the 95, measured 2026-09-10 (#506). It
+        was 29, and the sixty-six that were missing were not a reasoned exclusion list; they were
+        assemblies nobody had added. Fifty-three of them are rooted here now and the remaining
+        thirteen are in NotRooted.txt with what an ILC publish actually said about each.
+
+        ⚠ **The expensive half of #506 was its prediction, not the work.** That issue expected
+        "Vixen.Ui's reactive graph and Vixen.Core.Serialization's consumers" to be the costly ones,
+        and said each newly rooted assembly is "a fresh set of IL2xxx/IL3xxx findings to fix, and
+        `ILLinkTreatWarningsAsErrors` means every one is a build break until it is". Measured by
+        rooting all sixty-six at once: **twelve findings in the whole set**, six of them in one
+        developer-loop assembly and six of them inside Silk.NET rather than in Vixen. Vixen.Rendering
+        and all ten of its siblings, Vixen.Net and all nine of its, Vixen.Animation, Vixen.Ai,
+        Vixen.Graphics.OpenGL, the three desktop platform heads and — the one this repository
+        expected to cost most — Vixen.Core.Yaml, a serializer, were every one of them clean on the
+        first publish.
 
         ⚠ Every entry here needs a matching TrimmerRootAssembly below or it is covered only by what
         Main happens to reach, which proves nothing about the rest of it. `nuke CheckAot` fails on
         that mismatch rather than trusting an author to notice.
     -->
     <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Ai\Vixen.Ai.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ai.Diagnostics\Vixen.Ai.Diagnostics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ai.Nodes\Vixen.Ai.Nodes.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ai.Perception\Vixen.Ai.Perception.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Animation\Vixen.Animation.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Imaging\Vixen.Core.Imaging.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Syntax\Vixen.Core.Syntax.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Engine.Renderer\Vixen.Engine.Renderer.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Foliage\Vixen.Foliage.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Geometry\Vixen.Geometry.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Geometry.Remeshing\Vixen.Geometry.Remeshing.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Geometry.Uv\Vixen.Geometry.Uv.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.OpenGL\Vixen.Graphics.OpenGL.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Input\Vixen.Input.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Navigation\Vixen.Navigation.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Net\Vixen.Net.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Net.Animation\Vixen.Net.Animation.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Net.Audio\Vixen.Net.Audio.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Net.Engine\Vixen.Net.Engine.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Net.Engine.Content\Vixen.Net.Engine.Content.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Net.Physics\Vixen.Net.Physics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Net.Telemetry\Vixen.Net.Telemetry.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Net.Transport.Composite\Vixen.Net.Transport.Composite.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Net.Transport.Local\Vixen.Net.Transport.Local.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Net.Transport.Udp\Vixen.Net.Transport.Udp.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Net.Transport.WebSocket\Vixen.Net.Transport.WebSocket.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.Linux\Vixen.Platform.Linux.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.MacOS\Vixen.Platform.MacOS.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.Windows\Vixen.Platform.Windows.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.DistanceFields\Vixen.Rendering.DistanceFields.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.IrradianceFields\Vixen.Rendering.IrradianceFields.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.PostFx\Vixen.Rendering.PostFx.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.RayTracing\Vixen.Rendering.RayTracing.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.Reflections\Vixen.Rendering.Reflections.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.ScreenProbes\Vixen.Rendering.ScreenProbes.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.SurfaceCache\Vixen.Rendering.SurfaceCache.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.VirtualGeometry\Vixen.Rendering.VirtualGeometry.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.Water\Vixen.Rendering.Water.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Shaders\Vixen.Shaders.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Terrain\Vixen.Terrain.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Terrain.Physics\Vixen.Terrain.Physics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Styling\Vixen.Ui.Styling.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Styling.Utilities\Vixen.Ui.Styling.Utilities.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Text\Vixen.Ui.Text.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Vfx\Vixen.Vfx.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Video\Vixen.Video.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Video.Codecs\Vixen.Video.Codecs.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Video.Rendering\Vixen.Video.Rendering.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Water\Vixen.Water.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Water.Physics\Vixen.Water.Physics.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Assets\Vixen.Assets.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Audio\Vixen.Audio.csproj" />
 
@@ -88,6 +151,59 @@
         assembly publishable ahead of time", not "is this one path through it".
     -->
     <ItemGroup>
+        <TrimmerRootAssembly Include="Vixen.Ai" />
+        <TrimmerRootAssembly Include="Vixen.Ai.Diagnostics" />
+        <TrimmerRootAssembly Include="Vixen.Ai.Nodes" />
+        <TrimmerRootAssembly Include="Vixen.Ai.Perception" />
+        <TrimmerRootAssembly Include="Vixen.Animation" />
+        <TrimmerRootAssembly Include="Vixen.Core.Imaging" />
+        <TrimmerRootAssembly Include="Vixen.Core.Syntax" />
+        <TrimmerRootAssembly Include="Vixen.Core.Yaml" />
+        <TrimmerRootAssembly Include="Vixen.Engine.Renderer" />
+        <TrimmerRootAssembly Include="Vixen.Foliage" />
+        <TrimmerRootAssembly Include="Vixen.Geometry" />
+        <TrimmerRootAssembly Include="Vixen.Geometry.Remeshing" />
+        <TrimmerRootAssembly Include="Vixen.Geometry.Uv" />
+        <TrimmerRootAssembly Include="Vixen.Graphics.OpenGL" />
+        <TrimmerRootAssembly Include="Vixen.Input" />
+        <TrimmerRootAssembly Include="Vixen.Navigation" />
+        <TrimmerRootAssembly Include="Vixen.Net" />
+        <TrimmerRootAssembly Include="Vixen.Net.Animation" />
+        <TrimmerRootAssembly Include="Vixen.Net.Audio" />
+        <TrimmerRootAssembly Include="Vixen.Net.Engine" />
+        <TrimmerRootAssembly Include="Vixen.Net.Engine.Content" />
+        <TrimmerRootAssembly Include="Vixen.Net.Physics" />
+        <TrimmerRootAssembly Include="Vixen.Net.Telemetry" />
+        <TrimmerRootAssembly Include="Vixen.Net.Transport.Composite" />
+        <TrimmerRootAssembly Include="Vixen.Net.Transport.Local" />
+        <TrimmerRootAssembly Include="Vixen.Net.Transport.Udp" />
+        <TrimmerRootAssembly Include="Vixen.Net.Transport.WebSocket" />
+        <TrimmerRootAssembly Include="Vixen.Platform.Linux" />
+        <TrimmerRootAssembly Include="Vixen.Platform.MacOS" />
+        <TrimmerRootAssembly Include="Vixen.Platform.Windows" />
+        <TrimmerRootAssembly Include="Vixen.Rendering" />
+        <TrimmerRootAssembly Include="Vixen.Rendering.DistanceFields" />
+        <TrimmerRootAssembly Include="Vixen.Rendering.IrradianceFields" />
+        <TrimmerRootAssembly Include="Vixen.Rendering.PostFx" />
+        <TrimmerRootAssembly Include="Vixen.Rendering.RayTracing" />
+        <TrimmerRootAssembly Include="Vixen.Rendering.Reflections" />
+        <TrimmerRootAssembly Include="Vixen.Rendering.ScreenProbes" />
+        <TrimmerRootAssembly Include="Vixen.Rendering.SurfaceCache" />
+        <TrimmerRootAssembly Include="Vixen.Rendering.Terrain" />
+        <TrimmerRootAssembly Include="Vixen.Rendering.VirtualGeometry" />
+        <TrimmerRootAssembly Include="Vixen.Rendering.Water" />
+        <TrimmerRootAssembly Include="Vixen.Shaders" />
+        <TrimmerRootAssembly Include="Vixen.Terrain" />
+        <TrimmerRootAssembly Include="Vixen.Terrain.Physics" />
+        <TrimmerRootAssembly Include="Vixen.Ui.Styling" />
+        <TrimmerRootAssembly Include="Vixen.Ui.Styling.Utilities" />
+        <TrimmerRootAssembly Include="Vixen.Ui.Text" />
+        <TrimmerRootAssembly Include="Vixen.Vfx" />
+        <TrimmerRootAssembly Include="Vixen.Video" />
+        <TrimmerRootAssembly Include="Vixen.Video.Codecs" />
+        <TrimmerRootAssembly Include="Vixen.Video.Rendering" />
+        <TrimmerRootAssembly Include="Vixen.Water" />
+        <TrimmerRootAssembly Include="Vixen.Water.Physics" />
         <TrimmerRootAssembly Include="Vixen.App.Hosting" />
         <TrimmerRootAssembly Include="Vixen.Assets" />
         <TrimmerRootAssembly Include="Vixen.Audio" />
