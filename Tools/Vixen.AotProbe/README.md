@@ -30,30 +30,38 @@ fails below a 4 MB floor so that an emptied root list cannot pass as a successfu
 
 ⚠ **This section used to say "every `Core/` assembly", and that was wrong by a factor of four; then
 it said 29 of 95, and [#506](https://github.com/Rikarin/Vixen/issues/506)'s expansion has taken it to
-82.** Measured on 2026-09-10 against `git ls-files`: the probe roots **82** of the 95 `net10.0`
-non-test projects under `Core/` and `Platform/`. The thirteen that are not rooted are written down in
+84.** Measured on 2026-09-10 against `git ls-files`: the probe roots **84** of the 95 `net10.0`
+non-test projects under `Core/` and `Platform/`. The eleven that are not rooted are written down in
 [`NotRooted.txt`](NotRooted.txt) with what an ILC publish said about each — the reactive `Vixen.Ui`
-wave, `Vixen.Xr` and its OpenXR head, and the three assemblies no shipped game links.
+wave and the three assemblies no shipped game links.
+
+⚠ **`Vixen.Xr` and its OpenXR head were on that list until
+[#1239](https://github.com/Rikarin/Vixen/issues/1239), and the section below predicted why.** Their
+six findings were one `GetApi()` call, and the cure was the thirty lines `VulkanLoader` and
+`OpenALLoader` already had — `Platform/Vixen.Xr.OpenXR/OpenXrLoader.cs`. ⚠ That publish proves ILC
+stops complaining and **not** that OpenXR still initialises; this repository has no XR device to run
+against, and neither half of that is evidence for the other.
 
 ⚠ **The expansion was expected to be expensive and was not, and that is the finding worth keeping.**
 This file and #506 both said each newly rooted assembly is "a new set of IL2xxx/IL3xxx findings to
 fix" and named `Vixen.Ui`'s reactive graph and `Vixen.Core.Serialization`'s consumers as the likely
 cost. Rooting all sixty-six at once produced **twelve findings in total**: five in
 `Vixen.Ui.HotReload`, which is developer-loop only, one in `Vixen.Ui.UiPropertyRegistry`, and six
-inside Silk.NET's native-library loader, reached through `Vixen.Xr`. `Vixen.Rendering` and all ten of
+inside Silk.NET's native-library loader, reached through `Vixen.Xr` — and those last six have since
+gone, so it is six. `Vixen.Rendering` and all ten of
 its siblings, `Vixen.Net` and all nine of its, `Vixen.Animation`, `Vixen.Ai`, `Vixen.Graphics.OpenGL`,
 the three desktop platform heads and `Vixen.Core.Yaml` — a serializer, the one this repository
 predicted "is where reflection hides" — were every one of them clean on the first publish.
 
 ⚠ **Rooted and merely *present* are different things, and the difference is the whole point of this
-file.** Many of those thirteen *are* in the publish graph transitively — a framework-dependent publish of
+file.** Many of those eleven *are* in the publish graph transitively — a framework-dependent publish of
 this probe writes 51 managed assemblies, `Vixen.Shaders`, `Vixen.Vfx`, `Vixen.Foliage` and
 `Vixen.Rendering.ScreenProbes` among them — so ILC does compile whatever `Main` reaches in them. What
 they do not get is the *rooted* question this file exists to ask. Reading the publish output as
 coverage is exactly the mistake the section below warns about.
 
 What *is* rooted publishes with **zero** trim or AOT warnings, and the resulting binary runs. The
-rooted set is every `net10.0` non-test assembly under `Core/` and `Platform/` except the thirteen in
+rooted set is every `net10.0` non-test assembly under `Core/` and `Platform/` except the eleven in
 [`NotRooted.txt`](NotRooted.txt) — written once, as a complement, rather than as a second list that
 can disagree with the first.
 
@@ -85,7 +93,7 @@ true under trimming.
 audio's behalf, and its whole justification is that `Vixen.Audio` therefore does not — so a probe
 that publishes both separately is what keeps that separation honest as the two grow.
 
-**The three Silk.NET-based backends are in the list only because none of them calls `GetApi()`.**
+**The four Silk.NET-based backends are rooted only because none of them calls `GetApi()`.**
 That call builds Silk.NET's default context, which finds a native library by asking where its own
 managed assembly is on disk (`Assembly.Location`) and by reading the dependency manifest
 (`DependencyContext.Default`). A NativeAOT application has neither, and rooting an assembly that
@@ -104,10 +112,17 @@ These are not pedantic warnings; they are the loader telling the truth about its
 
 So each backend loads its own library through `Vixen.Platform.Native` — which maps a RID to a
 binary, knows the `runtimes/<rid>/native/` layout, and registers a `DllImportResolver` — and then
-constructs the Silk.NET API object from a `LamdaNativeContext` over the handle. `VulkanLoader` and
-`OpenALLoader` are the same thirty lines twice, and both of their file comments record that putting
-the `GetApi()` call back brings all six diagnostics straight back. **A new Silk.NET backend that
-calls `GetApi()` will fail this gate, and that is the intended outcome.**
+constructs the Silk.NET API object from a `LamdaNativeContext` over the handle. `VulkanLoader`,
+`OpenALLoader` and `OpenXrLoader` are the same thirty lines three times, and each of their file
+comments records that putting the `GetApi()` call back brings all six diagnostics straight back.
+**A new Silk.NET backend that calls `GetApi()` will fail this gate, and that is the intended
+outcome.**
+
+⚠ **That sentence was written while `Vixen.Xr` was still off the rooted set, which is what makes it
+worth keeping.** It named the defect and quoted its six diagnostics; `OpenXrBackend.cs:73` had the
+call; and the gate could say nothing about it, because a rule only reaches what is rooted. The
+sentence held anyway — the findings were exactly the six, and #1239 was the same thirty lines — but
+what caught it was somebody reading this file, not the gate running.
 
 **On iOS the failure is a different one, and a resolver does not fix it** — see
 `../Vixen.AotProbe.iOS`. Everything links statically there, so Silk.NET's `DllImport`s become symbol

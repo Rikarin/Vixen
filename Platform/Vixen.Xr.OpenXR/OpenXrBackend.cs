@@ -69,13 +69,13 @@ public sealed unsafe class OpenXrBackend : IXrBackend {
     public OpenXrBackend(OpenXrOptions options = default) {
         logger = options.Logger;
 
-        try {
-            api = XR.GetApi();
-        } catch (Exception exception) when (exception is DllNotFoundException or FileNotFoundException
-            or TypeInitializationException or EntryPointNotFoundException) {
-            // The overwhelmingly common case on a developer machine and on every CI runner: there is
-            // no loader. Selection constructs every candidate backend, so this must not be fatal.
-            UnavailableReason = $"The OpenXR loader could not be loaded ({exception.Message}).";
+        // ⚠ `XR.GetApi()` is deliberately not called; `OpenXrLoader` says why at length, and it is
+        // the whole of why this assembly could not be rooted in Tools/Vixen.AotProbe (#1239). The
+        // refusal is a return value rather than an exception, which is what the overwhelmingly
+        // common case on a developer machine and on every CI runner deserves: there is no loader,
+        // and selection constructs every candidate backend, so this must not be fatal.
+        if (!OpenXrLoader.TryLoad(out api, out var unavailable)) {
+            UnavailableReason = unavailable;
             Report();
 
             return;

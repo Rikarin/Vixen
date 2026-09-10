@@ -151,6 +151,15 @@ public sealed class AotProbeProjectFileTests : IDisposable {
             // Inferred: the desktop windowing backend, and the phone has Vixen.Platform.Native.
             "Vixen.Platform.Desktop",
 
+            // ⚠ Written down rather than inferred, which is what separates it from the block below.
+            // Platform/Vixen.Xr.OpenXR/README.md's first line is "The XR backend for the three
+            // desktops and Android", so iOS is outside its scope by its author's own statement — and
+            // twice over at run time: Apple ships no OpenXR runtime, and OpenXrLoader finds the
+            // loader with NativeLibrary.TryLoad, which on iOS cannot load a library the application
+            // did not ship inside its own bundle. An iOS publish of this would root an assembly
+            // whose whole entry point is unreachable there. #1239 added it to the desktop probe.
+            "Vixen.Xr.OpenXR",
+
             // ⚠ Unexplained, all six. A game on a phone has physics and sound, and these are the
             // assemblies whose serialization and component registration lean hardest on
             // reflection — the ones an AOT gate exists for. #961.
@@ -225,6 +234,14 @@ public sealed class AotProbeProjectFileTests : IDisposable {
             "Vixen.Video.Rendering",
             "Vixen.Water",
             "Vixen.Water.Physics",
+
+            // ⚠ Owed on the same terms, and added on 2026-09-10 by #1239 rather than by #506. The
+            // abstraction has no platform statement of its own and a phone is a plausible XR
+            // target — visionOS is where that question gets asked — so unlike its OpenXR head above
+            // there is nothing written down to justify leaving it out. Nobody can settle it from
+            // here: the `ios` workload is not installed and `CheckAotIos` has no CI leg (#327).
+            // This entry belongs to #1252, and the list it is in must SHRINK.
+            "Vixen.Xr",
         ];
 
         var desktop = AotProbeProjectFile.ReferencedAssemblies(ProbeProject());
@@ -242,7 +259,7 @@ public sealed class AotProbeProjectFileTests : IDisposable {
         Assert.True(
             absent.SequenceEqual(absentOnPurpose.Order(StringComparer.Ordinal), StringComparer.Ordinal),
             "The assemblies in the desktop AOT probe and not the iOS one are supposed to be exactly "
-            + "the eight written down above. A NEW name means an assembly was added to the desktop "
+            + "the ones written down above. A NEW name means an assembly was added to the desktop "
             + "probe and not to the iOS one, so it is outside the iOS gate while the README still "
             + "says iOS is gated — add it to Vixen.AotProbe.iOS.csproj, with its TrimmerRootAssembly, "
             + "or write down why not. A name that has GONE has been added to the iOS probe; delete "
