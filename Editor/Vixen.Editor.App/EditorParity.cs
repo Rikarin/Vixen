@@ -1086,6 +1086,19 @@ sealed partial class EditorApplication {
             ReloadStyles
         );
 
+        // ⚠ The producer end of a chain every other link of which was finished and called by nothing.
+        // `EditorStrings.Template`, `StringCatalogYaml.Save`, `StringCatalogYaml.Load` and
+        // `Strings.Use` existed, were tested end to end inside one test method, and had no production
+        // caller between them — so the signal that exists precisely to re-label a *running* interface
+        // had never been written to. This writes the template; `EditorPreferences.Language` reads the
+        // translated file back. See https://github.com/Rikarin/Vixen/issues/1229.
+        Verb(
+            "tools.export-strings",
+            EditorStrings.CommandToolsExportStrings,
+            EditorStrings.CategoryTools,
+            ExportStringTemplate
+        );
+
         // The report is `DiagnosticsCommands`' too, and it is the one line here that E4 only half
         // finished: it carries the log, the memory arenas, the scene's counts and the last capture,
         // and says in the file that the minidump and the undo history are E6's.
@@ -1263,7 +1276,7 @@ sealed partial class EditorApplication {
             .AddSeparator()
             .Add("tools.reload-shaders", "tools.reload-styles", "view.clear-console")
             .AddSeparator()
-            .Add("tools.diagnostics-report");
+            .Add("tools.export-strings", "tools.diagnostics-report");
     }
 
     /// <summary>The mode bar doc 20's A1 asks for, with the two modes doc 24's P0 ships.</summary>
