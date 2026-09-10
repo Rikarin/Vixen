@@ -36,7 +36,8 @@ namespace Vixen.Net.Transport.Composite;
 ///         sees connections, disconnections and opaque bytes. The stronger transport-observable
 ///         signal is <i>first inbound data</i>, which is what would catch a middlebox that accepts
 ///         the connection and drops the payload; it is a different signal rather than an expensive
-///         version of this one, and it is not implemented here.
+///         version of this one, and it is not implemented here — see
+///         <a href="https://github.com/Rikarin/Vixen/issues/1227">#1227</a>.
 ///     </para>
 ///     <para>
 ///         <b>Nothing above ever learns that a race happened.</b> Only the winner's connect is

@@ -49,7 +49,9 @@ Three things about it are worth knowing before reading the code.
   handshake is `NetworkSession`'s — `ConnectRequest` and `ConnectAccepted` — and an `ITransport` sees
   connections, disconnections and opaque bytes. The stronger transport-observable signal is *first
   inbound data*, which is what catches a middlebox that accepts the connection and drops the payload;
-  it is a different signal rather than an expensive version of this one, and it is not built.
+  it is a different signal rather than an expensive version of this one, and it is not built —
+  [#1227](https://github.com/Rikarin/Vixen/issues/1227), which is also where the session-level notion
+  of an attempt stops being avoidable.
 - ⚠ **Nothing above ever learns that a race happened.** Only the winner's connect is reported; a
   loser's connect, bytes and disconnect are swallowed and the candidate is stopped. That is what makes
   this implementable without touching the session: a pure client is driven to `SessionState.Stopped`
