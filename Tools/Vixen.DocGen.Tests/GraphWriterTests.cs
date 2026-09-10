@@ -176,6 +176,83 @@ public class GraphWriterTests : IDisposable {
         Assert.Equal(2, page!.Length);
     }
 
+    /// <summary>
+    ///     ⚠ Every entry in the index's namespace list addresses a page that lists at least one type.
+    /// </summary>
+    /// <remarks>
+    ///     The namespace page selects its rows with <c>node.slug.startsWith(slug + '/')</c>, so an
+    ///     entry named after a namespace no slug starts with prerenders as a heading, a
+    ///     <c>0 types</c> line and an empty list — reachable from the front door of the API. Seven
+    ///     were, and the counters were healthy the whole time: the entries were written, the pages
+    ///     were prerendered, the nav counted them
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/997">#997</a>).
+    ///
+    ///     ⚠ The fixture carries a shader and a log event on purpose. Over C# types alone the
+    ///     assertion cannot fail — a namespace and a slug segment are the same string there — so a
+    ///     graph of `Node()`s would pass this on the day the grouping went back to being wrong.
+    /// </remarks>
+    [Fact]
+    public void EveryNamespaceEntryAddressesAPageThatListsTypes() {
+        var shader = Node("ForwardPlus", "Raven.Library.Pipeline") with {
+            Kind = DocKind.Shader,
+            Slug = "shaders/pipeline.forwardplus"
+        };
+
+        var logEvent = Node("13001", "LogEvents") with { Kind = DocKind.LogEvent, Slug = "log-events/13001" };
+
+        new GraphWriter().Write(Graph(Node("Alpha"), shader, logEvent), directory);
+
+        using var index = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "graph.json")));
+        var entries = index.RootElement.GetProperty("Namespaces").EnumerateArray().ToList();
+        var slugs = index.RootElement.GetProperty("Nodes")
+            .EnumerateArray()
+            .Select(node => node.GetProperty("Slug").GetString()!)
+            .ToList();
+
+        Assert.Equal(3, entries.Count);
+
+        foreach (var entry in entries) {
+            var slug = entry.GetProperty("Slug").GetString()!;
+
+            Assert.True(
+                slugs.Exists(node => node.StartsWith(slug + "/", StringComparison.Ordinal)),
+                $"the namespace page /docs/api/{slug} lists no types, and the index links to it");
+        }
+    }
+
+    /// <summary>
+    ///     A group pooling several namespaces is named after the segment it is addressed by, and one
+    ///     holding a single namespace keeps that namespace's own casing.
+    /// </summary>
+    [Fact]
+    public void ANamespaceEntryIsNamedAfterItsNamespaceOnlyWhenItHasOne() {
+        var first = Node("ForwardPlus", "Raven.Library.Pipeline") with {
+            Kind = DocKind.Shader,
+            Slug = "shaders/pipeline.forwardplus"
+        };
+
+        var second = Node("Bloom", "Raven.Library.PostFx") with {
+            Kind = DocKind.Shader,
+            Slug = "shaders/postfx.bloom"
+        };
+
+        new GraphWriter().Write(Graph(Node("Alpha", "Vixen.Ecs"), first, second), directory);
+
+        using var index = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "graph.json")));
+
+        var entries = index.RootElement.GetProperty("Namespaces")
+            .EnumerateArray()
+            .Select(entry => (
+                Name: entry.GetProperty("Name").GetString(),
+                Slug: entry.GetProperty("Slug").GetString(),
+                Count: entry.GetProperty("Count").GetInt32()))
+            .ToList();
+
+        Assert.Contains(("shaders", "shaders", 2), entries);
+        Assert.Contains(("Vixen.Ecs", "vixen.ecs", 1), entries);
+        Assert.DoesNotContain(entries, entry => entry.Slug!.StartsWith("raven.library", StringComparison.Ordinal));
+    }
+
     /// <summary>A stale page from a previous run is a page the site still serves.</summary>
     [Fact]
     public void PagesFromAPreviousRunAreRemoved() {

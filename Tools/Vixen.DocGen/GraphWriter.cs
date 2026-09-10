@@ -97,11 +97,11 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
             graph.ProjectCount,
             graph.GeneratedDocumentCount,
             Namespaces = graph.Nodes
-                .GroupBy(node => node.Namespace, StringComparer.Ordinal)
+                .GroupBy(ChunkOf, StringComparer.Ordinal)
                 .OrderBy(group => group.Key, StringComparer.Ordinal)
                 .Select(group => new {
-                    Name = group.Key,
-                    Slug = Slugs.ForNamespace(group.Key),
+                    Name = NameOf(group),
+                    Slug = group.Key,
                     Areas = group.Select(node => node.Area).Distinct().OrderBy(area => area, StringComparer.Ordinal),
                     Count = group.Count()
                 }),
@@ -226,6 +226,26 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
         var separator = node.Slug.LastIndexOf('/');
 
         return separator < 0 ? "global" : node.Slug[..separator];
+    }
+
+    /// <summary>What the index calls a group — its one namespace, or the segment it is addressed by.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The index is grouped by <see cref="ChunkOf" /> and not by namespace</b>, for the same
+    ///     reason the page tier is: the namespace page selects its rows by slug prefix, so an entry
+    ///     named after a namespace no slug starts with is a link to a page that lists nothing. Seven
+    ///     of them — <c>Raven.Library.Pipeline</c> and five siblings, plus <c>LogEvents</c> — were
+    ///     reachable from the front door of the API saying <c>0 types</c>
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/997">#997</a>).
+    ///
+    ///     The display name survives that: a C# group has exactly one namespace and is still called
+    ///     <c>Vixen.Ecs</c> rather than <c>vixen.ecs</c>. A group that pools several — the 30 shaders
+    ///     come from six <c>Raven.Library.*</c> namespaces — has no one namespace to name it, so it
+    ///     is called what it is addressed by.
+    /// </remarks>
+    static string NameOf(IEnumerable<DocNode> group) {
+        var namespaces = group.Select(node => node.Namespace).Distinct(StringComparer.Ordinal).Take(2).ToList();
+
+        return namespaces is [{ Length: > 0 } single] ? single : ChunkOf(group.First());
     }
 
     /// <summary>Splits a group's nodes into parts that each fit the budget.</summary>
