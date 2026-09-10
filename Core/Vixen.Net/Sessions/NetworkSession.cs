@@ -481,6 +481,13 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
 
     void ITransportEvents.OnConnected(TransportRole role, ConnectionId connection) {
         if (role == TransportRole.Server) {
+            // ⚠ A connect on a number that is already halfway in replaces a span, and a replaced span
+            // has to be ended. It is the same rule the client arm below keeps, and the same reason:
+            // an Activity nobody stops is never exported, so it is not a wrong span but no span.
+            if (pending.Remove(connection.Value, out var superseded)) {
+                superseded.Handshake.Abandoned("reconnected");
+            }
+
             // Nothing is a player yet — a connection is a request to be let in, not an arrival.
             pending[connection.Value] = new(connection, now + Options.AuthenticationTimeout.TotalSeconds) {
                 Handshake = NetworkActivity.StartHandshake(TransportRole.Server, connection)
@@ -488,6 +495,13 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
 
             return;
         }
+
+        // ⚠ A client may be told it connected more than once in a lifetime, and this used to leak the
+        // earlier handshake's span. Every other path that replaces `clientHandshake` — OnDisconnected,
+        // Stop, a refusal, an admission — ends it first; this one assumed exactly one connect per
+        // client and nothing enforced that assumption. A transport that retries a route, or one that
+        // reconnects underneath a session that never learned the first attempt died, is enough.
+        clientHandshake.Abandoned("reconnected");
 
         clientLastHeardFrom = now;
         handshakeSentAt = now;
