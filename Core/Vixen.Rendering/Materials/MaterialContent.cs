@@ -131,6 +131,15 @@ public static class MaterialShading {
     public static IReadOnlyDictionary<string, Func<IMaterialShading>> All { get; } =
         new Dictionary<string, Func<IMaterialShading>>(StringComparer.Ordinal) {
             ["StandardShading"] = () => new StandardShading(),
+
+            // ⚠ The two diffuse models are entries here rather than a third `compose` slot, and that
+            // is the decision #1155 asked for. A slot would cost every pass that declares
+            // `IMaterialSurface` and `IShadingModel` a third one, and a permutation on
+            // `StandardShading` — the cheap-looking alternative — would be unreachable, because
+            // `MaterialRenderFeature.PermutationSources` has no production caller (#1164). Two more
+            // shaders need neither: a material selects one by the name it already writes.
+            ["OrenNayarShading"] = () => new OrenNayarShading(),
+            ["BurleyShading"] = () => new BurleyShading(),
             ["AnisotropicShading"] = () => new AnisotropicShading(),
             ["ClearCoatShading"] = () => new ClearCoatShading(),
             ["SheenShading"] = () => new SheenShading(),

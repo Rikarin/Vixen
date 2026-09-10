@@ -321,7 +321,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `GraphicsCompositor` as an asset, resolvable by address | ✅ | Core/Vixen.Rendering | Asserted in `Vixen.Assets.Tests` |
 | **`WorldRenderer` in the boot path** | ✅ | Tools/Vixen.App | `AppGraphics` is the host's half — device (`GraphicsHost`: Vulkan where there is a surface, Null where there is not), swapchain, `EffectSystem` fed… |
 | **Camera component → `RenderView`** | ✅ | Core/Vixen.Rendering | `CameraExtractionSystem`: lowest `Order` wins, `PreRender` after the transforms. ⚠ A world with no camera leaves the view alone and says so — a… |
-| Materials — composable feature tree, 2 workflows, 7 shading models, both layering forms | ✅ | Core/Vixen.Rendering | Every combination through `glslc` + `spirv-val` |
+| Materials — composable feature tree, 2 workflows, 9 shading models, both layering forms | ✅ | Core/Vixen.Rendering | Every combination through `glslc` + `spirv-val` |
 | **A material feature that samples** (`TexturedMetalRoughnessSurface`) | ✅ | Raven/Library · Core/Vixen.Rendering | Needed four things that did not exist: `Texture2D[]` as a type, `[Shared]` so every sampling feature names one table, `uv` on `MaterialData`, and a… |
 | Transmission / refraction | 🟡 | Core/Vixen.Rendering.Water · `Raven/Library/Water` | [35](plan/35-water.md) § D8 closed the *pass*: `!Water` reads a `!Copy` of the scene colour plus depth and integrates absorption and scattering over… |
 | Bindless material textures (a feature that samples needs a binding index) | ✅ | Core/Vixen.Rendering | `MaterialRenderFeature.Textures` + `TextureIndices`: the shader declares a `uint`, the texture takes a table slot, and the slot goes into the… |

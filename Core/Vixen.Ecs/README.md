@@ -331,4 +331,14 @@ frame, which rules out a dictionary lookup and asks for a dense index and a mask
 already exists and is already proved by a shipping subsystem. Nothing is built on that reasoning
 until the call is made.
 
+⚠ **What has changed since is evidence and not a new option, and it points away from promoting.**
+The physics table's readers have grown to four — `PhysicsWorld`, `QueryFilter`,
+`Vixen.Audio.Physics`' `PhysicsOcclusionProvider` and `Vixen.Ai.Perception`/`Vixen.Ai.Nodes` through
+the occlusion and world-query seams — and **every one of them reads it as a physics filter**, through
+a query. So the count of subsystems touching it went up while the count of subsystems wanting a
+*scene* layer stayed at zero: three re-audits (2026-09) have each found `Vixen.Rendering` with no
+per-view mask and the outliner with no filter. That is the argument for leaving it where it is until
+a second, differently shaped consumer actually appears — and the argument against building a
+world-level table on the strength of one subsystem's need.
+
 Licensed under Apache-2.0.

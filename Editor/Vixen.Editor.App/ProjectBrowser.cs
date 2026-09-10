@@ -103,6 +103,17 @@ sealed class ProjectBrowser {
     /// </remarks>
     bool restoring;
 
+    /// <summary>Which collection the grid is showing, or <see langword="null" /> for a folder.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Beside <see cref="folder" /> rather than instead of it</b>, so leaving a collection
+    ///     puts the grid back where it was standing rather than at the root — and because the folder
+    ///     tree's mark has to go back somewhere when the collection is forgotten underneath it.
+    /// </remarks>
+    string? collection;
+
+    /// <summary>The collections menu, built on first use — <see cref="filterMenu" />'s bargain.</summary>
+    ContextMenu? collectionMenu;
+
     AssetTreeNode root;
 
     /// <summary>Which folder the grid is in, by path, so it survives a rescan.</summary>
@@ -146,6 +157,27 @@ sealed class ProjectBrowser {
 
     /// <summary>Raised when the user forgets a saved filter, by name.</summary>
     public event Action<string>? FilterForgotten;
+
+    /// <summary>Raised when assets are to go into a collection that has to be named first.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The request rather than the collection, for the browser's standing rule: every verb
+    ///     goes out as an event.</b> Naming it is a modal prompt and keeping it is a file under
+    ///     <c>ProjectSettings/</c>, and a panel that owned either would be a second writer to the
+    ///     project's own settings. The list may be empty — making an empty collection is how
+    ///     somebody produces a row there is anywhere to drop onto.
+    /// </remarks>
+    public event Action<IReadOnlyList<AssetId>>? CollectionCreateRequested;
+
+    /// <summary>Raised when assets are dropped on, or added to, a collection that exists.</summary>
+    public event Action<IReadOnlyList<AssetId>, string>? CollectionAdded;
+
+    /// <summary>Raised when assets are taken out of a collection, which leaves the collection.</summary>
+    public event Action<IReadOnlyList<AssetId>, string>? CollectionRemoved;
+
+    /// <summary>Raised when a whole collection is forgotten, by name.</summary>
+    /// <remarks>Forgotten and not deleted: the assets are files and a collection is a way of looking
+    ///     at them, which is the same word and the same reason the saved filters use.</remarks>
+    public event Action<string>? CollectionForgotten;
 
     /// <summary>Raised when rows are dropped onto a folder row.</summary>
     public event Action<IReadOnlyList<AssetId>, AssetId>? Moved;
@@ -422,6 +454,10 @@ sealed class ProjectBrowser {
         // as the case it exists for.
         tree.RowBound += Mark;
         tiles.Navigated += entered => {
+            // ⚠ Walking into a folder leaves the collection, and it has to: the grid can only be
+            // showing one thing, and a collection whose breadcrumb had walked into a folder would be
+            // a view of neither.
+            collection = null;
             folder = entered.Path;
             Populate();
         };
@@ -456,11 +492,34 @@ sealed class ProjectBrowser {
                 return;
             }
 
-            if (changed.Selection.FirstOrDefault()?.Tag is AssetTreeNode { IsFolder: true } chosen) {
-                folder = chosen.Path;
-                Populate();
+            switch (changed.Selection.FirstOrDefault()?.Tag) {
+                case AssetTreeNode { IsFolder: true } chosen:
+                    // ⚠ Standing in a folder is the way out of a collection, and there is no other
+                    // one. A column with two marks in it — a folder and a collection — would be two
+                    // answers to "what is the grid showing".
+                    collection = null;
+                    folder = chosen.Path;
+                    Populate();
+                    break;
+
+                case CollectionRow { Name.Length: > 0 } picked:
+                    collection = picked.Name;
+                    Populate();
+                    break;
+
+                default:
+                    break;
             }
         };
+
+        // ⚠ The browser's own menu rather than the application's command-driven one, for the reason
+        // `OpenFilters` builds one: a collection's name is not a command id, and a submenu whose
+        // lines are the project's collections cannot come out of a registry keyed by id.
+        folders.AddHandler<PointerEvent>((_, args) => {
+            if (args is { Action: PointerAction.Pressed, Button: PointerButton.Secondary }) {
+                OpenCollections(args.X, args.Y);
+            }
+        });
 
         // ⚠ Built after the grid and put in the bar all the same, because its handler writes to the
         // grid — a lambda closing over a field the constructor has not reached yet is a null the
@@ -648,9 +707,32 @@ sealed class ProjectBrowser {
             }
 
             Only(folders.Root, root);
+            Shelf(folders.Root);
             folders.Refresh();
 
             TreeNode? showing = null;
+
+            // ⚠ The collection's row wins the mark when one is being shown, because the grid is
+            // showing it — a column that marked a folder while the grid showed a collection would be
+            // telling somebody they are somewhere they are not.
+            if (collection is { } named) {
+                foreach (var node in Descendants(folders.Root)) {
+                    if (node.Tag is CollectionRow row && string.Equals(row.Name, named, StringComparison.Ordinal)) {
+                        showing = node;
+
+                        for (var walk = node; walk is not null; walk = walk.Parent) {
+                            folders.Expand(walk);
+                        }
+                    }
+                }
+
+                folders.Select(showing);
+
+                // ⚠ Nothing below this runs in that case, and the early return is the point: the
+                // loop underneath restores the folder mark, which would take it straight back off
+                // the collection.
+                return;
+            }
 
             foreach (var node in Descendants(folders.Root)) {
                 if (node.Tag is not AssetTreeNode { IsFolder: true } asset) {
@@ -693,6 +775,146 @@ sealed class ProjectBrowser {
         foreach (var child in asset.Children) {
             Only(node, child);
         }
+    }
+
+    /// <summary>Adds the Collections heading and a row per collection, under the folders.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>In the same column as the folders and under them, rather than in a panel of its
+    ///         own.</b> A collection answers the same question a folder does — "show me these" — and
+    ///         the grid can only be showing one thing, so two columns each with a selection would be
+    ///         two answers to it. Underneath because the folders are where somebody looks first.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The heading is there with no collections under it, deliberately.</b> It is the
+    ///         drop target that makes the first collection: dropping a selection on it asks for a
+    ///         name, which is the only gesture in the panel that can produce one without a menu.
+    ///     </para>
+    /// </remarks>
+    void Shelf(TreeNode parent) {
+        var heading = parent.Add("Collections", CollectionRow.Heading);
+
+        heading.Art = StandardIcons.Folder;
+
+        foreach (var named in Collections?.Invoke() ?? []) {
+            var row = heading.Add(named.Name, new CollectionRow(named.Name));
+
+            row.Art = StandardIcons.Folder;
+        }
+    }
+
+    /// <summary>Where the collections come from, asked at the moment the column is rebuilt.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A function rather than the list, for <see cref="SavedFilters" />'s reason one store
+    ///     over.</b> <c>ProjectSettingsStore.Reload</c> and <c>Reset</c> both replace the settings
+    ///     object — a branch switch, a Revert — so a panel holding the list would go on showing the
+    ///     collections that existed when it was opened.
+    /// </remarks>
+    public Func<IReadOnlyList<SavedAssetSet>>? Collections { get; set; }
+
+    /// <summary>Which collection the grid is showing, or <see langword="null" />.</summary>
+    public string? Collection => collection;
+
+    /// <summary>Which collection row is under a point, or <see langword="null" /> for none.</summary>
+    /// <param name="x">Where, in document space.</param>
+    /// <param name="y">Where, in document space.</param>
+    /// <returns>The name, empty for the heading, or null when the point is not on one.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The browser resolves this drop itself, exactly as <see cref="FolderAt" /> does, and
+    ///     for the same reason:</b> a drag released over the folder column never reaches the column,
+    ///     because a gesture belongs to the element the press landed on for its whole life. What the
+    ///     application would have to be told otherwise is where every row in this panel is.
+    /// </remarks>
+    public string? CollectionAt(float x, float y) {
+        if (folders.HasClass("hidden") || folders.NodeAt(x, y) is not { } hit) {
+            return null;
+        }
+
+        return hit.Tag is CollectionRow row ? row.Name : null;
+    }
+
+    /// <summary>The collections menu, over whichever row was right-clicked.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Add and Remove act on the project's selection and say so in their labels</b>, because
+    ///     right-clicking a row in this column does not select anything: the column is a place to
+    ///     stand rather than a thing to act on, and a menu that took the selection with it would make
+    ///     walking around the project change what the verbs act on.
+    /// </remarks>
+    void OpenCollections(float x, float y) {
+        if (CollectionAt(x, y) is not { } target) {
+            return;
+        }
+
+        var menu = collectionMenu ??= folders.Document.Root.Add<ContextMenu>();
+
+        // Closed before it is emptied, for `OpenFilters`' reason: removal is final in this framework
+        // and an open menu has focus inside it.
+        if (menu.IsOpen) {
+            menu.Close();
+        }
+
+        while (menu.Children.Count > 0) {
+            menu.Children[^1].Remove();
+        }
+
+        List<AssetId> picked = [.. project.Selection];
+
+        var made = menu.AddItem(picked.Count > 0 ? "New Collection from Selection…" : "New Collection…");
+
+        made.Clicked += _ => CollectionCreateRequested?.Invoke(picked);
+
+        if (target.Length > 0) {
+            var name = target;
+
+            menu.AddSeparator();
+
+            var added = menu.AddItem("Add Selection");
+            var removed = menu.AddItem("Remove Selection");
+
+            // Nothing selected is nothing to add, and a line that does nothing when it is clicked is
+            // how somebody learns a menu is broken — `OpenFilters` disables Save for the same reason.
+            added.Disabled = picked.Count == 0;
+            removed.Disabled = picked.Count == 0;
+
+            added.Clicked += _ => CollectionAdded?.Invoke(picked, name);
+            removed.Clicked += _ => CollectionRemoved?.Invoke(picked, name);
+
+            menu.AddSeparator();
+
+            var forgotten = menu.AddItem("Forget Collection");
+
+            forgotten.Clicked += _ => CollectionForgotten?.Invoke(name);
+        }
+
+        menu.OpenAt(x, y);
+    }
+
+    /// <summary>Rebuilds the column and the grid after the collections themselves changed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What the application calls after it has written the file</b>, because the browser
+    ///     asks for the list rather than holding it — so nothing here knows a collection was added
+    ///     until something says so. A collection being shown when it is forgotten drops the grid back
+    ///     into the folder it was standing in, which is the only place there is to go.
+    /// </remarks>
+    public void Recollect() {
+        if (collection is { } named && Collections?.Invoke().All(one => one.Name != named) != false) {
+            collection = null;
+        }
+
+        Populate();
+    }
+
+    /// <summary>A row in the collections shelf: a collection by name, or the heading.</summary>
+    /// <remarks>
+    ///     A tag of its own rather than an <see cref="AssetTreeNode" /> with a made-up path, because
+    ///     every reader in this panel switches on the tag — <see cref="FolderAt" /> walks up looking
+    ///     for a folder, the selection handler looks for one — and a collection that arrived as a
+    ///     folder-shaped node would be answered as a folder by all of them.
+    /// </remarks>
+    /// <param name="Name">The collection's name, empty for the heading row.</param>
+    sealed record CollectionRow(string Name) {
+        /// <summary>The heading row's tag.</summary>
+        public static CollectionRow Heading { get; } = new(string.Empty);
     }
 
     /// <summary>Which of a tree's folders are open, by path.</summary>
@@ -856,12 +1078,33 @@ sealed class ProjectBrowser {
     public TreeView Tree => tree;
 
     /// <summary>Reports a drag released outside the panel, with whatever it was carrying.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A drop on the collections shelf is resolved here rather than reported outwards.</b>
+    ///     The shelf is inside this panel, and a drag released over it is "outside" only from the
+    ///     grid's point of view — a gesture belongs to the element the press landed on, so the column
+    ///     never hears about it. Handing it to the application as a drop at a point would make the
+    ///     application responsible for knowing where every row in this panel is.
+    /// </remarks>
     void Escaped(float x, float y) {
         List<AssetId> carried = [.. project.Selection];
 
-        if (carried.Count > 0) {
-            DroppedOutside?.Invoke(carried, x, y);
+        if (carried.Count == 0) {
+            return;
         }
+
+        if (CollectionAt(x, y) is { } target) {
+            // The heading takes a drop too, and it is the only gesture that makes the first
+            // collection: what comes back from the application is a prompt for a name.
+            if (target.Length == 0) {
+                CollectionCreateRequested?.Invoke(carried);
+            } else {
+                CollectionAdded?.Invoke(carried, target);
+            }
+
+            return;
+        }
+
+        DroppedOutside?.Invoke(carried, x, y);
     }
 
     /// <summary>Reports where a drag has got to, so a target can say it would take it.</summary>
@@ -1012,7 +1255,11 @@ sealed class ProjectBrowser {
             // ⚠ Falls back to whatever survives rather than showing an empty grid. A folder can go
             // — deleted, renamed, filtered out — and a browser sitting in one that no longer exists
             // is one with no way back to anything.
-            tiles.Show(AssetTree.Find(kept, folder) ?? kept);
+            //
+            // ⚠ A collection is shown *through* the same two filters rather than beside them, so the
+            // search box narrows inside one. A collection with a filter of its own would be the
+            // second browser the view toggle's own remark refuses.
+            tiles.Show(collection is { } named ? Gather(named, kept) : AssetTree.Find(kept, folder) ?? kept);
             tiles.Mark(project.Selection);
 
             return;
@@ -1115,6 +1362,56 @@ sealed class ProjectBrowser {
         }
 
         return asset with { Children = kept };
+    }
+
+    /// <summary>A collection as a folder-shaped node, so the grid can show it like any other.</summary>
+    /// <param name="named">Which collection.</param>
+    /// <param name="within">The tree the two filters have already narrowed.</param>
+    /// <returns>A synthesised folder holding whatever of the collection survives them.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Gathered from the <em>filtered</em> tree rather than from the database, so the
+    ///         search box and the kind dropdown narrow inside a collection.</b> A collection with a
+    ///         filter of its own would be the second browser the view toggle's own remark refuses.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An id the project no longer has is simply not found, and nothing prunes the
+    ///         stored list.</b> A file that is missing today is one somebody may restore or a branch
+    ///         they may switch back to; a collection that quietly emptied itself over a checkout is
+    ///         worse than one showing fewer tiles than it holds.
+    ///     </para>
+    ///     <para>
+    ///         The path is not a path. Nothing resolves it — <see cref="Containing" /> answers null
+    ///         for it, which is what stops the grid offering a breadcrumb out of a collection into a
+    ///         folder that does not contain it.
+    ///     </para>
+    /// </remarks>
+    AssetTreeNode Gather(string named, AssetTreeNode within) {
+        var wanted = Collections?.Invoke().FirstOrDefault(one =>
+            string.Equals(one.Name, named, StringComparison.Ordinal)
+        );
+
+        List<AssetTreeNode> found = [];
+
+        if (wanted is not null) {
+            Dictionary<AssetId, AssetTreeNode> byId = [];
+
+            foreach (var node in within.Descend()) {
+                if (node is { IsIndexed: true, IsFolder: false }) {
+                    byId[node.Guid] = node;
+                }
+            }
+
+            // In the collection's own order, which is the order things were put into it — a set
+            // somebody assembled reads as the sequence they assembled it in.
+            foreach (var asset in wanted.Assets) {
+                if (byId.TryGetValue(asset, out var node)) {
+                    found.Add(node);
+                }
+            }
+        }
+
+        return new(named, "collection:" + named, true, AssetId.Empty, found);
     }
 
     /// <summary>What contains a node, for the grid's breadcrumbs.</summary>

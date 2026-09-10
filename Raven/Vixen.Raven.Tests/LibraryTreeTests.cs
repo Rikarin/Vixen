@@ -684,6 +684,15 @@ public class LibraryTreeTests {
     [InlineData("SubsurfaceShading")]
     [InlineData("HairShading")]
     [InlineData("CelShading")]
+
+    // ⚠ The two diffuse models, and they are the harder half of this claim rather than two more
+    // rows. Every model above changes what the pass *adds* — a second lobe, a rim, a wrap — so a
+    // composition that silently fell back to the default would lose a whole term and show it. These
+    // two replace one term with another of the same magnitude, so "it compiled" and "it looks lit"
+    // are both true of the wrong shader; that the emitted unit differs from the standard model's is
+    // the only thing that says the slot was taken.
+    [InlineData("OrenNayarShading")]
+    [InlineData("BurleyShading")]
     public void EveryShadingModelComposesIntoTheForwardPassAndReachesBothBackends(string model) {
         var standard = ForwardPlusSource(LowerTree(composition: [("shading", "StandardShading")]));
         var module = LowerTree(composition: [("shading", model)]);
@@ -711,6 +720,42 @@ public class LibraryTreeTests {
                 AssertGlslCompiles(pass);
             }
         }
+    }
+
+    /// <summary>
+    ///     A material that selects a diffuse model gets that model's function in the pass.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>#1155's actual claim, which the theory above cannot make.</b> That test asserts the
+    ///         emitted unit differs from the standard model's, as <em>text</em> — and ⚠ <b>a model
+    ///         that shades exactly like <c>StandardShading</c> passes it</b>. It did: with
+    ///         <c>OrenNayarShading</c>'s <c>Shade</c> sabotaged to call <c>DiffuseModels.Lambert</c>
+    ///         the theory stayed green, because the sabotaged body kept one extra local and a
+    ///         declared local renumbers every temporary after it. See
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/1249">#1249</see>.
+    ///     </para>
+    ///     <para>
+    ///         So this names the library function instead, in both directions. <c>OrenNayar</c> and
+    ///         <c>Burley</c> were written, correct, and reachable from no material — every
+    ///         <c>IShadingModel</c> in the library called <c>Lambert</c> — and the fix was two more
+    ///         models rather than a third <c>compose</c> slot. The negative half is what makes it a
+    ///         claim about <em>this</em> composition: the same pass composed with
+    ///         <c>StandardShading</c> must not carry the function, or the assertion would be
+    ///         satisfied by a library that inlines everything into every pass.
+    ///     </para>
+    /// </remarks>
+    /// <param name="model">The shading model a material would name.</param>
+    /// <param name="function">The <c>DiffuseModels</c> function only that model calls.</param>
+    [Theory]
+    [InlineData("OrenNayarShading", "OrenNayar")]
+    [InlineData("BurleyShading", "Burley")]
+    public void ADiffuseModelReachesThePassThroughTheShadingModelThatSelectsIt(string model, string function) {
+        var standard = ForwardPlusSource(LowerTree(composition: [("shading", "StandardShading")]));
+        var source = ForwardPlusSource(LowerTree(composition: [("shading", model)]));
+
+        Assert.Contains(function, source, StringComparison.Ordinal);
+        Assert.DoesNotContain(function, standard, StringComparison.Ordinal);
     }
 
     /// <summary>

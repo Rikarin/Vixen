@@ -60,6 +60,48 @@ shader StandardShading : IShadingModel {
     }
 }
 
+/// Oren-Nayar's rough diffuse under the standard GGX lobe: unglazed clay, plaster, concrete, the moon.
+///
+/// The same specular lobe as `StandardShading` and a different diffuse one, which is the whole of the
+/// difference — a Lambertian plane is smooth at every scale, and a surface of Lambertian *microfacets*
+/// flattens toward the light instead of falling off as the cosine. That is what stops dry, rough,
+/// unfinished materials reading as plastic.
+///
+/// **Named after the model rather than after what it is for**, unlike its neighbours. A clear coat is
+/// a second lobe and a sheen is a rim, so those names say what is added; this one swaps the diffuse
+/// BRDF and nothing else, and "rough diffuse" would be a promise the roughness channel already makes.
+shader OrenNayarShading : IShadingModel {
+    func Shade(d: MaterialData, a: ShadingAngles, s: ShadingVectors, alpha: float): float3 {
+        // `LdotV` and not a cosine from `ShadingAngles`: Oren-Nayar's azimuth term is the angle
+        // between the light and the view, which is the one relation the bundle does not carry.
+        val rough = DiffuseModels.OrenNayar(d.diffuseColor, a.NdotL, a.NdotV, dot(s.l, s.v), alpha)
+        val diffuse = rough * DiffuseModels.EnergyRemaining(d.f0, a.NdotV)
+        val specular = SpecularModels.Ggx(d.f0, a, alpha)
+        return (diffuse + specular) * a.NdotL
+    }
+}
+
+/// Burley's diffuse under the standard GGX lobe: skin, unfinished wood, thin cloth.
+///
+/// Disney's model, and what it buys over Lambert is the retroreflective brightening at grazing angles
+/// that rough dielectrics actually have. Distinct from `SheenShading`, which adds a *lobe* on top and
+/// takes the energy for it out of the base: this one is the base, and its rim is the diffuse term's
+/// own.
+///
+/// Not strictly energy-conserving — the renormalised variants cost more than the difference is worth
+/// — so `DiffuseModels.EnergyRemaining` still does the conservation that matters, which is the light
+/// the specular lobe took.
+shader BurleyShading : IShadingModel {
+    func Shade(d: MaterialData, a: ShadingAngles, s: ShadingVectors, alpha: float): float3 {
+        // `a.VdotH` is `LdotH`: the half vector bisects the view and light directions, so it makes
+        // the same angle with each — see `ShadingAngles.VdotH`, which is why there is no `LdotH`.
+        val retro = DiffuseModels.Burley(d.diffuseColor, a.NdotL, a.NdotV, a.VdotH, alpha)
+        val diffuse = retro * DiffuseModels.EnergyRemaining(d.f0, a.NdotV)
+        val specular = SpecularModels.Ggx(d.f0, a, alpha)
+        return (diffuse + specular) * a.NdotL
+    }
+}
+
 /// A GGX lobe stretched along the tangent: brushed metal, vinyl, satin.
 ///
 /// The half vector is rotated into tangent space here rather than in `Brdf`, because the basis is the

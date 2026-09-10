@@ -2353,6 +2353,28 @@ sealed partial class EditorApplication : IDisposable {
 
                     Contextualise(browser.Tree, assetMenu);
                     Contextualise(browser.Grid, assetMenu);
+
+                    // ⚠ Doc 20 § B1's collections, and the store is the *project's* rather than the
+                    // user's — which is where the saved filters' own comment said this half would
+                    // differ. `EditorPreferences` is one file across every project somebody opens,
+                    // and a set of `AssetId`s means nothing in another project.
+                    // ⚠ A lambda for the same reason the filters are one: `ProjectSettingsStore`
+                    // *replaces* the settings object on `Reload` and `Reset` — a branch switch, a
+                    // Revert — so a panel handed the list would go on showing the collections that
+                    // existed when it was opened.
+                    browser.Collections = () => Collections.Collections;
+
+                    // ⚠ And rebuilt at once, because the constructor has already built the column
+                    // from a source it did not have yet. Without this the shelf is empty every time
+                    // the panel is opened over a project that already has collections — until
+                    // something else happens to rebuild it, which for somebody who only wanted to
+                    // look is never. Same shape as `Sweep()` after `browser.Status`.
+                    browser.Recollect();
+
+                    browser.CollectionCreateRequested += MakeCollection;
+                    browser.CollectionAdded += (assets, name) => AddToCollection(name, assets);
+                    browser.CollectionRemoved += (assets, name) => RemoveFromCollection(name, assets);
+                    browser.CollectionForgotten += ForgetCollection;
                 }
             ) {
                 // ⚠ The other half of holding it, and the crash it prevents is not hypothetical.
@@ -3198,6 +3220,81 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>The browser's saved filters, for the harness.</summary>
     public IReadOnlyList<SavedAssetFilter> AssetFilters => preferences.AssetFilters;
+
+    /// <summary>The project's collections, read through its own settings store.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asked for rather than held.</b> <c>ProjectSettingsStore.Get</c> caches, so every
+    ///     caller gets the same instance — but <c>Reload</c> and <c>Reset</c> replace it, and a field
+    ///     here would be the detached object those two exist to warn about.
+    /// </remarks>
+    AssetCollections Collections => project.Settings.Get<AssetCollections>();
+
+    /// <summary>The project's collections, for the harness.</summary>
+    public IReadOnlyList<SavedAssetSet> AssetCollections => Collections.Collections;
+
+    /// <summary>Asks for a name and puts the assets into a collection under it.</summary>
+    /// <param name="assets">What to seed it with, which may be nothing.</param>
+    /// <remarks>
+    ///     ⚠ <b>The assets are read before the prompt and the name after it</b>, which is
+    ///     <see cref="KeepFilter" />'s bargain the other way round and for the same reason: the
+    ///     browser is behind a modal, so the two moments cannot differ — and what a drag was carrying
+    ///     is a fact about the gesture that ended, not about whatever is selected when the dialog
+    ///     closes.
+    /// </remarks>
+    void MakeCollection(IReadOnlyList<AssetId> assets) {
+        _ = Ask();
+
+        async Task Ask() {
+            var typed = await Shell.Dialogs.PromptAsync(
+                "New Collection",
+                "It is kept with the project, under ProjectSettings, and holds asset ids rather than paths.",
+                confirm: "Create"
+            ).ConfigureAwait(true);
+
+            if (typed is not { Length: > 0 } name || string.IsNullOrWhiteSpace(name)) {
+                return;
+            }
+
+            AddToCollection(name.Trim(), assets);
+        }
+    }
+
+    /// <summary>Puts assets into a collection, making it if it is not there yet.</summary>
+    /// <param name="name">What the collection is called.</param>
+    /// <param name="assets">What goes into it.</param>
+    public void AddToCollection(string name, IReadOnlyList<AssetId> assets) {
+        if (Collections.Add(name, assets)) {
+            WriteCollections();
+        }
+    }
+
+    /// <summary>Takes assets out of a collection, leaving the collection.</summary>
+    /// <param name="name">What the collection is called.</param>
+    /// <param name="assets">What comes out of it.</param>
+    public void RemoveFromCollection(string name, IReadOnlyList<AssetId> assets) {
+        if (Collections.Remove(name, assets)) {
+            WriteCollections();
+        }
+    }
+
+    /// <summary>Forgets a whole collection, which touches no file it named.</summary>
+    /// <param name="name">What it is called.</param>
+    public void ForgetCollection(string name) {
+        if (Collections.Forget(name)) {
+            WriteCollections();
+        }
+    }
+
+    /// <summary>Writes the collections and brings the browser into line with them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Written on every change rather than on the way out</b>, for the reason the
+    ///     preferences are: closing the panel and closing the editor are both ways the change was
+    ///     being lost, and nothing runs on the first of them.
+    /// </remarks>
+    void WriteCollections() {
+        project.Settings.Save<AssetCollections>();
+        browser?.Recollect();
+    }
 
     /// <summary>Brings every open inspector's component section into line with the preferences.</summary>
     /// <remarks>

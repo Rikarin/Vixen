@@ -8,7 +8,7 @@ api: [T:Vixen.Editor.App.SavedAssetFilter]
 tags: [editor, project-browser, assets, preferences, search]
 since: 0.1
 status: preview
-related: [editor/index, editor/external-edits]
+related: [editor/index, editor/collections, editor/external-edits]
 ---
 
 ## What it is
@@ -36,9 +36,9 @@ answers:
 - A **filter** re-runs. A filter named `Widgets` before `widget-b.png` was imported finds it
   afterwards, because what was kept was the word and not the two files it happened to match on the
   day it was named.
-- A **collection** is a set of assets somebody put there on purpose, so it keeps `AssetId`s and
-  survives a file being moved on disk. Storing paths would break on the first move; storing a query
-  would not be a collection at all.
+- A **[collection](collections.md)** is a set of assets somebody put there on purpose, so it keeps
+  `AssetId`s and survives a file being moved on disk. Storing paths would break on the first move;
+  storing a query would not be a collection at all.
 
 ⚠ **The kind is stored as the importer tag and never as the dropdown's `All types` label.** A filter
 that kept the label would come back as a filter for assets whose importer is called "All types" — one
@@ -51,7 +51,8 @@ it then applies as a search alone. That is the same answer the dropdown already 
 better than a filter that hides everything with no way to tell why.
 
 You do not want a saved filter for "the assets in this level" or "the ones I am working on this
-week". Those are collections, and they are not built yet.
+week". Those are [collections](collections.md), which are built and live with the project rather than
+with you — an `AssetId` set means nothing in another project, which is why they are not kept here.
 
 ## Using it
 
