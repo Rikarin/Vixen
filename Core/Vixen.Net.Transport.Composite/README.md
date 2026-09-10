@@ -43,24 +43,42 @@ drops UDP.
 var client = CompositeTransport.Racing([udp, webSocket], stagger: TimeSpan.FromMilliseconds(250));
 ```
 
-Three things about it are worth knowing before reading the code.
+Four things about it are worth knowing before reading the code.
 
-- **The winner is the first transport-level connect, which is not the first completed handshake.** A
-  handshake is `NetworkSession`'s — `ConnectRequest` and `ConnectAccepted` — and an `ITransport` sees
-  connections, disconnections and opaque bytes. The stronger transport-observable signal is *first
-  inbound data*, which is what catches a middlebox that accepts the connection and drops the payload;
-  it is a different signal rather than an expensive version of this one, and it is not built —
-  [#1227](https://github.com/Rikarin/Vixen/issues/1227), which is also where the session-level notion
-  of an attempt stops being avoidable.
-- ⚠ **Nothing above ever learns that a race happened.** Only the winner's connect is reported; a
-  loser's connect, bytes and disconnect are swallowed and the candidate is stopped. That is what makes
-  this implementable without touching the session: a pure client is driven to `SessionState.Stopped`
-  by a disconnect, and its client arm starts a fresh handshake on every connect. The one failure a
-  race does report is every route failing, which is one `OnDisconnected` with the last reason.
-- ⚠ **The stagger is counted in the `elapsed` each `Poll` is handed and never from a clock**, like
-  everything else in this layer whose behaviour depends on time. A failed candidate does not wait it
-  out — the next route starts the moment the failure is observed, because a stagger exists to avoid a
-  wasted attempt and not to make a dead route cost latency.
+- **The winner is the first transport-level connect unless the race is asked to wait for the first
+  inbound byte.** A handshake is `NetworkSession`'s — `ConnectRequest` and `ConnectAccepted` — and an
+  `ITransport` sees connections, disconnections and opaque bytes, so the transport-observable proxy is
+  *first inbound data*. `confirmWithin` is what asks for it, and what a middlebox that accepts the
+  connection and drops the payload costs:
+
+  ```csharp
+  var client = CompositeTransport.Racing([udp, webSocket], confirmWithin: TimeSpan.FromSeconds(1));
+  ```
+
+  A candidate that connects is *provisional*: reported upwards so that something above sends its
+  handshake down it, with the other routes still running. The first byte back confirms it and tears
+  the rest down; silence for `confirmWithin` drops it and promotes the next connected candidate. ⚠ It
+  has to be shorter than whatever the layer above gives up after, and nothing here can check that — a
+  transport cannot see a session's timeout. Zero, the default, is the old behaviour: first connect
+  wins outright.
+- ⚠ **The fallback is a second `OnConnected`, and that is not a problem — it is the mechanism.** The
+  promoted route needs the layer above to send its handshake again, and telling it that it connected
+  is how you ask. `NetworkSession`'s client arm does exactly that by design: it abandons the earlier
+  handshake span and sends a fresh `ConnectRequest`, and its own comment names *"a transport that
+  retries a route"* as the case it keeps that rule for. So no probe is invented here and no
+  session-level notion of an attempt is needed. The session still reports one `Connected`, because
+  that one is raised on the admission rather than on the wire.
+- ⚠ **Nothing above ever learns that a race happened.** A loser's connect, bytes and disconnect are
+  swallowed and the candidate is stopped — including the death of a provisional route, which is what
+  makes the fallback possible at all: a pure client is driven to `SessionState.Stopped` by a
+  disconnect, so forwarding it would end an attempt that still has a route left to try. The one
+  failure a race does report is every route being gone, which is one `OnDisconnected` with the last
+  reason.
+- ⚠ **The stagger and the confirmation budget are both counted in the `elapsed` each `Poll` is handed
+  and never from a clock**, like everything else in this layer whose behaviour depends on time. A
+  failed candidate does not wait either of them out — the next route starts the moment the failure is
+  observed, because a stagger exists to avoid a wasted attempt and not to make a dead route cost
+  latency.
 
 **Capabilities are the pessimistic answer to all three questions.** The smallest `MaxPayloadBytes` of
 any of them, in-process only if all of them are, lossy if any of them is. A caller sizing a buffer
@@ -82,6 +100,13 @@ transport it came in on, and that the capabilities are the conservative ones.
 about *which poll* something happened on rather than how long it took, and one test asserts that the
 winner's own disconnect **is** forwarded — because three of its neighbours assert a disconnect did not
 arrive, and a composite that forwarded no client disconnect at all would pass all three.
+
+`BlackHoleTransport` is the double the confirmation half needs, and it is a different failure from
+`SilentTransport` rather than a variation on it: the silent one never connects, so a race decided on
+the first connect simply passes it by, while the black hole *wins* that race and then swallows
+everything. ⚠ The pairing that makes the fallback tests evidence rather than decoration is
+`WithoutABudgetTheBlackHoleWinsAndTheSessionNeverJoins`, which runs the identical two routes with no
+budget and asserts the session never joins — the defect itself, written down beside its fix.
 
 ## Owed
 
@@ -106,9 +131,22 @@ arrive, and a composite that forwarded no client disconnect at all would pass al
     was owed there was a sentence rather than a behaviour, and it is in the decision above.
 
   ⚠ **And the fourth question, in `Vixen.Net` rather than here, turned out not to block this.** The
-  client arm of `NetworkSession` assumes exactly one connect per client lifetime — and it still does.
-  A race that reports only its winner never tests that assumption, because nothing above is told a
-  losing attempt existed and so nothing above needs telling that it failed. The half of it that was a
-  real defect on its own terms — a second `OnConnected` leaking the first handshake span — is fixed
-  ([#1213](https://github.com/Rikarin/Vixen/issues/1213)); the half that was a design question, a
-  session-level notion of an *attempt* that can fail, has no caller and is not built.
+  half of it that was a real defect on its own terms — a second `OnConnected` leaking the first
+  handshake span — is fixed ([#1213](https://github.com/Rikarin/Vixen/issues/1213)); the half that was
+  a design question, a session-level notion of an *attempt* that can fail, has no caller and is not
+  built.
+
+  ⚠ **What that audit got wrong, and it was recorded twice:** *"the client arm of `NetworkSession`
+  assumes exactly one connect per client lifetime — and it still does."* It does not, and the fix for
+  #1213 is what made it not. `NetworkSession.OnConnected`'s client branch abandons the previous
+  handshake span and starts a new one, and its comment names a transport that retries a route as the
+  reason. That is what let [#1227](https://github.com/Rikarin/Vixen/issues/1227) be built here alone:
+  its body posed step two as a choice between telling the session to connect again and inventing a
+  probe, on the belief that the first was blocked. The first was already available.
+- ~~**First inbound data rather than first connect.**~~ **Built**, `confirmWithin`
+  ([#1227](https://github.com/Rikarin/Vixen/issues/1227)). ⚠ **It is opt-in, and whether it should be
+  the default is a decision nobody has taken.** A budget cannot be chosen here — it has to be shorter
+  than a timeout that lives in the layer above and is not visible from a transport — so defaulting it
+  would mean this file inventing a number for somebody else's timeout. It is also untested against a
+  real middlebox: `BlackHoleTransport` is a faithful model of *accept then swallow*, and a genuine
+  firewall may be slower, partial, or asymmetric in ways no double predicts.
