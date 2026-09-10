@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.App;
 using Vixen.Editor.Core;
@@ -194,6 +195,24 @@ public sealed class EditorSession : IDisposable {
     /// <param name="search">What was in the search box.</param>
     /// <param name="kind">The importer tag, or empty for every kind.</param>
     public void SaveFilter(string name, string search, string kind) => editor.SaveFilter(name, search, kind);
+
+    /// <summary>The project's collections, which unlike the filters are the project's own.</summary>
+    public IReadOnlyList<SavedAssetSet> AssetCollections => editor.AssetCollections;
+
+    /// <summary>Puts assets into a collection the way a drop does, without the drag.</summary>
+    /// <param name="name">What the collection is called; it is made if it is not there.</param>
+    /// <param name="assets">What goes into it.</param>
+    public void AddToCollection(string name, params AssetId[] assets) => editor.AddToCollection(name, assets);
+
+    /// <summary>Takes assets out of a collection the way the menu line does.</summary>
+    /// <param name="name">What the collection is called.</param>
+    /// <param name="assets">What comes out of it.</param>
+    public void RemoveFromCollection(string name, params AssetId[] assets) =>
+        editor.RemoveFromCollection(name, assets);
+
+    /// <summary>Forgets a collection the way the menu line does.</summary>
+    /// <param name="name">What it is called.</param>
+    public void ForgetCollection(string name) => editor.ForgetCollection(name);
 
     /// <summary>The focused pane, or <see langword="null" /> while the scene panel is closed.</summary>
     public SceneViewport? Viewport => editor.Viewport;
