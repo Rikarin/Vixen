@@ -239,24 +239,7 @@ public sealed class SpriteSheetView : Control {
         document = texture;
         texture.SpritesChanged += Reload;
 
-        source = TextureLadder.TryDecode(texture.AssetPath, out var reason);
-
-        // ⚠ Grid slicing needs the extent and automatic slicing needs the alpha, so a texture nothing
-        // could decode has no sprite editor at all — and says so rather than showing an empty canvas
-        // with buttons that quietly do nothing.
-        var usable = SpriteSlicer.CanReadAlpha(source);
-
-        if (usable) {
-            Unavailable.AddClass("hidden");
-        } else {
-            Unavailable.RemoveClass("hidden");
-
-            Unavailable.Message = reason
-                ?? "The pixels are in a format this build cannot look at, so there is nothing to slice. "
-                + "A compressed source has to be decoded first.";
-        }
-
-        SliceButton.Disabled = !usable;
+        Decode(texture);
 
         Selected = document.Sprites.Count > 0 ? 0 : -1;
 
@@ -270,6 +253,46 @@ public sealed class SpriteSheetView : Control {
         }
 
         Restate();
+    }
+
+    /// <summary>Reads the sheet again, for a file that was repainted while this was open.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The rects are kept and only the pixels move —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1207">#1207</a>.</b> A slice is import
+    ///     settings and a repaint is not an edit to them, so re-running <see cref="Show" /> would
+    ///     drop the author's selection and re-run the whole panel to change one field.
+    ///     <c>TexturePreviewImages</c> compares <see cref="Source" /> by reference, so the new
+    ///     <c>TextureData</c> is what makes the sheet under the overlay be re-uploaded.
+    /// </remarks>
+    public void Redecode() {
+        if (document is { } texture) {
+            Decode(texture);
+            Restate();
+        }
+    }
+
+    /// <summary>Reads the file into <see cref="Source" /> and says why there is no editor if it could not.</summary>
+    /// <remarks>
+    ///     ⚠ Grid slicing needs the extent and automatic slicing needs the alpha, so a texture
+    ///     nothing could decode has no sprite editor at all — and says so rather than showing an
+    ///     empty canvas with buttons that quietly do nothing.
+    /// </remarks>
+    void Decode(TextureImportDocument texture) {
+        source = TextureLadder.TryDecode(texture.AssetPath, out var reason);
+
+        var usable = SpriteSlicer.CanReadAlpha(source);
+
+        if (usable) {
+            Unavailable.AddClass("hidden");
+        } else {
+            Unavailable.RemoveClass("hidden");
+
+            Unavailable.Message = reason
+                ?? "The pixels are in a format this build cannot look at, so there is nothing to slice. "
+                + "A compressed source has to be decoded first.";
+        }
+
+        SliceButton.Disabled = !usable;
     }
 
     /// <summary>Cuts the texture with the options the toolbar is asking for.</summary>
