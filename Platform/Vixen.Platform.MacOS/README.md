@@ -22,6 +22,7 @@ if (platform.Power.Thermal >= ThermalState.Serious) {
 | **Thermal state** | `NSProcessInfo.thermalState`, which is where `ThermalState`'s four levels came from. |
 | **Low power mode** | `NSProcessInfo.isLowPowerModeEnabled`. |
 | **Processor classes** | `hw.perflevel*`, so an Apple silicon worker pool is sized from real numbers. |
+| **Answering a selector** | `objc_allocateClassPair` / `class_addMethod`, so a managed method can be an IMP. |
 
 ## The decisions
 
@@ -34,6 +35,29 @@ the selector it is sending. No Xamarin.Mac bindings.
 **The frameworks are `dlopen`ed first.** A .NET process on macOS links neither Foundation nor
 AppKit, so `objc_getClass("NSPasteboard")` answers with nothing until something has loaded the
 framework that defines it.
+
+**Sending is half of it, and `ObjCRuntime.cs` is the other half.** `NSAccessibility`,
+`NSApplicationDelegate` and `NSTextInputClient` are *pull* protocols: AppKit asks an object, and
+until a Vixen object can be that object there is no bridge to write. So there is
+`objc_allocateClassPair` / `class_addMethod` / `objc_registerClassPair`, with the IMPs supplied as
+`[UnmanagedCallersOnly]` static methods — which is also what keeps it NativeAOT-clean, and iOS is
+AOT-only — and a side table keyed by the instance pointer rather than an ivar, because
+`class_addIvar` means layout arithmetic over a declaration this side never sees.
+
+⚠ **A type encoding is never checked and a wrong one is not an error.** Dispatch does not read one:
+`objc_msgSend` jumps to the IMP with whatever ABI the *caller* assumed, so a wrong encoding is
+invisible until something introspects — `NSInvocation`, forwarding, KVC, or a framework building an
+`NSMethodSignature` to decide how to call you. `ObjCTypes` therefore spells the needed encodings out
+as constants, and the tests read each one back through Foundation rather than trusting what was
+passed in.
+
+⚠ **And a test that calls the selector from managed code proves nothing about any of this** — it
+never leaves the runtime and would pass against a shim that invoked a delegate. `ObjCRuntimeTests`
+asserts on what *Objective-C* did instead: `-[NSArray description]` fetching an element's
+description, and an `NSInvocation` built from our encoding returning a `BOOL` a managed method
+produced. ⚠ The obvious third route does not work and is written down where it was tried:
+`-[NSArray indexOfObject:]` sends `isEqual:` to the **argument**, not to the elements, so an
+equality override on an object in a collection is not what decides a lookup in it.
 
 **Affinity is not offered, and that is Apple's decision.** `THREAD_AFFINITY_POLICY` was always
 documented as a hint about which threads share cache rather than a request for a processor, and it
