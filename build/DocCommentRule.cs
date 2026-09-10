@@ -193,10 +193,11 @@ static class DocCommentRule {
     /// <returns>One finding per problem, in source order; empty when the file is clean.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>Three questions, all of them syntactic.</b> Does a block carry two of a tag a member
+    ///         <b>Four questions, all of them syntactic.</b> Does a block carry two of a tag a member
     ///         has one of; does it name one parameter twice; does it name a parameter the member the
-    ///         block is attached to does not have. Each is a property of the block and the following
-    ///         declaration alone, which is why no compilation and no workspace is needed.
+    ///         block is attached to does not have; is it attached to a local function, where the
+    ///         compiler discards it. Each is a property of the block and the following declaration
+    ///         alone, which is why no compilation and no workspace is needed.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A block attached to nothing is left alone deliberately.</b> A doc comment before a
@@ -263,6 +264,14 @@ static class DocCommentRule {
                 continue;
             }
 
+            if (owner is LocalFunctionStatementSyntax) {
+                findings.Add(new(file, line, Discarded(owner)));
+
+                // The block reaches no XML file at all, so what it says about parameters is moot:
+                // there is nothing to be wrong about. One finding, and it is the whole block.
+                continue;
+            }
+
             var declared = Parameters(owner);
 
             // ⚠ No parameter list and an empty one read the same to the person holding the comment,
@@ -299,6 +308,37 @@ static class DocCommentRule {
 
         return findings.OrderBy(finding => finding.Line).ToList();
     }
+
+    /// <summary>What to say about a block the compiler throws away.</summary>
+    /// <param name="owner">The local function it is attached to.</param>
+    /// <returns>The message the gate fails with.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A <c>///</c> block on a local function is CS1587 and the compiler discards
+    ///         it</b> (<a href="https://github.com/Rikarin/Vixen/issues/1219">#1219</a>). The prose
+    ///         is in the file and reads as documentation to anybody opening it; it reaches no XML
+    ///         file, no IDE tooltip and no doc generator. Two were found the moment
+    ///         <c>GenerateDocumentationFile</c> was turned on for their projects, and one of them —
+    ///         <c>Vixen.TaffyTestGen</c>'s <c>Consolidate</c> — was eleven lines explaining why
+    ///         5 500 fixtures are carried verbatim rather than translated.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Turning the warning on cannot reach where the defect is likeliest.</b>
+    ///         <c>GenerateDocumentationFile</c> is off for the compiler-plugin profile and for the
+    ///         fifteen tooling projects outside #821's ratchet — including every
+    ///         <c>Tools/Vixen.Templates/templates/**</c> project, and a template is made of
+    ///         top-level statements, where <em>every</em> function is a local function. A
+    ///         command-line census does not reach them either: <c>-p:NoWarn=…</c> <em>replaces</em>
+    ///         <c>$(NoWarn)</c> rather than appending, so suppressing CS1591 and CS1573 the obvious
+    ///         way suppresses CS1587 too unless it is spelled out. Which is the argument for asking
+    ///         it here, where no project file has a say.
+    ///     </para>
+    /// </remarks>
+    static string Discarded(SyntaxNode owner) =>
+        $"this doc comment block is attached to the local function {Describe(owner)}, where a `///` block is "
+        + "CS1587 — the compiler discards it, so it reaches no XML file, no tooltip and no doc generator "
+        + "however carefully it is written. Make it a `//` comment, or move it onto a member that can carry "
+        + "documentation.";
 
     /// <summary>The XML elements directly inside a doc comment block, with their <c>name</c>.</summary>
     /// <param name="block">The parsed block.</param>

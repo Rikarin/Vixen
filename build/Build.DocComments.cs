@@ -101,6 +101,17 @@ partial class Build {
             + "documentation trivia — before trusting the clean sweep below."
         );
 
+        // ⚠ A second fixture rather than a fourth defect in the first, because a count over one
+        // fixture is satisfied by any one check still firing. The tree's true answer to this
+        // question is "none", so the sweep below cannot tell a clean repository from a check that
+        // was never asked — which is the state #1219's rule would ship in without this line.
+        Assert.True(
+            DocCommentRule.Check("fixture.cs", DiscardedFixture).Count > 0,
+            "The doc comment rule found nothing in a `///` block attached to a local function, which is CS1587 "
+            + "and is discarded by the compiler. That check did not run — and its answer on this tree is "
+            + "\"none\", so nothing else here would have said so."
+        );
+
         if (UpdateExemptions) {
             WriteDocCommentExemptions(findings);
 
@@ -156,6 +167,27 @@ partial class Build {
             /// <param name="entry">The external the compilation could not fill.</param>
             /// <returns>Null when it was uploaded.</returns>
             static string? Resolve(int entry) => null;
+        }
+        """;
+
+    /// <summary>A <c>///</c> block the compiler discards, so that a run can prove that check fires.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Reduced from <c>SubGraphs.Held</c>, whose block said what the local function
+    ///     answers and reached no XML file, no tooltip and no doc generator</b>
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1219">#1219</a>). It is separate from
+    ///     <see cref="StapledFixture" /> because that one trips three checks at once and a count
+    ///     over it is satisfied by any one of them.
+    /// </remarks>
+    const string DiscardedFixture = """
+        namespace Fixture;
+
+        static class Flattener {
+            static void Flatten() {
+                /// <summary>The constant behind a wire that runs back to an entry port nobody fed.</summary>
+                static int Held(int upstream) => upstream;
+
+                Held(0);
+            }
         }
         """;
 
