@@ -675,11 +675,19 @@ white-space / nowrap              the container-level suppression of line breaki
                                   `LineWrapper.Width`'s trailing trim at :779, and UAX #14's LB7/LB18
                                   in `LineBreaker` — and `WhiteSpaceBreakSpacesTests` pins the current
                                   answer to each, sabotage-checked at both. ⚠ Measuring that also
-                                  turned up a defect rather than a gap, filed as #1211: the trim
-                                  reaches the line's reported width only where the wrapper chose the
-                                  break, so a right-aligned label ending in two spaces draws 8.31
-                                  points short of its edge — the ragged edge that trim's own remark
-                                  says it exists to prevent.
+                                  turned up #1211, and #1211 turned out to be half wrong — the half
+                                  it named. The trim reaches the line's reported width only where the
+                                  wrapper chose the break, so a right-aligned label ending in two
+                                  spaces draws 8.31 points short of its edge; measured in Chrome 152
+                                  that is what the browser draws. Preserved trailing white space
+                                  hangs at a SOFT WRAP and nowhere else — not at the end of the
+                                  text, not before a forced break — so the untrimmed line box is
+                                  right and it is the wrapper that is wrong on its LAST line, which
+                                  is #1237. What #1211 really found is the other question: an
+                                  intrinsic measure never counts hanging white space (CSS Text
+                                  § 5.2), and `TextLayout.Width` was reading the same untrimmed
+                                  number the alignment reads. Separated as `TextLine.Trimmed`;
+                                  `TrailingSpaceAlignmentTests` holds the four measurements.
 text-overflow: ellipsis           ⚠ THE ROW IS THE INLINE-LEVEL HALF AND THE PROPERTY IS NOT OWED,
                                   which is worth saying first because doc 43's B3 row and #249's own
                                   comments have listed the bare property name as owed since weeks

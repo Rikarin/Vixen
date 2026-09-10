@@ -750,11 +750,24 @@ public static class LineWrapper {
 
     /// <summary>How wide a range is, ignoring whitespace at its end.</summary>
     /// <remarks>
-    ///     ⚠ <b>Trailing whitespace does not count towards the width</b>, which is not a nicety. A
-    ///     break opportunity falls <i>after</i> a space, so the space belongs to the line before it;
-    ///     counting it would mean a line ending in a space wraps a word earlier than one that does
-    ///     not, and a right-aligned paragraph would come out with a ragged right edge made of
-    ///     invisible characters.
+    ///     <para>
+    ///         ⚠ <b>Trailing whitespace does not count towards the width</b>, which is not a nicety.
+    ///         A break opportunity falls <i>after</i> a space, so the space belongs to the line
+    ///         before it; counting it would mean a line ending in a space wraps a word earlier than
+    ///         one that does not, and a right-aligned paragraph would come out with a ragged right
+    ///         edge made of invisible characters.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That second half is true of a line this wrapper <i>broke</i> and overstated for
+    ///         the one it did not.</b> CSS Text § 4.1.3 hangs preserved trailing white space at a
+    ///         soft wrap, and browsers hang it there and nowhere else: measured in Chrome 152, a
+    ///         right-aligned <c>pre-wrap</c> line ending the text with two spaces draws its glyphs
+    ///         short of the box's right edge by exactly those spaces, and so does one ending at a
+    ///         forced break. This measure is the <i>fit</i> question and stays as it is for every
+    ///         range; what a line reports for <c>text-align</c> is <c>Vixen.Ui</c>'s
+    ///         <c>TextLine.Width</c>, and the two are not obliged to agree on the last line.
+    ///         <c>Rikarin/Vixen#1211</c> is where that was worked out.
+    ///     </para>
     /// </remarks>
     /// <param name="text">The paragraph.</param>
     /// <param name="advances">One entry per UTF-16 index.</param>

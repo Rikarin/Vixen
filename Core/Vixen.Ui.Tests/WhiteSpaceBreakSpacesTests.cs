@@ -47,15 +47,21 @@ namespace Vixen.Ui.Tests;
 ///         only place the two answers differ.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The trim reaches the line's reported width only where the wrapper chose the
-///         break, and the gap is a defect rather than this keyword's business.</b> The wrapped line
-///         <c>[0,7)</c> below reports 40.29 — trimmed — while a paragraph whose single line is
-///         <c>ab</c> and two spaces reports 26.99 against <c>ab</c>'s 18.68. <c>DrawListBuilder</c>
-///         takes its alignment slack from that width, so a right-aligned label ending in two spaces
-///         draws 8.31 points short of the edge: exactly the ragged edge
-///         <c>LineWrapper.Width</c>'s own remark says the trim exists to prevent. Filed as
-///         <a href="https://github.com/Rikarin/Vixen/issues/1211">#1211</a>. ⚠ Whatever fixes it has
-///         to put the trim behind the same value <c>break-spaces</c> switches, or the two fight.
+///         ⚠ <b>The trim reaches the line's reported width only where the wrapper chose the break,
+///         and that turned out to be right rather than a defect.</b> The wrapped line <c>[0,7)</c>
+///         below reports 40.29 — trimmed — while a paragraph whose single line is <c>ab</c> and two
+///         spaces reports 26.99 against <c>ab</c>'s 18.68, and <c>DrawListBuilder</c> takes its
+///         alignment slack from that width. <a href="https://github.com/Rikarin/Vixen/issues/1211">#1211</a>
+///         called the resulting shift the ragged edge <c>LineWrapper.Width</c>'s own remark says the
+///         trim exists to prevent; measured in Chrome 152 it is what the browser draws. Preserved
+///         trailing white space hangs at a <i>soft wrap</i> and nowhere else — not at the end of the
+///         text, not before a forced break — so the untrimmed line box is the browser's answer and
+///         the trimmed one is right for the wrapped line above it. What was wrong is the other
+///         question: an intrinsic measure never counts hanging white space, and
+///         <c>TextLayout.Width</c> was reading the same untrimmed number it aligns by.
+///         <c>TrailingSpaceAlignmentTests</c> holds the four measurements and
+///         <c>TextLine.Trimmed</c> is the separation. ⚠ Both halves still have to end up behind the
+///         one value <c>break-spaces</c> switches, or the two fight.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Both tests assert the engine as it stands and are meant to go red on the day the
