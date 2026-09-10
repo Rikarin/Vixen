@@ -1252,7 +1252,16 @@ static class StandardFrame {
         }
 
         if (tier.Vignette) {
-            nodes.Add(new VignetteAsset { Name = "Glass", Source = colour, Output = frame.Output });
+            // ⚠ `UseDither` is not a tier knob and is on wherever this node is, because it is a
+            // quantisation fix rather than a look: the noise breaks up the step the *final encode*
+            // makes, so it belongs to the last node in the chain and to no fidelity setting. Its
+            // amplitude is one code of the stored value and follows the attachment rather than an
+            // author's belief about it — `VignetteRenderer.Configure` sets `SrgbTarget` from
+            // `PixelFormat.IsSrgb()`, and `VignetteAsset.Format` defaults to `Rgba8UNormSrgb`.
+            //
+            // ⚠ Which means the two tiers with no vignette have no dither either, because this seat
+            // is the vignette's. That is a gap rather than a decision — see #1243.
+            nodes.Add(new VignetteAsset { Name = "Glass", Source = colour, Output = frame.Output, UseDither = true });
         }
 
         Splice(nodes, frame.Extensions.BeforeUi);

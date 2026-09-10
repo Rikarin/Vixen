@@ -430,6 +430,43 @@ public class StandardFrameTests {
         Assert.Equal(volumetric, names.Contains("Volumetrics"));
     }
 
+    /// <summary>The lens node dithers wherever the tier emits one, and no tier turns it off.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not a tier knob, and that is the assertion.</b> A dither is what stops an
+    ///         eight-bit encode banding a shallow gradient — a quantisation fix rather than a look —
+    ///         so it belongs to whichever node is last in the chain and to no fidelity setting. The
+    ///         seat is the vignette's because that node already runs dead last, after the tonemap and
+    ///         after the grain; dithering before a curve dithers the wrong quantity.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is why the two tiers with no vignette are asserted to have no lens node at
+    ///         all rather than one that does not dither</b> — the gap is real and is
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/1243">#1243</see>, and writing it
+    ///         down as "Low has a node whose dither is off" would record the wrong reason.
+    ///     </para>
+    ///     <para>
+    ///         The amplitude is not asserted here because it is not the document's: it is one code of
+    ///         the <em>stored</em> value, and <c>VignetteRenderer.Configure</c> derives the encode's
+    ///         local slope from <c>PixelFormat.IsSrgb()</c> on the attachment. <c>DitherImageTests</c>
+    ///         is what holds that against a device.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(QualityTier.Low, false)]
+    [InlineData(QualityTier.Medium, false)]
+    [InlineData(QualityTier.High, true)]
+    [InlineData(QualityTier.Epic, true)]
+    public void The_lens_node_dithers_wherever_there_is_one(QualityTier quality, bool lens) {
+        var document = Expand(AllOn with { Quality = quality });
+
+        Assert.Equal(lens, Names(document).Contains("Glass"));
+
+        if (lens) {
+            Assert.True(Node<VignetteAsset>(document, "Glass").UseDither);
+        }
+    }
+
     /// <summary>The tier decides whether the volume draws beams or a glow.</summary>
     /// <remarks>
     ///     ⚠ Both tiers that fill a volume shadow it today, so this pins the wiring rather than a
