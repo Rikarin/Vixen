@@ -214,14 +214,14 @@
     public void Show(TextureImportDocument texture) {
         ArgumentNullException.ThrowIfNull(texture);
 
-        document.Value = texture;
-        decoded.Value = TextureLadder.TryDecode(texture.AssetPath, out var why);
-
-        if (why is not null) {
-            reason.Value = why;
+        if (document.Value is { } previous) {
+            previous.SourceChanged -= Redecoded;
         }
 
-        quiet.Value = why is null;
+        document.Value = texture;
+        texture.SourceChanged += Redecoded;
+
+        Decode(texture);
 
         SettingsView.Show(texture);
         Sprites.Show(texture);
@@ -239,6 +239,56 @@
 
         Refresh();
     }
+
+    /// <summary>Reads the file again and shows what it says now.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What <see cref="Show" /> did once and only once —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1207">#1207</a>.</b>
+    ///         <see cref="decoded" /> was written in <c>Show</c> and nowhere else, so a
+    ///         <c>.png</c> repainted in another program kept its old preview, its old ladder and its
+    ///         old channel views for as long as the tab stayed open — and pressing a channel button
+    ///         redrew, from the same stale pixels.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The settings are deliberately not touched.</b> A repaint changes the picture and
+    ///         says nothing about how it is imported, so re-running <c>Show</c> would throw away
+    ///         whatever the author had typed into the panel beside it — and would reset the sprite
+    ///         selection they were mid-edit in.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="ViewChanged" /> at the end, because the pixels live one assembly
+    ///         away.</b> <c>TexturePreviewImages</c> is what uploads, it guards on the decoded
+    ///         <c>TextureData</c> being a different object, and this is the only path that ever makes
+    ///         it one. Without the event the panel would hold the new bytes and go on showing the old
+    ///         texture.
+    ///     </para>
+    /// </remarks>
+    public void Redecode() {
+        if (document.Value is not { } texture) {
+            return;
+        }
+
+        Decode(texture);
+        Sprites.Redecode();
+        Refresh();
+
+        ViewChanged?.Invoke(this);
+    }
+
+    /// <summary>Reads the file into <see cref="decoded" /> and says why if it could not.</summary>
+    void Decode(TextureImportDocument texture) {
+        decoded.Value = TextureLadder.TryDecode(texture.AssetPath, out var why);
+
+        if (why is not null) {
+            reason.Value = why;
+        }
+
+        quiet.Value = why is null;
+    }
+
+    /// <summary>The picture this panel is open on changed on disk.</summary>
+    void Redecoded(TextureImportDocument _) => Redecode();
 
     /// <summary>Turns a channel on or off.</summary>
     /// <param name="channel">Which one.</param>

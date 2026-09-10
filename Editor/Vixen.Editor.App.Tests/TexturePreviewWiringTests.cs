@@ -268,7 +268,162 @@ public class TexturePreviewWiringTests {
         Assert.DoesNotContain(sheet, surface.Released);
     }
 
+    /// <summary>
+    ///     Issue 1207: repainting the file the editor is open on and refreshing shows the new
+    ///     texels, in both panes.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The oracle is the uploaded bytes, because the preview is drawn correctly the
+    ///         whole time — just of the wrong pixels.</b> <c>TextureImportView.Show</c> was the only
+    ///         thing that ever decoded, and it runs when the tab is created, so a repainted
+    ///         <c>.png</c> kept the picture it had when it was opened until the tab was closed and
+    ///         reopened. A test that asserted a texture id or that something was drawn would have
+    ///         passed against every version of that defect.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The middle assertion asserts the defect, which is what makes the last one
+    ///         meaningful.</b> Nothing has told the panel yet, so it is still showing the old shade —
+    ///         and the shades are two values neither of which a decoder produces by accident, so a
+    ///         path that uploaded nothing at all could not read back as either.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Refreshing_shows_a_repainted_file_rather_than_the_pixels_the_tab_opened_on() {
+        using var session = EditorSession.Start();
+        var surface = Attach(session);
+        var view = Open(session);
+
+        // ⚠ Read back through the image the pane is *pointing at* rather than by position in the
+        // list. The same surface feeds the browser's thumbnails, so a decode landing on a pool
+        // thread can arrive between these assertions — and what is being asked is what this pane
+        // shows, which is a question the id answers exactly.
+        Assert.Equal(Red, Shown(surface, view.Preview.Texture));
+        Assert.Equal(Red, Shown(surface, view.Sprites.Preview.Texture));
+
+        Repaint(session, Repainted);
+
+        // The file on disk has moved and nothing has said so: both panes are still the old bytes.
+        Assert.Equal(Red, Shown(surface, view.Preview.Texture));
+        Assert.Equal(Red, view.Source!.Level(0)[0]);
+
+        session.Run("assets.refresh");
+        session.Frames(1);
+
+        // Both panes now show the shade that is on disk, which is a second upload of each.
+        Assert.Equal(Repainted, Shown(surface, view.Preview.Texture));
+        Assert.Equal(Repainted, Shown(surface, view.Sprites.Preview.Texture));
+
+        // And the panel's own decodes moved with them, which is what the mip ladder and the
+        // slicer read rather than the pictures above.
+        Assert.Equal(Repainted, view.Source!.Level(0)[0]);
+        Assert.Equal(Repainted, view.Sprites.Source!.Level(0)[0]);
+    }
+
+    /// <summary>
+    ///     ⚠ And the settings the author was typing survive it — a repaint is not an edit to how the
+    ///     file is imported.
+    /// </summary>
+    /// <remarks>
+    ///     <b>The instrument check on the fix rather than on the defect.</b> The obvious way to make
+    ///     the assertion above pass is to re-run <c>Show</c>, which rebinds the inspector, re-reads
+    ///     the sidecar and resets the sprite selection — turning somebody else's Ctrl+S into a
+    ///     discard of unsaved settings. The decode is the only thing that may move.
+    /// </remarks>
+    [Fact]
+    public void A_repaint_does_not_discard_the_settings_being_edited() {
+        using var session = EditorSession.Start();
+
+        Attach(session);
+
+        var view = Open(session);
+        var document = (TextureImportDocument) session.Project.Documents.OfType<TextureImportDocument>().Single();
+
+        document.Texture.MaxSize = 512;
+        document.Texture.GenerateMips = false;
+
+        Repaint(session, Repainted);
+        session.Run("assets.refresh");
+        session.Frames(1);
+
+        Assert.Equal(512, document.Texture.MaxSize);
+        Assert.False(document.Texture.GenerateMips);
+        Assert.Equal(Repainted, view.Source!.Level(0)[0]);
+    }
+
+    /// <summary>
+    ///     ⚠ The other route in: a watcher naming the file, which is what an external program's
+    ///     Ctrl+S becomes — and an unrelated file must not cost a decode.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The path is the whole of the filter, and the negative half is the instrument.</b>
+    ///         <c>EditorProject.AnnounceFileChanged</c> is called once per drained change per open
+    ///         document, so a handler that redecoded on every announcement would pass the positive
+    ///         assertion here and make somebody else's save cost one PNG decode per open texture
+    ///         editor. The two halves are asserted with the same mechanism in the same test.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Asserted on <c>Source</c> being the <em>same object</em> rather than on the shade,
+    ///         because a redecode of an unchanged file produces identical texels — the whole failure
+    ///         being guarded against is invisible in the pixels.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_watched_change_to_the_file_redecodes_and_one_to_another_file_does_not() {
+        using var session = EditorSession.Start();
+
+        Attach(session);
+
+        var view = Open(session);
+        var before = view.Source;
+
+        Assert.NotNull(before);
+
+        Repaint(session, Repainted);
+
+        // Something else in the project moved. Nothing about this file changed, so nothing decodes.
+        session.Project.AnnounceFileChanged("Assets/somebody-else.png");
+        session.Frames(1);
+
+        Assert.Same(before, view.Source);
+
+        // And now the file itself, named the way `ExternalEdits` names it — project-relative.
+        session.Project.AnnounceFileChanged("Assets/hero.png");
+        session.Frames(1);
+
+        Assert.NotSame(before, view.Source);
+        Assert.Equal(Repainted, view.Source!.Level(0)[0]);
+    }
+
     // ── The fixture ──────────────────────────────────────────────────────────
+
+    /// <summary>The shade the file is given when it is repainted, which no decoder invents.</summary>
+    const byte Repainted = 33;
+
+    /// <summary>The first red byte of whatever was uploaded under an image id.</summary>
+    /// <remarks>
+    ///     The recording surface hands out ids from one upward, so the id a pane is pointing at is
+    ///     the position in the list plus one — which is what makes "what is this pane showing"
+    ///     answerable without depending on how many other things uploaded in between.
+    /// </remarks>
+    static byte Shown(Recording surface, ulong image) {
+        Assert.NotEqual(0ul, image);
+        Assert.InRange(image, 1ul, (ulong) surface.Uploads.Count);
+
+        return surface.Uploads[(int) image - 1].Pixels[0];
+    }
+
+    /// <summary>Writes the same file again in one flat shade, as another program would.</summary>
+    static void Repaint(EditorSession session, byte shade) {
+        var absolute = session.Project.Paths.Absolute("Assets/hero.png");
+        var pixels = new byte[Width * Height * 4];
+
+        Array.Fill(pixels, shade);
+
+        File.WriteAllBytes(absolute, MinimalPng.Write(Width, Height, pixels));
+    }
+
 
     const byte Red = 200;
     const byte Green = 100;

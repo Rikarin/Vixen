@@ -75,6 +75,25 @@ public class EditorCombinatorPairTests {
     /// <summary>The panels sweep, plus the two overlays the editor's own chrome puts over them.</summary>
     const string OverlayCensusFile = "Editor/Vixen.Editor.App.Tests/OverlayEditorCombinatorPairs.txt";
 
+    /// <summary>The residue: every declared pairing no sweep proves, each with the reason it does not.</summary>
+    const string UnprovedFile = "Editor/Vixen.Editor.App.Tests/UnprovedCombinatorPairs.txt";
+
+    /// <summary>
+    ///     The controls' own proofs, which this assembly cannot re-run and can read.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Committed rather than measured, unlike everything else joined here, because
+    ///     <c>LiveCombinatorPairTests</c> is in <c>Vixen.Ui.Controls.Advanced.Tests</c> and builds
+    ///     control types this assembly has no reason to reference. Its own tests hold both files
+    ///     exactly and in both directions, so a row in them is a proof somebody else keeps honest —
+    ///     and a file that went missing takes proofs out of the join, which reddens the pair gate
+    ///     rather than quietening it.
+    /// </remarks>
+    static readonly string[] ControlCensusFiles = [
+        "Core/Vixen.Ui.Controls.Advanced.Tests/LiveCombinatorPairs.txt",
+        "Core/Vixen.Ui.Controls.Advanced.Tests/SeededCombinatorPairs.txt"
+    ];
+
     /// <summary>Set <c>VIXEN_REGENERATE=1</c> to write the census back instead of asserting it.</summary>
     static bool Regenerating => Environment.GetEnvironmentVariable("VIXEN_REGENERATE") is "1";
 
@@ -571,6 +590,102 @@ public class EditorCombinatorPairTests {
         Assert.True(domain.Count >= 60, $"the domain is {domain.Count} rows, which is not the committed one.");
     }
 
+    /// <summary>
+    ///     ⚠ #531's pair gate: for every <c>A &gt; B</c> a sheet declares, does an <c>A &gt; B</c>
+    ///     occur anywhere at all?
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The negative half, which ten passes of this machinery built the evidence for and
+    ///         none of them turned into a gate.</b> Every census here is a set of <em>proofs</em> and
+    ///         says nothing about the rest of the domain — deliberately, and each comment on the
+    ///         issue says so. What was missing is the join: a declared pairing that no sweep proves
+    ///         and that nobody has explained is now a red test rather than a row somebody might
+    ///         notice. That is the <c>compositor-editor &gt; node-canvas</c> shape exactly: two real
+    ///         tags that never meet, invisible to every reach test in the tree, and the compositor's
+    ///         graph was drawn at zero width for as long as it stood.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The proofs are the four LIVE sweeps plus the controls' two COMMITTED censuses,
+    ///         and the asymmetry is forced.</b> <c>LiveCombinatorPairTests</c> runs in another
+    ///         assembly and cannot be called from here; its censuses are held exactly in both
+    ///         directions by its own tests, so reading them is reading a proof somebody else keeps
+    ///         honest. Only one row of the domain rests on that — <c>split-view &gt; split-bar</c>,
+    ///         which the editor never builds — and if either file were to vanish the join loses
+    ///         proofs and this test goes <em>red</em>, which is the safe direction.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this prints on the day it does not run.</b> A sweep that reads an empty tree
+    ///         proves nothing, so the residue becomes the whole domain and 83 rows are missing from
+    ///         the list — loudly. The failure mode a floor cannot survive is the opposite one, and it
+    ///         is why <see cref="UnprovedFile" /> is not regenerable: a census written back from a
+    ///         broken run would record the degradation as the new truth, and the reasons — the whole
+    ///         value of the file — would be replaced by whatever a generator invents.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A listed pairing that becomes proved fails too, so the list can only shrink.</b>
+    ///         An expiry list nobody prunes stops describing anything, which is the lesson
+    ///         <c>WhitespaceExempt.txt</c> and <c>RefusalExpiry.txt</c> already carry.
+    ///     </para>
+    ///     <para>
+    ///         <b>What it is not.</b> A pairing proved <em>somewhere</em> is not a pairing that is
+    ///         right <em>where the rule scopes it</em>: <c>fact-value &gt; numeric-input</c> is live
+    ///         under <c>shape-fields</c> and was dead under <c>node-inspector</c>, and this gate
+    ///         cannot tell those apart. The scoped gate #531 also asks for is still unbuilt.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_declared_pairing_is_proved_by_a_sweep_or_named_here() {
+        var root = Root();
+        var domain = Domain(Path.Combine(root, DomainFile));
+
+        // ⚠ The domain floor first, because every set difference below is empty against an empty
+        // domain — the one way this test can pass by not running.
+        Assert.True(domain.Count >= 60, $"the domain is {domain.Count} rows, which is not the committed one.");
+
+        var proved = new HashSet<string>(Observed, StringComparer.Ordinal);
+
+        proved.UnionWith(Opened);
+        proved.UnionWith(Documents);
+        proved.UnionWith(Overlays);
+
+        foreach (var file in ControlCensusFiles) {
+            proved.UnionWith(Census(Path.Combine(root, file), file));
+        }
+
+        var listed = Reasons(Path.Combine(root, UnprovedFile));
+        var residue = domain.Where(pair => !proved.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+
+        var unexplained = residue.Where(pair => !listed.Contains(pair)).ToList();
+        var explained = listed.Where(pair => !residue.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+
+        Assert.True(
+            unexplained.Count == 0,
+            $"""
+             Declared by a sheet and built by nothing this suite runs:
+             {Lines(unexplained)}
+
+             Chase each one. If it has a producer no sweep reaches, add it to {UnprovedFile} with the
+             file:line that builds it and why. If it has NO producer, the rule is dead — correct or
+             delete it, as `palette-row > text` was.
+             """
+        );
+
+        Assert.True(
+            explained.Count == 0,
+            $"""
+             ⚠ In {UnprovedFile} and now PROVED, so the row has expired:
+             {Lines(explained)}
+
+             Delete each of these lines. This list can only shrink.
+             """
+        );
+
+        TestContext.Current.TestOutputHelper?.WriteLine(
+            $"pair gate: {domain.Count} declared, {domain.Count - residue.Count} proved, {residue.Count} unproved and named"
+        );
+    }
+
     /// <summary>Starts an editor and reads the tree that grew, with nothing poked.</summary>
     /// <remarks>
     ///     <para>
@@ -815,6 +930,29 @@ public class EditorCombinatorPairTests {
     static List<string> Domain(string path) => Rows(path, DomainFile).Select(static row => row.Split('\t')[0].Trim()).ToList();
 
     static HashSet<string> Census(string path, string name) => Rows(path, name).ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>The pairings named in the residue file, without their reasons.</summary>
+    /// <remarks>
+    ///     ⚠ A row with no reason is refused rather than read as a bare pairing. The reason column is
+    ///     what makes this file an explanation instead of a second census, and a line that lost its
+    ///     tab would silently turn an explained row into an unexplained one that still passes.
+    /// </remarks>
+    static HashSet<string> Reasons(string path) {
+        var pairs = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var row in Rows(path, UnprovedFile)) {
+            var columns = row.Split('\t');
+
+            Assert.True(
+                columns.Length >= 2 && columns[1].Trim().Length > 0,
+                $"'{columns[0]}' in {UnprovedFile} has no reason beside it. Say what builds it and why no sweep reaches it."
+            );
+
+            Assert.True(pairs.Add(columns[0].Trim()), $"'{columns[0]}' is listed twice in {UnprovedFile}.");
+        }
+
+        return pairs;
+    }
 
     static List<string> Rows(string path, string name) {
         var lines = File.ReadAllLines(path);

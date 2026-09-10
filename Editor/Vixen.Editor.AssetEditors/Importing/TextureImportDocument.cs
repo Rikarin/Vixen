@@ -88,6 +88,28 @@ public sealed class TextureImportDocument : ImportSettingsDocument {
     /// </remarks>
     public event Action<TextureImportDocument>? SpritesChanged;
 
+    /// <summary>Raised when the picture this document is open on changed on disk.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The signal a preview had no way to hear —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1207">#1207</a>.</b>
+    ///         <see cref="TextureImportView" /> and <c>SpriteSheetView</c> decode
+    ///         <see cref="ImportSettingsDocument.AssetPath" /> once, when the tab is created, and
+    ///         hold the result in a field nothing else writes. Repainting the file in another program
+    ///         left the preview, the mip ladder, the channel views and the sheet under the slicer's
+    ///         rects all showing the texels the file had when it was opened, until the tab was closed
+    ///         and reopened.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not a reload, and it must not be one.</b> What this document holds is the
+    ///         <em>sidecar</em>; the pixels are the asset beside it and are not part of the document
+    ///         at all. So <c>CanReload</c> stays false — a reload would discard the author's unsaved
+    ///         settings for a change that touched none of them — and this says the one thing that
+    ///         did move.
+    ///     </para>
+    /// </remarks>
+    public event Action<TextureImportDocument>? SourceChanged;
+
     /// <inheritdoc />
     protected override Type SettingsType => typeof(TextureImportEdits);
 
@@ -101,6 +123,56 @@ public sealed class TextureImportDocument : ImportSettingsDocument {
     public TextureImportDocument(EditorProject project, AssetId asset, string path)
         : base(project, asset, path) {
     }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         <b>Where a repainted <c>.png</c> arrives</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1207">#1207</a>. The file the preview
+    ///         is drawn from is this document's <em>asset</em> and not its own file, so
+    ///         <c>ExternalEdits</c>'s reload policy has nothing to say about it: it asks
+    ///         <c>CanReload</c>, is told no, and marks the document stale. This is the other question
+    ///         — "which documents care that this file moved" — and a texture editor cares about
+    ///         exactly one path.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The path is compared before anything else happens, which is what keeps this off
+    ///         the frame's budget.</b> This runs once per drained change per open document, so a
+    ///         handler that decoded first and asked afterwards would make an unrelated program's
+    ///         Ctrl+S cost one PNG decode per open texture editor. What a match costs is one decode
+    ///         of one file that a person has just repainted and is looking at.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null means the watcher lost events, and it counts as a match.</b> The
+    ///         conservative answer is the cheap one here — the cost of being wrong is a decode, and
+    ///         the cost of assuming the best is a preview that is silently of the wrong bytes, which
+    ///         is indistinguishable from a correct one.
+    ///     </para>
+    /// </remarks>
+    protected override void OnProjectFileChanged(string? path) {
+        base.OnProjectFileChanged(path);
+
+        if (path is not null
+            && !string.Equals(
+                Path.GetFullPath(Project.Paths.Absolute(path)),
+                Path.GetFullPath(AssetPath),
+                AssetPathComparison
+            )) {
+            return;
+        }
+
+        SourceChanged?.Invoke(this);
+    }
+
+    /// <summary>How two paths to the same file are compared, which is the platform's own rule.</summary>
+    /// <remarks>
+    ///     ⚠ Ordinal on Linux, and it has to be: a project may hold <c>Crate.png</c> and
+    ///     <c>crate.png</c> there, and folding the case would redecode one on the other's change.
+    ///     Everywhere else the two names <em>are</em> one file, and comparing them ordinally would
+    ///     miss the change entirely.
+    /// </remarks>
+    static StringComparison AssetPathComparison =>
+        OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
 
     /// <summary>Replaces every sprite, undoably. This is what a slice does.</summary>
     /// <param name="sprites">The new set, in order.</param>

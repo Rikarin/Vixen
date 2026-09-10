@@ -5331,6 +5331,13 @@ sealed partial class EditorApplication : IDisposable {
             // now it rescanned the index and left every picture exactly as it was.
             thumbnails.Forget();
 
+            // ⚠ And the open documents, which is #1207 and is the same omission one layer in: a
+            // texture editor decodes its file when the tab is created, so the panel the author is
+            // looking at while they press this was the last thing in the editor still showing the
+            // pixels from before the repaint. Null because that is what this command means — the
+            // project may have changed underneath you, and nothing here can say which file did.
+            project.AnnounceFileChanged(null);
+
             if (report.Issues.Count == 0) {
                 Shell.Notifications.Success($"{report.Assets} assets");
                 return;
