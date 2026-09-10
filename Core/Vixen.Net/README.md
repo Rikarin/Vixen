@@ -226,6 +226,20 @@ set, the session wraps and publishes the wrapper as `NetworkSession.Simulation`.
   remove the seed: a variant-aware helper still takes the seed from its caller and is still printed
   by one, because a simulation whose seed was picked for you is a simulation whose failures cannot be
   replayed.
+- ⚠ **And there is a fourth option, which is the only one that makes doc 16's sentence true for a
+  game rather than for the engine: write the line in the template.** "On by default in dev builds" is
+  a claim about what a new game does, and the tree has exactly one place a new game's `SessionOptions`
+  comes from —
+  `Tools/Vixen.Templates/templates/vixen-mmo/VixenMmo1.Client/VixenMmo1Client.cs:41`, which builds one
+  for its realm connection. ⚠ **Both halves are already in scope there and neither package reference
+  has to change**: that file already carries `using Vixen.App;` (its base class `Game` is in the
+  `Vixen.App` package, and `BuildVariants` is compiled into the same assembly behind it) and
+  `using Vixen.Net.Sessions;` (through the `Vixen.Net.Transport.Udp` package, which
+  `ProjectReference`s `Vixen.Net`). So the ternary costs a template one line and an announcement, no
+  assembly moves, no public type crosses a baseline, and the default is *visible and editable* at the
+  place a game author is already reading — which is what a simulated link that announces itself
+  should look like. It is recorded rather than taken, because it settles the same decision the two
+  bullets above pose and that decision is Jiu's.
 - ⚠ **The seam had no caller outside its own tests until `Samples/08-Multiplayer` was ported onto
   it**, which is this repository's commonest defect wearing its usual clothes. That sample now asks
   for the bad wire on `SessionOptions.Simulation` and reads its announcement off
