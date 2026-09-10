@@ -324,8 +324,17 @@ partial class Build {
         var lines = TestCostFile.ReadAllLines();
         var stamped = TestCostDrift.ConfigurationOf(lines);
         var costs = TestCosts();
-        var drifted = TestCostDrift.Find(costs, MeasuredTestCosts());
+        var measured = MeasuredTestCosts();
+
+        // ⚠ Estimated from this run and applied to every row before any of them is called stale.
+        // Without it the check reports a busy machine as drift, which is what it did the first time
+        // it fired (#938) — and the repair it prints would then have written the contended numbers
+        // into the list.
+        var load = TestCostDrift.Load.Of(costs, measured);
+        var drifted = TestCostDrift.Find(costs, measured, load);
         var comparable = IsLocalBuild && string.Equals(stamped, Configuration.ToString(), StringComparison.Ordinal);
+
+        Log.Information("{Load}", load.Describe());
 
         if (drifted.Count == 0) {
             // ⚠ Not "the list is fresh", which is what this line said and is not what was checked.
@@ -367,7 +376,8 @@ partial class Build {
         Assert.Fail(
             $"Every test passed. What failed is the schedule: {drifted.Count} assembly(ies) in "
             + $"{TestCostFile.Name} differ from what this run measured by more than "
-            + $"{TestCostDrift.MinimumSeconds} s and {TestCostDrift.MinimumRatio}× — "
+            + $"{TestCostDrift.MinimumSeconds} s and {TestCostDrift.MinimumRatio}×. {load.Describe()} "
+            + "The findings are — "
             + $"{string.Join("; ", drifted.Select(entry => entry.Describe()))}. Run "
             + "`./build.sh TestOrder --update-test-cost`, which reads the TRX this run has already "
             + "written and reruns nothing, then commit the list. ⚠ These numbers are read as "
@@ -455,7 +465,11 @@ partial class Build {
                 return;
             }
 
-            var drifted = TestCostDrift.Find(costs, MeasuredTestCosts());
+            var lastRun = MeasuredTestCosts();
+            var runLoad = TestCostDrift.Load.Of(costs, lastRun);
+            var drifted = TestCostDrift.Find(costs, lastRun, runLoad);
+
+            Log.Information("{Load}", runLoad.Describe());
 
             if (drifted.Count == 0) {
                 Log.Information("Every cost above is within {Seconds} s or {Ratio}× of the last run. ⚠ {Coverage} {Age}",
