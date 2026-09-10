@@ -204,7 +204,7 @@ public sealed class QueueSchedulingTests : IDisposable {
     /// <remarks>
     ///     <para>
     ///         <c>RenderGraph.Realise</c> — private, so this is prose rather than a link — aliases
-///         transients only while the schedule is
+    ///         transients only while the schedule is
     ///         <em>not</em> multi-queue — see <see cref="AMultiQueueFrameDoesNotAliasTransients" />
     ///         for why, which is a good reason and is not in question here. The consequence is what
     ///         is: hoisting one copy makes the whole frame multi-queue, and a frame is not multi-queue

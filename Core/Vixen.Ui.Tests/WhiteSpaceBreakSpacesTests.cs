@@ -139,7 +139,7 @@ public class WhiteSpaceBreakSpacesTests {
 
     /// <summary>Rule two, inverted: a run of spaces offers one break at its end and none inside.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read off <see cref="LineBreaker.Collect" /> rather than off a wrapped paragraph,
+    ///     ⚠ <b>Read off <see cref="LineBreaker.Collect(System.ReadOnlySpan{char}, System.Collections.Generic.List{int})" /> rather than off a wrapped paragraph,
     ///     because the question is which opportunities EXIST and not which one a width chose.</b> A
     ///     box narrow enough to break <c>a</c>, two spaces, <c>b</c> takes the same break under both
     ///     answers, so a paragraph cannot tell them apart; only the list can. UAX #14's LB7 forbids

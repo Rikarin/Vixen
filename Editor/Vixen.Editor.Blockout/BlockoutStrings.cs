@@ -20,7 +20,7 @@ namespace Vixen.Editor.Blockout;
 ///         which is deterministic and is what <c>BlockoutModeTests</c> exercises on every run.
 ///     </para>
 ///     <para>
-///         Two of the three groups are computed: one command per <see cref="ShapeKind" /> in
+///         Two of the three groups are computed: one command per <see cref="Vixen.Geometry.ShapeKind" /> in
 ///         <c>BlockoutMode.Kinds</c> and one per <c>BlockoutElement</c>, both built from the same
 ///         lists the registration walks — so a shape added to <c>Kinds</c> gets a declared label
 ///         rather than an undeclared one.
