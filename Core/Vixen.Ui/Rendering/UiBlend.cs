@@ -115,6 +115,11 @@ public static class UiBlend {
     /// <param name="mode">Which blend function.</param>
     /// <param name="source">The group's own colour at this pixel, premultiplied.</param>
     /// <param name="backdrop">What is already at this pixel, premultiplied.</param>
+    /// <param name="white">
+    ///     What one unit of the frame's own white is worth in the units both operands are in —
+    ///     <c>UiGeometry.WhiteLevel</c>, which is one on a display-referred pass and BT.2408's 203 on
+    ///     a scene-referred one.
+    /// </param>
     /// <returns>
     ///     A premultiplied colour with <paramref name="source" />'s alpha, to be composited
     ///     source-over exactly as an unblended group's would be.
@@ -128,28 +133,73 @@ public static class UiBlend {
     ///         early return is that identity, and it happens to make the un-premultiply safe.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both operands are un-premultiplied and clamped to [0, 1] before the function
-    ///         runs.</b> Every formula in § 5.1 is written for straight alpha, and several of them —
-    ///         <c>color-dodge</c>, <c>color-burn</c>, <c>soft-light</c> — are only defined on the unit
-    ///         interval and produce nonsense outside it. <see cref="Color4" /> is deliberately
-    ///         unbounded above, so an interface drawn in an HDR frame can hand this a component past
-    ///         one; clamping is the honest answer for a function whose spec has no meaning there.
+    ///         ⚠ <b>Both operands are un-premultiplied and clamped to [0, 1] <i>of
+    ///         <paramref name="white" /></i> before the function runs, and the result is re-lit by it
+    ///         afterwards.</b> Every formula in § 5.1 is written for straight alpha on the unit
+    ///         interval, and several of them — <c>color-dodge</c>, <c>color-burn</c>,
+    ///         <c>soft-light</c> — have no definition outside it. The divisor is what makes that
+    ///         clamp a statement about the frame's white rather than about the number one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Without the divisor this function is the standing photometric trap in a third
+    ///         place (#1209, #670).</b> <c>UiGeometryBuilder.WhiteLevel</c> scales every interface
+    ///         colour into the pass's units, so on a float pass an authored white arrives here as 203
+    ///         — and a clamp at one returned it at <b>one candela</b>, whatever it was authored at. A
+    ///         <c>mix-blend-mode: multiply</c> element in an HDR HUD was therefore two orders of
+    ///         magnitude darker than the same element with no declaration at all, which is the exact
+    ///         shape of <i>a pass lit by an authored 0–1 tint is pixel-identical to a pass that never
+    ///         ran</i>. ⚠ It was never the un-premultiply that lost it: dividing by alpha is exact.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One divisor rather than a mode-by-mode rule, and the three groups § 5 falls into
+    ///         are why that is enough</b> — the choice #783 transcribes into GLSL and Raven, so it is
+    ///         stated here once:
+    ///     </para>
+    ///     <list type="bullet">
+    ///         <item><description>
+    ///             The four <b>non-separable</b> modes (<c>hue</c>, <c>saturation</c>, <c>color</c>,
+    ///             <c>luminosity</c>) are homogeneous of degree one — § 5.3's <c>SetLum</c>,
+    ///             <c>SetSat</c> and <c>ClipColor</c> are written in terms of the operands' own luma —
+    ///             so normalising and re-lighting reproduces the unbounded answer <i>exactly</i>.
+    ///             So do <c>darken</c>, <c>lighten</c> and <c>difference</c>.
+    ///         </description></item>
+    ///         <item><description>
+    ///             <c>multiply</c>, <c>screen</c> and <c>exclusion</c> are <b>quadratic</b> in the
+    ///             units and are meaningless without a stated one: <c>Cb·Cs</c> of two 203s is 41 209
+    ///             rather than 203. The divisor is that statement, and it is the one that makes
+    ///             <c>multiply</c> against white the identity again — the defect's own test.
+    ///         </description></item>
+    ///         <item><description>
+    ///             <c>color-dodge</c>, <c>color-burn</c>, <c>soft-light</c>, <c>hard-light</c> and
+    ///             <c>overlay</c> genuinely <b>have no definition above one</b>, so the clamp is the
+    ///             right answer there and what was missing was only what it clamps against.
+    ///         </description></item>
+    ///     </list>
+    ///     <para>
+    ///         A white of one leaves every arithmetic path bit-identical to what it was, which is why
+    ///         no display-referred picture in this repository moved when the divisor landed.
     ///     </para>
     /// </remarks>
-    public static Color4 Apply(UiBlendMode mode, Color4 source, Color4 backdrop) {
+    public static Color4 Apply(UiBlendMode mode, Color4 source, Color4 backdrop, float white = 1f) {
         if (mode == UiBlendMode.Normal || backdrop.A <= 0f || source.A <= 0f) {
             return source;
         }
 
-        var cs = Unpremultiply(source);
-        var cb = Unpremultiply(backdrop);
+        // ⚠ A frame that has not been told its white level says one, and a nonsensical one is not
+        // worth a picture that is silently a factor out: both fall back to the display-referred
+        // convention this function had before there was a white level at all.
+        var scale = white > 0f && float.IsFinite(white) ? white : 1f;
+
+        var cs = Unpremultiply(source, scale);
+        var cb = Unpremultiply(backdrop, scale);
         var blended = Blend(mode, cb, cs);
 
-        // § 5.1's weighting, then back to premultiplied. The alpha is untouched: a blend mode changes
-        // what colour the group lands in, never how much of it lands.
+        // § 5.1's weighting, then back to premultiplied and back into the frame's units. The alpha is
+        // untouched: a blend mode changes what colour the group lands in, never how much of it lands.
         var mixed = ((1f - backdrop.A) * cs) + (backdrop.A * blended);
+        var lit = source.A * scale;
 
-        return new Color4(mixed.X * source.A, mixed.Y * source.A, mixed.Z * source.A, source.A);
+        return new Color4(mixed.X * lit, mixed.Y * lit, mixed.Z * lit, source.A);
     }
 
     /// <summary>One mode's <c>B(Cb, Cs)</c>, over straight-alpha colour in [0, 1].</summary>
@@ -192,8 +242,12 @@ public static class UiBlend {
             _ => cs
         };
 
-    static Vector3 Unpremultiply(Color4 colour) {
-        var inverse = 1f / colour.A;
+    /// <summary>Straight alpha, as a fraction of the frame's white, clamped to [0, 1] of it.</summary>
+    /// <param name="colour">The premultiplied colour, in the frame's units.</param>
+    /// <param name="white">What one unit of white is worth in those units.</param>
+    /// <returns>The colour § 5.1's functions are defined over.</returns>
+    static Vector3 Unpremultiply(Color4 colour, float white) {
+        var inverse = 1f / (colour.A * white);
 
         return new Vector3(
             Math.Clamp(colour.R * inverse, 0f, 1f),
