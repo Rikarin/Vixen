@@ -103,12 +103,7 @@ sealed partial class EditorApplication {
             ShowProjectBrowser
         );
 
-        Planned(
-            "file.no-recent",
-            EditorStrings.CommandFileNoRecent,
-            EditorStrings.CategoryFile,
-            "Nothing but this project has been opened yet."
-        );
+        Planned("file.no-recent", EditorStrings.CommandFileNoRecent, EditorStrings.CategoryFile);
 
         Verb(
             "file.new-scene",
@@ -285,13 +280,19 @@ sealed partial class EditorApplication {
         // — which after clicking an asset and then a row is most of the time.
         Scoped(
             "edit.delete",
-            "Delete",
+            EditorStrings.CommandEditDelete,
             SceneContext,
             () => scene.Delete([.. scene.Selection]),
             () => scene.Selection.Count > 0
         );
 
-        Scoped("edit.rename", "Rename", SceneContext, Rename, () => hierarchy is not null && scene.Selection.Count > 0);
+        Scoped(
+            "edit.rename",
+            EditorStrings.CommandEditRename,
+            SceneContext,
+            Rename,
+            () => hierarchy is not null && scene.Selection.Count > 0
+        );
 
         Shell.Keys.SetDefault("edit.delete", new KeyChord(InputKey.Delete, ModifierKeys.None));
         Shell.Keys.SetDefault("edit.rename", new KeyChord(InputKey.F2, ModifierKeys.None));
@@ -312,13 +313,7 @@ sealed partial class EditorApplication {
 
         foreach (var (id, title, key) in Clipboard()) {
             if (Shell.Commands[id] is null) {
-                Planned(
-                    id,
-                    new StringId("editor.command." + id, title),
-                    EditorStrings.CategoryEdit,
-                    "A clipboard is a buffer that outlives the selection it was filled from; the editor "
-                    + "has the subtree copy (SceneClone) and nowhere to keep one."
-                );
+                Planned(id, title, EditorStrings.CategoryEdit);
             }
 
             if (key.IsBound) {
@@ -536,12 +531,7 @@ sealed partial class EditorApplication {
             enabled: () => SourceControl.IsKnown && project.Selection.Count == 1
         );
 
-        Planned(
-            "assets.reimport",
-            EditorStrings.CommandAssetsReimport,
-            EditorStrings.CategoryAssets,
-            "Per-asset reimport needs the importer registry to outlive a run. Reimport All works today."
-        );
+        Planned("assets.reimport", EditorStrings.CommandAssetsReimport, EditorStrings.CategoryAssets);
 
         Verb(
             "assets.reimport-all",
@@ -744,55 +734,19 @@ sealed partial class EditorApplication {
 
         Shell.Keys.SetDefault("entity.group", new KeyChord(InputKey.G, ModifierKeys.Control));
 
-        Planned(
-            "entity.create-audio",
-            EditorStrings.CommandEntityCreateAudio,
-            EditorStrings.CategoryEntity,
-            "There is no audio-source component yet; a line that made an empty called Audio would lie."
-        );
+        Planned("entity.create-audio", EditorStrings.CommandEntityCreateAudio, EditorStrings.CategoryEntity);
 
-        Planned(
-            "entity.create-ui",
-            EditorStrings.CommandEntityCreateUi,
-            EditorStrings.CategoryEntity,
-            "Vixen.Ui is a document tree with no world-space bridge yet."
-        );
+        Planned("entity.create-ui", EditorStrings.CommandEntityCreateUi, EditorStrings.CategoryEntity);
 
-        Planned(
-            "entity.create-vfx",
-            EditorStrings.CommandEntityCreateVfx,
-            EditorStrings.CategoryEntity,
-            "The graph is authorable now, but the runtime has no VFX emitter component for an entity "
-            + "to carry — an entity called VFX would reference nothing."
-        );
+        Planned("entity.create-vfx", EditorStrings.CommandEntityCreateVfx, EditorStrings.CategoryEntity);
 
-        Planned(
-            "entity.make-prefab",
-            EditorStrings.CommandEntityMakePrefab,
-            EditorStrings.CategoryEntity,
-            "Prefab instance links are not written to a scene yet, so an instance would be an ordinary subtree."
-        );
+        Planned("entity.make-prefab", EditorStrings.CommandEntityMakePrefab, EditorStrings.CategoryEntity);
 
-        Planned(
-            "entity.unpack-prefab",
-            EditorStrings.CommandEntityUnpackPrefab,
-            EditorStrings.CategoryEntity,
-            "Prefab instance links are not written to a scene yet."
-        );
+        Planned("entity.unpack-prefab", EditorStrings.CommandEntityUnpackPrefab, EditorStrings.CategoryEntity);
 
-        Planned(
-            "entity.apply-overrides",
-            EditorStrings.CommandEntityApplyOverrides,
-            EditorStrings.CategoryEntity,
-            "Per-override apply and revert live in the inspector; the scene-wide verb needs instance links."
-        );
+        Planned("entity.apply-overrides", EditorStrings.CommandEntityApplyOverrides, EditorStrings.CategoryEntity);
 
-        Planned(
-            "entity.ungroup",
-            EditorStrings.CommandEntityUngroup,
-            EditorStrings.CategoryEntity,
-            "Ungrouping has to reparent children and delete the group in one undoable step."
-        );
+        Planned("entity.ungroup", EditorStrings.CommandEntityUngroup, EditorStrings.CategoryEntity);
 
         // ⚠ The picker this waited for was never the outliner's drag. `ChooseAsync` is the editor's
         // one drawn "pick one of these", the drag has been wired for a milestone anyway
@@ -828,12 +782,7 @@ sealed partial class EditorApplication {
 
         Shell.Keys.SetDefault("entity.snap-to-floor", new KeyChord(InputKey.End, ModifierKeys.None));
 
-        Planned(
-            "entity.toggle-active",
-            EditorStrings.CommandEntityToggleActive,
-            EditorStrings.CategoryEntity,
-            "There is no enabled flag on an entity yet."
-        );
+        Planned("entity.toggle-active", EditorStrings.CommandEntityToggleActive, EditorStrings.CategoryEntity);
 
         // ⚠ Editor state and not scene state, which is the line both Unreal and Unity draw: hiding
         // something to work on what is behind it must not change what ships. So these write
@@ -910,11 +859,18 @@ sealed partial class EditorApplication {
         // to be answerable without reading anything. A row of identical grey glyphs answers none of
         // those. The theme fills the button when the command is on, so Play is a green button with a
         // white triangle while the game is running and a green triangle when it is not.
-        Transport("play.play", "Play", EditorIcons.Play, EnterPlay, () => !play.IsPlaying, () => play.IsPlaying);
+        Transport(
+            "play.play",
+            EditorStrings.CommandPlayPlay,
+            EditorIcons.Play,
+            EnterPlay,
+            () => !play.IsPlaying,
+            () => play.IsPlaying
+        );
 
         Transport(
             "play.pause",
-            "Pause",
+            EditorStrings.CommandPlayPause,
             EditorIcons.Pause,
             () => {
                 if (play.State == PlayState.Paused) {
@@ -929,25 +885,20 @@ sealed partial class EditorApplication {
 
         Transport(
             "play.step",
-            "Step Frame",
+            EditorStrings.CommandPlayStep,
             EditorIcons.Step,
             () => play.Step(),
             () => play.State == PlayState.Paused
         );
 
-        Transport("play.stop", "Stop", EditorIcons.Stop, LeavePlay, () => play.IsPlaying);
+        Transport("play.stop", EditorStrings.CommandPlayStop, EditorIcons.Stop, LeavePlay, () => play.IsPlaying);
 
         Shell.Keys.SetDefault("play.play", new KeyChord(InputKey.F5, ModifierKeys.None));
         Shell.Keys.SetDefault("play.pause", new KeyChord(InputKey.P, ModifierKeys.Control | ModifierKeys.Shift));
         Shell.Keys.SetDefault("play.step", new KeyChord(InputKey.F10, ModifierKeys.None));
         Shell.Keys.SetDefault("play.stop", new KeyChord(InputKey.F5, ModifierKeys.Shift));
 
-        Planned(
-            "play.mode-in-editor",
-            EditorStrings.CommandPlayModeInEditor,
-            EditorStrings.CategoryPlay,
-            "Choosing a play topology needs the standalone and server paths hosted from the editor."
-        );
+        Planned("play.mode-in-editor", EditorStrings.CommandPlayModeInEditor, EditorStrings.CategoryPlay);
 
         // ⚠ Both of these named milestone E6, and E6 has shipped — `build.settings` is a window and
         // `build.run` publishes and starts a player. What is actually missing is on this side of the
@@ -956,21 +907,9 @@ sealed partial class EditorApplication {
         // forgets it, so a play mode over it would be a Play button with three dead buttons beside
         // it. A reason naming a mechanism can be checked against the tree; one naming a schedule
         // stayed on screen for two milestones after its schedule closed.
-        Planned(
-            "play.mode-standalone",
-            EditorStrings.CommandPlayModeStandalone,
-            EditorStrings.CategoryPlay,
-            "Build and Run starts a player and does not keep it, so there is no process for Pause and "
-            + "Stop to reach. Playing standalone needs a supervised child process."
-        );
+        Planned("play.mode-standalone", EditorStrings.CommandPlayModeStandalone, EditorStrings.CategoryPlay);
 
-        Planned(
-            "play.mode-server",
-            EditorStrings.CommandPlayModeServer,
-            EditorStrings.CategoryPlay,
-            "Nothing constructs a PlayerSessions, so there is no host for the editor to start — the "
-            + "type carries the topology and no code makes one."
-        );
+        Planned("play.mode-server", EditorStrings.CommandPlayModeServer, EditorStrings.CategoryPlay);
 
         // ⚠ A preference rather than an action, which is what the tick says. It changes what the
         // *next* Play does; pressing it while the game is running would be a second, differently
@@ -983,12 +922,7 @@ sealed partial class EditorApplication {
             on: () => maximiseOnPlay
         );
 
-        Planned(
-            "play.mute-audio",
-            EditorStrings.CommandPlayMuteAudio,
-            EditorStrings.CategoryPlay,
-            "The editor does not drive the audio engine yet."
-        );
+        Planned("play.mute-audio", EditorStrings.CommandPlayMuteAudio, EditorStrings.CategoryPlay);
 
         // ⚠ A tick over the console's own preference rather than a second copy of it. Doc 20's rule
         // for the three navigation preferences applies here for the same reason: two writers to one
@@ -1040,23 +974,13 @@ sealed partial class EditorApplication {
         // Tools/Vixen.ShaderCompiler's README gives. So a player built from here has no bundle, the
         // build log says so for a project that has a manifest, and `vixen build` is what compiles
         // one. What would close this is a compiler service the editor talks to rather than links.
-        Planned(
-            "build.rebuild-shaders",
-            EditorStrings.CommandBuildRebuildShaders,
-            EditorStrings.CategoryBuild,
-            "The shader bundle is compiled by `vixen build`, which links a compiler the editor does not."
-        );
+        Planned("build.rebuild-shaders", EditorStrings.CommandBuildRebuildShaders, EditorStrings.CategoryBuild);
 
         // ⚠ On the Window menu, which the shell owns and which names it — so the shell would have a
         // dangling id if this were left out. It is registered here rather than there because full
         // screen is a property of an OS window and `EditorShell` is deliberately a document with no
         // window: what is missing is a way for the application to reach one, not the verb itself.
-        Planned(
-            "view.full-screen",
-            EditorStrings.CommandViewFullScreen,
-            EditorStrings.CategoryView,
-            "The application has no handle on its window yet; the host owns it."
-        );
+        Planned("view.full-screen", EditorStrings.CommandViewFullScreen, EditorStrings.CategoryView);
 
         Verb(
             "tools.plugins",
@@ -1092,12 +1016,12 @@ sealed partial class EditorApplication {
     }
 
     /// <summary>The four clipboard verbs and the keys everybody expects them on.</summary>
-    static (string Id, string Title, KeyChord Key)[] Clipboard() => [
-        ("edit.cut", "Cut", new KeyChord(InputKey.X, ModifierKeys.Control)),
-        ("edit.copy", "Copy", new KeyChord(InputKey.C, ModifierKeys.Control)),
-        ("edit.paste", "Paste", new KeyChord(InputKey.V, ModifierKeys.Control)),
-        ("edit.paste-as-child", "Paste As Child", KeyChord.None),
-        ("edit.duplicate", "Duplicate", new KeyChord(InputKey.D, ModifierKeys.Control))
+    static (string Id, StringId Title, KeyChord Key)[] Clipboard() => [
+        ("edit.cut", EditorStrings.CommandEditCut, new KeyChord(InputKey.X, ModifierKeys.Control)),
+        ("edit.copy", EditorStrings.CommandEditCopy, new KeyChord(InputKey.C, ModifierKeys.Control)),
+        ("edit.paste", EditorStrings.CommandEditPaste, new KeyChord(InputKey.V, ModifierKeys.Control)),
+        ("edit.paste-as-child", EditorStrings.CommandEditPasteAsChild, KeyChord.None),
+        ("edit.duplicate", EditorStrings.CommandEditDuplicate, new KeyChord(InputKey.D, ModifierKeys.Control))
     ];
 
     // ── Help ────────────────────────────────────────────────────────────────────────────────────
@@ -1395,14 +1319,14 @@ sealed partial class EditorApplication {
     /// </remarks>
     void Transport(
         string id,
-        string title,
+        StringId title,
         PathBuilder icon,
         Action run,
         Func<bool>? enabled = null,
         Func<bool>? on = null
     ) =>
         Shell.Commands.Add(
-            new EditorCommand(id, new StringId("editor.command." + id, title), run) {
+            new EditorCommand(id, title, run) {
                 Category = EditorStrings.CategoryPlay,
                 Icon = icon,
                 ClassName = "transport-" + id["play.".Length..],
@@ -1417,9 +1341,9 @@ sealed partial class EditorApplication {
     ///     <see cref="EditorCommand.Context" /> for why the alternative — an enablement predicate
     ///     guessing from the selection — gets it wrong exactly when both panels have one.
     /// </remarks>
-    void Scoped(string id, string title, string context, Action run, Func<bool>? enabled = null) =>
+    void Scoped(string id, StringId title, string context, Action run, Func<bool>? enabled = null) =>
         Shell.Commands.Add(
-            new EditorCommand(id, new StringId("editor.command." + id, title), run) {
+            new EditorCommand(id, title, run) {
                 Category = EditorStrings.CategoryEdit,
                 Context = context,
                 Enablement = enabled
@@ -1434,11 +1358,11 @@ sealed partial class EditorApplication {
     ///     so rather than leaving them to conclude the engine cannot. Replacing one of these with a
     ///     real implementation is deleting three lines.
     /// </remarks>
-    void Planned(string id, StringId title, StringId category, string reason) =>
+    void Planned(string id, StringId title, StringId category) =>
         Shell.Commands.Add(
             new EditorCommand(id, title, () => { }) {
                 Category = category,
-                Unavailable = new StringId("editor.planned." + id, reason)
+                Unavailable = EditorStrings.PlannedReasons[id]
             }
         );
 

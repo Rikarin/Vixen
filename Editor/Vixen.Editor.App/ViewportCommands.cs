@@ -324,8 +324,7 @@ sealed partial class EditorApplication {
                 Planned(
                     ViewportIds.ViewMode(mode),
                     Label(ViewportIds.ViewMode(mode), ViewShading.NameOf(mode)),
-                    EditorStrings.CategoryScene,
-                    Excuse(mode)
+                    EditorStrings.CategoryScene
                 );
 
                 continue;
@@ -343,19 +342,10 @@ sealed partial class EditorApplication {
         // ⚠ Both excuses used to end "it arrives with the compositor-driven viewport", and that
         // viewport arrived — so they say what is actually still missing instead. A stage and a tree
         // are the cheap half and are exactly what Wireframe now has; what neither mode has is a
-        // shader that answers its question.
-        static string Excuse(ViewMode mode) =>
-            mode switch {
-                SceneView.ViewMode.Overdraw =>
-                    "Overdraw needs a shader that writes a constant per fragment rather than a shaded "
-                    + "colour: an additive stage over ForwardPlus accumulates luminance in cd/m² and "
-                    + "saturates to white everywhere, which is a picture of the exposure rather than a "
-                    + "count.",
-                _ =>
-                    "Light complexity is a count off the clustered light list, and the editor's frame has "
-                    + "no culling dispatch in it — the cluster buffer it binds is a zeroed stand-in, so the "
-                    + "count would be zero for every pixel."
-            };
+        // shader that answers its question. They are declared in EditorStrings.PlannedReasons now,
+        // keyed by these same ids, because a reason built here reached no translator's template
+        // (#1178) — and a mode that joins the unsupported two without a line there throws while this
+        // registers rather than showing an empty tooltip.
     }
 
     /// <summary>One ticked command per show flag.</summary>

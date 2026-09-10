@@ -434,15 +434,27 @@ partial class Build {
     ///         piece of work.
     ///     </para>
     ///     <para>
-    ///         <b>What the seventeen are.</b> All of them are <c>Vixen.Editor.App</c>'s, which is
+    ///         <b>What the thirteen are.</b> All of them are <c>Vixen.Editor.App</c>'s, which is
     ///         the one assembly of the five #1178 named that is not migrated —
     ///         <c>DeclaredContributions</c> (3), <c>EditorApplication</c> (5), <c>EditorBuilds</c>
-    ///         (3), <c>EditorParity</c> (5) and <c>EditorWorlds</c> (1). The other four —
+    ///         (3), <c>EditorParity</c> (1) and <c>EditorWorlds</c> (1). The other four —
     ///         <c>Vixen.Editor.Texturing</c>, <c>.Terrain</c>, <c>.Blockout</c> and
     ///         <c>.Diagnostics</c> — now declare <c>TexturingStrings</c>, <c>TerrainStrings</c>,
     ///         <c>BlockoutStrings</c> and <c>DiagnosticsStrings</c>, and <c>VXS0312</c> holds each
     ///         of them to it: the analyzer reports <em>every</em> construction in an assembly that
     ///         has a declaration class, so those four cannot regress by one site.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Four of <c>EditorParity</c>'s five went one helper at a time, and that is the
+    ///         opposite of what #1178 said was possible.</b> "All-or-nothing per assembly" is true of
+    ///         <c>VXS0312</c> and does not bind here: the analyzer reports only in a compilation
+    ///         whose <em>own syntax</em> contains a declaration class, and <c>Vixen.Editor.App</c>
+    ///         has none — its words are declared in <c>EditorStrings</c>, one assembly away, and it
+    ///         already uses some three hundred and sixty of them. So <c>Transport</c>, <c>Scoped</c>
+    ///         and the clipboard registration take a declared <see cref="StringId" /> now, and
+    ///         <c>Planned</c> reads <c>EditorStrings.PlannedReasons</c> — one family standing for the
+    ///         seventeen sentences it used to be handed as literals, which is seventeen words a
+    ///         reader meets on a greyed menu line and no translator could reach.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>An id built in an object initialiser was in neither half of this census, and it
@@ -456,7 +468,7 @@ partial class Build {
     ///         initialisers in this repository that build something else.
     ///     </para>
     /// </remarks>
-    const int ConstructedCeiling = 17;
+    const int ConstructedCeiling = 13;
 
     /// <summary>Applies <see cref="ConstructedCeiling" />.</summary>
     /// <param name="text">Every source file, by path.</param>
