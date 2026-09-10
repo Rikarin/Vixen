@@ -202,6 +202,19 @@ public sealed class VisibilityGroup : IVisibilityGroup {
     ///         executes ready work while it waits, so a single-batch dispatch is scheduling overhead
     ///         rather than a serialised frame — smaller than it looked, and still pure loss.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And what that measurement must not conclude.</b> One index is sixty-four objects
+    ///         against <em>every</em> view, so the frame's work is words × views while the threshold
+    ///         above counts words alone — which reads like an omission and is not one: views multiply
+    ///         the work inside an index without producing a second batch to spread, so a frame of one
+    ///         batch has nothing to spread however many views it has, and the rule is view-independent
+    ///         exactly as written. What views do reach is the <i>batch size</i> they share a constant
+    ///         with: at eight views a single word is already 512 frustum tests, so the batch that
+    ///         amortises a dispatch is smaller than the batch that does at one view, and a scene of
+    ///         four words could then spread where today it cannot. So the figure #1206 asks for is a
+    ///         crossover in object-view tests and a batch derived from the view count — not one
+    ///         number in words — and neither half is inventable without the machine.
+    ///     </para>
     /// </remarks>
     const int BatchWords = 4;
 
