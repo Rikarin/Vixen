@@ -168,21 +168,20 @@ public class RealOwedTableTests {
     ///         the editor model's unconstrained <c>List&lt;NodeId&gt;</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Where a row still sits here it is because deleting a cell whose facts exist
-    ///         nowhere else is worse than the duplication.</b> For `Vixen.Sdk`, the CLI, the text
-    ///         stack and Build/CI the evidence lives in a row no batch so far has had a way to
-    ///         verify, and an excused row that is still red is a cheaper thing to carry than a fact
-    ///         that has left the repository.
+    ///         ⚠ <b>The list is empty as of 2026-09-10, so this is a mechanism with nothing in it
+    ///         rather than a suppression with something in it.</b> The last seven —
+    ///         <c>Vixen.Core.Threading</c>, <c>Vixen.Sdk</c>, <c>Vixen.Cli</c>, the two editor rows,
+    ///         the editor's packaging row and Build/CI — went the same way: what only the Part 4 cell
+    ///         said was written into § 1.2's job-priority row, § 1.6's SDK and CLI rows, § 1.11's
+    ///         asset-field, composed-viewport and redraw rows and § 1.1's content-determinism row,
+    ///         and the cell was then reduced to a pointer. ⚠ Two of them were re-derived from the
+    ///         tree rather than copied and both had gone stale: `AppendChild` is amortised constant
+    ///         and caret blink is built, which is <a href="https://github.com/Rikarin/Vixen/issues/440">#440</a>'s
+    ///         finding as much as this one's. An entry added here later still names its issue and
+    ///         still has to stay broken, which is what stops the list growing quietly.
     ///     </para>
     /// </remarks>
     static readonly (string Row, string Issue)[] Excused = [
-        ("5", "#1125"),
-        ("33", "#1125"),
-        ("34", "#1125"),
-        ("78", "#1125"),
-        ("79", "#1125"),
-        ("84", "#1125"),
-        ("85", "#1125"),
     ];
 
     /// <summary>The checkout this assembly was compiled in — the nearest root, never the outermost.</summary>
