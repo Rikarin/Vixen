@@ -1,0 +1,34 @@
+# The declared `A > B` pairings no runtime sweep has proved, and why each one is unreached.
+#
+#     <parent> > <child>  <why no sweep reaches it, and where its producer is>
+#
+# Held against the residue of `CombinatorPairs.txt` minus every committed proof by
+# `EditorCombinatorPairTests.Every_declared_pairing_is_proved_by_a_sweep_or_named_here`, EXACTLY and
+# in both directions. This is the gate `Rikarin/Vixen#531` asks for: for every `A > B` a sheet
+# declares, does an `A > B` occur anywhere at all?
+#
+# ⚠ NOT DERIVED and deliberately not regenerable. Every other census in this family is written back
+# with VIXEN_REGENERATE=1; this one is not, because the reason column is the whole value of the file
+# and a regeneration would fill it with a placeholder. A row is added by a person who chased the
+# pairing and can say what builds it.
+#
+# ⚠ A row here is "unjudged", never "dead". Each names a producer that exists and a reason no sweep
+# reaches it — an empty document, a dialog nobody opened, a menu built on demand. A pairing that
+# turns out to have NO producer is not listed: it is a dead rule, and the answer is to correct or
+# delete the rule, as `palette-row > text` was.
+#
+# ⚠ The list can only SHRINK. A row that becomes proved fails this test exactly as a new unproved
+# pairing does — the same bargain `WhitespaceExempt.txt` and `RefusalExpiry.txt` make, and the reason
+# is that an expiry list nobody prunes is a list that stops describing anything.
+#
+# What this gate is worth, said plainly: it catches the `compositor-editor > node-canvas` class of
+# defect — a rule whose two halves are real tags that never meet — at the moment the rule is written,
+# rather than when somebody notices a graph drawn at zero width. It does NOT catch a rule that is
+# live somewhere and wrong under the scope it was written for; that is the scoped gate, which is
+# still unbuilt (#531).
+choice-list > button	Built only by a modal dialog: EditorProjects.cs:236 adds the list and its buttons while asking which project to open, and no sweep answers a dialog.
+compiled-scene-diagnostic > compiled-scene-severity	CompiledSceneView.vxml:103 emits one row per diagnostic; the document sweep opens an EMPTY .vxscene, which compiles with none.
+override-cell > textbox	⚠ The rule is correct and has no producer today. TargetOverrideMatrix builds the member's own drawer under the cell, StringDrawer is the only one rooted on a textbox, and neither import-settings mirror in the tree (TextureImportEdits, ModelImportEdits) declares a string member. Its three siblings — checkbox, numeric-input, select — come from the bool, numeric and enum members importers do have.
+radial-item > icon	SceneMenus.cs:139 sets an entry's art on the wedge, and only for an open radial menu with a mode that has registered radial entries. Neither is a state any sweep puts the editor in.
+sprite-rect > sprite-rect-label	SpriteSheetView.cs:389 labels one box per sprite; the document sweep opens an empty .png, which has no rects.
+task-row > task-line	TaskCenter.vxml:16 emits one row per RUNNING task, and a fixture that started no background work has none.
