@@ -3,10 +3,11 @@
 
 using Vixen.Core.Diagnostics;
 using Vixen.Editor.Debugger;
-using Vixen.Engine.Behaviors;
-using Vixen.Engine.Transforms;
 using Vixen.Editor.Profiler;
 using Vixen.Editor.Testing;
+using Vixen.Engine.Behaviors;
+using Vixen.Engine.Transforms;
+using Vixen.Graphics.Null;
 using Vixen.Ui;
 using Vixen.Ui.Composition;
 using Xunit;
@@ -162,6 +163,14 @@ public class DiagnosticsPanelTests {
     }
 
     /// <summary>And so does the frame debugger, which needs a recording backend and does not have one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The sentence is asserted and not merely its presence</b>
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1208">#1208</a>). Nothing in this tree
+    ///     sets <c>FrameCaptureSource</c> and nothing can until a Vulkan command-stream hook exists —
+    ///     the Null backend's recorder is the engine's only recording path — so this state is every
+    ///     editor Vixen has ever built. What must not happen is that it starts reading as an editor
+    ///     that <em>could</em> capture and did not bother.
+    /// </remarks>
     [Fact]
     public void The_frame_debugger_says_why_it_cannot_capture() {
         using var session = EditorSession.Start();
@@ -171,6 +180,62 @@ public class DiagnosticsPanelTests {
         Assert.Null(view.Source);
         Assert.True(view.CaptureButton.Disabled);
         Assert.NotNull(view.Unavailable);
+        Assert.Contains("records into a real command buffer", view.Unavailable, StringComparison.Ordinal);
+    }
+
+    /// <summary>A capture source the host sets after start-up reaches the frame debugger.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The instrument #1208 asks for, and the arrangement that could not see the
+    ///         defect.</b> The panel's own suite sets <c>view.Source</c> itself
+    ///         (<c>PortedPanelTests</c>), which asserts the panel and says nothing about whether
+    ///         anything ever hands it one — and nothing did: the module read the property once, in a
+    ///         factory, and no host in this tree writes it. A test that only opens the panel is
+    ///         satisfied by a seam that has been cut.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Set <em>after</em> the panel is open, deliberately.</b> A host acquires a capture
+    ///         path when it acquires a device, which is several frames after start-up and after a
+    ///         restored layout has already opened this panel — so the only assignment that could ever
+    ///         be useful is a late one. It was a no-op until the module started pushing, which is
+    ///         exactly the bug <c>InspectorEndpoint</c> had.
+    ///     </para>
+    ///     <para>
+    ///         And the capture is stepped rather than merely accepted: <c>Take</c> runs the delegate
+    ///         through <c>NullFrameCapture</c>'s translation, so what is asserted is a draw the panel
+    ///         can select rather than a non-null field.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_capture_source_set_after_start_up_reaches_the_frame_debugger() {
+        using var session = EditorSession.Start();
+
+        var view = Find<FrameDebuggerView>(session, "frame-debugger");
+
+        Assert.Null(view.Source);
+        Assert.True(view.CaptureButton.Disabled);
+
+        RecordedCommand[] stream = [
+            new(RecordedCommandKind.BeginRenderPass, 0, 1, 1, Text: "Main"),
+            new(RecordedCommandKind.BindPipeline, 1, 7),
+            new(RecordedCommandKind.Draw, 2, 3, 1, 0),
+            new(RecordedCommandKind.EndRenderPass, 3)
+        ];
+
+        session.Editor.FrameCaptureSource = () => NullFrameCapture.From(stream, "Editor frame");
+        session.Frames(2);
+
+        Assert.NotNull(view.Source);
+        Assert.Null(view.Unavailable);
+        Assert.False(view.CaptureButton.Disabled);
+
+        view.Take();
+
+        Assert.Equal("Editor frame", view.Capture.Name);
+        Assert.Equal(4, view.Capture.Commands.Count);
+
+        // One draw, and the panel's stepping index is what makes it one press rather than forty.
+        Assert.Equal(2, Assert.Single(view.Capture.Work));
     }
 
     /// <summary>

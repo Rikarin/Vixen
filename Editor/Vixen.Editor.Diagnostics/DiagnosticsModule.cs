@@ -99,6 +99,20 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
 
     string? inspectorEndpoint;
 
+    Func<FrameCapture>? frameCaptureSource;
+
+    /// <summary>The frame debugger this session built, so a late capture source can reach it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one panel this module holds, and every other one is a delegate for the reason
+    ///     this field needs a guard.</b> A panel's factory runs again on every reopen, so a held view
+    ///     outlives the panel it was drawn into — which is why the assignment below is made through
+    ///     <see cref="Restate" />, which ignores a view the workspace has already torn down. The
+    ///     alternative — a delegate the panel pulls through — cannot work here: what the panel reads
+    ///     is whether the source is <em>null</em>, and a wrapper that defers to this property is
+    ///     never null whatever the host has.
+    /// </remarks>
+    FrameDebuggerView? frames;
+
     /// <summary>The device the GPU timeline reads, when the host has one.</summary>
     /// <remarks>
     ///     Assigned by the host once Vulkan is up, which is several frames after this object exists —
@@ -116,12 +130,35 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
 
     /// <summary>What a frame capture is taken from, when the host can take one.</summary>
     /// <remarks>
-    ///     ⚠ <b>Null on a Vulkan host, and that is the honest state.</b> Doc 20's E4 names
-    ///     <c>Vixen.Graphics.Null</c>'s recorder as the shape a capture takes, and it is the only
-    ///     recording path the engine has — the Vulkan backend records into a command buffer and keeps
-    ///     nothing. The panel says so rather than offering a button that would do nothing.
+    ///     <para>
+    ///         ⚠ <b>Null on a Vulkan host, and that is the honest state.</b> Doc 20's E4 names
+    ///         <c>Vixen.Graphics.Null</c>'s recorder as the shape a capture takes, and it is the only
+    ///         recording path the engine has — the Vulkan backend records into a command buffer and
+    ///         keeps nothing. The panel says so rather than offering a button that would do nothing.
+    ///         ⚠ Which means <b>no editor Vixen has ever shipped sets this</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1208">#1208</a>): the Frame Debugger
+    ///         is Unavailable in every one of them, and will be until either a Vulkan command-stream
+    ///         hook exists (doc 13) or a host runs a play session on the Null device. The sentence
+    ///         the panel shows is written for that state and not for an oversight.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it no longer has to be set before the panel is opened, which is the same
+    ///         hazard <see cref="InspectorEndpoint" /> had and the same fix.</b> The panel's factory
+    ///         reads this once, so a host that acquires a capture path after start-up — and every
+    ///         host would, since a device arrives several frames in and a restored layout opens the
+    ///         panel before that — used to leave a permanently greyed Capture button behind a
+    ///         sentence saying the editor could not capture. <c>FrameDebuggerView.Source</c> and
+    ///         <c>.Unavailable</c> are signal-backed precisely so a late assignment can reach them,
+    ///         and this is what does the assigning.
+    ///     </para>
     /// </remarks>
-    public Func<FrameCapture>? FrameCaptureSource { get; set; }
+    public Func<FrameCapture>? FrameCaptureSource {
+        get => frameCaptureSource;
+        set {
+            frameCaptureSource = value;
+            Restate(frames);
+        }
+    }
 
     /// <summary>Rows the statistics panel shows that a world walk cannot produce.</summary>
     /// <remarks>
@@ -426,13 +463,11 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
             panel => {
                 panel.WhenPressedIn(() => shell.Context = DiagnosticsContext);
 
-                var frames = panel.Add<FrameDebuggerView>();
-                frames.Source = FrameCaptureSource;
+                // ⚠ Held as well as filled, so a capture source the host acquires later reaches this
+                // panel rather than the next one somebody opens. See `FrameCaptureSource`.
+                frames = panel.Add<FrameDebuggerView>();
 
-                frames.Unavailable = FrameCaptureSource is null
-                    ? "This host records into a real command buffer, which keeps nothing. A capture "
-                    + "needs the recording backend — see NullFrameCapture."
-                    : null;
+                Restate(frames);
             }
         );
 
@@ -582,6 +617,37 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
         }
 
         return deepest;
+    }
+
+    /// <summary>Tells the frame debugger what it can capture with, and why it cannot when it cannot.</summary>
+    /// <param name="view">The panel, or <see langword="null" /> when none is open.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The sentence is about the host and not about the editor being unfinished.</b> A
+    ///         capture is a recorded command stream, and the only recording backend the engine has is
+    ///         <c>Vixen.Graphics.Null</c> — a Vulkan device executes into a command buffer and keeps
+    ///         nothing. So an editor drawing through Vulkan honestly has nothing to step, and the
+    ///         panel says which of the two states it is in rather than showing a button that would do
+    ///         nothing (<a href="https://github.com/Rikarin/Vixen/issues/1208">#1208</a>).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A view the workspace has torn down is skipped rather than written to.</b> Closing
+    ///         a panel does not tell this module, so the held reference outlives the panel — writing
+    ///         a signal on a removed element would be an update nobody sees and a reference kept
+    ///         alive for the session.
+    ///     </para>
+    /// </remarks>
+    void Restate(FrameDebuggerView? view) {
+        if (view is null || view.IsRemoved) {
+            return;
+        }
+
+        view.Source = FrameCaptureSource;
+
+        view.Unavailable = FrameCaptureSource is null
+            ? "This host records into a real command buffer, which keeps nothing. A capture "
+            + "needs the recording backend — see NullFrameCapture."
+            : null;
     }
 
     static int Depth(World world, Entity entity, int level) {
