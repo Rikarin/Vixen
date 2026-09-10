@@ -971,7 +971,14 @@ The full testing story, by layer and with the status of each. This is the only t
 document; an earlier draft carried a second one at the end that said the same things differently, which
 is how two lists come to disagree.
 
-| | Layer | Test | |
+⚠ **The first column is criticality and not status, and its columns are named now because they were
+not.** It is § A's legend — 🔴 engine-blocking · 🟡 needed for 1.0 · ⚪ mechanical or deferrable — and
+with the header row blank, ⚪ reads as "not started" to anybody who has not just read § A.
+[#314](https://github.com/Rikarin/Vixen/issues/314) was filed on that reading of the `Perf` row
+("the last ⚪ row"), and the `Fuzz` row above it had already had to open with *"not 'not started'"*
+for the same reason. Two rows misread the same way is the column's fault.
+
+| Criticality | Layer | Test | State |
 |---|---|---|---|
 | 🟡 | Parse | Golden-tree and round-trip corpus over **the whole `Raven/Library` tree** — every shipped shader round-trips byte-identically | ✅ mechanism: the corpus walks the tree recursively, so each file § F adds is covered on arrival |
 | 🟡 | Semantic | Positive/negative fixture pairs per diagnostic ID; `compose`-resolution golden trees per material-feature combination | partial — most IDs have a trigger, few have the negative |
@@ -1023,6 +1030,13 @@ What the ratio still cannot see, and what is therefore still owed: time in the b
 emitters or in `spirv-val` leaves no trace in it, and a lowering that got slower without getting
 larger passes. That number is a duration, wants CI's own hardware and a comparison against itself,
 and belongs beside `CheckShaders` rather than in a test assembly.
+
+⚠ **And it cannot be established from a developer machine, which is why it keeps not being done.**
+The honest form is a differential — the library compiled twice at one moment, against a synthetic
+double of itself, so the assertion is a *shape* rather than a second — and even a ratio of two
+timings is a fact about the other work on the box when a batch of agents shares it. So the number
+that closes this row is one CI records and compares against its own history, and every attempt to
+take it anywhere else should be refused rather than written down.
 
 ### H. Burden the plan *removes* from Raven
 
