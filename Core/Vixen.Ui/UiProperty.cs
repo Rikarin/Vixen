@@ -251,6 +251,37 @@ public static class UiPropertyRegistry {
         return false;
     }
 
+    /// <summary>Fills <paramref name="into" /> with a type's properties and its bases', bases first.</summary>
+    /// <param name="type">The type.</param>
+    /// <param name="into">Where the keys go.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The IL2072 on the recursion below is a true positive, and what it describes is
+    ///         live.</b> <c>Type.BaseType</c> carries no annotation while this parameter asks for
+    ///         <c>NonPublicConstructors</c> — which is what preserves a class constructor, which is
+    ///         what <see cref="RuntimeHelpers.RunClassConstructor" /> needs. Measured on 2026-09-10
+    ///         (#1240) with a NativeAOT publish of a probe declaring its own <c>Base : UiElement</c>
+    ///         and <c>Derived : Base</c>: <c>Of(typeof(Derived))</c> came back with the derived
+    ///         property and <b>nothing else</b>, where the same program on CoreCLR returned all ten
+    ///         — the base's property and <see cref="UiElement" />'s own eight among them. A base
+    ///         type's class constructor is <b>not</b> preserved because a derived type is, so an
+    ///         <c>UnconditionalSuppressMessage</c> here would write a defect down as intent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing in this repository can go red on it.</b> The registry's own
+    ///         <c>A_property_is_findable_before_anything_has_touched_its_type</c> asserts exactly the
+    ///         guarantee that fails, and passes, because no test runs against an AOT publish and
+    ///         <c>CheckAot</c> never executes the binary it produces. That is why
+    ///         <c>Vixen.Ui</c> and six siblings are on <c>Tools/Vixen.AotProbe/NotRooted.txt</c>.
+    ///     </para>
+    ///     <para>
+    ///         The cure is measured too and is not here: a derived class whose static constructor
+    ///         calls <c>RunClassConstructor(typeof(Base).TypeHandle)</c> — <em>by name</em>, so ILC
+    ///         can see the type — gets its base's properties back, while the identical pair without
+    ///         that call does not. So it belongs in <c>Vixen.Ui.Generators</c>, chaining each
+    ///         generated static constructor to the nearest property-declaring ancestor.
+    ///     </para>
+    /// </remarks>
     static void Collect(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.NonPublicConstructors)] Type type,
         List<UiPropertyKey> into
