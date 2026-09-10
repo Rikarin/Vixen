@@ -226,7 +226,8 @@ sealed partial class EditorApplication {
                     "Behaviours",
                     0,
                     Detail: live is null
-                        ? "the scene authors none — attaching from code is what a sample does, and this counts a store"
+                        ? "the scene authors none — attaching from code is what a sample does, and this "
+                        + "counts a store"
                         : "this session has attached none"
                 )
             ];
