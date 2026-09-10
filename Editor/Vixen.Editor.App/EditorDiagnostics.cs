@@ -10,6 +10,7 @@ using Vixen.Editor.Plugin;
 using Vixen.Editor.Profiler;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
+using Vixen.Engine.Behaviors;
 using Vixen.Engine.Transforms;
 using Vixen.Graphics;
 using Vixen.Net.Transport.Local;
@@ -170,17 +171,6 @@ sealed partial class EditorApplication {
     /// <summary>The profiler's model, for a test and for the host's own frame samples.</summary>
     internal ProfilerModel Profiling => diagnostics.Profiling;
 
-    /// <summary>
-    ///     How many instances of one behaviour type is enough to be worth a second look, per doc 04 §
-    ///     <i>When to write one</i>.
-    /// </summary>
-    /// <remarks>
-    ///     ⚠ <b>An opinion the document states and this reads, not a number the editor invented</b> —
-    ///     the same argument, and the same figure, <c>vixen doctor behaviors</c> makes. A threshold a
-    ///     tool picks for itself is one nobody can argue with.
-    /// </remarks>
-    const int ManyBehaviors = 200;
-
     /// <summary>How many behaviour types the statistics panel names before it stops listing them.</summary>
     /// <remarks>
     ///     A panel is read at a glance, and <c>Population</c> is sorted most-numerous-first — so the
@@ -240,7 +230,7 @@ sealed partial class EditorApplication {
                 new(
                     "Behaviours · " + bucket.BehaviorType.Name,
                     bucket.Total,
-                    ManyBehaviors,
+                    BehaviorScale.Many,
                     live is null
                         ? "authored in this scene; a running level's count is not this one"
                         : bucket.Enabled + " of them enabled, in this play session"

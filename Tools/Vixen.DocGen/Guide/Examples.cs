@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Vixen.DocGen.Guide;
 
@@ -140,9 +142,139 @@ static class Examples {
         return (host, options?.WithDocumentationMode(DocumentationMode.Parse));
     }
 
+    /// <summary>
+    ///     The engine's own rules a compiled fence is held to, by diagnostic id.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Until <a href="https://github.com/Rikarin/Vixen/issues/1238">#1238</a> the guide
+    ///         corpus was checked against the compiler and not against this repository's own
+    ///         rules</b>, so every example a shipped analyzer would refuse compiled clean. The one
+    ///         that found it is the page about world serialisation, whose remapping example declared
+    ///         a <c>[Component] [DataContract]</c> struct holding an <c>Entity</c> — <c>VXS0416</c>,
+    ///         an error, on the page about the operation the example exists to explain.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A named list of ids and not "every analyzer", which is a decision rather than
+    ///         laziness.</b> The tree ships analyzers whose subject is a call site rather than a
+    ///         shape — <c>CheckStrings</c>' declaration rules, the hot-path allocation warning — and
+    ///         an eight-line fence is not the program they were written about. These three are the
+    ///         rules about what a type may <em>hold</em>: they fire on the declaration a reader
+    ///         copies into their own project, and are an error there. Widening the list is a corpus
+    ///         run, not an edit.
+    ///     </para>
+    /// </remarks>
+    public static readonly ImmutableArray<string> Enforced = ["VXS0413", "VXS0414", "VXS0416"];
+
+    /// <summary>Roslyn's own id for an analyzer that threw, which is reported alongside the rules.</summary>
+    /// <remarks>
+    ///     An analyzer that threw is the shape of a gate that did not run — <c>CompilationWithAnalyzers</c>
+    ///     turns the exception into this rather than propagating it — so it is let through the filter
+    ///     below instead of being dropped with everything the list does not name.
+    /// </remarks>
+    const string AnalyzerFailed = "AD0001";
+
+    /// <summary>
+    ///     Every analyzer the workspace resolved, deduplicated, keeping the ones that report an
+    ///     <see cref="Enforced" /> rule.
+    /// </summary>
+    /// <remarks>
+    ///     By type name rather than by instance: an analyzer arrives once per project that names it,
+    ///     and this repository names <c>Vixen.Engine.Generators</c> from a few dozen. Running the same
+    ///     rule forty times would report each finding forty times.
+    /// </remarks>
+    /// <param name="analyzers">Every analyzer, from every project the workspace loaded.</param>
+    /// <returns>The set to run over a fence.</returns>
+    public static ImmutableArray<DiagnosticAnalyzer> Rules(IEnumerable<DiagnosticAnalyzer> analyzers) {
+        ArgumentNullException.ThrowIfNull(analyzers);
+
+        return [
+            .. analyzers
+                .GroupBy(analyzer => analyzer.GetType().FullName ?? string.Empty, StringComparer.Ordinal)
+                .Select(group => group.First())
+                .Where(analyzer => analyzer.SupportedDiagnostics
+                    .Any(rule => Enforced.Contains(rule.Id, StringComparer.Ordinal)))
+                .OrderBy(analyzer => analyzer.GetType().FullName, StringComparer.Ordinal)
+        ];
+    }
+
+    /// <summary>
+    ///     ⚠ The instrument, asked what it prints on the day it does not run: which
+    ///     <see cref="Enforced" /> rules no loaded analyzer reports.
+    /// </summary>
+    /// <remarks>
+    ///     A gate that resolved no analyzers checks nothing and looks identical to a clean corpus —
+    ///     which is how this whole class of example survived until #1238. The analyzers arrive from
+    ///     the workspace's own <c>@(Analyzer)</c> items, so they are absent for the same reasons the
+    ///     generators are: the tree built in another configuration, or a load failure Roslyn reports
+    ///     by handing back an empty list.
+    /// </remarks>
+    /// <param name="rules">The set from <see cref="Rules" />.</param>
+    /// <returns>The unreported ids, in order; empty when the gate can do its job.</returns>
+    public static IReadOnlyList<string> Unreported(ImmutableArray<DiagnosticAnalyzer> rules) => [
+        .. Enforced.Where(id => rules.IsDefaultOrEmpty
+            || !rules.Any(analyzer => analyzer.SupportedDiagnostics
+                .Any(rule => string.Equals(rule.Id, id, StringComparison.Ordinal))))
+    ];
+
+    /// <summary>What the engine's own rules say about one fence's tree.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Per tree rather than <c>GetAllDiagnosticsAsync</c>.</b> The host is a whole engine
+    ///     project; analysing it two hundred times would be the gate's entire cost and would report
+    ///     the engine's own diagnostics as the guide's. A semantic pass filtered to the fence's tree
+    ///     runs the symbol actions for the symbols that tree declares, which is exactly the question.
+    /// </remarks>
+    /// <param name="compilation">The host with the fence's tree already added.</param>
+    /// <param name="tree">The fence's tree.</param>
+    /// <param name="rules">The analyzers, from <see cref="Rules" />.</param>
+    /// <param name="cancellationToken">Cancellation.</param>
+    /// <returns>The diagnostics an <see cref="Enforced" /> rule reported inside the fence.</returns>
+    public static async Task<IReadOnlyList<Diagnostic>> AnalyzeAsync(
+        Compilation compilation,
+        SyntaxTree tree,
+        ImmutableArray<DiagnosticAnalyzer> rules,
+        CancellationToken cancellationToken
+    ) {
+        ArgumentNullException.ThrowIfNull(compilation);
+        ArgumentNullException.ThrowIfNull(tree);
+
+        if (rules.IsDefaultOrEmpty) {
+            return [];
+        }
+
+        var withAnalyzers = compilation.WithAnalyzers(
+            rules,
+            new CompilationWithAnalyzersOptions(
+                new AnalyzerOptions([]),
+                onAnalyzerException: null,
+                concurrentAnalysis: false,
+                logAnalyzerExecutionTime: false
+            )
+        );
+
+        var reported = await withAnalyzers.GetAnalyzerSemanticDiagnosticsAsync(
+            compilation.GetSemanticModel(tree),
+            null,
+            cancellationToken
+        );
+
+        reported = reported.AddRange(
+            await withAnalyzers.GetAnalyzerSyntaxDiagnosticsAsync(tree, cancellationToken));
+
+        return [
+            .. reported
+                // An AD0001 has no location inside the fence, so the tree filter would drop it and
+                // an analyzer that threw would read as a clean run.
+                .Where(diagnostic => string.Equals(diagnostic.Id, AnalyzerFailed, StringComparison.Ordinal)
+                    || (Enforced.Contains(diagnostic.Id, StringComparer.Ordinal)
+                        && diagnostic.Location.SourceTree == tree))
+        ];
+    }
+
     public static IReadOnlyList<Result> Compile(
         IReadOnlyList<Example> examples,
         IReadOnlyList<Compilation> engine,
+        ImmutableArray<DiagnosticAnalyzer> rules,
         CancellationToken cancellationToken
     ) {
         var compilable = examples.Where(example => example is { Compile: true, Language: "csharp" }).ToList();
@@ -172,10 +304,13 @@ static class Examples {
             var (source, _) = Wrap(example, index);
             var tree = CSharpSyntaxTree.ParseText(source, parseOptions, cancellationToken: cancellationToken);
 
-            var errors = host.AddSyntaxTrees(tree)
+            var withExample = host.AddSyntaxTrees(tree);
+
+            var errors = withExample
                 .GetDiagnostics(cancellationToken)
                 .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
                 .Where(diagnostic => diagnostic.Location.SourceTree == tree)
+                .Concat(AnalyzeAsync(withExample, tree, rules, cancellationToken).GetAwaiter().GetResult())
                 .Select(diagnostic =>
                     $"{example.Page}:{example.Line}: {diagnostic.Id}: {diagnostic.GetMessage()}")
                 .ToList();

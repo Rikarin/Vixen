@@ -3,6 +3,7 @@
 
 using System.Collections.Concurrent;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.MSBuild;
 
 namespace Vixen.DocGen;
@@ -14,13 +15,20 @@ namespace Vixen.DocGen;
 /// <param name="IsPackable">Whether it carries a <c>PublicAPI.*.txt</c>.</param>
 /// <param name="GeneratedDocuments">How many source-generated documents it has.</param>
 /// <param name="Errors">Compile errors, which are fatal unless the project is excused.</param>
+/// <param name="Analyzers">
+///     The diagnostic analyzers the build resolved for it. ⚠ Carried because the guide examples are
+///     otherwise checked against the compiler and not against this repository's own rules
+///     (<a href="https://github.com/Rikarin/Vixen/issues/1238">#1238</a>) — and taking them from the
+///     workspace is what stops the gate owning a second list of which analyzers exist.
+/// </param>
 sealed record LoadedProject(
     string Name,
     Compilation Compilation,
     string Area,
     bool IsPackable,
     int GeneratedDocuments,
-    IReadOnlyList<Diagnostic> Errors
+    IReadOnlyList<Diagnostic> Errors,
+    IReadOnlyList<DiagnosticAnalyzer> Analyzers
 );
 
 /// <summary>Opens `Vixen.slnx` and hands back compiled projects — docs/plan/25 § 3.1 and § 3.2.</summary>
@@ -112,7 +120,9 @@ sealed class SolutionLoader(string solutionPath, string configuration, Action<st
                 project.AssemblyName is { } name && packable.Contains(name),
                 generatedCount,
                 [.. compilation.GetDiagnostics(cancellationToken)
-                    .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)]
+                    .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)],
+                [.. project.AnalyzerReferences.SelectMany(reference =>
+                    reference.GetAnalyzers(LanguageNames.CSharp))]
             ));
         }
 

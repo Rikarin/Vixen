@@ -41,13 +41,6 @@ namespace Vixen.Cli;
 ///     </para>
 /// </remarks>
 internal static class BehaviorsRunner {
-    /// <summary>
-    ///     How many instances of one type is enough to be worth a second look, per doc 04 §
-    ///     <i>When to write one</i>. ⚠ An opinion the document states and this reads, not a number
-    ///     this command invented — a threshold a tool picks for itself is one nobody can argue with.
-    /// </summary>
-    const int Many = 200;
-
     /// <summary>Examines the behaviours the named assemblies declare and the named scenes author.</summary>
     /// <param name="assemblyPaths">The built game assemblies, as <c>--assembly</c> gave them.</param>
     /// <param name="scenePaths">The authored scenes to count instances in, as <c>--scene</c> gave them.</param>
@@ -224,18 +217,24 @@ internal static class BehaviorsRunner {
             var off = disabled.GetValueOrDefault(type);
             var detail = string.Create(CultureInfo.InvariantCulture, $"{total} authored, {total - off} of them enabled.");
 
-            if (total >= Many) {
+            if (total >= BehaviorScale.Many) {
                 // The number as a string first: interpolating an int would take the current culture,
                 // and a threshold that reads "1 000" in one locale and "1000" in another is a report
                 // nobody can grep.
-                var many = Many.ToString(CultureInfo.InvariantCulture);
+                var many = BehaviorScale.Many.ToString(CultureInfo.InvariantCulture);
 
                 detail += $" ⚠ Past {many}, which doc 04 calls many: the same operation over all of "
                     + "them is what a component and a system are for, and converting later is a "
                     + "re-authoring nothing does for you.";
             }
 
-            findings.Add(new(total >= Many ? Health.Concerning : Health.Fine, $"{Path.GetFileName(full)} {type.Name}", detail));
+            findings.Add(
+                new(
+                    total >= BehaviorScale.Many ? Health.Concerning : Health.Fine,
+                    $"{Path.GetFileName(full)} {type.Name}",
+                    detail
+                )
+            );
         }
     }
 }

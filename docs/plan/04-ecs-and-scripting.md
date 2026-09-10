@@ -111,6 +111,13 @@ world.Query(query, static (ref Position p, ref Velocity v) => p.Value += v.Value
 > the raw material for a translation table, and nothing zips them —
 > [#296](https://github.com/Rikarin/Vixen/issues/296).
 >
+> ⚠ **And read that ✅ as "the format exists", not as "worlds are being saved".** Outside
+> `WorldSerializerTests` and `MalformedSceneContentTests` nothing in the tree calls `Capture` or
+> `Restore` — swept over `*.cs` **and** `*.vxml` — so the round trip the paragraphs below argue about
+> has no production instance to argue about. `docs/overview.md` carries this row as 🟡 for that
+> reason and is the half that wins; the note is repeated here because a reader arrives at the ✅ and
+> not at the row. [#1201](https://github.com/Rikarin/Vixen/issues/1201).
+>
 > ✅ **The `VIXEN_ECS_EVENTS` hooks landed too** — five events on `World`, raised through
 > `[Conditional]` so the *call site* vanishes in release rather than the body being an empty method
 > nobody can see is empty, behind `DEBUG || VIXEN_ECS_EVENTS` so a debug build gets them without
@@ -118,8 +125,12 @@ world.Query(query, static (ref Position p, ref Velocity v) => p.Value += v.Value
 > `Create<T0>` overloads write their components after allocating and an announcement from inside the
 > allocation handed every listener a zero.
 >
-> **Owed here: nothing.** Both of this note's original Owed items are closed
-> ([#27](https://github.com/Rikarin/Vixen/issues/27) and world serialisation).
+> **Owed here: a first customer for the world format.** Both of this note's original Owed items are
+> written ([#27](https://github.com/Rikarin/Vixen/issues/27) and world serialisation) — ⚠ but this
+> line used to read *"Owed here: nothing"*, which is the sentence that made three separate audits
+> rediscover that nothing calls the serialiser. A save, a checkpoint or a network world-state sync
+> would each want a different answer from it, and until one exists neither #1201 nor #296 has
+> anything to be designed against.
 
 ### Structural change safety
 
@@ -406,6 +417,19 @@ one to the other, and this document does not pretend the migration is free.
 >   that emits source is `TemplateCatalog`, which instantiates a whole `dotnet new` project from
 >   embedded files. "Rewrite this class in place" is a different capability, and buying it for this
 >   one verb is the wrong first customer.
+>
+> ⚠ **One of those three bullets is wrong, and it is the third.** *"The editor has never written a
+> line of a user's C#"* was checked and is not true: `Editor/Vixen.Editor.Assets/Gameplay/AddressConstants.cs`
+> builds a whole C# file out of a content plan — a naming policy, collision reporting, a nested class
+> per address, and a written-down refusal to emit a hash as a literal — and
+> `Tools/Vixen.Cli/AddressRunner.cs` writes it into the user's project on every `vixen import`, which
+> `Vixen.Sdk` runs `BeforeTargets="CoreCompile"` for exactly this reason. So *emitting* a user's
+> source is a capability this tree already has, tested and shipping, and the estimate for the data
+> half is if anything generous. **What is genuinely absent is rewriting an existing class in place**,
+> which is a different thing: `Addresses.g.cs` is a file the tool owns end to end and may overwrite,
+> while a converted behaviour is a file the author owns and has edited. The bullet's conclusion
+> survives; its evidence does not, and the two are worth keeping apart because the next person to
+> price a source-emitting verb will read this paragraph.
 >
 > **So the tool that can be built would convert the half the author does not need help with, while
 > the verb's existence implies the migration is handled.** That is the trap this section already

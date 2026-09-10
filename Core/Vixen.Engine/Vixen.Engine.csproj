@@ -102,6 +102,14 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Engine.Tests" />
+
+        <!--
+            The two readers of BehaviorStore.Population, so that doc 04's "worth a second look"
+            threshold is one internal constant rather than a copy apiece (#1230). ⚠ The CLI's
+            assembly is named `vixen` and not `Vixen.Cli`, which is what this attribute is about.
+        -->
+        <InternalsVisibleTo Include="vixen" />
+        <InternalsVisibleTo Include="Vixen.Editor.App" />
     </ItemGroup>
 
 </Project>
