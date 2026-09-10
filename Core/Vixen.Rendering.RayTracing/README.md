@@ -104,6 +104,18 @@ closing this needs, since nothing in the repository can conjure a device that ha
   `float` in the `Trace` answer and exact below 2²⁴, which is more primitives than a BLAS may hold.
   The three pieces are all reachable: the field, the binding on the host that fills the slot, and a
   runner with `VK_KHR_ray_query`. Only the third is missing.
+
+  ⚠ **And there is a fourth absence the ordering above misses: nothing composes `RayQueryField` into
+  a production frame.** `MaterialCompiler.OptionalSlots` fills every `distanceField` declaration
+  with `NoDistanceField`; `StandardFrame` names `GlobalDistanceField`, the marching clipmap; and the
+  only place in the tree that puts `RayQueryField` in the slot is
+  `AccelerationStructureDeviceTests`, through `MaterialCompiler.RayQueryFieldShader` — a public
+  constant with no other reader. No `.vxpreset`, `.vxlook` or compositor asset names it, and no
+  device-capability switch chooses it. So the wrong colour above reaches no frame today: the
+  hardware tracer is unreachable from any production composition as well as unrefereeable, and the
+  cheaper first move is a `HasRayQuery` switch beside the clipmap rather than a protocol change
+  across 176 shaders that nothing would yet consume. Filed as
+  [#1246](https://github.com/Rikarin/Vixen/issues/1246).
 - **SAH.** The median build is the baseline and the referee; the surface-area heuristic is the
   optimisation measured against it.
 - **Refit.** A build per change is the baseline; updating in place is the optimisation, and it

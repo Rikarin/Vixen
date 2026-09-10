@@ -40,6 +40,17 @@ import Vixen.Shaders.Core
 // exactly below 2^24, which is more primitives than a BLAS may hold. What is missing is a runner
 // with the ray-query extension: `AccelerationStructureDeviceTests` skips on MoltenVK and on
 // llvmpipe, so the correction would land where nothing in this repository can referee it.
+//
+// And the second half of "nothing can referee it", which is worth having before the protocol is
+// widened across the library: **nothing composes this shader into a production frame either.**
+// `MaterialCompiler.OptionalSlots` fills every `distanceField` declaration with `NoDistanceField`,
+// `StandardFrame` names `GlobalDistanceField` — the marching clipmap — and the only place in the
+// tree that puts `RayQueryField` in the slot is `AccelerationStructureDeviceTests`, through the
+// `MaterialCompiler.RayQueryFieldShader` constant, which has no other reader. No `.vxpreset`,
+// `.vxlook` or compositor asset names it and no device-capability switch chooses it. So the wrong
+// colour issue 1169 describes reaches no frame today, and the ordering the work wants is: give a
+// production composition a reason to select this — a `HasRayQuery` switch beside the clipmap, filed
+// as issue 1246 — and only then widen `DistanceFieldHit` for it.
 
 shader RayQueryField : IDistanceFieldSource {
     /// Further than any march is allowed to go — `NoDistanceField.Nothing`, by value.
