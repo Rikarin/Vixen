@@ -76,8 +76,14 @@ public sealed class WorkflowAndTargetInventoryTests {
     [Fact]
     public void TheReadmeNamesEveryTarget() {
         var targets = Targets();
-        var readme = File.ReadAllText(Path.Combine(RepositoryRoot(), "README.md")).Replace("\r\n", "\n", StringComparison.Ordinal);
-        var list = Regex.Match(readme, @"There are (?<count>[a-z-]+) targets:\s*`(?<names>[^`]+)`", RegexOptions.Singleline);
+        var readme = File.ReadAllText(Path.Combine(RepositoryRoot(), "README.md"))
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        var list = Regex.Match(
+            readme,
+            @"There are (?<count>[a-z-]+) targets:\s*`(?<names>[^`]+)`",
+            RegexOptions.Singleline
+        );
 
         Assert.True(
             list.Success,
@@ -105,7 +111,11 @@ public sealed class WorkflowAndTargetInventoryTests {
     public void DocTwelvesTargetGraphNamesEveryTarget() {
         var targets = Targets();
         var document = DocTwelve();
-        var graph = Regex.Match(document, @"The (?<count>[a-z-]+) targets, by what they depend on.*?```(?<block>.*?)```", RegexOptions.Singleline);
+        var graph = Regex.Match(
+            document,
+            @"The (?<count>[a-z-]+) targets, by what they depend on.*?```(?<block>.*?)```",
+            RegexOptions.Singleline
+        );
 
         Assert.True(
             graph.Success,
@@ -153,7 +163,11 @@ public sealed class WorkflowAndTargetInventoryTests {
     [Fact]
     public void DocTwelveNamesEveryJobInNightlyYaml() {
         var document = DocTwelve();
-        var sentence = Regex.Match(document, @"`nightly\.yml`, (?<count>[a-z-]+) jobs:(?<body>.*?)\n\n", RegexOptions.Singleline);
+        var sentence = Regex.Match(
+            document,
+            @"`nightly\.yml`, (?<count>[a-z-]+) jobs:(?<body>.*?)\n\n",
+            RegexOptions.Singleline
+        );
 
         Assert.True(
             sentence.Success,
@@ -193,7 +207,9 @@ public sealed class WorkflowAndTargetInventoryTests {
     [Fact]
     public void EveryTargetACiJobRunsIsNamedInItsRow() {
         var root = RepositoryRoot();
-        var workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml")).Replace("\r\n", "\n", StringComparison.Ordinal);
+        var workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml"))
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
+
         var targets = Targets().ToHashSet(StringComparer.Ordinal);
         var document = DocTwelve();
         var rows = Regex.Matches(document, @"^\| `(?<job>[a-z][a-z0-9-]*)` \|(?<body>.*)$", RegexOptions.Multiline)
@@ -240,7 +256,9 @@ public sealed class WorkflowAndTargetInventoryTests {
     static List<string> Targets() {
         var build = Path.Combine(RepositoryRoot(), "build");
         var declarations = Directory.EnumerateFiles(build, "Build*.cs")
-            .SelectMany(file => Regex.Matches(File.ReadAllText(file), @"^\s*Target (?<name>\w+) => ", RegexOptions.Multiline))
+            .SelectMany(file =>
+                Regex.Matches(File.ReadAllText(file), @"^\s*Target (?<name>\w+) => ", RegexOptions.Multiline)
+            )
             .Select(match => match.Groups["name"].Value)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
@@ -288,7 +306,9 @@ public sealed class WorkflowAndTargetInventoryTests {
     /// <returns>Job id and the lines under it.</returns>
     static IEnumerable<(string Job, string Body)> JobBodies(string workflow) {
         var block = Regex.Match(workflow, @"^jobs:\s*$(?<body>(?:\n(?:[ \t#].*)?)*)", RegexOptions.Multiline);
-        var jobs = Regex.Matches(block.Groups["body"].Value, @"^  (?<name>[a-z][a-z0-9-]*):\s*$", RegexOptions.Multiline).ToList();
+        var jobs = Regex
+            .Matches(block.Groups["body"].Value, @"^  (?<name>[a-z][a-z0-9-]*):\s*$", RegexOptions.Multiline)
+            .ToList();
 
         for (var index = 0; index < jobs.Count; index++) {
             var start = jobs[index].Index;
