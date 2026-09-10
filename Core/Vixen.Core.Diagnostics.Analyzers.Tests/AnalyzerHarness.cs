@@ -7,29 +7,21 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Xunit;
 
-namespace Vixen.Core.Analyzers.Tests;
+namespace Vixen.Core.Diagnostics.Analyzers.Tests;
 
-/// <summary>Runs <see cref="HotPathAllocationAnalyzer" /> over a string of C#, the way the compiler would.</summary>
-/// <remarks>
-///     The references come from this assembly's own load set, which is what puts the real
-///     <c>Vixen.Core.HotPathAttribute</c> in front of the analyzer rather than a fixture's copy of it.
-///     A rule keyed on <c>GetTypeByMetadataName</c> is silent when the name resolves to nothing, so a
-///     harness that forgot the reference would pass every negative test and fail every positive one —
-///     which is why <see cref="HotPathAllocationAnalyzerTests.TheHarnessCompilationCanNameTheRealAttribute" />
-///     asks the compilation whether it can see the type before any rule test trusts it.
-/// </remarks>
+/// <summary>Runs the analyzer over a string of C#, the way the compiler would.</summary>
 public static class AnalyzerHarness {
     static readonly ImmutableArray<MetadataReference> References = CollectReferences();
 
     /// <summary>Compiles source and runs the analyzer over it.</summary>
-    /// <param name="source">The C# to compile. It has to compile: a snippet with an error in it binds
-    ///     to nothing, and an analyzer that reports nothing about nothing would pass.</param>
+    /// <param name="source">The C# to compile. It has to compile: a snippet with an error in it
+    ///     binds to nothing, and an analyzer that reports nothing about nothing would pass.</param>
     /// <returns>What the analyzer reported.</returns>
     public static async Task<ImmutableArray<Diagnostic>> RunAsync(string source) {
         var compilation = Compile(source);
 
         return await compilation
-            .WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new HotPathAllocationAnalyzer()))
+            .WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new SilentCatchAnalyzer()))
             .GetAnalyzerDiagnosticsAsync(TestContext.Current.CancellationToken);
     }
 
@@ -40,7 +32,7 @@ public static class AnalyzerHarness {
         var tree = CSharpSyntaxTree.ParseText(
             source,
             new CSharpParseOptions(documentationMode: DocumentationMode.Diagnose),
-            "Frame.cs"
+            "Subsystem.cs"
         );
 
         var compilation = CSharpCompilation.Create(
@@ -66,6 +58,10 @@ public static class AnalyzerHarness {
     /// <summary>The source a diagnostic underlined.</summary>
     /// <param name="diagnostic">The diagnostic.</param>
     /// <returns>The text of its span.</returns>
+    /// <remarks>
+    ///     Where a diagnostic points is half of what it says. This rule underlines the clause and not
+    ///     the body, so the span is part of what the tests assert rather than incidental.
+    /// </remarks>
     public static string Underlined(Diagnostic diagnostic) {
         ArgumentNullException.ThrowIfNull(diagnostic);
 
@@ -74,18 +70,10 @@ public static class AnalyzerHarness {
 
     static ImmutableArray<MetadataReference> CollectReferences() {
         var references = ImmutableArray.CreateBuilder<MetadataReference>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
 
-        // ⚠ GetAssemblies() lists what is LOADED, and a ProjectReference nothing has touched yet is
-        // not loaded — so Vixen.Core goes in by name rather than by hoping. `_ = typeof(...)` is not
-        // enough: a discard of a side-effect-free expression compiles to no IL at all, the token is
-        // never resolved, and the assembly is never loaded. That mistake cost sixteen red tests.
-        foreach (var location in AppDomain.CurrentDomain.GetAssemblies()
-                     .Where(assembly => !assembly.IsDynamic && assembly.Location.Length != 0)
-                     .Select(assembly => assembly.Location)
-                     .Append(typeof(HotPathAttribute).Assembly.Location)) {
-            if (seen.Add(location)) {
-                references.Add(MetadataReference.CreateFromFile(location));
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies()) {
+            if (!assembly.IsDynamic && assembly.Location.Length != 0) {
+                references.Add(MetadataReference.CreateFromFile(assembly.Location));
             }
         }
 

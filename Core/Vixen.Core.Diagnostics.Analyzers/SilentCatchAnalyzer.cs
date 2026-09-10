@@ -8,7 +8,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
 
-namespace Vixen.Core.Analyzers;
+namespace Vixen.Core.Diagnostics.Analyzers;
 
 /// <summary>Reports a <c>catch</c> that takes every exception and then never mentions it.</summary>
 /// <remarks>

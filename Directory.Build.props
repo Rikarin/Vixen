@@ -589,14 +589,24 @@
                       ReferenceOutputAssembly="false"
                       PrivateAssets="all" />
     <!--
-      VXHP0001 and VXLG0001. The first reports nothing until a member is marked [HotPath], so its
-      breadth costs a compilation that has marked nothing exactly nothing; the second reads every
-      catch clause, and the five places in Core/ it fires on are off by name in .editorconfig.
-      ⚠ VXLG0001 is not CA1031 and cannot be replaced by it: CA1031 reads the clause and not the
-      body, so it reports the shape doc 13 asks for — and it is not enabled by latest-recommended
-      anyway, which is why sixteen unfiltered broad catches compile clean here.
+      VXHP0001. Unlike VXIO0001 this one reports nothing until a member is marked [HotPath], so
+      referencing it everywhere costs a compilation that has marked nothing exactly nothing.
     -->
     <ProjectReference Include="$(MSBuildThisFileDirectory)Core\Vixen.Core.Analyzers\Vixen.Core.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+    <!--
+      VXLG0001 — doc 13 § Discipline's silent-catch rule, the half a compiler can decide.
+      ⚠ A project of its own rather than a rule inside Vixen.Core.Analyzers, and the reason is the
+      package boundary: Vixen.Core packs that assembly into analyzers/dotnet/cs so a consumer gets
+      [HotPath] and the rule that gives it meaning, and VXHP0001 is silent in a compilation that
+      marks nothing. VXLG0001 reports on ordinary code, so shipping it there would hand somebody's
+      game an error for a catch this rule was never written about.
+      ⚠ And it is not CA1031, which reads the clause rather than the body — it reports the very shape
+      doc 13 asks for, and latest-recommended does not enable it anyway.
+    -->
+    <ProjectReference Include="$(MSBuildThisFileDirectory)Core\Vixen.Core.Diagnostics.Analyzers\Vixen.Core.Diagnostics.Analyzers.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false"
                       PrivateAssets="all" />

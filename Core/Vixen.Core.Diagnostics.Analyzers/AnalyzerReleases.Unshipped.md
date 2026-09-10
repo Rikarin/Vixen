@@ -5,4 +5,4 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
-VXHP0001 | Vixen.Performance | Warning | A [HotPath] member allocates on the managed heap
+VXLG0001 | Vixen.Diagnostics | Warning | A catch takes every exception and never names it

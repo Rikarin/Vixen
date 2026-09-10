@@ -5,7 +5,7 @@ using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Xunit;
 
-namespace Vixen.Core.Analyzers.Tests;
+namespace Vixen.Core.Diagnostics.Analyzers.Tests;
 
 /// <summary>The positives and the id-named negatives for <c>VXLG0001</c>.</summary>
 /// <remarks>
@@ -301,5 +301,5 @@ public sealed class SilentCatchAnalyzerTests {
     }
 
     static Task<ImmutableArray<Diagnostic>> RunAsync(string body) =>
-        AnalyzerHarness.RunAsync(new SilentCatchAnalyzer(), Scaffold + body);
+        AnalyzerHarness.RunAsync(Scaffold + body);
 }

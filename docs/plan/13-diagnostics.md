@@ -62,11 +62,12 @@ internal static partial class RenderLog
   `RingBufferSink`'s remarks carry the same correction.
 - **Every `catch` either handles or logs with the exception object.** ⚠ **Half of this is a rule now
   and half is still a convention.** The bullet claimed an analyzer flagged silent catches for as long
-  as it existed and none did (#344); `VXLG0001` in `Core/Vixen.Core.Analyzers` is the one that does.
-  It reports the widest shape — a `catch` of `Exception`, or a bare `catch`, with no `when` filter,
-  that never rethrows and never names what it caught — which `TreatWarningsAsErrors` turns into a
-  build failure in every `Core/` project. Five clauses are off by name in `.editorconfig`, each with a
-  written reason, and every one of them is somewhere no logger reaches. A silent catch of a *named*
+  as it existed and none did (#344); `VXLG0001` in `Core/Vixen.Core.Diagnostics.Analyzers` is the
+  one that does. It reports the widest shape — a `catch` of `Exception`, or a bare `catch`, with no
+  `when` filter, that never rethrows and never names what it caught — which
+  `TreatWarningsAsErrors` turns into a build failure in every `Core/` project. Five clauses are off
+  by name in `.editorconfig`, each with a written reason, and every one of them is somewhere no
+  logger reaches. A silent catch of a *named*
   type is still a convention and deliberately so: naming a type is a decision about a named failure,
   and the twelve such clauses in `Core/` each carry their reason above them.
   ⚠ **CA1031 is not that rule and could not be made into it.** It reads the clause and not the body,
