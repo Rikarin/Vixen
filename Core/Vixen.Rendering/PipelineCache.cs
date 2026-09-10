@@ -104,12 +104,41 @@ public sealed class PipelineCache(IGraphicsDevice device) {
         return created;
     }
 
-    /// <summary>Forgets every pipeline, for a device loss or a shader reload.</summary>
+    /// <summary>Forgets every pipeline, destroying it, for a device loss or a shader reload.</summary>
     /// <remarks>
-    ///     Does not destroy them: the handles belong to the device, and a caller that reloaded
-    ///     shaders is about to drop the device or the effects behind them. Destroying here would
-    ///     mean deciding whether a pipeline still in flight is safe to free, which is the device's
-    ///     question rather than the cache's.
+    ///     <para>
+    ///         ⚠ <b>It used to drop the handles rather than destroy them, and the argument for that
+    ///         did not cover the one caller it ever got.</b> The argument was that a caller which
+    ///         reloaded shaders is about to drop the device or the effects behind them; the editor's
+    ///         <c>ReloadShaders</c> drops the effects and keeps the device, so every pipeline of the
+    ///         previous generation would have been a device object with nothing left holding its
+    ///         handle. Whether one still in flight is safe to free is not a question this has to
+    ///         answer either: every <c>Destroy</c> on <see cref="IGraphicsDevice" /> is deferred by
+    ///         contract until no frame that could reference the object is still running.
+    ///     </para>
+    ///     <para>
+    ///         Why a reload needs it at all: <see cref="PipelineKey" /> holds the
+    ///         <see cref="Effect" />, and an effect is a class with reference equality — so a rebuild
+    ///         hands back new instances and every key from the new generation misses. The picture is
+    ///         right afterwards, which is why nobody noticed, and the count is bounded by
+    ///         materials × compositor × <em>reloads</em> rather than by the first two, which is the
+    ///         bound the remarks above claim. See
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/1244" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The other named event has no caller and cannot have one yet.</b> There is no device
+    ///         loss to recover from: <c>AppGraphics</c> latches <c>IsLost</c> and stops, and nothing
+    ///         clears the flag — see <see href="https://github.com/Rikarin/Vixen/issues/303" />. That
+    ///         half is blocked rather than overlooked.
+    ///     </para>
     /// </remarks>
-    public void Clear() => pipelines.Clear();
+    public void Clear() {
+        foreach (var pipeline in pipelines.Values) {
+            if (pipeline.IsValid) {
+                device.Destroy(pipeline);
+            }
+        }
+
+        pipelines.Clear();
+    }
 }

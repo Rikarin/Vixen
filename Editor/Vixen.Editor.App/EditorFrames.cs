@@ -243,11 +243,22 @@ sealed partial class EditorApplication {
 
         effects.Rebuild();
 
+        // ⚠ And the pipelines the last generation compiled, which nothing dropped for the whole of
+        // this repository's history. A rebuild invalidates the variant system, so the next request for
+        // a variant produces a *new* `Effect` instance — and `PipelineKey` holds the effect, which is a
+        // class with reference equality. Every key of the new generation therefore misses and every
+        // entry of the old one stays in the dictionary for the rest of the session. The picture after
+        // a reload is right either way, which is why this survived; what it cost is that the pipeline
+        // count is bounded by materials × compositor × *reloads*, and a shader-authoring session is
+        // exactly the session that reloads dozens of times. See `EditorWorldRenderer.ForgetPipelines`.
+        var forgotten = frame?.ForgetPipelines() ?? 0;
+
         log.Write(
             LogLevel.Information,
             effects.Refusal is { } refusal
                 ? $"Shaders reloaded and refused: {refusal}"
-                : $"Shaders reloaded: {effects.SourceCount} source(s) recompile on demand."
+                : $"Shaders reloaded: {effects.SourceCount} source(s) recompile on demand, "
+                + $"{forgotten} pipeline(s) forgotten."
         );
 
         return true;
@@ -267,7 +278,63 @@ sealed partial class EditorApplication {
     ///     <c>LodExtractionSystem.Run</c> — so a viewport that passed nothing would show a transition
     ///     that starts and never ends.
     /// </param>
-    void ExtractFrame(TimeSpan delta) => frame?.Extract(scene.World, (float)delta.TotalSeconds);
+    void ExtractFrame(TimeSpan delta) {
+        frame?.Extract(scene.World, (float)delta.TotalSeconds);
+        ReportMalformedLods();
+    }
+
+    /// <summary>How many refused LOD groups the last line said, or -1 before there has been one.</summary>
+    int reportedMalformedLods = -1;
+
+    /// <summary>Says out loud that a LOD group's thresholds are the wrong way round.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The reader <c>LodExtractionSystem.Malformed</c> never had.</b> A group whose
+    ///         thresholds ascend is refused rather than thrown — <c>LodRenderFeature.Add</c> throws,
+    ///         and these numbers are typed into an inspector one keystroke at a time, so a list is
+    ///         ascending for as long as it takes to finish the second box. Left unregistered, its
+    ///         levels all draw, at every distance, on top of each other. ⚠ Silent in the direction
+    ///         that looks fine: three overlapping meshes at full detail read as a scene that has not
+    ///         been optimised yet, not as a scene with a broken component in it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>On change rather than per frame</b>, and the recovery is said too — this is
+    ///         <see cref="ReportDegradations" />' discipline for its reason: the extraction runs every
+    ///         frame, so a number left the wrong way round for a minute would otherwise be three
+    ///         thousand console lines, and a reader who never sees the count go back to zero cannot
+    ///         tell a fixed group from one still refused.
+    ///     </para>
+    ///     <para>
+    ///         The first run says nothing when there is nothing wrong, which is also the instrument
+    ///         check: this is a counter whose healthy value is zero, so a line on every startup would
+    ///         be indistinguishable from a line that means something.
+    ///     </para>
+    /// </remarks>
+    void ReportMalformedLods() {
+        var malformed = frame?.MalformedLodGroups ?? 0;
+
+        if (malformed == reportedMalformedLods) {
+            return;
+        }
+
+        var first = reportedMalformedLods < 0;
+
+        reportedMalformedLods = malformed;
+
+        if (malformed == 0) {
+            if (!first) {
+                log.Write(LogLevel.Information, "Every LOD group in the scene has thresholds that descend.");
+            }
+
+            return;
+        }
+
+        log.Write(
+            LogLevel.Warning,
+            $"{malformed} LOD group(s) are not grouping: their thresholds do not descend, so every "
+            + "level of each draws at every distance. Largest first — LOD 0's threshold is the biggest."
+        );
+    }
 
     /// <summary>What the composed pane's last frame reported, so a repeat is not logged twice.</summary>
     string? reportedDegradations;

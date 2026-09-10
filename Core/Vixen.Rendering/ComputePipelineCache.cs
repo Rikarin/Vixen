@@ -53,8 +53,26 @@ public sealed class ComputePipelineCache(IGraphicsDevice device) {
         return created;
     }
 
-    /// <summary>Forgets every pipeline and module, for a device loss or a shader reload.</summary>
+    /// <summary>Forgets every pipeline and module, destroying them, for a device loss or a shader reload.</summary>
+    /// <remarks>
+    ///     Destroys rather than drops, for <see cref="PipelineCache.Clear" />'s reason: the editor's
+    ///     shader reload keeps the device and replaces the effects, so a dropped handle is a device
+    ///     object nothing can ever free. Deferred by <see cref="IGraphicsDevice" />'s contract, so a
+    ///     pipeline a submitted frame still references is safe to hand back here.
+    /// </remarks>
     public void Clear() {
+        foreach (var pipeline in pipelines.Values) {
+            if (pipeline.IsValid) {
+                device.Destroy(pipeline);
+            }
+        }
+
+        foreach (var module in modules.Values) {
+            if (module.IsValid) {
+                device.Destroy(module);
+            }
+        }
+
         pipelines.Clear();
         modules.Clear();
     }

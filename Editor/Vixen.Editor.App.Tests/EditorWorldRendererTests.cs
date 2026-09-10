@@ -10,6 +10,7 @@ using Vixen.Editor.Testing;
 using Vixen.Engine.Transforms;
 using Vixen.Graphics.Null;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 using Vixen.Shaders;
 using Xunit;
 
@@ -523,6 +524,69 @@ public sealed class EditorWorldRendererTests : IDisposable {
 
         Assert.Equal(LogLevel.Warning, said.Level);
         Assert.Contains("SceneLighting.Camera", said.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A LOD group whose thresholds ascend is said out loud, and its repair is too.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>LodExtractionSystem.Malformed</c> had no reader anywhere.</b> The refusal it
+    ///         counts is the right decision — <c>LodRenderFeature.Add</c> throws on a list that does
+    ///         not descend and an inspector edits those numbers one keystroke at a time — but a
+    ///         refused group draws every one of its levels at every distance, which reads as a scene
+    ///         nobody has optimised yet rather than as a component with a number the wrong way round.
+    ///         See <see href="https://github.com/Rikarin/Vixen/issues/1233" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The recovery is asserted as well as the warning, and it is the instrument check.</b>
+    ///         A reader that only ever prints zero is exactly what already existed; a reader that only
+    ///         ever prints its warning is the same defect with a louder failure mode. Both edges of the
+    ///         count are driven here, in one run, over one group.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_lod_group_whose_thresholds_ascend_reaches_the_console_and_so_does_its_repair() {
+        var session = Running();
+        var editor = session.Application;
+        var scene = session.Scene;
+
+        var group = scene.Add("LOD Group", LocalTransform.Identity);
+
+        // ⚠ Ascending, which is what typing 0.1 and then 0.2 into the inspector leaves behind.
+        scene.World.Add(group, new LodGroupComponent { Thresholds = [0.1f, 0.2f] });
+
+        session.Frame();
+
+        Assert.Equal(1, editor.Frame!.MalformedLodGroups);
+
+        var warned = Assert.Single(
+            editor.Logs.Snapshot(),
+            record => record.Level == LogLevel.Warning
+                && record.Message.Contains("thresholds do not descend", StringComparison.Ordinal)
+        );
+
+        Assert.Contains("1 LOD group(s)", warned.Message, StringComparison.Ordinal);
+
+        // ⚠ Once, not once a frame. The extraction runs every frame and a warning per frame would be
+        // three thousand console lines for one mistyped box.
+        session.Frame();
+        session.Frame();
+
+        Assert.Single(
+            editor.Logs.Snapshot(),
+            record => record.Message.Contains("thresholds do not descend", StringComparison.Ordinal)
+        );
+
+        // And the other edge: the same group, repaired.
+        scene.World.Set(group, new LodGroupComponent { Thresholds = [0.2f, 0.1f] });
+
+        session.Frame();
+
+        Assert.Equal(0, editor.Frame.MalformedLodGroups);
+
+        Assert.Single(
+            editor.Logs.Snapshot(),
+            record => record.Message.Contains("thresholds that descend", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>All four seams carry the one logger, including the one that cannot be filled later.</summary>

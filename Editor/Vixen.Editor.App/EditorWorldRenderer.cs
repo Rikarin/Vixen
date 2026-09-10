@@ -583,6 +583,68 @@ sealed class EditorWorldRenderer : IDisposable {
     /// <summary>What turns the world's drawables into the frame's objects.</summary>
     public MeshExtractionSystem Meshes { get; }
 
+    /// <summary>
+    ///     How many LOD groups the last <see cref="Extract" /> refused for thresholds that ascend.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b><c>LodExtractionSystem.Malformed</c>'s first reader anywhere.</b> The refusal is
+    ///     deliberate — <c>LodRenderFeature.Add</c> throws on a list that does not descend, and an
+    ///     inspector edits those numbers one keystroke at a time, so a frame loop that threw out of
+    ///     extraction would take the editor down mid-edit. What the counter exists for is to keep the
+    ///     refusal from being silent, and it was: a refused group draws every level on top of every
+    ///     other at every distance, which looks like a scene nobody has optimised yet rather than like
+    ///     a number typed the wrong way round. See
+    ///     <see href="https://github.com/Rikarin/Vixen/issues/1233" />.
+    /// </remarks>
+    public int MalformedLodGroups => lods.Malformed;
+
+    /// <summary>
+    ///     Drops and destroys every pipeline and shader module the session has compiled.
+    /// </summary>
+    /// <returns>How many graphics pipelines were forgotten, for a caller that wants to say so.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What a shader reload leaked, silently and for the rest of the session.</b>
+    ///         <see cref="PipelineKey" /> holds the <c>Effect</c>, an <c>Effect</c> is a class with
+    ///         reference equality, and <c>EditorEffects.Rebuild</c> invalidates the variant system —
+    ///         so every key the next frame asks for is a new instance and misses. The picture after a
+    ///         reload is therefore correct, which is exactly why this went unnoticed; what stayed
+    ///         behind was the previous generation's entries, and a shader-authoring session is the one
+    ///         session that reloads dozens of times. <c>PipelineCache</c>'s "a project's distinct
+    ///         pipelines are bounded by its materials and its compositor" is true of a session that
+    ///         never reloads and of no other.
+    ///     </para>
+    ///     <para>
+    ///         The four caches are the four the renderer owns and no more: the mesh feature's graphics
+    ///         pipelines, the particle feature's, the morph feature's compute pipelines, and the
+    ///         describer's shader modules — which the compositor builder shares, so clearing it here
+    ///         reaches the full-screen nodes' modules too. ⚠ A compositor node's <em>own</em> pipeline
+    ///         cache is not reachable from here and is not cleared; the compositor is rebuilt on the
+    ///         next document reload rather than on a shader one.
+    ///     </para>
+    ///     <para>
+    ///         Destroying rather than dropping is <see cref="PipelineCache.Clear" />'s business now,
+    ///         and safe because every <c>Destroy</c> on the device is deferred past the frames in
+    ///         flight. See <see href="https://github.com/Rikarin/Vixen/issues/1244" />.
+    ///     </para>
+    /// </remarks>
+    public int ForgetPipelines() {
+        var forgotten = (Renderer.Meshes.Pipelines?.Count ?? 0) + (Renderer.Particles.Pipelines?.Count ?? 0);
+
+        Renderer.Meshes.Pipelines?.Clear();
+        Renderer.Particles.Pipelines?.Clear();
+        Renderer.Morphing.Pipelines?.Clear();
+
+        // Matched rather than held: the describer is the renderer's own and is handed to the features
+        // and to the compositor builder as an `IPipelineDescriber`, which has no `Clear` — a module
+        // cache is not part of what describing a pipeline means.
+        if (Renderer.Meshes.Describer is EffectPipelineDescriber describer) {
+            describer.Clear();
+        }
+
+        return forgotten;
+    }
+
     /// <summary>What the first pane looks through.</summary>
     /// <inheritdoc cref="ViewOf" path="/remarks" />
     public RenderView View => views[0];
