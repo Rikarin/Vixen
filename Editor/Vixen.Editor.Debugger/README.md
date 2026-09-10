@@ -312,15 +312,24 @@ in `Vixen.Net`, and the three turn out to need very different things:
   landing it for a caller that would not use it.
 - **A live RPC log needs a record that is not being kept**, and ⚠ **"so the ring belongs here rather
   than in `Vixen.Net`" — recorded twice above this line — cannot be acted on as it stands.** A ring
-  in this assembly needs something to subscribe to, and `RpcRouter` publishes **no event, no callback
-  and no per-call anything**: nine counters, and exactly one per-call callout in the whole type,
-  `Ledger?.RecordCall(from, method, bits)` at the accept site (`Core/Vixen.Net/Rpc/RpcRouter.cs:604`).
+  in this assembly needs something to subscribe to, and `RpcRouter` publishes **no event and no
+  callback** — the counters are all it has.
+
+  ⚠ **Correction to the count, which three passes recorded identically: there are *two* per-call
+  callouts, not one.** `Ledger?.RecordCall(from, …)` at the accept site
+  (`Core/Vixen.Net/Rpc/RpcRouter.cs:604`) is the one that has been named every time; the other is
+  `Ledger?.RecordCall(PlayerId.None, …)` in `EndCall` (`:495`), on the **outbound** path, attributed
+  once per encode rather than once per observer. It matters because an implementer told there is one
+  callout on the accepted inbound path would look at half the type and conclude the outbound half has
+  no accounting at all. Both are histogram writes and neither is on any refusal path, so the
+  conclusion below is unchanged and the arithmetic under it was not.
+
   That callout cannot be the seam for three separate reasons, and each of them is fatal on its own —
   `Ledger` is the concrete `BandwidthLedger` rather than an interface, so nothing else can be handed
   in; `RecordCall` aggregates into dictionaries keyed by method name and by connection, so it is a
-  histogram and not a log, and the *order* a log is for is gone the moment it returns; and it is on
-  the accepted path only, so the eight refusals — the half somebody opens an RPC log to look at —
-  never reach it at all. So `Vixen.Net` has to grow the seam (an event, or an `IRpcLog`-shaped sink
+  histogram and not a log, and the *order* a log is for is gone the moment it returns; and both sites
+  are on a success path, so every refusal — the half somebody opens an RPC log to look at — reaches
+  neither. So `Vixen.Net` has to grow the seam (an event, or an `IRpcLog`-shaped sink
   the router calls on every outcome and not only the happy one) before the question of where the ring
   lives can be asked. Once it exists, the ring still belongs here, for the reason `NetworkTrend` gives
   above: a dedicated server should not pay for a time series nobody is looking at. The correction is

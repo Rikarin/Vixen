@@ -173,6 +173,23 @@ bodies** — `Samples/08`, `09`, `10` and `14` reference `Vixen.Net` and none re
 `Gameplay/Vixen.Gameplay.Shooting` deliberately references neither. The missing caller is a missing
 *sample*, which is the decision under "A sample that shoots" below and not a line somebody forgot.
 
+⚠ **But there is a rung between "the package wires it" and "no program runs it", and it is empty.**
+`Vixen.Net.Physics` has **no registration surface at all** — no `AddNetworkPhysics`, no
+`AddLagCompensation`, nothing of the `AddPhysics` / `AddAnimation` shape every other subsystem in this
+engine is reached by. So the answer to "is this nothing-calls-it, or is the seam one level up?" is
+*both*, and the second half is [#1254](https://github.com/Rikarin/Vixen/issues/1254): a game that wanted networked physics **today** would
+hand-construct four systems, and would have to read the source to learn that
+`NetworkRigidBodyCaptureSystem` must sit between the physics writeback and the replication capture.
+
+That knowledge is not actually loose — the systems carry `[UpdateInGroup]`, `[UpdateAfter]` and
+`[UpdateBefore]` themselves, so a runner orders them correctly once they are in it — which is exactly
+what makes the missing `Add…` cheap rather than a design question. ⚠ **And the sibling that already
+took this step proves it does not close anything on its own**:
+[#481](https://github.com/Rikarin/Vixen/issues/481) gave `Vixen.Net.Animation` an
+`AddNetworkAnimation`, whose own remarks name this same gap — and swept over `*.cs` and `*.vxml`, its
+only callers are still `NetworkAnimationWiringTests`. The seam is worth having and it is not the
+missing caller; the program still is.
+
 - **The hit-claim message itself.** This validates a claim; nothing yet defines one. A `[ServerRpc]`
   carrying tick, origin, direction and a claimed victim is the game's to declare, but the shape recurs
   enough that a `HitClaim` helper beside `NetworkTransform` would stop every game writing the same six
@@ -193,6 +210,16 @@ bodies** — `Samples/08`, `09`, `10` and `14` reference `Vixen.Net` and none re
   hit test is a dot product, so there is nothing for a rewind to move. Wiring the compensator into it
   means giving the arena a `PhysicsScene` and bodies, which is a rewrite of the sample rather than a
   call, and the end-to-end behaviour is therefore still unmeasured in a program.
+- **A registration surface**, per the paragraph above — filed as
+  [#1254](https://github.com/Rikarin/Vixen/issues/1254). Not a substitute for the sample and not
+  blocked by it.
+
+⚠ **One correction to how #515 is usually restated.** "The package wires it" is true of the *call* and
+not of the *object*: `LagCompensationSystem` calls `Capture` on a `LagCompensator` it is handed, and
+`new LagCompensator(…)` appears nowhere outside `Core/Vixen.Net.Physics.Tests` — not even inside this
+package. So there are three rungs here rather than two, and the middle one (a game builds the
+compensator and hands it to the system) is the one an `AddNetworkPhysics` would have to make a
+decision about.
 
 ## Predicted players
 
