@@ -89,11 +89,6 @@ public sealed class BehaviorJobTests {
     }
 
     /// <summary>
-    ///     ⚠ The negative half of the instrument: the same store, the same scheduler, a type that did
-    ///     not ask. A build where the attribute was read from the wrong place would pass the test
-    ///     above and fail this one.
-    /// </summary>
-    /// <summary>
     ///     The same marked batch, dispatched across a scheduler with no workers at all and across one
     ///     with two, has to reach the same answer.
     /// </summary>
@@ -125,6 +120,11 @@ public sealed class BehaviorJobTests {
         Assert.Equal(4, loop.Behaviors.DispatchedBatches);
     }
 
+    /// <summary>
+    ///     ⚠ The negative half of the instrument: the same store, the same scheduler, a type that did
+    ///     not ask. A build where the attribute was read from the wrong place would pass the test
+    ///     above and fail this one.
+    /// </summary>
     [Fact]
     public void AnUnmarkedBatchIsWalkedOnTheCallingThreadEvenWithASchedulerPresent() {
         using var jobs = new JobScheduler(2);
