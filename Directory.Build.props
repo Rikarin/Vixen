@@ -168,7 +168,30 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <IsAotCompatible>false</IsAotCompatible>
-    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!--
+      ⚠ **True, and this line used to say false while 181 of the 182 test projects
+      overrode it one at a time** (#1119, #1218). A test's remarks argue why the
+      assertion is the right one by citing the type it covers, and a citation is
+      exactly what rots when the production side is renamed — so a `<see cref>` in a
+      test assembly is worth checking, and with the flag off none ever was. The
+      per-project ratchet was the right shape while flipping a project meant fixing
+      its diagnostics in the same commit; it is the wrong end state, because a file
+      that asserts the opposite of what the tree does is a file nobody can read, and
+      because a NEW test project inherited the `false` and started unchecked.
+
+      Forcing the flag on across `Vixen.slnx` reported 153 distinct defect sites
+      tree-wide and every one of them is fixed, so the flip costs nothing.
+
+      CS1591 and CS1573 stay suppressed: "this public member has no comment" is a
+      question about a packaged API surface, and a test assembly is not one.
+
+      ⚠ One exception, and it keeps a `false` in its own csproj:
+      `Platform/Vixen.Platform.Web.Tests` `<Compile Include>`s two files out of
+      `Vixen.Platform.Web` without their siblings, so two correct `<see cref>`s
+      cannot resolve in the assembly that borrows them.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
     <!--
       ⚠ A test assembly must NOT get deterministic source paths, and this is what
       made master's `Test` leg red on all three operating systems at once (#943).

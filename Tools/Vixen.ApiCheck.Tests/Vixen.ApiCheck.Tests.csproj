@@ -7,29 +7,6 @@
 
         <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
         <OutputType>Exe</OutputType>
-
-        <!--
-            The second test project in the tree to generate one, after `Vixen.Editor.App.Tests`, and
-            #1119 is the ratchet: the TEST profile in `Directory.Build.props` sets this false for
-            every `*.Tests` project including `Core/**`'s, so no `<see cref>` in any test assembly
-            here had ever been checked. CS1591 and CS1573 stay suppressed — a test assembly is not a
-            packaged API, so "this member has no comment" is not a question worth asking of it, while
-            the rules that catch a *lie* are.
-
-            ⚠ **This project earns it twice over, because eight of the files it compiles are not
-            its own.** The `<Compile Include="..\..\build\...">` items below are the build's own
-            source, linked in so the subject of these tests is the code the gate runs rather than a
-            copy of it — and `build/_build.csproj` sets `GenerateDocumentationFile=false` with
-            `TreatWarningsAsErrors=false`, so a cref in any of them had two ways of never being
-            read. Here they arrive as errors.
-
-            ⚠ And that cuts the other way too, which is worth knowing before linking the ninth file:
-            a cref at `Build` resolves in `build/` and cannot resolve here, because `Build` is not in
-            this assembly. `PublicApiTypeNames.cs` carried one; it is `<c>` now, with the reason
-            beside it. Attribute a diagnostic to the project that reported it, never to the path.
-        -->
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>

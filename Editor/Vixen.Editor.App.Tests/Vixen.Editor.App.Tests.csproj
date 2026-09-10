@@ -7,28 +7,6 @@
 
         <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Editor.Ui.Tests. -->
         <OutputType>Exe</OutputType>
-
-        <!--
-          ⚠ **The first test project in this repository that generates one**, which is #1119: the TEST
-          profile in `Directory.Build.props` sets `GenerateDocumentationFile=false` for every
-          `*.Tests` project in the tree — `Core/**`'s included, where the RUNTIME profile turns it on
-          and these rules are errors — so no `<see cref>` in any test assembly here had ever been
-          checked. That matters more here than in most repositories, because the convention in this
-          tree is that a test's remarks argue *why* the assertion is the right one by naming the type
-          it covers, and a citation is exactly what rots when the production side is renamed.
-
-          Three broken links were waiting in this one assembly, all of them CS1574 and all three
-          naming a type in an assembly this project references but the file has no `using` for — so
-          the link a reader follows when the test goes red went nowhere.
-
-          ⚠ Measured before flipping, not after: with the flag forced on across this project's whole
-          reference closure the tree reports 71 unique diagnostics, so the honest shape is the
-          project-by-project ratchet #821 argued for and not a flip of the profile. CS1591 and CS1573
-          are suppressed for the reason `Vixen.Editor.TextureGraph.csproj` gives at length, and with
-          more force here: a test assembly is not a packaged API by anybody's definition.
-        -->
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>

@@ -20,6 +20,19 @@
 
         <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
         <OutputType>Exe</OutputType>
+
+        <!--
+            ⚠ **The one test project in the tree that turns documentation generation back off**, and
+            it is the `<Compile Include>`s below that force it (#1218). The TEST profile in
+            `Directory.Build.props` generates a documentation file for every `*.Tests` project, so
+            that a `<see cref>` in a test's remarks is checked; here the compiled files are borrowed
+            out of `Vixen.Platform.Web` without their siblings, so `<see cref="FetchFileProvider" />`
+            and `<see cref="WebPlatformOptions.ModuleUrl" />` — correct, and resolved, in the
+            assembly that owns them — resolve against nothing in this one. Degrading two correct
+            links to `<c>` to satisfy a project that is not their owner would be the wrong fix, and
+            it would degrade them for the owner too, because it is the same file.
+        -->
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
     </PropertyGroup>
 
     <ItemGroup>
