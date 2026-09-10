@@ -160,6 +160,71 @@ public sealed class AotProbeProjectFileTests : IDisposable {
             "Vixen.Audio.Codecs",
             "Vixen.Audio.Physics",
             "Vixen.Physics",
+
+            // ⚠ Not a decision — these arrived on 2026-09-10 with `7c4b55ad4`, which grew the DESKTOP
+            // probe from 29 rooted assemblies to 95 (#506) and did not grow the iOS one. Nobody has
+            // established whether they root cleanly for an iOS publish, and nobody can here: the
+            // `ios` workload is not installed on the machine that merged this, `CheckAotIos` has no
+            // CI leg (#327) and by the record has never run. Writing 55 ProjectReferences into the
+            // iOS probe would have made this test green over a claim no build has ever checked,
+            // which is the opposite of what it is for. This list must SHRINK — #1252.
+            "Vixen.Platform.Linux",
+            "Vixen.Platform.MacOS",
+            "Vixen.Platform.Windows",
+
+            // ⚠ The three desktop platform backends above are the only ones with an inferable reason,
+            // and it is not certain either: a phone has Vixen.Platform.Native, so they may belong
+            // beside Vixen.Platform.Desktop permanently rather than in this block.
+            "Vixen.Ai",
+            "Vixen.Ai.Diagnostics",
+            "Vixen.Ai.Nodes",
+            "Vixen.Ai.Perception",
+            "Vixen.Animation",
+            "Vixen.Core.Imaging",
+            "Vixen.Core.Syntax",
+            "Vixen.Core.Yaml",
+            "Vixen.Engine.Renderer",
+            "Vixen.Foliage",
+            "Vixen.Geometry",
+            "Vixen.Geometry.Remeshing",
+            "Vixen.Geometry.Uv",
+            "Vixen.Graphics.OpenGL",
+            "Vixen.Input",
+            "Vixen.Navigation",
+            "Vixen.Net",
+            "Vixen.Net.Animation",
+            "Vixen.Net.Audio",
+            "Vixen.Net.Engine",
+            "Vixen.Net.Engine.Content",
+            "Vixen.Net.Physics",
+            "Vixen.Net.Telemetry",
+            "Vixen.Net.Transport.Composite",
+            "Vixen.Net.Transport.Local",
+            "Vixen.Net.Transport.Udp",
+            "Vixen.Net.Transport.WebSocket",
+            "Vixen.Rendering",
+            "Vixen.Rendering.DistanceFields",
+            "Vixen.Rendering.IrradianceFields",
+            "Vixen.Rendering.PostFx",
+            "Vixen.Rendering.RayTracing",
+            "Vixen.Rendering.Reflections",
+            "Vixen.Rendering.ScreenProbes",
+            "Vixen.Rendering.SurfaceCache",
+            "Vixen.Rendering.Terrain",
+            "Vixen.Rendering.VirtualGeometry",
+            "Vixen.Rendering.Water",
+            "Vixen.Shaders",
+            "Vixen.Terrain",
+            "Vixen.Terrain.Physics",
+            "Vixen.Ui.Styling",
+            "Vixen.Ui.Styling.Utilities",
+            "Vixen.Ui.Text",
+            "Vixen.Vfx",
+            "Vixen.Video",
+            "Vixen.Video.Codecs",
+            "Vixen.Video.Rendering",
+            "Vixen.Water",
+            "Vixen.Water.Physics",
         ];
 
         var desktop = AotProbeProjectFile.ReferencedAssemblies(ProbeProject());

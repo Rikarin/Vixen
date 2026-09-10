@@ -104,6 +104,23 @@ public sealed class PluginContext {
         return descriptor;
     }
 
+    /// <summary>Contributes a declaration class's words, and takes them back out on unload.</summary>
+    /// <param name="declarations">The class's <c>All</c>, which is the whole of what it declares.</param>
+    /// <remarks>
+    ///     ⚠ <b><c>StringContributions</c> is static, and a plugin's <c>All</c> is an array of that
+    ///     plugin's own values — so a contribution nothing withdraws pins the plugin's
+    ///     <c>AssemblyLoadContext</c> for the life of the process.</b> A module that unregisters
+    ///     every panel, command and editor it added is still not collectible while its words are in
+    ///     there, and the only reason that was noticed is that one of the five modules doing it has
+    ///     a collectibility test.
+    /// </remarks>
+    public void AddStrings(IReadOnlyList<StringId> declarations) {
+        ArgumentNullException.ThrowIfNull(declarations);
+
+        StringContributions.Declare(declarations);
+        Registrations.Add(() => StringContributions.Withdraw(declarations));
+    }
+
     /// <summary>Adds a panel from its parts.</summary>
     /// <param name="id">Its id.</param>
     /// <param name="title">What its tab says.</param>

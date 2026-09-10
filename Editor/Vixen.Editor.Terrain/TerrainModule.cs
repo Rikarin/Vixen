@@ -98,7 +98,7 @@ public sealed partial class TerrainModule : IEditorPlugin {
         // ⚠ The toolset's own words, handed over the way its panels and its commands are. An
         // `All` list nothing walks is in no translator's template, which is the state
         // `StringFamily` exists to end one level down (#1202).
-        StringContributions.Declare(TerrainStrings.All);
+        context.AddStrings(TerrainStrings.All);
 
         // ⚠ Held rather than read once, because the one service this module *asks for and can do
         // without* may arrive after it. See `BindColliders`: a host publishes an `ITerrainColliders`

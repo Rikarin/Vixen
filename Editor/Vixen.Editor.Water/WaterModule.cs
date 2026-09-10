@@ -87,7 +87,7 @@ public sealed partial class WaterModule : IEditorPlugin {
         // ⚠ The toolset's own words, handed over the way its panels and its commands are. An
         // `All` list nothing walks is in no translator's template, which is the state
         // `StringFamily` exists to end one level down (#1202).
-        StringContributions.Declare(WaterStrings.All);
+        context.AddStrings(WaterStrings.All);
 
         water.Document = Scene;
         water.Drawn += Placed;

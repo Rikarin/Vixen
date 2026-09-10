@@ -74,4 +74,41 @@ public static class StringContributions {
             }
         }
     }
+
+    /// <summary>Takes a declaration class's <c>All</c> list back out again.</summary>
+    /// <param name="declarations">The same list that was passed to <see cref="Declare" />.</param>
+    /// <returns>Whether it was there to remove.</returns>
+    /// <remarks>
+    ///     ⚠ <b>This class is static and a plugin's <c>All</c> list is an array of that plugin's
+    ///     own <see cref="StringId" /> values, so a declaration nothing withdraws pins the plugin's
+    ///     <c>AssemblyLoadContext</c> for the life of the process.</b> That is not a leak of memory
+    ///     so much as a leak of a <em>context</em>: the module unregisters every panel, command and
+    ///     editor it added and is still not collectible, which is what
+    ///     <c>TexturingCollectionTests.The_module_leaves_no_load_context_behind</c> reports.
+    ///     <para>
+    ///         Matched by reference, exactly as <see cref="Declare" /> deduplicates, because a
+    ///         plugin's <c>All</c> is one array and two different arrays holding equal ids are two
+    ///         different contributions.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Prefer <c>PluginContext.AddStrings</c> over calling this by hand — it registers and
+    ///         records the undo in one line, which is the bargain every other <c>Add…</c> on that
+    ///         class makes and the reason five modules did not have to remember this.
+    ///     </para>
+    /// </remarks>
+    public static bool Withdraw(IReadOnlyList<StringId> declarations) {
+        ArgumentNullException.ThrowIfNull(declarations);
+
+        lock (Gate) {
+            var at = Registered.FindIndex(registered => ReferenceEquals(registered, declarations));
+
+            if (at < 0) {
+                return false;
+            }
+
+            Registered.RemoveAt(at);
+
+            return true;
+        }
+    }
 }
