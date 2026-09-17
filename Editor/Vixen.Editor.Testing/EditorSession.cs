@@ -714,6 +714,20 @@ public sealed class EditorSession : IDisposable {
                 + "."
             );
 
+        // ⚠ Scrolled into view first, as a person would, and only within a ScrollView. A choice
+        // below the fold of a scrolling list is reachable by a user and was not reachable by this,
+        // which clicks a centre and refuses one that is covered — so a list that grew past its box
+        // read here as "the button is behind the backdrop". A choice that is *clipped* rather than
+        // scrolled still fails, and should: that is the defect this once hid.
+        for (var ancestor = button.Parent; ancestor is not null; ancestor = ancestor.Parent) {
+            if (ancestor is ScrollView scroller) {
+                scroller.ScrollIntoView(button);
+                Settle();
+
+                break;
+            }
+        }
+
         Click(button);
 
         // ⚠ Three settles rather than one. The answer completes from `Pump` on the next tick rather

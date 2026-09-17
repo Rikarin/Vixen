@@ -34,12 +34,6 @@ sealed record EditorServices(INativeDialogs? Dialogs, Func<string, bool>? OpenUr
     /// <returns>The services, with whatever the platform actually supports in them.</returns>
     public static EditorServices Of(IPlatform platform) {
         ArgumentNullException.ThrowIfNull(platform);
-
-        // ⚠ `Pickers()` rather than the capability test this open-coded, and the two are the same
-        // line. It was the only place in the repository that knew to ask — `IPlatform.Dialogs` is
-        // never null and a platform with no pickers answers every one of them with nothing-chosen,
-        // which is exactly what Cancel looks like — so the question is spelled once, where the next
-        // caller will find it.
         return new EditorServices(platform.Pickers(), platform.TryOpenUrl);
     }
 

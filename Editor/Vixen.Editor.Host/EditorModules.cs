@@ -42,27 +42,10 @@ static class EditorModules {
     public static IReadOnlyList<(string Id, string Name, IEditorPlugin Module)> Standard() => [
         (BlockoutModule.ModuleId, BlockoutModule.ModuleName, new BlockoutModule()),
         (TerrainModule.ModuleId, TerrainModule.ModuleName, new TerrainModule()),
-
-        // ⚠ Immediately after it, and it is not a mode — it adds no bar entry and no panel. What it
-        // adds is the `ITerrainColliders` the terrain module resolves in its per-frame follow, and
-        // the collider system a play session runs over the application's `PhysicsScene`. Registered
-        // after Terrain because the two are read in that order by a person looking at this list, and
-        // *not* because of a dependency: the module publishes a switch that is bound whenever the
-        // toolset next asks, whichever activated first — and its play-mode contribution now says
-        // what it needs with `[RunsAfter(typeof(PhysicsScene))]` rather than resting on this list.
         (TerrainPhysicsModule.ModuleId, TerrainPhysicsModule.ModuleName, new TerrainPhysicsModule()),
-
-        // ⚠ After terrain, because the mode bar reads left to right and water is drawn *on* ground:
-        // an author sculpts a valley and then lays a lake in it, and a bar that offered them the
-        // other way round would be a bar whose order argues with the workflow. Doc 35 § W9.
         (WaterModule.ModuleId, WaterModule.ModuleName, new WaterModule()),
         (DiagnosticsModule.ModuleId, DiagnosticsModule.ModuleName, new DiagnosticsModule()),
         (AssetEditorsModule.ModuleId, AssetEditorsModule.ModuleName, new AssetEditorsModule()),
-
-        // ⚠ Last, and it matters. Doc 36 § P5: this one compiles and activates a project's own
-        // `Editor/` folder, and a script that wants to add a line to the Terrain menu can only find
-        // one that already exists. Everything the editor ships registers before anything the project
-        // wrote does.
         (ScriptsModule.ModuleId, ScriptsModule.ModuleName, new ScriptsModule())
     ];
 }

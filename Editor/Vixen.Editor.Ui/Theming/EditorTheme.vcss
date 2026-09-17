@@ -1601,12 +1601,17 @@ build-spacer { flex-grow: 1; }
    rule. ⚠ Deliberately *not* named after either: the first version of
    this styled the folder chooser with the project browser's own class
    names, which made restyling one silently restyle the other. */
+choice-scroller {
+    min-width: 420px;
+    max-height: 320px;
+}
+
+/* ⚠ No `overflow: auto` here any more. In this UI that property clips and does not scroll —
+   it was what cut the New Asset… list at its sixth row for as long as it had more than six —
+   and the scrolling is the choice-scroller's, a ScrollView, above. */
 choice-list {
     flex-direction: column;
     gap: 2px;
-    min-width: 420px;
-    max-height: 320px;
-    overflow: auto;
 }
 
 /* ⚠ A column, not a row, because a choice is a name and a line about it.

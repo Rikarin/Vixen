@@ -201,25 +201,11 @@ sealed class EditorHost : IDisposable {
             window.FramebufferSize.Y / Scale,
             platform.FileSystem.DataDirectory,
             projectRoot,
-
-            // ⚠ Capabilities rather than the platform. What the application is handed is "there is a
-            // file picker" and "there is a browser", both answered at run time — so Open Scene greys
-            // itself out on a platform without pickers instead of being absent, which is the rule
-            // `view.float-panel` already follows for a second window.
             EditorServices.Of(platform),
-
-            // ⚠ Doc 36 § P3: the features this editor ships, named here because this is the only
-            // assembly that can name them. `Vixen.Editor.App` knows that some `IEditorPlugin`s exist
-            // and what they are called, and nothing else about any of them.
             extensions: null,
             modules: EditorModules.Standard()
         ) {
             RenderScale = Scale,
-
-            // ⚠ In the initialiser and not later, because a device can arrive on the very next frame
-            // and `CompositorBuilder.Jobs` is read by each node as it is built. A scheduler assigned
-            // after the first `AttachRenderer` would reach the *next* build and, for a viewport
-            // nobody reloads, never — the same ordering trap `AppGraphics` spells out for a game.
             Jobs = jobs
         };
 

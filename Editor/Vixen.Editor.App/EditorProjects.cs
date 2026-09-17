@@ -233,7 +233,15 @@ sealed partial class EditorApplication {
         Shell.Dialogs.ShowAsync<T?>(
             title,
             session => {
-                var list = session.Body.Add<UiElement>("choice-list");
+                // ⚠ Inside a ScrollView, because `overflow: auto` in this UI means *clip* and not
+                // *scroll* — `OverflowReader`'s remarks say so: it decides which edges cut off what
+                // hangs outside. The sheet capped this list at 320px and cut it there, so with
+                // nineteen asset kinds every row past the sixth was unreachable from New Asset…, by
+                // pointer or wheel, and nothing said so because the one test of this dialog chose a
+                // row near the top. The `choice-list` element stays the buttons' direct parent, which
+                // is what the sheet's `choice-list > button.choice` selector needs.
+                var scroller = session.Body.Add<ScrollView>("choice-scroller");
+                var list = scroller.Content.Add<UiElement>("choice-list");
 
                 foreach (var item in items) {
                     var button = list.Add<Button>();

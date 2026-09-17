@@ -3,6 +3,7 @@
 
 using System.IO.Compression;
 using Vixen.Core;
+using Vixen.Editor.Core;
 using Vixen.Editor.Testing;
 using Vixen.Engine.Transforms;
 using Vixen.Ui.Controls;
@@ -161,6 +162,48 @@ public class ExpiredRefusalTests {
         Assert.Contains(
             fixture.Project.Assets.Entries,
             static entry => entry.Path.EndsWith(".vxseq", StringComparison.Ordinal)
+        );
+    }
+
+    /// <summary>The last kind on New Asset…'s list can be chosen, not only the first six.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The theory above passed for as long as it did by choosing a row near the top.</b>
+    ///         The sheet capped <c>choice-list</c> at 320px with <c>overflow: auto</c>, and in this UI
+    ///         that clips — <c>OverflowReader</c> decides which edges cut, and scrolling is
+    ///         <c>ScrollView</c>'s alone. Nineteen kinds at 53px a row is 1 007px, so every kind past
+    ///         the sixth was unreachable from this dialog by pointer or by wheel, for every one of
+    ///         doc 34's animation kinds, and nothing said so.
+    ///     </para>
+    ///     <para>
+    ///         The last row rather than a named one, so the assertion moves with the registry: a kind
+    ///         appended later is the new last row and is the one this tries. Under sabotage — the
+    ///         <c>ScrollView</c> in <c>ChooseAsync</c> put back to a plain element — this is red with
+    ///         "is on top of &lt;dialog-backdrop&gt;", and <c>Answer</c> scrolling into view cannot
+    ///         rescue it, because a clipped element has no scroller to ask.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void New_asset_reaches_the_last_kind_on_its_list() {
+        using var fixture = EditorSession.Start();
+
+        var last = fixture.Extensions.All<NewAssetKind>().OrderBy(static kind => kind.Order).Last();
+
+        fixture.Run("assets.create").Settle();
+        Assert.True(fixture.IsAsking);
+
+        // The choices only — the footer's Cancel is a button too and is not a kind.
+        var rows = Buttons(fixture).Where(static button => button.HasClass("choice")).Select(static button => button.Label).ToList();
+
+        Assert.True(rows.Count > 6, $"only {rows.Count} kinds are listed, so nothing here is below the fold and this proves nothing");
+        Assert.Equal(last.Title, rows[^1]);
+
+        fixture.Answer(last.Title);
+        fixture.Settle();
+
+        Assert.Contains(
+            fixture.Project.Assets.Entries,
+            entry => entry.Path.EndsWith(last.Extension, StringComparison.Ordinal)
         );
     }
 
