@@ -151,6 +151,46 @@ public class CreateMenuTests {
         );
     }
 
+    /// <summary>The four kinds the menu grew on 2026-09-17 import clean, by the real importer.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The starter is the claim, and the material's is the one that could fail
+    ///         silently.</b> <c>MaterialImporterTests.AMaterialWithNoFeaturesIsBuiltAndQuestioned</c>
+    ///         pins that a featureless <c>.vxmat</c> builds with a <em>warning</em> — so a
+    ///         zero-byte starter, which is what <c>AssetFile.Read</c>'s remarks describe as the old
+    ///         way in, would pass the opens-theory above and greet an author with a red mark here.
+    ///         The starter carries one texture-free feature for exactly that reason, and this row is
+    ///         what keeps it there.
+    ///     </para>
+    ///     <para>
+    ///         Warnings are refused as well as errors, on the same reasoning as the animation
+    ///         theory: a Create line that produces a file the build questions is a Create line that
+    ///         has to be explained the first time somebody uses it.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("assets.create-scene", "New Scene.vxscene")]
+    [InlineData("assets.create-material", "New Material.vxmat")]
+    [InlineData("assets.create-frame", "New Frame.vxcompositor")]
+    [InlineData("assets.create-addressable-group", "New Group.vxgroup")]
+    public async Task A_fundamental_asset_kind_is_creatable_and_imports_clean(string command, string fileName) {
+        using var fixture = EditorSession.Start();
+
+        Assert.True(fixture.CanRun(command), command);
+        fixture.Run(command).Settle();
+
+        // By name rather than by extension: the session's project already holds a scene of its own,
+        // and the file this asks about is the one the command just wrote.
+        var path = Assert.Single(
+            Directory.EnumerateFiles(fixture.Project.Paths.Assets, fileName, SearchOption.AllDirectories)
+        );
+
+        Assert.DoesNotContain(
+            await Import(path),
+            entry => entry.Severity is ImportSeverity.Error or ImportSeverity.Warning
+        );
+    }
+
     /// <summary>
     ///     ⚠ <b>A new harness is the one that imports with an error, and the error is the
     ///     instructions.</b> A plan naming no clip and no rig is a build step that always passes,

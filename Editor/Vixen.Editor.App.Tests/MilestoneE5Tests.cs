@@ -195,6 +195,14 @@ public class MilestoneE5Tests {
     ///     to create a file of it is a format nobody meets, whatever the double-click does.
     /// </remarks>
     [Theory]
+    // The two the editor is for, and the two beside them — none of which had a Create line until
+    // 2026-09-17. A scene could be reset in memory and never written as a second file; a material
+    // could only be made by creating the file by hand and opening it.
+    [InlineData("assets.create-scene", ".vxscene")]
+    [InlineData("assets.create-material", ".vxmat")]
+    [InlineData("assets.create-frame", ".vxcompositor")]
+    [InlineData("assets.create-addressable-group", ".vxgroup")]
+
     [InlineData("assets.create-vfx", ".vxvfx")]
     [InlineData("assets.create-animation", ".vxanim")]
     [InlineData("assets.create-animation-graph", ".vxanimgraph")]
@@ -220,8 +228,17 @@ public class MilestoneE5Tests {
 
         Assert.NotEmpty(created);
 
-        // Opening it is what the command does as its second half, so a document is open over it.
-        Assert.Contains(fixture.Project.Documents, document => document.Title.Peek().EndsWith(extension, StringComparison.Ordinal));
+        // Opening it is what the command does as its second half, so a document is open over it —
+        // matched by the asset it was opened on rather than by its title. ⚠ A `SceneDocument`'s
+        // title is the file name *without* its extension, so the old `EndsWith(extension)` filter
+        // was true of every kind but the one this editor exists for.
+        var opened = created
+            .Select(path => fixture.Project.Paths.Relative(path))
+            .Where(relative => fixture.Project.Assets.TryGetByPath(relative, out _))
+            .Select(relative => { fixture.Project.Assets.TryGetByPath(relative, out var entry); return entry.Guid; })
+            .ToHashSet();
+
+        Assert.Contains(fixture.Project.Documents, document => opened.Contains(document.Asset));
     }
 
     /// <summary>An asset editor's own tab closes and reopens, which is where the graphs went wrong.</summary>

@@ -5,7 +5,11 @@ using System.Globalization;
 using Vixen.Core;
 using Vixen.Core.Diagnostics;
 using Vixen.Core.Mathematics;
+using Vixen.Editor.AssetEditors.Content;
+using Vixen.Editor.AssetEditors.Frame;
+using Vixen.Editor.AssetEditors.Materials;
 using Vixen.Editor.Core;
+using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
@@ -742,7 +746,22 @@ sealed partial class EditorApplication {
     ///     </para>
     /// </remarks>
     static readonly NewAssetKind[] BuiltInAssetKinds = [
+        // ⚠ The two an editor is *for*, and neither had a line here until 2026-09-17. A scene could
+        // be reset in memory by File ▸ New Scene and never written as a second file, and a material
+        // — the asset the whole of doc 48 is about — could only be made by creating the file by
+        // hand and opening it, which AssetFile.Read's remarks describe as "the ordinary way" because
+        // it was the only way. Both are registered first so they lead the menu; the sort below is
+        // stable, so position here is order there.
+        new("assets.create-scene", "Scene", SceneFile.Extension, "New Scene", NewSceneFile),
+        new("assets.create-material", "Material", MaterialAsset.Extension, "New Material", NewMaterial),
+
         new("assets.create-shader-graph", "Shader Graph", ".vxshadergraph", "New Shader Graph"),
+
+        // The project's frame, as the game template ships it — one !StandardFrame node whose knobs
+        // are semantic — and an addressable group. Both are claimed by an importer and both open.
+        new("assets.create-frame", "Frame", StandardFrameDocument.Extension, "New Frame", NewFrame),
+        new("assets.create-addressable-group", "Addressable Group", AddressableGroupDocument.Extension, "New Group", NewGroup),
+
         new("assets.create-vfx", "VFX Graph", ".vxvfx", "New Effect"),
         new("assets.create-animation", "Animation Clip", ".vxanim", "New Clip"),
         new("assets.create-animation-graph", "Animation Graph", ".vxanimgraph", "New Animation Graph"),
@@ -763,6 +782,81 @@ sealed partial class EditorApplication {
         new("assets.create-constraint-template", "Constraint Template", ".vxconstraints", "New Constraint Template", NewTemplate, false),
         new("assets.create-harness", "Variation Harness", ".vxharness", "New Harness", NewHarness)
     ];
+
+    /// <summary>A scene with one root, which is what File ▸ New Scene builds in memory.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One root rather than none, on purpose.</b> <c>NewScene</c> adds "Scene Root" at
+    ///     identity, so a file made from the menu and a scene made from the File menu are the same
+    ///     scene — and an author who has only ever seen one of them meets no surprise in the other.
+    /// </remarks>
+    const string NewSceneFile = """
+        version: 1
+        name: New Scene
+        roots:
+          - name: Scene Root
+            position: 0 0 0
+        """;
+
+    /// <summary>A neutral dielectric, which is the material an object has before anyone chooses one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One feature rather than none, because the importer questions a material with
+    ///         none.</b> <c>MaterialImporterTests.AMaterialWithNoFeaturesIsBuiltAndQuestioned</c>
+    ///         pins that a featureless material builds with a <em>warning</em> — right for a block-out
+    ///         somebody left, and wrong as the first thing the Create menu greets an author with.
+    ///         <c>!MetalRoughness</c> with constants is the smallest feature that samples nothing, so
+    ///         the file imports clean before a single texture exists in the project.
+    ///     </para>
+    ///     <para>
+    ///         Grey at 0.8 rather than white, because the renderer works in cd/m² and an albedo of one
+    ///         returns every photon it receives — a surface no real material is.
+    ///     </para>
+    /// </remarks>
+    const string NewMaterial = """
+        shader: ForwardPlus
+        shading: StandardShading
+        features:
+          - !MetalRoughness
+            baseColor: 0.8 0.8 0.8
+            metalness: 0
+            roughness: 0.5
+        """;
+
+    /// <summary>The frame the game template ships, verbatim.</summary>
+    /// <remarks>
+    ///     Kept identical to <c>Tools/Vixen.Templates/templates/vixen-game/Assets/Frame.vxcompositor</c>
+    ///     rather than abbreviated, because the comments are the point: they name the guide, say what
+    ///     each knob may be, and say what <c>vixen frame explode</c> costs before anyone runs it.
+    /// </remarks>
+    const string NewFrame = """
+        # The project's whole frame, as one node. The knobs are semantic on purpose: they say
+        # what the game wants, never how the frame is wired — the node expands at build time
+        # into the same graph a hand-authored document would contain. Guide:
+        # docs/guide/rendering/standard-frame and docs/guide/rendering/choosing-a-frame.
+        # When the knobs stop being enough, eject with
+        # `vixen frame explode Assets/Frame.vxcompositor` — one-way, and the file will say so.
+        #
+        # `gi:` above Off and `reflections: Screen` also need their host halves — the shading
+        # permutations and the builder's field slots — before they do more than nothing;
+        # Samples/03-PbrShowcase is the smallest complete example of paying for them.
+        version: 2
+        game: !StandardFrame
+          quality: High          # Low | Medium | High | Epic — or delete this line and GraphicsOptions.Quality decides
+          shadows: Cascades      # Off | Cascades | Virtual
+          gi: Off                # Off | Ambient | Probes
+          reflections: Off       # Off | Probe | Screen
+          antialiasing: Taa      # Off | Fxaa | Taa | TaaFxaa
+          exposure: Automatic    # Fixed | Automatic
+          output: SceneColour
+        """;
+
+    /// <summary>An addressable group with the defaults every sample's <c>Default.vxgroup</c> has.</summary>
+    const string NewGroup = """
+        name: New Group
+        loadPath: Local
+        packing: PackTogether
+        bundleNaming: FilenameHash
+        """;
 
     /// <summary>An empty movement vocabulary.</summary>
     /// <remarks>
