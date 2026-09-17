@@ -616,41 +616,41 @@ is its first non-gizmo customer (a script that moved an entity wants the same en
 
 ## Part 6 — The task list
 
-One issue each on `Rikarin/Vixen` once the design is agreed; the two marked filed exist already.
+Filed on `Rikarin/Vixen` 2026-09-17 under the `bounded-contexts` label — thirty-four issues, #1276–#1311.
 Waves follow the phases; a wave is five worktrees, merged as each lands, gates once on master.
 
 | # | Task | Phase | Wave |
 |---|---|---|---|
-| 1 | `FeatureNameRule` + measured exemption list (110 rows) | P0 | 1 |
-| 2 | `ApplicationSizeRule` with per-file ceilings, shrink-only | P0 | 1 |
-| 3 | `ReachTest`: every standard module's Create ▸ / menu / panel present, by effect | P0 | 1 |
-| 4 | `ModuleRegistrationRule` + `ContributionWriterTest` | P0 | 1 |
-| 5 | Three README/dead-type corrections (Core `Vixen.Ui` line; App load-order reasons; delete `EditorObject` family) | P0 | 1 |
+| [#1278](https://github.com/Rikarin/Vixen/issues/1278) | `FeatureNameRule` + measured exemption list (110 rows) | P0 | 1 |
+| [#1279](https://github.com/Rikarin/Vixen/issues/1279) | `ApplicationSizeRule` with per-file ceilings, shrink-only | P0 | 1 |
+| [#1280](https://github.com/Rikarin/Vixen/issues/1280) | `ReachTest`: every standard module's Create ▸ / menu / panel present, by effect | P0 | 1 |
+| [#1281](https://github.com/Rikarin/Vixen/issues/1281) | `ModuleRegistrationRule` + `ContributionWriterTest` | P0 | 1 |
+| [#1282](https://github.com/Rikarin/Vixen/issues/1282) | Three README/dead-type corrections (Core `Vixen.Ui` line; App load-order reasons; delete `EditorObject` family) | P0 | 1 |
 | — | [#1276](https://github.com/Rikarin/Vixen/issues/1276) `TexturingModule` reaches nothing — decide and close | P0 | 1 · filed |
 | — | [#1277](https://github.com/Rikarin/Vixen/issues/1277) Blockout boolean undo leaves operands hidden | P2b | 1 · filed |
-| 6 | `Vixen.Editor.Plugin.Generator`: the eight attributes → `Declared.Register` | P1 | 2 |
-| 7 | `EditorMenuAttribute.Title` as a `*Strings` member name; `DeclaredParityTest` | P1 | 2 |
-| 8 | Blockout → attributes, and through `context.AddPanel`/`AddMode` | P1 | 2 |
-| 9 | Water → attributes, `WaterDebug` static becomes module state | P1 | 2 |
-| 10 | Terrain → attributes; #740 closed; `TerrainPhysics` publishes via `Owns` | P1 | 2 |
-| 11 | `PluginHost.Activate` honours `suppressed`; Disable works for built-ins | P1 | 2 |
-| 12 | `IPlaySession` out of `EditorParity` + `PlayPhysics`; `PlayModule` | P2a | 3 |
-| 13 | `ISceneEditing`: selection + entity verbs + outliner; `Active` = `ActiveDocument`; `SceneModule` | P2b | 3 |
-| 14 | Gizmo recording entry point (`EditProperty.Record(before, after)`) | P5 → 2b | 3 |
-| 15 | `IContentLibrary`: browser model, collections + filters in one store, import, drop; `LibraryModule` owns `BuiltInAssetKinds` | P2c | 4 |
-| 16 | `IProjectSession`: open/recents/scaffold/watch/build; `ProjectBrowser` stops calling `Scan`/`Save` | P2d | 4 |
-| 17 | `DocumentKind` / `DocumentView` split + `DocumentPairingTest`; `IDocumentHost`, `IWorkspace`; panel state moves to models | P2e | 5 |
-| 18 | `IPlayerDelivery`; deploy as a contribution; `IDeviceDeploy` records rehomed | P2f | 5 |
-| 19 | `HelpModule`, `WorkspaceModule`; `EditorParity.cs` deleted | P2 | 5 |
-| 20 | `AssetEditors` off `NotYetMoved` through 17 | P3 | 6 |
-| 21 | `Profiler` + `Debugger` + `Diagnostics` off: report into the module, log ring and data dir published; typed module fields gone | P3 | 6 |
-| 22 | `NodeGraph` off: theme as a contribution (#917); `Host` stops building the shader-graph preview and terrain stages | P3 | 6 |
-| 23 | `Assets` drops `ShaderGraph`/`VfxGraph`; `BuiltInImporters` shrinks to the pipeline's own | P3 | 6 |
-| 24 | 35 feature string ids out of `EditorStrings` | P3 | 6 |
-| 25 | `NotYetMoved` deleted; `ApplicationReferenceRule` is `Allowed` only | P3 | 6 |
-| 26–32 | One per feature god file: `SceneViewport`, `ProjectBrowser`, `NodeGraphView`, `LayerStackView` + `TexturingModule`, `BlockoutMode`, `ComponentsView.vxml`, `EditorHost` | P4 | 7–8 |
-| 33 | Settings dirty joins `HasUnsavedChanges`; settings edits through `EditProperty` with a document (#1162's provider) | P2e | 5 |
-| 34 | Guide pages for the seven services and two records (`CheckDocs`, not `Docs`) | each | with its phase |
+| [#1283](https://github.com/Rikarin/Vixen/issues/1283) | `Vixen.Editor.Plugin.Generator`: the eight attributes → `Declared.Register` | P1 | 2 |
+| [#1284](https://github.com/Rikarin/Vixen/issues/1284) | `EditorMenuAttribute.Title` as a `*Strings` member name; `DeclaredParityTest` | P1 | 2 |
+| [#1285](https://github.com/Rikarin/Vixen/issues/1285) | Blockout → attributes, and through `context.AddPanel`/`AddMode` | P1 | 2 |
+| [#1286](https://github.com/Rikarin/Vixen/issues/1286) | Water → attributes, `WaterDebug` static becomes module state | P1 | 2 |
+| [#1287](https://github.com/Rikarin/Vixen/issues/1287) | Terrain → attributes; #740 closed; `TerrainPhysics` publishes via `Owns` | P1 | 2 |
+| [#1288](https://github.com/Rikarin/Vixen/issues/1288) | `PluginHost.Activate` honours `suppressed`; Disable works for built-ins | P1 | 2 |
+| [#1289](https://github.com/Rikarin/Vixen/issues/1289) | `IPlaySession` out of `EditorParity` + `PlayPhysics`; `PlayModule` | P2a | 3 |
+| [#1290](https://github.com/Rikarin/Vixen/issues/1290) | `ISceneEditing`: selection + entity verbs + outliner; `Active` = `ActiveDocument`; `SceneModule` | P2b | 3 |
+| [#1291](https://github.com/Rikarin/Vixen/issues/1291) | Gizmo recording entry point (`EditProperty.Record(before, after)`) | P5 → 2b | 3 |
+| [#1292](https://github.com/Rikarin/Vixen/issues/1292) | `IContentLibrary`: browser model, collections + filters in one store, import, drop; `LibraryModule` owns `BuiltInAssetKinds` | P2c | 4 |
+| [#1293](https://github.com/Rikarin/Vixen/issues/1293) | `IProjectSession`: open/recents/scaffold/watch/build; `ProjectBrowser` stops calling `Scan`/`Save` | P2d | 4 |
+| [#1294](https://github.com/Rikarin/Vixen/issues/1294) | `DocumentKind` / `DocumentView` split + `DocumentPairingTest`; `IDocumentHost`, `IWorkspace`; panel state moves to models | P2e | 5 |
+| [#1295](https://github.com/Rikarin/Vixen/issues/1295) | `IPlayerDelivery`; deploy as a contribution; `IDeviceDeploy` records rehomed | P2f | 5 |
+| [#1296](https://github.com/Rikarin/Vixen/issues/1296) | `HelpModule`, `WorkspaceModule`; `EditorParity.cs` deleted | P2 | 5 |
+| [#1297](https://github.com/Rikarin/Vixen/issues/1297) | `AssetEditors` off `NotYetMoved` through 17 | P3 | 6 |
+| [#1298](https://github.com/Rikarin/Vixen/issues/1298) | `Profiler` + `Debugger` + `Diagnostics` off: report into the module, log ring and data dir published; typed module fields gone | P3 | 6 |
+| [#1299](https://github.com/Rikarin/Vixen/issues/1299) | `NodeGraph` off: theme as a contribution (#917); `Host` stops building the shader-graph preview and terrain stages | P3 | 6 |
+| [#1300](https://github.com/Rikarin/Vixen/issues/1300) | `Assets` drops `ShaderGraph`/`VfxGraph`; `BuiltInImporters` shrinks to the pipeline's own | P3 | 6 |
+| [#1301](https://github.com/Rikarin/Vixen/issues/1301) | 35 feature string ids out of `EditorStrings` | P3 | 6 |
+| [#1302](https://github.com/Rikarin/Vixen/issues/1302) | `NotYetMoved` deleted; `ApplicationReferenceRule` is `Allowed` only | P3 | 6 |
+| [#1303](https://github.com/Rikarin/Vixen/issues/1303)–[#1309](https://github.com/Rikarin/Vixen/issues/1309) | One per feature god file: `SceneViewport`, `ProjectBrowser`, `NodeGraphView`, `LayerStackView` + `TexturingModule`, `BlockoutMode`, `ComponentsView.vxml`, `EditorHost` | P4 | 7–8 |
+| [#1310](https://github.com/Rikarin/Vixen/issues/1310) | Settings dirty joins `HasUnsavedChanges`; settings edits through `EditProperty` with a document (#1162's provider) | P2e | 5 |
+| [#1311](https://github.com/Rikarin/Vixen/issues/1311) | Guide pages for the seven services and two records (`CheckDocs`, not `Docs`) | each | with its phase |
 
 ## Part 7 — Estimate and risk
 
