@@ -1425,8 +1425,8 @@ settings-spacer { flex-grow: 1; }
 settings-pane > .filtered-out { display: none; }
 
 /* ── Plugins and history ────────────────────────────────────────────────
-   Two grids over lists the editor already keeps. Neither needs anything
-   the data grid does not already draw; what they need is a strip and a
+   Two panels over lists the editor already keeps: a grid for the plugins,
+   a column of buttons for the history. What both need is a strip and a
    line of prose for the state that a table cannot say — a plugin that
    failed, and an undo entry that is where "saved" was. */
 plugin-manager, history-view {
@@ -1447,15 +1447,20 @@ plugin-toolbar, history-toolbar {
     border-color: var(--border);
 }
 
-plugin-toolbar search-box, history-toolbar search-box { flex-grow: 1; min-width: 80px; }
-plugin-manager data-grid, history-view data-grid { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
+plugin-toolbar search-box { flex-grow: 1; min-width: 80px; }
+plugin-manager data-grid { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
 
-/* ⚠ The history is a list of buttons in a scroll view rather than a grid, and the rule
-   above never matched it. Its rows were unstyled, its surplus rows were "hidden" by a
-   class nothing declares, and the row saying where the document is now set `:checked`,
-   which no button rule outside the toolbar draws — so all three were invisible. The
-   first two went away with the rewrite (a row that leaves the list leaves the tree);
-   this is the third. */
+/* ⚠ The history is a list of buttons in a scroll view rather than a grid, and its toolbar
+   is one line of prose with no search box — so `history-view data-grid` and
+   `history-toolbar search-box`, which these two rules used to be grouped with, never
+   matched anything from the day the panel was written (UndoHistoryView.cs, E3, and the
+   markup that replaced it). The remark that used to sit here said as much about the
+   grid and left the rule standing; the scoped census (`ScopedSelectors.txt`) is what
+   finally made a rule with no producer a row somebody had to read. Its rows were
+   unstyled, its surplus rows were "hidden" by a class nothing declares, and the row
+   saying where the document is now set `:checked`, which no button rule outside the
+   toolbar draws — so all three were invisible. The first two went away with the rewrite
+   (a row that leaves the list leaves the tree); this is the third. */
 history-view scroll-view { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
 
 .history-entry {

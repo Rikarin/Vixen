@@ -1,0 +1,241 @@
+# Every WHOLE selector a committed sheet spells entirely in tags and combinators, and the shallowest
+# editor on the pair sweeps' ladder in which the cascade's own matcher found it matching something.
+#
+#     <selector><TAB><Started|Panels|Documents|Overlays|->
+#
+# Held against the sheets and against the four sweeps by
+# `EditorCombinatorPairTests.Every_type_only_selector_the_sheets_declare_is_in_the_scoped_census_with_its_verdict`,
+# EXACTLY and in both directions, verdict for verdict. Derived: re-run that test with
+# VIXEN_REGENERATE=1 to write this back, and read the diff.
+#
+# This is the scoped half of `Rikarin/Vixen#531`. The pair censuses beside this file ask whether a
+# rule's rightmost `A > B` occurs ANYWHERE; this asks whether the rule as written — ancestor, scope
+# and all — matches anything at all. `shape-fields fact-value > numeric-input` and #525's dead
+# `node-inspector fact-value > numeric-input` end in the same pairing and only a whole-selector
+# question tells them apart.
+#
+# ⚠ The loud direction is a verdict moving to `-`: a sheet still declares the rule and no editor on
+# the ladder builds anything under the scope it names any more, which is `compositor-editor >
+# node-canvas` as a whole selector. A verdict moving between depths, or from `-` to a depth, is the
+# ladder reaching more or less of the same tree, and is regenerated after reading.
+#
+# ⚠ A `-` row is UNJUDGED, never dead. The ladder is a started editor, then every registered panel
+# opened, then an empty document of every registered kind, then the chrome's two overlays; a rule
+# under a dialog nobody opens, a control the editor never builds, or a part built only for content
+# that is there is unreached here exactly as it is in the pair censuses. Type-only selectors only:
+# a compound carrying a class or a state depends on what a fixture did, so its not matching would
+# say nothing about the rule.
+#
+# ⚠ What the first run (2026-09-22) found, so the next reader of a `-` row knows which kind it is:
+#   - Two DEAD rules, corrected: `history-toolbar search-box` and `history-view data-grid` were
+#     grouped with the plugin manager's rules in EditorTheme.vcss and the history panel has never
+#     had a search box or a grid — a toolbar holding one line of prose, and a column of buttons.
+#   - The pair gate's blind spot, live: `fact-value > numeric-input` is a proved pairing, credited
+#     from an animation clip's fields (AnimationClipView.cs:659), while `shape-fields fact-value >
+#     numeric-input` matches nothing — ProxyShapeView.cs:455 builds it only once a shape is chosen,
+#     which an empty document never has. Unjudged here, and invisible to the pair gate by design.
+#   - `node-inspector fact-value` is NodeInspector.vxml:69, one row per CONNECTED port; a graph
+#     nobody wired has none. Unjudged.
+#   - The `key-value-value *`, `property-editor *`, `stepper`, `switch`, `radio`, `textarea` and
+#     `combo-box` rows are control-theme rules for parts the editor builds only with content, or
+#     controls it never builds bare; the controls' own live sweep (`LiveCombinatorPairTests`) is
+#     where those are provable, and it does not ask this question yet.
+#
+# ⚠ The negative half — a hand-kept file naming, for every `-` row, the producer and why the ladder
+# does not reach it, held exactly the way `UnprovedCombinatorPairs.txt` is — is NOT made here. This
+# file holds the proofs and the loud direction; it does not call anything dead.
+add-component-list > scroll-content	Overlays
+add-component-menu > search-box	Overlays
+add-component-row > icon	Overlays
+add-component-row > label	Overlays
+animation-body > animation-stage	Documents
+animation-stage > curve-editor	Documents
+animation-stage > timeline	Documents
+animgraph-body > state-map	Documents
+asset-field > icon-button	Documents
+asset-tile > icon	Started
+asset-tile > image	Started
+behaviortree-body > node-canvas	Documents
+browser-filters > search-box	Started
+browser-filters > select	Started
+build-row select	Started
+build-row text	Started
+build-row textbox	Started
+build-scene-bar select	Started
+build-settings data-grid	Started
+checkbox box	Panels
+checkbox box icon	Panels
+code-column > code-editor	Documents
+code-editor scroll-view	Documents
+code-editor-pane > code-column	Documents
+code-gutter-row icon	Documents
+color-input > color-swatch	Panels
+color-row text	Panels
+combo-box icon	-
+command-palette search-box	Started
+composite-editor expander	Documents
+composite-editor expander-content	Documents
+compositor-editor > node-graph	Documents
+console-toolbar button	Started
+console-toolbar search-box	Started
+console-toolbar select	Started
+console-toolbar toggle-button	Started
+console-view virtualizing-panel	Started
+data-grid scroll-view	Started
+data-header-cell icon	Panels
+debugger-body > tree-view	Panels
+device-manager > data-grid	Panels
+dock-tab icon	Started
+dock-tabstrip > icon-button	Started
+editor-shell > menu-bar	Started
+empty-state icon	-
+expander-header icon	Panels
+font-body > font-atlas	Documents
+frame-editor > scroll-view	Documents
+frame-editor analysis-message	Documents
+frame-editor analysis-row	Documents
+frame-editor fact-name	Documents
+frame-editor fact-row	Documents
+frame-editor fact-value	Documents
+frame-editor inspector	Documents
+gradient-editor color-picker	-
+group-editor > tree-view	Panels
+history-view scroll-view	Panels
+icon-button label	Started
+import-settings > scroll-view	Documents
+import-settings > scroll-view > scroll-content	Documents
+input-body > tree-view	Documents
+inspector > scroll-view	Started
+inspector combo-box	-
+inspector expander	Panels
+inspector expander-content	Panels
+inspector expander-header	Panels
+inspector field-placeholder	Started
+inspector multi-select	Panels
+inspector numeric-input	Panels
+inspector search-box	Started
+inspector search-box field-placeholder	Started
+inspector select	Panels
+inspector textarea	-
+inspector textbox	Panels
+inspector-editor asset-field	Documents
+inspector-editor color-picker	-
+inspector-editor combo-box	-
+inspector-editor curve-editor	-
+inspector-editor multi-select	Panels
+inspector-editor numeric-input	Panels
+inspector-editor select	Panels
+inspector-editor slider	Panels
+inspector-editor textarea	-
+inspector-editor textbox	Panels
+inspector-header > search-box	Started
+inspector-row > icon-button	Panels
+key-value-row progress-bar	-
+key-value-value combo-box	-
+key-value-value multi-select	-
+key-value-value numeric-input	-
+key-value-value progress-bar	-
+key-value-value search-box	-
+key-value-value secure-textbox	-
+key-value-value select	-
+key-value-value slider	-
+key-value-value stepper	-
+key-value-value textarea	-
+key-value-value textbox	-
+keybindings-toolbar search-box	Panels
+keybindings-toolbar select	Panels
+keybindings-view data-grid	Panels
+material-bar > textbox	Documents
+material-editor > image	Documents
+memory-view > scroll-view	Panels
+menu-item icon	Started
+menu-item kbd	Started
+mesh-map-bake data-grid	Panels
+meshbake-row select	Panels
+meshbake-row text	Panels
+meshbake-row textbox	Panels
+message-log virtualizing-panel	Panels
+message-log-toolbar search-box	Panels
+message-log-toolbar select	Panels
+mixer-body > mixer-strips	Documents
+mode-bar > toolbar	Started
+model-editor > tree-view	Documents
+moveset-bar > textbox	Documents
+multi-select icon	Panels
+network-row progress-bar	-
+node-graph > node-canvas	Documents
+node-inspector fact-value	-
+node-port-editor checkbox	-
+node-port-editor numeric-input	Documents
+option icon	Panels
+outliner-filters > search-box	Started
+outliner-filters > select	Started
+override-bar > textbox	Documents
+override-body > override-row	Documents
+override-cell > checkbox	Documents
+override-cell > numeric-input	Documents
+override-cell > select	Documents
+override-cell > textbox	-
+palette-row > label	Overlays
+plugin-manager data-grid	Panels
+plugin-toolbar search-box	Panels
+profiler-body > scroll-view	Panels
+profiler-toolbar select	Panels
+profiler-view > data-grid	Panels
+property-editor numeric-input	-
+property-editor select	-
+property-editor slider	-
+property-editor textbox	-
+property-grid search-box	-
+radial-item > icon	-
+radio box	-
+radio box dot	-
+remote-body > tree-view	Panels
+remote-write > textbox	Panels
+search-box field-placeholder	Started
+search-box icon	Started
+select icon	Started
+sequence-body > timeline	Documents
+settings-header search-box	Panels
+shadergraph-editor > node-graph	Documents
+shadergraph-source > code-editor	Documents
+shape-fields fact-value	Documents
+shape-fields fact-value > numeric-input	-
+shape-stage > viewport	Documents
+sprite-canvas > image	Documents
+sprite-field-row > numeric-input	Documents
+sprite-field-row > textbox	Documents
+sprite-toolbar > numeric-input	Documents
+sprite-toolbar > select	Documents
+statistic-row progress-bar	Panels
+status-bar > status-trailing	Started
+status-bar button	Started
+status-bar progress-bar	Started
+stepper icon	-
+stepper icon-button	-
+switch track	-
+switch track knob	-
+task-center > text	Started
+task-row > task-line	-
+task-row progress-bar	-
+textarea field-text	-
+toolbar button	Started
+toolbar icon-button	Started
+toolbar segment	Started
+toolbar segmented-control	Started
+toolbar separator	Started
+toolbar toggle-button	-
+toolbar-group button	-
+toolbar-group icon-button	Started
+toolbar-group toggle-button	-
+tree-row icon	Started
+tree-view scroll-content	Started
+tree-view scroll-view	Started
+tree-view virtualizing-panel	Started
+vector-component > text	Panels
+vector-component numeric-input	Panels
+vfx-editor > node-graph	Documents
+viewport-bar > toolbar	Started
+virtualizing-grid scroll-view	Started
+virtualizing-panel scroll-view	Started
+virtualizing-panel scrollbar	Started

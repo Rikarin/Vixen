@@ -59,7 +59,7 @@ namespace Vixen.Editor.App.Tests;
 ///         front of somebody, which is what it did.
 ///     </para>
 /// </remarks>
-public class EditorCombinatorPairTests {
+public partial class EditorCombinatorPairTests {
     /// <summary>The domain: every pairing a committed sheet declares, with a bare type on both sides.</summary>
     const string DomainFile = "Core/Vixen.Ui.Styling.Tests/CombinatorPairs.txt";
 
@@ -631,7 +631,11 @@ public class EditorCombinatorPairTests {
     ///         <b>What it is not.</b> A pairing proved <em>somewhere</em> is not a pairing that is
     ///         right <em>where the rule scopes it</em>: <c>fact-value &gt; numeric-input</c> is live
     ///         under <c>shape-fields</c> and was dead under <c>node-inspector</c>, and this gate
-    ///         cannot tell those apart. The scoped gate #531 also asks for is still unbuilt.
+    ///         cannot tell those apart. The scoped half is the partial beside this file, which asks
+    ///         the cascade's matcher about each whole type-only selector instead — and its first run
+    ///         showed exactly that shape: this gate credits <c>fact-value &gt; numeric-input</c> from
+    ///         an animation clip's fields while <c>shape-fields fact-value &gt; numeric-input</c>
+    ///         matches nothing an empty document builds.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -733,6 +737,10 @@ public class EditorCombinatorPairTests {
             }
 
             Walk(fixture.Document.Root, pairs);
+
+            // The scoped half, over the same editor: every whole type-only selector the sheets
+            // declare, asked of the cascade's own matcher. See the partial beside this file.
+            Scope(fixture, depth);
         }
 
         if (depth == Depth.Started) {
