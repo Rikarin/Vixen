@@ -42,6 +42,7 @@ for f in auxiliary/GraphemeBreakTest.txt auxiliary/GraphemeBreakProperty.txt \
          auxiliary/LineBreakTest.txt LineBreak.txt \
          DerivedCoreProperties.txt extracted/DerivedBidiClass.txt BidiBrackets.txt BidiCharacterTest.txt \
          EastAsianWidth.txt Scripts.txt PropertyValueAliases.txt SpecialCasing.txt \
+         extracted/DerivedCombiningClass.txt PropList.txt \
          emoji/emoji-data.txt ReadMe.txt; do curl -sSO "$base/$f"; done
 ```
 
@@ -68,19 +69,31 @@ the unconditional rows of `SpecialCasing.txt` had not moved across four major ve
 knowing before anyone spends a run chasing a suspected casing difference: the table has been right the
 whole time, and it was the header that lied.
 
-⚠ **Two files the loop above deliberately does not fetch, and the one task that wants them.**
-`UnicodeData.txt` (field 3 is the canonical combining class) and `PropList.txt` (`Soft_Dotted`) are
-not in the list because no generated table reads them today — and that absence is
-[#913](https://github.com/Rikarin/Vixen/issues/913), which blocks all four remaining UAX #21 casing
+⚠ **Two tables the generator can write and the tree does not yet hold, and the one task that wants
+them.** `extracted/DerivedCombiningClass.txt` (field 3 of `UnicodeData.txt`, already in ranges and
+with a version header `UnicodeData.txt` lacks) and `PropList.txt` (`Soft_Dotted`) are in the loop
+above, and `Tools/Vixen.UnicodeTableGen` writes `CombiningClassTable.g.cs` and `SoftDottedTable.g.cs`
+from them — but no run has yet been made with the sources, so neither file is committed. That absence
+is [#913](https://github.com/Rikarin/Vixen/issues/913), which blocks all four remaining UAX #21 casing
 conditions at once. `After_I`, `Not_Before_Dot`, `lt More_Above` and `lt After_Soft_Dotted` are each
 phrased as *"with no intervening character of combining class 0 or 230"*, so one table unblocks four
 rows and no subset of them can be done first. .NET exposes no public canonical-combining-class API, so
-there is no way to answer the question without the data. Whoever does it fetches these beside the
-rest, at the same pinned release, and runs the generator whole:
+there is no way to answer the question without the data. Whoever does it fetches the two files beside
+the rest, at the same pinned release, and runs the casing trio — the two new tables read their version
+from their own headers exactly as `SpecialCasing.txt` does, so this is as safe as the one-table run
+above and lands twelve headers that agree:
 
 ```bash
-for f in UnicodeData.txt PropList.txt; do curl -sSO "$base/$f"; done
+dotnet run --project Tools/Vixen.UnicodeTableGen -- \
+    references/unicode Core/Vixen.Ui.Text/Generated /tmp/unused Casing
 ```
+
+Then two things go red on purpose and are the checklist: `GeneratedUnicodeVersionTests` refuses a
+table its list does not name, so the two names go into `Tables`; and `SoftDottedClass` is a public
+enum like its siblings, so `CheckApi`'s baseline moves. ⚠ The generator was proved against a
+hand-written slice of both files in the shape the UCD writes them, not against the real ones — the
+first real run is the first time the range counts are meaningful, and ~400 combining-class ranges is
+the order of magnitude to expect.
 
 ## What each one is for
 

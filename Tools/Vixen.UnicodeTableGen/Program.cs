@@ -52,18 +52,55 @@ static class Program {
         Directory.CreateDirectory(tables);
         Directory.CreateDirectory(tests);
 
+        // ⚠ Three names, and each is a table whose version is read from its own source file rather
+        // than from GraphemeBreakTest.txt — which is what makes a one-table run honest: the header
+        // it writes says where that table came from, and `GeneratedUnicodeVersionTests` holds it to
+        // its siblings. `Casing` is the three together, because the UAX #21 conditions need all of
+        // them and a person refreshing one is refreshing the casing data.
         if (only is not null) {
-            if (!string.Equals(only, "SpecialCasing", StringComparison.Ordinal)) {
-                Console.Error.WriteLine($"'{only}' is not an artefact this generator knows — the only name is SpecialCasing");
-                return 1;
+            switch (only) {
+                case "SpecialCasing":
+                    WriteSpecialCasingTable(
+                        Path.Combine(tables, "SpecialCasingTable.g.cs"),
+                        Path.Combine(ucd, "SpecialCasing.txt")
+                    );
+
+                    return 0;
+
+                case "CombiningClass":
+                    WriteCombiningClassTable(
+                        Path.Combine(tables, "CombiningClassTable.g.cs"),
+                        Path.Combine(ucd, "DerivedCombiningClass.txt")
+                    );
+
+                    return 0;
+
+                case "SoftDotted":
+                    WriteSoftDottedTable(Path.Combine(tables, "SoftDottedTable.g.cs"), Path.Combine(ucd, "PropList.txt"));
+                    return 0;
+
+                case "Casing":
+                    WriteSpecialCasingTable(
+                        Path.Combine(tables, "SpecialCasingTable.g.cs"),
+                        Path.Combine(ucd, "SpecialCasing.txt")
+                    );
+
+                    WriteCombiningClassTable(
+                        Path.Combine(tables, "CombiningClassTable.g.cs"),
+                        Path.Combine(ucd, "DerivedCombiningClass.txt")
+                    );
+
+                    WriteSoftDottedTable(Path.Combine(tables, "SoftDottedTable.g.cs"), Path.Combine(ucd, "PropList.txt"));
+                    return 0;
+
+                default:
+                    Console.Error.WriteLine(
+                        $"'{only}' is not an artefact this generator knows — the names are SpecialCasing, CombiningClass, "
+                        + "SoftDotted and Casing (the three together)"
+                    );
+
+                    return 1;
             }
-
-            WriteSpecialCasingTable(
-                Path.Combine(tables, "SpecialCasingTable.g.cs"),
-                Path.Combine(ucd, "SpecialCasing.txt")
-            );
-
-            return 0;
         }
 
         var version = ReadVersion(Path.Combine(ucd, "GraphemeBreakTest.txt"));
@@ -121,6 +158,22 @@ static class Program {
             Path.Combine(tables, "SpecialCasingTable.g.cs"),
             Path.Combine(ucd, "SpecialCasing.txt")
         );
+
+        // ⚠ The two tables that unblock SpecialCasing.txt's *conditional* rows (#913). `After_I`,
+        // `Not_Before_Dot`, `More_Above` and `After_Soft_Dotted` are each phrased as "with no
+        // intervening character of combining class 0 or 230", and .NET has no public
+        // canonical-combining-class API — so the data has to come from here or not at all. The
+        // combining class is field 3 of UnicodeData.txt, and `extracted/DerivedCombiningClass.txt`
+        // is the same column already in the `range ; value` shape every other table here reads,
+        // with a version header UnicodeData.txt does not have. `Soft_Dotted` is a PropList.txt
+        // property. Both read their version from their own file, like SpecialCasing.txt, because
+        // both can be regenerated on their own (see the `only` names above).
+        WriteCombiningClassTable(
+            Path.Combine(tables, "CombiningClassTable.g.cs"),
+            Path.Combine(ucd, "DerivedCombiningClass.txt")
+        );
+
+        WriteSoftDottedTable(Path.Combine(tables, "SoftDottedTable.g.cs"), Path.Combine(ucd, "PropList.txt"));
 
         // UAX#24. Shaping is per script, so itemisation needs this before a shaper can be handed
         // anything at all.
@@ -809,6 +862,168 @@ static class Program {
 
             into.Add((code, mapped));
         }
+    }
+
+    /// <summary>Writes the canonical combining class of every code point that has a non-zero one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The table .NET does not expose.</b> <c>CharUnicodeInfo</c> answers the general
+    ///         category and the numeric value and nothing about canonical ordering, and
+    ///         <c>string.Normalize</c> uses the class without ever saying what it was. UAX #21's
+    ///         context conditions are phrased in terms of it — <i>"no intervening character of
+    ///         combining class 0 or 230"</i> — so the casing walk cannot ask the question without
+    ///         this file.
+    ///     </para>
+    ///     <para>
+    ///         Read from <c>extracted/DerivedCombiningClass.txt</c> rather than from field 3 of
+    ///         <c>UnicodeData.txt</c>: it is the same column, already merged into ranges in the shape
+    ///         <see cref="ReadProperties" /> reads, and it carries a version header where
+    ///         UnicodeData.txt carries none. The file lists class 0 explicitly for every assigned
+    ///         code point that has it; those ranges are dropped, because zero is what the lookup
+    ///         answers for anything the table does not mention — a full listing would be several
+    ///         hundred ranges that all say the default.
+    ///     </para>
+    ///     <para>
+    ///         A <c>byte</c> rather than an enum, because the class is a number the specification
+    ///         compares (<c>230</c> is <i>above</i>, <c>220</c> is <i>below</i>) and there are fifty-odd
+    ///         distinct values with no names worth having.
+    ///     </para>
+    /// </remarks>
+    static void WriteCombiningClassTable(string path, string source) {
+        var version = ReadOwnVersion(source, "# DerivedCombiningClass-");
+        var classes = ReadProperties(source);
+        var all = new List<(int First, int Last, byte Class)>();
+
+        foreach (var (name, ranges) in classes) {
+            var value = byte.Parse(name, NumberStyles.None, CultureInfo.InvariantCulture);
+
+            if (value == 0) {
+                continue;
+            }
+
+            foreach (var (first, last) in ranges) {
+                all.Add((first, last, value));
+            }
+        }
+
+        all.Sort(static (left, right) => left.First.CompareTo(right.First));
+
+        var merged = new List<(int First, int Last, byte Class)>();
+        foreach (var entry in all) {
+            if (merged.Count > 0 && merged[^1].Class == entry.Class && merged[^1].Last + 1 >= entry.First) {
+                merged[^1] = (merged[^1].First, Math.Max(merged[^1].Last, entry.Last), entry.Class);
+                continue;
+            }
+
+            merged.Add(entry);
+        }
+
+        var builder = new StringBuilder();
+        AppendHeader(builder, version);
+        builder.Append("/// <summary>The canonical combining class of a code point.</summary>\n");
+        builder.Append("/// <remarks>\n");
+        builder.Append(CultureInfo.InvariantCulture, $"///     {merged.Count} ranges, sorted and merged, holding every non-zero class; a code point the\n");
+        builder.Append("///     table does not mention is class 0 (<c>Not_Reordered</c>), which is what UAX #21's\n");
+        builder.Append("///     conditions mean by a base character. 230 is <c>Above</c> and 220 is <c>Below</c>.\n");
+        builder.Append("/// </remarks>\n");
+        builder.Append("static class CombiningClassTable {\n");
+        builder.Append("    /// <summary>The Unicode version these ranges came from.</summary>\n");
+        builder.Append(CultureInfo.InvariantCulture, $"    public const string UnicodeVersion = \"{version}\";\n\n");
+        builder.Append("    /// <summary>Canonical combining class 230, <c>Above</c>.</summary>\n");
+        builder.Append("    public const byte Above = 230;\n\n");
+        builder.Append("    static readonly int[] Starts = [\n");
+        AppendNumbers(builder, merged.Select(entry => entry.First));
+        builder.Append("    ];\n\n");
+        builder.Append("    static readonly int[] Ends = [\n");
+        AppendNumbers(builder, merged.Select(entry => entry.Last));
+        builder.Append("    ];\n\n");
+        builder.Append("    static readonly byte[] Classes = [\n");
+
+        for (var i = 0; i < merged.Count; i += 16) {
+            builder.Append("        ");
+            for (var j = i; j < Math.Min(i + 16, merged.Count); j++) {
+                builder.Append(CultureInfo.InvariantCulture, $"{merged[j].Class}, ");
+            }
+
+            builder.Length -= 1;
+            builder.Append('\n');
+        }
+
+        builder.Append("    ];\n\n");
+        builder.Append("    /// <summary>The canonical combining class of a code point.</summary>\n");
+        builder.Append("    /// <param name=\"codePoint\">The code point.</param>\n");
+        builder.Append("    /// <returns>Its class, 0 for a base character.</returns>\n");
+        builder.Append("    public static byte Of(int codePoint) {\n");
+        AppendBinarySearch(builder, "0");
+        builder.Append("    }\n");
+        builder.Append("}\n");
+
+        File.WriteAllText(path, builder.ToString());
+        Console.WriteLine($"{Path.GetFileName(path)}: Unicode {version}, {merged.Count} ranges, {classes.Keys.Count(static name => name != "0")} non-zero classes");
+    }
+
+    /// <summary>Writes the <c>Soft_Dotted</c> property, which is the other half of UAX #21's data.</summary>
+    /// <remarks>
+    ///     The same shape as the Extended_Pictographic table — one binary property out of a file of
+    ///     many, read with <c>only</c> — and the version is this file's own so that it can be
+    ///     regenerated alone. Lithuanian's <c>After_Soft_Dotted</c> asks it; nothing else here does.
+    /// </remarks>
+    static void WriteSoftDottedTable(string path, string source) =>
+        WriteTable(
+            path,
+            "SoftDottedClass",
+            ReadProperties(source, only: "Soft_Dotted"),
+            ReadOwnVersion(source, "# PropList-")
+        );
+
+    /// <summary>The version a UCD file states about itself in its first line.</summary>
+    /// <param name="path">The file.</param>
+    /// <param name="prefix">Its first line up to the version, such as <c># PropList-</c>.</param>
+    /// <returns>The version, or <c>unknown</c> when the header is not there.</returns>
+    /// <remarks>
+    ///     ⚠ <c>unknown</c> rather than an exception, matching <see cref="ReadVersion" /> — and
+    ///     matching it is the point: <c>GeneratedUnicodeVersionTests</c> is what refuses a table
+    ///     whose header says nothing, so the failure is where every other stale header fails.
+    /// </remarks>
+    static string ReadOwnVersion(string path, string prefix) {
+        foreach (var line in File.ReadLines(path)) {
+            if (line.StartsWith(prefix, StringComparison.Ordinal)) {
+                return line[prefix.Length..].Replace(".txt", string.Empty, StringComparison.Ordinal).Trim();
+            }
+        }
+
+        return "unknown";
+    }
+
+    static void AppendHeader(StringBuilder builder, string version) {
+        builder.Append("// SPDX-FileCopyrightText: Copyright (c) Rikarin\n");
+        builder.Append("// SPDX-License-Identifier: Apache-2.0\n");
+        builder.Append("//\n");
+        builder.Append("// <auto-generated>\n");
+        builder.Append("//     Generated by Tools/Vixen.UnicodeTableGen from the Unicode Character Database,\n");
+        builder.Append(CultureInfo.InvariantCulture, $"//     version {version}. Do not edit — re-run the generator.\n");
+        builder.Append("//\n");
+        builder.Append("//     Derived from Unicode data files, which carry the Unicode terms of use:\n");
+        builder.Append("//     https://www.unicode.org/terms_of_use.html\n");
+        builder.Append("// </auto-generated>\n\n");
+        builder.Append("namespace Vixen.Ui.Text;\n\n");
+    }
+
+    /// <summary>The binary search over <c>Starts</c>/<c>Ends</c>/<c>Classes</c> every range table ends with.</summary>
+    static void AppendBinarySearch(StringBuilder builder, string missing) {
+        builder.Append("        var low = 0;\n");
+        builder.Append("        var high = Starts.Length - 1;\n\n");
+        builder.Append("        while (low <= high) {\n");
+        builder.Append("            var middle = (low + high) >> 1;\n\n");
+        builder.Append("            if (codePoint < Starts[middle]) {\n");
+        builder.Append("                high = middle - 1;\n");
+        builder.Append("            } else if (codePoint > Ends[middle]) {\n");
+        builder.Append("                low = middle + 1;\n");
+        builder.Append("            } else {\n");
+        builder.Append("                return Classes[middle];\n");
+        builder.Append("            }\n");
+        builder.Append("        }\n\n");
+        builder.Append(CultureInfo.InvariantCulture, $"        return {missing};\n");
     }
 
     static void AppendCasing(StringBuilder builder, string name, List<(int Code, string Mapping)> entries) {
