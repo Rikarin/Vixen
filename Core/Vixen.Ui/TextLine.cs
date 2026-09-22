@@ -324,7 +324,12 @@ public sealed class TextLine {
 
     /// <summary>Whether a character forces a line to end. CSS Text § 4.1.1's break.</summary>
     /// <param name="value">The character.</param>
-    static bool IsSegmentBreak(char value) =>
+    /// <remarks>
+    ///     Shared with <see cref="TextRun.Place" />, which draws nothing for one: a line ended at a
+    ///     forced break carries its terminator, and the same set that comes off the width here has
+    ///     to come off the glyphs there, or the two disagree about what a line's end is.
+    /// </remarks>
+    internal static bool IsSegmentBreak(char value) =>
         value is '\n' or '\u000b' or '\u000c' or '\r' or '\u0085' or '\u2028' or '\u2029';
 
     /// <summary>How wide the white space at the end of a run is, in pixels.</summary>
