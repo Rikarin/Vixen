@@ -1600,7 +1600,12 @@ public partial class SharedUiShaderTests {
     ///         ⚠ <b>What the control-flow gap in the box pair actually is, measured rather than
     ///         guessed &#8212; and it is <em>not</em> a candidate for #1190's 1/255.</b> The two modules
     ///         differ by <c>OpPhi</c> 4 against 0, <c>OpBranchConditional</c> 29 against 21 and
-    ///         <c>OpSelect</c> 32 against 28. <c>ui-box.frag</c> holds exactly four short-circuiting
+    ///         <c>OpSelect</c> 3 against 7. ⚠ Not "32 against 28", which this remark said until it
+    ///         was recounted by opcode: a <c>grep OpSelect</c> over a disassembly also matches every
+    ///         <c>OpSelectionMerge</c>, of which there are 29 and 21 &#8212; one per conditional branch
+    ///         &#8212; and 3 + 29 and 7 + 21 are exactly the two numbers that stood here. The argument
+    ///         below does not move, but the count it rests on is now the count of selects.
+    ///         <c>ui-box.frag</c> holds exactly four short-circuiting
     ///         operators &#8212; two <c>||</c> and two <c>&amp;&amp;</c> &#8212; and <c>glslc</c> gives each one a
     ///         branch and a phi, where Raven emits <c>OpLogicalOr</c> over both operands because its
     ///         rule is to branch only for an operand that can index, call or assign. That is a
