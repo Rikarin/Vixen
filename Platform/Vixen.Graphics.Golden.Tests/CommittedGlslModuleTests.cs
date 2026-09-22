@@ -54,6 +54,17 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         make one ledger unwritable from the other's numbers.
 ///     </para>
 ///     <para>
+///         ⚠ <b>And the flavour column is here too, because a fix in one of two ledgers built from
+///         one mechanism is half a fix.</b> #1257 was about a regeneration message that named plain
+///         <c>glslc</c> for a module built with <c>-O</c>; it was fixed in <c>modules.sha256</c> and
+///         left standing here, where the message said <c>glslc {name} -o {name}.spv</c> with no flag
+///         at all. Nobody is being misled today — all thirty modules this ledger governs carry a
+///         debug section, so plain <c>glslc</c> does reproduce them — which is exactly why it had to
+///         be fixed before an <c>-O</c> module arrives rather than after. The column, the refusal
+///         without <see cref="SharedUiShaderTests.Reflavouring" /> and the detector's own check are
+///         the sibling's, not a second implementation.
+///     </para>
+///     <para>
 ///         <b>Why it lives in this project</b>, when the module that matters most is
 ///         <c>Core/Vixen.Rendering</c>'s. Because the mechanism is here: the stripper, the digest and
 ///         the repository walk all already existed for the eight UI shaders, and a second
@@ -112,7 +123,11 @@ public class CommittedGlslModuleTests {
     [Fact]
     public void EveryHandCompiledModuleMatchesTheSourceCommittedBesideIt() {
         var root = SharedUiShaderTests.RepositoryRoot();
-        var recorded = Updating ? [] : Recorded();
+        // ⚠ Read even when rewriting, which it was not before the flavour column: a rewrite that
+        // cannot see the old ledger cannot notice that a module changed flavour, which is the one
+        // thing it is supposed to refuse. The sibling ledger reads it unconditionally for the same
+        // reason.
+        var recorded = Recorded();
         var found = Pairs(root);
 
         var written = new List<string>();
@@ -123,9 +138,24 @@ public class CommittedGlslModuleTests {
 
             var code = SharedUiShaderTests.Digest(Encoding.UTF8.GetBytes(SharedUiShaderTests.Code(File.ReadAllText(source))));
             var binary = SharedUiShaderTests.Digest(File.ReadAllBytes(module));
+            var flavour = SharedUiShaderTests.Flavour(SharedUiShaderTests.WordsOf(module));
 
             if (Updating) {
-                written.Add($"{name} {code} {binary}");
+                // ⚠ The one thing a rewrite refuses, exactly as the sibling ledger refuses it: a
+                // module that arrived in the other flavour. Changing a shader is routine; changing
+                // whether its constants are folded is a decision, and a rewrite that recorded it
+                // silently is what #1257 was filed about.
+                if (recorded.TryGetValue(name, out var was) && was.Flavour is not null) {
+                    Assert.True(
+                        SharedUiShaderTests.Reflavouring || string.Equals(was.Flavour, flavour, StringComparison.Ordinal),
+                        $"'{name}.spv' was built with `glslc {flavour}` and the ledger records `glslc "
+                        + $"{was.Flavour}`. Rebuild it the way it was built before: `glslc {was.Flavour} {name} -o "
+                        + $"{name}.spv` from the repository root. If changing the flavour is the point, rerun with "
+                        + "`VIXEN_UPDATE_SHADER_FLAVOUR=1` as well."
+                    );
+                }
+
+                written.Add($"{name} {code} {binary} {flavour}");
                 continue;
             }
 
@@ -137,11 +167,26 @@ public class CommittedGlslModuleTests {
             );
 
             Assert.True(
+                pair.Flavour is not null,
+                $"'{name}'s line in 'hand-compiled.sha256' predates the flavour column, so the regeneration "
+                + "message below cannot say which way to run glslc. Rewrite the ledger with "
+                + "`VIXEN_UPDATE_SHADER_DIGESTS=1`."
+            );
+
+            Assert.True(
+                string.Equals(pair.Flavour, flavour, StringComparison.Ordinal),
+                $"'hand-compiled.sha256' says '{name}.spv' was built with `glslc {pair.Flavour}` and the module "
+                + $"says `glslc {flavour}` — it {(flavour == SharedUiShaderTests.Optimised ? "carries no" : "carries a")} "
+                + "debug section. The ledger was edited by hand, or a module arrived through a path other than "
+                + "`VIXEN_UPDATE_SHADER_DIGESTS=1`."
+            );
+
+            Assert.True(
                 string.Equals(pair.Code, code, StringComparison.Ordinal),
                 $"'{name}' has changed since '{name}.spv' was built — its code, not its comments, which are "
                 + "stripped before this digest. Whatever loads that module is not running this source. "
-                + $"Regenerate it and the ledger: `glslc {name} -o {name}.spv` from the repository root, then "
-                + "rerun with `VIXEN_UPDATE_SHADER_DIGESTS=1`."
+                + $"Regenerate it and the ledger: `glslc {pair.Flavour} {name} -o {name}.spv` from the repository "
+                + "root, then rerun with `VIXEN_UPDATE_SHADER_DIGESTS=1`."
             );
 
             Assert.True(
@@ -153,7 +198,8 @@ public class CommittedGlslModuleTests {
         }
 
         if (Updating) {
-            File.WriteAllLines(Ledger, written);
+            // LF whatever the host, because the file is committed and `.gitattributes` says LF.
+            File.WriteAllText(Ledger, string.Join('\n', written) + '\n');
 
             return;
         }
@@ -197,21 +243,74 @@ public class CommittedGlslModuleTests {
         Assert.Contains("Core/Vixen.Rendering/Shaders/line.frag", found);
     }
 
+    /// <summary>The flavour this ledger records is read off each module's bytes, not assumed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The instrument for the fourth column, and deliberately not a partition.</b>
+    ///         <see cref="SharedUiShaderTests.TheFlavourColumnIsWhatTheModulesBytesSay" /> can name
+    ///         which three of its eight are optimised because its eight are a fixed list; this walk
+    ///         finds whatever the tree holds, and every one of them carries a debug section today.
+    ///         Pinning that would make the column's whole purpose — letting an <c>-O</c> module
+    ///         arrive deliberately — turn this red.
+    ///     </para>
+    ///     <para>
+    ///         So what is pinned is that the detector reads the debug section and not some other
+    ///         property: cut that section out in memory and a module that read as
+    ///         <see cref="SharedUiShaderTests.Unoptimised" /> reads as
+    ///         <see cref="SharedUiShaderTests.Optimised" />. ⚠ And that the loop ran at all, because
+    ///         a walk that found nothing would satisfy every assertion inside it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheFlavourColumnIsWhatEachModulesBytesSay() {
+        var root = SharedUiShaderTests.RepositoryRoot();
+        var probed = 0;
+
+        foreach (var name in Pairs(root)) {
+            var module = Path.Combine(root, name.Replace('/', Path.DirectorySeparatorChar)) + ".spv";
+            var words = SharedUiShaderTests.WordsOf(module);
+
+            if (SharedUiShaderTests.Flavour(words) == SharedUiShaderTests.Optimised) {
+                continue;
+            }
+
+            Assert.Equal(
+                SharedUiShaderTests.Optimised,
+                SharedUiShaderTests.Flavour(SharedUiShaderTests.WithoutDebugSection(words))
+            );
+
+            probed++;
+        }
+
+        Assert.True(
+            probed > 0,
+            "not one hand-compiled module read as unoptimised, so nothing above exercised the detector. "
+            + "Either every module in the tree is `-O` now — in which case this check needs rewriting — or "
+            + "the walk found nothing, which is the failure this class exists to be loud about."
+        );
+    }
+
     /// <summary>The ledger, by repository-relative source path.</summary>
-    static Dictionary<string, (string Code, string Module)> Recorded() {
+    /// <remarks>
+    ///     ⚠ <b>Three columns before #1257 and four since</b>, and a three-column line is read rather
+    ///     than rejected here so that the line that says so is the assertion in
+    ///     <see cref="EveryHandCompiledModuleMatchesTheSourceCommittedBesideIt" /> and not a silent
+    ///     parse failure that empties the dictionary.
+    /// </remarks>
+    static Dictionary<string, (string Code, string Module, string? Flavour)> Recorded() {
         Assert.True(
             File.Exists(Ledger),
             $"'{Ledger}' is missing, and it is the only thing that says which source each hand-compiled "
             + "module was built from. Write it with `VIXEN_UPDATE_SHADER_DIGESTS=1`."
         );
 
-        var found = new Dictionary<string, (string, string)>(StringComparer.Ordinal);
+        var found = new Dictionary<string, (string, string, string?)>(StringComparer.Ordinal);
 
         foreach (var line in File.ReadAllLines(Ledger)) {
             var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
-            if (parts.Length == 3) {
-                found[parts[0]] = (parts[1], parts[2]);
+            if (parts is [var name, var code, var binary, ..]) {
+                found[name] = (code, binary, parts.Length >= 4 ? parts[3] : null);
             }
         }
 
@@ -261,8 +360,9 @@ public class CommittedGlslModuleTests {
 
         var name = Path.GetFileName(source);
 
+        // Three columns before #1257 and four since; the name is the first either way.
         return File.ReadLines(beside).Any(line =>
-            line.Split(' ', StringSplitOptions.RemoveEmptyEntries) is [var first, _, _]
+            line.Split(' ', StringSplitOptions.RemoveEmptyEntries) is [var first, _, _, ..]
             && string.Equals(first, name, StringComparison.Ordinal)
         );
     }

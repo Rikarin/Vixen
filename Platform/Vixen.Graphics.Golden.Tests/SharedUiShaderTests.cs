@@ -85,8 +85,18 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         check widened.</b> The alternative — keeping an allow-list entry against the day a second
 ///         reciprocal appears — is the shape this file's own remark warns about, since an allow-list
 ///         that survives its reason is a hole. So <c>ui-mask.frag</c> now multiplies by
-///         <c>0.15915494309189535</c> exactly as <c>Ui.rvn</c> does, which is arithmetically a no-op
-///         and cost a <c>glslc</c> run, a recommitted module and a rewritten ledger.
+///         <c>0.15915494309189535</c> exactly as <c>Ui.rvn</c> does, which cost a <c>glslc</c> run, a
+///         recommitted module and a rewritten ledger.
+///     </para>
+///     <para>
+///         ⚠ <b>And that respelling is a no-op in real arithmetic and a last-place bit in float,
+///         which this remark called a no-op flatly until #1256 measured it.</b> The reciprocal is
+///         not exactly 1/&#964;, so dividing and multiplying are two roundings and land on two
+///         different floats: over 3 600 evenly spaced angles they disagree on 162 of them, about one
+///         in twenty. That belief is precisely what let the two C# ports keep dividing by
+///         <c>MathF.Tau</c> while claiming to compute what the shader computes &#8212;
+///         <c>Core/Vixen.Ui.Testing.Tests/ConicSweepTests.cs</c> is what holds them to the
+///         multiplication now.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>And it compared each copy with <c>Ui.rvn</c> whole, which is a weaker claim than it
@@ -148,6 +158,73 @@ public partial class SharedUiShaderTests {
     static bool Updating =>
         Environment.GetEnvironmentVariable("VIXEN_UPDATE_SHADER_DIGESTS") is "1" or "true" or "TRUE";
 
+    /// <summary>
+    ///     Lets a rewrite record a module built in a different flavour from the one the ledger held.
+    /// </summary>
+    /// <remarks>
+    ///     A second variable and not a second meaning of the first, because the two are two
+    ///     decisions: "accept this module" is routine after every source edit, and "this shader is
+    ///     optimised now where it was not" moves the constant folding the arithmetic census is
+    ///     calibrated against. See <see cref="Flavour" />.
+    /// </remarks>
+    internal static bool Reflavouring =>
+        Environment.GetEnvironmentVariable("VIXEN_UPDATE_SHADER_FLAVOUR") is "1" or "true" or "TRUE";
+
+    /// <summary>The <c>glslc</c> flag that reproduces a module with no debug instructions in it.</summary>
+    internal const string Optimised = "-O";
+
+    /// <summary>The <c>glslc</c> flag that reproduces a module with its names and source line kept.</summary>
+    internal const string Unoptimised = "-O0";
+
+    /// <summary>Which way <c>glslc</c> was run to produce a module, read off the module.</summary>
+    /// <param name="words">The module, as <see cref="WordsOf" /> returns it.</param>
+    /// <returns><see cref="Optimised" /> or <see cref="Unoptimised" />.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The eight modules were not all built the same way, and until #1257 nothing
+    ///         recorded how.</b> Measured against the committed bytes with <c>shaderc v2026.3</c>:
+    ///         five reproduce under plain <c>glslc</c> and three — <c>ui-solid.frag</c>,
+    ///         <c>ui-text.frag</c>, <c>ui.vert</c> — only under <c>glslc -O</c>. The tell is the
+    ///         debug section: <c>-O</c> strips it, so the three carry no <c>OpName</c>,
+    ///         <c>OpSource</c> or <c>OpSourceExtension</c> at all where the five carry 19 to 180
+    ///         names each. Following the old regeneration message on one of the three produced a
+    ///         valid module nothing like the one committed beside it, and the ledger accepted it in
+    ///         the same breath.
+    ///     </para>
+    ///     <para>
+    ///         Why it is more than tidiness: <see cref="TheGlslCopiesDoTheSameArithmeticAsTheRavenModules" />
+    ///         skips constant-only expressions because <c>glslc</c> folds them and Raven does not,
+    ///         and whether <c>glslc</c> folds is a function of the optimiser. A module that changes
+    ///         flavour moves under that census silently. So the flavour is a column of the ledger,
+    ///         the regeneration message prints the flag that reproduces the committed module, and a
+    ///         rewrite that would change a shader's flavour refuses unless
+    ///         <see cref="Reflavouring" /> says so.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read off the module rather than trusted from the ledger</b>, in both directions:
+    ///         a ledger line that says <c>-O</c> over a module full of names is a hand edit, and the
+    ///         check fails it exactly as it fails a digest that has moved.
+    ///     </para>
+    /// </remarks>
+    internal static string Flavour(uint[] words) {
+        for (var at = 5; at < words.Length;) {
+            var opcode = (int) (words[at] & 0xFFFF);
+            var length = (int) (words[at] >> 16);
+
+            Assert.True(length > 0, $"a zero-length instruction at word {at}.");
+
+            // OpSource, OpSourceExtension, OpName, OpMemberName, OpString, OpLine: the debug
+            // section, which is what the optimiser's strip pass removes and nothing else touches.
+            if (opcode is 3 or 4 or 5 or 6 or 7 or 8) {
+                return Unoptimised;
+            }
+
+            at += length;
+        }
+
+        return Optimised;
+    }
+
     /// <summary>Every committed module is the one built from the GLSL beside it as that GLSL now reads.</summary>
     /// <remarks>
     ///     <para>
@@ -181,10 +258,18 @@ public partial class SharedUiShaderTests {
     ///         <c>VIXEN_UPDATE_SHADER_DIGESTS=1</c> rewrites the ledger, deliberately an environment
     ///         variable and not a default: accepting a module is a decision.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the ledger records <em>how</em> as well as <em>what</em>, since #1257.</b> The
+    ///         fourth column is the <c>glslc</c> flag that reproduces the module, read off the module
+    ///         by <see cref="Flavour" />; the regeneration message below prints it, and a rewrite
+    ///         that would change it refuses without <see cref="Reflavouring" />. Before the column the
+    ///         message told everyone to run plain <c>glslc</c>, which was wrong for three of the
+    ///         eight, and the ledger accepted the result.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void EveryCommittedModuleMatchesTheSourceItWasBuiltFrom() {
-        var recorded = Updating ? [] : Recorded();
+        var recorded = Recorded();
 
         var written = new List<string>();
 
@@ -199,9 +284,25 @@ public partial class SharedUiShaderTests {
 
             var code = Digest(Encoding.UTF8.GetBytes(Code(File.ReadAllText(source))));
             var binary = Digest(File.ReadAllBytes(module));
+            var flavour = Flavour(WordsOf(module));
 
             if (Updating) {
-                written.Add($"{name} {code} {binary}");
+                // ⚠ The one thing a rewrite refuses: a module that arrived in the other flavour.
+                // Somebody followed the message on one of the `-O` three with plain `glslc`, or
+                // optimised one of the five, and the ledger would otherwise record the change of
+                // flavour as if it were the decision it is not.
+                if (recorded.TryGetValue(name, out var was) && was.Flavour is not null) {
+                    Assert.True(
+                        Reflavouring || string.Equals(was.Flavour, flavour, StringComparison.Ordinal),
+                        $"{Path.Combine(Shaders, name)}.spv was built with `glslc {flavour}` and the ledger records "
+                        + $"`glslc {was.Flavour}`. Rebuild it the way its siblings were built: `glslc {was.Flavour} "
+                        + $"Shaders/{name} -o Shaders/{name}.spv`. If changing the flavour is the point, rerun with "
+                        + "`VIXEN_UPDATE_SHADER_FLAVOUR=1` as well -- and read `Reconciled`, because the "
+                        + "arithmetic census is calibrated against what glslc folds."
+                    );
+                }
+
+                written.Add($"{name} {code} {binary} {flavour}");
                 continue;
             }
 
@@ -212,11 +313,26 @@ public partial class SharedUiShaderTests {
             );
 
             Assert.True(
+                pair.Flavour is not null,
+                $"{name}'s line in Shaders/modules.sha256 predates the flavour column, so the regeneration "
+                + "message cannot say which way to run glslc. Rewrite the ledger with `VIXEN_UPDATE_SHADER_DIGESTS=1`."
+            );
+
+            Assert.True(
+                string.Equals(pair.Flavour, flavour, StringComparison.Ordinal),
+                $"Shaders/modules.sha256 says {name}.spv was built with `glslc {pair.Flavour}` and the module says "
+                + $"`glslc {flavour}` -- it {(flavour == Optimised ? "carries no" : "carries a")} debug section. "
+                + "The ledger was edited by hand, or a module arrived through a path other than "
+                + "`VIXEN_UPDATE_SHADER_DIGESTS=1`."
+            );
+
+            Assert.True(
                 string.Equals(pair.Code, code, StringComparison.Ordinal),
                 $"{Path.Combine(Shaders, name)} has changed since its module was built — its code, not its "
                 + $"comments, which are stripped before this digest. The module this suite renders with is "
-                + $"not this source. Regenerate it and the ledger: `glslc Shaders/{name} -o Shaders/{name}.spv` "
-                + "from this project's directory, then rerun with `VIXEN_UPDATE_SHADER_DIGESTS=1`."
+                + $"not this source. Regenerate it and the ledger: `glslc {pair.Flavour} Shaders/{name} -o "
+                + $"Shaders/{name}.spv` from this project's directory, then rerun with "
+                + "`VIXEN_UPDATE_SHADER_DIGESTS=1`."
             );
 
             Assert.True(
@@ -228,7 +344,8 @@ public partial class SharedUiShaderTests {
         }
 
         if (Updating) {
-            File.WriteAllLines(Ledger, written);
+            // LF whatever the host, because the file is committed and `.gitattributes` says LF.
+            File.WriteAllText(Ledger, string.Join('\n', written) + '\n');
             return;
         }
 
@@ -239,21 +356,86 @@ public partial class SharedUiShaderTests {
         Assert.Equal(Names.Length, recorded.Count);
     }
 
-    /// <summary>The ledger, by shader name.</summary>
-    static Dictionary<string, (string Code, string Module)> Recorded() {
+    /// <summary>The flavour column is read off the bytes, and the reading is not a constant.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The two halves of the instrument for <see cref="Flavour" />. The committed eight
+    ///         partition exactly as #1257 measured them with <c>shaderc</c> — three optimised, five
+    ///         not — which is what says the detector reads the tell the issue found rather than some
+    ///         other property. And a module with its debug section cut out in memory flips to
+    ///         <see cref="Optimised" />, which is what says it is the debug section the detector
+    ///         reads and not, say, the module's length.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This cannot prove that <c>glslc -O</c> is what produced the three</b> — only a
+    ///         compiler can, and this assembly has none. It proves the ledger says what the bytes say,
+    ///         which is what the regeneration message is built from.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheFlavourColumnIsWhatTheModulesBytesSay() {
+        var optimised = new List<string>();
+
+        foreach (var name in Names) {
+            var words = WordsOf(Path.Combine(RepositoryRoot(), Shaders, name + ".spv"));
+
+            if (Flavour(words) == Optimised) {
+                optimised.Add(name);
+                continue;
+            }
+
+            // Cut the debug section out and the same module reads as optimised.
+            Assert.Equal(Optimised, Flavour(WithoutDebugSection(words)));
+        }
+
+        Assert.Equal(["ui-solid.frag", "ui-text.frag", "ui.vert"], optimised);
+    }
+
+    /// <summary>A module with every debug instruction removed, for <see cref="TheFlavourColumnIsWhatTheModulesBytesSay" />.</summary>
+    internal static uint[] WithoutDebugSection(uint[] words) {
+        var kept = new List<uint>(words.Length);
+
+        kept.AddRange(words.AsSpan(0, 5));
+
+        for (var at = 5; at < words.Length;) {
+            var opcode = (int) (words[at] & 0xFFFF);
+            var length = (int) (words[at] >> 16);
+
+            if (opcode is not (3 or 4 or 5 or 6 or 7 or 8)) {
+                kept.AddRange(words.AsSpan(at, length));
+            }
+
+            at += length;
+        }
+
+        return [.. kept];
+    }
+
+    /// <summary>The ledger, by shader name. A line written before the flavour column has a null flavour.</summary>
+    /// <remarks>
+    ///     Read under <see cref="Updating" /> too, and not replaced by an empty dictionary as it used
+    ///     to be: a rewrite has to know what flavour each line held to refuse a silent change of it.
+    ///     A missing ledger is empty rather than fatal in that mode, because the first write is how
+    ///     it comes to exist.
+    /// </remarks>
+    static Dictionary<string, (string Code, string Module, string? Flavour)> Recorded() {
+        var found = new Dictionary<string, (string, string, string?)>(StringComparer.Ordinal);
+
+        if (Updating && !File.Exists(Ledger)) {
+            return found;
+        }
+
         Assert.True(
             File.Exists(Ledger),
             $"'{Ledger}' is missing, and it is the only thing that says which source each committed module "
             + "was built from. Write it with `VIXEN_UPDATE_SHADER_DIGESTS=1`."
         );
 
-        var found = new Dictionary<string, (string, string)>(StringComparer.Ordinal);
-
         foreach (var line in File.ReadAllLines(Ledger)) {
             var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
-            if (parts.Length == 3) {
-                found[parts[0]] = (parts[1], parts[2]);
+            if (parts.Length is 3 or 4) {
+                found[parts[0]] = (parts[1], parts[2], parts.Length == 4 ? parts[3] : null);
             }
         }
 
@@ -956,7 +1138,21 @@ public partial class SharedUiShaderTests {
     ///     reflection, no device and no compiler &#8212; which is the whole reason this can be asserted on
     ///     every leg rather than only on the one that draws.
     /// </remarks>
-    static Dictionary<string, int> DerivativesIn(string module) {
+    static Dictionary<string, int> DerivativesIn(string module) => OccurrencesIn(module, Derivatives);
+
+    /// <summary>How many of each named opcode a committed module contains.</summary>
+    /// <param name="module">The <c>.spv</c> to walk.</param>
+    /// <param name="wanted">The opcode numbers to count, by the name each is reported under.</param>
+    /// <returns>The count of each wanted instruction, by opcode name; absent where it occurs never.</returns>
+    /// <remarks>
+    ///     ⚠ <b>It counts opcode <em>numbers</em>, and that is the point rather than an
+    ///     implementation detail.</b> Every count in this file that was wrong was wrong because it
+    ///     was taken over a disassembly's text, where <c>OpSelect</c> is a prefix of
+    ///     <c>OpSelectionMerge</c> &#8212; see
+    ///     <see cref="TheBranchShapeOfTheBoxPairIsWhatTheCensusArgumentCounts" />, which is the
+    ///     instrument for exactly that.
+    /// </remarks>
+    static Dictionary<string, int> OccurrencesIn(string module, Dictionary<int, string> wanted) {
         var words = WordsOf(module);
 
         var counts = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -967,7 +1163,7 @@ public partial class SharedUiShaderTests {
 
             Assert.True(length > 0, $"{module} has a zero-length instruction at word {at}.");
 
-            if (Derivatives.TryGetValue(opcode, out var name)) {
+            if (wanted.TryGetValue(opcode, out var name)) {
                 counts[name] = counts.GetValueOrDefault(name) + 1;
             }
 
@@ -1160,7 +1356,7 @@ public partial class SharedUiShaderTests {
     ///     rather than assumed &#8212; a file that has stopped being SPIR-V walks to a census of nothing,
     ///     and a census of nothing agrees with every other census of nothing.
     /// </remarks>
-    static uint[] WordsOf(string module) {
+    internal static uint[] WordsOf(string module) {
         var bytes = File.ReadAllBytes(module);
 
         Assert.True(bytes.Length > 20 && bytes.Length % 4 == 0, $"{module} is not a SPIR-V module.");
@@ -1413,9 +1609,10 @@ public partial class SharedUiShaderTests {
     ///         shuffles, composite construction and control flow: two front ends make different
     ///         choices there for the same source, and requiring them to agree would measure
     ///         <c>glslc</c> against Raven rather than one shader against the other.
-    ///         <c>OpFOrdNotEqual</c> against <c>OpFUnordNotEqual</c> is the one of those that has a
-    ///         semantics behind it &#8212; they differ on a NaN &#8212; and it is #1226 rather than a widening
-    ///         of this.
+    ///         <c>OpFOrdNotEqual</c> against <c>OpFUnordNotEqual</c> was the one of those that had a
+    ///         semantics behind it &#8212; they differ on a NaN &#8212; and it was settled in Raven rather
+    ///         than by a widening of this: #1226 made the SPIR-V backend's float <c>!=</c> unordered,
+    ///         which is what GLSL's already was, so the two box modules now agree there too.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And it cannot compare <em>association</em>, which is why a green run here is not
@@ -1427,7 +1624,16 @@ public partial class SharedUiShaderTests {
     ///         ⚠ <b>What the control-flow gap in the box pair actually is, measured rather than
     ///         guessed &#8212; and it is <em>not</em> a candidate for #1190's 1/255.</b> The two modules
     ///         differ by <c>OpPhi</c> 4 against 0, <c>OpBranchConditional</c> 29 against 21 and
-    ///         <c>OpSelect</c> 32 against 28. <c>ui-box.frag</c> holds exactly four short-circuiting
+    ///         <c>OpSelect</c> 3 against 7. ⚠ Not "32 against 28", which this remark said until it
+    ///         was recounted by opcode: a <c>grep OpSelect</c> over a disassembly also matches every
+    ///         <c>OpSelectionMerge</c>, of which there are 29 and 21 &#8212; one per conditional branch
+    ///         &#8212; and 3 + 29 and 7 + 21 are exactly the two numbers that stood here. The argument
+    ///         below does not move, but the count it rests on is now the count of selects. ⚠ <b>And
+    ///         all six of these numbers are now read by
+    ///         <see cref="TheBranchShapeOfTheBoxPairIsWhatTheCensusArgumentCounts" /> rather than
+    ///         only written here</b>, because a premise nothing reads is how the wrong pair survived
+    ///         a whole batch &#8212; a correction to prose is not an instrument.
+    ///         <c>ui-box.frag</c> holds exactly four short-circuiting
     ///         operators &#8212; two <c>||</c> and two <c>&amp;&amp;</c> &#8212; and <c>glslc</c> gives each one a
     ///         branch and a phi, where Raven emits <c>OpLogicalOr</c> over both operands because its
     ///         rule is to branch only for an operand that can index, call or assign. That is a
@@ -1531,6 +1737,111 @@ public partial class SharedUiShaderTests {
             stale.Length == 0,
             $"`Reconciled` still excuses {string.Join(", ", stale)}, and the two modules no longer "
             + "differ there. An exemption list can only shrink: delete the line."
+        );
+    }
+
+    /// <summary>The opcodes whose shape is a front end's choice rather than a difference in the picture.</summary>
+    /// <remarks>
+    ///     SPIR-V 1.0 &#167; 3.32.17 and &#167; 3.32.9. <c>OpSelect</c> picks between two values already
+    ///     computed; the other three are the branch form of the same choice.
+    /// </remarks>
+    static readonly Dictionary<int, string> ControlFlow = new() {
+        [169] = "OpSelect",
+        [245] = "OpPhi",
+        [247] = "OpSelectionMerge",
+        [250] = "OpBranchConditional"
+    };
+
+    /// <summary>
+    ///     The box pair's control-flow and derivative census, as
+    ///     <see cref="TheGlslCopiesDoTheSameArithmeticAsTheRavenModules" />'s argument states it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>These six numbers are load-bearing prose, which is why they are here as data.</b>
+    ///     The argument that the branch shape cannot be #1190's 1/255 is built on them, and for a
+    ///     whole batch two of them were wrong &#8212; 32 and 28, which are <c>OpSelect</c> plus
+    ///     <c>OpSelectionMerge</c> rather than <c>OpSelect</c>. Nothing read them, so nothing could
+    ///     say so.
+    /// </remarks>
+    static readonly (string Opcode, int Copy, int Shipped)[] BoxBranchShape = [
+        ("OpSelect", 3, 7),
+        ("OpPhi", 4, 0),
+        ("OpSelectionMerge", 29, 21),
+        ("OpBranchConditional", 29, 21),
+        ("OpDPdx", 1, 1),
+        ("OpFwidth", 0, 0)
+    ];
+
+    /// <summary>The two box modules hold the control flow and derivatives the census argument counts.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A number in a remark that nothing reads is how "32 against 28" survived.</b>
+    ///         <see cref="TheGlslCopiesDoTheSameArithmeticAsTheRavenModules" /> deliberately does not
+    ///         compare control flow &#8212; two front ends make different choices there for one source, and
+    ///         requiring agreement would measure <c>glslc</c> against Raven. But its argument for why
+    ///         that gap cannot move a float is arithmetic over six specific counts, and an argument
+    ///         whose premises drift silently is worth less than no argument. So the premises are
+    ///         pinned: <see cref="BoxBranchShape" /> is the census, this reads it off the committed
+    ///         bytes, and a module that is recompiled into a different shape fails here with the two
+    ///         numbers rather than leaving the prose quietly false.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is not a claim that the two shapes must stay equal</b> &#8212; four of the six
+    ///         rows record a difference on purpose. It is a claim that the difference is the one
+    ///         written down.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Its own instrument is the defect that produced the wrong numbers.</b> They came
+    ///         from a <c>grep OpSelect</c> over a disassembly, and <c>OpSelect</c> is a prefix of
+    ///         <c>OpSelectionMerge</c>; a counter with that defect answers 32 and 28 here and both
+    ///         <c>OpSelect</c> rows go red. The check below is what makes that inevitable rather than
+    ///         lucky: the merges outnumber the selects in both modules, so the conflated count cannot
+    ///         coincide with the real one. And a walk that fell off the end counts nothing, which
+    ///         fails <c>OpDPdx</c> &#8212; the one row that is a positive number in both.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheBranchShapeOfTheBoxPairIsWhatTheCensusArgumentCounts() {
+        var root = RepositoryRoot();
+        var copy = Path.Combine(root, Shaders, "ui-box.frag.spv");
+        var shipped = Path.Combine(root, "Platform", "Vixen.Ui.Desktop", "Shaders", "UiBox.frag.spv");
+
+        Assert.True(File.Exists(copy), $"{Relative(root, copy)} is missing.");
+        Assert.True(File.Exists(shipped), $"{Relative(root, shipped)} is missing.");
+
+        var wanted = ControlFlow
+            .Concat(Derivatives)
+            .ToDictionary(opcode => opcode.Key, opcode => opcode.Value);
+
+        var here = OccurrencesIn(copy, wanted);
+        var there = OccurrencesIn(shipped, wanted);
+
+        foreach (var (opcode, expectedCopy, expectedShipped) in BoxBranchShape) {
+            var mine = here.GetValueOrDefault(opcode);
+            var theirs = there.GetValueOrDefault(opcode);
+
+            Assert.True(
+                mine == expectedCopy && theirs == expectedShipped,
+                $"Shaders/ui-box.frag.spv holds {mine} {opcode} and UiBox.frag.spv holds {theirs}, and "
+                + $"the census that the branch-shape argument rests on says {expectedCopy} against "
+                + $"{expectedShipped}. The argument in "
+                + $"`{nameof(TheGlslCopiesDoTheSameArithmeticAsTheRavenModules)}`'s remark is built on "
+                + "these numbers, so either the modules changed shape and the remark needs rewriting, "
+                + "or the count here does."
+            );
+        }
+
+        // ⚠ The instrument, and it is the exact defect that produced the numbers this replaced: a
+        // count taken over a disassembly's text reads every `OpSelectionMerge` as an `OpSelect` too.
+        // Requiring the merges to outnumber the selects in both modules is what stops a conflated
+        // count agreeing with the real one by accident -- it would answer 3 + 29 and 7 + 21.
+        Assert.True(
+            here["OpSelectionMerge"] > here["OpSelect"] && there["OpSelectionMerge"] > there["OpSelect"],
+            "Both box modules are expected to hold more `OpSelectionMerge` than `OpSelect`, which is "
+            + "what makes a name-prefix count a different number from an opcode count. They now hold "
+            + $"{here["OpSelectionMerge"]}/{here["OpSelect"]} and "
+            + $"{there["OpSelectionMerge"]}/{there["OpSelect"]}, so this test no longer detects the "
+            + "defect it was written for."
         );
     }
 }
