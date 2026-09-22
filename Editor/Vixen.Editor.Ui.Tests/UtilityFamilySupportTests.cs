@@ -2840,10 +2840,10 @@ public class UtilityFamilySupportTests {
     ///         ⚠ <b>The numbers are closed form.</b> The box is 64 by 32 at the origin, so its centre
     ///         is (32, 16) and its edges are 16 above and below. <c>rotateX(60deg)</c> sends the near
     ///         edge to <c>y = 8</c>, <c>z = 13.86</c>; the parent's <c>perspective-dramatic</c> is 100
-    ///         points, so <c>w = 1 − 13.86/100 = 0.861</c> and the edge lands at <b>9.29</b> below the
-    ///         centre where the squash alone puts it at 8. The far edge is at <c>w = 1.139</c> and
-    ///         lands at <b>7.02</b> above it. Unprojected both are 8, which is the equality this test
-    ///         is written against.
+    ///         points, so <c>w = 1 − 13.86/100 = 0.861</c> and the edge lands at <b>9.287</b> below
+    ///         the centre where the squash alone puts it at 8. The far edge is at <c>w = 1.139</c>
+    ///         and stops <b>7.026</b> above it. Unprojected both are 8 exactly, which is the equality
+    ///         the first half is written against.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -2851,7 +2851,12 @@ public class UtilityFamilySupportTests {
         using var ui = Sheet("rotate-x-60", "perspective-dramatic", "w-16", "h-8", "bg-accent");
 
         var flat = ui.Create("flat", ui.Document.Root, null, "rotate-x-60", "w-16", "h-8", "bg-accent");
-        var stage = ui.Create("stage", ui.Document.Root, null, "perspective-dramatic");
+
+        // ⚠ The stage is the child's own size, so that the vanishing point it establishes lands on
+        // the child's centre. `perspective-origin`'s initial value is the centre of the PARENT's box,
+        // and a stage of a different size moves the projection sideways as well as in depth — which
+        // is correct and would turn the closed form below into two terms instead of one.
+        var stage = ui.Create("stage", ui.Document.Root, null, "perspective-dramatic", "w-16", "h-8");
         var deep = ui.Create("deep", stage, null, "rotate-x-60", "w-16", "h-8", "bg-accent");
 
         ui.Frame();
@@ -2885,8 +2890,22 @@ public class UtilityFamilySupportTests {
 
         var deepCentre = new Vector2(deep.AbsoluteLeft + 32f, deep.AbsoluteTop + 16f);
 
-        Assert.Equal(deepCentre.Y + 9.29f, projected.Apply(deepCentre + new Vector2(0f, 16f)).Y, 2);
-        Assert.Equal(deepCentre.Y - 7.02f, projected.Apply(deepCentre - new Vector2(0f, 16f)).Y, 2);
+        var near = projected.Apply(deepCentre + new Vector2(0f, 16f)).Y - deepCentre.Y;
+        var far = deepCentre.Y - projected.Apply(deepCentre - new Vector2(0f, 16f)).Y;
+
+        // ⚠ <b>The oracle is the ASYMMETRY and not either number, because either number alone is a
+        // quantity that moves with where the element sits.</b> The vanishing point is the parent's
+        // box centre in absolute coordinates, so the projection carries a term in it — correctly, and
+        // it is what makes a perspective look right when the element is not under the eye. What
+        // cannot move is the shape of the answer: an affine maps two points equidistant from a fixed
+        // point to two points equidistant from its image, whatever the coordinates, and a homography
+        // does not. <b>Measured: the near edge reaches 9.287 where the squash puts it at 8, and the
+        // far edge stops at 7.026.</b> The bounds are set well inside those, because the fact that
+        // matters is "not a rounding" rather than four figures of a number that a change to the
+        // fixture would move.
+        Assert.True(near > 9f, $"the near edge reached {near:0.###}, which is not past the squash's 8.");
+        Assert.True(far < 7.5f, $"the far edge stopped at {far:0.###}, which is not short of the squash's 8.");
+        Assert.True(near - far > 1.5f, $"the two edges moved by {near:0.###} and {far:0.###}, which an affine could do.");
     }
 
     /// <summary><c>skew-x-45</c> shears the box along x about its centre, and along x only.</summary>
