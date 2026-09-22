@@ -159,7 +159,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "$WHY"
-          dotnet test Core/Vixen.Fuzz.Tests -c Release
+          dotnet test Core/Vixen.Fuzz.Tests -c Release --results-directory Core/Vixen.Fuzz.Tests/TestResults
         shell: bash
         env:
           VIXEN_FUZZ_ONLY: ${{ matrix.target.name }}
@@ -191,7 +191,7 @@ jobs:
         with:
           name: fuzz-results-${{ matrix.target.name }}
           path: Core/Vixen.Fuzz.Tests/TestResults/
-          if-no-files-found: ignore
+          if-no-files-found: warn
 
   # ── The properties nobody has time for on a push ─────────────────────────────────────────────────
   #
@@ -325,7 +325,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "${{ matrix.suite.name }}: every property at ${{ matrix.suite.iterations }}x its build count"
-          dotnet test ${{ matrix.suite.project }} -c Release
+          dotnet test ${{ matrix.suite.project }} -c Release --results-directory ${{ matrix.suite.project }}/TestResults
         shell: bash
         env:
           VIXEN_PROPERTY_ITER: ${{ github.event.inputs.iterations || matrix.suite.iterations }}
@@ -336,7 +336,7 @@ jobs:
         with:
           name: property-results-${{ matrix.suite.name }}
           path: ${{ matrix.suite.project }}/TestResults/
-          if-no-files-found: ignore
+          if-no-files-found: warn
 
   # ── The SQL nobody has ever executed ────────────────────────────────────────────────────────────
   #
@@ -391,7 +391,7 @@ jobs:
       # on every other job. A skip is visible in the results, so this leg going quiet is something
       # somebody can see rather than something that silently stops running.
       - name: Persistence against PostgreSQL
-        run: dotnet test Live/Vixen.Live.Persistence.Tests -c Release
+        run: dotnet test Live/Vixen.Live.Persistence.Tests -c Release --results-directory Live/Vixen.Live.Persistence.Tests/TestResults
         shell: bash
         env:
           VIXEN_POSTGRES: Host=localhost;Port=5432;Username=postgres;Password=vixen;Database=vixen
@@ -402,7 +402,7 @@ jobs:
         with:
           name: postgres-results
           path: Live/Vixen.Live.Persistence.Tests/TestResults/
-          if-no-files-found: ignore
+          if-no-files-found: warn
 
   # ── The two placement backends a push cannot exercise ───────────────────────────────────────────
   #
@@ -439,7 +439,7 @@ jobs:
         shell: bash
 
       - name: Placement against a real daemon
-        run: dotnet test Live/Vixen.Live.Placement.Docker.Tests -c Release
+        run: dotnet test Live/Vixen.Live.Placement.Docker.Tests -c Release --results-directory Live/Vixen.Live.Placement.Docker.Tests/TestResults
         shell: bash
         env:
           VIXEN_DOCKER: '1'
@@ -450,7 +450,7 @@ jobs:
         with:
           name: docker-results
           path: Live/Vixen.Live.Placement.Docker.Tests/TestResults/
-          if-no-files-found: ignore
+          if-no-files-found: warn
 
   kubernetes:
     name: kubernetes
@@ -488,7 +488,7 @@ jobs:
         shell: bash
 
       - name: Placement against a real API server
-        run: dotnet test Live/Vixen.Live.Placement.Kubernetes.Tests -c Release
+        run: dotnet test Live/Vixen.Live.Placement.Kubernetes.Tests -c Release --results-directory Live/Vixen.Live.Placement.Kubernetes.Tests/TestResults
         shell: bash
         env:
           VIXEN_KUBECONFIG: ${{ runner.temp }}/kubeconfig
@@ -506,7 +506,7 @@ jobs:
         with:
           name: kubernetes-results
           path: Live/Vixen.Live.Placement.Kubernetes.Tests/TestResults/
-          if-no-files-found: ignore
+          if-no-files-found: warn
 
   # ── The gate that reports nothing when it does not run ──────────────────────────────────────────
   #
@@ -517,11 +517,17 @@ jobs:
   # and CiConcurrencyTests holds that), but the fix and the symptom are separate things: the reason
   # nobody noticed for five days is that nothing was watching, and a policy can be reverted.
   #
-  # This is the watcher. It asks the one question the colour of any single run cannot answer — when
-  # did CI last reach a verdict about master at all — and it is red when the answer is "not lately",
-  # whatever that verdict was. ⚠ A *failure* is a completed run and satisfies this deliberately: red
-  # master is a different problem with its own visible signal, and folding the two together gives one
-  # alarm that cannot say which is wrong.
+  # This is the watcher. It asks the one question the colour of any single run cannot answer — has
+  # CI reached a verdict about the master that exists — and it is red when a push has waited two
+  # days for one, whatever that verdict was. ⚠ A *failure* is a completed run and satisfies this
+  # deliberately: red master is a different problem with its own visible signal, and folding the two
+  # together gives one alarm that cannot say which is wrong.
+  #
+  # ⚠ It used to ask a different question — when did *any* master run last finish — and that one is
+  # red on a quiet weekend: nobody pushed between 2026-09-17 and 2026-09-20, so the last verdict was
+  # sixty hours old and the nightly cried wolf twice about a queue that was empty. The condition its
+  # message names, "runs are being cancelled or never start", is a *push* without a verdict, so that
+  # is what is measured now: the tip of master, and how long it has been waiting for one.
   #
   # The threshold is wall clock because staleness is wall clock; there is no work-shaped restatement
   # of "nothing has finished". Forty-eight hours is two nightlies, so one skipped scheduled run does
@@ -539,7 +545,7 @@ jobs:
       contents: read
 
     steps:
-      - name: When did CI last reach a verdict about master
+      - name: Has CI reached a verdict about the tip of master
         run: |
           set -euo pipefail
           hours=48
@@ -556,14 +562,28 @@ jobs:
             exit 1
           fi
 
-          finished=$(printf '%s' "$run" | jq -r '.updated_at')
           echo "Last completed master run: $(printf '%s' "$run" | jq -r '.id, .conclusion, .head_sha, .updated_at' | tr '\n' ' ')"
 
-          age=$(( ( $(date -u +%s) - $(date -u -d "$finished" +%s) ) / 3600 ))
-          echo "That is ${age}h ago; the threshold is ${hours}h."
+          # The question is about the master that exists: which commit is the tip, and has a run
+          # about *that commit* finished. A tip with a verdict owes nothing, however long ago.
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/branches/master" --jq '.commit.sha')
+          pushed=$(gh api "repos/$GITHUB_REPOSITORY/branches/master" --jq '.commit.commit.committer.date')
+          echo "Tip of master: $sha, committed $pushed"
+
+          verdicts=$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=master&event=push&head_sha=$sha&per_page=10" \
+            --jq '[.workflow_runs[] | select(.conclusion == "success" or .conclusion == "failure")] | length')
+
+          if [ "$verdicts" -gt 0 ]; then
+            echo "The tip has $verdicts completed run(s); nothing is waiting."
+            exit 0
+          fi
+
+          age=$(( ( $(date -u +%s) - $(date -u -d "$pushed" +%s) ) / 3600 ))
+          echo "The tip has no completed run yet; it has waited ${age}h and the threshold is ${hours}h."
 
           if [ "$age" -gt "$hours" ]; then
-            echo "::error::CI has not reached a verdict about master for ${age}h. Runs are being cancelled or never start — check ci.yml's concurrency policy and the run queue."
+            echo "::error::The tip of master ($sha) has waited ${age}h for a CI verdict. Runs are being cancelled or never start — check ci.yml's concurrency policy and the run queue."
             exit 1
           fi
         shell: bash
