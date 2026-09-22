@@ -433,6 +433,54 @@ public class ConsoleViewTests : IDisposable {
         );
     }
 
+    /// <summary>The search field is above the list it filters and does not scroll away with it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The placement half of <c>.searchable</c> (#767), measured rather than decided.</b>
+    ///         Three passes called "where the field goes" taste; ten editor views answer it the same
+    ///         way — <c>ConsoleView</c>, <c>MessageLogView</c>, <c>InspectorView</c>,
+    ///         <c>ProjectBrowser</c>, <c>KeyBindingsView</c>, <c>PluginManagerView</c> and the rest
+    ///         put the field in a toolbar or header above the list, outside the list's scroller, so
+    ///         that somebody using it to find the row they scrolled past has not scrolled it away.
+    ///         <c>InspectorView</c> says so in prose; this says it as a measurement on the console.
+    ///     </para>
+    ///     <para>
+    ///         Sabotage: adding the search box to <c>List.Scroller.Content</c> instead of the toolbar
+    ///         gives it a scroller above it and moves it with the rows — two of three red.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_search_field_is_above_the_list_and_outside_its_scroller() {
+        for (var i = 0; i < 200; i++) {
+            Log(LogLevel.Information, $"line {i}");
+        }
+
+        Frame();
+        Frame();
+
+        // The console follows its tail, so row 0 is not on screen; the scroller's range is what says
+        // there is something to scroll.
+        var scroller = view.List.Scroller;
+
+        Assert.Null(Scroller(view.Search, view));
+        Assert.True(scroller.MaximumTop > 0f, "two hundred rows must overflow the list");
+        Assert.True(view.Search.AbsoluteTop + view.Search.Height <= scroller.AbsoluteTop, "the field is above the list");
+
+        var resting = view.Search.AbsoluteTop;
+
+        scroller.ScrollTo(0f, 0f);
+        Frame();
+        Frame();
+
+        Assert.Equal(resting, view.Search.AbsoluteTop);
+
+        scroller.ScrollTo(scroller.MaximumTop, 0f);
+        Frame();
+        Frame();
+
+        Assert.Equal(resting, view.Search.AbsoluteTop);
+    }
+
     static Exception Deep(int frames) {
         try {
             Recurse(frames);

@@ -490,7 +490,7 @@ does nothing. No diagnostic. This is the same defect class the language already 
 | `.contextMenu` | `ContextMenu.Attach` is a C# call | ❌ |
 | `.help` (tooltip) | `Tooltip.Attach` is a C# call | ❌ |
 | `.alert` / `.confirmationDialog` / `.sheet` / `.popover` | `DialogService`/`Overlay` exist; nothing binds a presentation to state | ❌ markup |
-| `.searchable`, `.refreshable` | a `SearchBox` over a filter signal; `Load` over a generation signal — both with committed fixtures and both written up in the guide. What is absent is placement, and on the wheel path the gesture is *refused* on measurement rather than owed | ⚠ half |
+| `.searchable`, `.refreshable` | a `SearchBox` over a filter signal; `Load` over a generation signal — both with committed fixtures and both written up in the guide. Placement is settled by the editor's own convention and pinned by a measurement on `ConsoleView` and `MemoryView` (above the list, outside its scroller); on the wheel path the gesture is *refused* on measurement rather than owed | ✅ as recipes |
 
 ⚠ **`.searchable`'s middle third is not missing, which narrows [#767](https://github.com/Rikarin/Vixen/issues/767).**
 Two audits called "what does it filter" the sharpest open question, on the grounds that a framework

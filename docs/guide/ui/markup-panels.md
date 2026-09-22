@@ -809,6 +809,16 @@ failure a `bind:` over a non-reactive model has, one construct along.
 `Core/Vixen.Ui.Controls.Tests/Markup/SearchableSheet.vxml` is this list as a compiled fixture, and
 `SearchableReachTests` asserts it on the rows rather than on the field.
 
+⚠ **And the first decision — where the field goes — is not taste either; ten editor views answer it
+the same way.** `ConsoleView`, `MessageLogView`, `InspectorView`, `ProjectBrowser`, `AssetPicker`,
+`KeyBindingsView`, `PluginManagerView`, `AddComponentMenu`, `NodeSearchPopup` and the hierarchy's
+outliner filter all put the field in a toolbar or header *above* the list it filters and outside the
+list's scroller, so that somebody using it to find the row they scrolled past has not scrolled it
+away with the rows. `InspectorView` records the reason beside its `Scrolls = false`;
+`ConsoleViewTests.The_search_field_is_above_the_list_and_outside_its_scroller` records it as a
+measurement — the field has no scroller above it, sits above the list, and stays where it is while
+two hundred rows scroll under it. Write a new filtered list to pass the same test.
+
 ### Grouped lists are a nested `@for`
 
 ```xml
