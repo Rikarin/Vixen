@@ -1419,6 +1419,16 @@ static class UtilityConsumptionProbe {
     ///         childless baseline would attribute every inherited property to the child as though the
     ///         family had set it there.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And a third child tagged <c>field-placeholder</c>, last, for the scoped family
+    ///         whose scope is a tag rather than a position.</b> <c>placeholder-*</c> emits onto
+    ///         <c>&gt; field-placeholder</c> — the part <c>TextField</c> builds its prompt as — so
+    ///         under two <c>div</c>s it lands nowhere and the row reads <c>absent</c> with the family
+    ///         registered, which is the unclassified shape the paragraph above closed for
+    ///         <c>space-x-*</c>. Last, so that the two <c>div</c>s stay exactly what
+    ///         <c>:not(:last-child)</c> sees of them: the first is still collected and still not
+    ///         last. The bare element carries the same part, for the same inheritance reason.
+    ///     </para>
     /// </remarks>
     public static IReadOnlyList<(string Property, string Value, string Utility)> Emissions() {
         var tokens = ThemeTokens.Parse(ProbeTheme);
@@ -1432,10 +1442,12 @@ static class UtilityConsumptionProbe {
             var probe = document.Create("div", document.Root, null, utility);
             var child = document.Create("div", probe);
             document.Create("div", probe);
+            var part = document.Create("field-placeholder", probe);
 
             var bare = document.Create("div", document.Root);
             var bareChild = document.Create("div", bare);
             document.Create("div", bare);
+            var barePart = document.Create("field-placeholder", bare);
 
             document.Update();
 
@@ -1444,6 +1456,7 @@ static class UtilityConsumptionProbe {
 
             Collect(emissions, names, values, probe, bare, utility);
             Collect(emissions, names, values, child, bareChild, utility);
+            Collect(emissions, names, values, part, barePart, utility);
         }
 
         return emissions;

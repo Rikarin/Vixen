@@ -378,8 +378,13 @@ the cascade a `MediaContext`.
 Two things make it a gate rather than a list. Every case asserts a **computed property value in a
 built document, positive and negative** — a rule that applied unconditionally would pass every
 positive assertion in the file. And the cases are **enumerated off the engine's own tables**:
-`Variants.StateVariants` and `ThemeTokens.Screens`, checked both ways, so a variant added without a
-scene fails the build and a scene naming a variant that no longer exists fails it too.
+`Variants.StateVariants`, `Variants.PartVariants` and `ThemeTokens.Screens`, checked both ways, so a
+variant added without a scene fails the build and a scene naming a variant that no longer exists
+fails it too. ⚠ The parts table is separate from the states table for a reason the gate cannot see:
+`not-`, `has-`, `group-` and `peer-` compose over `States`, and a child-combinator suffix such as
+`placeholder:`'s `> field-placeholder` read through any of them is either not a selector or a valid
+one meaning something else — so a part must be *not a class* under those four, which the coverage
+file asserts by name.
 
 ## What it found
 

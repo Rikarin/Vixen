@@ -84,10 +84,10 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **331** | 312 families |
+| Utility **roots** (the unit of this table) | **331** | 313 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
-| Variant keys | **88** | **54** |
+| Variant keys | **88** | **55** |
 
 ⚠ **The family figure moves every week, which is why it is no longer typed here.** It has been quoted
 as 43 (the helper calls in one region of `UtilityFamilies`' static constructor), then as 98 (the
@@ -107,10 +107,10 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **249** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **250** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **24** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **54** |
+| **absent** | not emitted at all | **53** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 
 ⚠ **There was a sixth, `unknown`, and it described a row rather than a state.** Exactly one row held
@@ -495,7 +495,7 @@ refusal block, which already says so for the same reason.
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 |
 | Effects | 35 | 30 | 2 | 0 | 3 | 0 |
 | Flexbox and Grid | 34 | 30 | 2 | 0 | 2 | 0 |
-| Typography | 34 | 23 | 2 | 0 | 9 | 0 |
+| Typography | 34 | 24 | 2 | 0 | 8 | 0 |
 | Spacing | 24 | 24 | 0 | 0 | 0 | 0 |
 | Transforms | 23 | 10 | 3 | 0 | 10 | 0 |
 | Filters | 20 | 10 | 10 | 0 | 0 | 0 |
@@ -505,7 +505,7 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 |
 | Accessibility | 1 | 1 | 0 | 0 | 0 | 0 |
-| **Total** | **331** | **249** | **24** | **1** | **54** | **3** |
+| **Total** | **331** | **250** | **24** | **1** | **53** | **3** |
 
 Flexbox and Grid leads at 30 of 34, with only two absent roots left and both of those refused on
 policy rather than owed; then Layout at 36 of 49, Interactivity at 30 of 40, Borders at 28 of 34,
@@ -1843,12 +1843,12 @@ glyph advances and the glyph comparison catches it, so this is a note and not a 
 | Prefix (`tw:flex`) | ✅ | ⛔ | |
 | Two media variants on one utility | nests | ✅ nests | A15 |
 
-The 54 Vixen covers: `hover focus focus-visible focus-within active disabled enabled checked first
+The 55 Vixen covers: `hover focus focus-visible focus-within active disabled enabled checked first
 last only odd even empty first-of-type last-of-type only-of-type read-only placeholder-shown
 indeterminate dark ltr rtl group peer data aria
 not nth nth-last nth-of-type nth-last-of-type motion-safe motion-reduce contrast-more contrast-less
 forced-colors inverted-colors portrait landscape print noscript pointer-none pointer-coarse
-pointer-fine any-pointer-none any-pointer-coarse any-pointer-fine has` plus the five breakpoint names
+pointer-fine any-pointer-none any-pointer-coarse any-pointer-fine has placeholder` plus the five breakpoint names
 when the theme declares them. ⚠ It was 25 until A13's structural half and A14 landed, and 51 until
 A13's three form states; this figure is hand-kept and nothing checks it, so it is spelled out as a
 list rather than as a number for the reason two paragraphs of Part 0 give about the family count — a
@@ -3157,7 +3157,7 @@ few days; 🟡 is a week or two; 🔴 is a subsystem.
 | A9 ✅ | `color-mix()` in `StyleValueParser` — four interpolation spaces (`srgb`, `srgb-linear`, `oklab`, `oklch`) with the four hue methods, premultiplied alpha, and the CSS Values 5 percentage normalisation. `UtilityFamilies.TryColor` emits one for `/opacity`, which retires **#12**'s colour half: an opacity on a token that is not a hex triple used to be dropped silently, and every token in the editor's palette is a `var()`. **Owed:** the interim out-of-gamut behaviour is *carry it unclamped* — see § D4 | `Vixen.Ui.Styling`, `ColorFunctions` | done | — |
 | A10 ✅ | `oklch()`/`oklab()` colour syntax, both notations, `none`, and every angle unit | `Vixen.Ui.Styling` | done | — |
 | A11 🟢 | Backgrounds. **`linear-gradient()`, `radial-gradient()` and `conic-gradient()` all paint**: `background-image` is parsed into `BoxStyle`, all eight direction keywords with CSS's corner rule, all four angle units, both colour notations, two or three stops, arbitrary stop positions inside or outside the box, `in srgb` / `in srgb-linear` / `in oklab`, and it layers over `background-color` as CSS does. `bg-radial` and `bg-conic` are assemblers now, and every assembler emits `in oklab` for v4 parity. Everything else is *refused loudly* rather than approximated — see `GradientRefusal`. `UiShape` grew 80 → 112 bytes; `UiShapeLayoutTests` and `CheckShaders` are what keep its four files in step. **Owed:** an explicit radial/conic centre, `bg-conic-<angle>` (the parser and shader do `from <angle>`; the *utility* needs a numeric family), `background-position`/`-size`/`-repeat`, and gradient text — see [what a third stop cost](#what-a-third-stop-cost) | `DrawListBuilder`, `BackgroundGradient`, `UiShape`, `Ui.rvn` | **#43** | 0.15 |
-| A12 🟡 | Pseudo-elements materialised — `::before`/`::after` with `content`. Not started, and four passes now agree on why: the smallest slice anything calls is a second style slot for a box that is not one of the container's children, across `StyleRuleSet`, `UiDocument`, `Vixen.Ui.Layout` and the draw list, and every smaller one is a named failure mode — registering the seven variants first emits selectors `SelectorCompiler` refuses, which is F6's own defect. ⚠ **The lead the third pass left — that `::placeholder` and `::selection` name something that already exists and could land without the generated box — is half right, and the two halves are different problems.** `::placeholder` IS an element: `TextField` builds it as `Part("field-placeholder")`, a direct child with its own tag that `ControlTheme.vcss` already styles. But it cannot be a row in `Variants.States`, because `not-`, `has-`, `group-` and `peer-` all compose over that table — a descendant-shaped suffix makes `not-placeholder:` mean "an element that is not a placeholder" and `group-placeholder:` mean nothing at all, each of them valid CSS meaning something else, which is F6's failure mode one level up. `::selection` is not a box at all: `TextField` paints the highlight from `--selection-color` read off its own style, so `selection:bg-*` would have to rewrite the utility's PROPERTY, and `VariantEffect` is three strings that can only append to a selector, prepend to it, or wrap it in an at-rule. The missing piece there is a fourth variant shape rather than a generated box | `StyleRuleSet`, `UiDocument` | — | 0.5 |
+| A12 🟡 | Pseudo-elements materialised — `::before`/`::after` with `content`. ⚠ **`placeholder:` and `placeholder-*` are landed, and neither needed A12**: `::placeholder` names a box `TextField` already builds as `Part("field-placeholder")`, so the variant is a child combinator in a table of its own (`Variants.Parts`) and the colour root is a child-scoped family on the same scope — Part 10 Bucket 2 has the correction. The generated box itself is not started, and four passes agree on why: the smallest slice anything calls is a second style slot for a box that is not one of the container's children, across `StyleRuleSet`, `UiDocument`, `Vixen.Ui.Layout` and the draw list, and every smaller one is a named failure mode — registering the seven variants first emits selectors `SelectorCompiler` refuses, which is F6's own defect. ⚠ **The lead the third pass left — that `::placeholder` and `::selection` name something that already exists and could land without the generated box — is half right, and the two halves are different problems.** `::placeholder` IS an element: `TextField` builds it as `Part("field-placeholder")`, a direct child with its own tag that `ControlTheme.vcss` already styles. But it cannot be a row in `Variants.States`, because `not-`, `has-`, `group-` and `peer-` all compose over that table — a descendant-shaped suffix makes `not-placeholder:` mean "an element that is not a placeholder" and `group-placeholder:` mean nothing at all, each of them valid CSS meaning something else, which is F6's failure mode one level up. `::selection` is not a box at all: `TextField` paints the highlight from `--selection-color` read off its own style, so `selection:bg-*` would have to rewrite the utility's PROPERTY, and `VariantEffect` is three strings that can only append to a selector, prepend to it, or wrap it in an at-rule. The missing piece there is a fourth variant shape rather than a generated box | `StyleRuleSet`, `UiDocument` | — | 0.5 |
 | A13 🟡 | **Five structural, then three form states, and the fourteen left are not one item.** `empty`, `not-*`, `nth-*`, `nth-last-*` and the whole `*-of-type` family are registered, each with a positive and a negative computed-value scene. ⚠ **The item's own claim that "none needs a matcher change" was wrong, and wrong about exactly the family that looks most like a table entry**: an of-type index is a position among the siblings *sharing a tag*, which nothing stored, so `PositionTest` grew five members and `StyleTree` learned to count them. The trap it hides behind is that `:nth-of-type(n)` and `:nth-child(n)` pick the same element out of any run of one tag — so a fixture of five `li` proves nothing, and the scenes mix `p` and `div` for that reason. ⚠ **`not-*` is a bare-suffix negation only**: `not-sm:` is an at-rule in v4 and `not-group-hover:` an ancestor, so both are *not variants* rather than variants meaning something else. **Then `read-only`, `placeholder-shown` and `indeterminate`** — `ElementState` grew three bits, `SelectorCompiler` three arms plus `:read-write` as a negation of the first (`:enabled`'s arrangement), and `TextField`, `CheckBox` and `ProgressBar` write them. ⚠ **A table entry is worth nothing without a writer, which is what the sizing missed**: `:read-only` compiled against a bit no control sets resolves, indexes and matches nothing, and would pass every row in `VariantCoverageTests` — so `ElementStateBitTests` is the writer's side and the end-to-end one. ⚠ And two beliefs were refuted on the way: `TextField.ReadOnly` argued a class rather than a state because `ElementState` holds *transient* conditions, but `Disabled` and `Checked` are modes on the same terms and have been in the enum since it was written; and `:placeholder-shown` is **not** the `empty` class renamed — it needs a placeholder *and* no value, where the class is set on either. **Owed: five, and every one of them is a refusal rather than work.** ⚠ This sentence read "fourteen, and eleven of them are refusals" and named the eight form-validity keys as having nothing to be true of — `TextField` grew a validation model and all eight are registered, which happened without anyone coming back to this row. What is left: there is no navigation model, so `visited` and `target` are refused; `autofill` needs a credential store, `default` needs a form, `inert` needs a subtree flag nothing carries. ⚠ **`open` has landed, and its refusal expired rather than being satisfied**: the parser is still what it was — ExCSS 4.3.2 hands `:open` back as an `UnknownSelector`, re-measured — but `:user-valid` had the identical problem and was not answered by a parser upgrade, so `:open` rides `SelectorCompiler.TryRewrite` too. `ElementState.Open`, written by `Expander` and `SelectBase`, and read from the overlay's own notification rather than from `Open()`/`CloseList()` because a light dismiss closes the list without either being called. ⚠ It is also the first name on that scan that is a *prefix* of others CSS spells, so its arm checks what follows — without that, `expander:opened` compiles to a marker beside a stray type selector and matches every open expander. ⚠ **The five that are left were re-read at HEAD on 2026-09-06 and all five still hold — and each now declares the condition that reverses it, because a fourth hand audit is what this row has needed twice.** `Vixen.Ui.Controls/Forms.cs` is `LabeledContent` and not a form, and its `Navigation.cs` is a breadcrumb and a pager over `ButtonBase` with no URL, no history and no fragment behind them. `RefusalExpiryTests` now fails the run in which `ElementState.Visited`, `ElementState.Target`, `TextField.Autofilled`, `Button.IsDefault` or `UiElement.Inert` arrives. ⚠ The first two name the *bit* rather than the model, which is a limit of the clause grammar rather than a choice: `expires-on` needs its type half to resolve today, so a refusal waiting on a concept that has no type yet has nothing else to hang on | `Variants`, `ElementState`, `TextField`, `Toggles`, `Range`, `Disclosure`, `Selects` | — | 0.24 of 0.3 |
 | A14 ✅ | **Done, as sixteen keys rather than thirteen conditions, and two of them were already answerable.** `portrait` and `landscape` are `(orientation: …)`, which `MediaQuery` has always derived from the surface's own width and height — a table entry and no condition. The rest brought five axes onto a new `MediaPreferences` value: reduced motion, contrast (⚠ four values, because `custom` is neither more nor less and collapsing it would apply every high-contrast rule to a palette the user chose), forced colours, inverted colours, and the two pointer families. ⚠ **`PointerCapability` needed a fourth member for a reason that is this repository's commonest bug in a new disguise**: CSS's `pointer: none` is the empty capability set, and the empty set is also what a field nobody assigned holds — so a zero meaning "no pointing device" would make `pointer-none:` the rule that always applies under `default(MediaContext)`. Zero is `Unspecified` and reads as a mouse; `NoDevice` carries a bit so the stated emptiness can be told from the unstated one. ⚠ **`print:` and `noscript:` resolve and can never match, deliberately** — paged media is out of scope for good (Part 8 § 1) and a Vixen document always scripts — so the gate names them as the two entries that must have a negative scene and must *not* have a positive one, and a separate test proves the class is still generated, which is what tells "always false" from "not a variant". ⚠ **Owed, and filed separately: nothing sets any of it.** `UiSurface.Preferences` is exposed and defaults to "nothing unusual", exactly as `UiSurface.ColorScheme` has since it was added — and `Vixen.Ui.Desktop` reads the swapchain's gamut and has never read the system appearance, so `dark:` under the media strategy has never been true in a real application either. That is one hole in the platform layer with two victims | `MediaQuery`, `MediaPreferences`, `UiSurface` | — | 0.2 |
 | A15 ✅ | **Nested conditional-group rules — done, and for a tenth of the estimate, because the cascade already did it.** `StyleSheetLoader.LoadMedia` has always recursed into the rule it matched, so `@media A { @media B { … } }` loaded and conjoined; the thing that could not nest was `UtilityGenerator`, carrying one `string?` for the whole variant stack. It carries an ordered, deduplicated chain now and emits a trie over those chains, so `sm:md:p-4` and `dark:md:p-4` nest and share their outer wrapper with the shallower utilities. **Nesting cost the rule representation nothing at the time** — though a `StyleRule` carries a
@@ -3794,7 +3794,7 @@ resolves and does nothing:**
   that consults it. Asserted as one behaviour in a test rather than left as an unstated deviation,
   so the day the layout grows that stage something fails and says where the claim was written down.
 
-### Bucket 2 — blocked on F6, which this document already refused. `list-*`, `list-image-*`, `list-style-position`, `placeholder-*`. ⛔ **Refused, and not independently.**
+### Bucket 2 — blocked on F6, which this document already refused. `list-*`, `list-image-*`, `list-style-position` ⛔ **refused, and not independently**; `placeholder-*` ✅ **closed, and F6 was never what it needed.**
 
 ⚠ **All four want a box that does not exist, and F6 is why it does not.** A list marker is generated
 content — CSS puts it in a `::marker` box — and a placeholder is styled through `::placeholder`.
@@ -3804,11 +3804,19 @@ paragraph red.
 
 So `list-style-type` would compute a keyword with nowhere to draw it; `list-style-image` needs that
 same absent box *and* `background-image`'s painter aimed at it; `list-style-position` describes where
-the box sits relative to the line box. And `placeholder-*` has no element to match even if the
+the box sits relative to the line box. ~~And `placeholder-*` has no element to match even if the
 selector compiled: `TextField.Placeholder` is a C# property the control draws itself, not a child in
-the tree. **None of these four is worth costing separately** — three of them are one generated-content
-box behind `list-*`, and the fourth is F6. A `--placeholder-color` custom property the control read
-would work, and would not be the class Tailwind means.
+the tree.~~ ⚠ **That sentence was false at HEAD, and had been for as long as `TextField.OnCreated`
+has built the prompt as `Part("field-placeholder")` — a direct child with a tag of its own that
+`ControlTheme.vcss` styles at `field-placeholder`.** Nobody re-read it against the control, and five
+audits of #233 carried it forward as the reason the root was behind the generated box. It is not:
+`placeholder-*` is `space-x-*`'s shape — a rule about a relationship, scoped onto the child the
+control makes — and it is registered as a child-scoped colour family on `> field-placeholder`,
+measuring `works`. The `placeholder:` *variant* rides the same scope, in `Variants.Parts` rather than
+`Variants.States`, because `not-`, `has-`, `group-` and `peer-` compose over the state table and a
+child combinator read through any of them is either not a selector or a valid one meaning something
+else. **The three that are left are one generated-content box behind `list-*`**, and that box is
+still F6's.
 
 ### Bucket 3 — `word-break` and `indent-*` ✅ **closed**; `tab-*`, `hyphens`, `line-clamp-*` 🟡 **re-sized.**
 

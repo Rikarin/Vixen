@@ -1534,6 +1534,18 @@ public static class UtilityFamilies {
         // the foot of this table.
         Color("caret", "caret-color");
 
+        // ⚠ <b>The one Typography root that was refused on F6 and did not need F6.</b> v4's
+        // `placeholder-red-500` is `color` inside `&::placeholder`, and this table refused it for
+        // two reasons: the compiler refuses pseudo-element selectors, and "there is no element for
+        // such a rule to match — `TextField.Placeholder` is a C# property the control draws itself".
+        // The second was wrong at HEAD when it was re-read: `TextField.OnCreated` builds the prompt
+        // as `Part("field-placeholder")`, a direct child with a tag of its own that
+        // `ControlTheme.vcss` already styles. So this is `space-x-*`'s shape and not A12's — a rule
+        // about a relationship, scoped onto the child the control makes — and the same scope the
+        // `placeholder:` variant in `Variants.Parts` uses, kept in one place so the two cannot drift.
+        // ⚠ The other three roots in that bucket are still behind `::marker`, which nothing builds.
+        Register(new Family("placeholder", ValueKind.Color, ["color"], Scope: Variants.PlaceholderPart));
+
         // ⚠ <b>A ring is a <c>box-shadow</c> with a width, and this family used to emit
         // <c>outline-color</c> — which no version of Tailwind has ever emitted for it.</b> Not v4's
         // reading and not v3's either: v3 is where the ring was *introduced* as a box-shadow, and its
