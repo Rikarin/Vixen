@@ -456,7 +456,7 @@ public static class SoftwareUiRasterizer {
     ///     <c>background-position</c>, a <c>background-size</c> or an explicit <c>at</c> moves the
     ///     frame in <see cref="Box" /> before this is called rather than branching inside it.
     /// </remarks>
-    static float Parameter(UiShape shape, Vector2 point, Vector2 half) {
+    internal static float Parameter(UiShape shape, Vector2 point, Vector2 half) {
         var kind = (int) (shape.Size.W + 0.5f);
 
         if (kind == (int) GradientShape.Radial) {
@@ -475,7 +475,10 @@ public static class SoftwareUiRasterizer {
             // CSS starts at twelve o'clock and sweeps clockwise; screen space is y-down, so up is -y
             // and `Atan2(x, -y)` is already CSS's angle. The axis's own angle is the `from <angle>`.
             var angle = MathF.Atan2(point.X, -point.Y) - MathF.Atan2(shape.Axis.X, -shape.Axis.Y);
-            var turns = (angle / MathF.Tau) + 1f;
+
+            // ⚠ The shader's reciprocal literal, multiplied, and not a division by `Tau` — see
+            // `UiMask.Progress`, which is the same line for the same reason. #1256.
+            var turns = (angle * 0.15915494309189535f) + 1f;
 
             return turns - MathF.Floor(turns);
         }

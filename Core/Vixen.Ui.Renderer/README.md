@@ -139,8 +139,11 @@ rather than in the upload.
 `UiShaders` is handed over, not built. Compiling shader source belongs to `Vixen.Shaders` and to
 Raven; a caller supplies whatever it has. The golden fixture uses hand-written GLSL compiled by
 `glslc` and committed as SPIR-V; `Vixen.Ui.Desktop.UiShaderLibrary` supplies Raven's output from
-`Shaders/Ui.rvn`, which is what an application gets; `Vixen.Editor.Host` builds its own table from a
-copy of that shader; and a game will supply an effect. What this assembly must not grow is a compiler.
+`Shaders/Ui.rvn`, which is what an application gets; `Vixen.Editor.Host` loads the same
+`UiShaderLibrary` (`EditorHost.cs`, and ⚠ not "its own table from a copy of that shader" as this
+sentence said until #186 was closed — the editor's copy of `Ui.rvn` is deleted, and
+`SharedUiShaderTests.EveryRavenCopyAgreesAboutTheShadersItShares` is what makes the next copy
+visible); and a game will supply an effect. What this assembly must not grow is a compiler.
 
 ⚠ **`Raven/Library/Ui/Msdf.rvn` and `RoundedRect.rvn` are not these shaders**, and the difference is
 not a porting gap. They take the box's size and radii as **uniforms**, so one draw is one box; these

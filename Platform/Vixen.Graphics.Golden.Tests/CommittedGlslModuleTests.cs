@@ -261,8 +261,9 @@ public class CommittedGlslModuleTests {
 
         var name = Path.GetFileName(source);
 
+        // Three columns before #1257 and four since; the name is the first either way.
         return File.ReadLines(beside).Any(line =>
-            line.Split(' ', StringSplitOptions.RemoveEmptyEntries) is [var first, _, _]
+            line.Split(' ', StringSplitOptions.RemoveEmptyEntries) is [var first, _, _, ..]
             && string.Equals(first, name, StringComparison.Ordinal)
         );
     }

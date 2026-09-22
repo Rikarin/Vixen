@@ -803,24 +803,23 @@ boundary, because its location belongs to the shader that declares it.
 
 ### Float comparison and NaN
 
-⚠ **The two backends do not agree about `!=` on floats, and the difference is a branch rather than a
-last-place bit** — [#1226](https://github.com/Rikarin/Vixen/issues/1226).
+`==` on floats is **ordered** and `!=` is **unordered** on every target, which is IEEE 754's reading and
+the one C, C++, GLSL, HLSL and MSL all share — so `a != b` is exactly `!(a == b)`, NaN included:
 
 | | `a == b`, `a` a NaN | `a != b`, `a` a NaN |
 |---|---|---|
-| `--target spirv` | `false` — `OpFOrdEqual` | **`false`** — `OpFOrdNotEqual` |
-| `--target glsl` / `essl` | `false` — `==` is ordered in GLSL too | **`true`** — `!=` is GLSL's unordered comparison |
+| `--target spirv` | `false` — `OpFOrdEqual` | `true` — `OpFUnordNotEqual` |
+| `--target glsl` / `essl` | `false` — `==` is ordered in GLSL too | `true` — `!=` is GLSL's unordered comparison |
 
-So one source compiled for Vulkan and compiled for GLES takes different branches on the same input,
-and on the Vulkan path `a != b` is **not** the negation of `a == b`: both are false when either
-operand is a NaN. C, C++, GLSL, HLSL and MSL all read `!=` as unordered, which makes the SPIR-V
-backend the outlier — but the GLSL one is the one that cannot be spelled otherwise, since GLSL has no
-ordered `!=` operator and `(a < b) || (a > b)` is what it takes to write one.
-
-Nothing in the shipped library depends on the answer today, because nothing writes a NaN into a value
-these shaders compare. `Raven/Vixen.Raven.Tests/FloatComparisonTests.cs` holds both backends to what
-they emit now, in both directions, so whichever way #1226 is settled the commit that settles it has to
-say so there. Before that file the disagreement was observable only by disassembling a module.
+⚠ **The SPIR-V backend emitted `OpFOrdNotEqual` until [#1226](https://github.com/Rikarin/Vixen/issues/1226),
+and the two backends disagreed by a branch rather than a last-place bit.** One source compiled for
+Vulkan and compiled for GLES took different branches on the same input, and on the Vulkan path `==` and
+`!=` were *both* false on a NaN. It was observable only by disassembling a module — the two shipped UI
+box shaders, one GLSL and one Raven, were found two opcodes apart on one identical line. The GLSL side
+could not have been the one to move: GLSL has no ordered `!=`, and `!(a == b)` lowers to `OpFOrdEqual` +
+`OpLogicalNot`, which is unordered-not-equal again. Of the fifty-nine committed modules, two carried a
+float `!=` (`UiBox.frag.spv`, `UiMask.frag.spv`) and both were regenerated with the change.
+`Raven/Vixen.Raven.Tests/FloatComparisonTests.cs` holds both backends to this, in both directions.
 
 ### Cross-compilation
 
