@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui.Composition;
 using System.Globalization;
 
 namespace Vixen.Ui.Controls;
@@ -38,7 +39,7 @@ namespace Vixen.Ui.Controls;
 ///         and the reason the callback was built.
 ///     </para>
 /// </remarks>
-public sealed partial class VirtualizingPanel : Control {
+public sealed partial class VirtualizingPanel : Control, IRowPool {
     readonly List<UiElement> rows = [];
 
     Action<UiDocument>? settle;
@@ -99,6 +100,42 @@ public sealed partial class VirtualizingPanel : Control {
     /// </remarks>
     [UiProperty(Changed = nameof(OnCountChanged))]
     public partial int Count { get; set; }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Explicit, all four, because three of them collide with this control's own members
+    ///     and the fourth would be a second way to say <see cref="Count" />.</b> The interface is
+    ///     this control's contract restated in terms <c>Vixen.Ui</c> can name — it cannot reference
+    ///     this assembly — so implementing it implicitly would mean renaming the properties every
+    ///     caller in the tree already uses, to no end. See <c>BuildContext.Pool</c>, which is what
+    ///     the seam is for and why it takes a <c>Func&lt;UiElement&gt;</c> where this takes a
+    ///     <c>Func&lt;VirtualizingPanel, UiElement&gt;</c>.
+    /// </remarks>
+    int IRowPool.RowCount {
+        get => Count;
+        set => Count = value;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>The scroller's content, which is where a row has to go for its `top` to mean a line.</remarks>
+    UiElement IRowPool.RowHost => Scroller.Content;
+
+    /// <inheritdoc />
+    Func<UiElement>? IRowPool.CreateRow {
+        get => pooled;
+        set {
+            pooled = value;
+            CreateRow = value is null ? null : _ => value();
+        }
+    }
+
+    /// <inheritdoc />
+    Action<UiElement, int>? IRowPool.BindRow {
+        get => BindRow;
+        set => BindRow = value;
+    }
+
+    Func<UiElement>? pooled;
 
     /// <summary>Makes a row element. Called only when the pool has to grow.</summary>
     /// <remarks>

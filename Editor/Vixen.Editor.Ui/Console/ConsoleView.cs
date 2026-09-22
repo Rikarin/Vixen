@@ -80,7 +80,18 @@ public sealed partial class ConsoleView : Control {
     public VirtualizingPanel List { get; private set; } = null!;
 
     /// <summary>The pane under it showing the whole of the selected record.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The content of a <see cref="ScrollView" />, not the pane itself.</b> The pane is 132
+    ///     px tall by the theme and a deep exception's stack is forty lines, and for as long as the
+    ///     pane was a plain element with <c>overflow: auto</c> everything past the sixth line was cut
+    ///     off with no way to reach it — in this UI that property clips and does not scroll, and the
+    ///     stack is the reason somebody clicked the row. See <c>Rikarin/Vixen#1275</c>. The
+    ///     <c>empty</c> class goes on the scroller, since it is the scroller's height the class
+    ///     collapses.
+    /// </remarks>
     public UiElement Detail { get; private set; } = null!;
+
+    ScrollView detailPane = null!;
 
     /// <summary>The search box.</summary>
     public SearchBox Search { get; private set; } = null!;
@@ -202,7 +213,11 @@ public sealed partial class ConsoleView : Control {
         List.Scroller.Scrolled += scroller =>
             tail = scroller.ScrollTop >= scroller.Content.Height - scroller.Height - List.RowHeight;
 
-        Detail = Part("console-detail");
+        // ⚠ Under the `console-detail` tag rather than `scroll-view` so the theme's rules reach it
+        // unchanged — which also means the user-agent `scroll-view` rule does not, so the theme's
+        // own rule carries the `overflow: hidden; position: relative` the clip and the bars need.
+        detailPane = Part<ScrollView>("console-detail");
+        Detail = detailPane.Content;
         ShowDetail();
 
         // ⚠ The tail is followed from `LayoutFinished` and not from `Restate`, and the reason is
@@ -383,12 +398,12 @@ public sealed partial class ConsoleView : Control {
 
         if (selected is not { } record) {
             Detail.Add<TextBlock>().Text = EditorStrings.ConsoleNoSelection.Text;
-            Detail.AddClass("empty");
+            detailPane.AddClass("empty");
 
             return;
         }
 
-        Detail.RemoveClass("empty");
+        detailPane.RemoveClass("empty");
 
         var heading = Detail.Add<UiElement>("console-detail-heading");
         heading.Text = record.Message;

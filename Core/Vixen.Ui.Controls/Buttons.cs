@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Input;
 using Vixen.Ui.Styling;
 
 namespace Vixen.Ui.Controls;
@@ -9,13 +10,77 @@ namespace Vixen.Ui.Controls;
 /// <remarks>
 ///     Everything about how it looks is <see cref="Control.Variant" />, <see cref="Control.Size" />
 ///     and the stylesheet; everything about what it does is <see cref="Control.Clicked" /> and
-///     <see cref="ClickEvent" />. There is nothing else in the type, which is the point — a control
-///     library whose button has thirty properties has thirty ways to produce a button that does not
-///     match the others.
+///     <see cref="ClickEvent" />. The only other things in the type are the two names every toolkit
+///     gives a form's Return and Escape, and that is the point — a control library whose button has
+///     thirty properties has thirty ways to produce a button that does not match the others.
 /// </remarks>
 public sealed partial class Button : ButtonBase {
     /// <inheritdoc />
     protected override string TagName => "button";
+
+    /// <summary>Whether a bare Return that reaches the form unclaimed presses this button.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         AppKit's default button and WPF's <c>IsDefault</c>: <see cref="UiElement.KeyEquivalent" />
+    ///         set to Return, plus a <c>default</c> class so a theme can draw it as the one Return
+    ///         will press — which every platform does, because a default button the user cannot see
+    ///         is a Return that does something unannounced. One per focus scope; the first in tree
+    ///         order wins if there are two.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A fallback, not a claim.</b> The press reaches this only when nothing on the
+    ///         route took it — a focused button presses itself on Return first, a multi-line field
+    ///         keeps its newline — so it cannot steal a key a control was using. See
+    ///         <see cref="KeyEquivalentEvent" />.
+    ///     </para>
+    /// </remarks>
+    [UiProperty(Changed = nameof(OnIsDefaultChanged))]
+    public partial bool IsDefault { get; set; }
+
+    /// <summary>Whether a bare Escape that reaches the form unclaimed presses this button.</summary>
+    /// <remarks>
+    ///     The cancel half of <see cref="IsDefault" />, with a <c>cancel</c> class. ⚠ Inside a
+    ///     <see cref="Dialog" /> it is the dialog's own Escape that runs — <c>Overlay</c> listens on
+    ///     the root's capture leg and closes with <c>CloseReason.Cancelled</c> before the key is
+    ///     routed at all — so this is for the form that is not an overlay: an inline editor, a
+    ///     sheet drawn by hand, a login screen.
+    ///     <para>
+    ///         ⚠ <b>Which is why it has no production caller today, and that is the paragraph above
+    ///         rather than an oversight.</b> Every confirm-and-cancel pair in this tree is built by
+    ///         <c>DialogService</c> inside an <see cref="Overlay" />, so setting this on one of them
+    ///         would be a flag that never runs: the close is already decided a leg earlier. The
+    ///         editor's hand-rolled Escape handlers — <c>KeyBindingsView</c> leaving capture,
+    ///         <c>SceneViewport</c> cancelling a gizmo drag — are keys on a panel and not buttons in
+    ///         a form, so none of them is this either. <see cref="IsDefault" /> is wired
+    ///         (<c>DialogService.AddButton</c> makes the primary button the default one); this half
+    ///         waits for the first non-overlay form, and is declared with it so that form does not
+    ///         have to invent the concept.
+    ///     </para>
+    /// </remarks>
+    [UiProperty(Changed = nameof(OnIsCancelChanged))]
+    public partial bool IsCancel { get; set; }
+
+    void OnIsDefaultChanged(bool previous, bool current) => Equivalent("default", InputKey.Enter, current);
+
+    void OnIsCancelChanged(bool previous, bool current) => Equivalent("cancel", InputKey.Escape, current);
+
+    /// <summary>Writes or clears the key and the class one of the two flags stands for.</summary>
+    /// <remarks>
+    ///     Clearing only takes the key away if it is still this flag's: a button that was default,
+    ///     then cancel, then not default keeps Escape.
+    /// </remarks>
+    void Equivalent(string className, InputKey key, bool on) {
+        if (on) {
+            KeyEquivalent = key;
+            AddClass(className);
+        } else {
+            if (KeyEquivalent == key) {
+                KeyEquivalent = InputKey.Unknown;
+            }
+
+            RemoveClass(className);
+        }
+    }
 }
 
 /// <summary>A button that is an icon and nothing else.</summary>

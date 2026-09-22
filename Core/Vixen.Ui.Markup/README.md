@@ -635,6 +635,28 @@ tag and reads as a property — so `use` is the general answer rather than the f
 ⚠ **One `use` per tag**, because attribute names are unique on an element. A lambda with a body does
 several things; two `use`s would also have needed an order, which is a rule nobody wants to remember.
 
+### The one call `use` reaches that is still not a spelling: a row template
+
+⚠ **`use` is what makes a virtualizing panel reachable, and reaching it was never the gap.** #758
+was audited four times as "`VirtualizingPanel` is reachable only through `use=` and a pair of
+lambdas", and nobody had run one until `Markup/VirtualListSheet.vxml` did — it works. What does not
+work is saying the *row*: `CreateRow` builds an element tree and `BindRow` writes it by index, so
+both live in `@code` in a file whose whole subject is the tree.
+
+`BuildContext.Pool` closes the runtime half of that. It takes an `IRowPool` — the seam `Vixen.Ui`
+declares because it cannot reference `Vixen.Ui.Controls` — opens a region per pool **slot**, and
+hands the body a `Signal<int>` holding the item that slot is showing. The body is an ordinary build
+body: `@if`, a nested loop, `refs` and bindings all work in it.
+
+⚠ **And it is why this cannot be a modifier on `@for`.** A slot is not an identity — the pool only
+ever grows, a row that was line 4 is line 900 after a scroll — so every rule the loop teaches is
+false of it: nothing is matched, nothing survives, the body runs once per slot rather than once per
+item, and `refs`/`key`/`VXML2011` would all mean something else under one attribute.
+
+What is still owed is the syntax: a block directive with a header, which is a lexer keyword, a
+`Syntax.xml` node, a parser branch, a bound record and an emitter branch — the emitter target,
+which used to be the open question, is now `ctx.Pool(subject, tag, count, body)` and exists.
+
 ## `help`, and where an attach-shaped directive's runtime has to live
 
 ```html

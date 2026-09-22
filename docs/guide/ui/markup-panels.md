@@ -4,7 +4,7 @@ slug: ui/markup-panels
 kind: guide
 area: Core
 summary: Writing a control in .vxml — @inherits for a class callers can hold and add, ref and refs for the parts they read, change: for the values they edit, and the key rule — for @for and for @if alike — that decides whether a row updates at all.
-api: [L:7008, T:Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax, T:Vixen.Ui.Styling.InlineDeclaration, T:Vixen.Editor.Ui.FactRow, T:Vixen.Ui.Composition.ElementRefs`1, T:Vixen.Ui.Composition.EventSubscription, T:Vixen.Ui.Controls.SubmitEvent]
+api: [L:7008, T:Vixen.Ui.Composition.IRowPool, T:Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax, T:Vixen.Ui.Styling.InlineDeclaration, T:Vixen.Editor.Ui.FactRow, T:Vixen.Ui.Composition.ElementRefs`1, T:Vixen.Ui.Composition.EventSubscription, T:Vixen.Ui.Controls.SubmitEvent]
 tags: [ui, markup, vxml, controls, components, reactivity]
 since: 0.2
 status: preview
@@ -624,6 +624,46 @@ answer whenever it is available — it is checked at the tag, it reads as a prop
 nothing at run time. `use` is what is left when the control is `sealed`, or when what is needed is a
 call with several arguments rather than one value.
 
+### A list of ten thousand rows is a pool, and its template is a build body
+
+`@for` builds a subtree per item, which is right until the sequence is long: ten thousand rows is
+ten thousand subtrees, and the panel that needs one falls back to hand-written C#. `VirtualizingPanel`
+and `VirtualizingGrid` solve that by re-using a dozen row elements, and they are reachable from
+markup through `use=` — but what they wanted fed to them was a row *template* and a per-index binder,
+and markup had no word for either.
+
+`BuildContext.Pool` is that template as a build body:
+
+```csharp no-compile="a fragment from `@code`; `panel` is what the `use=` handed it"
+Context.Pool(
+    panel,
+    "row",
+    () => Items.Value.Length,
+    (_, row, showing) => Context.Bind(() => row.Text = Items.Value[showing.Value])
+);
+```
+
+The subtree is built by the same context that builds everything else, so `@if`, a nested `@for`,
+`refs` and ordinary bindings all work inside it.
+`Core/Vixen.Ui.Controls.Tests/Markup/PooledListSheet.vxml` is the whole file. The same call fills a
+`VirtualizingGrid`, whose own delegates are called `CreateTile` and `BindTile`: both controls
+implement `IRowPool`, and `Pool` does not know which it has.
+
+⚠ **The body runs once per *slot*, not once per item** — ten thousand items, about a dozen bodies —
+and that is why a pooled list is not a `@for` and could never be a modifier on one. A slot is not an
+identity: the pool only ever grows, a row that was line 4 is line 900 after a scroll, and nothing is
+matched, survives or is re-keyed. Every rule the key rule above teaches is false here.
+
+⚠ **Which is why the item arrives as a `Signal<int>`** — the same shape as `@for`'s index and for a
+sharper version of the same reason. The body is never re-run, so a row that read a plain `int` would
+show the item it was built for for ever, while scrolling perfectly. Writing the signal is what
+rebinding *is*.
+
+⚠ **There is still no markup spelling for it.** A `@rows` block would put that body in the tree
+rather than in `@code`, which is what
+[#758](https://github.com/Rikarin/Vixen/issues/758) is finally about; this is the runtime it would
+compile to, and it is the part that could be finished without inventing a keyword.
+
 ### `help`, for a sentence a screen reader can reach
 
 ```xml
@@ -808,6 +848,16 @@ failure a `bind:` over a non-reactive model has, one construct along.
 
 `Core/Vixen.Ui.Controls.Tests/Markup/SearchableSheet.vxml` is this list as a compiled fixture, and
 `SearchableReachTests` asserts it on the rows rather than on the field.
+
+⚠ **And the first decision — where the field goes — is not taste either; ten editor views answer it
+the same way.** `ConsoleView`, `MessageLogView`, `InspectorView`, `ProjectBrowser`, `AssetPicker`,
+`KeyBindingsView`, `PluginManagerView`, `AddComponentMenu`, `NodeSearchPopup` and the hierarchy's
+outliner filter all put the field in a toolbar or header *above* the list it filters and outside the
+list's scroller, so that somebody using it to find the row they scrolled past has not scrolled it
+away with the rows. `InspectorView` records the reason beside its `Scrolls = false`;
+`ConsoleViewTests.The_search_field_is_above_the_list_and_outside_its_scroller` records it as a
+measurement — the field has no scroller above it, sits above the list, and stays where it is while
+two hundred rows scroll under it. Write a new filtered list to pass the same test.
 
 ### Grouped lists are a nested `@for`
 

@@ -4,6 +4,7 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using Vixen.Core.Mathematics;
+using Vixen.Input;
 using Vixen.Ui.Layout;
 using Vixen.Ui.Rendering;
 using Vixen.Ui.Styling;
@@ -706,6 +707,25 @@ public partial class UiElement : Composition.IComposable {
     /// </remarks>
     [UiProperty]
     public partial char AccessKey { get; set; }
+
+    /// <summary>The bare key that presses it when the key reaches the document unclaimed, or <c>Unknown</c> for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="AccessKey" /> with the Alt taken off, and the same rules: within the
+    ///         focus scope, only for a press nothing on the route wanted, disabled and collapsed
+    ///         elements skipped. What a control does when its key arrives is raised on it as a
+    ///         <see cref="KeyEquivalentEvent" />; a button presses. <c>Button.IsDefault</c> and
+    ///         <c>Button.IsCancel</c> are Return and Escape spelt as the two names every toolkit
+    ///         gives them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Unmodified only.</b> Ctrl-Return is somebody's shortcut and Shift-Escape is
+    ///         another; a key equivalent answers the bare key and nothing else, which is
+    ///         <see cref="KeyEvent.Has" />'s argument one modifier over.
+    ///     </para>
+    /// </remarks>
+    [UiProperty]
+    public partial InputKey KeyEquivalent { get; set; }
 
     /// <summary>Whether the focus can rest on it.</summary>
     /// <remarks>
