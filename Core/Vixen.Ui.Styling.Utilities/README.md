@@ -17,7 +17,7 @@ every component is in the same repository as every token.
 |---|---|
 | `ThemeTokens` | An `@theme { --color-*: … }` block → colours, spacing, radii, type scale, weights, font stacks, shadows, breakpoints. Layered over the shipped default. |
 | `UtilityParser` | `[-]?[variant:]*utility[-value][/opacity][!]`, bracket-aware throughout. |
-| `UtilityFamilies` | What each family emits. Table-driven. `Family.Scope` is what a rule is *about* — `space-*` and `divide-*` are about the children. |
+| `UtilityFamilies` | What each family emits. Table-driven. `Family.Scope` is what a rule is *about* — `space-*` and `divide-*` are about the children, `placeholder-*` about the prompt a `TextField` builds. |
 | `UtilityComposition` | The `--tw-*` fragments, and what each is worth unset. `from-*`/`via-*`/`to-*` + `bg-linear-*` is the worked case; the guide is [ui/utility-composition](../../docs/guide/ui/utility-composition.md). |
 | `Variants` | `hover:`, `md:`, `dark:`, `ltr:`/`rtl:`, `group-*`, `peer-*`, `data-*`, `aria-*`, `[&>*]`. |
 | `UtilityGenerator` | The stylesheet, into `@layer utilities`. |
@@ -378,8 +378,13 @@ the cascade a `MediaContext`.
 Two things make it a gate rather than a list. Every case asserts a **computed property value in a
 built document, positive and negative** — a rule that applied unconditionally would pass every
 positive assertion in the file. And the cases are **enumerated off the engine's own tables**:
-`Variants.StateVariants` and `ThemeTokens.Screens`, checked both ways, so a variant added without a
-scene fails the build and a scene naming a variant that no longer exists fails it too.
+`Variants.StateVariants`, `Variants.PartVariants` and `ThemeTokens.Screens`, checked both ways, so a
+variant added without a scene fails the build and a scene naming a variant that no longer exists
+fails it too. ⚠ The parts table is separate from the states table for a reason the gate cannot see:
+`not-`, `has-`, `group-` and `peer-` compose over `States`, and a child-combinator suffix such as
+`placeholder:`'s `> field-placeholder` read through any of them is either not a selector or a valid
+one meaning something else — so a part must be *not a class* under those four, which the coverage
+file asserts by name.
 
 ## What it found
 
@@ -453,6 +458,16 @@ has two children now, and the baseline has two as well because the child *inheri
 baseline would have credited the family with every inherited property. Two children rather than one
 because `:not(:last-child)` matches nothing under a single child, which is the same blindness one step
 further in. *An instrument that measures the wrong element reports zero and looks like a pass.*
+
+⚠ **The same blindness came back twice more, each wearing a shape the fix above does not cover.**
+`placeholder-*` is scoped onto a **tag** rather than a position — `> field-placeholder`, the prompt
+`TextField` builds — so under two `div`s it lands nowhere; the probe carries a third child with that
+tag, last, so the two `div`s stay exactly what `:not(:last-child)` sees of them. And `@container/main`
+emits `container-name` only through a **modifier**, which `UtilityFamilies.Surface` had never spelled:
+it enumerates keywords and token values, and every other modifier — an alpha, a fraction, a ratio, a
+line height — resolves into declarations the head already emits, so that property alone would have
+reached neither column. *A scope is a claim about where to look, and every new shape of scope is a new
+way for the instrument to be looking somewhere else.*
 
 ## Deliberate limits
 

@@ -2351,6 +2351,7 @@ T:Vixen.Platform.MacOS.MacOSDialogs sweep-pending
 T:Vixen.Platform.MacOS.MacOSPlatformSupplement sweep-pending
 T:Vixen.Platform.MacOS.MacOSPowerInfo sweep-pending
 T:Vixen.Platform.MacOS.MacOSProcessorTopology sweep-pending
+T:Vixen.Platform.MacOS.MacOSSemanticColors	the semantic palette read that fills CanvasText and its ten siblings; documented on IPlatform.SemanticColors and on SystemSemanticColors, beside MacOSAccent for the same reason
 T:Vixen.Platform.MemoryPressure sweep-pending
 T:Vixen.Platform.MessageBoxButtons sweep-pending
 T:Vixen.Platform.MessageBoxOptions sweep-pending
@@ -2376,6 +2377,7 @@ T:Vixen.Platform.StandardFileSystemHost sweep-pending
 T:Vixen.Platform.SystemAccent	the platform half of the CSS AccentColor role; documented on IPlatform.Accent and on the type, with the write half on SystemPalette.PlatformAccentClass
 T:Vixen.Platform.SystemAccessibility	the platform half of prefers-reduced-motion and forced-colors; documented on IPlatform.Accessibility and in docs/guide/ui/media-queries.md
 T:Vixen.Platform.SystemColorScheme	the platform half of prefers-color-scheme; documented on IPlatform.ColorScheme
+T:Vixen.Platform.SystemSemanticColors	the platform half of the eleven dynamic CSS system colours; documented on IPlatform.SemanticColors and on the type, with the write half on PlatformInput.ApplySemanticColors
 T:Vixen.Platform.ThermalState sweep-pending
 T:Vixen.Platform.TouchTracker sweep-pending
 T:Vixen.Platform.Ui.PlatformInput sweep-pending
@@ -2391,6 +2393,7 @@ T:Vixen.Platform.Windows.WindowsDialogs sweep-pending
 T:Vixen.Platform.Windows.WindowsPlatformSupplement sweep-pending
 T:Vixen.Platform.Windows.WindowsPowerInfo sweep-pending
 T:Vixen.Platform.Windows.WindowsProcessorTopology sweep-pending
+T:Vixen.Platform.Windows.WindowsSemanticColors	the semantic palette read that fills CanvasText and its ten siblings while a high-contrast scheme is on; documented on IPlatform.SemanticColors and on SystemSemanticColors, beside WindowsAccent for the same reason
 T:Vixen.Raven.Symbols.InterpolationMode raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
 T:Vixen.Rendering.AnimationChannel sweep-pending
 T:Vixen.Rendering.AnimationClipData sweep-pending

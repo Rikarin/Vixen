@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui;
+using Vixen.Ui.Controls;
 using Vixen.Ui.Styling;
 using Xunit;
 
@@ -279,6 +281,152 @@ public class VariantCoverageTests {
         var stale = tested.Where(variant => !Variants.StateVariants.Contains(variant)).ToArray();
 
         Assert.True(stale.Length == 0, $"these scenes name a variant that no longer exists: {string.Join(", ", stale)}");
+    }
+
+    /// <summary>One row for a part variant: which tag, at which depth, and whether it should be styled.</summary>
+    /// <param name="Variant">The variant, without its colon.</param>
+    /// <param name="Tag">The tag of the probe that is measured.</param>
+    /// <param name="Depth">How far below the element the measured probe sits — 0 is the element itself.</param>
+    /// <param name="Matches">Whether the utility should reach it.</param>
+    /// <remarks>
+    ///     ⚠ <b>Three negatives per variant, because each catches a different wrong selector.</b>
+    ///     Depth 0 is the element carrying the class: a variant that dropped its suffix and styled
+    ///     the control itself — F6's original defect, the one <c>p::before</c> styling the paragraph
+    ///     — passes every positive row and fails this one. A sibling part with the wrong tag is the
+    ///     row a variant compiled to <c>&gt; *</c> fails. And a grandchild carrying the right tag is
+    ///     the row that tells the child combinator from the descendant one, which is the difference
+    ///     between styling this field's prompt and styling every field's prompt below it.
+    /// </remarks>
+    public sealed record PartScene(string Variant, string Tag, int Depth, bool Matches);
+
+    static readonly PartScene[] PartScenes = [
+        new("placeholder", "field-placeholder", 1, true),
+        new("placeholder", "field-placeholder", 0, false),
+        new("placeholder", "field-text", 1, false),
+        new("placeholder", "field-placeholder", 2, false)
+    ];
+
+    public static TheoryData<string, string, int, bool> PartRows {
+        get {
+            var data = new TheoryData<string, string, int, bool>();
+
+            foreach (var scene in PartScenes) {
+                data.Add(scene.Variant, scene.Tag, scene.Depth, scene.Matches);
+            }
+
+            return data;
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(PartRows))]
+    public void A_part_variant_styles_the_child_it_names_and_nothing_else(string variant, string tag, int depth, bool matches) {
+        var fixture = new UtilityFixture();
+
+        // The measured probe is the one at `depth`, and the element under test always carries the
+        // whole ladder — so the depth-0 row measures the element with a correctly tagged child in
+        // place, which is the arrangement in which a suffix-less variant would wrongly apply.
+        var grandchild = new Probe([], Tag: depth == 2 ? tag : "div");
+        var child = new Probe([], Tag: depth == 1 ? tag : "div", Children: [grandchild]);
+        Probe? measure = depth switch { 1 => child, 2 => grandchild, _ => null };
+
+        var value = fixture.Computed(
+            [$"{variant}:p-4"],
+            "padding-left",
+            tag: "text-box",
+            children: [child],
+            measure: measure
+        );
+
+        Assert.Equal(matches ? "16px" : null, value);
+    }
+
+    [Fact]
+    public void The_part_variant_table_has_no_untested_entry() {
+        // The same gate `The_state_variant_table_has_no_untested_entry` is, over the parts table —
+        // and a scene of each sign, because a part variant that emitted nothing at all passes every
+        // negative row.
+        var tested = PartScenes.Select(scene => scene.Variant).ToHashSet(StringComparer.Ordinal);
+        var untested = Variants.PartVariants.Where(variant => !tested.Contains(variant)).ToArray();
+
+        Assert.True(untested.Length == 0, $"these part variants have no end-to-end scene: {string.Join(", ", untested)}");
+
+        var stale = tested.Where(variant => !Variants.PartVariants.Contains(variant)).ToArray();
+
+        Assert.True(stale.Length == 0, $"these scenes name a variant that no longer exists: {string.Join(", ", stale)}");
+
+        foreach (var variant in Variants.PartVariants) {
+            var signs = PartScenes.Where(scene => scene.Variant == variant).Select(scene => scene.Matches).ToArray();
+
+            Assert.Contains(true, signs);
+            Assert.Contains(false, signs);
+        }
+    }
+
+    [Fact]
+    public void A_part_variant_does_not_compose_with_the_variants_that_read_the_state_table() {
+        // ⚠ The reason `Parts` is a table of its own. `not-`, `has-`, `group-` and `peer-` each turn
+        // a state suffix into something else — a negation, a subtree test, an ancestor, a sibling —
+        // and every one of them over a child combinator is either not a selector or a valid one
+        // meaning something else: `.group > field-placeholder ` as a prefix asks for the placeholder's
+        // descendants. So each of the four must be *not a class* over a part, never a class that
+        // reaches the compiler, and never one the compiler accepts.
+        var fixture = new UtilityFixture();
+
+        foreach (var candidate in new[] {
+                     "not-placeholder:p-4",
+                     "has-placeholder:p-4",
+                     "group-placeholder:p-4",
+                     "peer-placeholder:p-4"
+                 }) {
+            Assert.DoesNotContain("padding", fixture.Generate(candidate), StringComparison.Ordinal);
+        }
+
+        // And the ones that do compose, because they act on the element side of the combinator: a
+        // state before the part is the field's state, which is what `hover:placeholder:` means.
+        var child = new Probe([], Tag: "field-placeholder");
+
+        Assert.Equal(
+            "16px",
+            fixture.Computed(
+                ["hover:placeholder:p-4"],
+                "padding-left",
+                state: ElementState.Hover,
+                tag: "text-box",
+                children: [child],
+                measure: child
+            )
+        );
+
+        Assert.Null(
+            fixture.Computed(["hover:placeholder:p-4"], "padding-left", tag: "text-box", children: [child], measure: child)
+        );
+    }
+
+    [Fact]
+    public void The_placeholder_variant_reaches_the_part_a_real_text_field_builds() {
+        // ⚠ The row the fixture cannot prove. Every scene above puts the tag on a probe by hand, so
+        // a `Parts` entry naming a tag no control builds — `field-prompt`, say — would pass all of
+        // them while styling nothing in any real document. This is the writer's side: a `TextField`
+        // in a document, and the variant read off the child the control actually made.
+        using var document = new UiDocument(200f, 100f);
+        var fixture = new UtilityFixture();
+
+        document.Load(fixture.Generate("placeholder:p-4"), StyleOrigin.Author);
+
+        var field = document.Root.Add<TextBox>(null, null, "placeholder:p-4");
+        document.Update();
+
+        var placeholder = field.Children.Single(child => child.Tag == "field-placeholder");
+        var text = field.Children.Single(child => child.Tag == "field-text");
+        var padding = document.Styles.Properties.Lookup("padding-left");
+
+        Assert.True(placeholder.Style.TryGet(padding, out var value), "the placeholder part was not styled.");
+        Assert.Equal("16px", document.Styles.Values.NameOf(value));
+
+        // And not the value box beside it, nor the field itself.
+        Assert.False(text.Style.TryGet(padding, out _), "the text part was styled, so the tag is not what selected it.");
+        Assert.False(field.Style.TryGet(padding, out _), "the field itself was styled, which is F6's own defect.");
     }
 
     /// <summary>The surfaces the media variants are judged against, by name.</summary>
@@ -968,4 +1116,33 @@ public class VariantCoverageTests {
 
         Assert.Null(fixture.Computed([], "padding-left", extraCss: css, ancestor: new Probe([])));
     }
+
+    /// <summary>What <c>not-</c> and <c>has-</c> may wrap, asked of the predicate rather than of a class.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Direct, because the row that matters cannot be spelled as a class.</b> Both call
+    ///         sites take a suffix whose length they have already checked and want its first
+    ///         non-space character; a suffix that is non-empty and all space has none, and the bare
+    ///         index that used to be there threw <c>IndexOutOfRangeException</c> out of the middle
+    ///         of sheet generation. No entry in <c>States</c> or <c>Parts</c> spells such a suffix
+    ///         today, so there is no <c>not-…:</c> that reaches it — which is exactly why the guard
+    ///         is worth an assertion of its own rather than a class that happens not to exist yet.
+    ///     </para>
+    ///     <para>
+    ///         The three combinator rows are the live half and belong to <c>has-</c>'s refusal:
+    ///         ExCSS 4.3.2 parses <c>:has(&gt; .x)</c> into the node it parses <c>:has(.x)</c> into,
+    ///         so a relative argument that got past here would silently mean "any descendant".
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(":hover", true)]
+    [InlineData(" > field-placeholder", false)]
+    [InlineData(">x", false)]
+    [InlineData("+x", false)]
+    [InlineData("~x", false)]
+    [InlineData("", false)]
+    [InlineData(" ", false)]
+    [InlineData("  \t ", false)]
+    public void A_suffix_is_wrappable_only_when_it_is_a_selector_on_its_own(string suffix, bool wrappable) =>
+        Assert.Equal(wrappable, Variants.IsWrappable(suffix));
 }

@@ -169,6 +169,20 @@ static class ParityLedger {
         IReadOnlySet<string> Resolvable
     );
 
+    /// <summary>The family a surface entry belongs to, modifier and all.</summary>
+    /// <param name="utility">A class name, as <c>UtilityFamilies.Surface</c> spells it.</param>
+    /// <returns>The registered family name.</returns>
+    /// <remarks>
+    ///     ⚠ <b><c>SplitName</c> is not enough on its own, and was until the surface first spelled a
+    ///     modifier.</b> Its contract is the name half of a class whose variants and modifiers are
+    ///     already off — <c>UtilityParser.TryParse</c> strips the slash before calling it — so
+    ///     <c>@container/probe</c> comes back as its own name and reads as a family nobody
+    ///     registered. Parsing is what the generator does with a real class name, so it is what this
+    ///     does; the fallback keeps a candidate the parser refuses visible rather than dropping it.
+    /// </remarks>
+    public static string RootOf(string utility) =>
+        UtilityParser.TryParse(utility, out var parsed) ? parsed.Name : UtilityFamilies.SplitName(utility).Name;
+
     /// <summary>Takes the measurement the ledger's computed columns are derived from.</summary>
     /// <param name="listed">Every class name the ledger mentions, so keyword coverage can be checked.</param>
     /// <remarks>
@@ -187,9 +201,8 @@ static class ParityLedger {
         var registered = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var utility in surface) {
-            var name = UtilityFamilies.SplitName(utility).Name;
-            family[utility] = name;
-            registered.Add(name);
+            family[utility] = RootOf(utility);
+            registered.Add(family[utility]);
         }
 
         var byFamily = new SortedDictionary<string, SortedSet<string>>(StringComparer.Ordinal);

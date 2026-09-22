@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Reflection;
 using System.Runtime.Versioning;
+using Vixen.Core.Mathematics;
 using Xunit;
 
 namespace Vixen.Platform.MacOS.Tests;
@@ -93,6 +95,146 @@ public class MacOSSemanticColorTests {
         Assert.True(light.Accent.A > 0.99, $"controlAccentColor was {light.Accent}");
     }
 
+    /// <summary>
+    ///     Every role <see cref="MacOSSemanticColors" /> names is a selector AppKit answers, and each
+    ///     lands on the role whose lightness it must have.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The reader itself, which nothing called until this test.</b> The test above
+    ///         reaches AppKit through a <c>Component</c> helper of its own and touches three selector
+    ///         names; <see cref="MacOSSemanticColors.Read" /> spells eleven, and eight of them were
+    ///         exercised by nothing on any platform including a Mac. A misspelling degrades in the
+    ///         quietest way this file has a word for: <c>MacOSAccent.Component</c>'s
+    ///         <c>respondsToSelector:</c> guard answers <see langword="null" />, the role follows
+    ///         <c>SystemPalette</c>'s browser table for ever, <c>IsKnown</c> is still true because
+    ///         the other ten answered, and every suite is green everywhere.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The roles are counted by reflection rather than listed here</b>, so a twelfth
+    ///         added to <see cref="SystemSemanticColors" /> and forgotten in the mapping is red on
+    ///         the next Mac that runs this, instead of being a role this file never mentions. The
+    ///         count is asserted too: a filter that matched nothing would satisfy the loop under it
+    ///         and report a palette in perfect order.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the lightness rows are what tell a mapping from a transposition.</b> Every
+    ///         role being non-null is satisfied by eleven correct selectors wired to the wrong
+    ///         eleven roles. A background is light on Aqua and dark on Dark Aqua and its text is the
+    ///         other way round — so <c>Canvas</c>/<c>CanvasText</c> or <c>Field</c>/<c>FieldText</c>
+    ///         swapped fails here, in both appearances, whichever way round the swap went.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this prints off a Mac is "skipped", and that is the whole of its
+    ///         weakness.</b> There is no oracle for an AppKit selector anywhere else — a Windows
+    ///         runner cannot tell <c>separatorColor</c> from <c>separatorColour</c> — so this closes
+    ///         the gap on the machine the code runs on and nowhere else. A macOS CI leg is what
+    ///         makes it a gate rather than a courtesy.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    [SupportedOSPlatform("macos")]
+    public void EveryRoleTheReaderNamesIsAnsweredAndLandsTheRightWayRound() {
+        Assert.SkipUnless(OperatingSystem.IsMacOS(), "Sends Objective-C messages.");
+        Assert.True(ObjC.Load());
+
+        var (light, dark) = ReadThePaletteOnAThreadOfItsOwn();
+
+        // The instrument before the measurement: eleven roles, asked of the type rather than counted
+        // into a list here that would stop growing the day somebody forgot it.
+        var roles = typeof(SystemSemanticColors)
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(role => role.PropertyType == typeof(Color4?))
+            .ToArray();
+
+        Assert.Equal(11, roles.Length);
+
+        foreach (var (appearance, palette) in new[] { ("Aqua", light), ("Dark Aqua", dark) }) {
+            Assert.True(palette.IsKnown, $"{appearance}: the reader answered nothing at all.");
+
+            foreach (var role in roles) {
+                Assert.True(
+                    role.GetValue(palette) is not null,
+                    $"{appearance}: {role.Name} is null, so the selector it names is one AppKit does not answer."
+                );
+            }
+        }
+
+        // A background is light on Aqua and dark on Dark Aqua; its text is the other way round. Two
+        // pairs rather than one, because a transposition inside a pair is the mistake and a reader
+        // that got one pair right by luck would not get both.
+        AssertBackgroundAndText(light.Canvas, light.CanvasText, dark.Canvas, dark.CanvasText, "Canvas");
+        AssertBackgroundAndText(light.Field, light.FieldText, dark.Field, dark.FieldText, "Field");
+
+        // ⚠ Not one, and asserted through the production reader rather than through this file's own
+        // helper: `labelColor` is 84.7% opaque in both appearances, and a reader that rounded it
+        // would put pure black text where the platform draws it slightly soft.
+        Assert.Equal(0.847, light.CanvasText!.Value.A, 0.01);
+        Assert.Equal(0.847, dark.CanvasText!.Value.A, 0.01);
+    }
+
+    static void AssertBackgroundAndText(
+        Color4? lightBack,
+        Color4? lightText,
+        Color4? darkBack,
+        Color4? darkText,
+        string pair
+    ) {
+        Assert.True(lightBack!.Value.R > 0.66, $"Aqua {pair} was {lightBack}");
+        Assert.True(lightText!.Value.R < 0.34, $"Aqua {pair}Text was {lightText}");
+        Assert.True(darkBack!.Value.R < 0.34, $"Dark Aqua {pair} was {darkBack}");
+        Assert.True(darkText!.Value.R > 0.66, $"Dark Aqua {pair}Text was {darkText}");
+    }
+
+    /// <remarks>
+    ///     Off the main thread for the reason the file's own remarks give, and through the same
+    ///     <c>+setCurrentAppearance:</c> seam — which is thread-local, and is what makes the two
+    ///     passes independent.
+    /// </remarks>
+    static (SystemSemanticColors Light, SystemSemanticColors Dark) ReadThePaletteOnAThreadOfItsOwn() {
+        var light = SystemSemanticColors.Unknown;
+        var dark = SystemSemanticColors.Unknown;
+
+        var worker = new Thread(
+            () => {
+                SetAppearance("NSAppearanceNameAqua");
+                light = MacOSSemanticColors.Read();
+
+                SetAppearance("NSAppearanceNameDarkAqua");
+                dark = MacOSSemanticColors.Read();
+            }
+        );
+
+        worker.Start();
+
+        // ⚠ A ceiling and not a budget, on the terms the reader above states them: twenty-two
+        // messages take microseconds, and what this is here for is an AppKit call that decides it
+        // wants a run loop this process does not run.
+        Assert.True(worker.Join(TimeSpan.FromSeconds(30)), "The AppKit reads did not finish.");
+
+        return (light, dark);
+    }
+
+    /// <summary>Makes one appearance the current drawing appearance of the calling thread.</summary>
+    /// <remarks>
+    ///     ⚠ The appearance is named by its <em>string</em> rather than by the exported constant.
+    ///     <c>NSAppearanceNameAqua</c> is an <c>NSString *</c> symbol in AppKit, which would want a
+    ///     <c>dlsym</c> and a dereference; the strings behind those two constants are documented and
+    ///     are what <c>appearanceNamed:</c> compares against, and a wrong one returns nil — which the
+    ///     assertion below catches rather than silently reading the system appearance twice.
+    /// </remarks>
+    static void SetAppearance(string appearance) {
+        var named = ObjC.Send(
+            ObjC.GetClass("NSAppearance"),
+            ObjC.Selector("appearanceNamed:"),
+            ObjC.String(appearance)
+        );
+
+        Assert.NotEqual(0, named);
+
+        ObjC.Send(ObjC.GetClass("NSAppearance"), ObjC.Selector("setCurrentAppearance:"), named);
+    }
+
     static ((Rgba Label, Rgba TextBackground, Rgba Accent) Light, (Rgba Label, Rgba TextBackground, Rgba Accent) Dark)
         ReadOnAThreadOfItsOwn() {
         var light = default((Rgba, Rgba, Rgba));
@@ -116,23 +258,9 @@ public class MacOSSemanticColorTests {
         return (light, dark);
     }
 
-    /// <remarks>
-    ///     ⚠ The appearance is named by its <em>string</em> rather than by the exported constant.
-    ///     <c>NSAppearanceNameAqua</c> is an <c>NSString *</c> symbol in AppKit, which would want a
-    ///     <c>dlsym</c> and a dereference; the strings behind those two constants are documented and
-    ///     are what <c>appearanceNamed:</c> compares against, and a wrong one returns nil — which the
-    ///     assertion below catches rather than silently reading the system appearance twice.
-    /// </remarks>
+    /// <summary>This file's own three selectors, read under one appearance.</summary>
     static (Rgba Label, Rgba TextBackground, Rgba Accent) ReadUnder(string appearance) {
-        var named = ObjC.Send(
-            ObjC.GetClass("NSAppearance"),
-            ObjC.Selector("appearanceNamed:"),
-            ObjC.String(appearance)
-        );
-
-        Assert.NotEqual(0, named);
-
-        ObjC.Send(ObjC.GetClass("NSAppearance"), ObjC.Selector("setCurrentAppearance:"), named);
+        SetAppearance(appearance);
 
         return (Component("labelColor"), Component("textBackgroundColor"), Component("controlAccentColor"));
     }

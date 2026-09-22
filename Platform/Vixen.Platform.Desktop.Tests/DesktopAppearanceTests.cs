@@ -103,4 +103,50 @@ public sealed class DesktopAppearanceTests {
         Assert.Equal(1, reads);
         Assert.Equal(SystemColorScheme.Dark, appearance.Current);
     }
+
+    /// <summary>The semantic palette rides the appearance's poll and moves the appearance's event.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The scheme is held still, deliberately.</b> A palette read guarded by "the scheme
+    ///     changed" fires only on the way into dark mode — and the read this exists for, a Windows
+    ///     high-contrast scheme being switched on, does not touch the scheme at all. So the assertion
+    ///     is that a palette moving on its own is enough to report a change, and that a palette
+    ///     holding still is not.
+    /// </remarks>
+    [Fact]
+    public void TheSemanticPaletteIsPolledWithTheAppearanceAndMovesItsEvent() {
+        var palette = SystemSemanticColors.Unknown;
+
+        var appearance = new DesktopAppearance(
+            () => SystemColorScheme.Light,
+            repeatable: true,
+            semantic: () => palette
+        );
+
+        Assert.Equal(SystemSemanticColors.Unknown, appearance.SemanticColors);
+
+        palette = new SystemSemanticColors(CanvasText: new Core.Mathematics.Color4(1f, 1f, 1f, 1f));
+
+        for (var pump = 1; pump < DesktopAppearance.PumpsBetweenReads; pump++) {
+            Assert.False(appearance.Pump());
+        }
+
+        Assert.True(appearance.Pump());
+        Assert.Equal(palette, appearance.SemanticColors);
+
+        for (var pump = 0; pump < DesktopAppearance.PumpsBetweenReads; pump++) {
+            Assert.False(appearance.Pump());
+        }
+
+        // And back to nothing — the scheme going off — is a move too.
+        palette = SystemSemanticColors.Unknown;
+
+        for (var pump = 0; pump < DesktopAppearance.PumpsBetweenReads; pump++) {
+            if (appearance.Pump()) {
+                Assert.Equal(SystemSemanticColors.Unknown, appearance.SemanticColors);
+                return;
+            }
+        }
+
+        Assert.Fail("the palette going away was never reported.");
+    }
 }

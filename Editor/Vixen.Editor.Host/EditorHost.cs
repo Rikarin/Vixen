@@ -281,6 +281,18 @@ sealed class EditorHost : IDisposable {
     /// </remarks>
     public string? NextProject => editor.PendingProject;
 
+    /// <summary>The shell's document, for the tests that ask what the loop put in it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Internal, and it exists because the four <c>PlatformInput.Apply…</c> calls in this
+    ///     loop were reachable from no test.</b> A sweep for callers of <c>ApplyAccent</c> and
+    ///     <c>ApplySemanticColors</c> over <c>.cs</c> and <c>.vxml</c> found one test file, and it
+    ///     drives <c>PlatformInput</c> directly and builds no host — so deleting both lines from
+    ///     <em>either</em> host left every suite green while the surviving host kept working, which
+    ///     is the shape this repository's two-renderers rule is written about. What the assertion
+    ///     needs is the cell a platform colour lands in, and nothing else here exposes one.
+    /// </remarks>
+    internal UiDocument Document => editor.Shell.Document;
+
     /// <summary>Runs until the window closes, or for a fixed number of frames.</summary>
     /// <param name="frames">How many, or zero for as many as it takes.</param>
     /// <returns>A process exit code.</returns>
@@ -313,6 +325,7 @@ sealed class EditorHost : IDisposable {
         // notice — so a host that only handled the change would never see the first one.
         PlatformInput.ApplyColorScheme(editor.Shell.Document, platform.ColorScheme);
         PlatformInput.ApplyAccent(editor.Shell.Document, platform.Accent);
+        PlatformInput.ApplySemanticColors(editor.Shell.Document, platform.SemanticColors);
         PlatformInput.ApplyAccessibility(editor.Shell.Document, platform.Accessibility);
 
         while (running && (frames == 0 || drawn < frames)) {
@@ -522,6 +535,7 @@ sealed class EditorHost : IDisposable {
                     // paragraph above gives about wiring one of two: the editor's chrome is drawn
                     // with `--accent` too.
                     PlatformInput.ApplyAccent(editor.Shell.Document, platform.Accent);
+                    PlatformInput.ApplySemanticColors(editor.Shell.Document, platform.SemanticColors);
                     break;
 
                 case PlatformEventKind.SystemAccessibilityChanged:

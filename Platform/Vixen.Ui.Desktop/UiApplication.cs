@@ -602,6 +602,7 @@ public sealed class UiApplication : IDisposable {
         // palette on a machine whose appearance never changed, which is most of them.
         PlatformInput.ApplyColorScheme(Document, platform.ColorScheme);
         PlatformInput.ApplyAccent(Document, platform.Accent);
+        PlatformInput.ApplySemanticColors(Document, platform.SemanticColors);
         PlatformInput.ApplyAccessibility(Document, platform.Accessibility);
 
         Started?.Invoke(this);
@@ -761,6 +762,7 @@ public sealed class UiApplication : IDisposable {
                     // this kind rather than inventing a second — so a host that handled the scheme
                     // and not the accent would follow dark mode and never follow the colour.
                     PlatformInput.ApplyAccent(Document, platform.Accent);
+                    PlatformInput.ApplySemanticColors(Document, platform.SemanticColors);
                     break;
 
                 case PlatformEventKind.SystemAccessibilityChanged:

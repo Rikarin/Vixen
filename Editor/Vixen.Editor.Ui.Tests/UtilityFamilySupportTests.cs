@@ -888,6 +888,17 @@ public class UtilityFamilySupportTests {
         { "contain-size", "contain", "size" },
         { "contain-paint", "contain", "paint" },
 
+        // ⚠ <b>The marker family, and it is the one root in this table whose class name begins with
+        // a sigil.</b> `@container` is `container-type: inline-size`, and it was the last piece of
+        // container queries: the `@sm:` variants that ask the question landed a batch earlier, so
+        // until this every query container in the tree was declared in hand-written CSS. One row
+        // here for the property, because `ContainerMarkerFamilyTests` asks about the mapping and
+        // about the scope reaching a child's query; what this table adds is the editor's own tokens
+        // and its own theme, where `@container/main`'s second declaration would be dropped by a
+        // stricter loader without anybody noticing.
+        { "@container", "container-type", "inline-size" },
+        { "@container-normal", "container-type", "normal" },
+
         { "truncate", "overflow", "hidden" },
         { "overflow-scroll", "overflow", "scroll" },
         { "overflow-auto", "overflow", "auto" },
@@ -1573,6 +1584,12 @@ public class UtilityFamilySupportTests {
             "element under test, so no computed-value row can express it at all. `ChildScopedFamilyTests` " +
             "is where these are held.",
             "divide", "divide-x", "divide-y", "space-x", "space-y"
+        ),
+        new UncoveredGroup(
+            "a `Family.Scope` root whose scope is a tag: the declaration lands on `& > field-placeholder` " +
+            "— the prompt `TextField` builds — and never on the element under test. " +
+            "`The_placeholder_root_colours_the_prompt_and_never_the_field` is its row.",
+            "placeholder"
         )
         ];
 
@@ -1606,8 +1623,14 @@ public class UtilityFamilySupportTests {
     /// </remarks>
     [Fact]
     public void Every_registered_root_is_claimed_by_a_row_or_named_here() {
+        // ⚠ Parsed rather than `SplitName`d, and the difference appeared the first time the surface
+        // spelled a modifier. `SplitName`'s contract is the name half of a class whose variants and
+        // modifiers are already off, so `@container/probe` comes back as its own name and reads as
+        // an unclaimed root that no row could ever claim.
         var roots = UtilityFamilies.Surface(Tokens())
-            .Select(utility => UtilityFamilies.SplitName(utility).Name)
+            .Select(utility => UtilityParser.TryParse(utility, out var parsed)
+                ? parsed.Name
+                : UtilityFamilies.SplitName(utility).Name)
             .ToHashSet(StringComparer.Ordinal);
 
         // ⚠ Anti-vacuity, and it is two claims rather than one: a floor on how many roots the walk
@@ -3527,6 +3550,38 @@ public class UtilityFamilySupportTests {
         Assert.NotNull(accent);
         Assert.NotEqual(accent, hairline);
         Assert.Equal(accent, painted);
+    }
+
+    /// <summary>
+    ///     The sixth child-scoped root, and the first whose scope is a <i>tag</i>: <c>placeholder-*</c>
+    ///     colours <c>&gt; field-placeholder</c>, the prompt <c>TextField</c> builds, and never the
+    ///     field.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Against a real <c>TextBox</c> rather than a probe tagged by hand</b>, because the
+    ///     one way this family is wrong that no hand-built scene can see is a scope naming a tag the
+    ///     control does not build. And <c>color</c> inherits, so the negative is not "the value box
+    ///     holds nothing": it is that neither the field nor its value box holds the accent, which
+    ///     is the difference between colouring the prompt and colouring the field and letting the
+    ///     prompt inherit it.
+    /// </remarks>
+    [Fact]
+    public void The_placeholder_root_colours_the_prompt_and_never_the_field() {
+        using var ui = Sheet("placeholder-accent", "bg-accent");
+
+        var field = ui.Document.Root.Add<TextBox>(null, null, "placeholder-accent");
+        var accentSource = ui.Create("probe", ui.Document.Root, null, "bg-accent");
+
+        ui.Frame();
+
+        var prompt = field.Children.Single(child => child.Tag == "field-placeholder");
+        var text = field.Children.Single(child => child.Tag == "field-text");
+        var accent = ui.ColorOf(accentSource, "background-color");
+
+        Assert.NotNull(accent);
+        Assert.Equal(accent, ui.ColorOf(prompt, "color"));
+        Assert.NotEqual(accent, ui.ColorOf(text, "color"));
+        Assert.NotEqual(accent, ui.ColorOf(field, "color"));
     }
 
     /// <summary>

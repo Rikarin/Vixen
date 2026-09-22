@@ -49,6 +49,8 @@ Vixen.Platform.Windows.WindowsProcessorTopology.PhysicalCores.get -> int
 Vixen.Platform.Windows.WindowsProcessorTopology.SupportsAffinity.get -> bool
 Vixen.Platform.Windows.WindowsProcessorTopology.TrySetAffinity(int processor) -> bool
 Vixen.Platform.Windows.WindowsProcessorTopology.WindowsProcessorTopology() -> void
+Vixen.Platform.Windows.WindowsSemanticColors -> static class
 static Vixen.Platform.Windows.WindowsAccent.Read() -> Vixen.Platform.SystemAccent
 static Vixen.Platform.Windows.WindowsAccessibility.Read() -> Vixen.Platform.SystemAccessibility
 static Vixen.Platform.Windows.WindowsAppearance.Read() -> Vixen.Platform.SystemColorScheme
+static Vixen.Platform.Windows.WindowsSemanticColors.Read() -> Vixen.Platform.SystemSemanticColors

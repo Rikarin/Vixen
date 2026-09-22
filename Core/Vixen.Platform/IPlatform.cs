@@ -88,6 +88,25 @@ public interface IPlatform : IDisposable {
     /// </remarks>
     SystemAccent Accent { get; }
 
+    /// <summary>The operating system's semantic palette — its label, field, button and selection colours.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Cached and refreshed by <see cref="PumpEvents" /> on the same terms as
+    ///         <see cref="Accent" />, and it moves across the same
+    ///         <see cref="PlatformEventKind.SystemColorSchemeChanged" />: a palette that follows the
+    ///         appearance changes when the appearance does, and a host that re-applies the accent on
+    ///         that event re-applies this beside it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A default member answering <see cref="SystemSemanticColors.Unknown" />, so a
+    ///         platform with no reader implements nothing and a sheet naming <c>CanvasText</c> keeps
+    ///         following <c>SystemPalette</c>'s own tables there.</b> A partial answer is the normal
+    ///         one: each role is nullable on its own, and a role the platform did not supply is left
+    ///         to the table rather than invented. See <see cref="SystemSemanticColors" />.
+    ///     </para>
+    /// </remarks>
+    SystemSemanticColors SemanticColors => SystemSemanticColors.Unknown;
+
     /// <summary>Where this platform keeps files.</summary>
     IFileSystemHost FileSystem { get; }
 
