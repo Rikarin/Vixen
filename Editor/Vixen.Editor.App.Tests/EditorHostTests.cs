@@ -37,6 +37,11 @@ namespace Vixen.Editor.App.Tests;
 ///     </para>
 /// </remarks>
 public class EditorHostTests {
+    /// <summary>A platform colour no default table could produce, so a match cannot be a coincidence.</summary>
+    static readonly Color4 Label = new(0.42f, 0.13f, 0.77f, 1f);
+
+    static SystemSemanticColors Palette => new(CanvasText: Label);
+
     static (TemporaryFileSystemHost Files, HeadlessPlatform Platform, IWindow Window) Open() {
         var files = new TemporaryFileSystemHost();
         var platform = new HeadlessPlatform(new HeadlessPlatformOptions { FileSystem = files });
@@ -134,11 +139,6 @@ public class EditorHostTests {
             Assert.True(File.Exists(Path.Combine(files.DataDirectory, "keybindings.yaml")), "keybindings.yaml");
         }
     }
-
-    /// <summary>A palette no default table could produce, so a match cannot be a coincidence.</summary>
-    static readonly Color4 Label = new(0.42f, 0.13f, 0.77f, 1f);
-
-    static SystemSemanticColors Palette => new(CanvasText: Label);
 
     /// <summary>The palette the machine already had reaches the shell before the first frame.</summary>
     /// <remarks>
