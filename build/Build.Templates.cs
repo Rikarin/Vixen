@@ -261,6 +261,40 @@ partial class Build {
         );
     }
 
+    /// <summary>The one file in a scaffolded template that MSBuild should be pointed at.</summary>
+    /// <param name="where">The scaffolded directory.</param>
+    /// <param name="id">The template's short name, for the message.</param>
+    /// <remarks>
+    ///     A solution when the template ships one — <c>vixen-mmo</c> does, and its projects live in
+    ///     subdirectories — and otherwise the single <c>.csproj</c> at the root. ⚠ Anything else is
+    ///     a failure rather than a guess: a template that scaffolds two buildable projects and no
+    ///     solution is a template whose first build is ambiguous for whoever runs it, and picking
+    ///     one here would be this gate deciding not to notice.
+    /// </remarks>
+    static AbsolutePath ProjectToBuild(AbsolutePath where, string id) {
+        var solutions = where.GlobFiles("*.slnx", "*.sln").ToList();
+
+        if (solutions.Count == 1) {
+            return solutions[0];
+        }
+
+        Assert.True(
+            solutions.Count == 0,
+            $"`dotnet new {id}` scaffolded {solutions.Count} solution files, so there is no one "
+            + "thing to build: " + string.Join(", ", solutions.Select(file => file.Name))
+        );
+
+        var projects = where.GlobFiles("*.csproj").ToList();
+
+        Assert.True(
+            projects.Count == 1,
+            $"`dotnet new {id}` scaffolded {projects.Count} .csproj files and no solution, so there "
+            + "is no one thing to build: " + string.Join(", ", projects.Select(file => file.Name))
+        );
+
+        return projects[0];
+    }
+
     /// <summary>Scaffolds one template outside the repository and builds it against the local feed.</summary>
     /// <param name="root">The scaffolding root.</param>
     /// <param name="cache">The package cache, empty when this target started.</param>
@@ -286,9 +320,24 @@ partial class Build {
 
         Assert.True(create.ExitCode == 0, $"`dotnet new {id}` exited {create.ExitCode}");
 
+        // ⚠ The project is NAMED, because handing `dotnet build` a directory asks it to guess and
+        // one of these templates gives it two answers. A Vixen project descriptor is
+        // `<name>.vxproj` — YAML the editor and the `vixen` tool find a project by — and MSBuild
+        // counts every file whose extension ends in `proj` when it scans a folder, so
+        // `vixen-game`, the one template that scaffolds a `.csproj` and a `.vxproj` side by side,
+        // stopped at MSB1050 before a single package was resolved. ⚠ **A solution file does not
+        // settle it**: measured here, a folder holding a `.slnx`, a `.csproj` and a `.vxproj` is
+        // refused exactly as the folder without the solution is.
+        //
+        // That is also a real defect in what a user gets — `dotnet build` and `dotnet run` in a
+        // freshly scaffolded game both fail — and naming the project here deliberately does not fix
+        // it, because the fix is the extension and that is a decision about a published format
+        // rather than about this gate. This target's question is whether the scaffolded source
+        // builds against the packages just packed, and naming the project is how it gets asked
+        // unambiguously.
         var build = ProcessTasks.StartProcess(
             "dotnet",
-            $"build \"{where}\" --packages \"{cache}\" --configuration Release",
+            $"build \"{ProjectToBuild(where, id)}\" --packages \"{cache}\" --configuration Release",
             where
         );
 
