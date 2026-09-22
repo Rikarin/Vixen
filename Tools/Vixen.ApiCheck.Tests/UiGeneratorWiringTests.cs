@@ -691,9 +691,15 @@ public sealed class UiGeneratorWiringTests : IDisposable {
         process.StartInfo.ArgumentList.Add("-nologo");
         process.StartInfo.ArgumentList.Add("-nodeReuse:false");
 
+        // ⚠ Two buffers, because only one of them is JSON. The two streams used to be appended
+        // into one and the whole thing parsed, so a single line MSBuild wrote to stderr — a
+        // warning, a first-run notice, anything — made the evaluation "':' is invalid after a
+        // single JSON value" on the macOS leg (run 35712442787) with the answer sitting intact
+        // one line down. stderr is kept for the message a failed evaluation prints.
         var output = new StringBuilder();
+        var errors = new StringBuilder();
         process.OutputDataReceived += (_, line) => output.AppendLine(line.Data);
-        process.ErrorDataReceived += (_, line) => output.AppendLine(line.Data);
+        process.ErrorDataReceived += (_, line) => errors.AppendLine(line.Data);
 
         process.Start();
         process.BeginOutputReadLine();
@@ -705,7 +711,7 @@ public sealed class UiGeneratorWiringTests : IDisposable {
         // evaluation did not happen" is indistinguishable from "no duplicates" to every assertion
         // above. ⚠ An empty item list, though, is a real answer — Tools/Vixen.Templates references
         // no project at all — so the aggregate is what the caller checks instead.
-        Assert.True(process.ExitCode == 0, $"Evaluating {project} failed:\n{output}");
+        Assert.True(process.ExitCode == 0, $"Evaluating {project} failed:\n{output}\n{errors}");
 
         using var json = JsonDocument.Parse(output.ToString());
 
