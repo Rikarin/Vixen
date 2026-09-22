@@ -237,6 +237,16 @@ sealed class EditorHost : IDisposable {
 
         Fonts.Install(editor.Shell.Document);
 
+        // ⚠ After Open Sans, so that it cannot become the default. Four declarations across the
+        // advanced theme and the editor's sheets say `font-family: monospace` — the code editor,
+        // the errors panel, the revisions patch and the asset editors' code views — and the editor
+        // ships no fixed-pitch face, so until #1259 all four resolved to Open Sans and every
+        // `column × CharacterWidth` in `CodeEditor` was wrong for an `i`.
+        // Borrowed from the machine for now, which `Fonts` rightly calls a starting
+        // point rather than a design: the editor's own doctrine is to ship its faces, and the
+        // shipped fixed-pitch one is a licence decision that is not made here (#1315).
+        SystemFonts.InstallMonospace(editor.Shell.Document);
+
         // ⚠ After the font, because how a shortcut should be written depends on what the face can
         // draw. macOS's ⌘ ⇧ ⌥ ⌃ are missing from Arial — which is what `Fonts` finds there — and an
         // unmapped codepoint resolves to glyph zero rather than to a box, so the bar read "L+S" for

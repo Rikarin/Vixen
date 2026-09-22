@@ -165,6 +165,12 @@ public sealed class UiApplication : IDisposable {
 
         if (options.InstallSystemFont) {
             SystemFonts.Install(Document);
+
+            // ⚠ After the UI face, so that it cannot become the default. The advanced theme's
+            // `code-editor` says `font-family: monospace`, and without a family by that name the
+            // declaration resolves to whatever `Install` found — a proportional face under a
+            // control whose caret is `column × CharacterWidth`.
+            SystemFonts.InstallMonospace(Document);
         }
 
         // ⚠ **Installed rather than offered, because "no manager" is what a text field checks and a

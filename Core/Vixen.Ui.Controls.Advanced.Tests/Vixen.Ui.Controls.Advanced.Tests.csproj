@@ -21,6 +21,14 @@
     <ItemGroup>
         <EmbeddedResource Include="..\Vixen.Ui.Text.Tests\Fonts\TestShapeLana.ttf"
                           LogicalName="Vixen.Ui.Controls.Advanced.Tests.Fonts.TestShapeLana.ttf" />
+
+        <!--
+            The fixed-pitch face `font-family: monospace` resolves to in this suite. Synthetic and
+            Vixen's own, built by Fonts/TestMono.py; the README beside it says why a proportional
+            face here made every CodeEditor geometry assertion true of itself.
+        -->
+        <EmbeddedResource Include="Fonts\TestMono.ttf"
+                          LogicalName="Vixen.Ui.Controls.Advanced.Tests.Fonts.TestMono.ttf" />
     </ItemGroup>
 
     <ItemGroup>
