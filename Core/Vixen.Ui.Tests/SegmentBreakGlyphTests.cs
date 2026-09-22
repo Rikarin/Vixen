@@ -131,7 +131,7 @@ public class SegmentBreakGlyphTests {
 
         var expected = Ids(Block("ab").Lines[0]);
         Assert.Equal(2, expected.Length);
-        Assert.DoesNotContain((ushort) 0, expected);
+        Assert.DoesNotContain((ushort)0, expected);
 
         Assert.Equal(expected, Ids(block.Lines[0]));
         Assert.Equal(Ids(Block("cd").Lines[0]), Ids(block.Lines[1]));
