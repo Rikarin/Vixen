@@ -444,8 +444,20 @@ partial class Build {
             }
         );
 
+    /// <summary>The top-level directory a project sits under, which is the layer it belongs to.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>ToUnixRelativePath</c> is load-bearing, not decoration.</b> Nuke renders a relative
+    ///     path with the platform separator, so on Windows this read a backslash string, found no
+    ///     <c>'/'</c> in it, and answered <c>Root</c> for <i>every</i> project in the tree. Every rule
+    ///     below that asks what layer something is in was therefore inert on Windows — the upward
+    ///     reference rule compared <c>Root</c> to <c>Root</c>, the editor-only package rule never saw a
+    ///     <c>Core</c> or <c>Platform</c> assembly — while the one rule phrased as "not in Live" fired
+    ///     on all five assemblies that are in Live or are doc 27's <c>MyGame.Cluster</c>. A gate that
+    ///     reports the exact defect it exists to refuse, on the day it is not running, is the shape
+    ///     CLAUDE.md says to check for first. CI is Linux, so CI never saw either half.
+    /// </remarks>
     static string LayerOf(AbsolutePath project) {
-        var relative = RootDirectory.GetRelativePathTo(project).ToString();
+        var relative = RootDirectory.GetRelativePathTo(project).ToUnixRelativePath().ToString();
         var separator = relative.IndexOf('/');
         return separator < 0 ? "Root" : relative[..separator];
     }
