@@ -76,6 +76,14 @@ public class AccessibleNameLocalisationTests {
             var picker = root.Add<ColorPicker>();
             picker.AllowHdr = true;
 
+            // ⚠ The two controls that took catalogue-fed accessible names *after* this window was
+            // written, and were therefore outside it: a gradient editor's rails and its two
+            // selects, and a node canvas's surface. The class assertion below is exactly as wide as
+            // this window, so a control that is not in it can answer with an English literal and
+            // pass — which is the drift the file's remarks warn about, and it had happened.
+            root.Add<GradientEditor>();
+            root.Add<NodeCanvas>();
+
             fixture.Update();
 
             // ⚠ First, because a check over a tree is satisfied perfectly by an empty tree.
@@ -154,7 +162,16 @@ public class AccessibleNameLocalisationTests {
         ControlStrings.PropertyGridSearch,
         ControlStrings.ColorPickerEyedropper,
         ControlStrings.ColorPickerIntensity,
-        ControlStrings.ColorPickerHex
+        ControlStrings.ColorPickerHex,
+        ControlStrings.ColorPickerHue,
+        ControlStrings.ColorPickerAlpha,
+        ControlStrings.ColorPickerField,
+        ControlStrings.ColorPickerPalette,
+        ControlStrings.GradientEditorSpace,
+        ControlStrings.GradientEditorOpacity,
+        ControlStrings.GradientEditorColorStops,
+        ControlStrings.GradientEditorAlphaStops,
+        ControlStrings.NodeCanvasNodes
     ];
 
     /// <summary>Every string the control set declares, in a language that is not the source one.</summary>

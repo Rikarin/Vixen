@@ -150,6 +150,11 @@ public class AccessibleNameLocalisationTests {
             // `OnCreated`, so a split built above this line would carry the English one.
             root.Add<SplitView>();
 
+            // And the stepper's two arrows, which say "Increase" and "Decrease" and show a chevron
+            // — catalogue-fed names that arrived after this window was written and were outside it.
+            var stepper = root.Add<Stepper>();
+            stepper.AddAccessibleRelation(AccessibleRelation.LabelledBy, Caption(root, "Count"));
+
             fixture.Update();
 
             // ⚠ **First, and for A2's reason: a check over a tree can be satisfied by an empty
@@ -191,7 +196,9 @@ public class AccessibleNameLocalisationTests {
         ControlStrings.PaginationNext,
         ControlStrings.ScrollBarVertical,
         ControlStrings.ScrollBarHorizontal,
-        ControlStrings.SplitViewDivider
+        ControlStrings.SplitViewDivider,
+        ControlStrings.StepperIncrease,
+        ControlStrings.StepperDecrease
     ];
 
     /// <summary>Words beside a field, which is the only thing a field's name is ever made of.</summary>
