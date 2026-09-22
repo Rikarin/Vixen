@@ -134,6 +134,7 @@ internal enum SpirvOp {
     SLessThanEqual = 179,
     FOrdEqual = 180,
     FOrdNotEqual = 182,
+    FUnordNotEqual = 183,
     FOrdLessThan = 184,
     FOrdGreaterThan = 186,
     FOrdLessThanEqual = 188,

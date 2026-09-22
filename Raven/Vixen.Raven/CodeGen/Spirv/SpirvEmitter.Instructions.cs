@@ -441,8 +441,13 @@ partial class SpirvEmitter {
             IrBinaryOp.LogicalOr => SpirvOp.LogicalOr,
             IrBinaryOp.Equal => component == IrTypeKind.Bool ? SpirvOp.LogicalEqual
                 : Real(component) ? SpirvOp.FOrdEqual : SpirvOp.IEqual,
+            // ⚠ Unordered, so that `a != b` is the negation of `a == b` when either is a NaN — which
+            // is what C, GLSL, HLSL and MSL all mean by `!=`, what the GLSL backend cannot help
+            // emitting (GLSL has no ordered `!=`), and what this backend did not do until #1226:
+            // `OpFOrdNotEqual` is *false* on a NaN, so one source took different branches on the
+            // two targets and `==` and `!=` were both false on the same operands.
             IrBinaryOp.NotEqual => component == IrTypeKind.Bool ? SpirvOp.LogicalNotEqual
-                : Real(component) ? SpirvOp.FOrdNotEqual : SpirvOp.INotEqual,
+                : Real(component) ? SpirvOp.FUnordNotEqual : SpirvOp.INotEqual,
             IrBinaryOp.LessThan => Comparison(component, SpirvOp.FOrdLessThan, SpirvOp.SLessThan, SpirvOp.ULessThan),
             IrBinaryOp.LessThanOrEqual => Comparison(
                 component,

@@ -1413,9 +1413,10 @@ public partial class SharedUiShaderTests {
     ///         shuffles, composite construction and control flow: two front ends make different
     ///         choices there for the same source, and requiring them to agree would measure
     ///         <c>glslc</c> against Raven rather than one shader against the other.
-    ///         <c>OpFOrdNotEqual</c> against <c>OpFUnordNotEqual</c> is the one of those that has a
-    ///         semantics behind it &#8212; they differ on a NaN &#8212; and it is #1226 rather than a widening
-    ///         of this.
+    ///         <c>OpFOrdNotEqual</c> against <c>OpFUnordNotEqual</c> was the one of those that had a
+    ///         semantics behind it &#8212; they differ on a NaN &#8212; and it was settled in Raven rather
+    ///         than by a widening of this: #1226 made the SPIR-V backend's float <c>!=</c> unordered,
+    ///         which is what GLSL's already was, so the two box modules now agree there too.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And it cannot compare <em>association</em>, which is why a green run here is not
