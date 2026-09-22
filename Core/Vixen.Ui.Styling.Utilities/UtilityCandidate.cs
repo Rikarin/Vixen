@@ -254,6 +254,12 @@ public static class UtilityParser {
     ///         identifier like any other.
     ///     </para>
     /// </remarks>
+    /// <summary>Whether a run of text is a plain CSS identifier — a container name, say.</summary>
+    /// <param name="text">The text.</param>
+    /// <returns>Whether it is an identifier with no leading <c>--</c>.</returns>
+    internal static bool IsIdentifierName(string text) =>
+        !text.StartsWith("--", StringComparison.Ordinal) && IsPropertyName(text);
+
     static bool IsPropertyName(string text) {
         if (text.Length == 0) {
             return false;

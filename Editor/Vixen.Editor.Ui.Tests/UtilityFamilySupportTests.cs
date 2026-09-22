@@ -888,6 +888,17 @@ public class UtilityFamilySupportTests {
         { "contain-size", "contain", "size" },
         { "contain-paint", "contain", "paint" },
 
+        // ⚠ <b>The marker family, and it is the one root in this table whose class name begins with
+        // a sigil.</b> `@container` is `container-type: inline-size`, and it was the last piece of
+        // container queries: the `@sm:` variants that ask the question landed a batch earlier, so
+        // until this every query container in the tree was declared in hand-written CSS. One row
+        // here for the property, because `ContainerMarkerFamilyTests` asks about the mapping and
+        // about the scope reaching a child's query; what this table adds is the editor's own tokens
+        // and its own theme, where `@container/main`'s second declaration would be dropped by a
+        // stricter loader without anybody noticing.
+        { "@container", "container-type", "inline-size" },
+        { "@container-normal", "container-type", "normal" },
+
         { "truncate", "overflow", "hidden" },
         { "overflow-scroll", "overflow", "scroll" },
         { "overflow-auto", "overflow", "auto" },
@@ -1612,8 +1623,14 @@ public class UtilityFamilySupportTests {
     /// </remarks>
     [Fact]
     public void Every_registered_root_is_claimed_by_a_row_or_named_here() {
+        // ⚠ Parsed rather than `SplitName`d, and the difference appeared the first time the surface
+        // spelled a modifier. `SplitName`'s contract is the name half of a class whose variants and
+        // modifiers are already off, so `@container/probe` comes back as its own name and reads as
+        // an unclaimed root that no row could ever claim.
         var roots = UtilityFamilies.Surface(Tokens())
-            .Select(utility => UtilityFamilies.SplitName(utility).Name)
+            .Select(utility => UtilityParser.TryParse(utility, out var parsed)
+                ? parsed.Name
+                : UtilityFamilies.SplitName(utility).Name)
             .ToHashSet(StringComparer.Ordinal);
 
         // ⚠ Anti-vacuity, and it is two claims rather than one: a floor on how many roots the walk

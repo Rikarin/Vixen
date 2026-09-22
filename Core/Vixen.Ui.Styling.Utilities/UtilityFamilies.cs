@@ -198,7 +198,10 @@ enum SlashMeaning : byte {
     ///     A line height beside a font size — <c>text-lg/7</c> — or an alpha when the value read as
     ///     a colour instead, which is the one family whose slash means two things.
     /// </summary>
-    Leading
+    Leading,
+
+    /// <summary>A container name beside the container type: <c>@container/main</c>.</summary>
+    Name
 }
 
 /// <summary>The utilities a class name can name, and what each one emits.</summary>
@@ -2699,6 +2702,24 @@ public static class UtilityFamilies {
             ["layout"] = "layout", ["paint"] = "paint", ["style"] = "style"
         });
 
+        // ⚠ <b>The `@container` MARKER family — the class that makes a box a query container — and
+        // the one root in this table spelled with a sigil.</b> v4 emits `container-type: inline-size`
+        // for the bare `@container`, `normal` and `size` for the two keywords, and `container-name`
+        // beside it for `@container/main`. The `@sm:` variants that ask the question landed first
+        // (#273) and every container in this tree was declared in hand-written CSS until this did,
+        // because a marker faces `UtilityConsumptionGateTests` where a pure variant does not:
+        // `container-type` moves none of the four channels unless the scene holds a query reacting
+        // to it, which is what the `queried` probe scene is for.
+        //
+        // ⚠ <b>The name is not a prefix of `contain` and `contain` is not a prefix of it</b> — the
+        // `@` is what keeps the two apart in the longest-prefix walk — which is the collision the
+        // remark above warns a bare `container` root would have. The `@` reaches the registry only
+        // because `CandidateScanner` admits exactly this name without a colon; every other
+        // `@`-word it sees is an at-keyword.
+        Register(new Family("@container", ValueKind.Static, ["container-type"], Keywords: new(StringComparer.Ordinal) {
+            [string.Empty] = "inline-size", ["normal"] = "normal", ["size"] = "size"
+        }) { Slash = SlashMeaning.Name });
+
         // ⚠ <b>Lengths where the web has keywords, because the two are answering different
         // questions.</b> A browser's `scrollbar-width: auto | thin | none` is a page's *preference*
         // about a widget the browser owns and draws; nothing here owns one, so the useful value is
@@ -2960,6 +2981,15 @@ public static class UtilityFamilies {
                 Consider($"{name}-{value}");
             }
 
+            // ⚠ The one modifier that emits a SECOND property rather than changing the first, so it
+            // is the one the surface has to spell or the property never reaches the consumption
+            // gate at all. An alpha, a fraction, a ratio and a line height all resolve into the
+            // declarations the head already emits; `@container/main` adds `container-name`, and a
+            // surface without this line would leave that property in neither the read set nor the
+            // inert one — unclassified, which the probe's own remarks call worse than wrong.
+            if (family.Slash == SlashMeaning.Name) {
+                Consider($"{name}/probe");
+            }
         }
 
         return probes;
@@ -3281,6 +3311,18 @@ public static class UtilityFamilies {
             return TryRatioPart(candidate.Value, out var antecedent)
                 && TryRatioPart(denominator, out var consequent)
                 && Emit(family, antecedent + " / " + consequent, declarations);
+        }
+
+        // ⚠ A name before the keywords, for `aspect-*`'s reason one entry up: the keyword branch
+        // refuses every modifier, and `@container/main` is a keyword — the empty one — carrying a
+        // name. The name has to be an identifier, because `container-name: 24rem` is a declaration
+        // ExCSS drops whole and the class would then resolve to a container nobody can ask for.
+        if (family.Slash == SlashMeaning.Name && candidate.SlashSuffix is { } containerName) {
+            return UtilityParser.IsIdentifierName(containerName)
+                && family.Keywords is not null
+                && family.Keywords.TryGetValue(candidate.Value, out var containerType)
+                && Emit(family, containerType, declarations)
+                && EmitInto(["container-name"], containerName, declarations);
         }
 
         // Keywords first, because `text-center` has to beat any colour or size named `center`.
