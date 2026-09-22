@@ -1864,9 +1864,30 @@ the ring is turned on *both* of `Update`'s exits.
 **`DrawListsBuilt` and `DrawListsChanged` are the instrument for the damage-tracking work, and they
 exist before it.** There is no retained per-element surface and no dirty-rect path — `DrawListBuilder`
 reconstructs the whole list on every frame of every window — and the only economy is a content diff
-*afterwards*, `DrawList.Version`, which lets a still window skip the tessellation and the GPU
-recording and does not skip the rebuild that produced the identical list again. A still document
-reports thirty rebuilds and one change over thirty frames, and that gap is the waste.
+*afterwards*, `DrawList.Version`, which is the first part of `UiGeometryBuilder.TryBuild`'s key and
+lets a still window keep its geometry rather than flatten and tessellate again, and does not skip
+the rebuild that produced the identical list. A still document reports thirty rebuilds and one
+change over thirty frames, and that gap is the waste.
+
+⚠ **`DrawCommandsEmitted` is the third number, and it is the one a retained surface moves.** The two
+counts say how often the rebuild happened; this says how big it was, which thirty rebuilds of an
+eight-element window and thirty of the editor shell cannot distinguish between. A still window emits
+its whole picture on every frame, so it reads as the picture's length times the frame count — and
+all but one length of that produced nothing. `IdleFrameWorkTests` asserts the exact product rather
+than a ceiling, because a bound would be met by a builder emitting fewer commands for the wrong
+reason.
+
+⚠ **What a still window pays and what it does not, stated as the counters that measure it.**
+`DrawListsBuilt` climbs once per window per frame — the rebuild is paid. `Tessellations` climbs once
+and `TessellationsSkipped` takes the rest — the geometry is kept, on a five-part key (draw-list
+version, extent, atlas revision, the colour handover, and the flattening tolerance and fringe a DPI
+change reaches when the extent does not move). And `UiRenderer.GeometryUploads` climbs once while
+`GeometryUploadsSkipped` takes the rest — the copy to the device is keyed on
+`UiGeometry.Generation`, so a frame answered with the geometry the builder already held draws from
+the region the device already has, and allocates and writes nothing. What is still paid every frame
+besides the rebuild is the command recording itself, because the swapchain hands back a different
+image each frame and something has to draw into it. An earlier version of this paragraph said the
+GPU recording was skipped; it never was, and the upload it did not mention was paid every frame.
 
 ⚠ **Neither number means anything alone, and the pair is stated as work rather than as watts.** A
 rebuild count is the same on an idle laptop and a loaded one; the differential doc 49 asks for — idle
@@ -1901,19 +1922,43 @@ arrangement for exactly that reason — it is what lets the assertions be equali
 
 `UiApplication.Diagnostics` is the wiring: assigned a panel, the loop refreshes it *before*
 `Document.Update`, which is the one thing an application cannot get right on its own — where the
-panel goes and what it describes stay the application's. Still owed there: nothing in the tree
-assigns one yet, so the sample or editor adoption that would make the path taken by something is the
-next move.
+panel goes and what it describes stay the application's. Both hosts now take it: the editor registers
+the panel as `ui-diagnostics` and refreshes it first in `EditorShell.Tick`, and
+`Samples/02-HelloUi`'s View ▸ Toggle UI Diagnostics makes one and hands it to the loop through
+`ShellModel.Diagnostics`.
 
-### Still owed: the drawn overlay, and the reason it is not written here
+⚠ **And with no `Probe`, the panel describes the subject's own `Hovered` element.** That is what
+makes the element rows appear at all in a host that has no pointer position to hand over — which is
+every host, because a `UiDocument` does not expose one. For three batches the editor registered the
+panel, refreshed it correctly, and showed those rows to nobody.
 
-⚠ The panel above is the *readable* half. Doc 13's fourth row is a dirty-region **highlight** and its
-first two are outlines over the live elements, and neither is text: they want boxes drawn in the
-subject document's coordinates, which is a second surface or an absolutely-positioned layer rather
-than a row in a list. The material is all there — `DirtyRegions` and `BoxOf` — and nothing draws it.
+### Landed: `DiagnosticsOverlay`, the drawn half
+
+`Vixen.Ui.Controls`' `DiagnosticsOverlay` is doc 13's first two rows and its fourth, drawn where they
+are: four nested outlines round the element under the pointer — the inspector's own colours, as
+theme tokens — and a translucent wash over each region the last pass invalidated. It has
+[a guide page](../../docs/guide/ui/diagnostics-overlay.md), and `DiagnosticsOverlayTests` asserts on
+the draw list rather than on a picture, so "the border box was outlined" is an equality against
+`BoxOf`'s answer rather than a pixel that happens to be yellow.
+
+⚠ **It goes in the document it describes, which is the opposite of the panel's advice, and they are
+two controls for exactly that reason.** The boxes are in the subject's coordinates, so an overlay
+elsewhere draws them elsewhere; and it costs the subject nothing to hold, because it draws and never
+writes. The theme rule puts it over the whole surface with `pointer-events: none` — load-bearing
+rather than tidy, since an overlay the hit test could land on would outline its own full-surface box
+for ever.
+
+⚠ **A cold pass is not washed**, although it is recorded and the panel counts it: `Invalidate`
+records the root's own box, and a wash over the whole document says nothing about *where*. That is
+also why the palette sweep next door cannot measure this control — its ink is a function of what the
+document did, and putting a class on the root to ask for the dark palette is itself an invalidation
+of the root. `ControlPaletteCoverageTests.Unmeasured` says so in writing.
+
+### Why both of them are controls
 
 The paragraphs below are the reasoning that decided the panel's shape, kept because the seam question
-was answered wrongly three times before it was answered.
+was answered wrongly three times before it was answered — and the overlay inherits the answer rather
+than reopening it.
 
 
 

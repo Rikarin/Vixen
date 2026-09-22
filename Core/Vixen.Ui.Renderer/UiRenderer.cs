@@ -283,6 +283,18 @@ public sealed class UiRenderer : IDisposable {
     /// <summary>Which region this frame writes and draws from.</summary>
     int slot;
 
+    /// <summary>The <see cref="UiGeometry.Generation" /> the region at <see cref="slot" /> holds, or zero.</summary>
+    int uploadedGeneration;
+
+    /// <summary>Whether this frame's <see cref="Upload" /> answered from the region already written.</summary>
+    /// <remarks>
+    ///     ⚠ Read by <see cref="Compose" />, which is the one later step that can need a write at
+    ///     <see cref="slot" /> — a set for a backdrop view that changed, or a layer surface that has
+    ///     to be made — and on a skipped frame <see cref="slot" /> is a region the frame just
+    ///     submitted is still reading. See <see cref="EnsureUploaded" />.
+    /// </remarks>
+    bool skipped;
+
     TextureHandle atlasTexture;
     TextureViewHandle atlasView;
     DescriptorSetHandle[] atlasDescriptors = [];
@@ -540,6 +552,16 @@ public sealed class UiRenderer : IDisposable {
     BufferHandle fullscreenVertices;
 
     BufferHandle fullscreenIndices;
+
+    /// <summary>The surface each region of <see cref="fullscreenVertices" /> holds a quad for, or zero.</summary>
+    /// <remarks>
+    ///     ⚠ Kept so the quad is written when the region needs it and not every frame: on a frame
+    ///     <see cref="Upload" /> skipped, <see cref="slot" /> is a region the previous frame is still
+    ///     drawing from, and a host write into it — even of the bytes it already holds — is the race
+    ///     the ring exists to avoid. A skipped frame has the extent of the frame before it by
+    ///     construction, so the comparison is what makes the write not happen.
+    /// </remarks>
+    Int2[] fullscreenSurfaces = [];
 
     /// <summary>One set per frame in flight, pointing at <see cref="UiBackdropSource.Image" />.</summary>
     /// <remarks>
@@ -1136,6 +1158,40 @@ public sealed class UiRenderer : IDisposable {
     /// </remarks>
     public int AtlasUploads { get; private set; }
 
+    /// <summary>How many frames actually copied their geometry to the device.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Read against <see cref="GeometryUploadsSkipped" /> and never alone</b>, the way
+    ///         <c>UiGeometryBuilder.Tessellations</c> is read against <c>TessellationsSkipped</c>.
+    ///         This is the last third of what doc 49 § 7.3 calls an idle frame: the draw list is
+    ///         rebuilt every frame and always will be until there is a retained surface, the
+    ///         flatten-and-tessellate is skipped on a still window by the builder's key — and until
+    ///         these two counters existed the copy to the device was paid every frame regardless,
+    ///         four arrays allocated and every vertex marshalled into host-visible memory to put the
+    ///         bytes the region already held back where they were.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Keyed on <see cref="UiGeometry.Generation" /> and on nothing the lists say.</b>
+    ///         The builder hands back the same list instances every frame and rewrites them in place,
+    ///         so reference identity is true of every frame and content identity costs the comparison
+    ///         the skip is meant to save. Geometry stamped zero is uploaded every time, which is every
+    ///         host and test that builds it by hand.
+    ///     </para>
+    /// </remarks>
+    public int GeometryUploads { get; private set; }
+
+    /// <summary>How many frames were drawn from the geometry the device already had.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not merely "the generation matched".</b> A frame is answered from its region only
+    ///     when nothing has to be written <i>at</i> that region either: a host that re-registered an
+    ///     image since the last upload has marked every frame's set stale, and the one this frame
+    ///     would draw with is the one a frame still on the device is reading through — so the
+    ///     rewrite has to wait for the ring to advance, which means uploading. The same is so of a
+    ///     box buffer that grew. A skip that ignored that would bind a set pointing at a view the
+    ///     host has since destroyed.
+    /// </remarks>
+    public int GeometryUploadsSkipped { get; private set; }
+
     /// <summary>How many frames' worth of geometry the buffers hold at once.</summary>
     /// <remarks>
     ///     The device's frames in flight, and the reason the buffers are that many times bigger than
@@ -1346,6 +1402,15 @@ public sealed class UiRenderer : IDisposable {
 
         if (width <= 0 || height <= 0) {
             return;
+        }
+
+        // ⚠ Before the surfaces and before the backdrop quad, and only on a frame `Upload` skipped:
+        // a surface that has to be made writes a set at `slot`, and on a skipped frame `slot` is
+        // the region the previous frame is drawing from. A still window's surfaces already exist —
+        // the layers are part of the geometry whose generation matched — so this costs a lookup per
+        // layer and uploads nothing.
+        if (skipped && (width != layerWidth || height != layerHeight || !Surfaced(geometry))) {
+            EnsureUploaded(geometry);
         }
 
         EnsureSurfaces(geometry, width, height);
@@ -1912,16 +1977,24 @@ public sealed class UiRenderer : IDisposable {
             device.Write(fullscreenIndices, 0, MemoryMarshal.AsBytes(order));
         }
 
+        if (fullscreenSurfaces.Length != slots) {
+            fullscreenSurfaces = new Int2[slots];
+        }
+
         // ⚠ In geometry units, because the vertex stage applies the frame's own projection — the same
         // one every other draw in the capture pass is submitted with. Clip-space corners here would be
         // right until the first DPI-scaled window.
-        var corners = new UiVertex[4];
-        corners[0] = new(new(0f, 0f), new(0f, 0f), Color4.White, new(1f, 0f, 0f, 0f));
-        corners[1] = new(new(surface.X, 0f), new(1f, 0f), Color4.White, new(1f, 0f, 0f, 0f));
-        corners[2] = new(new(surface.X, surface.Y), new(1f, 1f), Color4.White, new(1f, 0f, 0f, 0f));
-        corners[3] = new(new(0f, surface.Y), new(0f, 1f), Color4.White, new(1f, 0f, 0f, 0f));
+        // ⚠ And only when this region's quad is not already that surface's — see `fullscreenSurfaces`.
+        if (fullscreenSurfaces[slot] != surface) {
+            var corners = new UiVertex[4];
+            corners[0] = new(new(0f, 0f), new(0f, 0f), Color4.White, new(1f, 0f, 0f, 0f));
+            corners[1] = new(new(surface.X, 0f), new(1f, 0f), Color4.White, new(1f, 0f, 0f, 0f));
+            corners[2] = new(new(surface.X, surface.Y), new(1f, 1f), Color4.White, new(1f, 0f, 0f, 0f));
+            corners[3] = new(new(0f, surface.Y), new(0f, 1f), Color4.White, new(1f, 0f, 0f, 0f));
 
-        device.Write(fullscreenVertices, (long) slot * FullscreenVertexBytes, MemoryMarshal.AsBytes<UiVertex>(corners));
+            device.Write(fullscreenVertices, (long) slot * FullscreenVertexBytes, MemoryMarshal.AsBytes<UiVertex>(corners));
+            fullscreenSurfaces[slot] = surface;
+        }
 
         if (!beneath.Image.IsValid || !imagePipeline.IsValid) {
             // The quad is made and kept current; the set is not, because there is nothing for it to
@@ -1942,9 +2015,26 @@ public sealed class UiRenderer : IDisposable {
         }
 
         if (beneathViews[slot] != beneath.Image) {
+            // ⚠ A set write at `slot`, which on a skipped frame is a set the previous frame is bound
+            // to. No production host hands over a view today — both desktop hosts pass a colour —
+            // but a game that did, with a scene target that rotates per frame, would reach this
+            // line on every still frame, and the answer is to upload rather than to write in place.
+            EnsureUploaded(geometry);
+
             Write(beneathSets[slot], beneath.Image);
             beneathViews[slot] = beneath.Image;
         }
+    }
+
+    /// <summary>Whether every surface this frame's layers composite through already exists.</summary>
+    bool Surfaced(in UiGeometry geometry) {
+        foreach (var layer in geometry.Layers) {
+            if (!layerSurfaces.ContainsKey(layer.Image)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Runs the two axes of a group's blur, and leaves its surface a colour target again.</summary>
@@ -3089,6 +3179,7 @@ public sealed class UiRenderer : IDisposable {
 
         beneathSets = [];
         beneathViews = [];
+        fullscreenSurfaces = [];
 
         if (fullscreenVertices.IsValid) {
             device.Destroy(fullscreenVertices);
@@ -3144,13 +3235,82 @@ public sealed class UiRenderer : IDisposable {
         );
 
     void UploadGeometry(in UiGeometry geometry) {
+        skipped = false;
+
         if (geometry.Indices.Count == 0) {
             return;
         }
 
+        if (Holds(geometry)) {
+            GeometryUploadsSkipped++;
+            skipped = true;
+            return;
+        }
+
+        WriteGeometry(geometry);
+    }
+
+    /// <summary>Whether the region at <see cref="slot" /> already holds this geometry and can be drawn from as it is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The stale flags are half of the answer, and the half that is easy to leave out.</b>
+    ///     The generation says the bytes in the region are the bytes to draw; the flags say whether
+    ///     the descriptor sets that frame binds still point where they should. A registration
+    ///     between frames marks every frame's set, and the rewrite is deferred to each frame's own
+    ///     turn at <see cref="slot" /> — a turn that only comes round by uploading. So a frame that
+    ///     needs a rewrite uploads, and a frame that skips is one that needs nothing written anywhere
+    ///     the device is reading.
+    /// </remarks>
+    bool Holds(in UiGeometry geometry) {
+        if (geometry.Generation == 0 || geometry.Generation != uploadedGeneration || !vertices.IsValid) {
+            return false;
+        }
+
+        if (staleBoxes[slot]) {
+            return false;
+        }
+
+        foreach (var entry in imageDescriptors.Values) {
+            if (entry.Stale[slot]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Uploads a frame this <see cref="Upload" /> skipped, because a later step needs to write at <see cref="slot" />.</summary>
+    /// <param name="geometry">The frame's geometry — the same one <see cref="Upload" /> was handed.</param>
+    /// <remarks>
+    ///     ⚠ <b>The escape from the skip, and the reason the skip is safe to take at all.</b>
+    ///     Everything <see cref="Compose" /> writes at <see cref="slot" /> relies on
+    ///     <see cref="UploadGeometry" /> having advanced it to a region no submitted frame is
+    ///     reading. On a skipped frame it has not, so a backdrop view that changed or a layer surface
+    ///     that has to be made — both of which write a set at <see cref="slot" /> — would write one a
+    ///     frame in flight is bound to. Neither happens on a still window, which is the frame the skip
+    ///     is for; when one does, the frame stops being a skip. Counted back out of
+    ///     <see cref="GeometryUploadsSkipped" /> so the pair still says how many frames wrote.
+    /// </remarks>
+    void EnsureUploaded(in UiGeometry geometry) {
+        if (!skipped) {
+            return;
+        }
+
+        skipped = false;
+        GeometryUploadsSkipped--;
+        WriteGeometry(geometry);
+    }
+
+    /// <summary>Copies the frame's geometry into the next region and rebinds that region's sets.</summary>
+    void WriteGeometry(in UiGeometry geometry) {
+        GeometryUploads++;
+        uploadedGeneration = geometry.Generation;
+
         // ⚠ Advanced here rather than in Record, because this is the call that writes: the region
         // moved on to is the one used `slots` frames ago, which the device has finished with. It is
         // the same invariant `UploadBuffer.Begin` and `DescriptorAllocator.BeginFrame` keep.
+        // ⚠ And "`slots` frames ago" is the floor rather than the figure: a skipped frame reads its
+        // region without advancing, so `slots` *uploads* ago is at least `slots` frames ago and the
+        // region moved on to was last read by a frame the device has certainly finished with.
         slot = (slot + 1) % slots;
 
         // The return is ignored for these two: they are bound by handle in `Record`, every frame, so

@@ -48,6 +48,19 @@ root {
     background-color: var(--surface-sunken);
 }
 
+/*
+    The debug panel, over the bottom-right corner of the window rather than docked in it. A tag rule
+    because View ▸ Toggle UI Diagnostics makes the panel in code and there is exactly one; docking it
+    would clip it and make it part of the arrangement it reports on. Its ground, border and rows are
+    the control theme's.
+*/
+diagnostics-panel {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    max-width: 320px;
+}
+
 /* ── Defaults per tag, which a utility cannot express ───────────────────────────────────────── */
 
 /*

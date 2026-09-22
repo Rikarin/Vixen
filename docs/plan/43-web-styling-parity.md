@@ -465,6 +465,18 @@ from `UiMask`, which is an analytic ramp over a box and has no way to express a 
 needs a pass that binds `ui-text.frag` with the colour forced to white, a surface to put it in, and a
 `UiLayer` that names a *coverage* source separately from its colour source.
 
+⚠ **Both halves of that paragraph are now measured rather than argued, and one of them is cheaper
+than it reads.** `Platform/Vixen.Graphics.Golden.Tests/UiTextCoverageTests` renders the same glyph
+run three times on a device. Drawn transparent it produces **nothing at all** — every byte of the
+surface is zero — which is the claim above, as a red line rather than as prose. Drawn white it
+produces a surface whose red, green, blue and alpha are one number at every pixel, and that number
+is byte-for-byte the alpha the same run drawn opaque red produces: **white text is its own coverage,
+exactly**. So "a pass that binds `ui-text.frag` with the colour forced to white" is not a pass, a
+binding or a capability — `ui-text.frag` already writes `rgb·α` premultiplied with `α = a·coverage`,
+so a white opaque colour is the identity that leaves coverage in all four channels. What remains of
+the text-coverage target is draw-list shaped: a `UiLayer` naming a coverage source beside its colour
+source, and a builder emitting the subtree's glyph runs a second time in white into it.
+
 One further thing is absent and would be needed for the general form, and it is recorded against its
 own row: an ordered filter list on `UiLayer` (today it carries a `Blur` and a `Filter` as discrete
 fields — the mask half became a `MaskFirst`/`MaskCount` range into `DrawList.Masks` with the list

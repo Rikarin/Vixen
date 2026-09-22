@@ -152,6 +152,16 @@
             -->
             <MenuItem Label="Reset Layout" on:click="@ResetLayout" />
             <MenuItem Label="Toggle Dark" on:click="@ToggleDark" />
+
+            <!--
+                ⚠ **The first `UiApplication` to show doc 13's UI-debug view, and the two halves it
+                takes.** The panel is rows — the per-frame counters, and the element under the
+                pointer with its four boxes; the overlay is the same element outlined where it is,
+                and a wash over what the last pass invalidated. Both are ordinary controls, so this
+                menu item can make and place them; what it cannot do is refresh the panel at the top
+                of the frame, which is `Program.cs`'s one line through `ShellModel.Diagnostics`.
+            -->
+            <MenuItem Label="Toggle UI Diagnostics" on:click="@ToggleDiagnostics" />
         </Menu>
     </MenuBar>
 
@@ -200,6 +210,8 @@
     MenuItem closeItem = null!;
 
     MaterialDocument? document;
+    DiagnosticsPanel? diagnostics;
+    DiagnosticsOverlay? diagnosticsOverlay;
     IDisposable? title;
     DialogService? dialogs;
     IDisposable? closePrompt;
@@ -595,5 +607,36 @@
         if (!Root.Document.Root.RemoveClass("dark")) {
             Root.Document.Root.AddClass("dark");
         }
+    }
+
+    /// <summary>Shows or hides the UI-debug view: the counters panel and the outline overlay.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Both are root children and not children of the frame, for two different
+    ///         reasons.</b> The overlay's outlines are in the document's coordinates, so it has to
+    ///         cover the document from its origin — the theme rule puts it over the whole surface
+    ///         and makes it transparent to the pointer. The panel is placed by <c>shell.vcss</c> in
+    ///         the bottom-right corner, over the docking host rather than in it, because a docked
+    ///         tab would clip it and take part in the arrangement it is reporting on.
+    ///     </para>
+    ///     <para>
+    ///         No <c>Subject</c> on either: the reading is of this window, which is the document
+    ///         somebody debugging this sample is asking about, and the panel's own remarks name the
+    ///         cost of being an element of what it measures.
+    ///     </para>
+    /// </remarks>
+    void ToggleDiagnostics() {
+        if (diagnostics is not null) {
+            Model.Diagnostics(null);
+            diagnostics.Remove();
+            diagnosticsOverlay?.Remove();
+            diagnostics = null;
+            diagnosticsOverlay = null;
+            return;
+        }
+
+        diagnosticsOverlay = Root.Document.Root.Add<DiagnosticsOverlay>();
+        diagnostics = Root.Document.Root.Add<DiagnosticsPanel>();
+        Model.Diagnostics(diagnostics);
     }
 }

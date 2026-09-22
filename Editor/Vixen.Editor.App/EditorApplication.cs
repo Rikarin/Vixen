@@ -2633,14 +2633,35 @@ sealed partial class EditorApplication : IDisposable {
                     // element of what it measures — and the alternative here is a panel that
                     // reports a document nobody is looking at.
                     Shell.Diagnostics = panel.Add<DiagnosticsPanel>();
+
+                    // ⚠ **The drawn half, over the shell rather than in the panel.** The panel's
+                    // element rows are in the shell's coordinates and the overlay draws them there
+                    // — four outlines round whatever the pointer is over, and a wash over what the
+                    // last pass invalidated — so it has to be a child of the document it describes,
+                    // which the panel is not the right parent for: a docked tab clips. A root child
+                    // over the whole surface and transparent to the pointer, by the theme rule.
+                    uiDiagnosticsOverlay?.Remove();
+                    uiDiagnosticsOverlay = Shell.Document.Root.Add<DiagnosticsOverlay>();
                 }
             ) {
                 // ⚠ Cleared on close, or the shell keeps refreshing rows in a panel that has been
-                // torn out of the tree — sixty times a second, for the rest of the session.
-                Closed = () => Shell.Diagnostics = null
+                // torn out of the tree — sixty times a second, for the rest of the session. And the
+                // overlay is taken out of the tree with it, or the outlines outlive the rows.
+                Closed = () => {
+                    Shell.Diagnostics = null;
+                    uiDiagnosticsOverlay?.Remove();
+                    uiDiagnosticsOverlay = null;
+                }
             }
         );
     }
+
+    /// <summary>The picture half of the <see cref="UiDiagnosticsPanel" />, while it is open.</summary>
+    /// <remarks>
+    ///     Held so that a close can take it out of the tree; a test finds it by walking the shell's
+    ///     root, which is where a reader of the document would look for it too.
+    /// </remarks>
+    DiagnosticsOverlay? uiDiagnosticsOverlay;
 
     /// <summary>The panel that reads <c>UiDocument.Diagnostics</c> for the shell's own document.</summary>
     public const string UiDiagnosticsPanel = "ui-diagnostics";

@@ -1984,10 +1984,15 @@ public sealed partial class UiDocument : IDisposable {
 
         var changed = drawings.Build(this, surface.Root, surface.Drawing);
 
-        // ⚠ Here rather than in `Draw()`, so the two numbers are per *window* per frame — which is
-        // the unit the work is actually done in. A document with a torn-off panel rebuilds two lists
-        // a frame and a count per frame would report one.
-        CountDrawing(changed);
+        // ⚠ Here rather than in `Draw()`, so the numbers are per *window* per frame — which is the
+        // unit the work is actually done in. A document with a torn-off panel rebuilds two lists a
+        // frame and a count per frame would report one.
+        //
+        // ⚠ The command count is read from the list rather than counted in the builder, and that is
+        // exact rather than approximate: `Build` has just finished writing it, and a group the
+        // builder opened optimistically and took back is not in it — which is the right answer,
+        // since what this measures is the drawing produced and not the walking done.
+        CountDrawing(changed, surface.Drawing.Commands.Count);
 
         // ⚠ After the build, which makes this the one drain point outside the style pass. See
         // `DrainDrawingDiagnostics` for why a per-frame drain costs nothing after the first frame.
