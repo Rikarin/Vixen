@@ -68,10 +68,23 @@ public sealed class DiagnosticsPanel : Control {
 
     /// <summary>Where the element description comes from, in the subject's coordinates.</summary>
     /// <remarks>
-    ///     ⚠ <b>A point rather than an element, because the question doc 13 asks is "what is under
-    ///     the pointer".</b> Left unset, the element rows are absent rather than stale — a panel that
-    ///     kept describing the last element the pointer crossed is a panel that lies about a document
-    ///     whose layout has since moved.
+    ///     <para>
+    ///         ⚠ <b>A point rather than an element, because the question doc 13 asks is "what is
+    ///         under the pointer".</b> Cleared, the element rows do not go stale — a panel that kept
+    ///         describing the last element the pointer crossed is a panel that lies about a document
+    ///         whose layout has since moved.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Left unset, the subject's own <see cref="UiDocument.Hovered" /> answers</b>, which
+    ///         is the same question asked of the document rather than of the host. For three batches
+    ///         no host set this — the editor registers the panel and refreshes it at the top of the
+    ///         frame and never had a pointer position to hand it, because a document does not expose
+    ///         one — so the element rows, the half of doc 13 the whole panel was filed for, were
+    ///         reachable and never shown. <c>Hovered</c> is kept by the document's own hit test on
+    ///         every pointer event, so it is exactly as fresh as a probe would be and needs no wiring.
+    ///         A probe still wins when one is set, for a host that wants a point that is not the
+    ///         pointer's — a pinned element, or a coordinate typed in.
+    ///     </para>
     /// </remarks>
     public Vector2? Probe { get; set; }
 
@@ -158,7 +171,7 @@ public sealed class DiagnosticsPanel : Control {
     }
 
     void Describe(ref int row, in UiDiagnostics diagnostics) {
-        if (Probe is not { } probe || !diagnostics.TryDescribe(probe.X, probe.Y, out var element, out var box)) {
+        if (!DiagnosticsOverlay.TryDescribe(Subject ?? Document, Probe, diagnostics, out var element, out var box)) {
             return;
         }
 

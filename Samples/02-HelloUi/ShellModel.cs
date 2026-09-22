@@ -119,6 +119,21 @@ public sealed class ShellModel {
     /// </remarks>
     public Func<string> Arrangement { get; set; } = static () => string.Empty;
 
+    /// <summary>Tells the host which diagnostics panel to refresh at the top of each frame, or none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one half of the debug view the shell cannot do for itself.</b>
+    ///     <c>DiagnosticsPanel.Refresh</c> has to run before the document restyles, and "the top of
+    ///     the frame" is a place only the loop knows — <c>UiApplication.Diagnostics</c> is that hook,
+    ///     and the application head is the only thing that holds a <c>UiApplication</c>. The shell
+    ///     builds and places the panel and says so through this; <c>Program.cs</c> is what hands it
+    ///     to the loop. Neither holds a reference to the other, for <see cref="Notify" />'s reason.
+    ///     <para>
+    ///         Defaulted to a no-op, so a shell mounted on its own in a test can toggle the panel
+    ///         without a loop behind it.
+    ///     </para>
+    /// </remarks>
+    public Action<DiagnosticsPanel?> Diagnostics { get; set; } = static _ => { };
+
     /// <summary>The arrangement the shell opens with.</summary>
     /// <remarks>
     ///     A hierarchy down the left at 22%, then the gallery and the inspector splitting what is

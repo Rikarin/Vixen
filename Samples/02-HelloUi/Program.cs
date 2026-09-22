@@ -79,6 +79,14 @@ static class Program {
                 // still reporting success, because it did reload.
                 Content = () => new Shell { Model = model },
 
+                // ⚠ **The one line the debug view needs from the application head.** View ▸ Toggle
+                // UI Diagnostics makes and places the panel in `Shell.vxml`; refreshing it at the
+                // top of every frame — before the document restyles, which is the only moment the
+                // numbers are self-consistent — is the loop's, and `UiApplication.Diagnostics` is
+                // where the loop is told. Until this line existed no `UiApplication` in the
+                // repository assigned one, so the hook was reachable and never taken.
+                Started = app => model.Diagnostics = panel => app.Diagnostics = panel,
+
                 Stopping = _ => Report(model)
             },
             arguments

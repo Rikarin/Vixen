@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.Controls.DiagnosticsPanel]
 tags: [ui, diagnostics, controls, overlay, performance, troubleshooting]
 since: 0.2
 status: preview
-related: [ui/document-diagnostics, ui/key-value-list, ui/desktop-application]
+related: [ui/diagnostics-overlay, ui/document-diagnostics, ui/key-value-list, ui/desktop-application]
 ---
 
 ## What it is
@@ -84,9 +84,17 @@ panel.Subject = game;
 ### The probe
 
 `Probe` is a point in the subject's coordinates, not an element, because the question is "what is
-under the pointer". Set it and the rows gain the element's tag and its margin, border, padding and
-content boxes; clear it and they go away rather than going stale — a panel that kept describing the
-last element the pointer crossed would be lying about a document whose layout has since moved.
+under the pointer". Set it and the rows carry the element's tag and its margin, border, padding and
+content boxes; move it off everything and they go away rather than going stale — a panel that kept
+describing the last element the pointer crossed would be lying about a document whose layout has
+since moved.
+
+⚠ **Left unset, the subject's own `Hovered` answers**, which is the same question asked of the
+document rather than of the host. That matters because a host usually has no pointer position to
+hand over: a `UiDocument` does not expose one, and for three batches the editor registered this
+panel, refreshed it correctly and showed the element rows to nobody, because nothing set `Probe`.
+`Hovered` is kept by the document's own hit test on every pointer event, so it is exactly as fresh
+as a probe and needs no wiring. A probe still wins when one is set.
 
 ### Reading the rows
 
@@ -133,6 +141,8 @@ In markup, as an ordinary tag, with the host doing the refresh:
 
 ## See also
 
+- [The diagnostics overlay](diagnostics-overlay.md) — the same facts drawn over the document: the
+  element's four boxes where they are, and the invalidated regions washed.
 - [Document diagnostics](document-diagnostics.md) — the aggregator this reads, and the three rules
   that decide its shape.
 - [Key-value list](key-value-list.md) — the pooled rows the panel is built out of.

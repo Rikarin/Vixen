@@ -78,6 +78,16 @@ root {
     --selection-color: #b8ccf8;
     --caret-color: #1c1f23;
 
+    /* The debug overlay's four boxes and its dirty-region wash: the inspector convention every
+       browser uses for the same four boxes, deliberately, so a reader who has seen one has seen
+       this. Saturated on the light palette because they are drawn over white paper; the dark
+       palette lifts them, because the same orange over #1b1d21 reads as brown. */
+    --diagnostics-margin: #f9a13f;
+    --diagnostics-border: #f7d55a;
+    --diagnostics-padding: #73c873;
+    --diagnostics-content: #5a99fa;
+    --diagnostics-dirty: #ff40402e;
+
     color: var(--text);
 }
 
@@ -98,6 +108,11 @@ root.dark {
     --thumb-border-color: #383c43;
     --selection-color: #2c4a86;
     --caret-color: #e8eaed;
+    --diagnostics-margin: #ffb866;
+    --diagnostics-border: #ffe680;
+    --diagnostics-padding: #96e096;
+    --diagnostics-content: #8ab8ff;
+    --diagnostics-dirty: #ff606038;
 }
 
 /* ⚠ The operating system's accent, when a host has read one, and nothing at all when it has
@@ -745,6 +760,21 @@ diagnostics-panel {
     border-color: var(--border);
     border-radius: 4px;
     color: var(--text);
+}
+
+/* ⚠ Over the whole surface and transparent to the pointer, and both are load-bearing. The boxes it
+   draws are in the document's coordinates, so it has to start at the origin and reach the far
+   edge; and it draws the element under the pointer, so it must never be that element itself —
+   `pointer-events: none` is what keeps the hit test looking through it. A root child, because an
+   absolute box is positioned against its containing block and the document is the one this
+   describes. */
+diagnostics-overlay {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    right: 0px;
+    bottom: 0px;
+    pointer-events: none;
 }
 
 key-value-row {

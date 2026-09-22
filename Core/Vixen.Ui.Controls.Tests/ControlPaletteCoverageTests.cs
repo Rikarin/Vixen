@@ -150,6 +150,25 @@ public class ControlPaletteCoverageTests {
         ["VirtualizingGrid"] = "ditto, in two dimensions"
     };
 
+    /// <summary>The elements this fixture cannot measure at all, and why each of them cannot be.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A third answer beside "paints" and "paints nothing", and it is kept to one entry
+    ///     on purpose.</b> The sweep compares two renderings of one control and expects everything
+    ///     outside the control's box to be the ground; a control whose ink is a function of what the
+    ///     <i>document</i> did rather than of the palette breaks the premise rather than the rule.
+    ///     Held to its own residue like <see cref="Exempt" />: an entry has to name a type that
+    ///     exists, and may not also be excused as painting nothing.
+    /// </remarks>
+    static readonly Dictionary<string, string> Unmeasured = new(StringComparer.Ordinal) {
+        ["DiagnosticsOverlay"] =
+            "a full-surface picture of what the document it is in did last pass — the element under "
+            + "the pointer and the regions that were invalidated, by place. The dark rendering puts a "
+            + "class on the root, which is an invalidation of the whole root, so the overlay faithfully "
+            + "washes the whole frame in one palette and nothing in the other: the ground moves and the "
+            + "comparison means nothing. Its colours are tokens, and `DiagnosticsOverlayTests` reads "
+            + "them off the draw list instead"
+    };
+
     /// <summary>The string properties a control is seeded through, in the order they are tried.</summary>
     static readonly string[] Wordy = ["Label", "Text", "Title", "Value", "Placeholder", "Header", "Caption", "Content"];
 
@@ -175,6 +194,19 @@ public class ControlPaletteCoverageTests {
             // comes to cover less than it says while staying green.
             if (type.GetConstructor(Type.EmptyTypes) is null) {
                 offenders.Add($"{type.Name} has no parameterless constructor, so the sweep cannot reach it");
+                continue;
+            }
+
+            if (Unmeasured.TryGetValue(type.Name, out var unmeasured)) {
+                if (string.IsNullOrWhiteSpace(unmeasured)) {
+                    offenders.Add($"{type.Name} is listed as unmeasurable with no written reason");
+                }
+
+                if (Exempt.ContainsKey(type.Name)) {
+                    offenders.Add($"{type.Name} is both unmeasurable and excused as painting nothing, which cannot both be so");
+                }
+
+                built.Add(type.Name);
                 continue;
             }
 
@@ -273,6 +305,9 @@ public class ControlPaletteCoverageTests {
         // painted nothing. This is the only assertion that can see an entry naming a control that no
         // longer exists, since a deleted one never comes round the loop to contradict it.
         Assert.Equal(blank.Order(StringComparer.Ordinal), Exempt.Keys.Order(StringComparer.Ordinal));
+
+        // The same for the unmeasurable: every entry names a type the sweep actually met.
+        Assert.All(Unmeasured.Keys, name => Assert.Contains(name, built));
     }
 
     static UiElement Make<T>(UiElement parent) where T : UiElement, new() => parent.Add<T>();

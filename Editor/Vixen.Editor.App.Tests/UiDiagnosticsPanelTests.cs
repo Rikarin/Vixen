@@ -81,6 +81,46 @@ public class UiDiagnosticsPanelTests {
         Assert.True(count > 100, $"the shell's document has {count} layout nodes.");
     }
 
+    /// <summary>
+    ///     ⚠ Opening the panel puts the drawn half over the shell as well, and closing it takes the
+    ///     picture out with the rows — the overlay is a root child of the document it describes,
+    ///     because its outlines are in that document's coordinates and a docked tab clips.
+    /// </summary>
+    [Fact]
+    public void Opening_the_panel_draws_the_overlay_over_the_shell_and_closing_it_takes_it_away() {
+        using var fixture = EditorSession.Start();
+
+        Assert.Null(Overlay(fixture));
+
+        fixture.Open(EditorApplication.UiDiagnosticsPanel);
+
+        var overlay = Overlay(fixture);
+
+        Assert.NotNull(overlay);
+        Assert.Same(fixture.Document.Root, overlay.Parent);
+
+        // Over the whole shell and looking through to it: the reading is of the shell's own document
+        // and the overlay must never be the element under the pointer itself.
+        fixture.Frame();
+
+        Assert.Equal(fixture.Document.Root.Bounds, overlay.Bounds);
+        Assert.False(overlay.IsHitTestVisible, "the overlay catches the pointer, so it would outline itself for ever");
+
+        fixture.Close(EditorApplication.UiDiagnosticsPanel);
+
+        Assert.Null(Overlay(fixture));
+    }
+
+    static DiagnosticsOverlay? Overlay(EditorSession fixture) {
+        foreach (var child in fixture.Document.Root.Children) {
+            if (child is DiagnosticsOverlay overlay) {
+                return overlay;
+            }
+        }
+
+        return null;
+    }
+
     static string? Row(DiagnosticsPanel panel, string key) {
         for (var i = 0; i < panel.Rows.Count; i++) {
             if (string.Equals(panel.Rows.Rows[i].Key, key, StringComparison.Ordinal)) {
