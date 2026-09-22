@@ -148,6 +148,73 @@ public partial class SharedUiShaderTests {
     static bool Updating =>
         Environment.GetEnvironmentVariable("VIXEN_UPDATE_SHADER_DIGESTS") is "1" or "true" or "TRUE";
 
+    /// <summary>
+    ///     Lets a rewrite record a module built in a different flavour from the one the ledger held.
+    /// </summary>
+    /// <remarks>
+    ///     A second variable and not a second meaning of the first, because the two are two
+    ///     decisions: "accept this module" is routine after every source edit, and "this shader is
+    ///     optimised now where it was not" moves the constant folding the arithmetic census is
+    ///     calibrated against. See <see cref="Flavour" />.
+    /// </remarks>
+    static bool Reflavouring =>
+        Environment.GetEnvironmentVariable("VIXEN_UPDATE_SHADER_FLAVOUR") is "1" or "true" or "TRUE";
+
+    /// <summary>The <c>glslc</c> flag that reproduces a module with no debug instructions in it.</summary>
+    const string Optimised = "-O";
+
+    /// <summary>The <c>glslc</c> flag that reproduces a module with its names and source line kept.</summary>
+    const string Unoptimised = "-O0";
+
+    /// <summary>Which way <c>glslc</c> was run to produce a module, read off the module.</summary>
+    /// <param name="words">The module, as <see cref="WordsOf" /> returns it.</param>
+    /// <returns><see cref="Optimised" /> or <see cref="Unoptimised" />.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The eight modules were not all built the same way, and until #1257 nothing
+    ///         recorded how.</b> Measured against the committed bytes with <c>shaderc v2026.3</c>:
+    ///         five reproduce under plain <c>glslc</c> and three — <c>ui-solid.frag</c>,
+    ///         <c>ui-text.frag</c>, <c>ui.vert</c> — only under <c>glslc -O</c>. The tell is the
+    ///         debug section: <c>-O</c> strips it, so the three carry no <c>OpName</c>,
+    ///         <c>OpSource</c> or <c>OpSourceExtension</c> at all where the five carry 19 to 180
+    ///         names each. Following the old regeneration message on one of the three produced a
+    ///         valid module nothing like the one committed beside it, and the ledger accepted it in
+    ///         the same breath.
+    ///     </para>
+    ///     <para>
+    ///         Why it is more than tidiness: <see cref="TheGlslCopiesDoTheSameArithmeticAsTheRavenModules" />
+    ///         skips constant-only expressions because <c>glslc</c> folds them and Raven does not,
+    ///         and whether <c>glslc</c> folds is a function of the optimiser. A module that changes
+    ///         flavour moves under that census silently. So the flavour is a column of the ledger,
+    ///         the regeneration message prints the flag that reproduces the committed module, and a
+    ///         rewrite that would change a shader's flavour refuses unless
+    ///         <see cref="Reflavouring" /> says so.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read off the module rather than trusted from the ledger</b>, in both directions:
+    ///         a ledger line that says <c>-O</c> over a module full of names is a hand edit, and the
+    ///         check fails it exactly as it fails a digest that has moved.
+    ///     </para>
+    /// </remarks>
+    internal static string Flavour(uint[] words) {
+        for (var at = 5; at < words.Length;) {
+            var opcode = (int) (words[at] & 0xFFFF);
+            var length = (int) (words[at] >> 16);
+
+            Assert.True(length > 0, $"a zero-length instruction at word {at}.");
+
+            // OpSource, OpSourceExtension, OpName, OpMemberName, OpString, OpLine: the debug
+            // section, which is what the optimiser's strip pass removes and nothing else touches.
+            if (opcode is 3 or 4 or 5 or 6 or 7 or 8) {
+                return Unoptimised;
+            }
+
+            at += length;
+        }
+
+        return Optimised;
+    }
+
     /// <summary>Every committed module is the one built from the GLSL beside it as that GLSL now reads.</summary>
     /// <remarks>
     ///     <para>
@@ -181,10 +248,18 @@ public partial class SharedUiShaderTests {
     ///         <c>VIXEN_UPDATE_SHADER_DIGESTS=1</c> rewrites the ledger, deliberately an environment
     ///         variable and not a default: accepting a module is a decision.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the ledger records <em>how</em> as well as <em>what</em>, since #1257.</b> The
+    ///         fourth column is the <c>glslc</c> flag that reproduces the module, read off the module
+    ///         by <see cref="Flavour" />; the regeneration message below prints it, and a rewrite
+    ///         that would change it refuses without <see cref="Reflavouring" />. Before the column the
+    ///         message told everyone to run plain <c>glslc</c>, which was wrong for three of the
+    ///         eight, and the ledger accepted the result.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void EveryCommittedModuleMatchesTheSourceItWasBuiltFrom() {
-        var recorded = Updating ? [] : Recorded();
+        var recorded = Recorded();
 
         var written = new List<string>();
 
@@ -199,9 +274,25 @@ public partial class SharedUiShaderTests {
 
             var code = Digest(Encoding.UTF8.GetBytes(Code(File.ReadAllText(source))));
             var binary = Digest(File.ReadAllBytes(module));
+            var flavour = Flavour(WordsOf(module));
 
             if (Updating) {
-                written.Add($"{name} {code} {binary}");
+                // ⚠ The one thing a rewrite refuses: a module that arrived in the other flavour.
+                // Somebody followed the message on one of the `-O` three with plain `glslc`, or
+                // optimised one of the five, and the ledger would otherwise record the change of
+                // flavour as if it were the decision it is not.
+                if (recorded.TryGetValue(name, out var was) && was.Flavour is not null) {
+                    Assert.True(
+                        Reflavouring || string.Equals(was.Flavour, flavour, StringComparison.Ordinal),
+                        $"{Path.Combine(Shaders, name)}.spv was built with `glslc {flavour}` and the ledger records "
+                        + $"`glslc {was.Flavour}`. Rebuild it the way its siblings were built: `glslc {was.Flavour} "
+                        + $"Shaders/{name} -o Shaders/{name}.spv`. If changing the flavour is the point, rerun with "
+                        + "`VIXEN_UPDATE_SHADER_FLAVOUR=1` as well -- and read `Reconciled`, because the "
+                        + "arithmetic census is calibrated against what glslc folds."
+                    );
+                }
+
+                written.Add($"{name} {code} {binary} {flavour}");
                 continue;
             }
 
@@ -212,11 +303,26 @@ public partial class SharedUiShaderTests {
             );
 
             Assert.True(
+                pair.Flavour is not null,
+                $"{name}'s line in Shaders/modules.sha256 predates the flavour column, so the regeneration "
+                + "message cannot say which way to run glslc. Rewrite the ledger with `VIXEN_UPDATE_SHADER_DIGESTS=1`."
+            );
+
+            Assert.True(
+                string.Equals(pair.Flavour, flavour, StringComparison.Ordinal),
+                $"Shaders/modules.sha256 says {name}.spv was built with `glslc {pair.Flavour}` and the module says "
+                + $"`glslc {flavour}` -- it {(flavour == Optimised ? "carries no" : "carries a")} debug section. "
+                + "The ledger was edited by hand, or a module arrived through a path other than "
+                + "`VIXEN_UPDATE_SHADER_DIGESTS=1`."
+            );
+
+            Assert.True(
                 string.Equals(pair.Code, code, StringComparison.Ordinal),
                 $"{Path.Combine(Shaders, name)} has changed since its module was built — its code, not its "
                 + $"comments, which are stripped before this digest. The module this suite renders with is "
-                + $"not this source. Regenerate it and the ledger: `glslc Shaders/{name} -o Shaders/{name}.spv` "
-                + "from this project's directory, then rerun with `VIXEN_UPDATE_SHADER_DIGESTS=1`."
+                + $"not this source. Regenerate it and the ledger: `glslc {pair.Flavour} Shaders/{name} -o "
+                + $"Shaders/{name}.spv` from this project's directory, then rerun with "
+                + "`VIXEN_UPDATE_SHADER_DIGESTS=1`."
             );
 
             Assert.True(
@@ -228,7 +334,8 @@ public partial class SharedUiShaderTests {
         }
 
         if (Updating) {
-            File.WriteAllLines(Ledger, written);
+            // LF whatever the host, because the file is committed and `.gitattributes` says LF.
+            File.WriteAllText(Ledger, string.Join('\n', written) + '\n');
             return;
         }
 
@@ -239,21 +346,86 @@ public partial class SharedUiShaderTests {
         Assert.Equal(Names.Length, recorded.Count);
     }
 
-    /// <summary>The ledger, by shader name.</summary>
-    static Dictionary<string, (string Code, string Module)> Recorded() {
+    /// <summary>The flavour column is read off the bytes, and the reading is not a constant.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The two halves of the instrument for <see cref="Flavour" />. The committed eight
+    ///         partition exactly as #1257 measured them with <c>shaderc</c> — three optimised, five
+    ///         not — which is what says the detector reads the tell the issue found rather than some
+    ///         other property. And a module with its debug section cut out in memory flips to
+    ///         <see cref="Optimised" />, which is what says it is the debug section the detector
+    ///         reads and not, say, the module's length.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This cannot prove that <c>glslc -O</c> is what produced the three</b> — only a
+    ///         compiler can, and this assembly has none. It proves the ledger says what the bytes say,
+    ///         which is what the regeneration message is built from.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheFlavourColumnIsWhatTheModulesBytesSay() {
+        var optimised = new List<string>();
+
+        foreach (var name in Names) {
+            var words = WordsOf(Path.Combine(RepositoryRoot(), Shaders, name + ".spv"));
+
+            if (Flavour(words) == Optimised) {
+                optimised.Add(name);
+                continue;
+            }
+
+            // Cut the debug section out and the same module reads as optimised.
+            Assert.Equal(Optimised, Flavour(WithoutDebugSection(words)));
+        }
+
+        Assert.Equal(["ui-solid.frag", "ui-text.frag", "ui.vert"], optimised);
+    }
+
+    /// <summary>A module with every debug instruction removed, for <see cref="TheFlavourColumnIsWhatTheModulesBytesSay" />.</summary>
+    static uint[] WithoutDebugSection(uint[] words) {
+        var kept = new List<uint>(words.Length);
+
+        kept.AddRange(words.AsSpan(0, 5));
+
+        for (var at = 5; at < words.Length;) {
+            var opcode = (int) (words[at] & 0xFFFF);
+            var length = (int) (words[at] >> 16);
+
+            if (opcode is not (3 or 4 or 5 or 6 or 7 or 8)) {
+                kept.AddRange(words.AsSpan(at, length));
+            }
+
+            at += length;
+        }
+
+        return [.. kept];
+    }
+
+    /// <summary>The ledger, by shader name. A line written before the flavour column has a null flavour.</summary>
+    /// <remarks>
+    ///     Read under <see cref="Updating" /> too, and not replaced by an empty dictionary as it used
+    ///     to be: a rewrite has to know what flavour each line held to refuse a silent change of it.
+    ///     A missing ledger is empty rather than fatal in that mode, because the first write is how
+    ///     it comes to exist.
+    /// </remarks>
+    static Dictionary<string, (string Code, string Module, string? Flavour)> Recorded() {
+        var found = new Dictionary<string, (string, string, string?)>(StringComparer.Ordinal);
+
+        if (Updating && !File.Exists(Ledger)) {
+            return found;
+        }
+
         Assert.True(
             File.Exists(Ledger),
             $"'{Ledger}' is missing, and it is the only thing that says which source each committed module "
             + "was built from. Write it with `VIXEN_UPDATE_SHADER_DIGESTS=1`."
         );
 
-        var found = new Dictionary<string, (string, string)>(StringComparer.Ordinal);
-
         foreach (var line in File.ReadAllLines(Ledger)) {
             var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
-            if (parts.Length == 3) {
-                found[parts[0]] = (parts[1], parts[2]);
+            if (parts.Length is 3 or 4) {
+                found[parts[0]] = (parts[1], parts[2], parts.Length == 4 ? parts[3] : null);
             }
         }
 
