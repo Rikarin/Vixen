@@ -341,6 +341,14 @@ public static class UtilityFamilies {
     static readonly Dictionary<string, Family> Registry = new(StringComparer.Ordinal);
     static readonly List<string> Names = [];
 
+    /// <summary>What a <see cref="SlashMeaning.Name" /> modifier writes, spelled once.</summary>
+    /// <remarks>
+    ///     Two branches of <see cref="Resolve" /> emit it — the keyword form and the arbitrary one —
+    ///     and the second was written because the first did not cover the escape hatch. A property
+    ///     name spelled in both places is the next thing to drift, so it is spelled here.
+    /// </remarks>
+    static readonly string[] NameProperties = ["container-name"];
+
     static UtilityFamilies() {
         // ── Layout ──────────────────────────────────────────────────────────────────────────
         //
@@ -3283,6 +3291,20 @@ public static class UtilityFamilies {
                 return false;
             }
 
+            // ⚠ <b>The escape hatch goes through the slash rather than past it.</b> This branch runs
+            // before the one that reads a `SlashMeaning.Name`, so `@container-[inline-size]/main`
+            // used to emit the type and discard the name — the "quietly lose the suffix" failure the
+            // keyword branch below spends a paragraph refusing, arriving through the one door that
+            // refusal does not cover, and in its worse form: the class *works*, registering a
+            // container the author's `@container main (…)` query can never name. The name is held to
+            // the same identifier shape the keyword form holds it to, because `container-name: 24rem`
+            // is a declaration ExCSS drops whole.
+            if (family.Slash == SlashMeaning.Name && candidate.SlashSuffix is { } arbitraryName) {
+                return UtilityParser.IsIdentifierName(arbitraryName)
+                    && Emit(family, arbitrary, declarations)
+                    && EmitInto(NameProperties, arbitraryName, declarations);
+            }
+
             // ⚠ A widths-only border family — `divide-x`, `divide-y` — has nowhere to put an
             // arbitrary colour, so `divide-x-[red]` is refused rather than emitted as a width.
             if (family.Kind == ValueKind.BorderEdge && LooksLikeColor(arbitrary)) {
@@ -3322,7 +3344,7 @@ public static class UtilityFamilies {
                 && family.Keywords is not null
                 && family.Keywords.TryGetValue(candidate.Value, out var containerType)
                 && Emit(family, containerType, declarations)
-                && EmitInto(["container-name"], containerName, declarations);
+                && EmitInto(NameProperties, containerName, declarations);
         }
 
         // Keywords first, because `text-center` has to beat any colour or size named `center`.

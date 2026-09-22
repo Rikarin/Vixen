@@ -369,7 +369,7 @@ public static class Variants {
             && TryResolve(variant["has-".Length..], tokens, out var contained)
             && contained is { SelectorPrefix.Length: 0, AtRule: null, SelectorSuffix.Length: > 0 }
             && !IsArbitrary(contained)
-            && contained.SelectorSuffix.TrimStart()[0] is not ('>' or '+' or '~')) {
+            && IsWrappable(contained.SelectorSuffix)) {
             effect = new VariantEffect($":has({contained.SelectorSuffix})", string.Empty, null);
             return true;
         }
@@ -382,7 +382,7 @@ public static class Variants {
             && TryResolve(variant["not-".Length..], tokens, out var negated)
             && negated is { SelectorPrefix.Length: 0, AtRule: null, SelectorSuffix.Length: > 0 }
             && !IsArbitrary(negated)
-            && negated.SelectorSuffix.TrimStart()[0] is not ('>' or '+' or '~')) {
+            && IsWrappable(negated.SelectorSuffix)) {
             effect = new VariantEffect($":not({negated.SelectorSuffix})", string.Empty, null);
             return true;
         }
@@ -506,6 +506,34 @@ public static class Variants {
 
             return true;
         }
+    }
+
+    /// <summary>Whether a suffix can be put inside <c>:has()</c> or <c>:not()</c> at all.</summary>
+    /// <param name="suffix">A resolved variant's <c>SelectorSuffix</c>.</param>
+    /// <returns>Whether wrapping it produces a selector.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A length check and not a bare index, because <c>Length: &gt; 0</c> is not the
+    ///         question being asked.</b> Both call sites pattern-match a non-empty suffix and then
+    ///         wanted its first non-space character; a suffix that is non-empty and <em>all</em>
+    ///         space satisfies the first and has no second, so the index threw out of the middle of
+    ///         sheet generation rather than at a boundary anybody could diagnose. Nothing in the
+    ///         <c>States</c> or <c>Parts</c> tables spells one today — every value starts with
+    ///         <c>:</c> or, for the one part entry, <c>&gt; </c> — so this is the day-it-becomes-
+    ///         expressible guard rather than a live bug.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And whitespace-only is a <em>refusal</em> rather than an admission, which is the
+    ///         same verdict a combinator gets and for the same reason: <c>:not( )</c> is not a
+    ///         selector, so admitting it would put text the compiler rejects into a rule instead of
+    ///         leaving the class unrecognised. That distinction is what the <c>Parts</c> table
+    ///         exists for.
+    ///     </para>
+    /// </remarks>
+    internal static bool IsWrappable(string suffix) {
+        var trimmed = suffix.AsSpan().TrimStart();
+
+        return trimmed.Length > 0 && trimmed[0] is not ('>' or '+' or '~');
     }
 
     /// <summary>Whether a variant's effect goes where <c>&amp;</c> is rather than after the selector.</summary>

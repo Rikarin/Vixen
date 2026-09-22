@@ -1116,4 +1116,33 @@ public class VariantCoverageTests {
 
         Assert.Null(fixture.Computed([], "padding-left", extraCss: css, ancestor: new Probe([])));
     }
+
+    /// <summary>What <c>not-</c> and <c>has-</c> may wrap, asked of the predicate rather than of a class.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Direct, because the row that matters cannot be spelled as a class.</b> Both call
+    ///         sites take a suffix whose length they have already checked and want its first
+    ///         non-space character; a suffix that is non-empty and all space has none, and the bare
+    ///         index that used to be there threw <c>IndexOutOfRangeException</c> out of the middle
+    ///         of sheet generation. No entry in <c>States</c> or <c>Parts</c> spells such a suffix
+    ///         today, so there is no <c>not-…:</c> that reaches it — which is exactly why the guard
+    ///         is worth an assertion of its own rather than a class that happens not to exist yet.
+    ///     </para>
+    ///     <para>
+    ///         The three combinator rows are the live half and belong to <c>has-</c>'s refusal:
+    ///         ExCSS 4.3.2 parses <c>:has(&gt; .x)</c> into the node it parses <c>:has(.x)</c> into,
+    ///         so a relative argument that got past here would silently mean "any descendant".
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(":hover", true)]
+    [InlineData(" > field-placeholder", false)]
+    [InlineData(">x", false)]
+    [InlineData("+x", false)]
+    [InlineData("~x", false)]
+    [InlineData("", false)]
+    [InlineData(" ", false)]
+    [InlineData("  \t ", false)]
+    public void A_suffix_is_wrappable_only_when_it_is_a_selector_on_its_own(string suffix, bool wrappable) =>
+        Assert.Equal(wrappable, Variants.IsWrappable(suffix));
 }

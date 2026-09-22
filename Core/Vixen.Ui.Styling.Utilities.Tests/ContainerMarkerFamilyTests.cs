@@ -65,11 +65,39 @@ public class ContainerMarkerFamilyTests {
     [InlineData("@container/24rem")]
     [InlineData("@container/--main")]
     [InlineData("@container/")]
+    [InlineData("@container-[inline-size]/24rem")]
     public void A_value_the_family_does_not_have_computes_to_nothing(string utility) {
         var fixture = new UtilityFixture();
 
         Assert.Null(fixture.Computed([utility], "container-type"));
         Assert.Null(fixture.Computed([utility], "container-name"));
+    }
+
+    /// <summary>The escape hatch carries a name, rather than resolving and dropping it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The arbitrary branch runs before the one that reads the slash, so until this row
+    ///         existed <c>@container-[inline-size]/main</c> emitted the type and silently discarded
+    ///         the name.</b> That is the failure the keyword branch two entries down spends a
+    ///         paragraph refusing — <c>text-center/50</c> is not a translucent alignment — arriving
+    ///         through the one door that door does not cover, and its symptom is the worse half of
+    ///         the pair: a class that <em>works</em>, registering a container the author's
+    ///         <c>@container main (…)</c> query can never name, where a refusal would at least have
+    ///         been reported as an unrecognised class.
+    ///     </para>
+    ///     <para>
+    ///         The name is held to the same identifier shape the keyword form holds it to, which is
+    ///         the refusal row above: <c>container-name: 24rem</c> is a declaration ExCSS drops
+    ///         whole, so passing it through would emit a rule whose type landed and whose name did
+    ///         not — the asymmetry all over again with an extra step.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_arbitrary_container_type_keeps_the_name_beside_it() {
+        var fixture = new UtilityFixture();
+
+        Assert.Equal("inline-size", fixture.Computed(["@container-[inline-size]/main"], "container-type"));
+        Assert.Equal("main", fixture.Computed(["@container-[inline-size]/main"], "container-name"));
     }
 
     /// <summary>The class makes a box a container that a child's query is answered by.</summary>
