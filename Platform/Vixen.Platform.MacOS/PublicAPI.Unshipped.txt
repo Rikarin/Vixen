@@ -47,6 +47,8 @@ Vixen.Platform.MacOS.MacOSProcessorTopology.PerformanceCores.get -> int
 Vixen.Platform.MacOS.MacOSProcessorTopology.PhysicalCores.get -> int
 Vixen.Platform.MacOS.MacOSProcessorTopology.SupportsAffinity.get -> bool
 Vixen.Platform.MacOS.MacOSProcessorTopology.TrySetAffinity(int processor) -> bool
+Vixen.Platform.MacOS.MacOSSemanticColors -> static class
 static Vixen.Platform.MacOS.MacOSAccent.Read() -> Vixen.Platform.SystemAccent
 static Vixen.Platform.MacOS.MacOSAccessibility.Read() -> Vixen.Platform.SystemAccessibility
 static Vixen.Platform.MacOS.MacOSAppearance.Read() -> Vixen.Platform.SystemColorScheme
+static Vixen.Platform.MacOS.MacOSSemanticColors.Read() -> Vixen.Platform.SystemSemanticColors

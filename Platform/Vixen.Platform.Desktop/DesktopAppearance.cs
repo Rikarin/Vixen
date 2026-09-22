@@ -44,22 +44,30 @@ sealed class DesktopAppearance {
 
     readonly Func<SystemColorScheme>? read;
     readonly Func<SystemAccent>? accent;
+    readonly Func<SystemSemanticColors>? semantic;
     readonly bool repeatable;
 
     int pumps;
 
-    internal DesktopAppearance(Func<SystemColorScheme>? read, bool repeatable, Func<SystemAccent>? accent = null) {
+    internal DesktopAppearance(
+        Func<SystemColorScheme>? read,
+        bool repeatable,
+        Func<SystemAccent>? accent = null,
+        Func<SystemSemanticColors>? semantic = null
+    ) {
         this.read = read;
         this.accent = accent;
+        this.semantic = semantic;
         this.repeatable = repeatable;
 
         Current = read?.Invoke() ?? SystemColorScheme.Unknown;
         Accent = accent?.Invoke() ?? SystemAccent.Unknown;
+        SemanticColors = semantic?.Invoke() ?? SystemSemanticColors.Unknown;
     }
 
     /// <summary>The appearance for the desktop this process is running on.</summary>
     public DesktopAppearance()
-        : this(Reader(), OperatingSystem.IsWindows() || OperatingSystem.IsMacOS(), AccentReader()) { }
+        : this(Reader(), OperatingSystem.IsWindows() || OperatingSystem.IsMacOS(), AccentReader(), SemanticReader()) { }
 
     /// <summary>What was last read.</summary>
     public SystemColorScheme Current { get; private set; }
@@ -74,6 +82,17 @@ sealed class DesktopAppearance {
     ///     Linux read is a subprocess.
     /// </remarks>
     public SystemAccent Accent { get; private set; }
+
+    /// <summary>The semantic palette that was last read.</summary>
+    /// <remarks>
+    ///     On the appearance's poll and reported as an appearance change, on the accent's terms
+    ///     and for the accent's reason: a palette that follows the appearance moves when the
+    ///     appearance does, and a host that re-applies the accent on that event re-applies this
+    ///     beside it. ⚠ It also means a Windows user switching a high-contrast scheme on or off is
+    ///     seen here — <c>WindowsSemanticColors</c> answers <c>Unknown</c> outside one — a quarter
+    ///     of a second later, which is the same latency the appearance itself has.
+    /// </remarks>
+    public SystemSemanticColors SemanticColors { get; private set; }
 
     static Func<SystemColorScheme>? Reader() {
         if (OperatingSystem.IsWindows()) {
@@ -125,6 +144,31 @@ sealed class DesktopAppearance {
         return OperatingSystem.IsLinux() ? LinuxAccent.Read : null;
     }
 
+    /// <summary>Which of the three desktops can answer for the wider semantic palette.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Two of the three. macOS reads AppKit's class colours — the read three files said was
+    ///         impossible without an <c>NSApplication</c>, measured and false; Windows reads the
+    ///         classic system colours, and ⚠ only while a high-contrast scheme is on, because outside
+    ///         one that table is a light palette whatever the app theme says and would put a white
+    ///         canvas under a dark window. Linux has no reader: GNOME's <c>gsettings</c> carries an
+    ///         accent name and nothing else of this shape, and the read is a subprocess.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the macOS reads have been measured against their own source</b>, by
+    ///         <c>MacOSSemanticColorTests</c>. The Windows reader is asserted where a Windows runner
+    ///         has a high-contrast scheme on, which no runner does by default — the mapping is
+    ///         documented and the decode is <c>WindowsAccent</c>'s, tested on every platform.
+    ///     </para>
+    /// </remarks>
+    static Func<SystemSemanticColors>? SemanticReader() {
+        if (OperatingSystem.IsWindows()) {
+            return WindowsSemanticColors.Read;
+        }
+
+        return OperatingSystem.IsMacOS() ? MacOSSemanticColors.Read : null;
+    }
+
     /// <summary>Advances the poll counter and re-reads when it comes round.</summary>
     /// <returns>Whether the appearance moved, and therefore whether an event is owed.</returns>
     public bool Pump() {
@@ -141,10 +185,12 @@ sealed class DesktopAppearance {
         // guarded by "the scheme changed" would be one that only ever fires on the way into dark
         // mode — which is exactly the shape of an update nobody notices is missing.
         var latest = accent?.Invoke() ?? SystemAccent.Unknown;
-        var moved = current != Current || latest != Accent;
+        var palette = semantic?.Invoke() ?? SystemSemanticColors.Unknown;
+        var moved = current != Current || latest != Accent || palette != SemanticColors;
 
         Current = current;
         Accent = latest;
+        SemanticColors = palette;
 
         return moved;
     }

@@ -303,6 +303,7 @@ sealed class EditorHost : IDisposable {
         // notice — so a host that only handled the change would never see the first one.
         PlatformInput.ApplyColorScheme(editor.Shell.Document, platform.ColorScheme);
         PlatformInput.ApplyAccent(editor.Shell.Document, platform.Accent);
+        PlatformInput.ApplySemanticColors(editor.Shell.Document, platform.SemanticColors);
         PlatformInput.ApplyAccessibility(editor.Shell.Document, platform.Accessibility);
 
         while (running && (frames == 0 || drawn < frames)) {
@@ -512,6 +513,7 @@ sealed class EditorHost : IDisposable {
                     // paragraph above gives about wiring one of two: the editor's chrome is drawn
                     // with `--accent` too.
                     PlatformInput.ApplyAccent(editor.Shell.Document, platform.Accent);
+                    PlatformInput.ApplySemanticColors(editor.Shell.Document, platform.SemanticColors);
                     break;
 
                 case PlatformEventKind.SystemAccessibilityChanged:

@@ -260,6 +260,9 @@ public sealed unsafe class DesktopPlatform : IPlatform {
     public SystemAccent Accent => appearance.Accent;
 
     /// <inheritdoc />
+    public SystemSemanticColors SemanticColors => appearance.SemanticColors;
+
+    /// <inheritdoc />
     public IFileSystemHost FileSystem { get; }
 
     /// <inheritdoc />
