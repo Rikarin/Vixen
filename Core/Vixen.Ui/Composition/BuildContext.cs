@@ -1778,11 +1778,11 @@ public sealed class BuildContext {
     ///         missing one is a warning at compile time rather than a silent fallback to the index.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Reordering moves every surviving item rather than a minimal set.</b> A move that
-    ///         does not change an element's index returns immediately, so an unchanged list costs a
-    ///         walk and nothing else; a rotation costs one move per item where a
-    ///         longest-increasing-subsequence pass would cost far fewer. Owed, and the honest
-    ///         statement is that this is correct and not yet minimal.
+    ///         ⚠ <b>Reordering moves the items that left the longest increasing subsequence of
+    ///         their old positions, and no others.</b> A rotation by one is one move, whichever end
+    ///         the row went to. That is <c>Region.Reposition</c>'s job and it is the same pass a
+    ///         cleared branch is put back with; the remarks there say why only an element in the run
+    ///         starting at the region's start may stay where it is.
     ///     </para>
     /// </remarks>
     /// <param name="exit">How long a removed row stays on screen, or null to remove it at once.</param>

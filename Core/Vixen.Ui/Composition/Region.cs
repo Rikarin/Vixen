@@ -274,21 +274,155 @@ sealed class Region {
         }
     }
 
-    /// <summary>Moves this region's contents into its place among its siblings.</summary>
+    /// <summary>Moves this region's contents into its place among its siblings, moving as few as it can.</summary>
     /// <remarks>
-    ///     Building appends, so a rebuilt region's elements arrive at the end of the parent. Moving
-    ///     them left one at a time in order works because they stay contiguous: taking the first out
-    ///     of the tail and putting it at <c>Start</c> shifts everything between right by one and
-    ///     leaves the rest of the tail where it was.
+    ///     <para>
+    ///         Building appends, so a rebuilt region's elements arrive at the end of the parent, and
+    ///         a reconciled <c>@for</c> keeps its surviving rows where they were and appends the new
+    ///         ones. Either way the region's elements have to end up in <see cref="slots" /> order
+    ///         starting at <see cref="Start" />, and everything else in the parent has to stay where
+    ///         it is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The elements that keep their relative order do not move; only the rest do.</b>
+    ///         Walking the wanted order and handing each element its index is correct and moves
+    ///         nearly everything on a rotation by one — a real move is a layout remove-and-insert
+    ///         and a style-tree move that restyles the siblings it passed, and a rotation changes
+    ///         every index. The elements that can stay put are a longest increasing subsequence of
+    ///         their current indices taken in the wanted order, and every other element is put
+    ///         directly before its wanted successor, walking the wanted order backwards so that the
+    ///         successor is already settled when its predecessor is placed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only an element in the run that starts at <see cref="Start" /> may stay.</b> A
+    ///         freshly built element sits at the parent's tail, past whatever sibling follows this
+    ///         region, and an element beyond that sibling has a foreign element in front of it that
+    ///         no move of this region's own elements can take away. So the candidates are the
+    ///         children from <see cref="Start" /> up to the first one that is not this region's, and
+    ///         that first one — the <i>follower</i> — is what the last element is placed in front of.
+    ///         For a cleared-and-rebuilt branch the run is empty, every element moves, and the cost
+    ///         is the same as the walk it replaced.
+    ///     </para>
     /// </remarks>
     internal void Reposition() {
-        var target = Start;
+        var elements = new List<UiElement>();
 
         foreach (var slot in slots) {
-            foreach (var element in Elements(slot)) {
-                parent.Document.Move(element, target++);
+            elements.AddRange(Elements(slot));
+        }
+
+        if (elements.Count == 0) {
+            return;
+        }
+
+        var document = parent.Document;
+        var children = parent.Children;
+        var start = Start;
+
+        // Where each of this region's elements is now, from one walk of the parent rather than one
+        // IndexOf per element.
+        var positions = new Dictionary<UiElement, int>(elements.Count);
+
+        foreach (var element in elements) {
+            positions[element] = -1;
+        }
+
+        for (var i = 0; i < children.Count; i++) {
+            if (positions.ContainsKey(children[i])) {
+                positions[children[i]] = i;
             }
         }
+
+        var run = 0;
+
+        while (start + run < children.Count && positions.ContainsKey(children[start + run])) {
+            run++;
+        }
+
+        var follower = start + run < children.Count ? children[start + run] : null;
+        var keep = LongestIncreasingRun(elements, positions, start, start + run);
+        var next = follower;
+
+        for (var i = elements.Count - 1; i >= 0; i--) {
+            var element = elements[i];
+
+            if (keep[i]) {
+                next = element;
+                continue;
+            }
+
+            // `Move` takes the element out and puts it back at the index, so the index of what it
+            // should land in front of is read now and is one less when the element is currently
+            // ahead of it.
+            int target;
+
+            if (next is null) {
+                target = children.Count - 1;
+            } else {
+                var ahead = next.IndexInParent;
+                target = element.IndexInParent < ahead ? ahead - 1 : ahead;
+            }
+
+            document.Move(element, target);
+            next = element;
+        }
+    }
+
+    /// <summary>Which elements, in wanted order, already stand in increasing order inside the run.</summary>
+    /// <param name="elements">The wanted order.</param>
+    /// <param name="positions">Where each one is now.</param>
+    /// <param name="from">The first index of the run an element may stay in.</param>
+    /// <param name="to">One past its last.</param>
+    /// <returns>True at each index whose element need not move.</returns>
+    /// <remarks>
+    ///     Patience sorting over the current indices, with a predecessor per element so the
+    ///     subsequence itself can be read back rather than only its length. Strictly increasing,
+    ///     which two distinct children always are.
+    /// </remarks>
+    static bool[] LongestIncreasingRun(List<UiElement> elements, Dictionary<UiElement, int> positions, int from, int to) {
+        var count = elements.Count;
+        var keep = new bool[count];
+
+        // tails[k] is the element index ending the best subsequence of length k + 1 found so far;
+        // previous[i] is the element before i in the subsequence i ends.
+        var tails = new List<int>();
+        var previous = new int[count];
+
+        for (var i = 0; i < count; i++) {
+            var position = positions[elements[i]];
+
+            if (position < from || position >= to) {
+                previous[i] = -1;
+                continue;
+            }
+
+            var low = 0;
+            var high = tails.Count;
+
+            while (low < high) {
+                var middle = (low + high) / 2;
+
+                if (positions[elements[tails[middle]]] < position) {
+                    low = middle + 1;
+                } else {
+                    high = middle;
+                }
+            }
+
+            previous[i] = low == 0 ? -1 : tails[low - 1];
+
+            if (low == tails.Count) {
+                tails.Add(i);
+            } else {
+                tails[low] = i;
+            }
+        }
+
+        for (var i = tails.Count == 0 ? -1 : tails[^1]; i >= 0; i = previous[i]) {
+            keep[i] = true;
+        }
+
+        return keep;
     }
 
     static IEnumerable<UiElement> Elements(object slot) {

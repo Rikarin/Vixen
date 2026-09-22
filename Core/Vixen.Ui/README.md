@@ -1743,12 +1743,14 @@ and the animation quietly loses its middle.
 
 ### Owed
 
-A longest-increasing-subsequence pass so a reorder moves a minimal set rather than every surviving
-item. It is correctness-neutral: `Region.Reposition` calls `Document.Move` once per element and
-`Move` returns immediately when the index has not changed, so an unchanged list already costs a walk
-and nothing else. What it costs today is a real move per element on a list that *has* been reordered
-— a rotation by one changes nearly every index — and each of those is a layout remove-and-insert
-plus a style-tree move.
+*(The longest-increasing-subsequence pass used to be owed here and is not: `Region.Reposition` keeps
+every element that already stands in wanted order inside the run beginning at the region's start and
+places only the rest, each directly before its wanted successor, walking backwards. A rotation by one
+is one `Document.Move` in either direction, and `UiDiagnostics.ElementsMoved` is the number a test
+states that as — work rather than time. ⚠ Only an element inside that run may stay: a freshly built
+element is at the parent's tail, past whatever sibling follows the region, and no move of the region's
+own elements can take that sibling out from in front of it. `Switch` goes through the same pass with
+an empty run and costs what the old walk cost.)*
 
 *(An ambient value used to be owed here and is not: `UiElement.Provide`/`Inject`, `Component.OnProvide`,
 the `<provide>` tag and the `@inject` header are all built — see the table at the top of this file and
