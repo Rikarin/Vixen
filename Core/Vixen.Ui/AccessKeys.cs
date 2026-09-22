@@ -6,6 +6,30 @@ using Vixen.Ui.Styling;
 
 namespace Vixen.Ui;
 
+/// <summary>An element's bare key equivalent was pressed and nothing on the route wanted it.</summary>
+/// <remarks>
+///     <para>
+///         <b>The Return and Escape of a form, and the same shape as <see cref="AccessKeyEvent" />
+///         with the modifier taken off.</b> AppKit's <c>keyEquivalent</c>, WPF's
+///         <c>IsDefault</c>/<c>IsCancel</c>: a button that presses when Return reaches the form
+///         unclaimed, and one that presses on Escape. The document decides <i>which</i> element —
+///         within the focus scope, so a dialog's default cannot be pressed from the window behind it
+///         — and raises this on it; what the element does with it is its own business, exactly as
+///         an access key is.
+///     </para>
+///     <para>
+///         ⚠ <b>Raised only for a press the route declined.</b> A text field that takes Return
+///         for a newline, a list that takes Escape to clear its selection, an open overlay that
+///         closes on Escape: each sees the key first and keeps it, and the default button hears
+///         nothing. That is the CSS-shaped rule every other document fallback follows and the one
+///         that makes a default button safe to put beside a multi-line field.
+///     </para>
+/// </remarks>
+public sealed class KeyEquivalentEvent : UiEvent {
+    /// <summary>The key, as the element declared it.</summary>
+    public InputKey Key { get; init; }
+}
+
 /// <summary>An access key was pressed and this element is what it names.</summary>
 /// <remarks>
 ///     <para>
@@ -137,6 +161,64 @@ public sealed partial class UiDocument {
         target.Raise(args);
 
         return true;
+    }
+
+    /// <summary>Presses whatever declares a bare key as its equivalent, if anything does.</summary>
+    /// <param name="key">The key, unmodified.</param>
+    /// <returns>Whether an element took it.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Within the focus scope, for <see cref="InvokeAccessKey" />'s reason</b>, and the
+    ///         first in tree order rather than a cycle: two default buttons in one scope is a mistake
+    ///         and not a convention, and pressing Return twice to reach the second one would be a
+    ///         strange thing to teach. ⚠ <b>The focus does not move.</b> Return in a field commits
+    ///         the form the way a click on the button would, and a click on a button does not take
+    ///         the focus from the field the user was typing in either.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Answers what the element answered</b>, not "found one": an element that declared
+    ///         the key and then declined the event — disabled, or a control that decided the press
+    ///         was not for it — leaves the key to the fallbacks after this one.
+    ///     </para>
+    /// </remarks>
+    public bool InvokeKeyEquivalent(InputKey key) {
+        // The keypad's Return is the same request as the main one, as it is to every control here.
+        if (key == InputKey.KeypadEnter) {
+            key = InputKey.Enter;
+        }
+
+        if (key == InputKey.Unknown) {
+            return false;
+        }
+
+        var target = FindKeyEquivalent(Scope(), key);
+
+        if (target is null) {
+            return false;
+        }
+
+        var args = new KeyEquivalentEvent { Key = key };
+        target.Raise(args);
+
+        return args.Handled;
+    }
+
+    /// <summary>The first element under a subtree that declares a key, in tree order.</summary>
+    static UiElement? FindKeyEquivalent(UiElement element, InputKey key) {
+        // Disabled off the style state and a collapsed panel off the layout, for `Collect`'s
+        // reasons one method down: this assembly has no controls in it, and an element with no box
+        // is not on screen to be pressed.
+        if (element.KeyEquivalent == key && !element.State.HasFlag(ElementState.Disabled)) {
+            return element;
+        }
+
+        foreach (var child in element.Children) {
+            if (child.Width > 0f && child.Height > 0f && FindKeyEquivalent(child, key) is { } found) {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Everything under a subtree that answers to a key, in tree order.</summary>

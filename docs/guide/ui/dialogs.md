@@ -4,7 +4,7 @@ slug: ui/dialogs
 kind: guide
 area: Core
 summary: A modal question an application can await — confirm, prompt, choose, or one it fills in itself — queued one at a time, completed from the document's tick rather than from the click that answered it, and answered rather than dropped when the application goes away.
-api: [T:Vixen.Ui.Controls.DialogService, T:Vixen.Ui.Controls.DialogSession`1, T:Vixen.Ui.Controls.Dialog]
+api: [T:Vixen.Ui.Controls.DialogService, T:Vixen.Ui.Controls.DialogSession`1, T:Vixen.Ui.Controls.Dialog, T:Vixen.Ui.KeyEquivalentEvent]
 tags: [ui, controls, dialogs, modality, async]
 since: 0.2
 status: preview
@@ -98,6 +98,29 @@ document.Dispose();
 ⚠ **The default button labels are literals — `OK` and `Cancel` — because the string catalogue is
 still in `Vixen.Editor.Ui`.** Until doc 46 § A3 promotes it, an application that needs a translated
 confirming button passes one: every label on every method here is a parameter.
+
+### Return answers it, and it used to mean "no"
+
+**The primary button is the dialog's default button**: `AddButton` sets `Button.IsDefault` on it, so
+a Return that reaches the dialog without being claimed presses it. The key never *overrides*
+anything — it arrives at the default button only after the route declined it, which is why a prompt's
+text field keeps its own Return and a multi-line field keeps its newline.
+
+⚠ **Two halves of one bug, and only the second is obvious.** `Button` had no default key equivalent
+at all, and the dialog focused its first tab stop — which is the ✕ in the header, because the header
+comes before the body in tree order. A focused button presses on Return, so in a confirm sheet the
+first key a person presses without looking answered **no**. The initial focus now prefers, in order:
+something in the body, because a dialog with a field is a dialog about that field; the default
+button, which is what AppKit focuses in a sheet with no field; any other stop; and the ✕ only when
+there is nothing else at all.
+
+⚠ **A destructive confirm has no default.** `ConfirmAsync(danger: true)` makes its confirming button
+`Danger` rather than `Primary`, so nothing there answers to Return — deliberately, because the
+accident a default button saves you from is not worth the accident it would cause on a Delete.
+
+Escape is the dialog's own, from before this: `Overlay` listens on the root's capture leg and closes
+with `CloseReason.Cancelled`, which runs before a key equivalent could. `Button.IsCancel` is for a
+form that is *not* an overlay — an inline editor, a sheet drawn by hand, a login screen.
 
 ## Examples
 

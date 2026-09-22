@@ -70,6 +70,13 @@ public sealed class DialogSession<TResult> {
         button.Label = label;
         button.Variant = variant;
 
+        // ⚠ The primary button is the default one: Return anywhere in the dialog that nothing
+        // claims presses it, which is what "OK" has meant on every platform since there were
+        // dialogs. `PromptAsync` still commits from the field's own `Submitted`, because a text
+        // field takes Return before it reaches the form — the two agree, and neither waits for
+        // the other.
+        button.IsDefault = variant == ControlVariant.Primary;
+
         buttons.Add((button, result));
         return button;
     }

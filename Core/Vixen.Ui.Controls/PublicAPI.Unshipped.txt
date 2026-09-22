@@ -60,6 +60,10 @@ Vixen.Ui.Controls.BreadcrumbItem.Value.set -> string?
 Vixen.Ui.Controls.Button -> sealed class
 Vixen.Ui.Controls.Button : Vixen.Ui.Controls.ButtonBase
 Vixen.Ui.Controls.Button.Button() -> void
+Vixen.Ui.Controls.Button.IsCancel.get -> bool
+Vixen.Ui.Controls.Button.IsCancel.set -> bool
+Vixen.Ui.Controls.Button.IsDefault.get -> bool
+Vixen.Ui.Controls.Button.IsDefault.set -> bool
 Vixen.Ui.Controls.ButtonBase -> abstract class
 Vixen.Ui.Controls.ButtonBase : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.ButtonBase.Activate() -> void
@@ -1467,6 +1471,8 @@ static Vixen.Ui.Controls.KeyboardShortcut.Formatter.set -> System.Func<Vixen.Inp
 static readonly Vixen.Ui.Controls.Accordion.AllowMultipleProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Avatar.NameProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.BreadcrumbItem.ValueProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Button.IsCancelProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Button.IsDefaultProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.CheckBox.IsIndeterminateProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.CheckBox.RequiredProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Control.DisabledProperty -> Vixen.Ui.UiPropertyKey

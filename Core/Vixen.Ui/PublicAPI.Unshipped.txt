@@ -807,6 +807,11 @@ Vixen.Ui.KeyEvent.Modifiers.get -> Vixen.Ui.ModifierKeys
 Vixen.Ui.KeyEvent.Modifiers.init -> Vixen.Ui.ModifierKeys
 Vixen.Ui.KeyEvent.Timestamp.get -> System.TimeSpan
 Vixen.Ui.KeyEvent.Timestamp.init -> System.TimeSpan
+Vixen.Ui.KeyEquivalentEvent -> sealed class
+Vixen.Ui.KeyEquivalentEvent : Vixen.Ui.UiEvent
+Vixen.Ui.KeyEquivalentEvent.Key.get -> Vixen.Input.InputKey
+Vixen.Ui.KeyEquivalentEvent.Key.init -> Vixen.Input.InputKey
+Vixen.Ui.KeyEquivalentEvent.KeyEquivalentEvent() -> void
 Vixen.Ui.LayoutStyleBuilder -> sealed class
 Vixen.Ui.LayoutStyleBuilder.ApplyVariableLength(Vixen.Ui.Styling.ComputedStyle style, Vixen.Ui.Layout.LayoutTree tree, Vixen.Ui.Layout.LayoutNodeId node) -> void
 Vixen.Ui.LayoutStyleBuilder.Build(Vixen.Ui.Styling.ComputedStyle style, in Vixen.Ui.LengthContext context) -> Vixen.Ui.Layout.LayoutStyle
@@ -1593,6 +1598,7 @@ Vixen.Ui.UiDocument.Invalidate() -> void
 Vixen.Ui.UiDocument.InvalidateAccessibility() -> void
 Vixen.Ui.UiDocument.InvalidateCommands() -> void
 Vixen.Ui.UiDocument.InvokeAccessKey(char key) -> bool
+Vixen.Ui.UiDocument.InvokeKeyEquivalent(Vixen.Input.InputKey key) -> bool
 Vixen.Ui.UiDocument.KeySurface.get -> Vixen.Ui.UiSurface?
 Vixen.Ui.UiDocument.KeySurface.set -> Vixen.Ui.UiSurface?
 Vixen.Ui.UiDocument.KeySurfaceChanged -> System.Action<Vixen.Ui.UiDocument, Vixen.Ui.UiSurface>?
@@ -1731,6 +1737,8 @@ Vixen.Ui.UiElement.IsHitTestVisible.get -> bool
 Vixen.Ui.UiElement.IsInAccessibilityTree.get -> bool
 Vixen.Ui.UiElement.IsInCommandTransparentSubtree.get -> bool
 Vixen.Ui.UiElement.IsRemoved.get -> bool
+Vixen.Ui.UiElement.KeyEquivalent.get -> Vixen.Input.InputKey
+Vixen.Ui.UiElement.KeyEquivalent.set -> Vixen.Input.InputKey
 Vixen.Ui.UiElement.Language.get -> string?
 Vixen.Ui.UiElement.Language.set -> string?
 Vixen.Ui.UiElement.Left.get -> float
@@ -2026,6 +2034,7 @@ static readonly Vixen.Ui.UiElement.AccessKeyProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.UiElement.AllowDropProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.UiElement.FocusableProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.UiElement.IsFocusScopeProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.UiElement.KeyEquivalentProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.UiElement.OffsetXProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.UiElement.OffsetYProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.UiElement.TabIndexProperty -> Vixen.Ui.UiPropertyKey

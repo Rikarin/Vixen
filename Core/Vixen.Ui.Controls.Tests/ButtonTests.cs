@@ -327,4 +327,110 @@ public class ButtonTests {
         // disabled.
         Assert.Equal(0, clicks);
     }
+
+    /// <summary>A default button presses on a Return nothing else wanted, and a cancel one on Escape.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The gap #666 lists under "present with a named gap": <c>Button</c> had no default or
+    ///     cancel key equivalent</b>, so a form's Return did nothing at all unless a single-line
+    ///     field happened to be focused and raised <c>Submitted</c>. `IsDefault` and `IsCancel` are
+    ///     `UiElement.KeyEquivalent` plus a class the theme can draw, and the document raises the
+    ///     event only on a press the route declined — see <c>KeyEquivalentTests</c> for that half.
+    /// </remarks>
+    [Fact]
+    public void A_default_button_presses_on_return_and_a_cancel_button_on_escape() {
+        using var fixture = new ControlFixture();
+
+        var ok = fixture.Add<Button>();
+        var cancel = fixture.Add<Button>();
+
+        ok.Label = "OK";
+        ok.IsDefault = true;
+
+        cancel.Label = "Cancel";
+        cancel.IsCancel = true;
+
+        var accepted = 0;
+        var cancelled = 0;
+
+        ok.Clicked += _ => accepted++;
+        cancel.Clicked += _ => cancelled++;
+
+        fixture.Update();
+
+        // The class as well as the key: a default button nobody can see is a Return that does
+        // something unannounced, so the theme has to be able to say which one it is.
+        Assert.True(ok.HasClass("default"));
+        Assert.True(cancel.HasClass("cancel"));
+
+        fixture.KeyDown(InputKey.Enter);
+        fixture.KeyDown(InputKey.Escape);
+
+        Assert.Equal(1, accepted);
+        Assert.Equal(1, cancelled);
+
+        // And taking the flag off takes the key with it.
+        ok.IsDefault = false;
+        fixture.Update();
+        fixture.KeyDown(InputKey.Enter);
+
+        Assert.Equal(1, accepted);
+        Assert.False(ok.HasClass("default"));
+    }
+
+    /// <summary>A text area keeps its Return, which is the whole reason this is a fallback.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The failure a default button has everywhere it is implemented as a claim on the
+    ///     key.</b> `TextField.Execute` settles the collision — a plain Return in a multi-line field
+    ///     breaks the line and marks the press handled — so the document's fallback never runs and
+    ///     the button hears nothing. A single-line `TextBox` submits instead, which is a different
+    ///     route to the same place and is what `DialogService.Prompt` has always bound.
+    /// </remarks>
+    [Fact]
+    public void A_focused_text_area_keeps_its_return_and_the_default_button_does_not_fire() {
+        using var fixture = new ControlFixture();
+
+        var area = fixture.Add<TextArea>();
+        var ok = fixture.Add<Button>();
+
+        ok.Label = "OK";
+        ok.IsDefault = true;
+
+        var accepted = 0;
+        ok.Clicked += _ => accepted++;
+
+        fixture.Update();
+        fixture.Document.Focus(area);
+        fixture.KeyDown(InputKey.Enter);
+
+        Assert.Equal(0, accepted);
+        Assert.Contains("\n", area.Value ?? string.Empty, StringComparison.Ordinal);
+    }
+
+    /// <summary>A disabled default button leaves the key unhandled rather than swallowing it.</summary>
+    /// <remarks>
+    ///     ⚠ Asserted on <c>Handled</c> and not only on the click count, because the two failures are
+    ///     different: a greyed button that <i>pressed</i> would be the one way past being disabled,
+    ///     and one that consumed the key without pressing would take the Return away from whatever
+    ///     the document would otherwise have offered it to.
+    /// </remarks>
+    [Fact]
+    public void A_disabled_default_button_does_not_eat_the_return_it_declines() {
+        using var fixture = new ControlFixture();
+
+        var greyed = fixture.Add<Button>();
+
+        greyed.IsDefault = true;
+        greyed.Disabled = true;
+
+        var pressed = 0;
+        greyed.Clicked += _ => pressed++;
+
+        fixture.Update();
+
+        var args = new KeyEvent { Key = InputKey.Enter, Action = KeyAction.Pressed, Modifiers = ModifierKeys.None };
+        fixture.Document.Dispatch(args);
+
+        Assert.Equal(0, pressed);
+        Assert.False(args.Handled);
+    }
 }
