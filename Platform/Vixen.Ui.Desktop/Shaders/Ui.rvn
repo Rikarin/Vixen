@@ -159,7 +159,7 @@ struct Ui {
 /// clip volume on the `z` planes (`-w ≤ 0 ≤ w` fails), which is the hardware clipping against the same
 /// plane `UiDocument.HitTest` refuses on and `SoftwareUiRasterizer` cuts against.
 ///
-/// ⚠ **The twin moved with it, and it is in another project.**
+/// ⚠ **The twin moved with it, and it is in another project.** The file
 /// `Platform/Vixen.Graphics.Golden.Tests/Shaders/ui.vert` is the hand-written GLSL copy of this stage
 /// with its own `.spv` and a `modules.sha256` row; `UiRavenAgreementTests` renders one frame through
 /// each on a device and compares them exactly, which is what made leaving it behind impossible to do
