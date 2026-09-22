@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using Vixen.Ui.Composition;
 
 namespace Vixen.Ui.Controls;
 
@@ -36,7 +37,7 @@ namespace Vixen.Ui.Controls;
 ///         what decides the layout rather than merely how much of it is visible.
 ///     </para>
 /// </remarks>
-public sealed partial class VirtualizingGrid : Control {
+public sealed partial class VirtualizingGrid : Control, IRowPool {
     readonly List<UiElement> tiles = [];
 
     Action<UiDocument>? settle;
@@ -83,6 +84,37 @@ public sealed partial class VirtualizingGrid : Control {
     /// <inheritdoc cref="VirtualizingPanel.Count" select="remarks" />
     [UiProperty(Changed = nameof(OnCountChanged))]
     public partial int Count { get; set; }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Explicit, for <c>VirtualizingPanel</c>'s reason — and the names differ here as well as
+    ///     the type: a grid's slot is a <i>tile</i>, and the seam this fills has one word for both
+    ///     because <c>BuildContext.Pool</c> cannot care which.
+    /// </remarks>
+    int IRowPool.RowCount {
+        get => Count;
+        set => Count = value;
+    }
+
+    /// <inheritdoc />
+    UiElement IRowPool.RowHost => Scroller.Content;
+
+    /// <inheritdoc />
+    Func<UiElement>? IRowPool.CreateRow {
+        get => pooled;
+        set {
+            pooled = value;
+            CreateTile = value is null ? null : _ => value();
+        }
+    }
+
+    /// <inheritdoc />
+    Action<UiElement, int>? IRowPool.BindRow {
+        get => BindTile;
+        set => BindTile = value;
+    }
+
+    Func<UiElement>? pooled;
 
     /// <summary>Makes a tile element. Called only when the pool has to grow.</summary>
     /// <inheritdoc cref="VirtualizingPanel.CreateRow" select="remarks" />

@@ -99,7 +99,7 @@ public class NodeGraphThemeTests {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>What was wrong was where the panel docked, not the stylesheet.</b>
-    ///         <c>DockingHost.Rekey</c> puts a panel the arrangement does not name into the
+    ///         <c>DockingHost.Rekey</c> put a panel the arrangement does not name into the
     ///         <em>first</em> group, which in every <c>LayoutPresets.Standard</c> preset is the left
     ///         browser at <c>0.2</c> of the width — 320 px, less than <c>shadergraph-side</c>'s own
     ///         300 px column, so the graph was the child that shrank and <c>min-width: 0</c> let it

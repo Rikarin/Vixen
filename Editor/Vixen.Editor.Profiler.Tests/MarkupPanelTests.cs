@@ -354,6 +354,60 @@ public sealed class MarkupPanelTests : IDisposable {
         return built;
     }
 
+    /// <summary>The refresh control stays put while the list it refreshes scrolls under it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the placement sentence #767 kept owing, measured on a view the editor
+    ///         already ships rather than decided.</b> The issue's two rows both ended on "where the
+    ///         widget goes", called taste; the tree answers it the same way in every panel that has
+    ///         one — <c>MemoryView</c>, <c>StatisticsView</c>, <c>NetworkView</c>,
+    ///         <c>RemoteInspectorView</c>: the button is first in a toolbar above the list, and the
+    ///         list scrolls in a <c>ScrollView</c> of its own so the toolbar does not go with it.
+    ///         <c>MemoryView.vxml</c> says why in prose; this says it as a measurement.
+    ///     </para>
+    ///     <para>
+    ///         Sabotage: move <c>&lt;memory-toolbar&gt;</c> inside the <c>&lt;ScrollView&gt;</c> and
+    ///         the button has a scroller above it and moves with the lines — two of three red.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_refresh_control_is_above_the_list_and_outside_its_scroller() {
+        var view = Build<MemoryView>();
+
+        view.Providers.Gpu = () => [
+            .. Enumerable.Range(0, 200).Select(i => new MemoryRow(MemoryArena.Gpu, $"Heap {i}", 1024L * (i + 1)))
+        ];
+        view.Take();
+        test.Frames(2);
+
+        var refresh = Descendants(view.Root).OfType<Button>().Single(button => button.Label == "Refresh");
+        var scroller = Descendants(view.Root).OfType<ScrollView>().Single();
+        var first = Lines(view)[0];
+
+        Assert.Null(ScrollerAbove(refresh, view.Root));
+        Assert.True(scroller.MaximumTop > 0f, "two hundred lines must overflow the harness");
+        Assert.True(refresh.AbsoluteTop + refresh.Height <= scroller.AbsoluteTop, "the control is above the list");
+
+        var restingButton = refresh.AbsoluteTop;
+        var restingLine = first.AbsoluteTop;
+
+        scroller.ScrollTo(scroller.MaximumTop, 0f);
+        test.Frames(2);
+
+        Assert.NotEqual(restingLine, first.AbsoluteTop);
+        Assert.Equal(restingButton, refresh.AbsoluteTop);
+    }
+
+    static ScrollView? ScrollerAbove(UiElement element, UiElement stopAt) {
+        for (var walk = element.Parent; walk is not null && !ReferenceEquals(walk, stopAt); walk = walk.Parent) {
+            if (walk is ScrollView scroller) {
+                return scroller;
+            }
+        }
+
+        return null;
+    }
+
     static UiElement[] Rows(StatisticsView view) => Tagged(view.Root, "statistic-row");
 
     static UiElement[] Lines(MemoryView view) => Tagged(view.Root, "memory-line");

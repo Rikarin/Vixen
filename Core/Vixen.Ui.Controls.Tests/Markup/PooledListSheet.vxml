@@ -1,0 +1,79 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    The same virtualised list as `VirtualListSheet.vxml`, with the row template built by the
+    composition runtime instead of by hand.
+
+    ⚠ **The difference between the two files is the whole of #758's remaining gap, minus the
+    syntax.** `VirtualListSheet` builds its row with `owner.Scroller.Content.Add<UiElement>(…)` and
+    writes it with `row.Text = Items[index]` — an element tree in C# in a file whose subject is the
+    tree. Here the row is an ordinary build body: `BuildContext.Pool` opens a region per pool slot,
+    hands it a `Signal<int>` holding the item that slot is showing, and everything the framework can
+    do inside a region — `@if`, a nested loop, `refs`, a binding — works in it.
+
+    ⚠ **What is still missing is a way to SAY it in markup.** A `@rows` block would put the body
+    below in the tree rather than in `@code`; the runtime it would compile to is what this file
+    exercises, and it exists. That is the half that was owed and could be finished without inventing
+    a keyword; the keyword is still owed.
+
+    ⚠ **The body runs once per SLOT, not once per item.** Ten thousand items, about a dozen bodies.
+    `Built` counts them, which is the assertion that tells a pooled list from a correct one that
+    allocated ten thousand boxes.
+
+    ⚠ **`Items` is a signal and the count reads it**, because `Pool`'s count is an effect: a list
+    whose length came from a plain field would be measured once and never again, which is the same
+    half-live failure a `bind:` over a plain property has.
+-->
+@component PooledListSheet
+@namespace Vixen.Ui.Controls.Tests
+@using System.Collections.Generic
+@using Vixen.Ui
+@using Vixen.Ui.Composition
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<pooled-sheet>
+    <VirtualizingPanel ref="@List" use="@(panel => Fill(panel))" />
+</pooled-sheet>
+
+@code {
+    /// <summary>The panel, so a test can scroll it the way a person would.</summary>
+    public VirtualizingPanel List { get; private set; } = null!;
+
+    /// <summary>What it is listing.</summary>
+    public Signal<string[]> Items { get; } = new([]);
+
+    /// <summary>How many row bodies were built, which is the pool's size and not the list's.</summary>
+    public int Built { get; private set; }
+
+    /// <summary>Every item index a slot was written with, which is what rebinding looks like.</summary>
+    public List<int> Bound { get; } = [];
+
+    /// <summary>How many times the `use=` effect ran, which must be once.</summary>
+    public int Fills { get; private set; }
+
+    void Fill(VirtualizingPanel panel) {
+        Fills++;
+
+        Context.Pool(
+            panel,
+            "virtual-row",
+            () => Items.Value.Length,
+            (_, row, showing) => {
+                Built++;
+
+                // ⚠ An ordinary binding over the slot's signal, which is the point. The body is
+                // never re-run — a slot is not an identity — so a row that read `showing.Value`
+                // once would show the item it was built for for ever while scrolling perfectly.
+                Context.Bind(() => {
+                    var item = showing.Value;
+                    var items = Items.Value;
+
+                    Bound.Add(item);
+                    row.Text = item >= 0 && item < items.Length ? items[item] : null;
+                });
+            }
+        );
+    }
+}

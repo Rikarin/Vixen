@@ -36,7 +36,7 @@
 
     ⚠ **One deliberate difference, recorded rather than fixed.** The hit test is geometric —
     `Bounds.Contains` — so a press that lands outside the matrix but inside a cell's rectangle (a
-    cell scrolled out of `harness-matrix`'s `overflow: auto`, under the side panel) selects that
+    cell scrolled out of the `harness-matrix` scroll view, under the side panel) selects that
     cell. That is what the panel this replaces did, byte for byte, and routing the press through
     `on:pointerdown` on each cell instead would fix it. Fixing it is a change to what the editor
     does and belongs in a commit that says so.
@@ -62,7 +62,11 @@
 </harness-bar>
 
 <harness-body>
-    <harness-matrix ref="@Matrix">
+    <!-- ⚠ A `ScrollView` under the sheet's tag, because the `overflow: auto` the sheet gave a plain
+         `<harness-matrix>` clips and does not scroll in this UI — a matrix of more cases than the
+         pane is tall lost its bottom rows with nothing to reach them by (#1275). `Matrix` is the
+         view's content, so the rows stay its direct children. -->
+    <ScrollView tag="harness-matrix" ref="@matrixPane">
         @if (Result is not null) {
             <harness-row class="header">
                 <harness-label />
@@ -85,7 +89,7 @@
                 </harness-row>
             }
         }
-    </harness-matrix>
+    </ScrollView>
 
     <harness-side>
         <harness-fields ref="@Fields">
@@ -181,8 +185,10 @@
     /// <summary>Jumps to the worst cell without hunting for it.</summary>
     public Button Worst { get; private set; } = null!;
 
-    /// <summary>The grid.</summary>
-    public UiElement Matrix { get; private set; } = null!;
+    /// <summary>The grid: the rows' direct parent, which is the matrix scroll view's content.</summary>
+    public UiElement Matrix => matrixPane.Content;
+
+    ScrollView matrixPane = null!;
 
     /// <summary>What the selected cell is.</summary>
     public UiElement Fields { get; private set; } = null!;

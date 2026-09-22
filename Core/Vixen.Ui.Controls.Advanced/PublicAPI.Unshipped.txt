@@ -438,6 +438,7 @@ Vixen.Ui.Controls.Advanced.DockLayout.Float(string id, float x, float y, float w
 Vixen.Ui.Controls.Advanced.DockLayout.Floating.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.DockFloat>
 Vixen.Ui.Controls.Advanced.DockLayout.Groups() -> System.Collections.Generic.List<Vixen.Ui.Controls.Advanced.DockGroupNode>
 Vixen.Ui.Controls.Advanced.DockLayout.IndexOfFloating(Vixen.Ui.Controls.Advanced.DockGroupNode group) -> int
+Vixen.Ui.Controls.Advanced.DockLayout.LargestGroup() -> Vixen.Ui.Controls.Advanced.DockGroupNode?
 Vixen.Ui.Controls.Advanced.DockLayout.Prune() -> void
 Vixen.Ui.Controls.Advanced.DockLayout.RemoveFloating(int index) -> void
 Vixen.Ui.Controls.Advanced.DockLayout.RemovePanel(string id) -> bool

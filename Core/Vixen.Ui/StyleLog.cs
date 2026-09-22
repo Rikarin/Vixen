@@ -60,6 +60,34 @@ static partial class StyleLog {
         int passes
     );
 
+    /// <summary>A box that declared a scroll container and got a clip.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not a refusal, and the second event in this range that is not.</b> The declaration
+    ///         is understood and applied: <c>auto</c> and <c>scroll</c> reach the layout as
+    ///         <c>Overflow.Scroll</c>, which drops the flex item's content-sized floor and reserves a
+    ///         scrollbar gutter, and the draw list clips at the box's edges. What the author wrote it
+    ///         for — reaching the content that hangs outside — is the one thing it does not do.
+    ///         Nothing in <c>Vixen.Ui</c> scrolls off <c>overflow</c>; the only scroller is
+    ///         <c>ScrollView</c>, which is styled <c>overflow: hidden</c> and drives bars of its own.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Invisible by construction, which is what makes it worth a line.</b> A box capped
+    ///         at 320 px over 1 007 px of rows looks exactly like a box holding six rows; the seventh
+    ///         is not drawn, not hit, not wheeled to, and nothing says it is there. The New Asset…
+    ///         picker sat like that for as long as it had more than six kinds, with a passing test
+    ///         that chose a row near the top. See <c>Rikarin/Vixen#1275</c>.
+    ///     </para>
+    /// </remarks>
+    [LoggerMessage(
+        EventId = 7009,
+        Level = LogLevel.Warning,
+        Message = "'{Element}' declares '{Declaration}', and in this UI that clips and does not scroll: the box "
+            + "cuts its content off at its edges and what hangs outside it cannot be reached by pointer, wheel or "
+            + "keyboard. Put a ScrollView there, or write 'overflow: hidden' if the clip is what was meant."
+    )]
+    public static partial void OverflowDoesNotScroll(ILogger logger, string element, string declaration);
+
     [LoggerMessage(
         EventId = 7005,
         Level = LogLevel.Warning,

@@ -170,6 +170,68 @@ public sealed partial class DockLayout {
         return groups;
     }
 
+    /// <summary>The docked group with the most room, which is where a panel nobody placed goes.</summary>
+    /// <returns>That group; a floating one if nothing is docked; <c>null</c> if there are no groups.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The answer to <c>Rikarin/Vixen#969</c>, and the reason it is a fact about the
+    ///         arrangement rather than about the screen.</b> A panel the arrangement has no entry for
+    ///         used to go into <see cref="Groups" />' first, which is the tree's leftmost leaf — and
+    ///         every <c>LayoutPresets.Standard</c> preset builds its root as
+    ///         <c>Split(browser, middle, 0.2)</c>, so "first" was the 20 % browser column for every
+    ///         plugin panel, every document a preset did not list and every id opened before a
+    ///         preset named it. A shader graph opened there measured its canvas at 0×796: a fixed
+    ///         300 px side strip plus <c>min-width: 0</c> turns "narrow" into "absent".
+    ///     </para>
+    ///     <para>
+    ///         Room is the fraction of the root's area a leaf gets — the product, down its path, of
+    ///         <see cref="DockSplitNode.Ratio" /> for a first half and its complement for a second —
+    ///         which is what the ratios <i>are</i>, so it needs no layout to have run and is the
+    ///         same answer before the first frame as after, when <c>Rekey</c> is called. A tie goes
+    ///         to the earlier group in tree order, so an arrangement of equal halves places exactly
+    ///         where it always did.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Floating windows are not candidates while anything is docked.</b> A floating
+    ///         group is a place the user chose for the panels in it, and it can be larger than any
+    ///         docked group on a big display; a panel appearing in somebody's torn-off inspector is
+    ///         the arrangement guessing, not placing.
+    ///     </para>
+    /// </remarks>
+    public DockGroupNode? LargestGroup() {
+        DockGroupNode? largest = null;
+        var most = -1f;
+
+        Measure(Root, 1f, ref largest, ref most);
+
+        if (largest is not null) {
+            return largest;
+        }
+
+        return floating.Count > 0 ? floating[0].Group : null;
+
+        static void Measure(DockNode? node, float area, ref DockGroupNode? largest, ref float most) {
+            switch (node) {
+                case DockGroupNode group:
+                    // Strictly greater, so the earlier of two equal groups keeps the place.
+                    if (area > most) {
+                        most = area;
+                        largest = group;
+                    }
+
+                    break;
+
+                case DockSplitNode split:
+                    Measure(split.First, area * split.Ratio, ref largest, ref most);
+                    Measure(split.Second, area * (1f - split.Ratio), ref largest, ref most);
+                    break;
+
+                default:
+                    break;
+            }
+        }
+    }
+
     /// <summary>Whether a group is still part of the arrangement.</summary>
     /// <param name="group">The group.</param>
     /// <returns>Whether it is.</returns>

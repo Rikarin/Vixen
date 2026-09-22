@@ -666,4 +666,112 @@ public class StyleDiagnosticDrainTests {
 
         Assert.Empty(Warnings(sink));
     }
+
+    /// <summary>A plain box declaring a scroll container is told, by name, that it got a clip.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The declaration is not refused, and the test is careful to say so.</b>
+    ///         <c>overflow: auto</c> reaches the layout as <c>Overflow.Scroll</c> — the min-content
+    ///         floor is dropped, the gutter is reserved — and the draw list clips; every half of it
+    ///         that CSS promises is delivered except the one the author wrote it for. So this is
+    ///         7009 and not 7004: nothing was dropped, and "a rule that does nothing" would be the
+    ///         wrong thing to tell somebody whose list has lost its tail. See
+    ///         <c>Rikarin/Vixen#1275</c>, where the New Asset… picker sat behind exactly this for
+    ///         as long as it had more than six kinds.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Named by element and not by declaration.</b> The bridge's own list deduplicates by
+    ///         text, and every one of the two dozen editor rules that did this wrote the same three
+    ///         words — so a diagnostic keyed the bridge's way would have been one line naming none
+    ///         of them. Sabotage: report <c>diagnostic.Reason</c> as the element and this goes red on
+    ///         the element name; drop the <c>Overflow.Scroll</c> test in <c>UiDocument.Apply</c>
+    ///         and every fact below goes red.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("overflow: auto")]
+    [InlineData("overflow: scroll")]
+    [InlineData("overflow-y: auto")]
+    [InlineData("overflow-x: scroll")]
+    public void A_plain_box_declaring_a_scroll_container_is_told_it_clips(string declaration) {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        document.Load($"root {{ width: 200px; height: 200px }} choice-list {{ height: 40px; {declaration} }}");
+        document.Root.Add("choice-list", classNames: "tall");
+
+        Assert.Empty(Warnings(sink));
+
+        document.Update();
+
+        var warning = Assert.Single(Warnings(sink));
+
+        Assert.Equal(7009, warning.EventId.Id);
+        Assert.Contains("'choice-list.tall'", warning.Message, StringComparison.Ordinal);
+        Assert.Contains($"'{declaration}'", warning.Message, StringComparison.Ordinal);
+        Assert.Contains("ScrollView", warning.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("refused", warning.Message, StringComparison.Ordinal);
+
+        // And it is in the document's own ledger, which is what a hot reload compares.
+        Assert.Contains(document.Refusals(), line => line.Contains("choice-list.tall", StringComparison.Ordinal));
+    }
+
+    /// <summary>The clip the author asked for says nothing, and so does content that fits.</summary>
+    /// <remarks>
+    ///     The other half. <c>hidden</c> and <c>clip</c> are the clip named as a clip and are what
+    ///     <c>ScrollView</c>'s own user-agent rule writes, so a diagnostic that fired on them would
+    ///     fire on the one control in the set that does scroll.
+    /// </remarks>
+    [Theory]
+    [InlineData("overflow: hidden")]
+    [InlineData("overflow: clip")]
+    [InlineData("overflow: visible")]
+    [InlineData("overflow-x: hidden; overflow-y: hidden")]
+    public void A_clip_named_as_a_clip_says_nothing(string declaration) {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        document.Load($"root {{ width: 200px; height: 200px }} .port {{ height: 40px; {declaration} }}");
+        document.Root.Add("div", classNames: "port").Add("div").SetStyle("height", "400px");
+        document.Update();
+        document.Draw();
+
+        Assert.Empty(Warnings(sink));
+    }
+
+    /// <summary>Twenty rows under one rule are one line, and two rules are two.</summary>
+    /// <remarks>
+    ///     ⚠ Produced in the per-element pass, so without the deduplication this is a line per
+    ///     element — and a keyed <c>@for</c> restyling its rows would make it a line per element per
+    ///     change. Keyed on the element's selector-shaped name rather than the declaration, which is
+    ///     what makes the second half of this hold: two tags with the same three words are two
+    ///     places to go and fix.
+    /// </remarks>
+    [Fact]
+    public void Boxes_are_reported_once_each_by_name_and_not_once_per_declaration() {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        document.Load(
+            "root { width: 200px; height: 200px } "
+            + "console-detail, message-log-detail { height: 40px; overflow: auto }"
+        );
+
+        for (var i = 0; i < 20; i++) {
+            document.Root.Add("console-detail");
+        }
+
+        document.Root.Add("message-log-detail");
+
+        for (var frame = 0; frame < 4; frame++) {
+            document.Update();
+            document.Draw();
+        }
+
+        var warnings = Warnings(sink);
+
+        Assert.Equal(2, warnings.Count);
+        Assert.Contains(warnings, one => one.Message.Contains("'console-detail'", StringComparison.Ordinal));
+        Assert.Contains(warnings, one => one.Message.Contains("'message-log-detail'", StringComparison.Ordinal));
+    }
 }

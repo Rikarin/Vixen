@@ -18,19 +18,21 @@ namespace Vixen.Editor.App.Tests;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>It is also the measurement doc 45 § G2's amendment rests on.</b>
-///         <see cref="Two_panels_in_seven_leave_a_focus_behind_for_a_route_to_read" /> presses in
-///         each panel that claims a context and records where the focus ended up. Five of the seven
+///         <see cref="Three_panels_in_seven_leave_a_focus_behind_for_a_route_to_read" /> presses in
+///         each panel that claims a context and records where the focus ended up. Four of the seven
 ///         leave none at all, because the panel is not focusable and the press landed on nothing that
-///         is — so a scope derived from <see cref="UiDocument.Focused" /> has nothing to read in five
+///         is — so a scope derived from <see cref="UiDocument.Focused" /> has nothing to read in four
 ///         of seven cases, and in none of the four <i>mode</i> contexts, which no press claims.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Five and not six, and what moved was the layout rather than the rule.</b> Nothing in
-///         the editor became focusable: the CSS-initial <c>flex-shrink</c> fix (#628) let the
-///         lighting panel's scroll viewport shrink, its middle rose by twenty-two pixels, and the
-///         press that used to land on the bottom edge of an inspector row now lands on the slider
-///         inside it. A count over "what is under the middle of each panel" is a measurement of a
-///         layout, so it moves when a layout does — and the thing it is evidence for does not.
+///         ⚠ <b>Four and not five or six, and what moved was the layout rather than the rule —
+///         twice now.</b> Nothing in the editor became focusable either time: first the CSS-initial
+///         <c>flex-shrink</c> fix (#628) moved the lighting panel's middle by twenty-two pixels onto
+///         a slider, and then #969 moved every panel the arrangement does not name out of the 20 %
+///         browser column and into the group with the most room, so three of them now have a
+///         focusable control under their middle. A count over "what is under the middle of each
+///         panel" is a measurement of a layout, so it moves when a layout does — and the thing it is
+///         evidence for does not.
 ///     </para>
 /// </remarks>
 public class CommandContextTests {
@@ -141,7 +143,7 @@ public class CommandContextTests {
     }
 
     [Fact]
-    public void Two_panels_in_seven_leave_a_focus_behind_for_a_route_to_read() {
+    public void Three_panels_in_seven_leave_a_focus_behind_for_a_route_to_read() {
         using var fixture = EditorSession.Start();
 
         List<string> withAFocus = [];
@@ -161,16 +163,22 @@ public class CommandContextTests {
 
         // ⚠ **The number doc 45 § G2's amendment is built on.** `hierarchy` holds a `TreeView`, whose
         // rows are focusable, so a press there leaves the focus inside the panel that claimed the
-        // context — a route *could* derive `scene` from that one. Five of the seven panels are not
+        // context — a route *could* derive `scene` from that one. Four of the seven panels are not
         // focusable and neither is anything the press landed on, so `UiDocument.Focused` is null and
-        // there is nothing to walk. Five of seven, plus four mode contexts that no press claims.
+        // there is nothing to walk. Four of seven, plus four mode contexts that no press claims.
         //
-        // ⚠ **`lighting` is the second one and it was `["hierarchy"]` alone until 2026-09-05**, when
-        // the CSS-initial `flex-shrink` fix (#628) let its scroll viewport shrink to its content:
-        // the viewport's middle moved from y≈445 to y≈423, which is inside the 415–433 of the
-        // slider in the inspector row it lands on rather than below it. Nothing here became
-        // focusable and no press means anything new — this test presses the *middle* of each panel,
-        // so it reads a layout as well as a rule, and this is the layout half moving.
+        // ⚠ **`world-settings` and `lighting` are the second and third, and it was `lighting`
+        // alone until #969**, which is the
+        // same kind of move one cause further out: a panel the arrangement does not name used to
+        // dock into the *first* group — the 20 % browser column in every standard preset — and now
+        // docks into the group with the most room. So every panel this test opens is laid out in a
+        // different box than it was, and which of the three `world` panels happens to have a
+        // focusable control under its middle changed with it. (Before that it was `lighting` and
+        // had been `["hierarchy"]` alone until 2026-09-05, when the CSS-initial `flex-shrink` fix
+        // (#628) let its scroll viewport shrink to its content and moved its middle by 22 px.)
+        // Nothing here became focusable and no press means anything new — this test presses the
+        // *middle* of each panel, so it reads a layout as well as a rule, and this is the layout
+        // half moving for the third time.
         //
         // It leaves the amendment's argument where it was and sharpens it: the focus a press leaves
         // behind is a control that happens to be under the pointer, and the scope a route could
@@ -179,7 +187,7 @@ public class CommandContextTests {
         // that is the point. If this goes red again, reread it rather than repair it: check whether
         // an editor panel has become focusable, or whether a layout has moved a control under the
         // middle of another panel.
-        Assert.Equal(["hierarchy", "lighting"], withAFocus);
+        Assert.Equal(["hierarchy", "world-settings", "lighting"], withAFocus);
     }
 
     static bool Inside(UiElement element, UiElement ancestor) {

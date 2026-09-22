@@ -1647,6 +1647,14 @@ public sealed partial class UiDocument : IDisposable {
 
             Layout.SetStyle(element.LayoutNode, layoutStyle);
 
+            // ⚠ A scroll container to the layout is a clip to everything else in this assembly —
+            // see `NoteOverflowThatCannotScroll`. Read off the built style rather than the
+            // declaration, because `auto`, `scroll` and the per-axis longhands all arrive here as
+            // one answer and the answer is what the box will do.
+            if (layoutStyle.OverflowX == Overflow.Scroll || layoutStyle.OverflowY == Overflow.Scroll) {
+                NoteOverflowThatCannotScroll(element, style);
+            }
+
             // ⚠ The variable-length half of the same style, and it has to be a second call: a track
             // list lives in the tree's `TrackArena` behind a handle owned by the node, so `Build`
             // — which returns a value and never sees a node — has nowhere to put one. After

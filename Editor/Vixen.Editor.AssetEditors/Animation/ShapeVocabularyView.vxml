@@ -85,7 +85,9 @@
 </vocab-bar>
 
 <vocab-body>
-    <vocab-list ref="@List">
+    <!-- A `ScrollView` under the sheet's tag, for `VariationHarnessView`'s reason (#1275): a
+         vocabulary longer than the pane used to lose its tail to a clip that never scrolled. -->
+    <ScrollView tag="vocab-list" ref="@listPane">
         @for (var row in Rows) {
             <vocab-row key="@row" refs="@RowElements" class="@ClassOf(row)">
                 <VocabName Text="@row.Name" />
@@ -95,7 +97,7 @@
                 }
             </vocab-row>
         }
-    </vocab-list>
+    </ScrollView>
 
     <vocab-side>
         <vocab-fields ref="@Fields" />
@@ -149,8 +151,10 @@
     /// <summary>Removes whatever is selected. Named <c>Drop</c> because <c>UiElement.Remove</c> exists.</summary>
     public Button Drop { get; private set; } = null!;
 
-    /// <summary>Everything the file declares, in one list.</summary>
-    public UiElement List { get; private set; } = null!;
+    /// <summary>Everything the file declares, in one list: the rows' direct parent.</summary>
+    public UiElement List => listPane.Content;
+
+    ScrollView listPane = null!;
 
     /// <summary>The selected row's fields.</summary>
     /// <remarks>

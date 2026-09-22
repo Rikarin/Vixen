@@ -3,8 +3,8 @@ title: Stylesheet diagnostics
 slug: ui/stylesheet-diagnostics
 kind: guide
 area: Core
-summary: What happens to CSS Vixen cannot read — the at-rules, selectors and @apply names it drops, the build step's two refusal channels, where each refusal is now reported, and why a rule that does nothing used to be indistinguishable from a rule that was never written.
-api: [L:7004, L:7005, L:7006, L:7007, T:Vixen.Ui.Styling.Utilities.UtilityRefusal, T:Vixen.Ui.Styling.Utilities.UtilityRefusalKind]
+summary: What happens to CSS Vixen cannot read — the at-rules, selectors and @apply names it drops, the build step's two refusal channels, where each refusal is now reported, why a rule that does nothing used to be indistinguishable from a rule that was never written, and the two rules that apply and still warn.
+api: [L:7004, L:7005, L:7006, L:7007, L:7009, T:Vixen.Ui.Styling.Utilities.UtilityRefusal, T:Vixen.Ui.Styling.Utilities.UtilityRefusalKind]
 tags: [ui, styling, vcss, diagnostics, logging, troubleshooting, apply]
 since: 0.2
 status: preview
@@ -98,7 +98,34 @@ discarded — so there is no rule left to name. What it gives you instead is a t
 of its own: `grid-template-columns: 4furlongs` is the declaration as you wrote it, and greppable
 across a project's sheets in a way a bare `::before` is not.
 
-## The one event here that is not a refusal
+## The two events here that are not refusals
+
+⚠ **`7009` reports a box that asked to scroll and got a clip.** `overflow: auto` and
+`overflow: scroll` are understood — the layout reads both as a scroll container, so the box drops the
+flex item's content-sized floor and reserves a scrollbar gutter, and the draw list clips at its edges.
+What neither does is scroll. Nothing in `Vixen.Ui` moves content off that property; the one control
+that scrolls is `ScrollView`, which is styled `overflow: hidden` and drives bars of its own. So a plain
+element declaring `auto` is the CSS author's expectation met exactly half-way: the content is cut off,
+and the half that would let a person reach it is absent — by pointer, by wheel and by keyboard, with
+nothing on screen to say the rest exists.
+
+```vcss
+choice-list { max-height: 320px; overflow: auto; }   /* nineteen rows × 53 px, six of them reachable */
+```
+
+> `'choice-list' declares 'overflow: auto', and in this UI that clips and does not scroll: the box cuts
+> its content off at its edges and what hangs outside it cannot be reached by pointer, wheel or
+> keyboard. Put a ScrollView there, or write 'overflow: hidden' if the clip is what was meant.`
+
+It is named by *element* — tag, `#id`, classes — rather than by declaration, because the declaration
+is the same three words in every one of them and a line keyed on it would name none. One line per
+distinct box, produced from the same walk that builds the layout style, so a list of a thousand rows
+under one rule is one line. The cure is a `ScrollView`, and never a taller box: raising a
+`max-height` moves the first unreachable row rather than reaching it (`Rikarin/Vixen#1275`).
+
+⚠ **A `ScrollView` under a tag of its own does not get the `scroll-view` user-agent rule**, which is
+where its `overflow: hidden` and `position: relative` live — so a rule keyed on that tag has to
+write both, or the scrolled-off rows draw over whatever is above the view.
 
 ⚠ **`7007` reports a rule that applied and answered *late*, which is the opposite failure and needs
 saying separately.** A `container-type` makes an element answerable about its own measured box, so
@@ -218,5 +245,7 @@ measurement, and `ShadowedFamilyTests` re-takes it on every build.
   number in a bug report meaning something.
 - `Core/Vixen.Ui/Containers.cs` — the container-scope walk `7007` is reported from, and why the
   containers it names are measured rather than predicted.
+- `Core/Vixen.Ui.Controls/README.md` § What ScrollView reads out of the cascade — the control
+  `7009` is telling you to use, and why it reads no `overflow` of its own.
 - `Core/Vixen.Ui/StyleDiagnostics.cs` — the drain itself, and why its watermark is keyed on the
   producer rather than on a count.

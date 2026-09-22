@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Runtime.CompilerServices;
+using Vixen.Input;
 using Vixen.Ui;
 using Xunit;
 
@@ -380,6 +381,56 @@ public class DialogTests : IDisposable {
         } finally {
             SynchronizationContext.SetSynchronizationContext(restore);
         }
+    }
+
+    /// <summary>Return in a dialog answers it, because the primary button is the default one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>"OK" has meant "what Return does" on every platform since there were dialogs, and
+    ///         here it meant "no".</b> <c>Button</c> had no default key equivalent (#666's "present
+    ///         with a named gap"), and the dialog focused its first tab stop — which is the ✕ in the
+    ///         header, because the header is before the body in tree order — so a focused close
+    ///         button took Enter as an activation and answered false. Two halves of one bug, and the
+    ///         second could not be fixed until the first existed to say what the focus should prefer
+    ///         instead.
+    ///     </para>
+    ///     <para>
+    ///         Asserted through <c>Handled</c> as well as through the answer, because "the key went
+    ///         somewhere" and "the key went to the right place" fail apart: the version of this that
+    ///         focused the ✕ was handled and answered false.
+    ///     </para>
+    ///     <para>
+    ///         Escape is deliberately not asserted here as a <i>cancel button</i>: <c>Overlay</c>
+    ///         already closes on it from the root's capture leg with <c>CloseReason.Cancelled</c>,
+    ///         which the test above covers, and that runs before a key equivalent could.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task Return_presses_the_primary_button_of_an_open_dialog() {
+        var answer = dialogs.ConfirmAsync("Delete it?");
+        dialogs.Pump();
+
+        var accept = Button(dialogs.Current!, "OK");
+
+        Assert.True(accept.IsDefault);
+        Assert.False(Button(dialogs.Current!, "Cancel").IsDefault);
+
+        // And the focus is not on the ✕, which is what made the old first Enter mean "no".
+        Assert.NotSame(dialogs.Current!.CloseButton, document.Focused);
+
+        document.Update();
+
+        Assert.True(accept.Width > 0f, "the footer button has a box to be found by");
+
+        var press = new KeyEvent { Key = InputKey.Enter, Action = KeyAction.Pressed };
+        document.Dispatch(press);
+
+        Assert.True(press.Handled, "the press reached the default button");
+
+        dialogs.Pump();
+
+        Assert.True(answer.IsCompletedSuccessfully);
+        Assert.True(await answer);
     }
 
     static void Press(Dialog dialog, string label) => Button(dialog, label).Activate();

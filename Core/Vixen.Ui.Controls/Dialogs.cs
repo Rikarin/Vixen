@@ -145,11 +145,39 @@ public sealed partial class Dialog : Overlay {
 
         restore = Document.Focused;
 
-        // The first thing inside that can take the focus. Falling back to the close button means a
-        // dialog with no fields still starts somewhere sensible rather than leaving the keyboard
-        // talking to the window behind.
+        // The first thing inside that can take the focus, and three things it must not be.
+        //
+        // ⚠ <b>Never the close button, which is what "the first tab stop" meant and made every
+        // keyboard user's first Enter mean "no".</b> The header comes before the body in tree order,
+        // so `stops[0]` is the ✕ in every dialog — and Enter on a focused button presses it, so a
+        // confirm sheet answered false to the one key a person presses without looking. That is
+        // exactly the failure a default button exists to prevent, and it could not be expressed
+        // until `Button.IsDefault` did.
+        //
+        // So: something in the body first, because a dialog with a field is a dialog about that
+        // field; then the default button, which is what AppKit focuses in a sheet with no field;
+        // then any other stop; and the close button only when there is nothing else at all.
         var stops = UiDocument.TabOrder(this);
-        Document.Focus(stops.Count > 0 ? stops[0] : CloseButton);
+
+        var preferred =
+            stops.FirstOrDefault(stop => !ReferenceEquals(stop, CloseButton) && !IsFooter(stop))
+            ?? stops.FirstOrDefault(stop => stop is Button { IsDefault: true })
+            ?? stops.FirstOrDefault(stop => !ReferenceEquals(stop, CloseButton))
+            ?? CloseButton;
+
+        Document.Focus(preferred);
+
+        return;
+
+        bool IsFooter(UiElement element) {
+            for (var walk = element; walk is not null && !ReferenceEquals(walk, this); walk = walk.Parent) {
+                if (ReferenceEquals(walk, Footer)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 
     /// <inheritdoc />

@@ -251,6 +251,22 @@ button.variant-danger {
     color: var(--accent-text);
 }
 
+/* ⚠ The default button is marked, and that is not decoration: Return presses it from
+   anywhere in the form that does not claim the key, so a default button nobody can see is
+   a keystroke that does something unannounced. A ring rather than a fill, because the
+   emphasis `variant-primary` carries is a different statement — "this is the important
+   one" — and the two are independent: the danger-coloured Delete in a confirm sheet can be
+   the default too. Not the focus ring either: that one moves with the Tab and this one does
+   not move at all. */
+button.default {
+    border-color: var(--accent);
+    border-width: 2px;
+}
+
+/* No rule for `.cancel`. Escape is the key everything already answers — an overlay closes,
+   a field reverts — so a cancel button is the one that would have been pressed anyway, and
+   marking it would put a second emphasis in a footer that already has one. */
+
 button.variant-subtle, icon-button.variant-subtle, toggle-button.variant-subtle {
     background-color: transparent;
     border-color: transparent;

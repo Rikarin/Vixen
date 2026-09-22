@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Microsoft.Extensions.Logging;
+using Vixen.Ui.Layout;
 using Vixen.Ui.Styling;
 
 namespace Vixen.Ui;
@@ -79,6 +80,8 @@ public sealed partial class UiDocument {
     object? drainedText;
     int drainedTextCount;
 
+    int drainedOverflowCount;
+
     object? drainedDrawing;
     int drainedDrawingCount;
 
@@ -147,7 +150,90 @@ public sealed partial class UiDocument {
         textDiagnostics.Add(new SelectorDiagnostic(text, reason));
     }
 
-    /// <summary>Everything the document's five diagnostic producers are holding, as text.</summary>
+    /// <summary>Every box that declared a scroll container and got a clip, once per distinct box.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A sixth producer, and the first that is not a refusal.</b> <c>overflow: auto</c>
+    ///         and <c>overflow: scroll</c> are read: the bridge maps both onto
+    ///         <see cref="Overflow.Scroll" />, which drops the flex item's content-sized floor and
+    ///         reserves a scrollbar gutter, and the draw list clips at the box's edges. What neither
+    ///         does is scroll — nothing in this assembly moves content off that property, and the one
+    ///         control that scrolls (<c>ScrollView</c>) is styled <c>overflow: hidden</c> and drives
+    ///         bars of its own. So a plain box declaring <c>auto</c> is the CSS author's expectation
+    ///         met exactly half-way: the content is cut off, and the half that would let a person
+    ///         reach it is absent. Two editor stylesheets were written against the other half, in
+    ///         two dozen rules. See <c>Rikarin/Vixen#1275</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Keyed by the element rather than by the declaration, because the declaration is
+    ///         the same in every one of them.</b> The bridge's list deduplicates by text and would
+    ///         collapse twenty panels declaring <c>overflow: auto</c> into one line naming none of
+    ///         them. <c>Text</c> here is the element as a selector would name it —
+    ///         <c>console-detail</c>, <c>div#log.tall</c> — which is what a person needs to go and
+    ///         put a <c>ScrollView</c> under.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Recorded from the same walk that builds the layout style, and only when a style is
+    ///         (re)built.</b> That is the one place the element, its computed style and the layout
+    ///         answer are all in hand, and it is reached once per element per <i>change</i> rather
+    ///         than per frame, which is what makes a linear scan of this list affordable.
+    ///     </para>
+    /// </remarks>
+    readonly List<SelectorDiagnostic> overflowDiagnostics = [];
+
+    /// <summary>Notes a box whose layout style is a scroll container on either axis.</summary>
+    /// <param name="element">The box.</param>
+    /// <param name="style">Its computed style, which names the declaration that did it.</param>
+    void NoteOverflowThatCannotScroll(UiElement element, ComputedStyle style) {
+        var text = DescribeForDiagnostic(element);
+
+        foreach (var existing in overflowDiagnostics) {
+            if (existing.Text == text) {
+                return;
+            }
+        }
+
+        overflowDiagnostics.Add(new SelectorDiagnostic(text, DeclaredOverflow(style)));
+    }
+
+    /// <summary>The element as a selector would name it: tag, <c>#id</c>, then its classes.</summary>
+    static string DescribeForDiagnostic(UiElement element) {
+        var tree = element.Document.Styles.Tree;
+        var text = element.Tag;
+
+        if (tree.GetId(element.StyleNode) is { Length: > 0 } id) {
+            text += "#" + id;
+        }
+
+        foreach (var className in tree.GetClassNames(element.StyleNode)) {
+            text += "." + className;
+        }
+
+        return text;
+    }
+
+    /// <summary>The <c>overflow</c> declaration(s) that made the box a scroll container, as written.</summary>
+    /// <remarks>
+    ///     The shorthand first, then the longhands, and only the ones whose value is <c>auto</c> or
+    ///     <c>scroll</c>: a box with <c>overflow-y: auto; overflow-x: hidden</c> is named for the
+    ///     axis that asked to scroll, since the other one asked for exactly what it got.
+    /// </remarks>
+    string DeclaredOverflow(ComputedStyle style) {
+        var auto = Styles.Values.Intern("auto");
+        var scroll = Styles.Values.Intern("scroll");
+        string? declared = null;
+
+        foreach (var name in (ReadOnlySpan<string>) ["overflow", "overflow-x", "overflow-y"]) {
+            if (style.TryGet(Styles.Properties.Intern(name), out var value) && (value == auto || value == scroll)) {
+                var text = $"{name}: {Styles.Values.NameOf(value)}";
+                declared = declared is null ? text : $"{declared}; {text}";
+            }
+        }
+
+        return declared ?? "overflow: auto";
+    }
+
+    /// <summary>Everything the document's six diagnostic producers are holding, as text.</summary>
     /// <returns>One entry per distinct refusal, in producer order.</returns>
     /// <remarks>
     ///     <para>
@@ -173,6 +259,7 @@ public sealed partial class UiDocument {
         .. Styles.Compiler.Diagnostics.Select(diagnostic => diagnostic.ToString()),
         .. Builder.Diagnostics.Select(diagnostic => diagnostic.ToString()),
         .. textDiagnostics.Select(diagnostic => diagnostic.ToString()),
+        .. overflowDiagnostics.Select(diagnostic => diagnostic.ToString()),
         .. drawings.Diagnostics.Select(diagnostic => diagnostic.ToString())
     ];
 
@@ -213,10 +300,12 @@ public sealed partial class UiDocument {
     public void ForgetPassRefusals() {
         Builder.ClearDiagnostics();
         textDiagnostics.Clear();
+        overflowDiagnostics.Clear();
         drawings.ClearDiagnostics();
 
         drainedBuilderCount = 0;
         drainedTextCount = 0;
+        drainedOverflowCount = 0;
         drainedDrawingCount = 0;
 
         Forget();
@@ -283,6 +372,15 @@ public sealed partial class UiDocument {
             ref drainedText,
             ref drainedTextCount
         );
+
+        // And the same again for the scroll containers that cannot scroll — its own event rather
+        // than `Drain`'s, because that one says "refused" and "dropped" and neither is true here:
+        // the declaration applied, and the news is what applying it did not do. The list is owned
+        // by this document and never replaced, so a bare count is watermark enough.
+        for (; drainedOverflowCount < overflowDiagnostics.Count; drainedOverflowCount++) {
+            var diagnostic = overflowDiagnostics[drainedOverflowCount];
+            StyleLog.OverflowDoesNotScroll(logger, diagnostic.Text, diagnostic.Reason);
+        }
     }
 
     /// <summary>Logs every declaration the draw list refused while building the frame just drawn.</summary>
