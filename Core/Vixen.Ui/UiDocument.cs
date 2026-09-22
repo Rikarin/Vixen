@@ -208,6 +208,7 @@ public sealed partial class UiDocument : IDisposable {
         translation = new TranslationReader(Styles.Properties, Styles.Values, Styles.Names);
         sticky = new StickyReader(Styles.Properties, Styles.Values, Styles.Names);
         transform = new TransformReader(Styles.Properties, Styles.Values, Styles.Names);
+        touchActions = new TouchActionReader(Styles.Properties, Styles.Values);
         none = Styles.Values.Intern("none");
         InternCursors();
         InternContainers();

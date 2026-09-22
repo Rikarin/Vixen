@@ -647,6 +647,14 @@ public sealed partial class ScrollView : Control {
     float sampledTop;
     float sampledLeft;
 
+    /// <summary>Which axes the running drag may move, decided once when it began.</summary>
+    /// <remarks>
+    ///     <see cref="Vixen.Ui.TouchAction.PanX" /> and <see cref="Vixen.Ui.TouchAction.PanY" />
+    ///     are the only bits read here: the directional keywords are folded into their axis by
+    ///     <see cref="Admits" /> at the start of the gesture, which is where they are defined.
+    /// </remarks>
+    TouchAction panning = TouchAction.Auto;
+
     /// <summary>How long a fling takes to lose about two thirds of its speed.</summary>
     /// <remarks>
     ///     ⚠ <b>A time constant against real elapsed seconds, not a per-frame multiplier.</b> A
@@ -699,12 +707,30 @@ public sealed partial class ScrollView : Control {
         // ⚠ The device, not only the property. A finger — or a pen, which is a finger for this
         // purpose because neither has a cursor to select with — drags the content whatever the
         // application asked for; a mouse does it only when asked. See `DragToScroll`.
-        if (!DragToScroll && args.PointerType is not (PointerType.Touch or PointerType.Pen)) {
+        var touch = args.PointerType is PointerType.Touch or PointerType.Pen;
+
+        if (!DragToScroll && !touch) {
             return;
         }
 
         switch (args.Stage) {
             case DragStage.Started:
+                // ⚠ `touch-action`, and only for a finger or a pen — see `TouchAction`'s remark on
+                // why a mouse drag is never governed by it. Read once, at the start: the property is
+                // a negotiation about whether this gesture is the view's at all, and a slider that
+                // said `none` must not lose the finger to the list halfway through because the
+                // finger wandered off it. Declined means NOT handled, so the drag goes on bubbling to
+                // whatever wants it; an outer view walks the same chain and sees the same `none`.
+                if (touch) {
+                    var allowed = Document.TouchActionBetween(args.Source ?? this, this);
+
+                    if (!Admits(allowed, args.TotalX, args.TotalY, out panning)) {
+                        return;
+                    }
+                } else {
+                    panning = TouchAction.Auto;
+                }
+
                 // Direct manipulation, so it takes the content away from anything easing it — and
                 // from its own previous fling, which is what makes a second flick continue the first
                 // rather than fight it.
@@ -720,7 +746,12 @@ public sealed partial class ScrollView : Control {
                 break;
 
             case DragStage.Moved when dragging:
-                Absorb(-args.DeltaY, -args.DeltaX);
+                // An axis `touch-action` withheld is dropped rather than declined: under `pan-y` a
+                // diagonal swipe scrolls straight down, which is what a browser does with it.
+                Absorb(
+                    (panning & TouchAction.PanY) != 0 ? -args.DeltaY : 0f,
+                    (panning & TouchAction.PanX) != 0 ? -args.DeltaX : 0f
+                );
 
                 args.Handled = true;
                 break;
@@ -774,6 +805,67 @@ public sealed partial class ScrollView : Control {
             default:
                 break;
         }
+    }
+
+    /// <summary>Whether <c>touch-action</c> lets a gesture that began this way scroll the view, and on which axes.</summary>
+    /// <param name="allowed">The intersection over the chain from the finger's element to this view.</param>
+    /// <param name="totalX">How far the finger travelled before the press became a drag.</param>
+    /// <param name="totalY">Ditto.</param>
+    /// <param name="axes">The axes the gesture may move from here on, with the directional keywords folded into their axis.</param>
+    /// <returns>Whether the gesture is this view's at all.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         Chrome's <c>TouchActionFilter</c>, in three lines. The dominant axis of the slop
+    ///         travel says what kind of gesture this is; its sign says which way the content would
+    ///         scroll; and the one directional keyword that would admit exactly that beginning is
+    ///         tested against what the chain allows. <c>pan-x</c> is both horizontal keywords, so it
+    ///         admits either beginning; <c>pan-left</c> admits only a finger travelling <i>right</i>,
+    ///         because that is the gesture whose content scrolls toward the left.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Once admitted, the whole axis is open</b> — a <c>pan-left</c> gesture that
+    ///         reverses halfway keeps scrolling. The keyword is a test on how the gesture starts,
+    ///         not a one-way valve, which is what makes swipe-to-reveal implementable: the panel
+    ///         says <c>pan-y pan-right</c>, a leftward swipe never becomes a scroll and is the
+    ///         panel's to open, and a rightward one is an ordinary scroll that may wobble back.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Neither axis at all is a refusal</b>, and it is the refusal that matters most:
+    ///         <c>touch-action: none</c> on a slider inside a list is written so that the list
+    ///         never takes the finger, and a view that started dragging on <c>none</c> and merely
+    ///         moved nothing would still have marked the event handled and starved the slider.
+    ///     </para>
+    /// </remarks>
+    internal static bool Admits(TouchAction allowed, float totalX, float totalY, out TouchAction axes) {
+        axes = allowed & (TouchAction.PanX | TouchAction.PanY);
+
+        if (axes == TouchAction.None) {
+            return false;
+        }
+
+        // The content moves against the finger, so a finger travelling right scrolls the content
+        // leftward — `pan-left` — and a finger travelling down scrolls it upward — `pan-up`. A
+        // gesture that is exactly diagonal is vertical, which is the axis a list is likeliest to
+        // have; nothing ever arrives here with both totals zero, because the recogniser only calls a
+        // press a drag once it has left the slop circle.
+        var began = MathF.Abs(totalX) > MathF.Abs(totalY)
+            ? totalX > 0f ? TouchAction.PanLeft : TouchAction.PanRight
+            : totalY > 0f ? TouchAction.PanUp : TouchAction.PanDown;
+
+        if ((allowed & began) == 0) {
+            return false;
+        }
+
+        // Fold each directional keyword into its axis for the rest of the gesture.
+        if ((axes & TouchAction.PanX) != 0) {
+            axes |= TouchAction.PanX;
+        }
+
+        if ((axes & TouchAction.PanY) != 0) {
+            axes |= TouchAction.PanY;
+        }
+
+        return true;
     }
 
     /// <summary>Measures how fast the content is being dragged, on the clock that will carry it on.</summary>

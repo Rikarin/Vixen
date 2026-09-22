@@ -84,9 +84,9 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **331** | 312 families |
-| CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
-| …of which something in the engine acts on | — | **89** |
+| Utility **roots** (the unit of this table) | **331** | 313 families |
+| CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **107** (11 of them `--tw-*` fragments) |
+| …of which something in the engine acts on | — | **90** |
 | Variant keys | **88** | **54** |
 
 ⚠ **The family figure moves every week, which is why it is no longer typed here.** It has been quoted
@@ -107,10 +107,10 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **249** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **250** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **24** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **54** |
+| **absent** | not emitted at all | **53** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 
 ⚠ **There was a sixth, `unknown`, and it described a row rather than a state.** Exactly one row held
@@ -491,7 +491,7 @@ refusal block, which already says so for the same reason.
 | Category | roots | works | partial | inert | absent | composed |
 |---|--:|--:|--:|--:|--:|--:|
 | Layout | 49 | 36 | 2 | 0 | 8 | 3 |
-| Interactivity | 40 | 30 | 0 | 1 | 9 | 0 |
+| Interactivity | 40 | 31 | 0 | 1 | 8 | 0 |
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 |
 | Effects | 35 | 30 | 2 | 0 | 3 | 0 |
 | Flexbox and Grid | 34 | 30 | 2 | 0 | 2 | 0 |
@@ -505,10 +505,10 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 |
 | Accessibility | 1 | 1 | 0 | 0 | 0 | 0 |
-| **Total** | **331** | **249** | **24** | **1** | **54** | **3** |
+| **Total** | **331** | **250** | **24** | **1** | **53** | **3** |
 
 Flexbox and Grid leads at 30 of 34, with only two absent roots left and both of those refused on
-policy rather than owed; then Layout at 36 of 49, Interactivity at 30 of 40, Borders at 28 of 34,
+policy rather than owed; then Layout at 36 of 49, Interactivity at 31 of 40, Borders at 28 of 34,
 and Effects at 27 of 34. ⚠ Accessibility is 1 of 1 as of 2026-09-06 — `forced-color-adjust` landed the
 day its last blocker (#836) closed, and this paragraph said it had "no working root at all" for as long
 as the refusal outlived its reason. **Tables** is the one category still at zero.
@@ -545,13 +545,16 @@ axis to be anything but top-to-bottom. One was a reader that existed and was spe
 written, and asking the standard `caret-color` first is the whole of `caret-*`. One was a keyword:
 `cursor-help` needed a `UiCursor.Help` and nothing else.
 
-⚠ **And the twelve still absent are not twelve of the same thing.** Six are refusals with a named
+⚠ **And the eleven still absent are not eleven of the same thing.** Five are refusals with a named
 blocker in their own row — `accent-*` (the three controls CSS means are drawn from a stylesheet, and
 `var()` cannot read a standard property), `will-change-*` (no element-keyed retained surface),
-`touch` (⚠ *not* "touch events never reach `UiDocument`", which is what this line said and what the
-row said with it: `PlatformInput` routes them and has since — what is missing is the UA behaviour
-`touch-action` would suppress, a touch pan in `ScrollView` and a pinch anything consumes),
-`resize`, `appearance` and `field-sizing`.
+`resize`, `appearance` and `field-sizing`. ✅ `touch` was the sixth until 2026-09-22 and it reads
+`works` now — ⚠ its refusal gave three reasons across its life and every one expired without anyone
+landing the family: "touch events never reach `UiDocument`" (`PlatformInput` routes them),
+"a reader cannot tell a finger from a mouse" (#699 landed `PointerType`), and "there is no touch
+pan in `ScrollView` to govern" (there has been since `ScrollView.Dragged` scrolled under any finger,
+which was exactly the UA default a slider in a list needed to withhold). `ScrollView.Admits` reads it
+now; the row's note has the shape.
 ✅ `snap` and `snap (keywords)` were the two sized-and-not-started ones, and both read `works` now —
 with a third row, `snap (align)`, that this file had no entry for at all. The remaining four are
 the scrollbar cluster, which is one feature and is owned elsewhere.

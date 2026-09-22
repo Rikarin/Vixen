@@ -106,6 +106,5 @@ scale-*	expires-on	Vixen.Ui.Rendering.UiVertex.W
 scale-z-*	expires-with	perspective-*
 scrollbar-gutter	expires-on	Vixen.Ui.Layout.Overflow.Auto
 select	expires-when-read	user-select
-touch	expires-on	Vixen.Ui.UiDocument.TouchActionOf
 translate-*	expires-on	Vixen.Ui.Rendering.UiVertex.W
 translate-z-*	expires-with	perspective-*
