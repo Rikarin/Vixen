@@ -246,7 +246,11 @@ public sealed class UiGeometryBuilder {
     ///     neither was in the key — so a host that did what their remarks ask would have set them
     ///     and then drawn the geometry built for the old ones for as long as nothing else changed.
     ///     ⚠ No host sets them today, which is why the hole was invisible: the key was complete only
-    ///     because nobody turned the knob.
+    ///     because nobody turned the knob — and that absence is its own defect, filed as
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1329">#1329</a>. Both hosts have the DPI
+    ///     scale at the call site and hand over the gamut beside it; until they hand these over too,
+    ///     a 2× display flattens curves at twice the error and draws a two-pixel antialiasing band.
+    ///     This part of the key is what makes doing so safe.
     /// </remarks>
     bool flatteningMoved;
 
