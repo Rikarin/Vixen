@@ -120,6 +120,40 @@ public sealed class VulkanPipelineCacheTests {
     }
 
     /// <summary>
+    ///     The four things two blob sizes can say, and which of them is the skip.
+    /// </summary>
+    /// <remarks>
+    ///     The pairs are real ones: MoltenVK's 36 and a larger blob, lavapipe's 32 and 32, and the
+    ///     two that must stay failures under <c>VIXEN_REQUIRE_VULKAN</c> — a blob that got shorter
+    ///     when a pipeline was added, and one shorter than the header every blob begins with.
+    /// </remarks>
+    [Theory]
+    [InlineData(36, 1280, PipelineCacheGrowth.Grew)]
+    [InlineData(32, 32, PipelineCacheGrowth.StoresNothing)]
+    [InlineData(64, 32, PipelineCacheGrowth.Shrank)]
+    [InlineData(32, 20, PipelineCacheGrowth.Garbage)]
+    [InlineData(0, 0, PipelineCacheGrowth.Garbage)]
+    public void OnlyAnUnchangedHeaderSizedBlobIsADriverThatStoresNothing(long nothing, long learned, PipelineCacheGrowth expected) {
+        Assert.Equal(expected, PipelineCacheGrowthDecision.Decide(nothing, learned));
+    }
+
+    /// <summary>
+    ///     Every verdict names the adapter it was measured on, because the number is only true of
+    ///     that one — and the skip says why it is a skip rather than reading like a missing driver.
+    /// </summary>
+    [Fact]
+    public void EveryVerdictNamesTheAdapter() {
+        foreach (var growth in Enum.GetValues<PipelineCacheGrowth>()) {
+            var sentence = PipelineCacheGrowthDecision.Describe(growth, "llvmpipe (LLVM 20.1.2, 256 bits)", 32, 32);
+            Assert.Contains("llvmpipe", sentence, StringComparison.Ordinal);
+        }
+
+        var skip = PipelineCacheGrowthDecision.Describe(PipelineCacheGrowth.StoresNothing, "llvmpipe", 32, 32);
+        Assert.Contains("specification permits", skip, StringComparison.Ordinal);
+        Assert.DoesNotContain("missing", skip, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     A device writes what the driver learned, the next device on the same machine starts from
     ///     it, and both are counted in bytes rather than timed.
     /// </summary>
@@ -134,12 +168,16 @@ public sealed class VulkanPipelineCacheTests {
     ///         handed the second's file and reports how much of it the driver took back.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A driver is allowed to store nothing per pipeline</b> — MoltenVK is exactly the
-    ///         shape where that would be plausible, since its "compile" produces a Metal library it
-    ///         caches itself — so that outcome goes through <see cref="VulkanRequirement" /> rather
-    ///         than through <c>Assert.Fail</c>: a skip on a developer's machine, and a failure
-    ///         wherever <c>VIXEN_REQUIRE_VULKAN</c> says a driver was promised. Naming the adapter is
-    ///         part of the answer, because the measurement is only true of the one it was taken on.
+    ///         ⚠ <b>A driver is allowed to store nothing per pipeline, and lavapipe does exactly
+    ///         that</b> — not MoltenVK, which was the guess and which returns a growing blob. That
+    ///         outcome used to go through <see cref="VulkanRequirement" />, a skip locally and a
+    ///         failure under <c>VIXEN_REQUIRE_VULKAN</c>; on the one CI leg with a driver it was the
+    ///         failure, every run (#1274). It is a skip everywhere now, decided by
+    ///         <see cref="PipelineCacheGrowthDecision" /> and naming the adapter, because the flag
+    ///         exists to catch a runner with <em>no</em> driver and a driver that declines to cache is
+    ///         not that. What still fails under it: no device, a cache that shrinks, a blob too short
+    ///         to be one — and a driver that will not take its own empty blob back, which is checked
+    ///         before the skip so that "stores nothing" and "writes garbage" stay different answers.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -176,12 +214,10 @@ public sealed class VulkanPipelineCacheTests {
 
             var nothing = new FileInfo(empty).Length;
             var learned = new FileInfo(path).Length;
+            var growth = PipelineCacheGrowthDecision.Decide(nothing, learned);
+            var verdict = PipelineCacheGrowthDecision.Describe(growth, adapter, nothing, learned);
 
-            VulkanRequirement.Available(
-                learned > nothing,
-                $"'{adapter}' stores nothing in a pipeline cache: one pipeline made it {learned} bytes "
-                + $"and no pipelines made it {nothing}"
-            );
+            Assert.True(growth is PipelineCacheGrowth.Grew or PipelineCacheGrowth.StoresNothing, verdict);
 
             Assert.True(
                 VulkanDevice.TryCreate(new() { PipelineCachePath = path }, out var second, out var third),
@@ -190,12 +226,15 @@ public sealed class VulkanPipelineCacheTests {
 
             using var warm = second!;
 
+            // Whatever the driver stores, the blob it wrote must be one it accepts: this is the half
+            // that tells an honest empty cache apart from a header the driver will not recognise.
             VulkanRequirement.Available(
                 warm.PipelineCacheSeedBytes > 0,
                 $"'{adapter}' wrote a {learned}-byte cache and would not take it back"
             );
 
             Assert.Equal((int)learned, warm.PipelineCacheSeedBytes);
+            Assert.SkipWhen(growth == PipelineCacheGrowth.StoresNothing, verdict);
         } finally {
             directory.Delete(true);
         }
