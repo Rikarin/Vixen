@@ -77,6 +77,8 @@ Vixen.Platform.Headless.HeadlessPlatform.Post(in Vixen.Platform.PlatformEvent pl
 Vixen.Platform.Headless.HeadlessPlatform.Power.get -> Vixen.Platform.IPowerInfo
 Vixen.Platform.Headless.HeadlessPlatform.Processors.get -> Vixen.Platform.IProcessorTopology
 Vixen.Platform.Headless.HeadlessPlatform.PumpEvents() -> System.ReadOnlySpan<Vixen.Platform.PlatformEvent>
+Vixen.Platform.Headless.HeadlessPlatform.SemanticColors.get -> Vixen.Platform.SystemSemanticColors
+Vixen.Platform.Headless.HeadlessPlatform.SemanticColors.set -> Vixen.Platform.SystemSemanticColors
 Vixen.Platform.Headless.HeadlessPlatform.SimulatedInput.get -> Vixen.Platform.Headless.HeadlessInputSource
 Vixen.Platform.Headless.HeadlessPlatform.Simulation.get -> Vixen.Platform.Headless.HeadlessLifecycle
 Vixen.Platform.Headless.HeadlessPlatform.TextInput.get -> Vixen.Platform.ITextInput

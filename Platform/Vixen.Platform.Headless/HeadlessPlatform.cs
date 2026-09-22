@@ -173,6 +173,40 @@ public sealed class HeadlessPlatform : IPlatform {
         }
     }
 
+    /// <summary>The semantic palette a headless run reports, and the seam a test drives it through.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="SystemSemanticColors.Unknown" /> by default, and it queues the
+    ///         <i>appearance</i> event</b> — the same one <see cref="Accent" /> beside it queues, and
+    ///         for the same reason: no desktop posts an event of its own for a palette move, so a
+    ///         test waiting for one would wait for something no real platform sends. Both hosts read
+    ///         this property on <see cref="PlatformEventKind.SystemColorSchemeChanged" />, so that is
+    ///         the event the change has to ride.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This property is why there is an <see cref="IPlatform.SemanticColors" /> a test
+    ///         can move at all.</b> The interface member has a default implementation answering
+    ///         <see cref="SystemSemanticColors.Unknown" />, so a headless run that did not override
+    ///         it made "the host is wired" and "the host is not wired" produce the same document —
+    ///         which is the shape the two-hosts hazard hides in.
+    ///     </para>
+    /// </remarks>
+    public SystemSemanticColors SemanticColors {
+        get;
+
+        set {
+            if (field == value) {
+                return;
+            }
+
+            field = value;
+
+            events.Post(
+                PlatformEvent.Application(PlatformEventKind.SystemColorSchemeChanged, Stopwatch.GetTimestamp())
+            );
+        }
+    }
+
     /// <inheritdoc />
     public IFileSystemHost FileSystem { get; }
 

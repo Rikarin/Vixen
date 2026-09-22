@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Reflection;
 using Vixen.Core.Mathematics;
 using Vixen.Ui;
 using Vixen.Ui.Styling;
@@ -378,10 +379,21 @@ public class SystemPaletteWiringTests {
 
     /// <summary>Every role the platform type carries lands on the role of the same name, and only there.</summary>
     /// <remarks>
-    ///     ⚠ <b>Eleven distinct colours, because the mapping is eleven hand-written lines and a
-    ///     transposition between two of them — <c>Field</c> written into <c>FieldText</c> — is a
-    ///     palette that looks fine until a field is drawn.</b> Each role is given a colour that
-    ///     encodes its own index, so a swap fails on the pair it swapped and names both.
+    ///     <para>
+    ///         ⚠ <b>Eleven distinct colours, because the mapping is eleven hand-written lines and a
+    ///         transposition between two of them — <c>Field</c> written into <c>FieldText</c> — is a
+    ///         palette that looks fine until a field is drawn.</b> Each role is given a colour that
+    ///         encodes its own index, so a swap fails on the pair it swapped and names both.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the count is asked of the type rather than trusted, which is the half a list
+    ///         of eleven cannot supply about itself.</b> "Eleven rows" is "every role" only while the
+    ///         record declares eleven; a twelfth added to <see cref="SystemSemanticColors" /> and
+    ///         forgotten in <c>ApplySemanticColors</c> would leave every assertion below green and
+    ///         that role following <c>SystemPalette</c>'s browser table for ever. Comparing the two
+    ///         sets by <i>name</i> rather than by count also pins the correspondence this whole type
+    ///         is built on: a platform role is spelled exactly like the CSS system colour it fills.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void Every_semantic_role_lands_on_its_own_palette_entry() {
@@ -400,6 +412,14 @@ public class SystemPaletteWiringTests {
             (SystemColor.HighlightText, Keyed(10)),
             (SystemColor.GrayText, Keyed(11))
         ];
+
+        var declared = typeof(SystemSemanticColors)
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(role => role.PropertyType == typeof(Color4?))
+            .Select(role => role.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        Assert.Equal(declared, rows.Select(row => row.Role.ToString()).ToHashSet(StringComparer.Ordinal));
 
         PlatformInput.ApplySemanticColors(
             document,
