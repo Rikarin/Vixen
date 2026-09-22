@@ -159,7 +159,11 @@ public static class UiPropertyRegistry {
         return key;
     }
 
-    /// <summary>The properties a type declares, including those it inherits from its bases.</summary>
+    /// <summary>
+    ///     The properties a type declares, together with its bases' — complete for a type that
+    ///     declares at least one itself, and otherwise complete only as far as something has
+    ///     already put its bases in play.
+    /// </summary>
     /// <param name="ownerType">The type.</param>
     /// <returns>The keys, bases first.</returns>
     /// <remarks>
@@ -177,12 +181,22 @@ public static class UiPropertyRegistry {
     ///         remove.
     ///     </para>
     ///     <para>
-    ///         ⚠ What that does not cover is a type that declares <em>nothing</em> of its own, asked
-    ///         about by <c>typeof</c> before anything has constructed it or touched its base: it has
-    ///         no generated constructor to chain from, so its bases' registrations are whatever has
-    ///         already run. Every binding in the tree goes through <see cref="TryFindFor" /> on an
-    ///         element that exists, and constructing one runs every base's constructor on both
-    ///         runtimes, which is why that path never forced anything.
+    ///         ⚠ <b>What that does not cover is a narrowing of this method, not a wash</b>: a type
+    ///         that declares <em>nothing</em> of its own, asked about by <c>typeof</c> before
+    ///         anything has constructed it or touched its base, has no generated constructor to
+    ///         chain from, so its bases' registrations are whatever has already run. The old walk
+    ///         answered that case completely <em>on CoreCLR</em> — it was under ILC that it answered
+    ///         with the leaf and nothing else — so the fix traded a silently wrong AOT answer for a
+    ///         narrower contract on both runtimes. ⚠ It is not closable the same way: naming the
+    ///         ancestor is what makes the chain survive trimming, and <c>Type.BaseType</c> is exactly
+    ///         the thing that cannot name it.
+    ///     </para>
+    ///     <para>
+    ///         Every binding in the tree goes through <see cref="TryFindFor" /> on an element that
+    ///         exists, and constructing one runs every base's constructor on both runtimes, which is
+    ///         why that path never forced anything — and why nothing in the repository reaches the
+    ///         gap today. <c>UiPropertyTests.A_type_that_declares_nothing_reaches_its_base_only_once_something_has_run_it</c>
+    ///         pins both halves, so the gap cannot widen and cannot quietly close either.
     ///     </para>
     /// </remarks>
     public static IReadOnlyList<UiPropertyKey> Of(
@@ -257,6 +271,12 @@ public static class UiPropertyRegistry {
     /// <param name="name">The property's name.</param>
     /// <param name="key">Receives the key.</param>
     /// <returns>Whether it was found.</returns>
+    /// <remarks>
+    ///     This is <see cref="Of" /> read for one name, and it carries <see cref="Of" />'s limit with
+    ///     it: an <paramref name="ownerType" /> that declares no property of its own can answer
+    ///     <c>false</c> for a name one of its bases declares, while nothing has yet put that base in
+    ///     play. <see cref="TryFindFor" /> takes an element instead and does not have the gap.
+    /// </remarks>
     public static bool TryFind(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.NonPublicConstructors)] Type ownerType,
         string name,
