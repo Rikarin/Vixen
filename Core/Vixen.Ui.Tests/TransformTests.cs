@@ -1156,6 +1156,17 @@ public class TransformTests {
     ///         against. So a list of flat functions is asserted to come out <i>exactly</i> the matrix
     ///         the properties beside it would compose to, and not merely near it.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the third element is the traffic, because the first two are not.</b>
+    ///         <c>spatial</c> is set by the function's NAME and <c>UtilityComposition.Transform()</c>
+    ///         now spells <c>rotateX(…) rotateY(…)</c> at the head of every list it assembles — so
+    ///         every Tailwind <c>rotate-*</c> and <c>skew-*</c> in the engine takes the
+    ///         four-dimensional branch, and the paragraph above would otherwise be a safeguard over a
+    ///         path nothing real uses. <c>.utility</c> is exactly what that assembler emits for a
+    ///         <c>rotate-z-30</c> with its four initials substituted, and it has to come out the same
+    ///         matrix <c>.spelled</c> does to the last bit: those two lists differ only by three
+    ///         functions that are the identity in every cell.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_flat_list_is_unchanged_and_a_lone_perspective_is_nothing() {
@@ -1166,10 +1177,17 @@ public class TransformTests {
                     background-color: #111; transform: rotate(30deg) translate(12px, -7px) scale(1.4, 0.8); }
             .deep { position: absolute; left: 200px; top: 100px; width: 40px; height: 40px;
                     background-color: #222; transform: perspective(200px); }
+            .spelled { position: absolute; left: 137px; top: 211px; width: 46px; height: 38px;
+                       background-color: #333; transform: rotateZ(30deg) skewX(0deg) skewY(0deg); }
+            .utility { position: absolute; left: 137px; top: 211px; width: 46px; height: 38px;
+                       background-color: #444;
+                       transform: rotateX(0deg) rotateY(0deg) rotateZ(30deg) skewX(0deg) skewY(0deg); }
             """,
             document => {
                 document.Root.Add("div", classNames: "flat");
                 document.Root.Add("div", classNames: "deep");
+                document.Root.Add("div", classNames: "spelled");
+                document.Root.Add("div", classNames: "utility");
             }
         );
 
@@ -1193,6 +1211,26 @@ public class TransformTests {
 
         // And a perspective with nothing to project is no transform at all.
         Assert.Null(document.Root.Children[1].Transform);
+
+        // ⚠ The branch real traffic takes, against the one the paragraphs above are written about.
+        // The two lists are the same rotation with three identities in front of it, so the closed
+        // form and the four-dimensional fold have to agree to the bit — a rounding that moved here
+        // would move every Tailwind `rotate-*` screenshot at once.
+        var spelled = Assert.IsType<UiTransform>(document.Root.Children[2].Transform);
+        var utility = Assert.IsType<UiTransform>(document.Root.Children[3].Transform);
+
+        // The instrument: `.spelled` sits on the flat branch and `.utility` on the spatial one, which
+        // is what makes the equality below a comparison of two paths rather than of one with itself.
+        // Both are affine, so a reduction that had dropped a projective cell could not hide here.
+        Assert.True(spelled.IsAffine);
+        Assert.True(utility.IsAffine);
+        Assert.False(spelled.IsIdentity);
+
+        // ⚠ The whole matrix and not the linear part, which is why the two boxes are at the same
+        // odd position and the same odd size. The branches differ in how they re-centre — a closed
+        // form against two 4×4 products — and for an affine that difference lives ENTIRELY in the
+        // translation, so a comparison of M11..M22 is a predicate a drift in `Fold` cannot falsify.
+        Assert.Equal(spelled, utility);
     }
 
     /// <summary><c>transform: none</c> is the initial value written out, and is not a refusal.</summary>

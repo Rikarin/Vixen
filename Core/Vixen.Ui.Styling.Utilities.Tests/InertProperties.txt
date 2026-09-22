@@ -130,8 +130,17 @@
 # matrix, which is what this paragraph used to imply: #547 (`bfad9599`) made it a 3×3 homography on
 # 2026-09-04. ⚠ And NOT because the vertex has nowhere to put a `w`, which is what this paragraph said
 # next until 2026-09-22: #548 gave `UiVertex` its `W`, both executors divide by it, and
-# `UiCompositingTests` holds them together under a perspective. What stands is the reader alone:
-# `TransformReader` reads no `perspective` property and no 3D function. #228 and #550.
+# `UiCompositingTests` holds them together under a perspective. ⚠ And NOT the reader either, which is
+# what this paragraph said until #550 landed beside #548 on the same day: `TransformReader.Functions`
+# reads `rotateX`, `rotateY`, `rotate3d`, `translateZ`, `translate3d`, `scaleZ`, `scale3d`,
+# `perspective` and `matrix3d`, and `perspective`/`perspective-origin` are read as the properties the
+# PARENT establishes. What is left is narrower again and is three separate things: `translate-z-*` and
+# `scale-z-*` wait on a value grammar rather than on the engine, because `Functions` refuses any
+# argument holding a nested parenthesis and v4 spells both through a `calc(var(--spacing) * n)`
+# (#1328); `backface-visibility` needs a second consumer, since suppressing a subtree without lying
+# about its matrix is a mechanism `DrawListBuilder` and `UiDocument.HitTest` would both have to gain;
+# and `transform-style: preserve-3d` stays refused as a rendering model with its own sorting. #228,
+# #550 and #1328.
 
 # ── Filters — A8. CLOSED for blur, and it was the same shape as the transforms above: `blur-2` wrote
 # a number into `--blur`, a name of this engine's own invention that no assembler and no engine — this

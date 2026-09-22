@@ -2028,15 +2028,56 @@ public sealed class UiGeometryBuilder {
         indices.Add(start + 3);
     }
 
+    /// <summary>The <c>w</c> a corner exactly on the eye plane is written with instead of zero.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Negative, because a point on the eye plane has no image and the clip has to take
+    ///     it.</b> <c>SoftwareUiRasterizer.NearW</c> cuts at a small positive <c>w</c>, so anything
+    ///     at or below zero must arrive below it; writing a positive epsilon would keep the corner
+    ///     and hand the rasteriser a position eight orders of magnitude off screen. Big enough that
+    ///     the quotient below stays finite for any coordinate a surface can hold — a viewport is
+    ///     thousands of points, not <c>1e38</c> — which is the whole requirement, since the value is
+    ///     never interpolated towards and exists only to be clipped away.
+    /// </remarks>
+    const float EyePlaneW = -1e-6f;
+
     /// <summary>One corner, projected, and the <c>w</c> it was projected by.</summary>
     /// <remarks>
-    ///     ⚠ The same two divisions <see cref="UiTransform.Apply" /> does, written out so that the
-    ///     divisor survives: <c>Apply</c> is <c>Project</c> and a divide, and calling both would be the
-    ///     matrix applied twice per corner for one answer.
+    ///     <para>
+    ///         ⚠ The same two divisions <see cref="UiTransform.Apply" /> does, written out so that the
+    ///         divisor survives: <c>Apply</c> is <c>Project</c> and a divide, and calling both would be
+    ///         the matrix applied twice per corner for one answer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Exactly zero is the one divisor that cannot be let through, and not because it is
+    ///         large.</b> Both consumers recover the homogeneous triple as <i>position × w</i> — the
+    ///         software rasteriser's <c>Between</c> in so many words, the vertex stage as
+    ///         <c>float4(xy·w, 0, w)</c> — and that recovery is exact for a negative <c>w</c> and
+    ///         undefined for a zero one: the corner projects to an infinity and the product is
+    ///         <c>∞ · 0</c>, a NaN, which every comparison in a rasteriser answers <i>false</i> to. So
+    ///         the triangle is silently not drawn rather than clipped, which is the same picture as a
+    ///         bug. A corner on the eye plane has no image at all, so <see cref="EyePlaneW" /> puts it
+    ///         a hair behind the eye where the clip can see it and the product still recovers the
+    ///         corner it came from.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is a guard rather than a live path, which is why no test reaches it — that
+    ///         was measured rather than assumed.</b> The one call that passes a matrix is the layer
+    ///         composite quad, and it is built only after <c>Invert</c> and
+    ///         <see cref="UiTransform.TryBounds" /> have both succeeded over the viewport — which is
+    ///         exactly the statement that every screen point's pre-image is in FRONT of the eye, since
+    ///         the inverse's <c>w</c> at an image is the reciprocal of the forward <c>w</c> at its
+    ///         source. The quad is then cut to that pre-image's bound. A fixture that tries to place a
+    ///         corner at zero is dropped by one of those two instead, silently passing against code
+    ///         that never divides at all; the only thing left is an axis-aligned bound whose corner
+    ///         pokes across a diagonal eye plane and lands on the exact float zero of a chain that
+    ///         runs through an inversion. That is not constructible on purpose, and it is one
+    ///         comparison to make the two remarks above true whether or not it happens.
+    ///     </para>
     /// </remarks>
     static (Vector2 Position, float W) Place(in UiTransform placed, Vector2 corner) {
         var projected = placed.Project(corner);
+        var w = projected.Z == 0f ? EyePlaneW : projected.Z;
 
-        return (new Vector2(projected.X / projected.Z, projected.Y / projected.Z), projected.Z);
+        return (new Vector2(projected.X / w, projected.Y / w), w);
     }
 }
