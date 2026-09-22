@@ -2640,6 +2640,27 @@ public static class UtilityFamilies {
 
         Keywords("pointer-events", "pointer-events", new() { ["none"] = "none", ["auto"] = "auto" });
 
+        // ⚠ <b>Refused for as long as the ledger has existed, and every reason it gave expired in
+        // turn.</b> First "no touch reaches `UiDocument`" — `PlatformInput` gained its three touch
+        // arms. Then "a reader cannot tell a finger from a mouse" — #699 put `PointerType` on the
+        // event. Then "the UA side is empty, there is no touch-drag-to-scroll to govern" —
+        // `ScrollView.Dragged` scrolls the content under any finger or pen now, unconditionally,
+        // which is precisely the default behaviour the property exists to withhold: a slider inside
+        // a list had no way to keep the finger. `UiDocument.TouchActionBetween` intersects the chain
+        // from the touched element up to the view, per Pointer Events § 6, and `ScrollView.Admits`
+        // is the consumer. ⚠ The directional trio was called "an at-boundary check nothing
+        // computes"; it is a sign test on the slop travel that begins the gesture, and the recogniser
+        // has always carried that number as `DragEvent.TotalX/Y`.
+        //
+        // `touch-pinch-zoom` is deliberately not registered: the value parses, but nothing here
+        // performs a pinch as a user-agent default, so the class would be the inert kind this file's
+        // gate exists to refuse. It arrives with the first UA pinch.
+        Keywords("touch", "touch-action", new() {
+            ["auto"] = "auto", ["none"] = "none", ["manipulation"] = "manipulation",
+            ["pan-x"] = "pan-x", ["pan-left"] = "pan-left", ["pan-right"] = "pan-right",
+            ["pan-y"] = "pan-y", ["pan-up"] = "pan-up", ["pan-down"] = "pan-down"
+        });
+
         // ⚠ `clip` is the fifth keyword and it was the one thing keeping all three of these roots off
         // `works`. It reads as `hidden` — `LayoutStyleBuilder` maps it there and says why at length:
         // CSS separates the two by a scroll container and by programmatic scrolling, and this engine

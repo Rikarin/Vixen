@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.PointerType]
 tags: [ui, input, pointer, touch]
 since: 0.2
 status: preview
-related: [ui/cursors]
+related: [ui/cursors, ui/touch-action]
 ---
 
 ## What it is
@@ -97,3 +97,4 @@ test.PressPointer();
 ## See also
 
 * [Cursors](cursors.md) — what the pointer *looks* like, which only a device with a cursor has
+* [Touch action](touch-action.md) — the property that reads this field to decide whether a finger's drag is the scroll view's

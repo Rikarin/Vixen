@@ -1422,6 +1422,19 @@ Vixen.Ui.TextRun.Tracking.init -> float
 Vixen.Ui.TextRun.Width.get -> float
 Vixen.Ui.TextRun.WordSpacing.get -> float
 Vixen.Ui.TextRun.WordSpacing.init -> float
+Vixen.Ui.TouchAction -> enum : byte
+Vixen.Ui.TouchAction.Auto = Vixen.Ui.TouchAction.Manipulation | Vixen.Ui.TouchAction.DoubleTapZoom -> Vixen.Ui.TouchAction
+Vixen.Ui.TouchAction.DoubleTapZoom = 32 -> Vixen.Ui.TouchAction
+Vixen.Ui.TouchAction.Manipulation = Vixen.Ui.TouchAction.PanX | Vixen.Ui.TouchAction.PanY | Vixen.Ui.TouchAction.PinchZoom -> Vixen.Ui.TouchAction
+Vixen.Ui.TouchAction.None = 0 -> Vixen.Ui.TouchAction
+Vixen.Ui.TouchAction.PanDown = 8 -> Vixen.Ui.TouchAction
+Vixen.Ui.TouchAction.PanLeft = 1 -> Vixen.Ui.TouchAction
+Vixen.Ui.TouchAction.PanRight = 2 -> Vixen.Ui.TouchAction
+Vixen.Ui.TouchAction.PanUp = 4 -> Vixen.Ui.TouchAction
+Vixen.Ui.TouchAction.PanX = Vixen.Ui.TouchAction.PanLeft | Vixen.Ui.TouchAction.PanRight -> Vixen.Ui.TouchAction
+Vixen.Ui.TouchAction.PanY = Vixen.Ui.TouchAction.PanUp | Vixen.Ui.TouchAction.PanDown -> Vixen.Ui.TouchAction
+Vixen.Ui.TouchAction.PinchZoom = 16 -> Vixen.Ui.TouchAction
+Vixen.Ui.TouchAction.TouchAction() -> void
 Vixen.Ui.TransformEvent -> sealed class
 Vixen.Ui.TransformEvent : Vixen.Ui.UiEvent
 Vixen.Ui.TransformEvent.DeltaRotation.get -> float
@@ -1648,6 +1661,8 @@ Vixen.Ui.UiDocument.SystemColors.get -> Vixen.Ui.Styling.SystemPalette
 Vixen.Ui.UiDocument.TextAlignShift(Vixen.Ui.UiElement element, float slack) -> float
 Vixen.Ui.UiDocument.Tick(System.TimeSpan now) -> void
 Vixen.Ui.UiDocument.Ticked -> System.Action<Vixen.Ui.UiDocument, System.TimeSpan>?
+Vixen.Ui.UiDocument.TouchActionBetween(Vixen.Ui.UiElement target, Vixen.Ui.UiElement ancestor) -> Vixen.Ui.TouchAction
+Vixen.Ui.UiDocument.TouchActionOf(Vixen.Ui.UiElement element) -> Vixen.Ui.TouchAction
 Vixen.Ui.UiDocument.TryInject<T>(out T? value) -> bool
 Vixen.Ui.UiDocument.UiDocument(float width, float height, float rootFontSize = 16, Microsoft.Extensions.Logging.ILogger? logger = null) -> void
 Vixen.Ui.UiDocument.UndoManager.get -> Vixen.Ui.IUndoManager?

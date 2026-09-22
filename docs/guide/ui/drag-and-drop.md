@@ -285,11 +285,18 @@ element the press landed on for its whole life", which is exactly what `TrackDra
 rule that *a field which refused a drop still consumes it* has to become a refusal the route can
 express — so the note lives beside the code rather than here.
 
-⚠ **One event per file.** SDL 2 posts one `SDL_DROPFILE` per path and brackets a group with
-`SDL_DROPBEGIN`/`SDL_DROPCOMPLETE`, which the desktop backend does not yet forward — so a five-file
-drop arrives as five `DropEvent`s and a handler that creates a document per drop creates five.
-`Files` is a list because that is the shape the grouping will arrive in, not because anything fills
-it with more than one today.
+⚠ **One event per gesture, and this entry used to say the opposite.** It read *"SDL 2 posts one
+`SDL_DROPFILE` per path and brackets a group with `SDL_DROPBEGIN`/`SDL_DROPCOMPLETE`, which the
+desktop backend does not yet forward — so a five-file drop arrives as five `DropEvent`s"*. It does
+forward them (`DesktopPlatform.cs:720`), and `PlatformInput` collects the paths between the brackets
+and dispatches one `DropEvent` carrying all of them at `DropComplete`. So `Files` is a list because
+a drop really does arrive that way, and a handler that opens a document per drop opens one.
+
+⚠ **A `DropFile` outside a bracket still stands on its own**, deliberately: a backend that produces
+the files and not the brackets would otherwise deliver nothing at all, and that failure would be
+silent — a drop that does nothing looks exactly like a drop nobody handled. And a bracket that
+carried no path delivers nothing, because a `DropEvent` with no files and no text is a drop of
+nothing a handler has no way to refuse.
 
 ⚠ **The drop position is queried, not reported.** SDL 2's drop event carries no coordinates, and
 `Vector2.Zero` is not a neutral answer — it is the top-left corner, which would deliver every file in

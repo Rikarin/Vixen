@@ -157,6 +157,21 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///         behaviour before the family.
 ///     </para>
 /// </param>
+/// <param name="Touched">
+///     Whether <c>#probe</c> is a <see cref="ScrollView" /> nested inside another one and the scene
+///     drives a <i>finger</i> across it between the recorded frames. False for every scene but
+///     <c>touched</c>.
+///     <para>
+///         ⚠ <b>The eleventh time this list has been the thing missing, and the first where the
+///         missing ingredient was a DEVICE.</b> <c>touch-action</c> is read at one arbitration
+///         point — <c>ScrollView.Dragged</c>, for a drag whose <c>PointerType</c> is a finger or a
+///         pen — and nothing in the other scenes ever puts a finger down: <c>scrolled</c> and
+///         <c>snapped</c> drive the wheel and <c>ScrollIntoView</c>, and a wheel is a mouse. So the
+///         property would have measured inert with the reader finished, and the ledger row that
+///         waited on it predicted exactly that: "the reader will be an input-arbitration one the
+///         probe does not drive". This scene is the probe driving it.
+///     </para>
+/// </param>
 /// <param name="Observes">
 ///     The properties this scene is a valid observer for, or <see langword="null" /> for all of them.
 ///     <para>
@@ -199,6 +214,7 @@ sealed record ProbeScene(
     bool Hyphenated = false,
     bool Pictured = false,
     bool Forced = false,
+    bool Touched = false,
     IReadOnlyList<string>? Observes = null
 );
 
@@ -1125,6 +1141,56 @@ static class UtilityConsumptionProbe {
             Snapped: true
         ),
 
+        // ⚠ <b>Touched, and what it adds to `scrolled` is a device.</b> `touch-action` decides
+        // whether a FINGER's drag is the scroll view's to take, and `ScrollView.Dragged` consults it
+        // only for a `PointerType` of touch or pen — a mouse is never governed by it, which is the
+        // whole reason `PointerEvent.PointerType` exists. Every other scene that scrolls does so by
+        // wheel or by `ScrollIntoView`, so this is the one place in the probe a finger goes down.
+        //
+        // The finger lands on `#mark`, inside `#probe`, and the chain the reader intersects runs
+        // `#mark` → `#probe` → … → `#outer`. The injected declaration lands on `#probe`, so a `none`
+        // there declines the inner view AND the outer one, and the frames after the swipe are the
+        // frames before it — which is the difference the layout channel records. `pan-x` and the
+        // three directional keywords that exclude a downward-scrolling begin differ the same way.
+        // `auto`, `manipulation`, `pan-y` and `pan-down` say what the default already does and are
+        // indistinguishable from it here, correctly: the gate is per property, and one keyword
+        // moving one channel is what "read" means.
+        //
+        // ⚠ <b>No `Observes` list, and that is the gate's own rule rather than an oversight.</b>
+        // #973's leak was a transition reacting to the INJECTION — any declaration at all started an
+        // animation, so the scene answered for the whole registry. A swipe is not that: the baseline
+        // frames carry the identical gesture, so the only way an injected declaration changes these
+        // frames is by changing what the engine does with the finger or the boxes it moves, which
+        // is what "read" means. Narrowing it would lose real verdicts, and
+        // `A_scene_carrying_a_transition_says_which_properties_it_may_answer_for` refuses the list
+        // on a scene with no transition in it.
+        new(
+            "touched",
+            """
+            /* `ControlTheme.vcss` quoted, for the reason the scrolled scene quotes it. */
+            scroll-view          { flex-direction: column; overflow: hidden; position: relative; }
+            scroll-content       { flex-direction: column; flex-shrink: 0; align-self: flex-start; min-width: 100%; }
+            scrollbar            { position: absolute; }
+            scrollbar.vertical   { top: 0px; right: 0px; bottom: 0px; width: 10px; }
+            scrollbar.horizontal { left: 0px; right: 0px; bottom: 0px; height: 10px; }
+
+            #host   { display: flex; flex-direction: column; width: 200px; height: 140px; align-items: flex-start; }
+            #outer  { width: 100px; height: 60px; }
+            #lead   { width: 260px; height: 20px; background-color: #404060; }
+            #trail  { width: 260px; height: 90px; background-color: #604040; }
+            #probe  { width: 60px; height: 40px; background-color: #204080; }
+            #above  { width: 40px; height: 4px; background-color: #206040; }
+            #below  { width: 40px; height: 60px; background-color: #402060; }
+            #mark   { width: 60px; height: 40px; background-color: #c0a020; }
+            .kid    { width: 8px; height: 0px; }
+            #wide   { width: 8px; height: 0px; }
+            #label  { width: 30px; height: 0px; }
+            #short  { width: 30px; height: 0px; }
+            #after  { width: 30px; height: 12px; background-color: #a0a040; }
+            """,
+            Touched: true
+        ),
+
         // ⚠ <b>Edited, and it is the only scene in which anything has a caret.</b> `caret-color` is
         // read in exactly two places — `TextField.CaretColour` and `CodeEditor`'s copy of it — and
         // both are inside an `if (!IsFocused) return;`. So the ingredient is a *state* rather than a
@@ -1750,7 +1816,7 @@ static class UtilityConsumptionProbe {
 
         // The `snapped` scene is `scrolled`'s tree with a different thing done to it, so the shape is
         // built once and only the driving differs. See `Drive`.
-        var nested = scene.Scrolling || scene.Snapped;
+        var nested = scene.Scrolling || scene.Snapped || scene.Touched;
 
         if (nested) {
             outer = host.Add<ScrollView>(null, "outer");
@@ -1930,9 +1996,71 @@ static class UtilityConsumptionProbe {
         void Drive(int phase) {
             if (scene.Scrolling) {
                 Approach(phase);
+            } else if (scene.Touched) {
+                Swipe();
             } else {
                 Flick(phase);
             }
+        }
+
+        // The one gesture the `touched` scene needs: a finger, put down on `#mark` inside the inner
+        // view and drawn upwards, so that the content scrolls down under it — the direction every
+        // one of the family's keywords either admits or declines.
+        //
+        // ⚠ <b>Real pointer events, through `Dispatch`, with `PointerType.Touch`.</b> The reader is
+        // consulted by `ScrollView.Dragged` on the `DragEvent` the recogniser raises, and only for a
+        // finger; a `DragEvent` raised by hand or a pointer left `Unknown` would measure the property
+        // inert with the reader present, which is precisely the false gap this scene exists to close.
+        //
+        // ⚠ <b>Every phase swipes, and the swipe is the same one.</b> Three moves of ten pixels a
+        // frame is fast enough to fling, so the flings are stopped by hand afterwards: a fling is
+        // deterministic on this clock but it goes on moving the layout across the recorded frames,
+        // and the difference this scene wants to record is the swipe's, not the decay curve's.
+        void Swipe() {
+            if (outer is null || inner is null) {
+                return;
+            }
+
+            document.Update();
+
+            var over = inner.Bounds;
+            var x = over.X + (over.Width * 0.5f);
+            var y = over.Y + (over.Height * 0.5f);
+
+            Finger(x, y, PointerAction.Pressed, PointerButton.Primary);
+
+            for (var step = 1; step <= 3; step++) {
+                Finger(x, y - (10f * step), PointerAction.Moved, PointerButton.None);
+
+                now += TimeSpan.FromMilliseconds(16);
+                document.Tick(now);
+                document.Update();
+            }
+
+            Finger(x, y - 30f, PointerAction.Released, PointerButton.Primary);
+
+            inner.StopFling();
+            outer.StopFling();
+
+            now += TimeSpan.FromMilliseconds(16);
+            document.Tick(now);
+            document.Update();
+        }
+
+        void Finger(float x, float y, PointerAction action, PointerButton button) {
+            now += TimeSpan.FromMilliseconds(16);
+
+            document.Dispatch(
+                new PointerEvent {
+                    PointerId = 1,
+                    PointerType = PointerType.Touch,
+                    X = x,
+                    Y = y,
+                    Action = action,
+                    Button = button,
+                    Timestamp = now
+                }
+            );
         }
 
         // ⚠ <b>A wheel and then a silence, because the silence is the terminator.</b> A wheel is a
