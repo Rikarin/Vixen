@@ -33,6 +33,17 @@ namespace Vixen.Editor.Ui;
 ///         (it is a map) and the count a translator is quoted would not.
 ///     </para>
 ///     <para>
+///         ⚠ <b>And one registration is a <em>count</em>, because a withdrawal is per activation</b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/1316">#1316</a>).
+///         <c>PluginContext.AddStrings</c> records a <see cref="Withdraw" /> for every
+///         <see cref="Declare" />, so two live modules sharing one <c>All</c> array — a host running
+///         two editors, a test suite whose fixtures run in parallel — declare it twice and withdraw
+///         it twice. Matched by reference alone, the first unload took the other's words out of the
+///         template: the Texturing suite met it as an order-dependent failure the moment its
+///         <c>All</c> list grew. The list is still exported once; what is counted is how many
+///         activations are standing on it.
+///     </para>
+///     <para>
 ///         ⚠ <b>And the level above it is now wired, which this remark used to say was not</b>
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/1229">#1229</a>). The editor's
 ///         <c>tools.export-strings</c> writes <see cref="EditorStrings.Template" /> through
@@ -45,6 +56,9 @@ namespace Vixen.Editor.Ui;
 public static class StringContributions {
     static readonly Lock Gate = new();
     static readonly List<IReadOnlyList<StringId>> Registered = [];
+
+    /// <summary>How many activations are standing on each registered list, by reference.</summary>
+    static readonly Dictionary<IReadOnlyList<StringId>, int> Standing = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>Every string a toolset has contributed, in registration order.</summary>
     /// <remarks>
@@ -73,12 +87,18 @@ public static class StringContributions {
             if (!Registered.Any(registered => ReferenceEquals(registered, declarations))) {
                 Registered.Add(declarations);
             }
+
+            Standing[declarations] = Standing.GetValueOrDefault(declarations) + 1;
         }
     }
 
-    /// <summary>Takes a declaration class's <c>All</c> list back out again.</summary>
+    /// <summary>Takes one activation's claim on a declaration class's <c>All</c> list back out again.</summary>
     /// <param name="declarations">The same list that was passed to <see cref="Declare" />.</param>
-    /// <returns>Whether it was there to remove.</returns>
+    /// <returns>
+    ///     Whether it was there to remove. ⚠ <see langword="true" /> while another activation is
+    ///     still standing on the list, and the list stays in <see cref="Declared" /> until the last
+    ///     one withdraws.
+    /// </returns>
     /// <remarks>
     ///     ⚠ <b>This class is static and a plugin's <c>All</c> list is an array of that plugin's
     ///     own <see cref="StringId" /> values, so a declaration nothing withdraws pins the plugin's
@@ -107,6 +127,15 @@ public static class StringContributions {
                 return false;
             }
 
+            var standing = Standing[declarations] - 1;
+
+            if (standing > 0) {
+                Standing[declarations] = standing;
+
+                return true;
+            }
+
+            Standing.Remove(declarations);
             Registered.RemoveAt(at);
 
             return true;
