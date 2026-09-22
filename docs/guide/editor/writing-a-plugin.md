@@ -4,7 +4,7 @@ slug: editor/writing-a-plugin
 kind: guide
 area: Editor
 summary: What a plugin can contribute to the editor, how it registers, and how everything it added is taken back out when it unloads.
-api: [T:Vixen.Editor.Plugin.PluginHost, T:Vixen.Editor.Blockout.BlockoutModule, T:Vixen.Editor.Terrain.TerrainModule, T:Vixen.Editor.Diagnostics.DiagnosticsModule, T:Vixen.Editor.AssetEditors.AssetEditorsModule, T:Vixen.Editor.SceneView.IActiveScene, T:Vixen.Editor.Debugger.IDeviceDeploy, T:Vixen.Rendering.Terrain.ITerrainScene, T:Vixen.Editor.Core.EditorRegistry, T:Vixen.Editor.Core.IEditorRegistry, T:Vixen.Editor.Core.NewAssetKind, T:Vixen.Editor.Inspector.CustomInspector, T:Vixen.Editor.SceneView.SceneTool, T:Vixen.Editor.Ui.TypeIcon, T:Vixen.Editor.Ui.AssetIcon, T:Vixen.Editor.Ui.EditorArt, T:Vixen.Editor.Core.AuthoringAssembly, T:Vixen.Editor.SceneView.AuthoringKind, T:Vixen.Editor.Plugin.IEditorPlugin, T:Vixen.Editor.Plugin.PluginContext, T:Vixen.Editor.Plugin.PluginServices, T:Vixen.Editor.Plugin.IEditorGraphics, T:Vixen.Editor.Plugin.IEditorImage, T:Vixen.Editor.AssetEditors.AssetEditorRegistry, T:Vixen.Editor.AssetEditors.IAssetEditorFactory, T:Vixen.Editor.Assets.ImporterContributions, T:Vixen.Editor.Assets.ImporterRegistry, T:Vixen.Editor.Assets.ImporterAttribute, T:Vixen.Editor.Plugin.IContributionScanner, T:Vixen.Editor.Inspector.CustomInspectorAttribute, T:Vixen.Editor.Inspector.CustomDrawerAttribute, T:Vixen.Editor.SceneView.EditorToolAttribute, T:Vixen.Editor.Core.CreateAssetMenuAttribute, T:Vixen.Editor.SceneView.OverlayAttribute, T:Vixen.Editor.SceneView.DrawGizmoAttribute, T:Vixen.Editor.SceneView.SceneOverlay, T:Vixen.Editor.SceneView.ComponentGizmo, T:Vixen.Editor.SceneView.GizmoDraw, T:Vixen.Editor.SceneView.GizmoPlacement, T:Vixen.Editor.SceneView.OverlayCorner]
+api: [T:Vixen.Editor.Plugin.PluginHost, T:Vixen.Editor.Blockout.BlockoutModule, T:Vixen.Editor.Terrain.TerrainModule, T:Vixen.Editor.Diagnostics.DiagnosticsModule, T:Vixen.Editor.AssetEditors.AssetEditorsModule, T:Vixen.Editor.SceneView.IActiveScene, T:Vixen.Editor.Debugger.IDeviceDeploy, T:Vixen.Rendering.Terrain.ITerrainScene, T:Vixen.Editor.Core.EditorRegistry, T:Vixen.Editor.Core.IEditorRegistry, T:Vixen.Editor.Core.NewAssetKind, T:Vixen.Editor.Inspector.CustomInspector, T:Vixen.Editor.SceneView.SceneTool, T:Vixen.Editor.Ui.TypeIcon, T:Vixen.Editor.Ui.AssetIcon, T:Vixen.Editor.Ui.EditorArt, T:Vixen.Editor.Scripts.ScriptsStrings, T:Vixen.Editor.AssetEditors.AssetEditorStrings, T:Vixen.Editor.Core.AuthoringAssembly, T:Vixen.Editor.SceneView.AuthoringKind, T:Vixen.Editor.Plugin.IEditorPlugin, T:Vixen.Editor.Plugin.PluginContext, T:Vixen.Editor.Plugin.PluginServices, T:Vixen.Editor.Plugin.IEditorGraphics, T:Vixen.Editor.Plugin.IEditorImage, T:Vixen.Editor.AssetEditors.AssetEditorRegistry, T:Vixen.Editor.AssetEditors.IAssetEditorFactory, T:Vixen.Editor.Assets.ImporterContributions, T:Vixen.Editor.Assets.ImporterRegistry, T:Vixen.Editor.Assets.ImporterAttribute, T:Vixen.Editor.Plugin.IContributionScanner, T:Vixen.Editor.Inspector.CustomInspectorAttribute, T:Vixen.Editor.Inspector.CustomDrawerAttribute, T:Vixen.Editor.SceneView.EditorToolAttribute, T:Vixen.Editor.Core.CreateAssetMenuAttribute, T:Vixen.Editor.SceneView.OverlayAttribute, T:Vixen.Editor.SceneView.DrawGizmoAttribute, T:Vixen.Editor.SceneView.SceneOverlay, T:Vixen.Editor.SceneView.ComponentGizmo, T:Vixen.Editor.SceneView.GizmoDraw, T:Vixen.Editor.SceneView.GizmoPlacement, T:Vixen.Editor.SceneView.OverlayCorner]
 tags: [editor, plugins, extensibility, registry]
 since: 0.1
 status: preview
@@ -370,6 +370,21 @@ a pane cannot be left drawing terrain out of an assembly that has unloaded.
 ⚠ **Put verbs in the menu the thing they act on already has**, with `FindMenu` and `AddSubmenu`, and
 say *where* using `MenuGroup.IndexOfSubmenu` rather than a number. A module that could only append
 would reorder somebody's menu the day it stopped being compiled in.
+
+⚠ **A module's words are its own, and it hands them over as it activates.** A panel title, a mode's
+name, a command category, a submenu — every `StringId` a feature shows is declared in that feature's
+own declaration class (`TerrainStrings`, `BlockoutStrings`, `WaterStrings`, `TexturingStrings`,
+`DiagnosticsStrings`, `ScriptsStrings`, `AssetEditorStrings`) and contributed with one line:
+
+```csharp no-compile="beside the panels and the commands, because the words are part of what the module contributes"
+context.AddStrings(TerrainStrings.All);
+```
+
+The shell cannot name those classes — `EditorStrings` would have to depend on every feature — so a
+word the shell declared *for* a feature was a copy the feature could not own: it reached a
+translator's template whether or not the feature was loaded, and a feature shipped out of tree would
+have had no way to bring its own. `AddStrings` records the withdrawal too, so a module's words leave
+the template when the module does, and its `All` array stops pinning its load context.
 
 ## See also
 

@@ -66,13 +66,18 @@ public sealed class ScriptsModule : IEditorPlugin, IDisposable {
         scripts = new EditorScripts(host, project.Paths.Root, Path.Combine(project.Paths.Library, "EditorScripts"));
         scripts.Rebuilt += _ => Show();
 
+        // The module's words go into the translator's template with the module, not with the shell
+        // (#1301): EditorStrings cannot name this class, and a template taken while this module is
+        // off should not carry its panel title.
+        context.AddStrings(ScriptsStrings.All);
+
         context.AddCommand(
             RebuildCommand,
-            EditorStrings.CommandScriptsRebuild,
+            ScriptsStrings.Commands[RebuildCommand],
             () => scripts?.Rebuild()
         );
 
-        context.AddPanel(PanelId, EditorStrings.PanelScripts, Build);
+        context.AddPanel(PanelId, ScriptsStrings.Panel, Build);
 
         // ⚠ Once, at activation, before anything is watching. A project whose scripts already exist
         // has to come up with its menus in place — a first build that waited for a file to change

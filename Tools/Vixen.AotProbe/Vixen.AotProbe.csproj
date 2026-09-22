@@ -29,10 +29,10 @@
     </PropertyGroup>
 
     <!--
-        The runtime-profile assemblies rooted today — 82 of the 95, measured 2026-09-10 (#506). It
-        was 29, and the sixty-six that were missing were not a reasoned exclusion list; they were
-        assemblies nobody had added. Fifty-three of them are rooted here now and the remaining
-        thirteen are in NotRooted.txt with what an ILC publish actually said about each.
+        The runtime-profile assemblies rooted today — 91 of the 95, measured 2026-09-22 (#506,
+        #1239, #1240). It was 29, and the sixty-six that were missing were not a reasoned exclusion
+        list; they were assemblies nobody had added. The four still in NotRooted.txt are there
+        because no shipped game links them, and the file says so beside each.
 
         ⚠ **The expensive half of #506 was its prediction, not the work.** That issue expected
         "Vixen.Ui's reactive graph and Vixen.Core.Serialization's consumers" to be the costly ones,
@@ -135,6 +135,22 @@
         <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Ui.Layout\Vixen.Ui.Layout.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Ui.Reactive\Vixen.Ui.Reactive.csproj" />
+
+        <!--
+            ⚠ The Vixen.Ui wave was on NotRooted.txt for ONE finding, and it was a true positive:
+            UiPropertyRegistry.Collect forced every base type's class constructor through
+            Type.BaseType, which ILC cannot see, so an AOT build silently lost every property a
+            base class declared. The generator now chains each static constructor to its nearest
+            property-declaring ancestor by name and the registry forces only the leaf (#1240); with
+            that, these seven root with nothing to report.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui\Vixen.Ui.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Controls\Vixen.Ui.Controls.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Markup\Vixen.Ui.Markup.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Renderer\Vixen.Ui.Renderer.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Ui.Desktop\Vixen.Ui.Desktop.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.Ui\Vixen.Platform.Ui.csproj" />
 
         <!--
           The application host. It was in Tools/ until the split, so the one assembly every sample
@@ -244,6 +260,13 @@
         <TrimmerRootAssembly Include="Vixen.Platform.Headless" />
         <TrimmerRootAssembly Include="Vixen.Ui.Layout" />
         <TrimmerRootAssembly Include="Vixen.Ui.Reactive" />
+        <TrimmerRootAssembly Include="Vixen.Ui" />
+        <TrimmerRootAssembly Include="Vixen.Ui.Controls" />
+        <TrimmerRootAssembly Include="Vixen.Ui.Controls.Advanced" />
+        <TrimmerRootAssembly Include="Vixen.Ui.Markup" />
+        <TrimmerRootAssembly Include="Vixen.Ui.Renderer" />
+        <TrimmerRootAssembly Include="Vixen.Ui.Desktop" />
+        <TrimmerRootAssembly Include="Vixen.Platform.Ui" />
     </ItemGroup>
 
 </Project>

@@ -114,12 +114,13 @@
 
             <!--
                 ⚠ **The first caller `DocumentClosePrompt` has ever had, and it is a document close
-                rather than a quit.** `Root.RequestClose()` raises the request on the element that
-                holds the document instead of on the whole `UiDocument`, so the application's own
-                listener is never asked and Save / Don't Save / Cancel is about this material and
-                nothing else. A shell with tabs would call it on the tab.
+                rather than a quit.** The item is bound to `document.close`, which the route answers
+                on the element that hosts the document — so the request is raised there rather than
+                on the whole `UiDocument`, the application's own listener is never asked, and Save /
+                Don't Save / Cancel is about this material and nothing else. A shell with tabs would
+                get the tab's document from the same walk without changing a line here.
             -->
-            <MenuItem Label="Close" on:click="@CloseDocument" />
+            <MenuItem Label="Close" Command="document.close" ref="@closeItem" />
         </Menu>
 
         <!--
@@ -130,9 +131,10 @@
             shell's own handler below. Nothing here names a panel and no panel names this menu.
 
             ⚠ It is also the first `Command` binding in any sample. Everywhere else in this file a
-            menu item is `on:click`, and `ShowShortcut` draws a chord that dispatches nothing —
-            because until an element in this tree answered a verb, an item claiming to run one would
-            have been lying about it.
+            menu item is `on:click` — because until an element in this tree answered a verb, an item
+            claiming to run one would have been lying about it. The chord beside Save is the same
+            story one step on: it is drawn from a `KeyMap` and dispatched against it (see
+            `OnComposed`), so the row and the keyboard cannot disagree.
         -->
         <Menu Label="_Edit">
             <MenuItem Label="Copy" Command="edit.copy" />
@@ -195,11 +197,34 @@
     MenuItem newItem = null!;
     MenuItem openItem = null!;
     MenuItem saveItem = null!;
+    MenuItem closeItem = null!;
 
     MaterialDocument? document;
     IDisposable? title;
     DialogService? dialogs;
     IDisposable? closePrompt;
+
+    /// <summary>The one table the drawn chord and the pressed chord are both read from.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A <c>KeyMap</c> in an application that is not the editor, which is what #650 was
+    ///     filed for.</b> <c>MenuItem.ShowShortcut</c> could always <i>draw</i> "⌘S", and until the
+    ///     keymap, the registry and the dispatcher came down into <c>Vixen.Ui.Controls</c> nothing
+    ///     outside the editor could make the keystroke do anything — so this sample drew a chord and
+    ///     said, in a comment, that pressing it was not going to work. Now the chord on the row is
+    ///     read out of this table and the keystroke is resolved against it, so the two cannot
+    ///     disagree.
+    /// </remarks>
+    readonly KeyMap keys = new();
+
+    /// <summary>What the dispatcher falls through to when no element answers a chord.</summary>
+    /// <remarks>
+    ///     Empty, and it has to exist: the dispatcher's tail is the application's own command table,
+    ///     and this shell has no verbs that are not answered by an element or a document.
+    /// </remarks>
+    readonly CommandRegistry commands = new();
+
+    CommandDispatcher? dispatcher;
+    Action<UiElement, KeyEvent>? shortcuts;
 
     /// <summary>The verbs that belong to the window rather than to anything inside it.</summary>
     /// <remarks>
@@ -326,13 +351,31 @@
         dialogs = new DialogService(Root.Document);
         closePrompt = DocumentClosePrompt.Install(Root, dialogs, Reopen);
 
-        // ⚠ Shown rather than bound, for New and Open. `ShowShortcut` draws the chord on the right of
-        // the row and registers nothing — there is no keymap in this sample, so an item claiming ⌘N
-        // opened something would be lying about it. Save is the one that is now bound, and its chord
-        // is still only drawn: a menu item is reachable by clicking it whatever the keyboard does.
-        newItem.ShowShortcut(InputKey.N, ModifierKeys.Control);
-        openItem.ShowShortcut(InputKey.O, ModifierKeys.Control);
-        saveItem.ShowShortcut(InputKey.S, ModifierKeys.Control);
+        // ⚠ **⌘S is dispatched, and it is the first chord any sample has ever dispatched.** The
+        // keymap holds the portable spelling, Ctrl+S; the row shows what this machine's user will
+        // press (`ForPlatform` swaps in ⌘ on a Mac, exactly as the editor's menu presenter does);
+        // and the dispatcher resolves the keystroke through the same `CommandRoute` walk the menu
+        // item uses, so it reaches the `MaterialDocument` above and nothing else. No handler here
+        // names Save: `document.save` is answered by `DocumentCommands.Install(Root)`, the item is
+        // bound to the id, and the chord is bound to the id. One verb, three ways in.
+        //
+        // ⚠ **New and Open no longer draw a chord.** They are inert items in this sample — no
+        // handler, no command — and a chord beside an item that does nothing is the lie this file
+        // kept explaining in a comment. Drawing a shortcut is a promise the keymap has to keep.
+        keys.SetDefault(DocumentCommands.Save, new KeyChord(InputKey.S, ModifierKeys.Control));
+        keys.SetDefault(DocumentCommands.Close, new KeyChord(InputKey.W, ModifierKeys.Control));
+
+        Draw(saveItem, DocumentCommands.Save);
+        Draw(closeItem, DocumentCommands.Close);
+
+        // ⚠ On this component's `Root` rather than `CommandDispatcher.Attach`, which listens on the
+        // *document's* root. `OnComposed` runs again on every markup hot reload, and a handler on
+        // the document root outlives the build region — so `Attach` here would leave one dispatcher
+        // per save behind, each taking the same ⌘S. `Root` is torn down with the region, and the
+        // delegate is kept so `OnUnmounted` can remove it by the same instance.
+        dispatcher = new CommandDispatcher(commands, keys);
+        shortcuts = (_, args) => dispatcher.Pressed(Root.Document, args);
+        Root.AddHandler(shortcuts);
 
         // ⚠ **After the panels, not before.** A panel the arrangement does not already mention goes
         // into the first group, so three panels registered against an empty layout give one group of
@@ -384,6 +427,13 @@
         dialogs?.Dispose();
         dialogs = null;
 
+        if (shortcuts is not null) {
+            Root.RemoveHandler(shortcuts);
+            shortcuts = null;
+        }
+
+        dispatcher = null;
+
         base.OnUnmounted();
     }
 
@@ -418,8 +468,17 @@
         toasts.Show("Closed the material");
     }
 
-    /// <summary>Asks the document whether it may go, from the element that holds it.</summary>
-    void CloseDocument() => Root.RequestClose();
+    /// <summary>Puts the keymap's chord for a command on the item bound to it.</summary>
+    /// <remarks>
+    ///     ⚠ In this machine's spelling rather than the table's — <c>ForPlatform</c> swaps Control
+    ///     for ⌘ on a Mac — so the row shows the keys the user will press. The editor's
+    ///     <c>MenuPresenter</c> does exactly this for every bound item; a shell with one menu bar
+    ///     does it twice, by hand, which is the honest amount of machinery for two rows.
+    /// </remarks>
+    void Draw(MenuItem item, string command) {
+        var shown = keys.ChordFor(command).ForPlatform();
+        item.ShowShortcut(shown.Key, shown.Modifiers);
+    }
 
     /// <summary>Lets the toasts count down.</summary>
     void Expire(UiDocument document, TimeSpan now) => toasts.Tick(now);

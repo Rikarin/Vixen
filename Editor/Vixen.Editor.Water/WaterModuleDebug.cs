@@ -81,7 +81,7 @@ public sealed partial class WaterModule {
 
             Shell.Commands.Add(
                 new EditorCommand(id, WaterStrings.Commands[id], toggle) {
-                    Category = EditorStrings.CategoryWater,
+                    Category = WaterStrings.CategoryWater,
                     Checked = read
                 }
             );

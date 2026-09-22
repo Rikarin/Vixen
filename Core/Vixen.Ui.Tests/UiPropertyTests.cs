@@ -210,6 +210,44 @@ public class UiPropertyTests {
         );
     }
 
+    /// <summary>
+    ///     An untouched base's properties reach a derived type's answer through the generated
+    ///     constructor chain, not through the registry forcing each level.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1240">#1240</a>. The registry used to
+    ///         call <c>RunClassConstructor</c> on every base type on the way down, which is the one
+    ///         IL2072 that kept <c>Vixen.Ui</c> and six siblings off the AOT probe — and a true
+    ///         positive: a NativeAOT publish answered <c>Of(typeof(Derived))</c> with the derived
+    ///         property and nothing from any base, because ILC preserves a class constructor it can
+    ///         name and not one reached through <c>Type.BaseType</c>. The registry now forces only
+    ///         the type it was given, and each generated static constructor names its nearest
+    ///         property-declaring ancestor's.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The CoreCLR half is what this can see</b>, and it is the same guarantee: with the
+    ///         walk no longer forcing bases, <see cref="ChainedBase" />'s registration is in the
+    ///         answer only if <see cref="ChainedLeaf" />'s constructor ran it. Both types are named
+    ///         nowhere else, so nothing has warmed either. A generator that stopped chaining leaves
+    ///         <c>BaseWeight</c> out and this goes red; so does <c>UiElement</c>'s own
+    ///         <c>AllowDrop</c>, which is two links up and in another assembly — the chain has to
+    ///         cross metadata, not just source.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_untouched_base_s_properties_arrive_through_the_generated_chain() {
+        var names = UiPropertyRegistry.Of(typeof(ChainedLeaf)).Select(key => key.Name).ToList();
+
+        Assert.Contains("LeafWeight", names);
+        Assert.Contains("BaseWeight", names);
+        Assert.Contains("AllowDrop", names);
+
+        // Bases first, which is the order an inheriting lookup relies on.
+        Assert.True(names.IndexOf("AllowDrop") < names.IndexOf("BaseWeight"));
+        Assert.True(names.IndexOf("BaseWeight") < names.IndexOf("LeafWeight"));
+    }
+
     [Fact]
     public void An_element_that_is_not_in_a_document_says_so_rather_than_pretending() {
         var panel = new Panel();
@@ -237,4 +275,18 @@ public partial class Unvisited : UiElement {
     /// <summary>Its only property.</summary>
     [UiProperty(Default = 7)]
     public partial int Weight { get; set; }
+}
+
+/// <summary>A base that declares a property and is named by nothing but its leaf's generated constructor.</summary>
+public partial class ChainedBase : UiElement {
+    /// <summary>The base's own.</summary>
+    [UiProperty(Default = 3)]
+    public partial int BaseWeight { get; set; }
+}
+
+/// <summary>The leaf the test asks about, whose generated constructor is the only thing that reaches its base.</summary>
+public partial class ChainedLeaf : ChainedBase {
+    /// <summary>The leaf's own.</summary>
+    [UiProperty(Default = 4)]
+    public partial int LeafWeight { get; set; }
 }

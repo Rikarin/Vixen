@@ -68,6 +68,62 @@ public class StringCatalogChainTests {
         }
     }
 
+    /// <summary>
+    ///     A toolset's panel titles and mode names reach the template through the toolset, now that
+    ///     the shell no longer keeps a copy of them.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Thirty-nine ids left <c>EditorStrings</c> in #1301</b> — every mode title, panel
+    ///         title, command category and submenu the shell declared on behalf of Terrain, Blockout,
+    ///         Water, Texturing, Diagnostics, Scripts and the asset editors — and each is now in the
+    ///         <c>All</c> list of the assembly that reads it. That is only half the move: an
+    ///         <c>All</c> list nothing registers is exactly #1202, five declaration classes whose
+    ///         words were in no translator's template. So this asserts the words are in the export
+    ///         <em>through the module's registration</em>, one id per owner, with the shell's own
+    ///         table proven not to be the reason.
+    ///     </para>
+    ///     <para>
+    ///         Read through the exported file rather than <c>EditorStrings.Template</c> directly,
+    ///         because the file is what a translator receives; and ⚠ <c>Vixen.Editor.Terrain</c> and
+    ///         the other toolsets are named by their ids alone, since they activate through the
+    ///         session and this test project does not reference every one of them. ⚠ And a plugin
+    ///         the session does not load is now <em>absent</em> from the export — the first version
+    ///         of this test asked for <c>editor.panel.layer-stack</c> and got null, which is the
+    ///         move working: that title was in every export before only because the shell held a
+    ///         copy of a word it never showed.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Exporting_the_string_template_writes_the_toolsets_words_through_their_own_registration() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Run("tools.export-strings").Settle();
+
+        var catalog = StringCatalogYaml.Load(
+            File.ReadAllText(Path.Combine(fixture.Project.Paths.Root, "Localization", "source.yaml"))
+        );
+
+        // One id per owner the session activates: a mode title, a panel title, a command category.
+        // ⚠ Not Texturing: the session does not load that plugin, and its panel titles are exactly
+        // the words that used to be in this export anyway because the shell kept a copy — which is
+        // what the move exists to stop. Vixen.Editor.Texturing.Tests asserts that half through its
+        // own activation.
+        (string Id, string Source)[] owned = [
+            ("editor.mode.terrain", "Terrain"),
+            ("editor.panel.blockout-uv", "Blockout UV"),
+            ("editor.category.water", "Water"),
+            ("editor.panel.frame-debugger", "Frame Debugger"),
+            (Scripts.ScriptsStrings.Panel.Id, Scripts.ScriptsStrings.Panel.Source),
+            (AssetEditors.AssetEditorStrings.PanelAiDebugger.Id, AssetEditors.AssetEditorStrings.PanelAiDebugger.Source)
+        ];
+
+        foreach (var (id, source) in owned) {
+            Assert.DoesNotContain(EditorStrings.All, declared => declared.Id == id);
+            Assert.Equal(source, catalog.Find(id));
+        }
+    }
+
     /// <summary>An existing catalog is left alone, because it is somebody's afternoon.</summary>
     [Fact]
     public void Exporting_over_a_translation_that_already_exists_does_not_overwrite_it() {

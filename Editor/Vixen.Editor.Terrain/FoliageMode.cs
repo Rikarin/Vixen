@@ -50,7 +50,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
     public string Id => ModeId;
 
     /// <inheritdoc />
-    public StringId Title { get; } = EditorStrings.ModeFoliage;
+    public StringId Title { get; } = TerrainStrings.ModeFoliage;
 
     /// <inheritdoc />
     /// <remarks>None, so the mode bar draws the word — <c>BlockoutMode.Icon</c>'s reason.</remarks>
@@ -189,7 +189,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
 
             shell.Commands.Add(
                 new EditorCommand(id, TerrainStrings.FoliageCommands[id], () => SelectSlot(slot)) {
-                    Category = EditorStrings.CategoryFoliage,
+                    Category = TerrainStrings.CategoryFoliage,
                     Context = FoliageContext,
                     Enablement = () => IsActive() && slot < Tools.Count
                 }
@@ -204,7 +204,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
 
             shell.Commands.Add(
                 new EditorCommand(id, TerrainStrings.FoliageCommands[id], () => Tool = chosen) {
-                    Category = EditorStrings.CategoryFoliage,
+                    Category = TerrainStrings.CategoryFoliage,
                     Context = FoliageContext,
                     RadioGroup = ToolGroup,
                     Checked = () => Tool == chosen,
@@ -231,7 +231,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
                     }
                 }
             ) {
-                Category = EditorStrings.CategoryFoliage,
+                Category = TerrainStrings.CategoryFoliage,
                 Context = FoliageContext,
                 Enablement = () => IsActive() && Editing.Volume is not null
             }
@@ -243,7 +243,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
                 TerrainStrings.FoliageCommands[RemoveTypeCommand],
                 () => { }
             ) {
-                Category = EditorStrings.CategoryFoliage,
+                Category = TerrainStrings.CategoryFoliage,
                 Context = FoliageContext,
 
                 // ⚠ Unimplemented rather than absent, and the enablement says so. Removing a palette
@@ -262,7 +262,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
                 TerrainStrings.FoliageCommands[DeleteSelectionCommand],
                 () => DeleteSelection()
             ) {
-                Category = EditorStrings.CategoryFoliage,
+                Category = TerrainStrings.CategoryFoliage,
                 Context = FoliageContext,
                 Enablement = () => IsActive() && Editing.Selection.Count > 0
             }
@@ -273,7 +273,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
         void Verb(string id, Action run, InputKey key) {
             shell.Commands.Add(
                 new EditorCommand(id, TerrainStrings.FoliageCommands[id], run) {
-                    Category = EditorStrings.CategoryFoliage,
+                    Category = TerrainStrings.CategoryFoliage,
                     Context = FoliageContext,
                     Enablement = IsActive
                 }
