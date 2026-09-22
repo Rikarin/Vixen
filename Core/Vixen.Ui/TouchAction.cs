@@ -270,7 +270,7 @@ sealed class TouchActionReader {
 }
 
 public sealed partial class UiDocument {
-    TouchActionReader touchActions = null!;
+    readonly TouchActionReader touchActions = null!;
 
     /// <summary>What <c>touch-action</c> on one element allows a finger that lands on it to do.</summary>
     /// <param name="element">The element.</param>
