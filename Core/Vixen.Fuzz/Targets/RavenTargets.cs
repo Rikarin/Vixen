@@ -34,7 +34,7 @@ namespace Vixen.Fuzz.Targets;
 ///         <item>the tree reproduces the file, byte for byte, valid or not;</item>
 ///         <item>an incremental reparse equals a full one — the classic bug farm;</item>
 ///         <item>every diagnostic that escapes is a <c>Diagnostic</c> with an id the language owns;</item>
-///         <item>and a module that generated is a module <c>spirv-val</c> accepts.</item>
+///         <item>and a module that generated <i>with nothing reported</i> is a module <c>spirv-val</c> accepts.</item>
 ///     </list>
 ///     <para>
 ///         ⚠ <b>The last one is the reason to do any of this, and it catches a class the others
@@ -182,9 +182,11 @@ public sealed class RavenTarget : IFuzzTarget {
 
         var generated = backend.Generate(module, bag);
         long signature = 17;
+        var refused = false;
 
         foreach (var diagnostic in bag.ToArray()) {
             signature = (signature * 31) + Check(diagnostic, "the backend");
+            refused |= diagnostic.Severity == DiagnosticSeverity.Error;
         }
 
         signature = (signature * 31) + lowered;
@@ -194,7 +196,16 @@ public sealed class RavenTarget : IFuzzTarget {
             signature = (signature * 31) + (int)unit.Stage;
             signature = (signature * 31) + (unit.Binary?.Length ?? -1);
 
-            if (unit.Binary is { Length: > 0 } binary) {
+            // ⚠ The same bar the compilation was held to a few lines up, applied to the backend: a
+            // module emitted beside an error is not a module anybody is given. `CompileDriver`
+            // returns CompilationFailed and `RavenEffectCompiler` throws before either reads a
+            // binary, so a unit that reaches a device has a clean bag behind it by construction —
+            // and the backend does keep emitting after RVN4001, because withholding the file would
+            // hide the rest of the shader from an author fixing one declaration. Validating that
+            // unit anyway asked spirv-val about a `sampler`-typed stage input the backend had just
+            // refused in words, and it said no every night for two weeks
+            // (Corpus/raven/8f40ee3d1559cccf.bin, a mutant of Example1.rvn).
+            if (!refused && unit.Binary is { Length: > 0 } binary) {
                 Spirv.Validate(unit.Name, binary);
             }
         }
