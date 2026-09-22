@@ -377,8 +377,18 @@ async function main() {
         // failed` — which reads like a browser that never started and is nothing of the kind.
         // Measured here on the first run of this script. So: wait for a number, then wait for the
         // endpoint that number names to answer.
+        // ⚠ Three minutes is a HANG CHECK and not a budget, and the number it replaced was a
+        // budget: thirty seconds is a plausible cold start for Chrome on a shared runner — profile
+        // unpack, sandbox setup, GPU probe — so a leg that was merely slow read exactly like a
+        // browser that never came up. That is what `web` reported on run 35727405649, with Chrome
+        // still alive, nothing at all on its stderr, and the same code green on the two runs
+        // before it. The two waits further down stay at thirty seconds deliberately: a page that
+        // never fires `load`, or an engine that never reports a frame, is the subject of this leg
+        // rather than the machinery around it, and a real finding there should not wait three
+        // minutes to be reported.
         const portFile = join(profile, 'DevToolsActivePort');
-        const deadline = Date.now() + 30_000;
+        const askedAt = Date.now();
+        const deadline = askedAt + 180_000;
 
         let version = null;
         let lastError = '(never got as far as an error)';
@@ -393,8 +403,10 @@ async function main() {
 
             if (Date.now() > deadline) {
                 throw new SmokeError(
-                    'the browser started but never answered on a debugging port within 30 s, so '
-                    + `there is nothing to drive. Last attempt: ${lastError}. Its stderr:\n`
+                    'the browser started and never answered on a debugging port in '
+                    + `${Math.round((Date.now() - askedAt) / 1000)} s, so there is nothing to `
+                    + 'drive — long enough to be a browser that is stuck rather than one that is '
+                    + `slow. Last attempt: ${lastError}. Its stderr:\n`
                     + (chromeStderr.join('') || '(nothing)')
                 );
             }
