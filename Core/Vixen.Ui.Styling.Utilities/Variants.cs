@@ -78,10 +78,10 @@ public static class Variants {
         // were refused for "there is no validation anywhere in `Vixen.Ui.Controls`", which stopped
         // being true without anyone coming back here. ⚠ <b>Both were found by a person re-reading
         // the sentence, and a fourth audit would have been the only thing standing between the next
-        // one and another year.</b> Re-checked at HEAD on 2026-09-06 and all five still hold —
-        // `Forms.cs` is `LabeledContent` and not a form, and `Vixen.Ui.Controls/Navigation.cs` is a
-        // breadcrumb and a pager over `ButtonBase` with no URL, no history and no fragment anywhere
-        // behind them:
+        // one and another year.</b> Re-checked at HEAD on 2026-09-06 and again on 2026-09-22, and
+        // all five still hold — `Forms.cs` is `LabeledContent` and not a form, and
+        // `Vixen.Ui.Controls/Navigation.cs` is a breadcrumb and a pager over `ButtonBase` with no
+        // URL, no history and no fragment anywhere behind them:
         //
         //   `visited` — nothing records that a place has been visited
         //     [expires-on Vixen.Ui.Styling.ElementState.Visited]
@@ -89,17 +89,38 @@ public static class Variants {
         //     [expires-on Vixen.Ui.Styling.ElementState.Target]
         //   `autofill` — no credential store, so no field is ever filled by one
         //     [expires-on Vixen.Ui.Controls.TextField.Autofilled]
-        //   `default` — Selectors 4 § 11.4 is the default button of a form, and there is no form
-        //     [expires-on Vixen.Ui.Controls.Button.IsDefault]
+        //   `default` — the default button announces itself with a `default` CLASS, not a state bit
+        //     [expires-on Vixen.Ui.Styling.ElementState.Default]
         //   `inert` — a subtree flag nothing carries; `Disabled` is per control and does not descend
         //     [expires-on Vixen.Ui.UiElement.Inert]
         //
-        // ⚠ <b>The two navigation anchors name the BIT rather than the model, and that is a
-        // limitation of the clause grammar rather than a choice.</b> `expires-on` requires the type
-        // half to resolve today, so a refusal waiting on a whole concept that has no type yet — a
-        // URL, a history — has nothing to hang on but the state bit the concept would eventually
-        // write. It is the weaker tripwire: it fires on whoever lands the bit, not on whoever lands
-        // the model. The other three name a member of a type that exists, which is the stronger form.
+        // ⚠ <b>`default`'s anchor FIRED on 2026-09-22 and the refusal survived it, which is the
+        // third worked case and the first of this shape.</b> #666 landed `Button.IsDefault`, the
+        // clause went red, and re-reading the sentence is what it bought: the refusal read "there is
+        // no form" and that half is STILL true — `IsDefault`'s one production caller is
+        // `DialogService.AddButton`, inside an `Overlay`, and `IsCancel` has none at all for the
+        // reason its own remarks give. But the sentence was wrong about which thing was missing.
+        // What `IsDefault` writes is a key equivalent and a `default` CLASS, deliberately, so a
+        // theme can already draw the button Return will press; what `:default` needs is an
+        // `ElementState` bit, and `ElementState` has none. Registering it against the arrival would
+        // have been this table's own named defect — an entry with no writer, matching nothing —
+        // committed because a tripwire went red. ⚠ <b>So the anchor moved to the thing genuinely
+        // absent rather than the plausible-sounding one</b>, which is `ring-offset-*`'s lesson
+        // applied a step earlier: the first spelling named a design decision (how a button says it
+        // is the default) and had two answers, of which the class was chosen; the bit has one.
+        //
+        // ⚠ <b>Three anchors now name the BIT rather than the model — the two navigation ones and,
+        // since the fire above, `default` — and that is a limitation of the clause grammar rather
+        // than a choice.</b> `expires-on` requires the type half to resolve today, so a refusal
+        // waiting on a whole concept that has no type yet — a URL, a history, a form — has nothing
+        // to hang on but the state bit the concept would eventually write. It is the weaker
+        // tripwire: it fires on whoever lands the bit, not on whoever lands the model. ⚠ But the
+        // fire above is the argument that weaker-and-exact beats stronger-and-approximate: naming a
+        // member of a type that exists is only the stronger form when that member is the thing
+        // actually missing, and `Button.IsDefault` was a guess at how a default button would be
+        // spelled rather than the bit `:default` needs. The remaining two — `autofill` and `inert` —
+        // name a member of a type that exists AND the thing genuinely absent, which is the strong
+        // form on both counts.
         //
         // ⚠ <b>A table entry here is worth nothing without a writer</b>, which is what the item this
         // came from underestimated: `:read-only` compiled against a bit no control sets resolves,
