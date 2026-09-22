@@ -85,8 +85,18 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         check widened.</b> The alternative — keeping an allow-list entry against the day a second
 ///         reciprocal appears — is the shape this file's own remark warns about, since an allow-list
 ///         that survives its reason is a hole. So <c>ui-mask.frag</c> now multiplies by
-///         <c>0.15915494309189535</c> exactly as <c>Ui.rvn</c> does, which is arithmetically a no-op
-///         and cost a <c>glslc</c> run, a recommitted module and a rewritten ledger.
+///         <c>0.15915494309189535</c> exactly as <c>Ui.rvn</c> does, which cost a <c>glslc</c> run, a
+///         recommitted module and a rewritten ledger.
+///     </para>
+///     <para>
+///         ⚠ <b>And that respelling is a no-op in real arithmetic and a last-place bit in float,
+///         which this remark called a no-op flatly until #1256 measured it.</b> The reciprocal is
+///         not exactly 1/&#964;, so dividing and multiplying are two roundings and land on two
+///         different floats: over 3 600 evenly spaced angles they disagree on 162 of them, about one
+///         in twenty. That belief is precisely what let the two C# ports keep dividing by
+///         <c>MathF.Tau</c> while claiming to compute what the shader computes &#8212;
+///         <c>Core/Vixen.Ui.Testing.Tests/ConicSweepTests.cs</c> is what holds them to the
+///         multiplication now.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>And it compared each copy with <c>Ui.rvn</c> whole, which is a weaker claim than it
@@ -1128,7 +1138,21 @@ public partial class SharedUiShaderTests {
     ///     reflection, no device and no compiler &#8212; which is the whole reason this can be asserted on
     ///     every leg rather than only on the one that draws.
     /// </remarks>
-    static Dictionary<string, int> DerivativesIn(string module) {
+    static Dictionary<string, int> DerivativesIn(string module) => OccurrencesIn(module, Derivatives);
+
+    /// <summary>How many of each named opcode a committed module contains.</summary>
+    /// <param name="module">The <c>.spv</c> to walk.</param>
+    /// <param name="wanted">The opcode numbers to count, by the name each is reported under.</param>
+    /// <returns>The count of each wanted instruction, by opcode name; absent where it occurs never.</returns>
+    /// <remarks>
+    ///     ⚠ <b>It counts opcode <em>numbers</em>, and that is the point rather than an
+    ///     implementation detail.</b> Every count in this file that was wrong was wrong because it
+    ///     was taken over a disassembly's text, where <c>OpSelect</c> is a prefix of
+    ///     <c>OpSelectionMerge</c> &#8212; see
+    ///     <see cref="TheBranchShapeOfTheBoxPairIsWhatTheCensusArgumentCounts" />, which is the
+    ///     instrument for exactly that.
+    /// </remarks>
+    static Dictionary<string, int> OccurrencesIn(string module, Dictionary<int, string> wanted) {
         var words = WordsOf(module);
 
         var counts = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -1139,7 +1163,7 @@ public partial class SharedUiShaderTests {
 
             Assert.True(length > 0, $"{module} has a zero-length instruction at word {at}.");
 
-            if (Derivatives.TryGetValue(opcode, out var name)) {
+            if (wanted.TryGetValue(opcode, out var name)) {
                 counts[name] = counts.GetValueOrDefault(name) + 1;
             }
 
@@ -1604,7 +1628,11 @@ public partial class SharedUiShaderTests {
     ///         was recounted by opcode: a <c>grep OpSelect</c> over a disassembly also matches every
     ///         <c>OpSelectionMerge</c>, of which there are 29 and 21 &#8212; one per conditional branch
     ///         &#8212; and 3 + 29 and 7 + 21 are exactly the two numbers that stood here. The argument
-    ///         below does not move, but the count it rests on is now the count of selects.
+    ///         below does not move, but the count it rests on is now the count of selects. ⚠ <b>And
+    ///         all six of these numbers are now read by
+    ///         <see cref="TheBranchShapeOfTheBoxPairIsWhatTheCensusArgumentCounts" /> rather than
+    ///         only written here</b>, because a premise nothing reads is how the wrong pair survived
+    ///         a whole batch &#8212; a correction to prose is not an instrument.
     ///         <c>ui-box.frag</c> holds exactly four short-circuiting
     ///         operators &#8212; two <c>||</c> and two <c>&amp;&amp;</c> &#8212; and <c>glslc</c> gives each one a
     ///         branch and a phi, where Raven emits <c>OpLogicalOr</c> over both operands because its
@@ -1709,6 +1737,111 @@ public partial class SharedUiShaderTests {
             stale.Length == 0,
             $"`Reconciled` still excuses {string.Join(", ", stale)}, and the two modules no longer "
             + "differ there. An exemption list can only shrink: delete the line."
+        );
+    }
+
+    /// <summary>The opcodes whose shape is a front end's choice rather than a difference in the picture.</summary>
+    /// <remarks>
+    ///     SPIR-V 1.0 &#167; 3.32.17 and &#167; 3.32.9. <c>OpSelect</c> picks between two values already
+    ///     computed; the other three are the branch form of the same choice.
+    /// </remarks>
+    static readonly Dictionary<int, string> ControlFlow = new() {
+        [169] = "OpSelect",
+        [245] = "OpPhi",
+        [247] = "OpSelectionMerge",
+        [250] = "OpBranchConditional"
+    };
+
+    /// <summary>
+    ///     The box pair's control-flow and derivative census, as
+    ///     <see cref="TheGlslCopiesDoTheSameArithmeticAsTheRavenModules" />'s argument states it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>These six numbers are load-bearing prose, which is why they are here as data.</b>
+    ///     The argument that the branch shape cannot be #1190's 1/255 is built on them, and for a
+    ///     whole batch two of them were wrong &#8212; 32 and 28, which are <c>OpSelect</c> plus
+    ///     <c>OpSelectionMerge</c> rather than <c>OpSelect</c>. Nothing read them, so nothing could
+    ///     say so.
+    /// </remarks>
+    static readonly (string Opcode, int Copy, int Shipped)[] BoxBranchShape = [
+        ("OpSelect", 3, 7),
+        ("OpPhi", 4, 0),
+        ("OpSelectionMerge", 29, 21),
+        ("OpBranchConditional", 29, 21),
+        ("OpDPdx", 1, 1),
+        ("OpFwidth", 0, 0)
+    ];
+
+    /// <summary>The two box modules hold the control flow and derivatives the census argument counts.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A number in a remark that nothing reads is how "32 against 28" survived.</b>
+    ///         <see cref="TheGlslCopiesDoTheSameArithmeticAsTheRavenModules" /> deliberately does not
+    ///         compare control flow &#8212; two front ends make different choices there for one source, and
+    ///         requiring agreement would measure <c>glslc</c> against Raven. But its argument for why
+    ///         that gap cannot move a float is arithmetic over six specific counts, and an argument
+    ///         whose premises drift silently is worth less than no argument. So the premises are
+    ///         pinned: <see cref="BoxBranchShape" /> is the census, this reads it off the committed
+    ///         bytes, and a module that is recompiled into a different shape fails here with the two
+    ///         numbers rather than leaving the prose quietly false.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is not a claim that the two shapes must stay equal</b> &#8212; four of the six
+    ///         rows record a difference on purpose. It is a claim that the difference is the one
+    ///         written down.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Its own instrument is the defect that produced the wrong numbers.</b> They came
+    ///         from a <c>grep OpSelect</c> over a disassembly, and <c>OpSelect</c> is a prefix of
+    ///         <c>OpSelectionMerge</c>; a counter with that defect answers 32 and 28 here and both
+    ///         <c>OpSelect</c> rows go red. The check below is what makes that inevitable rather than
+    ///         lucky: the merges outnumber the selects in both modules, so the conflated count cannot
+    ///         coincide with the real one. And a walk that fell off the end counts nothing, which
+    ///         fails <c>OpDPdx</c> &#8212; the one row that is a positive number in both.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheBranchShapeOfTheBoxPairIsWhatTheCensusArgumentCounts() {
+        var root = RepositoryRoot();
+        var copy = Path.Combine(root, Shaders, "ui-box.frag.spv");
+        var shipped = Path.Combine(root, "Platform", "Vixen.Ui.Desktop", "Shaders", "UiBox.frag.spv");
+
+        Assert.True(File.Exists(copy), $"{Relative(root, copy)} is missing.");
+        Assert.True(File.Exists(shipped), $"{Relative(root, shipped)} is missing.");
+
+        var wanted = ControlFlow
+            .Concat(Derivatives)
+            .ToDictionary(opcode => opcode.Key, opcode => opcode.Value);
+
+        var here = OccurrencesIn(copy, wanted);
+        var there = OccurrencesIn(shipped, wanted);
+
+        foreach (var (opcode, expectedCopy, expectedShipped) in BoxBranchShape) {
+            var mine = here.GetValueOrDefault(opcode);
+            var theirs = there.GetValueOrDefault(opcode);
+
+            Assert.True(
+                mine == expectedCopy && theirs == expectedShipped,
+                $"Shaders/ui-box.frag.spv holds {mine} {opcode} and UiBox.frag.spv holds {theirs}, and "
+                + $"the census that the branch-shape argument rests on says {expectedCopy} against "
+                + $"{expectedShipped}. The argument in "
+                + $"`{nameof(TheGlslCopiesDoTheSameArithmeticAsTheRavenModules)}`'s remark is built on "
+                + "these numbers, so either the modules changed shape and the remark needs rewriting, "
+                + "or the count here does."
+            );
+        }
+
+        // ⚠ The instrument, and it is the exact defect that produced the numbers this replaced: a
+        // count taken over a disassembly's text reads every `OpSelectionMerge` as an `OpSelect` too.
+        // Requiring the merges to outnumber the selects in both modules is what stops a conflated
+        // count agreeing with the real one by accident -- it would answer 3 + 29 and 7 + 21.
+        Assert.True(
+            here["OpSelectionMerge"] > here["OpSelect"] && there["OpSelectionMerge"] > there["OpSelect"],
+            "Both box modules are expected to hold more `OpSelectionMerge` than `OpSelect`, which is "
+            + "what makes a name-prefix count a different number from an opcode count. They now hold "
+            + $"{here["OpSelectionMerge"]}/{here["OpSelect"]} and "
+            + $"{there["OpSelectionMerge"]}/{there["OpSelect"]}, so this test no longer detects the "
+            + "defect it was written for."
         );
     }
 }
