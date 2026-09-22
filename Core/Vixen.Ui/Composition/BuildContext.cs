@@ -1897,6 +1897,85 @@ public sealed class BuildContext {
         );
     }
 
+    /// <summary>Fills a pooled list, building one subtree per <i>slot</i> rather than per item.</summary>
+    /// <param name="host">The control that owns the pool.</param>
+    /// <param name="tag">The element name a slot is given.</param>
+    /// <param name="count">How many items there are, re-read whenever what it reads changes.</param>
+    /// <param name="build">Builds one slot, given a signal holding the item it is showing.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The runtime half of <a href="https://github.com/Rikarin/Vixen/issues/758">#758</a>,
+    ///         and the half a markup spelling would sit on.</b> A virtualizing control has been
+    ///         reachable from a <c>.vxml</c> through <c>use=</c> since <c>VirtualListSheet.vxml</c>
+    ///         proved it, but only by writing <c>CreateRow</c> and <c>BindRow</c> in <c>@code</c> —
+    ///         a row <i>template</i> built by hand in C# in a file whose whole subject is the tree.
+    ///         This is that template expressed as a build body: the slot's subtree is built once,
+    ///         by the same <see cref="BuildContext" /> that builds everything else, with all of
+    ///         <c>@if</c>, <c>@for</c>, <c>refs</c> and bindings available inside it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A region per slot, and the body runs once per slot rather than once per item.</b>
+    ///         That is what makes a hundred-thousand-row list a dozen subtrees — and it is why this
+    ///         cannot be a modifier on <c>@for</c>. A slot is not an identity: the pool only ever
+    ///         grows, a row that was line 4 is line 900 after a scroll, and nothing is matched,
+    ///         survives or is re-keyed. Every rule the keyed reconciler teaches is false here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The item arrives as a <see cref="Signal{T}" />, exactly as <c>For</c>'s index
+    ///         does and for a sharper version of the same reason.</b> The body is never re-run, so a
+    ///         plain <c>int</c> handed to it would be the item that slot showed when the pool grew
+    ///         — the list would draw the first dozen rows for ever while scrolling perfectly.
+    ///         Writing the signal is what rebinding <i>is</i>, and the bindings inside the body
+    ///         re-read without the subtree being rebuilt.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A slot is created outside the build pass.</b> The control grows its pool from a
+    ///         layout callback, when it discovers how many rows fit — so this opens the slot's
+    ///         region then rather than now, which is safe for the same reason <c>Switch</c>'s arms
+    ///         are: a region belongs to its parent element and not to the moment it was opened.
+    ///     </para>
+    /// </remarks>
+    public void Pool(
+        IRowPool host,
+        string tag,
+        Func<int> count,
+        Action<BuildContext, UiElement, Signal<int>> build
+    ) {
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(tag);
+        ArgumentNullException.ThrowIfNull(count);
+        ArgumentNullException.ThrowIfNull(build);
+
+        var slots = new Dictionary<UiElement, Signal<int>>();
+
+        host.CreateRow = () => {
+            var slot = host.RowHost.Add(tag);
+
+            // -1 rather than 0: a slot that has been made and not yet bound is showing nothing, and
+            // a body that read 0 would draw the first item on every spare row for one frame.
+            var showing = new Signal<int>(-1);
+            var region = Open(slot);
+
+            slots[slot] = showing;
+            In(slot, region, () => build(this, slot, showing));
+            region.Reposition();
+
+            return slot;
+        };
+
+        // ⚠ Written unconditionally rather than compared first: the control binds a slot on every
+        // realise and not only when its item changed, because the caller's data can move under an
+        // index that did not. `Signal<T>` compares before it notifies, so an unchanged write costs
+        // one equality check and wakes nothing.
+        host.BindRow = (slot, item) => {
+            if (slots.TryGetValue(slot, out var showing)) {
+                showing.Value = item;
+            }
+        };
+
+        Bind(() => host.RowCount = count());
+    }
+
     void Rows<T>(
         UiElement? parent,
         Func<IEnumerable<T>> items,

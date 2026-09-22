@@ -60,6 +60,8 @@ Vixen.Ui.Controls.BreadcrumbItem.Value.set -> string?
 Vixen.Ui.Controls.Button -> sealed class
 Vixen.Ui.Controls.Button : Vixen.Ui.Controls.ButtonBase
 Vixen.Ui.Controls.Button.Button() -> void
+Vixen.Ui.Controls.Button.ClearIsCancel() -> void
+Vixen.Ui.Controls.Button.ClearIsDefault() -> void
 Vixen.Ui.Controls.Button.IsCancel.get -> bool
 Vixen.Ui.Controls.Button.IsCancel.set -> bool
 Vixen.Ui.Controls.Button.IsDefault.get -> bool
@@ -1049,6 +1051,7 @@ Vixen.Ui.Controls.VirtualizingGrid.Tiles.get -> System.Collections.Generic.IRead
 Vixen.Ui.Controls.VirtualizingGrid.VirtualizingGrid() -> void
 Vixen.Ui.Controls.VirtualizingPanel -> sealed class
 Vixen.Ui.Controls.VirtualizingPanel : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.VirtualizingPanel : Vixen.Ui.Composition.IRowPool
 Vixen.Ui.Controls.VirtualizingPanel.BindRow.get -> System.Action<Vixen.Ui.UiElement, int>?
 Vixen.Ui.Controls.VirtualizingPanel.BindRow.set -> System.Action<Vixen.Ui.UiElement, int>?
 Vixen.Ui.Controls.VirtualizingPanel.ClearCount() -> void

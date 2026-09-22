@@ -295,6 +295,7 @@ Vixen.Ui.Composition.BuildContext.Load<TRequest, T>(System.Func<TRequest> reques
 Vixen.Ui.Composition.BuildContext.Mount.get -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.On(Vixen.Ui.UiElement target, string name, System.Action handler, params string[] modifiers) -> void
 Vixen.Ui.Composition.BuildContext.On<TEvent>(Vixen.Ui.UiElement target, string name, System.Action<TEvent> handler, params string[] modifiers) -> void
+Vixen.Ui.Composition.BuildContext.Pool(Vixen.Ui.Composition.IRowPool host, string tag, System.Func<int> count, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement, Vixen.Ui.Reactive.Signal<int>> build) -> void
 Vixen.Ui.Composition.BuildContext.Rebuild(Vixen.Ui.Composition.Component component) -> void
 Vixen.Ui.Composition.BuildContext.Refs<TElement>(Vixen.Ui.Composition.ElementRefs<TElement> refs, TElement element) -> void
 Vixen.Ui.Composition.BuildContext.Slot(Vixen.Ui.UiElement? parent, string name) -> Vixen.Ui.UiElement
@@ -333,6 +334,14 @@ Vixen.Ui.Composition.ExitSpec.Duration.get -> System.TimeSpan
 Vixen.Ui.Composition.ExitSpec.Duration.init -> System.TimeSpan
 Vixen.Ui.Composition.ExitSpec.ExitSpec(System.TimeSpan Duration, string Class = "leaving") -> void
 Vixen.Ui.Composition.IComposable -> interface
+Vixen.Ui.Composition.IRowPool -> interface
+Vixen.Ui.Composition.IRowPool.BindRow.get -> System.Action<Vixen.Ui.UiElement, int>?
+Vixen.Ui.Composition.IRowPool.BindRow.set -> System.Action<Vixen.Ui.UiElement, int>?
+Vixen.Ui.Composition.IRowPool.CreateRow.get -> System.Func<Vixen.Ui.UiElement>?
+Vixen.Ui.Composition.IRowPool.CreateRow.set -> System.Func<Vixen.Ui.UiElement>?
+Vixen.Ui.Composition.IRowPool.RowCount.get -> int
+Vixen.Ui.Composition.IRowPool.RowCount.set -> int
+Vixen.Ui.Composition.IRowPool.RowHost.get -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.Literals -> static class
 Vixen.Ui.Composition.ScopedStyles -> static class
 Vixen.Ui.CornerRadii -> readonly struct
@@ -1698,6 +1707,7 @@ Vixen.Ui.UiElement.ClearAccessibleRelations(Vixen.Ui.AccessibleRelation relation
 Vixen.Ui.UiElement.ClearAllowDrop() -> void
 Vixen.Ui.UiElement.ClearFocusable() -> void
 Vixen.Ui.UiElement.ClearIsFocusScope() -> void
+Vixen.Ui.UiElement.ClearKeyEquivalent() -> void
 Vixen.Ui.UiElement.ClearOffsetX() -> void
 Vixen.Ui.UiElement.ClearOffsetY() -> void
 Vixen.Ui.UiElement.ClearRole() -> void
