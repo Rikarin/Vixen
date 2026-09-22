@@ -645,7 +645,9 @@ Context.Pool(
 
 The subtree is built by the same context that builds everything else, so `@if`, a nested `@for`,
 `refs` and ordinary bindings all work inside it.
-`Core/Vixen.Ui.Controls.Tests/Markup/PooledListSheet.vxml` is the whole file.
+`Core/Vixen.Ui.Controls.Tests/Markup/PooledListSheet.vxml` is the whole file. The same call fills a
+`VirtualizingGrid`, whose own delegates are called `CreateTile` and `BindTile`: both controls
+implement `IRowPool`, and `Pool` does not know which it has.
 
 ⚠ **The body runs once per *slot*, not once per item** — ten thousand items, about a dozen bodies —
 and that is why a pooled list is not a `@for` and could never be a modifier on one. A slot is not an

@@ -1934,6 +1934,14 @@ public sealed class BuildContext {
     ///         region then rather than now, which is safe for the same reason <c>Switch</c>'s arms
     ///         are: a region belongs to its parent element and not to the moment it was opened.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Call it once per control.</b> A second call over the same host replaces both
+    ///         delegates and starts a fresh slot table, so every slot the pool already holds stops
+    ///         being rebound — the list would go on scrolling and stop changing. Declaring it inside
+    ///         a <c>use=</c> that reads a signal is the way to do that by accident, which is why the
+    ///         count is read in <see cref="Bind(Action,string,int)" /> here rather than by the
+    ///         caller: the read belongs to this effect and does not re-run whatever declared it.
+    ///     </para>
     /// </remarks>
     public void Pool(
         IRowPool host,

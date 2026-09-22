@@ -1032,6 +1032,7 @@ Vixen.Ui.Controls.ValueChangedEvent<T>.Value.init -> T?
 Vixen.Ui.Controls.ValueChangedEvent<T>.ValueChangedEvent() -> void
 Vixen.Ui.Controls.VirtualizingGrid -> sealed class
 Vixen.Ui.Controls.VirtualizingGrid : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.VirtualizingGrid : Vixen.Ui.Composition.IRowPool
 Vixen.Ui.Controls.VirtualizingGrid.BindTile.get -> System.Action<Vixen.Ui.UiElement, int>?
 Vixen.Ui.Controls.VirtualizingGrid.BindTile.set -> System.Action<Vixen.Ui.UiElement, int>?
 Vixen.Ui.Controls.VirtualizingGrid.ClearCount() -> void

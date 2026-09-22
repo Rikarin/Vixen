@@ -131,6 +131,48 @@ public class PooledListTests {
         Assert.Empty(panel.Rows);
     }
 
+    /// <summary>The same seam over the grid, which is the other control #758 names.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two implementations and one runtime, which is what the seam is for.</b> The grid's
+    ///     own delegates are called <c>CreateTile</c> and <c>BindTile</c> and take a
+    ///     <c>VirtualizingGrid</c>; <c>BuildContext</c> can name neither type and does not need to.
+    ///     Driven from C# rather than through a second <c>.vxml</c>, because what is under test is
+    ///     the implementation and not the reach — <c>PooledListSheet</c> is the reach.
+    /// </remarks>
+    [Fact]
+    public void The_grid_fills_from_the_same_seam() {
+        using var fixture = new ControlFixture(
+            400f,
+            300f,
+            "virtualizing-grid { width: 300px; height: 200px; --tile-width: 100px; --tile-height: 50px; }"
+        );
+
+        var grid = fixture.Document.Root.Add<VirtualizingGrid>();
+        var context = BuildContext.BuildInto(new PooledListSheet(), fixture.Document, fixture.Document.Root);
+        var built = 0;
+
+        context.Pool(
+            grid,
+            "virtual-tile",
+            () => Items,
+            (_, tile, showing) => {
+                built++;
+                context.Bind(() => tile.Text = "tile " + showing.Value);
+            }
+        );
+
+        fixture.Update();
+        fixture.Update();
+
+        Assert.Equal(Items, grid.Count);
+
+        // A pool rather than a count: three columns of four rows plus the grid's own overscan is
+        // about seventy tiles, and what matters is that it is a screenful and not ten thousand.
+        Assert.InRange(grid.Tiles.Count, 3, Items / 100);
+        Assert.Equal(grid.Tiles.Count, built);
+        Assert.Equal("tile 0", grid.Tiles[0].Text);
+    }
+
     static PooledListSheet Sheet(ControlFixture fixture) {
         var sheet = new PooledListSheet();
 

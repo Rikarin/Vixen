@@ -30,6 +30,12 @@ namespace Vixen.Ui.Composition;
 ///         <c>CreateRow</c> used to reach through the panel to get at. Nothing about how a row is
 ///         measured, parked or positioned is here, because none of it is composition's business.
 ///     </para>
+///     <para>
+///         ⚠ <b>Two implementations, and their own names for the same three things differ.</b>
+///         <c>VirtualizingPanel</c> calls a slot a row and <c>VirtualizingGrid</c> calls it a tile,
+///         so both implement this explicitly rather than renaming what every caller already uses —
+///         and one <c>BuildContext.Pool</c> fills either, which is the whole of what the seam buys.
+///     </para>
 /// </remarks>
 public interface IRowPool {
     /// <summary>How many items there are.</summary>
