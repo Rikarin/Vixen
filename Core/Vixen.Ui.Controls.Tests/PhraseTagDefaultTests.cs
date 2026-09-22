@@ -23,13 +23,23 @@ namespace Vixen.Ui.Controls.Tests;
 ///         <c>display: inline</c> at all, and three block boxes in a block container are three lines.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The fixture is two distinct faces at two weights under one family, and both halves
-///         are load-bearing.</b> One face registered at both weights draws identical runs either way,
-///         and every assertion about boldness would pass against a cascade that never read the
-///         property; and with no <c>font-family</c> named, <c>FontRegistry.Resolve</c> answers the
-///         default face for every weight, so the container names the family. The faces are the same
-///         bytes under two names — what is under test is whether the weight reached the registry and
-///         picked the variant registered under it, not whether the glyphs are heavier.
+///         ⚠ <b>The fixture is three distinct faces under one family — 400 upright, 700 upright and
+///         400 italic — and every part of that is load-bearing.</b> One face registered twice draws
+///         identical runs either way, and every assertion about boldness or slant would pass against
+///         a cascade that never read the property; and with no <c>font-family</c> named,
+///         <c>FontRegistry.Resolve</c> answers the default face for every weight, so the container
+///         names the family. The faces are the same bytes under three names — what is under test is
+///         whether the declaration reached the registry and picked the variant registered under it,
+///         not whether the glyphs are heavier or lean.
+///     </para>
+///     <para>
+///         ⚠ <b>The italic registration is what makes the slant half assertable at all</b>, and this
+///         file said for one commit that it was not. With only 400 and 700 upright registered,
+///         <c>FontRegistry.Slanted</c>'s italic → oblique → upright search answers the upright face
+///         whether the rule fired or not, so <c>font-style: normal</c> in the theme left every
+///         assertion here green — one third of the landed rule shipped unpinned. Registering the same
+///         bytes a third time under <see cref="FontStyle.Italic" />, exactly as
+///         <c>FontSlantPixelTests</c> does with two arbitrary faces, is the whole fix.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A block container, deliberately, because in the flex container this store defaults
@@ -44,6 +54,14 @@ public class PhraseTagDefaultTests {
 
     static readonly FontFace Regular = LoadFont("regular");
     static readonly FontFace Bold = LoadFont("bold");
+    static readonly FontFace Italic = LoadFont("italic");
+
+    /// <summary>The family the fixtures name: upright at 400 and 700, and an italic at 400.</summary>
+    static void RegisterPhraseFamily(ControlFixture fixture) {
+        fixture.Document.Fonts.Register("Phrase", Regular, 400);
+        fixture.Document.Fonts.Register("Phrase", Bold, 700);
+        fixture.Document.Fonts.Register("Phrase", Italic, 400, FontStyle.Italic);
+    }
 
     static FontFace LoadFont(string name) {
         using var stream = Assembly.GetExecutingAssembly()
@@ -62,8 +80,7 @@ public class PhraseTagDefaultTests {
         string css = ""
     ) {
         var fixture = new ControlFixture(css: $"#p {{ display: block; width: 400px; font-family: Phrase; }} {css}");
-        fixture.Document.Fonts.Register("Phrase", Regular, 400);
-        fixture.Document.Fonts.Register("Phrase", Bold, 700);
+        RegisterPhraseFamily(fixture);
 
         var paragraph = fixture.Document.Root.Add("div", "p");
 
@@ -130,27 +147,32 @@ public class PhraseTagDefaultTests {
     }
 
     /// <summary>
-    ///     <c>i</c> and <c>em</c> ask for the italic, which this family does not have — so the
-    ///     upright is what CSS Fonts 4 § 5.2's search ends on, and the weight is untouched.
+    ///     <c>i</c> and <c>em</c> draw in the face registered under the slant, at the regular
+    ///     weight, and the stretches around them are untouched.
     /// </summary>
     /// <remarks>
-    ///     The half that can be asserted without an italic font in the repository: an italic tag does
-    ///     not embolden. <c>FontSlantPixelTests</c> shows the slant reaching the registry.
+    ///     ⚠ One assertion covers both halves of the row, because the family registers an italic only
+    ///     at 400: a slant that never reached the registry answers <see cref="Regular" /> through
+    ///     <c>FontRegistry.Slanted</c>'s italic → oblique → upright search, and a tag that emboldened
+    ///     as well would ask for 700 italic and find no registration under it. Only
+    ///     <c>font-style: italic</c> with <c>font-weight</c> left alone answers <see cref="Italic" />.
     /// </remarks>
     [Theory]
     [InlineData("i")]
     [InlineData("em")]
-    public void An_italic_stretch_keeps_the_regular_weight(string tag) {
+    public void An_italic_stretch_is_the_one_in_the_italic_face(string tag) {
         var built = Paragraph(tag);
         using var fixture = built.Fixture;
-        var inner = built.Inner;
+        var (before, inner, after) = (built.Before, built.Inner, built.After);
 
-        Assert.Same(Regular, FaceOf(inner));
+        Assert.Same(Italic, FaceOf(inner));
+        Assert.Same(Regular, FaceOf(before));
+        Assert.Same(Regular, FaceOf(after));
     }
 
     /// <summary>
-    ///     The same thing from a <c>.vxml</c>: eleven stretches on one line, and the two under
-    ///     <c>b</c> and <c>strong</c> are the ones in the bold face.
+    ///     The same thing from a <c>.vxml</c>: eleven stretches on one line, the two under <c>b</c>
+    ///     and <c>strong</c> in the bold face and the two under <c>i</c> and <c>em</c> in the italic.
     /// </summary>
     /// <remarks>
     ///     ⚠ <b>This is the test the issue asked for — "which stretch is bold" from markup — and it
@@ -164,8 +186,7 @@ public class PhraseTagDefaultTests {
     [Fact]
     public void From_markup_every_stretch_shares_the_line_and_the_bold_ones_are_bold() {
         using var fixture = new ControlFixture(css: "phrase-paragraph { display: block; width: 780px; font-family: Phrase; }");
-        fixture.Document.Fonts.Register("Phrase", Regular, 400);
-        fixture.Document.Fonts.Register("Phrase", Bold, 700);
+        RegisterPhraseFamily(fixture);
 
         var sheet = new PhraseSheet();
         BuildContext.BuildInto(sheet, fixture.Document, fixture.Document.Root);
@@ -196,7 +217,12 @@ public class PhraseTagDefaultTests {
 
         foreach (var stretch in stretches) {
             var inner = stretch.Tag == "text" ? stretch : Assert.Single(stretch.Children);
-            var expected = stretch.Tag is "b" or "strong" ? Bold : Regular;
+
+            var expected = stretch.Tag switch {
+                "b" or "strong" => Bold,
+                "i" or "em" => Italic,
+                _ => Regular
+            };
 
             Assert.Same(expected, FaceOf(inner));
         }
