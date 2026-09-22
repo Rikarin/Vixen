@@ -124,8 +124,48 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
             DerivesFromElement(owner),
             HasMember(owner, changed),
             HasMember(owner, coerce),
+            NearestDeclaringAncestor(owner),
             property.Locations.FirstOrDefault() ?? Location.None
         );
+    }
+
+    /// <summary>The closest base type that declares a <c>[UiProperty]</c> of its own, fully qualified, or null.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is what an AOT build's answer to "which properties does this type have"
+    ///         depends on</b> (#1240). A generated static constructor registers its type's
+    ///         properties, and a base type's runs only if something triggers it. On CoreCLR the
+    ///         registry could force every level of the base chain by handle; ILC preserves a class
+    ///         constructor it can <em>name</em> and not one reached through <c>Type.BaseType</c> at
+    ///         run time, so a NativeAOT publish of <c>Derived : Base : UiElement</c> answered
+    ///         <c>Of(typeof(Derived))</c> with the derived property and nothing else — the base's and
+    ///         all eight of <c>UiElement</c>'s were gone. The cure measured against that probe is one
+    ///         line in the generated constructor naming the ancestor's type, which is what this finds.
+    ///     </para>
+    ///     <para>
+    ///         Across assemblies as well as within one: <c>UiElement</c> declares its own properties in
+    ///         <c>Vixen.Ui</c>, and a control in <c>Vixen.Ui.Controls</c> sees that attribute through
+    ///         metadata exactly as it would through source. Only the <em>nearest</em> declaring
+    ///         ancestor is named, because that one's constructor names the next, so the chain reaches
+    ///         the root by induction rather than by every type naming every ancestor.
+    ///     </para>
+    /// </remarks>
+    static string? NearestDeclaringAncestor(INamedTypeSymbol owner) {
+        for (var current = owner.BaseType; current is not null; current = current.BaseType) {
+            foreach (var member in current.GetMembers()) {
+                if (member is not IPropertySymbol candidate) {
+                    continue;
+                }
+
+                foreach (var attribute in candidate.GetAttributes()) {
+                    if (attribute.AttributeClass?.ToDisplayString() == Attribute) {
+                        return current.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     static object? NamedArgument(AttributeData attribute, string name) {
@@ -319,10 +359,27 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
         // ⚠ Here rather than a `RunClassConstructor` in the registry, which cannot be written: the
         // type there comes from `element.GetType()`, and the trimmer refuses a class constructor it
         // cannot name (IL2059).
+        //
+        // ⚠ And not empty when the type has a property-declaring ancestor (#1240). The registry's
+        // walk used to force every base type's class constructor by handle, which works on CoreCLR
+        // and is the one IL2072 in Vixen.Ui — because ILC preserves a static constructor it can name
+        // and not one reached through Type.BaseType at run time, so a NativeAOT publish answered
+        // Of(typeof(Derived)) with the derived type's properties and NOTHING from any base. Naming
+        // the nearest declaring ancestor here is what keeps its constructor, and that constructor
+        // names the next, so touching the leaf registers the whole chain in either runtime.
         builder.Append("    /// <summary>Registers this type's properties before an instance of it can exist.</summary>\n");
         builder.Append("    /// <remarks>See the generator: without it the class is beforefieldinit and the\n");
         builder.Append("    ///     registrations below may not have run when something looks one up by name.</remarks>\n");
-        builder.Append("    static ").Append(Bare(owner.OwnerName)).Append("() {\n    }\n");
+        builder.Append("    static ").Append(Bare(owner.OwnerName)).Append("() {\n");
+
+        if (owner.NearestDeclaringAncestor is { } ancestor) {
+            builder.Append("        // Chains to the nearest ancestor that declares properties, by name, so an\n");
+            builder.Append("        // ahead-of-time build keeps that ancestor's constructor and its registrations.\n");
+            builder.Append("        System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(")
+                .Append(ancestor).Append(").TypeHandle);\n");
+        }
+
+        builder.Append("    }\n");
 
         foreach (var property in properties) {
             RenderProperty(builder, property);
@@ -436,6 +493,7 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
         bool DerivesFromElement,
         bool HasChanged,
         bool HasCoerce,
+        string? NearestDeclaringAncestor,
         Location Location
     );
 }
