@@ -189,8 +189,21 @@ public sealed class Corpus {
     /// <param name="directory">The corpus directory. Created if it is not there.</param>
     /// <param name="target">Which target it failed.</param>
     /// <param name="input">The bytes.</param>
-    /// <returns>The path written.</returns>
+    /// <returns>The path written, or already there.</returns>
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Two threads write the same finding, and on Windows the second used to become a
+    ///     finding of its own.</b> <see cref="CaseGuard" /> writes a runaway from its watchdog
+    ///     thread while the case is still running, and the session writes what the abandoned case
+    ///     threw when it comes back — the same bytes, so the same name. <c>File.WriteAllBytes</c>
+    ///     opens without write sharing, the second open fails with "being used by another process",
+    ///     and that <c>IOException</c> was recorded as the case having thrown, so
+    ///     <c>CaseGuardTests.ACaseOverTheAllocationCeilingIsCaughtInFlight</c> found two findings
+    ///     where it asked for one (Windows, whole-assembly run, 2026-09-22). The file's name
+    ///     <em>is</em> the fingerprint of its content, so a file already there is already this
+    ///     finding: it is kept, and a write that loses the race to a file that then exists is the
+    ///     same outcome rather than an error.
+    /// </remarks>
     public static string WriteRegression(string directory, string target, byte[] input) {
         ArgumentNullException.ThrowIfNull(directory);
         ArgumentNullException.ThrowIfNull(target);
@@ -200,7 +213,16 @@ public sealed class Corpus {
         Directory.CreateDirectory(folder);
 
         var path = Path.Combine(folder, string.Create(CultureInfo.InvariantCulture, $"{Fingerprint(input):x16}.bin"));
-        File.WriteAllBytes(path, input);
+
+        if (File.Exists(path)) {
+            return path;
+        }
+
+        try {
+            File.WriteAllBytes(path, input);
+        } catch (IOException) when (File.Exists(path)) {
+            // The other writer got there first, with these bytes.
+        }
 
         return path;
     }
