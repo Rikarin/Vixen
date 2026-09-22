@@ -619,7 +619,7 @@ them conditional on one attribute.
 The four are one issue each, because each is its own design piece and none of them is blocked on the
 others: #758 (a markup spelling for the virtualizing controls), #759 (the index, as a signal),
 #760 (sections, and whether a nested `@for` is already the answer), #761 (deferring `Region.Clear`
-so anything can animate out). The LIS reorder is #178 / #56.
+so anything can animate out). The LIS reorder was #178 / #56 and landed 2026-09-22.
 
 ### 6.6 `bind:` is too narrow to be used, and the repo proves it
 
