@@ -59,7 +59,12 @@ static class PackageContents {
     /// <param name="package">The package's file name, for the messages.</param>
     /// <param name="entries">Every entry path in the archive, with forward slashes.</param>
     /// <param name="open">Opens one entry for reading, by the path as <paramref name="entries" /> gives it.</param>
-    public static PackageContentsReport Check(string package, IEnumerable<string> entries, Func<string, Stream> open) {
+    public static PackageContentsReport Check(
+        string package,
+        IEnumerable<string> entries,
+        Func<string, Stream> open,
+        IReadOnlySet<string>? exempt = null
+    ) {
         ArgumentNullException.ThrowIfNull(package);
         ArgumentNullException.ThrowIfNull(entries);
         ArgumentNullException.ThrowIfNull(open);
@@ -76,12 +81,20 @@ static class PackageContents {
             return new([], 0, false);
         }
 
-        // Directly under tools/, because that is where a host started as `dotnet tools/x.dll` reads
-        // it. One deeper is a dependency's own manifest carried as content and says nothing about
-        // what this package has to ship.
+        // ⚠ Two layouts, because there are two ways to ship a tool and only one of them is flat.
+        // `Vixen.Sdk` packs its CLI by path into `tools/`, so its manifest sits at `tools/x.deps.json`
+        // — that is what a host started as `dotnet tools/x.dll` reads. A `PackAsTool` project is
+        // packed by NuGet into `tools/<tfm>/<rid>/`, which is the format `dotnet tool install`
+        // requires and not a choice the project makes; its manifest is therefore three deep. This
+        // used to demand depth one and reported all four of this repository's `PackAsTool` packages
+        // — Vixen.Cli, Vixen.ContentServer, Vixen.Raven.Cli, Vixen.ShaderCompilerService — as
+        // shipping no manifest at all, on the first CI run that ever reached `pack`.
+        //
+        // Anything deeper than its own layout is a dependency's manifest carried as content and says
+        // nothing about what this package has to ship, which is what the depth test is for.
         var manifests = tools
             .Where(path => path.EndsWith(".deps.json", StringComparison.OrdinalIgnoreCase))
-            .Where(path => path.Count(character => character == '/') == 1)
+            .Where(IsToolManifest)
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToList();
 
@@ -98,14 +111,42 @@ static class PackageContents {
         }
 
         var verified = 0;
+        var unused = new HashSet<string>(
+            exempt ?? (IEnumerable<string>)Array.Empty<string>(),
+            StringComparer.OrdinalIgnoreCase
+        );
 
         foreach (var manifest in manifests) {
             foreach (var required in Required(manifest, open, problems, package)) {
                 verified++;
 
-                if (!present.Contains(required)) {
-                    problems.Add($"{package} declares {required} in {manifest} and does not carry it");
+                if (present.Contains(required)) {
+                    continue;
                 }
+
+                if (unused.Remove(required)) {
+                    continue;
+                }
+
+                if (exempt is not null && exempt.Contains(required)) {
+                    continue;
+                }
+
+                problems.Add($"{package} declares {required} in {manifest} and does not carry it");
+            }
+        }
+
+        // ⚠ An exemption that has stopped being needed is a problem of its own, the way
+        // `docs/WhitespaceExempt.txt` and `docs/DocCommentExempt.txt` work: the list can only
+        // shrink. A package that started carrying a file somebody wrote a reason for not carrying
+        // is a reason that has outlived itself, and an allow-list nobody prunes is how the next
+        // genuinely missing file goes unreported.
+        foreach (var stale in unused.OrderBy(path => path, StringComparer.Ordinal)) {
+            if (present.Contains(stale)) {
+                problems.Add(
+                    $"{package} carries {stale}, which build/PackedToolExempt.txt still excuses it "
+                    + "from carrying. Delete that line: the list may only shrink."
+                );
             }
         }
 
@@ -150,14 +191,22 @@ static class PackageContents {
                     foreach (var asset in Assets(library.Value, "runtime")) {
                         named++;
 
-                        yield return directory + Path.GetFileName(asset);
+                        var required = directory + Path.GetFileName(asset);
+
+                        if (IsRequiredToStart(required)) {
+                            yield return required;
+                        }
                     }
 
                     // The per-RID payloads, native and managed alike, which keep their own path.
                     foreach (var asset in Assets(library.Value, "runtimeTargets")) {
                         named++;
 
-                        yield return directory + asset;
+                        var required = directory + asset;
+
+                        if (IsRequiredToStart(required)) {
+                            yield return required;
+                        }
                     }
                 }
             }
@@ -170,6 +219,31 @@ static class PackageContents {
             }
         }
     }
+
+    /// <summary>Whether a <c>.deps.json</c> at this path is the tool's own rather than a dependency's.</summary>
+    /// <remarks>
+    ///     <c>tools/x.deps.json</c> is a tool packed by path; <c>tools/&lt;tfm&gt;/&lt;rid&gt;/x.deps.json</c>
+    ///     is what <c>PackAsTool</c> produces and what <c>dotnet tool install</c> reads. Nothing else
+    ///     under <c>tools/</c> describes this package.
+    /// </remarks>
+    static bool IsToolManifest(string path) => path.Count(character => character == '/') is 1 or 3;
+
+    /// <summary>
+    ///     Whether a file a manifest names has to be in the package for the tool to start.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A <c>.pdb</c> never is, and six of the twenty-one problems the first CI run to reach
+    ///     `pack` reported were native debug symbols.</b> <c>runtimeTargets</c> lists whatever the
+    ///     dependency package put under <c>runtimes/</c>, symbols included — <c>HarfBuzzSharp</c>
+    ///     ships <c>libHarfBuzzSharp.pdb</c> beside each Windows native — and <c>Vixen.Sdk</c> drops
+    ///     <c>.pdb</c> deliberately, 67 MB of symbols for an assembly nobody debugs from a package.
+    ///     A host loads a native library without its symbols and is none the wiser, so requiring one
+    ///     asks a question whose only true answer is "no" and whose failure teaches nothing. This is
+    ///     categorical rather than a line in the exemption list, because it is true of every package
+    ///     rather than a decision one of them made.
+    /// </remarks>
+    static bool IsRequiredToStart(string path) =>
+        !path.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>One section's asset paths, with NuGet's empty-folder placeholder dropped.</summary>
     static IEnumerable<string> Assets(JsonElement library, string section) {

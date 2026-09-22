@@ -1,0 +1,20 @@
+# Files a packed tool's own .deps.json names and the package deliberately does not carry.
+#
+# Format: <package id> <path inside the package> # why
+#
+# ⚠ This list may only SHRINK. A package that starts carrying a file listed here fails the same
+# gate, the way docs/WhitespaceExempt.txt and docs/DocCommentExempt.txt work — an allow-list nobody
+# prunes is how the next genuinely missing native goes unreported. A .pdb needs no line here: no
+# tool starts because of one, and PackageContents.IsRequiredToStart says so for every package.
+
+# Ultz.Native.Assimp 6.0.2 ships two sonames in every Linux and macOS RID and Silk.NET.Assimp
+# 2.23.0's AssimpLibraryNameContainer opens exactly one of them — libassimp.so.5 on Linux,
+# libassimp.5.dylib on macOS. Vixen.Sdk.csproj drops the 6 by name, 44,251,540 bytes across the five
+# RIDs that carry a pair, and says in as many words that globbing the version would silently drop
+# both the day the binding moves to 6. The major 5 IS carried and is what a model importer opens; if
+# the binding ever moves, these five lines are what has to be deleted rather than edited.
+Vixen.Sdk tools/runtimes/linux-arm/native/libassimp.so.6
+Vixen.Sdk tools/runtimes/linux-arm64/native/libassimp.so.6
+Vixen.Sdk tools/runtimes/linux-x64/native/libassimp.so.6
+Vixen.Sdk tools/runtimes/osx-arm64/native/libassimp.6.dylib
+Vixen.Sdk tools/runtimes/osx-x64/native/libassimp.6.dylib

@@ -111,8 +111,34 @@
     -->
     <ItemGroup Condition="'$(VixenCliIsBuilt)' == 'true'">
         <None Include="$(VixenCliOutputDirectory)*.dll" Pack="true" PackagePath="tools/" Visible="false" />
-        <None Include="$(VixenCliOutputDirectory)*.deps.json" Pack="true" PackagePath="tools/" Visible="false" />
-        <None Include="$(VixenCliOutputDirectory)*.runtimeconfig.json" Pack="true" PackagePath="tools/" Visible="false" />
+
+        <!--
+            ⚠ **`Vixen.StyleGen`'s two manifests are excluded, because its assembly is not here and
+            is not supposed to be.** `Vixen.Editor.Ui` names `Tools/Vixen.StyleGen` with
+            `ReferenceOutputAssembly="false"` — a build-order reference, so no assembly travels — but
+            MSBuild copies a referenced project's `.deps.json` and `.runtimeconfig.json` into the
+            consumer's output regardless, and they reach the CLI's `bin/` transitively from there.
+            The two globs below then swept up a startup manifest for a tool this package does not
+            ship, and `tools/Vixen.StyleGen.deps.json` names `tools/Vixen.StyleGen.dll`, which
+            nothing put there. Nothing starts StyleGen out of the SDK's `tools/` — the real copy
+            ships in `Vixen.Ui.Styling.Utilities`, which `CheckStyleGenIsShippable` holds to all five
+            of its files — so this cost nobody a crash and made the package describe a broken tool.
+            Found by `CheckPackedToolsAreComplete` on the first CI run that ever reached `pack`.
+
+            Named rather than derived, for the reason the Assimp exclusion below gives: MSBuild
+            cannot ask "is there a .dll beside this manifest", and the day StyleGen's assembly does
+            belong here is the day this line has to be deleted rather than silently widened.
+        -->
+        <None Include="$(VixenCliOutputDirectory)*.deps.json"
+              Exclude="$(VixenCliOutputDirectory)Vixen.StyleGen.deps.json"
+              Pack="true"
+              PackagePath="tools/"
+              Visible="false" />
+        <None Include="$(VixenCliOutputDirectory)*.runtimeconfig.json"
+              Exclude="$(VixenCliOutputDirectory)Vixen.StyleGen.runtimeconfig.json"
+              Pack="true"
+              PackagePath="tools/"
+              Visible="false" />
 
         <!--
             ⚠ One directory and no `%(RecursiveDir)`, for the reason `Tools/Vixen.Templates` records:

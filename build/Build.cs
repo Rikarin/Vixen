@@ -1633,6 +1633,71 @@ partial class Build : NukeBuild {
             }
         );
 
+    /// <summary>What <c>build/PackedToolExempt.txt</c> excuses, by package id.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The file has to exist and has to parse.</b> A missing or empty list read as "nothing
+    ///     is exempt" would be indistinguishable from one that had been emptied, and this repository
+    ///     has shipped that shape of instrument before: the gate would go green on the day its
+    ///     reasons were lost and red on the day they were needed. A line that is not
+    ///     <c>&lt;package&gt; &lt;path&gt;</c> is a failure rather than a line skipped.
+    /// </remarks>
+    static Dictionary<string, IReadOnlySet<string>> PackedToolExemptions() {
+        var file = RootDirectory / "build" / "PackedToolExempt.txt";
+
+        Assert.FileExists(
+            file,
+            "build/PackedToolExempt.txt is the reasons a package deliberately does not carry "
+            + "something its own .deps.json names, and a missing list reads exactly like an empty one."
+        );
+
+        var excused = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var line in file.ReadAllLines()) {
+            var text = line.Trim();
+
+            if (text.Length == 0 || text.StartsWith('#')) {
+                continue;
+            }
+
+            var parts = text.Split(' ', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+            Assert.True(
+                parts.Length == 2,
+                $"build/PackedToolExempt.txt line '{text}' is not '<package id> <path inside the package>'."
+            );
+
+            if (!excused.TryGetValue(parts[0], out var paths)) {
+                excused[parts[0]] = paths = new(StringComparer.OrdinalIgnoreCase);
+            }
+
+            paths.Add(parts[1]);
+        }
+
+        return excused.ToDictionary(pair => pair.Key, pair => (IReadOnlySet<string>)pair.Value, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The package id out of a <c>.nupkg</c> file name, which carries the version too.</summary>
+    /// <remarks>
+    ///     `Vixen.Sdk.0.1.0.nupkg` is an id and a version with no separator between them that is not
+    ///     also legal inside an id, so the version is found by its shape: the first dotted run that
+    ///     starts with a digit.
+    /// </remarks>
+    static string PackageIdOf(string fileName) {
+        var name = fileName.EndsWith(".nupkg", StringComparison.OrdinalIgnoreCase)
+            ? fileName[..^".nupkg".Length]
+            : fileName;
+
+        var parts = name.Split('.');
+
+        for (var index = 0; index < parts.Length; index++) {
+            if (parts[index].Length > 0 && char.IsDigit(parts[index][0])) {
+                return string.Join('.', parts[..index]);
+            }
+        }
+
+        return name;
+    }
+
     /// <summary>
     ///     Asserts that every package shipping a <c>tools/</c> carries everything that tool's own
     ///     <c>.deps.json</c> says it needs — the assembly closure, flat, and every per-RID native
@@ -1671,6 +1736,7 @@ partial class Build : NukeBuild {
         var problems = new List<string>();
         var examined = 0;
         var verified = 0;
+        var exemptions = PackedToolExemptions();
 
         foreach (var package in packages) {
             using var archive = ZipFile.OpenRead(package);
@@ -1678,7 +1744,8 @@ partial class Build : NukeBuild {
             var report = PackageContents.Check(
                 package.Name,
                 archive.Entries.Select(entry => entry.FullName),
-                path => archive.GetEntry(path)!.Open()
+                path => archive.GetEntry(path)!.Open(),
+                exemptions.TryGetValue(PackageIdOf(package.Name), out var excused) ? excused : null
             );
 
             if (!report.ShipsTools) {
