@@ -38,7 +38,7 @@ public class HarnessMonospaceTests {
 
     const string Wide = "WWWWWWWW";
 
-    /// <summary>The family the four stylesheets name is registered, and not to the default.</summary>
+    /// <summary>The family those four declarations name is registered, and not to the default.</summary>
     [Fact]
     public void The_family_the_stylesheets_name_resolves_to_a_face_of_its_own() {
         using var editor = EditorSession.Start();
@@ -76,10 +76,13 @@ public class HarnessMonospaceTests {
 
     /// <summary>The registration never takes the document's default with it.</summary>
     /// <remarks>
-    ///     <c>FontRegistry.Register</c> claims <c>Default</c> for the first face a bare document
-    ///     sees and <c>HarnessFonts</c> puts it back, so the ordering in <c>EditorSession</c> is
-    ///     load-bearing: registered before the editor's own face, boxes would be what every label
-    ///     in the editor drew in.
+    ///     ⚠ <b>And what makes that true is not the order the two faces are installed in, however
+    ///     much the code around it reads that way.</b> Moving <c>HarnessFonts.InstallMonospace</c>
+    ///     ahead of <c>Fonts.Install</c> was sabotaged and left all three of these green:
+    ///     <c>Fonts.Install</c> assigns <c>document.Fonts.Default</c> outright rather than relying
+    ///     on <c>FontRegistry.Register</c> claiming it for the first face. What this pins is the
+    ///     property itself — the editor draws in its own face and the code views in the other one —
+    ///     which the family sabotage does redden.
     /// </remarks>
     [Fact]
     public void The_editors_own_face_is_still_the_default() {

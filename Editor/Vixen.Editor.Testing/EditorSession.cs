@@ -922,12 +922,15 @@ public sealed class EditorSession : IDisposable {
             );
         }
 
-        // ⚠ And the fixed-pitch face after it, because four of this tree's stylesheets write
+        // ⚠ And the fixed-pitch face after it, because four declarations in three of this tree's
+        // stylesheets write
         // `font-family: monospace` and until now nothing in the harness claimed that name — so the
         // code editor, the errors panel, the revisions patch and the asset editors' code views were
         // measured in Open Sans, which is the state `AdvancedTheme.vcss`'s own comment forbids.
-        // `HarnessFonts` says why it is the synthetic face rather than the machine's, and the
-        // registration never becomes the default.
+        // `HarnessFonts` says why it is the synthetic face rather than the machine's, and why the
+        // registration never becomes the default — which, ⚠ contrary to how this reads, is not
+        // because it comes second: `Fonts.Install` assigns the default outright, and putting this
+        // call first leaves `HarnessMonospaceTests` green.
         if (options.InstallFonts) {
             HarnessFonts.InstallMonospace(application.Shell.Document);
         }

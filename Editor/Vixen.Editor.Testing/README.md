@@ -121,9 +121,10 @@ The shortcut format is decided again after the face is installed, exactly as `Ed
 because whether `⌘` can be drawn is a question about the face. A harness that skipped it would render
 menus a way the product never does.
 
-⚠ **And a second face after it, under the family name `monospace`.** Four stylesheets in this tree
-write `font-family: monospace` — `AdvancedTheme.vcss` on `code-editor`, `EditorTheme.vcss` on the
-errors panel and the revisions patch, `AssetEditorTheme.vcss` on the asset editors' code views — and
+⚠ **And a second face after it, under the family name `monospace`.** Four declarations in three of
+this tree's stylesheets write `font-family: monospace` — `AdvancedTheme.vcss` on `code-editor`,
+`EditorTheme.vcss` on the errors panel and the revisions patch, `AssetEditorTheme.vcss` on the asset
+editors' code views — and
 `FontRegistry` has no generic families, so each is an ordinary lookup that falls through to
 `Default` when nothing claims the name. #1259 gave the *product* an answer and left the harness
 without one, on the stated ground that `EditorSession` could not reach `SystemFonts`; that was

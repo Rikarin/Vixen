@@ -10,10 +10,11 @@ namespace Vixen.Editor.Testing;
 /// <summary>The fixed-pitch face an editor under test draws its code in.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Four stylesheets in this tree write <c>font-family: monospace</c></b> —
-///         <c>AdvancedTheme.vcss</c> on <c>code-editor</c>, <c>EditorTheme.vcss</c> on the errors
-///         panel and the revisions patch, <c>AssetEditorTheme.vcss</c> on the asset editors' code
-///         views — and <c>FontRegistry</c> has no generic families, so each of them is an ordinary
+///         ⚠ <b>Four declarations in three of this tree's stylesheets write
+///         <c>font-family: monospace</c></b> — <c>AdvancedTheme.vcss</c> on <c>code-editor</c>,
+///         <c>EditorTheme.vcss</c> on the errors panel and the revisions patch,
+///         <c>AssetEditorTheme.vcss</c> on the asset editors' code views — and
+///         <c>FontRegistry</c> has no generic families, so each of them is an ordinary
 ///         lookup that falls through to <c>Default</c> when nothing claims the name. #1259 gave the
 ///         product an answer (<c>SystemFonts.InstallMonospace</c>, called by <c>UiApplication</c>
 ///         and <c>EditorHost</c>) and left the harness without one, so every editor test measuring
@@ -40,7 +41,7 @@ namespace Vixen.Editor.Testing;
 ///     </para>
 /// </remarks>
 static class HarnessFonts {
-    /// <summary>The family name the four stylesheets write.</summary>
+    /// <summary>The family name those four declarations write.</summary>
     /// <remarks>
     ///     The same string <c>SystemFonts.MonospaceFamily</c> holds, spelled out rather than
     ///     referenced, because this assembly registers its own face and the two would be equal by
@@ -52,9 +53,22 @@ static class HarnessFonts {
     /// <param name="document">The document.</param>
     /// <returns>Whether the face was registered.</returns>
     /// <remarks>
-    ///     ⚠ <b>Never the default, and that is why it runs after <c>Fonts.Install</c>.</b>
-    ///     <c>FontRegistry.Register</c> claims <c>Default</c> for the first face a bare document
-    ///     sees, so registering boxes first would draw the entire editor in them.
+    ///     <para>
+    ///         ⚠ <b>Never the default.</b> <c>FontRegistry.Register</c> claims <c>Default</c> for
+    ///         the first face a bare document sees, so a document that has not been given the
+    ///         editor's face yet would draw every label in hollow boxes; the default is put back to
+    ///         whatever it was.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the order this is called in is <i>not</i> what keeps that from happening,
+    ///         which a sabotage said and a reading of <c>Fonts.Install</c> did not.</b> Moving the
+    ///         call ahead of <c>Fonts.Install</c> in <c>EditorSession</c> leaves
+    ///         <c>HarnessMonospaceTests</c> green, because that method assigns
+    ///         <c>document.Fonts.Default</c> outright rather than relying on being first. So the
+    ///         two lines around the <c>Register</c> here are what guards a bare document, and the
+    ///         ordering is house style rather than a mechanism — worth knowing before someone
+    ///         "simplifies" one of the two away on the strength of the other.
+    ///     </para>
     /// </remarks>
     public static bool InstallMonospace(UiDocument document) {
         ArgumentNullException.ThrowIfNull(document);
