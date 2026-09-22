@@ -82,14 +82,15 @@ public static class UiShaderLibrary {
             Mask = device.CreateShader(ShaderStage.Fragment, Module("UiMask.frag.spv"), "ui mask"),
 
             // ⚠ Read out of Raven's reflection rather than written down — see the remark on the
-            // class. `Vixen.Shaders.Generators` turns `Shaders/UiVertex.reflect.json` into these four
+            // class. `Vixen.Shaders.Generators` turns `Shaders/UiVertex.reflect.json` into these five
             // constants at build time, so a stream added to `Ui.rvn` moves them and nothing in this
             // file has to notice.
             Locations = new(
                 UiVertexKeys.PositionLocation,
                 UiVertexKeys.TexcoordLocation,
                 UiVertexKeys.VertexColourLocation,
-                UiVertexKeys.VertexShapeLocation
+                UiVertexKeys.VertexShapeLocation,
+                UiVertexKeys.VertexWLocation
             )
         };
     }

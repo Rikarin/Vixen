@@ -333,6 +333,85 @@ public sealed class UiRavenAgreementTests {
         );
     }
 
+    /// <summary>A group under a perspective, drawn through both vertex stages and compared.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The compositing case above reaches the vertex stage on every draw and still
+    ///         cannot see its <c>w</c>.</b> Every vertex in that frame carries <c>w = 1</c>, so the
+    ///         multiply the stage does and the divide the rasteriser does after it are both the
+    ///         identity — a <c>ui.vert</c> that ignored the attribute, or a <c>Ui.rvn</c> that
+    ///         multiplied the wrong thing by it, would compare identical to the other and pass. What
+    ///         separates this fixture is a composite quad whose four <c>w</c>s straddle one (#548).
+    ///     </para>
+    ///     <para>
+    ///         The frame is <see cref="UiCompositingTests.Perspective" />, for the reason the other
+    ///         cases borrow theirs: it is the one that suite already holds the software rasteriser
+    ///         against, so a divergence here is between the two device stages alone.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheGlslCopyAndTheRavenProjectTheSameQuad() {
+        if (!TryOpen(out var opened, out _)) {
+            return;
+        }
+
+        using var owned = opened!;
+
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var geometry = new UiGeometryBuilder().Build(UiCompositingTests.Perspective(), cache, Viewport);
+
+        // ⚠ The instrument: the composite quad is projective, or this compares two identities.
+        var layer = Assert.Single(geometry.Layers);
+        var composite = geometry.Draws[layer.First + layer.Count];
+
+        var corners = Enumerable.Range(0, 4)
+            .Select(corner => geometry.Vertices[(int)geometry.Indices[composite.First + corner]].W)
+            .ToList();
+
+        Assert.True(corners.Min() < 0.9f && corners.Max() > 1.1f, $"the composite quad's w's are {string.Join(", ", corners)}.");
+
+        var glsl = new UiShaders(
+            owned.Shader("ui.vert.spv", ShaderStage.Vertex),
+            owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
+            owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
+            owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
+        ) {
+            Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment)
+        };
+
+        var raven = UiShaderLibrary.Load(owned.Device);
+
+        owned.Owns(() => Destroy(owned, raven));
+
+        var one = Declare(owned, geometry, glsl, "ui-raven-perspective-glsl");
+        var two = Declare(owned, geometry, raven, "ui-raven-perspective-rvn");
+
+        void Frame(ICommandList commands) {
+            one.Renderer.Upload(commands, geometry, cache.Atlas);
+            one.Renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+
+            two.Renderer.Upload(commands, geometry, cache.Atlas);
+            two.Renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+        }
+
+        var copy = owned.Render(one.Target, Frame);
+        var source = owned.Render(two.Target, Frame);
+
+        foreach (var renderer in new[] { one.Renderer, two.Renderer }) {
+            Assert.Equal(1, renderer.Composited);
+        }
+
+        var comparison = ImageComparer.Compare(copy, source, Agreement(owned.Device.Adapter.Kind));
+
+        Assert.True(
+            comparison.Matches,
+            "'Shaders/ui.vert' and `shader UiVertex` in 'Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn' "
+            + $"place or interpolate a projected quad differently: {comparison}. Both are meant to hand "
+            + "the rasteriser `float4(xy * w, 0, w)`; a difference along the quad's diagonal is one of "
+            + "them interpolating the texture coordinate without the divide."
+        );
+    }
+
     /// <summary>A rounded backdrop's curve, drawn through both sources and compared.</summary>
     /// <remarks>
     ///     <para>

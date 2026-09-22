@@ -1259,7 +1259,9 @@ Vixen.Ui.Rendering.UiVertex.Shape.init -> Vixen.Core.Mathematics.Vector4
 Vixen.Ui.Rendering.UiVertex.Texture.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Rendering.UiVertex.Texture.init -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Rendering.UiVertex.UiVertex() -> void
-Vixen.Ui.Rendering.UiVertex.UiVertex(Vixen.Core.Mathematics.Vector2 Position, Vixen.Core.Mathematics.Vector2 Texture, Vixen.Core.Mathematics.Color4 Color, Vixen.Core.Mathematics.Vector4 Shape) -> void
+Vixen.Ui.Rendering.UiVertex.UiVertex(Vixen.Core.Mathematics.Vector2 Position, Vixen.Core.Mathematics.Vector2 Texture, Vixen.Core.Mathematics.Color4 Color, Vixen.Core.Mathematics.Vector4 Shape, float W = 1) -> void
+Vixen.Ui.Rendering.UiVertex.W.get -> float
+Vixen.Ui.Rendering.UiVertex.W.init -> float
 Vixen.Ui.RoutingPhase -> enum : byte
 Vixen.Ui.RoutingPhase.Bubble = 2 -> Vixen.Ui.RoutingPhase
 Vixen.Ui.RoutingPhase.Capture = 0 -> Vixen.Ui.RoutingPhase

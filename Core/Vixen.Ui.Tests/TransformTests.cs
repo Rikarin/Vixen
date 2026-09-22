@@ -780,11 +780,14 @@ public class TransformTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The three-dimensional functions are why "dropped whole" is the rule.</b>
-    ///         <c>rotateX</c>, <c>translate3d</c> and <c>perspective</c> are legal CSS and there is no
-    ///         third axis here; reading the functions that happen to be flat and skipping the rest
-    ///         turns a card flip into a card that never moves, which is a different picture rather
-    ///         than a degraded one. The same judgement <c>rotate: x 45deg</c> already gets.
+    ///         ⚠ <b>The three-dimensional functions were why "dropped whole" is the rule, and they
+    ///         are read now (#550)</b> — so what is pinned here is the rest of it. <c>rotateX</c>,
+    ///         <c>translate3d</c> and <c>perspective</c> used to be legal CSS with no third axis to
+    ///         express them, and reading the functions that happened to be flat and skipping the rest
+    ///         turned a card flip into a card that never moves. The rule outlives that reason,
+    ///         because a list is still all-or-nothing: an unreadable <i>argument</i> — a
+    ///         <c>calc()</c>, a percentage where z takes none, a degenerate <c>rotate3d</c> axis —
+    ///         drops the whole declaration exactly as CSS does.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And it is the <i>list</i> that is dropped, not the element's transform.</b> CSS
@@ -796,16 +799,30 @@ public class TransformTests {
     /// </remarks>
     /// <param name="value">The <c>transform</c> value.</param>
     [Theory]
-    [InlineData("rotateX(45deg)")]
-    [InlineData("translate3d(10px, 10px, 10px)")]
-    [InlineData("perspective(400px)")]
     [InlineData("rotate(45)")]
     [InlineData("translate(10)")]
     [InlineData("matrix(1, 0, 0, 1, 0)")]
     [InlineData("matrix(1, 0, 0, 1, 0, 0, 0)")]
     [InlineData("scale(calc(1 + 1))")]
-    [InlineData("rotate(45deg) rotateY(20deg)")]
     [InlineData("nonsense")]
+
+    // ⚠ <b>A percentage along z is invalid rather than zero</b>, per Transforms 2 § 12 — there is no
+    // box dimension for it to resolve against, and the two-dimensional reader beside it would
+    // cheerfully resolve one against the element's height and produce a plausible wrong number.
+    [InlineData("translateZ(50%)")]
+    [InlineData("translate3d(10px, 10px, 50%)")]
+
+    // ⚠ A zero-length axis is an invalid function and not a no-op, which is the same rule one level
+    // down: read as the identity, `rotate3d(0, 0, 0, 45deg)` would silently do nothing.
+    [InlineData("rotate3d(0, 0, 0, 45deg)")]
+    [InlineData("rotate3d(1, 0, 45deg)")]
+
+    // A perspective distance must be positive: zero puts every point of the plane on the eye plane
+    // at once, and there is no picture on the far side of that.
+    [InlineData("perspective(0)")]
+    [InlineData("perspective(-100px)")]
+    [InlineData("perspective(50%)")]
+    [InlineData("matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0)")]
     public void A_function_list_with_no_reading_is_dropped_whole(string value) {
         using var document = Drawn(
             $$"""
@@ -821,6 +838,399 @@ public class TransformTests {
         // The scale survives: 40x40 about (120, 120) doubled paints x in [80, 160].
         Assert.Same(still, document.HitTest(150f, 120f));
         Assert.Same(document.Root, document.HitTest(170f, 120f));
+    }
+
+    /// <summary>
+    ///     A <c>perspective()</c> and a <c>rotateX()</c> in one list compose in four dimensions and
+    ///     reduce once, which is a different picture from reducing each and folding the results.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the whole of why #550 is a shape change and not nine more names in a
+    ///         switch.</b> Reducing a 4×4 to a <c>UiTransform</c> keeps rows x, y, w against columns
+    ///         x, y, 1 and throws the z row and the z column away, so <c>R(A·B) = R(A)·R(B)</c> holds
+    ///         only where <c>A</c> has no z column or <c>B</c> no z row — and a <c>perspective()</c>
+    ///         is nothing <i>but</i> a z column while a <c>rotateX()</c> is nothing but a z row,
+    ///         which is the one pair every card flip is written from. A <c>Function</c> returning a
+    ///         <c>UiTransform</c> each makes every <c>perspective()</c> silently the identity,
+    ///         because every point of an element sits at z = 0 until something has moved it.
+    ///     </para>
+    ///     <para>
+    ///         <b>The oracle is closed-form and the two answers are far apart.</b> The box is 200
+    ///         square about (200, 150), so its bottom edge is 100 below the origin.
+    ///         <c>rotateX(60deg)</c> sends that point to <c>y = 50</c>, <c>z = 86.6</c>, and
+    ///         <c>perspective(200px)</c> then divides by <c>w = 1 − 86.6/200 = 0.567</c> — so it
+    ///         lands at <b>88.19</b> below the origin, and the top edge at <b>34.9</b> above it.
+    ///         Reduced per function it lands at 50 and −50, which is <c>rotateX</c> alone. The two
+    ///         probes are inside one reading and outside the other, in both directions.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The element grows downwards and shrinks upwards, which no affine can do</b> —
+    ///         that asymmetry is the assertion, and it is why both probes are on the vertical centre
+    ///         line where the horizontal scaling cannot reach them.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_perspective_and_a_rotation_compose_in_four_dimensions_and_reduce_once() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .card { position: absolute; left: 100px; top: 50px; width: 200px; height: 200px;
+                    background-color: #111; transform: perspective(200px) rotateX(60deg); }
+            """,
+            document => document.Root.Add("div", classNames: "card")
+        );
+
+        var card = document.Root.Children[0];
+
+        // The near edge reaches 88.19 below the origin. Reduced per function it would stop at 50, so
+        // this point is outside the element on the plausible wrong reading.
+        Assert.Same(card, document.HitTest(200f, 220f));
+        Assert.Same(document.Root, document.HitTest(200f, 240f));
+
+        // And the far edge stops 34.9 above it, where the wrong reading reaches 50 — so this point is
+        // INSIDE the element on that reading and outside on this one. Without it, a transform that
+        // merely scaled the whole card up would pass the pair above.
+        Assert.Same(card, document.HitTest(200f, 120f));
+        Assert.Same(document.Root, document.HitTest(200f, 110f));
+    }
+
+    /// <summary>
+    ///     <c>perspective</c> the property is established by the PARENT, and <c>perspective()</c> the
+    ///     function by the element itself.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Getting these the same way round is the classic mistake and it produces a
+    ///         plausible picture</b> — a weaker projection rather than an obviously wrong one — so
+    ///         the two halves are asserted against each other rather than separately. Transforms 2
+    ///         § 6: an element's <c>perspective</c> applies to its children.
+    ///     </para>
+    ///     <para>
+    ///         Both elements carry the same <c>rotateX(60deg)</c> and the same 200-point distance,
+    ///         written once on the parent and once on the element itself. The first is projected —
+    ///         its near edge reaches 88.19 below its origin — and the second is not, because a
+    ///         <c>perspective</c> on an element says nothing about that element. A reader that took
+    ///         the property off the element would make the second one project and the first one flat,
+    ///         which is exactly what the two probes separate.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_perspective_property_is_the_parents_and_a_perspective_function_is_the_elements() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .stage { position: absolute; left: 20px; top: 100px; width: 100px; height: 100px;
+                     perspective: 200px; }
+            .card { position: absolute; left: 0px; top: 0px; width: 100px; height: 100px;
+                    background-color: #111; transform: rotateX(60deg); }
+            .alone { position: absolute; left: 250px; top: 100px; width: 100px; height: 100px;
+                     background-color: #222; perspective: 200px; transform: rotateX(60deg); }
+            """,
+            document => {
+                var stage = document.Root.Add("div", classNames: "stage");
+                stage.Add("div", classNames: "card");
+                document.Root.Add("div", classNames: "alone");
+            }
+        );
+
+        var card = document.Root.Children[0].Children[0];
+        var alone = document.Root.Children[1];
+
+        // ⚠ The parent's perspective reaches the child, and both halves say so. Its near edge lands
+        // 31.9 below the origin where an unprojected `rotateX(60deg)` stops at 25, and its far edge
+        // is pulled in to 20.6 where that reading reaches 25 — a box that grows downwards and shrinks
+        // upwards, which no affine can do and no scaling of the whole card could fake.
+        Assert.Same(card, document.HitTest(70f, 178f));
+        Assert.NotSame(card, document.HitTest(70f, 127f));
+
+        // ⚠ And the element's own `perspective` does not reach itself. `alone` is the same rotation
+        // at the same size with the property written one level down, and it stops at 25 in both
+        // directions. A reader that took the property off the element would make this one project
+        // and the card above it flat, which is the plausible mistake this pair separates.
+        Assert.Same(alone, document.HitTest(300f, 172f));
+        Assert.NotSame(alone, document.HitTest(300f, 178f));
+    }
+
+    /// <summary>
+    ///     The parent's <c>perspective</c> is outermost — outside the element's own <c>scale</c> and
+    ///     <c>rotate</c>, not merely outside its <c>transform</c> list.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two of the element's three transform properties at once, and an origin that is
+    ///         not the vanishing point, because neither alone can see this.</b> Transforms 2 § 3
+    ///         composes <c>transform</c>, then <c>scale</c>, then <c>rotate</c> into the element's own
+    ///         matrix, and § 6 projects <i>that</i> through the parent's vanishing point. Folding the
+    ///         perspective in beside the list instead scales and rotates a picture that has already
+    ///         been projected. The two agree exactly whenever <c>transform-origin</c> and
+    ///         <c>perspective-origin</c> coincide — a 2D scale or rotation about the projection's own
+    ///         centre genuinely does commute with it — so a fixture with one centred child, which is
+    ///         how one is written without thinking about it, proves nothing here.
+    ///     </para>
+    ///     <para>
+    ///         <b>Closed form, derived rather than recorded.</b> The stage is 300 square at the
+    ///         origin, so its vanishing point is (150, 150); each card is 100 square at (200, 60), so
+    ///         its <c>transform-origin</c> is (250, 110) and both coordinates of the two centres
+    ///         differ. A card point at <c>u</c> below the origin leaves <c>rotateX(60deg)</c> at
+    ///         <c>(0, u/2, u·sin60)</c>, and the projection's <c>w</c> is <c>1 − u·sin60 / 200</c> —
+    ///         0.78349365 for the bottom edge at <c>u = 50</c>. Carrying that through the spec's order
+    ///         puts the bottom-centre of the scaled card at <c>100/w + 150</c> across and
+    ///         <c>−2.5/w + 150</c> down; carrying it through the other order gives <c>200/w + 50</c>
+    ///         and <c>−22.5/w + 170</c>, which are the second pair of numbers below. Both are written
+    ///         out, so a failure says which composition the reader performed rather than only that it
+    ///         missed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The scale is non-uniform and the rotation is a half turn for the same reason.</b>
+    ///         A uniform scale about a point whose y already matches the vanishing point's moves only
+    ///         x, and half of the evidence disappears.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_parents_perspective_is_applied_after_the_elements_own_scale_and_rotate() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .stage { position: absolute; left: 0px; top: 0px; width: 300px; height: 300px;
+                     perspective: 200px; }
+            .scaled { position: absolute; left: 200px; top: 60px; width: 100px; height: 100px;
+                      background-color: #111; transform: rotateX(60deg); scale: 2 1.5; }
+            .turned { position: absolute; left: 200px; top: 60px; width: 100px; height: 100px;
+                      background-color: #222; transform: rotateX(60deg); rotate: 180deg; }
+            """,
+            document => {
+                var stage = document.Root.Add("div", classNames: "stage");
+                stage.Add("div", classNames: "scaled");
+                stage.Add("div", classNames: "turned");
+            }
+        );
+
+        var scaled = Assert.IsType<UiTransform>(document.Root.Children[0].Children[0].Transform);
+        var turned = Assert.IsType<UiTransform>(document.Root.Children[0].Children[1].Transform);
+
+        // The instrument first: both really are projective, so a pair of numbers that happened to
+        // match could not be two affines that never met a perspective at all.
+        Assert.False(scaled.IsAffine);
+        Assert.False(turned.IsAffine);
+
+        var bottom = new Vector2(250f, 160f);
+
+        var scaledAt = scaled.Apply(bottom);
+        Assert.Equal(277.6335f, scaledAt.X, 0.01f);
+        Assert.Equal(146.8092f, scaledAt.Y, 0.01f);
+
+        // ⚠ And not where a perspective folded in beside the list puts it, which is 27.6 points
+        // across and 5.5 down from the right answer — a difference no test on a centred child can
+        // produce and one a card under a `perspective-normal` stage produces immediately.
+        Assert.NotEqual(305.2670f, scaledAt.X, 0.01f);
+        Assert.NotEqual(141.2825f, scaledAt.Y, 0.01f);
+
+        var turnedAt = turned.Apply(bottom);
+        Assert.Equal(277.6335f, turnedAt.X, 0.01f);
+        Assert.Equal(67.0382f, turnedAt.Y, 0.01f);
+        Assert.NotEqual(222.3665f, turnedAt.X, 0.01f);
+        Assert.NotEqual(89.1450f, turnedAt.Y, 0.01f);
+    }
+
+    /// <summary>
+    ///     A <c>perspective</c> written in <c>em</c> is measured in the font of the element that
+    ///     declared it, which is the parent.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The only two properties this reader takes off another element are the only two
+    ///         whose <c>em</c> belongs to another element.</b> A stage at <c>font-size: 32px</c>
+    ///         declaring <c>perspective: 10em</c> means 320 points; measuring it in the caller's
+    ///         context makes it 160, which is a projection twice as strong as authored and nothing
+    ///         says so.
+    ///     </para>
+    ///     <para>
+    ///         The card's bottom-centre is 50 below its origin, so <c>w = 1 − 50·sin60 / d</c> and the
+    ///         point lands at <c>−50/w + 120</c> across. At the parent's 320 that is 62.18; at the
+    ///         160 a caller-context reading gives, 51.45. The card's own <c>font-size: 16px</c> is
+    ///         written explicitly so the two fonts cannot be confused by inheritance.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_perspective_in_em_is_measured_in_the_parents_font() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .stage { position: absolute; left: 20px; top: 20px; width: 200px; height: 200px;
+                     font-size: 32px; perspective: 10em; }
+            .card { position: absolute; left: 0px; top: 0px; width: 100px; height: 100px;
+                    font-size: 16px; background-color: #111; transform: rotateX(60deg); }
+            """,
+            document => document.Root.Add("div", classNames: "stage").Add("div", classNames: "card")
+        );
+
+        var card = Assert.IsType<UiTransform>(document.Root.Children[0].Children[0].Transform);
+        Assert.False(card.IsAffine);
+
+        var at = card.Apply(new Vector2(70f, 120f));
+
+        Assert.Equal(62.1756f, at.X, 0.01f);
+        Assert.Equal(91.0878f, at.Y, 0.01f);
+
+        // ⚠ Not the half-distance a reading in the caller's context gives. Both are plausible
+        // pictures of a card tipped away, which is why the number is named rather than bounded.
+        Assert.NotEqual(51.4473f, at.X, 0.01f);
+        Assert.NotEqual(85.7237f, at.Y, 0.01f);
+    }
+
+    /// <summary>
+    ///     <c>rotate3d</c> about x and <c>matrix3d</c> spelling a perspective are the same matrices
+    ///     the named functions are.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A differential rather than two numbers, because the failure worth catching is a
+    ///     transposed matrix and a transpose is invisible on a symmetric case.</b> Each row here is
+    ///     written two ways — the named function and its general form — and the assertion is that
+    ///     the two produce the same matrix to the last few bits. <c>matrix3d</c> takes CSS's
+    ///     column-major listing, which IS this engine's row-major order, so a reader who transposes
+    ///     "to be safe" fails the second row and no other.
+    /// </remarks>
+    /// <param name="named">The list written with the named functions.</param>
+    /// <param name="general">The same list written with the general ones.</param>
+    [Theory]
+    [InlineData("perspective(200px) rotateX(60deg)", "perspective(200px) rotate3d(1, 0, 0, 60deg)")]
+    [InlineData(
+        "perspective(200px) rotateX(60deg)",
+        "matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -0.005, 0, 0, 0, 1) rotateX(60deg)"
+    )]
+    [InlineData("perspective(400px) rotateY(25deg)", "perspective(400px) rotate3d(0, 1, 0, 25deg)")]
+    [InlineData("perspective(300px) translateZ(40px)", "perspective(300px) translate3d(0, 0, 40px)")]
+    [InlineData("perspective(300px) scaleZ(2) rotateX(40deg)", "perspective(300px) scale3d(1, 1, 2) rotateX(40deg)")]
+    public void The_general_functions_spell_the_named_ones(string named, string general) {
+        using var document = Drawn(
+            $$"""
+              root { width: 400px; height: 300px; }
+              .one { position: absolute; left: 100px; top: 50px; width: 200px; height: 200px;
+                     background-color: #111; transform: {{named}}; }
+              .two { position: absolute; left: 100px; top: 50px; width: 200px; height: 200px;
+                     background-color: #222; transform: {{general}}; }
+              """,
+            document => {
+                document.Root.Add("div", classNames: "one");
+                document.Root.Add("div", classNames: "two");
+            }
+        );
+
+        var one = Assert.IsType<UiTransform>(document.Root.Children[0].Transform);
+        var two = Assert.IsType<UiTransform>(document.Root.Children[1].Transform);
+
+        // ⚠ The instrument: a pair that both came out the identity would agree perfectly and mean
+        // nothing, and `perspective()` on its own IS the identity on a plane at z = 0.
+        Assert.False(one.IsIdentity);
+        Assert.False(one.IsAffine);
+
+        Assert.Equal(one.M11, two.M11, 1e-4f);
+        Assert.Equal(one.M12, two.M12, 1e-4f);
+        Assert.Equal(one.M21, two.M21, 1e-4f);
+        Assert.Equal(one.M22, two.M22, 1e-4f);
+        Assert.Equal(one.Dx, two.Dx, 1e-3f);
+        Assert.Equal(one.Dy, two.Dy, 1e-3f);
+        Assert.Equal(one.M13, two.M13, 1e-7f);
+        Assert.Equal(one.M23, two.M23, 1e-7f);
+        Assert.Equal(one.M33, two.M33, 1e-5f);
+    }
+
+    /// <summary>
+    ///     A list with nothing to move a point off the plane reduces to the same affine it always
+    ///     did, and <c>perspective()</c> alone is the identity.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Both halves of the four-dimensional path's cost.</b> The first is that a
+    ///         <c>perspective()</c> with no neighbour to move a point off z = 0 is <i>exactly</i>
+    ///         nothing — <c>w = 1 − z/d</c> and every point of an element is at z = 0 — so the
+    ///         element gets no transform at all rather than a group and a viewport-sized surface.
+    ///         That is CSS's answer as well as this engine's.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The second is that a flat list still takes the closed-form fold, to the bit.</b>
+    ///         Folding the origin in four dimensions is two matrix products where
+    ///         <c>UiTransform.About</c> is a closed form, and the two differ in the last bit — on a
+    ///         picture every committed screenshot in <c>Vixen.Ui.Controls.Tests</c> was rendered
+    ///         against. So a list of flat functions is asserted to come out <i>exactly</i> the matrix
+    ///         the properties beside it would compose to, and not merely near it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the third element is the traffic, because the first two are not.</b>
+    ///         <c>spatial</c> is set by the function's NAME and <c>UtilityComposition.Transform()</c>
+    ///         now spells <c>rotateX(…) rotateY(…)</c> at the head of every list it assembles — so
+    ///         every Tailwind <c>rotate-*</c> and <c>skew-*</c> in the engine takes the
+    ///         four-dimensional branch, and the paragraph above would otherwise be a safeguard over a
+    ///         path nothing real uses. <c>.utility</c> is exactly what that assembler emits for a
+    ///         <c>rotate-z-30</c> with its four initials substituted, and it has to come out the same
+    ///         matrix <c>.spelled</c> does to the last bit: those two lists differ only by three
+    ///         functions that are the identity in every cell.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_flat_list_is_unchanged_and_a_lone_perspective_is_nothing() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .flat { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
+                    background-color: #111; transform: rotate(30deg) translate(12px, -7px) scale(1.4, 0.8); }
+            .deep { position: absolute; left: 200px; top: 100px; width: 40px; height: 40px;
+                    background-color: #222; transform: perspective(200px); }
+            .spelled { position: absolute; left: 137px; top: 211px; width: 46px; height: 38px;
+                       background-color: #333; transform: rotateZ(30deg) skewX(0deg) skewY(0deg); }
+            .utility { position: absolute; left: 137px; top: 211px; width: 46px; height: 38px;
+                       background-color: #444;
+                       transform: rotateX(0deg) rotateY(0deg) rotateZ(30deg) skewX(0deg) skewY(0deg); }
+            """,
+            document => {
+                document.Root.Add("div", classNames: "flat");
+                document.Root.Add("div", classNames: "deep");
+                document.Root.Add("div", classNames: "spelled");
+                document.Root.Add("div", classNames: "utility");
+            }
+        );
+
+        var flat = Assert.IsType<UiTransform>(document.Root.Children[0].Transform);
+
+        // The same three functions, composed by hand about the same origin: right to left, folded
+        // once. Exact equality, because the flat branch has to be the arithmetic it always was.
+        var about = new Vector2(120f, 120f);
+
+        // ⚠ Right to left: the LAST function is applied to a point first, so the scale runs before
+        // the translation and the translation before the rotation. Written the way it reads, this
+        // expectation is the transpose of the right answer — which is right for a uniform scale and
+        // wrong for this one, and is the mistake the non-uniform 1.4/0.8 is here to catch.
+        var expected = new UiTransform(1.4f, 0f, 0f, 0.8f, 0f, 0f)
+            .Then(new UiTransform(1f, 0f, 0f, 1f, 12f, -7f))
+            .Then(UiTransform.Rotation(30f, Vector2.Zero))
+            .About(about);
+
+        Assert.Equal(expected, flat);
+        Assert.True(flat.IsAffine);
+
+        // And a perspective with nothing to project is no transform at all.
+        Assert.Null(document.Root.Children[1].Transform);
+
+        // ⚠ The branch real traffic takes, against the one the paragraphs above are written about.
+        // The two lists are the same rotation with three identities in front of it, so the closed
+        // form and the four-dimensional fold have to agree to the bit — a rounding that moved here
+        // would move every Tailwind `rotate-*` screenshot at once.
+        var spelled = Assert.IsType<UiTransform>(document.Root.Children[2].Transform);
+        var utility = Assert.IsType<UiTransform>(document.Root.Children[3].Transform);
+
+        // The instrument: `.spelled` sits on the flat branch and `.utility` on the spatial one, which
+        // is what makes the equality below a comparison of two paths rather than of one with itself.
+        // Both are affine, so a reduction that had dropped a projective cell could not hide here.
+        Assert.True(spelled.IsAffine);
+        Assert.True(utility.IsAffine);
+        Assert.False(spelled.IsIdentity);
+
+        // ⚠ The whole matrix and not the linear part, which is why the two boxes are at the same
+        // odd position and the same odd size. The branches differ in how they re-centre — a closed
+        // form against two 4×4 products — and for an affine that difference lives ENTIRELY in the
+        // translation, so a comparison of M11..M22 is a predicate a drift in `Fold` cannot falsify.
+        Assert.Equal(spelled, utility);
     }
 
     /// <summary><c>transform: none</c> is the initial value written out, and is not a refusal.</summary>

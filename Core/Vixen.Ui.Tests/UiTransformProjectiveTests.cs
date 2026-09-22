@@ -15,8 +15,9 @@ namespace Vixen.Ui.Tests;
 ///         <b>Doc 43 § A7, issue #547.</b> The type grew a third column so that <c>rotateX</c>,
 ///         <c>rotateY</c> and <c>perspective</c> can be expressed: a planar element under a 3D
 ///         transform and a perspective projects to a plane, and that map is exactly a 2D homography.
-///         Nothing draws one yet — no shader reads a <c>w</c> and no utility emits a 3D function — so
-///         what this file can assert is the arithmetic, and it has to assert both halves of it.
+///         Both executors draw one since #548 — the composite quad carries a <c>w</c> and each
+///         rasteriser divides by it — but no utility emits a 3D function yet (#550), so what this file
+///         asserts is the arithmetic and the geometry it produces, and it has to assert both halves.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The first half is that nothing affine moved, and it is asserted as <i>exact float
@@ -343,18 +344,21 @@ public class UiTransformProjectiveTests {
     }
 
     /// <summary>
-    ///     The composite quad's four positions are the homography's, and the texture coordinate
-    ///     between them is not — measured, at the one point where the error is largest and has a
-    ///     closed form.
+    ///     The composite quad's four positions are the homography's, and the <c>w</c> each was
+    ///     divided by rides the vertex — measured at the one point where a linear interpolation is
+    ///     furthest from right and the right answer has a closed form.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Issue #548, and the half of it that needs no device.</b> Every previous pass on
-    ///         that issue described this defect and none measured it. What
-    ///         <c>UiGeometryBuilder.Quad</c> does under a homography is right about the four corners
-    ///         and wrong everywhere between them: it calls <see cref="UiTransform.Apply" />, which
-    ///         divides by <c>w</c> and throws it away, so both executors then interpolate the texture
-    ///         coordinate <i>linearly</i> across a quad whose correct interpolation is projective.
+    ///         ⚠ <b>Issue #548's half that needs no device, and until it landed this test measured the
+    ///         defect rather than its absence.</b> <c>UiGeometryBuilder.Quad</c> used to place the
+    ///         corners with <see cref="UiTransform.Apply" />, which divides by <c>w</c> and throws it
+    ///         away, so both executors then interpolated the texture coordinate <i>linearly</i> across
+    ///         a quad whose correct interpolation is projective. The readings were λ = 0.5604 for a
+    ///         parameter that should be a half, and 30.4 surface pixels of error at a 400×300 group's
+    ///         own centre. They are kept here as the number a linear interpolator still reads off
+    ///         these vertices — which is the first assertion — because the fix is not in the
+    ///         positions, it is in the <c>w</c> beside them.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The oracle is the diagonal, which is where the two answers differ most and where
@@ -362,89 +366,85 @@ public class UiTransformProjectiveTests {
     ///         to corner-2 diagonal, and a homography maps the midpoint of that diagonal in element
     ///         space to the intersection of the <i>image</i> diagonals — the property
     ///         <see cref="The_image_of_a_square_s_centre_is_the_diagonal_intersection_and_not_the_centroid" />
-    ///         pins. That image point lies on the drawn diagonal, so what a linear interpolator
-    ///         samples there is <c>lerp(t0, t2, λ)</c> for the point's <i>screen</i> parameter λ, and
-    ///         what it should sample is the midpoint of the two coordinates. An affine has λ = ½
-    ///         exactly; a perspective does not, and the gap between them <b>is</b> the defect.
+    ///         pins. That image point lies on the drawn diagonal at some screen parameter λ; a linear
+    ///         interpolator samples <c>lerp(t0, t2, λ)</c> there, and a perspective-correct one
+    ///         samples <c>lerp(t0/w0, t2/w2, λ) / lerp(1/w0, 1/w2, λ)</c>, which has to be the
+    ///         midpoint of the two coordinates exactly. Both are computed from the vertices the
+    ///         builder emitted, and the second is what <c>SoftwareUiRasterizer</c> and the hardware
+    ///         both now do — <c>Vixen.Ui.Controls.Tests.ProjectiveCompositeTests</c> reads it off a
+    ///         rendered pixel.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both halves, so the predicate can be false.</b> The same measurement is taken
-    ///         with an affine in the same place, and it has to come out at ½ and zero — otherwise
-    ///         this test is measuring the arithmetic of its own oracle rather than the transform.
-    ///     </para>
-    ///     <para>
-    ///         The error is reported in <i>surface pixels</i> rather than in texture units, because
-    ///         that is the quantity somebody looking at the picture would see, and because a
-    ///         normalised coordinate makes a 30-pixel smear read as 0.04.
-    ///     </para>
-    ///     <para>
-    ///         <b>Measured:</b> λ is <b>0.5604</b> where it should be a half, and what a
-    ///         400×300 group's centre samples is <b>30.4 surface pixels</b> away from the texel that
-    ///         belongs there. Both bounds are set well under those, because the number that matters is
-    ///         "not a rounding difference" and pinning either to four figures would make a change to
-    ///         the fringe or to the ink bounds fail this rather than the thing it is about. The
-    ///         readings are here so that a later pass can see whether they moved.
+    ///         ⚠ <b>Both halves, so the predicate can be false.</b> The same measurement is taken with
+    ///         an affine in the same place, whose <c>w</c>s must be exactly one and whose two
+    ///         interpolations must agree with each other and with ½ — otherwise this test is measuring
+    ///         the arithmetic of its own oracle rather than the transform.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void A_composited_group_under_a_homography_samples_the_wrong_texel_down_its_diagonal() {
+    public void A_composited_group_under_a_homography_carries_the_w_that_puts_the_right_texel_on_its_diagonal() {
         var box = new Rectangle(200, 100, 400, 300);
         var centre = new Vector2(box.X + (box.Width / 2f), box.Y + (box.Height / 2f));
 
         // Strong enough that the far edge is visibly nearer the vanishing point than the near one,
-        // and nowhere near the eye plane — a corner behind it has no finite image at all, which is
-        // the separate half of #548 and not what this measures.
+        // and nowhere near the eye plane — a corner behind it is the clip's business, and
+        // `ProjectiveCompositeTests` is where that is asserted.
         var projective = Perspective(0.0008f).About(centre);
         var affine = new UiTransform(1.2f, 0.15f, -0.2f, 0.9f, 11f, -6f).About(centre);
 
-        var (skew, skewed) = Diagonal(box, projective);
-        var (flat, unskewed) = Diagonal(box, affine);
+        var skewed = Diagonal(box, projective);
+        var flat = Diagonal(box, affine);
 
-        // The instrument first: the affine case is the control, and it is the reading that says the
-        // measurement below is of the transform and not of the arithmetic that takes it.
-        Assert.Equal(0.5f, flat, 1e-4f);
-        Assert.True(unskewed < 0.05f, $"the affine control smeared by {unskewed:0.###} px, so this measures itself.");
+        // The instrument first: the affine case is the control. Its `w`s are exactly one, and the
+        // three readings coincide, which is what says the measurement below is of the transform.
+        Assert.Equal(1f, flat.W0);
+        Assert.Equal(1f, flat.W2);
+        Assert.Equal(0.5f, flat.Parameter, 1e-4f);
+        Assert.True(flat.Linear < 0.05f, $"the affine control smeared by {flat.Linear:0.###} px, so this measures itself.");
+        Assert.True(flat.Correct < 0.05f, $"the affine control's projective reading is off by {flat.Correct:0.###} px.");
 
-        // And the defect, as a number. λ is well away from a half, and what that costs at the centre
-        // of a 400×300 group is tens of pixels — not a rounding difference, and not something a
-        // tolerance on a reference image would absorb.
-        Assert.True(MathF.Abs(skew - 0.5f) > 0.02f, $"the projective diagonal parameter was {skew:0.####}.");
-        Assert.True(skewed > 10f, $"the projective case smeared by only {skewed:0.###} px.");
+        // The defect a linear interpolator would still have on these vertices, as a number: λ is well
+        // away from a half and the two `w`s are well away from one another.
+        Assert.True(MathF.Abs(skewed.Parameter - 0.5f) > 0.02f, $"the projective diagonal parameter was {skewed.Parameter:0.####}.");
+        Assert.True(skewed.Linear > 10f, $"a linear interpolation would be off by only {skewed.Linear:0.###} px.");
+        Assert.True(MathF.Abs(skewed.W0 - skewed.W2) > 0.1f, $"the two `w`s were {skewed.W0} and {skewed.W2}.");
+
+        // And the arrival: with the `w` the vertex now carries, the perspective-correct sample at
+        // that point is the midpoint's texel, to well under a surface pixel.
+        Assert.True(skewed.Correct < 0.05f, $"the perspective-correct sample is {skewed.Correct:0.###} px from the right texel.");
     }
 
     /// <summary>
-    ///     The vertex format has nowhere to put the <c>w</c>, which is the whole of why the
-    ///     measurement above stands.
+    ///     The vertex format has a <c>w</c>, and every quad but a projected composite's carries a one.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A tripwire and not a preference.</b> <see cref="UiVertex" /> is
-    ///         position/texture/colour/shape, so <c>UiGeometryBuilder.Quad</c> has no field to write
-    ///         <see cref="UiTransform.Project" />'s third component into even if it wanted to — and
-    ///         until it has one, neither executor can divide per fragment. Naming the four members
-    ///         here rather than counting them means a <c>W</c> arriving is reported as the arrival it
-    ///         is, by name.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The day this goes red is the day a reader has work to do in three other
-    ///         places</b>, and it is written down here because a reflection assertion with no
-    ///         instructions attached is the one that gets deleted: the measurement above becomes an
-    ///         agreement rather than a divergence, <c>SoftwareUiRasterizer.Triangle</c> owes
-    ///         <c>u/w</c>, <c>v/w</c>, <c>1/w</c> and a clip against <c>w = 0</c> before it
-    ///         rasterises, and <c>RefusalExpiry.txt</c> anchors <c>perspective-*</c>,
-    ///         <c>scale-*</c> and <c>translate-*</c> directly on this member's absence with four more
-    ///         rows behind them.
+    ///         ⚠ <b>The tripwire this used to be, turned round.</b> Until #548 this asserted that
+    ///         <see cref="UiVertex" /> was position/texture/colour/shape and nothing else, by name, so
+    ///         that a <c>W</c> arriving would be reported as the arrival it is — three refusals in
+    ///         <c>RefusalExpiry.txt</c> rested on the member's absence. It arrived, and the day it did
+    ///         those rows were re-anchored on the parser that now stands between a stylesheet and a
+    ///         homography (#550). What is worth pinning now is the other direction: that the field is
+    ///         <i>one</i> everywhere it is not a projective quad, because a stray <c>w</c> on an affine
+    ///         vertex would be a multiply and a divide the hardware does and the software rasteriser's
+    ///         affine branch does not.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void The_vertex_format_has_no_w_and_three_refusals_rest_on_that() {
+    public void The_vertex_format_has_a_w_and_it_is_one_on_every_affine_vertex() {
         var members = typeof(UiVertex)
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Select(static property => property.Name)
             .Order(StringComparer.Ordinal)
             .ToList();
 
-        Assert.Equal(["Color", "Position", "Shape", "Texture"], members);
+        Assert.Equal(["Color", "Position", "Shape", "Texture", "W"], members);
+
+        var box = new Rectangle(200, 100, 400, 300);
+        var centre = new Vector2(box.X + (box.Width / 2f), box.Y + (box.Height / 2f));
+        var geometry = Composited(box, new UiTransform(1.2f, 0.15f, -0.2f, 0.9f, 11f, -6f).About(centre));
+
+        Assert.All(geometry.Vertices, static vertex => Assert.Equal(1f, vertex.W));
     }
 
     /// <summary>
@@ -453,8 +453,9 @@ public class UiTransformProjectiveTests {
     /// <param name="box">The group's box.</param>
     /// <param name="placed">What the composite quad is placed under.</param>
     /// <returns>
-    ///     The screen parameter of the element centre's image along the drawn diagonal, and how far
-    ///     the linear interpolation's answer is from the right one there, in surface pixels.
+    ///     The screen parameter of the element centre's image along the drawn diagonal, the two
+    ///     <c>w</c>s at its ends, and how far a linear and a perspective-correct interpolation each
+    ///     land from the right texel there, in surface pixels.
     /// </returns>
     /// <remarks>
     ///     ⚠ <b>The four element-space corners are recovered from the texture coordinates rather than
@@ -464,7 +465,52 @@ public class UiTransformProjectiveTests {
     ///     mistake. The coordinates are the untransformed position over the viewport by construction,
     ///     which makes the recovery exact and makes the assertion below a check on both.
     /// </remarks>
-    static (float Parameter, float Pixels) Diagonal(Rectangle box, UiTransform placed) {
+    static (float Parameter, float W0, float W2, float Linear, float Correct) Diagonal(Rectangle box, UiTransform placed) {
+        var geometry = Composited(box, placed);
+        var layer = Assert.Single(geometry.Layers);
+        var composite = geometry.Draws[layer.First + layer.Count];
+
+        Assert.Equal(BatchKind.Image, composite.Kind);
+
+        var quad = Enumerable.Range(0, 4)
+            .Select(corner => geometry.Vertices[(int)geometry.Indices[composite.First + corner]])
+            .ToList();
+
+        // Vertices 0 and 2 are the diagonal the two triangles share; `Quad` winds 0-1-2 and 0-2-3.
+        var first = quad[0];
+        var third = quad[2];
+
+        var cornerOfFirst = Untransformed(first.Texture);
+        var cornerOfThird = Untransformed(third.Texture);
+
+        // The positions are the homography's, exactly, and the `w` beside each is what the
+        // homogeneous point was divided by to get there.
+        Assert.Equal(placed.Apply(cornerOfFirst).X, first.Position.X, 1e-2f);
+        Assert.Equal(placed.Apply(cornerOfFirst).Y, first.Position.Y, 1e-2f);
+        Assert.Equal(placed.Apply(cornerOfThird).X, third.Position.X, 1e-2f);
+        Assert.Equal(placed.Apply(cornerOfThird).Y, third.Position.Y, 1e-2f);
+        Assert.Equal(placed.Project(cornerOfFirst).Z, first.W, 1e-4f);
+        Assert.Equal(placed.Project(cornerOfThird).Z, third.W, 1e-4f);
+
+        var middle = placed.Apply((cornerOfFirst + cornerOfThird) / 2f);
+        var along = third.Position - first.Position;
+        var parameter = Vector2.Dot(middle - first.Position, along) / along.LengthSquared();
+
+        var wanted = (first.Texture + third.Texture) / 2f;
+        var linear = Vector2.Lerp(first.Texture, third.Texture, parameter);
+
+        // `lerp(t/w) / lerp(1/w)`: what a rasteriser handed the two `w`s samples at that parameter.
+        var inverse = ((1f - parameter) / first.W) + (parameter / third.W);
+        var correct = (((1f - parameter) / first.W) * first.Texture + (parameter / third.W) * third.Texture) / inverse;
+
+        return (parameter, first.W, third.W, Pixels(linear - wanted), Pixels(correct - wanted));
+    }
+
+    /// <summary>A texture-coordinate error, in surface pixels.</summary>
+    static float Pixels(Vector2 error) => new Vector2(error.X * Viewport.Width, error.Y * Viewport.Height).Length();
+
+    /// <summary>One composited group holding one rectangle, under <paramref name="placed" />.</summary>
+    static UiGeometry Composited(Rectangle box, UiTransform placed) {
         var list = new DrawList();
 
         list.BeginFrame();
@@ -491,42 +537,7 @@ public class UiTransformProjectiveTests {
         list.Add(new DrawCommand(DrawCommandKind.LayerPop, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f));
         list.EndFrame();
 
-        var geometry = new UiGeometryBuilder().Build(list, new GlyphFieldCache(new GlyphAtlas(512, 512)), Viewport);
-        var layer = Assert.Single(geometry.Layers);
-        var composite = geometry.Draws[layer.First + layer.Count];
-
-        Assert.Equal(BatchKind.Image, composite.Kind);
-
-        var quad = Enumerable.Range(0, 4)
-            .Select(corner => geometry.Vertices[(int)geometry.Indices[composite.First + corner]])
-            .ToList();
-
-        // Vertices 0 and 2 are the diagonal the two triangles share; `Quad` winds 0-1-2 and 0-2-3.
-        var first = quad[0];
-        var third = quad[2];
-
-        var cornerOfFirst = Untransformed(first.Texture);
-        var cornerOfThird = Untransformed(third.Texture);
-
-        // The positions are the homography's, exactly — which is what makes the corners right and the
-        // middle wrong rather than everything being wrong.
-        Assert.Equal(placed.Apply(cornerOfFirst).X, first.Position.X, 1e-2f);
-        Assert.Equal(placed.Apply(cornerOfFirst).Y, first.Position.Y, 1e-2f);
-        Assert.Equal(placed.Apply(cornerOfThird).X, third.Position.X, 1e-2f);
-        Assert.Equal(placed.Apply(cornerOfThird).Y, third.Position.Y, 1e-2f);
-
-        var middle = placed.Apply((cornerOfFirst + cornerOfThird) / 2f);
-        var along = third.Position - first.Position;
-        var parameter = Vector2.Dot(middle - first.Position, along) / along.LengthSquared();
-
-        var sampled = Vector2.Lerp(first.Texture, third.Texture, parameter);
-        var wanted = (first.Texture + third.Texture) / 2f;
-        var error = sampled - wanted;
-
-        return (
-            parameter,
-            new Vector2(error.X * Viewport.Width, error.Y * Viewport.Height).Length()
-        );
+        return new UiGeometryBuilder().Build(list, new GlyphFieldCache(new GlyphAtlas(512, 512)), Viewport);
     }
 
     /// <summary>Where a composite quad's texture coordinate came from, in document pixels.</summary>
