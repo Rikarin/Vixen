@@ -23,10 +23,9 @@ namespace Vixen.Raven.Cli;
 /// </summary>
 public static class CompileDriver {
     /// <summary>
-    ///     Indented, with enums as names: this file is read by people as often as by the engine,
-    ///     and a bare number for a DescriptorType tells a reader nothing.
+    ///     Indented, with enums as names, and LF: this file is read by people as often as by the
+    ///     engine, a bare number for a DescriptorType tells a reader nothing, and it is committed.
     /// </summary>
-    /// <summary>How a <c>.reflect.json</c> is written.</summary>
     /// <remarks>
     ///     ⚠ <b><c>NewLine</c> is the load-bearing line.</b> A <c>.reflect.json</c> is a
     ///     <em>committed</em> artefact that <c>CheckShaders</c> compares to the compiler's output
