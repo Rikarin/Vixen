@@ -169,6 +169,32 @@ public readonly struct UiDiagnostics(UiDocument document) {
     /// </remarks>
     public int DrawListsChanged => document.DrawListsChanged;
 
+    /// <summary>How many draw commands have been written, over every window and every frame.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The size of the rebuild, where <see cref="DrawListsBuilt" /> is only its
+    ///         count</b> — and it is the unit doc 49 § 7.3's damage tracking would actually move. A
+    ///         still window rebuilding thirty times is a number that says nothing about how big the
+    ///         window is; the same window emitting two hundred and forty commands to produce eight
+    ///         distinct ones says how much of the machine the waste is, on a document of any size,
+    ///         and says it identically on a fast laptop and a loaded one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The waste is this against the commands actually on screen</b> — <c>emitted</c>
+    ///         minus <c>DrawList.Commands.Count</c> of the frames that differed — and a retained
+    ///         per-element surface is precisely the change that takes it down. Reading it alone says
+    ///         only that an interface has been drawn.
+    ///     </para>
+    ///     <para>
+    ///         A <see cref="long" />, because this is a per-frame total of a per-frame total: the
+    ///         editor shell is about 1 389 commands a frame, which overflows an <see cref="int" />
+    ///         in around eighteen hours of running. ⚠ Compiled in every configuration, beside the two
+    ///         above and for their reason: two runs of a differential in different builds are not a
+    ///         differential.
+    ///     </para>
+    /// </remarks>
+    public long DrawCommandsEmitted => document.DrawCommandsEmitted;
+
     /// <summary>How many times a binding in this document has thrown and been suspended.</summary>
     /// <remarks>
     ///     <para>
@@ -349,6 +375,9 @@ public partial class UiDocument {
     /// <summary>How many of those rebuilds produced drawing that differs from the frame before.</summary>
     internal int DrawListsChanged { get; private set; }
 
+    /// <summary>How many draw commands those rebuilds have written, over every window and frame.</summary>
+    internal long DrawCommandsEmitted { get; private set; }
+
     /// <summary>How many effects in this document have been suspended after misbehaving.</summary>
     internal int BrokenBindings { get; private set; }
 
@@ -385,9 +414,12 @@ public partial class UiDocument {
             : $"{origin}: {exception.Message}";
     }
 
-    /// <summary>Counts one rebuild and whether it was worth anything.</summary>
-    void CountDrawing(bool changed) {
+    /// <summary>Counts one rebuild, what it cost, and whether it was worth anything.</summary>
+    /// <param name="changed">Whether the drawing differs from the frame before.</param>
+    /// <param name="commands">How many commands the rebuild wrote.</param>
+    void CountDrawing(bool changed, int commands) {
         DrawListsBuilt++;
+        DrawCommandsEmitted += commands;
 
         if (changed) {
             DrawListsChanged++;

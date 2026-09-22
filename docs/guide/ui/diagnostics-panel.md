@@ -106,11 +106,19 @@ as a probe and needs no wiring. A probe still wins when one is set.
 | `Settling passes`, `Settled` | How many passes the frame needed, and whether it reached a fixed point |
 | `Last pass` | `cold` or `incremental` |
 | `Draw lists built`, `Draw lists changed` | Rebuilds, and the ones whose drawing differed |
+| `Draw commands emitted` | How big those rebuilds were, over every window and frame |
 | `Dirty regions`, `Regions recorded` | What invalidated the pass, when this build records them |
 
 ⚠ **`Last pass` is the row to read first.** One element moved and the whole document re-cascaded is a
 defect rather than a cost, and it is invisible in any total: a cold pass and a busy incremental one
 are both a large `Styles resolved`.
+
+⚠ **`Draw commands emitted` is the size of the rebuild where the two counts above are only how
+often it happened.** Thirty rebuilds of an eight-element window and thirty of the editor shell read
+alike and are three orders of magnitude apart, so a rebuild count cannot say how much of the machine
+the waste is. This can: a still window emits its whole picture on every frame, so the figure is the
+picture's length times the frame count, and all but one length of it produced nothing. It is the
+number a retained per-element surface would move.
 
 ⚠ **`Dirty regions` says "not recorded in this build" rather than showing a zero**, because "nothing
 was invalidated" and "nobody was recording" are the same empty span. The recording is behind

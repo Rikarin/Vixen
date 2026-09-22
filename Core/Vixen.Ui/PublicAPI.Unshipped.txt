@@ -1498,6 +1498,7 @@ Vixen.Ui.UiDiagnostics.BoxOf(Vixen.Ui.UiElement element) -> Vixen.Ui.UiBoxModel
 Vixen.Ui.UiDiagnostics.BrokenBindings.get -> int
 Vixen.Ui.UiDiagnostics.ContainerScopesEntered.get -> int
 Vixen.Ui.UiDiagnostics.DirtyRegions.get -> System.ReadOnlySpan<Vixen.Ui.UiDirtyRegion>
+Vixen.Ui.UiDiagnostics.DrawCommandsEmitted.get -> long
 Vixen.Ui.UiDiagnostics.DrawListsBuilt.get -> int
 Vixen.Ui.UiDiagnostics.DrawListsChanged.get -> int
 Vixen.Ui.UiDiagnostics.LastBrokenBinding.get -> string?

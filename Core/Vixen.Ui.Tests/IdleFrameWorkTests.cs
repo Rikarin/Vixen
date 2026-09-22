@@ -181,6 +181,73 @@ public class IdleFrameWorkTests {
 
         Assert.Equal(0, document.Diagnostics.DrawListsBuilt);
         Assert.Equal(0, document.Diagnostics.DrawListsChanged);
+        Assert.Equal(0L, document.Diagnostics.DrawCommandsEmitted);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The waste in the unit doc 49 § 7.3's work would actually change: commands, not
+    ///     rebuilds.</b> Thirty rebuilds of an eight-element window and thirty of the editor shell
+    ///     are the same number and are three orders of magnitude apart, so a rebuild count says how
+    ///     often the waste happened and never how big it was.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The still window emits its whole picture thirty times over and one of those thirty is
+    ///         the picture: <c>DrawCommandsEmitted</c> is thirty times the list's own length, and
+    ///         twenty-nine thirtieths of it is the figure this issue otherwise has to describe in
+    ///         watts. A retained per-element surface is precisely the change that takes it down, and
+    ///         this assertion is written to go red the day it does — like every other one in this
+    ///         file.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Asserted as an exact product rather than as a ceiling.</b> A bound would be
+    ///         satisfied by a builder that emitted fewer commands for the wrong reason — a discarded
+    ///         group, a skipped element — and the claim is that the same picture is produced in
+    ///         full every frame.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_still_window_emits_its_whole_picture_again_on_every_frame() {
+        using var document = Still();
+
+        document.Update();
+        document.Draw();
+
+        var picture = document.Drawing.Commands.Count;
+
+        // The fixture draws something, so the product below is not zero times thirty.
+        Assert.True(picture > 0, "the still window emitted no commands at all");
+        Assert.Equal((long) picture, document.Diagnostics.DrawCommandsEmitted);
+
+        for (var pass = 1; pass < Frames; pass++) {
+            document.Update();
+            document.Draw();
+        }
+
+        Assert.Equal(Frames, document.Diagnostics.DrawListsBuilt);
+        Assert.Equal(1, document.Diagnostics.DrawListsChanged);
+        Assert.Equal((long) picture * Frames, document.Diagnostics.DrawCommandsEmitted);
+    }
+
+    /// <summary>
+    ///     And the count is per window, like the two beside it: a document with a torn-off panel
+    ///     emits both pictures every frame, and a total per frame would report one of them.
+    /// </summary>
+    [Fact]
+    public void The_commands_of_every_window_are_counted() {
+        using var document = Still();
+
+        var torn = document.CreateSurface(120f, 80f);
+
+        torn.Root.Add("div");
+
+        document.Update();
+        document.Draw();
+
+        var both = document.Drawing.Commands.Count + torn.Drawing.Commands.Count;
+
+        Assert.True(torn.Drawing.Commands.Count > 0, "the second window drew nothing, so this counts one picture");
+        Assert.Equal((long) both, document.Diagnostics.DrawCommandsEmitted);
     }
 
     /// <summary>A builder, an atlas with room in it, and the extent <see cref="Still" /> lays out in.</summary>

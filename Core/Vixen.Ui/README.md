@@ -1867,7 +1867,15 @@ lets a still window keep its geometry rather than flatten and tessellate again, 
 the rebuild that produced the identical list. A still document reports thirty rebuilds and one
 change over thirty frames, and that gap is the waste.
 
-⚠ **What a still window pays and what it does not, stated as the three counters that measure it.**
+⚠ **`DrawCommandsEmitted` is the third number, and it is the one a retained surface moves.** The two
+counts say how often the rebuild happened; this says how big it was, which thirty rebuilds of an
+eight-element window and thirty of the editor shell cannot distinguish between. A still window emits
+its whole picture on every frame, so it reads as the picture's length times the frame count — and
+all but one length of that produced nothing. `IdleFrameWorkTests` asserts the exact product rather
+than a ceiling, because a bound would be met by a builder emitting fewer commands for the wrong
+reason.
+
+⚠ **What a still window pays and what it does not, stated as the counters that measure it.**
 `DrawListsBuilt` climbs once per window per frame — the rebuild is paid. `Tessellations` climbs once
 and `TessellationsSkipped` takes the rest — the geometry is kept, on a five-part key (draw-list
 version, extent, atlas revision, the colour handover, and the flattening tolerance and fringe a DPI

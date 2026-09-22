@@ -127,6 +127,11 @@ public sealed class DiagnosticsPanel : Control {
         Write(ref row, "Draw lists built", diagnostics.DrawListsBuilt);
         Write(ref row, "Draw lists changed", diagnostics.DrawListsChanged);
 
+        // ⚠ The size of those rebuilds, which the two counts above deliberately do not carry: thirty
+        // rebuilds of an eight-element window and thirty of the editor shell read alike, and they
+        // are three orders of magnitude apart. This is the number a retained surface would move.
+        Write(ref row, "Draw commands emitted", diagnostics.DrawCommandsEmitted);
+
         // ⚠ The only row here that reports a defect rather than a cost, and the only one whose
         // subject looks perfect from outside: a binding that threw is suspended, so the interface
         // keeps the frame it had. Written unconditionally rather than only when non-zero, because a
@@ -197,6 +202,9 @@ public sealed class DiagnosticsPanel : Control {
         );
 
     void Write(ref int row, string key, int value) =>
+        Write(ref row, key, value.ToString(CultureInfo.InvariantCulture));
+
+    void Write(ref int row, string key, long value) =>
         Write(ref row, key, value.ToString(CultureInfo.InvariantCulture));
 
     void Write(ref int row, string key, string value) {
