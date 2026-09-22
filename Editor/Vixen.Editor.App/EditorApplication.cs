@@ -2716,7 +2716,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     <para>
     ///         ⚠ <b>Without this a shader graph opens into the browser column and its canvas is zero
     ///         pixels wide</b> — <a href="https://github.com/Rikarin/Vixen/issues/939">#939</a>.
-    ///         <c>DockingHost.Rekey</c> puts a panel the arrangement does not mention into
+    ///         <c>DockingHost.Rekey</c> put a panel the arrangement does not mention into
     ///         <c>Layout.Groups()[0]</c>, and in every <c>LayoutPresets.Standard</c> preset the first
     ///         group is the <em>left browser</em>, at <c>0.2</c> of the width. 320 px is less than
     ///         <c>shadergraph-side</c>'s own 300 px column, so the graph — which is the one child
@@ -2733,7 +2733,11 @@ sealed partial class EditorApplication : IDisposable {
     ///     <para>
     ///         Before <c>Open</c>, because the placement happens the moment <c>Id</c> is assigned
     ///         inside <c>AddPanel</c> — a group named in the layout is one <c>Rekey</c> leaves alone.
-    ///         An arrangement with no scene panel in it keeps the old behaviour rather than guessing.
+    ///         An arrangement with no scene panel in it keeps the host's own answer rather than
+    ///         guessing — and since #969 that answer is <c>DockLayout.LargestGroup</c>, the group
+    ///         with the most room, which in every standard preset is the one this puts the document
+    ///         in anyway. This stays because it says <i>why</i>: a document belongs with the
+    ///         documents, whether or not that is the biggest box.
     ///     </para>
     /// </remarks>
     void Place(string id) {

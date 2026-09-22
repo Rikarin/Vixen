@@ -1090,9 +1090,13 @@ public sealed partial class DockingHost : Control {
         // what makes "load the layout, then register the panels" work — and that is the order every
         // application does it in, because the layout comes off disk before the code that builds the
         // panels has run.
+        //
+        // ⚠ One it does not place goes into the group with the most room, not the first in tree
+        // order — which in every standard preset was the 20 % browser column, and put a shader graph
+        // into a box narrower than its own side strip (#969). See `DockLayout.LargestGroup`.
         if (Layout.Find(panel.Id) is null) {
-            if (Layout.Groups() is [var first, ..]) {
-                first.Add(panel.Id);
+            if (Layout.LargestGroup() is { } roomiest) {
+                roomiest.Add(panel.Id);
             } else {
                 Layout.Root = new DockGroupNode(panel.Id);
             }
@@ -1232,8 +1236,9 @@ public sealed partial class DockingHost : Control {
     /// <param name="layout">The arrangement.</param>
     /// <remarks>
     ///     What a named layout preset is, and what "reset to default" is. Panels the arrangement
-    ///     does not mention end up in the first group rather than nowhere — an unplaced panel is a
-    ///     panel the user cannot get back.
+    ///     does not mention end up in the group with the most room rather than nowhere — an unplaced
+    ///     panel is a panel the user cannot get back, and one in the narrowest column is a panel the
+    ///     user cannot use (#969).
     /// </remarks>
     public void SetLayout(DockLayout layout) {
         ArgumentNullException.ThrowIfNull(layout);
@@ -1244,8 +1249,8 @@ public sealed partial class DockingHost : Control {
                 continue;
             }
 
-            if (Layout.Groups() is [var first, ..]) {
-                first.Add(id);
+            if (Layout.LargestGroup() is { } roomiest) {
+                roomiest.Add(id);
             } else {
                 Layout.Root = new DockGroupNode(id);
             }
