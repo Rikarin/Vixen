@@ -1,0 +1,57 @@
+# View-shaped editor types still built in C# rather than in a `.vxml` beside them (#89).
+#
+# ⚠ This is the ratio issue #89 says is owed, written down so it is gated rather than re-measured
+# by hand at every audit. `Vixen.Editor.Ui.Tests.MarkupRatioTests` fails when
+#
+#   * a class named *View, *Panel, *Inspector or *Popup under Editor/ has no `.vxml` sibling and is
+#     not listed here — a new hand-built view has to say why it is one,
+#   * a line here names a file that now has a `.vxml` beside it, or no longer exists: delete the
+#     line in the same commit. So this list can only shrink.
+#
+# One line per file: its path from the repository root, whitespace, and the reason, which starts
+# with one of four words. The difference between them is the whole point of the file:
+#
+#   canvas       one element with pan, zoom, hit-testing and painting inside it. There is no element
+#                tree for markup to describe, and hit-testing happens in render pixels rather than
+#                layout units, which markup does not express. Porting it would be a rewrite that
+#                made things worse, and a count that included it would report progress by doing so.
+#   machinery    builds rows from a descriptor at run time and is what `<PropertyField>` and the
+#                markup inspector are implemented in terms of, so writing it in markup is circular.
+#   not-a-view   a plain class or record that is named like a view and builds no element.
+#   pending      a genuine candidate. Each still needs the model decision the issue names — a
+#                snapshot model takes a `Signal<T>`, a live model gets signal-backed additively, and
+#                bumping a revision counter to force redraws is the thing to avoid — and, because a
+#                port is a visual change, an A/B of the same panel before and after.
+#
+# Measured 2026-09-22: 37 view-shaped types have a `.vxml`, 26 do not, and 10 of those 26 are
+# candidates. The audit on the issue counted 34/23 on 2026-09-04 and listed InputDebugPanel and
+# AgentDebuggerPanel among the unported; ⚠ both are partials of AssetEditorsModule that REGISTER a
+# view, and InputDebugView.vxml and AgentDebuggerView.vxml exist — a name-shaped count that does not
+# read the class declaration reports two ports that are already done.
+
+Editor/Vixen.Editor.App/EditorDiagnostics.cs not-a-view — ShownView is the IActiveView adapter the diagnostics report reads the viewport through; it draws nothing
+Editor/Vixen.Editor.AssetEditors/Ai/BehaviorSearchPopup.cs pending — a search box over a filtered list; the list is a snapshot of the node catalogue
+Editor/Vixen.Editor.AssetEditors/Ai/BehaviorTreeView.cs canvas
+Editor/Vixen.Editor.AssetEditors/Animation/AnimationClipView.cs canvas — a timeline
+Editor/Vixen.Editor.AssetEditors/Animation/AnimationGraphView.cs canvas
+Editor/Vixen.Editor.AssetEditors/Animation/MoveSetView.cs pending — a form over a document; live model
+Editor/Vixen.Editor.AssetEditors/Animation/ProxyShapeView.cs pending — a form over a document; live model
+Editor/Vixen.Editor.AssetEditors/Content/AddressableGroupsView.cs pending — holds `List<AssetEntry> groups` and a `Rebuild()`; a `@for` over that list without making it reactive first is the revision-counter shape
+Editor/Vixen.Editor.AssetEditors/Importing/SpriteSheetView.cs canvas — slices are hit-tested in image pixels
+Editor/Vixen.Editor.AssetEditors/Scenes/SceneHierarchyView.cs pending — a binding over one sealed TreeView; rows, selection and renames, rebuilt from StructureChanged
+Editor/Vixen.Editor.AssetEditors/Sequencing/SequenceView.cs canvas — a timeline
+Editor/Vixen.Editor.AssetEditors/Vfx/VfxPreviewView.cs canvas — OnDraw projects every particle through a fixed orbit camera
+Editor/Vixen.Editor.Blockout/BlockoutUvPanel.cs not-a-view — computes island layouts for the panel that draws them; it adds no element
+Editor/Vixen.Editor.Inspector/CustomInspector.cs not-a-view — the registry record a `[CustomInspector]` contributes
+Editor/Vixen.Editor.Inspector/InspectorView.cs machinery
+Editor/Vixen.Editor.Inspector/MarkupInspector.cs machinery — is the markup inspector
+Editor/Vixen.Editor.NodeGraph/NodeGraphView.cs canvas — #1305 is its own issue and is not a port
+Editor/Vixen.Editor.Profiler/FlameChartView.cs canvas
+Editor/Vixen.Editor.Profiler/ProfilerView.cs pending — a per-scope table beside a FlameChartView, rebuilt when the capture changes; the table is the candidate
+Editor/Vixen.Editor.Texturing/LayerStackView.cs pending — #881, the layers panel has grown a form
+Editor/Vixen.Editor.Texturing/Painting/PaintBrushInspector.cs pending — a brush settings form; live model
+Editor/Vixen.Editor.Texturing/Painting/PaintMeshView.cs canvas — paints onto a mesh through a raster
+Editor/Vixen.Editor.Texturing/Painting/PaintUvView.cs canvas
+Editor/Vixen.Editor.Texturing/TextureGraphView.cs canvas
+Editor/Vixen.Editor.Ui/Console/ConsoleView.cs pending — a filtered virtualised log; #758 is the markup spelling it waits on
+Editor/Vixen.Editor.Ui/Notifications/MessageLogView.cs pending — a filtered list with a level picker
