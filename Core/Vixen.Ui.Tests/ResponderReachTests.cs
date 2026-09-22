@@ -216,6 +216,55 @@ public class ResponderReachTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>The seventh row, inverted: this asserts the zero is STILL zero.</b>
+    ///     <see cref="UiElement.RemoveCommandHandler" /> is the one API of #642's seven that no
+    ///     production file calls, and the reason it is right to be at zero was written onto the
+    ///     method itself — both obvious candidates are the wrong caller, and the one this waits for
+    ///     is an element that must stop <i>claiming</i> an id while staying in the tree and
+    ///     focusable.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A recorded zero with no gate is a claim, and this file exists because claims
+    ///         about callers are what this repository keeps getting wrong.</b> Its six siblings each
+    ///         assert a floor of one; without this the seventh is a paragraph that silently becomes
+    ///         false the day somebody adds the caller and leaves the reasoning in place. Red here
+    ///         means one thing only: a caller arrived, so delete the remark on
+    ///         <c>RemoveCommandHandler</c> and turn this into the <c>NotEmpty</c> its siblings are.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The instrument is asserted first, and for this test it has to be.</b> Every
+    ///         other theory here fails when the sweep finds nothing; this one <i>passes</i>. A
+    ///         needle spelt wrong, a prune that swallowed the tree, a walk that threw — all three
+    ///         read as "still zero". So the same sweep is asked for <c>AddCommandHandler(</c> in the
+    ///         same breath: the two needles differ by one word, and nothing can answer none for the
+    ///         first without answering none for the second.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_one_command_api_recorded_at_zero_is_still_at_zero() {
+        Assert.NotEmpty(ProductionCallers("AddCommandHandler("));
+
+        var callers = ProductionCallers("RemoveCommandHandler(");
+
+        Assert.True(
+            callers.Count == 0,
+            $"""
+             {callers.Count} production file(s) now call `UiElement.RemoveCommandHandler`:
+
+               {string.Join("\n  ", callers)}
+
+             That is good news and this assertion is the only thing that says so. The method carries a
+             remark arguing that its zero is correct — that undo was answered by `UndoCommands.Install`
+             without withdrawing anything, and that a handler whose element cannot currently run it is
+             `canExecute`'s job rather than a withdrawal. A caller means one of those is no longer the
+             whole story: read what the new one withdraws and why, rewrite the remark to match, and
+             make this theory the `Assert.NotEmpty` its six siblings above already are.
+             """
+        );
+    }
+
+    /// <summary>
     ///     ⚠ <b>Two-way binding was nominally present and practically absent, and the measurement is
     ///     the whole of issue #663.</b> Across every committed <c>.vxml</c>, <c>bind:</c> appeared
     ///     thirteen times in exactly two files — one sample gallery and one test fixture — against
