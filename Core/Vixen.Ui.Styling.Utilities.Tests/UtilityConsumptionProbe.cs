@@ -1209,6 +1209,43 @@ static class UtilityConsumptionProbe {
             Pictured: true
         ),
 
+        // ⚠ <b>Spatial: a child under a three-dimensional transform, which is the only arrangement in
+        // which `perspective` can move anything at all.</b> `perspective` is a property an element
+        // establishes for its CHILDREN — Transforms 2 § 6 — so a scene whose probe has no descendant
+        // carrying a `rotateX` or a `translateZ` measures it inert with a reader present: every point
+        // of a flat element is at z = 0, where `w = 1 − z/d` is one and the projection is exactly the
+        // identity. That is not a hole in the reader, it is the property's own definition, and it is
+        // the shape this list's tally keeps recording — suspect the scenes before the reader.
+        //
+        // ⚠ <b>The probe carries a perspective of its own in the baseline, and `perspective-origin`
+        // is why.</b> A vanishing point is only observable once there is a projection to move, so an
+        // injected `perspective-origin: top left` over a probe with no `perspective` moves nothing —
+        // `outline-color`'s shape, one property over. Five hundred points is far enough from the
+        // family's own distances that injecting any of them is a different picture, and the verdict
+        // is a union over the values a family emits, so the one that happens to match is carried by
+        // its four siblings.
+        //
+        // ⚠ <b>No `Observes`, and the rule next door says why that is right rather than lazy.</b>
+        // `UtilityConsumptionGateTests.A_scene_carrying_a_transition_says_which_properties_it_may_answer_for`
+        // requires one exactly of the scenes whose frames move on their own, and refuses one
+        // anywhere else: a scene whose only moving part IS the injected declaration is a valid
+        // observer for everything, and narrowing it loses real verdicts. Nothing here moves on its
+        // own — the two transforms are static declarations on children the injection never reaches.
+        new(
+            "spatial",
+            """
+            #host  { display: flex; flex-direction: row; width: 200px; height: 160px; align-items: flex-start; }
+            #probe { display: flex; flex-direction: row; flex-wrap: wrap; width: 140px; height: 140px;
+                     background-color: #204080; color: #e0e0e0; perspective: 500px; }
+            .kid   { width: 60px; height: 60px; background-color: #a0a040; transform: rotateX(55deg); }
+            #wide  { width: 120px; height: 40px; background-color: #40a080;
+                     transform: perspective(300px) rotateY(35deg); }
+            #label { width: 100px; }
+            #short { width: 40px; }
+            #after { width: 30px; height: 20px; background-color: #a0a040; }
+            """
+        ),
+
         // ⚠ <b>Forced: the surface is in forced-colours mode, and no CSS declaration can put it
         // there.</b> Every scene before this one is a stylesheet, and `forced-color-adjust` is read
         // on a condition that lives on the SURFACE — `DrawListBuilder` asks

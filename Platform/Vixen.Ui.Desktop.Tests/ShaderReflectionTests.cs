@@ -38,18 +38,20 @@ public class ShaderReflectionTests {
     /// <summary>Where the modules and their reflection live, relative to the repository root.</summary>
     const string Shaders = "Platform/Vixen.Ui.Desktop/Shaders";
 
-    /// <summary>The four vertex attributes, in the order <c>UiVertex</c> declares them.</summary>
+    /// <summary>The five vertex attributes, in the order <c>UiVertex</c> declares them.</summary>
     /// <remarks>
-    ///     3 to 6 rather than 0 to 3, because <c>Ui.rvn</c> declares three streams and a stage's own
-    ///     parameters come after them. A stream added to it moves all four, which is exactly why
+    ///     3 to 7 rather than 0 to 4, because <c>Ui.rvn</c> declares three streams and a stage's own
+    ///     parameters come after them. A stream added to it moves all five, which is exactly why
     ///     `UiShaderLibrary` reads them rather than writing them down — and why this test asserts the
-    ///     *relationship* by naming the numbers that are live today.
+    ///     *relationship* by naming the numbers that are live today. The fifth is the projective
+    ///     <c>w</c> (#548), and <c>UiRenderer</c> binds it at byte 48 of a 52-byte vertex.
     /// </remarks>
     [Theory]
     [InlineData("position", 3)]
     [InlineData("texcoord", 4)]
     [InlineData("vertexColour", 5)]
     [InlineData("vertexShape", 6)]
+    [InlineData("vertexW", 7)]
     public void TheVertexAttributesAreWhereTheHostBindsThem(string name, int location) {
         var inputs = Reflection("UiVertex").GetProperty("VertexInputs");
 

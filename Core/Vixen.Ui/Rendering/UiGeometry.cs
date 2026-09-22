@@ -16,6 +16,12 @@ namespace Vixen.Ui.Rendering;
 ///     <see cref="UiGeometry.Shapes" />; for a glyph, the screen-pixel range; for a path triangle,
 ///     how much of the pixel the shape covers there. Only the first lane is ever read.
 /// </param>
+/// <param name="W">
+///     The homogeneous <c>w</c> the position was divided by, so that a rasteriser can interpolate the
+///     other three attributes perspective-correctly. One for everything but a composited group's quad
+///     under a projective <see cref="UiTransform" />, which is the only geometry with a <c>w</c> to
+///     carry.
+/// </param>
 /// <remarks>
 ///     <para>
 ///         ⚠ <b>One layout for both, rather than one per shader.</b> Two layouts would mean two
@@ -28,8 +34,21 @@ namespace Vixen.Ui.Rendering;
 ///         Fields a kind does not use are zero, exactly as <see cref="DrawCommand" /> does it, and
 ///         for the same reason: the consumer switches on the batch anyway.
 ///     </para>
+///     <para>
+///         ⚠ <b><paramref name="Position" /> is the <i>projected</i> point and <paramref name="W" />
+///         is what it was divided by, rather than the homogeneous triple.</b> Every reader of a
+///         vertex outside the two rasterisers — the ink bounds, the fill rule, the hit test's picture
+///         of where a quad landed — wants the point on the screen, and on the affine geometry that is
+///         all of a frame but one quad, the two forms are the same floats. The vertex stage
+///         multiplies back (<c>float4(xy · w, 0, w)</c>) and the hardware divides again, which is the
+///         arithmetic that makes the varyings perspective-correct;
+///         <c>SoftwareUiRasterizer.Triangle</c> does the same divide by hand. The default is one so
+///         that every vertex built before there was a <c>w</c> still means what it did — ⚠ and
+///         <c>default(UiVertex)</c> is therefore <i>not</i> a vertex, since a zero <c>w</c> is a
+///         point on the eye plane with no image at all. Nothing builds one.
+///     </para>
 /// </remarks>
-public readonly record struct UiVertex(Vector2 Position, Vector2 Texture, Color4 Color, Vector4 Shape);
+public readonly record struct UiVertex(Vector2 Position, Vector2 Texture, Color4 Color, Vector4 Shape, float W = 1f);
 
 /// <summary>A run of vertices a renderer can draw with one pipeline and one state.</summary>
 /// <param name="Kind">Which shader draws it.</param>

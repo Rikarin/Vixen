@@ -112,12 +112,12 @@ public readonly record struct UiShaders(
     public ShaderHandle Mask { get; init; }
 
     /// <summary>
-    ///     Where the vertex stage reads <c>UiVertex</c>'s four attributes: position, texture,
-    ///     colour, then shape.
+    ///     Where the vertex stage reads <c>UiVertex</c>'s five attributes: position, texture,
+    ///     colour, shape, then <c>w</c>.
     /// </summary>
     /// <remarks>
-    ///     Left unset for a stage compiled from hand-written GLSL, whose attributes are at 0 to 3. A
-    ///     Raven stage declaring three streams has them at 3 to 6 — see <see cref="VertexLocations" />
+    ///     Left unset for a stage compiled from hand-written GLSL, whose attributes are at 0 to 4. A
+    ///     Raven stage declaring three streams has them at 3 to 7 — see <see cref="VertexLocations" />
     ///     for why the number belongs to the shader rather than to this renderer.
     /// </remarks>
     public VertexLocations Locations { get; init; }
@@ -654,7 +654,7 @@ public sealed class UiRenderer : IDisposable {
         this.device = device;
         this.shaders = shaders;
 
-        shaders.Locations.Require(4, nameof(UiRenderer));
+        shaders.Locations.Require(5, nameof(UiRenderer));
 
         // ⚠ A region per frame in flight, and it is the whole of what stops the interface tearing.
         // `IGraphicsDevice.Write` is a memcpy into persistently-mapped host-visible memory: writing
@@ -1850,8 +1850,19 @@ public sealed class UiRenderer : IDisposable {
     /// </remarks>
     const ShaderStage PushStages = ShaderStage.Vertex | ShaderStage.Fragment;
 
+    /// <summary>How many bytes one <see cref="UiVertex" /> is in the buffer the vertex stage reads.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Fifty-two, since the vertex gained its <c>w</c> (#548), and this is the one number the
+    ///     record's layout, the attribute offsets below and the shader's declaration order all have
+    ///     to agree on.</b> <c>MemoryMarshal.AsBytes</c> writes the struct as declared — two
+    ///     <c>Vector2</c>s, a <c>Color4</c>, a <c>Vector4</c>, a float — and a stride of forty-eight
+    ///     over that would read every vertex after the first from four bytes into its predecessor,
+    ///     which draws an interface from shifted memory rather than failing.
+    /// </remarks>
+    const int VertexBytes = 52;
+
     /// <summary>How many bytes one frame's four full-screen vertices are.</summary>
-    const int FullscreenVertexBytes = 4 * 48;
+    const int FullscreenVertexBytes = 4 * VertexBytes;
 
     /// <summary>
     ///     Makes the full-screen quad and the set that points at the host's picture, and keeps both
@@ -3107,14 +3118,19 @@ public sealed class UiRenderer : IDisposable {
                 [new(output.ColourCount > 0 ? output.ColourFormats[0] : PixelFormat.Rgba8UNorm, BlendState.PremultipliedAlpha)],
                 [
                     new(
-                        // Four attributes in the order `UiVertex` declares them: position, texture,
-                        // colour, shape.
-                        48,
+                        // Five attributes in the order `UiVertex` declares them: position, texture,
+                        // colour, shape, w. ⚠ The last is what the vertex stage multiplies the
+                        // projected position back up by and hands to the rasteriser as `gl_Position.w`,
+                        // so that the three varyings are interpolated perspective-correctly across a
+                        // composited group's quad under a `perspective()`; it is one on every other
+                        // vertex, where the multiply and the divide are both the identity.
+                        VertexBytes,
                         [
                             new(shaders.Locations[0], VertexFormat.Float32X2, 0),
                             new(shaders.Locations[1], VertexFormat.Float32X2, 8),
                             new(shaders.Locations[2], VertexFormat.Float32X4, 16),
-                            new(shaders.Locations[3], VertexFormat.Float32X4, 32)
+                            new(shaders.Locations[3], VertexFormat.Float32X4, 32),
+                            new(shaders.Locations[4], VertexFormat.Float32, 48)
                         ]
                     )
                 ],
@@ -3140,7 +3156,7 @@ public sealed class UiRenderer : IDisposable {
         // The return is ignored for these two: they are bound by handle in `Record`, every frame, so
         // a replacement is picked up without anything having to be rewritten. Only the storage
         // buffer is reached through a descriptor set.
-        Grow(ref vertices, ref vertexCapacity, geometry.Vertices.Count * 48, BufferUsage.Vertex, "ui vertices");
+        Grow(ref vertices, ref vertexCapacity, geometry.Vertices.Count * VertexBytes, BufferUsage.Vertex, "ui vertices");
         Grow(ref indices, ref indexCapacity, geometry.Indices.Count * 4, BufferUsage.Index, "ui indices");
 
         // ⚠ At least one record, even in a frame with no boxes in it. A storage buffer with no

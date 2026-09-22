@@ -168,6 +168,54 @@ public static class SoftwareUiRasterizer {
         return (MathF.Sqrt((scaled.X * scaled.X) + (scaled.Y * scaled.Y)) - 1f) * MathF.Min(r.X, r.Y);
     }
 
+    /// <summary>
+    ///     The plane the software path clips against, as a <c>w</c>: a corner with less than this has
+    ///     no image this rasteriser can take a bound over.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Just above zero rather than at it, because a vertex <i>on</i> the eye plane
+    ///         projects to infinity and the clip has to produce vertices it can then rasterise.</b>
+    ///         The plane the hit test refuses on is <c>w ≤ 0</c> (<c>UiDocument.HitTest</c>) and the
+    ///         device's is the same — a vertex at <c>z = 0</c> is inside Vulkan's clip volume exactly
+    ///         when <c>w ≥ 0</c> — so this is the one executor whose plane is a hair in front of the
+    ///         other two. What lies between is the strip <c>0 &lt; w &lt; 1e-5</c>, whose image is at
+    ///         a hundred thousand times the element's own coordinates from the vanishing point: it
+    ///         clicks and does not paint, and it is off every screen there is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It also bounds the arithmetic.</b> A clipped vertex sits at <c>x / w</c> with
+    ///         <c>w</c> no smaller than this, so its screen coordinate is at most a hundred thousand
+    ///         times the homogeneous one, and the edge functions below stay finite and in a range
+    ///         where a float's twenty-four bits still put the pixels that <i>are</i> on screen on the
+    ///         right side of them.
+    ///     </para>
+    /// </remarks>
+    const float NearW = 1e-5f;
+
+    /// <summary>One triangle, clipped against the eye plane where it needs to be, then rasterised.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Three <c>w</c>s of exactly one is the whole of a frame but a composited group's
+    ///         quad under a perspective, and it takes the path it always took, float for float.</b>
+    ///         Interpolating <c>u/w</c> and <c>1/w</c> and dividing is the identity on an affine in
+    ///         exact arithmetic and is <i>not</i> in floats — three barycentrics divided by one and
+    ///         summed do not come back to exactly one — so the perspective-correct path is a branch
+    ///         and not a generalisation, for the reason <see cref="UiTransform.Invert" /> gives for
+    ///         its own affine branch. <c>UiCompositingTests</c>' affine fixtures are bit-identical
+    ///         across this change because of it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Clipped in homogeneous space and before any bound is taken, because a corner
+    ///         behind the eye has no finite projection for a bound to be taken over.</b> Its
+    ///         projected position is a plausible point reflected through the vanishing point, and the
+    ///         naive bounding box over three such points is not loose but <i>wrong</i> — a shape that
+    ///         runs to infinity drawn as a finite one on the wrong side of the screen. The homogeneous
+    ///         triple is recovered from the projected position and the <c>w</c> the vertex carries,
+    ///         the triangle is cut against <see cref="NearW" />, and what is left — nothing, the same
+    ///         triangle, or a quadrilateral fanned into two — is projected and drawn.
+    ///     </para>
+    /// </remarks>
     static void Triangle(
         float[] target,
         int width,
@@ -184,6 +232,138 @@ public static class SoftwareUiRasterizer {
         UiBlendMode blend,
         (Rectangle Box, float Radius)? rounded,
         float white
+    ) {
+        if (a.W == 1f && b.W == 1f && c.W == 1f) {
+            Rasterise(target, width, height, a, b, c, kind, shapes, atlas, clip, surface, masks, blend, rounded, white, false);
+            return;
+        }
+
+        if (a.W >= NearW && b.W >= NearW && c.W >= NearW) {
+            Rasterise(target, width, height, a, b, c, kind, shapes, atlas, clip, surface, masks, blend, rounded, white, true);
+            return;
+        }
+
+        Span<UiVertex> clipped = stackalloc UiVertex[4];
+        var count = ClipToEye(a, b, c, clipped);
+
+        if (count < 3) {
+            return;
+        }
+
+        // A fan from the first vertex. Its inner edge is traversed in opposite directions by the two
+        // triangles, so the fill rule below shades it once — the same arrangement as a quad's diagonal.
+        for (var index = 1; index + 1 < count; index++) {
+            Rasterise(
+                target,
+                width,
+                height,
+                clipped[0],
+                clipped[index],
+                clipped[index + 1],
+                kind,
+                shapes,
+                atlas,
+                clip,
+                surface,
+                masks,
+                blend,
+                rounded,
+                white,
+                true
+            );
+        }
+    }
+
+    /// <summary>Cuts a triangle against <c>w = <see cref="NearW" /></c>, Sutherland–Hodgman on one plane.</summary>
+    /// <param name="a">The first corner, projected, with its <c>w</c>.</param>
+    /// <param name="b">The second.</param>
+    /// <param name="c">The third.</param>
+    /// <param name="into">Room for the four corners a triangle cut by one plane can have.</param>
+    /// <returns>How many corners survived: zero, three or four.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The attributes are interpolated on the homogeneous edge, which is linear in the
+    ///     element's own plane, and that is what makes the cut invisible.</b> A texture coordinate is
+    ///     an affine function of the untransformed point, and so is the homogeneous triple; a point a
+    ///     fraction <c>t</c> along the edge in element space is at the same fraction along both. The
+    ///     projected position is then recovered by the divide, so the new corner is exactly where the
+    ///     plane crosses the edge and carries exactly the coordinate that belongs there.
+    /// </remarks>
+    static int ClipToEye(UiVertex a, UiVertex b, UiVertex c, Span<UiVertex> into) {
+        ReadOnlySpan<UiVertex> corners = [a, b, c];
+        var count = 0;
+
+        for (var index = 0; index < 3; index++) {
+            var from = corners[index];
+            var to = corners[(index + 1) % 3];
+            var fromInside = from.W >= NearW;
+            var toInside = to.W >= NearW;
+
+            if (fromInside) {
+                into[count++] = from;
+            }
+
+            if (fromInside != toInside) {
+                var t = (NearW - from.W) / (to.W - from.W);
+                into[count++] = Between(from, to, t);
+            }
+        }
+
+        return count;
+    }
+
+    /// <summary>The vertex a fraction <paramref name="t" /> along the homogeneous edge from one corner to another.</summary>
+    static UiVertex Between(UiVertex from, UiVertex to, float t) {
+        // Homogeneous positions, recovered: `Position` is the projected point and `W` its divisor.
+        var fromX = from.Position.X * from.W;
+        var fromY = from.Position.Y * from.W;
+        var toX = to.Position.X * to.W;
+        var toY = to.Position.Y * to.W;
+
+        var w = Lerp(from.W, to.W, t);
+
+        return new UiVertex(
+            new Vector2(Lerp(fromX, toX, t) / w, Lerp(fromY, toY, t) / w),
+            new Vector2(Lerp(from.Texture.X, to.Texture.X, t), Lerp(from.Texture.Y, to.Texture.Y, t)),
+            new Color4(
+                Lerp(from.Color.R, to.Color.R, t),
+                Lerp(from.Color.G, to.Color.G, t),
+                Lerp(from.Color.B, to.Color.B, t),
+                Lerp(from.Color.A, to.Color.A, t)
+            ),
+            new Vector4(
+                Lerp(from.Shape.X, to.Shape.X, t),
+                Lerp(from.Shape.Y, to.Shape.Y, t),
+                Lerp(from.Shape.Z, to.Shape.Z, t),
+                Lerp(from.Shape.W, to.Shape.W, t)
+            ),
+            w
+        );
+    }
+
+    /// <summary>One triangle whose corners are all in front of the eye, shaded pixel by pixel.</summary>
+    /// <remarks>
+    ///     <c>perspective</c> says whether the corners' <c>w</c>s are anything but one, in which case
+    ///     the barycentrics are weighted by <c>1/w</c> and renormalised — the divide the hardware
+    ///     does per fragment. A flag rather than a comparison here, so that the affine branch cannot
+    ///     be taken by accident on a vertex whose <c>w</c> merely rounds to one.
+    /// </remarks>
+    static void Rasterise(
+        float[] target,
+        int width,
+        int height,
+        UiVertex a,
+        UiVertex b,
+        UiVertex c,
+        BatchKind kind,
+        IReadOnlyList<UiShape> shapes,
+        GlyphAtlas atlas,
+        Bounds clip,
+        float[]? surface,
+        ReadOnlySpan<UiMask> masks,
+        UiBlendMode blend,
+        (Rectangle Box, float Radius)? rounded,
+        float white,
+        bool perspective
     ) {
         var area = Edge(a.Position, b.Position, c.Position);
 
@@ -234,6 +414,25 @@ public static class SoftwareUiRasterizer {
                 // one case instead of two mirrored ones.
                 if (!Covers(w0, inclusive0) || !Covers(w1, inclusive1) || !Covers(w2, inclusive2)) {
                     continue;
+                }
+
+                // ⚠ <b>The perspective divide, as weights rather than as a step after the
+                // interpolation.</b> Interpolating `u/w` and `1/w` linearly and dividing the first by
+                // the second is `Σ (uᵢ · λᵢ/wᵢ) / Σ (λᵢ/wᵢ)`, which is the same three attributes below
+                // interpolated by `λᵢ/wᵢ` renormalised to sum to one. Written that way, every stream
+                // takes the divide at once and the code that reads them cannot tell — which is also
+                // how the device does it, since a float varying is perspective-correct by default in
+                // SPIR-V and no stage asked for anything else. Never on the affine branch: see
+                // `Triangle`, which is why `perspective` is a flag and not a comparison here.
+                if (perspective) {
+                    var q0 = w0 / a.W;
+                    var q1 = w1 / b.W;
+                    var q2 = w2 / c.W;
+                    var sum = q0 + q1 + q2;
+
+                    w0 = q0 / sum;
+                    w1 = q1 / sum;
+                    w2 = q2 / sum;
                 }
 
                 var texture = new Vector2(

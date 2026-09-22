@@ -367,6 +367,28 @@ public static class UtilityComposition {
     /// </remarks>
     public const string RotateZ = Prefix + "rotate-z";
 
+    /// <summary>How far a <c>transform</c> tips the box about the screen's horizontal axis.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="RotateZ" />'s arrangement exactly — the angle here and <c>rotateX(…)</c> in
+    ///         the assembler — and it joined that assembler under the rule the block above it states:
+    ///         a slot joins when its function parses, and not before. <c>TransformReader</c> reads
+    ///         <c>rotateX</c> since #550, composing the whole list in four dimensions and reducing to
+    ///         a <c>UiTransform</c> once at the end.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>On its own it is a vertical squash, and that is the right picture rather than a
+    ///         degraded one.</b> A rotation about x is a foreshortening until something projects it,
+    ///         so <c>rotate-x-45</c> with no <c>perspective-*</c> on the parent really is the box
+    ///         squashed to <c>cos 45°</c> of its height — which is what a browser draws too. The
+    ///         pair is what makes a card flip, and the <c>perspective-*</c> family is the other half.
+    ///     </para>
+    /// </remarks>
+    public const string RotateX = Prefix + "rotate-x";
+
+    /// <summary>And about the vertical one.</summary>
+    public const string RotateY = Prefix + "rotate-y";
+
     /// <summary>How far a <c>transform</c> slants the box along x, as an angle.</summary>
     /// <remarks>
     ///     <para>
@@ -754,6 +776,13 @@ public static class UtilityComposition {
         // initial is substituted inside `rotateZ(…)` and a bare zero makes the whole list invalid.
         [RotateZ] = "0deg",
 
+        // ⚠ Two more of the same, and they are now the commonest substitution in the table: every
+        // element carrying any one of the five slots substitutes all five, so a lone `rotate-z-45`
+        // spells `rotateX(0deg) rotateY(0deg)` as well — and either of them written `0` would make
+        // `TransformReader` refuse the list and the rotation do nothing.
+        [RotateX] = "0deg",
+        [RotateY] = "0deg",
+
         // The same unit for the same reason one slot over, with one extra edge: a zero skew is the
         // *common* case, since an element carrying only `rotate-z-45` still substitutes both of these
         // — so `skewX(0)`, which `TransformReader`'s angle parser refuses, would take the rotation
@@ -1084,15 +1113,25 @@ public static class UtilityComposition {
     ///         beside it, so one class works alone and several compose.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Three functions, where v4 writes five — and the missing two are missing on
-    ///         purpose, not pending.</b> See the block above <see cref="RotateZ" />: a
-    ///         <c>transform</c> naming a function <c>TransformReader</c> cannot read is refused
-    ///         whole, so a slot added before its parser would take the working rotation down with it.
-    ///         <c>skewX</c> and <c>skewY</c> joined on the day somebody read the parser rather than
-    ///         the note about it — both have parsed since <c>TransformReader.Functions</c> was
-    ///         written. <c>rotateX</c> and <c>rotateY</c> are the two still outside, and they are not
-    ///         waiting on a parser either: <c>UiTransform</c> is affine and cannot express the
-    ///         projective composite they need, which is #228.
+    ///         ⚠ <b>Five functions, which is v4's own list — and the two that joined last are the
+    ///         ones every note here said were waiting on a renderer.</b> See the block above
+    ///         <see cref="RotateZ" />: a <c>transform</c> naming a function <c>TransformReader</c>
+    ///         cannot read is refused whole, so a slot added before its parser would take the working
+    ///         rotation down with it. <c>skewX</c> and <c>skewY</c> joined on the day somebody read
+    ///         the parser rather than the note about it. <c>rotateX</c> and <c>rotateY</c> joined
+    ///         with #548 and #550: the vertex carries a <c>w</c>, both rasterisers divide by it, and
+    ///         the reader composes the list in four dimensions and reduces once.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two that are still outside are <c>translateZ</c> and <c>scaleZ</c>, and the
+    ///         reason is neither the parser nor the renderer.</b> v4 spells them on the
+    ///         <c>translate</c> and <c>scale</c> <i>properties</i>, which this engine reads as a pair
+    ///         of numbers and a pair of factors rather than as a matrix — and moving them into this
+    ///         assembler instead is not free, because a <c>translate-z-4</c> resolves to a
+    ///         <c>calc(var(--spacing) * 4)</c> and <c>TransformReader.Functions</c> refuses any
+    ///         argument holding a nested parenthesis. A slot that refused its own value would take
+    ///         the whole list down with it, which is the failure this block exists to name.
+    ///         <c>Rikarin/Vixen#1328</c> is where the three ways out are written down.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Every slot is substituted on every element that fills any of them</b>, so the
@@ -1103,7 +1142,8 @@ public static class UtilityComposition {
     ///     </para>
     /// </remarks>
     public static string Transform() =>
-        $"rotateZ({Reference(RotateZ)}) skewX({Reference(SkewX)}) skewY({Reference(SkewY)})";
+        $"rotateX({Reference(RotateX)}) rotateY({Reference(RotateY)}) rotateZ({Reference(RotateZ)}) "
+        + $"skewX({Reference(SkewX)}) skewY({Reference(SkewY)})";
 
     /// <summary>The <c>box-shadow</c> a ring is.</summary>
     /// <returns>The assembled value.</returns>
