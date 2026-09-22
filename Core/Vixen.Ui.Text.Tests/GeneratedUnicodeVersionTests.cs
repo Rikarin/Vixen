@@ -35,6 +35,15 @@ namespace Vixen.Ui.Text.Tests;
 ///         holds the list to the directory in the other direction — a table added without a line here
 ///         is red rather than silently ungated.
 ///     </para>
+///     <para>
+///         ⚠ <b>If a whole-UCD run just went red naming <c>CombiningClassTable.g.cs</c> and
+///         <c>SoftDottedTable.g.cs</c>, that is expected and the fix is two lines.</b> The generator
+///         emits both on a full run and neither is committed yet: the UCD sources they read
+///         (<c>extracted/DerivedCombiningClass.txt</c> and <c>PropList.txt</c>) have never been
+///         fetched into <c>references/</c>, so whoever fetches them is the first person to see the
+///         files appear. Add the two names to <see cref="Tables" /> — deliberately by hand, for the
+///         reason the paragraph above gives — and see #913, which owns the runtime half.
+///     </para>
 /// </remarks>
 public class GeneratedUnicodeVersionTests {
     /// <summary>The ten tables, in <c>Core/Vixen.Ui.Text/Generated</c>.</summary>
@@ -141,7 +150,19 @@ public class GeneratedUnicodeVersionTests {
                     && !name.StartsWith("Variation", StringComparison.Ordinal))
                 .ToList();
 
-            Assert.Equal(names.Order(StringComparer.Ordinal).ToList(), mine);
+            var expected = names.Order(StringComparer.Ordinal).ToList();
+
+            // ⚠ A message rather than a bare `Assert.Equal`, because the likeliest way this goes red
+            // is a whole-UCD refresh emitting a table nobody was expecting, and a list diff does not
+            // say that is what happened or what to do about it.
+            Assert.True(
+                mine.SequenceEqual(expected, StringComparer.Ordinal),
+                $"{directory} holds [{string.Join(", ", mine)}], and the list naming it holds "
+                + $"[{string.Join(", ", expected)}]. A generated file the list does not name is "
+                + "ungated, so add it — by hand, for the reason this class's remarks give. "
+                + "CombiningClassTable.g.cs and SoftDottedTable.g.cs are the two the generator "
+                + "already emits and nobody has committed yet; see #913."
+            );
         }
     }
 
