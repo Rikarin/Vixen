@@ -273,10 +273,24 @@ static class RunawayGuard {
             Name = "geometry-property-case"
         };
 
+        // ⚠ The baseline is read HERE, before the case can have allocated a byte, and not inside
+        // `Watch` where it used to be. Reading it after `worker.Start()` is a race between the case
+        // and the watcher being scheduled: whatever the case allocates before the watcher's first
+        // reading is *in* the baseline, so retention reads as zero growth and the only thing left
+        // that can fire is the clock. `A_case_that_keeps_what_it_allocates_is_a_named_finding` held
+        // that race open with a 100 ms sleep in the case, which is a wall-clock guess about the
+        // scheduler, and it lost on `test-windows-latest` and then on `test-macos-14` — the leg that
+        // runs ~176 assemblies at once is exactly where a thread does not start within 100 ms
+        // (#1313). Taken here the ordering is a fact rather than a hope.
+        //
+        // What the old placement was for is unaffected: a case that finishes inside one poll is
+        // still never sampled, because the sampling is in the loop below and the loop exits first.
+        var held = GC.GetTotalMemory(false);
+
         worker.Start();
 
         try {
-            Watch(what, finished, cap ?? Cap, ceiling ?? RetentionCeiling);
+            Watch(what, finished, held, cap ?? Cap, ceiling ?? RetentionCeiling);
         } finally {
             CaseTrace.Leave(ticket, what);
         }
@@ -321,12 +335,8 @@ static class RunawayGuard {
             ? string.Create(CultureInfo.InvariantCulture, $"{span.TotalSeconds:N1} s")
             : string.Create(CultureInfo.InvariantCulture, $"{span.TotalMinutes:N1} min");
 
-    static void Watch(string what, ManualResetEventSlim finished, TimeSpan cap, long ceiling) {
+    static void Watch(string what, ManualResetEventSlim finished, long held, TimeSpan cap, long ceiling) {
         var clock = Stopwatch.StartNew();
-
-        // Taken before the first wait rather than before the thread starts: the reading is a
-        // baseline for the case, and a case that finishes inside one poll is never sampled at all.
-        var held = GC.GetTotalMemory(false);
         var strikes = 0;
 
         while (!finished.Wait(PollMilliseconds)) {

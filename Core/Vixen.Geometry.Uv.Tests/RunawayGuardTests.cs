@@ -103,12 +103,16 @@ public class RunawayGuardTests {
                     () => {
                         var kept = new List<byte[]>();
 
-                        // ⚠ Before the first byte, because the watchdog takes its baseline reading
-                        // after starting this thread rather than before it. Sixty-four megabytes of
-                        // page mappings can land inside that window, and then the growth is under
-                        // the baseline instead of over it and this test measures nothing.
-                        Thread.Sleep(100);
-
+                        // ⚠ The sleep that used to be here is gone, and so is what it was guarding.
+                        // `RunawayGuard` read its baseline after starting this thread, so anything
+                        // allocated before the watcher was scheduled counted as part of the
+                        // baseline — and this case slept 100 ms hoping to lose that race. On a leg
+                        // running ~176 assemblies at once the watcher does not always start within
+                        // 100 ms, the sixty-four megabytes landed under the baseline, growth read as
+                        // zero and the one-minute clock fired instead of the ceiling: red on
+                        // `test-windows-latest` and then on `test-macos-14` (#1313). The baseline is
+                        // taken before the thread starts now, so the ordering is a fact and no sleep
+                        // can make it truer.
                         for (var block = 0; block < 64; block++) {
                             // GC.AllocateUninitializedArray, so the megabyte costs a page mapping
                             // rather than a megabyte of zeroing on every one of sixty-four blocks.
