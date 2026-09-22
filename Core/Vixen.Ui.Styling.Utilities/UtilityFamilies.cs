@@ -1160,6 +1160,11 @@ public static class UtilityFamilies {
         // yet — collapsing runs of space and keeping newlines. Registering them adds no new gap and
         // closes a spelling gap.
         //
+        // ⚠ <b>And `break-spaces` has a second reader now</b>: `UiDocument.BreakSpacesOf`, which
+        // is what turns off the hang and adds the break between two spaces in `LineWrapper`. It
+        // never needed the collapsing — it preserves exactly as `pre-wrap` does — so of the six only
+        // `pre-line` is still answered as `pre-wrap` at the engine level.
+        //
         // ⚠ <b>This paragraph used to say `pre` was registered while being answered wrongly, and
         // that stopped being true.</b> `WrapsOf` honours it now: because this engine collapses
         // nothing and already breaks at every mandatory opportunity, an element with no declaration
