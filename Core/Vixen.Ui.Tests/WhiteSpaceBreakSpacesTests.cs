@@ -53,6 +53,29 @@ namespace Vixen.Ui.Tests;
 ///         not, while the intrinsic measure never counts it.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Every pair below was read against Chrome 152.0.7977.76 with the same Open Sans face
+///         at 16px, served over localhost and read through <c>Range.getClientRects</c>.</b> Chrome
+///         shapes <c>ab cd</c> to 40.297 and <c>ab cd  </c> to 48.609, which is this engine's
+///         40.29 and 48.60. At 44px, <c>pre-wrap</c> gives <c>[0,7)</c> and <c>[7,9)</c>;
+///         <c>break-spaces</c> gives <c>ab </c> <c>[0,3)</c> and <c>cd  ef</c> <c>[3,9)</c>. At the
+///         midpoint of <c>a </c> and <c>a  </c> — 15.125 — <c>pre-wrap</c> gives <c>a  </c> and
+///         <c>b</c>; <c>break-spaces</c> gives <c>a </c> and <c> b</c>. <c>ab</c>, a space and a newline under
+///         <c>break-spaces</c> reports its first line at 22.844, the width of <c>ab </c>. Every
+///         one of those is what the assertions say.
+///     </para>
+///     <para>
+///         ⚠ <b>And one reading disagrees with this engine, on the control side.</b> Chrome's
+///         <c>min-content</c> of <c>ab  </c> under <c>pre-wrap</c> is 18.688 — the glyphs alone,
+///         which is what #1211 measured — but its <c>max-content</c>, and every shrink-to-fit form
+///         (<c>inline-block</c>, <c>float</c>, <c>position: absolute</c>, a flex item), is 27.000,
+///         spaces included; under <c>break-spaces</c> the <c>min-content</c> is 22.844 and the
+///         rest is 27.000. <c>TextLayout.Width</c> reads <c>Trimmed</c> for the unwrapped line, so
+///         a Vixen label ending in a preserved space is narrower than Chrome's shrink-to-fit by
+///         those spaces. The control half of the intrinsic pair pins that as it stands and says
+///         so; the finding is filed as #1318 rather than fixed here, since it reverses #1211's
+///         own change.
+///     </para>
+///     <para>
 ///         ⚠ <b>What this file does not claim.</b> Nothing about <c>pre-line</c>, which is owed for
 ///         exactly the recorded reason and stays owed. See <c>Rikarin/Vixen#249</c>.
 ///     </para>
@@ -145,10 +168,13 @@ public class WhiteSpaceBreakSpacesTests {
 
         var kept = Box(Spaced, 44f, BreakSpaces).Lines;
 
-        Assert.True(kept.Length >= 2);
+        // Chrome 152: `ab ` then `cd  ef`, the second line's 40.141 fitting the 44px box.
+        Assert.Equal(2, kept.Length);
         Assert.Equal(0, kept[0].Start);
         Assert.Equal(3, kept[0].Length);
         Assert.Equal(Measure("ab "), kept[0].Width, 0.05f);
+        Assert.Equal(3, kept[1].Start);
+        Assert.Equal(6, kept[1].Length);
     }
 
     /// <summary>Rule two, the control: a run of spaces offers one break at its end and none inside.</summary>
@@ -194,10 +220,11 @@ public class WhiteSpaceBreakSpacesTests {
 
     /// <summary>Rule three: the spaces reach the intrinsic measure.</summary>
     /// <remarks>
-    ///     <c>TextLayout.Width</c> is what a shrink-to-fit box measures, and CSS Text § 5.2 leaves
-    ///     hanging white space out of it — so under <c>pre-wrap</c> a label of <c>ab</c> and two
-    ///     spaces measures as <c>ab</c> (#1211), and under <c>break-spaces</c>, whose spaces do not
-    ///     hang, it measures all four.
+    ///     <c>TextLayout.Width</c> is what a shrink-to-fit box measures. Under <c>break-spaces</c>,
+    ///     whose spaces do not hang, it measures all four characters — 27.000 in Chrome for every
+    ///     intrinsic form but <c>min-content</c>. ⚠ The <c>pre-wrap</c> half pins what this engine
+    ///     does today after #1211, which is Chrome's <c>min-content</c> and not its
+    ///     <c>max-content</c>; see the class remarks and #1318.
     /// </remarks>
     [Fact]
     public void Under_break_spaces_trailing_spaces_reach_the_intrinsic_width() {
