@@ -36,5 +36,14 @@
             it would be asserting that a delegate is a delegate.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Ui.HotReload\Vixen.Ui.HotReload.csproj" />
+
+        <!--
+            The recording device, for the one question the headless platform cannot answer: what a
+            window's renderer *writes* on a frame nothing changed. The headless loop stops at the
+            RHI, and the geometry upload is the first thing on the other side of it — so
+            `IdleFrameUploadTests` drives `UiRenderer` directly, on a device that records rather than
+            draws, and asserts on the renderer's own counters rather than on a picture.
+        -->
+        <ProjectReference Include="..\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
     </ItemGroup>
 </Project>

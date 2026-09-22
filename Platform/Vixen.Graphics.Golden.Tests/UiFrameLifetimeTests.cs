@@ -451,6 +451,192 @@ public sealed class UiFrameLifetimeTests {
         }
     }
 
+    /// <summary>A still window drawn from the device's copy, with frames in flight and a resize in the middle.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a window nobody is touching does on the device, which no fixture above
+    ///         reaches.</b> Every one of them builds a fresh geometry per frame, so every frame
+    ///         uploads. A window keeps the geometry <c>UiGeometryBuilder.TryBuild</c> already holds,
+    ///         and <c>UiRenderer.Upload</c> answers a frame whose generation it has already written
+    ///         by <em>not advancing the ring</em> — drawing again from the region the previous frame
+    ///         is still reading. That is safe exactly when nothing is written at that region, and
+    ///         the layers are the only observer of a set rewritten under a bound frame:
+    ///         <c>VUID-vkUpdateDescriptorSets-None-03047</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The re-registration in the middle is the case that decides it.</b> A number
+    ///         repointed at a new view marks every frame's set stale, and the frame after it must
+    ///         upload — advancing to a region no submitted frame reads — rather than skip and rebind
+    ///         in place. Counted rather than pictured: the two uploads are the first frame and the
+    ///         one after the resize, and everything else came from the device's own copy.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AStillWindowDrawsFromTheDevicesCopyAndUploadsAgainOnlyForAResize() {
+        if (!TryOpen(out var fixture, out _)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        var renderer = new UiRenderer(
+            device,
+            new(
+                owned.Shader("ui.vert.spv", ShaderStage.Vertex),
+                owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
+                owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
+                owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
+            ) {
+                Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment)
+            },
+            new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
+        );
+
+        owned.Owns(renderer.Dispose);
+
+        var target = owned.Owned("ui still", TextureUsage.ColourTarget | TextureUsage.CopySource);
+        var sampled = owned.Sampled("ui still source", 2, [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255]);
+        var second = device.CreateTextureView(sampled.Texture);
+        owned.Owns(() => device.Destroy(second));
+
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var builder = new UiGeometryBuilder();
+        var list = new DrawList();
+        var frame = default(UiGeometry);
+        var uploaded = false;
+        var drawn = 0;
+
+        renderer.RegisterImage(7, sampled.View);
+
+        const int Frames = 8;
+        const int Resize = 4;
+        const int Bytes = Side * Side * 4;
+
+        // ⚠ The A/B picture the issue asks for, taken inside the run rather than before and after
+        // it: the first frame's picture, which was uploaded, against the last frame's, which was
+        // drawn from the device's copy three frames after a resize. Getting the skip wrong is a
+        // stale or blank window and not a slow one, and a counter cannot see that.
+        var first = device.CreateBuffer(new(Bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "ui still first"));
+        var last = device.CreateBuffer(new(Bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "ui still last"));
+
+        owned.Owns(() => device.Destroy(first));
+        owned.Owns(() => device.Destroy(last));
+
+        for (var index = 0; index < Frames; index++) {
+            Frame(index);
+        }
+
+        device.WaitIdle();
+
+        Assert.True(
+            VulkanDiagnostics.ErrorCount == 0,
+            "the layers reported an error while frames were in flight: "
+            + string.Join(Environment.NewLine, VulkanDiagnostics.Messages)
+        );
+
+        // One tessellation: the drawing never changed. Two uploads: the first frame and the one after
+        // the resize, which could not draw with the set it had. Everything else from the device.
+        Assert.Equal(1, builder.Tessellations);
+        Assert.Equal(2, renderer.GeometryUploads);
+        Assert.Equal(Frames - 2, renderer.GeometryUploadsSkipped);
+
+        // And every frame drew, so the skips are frames that drew from the device's copy rather than
+        // frames that drew nothing.
+        Assert.Equal(Frames, drawn);
+
+        var before = new byte[Bytes];
+        var after = new byte[Bytes];
+
+        device.Read(first, 0, before);
+        device.Read(last, 0, after);
+
+        // Not blank — the image's red texel lands in the quad and the box's colour beside it — so
+        // "identical" below is not two clears agreeing with each other.
+        Assert.Contains(before.Chunk(4), pixel => pixel[0] > 200 && pixel[1] < 50 && pixel[2] < 50);
+
+        // And byte-identical: the frame drawn from the device's copy is the frame that was uploaded.
+        Assert.Equal(before, after);
+
+        void Frame(int index) {
+            // The same list, rebuilt with the same contents, which is what a still window's draw
+            // pass does: `DrawList.Version` is a content hash, so the builder keeps its geometry.
+            list.BeginFrame();
+
+            list.Add(
+                new DrawCommand(DrawCommandKind.Image, 8, 8, 48, 48, Color4.White, 0, 0) { Image = 7 }
+            );
+
+            list.Add(
+                new DrawCommand(DrawCommandKind.Rectangle, 2, 2, 6, 6, new Color4(0.8f, 0.4f, 0.2f, 1f), 2, 0)
+            );
+
+            list.EndFrame();
+
+            builder.TryBuild(list, cache, Viewport, ref frame);
+
+            device.BeginFrame();
+
+            if (index == Resize) {
+                // Between frames, as a host does it, with the previous frame's sets still bound.
+                renderer.RegisterImage(7, second);
+            }
+
+            var imported = owned.Graph.ImportTexture(
+                target.Texture,
+                target.View,
+                target.Description,
+                ResourceState.Undefined,
+                ResourceState.CopySource
+            );
+
+            using (var commands = device.BeginCommandList(QueueKind.Graphics, "ui")) {
+                renderer.Upload(commands, frame, cache.Atlas);
+
+                if (!uploaded) {
+                    commands.Barrier(
+                        new([], [new(sampled.Texture, ResourceState.Undefined, ResourceState.CopyDestination)])
+                    );
+
+                    commands.CopyBufferToTexture(sampled.Staging, 0, new(sampled.Texture), new(2, 2, 1));
+
+                    commands.Barrier(
+                        new([], [new(sampled.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
+                    );
+
+                    uploaded = true;
+                }
+
+                owned.Graph.AddPass("ui", pass => {
+                    pass.ColourAttachment(imported, LoadAction.Clear, new(0f, 0f, 0f, 1f));
+                    pass.SideEffect();
+
+                    pass.Execute(
+                        context => renderer.Record(context.CommandList, frame, new(Side, Side))
+                    );
+                });
+
+                owned.Graph.Execute(commands);
+                owned.Graph.Reset();
+
+                // The target leaves the graph in `CopySource`, which is the exit state it was
+                // imported with; the copy is the harness's business and needs no barrier of its own.
+                if (index == 0) {
+                    commands.CopyTextureToBuffer(new(target.Texture), new(Side, Side, 1), first, 0);
+                } else if (index == Frames - 1) {
+                    commands.CopyTextureToBuffer(new(target.Texture), new(Side, Side, 1), last, 0);
+                }
+
+                commands.Finish();
+                device.GraphicsQueue.Submit([commands]);
+            }
+
+            drawn += renderer.Draws > 0 ? 1 : 0;
+
+            device.EndFrame();
+        }
+    }
+
     /// <summary>A frame of that many rounded boxes, tiled across the surface.</summary>
     static UiGeometry Boxes(int count, GlyphFieldCache cache) {
         var list = new DrawList();

@@ -586,4 +586,31 @@ public readonly record struct UiGeometry(
     ///     </para>
     /// </remarks>
     public float WhiteLevel { get; init; } = 1f;
+
+    /// <summary>Which build of a <see cref="UiGeometryBuilder" /> this is, or zero when none stamped it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The identity a device-side copy is keyed on, and the reason a still window uploads
+    ///         its vertices once rather than once per frame.</b> <see cref="UiGeometryBuilder.TryBuild" />
+    ///         answers a frame whose drawing did not change with the geometry it already holds, and
+    ///         the lists in it are the builder's own — rewritten in place by the next build — so
+    ///         nothing about the lists says whether they are the ones a renderer has already copied
+    ///         to the device. This number does: equal to the last one uploaded, the bytes on the
+    ///         device are these bytes and <c>UiRenderer.Upload</c> writes nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Unique across every builder in the process rather than per builder</b>, because a
+    ///         renderer compares it for equality and nothing else. Two builders each counting from one
+    ///         would hand the same renderer — a golden fixture drawing two documents through one — a
+    ///         second frame stamped like the first, and the first frame's vertices would be drawn for
+    ///         it. A process-wide counter cannot collide, and a renderer given geometry from a second
+    ///         builder uploads it, which is the answer that is never wrong.
+    ///     </para>
+    ///     <para>
+    ///         Zero is "nobody stamped this" and never skips: every host and test that builds
+    ///         geometry by hand keeps its four-argument constructor and is uploaded every time it is
+    ///         handed over, exactly as before this existed.
+    ///     </para>
+    /// </remarks>
+    public int Generation { get; init; }
 }

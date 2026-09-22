@@ -319,4 +319,55 @@ public class IdleFrameWorkTests {
         Assert.Equal(2, builder.Tessellations);
         Assert.Equal(0, builder.TessellationsSkipped);
     }
+
+    /// <summary>
+    ///     ⚠ <b>And a DPI change tessellates again although neither the drawing nor the extent
+    ///     changed</b>, which is the invalidation #905 lists and the one the key could not see. The
+    ///     extent is in document pixels, so a window carried onto a 2× display keeps it — and what
+    ///     the change reaches instead is the two numbers spent <i>inside</i> the triangles: the
+    ///     flattening tolerance and the antialiasing fringe, both documented as wanting to halve at
+    ///     twice the scale. A builder told to halve them and answered with the old geometry draws
+    ///     faceted curves and a device-pixel-wide fringe for as long as nothing else changes.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ No host sets either from the scale today, so the hole was invisible: the key was complete
+    ///     only because nobody turned the knob. Pinned now so the first host that does is not the
+    ///     one that finds it.
+    /// </remarks>
+    [Fact]
+    public void A_flattening_change_tessellates_again_although_the_drawing_did_not_change() {
+        using var document = Still();
+
+        var (builder, glyphs, extent) = Tessellator();
+        var frame = default(UiGeometry);
+
+        document.Update();
+        document.Draw();
+
+        Assert.True(builder.TryBuild(document.Drawing, glyphs, extent, ref frame));
+        Assert.False(builder.TryBuild(document.Drawing, glyphs, extent, ref frame));
+
+        var version = document.Drawing.Version;
+
+        // The flattening error, halved for a 2× display.
+        builder.Tolerance = 0.1f;
+
+        Assert.True(builder.TryBuild(document.Drawing, glyphs, extent, ref frame));
+        Assert.Equal(version, document.Drawing.Version);
+        Assert.Equal(2, builder.Tessellations);
+
+        // And the fringe, which is a separate property and was separately missing.
+        builder.Fringe = 0.25f;
+
+        Assert.True(builder.TryBuild(document.Drawing, glyphs, extent, ref frame));
+        Assert.Equal(3, builder.Tessellations);
+
+        // ⚠ A change and not a touch, for `Adopt`'s reason: a host that hands over the same numbers
+        // every frame must not cost a rebuild every frame.
+        builder.Tolerance = 0.1f;
+        builder.Fringe = 0.25f;
+
+        Assert.False(builder.TryBuild(document.Drawing, glyphs, extent, ref frame));
+        Assert.Equal(3, builder.Tessellations);
+    }
 }

@@ -1075,6 +1075,8 @@ Vixen.Ui.Rendering.UiGeometry -> readonly struct
 Vixen.Ui.Rendering.UiGeometry : System.IEquatable<Vixen.Ui.Rendering.UiGeometry>
 Vixen.Ui.Rendering.UiGeometry.Draws.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiDraw>
 Vixen.Ui.Rendering.UiGeometry.Draws.init -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiDraw>
+Vixen.Ui.Rendering.UiGeometry.Generation.get -> int
+Vixen.Ui.Rendering.UiGeometry.Generation.init -> int
 Vixen.Ui.Rendering.UiGeometry.Indices.get -> System.Collections.Generic.IReadOnlyList<uint>
 Vixen.Ui.Rendering.UiGeometry.Indices.init -> System.Collections.Generic.IReadOnlyList<uint>
 Vixen.Ui.Rendering.UiGeometry.Layers.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiLayer>
