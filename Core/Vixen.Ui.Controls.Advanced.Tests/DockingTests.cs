@@ -737,7 +737,9 @@ public class DockingTests {
         Assert.True((tabs[1].State & ElementState.Checked) != 0);
     }
 
-    /// <summary>The standard shape — a 20 % browser, a centre, a 26 % inspector, a console under the centre.</summary>
+    /// <summary>
+    ///     The standard shape — a 20 % browser, a centre, a 26 % inspector, a console under the centre.
+    /// </summary>
     /// <remarks>
     ///     Built by hand rather than through <c>LayoutPresets.Standard</c>, which lives in the editor
     ///     assembly this project cannot see; the ratios are its, so the answer is the editor's.
@@ -801,7 +803,10 @@ public class DockingTests {
 
         // And it is the biggest box on screen, which is the whole point.
         var group = host.Groups.Single(view => ReferenceEquals(view.Node, placed.Value.Group));
-        Assert.All(host.Groups, view => Assert.True(view.Width * view.Height <= group.Width * group.Height + Tolerance));
+        Assert.All(
+            host.Groups,
+            view => Assert.True(view.Width * view.Height <= group.Width * group.Height + Tolerance)
+        );
     }
 
     /// <summary>Area, not width: a tall narrow column loses to a short wide one only if it is smaller.</summary>

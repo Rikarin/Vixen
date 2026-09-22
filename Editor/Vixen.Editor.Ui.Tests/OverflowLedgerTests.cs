@@ -112,7 +112,9 @@ public class OverflowLedgerTests {
         Assert.Equal(["a-list", "b-list", "c-list, d-list"], ScrollingSelectors(sheet));
     }
 
-    /// <summary>The selectors of every rule in a sheet whose block declares <c>overflow[-x|-y]: auto|scroll</c>.</summary>
+    /// <summary>
+    ///     The selectors of every rule in a sheet whose block declares <c>overflow[-x|-y]: auto|scroll</c>.
+    /// </summary>
     static List<string> ScrollingSelectors(string css) {
         // Comments first, so that prose about the property is not counted as a rule declaring it.
         var text = Regex.Replace(css, @"/\*.*?\*/", string.Empty, RegexOptions.Singleline);

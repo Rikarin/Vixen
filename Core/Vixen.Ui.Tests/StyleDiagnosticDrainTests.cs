@@ -771,7 +771,7 @@ public class StyleDiagnosticDrainTests {
         var warnings = Warnings(sink);
 
         Assert.Equal(2, warnings.Count);
-        Assert.Contains(warnings, warning => warning.Message.Contains("'console-detail'", StringComparison.Ordinal));
-        Assert.Contains(warnings, warning => warning.Message.Contains("'message-log-detail'", StringComparison.Ordinal));
+        Assert.Contains(warnings, one => one.Message.Contains("'console-detail'", StringComparison.Ordinal));
+        Assert.Contains(warnings, one => one.Message.Contains("'message-log-detail'", StringComparison.Ordinal));
     }
 }
