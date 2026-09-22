@@ -223,7 +223,7 @@ public sealed partial class UiDocument {
         var scroll = Styles.Values.Intern("scroll");
         string? declared = null;
 
-        foreach (var name in (ReadOnlySpan<string>) ["overflow", "overflow-x", "overflow-y"]) {
+        foreach (var name in (ReadOnlySpan<string>)["overflow", "overflow-x", "overflow-y"]) {
             if (style.TryGet(Styles.Properties.Intern(name), out var value) && (value == auto || value == scroll)) {
                 var text = $"{name}: {Styles.Values.NameOf(value)}";
                 declared = declared is null ? text : $"{declared}; {text}";

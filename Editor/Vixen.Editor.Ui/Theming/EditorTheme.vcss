@@ -1623,8 +1623,13 @@ choice-scroller {
     min-width: 420px;
     max-height: 320px;
     /* ⚠ A `ScrollView` under its own tag gets none of the `scroll-view` user-agent rule, and
-       that rule is where a scroll view's clip and its bars' anchor live. Without these two the
-       rows scrolled past the top drew over the dialog's title. */
+       that rule is where a scroll view's clip, its bars' anchor and its direction live.
+       Without the first two the rows scrolled past the top drew over the dialog's title.
+       All three of ControlTheme's declarations are restated, not the two that were visibly
+       missing: the port has a single `scroll-content` child carrying its own column
+       direction, so the third is invisible today — and a rule that copies a user-agent rule
+       in part is a rule the next child added underneath it will break silently. */
+    flex-direction: column;
     overflow: hidden;
     position: relative;
 }

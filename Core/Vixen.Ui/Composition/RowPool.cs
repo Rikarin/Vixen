@@ -15,7 +15,7 @@ namespace Vixen.Ui.Composition;
 ///         <a href="https://github.com/Rikarin/Vixen/issues/758">#758</a> is about.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Three members, and the shape of them is the whole argument for why a pooled list is
+///         ⚠ <b>Four members, and the shape of them is the whole argument for why a pooled list is
 ///         not a <c>@for</c>.</b> A loop is told a sequence and keys; this is told a <i>count</i>,
 ///         asked for slots when it runs short of them, and then tells a slot which index it is
 ///         showing now. A slot is not an identity — the pool only ever grows, and a row that was
@@ -24,17 +24,30 @@ namespace Vixen.Ui.Composition;
 ///         than once per item.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is the control's own contract restated, not a new one.</b> The two properties are
-///         the delegates the controls already had, with the control's own type taken out of
+///         ⚠ <b>It is the control's own contract restated, not a new one.</b> The two delegates are
+///         the ones the controls already had, with the control's own type taken out of
 ///         <c>CreateRow</c> so that this assembly can name it; <see cref="RowHost" /> is what
 ///         <c>CreateRow</c> used to reach through the panel to get at. Nothing about how a row is
 ///         measured, parked or positioned is here, because none of it is composition's business.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two implementations, and their own names for the same three things differ.</b>
+///         ⚠ <b>Two implementations, and their own names for the same members differ.</b>
 ///         <c>VirtualizingPanel</c> calls a slot a row and <c>VirtualizingGrid</c> calls it a tile,
 ///         so both implement this explicitly rather than renaming what every caller already uses —
 ///         and one <c>BuildContext.Pool</c> fills either, which is the whole of what the seam buys.
+///     </para>
+///     <para>
+///         ⚠ <b>Shipped ahead of its callers, deliberately and not by oversight.</b> Nothing in the
+///         engine or the editor fills a virtualizing control through this seam today: every
+///         production list that virtualizes is a <c>Control</c> that sets <c>CreateRow</c> and
+///         <c>BindRow</c> in C# — <c>ConsoleView</c> at <c>ConsoleView.cs:206</c> and
+///         <c>MessageLogView</c> at <c>MessageLogView.cs:140</c> — and <i>no</i> production
+///         <c>.vxml</c> names <c>VirtualizingPanel</c> or <c>VirtualizingGrid</c> at all, so there
+///         is no build region for a <c>Pool</c> call to sit in yet. Porting those two views is what
+///         #758 still owes; until it lands, the only callers are
+///         <c>Vixen.Ui.Controls.Tests</c>. Recorded here rather than left to a grep, because "a
+///         finished thing nothing calls" is this repository's commonest defect and a reader is owed
+///         the reason before they conclude the seam is dead.
 ///     </para>
 /// </remarks>
 public interface IRowPool {

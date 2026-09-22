@@ -833,7 +833,7 @@ public class DockingTests {
 
         // Tip the ratio the other way and the wide bottom piece (0.55 × 0.7 = 0.385) beats a
         // 0.35 column.
-        ((DockSplitNode) layout.Root).Ratio = 0.35f;
+        ((DockSplitNode)layout.Root).Ratio = 0.35f;
         Assert.Equal("bottom", Assert.Single(layout.LargestGroup()!.Panels));
     }
 

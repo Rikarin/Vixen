@@ -433,6 +433,80 @@ public class DialogTests : IDisposable {
         Assert.True(await answer);
     }
 
+    /// <summary>Return from a body control that does not want it still presses the default button.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The test above cannot see the key-equivalent mechanism at all.</b> The new focus
+    ///         rule puts the focus on the default button in a confirm sheet, so Enter there is that
+    ///         button's ordinary route handling — disabling <see cref="UiDocument.InvokeKeyEquivalent" />
+    ///         in the key route entirely leaves every other case in this class green. This is the one
+    ///         that asks the question #666 is about: the focus is somewhere else, the route declines
+    ///         the press, and the default button must still hear it.
+    ///     </para>
+    ///     <para>
+    ///         A plain focusable element rather than a <c>TextBox</c>, because a text field commits
+    ///         from its own <c>Submitted</c> and would answer without the fallback — which is the
+    ///         same way the confirm sheet hid the gap. What is wanted here is a focus holder that
+    ///         declines Return, so the only path left to the answer is the equivalent.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task Return_from_a_body_control_that_declines_it_reaches_the_default_button() {
+        UiElement? holder = null;
+
+        var answer = dialogs.ShowAsync<bool>(
+            "Ship it?",
+            session => {
+                holder = session.Body.Add("dialog-message");
+                holder.Focusable = true;
+
+                session.AddButton("Cancel", () => false);
+                session.AddButton("OK", () => true, ControlVariant.Primary);
+            },
+            () => false
+        );
+
+        dialogs.Pump();
+        document.Update();
+
+        document.Focus(holder!);
+        Assert.Same(holder, document.Focused);
+
+        var press = new KeyEvent { Key = InputKey.Enter, Action = KeyAction.Pressed };
+        document.Dispatch(press);
+
+        Assert.True(press.Handled, "nothing on the route wanted Return, so the default button did");
+
+        // And a key equivalent does not take the focus, the way a click on the button would not.
+        Assert.Same(holder, document.Focused);
+
+        dialogs.Pump();
+
+        Assert.True(answer.IsCompletedSuccessfully);
+        Assert.True(await answer);
+    }
+
+    /// <summary>A dialog with a field opens with the field focused, not with a footer button.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The first clause of <c>Dialog.OnOpened</c>'s preference had nothing behind it.</b>
+    ///     The confirm sheet the other focus assertion uses has an empty body, so the second clause
+    ///     (the default button) answers for it and neutering the body-first rule left all of these
+    ///     green — a prompt whose field stopped being focused on open, where the user types and
+    ///     nothing happens, would have passed the suite. <c>PromptAsync</c> is the case the rule was
+    ///     written for: a dialog with a field is a dialog about that field.
+    /// </remarks>
+    [Fact]
+    public void A_prompt_opens_with_its_field_focused_rather_than_a_button() {
+        _ = dialogs.PromptAsync("Rename", initial: "walk");
+        dialogs.Pump();
+        document.Update();
+
+        var field = Find<TextBox>(dialogs.Current!.Body);
+
+        Assert.NotNull(field);
+        Assert.Same(field, document.Focused);
+    }
+
     static void Press(Dialog dialog, string label) => Button(dialog, label).Activate();
 
     static Button Button(Dialog dialog, string label) =>

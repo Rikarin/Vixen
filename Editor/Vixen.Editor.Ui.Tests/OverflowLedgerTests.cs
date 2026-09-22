@@ -35,6 +35,14 @@ namespace Vixen.Editor.Ui.Tests;
 ///         write for them under their own — so a sweep for <c>auto|scroll</c> passes them by
 ///         without needing to know what they are.
 ///     </para>
+///     <para>
+///         ⚠ <b>A rule block is not the only way to write the declaration.</b>
+///         <c>overflow-y-auto</c> is a registered utility class, so the same defect can be spelt on
+///         the element and a sweep of the sheets alone would never see it — which is what
+///         <c>No_production_source_asks_for_a_scroll_with_a_utility_class_either</c> is for. It
+///         reads <c>.vxml</c> as well as <c>.cs</c>, because a <c>class=</c> attribute is where such
+///         a class would be written.
+///     </para>
 /// </remarks>
 public class OverflowLedgerTests {
     /// <summary>The rules still to convert, as <c>file:selector</c>.</summary>
@@ -112,6 +120,64 @@ public class OverflowLedgerTests {
         Assert.Equal(["a-list", "b-list", "c-list, d-list"], ScrollingSelectors(sheet));
     }
 
+    /// <summary>The same defect spelt as a utility class, which a sweep of the sheets cannot see.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>overflow-y-auto</c> is a real class here and produces the identical
+    ///         unreachable tail.</b> The utility families register all five keywords on all three
+    ///         properties (<c>UtilityFamilies.cs:2648</c>), so
+    ///         <c>class="overflow-y-auto"</c> on a panel asks for exactly what the sixteen ledger
+    ///         rules ask for — and the ledger above, which parses <c>.vcss</c> rule blocks, would
+    ///         stay green while the box clipped. Only the run-time 7009 line would say so.
+    ///     </para>
+    ///     <para>
+    ///         Nothing uses one today, so this is a hole being closed rather than a defect being
+    ///         found, and the expected answer is <i>nothing</i> rather than a ledger. ⚠ And it reads
+    ///         <c>.vxml</c> as well as <c>.cs</c>: a view's <c>class=</c> attribute is where such a
+    ///         class would actually be written, and a sweep that read only <c>.cs</c> would report a
+    ///         clean tree whatever the markup said.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void No_production_source_asks_for_a_scroll_with_a_utility_class_either() {
+        var root = RepositoryRoot();
+        var found = new List<string>();
+
+        foreach (var source in Sources(root)) {
+            foreach (var name in ScrollingClasses(File.ReadAllText(source))) {
+                found.Add($"{Path.GetRelativePath(root, source).Replace('\\', '/')}:{name}");
+            }
+        }
+
+        Assert.True(
+            found.Count == 0,
+            "These utility classes ask a plain box to scroll, and in this UI that clips and never "
+            + "scrolls — the same defect as the rules above, spelt on the element. Put a ScrollView "
+            + "there (see Rikarin/Vixen#1275):\n  "
+            + string.Join("\n  ", found.Order(StringComparer.Ordinal))
+        );
+    }
+
+    /// <summary>The instrument for the class sweep, over a source whose answer is known.</summary>
+    [Fact]
+    public void The_class_sweep_reads_markup_and_code_and_passes_prose_about_the_class_by() {
+        const string markup = """
+            <!-- a comment mentioning overflow-y-auto is not a use of it -->
+            <Panel class="gap-2 overflow-y-auto rounded" />
+            <Panel class="overflow-hidden" />
+            """;
+
+        const string code = """
+            // and neither is overflow-x-scroll in a line comment
+            /* nor overflow-auto in a block one */
+            list.AddClass("overflow-scroll");
+            list.AddClass("overflow-clip");
+            """;
+
+        Assert.Equal(["overflow-y-auto"], ScrollingClasses(markup));
+        Assert.Equal(["overflow-scroll"], ScrollingClasses(code));
+    }
+
     /// <summary>
     ///     The selectors of every rule in a sheet whose block declares <c>overflow[-x|-y]: auto|scroll</c>.
     /// </summary>
@@ -132,8 +198,33 @@ public class OverflowLedgerTests {
         return found;
     }
 
+    /// <summary>Every scrolling utility class named in a source file, once each.</summary>
+    /// <remarks>
+    ///     Comments first, in all three spellings this tree writes them, so prose <i>about</i> the
+    ///     class is not read as a use of it: <c>UtilityFamilies.cs:2648</c> names
+    ///     <c>overflow-auto</c> while explaining what it used to be, and is the only place in
+    ///     production that says the word at all.
+    /// </remarks>
+    static List<string> ScrollingClasses(string source) {
+        var text = Regex.Replace(source, @"/\*.*?\*/|<!--.*?-->", string.Empty, RegexOptions.Singleline);
+        text = Regex.Replace(text, @"//[^\r\n]*", string.Empty);
+
+        return Regex
+            .Matches(text, @"(?<![\w-])overflow(?:-[xy])?-(?:auto|scroll)(?![\w-])")
+            .Select(match => match.Value)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+    }
+
     /// <summary>Every production stylesheet: the tree minus tests, build output and samples' data.</summary>
-    static IEnumerable<string> Sheets(string root) {
+    static IEnumerable<string> Sheets(string root) => Production(root, "*.vcss");
+
+    /// <summary>Every production source file a class can be written in — ⚠ <c>.vxml</c> as well as <c>.cs</c>.</summary>
+    static IEnumerable<string> Sources(string root) =>
+        Production(root, "*.cs").Concat(Production(root, "*.vxml"));
+
+    static IEnumerable<string> Production(string root, string pattern) {
         foreach (var top in new[] { "Core", "Editor", "Samples", "Tools" }) {
             var directory = Path.Combine(root, top);
 
@@ -141,8 +232,8 @@ public class OverflowLedgerTests {
                 continue;
             }
 
-            foreach (var sheet in Directory.EnumerateFiles(directory, "*.vcss", SearchOption.AllDirectories)) {
-                var relative = Path.GetRelativePath(root, sheet).Replace('\\', '/');
+            foreach (var file in Directory.EnumerateFiles(directory, pattern, SearchOption.AllDirectories)) {
+                var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
 
                 if (relative.Contains("/bin/", StringComparison.Ordinal)
                     || relative.Contains("/obj/", StringComparison.Ordinal)
@@ -150,7 +241,7 @@ public class OverflowLedgerTests {
                     continue;
                 }
 
-                yield return sheet;
+                yield return file;
             }
         }
     }
