@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -114,6 +115,18 @@ public class DeferredTests {
     ///     green.</b> The spin below is bounded because an unbounded one hangs the suite rather than
     ///     failing it; the bound is a hang check and not a budget, and the assertion is that the
     ///     answer arrived at all rather than that it arrived quickly.
+    ///     <para>
+    ///         ⚠ <b>It was a budget, and it read as a count.</b> A million <see cref="Deferred.Pump" />
+    ///         calls over an empty queue is a few milliseconds of one core that never yields it, and
+    ///         <see cref="Deferred.When" /> hands its continuation to
+    ///         <see cref="TaskScheduler.Default" /> — so on a runner whose thread pool is saturated,
+    ///         which CI's is by construction, the loop can run out before the pool ever schedules
+    ///         the continuation. <c>Expected: 7, Actual: 0</c> on <c>test-windows-latest</c>,
+    ///         2026-09-22, on a commit that touched none of this. The ceiling is wall clock now
+    ///         <em>because it is a hang check</em> — thirty seconds is absurd for a thread-pool
+    ///         hand-off and would be reached only by a queue that never receives the answer — and
+    ///         each turn yields, so the thread that has the answer can run.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_call_that_answers_later_still_reaches_the_frame_thread() {
@@ -128,10 +141,21 @@ public class DeferredTests {
 
         source.SetResult(7);
 
-        for (var spin = 0; spin < 1_000_000 && seen == 0; spin++) {
+        var hung = Stopwatch.StartNew();
+
+        while (seen == 0 && hung.Elapsed < TimeSpan.FromSeconds(30)) {
             deferred.Pump();
+
+            // ⚠ The yield is the fix, not the ceiling. A spin that keeps its core cannot be
+            // overtaken by the pool thread carrying the answer on a machine that has no spare one.
+            Thread.Yield();
         }
 
-        Assert.Equal(7, seen);
+        Assert.True(
+            seen == 7,
+            $"the answer never reached the frame thread: seen is {seen} after {hung.Elapsed.TotalSeconds:F1}s "
+            + "of pumping. `Deferred.When` posts from a thread-pool continuation, so this is a queue "
+            + "that never received it rather than a hand-off that was slow."
+        );
     }
 }
