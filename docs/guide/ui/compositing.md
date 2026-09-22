@@ -771,6 +771,17 @@ is the picture: white is `multiply`'s identity, so a white panel over a wall at 
 it at 100, and it read 1 before. **The device path inherits this convention rather than choosing its
 own** — it is the divisor the fragment stage transcribes.
 
+⚠ **The sixteen functions have an oracle now, and it is what the two transcriptions have to agree
+with.** `Core/Vixen.Ui.Tests/UiBlendTests.cs` holds `UiBlend.Blend` to § 5.1's and § 5.3's own
+arithmetic on two operand triples chosen so that no two modes agree on either — and to the four
+cases a table of general values never reaches: `color-dodge`'s and `color-burn`'s three-case order,
+`soft-light`'s knee (the cubic below a quarter, not the root), `ClipColor` pulling towards the luma
+rather than towards the cube, and `SetSat` on a grey. ⚠ **Nine of the sixteen were covered by
+nothing before it**: with `soft-light` transcribed as the square root everywhere, all twenty-eight
+`MixBlendMode*` tests stay green. Whoever writes `ui-blend.frag` and `Ui.rvn`'s stage should compare
+against those numbers and not against the C# the transcription was read from, which is the parity
+trap this repository already names.
+
 ⚠ **`UiRenderer` does not implement it, and says so — and the reason it used to give was refuted by
 the paragraph below it.** "The device has no read of the attachment the UI pass is writing" is true
 and is not why: § 5.1 asks for no such read. What is actually missing is a composite pipeline variant
