@@ -95,16 +95,16 @@ partial class Build {
     ///     This checkout's own <c>.claude/</c>, with a separator, so a prefix test cannot match a
     ///     sibling directory whose name merely starts the same way.
     /// </summary>
-    string ClaudeDirectory => (RootDirectory / ".claude").ToString() + "/";
+    string ClaudeDirectory => Slashed(RootDirectory / ".claude") + "/";
 
     Target CheckStrings => definition => definition
         .Description("Fails if a declared string id is used nowhere, if a call site repeats an id a declaration class already declares, if a shipping call site builds one no class declares, or if it builds one out of a run-time value")
         .Executes(() => {
                 var sources = RootDirectory
                     .GlobFiles("**/*.cs", "**/*.vxml")
-                    .Where(path => !path.ToString().Contains("/bin/", StringComparison.Ordinal))
-                    .Where(path => !path.ToString().Contains("/obj/", StringComparison.Ordinal))
-                    .Where(path => !path.ToString().Contains("/artifacts/", StringComparison.Ordinal))
+                    .Where(path => !Slashed(path).Contains("/bin/", StringComparison.Ordinal))
+                    .Where(path => !Slashed(path).Contains("/obj/", StringComparison.Ordinal))
+                    .Where(path => !Slashed(path).Contains("/artifacts/", StringComparison.Ordinal))
 
                     // ⚠ Other checkouts of this same repository, and ONLY the other ones. A git
                     // worktree lives under .claude/worktrees/ and holds a full copy of the tree at
@@ -126,7 +126,7 @@ partial class Build {
                     // is what made it a broken gate rather than a silent one: with no sources the
                     // census finds no declarations and no call sites, and CheckStrings would report
                     // Succeeded having read nothing.
-                    .Where(path => !path.ToString().StartsWith(ClaudeDirectory, StringComparison.Ordinal))
+                    .Where(path => !Slashed(path).StartsWith(ClaudeDirectory, StringComparison.Ordinal))
 
                     // ⚠ The analyzer's own tests, whose C# is *data*: every fixture is a declaration
                     // class inside a raw string literal, written to be reported on. Reading them as
@@ -134,7 +134,7 @@ partial class Build {
                     // property works. Excluded by name and with a reason, the way CheckArchitecture
                     // excludes Tools/Vixen.Templates/templates/ — which is not this repository's code
                     // either.
-                    .Where(path => !path.ToString().Contains("/Vixen.Ui.Generators.Tests/", StringComparison.Ordinal))
+                    .Where(path => !Slashed(path).Contains("/Vixen.Ui.Generators.Tests/", StringComparison.Ordinal))
 
                     // ⚠ And the census's own fixtures, for the same reason one gate along. They are
                     // the pre-migration text of the sites this gate exists to catch — a real id, a
@@ -142,7 +142,7 @@ partial class Build {
                     // them as source makes the gate fail on the tests that prove it fires. Verbatim
                     // rather than reduced is deliberate: a reduction is a claim about what the
                     // defect looked like (`SplicedShaderFixture` says the same thing next door).
-                    .Where(path => !path.ToString().EndsWith("Vixen.ApiCheck.Tests/StringIdCensusTests.cs", StringComparison.Ordinal))
+                    .Where(path => !Slashed(path).EndsWith("Vixen.ApiCheck.Tests/StringIdCensusTests.cs", StringComparison.Ordinal))
                     .ToList();
 
                 Assert.True(sources.Count > 0, "Found no sources to check — the glob is wrong.");
@@ -351,7 +351,7 @@ partial class Build {
         var undeclared = new SortedDictionary<string, string>(StringComparer.Ordinal);
 
         foreach (var (path, contents) in text) {
-            if (path.ToString().Contains(".Tests/", StringComparison.Ordinal)) {
+            if (Slashed(path).Contains(".Tests/", StringComparison.Ordinal)) {
                 continue;
             }
 
@@ -482,14 +482,14 @@ partial class Build {
         var built = new SortedSet<string>(StringComparer.Ordinal);
 
         foreach (var (path, contents) in text) {
-            if (path.ToString().Contains(".Tests/", StringComparison.Ordinal)
-                || path.ToString().Contains("/Vixen.Templates/templates/", StringComparison.Ordinal)
+            if (Slashed(path).Contains(".Tests/", StringComparison.Ordinal)
+                || Slashed(path).Contains("/Vixen.Templates/templates/", StringComparison.Ordinal)
 
                 // ⚠ The one file that is *supposed* to build an id out of a run-time value: turning a
                 // prefix and a key into a StringId is what a family is. Excluded by name and with a
                 // reason rather than by widening the shape test, because the shape test is what
                 // recognises a declaration class and StringFamily is not one.
-                || path.ToString().EndsWith("Core/Vixen.Ui/StringFamily.cs", StringComparison.Ordinal)
+                || Slashed(path).EndsWith("Core/Vixen.Ui/StringFamily.cs", StringComparison.Ordinal)
                 || AllListPattern.IsMatch(contents)) {
                 continue;
             }

@@ -177,8 +177,8 @@ partial class Build {
                 "Editor/Vixen.Editor.Plugin/*.csproj",
                 "Raven/Vixen.Raven/*.csproj"
             )
-            .Where(path => !path.ToString().Contains("/bin/", StringComparison.Ordinal))
-            .Where(path => !path.ToString().Contains("/obj/", StringComparison.Ordinal))
+            .Where(path => !Slashed(path).Contains("/bin/", StringComparison.Ordinal))
+            .Where(path => !Slashed(path).Contains("/obj/", StringComparison.Ordinal))
             .Where(path => !path.NameWithoutExtension.EndsWith(".Tests", StringComparison.Ordinal))
             .Where(path => !path.NameWithoutExtension.EndsWith(".Generator", StringComparison.Ordinal))
             .Where(path => !path.NameWithoutExtension.EndsWith(".Generators", StringComparison.Ordinal))

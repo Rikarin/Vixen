@@ -92,7 +92,7 @@ partial class Build {
         var exemptions = PublicApiTypeNames.ExemptedIds((RootDirectory / "docs" / "DocsExempt.txt").ReadAllLines());
 
         var pages = TrackedFiles()
-            .Where(path => path.Extension == ".md" && path.ToString().Contains("/docs/", StringComparison.Ordinal))
+            .Where(path => path.Extension == ".md" && Slashed(path).Contains("/docs/", StringComparison.Ordinal))
             .SelectMany(page => PublicApiTypeNames.PageIds(page.ReadAllLines()));
 
         return exemptions.Concat(pages).ToHashSet(StringComparer.Ordinal);

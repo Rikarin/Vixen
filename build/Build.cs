@@ -853,6 +853,18 @@ partial class Build : NukeBuild {
         return [.. output.Select(line => RootDirectory / line.Text.Trim()).Where(path => path.FileExists())];
     }
 
+    /// <summary>A path with every separator a forward slash, for the substring tests below.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="AbsolutePath" /> prints the operating system's separator, and every
+    ///     exclusion in this build is written with the other one.</b> On Windows
+    ///     <c>path.ToString().Contains("/bin/")</c> is false for every file under <c>bin</c>, so
+    ///     <c>CheckStrings</c> read <c>obj/</c>, the sibling worktrees and its own fixtures and
+    ///     reported 66 violations on a clean tree, and <c>CheckAttribution</c> and <c>CheckApi</c>
+    ///     carried the same test. The two <c>*Rule</c> files already normalise; this is the same
+    ///     line for the targets that glob through Nuke.
+    /// </remarks>
+    static string Slashed(AbsolutePath path) => path.ToString().Replace('\\', '/');
+
     /// <summary>Whether a globbed path is one this repository is entitled to put its name on.</summary>
     /// <remarks>
     ///     <para>
@@ -877,7 +889,7 @@ partial class Build : NukeBuild {
     ///     </para>
     /// </remarks>
     static bool IsExcludedFromLicenceHeaders(AbsolutePath path) {
-        var text = path.ToString();
+        var text = Slashed(path);
 
         return text.Contains("/bin/", StringComparison.Ordinal)
             || text.Contains("/obj/", StringComparison.Ordinal)
