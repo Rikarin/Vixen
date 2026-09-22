@@ -135,7 +135,20 @@ partial class Build {
             || relative.StartsWith("artifacts/", StringComparison.Ordinal)
             // The site is TypeScript and its own build; no .csproj owns a line of it, so without
             // this any change under www/ makes `--since` refuse rather than narrow.
-            || relative.StartsWith("www/", StringComparison.Ordinal);
+            || relative.StartsWith("www/", StringComparison.Ordinal)
+            // ⚠ An area README documents a top-level directory rather than anything in it, and no
+            // .csproj sits beside it to be walked up to — `Raven/README.md`, and `Core/README.md`
+            // and `Platform/README.md` the same way. The repository-root `README.md` is already
+            // covered by the no-slash clause at the top, so only the sibling case was missing, and
+            // it made `--since` refuse outright: a batch that touched an area README could not use
+            // the narrowing targets at all. CLAUDE.md calls these READMEs "the best entry point
+            // into an unfamiliar area", so they are edited often and compile into nothing.
+            //
+            // Kept as narrow as the others: exactly one slash, and exactly that name. A README
+            // deeper in the tree still belongs to the project above it, which is where the
+            // per-module READMEs the convention actually cares about live.
+            || (relative.EndsWith("/README.md", StringComparison.Ordinal)
+                && relative.Count(character => character == '/') == 1);
     }
 
     /// <summary>
