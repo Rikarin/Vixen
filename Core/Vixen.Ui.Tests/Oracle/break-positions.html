@@ -1,0 +1,106 @@
+<!doctype html>
+<!--
+SPDX-FileCopyrightText: Copyright (c) Rikarin
+SPDX-License-Identifier: Apache-2.0
+
+The fixture ChromeBreakPositionTests and WhiteSpaceBreakSpacesTests were recorded against.
+Not run by any test: it is here so a reading can be re-taken rather than trusted.
+
+    cp ../../../Editor/Vixen.Editor.App/Fonts/OpenSans-Regular.ttf .
+    py -3 -m http.server 8765 --bind 127.0.0.1
+
+then open http://127.0.0.1:8765/break-positions.html and read `window.__result`, or call
+`lines(text, width, whiteSpace)` and `measure(text)` from the console. A file:// URL will not do:
+the @font-face fetch and getClientRects both want an origin.
+
+⚠ The face must be the one Vixen.Ui.Tests embeds, or the readings measure shaping rather than
+breaking. Chrome 152.0.7977.76 shapes it to this engine's advances to three decimals — `ab cd` is
+40.297 against 40.29 — which is what makes a disagreement a breaking disagreement.
+-->
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: "OS"; src: url("OpenSans-Regular.ttf"); }
+body { margin: 0; }
+.t { font-family: "OS"; font-size: 16px; line-height: 20px; }
+#m { display: inline-block; white-space: pre; }
+</style></head>
+<body>
+<div id="out"></div>
+<script>
+// The advance of a string, shaped as one unbreakable run.
+function measure(text) {
+  const m = document.createElement('span'); m.id = 'm'; m.className = 't'; m.style.whiteSpace = 'pre'; m.textContent = text;
+  document.body.appendChild(m); const w = m.getBoundingClientRect().width; m.remove(); return w;
+}
+
+// Every line of `text` in a block `width` wide: where it starts, how wide its glyphs are, and the
+// block's own intrinsic width. Read per character through Range.getClientRects and grouped by the
+// rect's top, because a line box has no DOM node of its own.
+function lines(text, width, ws) {
+  const d = document.createElement('div'); d.className = 't'; d.style.width = width + 'px'; d.style.whiteSpace = ws; d.textContent = text;
+  document.body.appendChild(d);
+  const node = d.firstChild; const r = document.createRange(); const rows = [];
+  for (let i = 0; i < text.length; i++) {
+    r.setStart(node, i); r.setEnd(node, i + 1);
+    const rects = r.getClientRects(); if (!rects.length) continue;
+    const rc = rects[0]; const top = Math.round(rc.top - d.getBoundingClientRect().top);
+    let row = rows.find(x => x.top === top);
+    if (!row) { row = { top, start: i, end: i + 1, left: rc.left, right: rc.right }; rows.push(row); }
+    row.end = i + 1; row.left = Math.min(row.left, rc.left); row.right = Math.max(row.right, rc.right);
+  }
+  const base = d.getBoundingClientRect().left;
+  const res = rows.map(x => ({ start: x.start, end: x.end, text: text.slice(x.start, x.end), width: +(x.right - x.left).toFixed(3), left: +(x.left - base).toFixed(3) }));
+  const mc = document.createElement('div'); mc.className = 't'; mc.style.width = 'max-content'; mc.style.whiteSpace = ws; mc.textContent = text;
+  document.body.appendChild(mc); const intrinsic = +mc.getBoundingClientRect().width.toFixed(3); mc.remove();
+  d.remove();
+  return { text, width, ws, intrinsic, rows: res };
+}
+
+// The paragraphs ChromeBreakPositionTests holds, and the four widths.
+const PARAGRAPHS = [
+  "the quick brown fox jumps over the lazy dog",
+  "well-known state-of-the-art hyphen-ated words wrap here",
+  "Zeilenumbruch mit längeren Wörtern und Umlauten ähnlich",
+  "a/b c/d paths/like/this and (parenthesised) text, punctuation; more.",
+  "one   two  three    four   ",
+  "email me@example.com or visit https://example.org/path?q=1 today",
+  "numbers 1,000.50 and 3-4 and 12/25 and 5% off"
+];
+const WIDTHS = [60, 100, 150, 220];
+
+document.fonts.load('16px "OS"').then(() => {
+  const measures = {};
+  for (const t of ['ab', 'ab ', 'ab  ', 'ab cd', 'ab cd ', 'ab cd  ', 'a ', 'a  ']) measures[t] = measure(t);
+
+  const breaks = [];
+  for (const t of PARAGRAPHS) for (const w of WIDTHS) {
+    const r = lines(t, w, 'pre-wrap');
+    breaks.push({ text: t, width: w, starts: r.rows.map(x => x.start), widths: r.rows.map(x => x.width) });
+  }
+
+  // WhiteSpaceBreakSpacesTests' pairs: the same text and width, one value apart.
+  const mid = (measures['a '] + measures['a  ']) / 2;
+  const pairs = [
+    lines('ab cd  ef', 44, 'pre-wrap'), lines('ab cd  ef', 44, 'break-spaces'), lines('ab cd  ef', 39, 'pre-wrap'),
+    lines('a  b', mid, 'pre-wrap'), lines('a  b', mid, 'break-spaces'),
+    lines('ab  ', 800, 'pre-wrap'), lines('ab  ', 800, 'break-spaces'), lines('ab \ncd', 800, 'break-spaces')
+  ];
+
+  // #1318's table: Chrome's intrinsic widths are not one number.
+  const intrinsics = {};
+  for (const ws of ['pre-wrap', 'break-spaces', 'pre', 'normal']) {
+    intrinsics[ws] = {};
+    for (const [name, style] of Object.entries({
+      maxContent: { width: 'max-content' }, minContent: { width: 'min-content' },
+      inlineBlock: { display: 'inline-block' }, floatLeft: { float: 'left' }, absolute: { position: 'absolute' }
+    })) {
+      const d = document.createElement('div'); d.className = 't'; d.style.whiteSpace = ws; Object.assign(d.style, style); d.textContent = 'ab  ';
+      document.body.appendChild(d); intrinsics[ws][name] = +d.getBoundingClientRect().width.toFixed(3); d.remove();
+    }
+  }
+
+  window.__result = { userAgent: navigator.userAgent, measures, breaks, pairs, intrinsics };
+  document.getElementById('out').textContent = JSON.stringify(window.__result, null, 1);
+});
+</script>
+</body></html>
