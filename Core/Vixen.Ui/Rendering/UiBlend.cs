@@ -207,6 +207,15 @@ public static class UiBlend {
     /// <param name="cb">The backdrop colour.</param>
     /// <param name="cs">The source colour.</param>
     /// <returns>The blended colour, before § 5.1's weighting by the backdrop's alpha.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The function <a href="https://github.com/Rikarin/Vixen/issues/783">#783</a>
+    ///     transcribes into GLSL and into Raven, and <c>UiBlendTests</c> is what all three answer
+    ///     to.</b> Those numbers are § 5.1's and § 5.3's formulae evaluated independently rather
+    ///     than read off this switch, because a transcription checked against its own source is
+    ///     the parity trap this repository names. ⚠ Nine of the sixteen had no test at all until
+    ///     that file: with <see cref="Soft" />'s knee replaced by the square root everywhere, every
+    ///     <c>MixBlendMode*</c> fixture stays green.
+    /// </remarks>
     public static Vector3 Blend(UiBlendMode mode, Vector3 cb, Vector3 cs) =>
         mode switch {
             UiBlendMode.Multiply => cb * cs,

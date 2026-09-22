@@ -1089,6 +1089,8 @@ Vixen.Ui.Rendering.UiGeometry -> readonly struct
 Vixen.Ui.Rendering.UiGeometry : System.IEquatable<Vixen.Ui.Rendering.UiGeometry>
 Vixen.Ui.Rendering.UiGeometry.Draws.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiDraw>
 Vixen.Ui.Rendering.UiGeometry.Draws.init -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiDraw>
+Vixen.Ui.Rendering.UiGeometry.Generation.get -> int
+Vixen.Ui.Rendering.UiGeometry.Generation.init -> int
 Vixen.Ui.Rendering.UiGeometry.Indices.get -> System.Collections.Generic.IReadOnlyList<uint>
 Vixen.Ui.Rendering.UiGeometry.Indices.init -> System.Collections.Generic.IReadOnlyList<uint>
 Vixen.Ui.Rendering.UiGeometry.Layers.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiLayer>
@@ -1512,6 +1514,7 @@ Vixen.Ui.UiDiagnostics.BoxOf(Vixen.Ui.UiElement element) -> Vixen.Ui.UiBoxModel
 Vixen.Ui.UiDiagnostics.BrokenBindings.get -> int
 Vixen.Ui.UiDiagnostics.ContainerScopesEntered.get -> int
 Vixen.Ui.UiDiagnostics.DirtyRegions.get -> System.ReadOnlySpan<Vixen.Ui.UiDirtyRegion>
+Vixen.Ui.UiDiagnostics.DrawCommandsEmitted.get -> long
 Vixen.Ui.UiDiagnostics.DrawListsBuilt.get -> int
 Vixen.Ui.UiDiagnostics.DrawListsChanged.get -> int
 Vixen.Ui.UiDiagnostics.ElementsMoved.get -> int

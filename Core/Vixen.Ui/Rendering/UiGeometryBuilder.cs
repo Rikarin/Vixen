@@ -103,6 +103,14 @@ public sealed class UiGeometryBuilder {
     int frame;
     int layerNumber;
 
+    /// <summary>Where <see cref="UiGeometry.Generation" /> comes from: one counter for the process.</summary>
+    /// <remarks>
+    ///     ⚠ Process-wide and not per builder, for the reason on the property: a renderer keys its
+    ///     device-side copy on this by equality, and two builders each counting from one would make
+    ///     the second's first frame look like the first's.
+    /// </remarks>
+    static int generations;
+
     /// <summary>The icon cache, made over whichever atlas the frame's glyphs are in.</summary>
     /// <remarks>
     ///     ⚠ <b>Derived from the glyph cache rather than handed in, so that no caller changes.</b> The
@@ -194,7 +202,17 @@ public sealed class UiGeometryBuilder {
     ///     Settable rather than derived, because the builder is handed a viewport and not a scale,
     ///     and inventing one would be guessing.
     /// </remarks>
-    public float Tolerance { get; set; } = 0.2f;
+    public float Tolerance {
+        get;
+        set {
+            if (field.Equals(value)) {
+                return;
+            }
+
+            field = value;
+            flatteningMoved = true;
+        }
+    } = 0.2f;
 
     /// <summary>How far a path's antialiasing fringe reaches past its outline, in document pixels.</summary>
     /// <remarks>
@@ -204,7 +222,37 @@ public sealed class UiGeometryBuilder {
     ///     multisampling the pass should do: two antialiasing schemes over one edge do not make it
     ///     twice as smooth, they make a seam.
     /// </remarks>
-    public float Fringe { get; set; } = 0.5f;
+    public float Fringe {
+        get;
+        set {
+            if (field.Equals(value)) {
+                return;
+            }
+
+            field = value;
+            flatteningMoved = true;
+        }
+    } = 0.5f;
+
+    /// <summary>Whether <see cref="Tolerance" /> or <see cref="Fringe" /> has moved since the geometry was built.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The fifth part of <see cref="TryBuild" />'s key, and the one a DPI change reaches.</b>
+    ///     The extent a host keys on is in document pixels — <c>UiWindowSurface.Extent</c> divides the
+    ///     framebuffer by the scale — so a window carried from a 1× display to a 2× one keeps its
+    ///     extent, keeps its draw list, and keeps its geometry. That is right for the vertices, which
+    ///     are in document units and projected at record time; it is wrong for the two numbers that
+    ///     are spent <i>inside</i> them. The flattening error and the fringe are both baked into the
+    ///     triangles at build time, both documented as wanting to halve at twice the scale, and
+    ///     neither was in the key — so a host that did what their remarks ask would have set them
+    ///     and then drawn the geometry built for the old ones for as long as nothing else changed.
+    ///     ⚠ No host sets them today, which is why the hole was invisible: the key was complete only
+    ///     because nobody turned the knob — and that absence is its own defect, filed as
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1329">#1329</a>. Both hosts have the DPI
+    ///     scale at the call site and hand over the gamut beside it; until they hand these over too,
+    ///     a 2× display flattens curves at twice the error and draws a two-pixel antialiasing band.
+    ///     This part of the key is what makes doing so safe.
+    /// </remarks>
+    bool flatteningMoved;
 
     /// <summary>What the surface these vertices are for can show.</summary>
     /// <remarks>
@@ -365,7 +413,7 @@ public sealed class UiGeometryBuilder {
     /// <returns>Whether anything was rebuilt.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The key is four things and each of them has been the one that was missing.</b>
+    ///         ⚠ <b>The key is five things and each of them has been the one that was missing.</b>
     ///         The draw list's <c>Version</c> says the drawing changed; the extent says
     ///         a window was resized without its contents changing, which keeps the version and still
     ///         needs new vertices because the builder is what turns a command's clip into a scissor
@@ -376,7 +424,10 @@ public sealed class UiGeometryBuilder {
     ///         cache is shared. The fourth is the colour handover — see <c>handedOver</c> — which is
     ///         the one that arrives <i>late</i> rather than changing later: a host cannot hand over a
     ///         gamut it has not been granted yet, and the grant comes from a swapchain built after
-    ///         the first frame was already tessellated.
+    ///         the first frame was already tessellated. The fifth is the flattening — see
+    ///         <c>flatteningMoved</c> — which is what a DPI change reaches when the extent, being in
+    ///         document pixels, does not move: <see cref="Tolerance" /> and <see cref="Fringe" /> are
+    ///         spent inside the triangles and a builder told to halve them has to build again.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Here rather than in a host, and that is this method's whole reason for
@@ -396,7 +447,7 @@ public sealed class UiGeometryBuilder {
     public bool TryBuild(DrawList list, GlyphFieldCache glyphs, Rectangle viewport, ref UiGeometry frame) {
         ArgumentNullException.ThrowIfNull(list);
 
-        if (Built == (list.Version, viewport) && !AtlasChanged && !handedOver) {
+        if (Built == (list.Version, viewport) && !AtlasChanged && !handedOver && !flatteningMoved) {
             TessellationsSkipped++;
             return false;
         }
@@ -438,6 +489,7 @@ public sealed class UiGeometryBuilder {
         // consumes it. `AtlasChanged` one line up is an *output* of this method and this is an
         // input; they read alike and are opposite, which is why the clear is not beside the skip.
         handedOver = false;
+        flatteningMoved = false;
         TessellatedPaths = 0;
         RefusedFields = 0;
         FieldPaths = 0;
@@ -556,7 +608,12 @@ public sealed class UiGeometryBuilder {
         return new UiGeometry(vertices, indices, draws, shapes) {
             Layers = layers,
             Masks = masks,
-            WhiteLevel = WhiteLevel
+            WhiteLevel = WhiteLevel,
+
+            // ⚠ Stamped here, once per build, and never on a skipped frame — `TryBuild` hands back
+            // the geometry it already has, stamp included, which is what lets a renderer see that
+            // the bytes it holds are still the bytes to draw. See `UiGeometry.Generation`.
+            Generation = Interlocked.Increment(ref generations)
         };
     }
 

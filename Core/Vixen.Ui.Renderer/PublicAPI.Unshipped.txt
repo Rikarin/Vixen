@@ -44,6 +44,8 @@ Vixen.Ui.Renderer.UiRenderer.Composited.get -> int
 Vixen.Ui.Renderer.UiRenderer.Dispose() -> void
 Vixen.Ui.Renderer.UiRenderer.Draws.get -> int
 Vixen.Ui.Renderer.UiRenderer.Filtered.get -> int
+Vixen.Ui.Renderer.UiRenderer.GeometryUploads.get -> int
+Vixen.Ui.Renderer.UiRenderer.GeometryUploadsSkipped.get -> int
 Vixen.Ui.Renderer.UiRenderer.ImageSets.get -> int
 Vixen.Ui.Renderer.UiRenderer.Masked.get -> int
 Vixen.Ui.Renderer.UiRenderer.Record(Vixen.Graphics.ICommandList commands, in Vixen.Ui.Rendering.UiGeometry geometry, Vixen.Core.Mathematics.Int2 surface, float scale = 1) -> void

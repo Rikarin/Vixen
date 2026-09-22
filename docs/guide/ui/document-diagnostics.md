@@ -86,14 +86,28 @@ Say($"drawing: {diagnostics.DrawListsChanged} of {diagnostics.DrawListsBuilt} re
 ⚠ **Neither number means anything alone; the gap between them is the point.** There is no retained
 per-element surface and no dirty-rect path, so the whole draw list is reconstructed on every frame of
 every window whether or not anything moved. The only economy is the content diff afterwards — a
-window whose drawing is unchanged skips the tessellation and the GPU recording, and does not skip the
-rebuild that produced the identical list again. A still window reports thirty rebuilds and one
-change over thirty frames.
+window whose drawing is unchanged keeps the geometry rather than flattening and tessellating it
+again, and the renderer draws from the copy already on the device rather than uploading it again.
+What it does not skip is the rebuild that produced the identical list, or the command recording,
+which has a new swapchain image to draw into every frame. A still window reports thirty rebuilds and
+one change over thirty frames.
+
+⚠ **And an earlier version of this paragraph said the GPU recording was skipped. It never was**, and
+the upload beside it that *was* paid every frame went unmentioned until it stopped being
+(`UiRenderer.GeometryUploads`).
+
+⚠ **`DrawCommandsEmitted` is how big those rebuilds were**, where the two counts above are only how
+often they happened — thirty rebuilds of an eight-element window and thirty of an editor shell are
+the same number and three orders of magnitude apart. A still window emits its whole picture again on
+every frame, so this reads as the picture's length times the frame count and all but one length of
+it produced nothing. It is a `long` because it is a per-frame total of a per-frame total: an editor
+shell's ~1 389 commands a frame overflow an `int` in about eighteen hours.
 
 ⚠ **Work, never elapsed time.** A rebuild count is the same figure on an idle laptop and a loaded
 one, and an interface that redraws a hundred times to produce one picture is wasteful at every frame
-rate — which a millisecond budget cannot say. These two are also compiled in every configuration,
-unlike the region ring below: a counter behind `DEBUG` is one a Release gate cannot assert on.
+rate — which a millisecond budget cannot say. All three are also compiled in every configuration,
+unlike the region ring below: a counter behind `DEBUG` is one a Release gate cannot assert on, and
+two runs of a differential in different builds are not a differential.
 
 ### The two empty answers, and why one constant exists
 

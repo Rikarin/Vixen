@@ -115,11 +115,25 @@ was found: a sabotage that deleted the re-bind changed nothing, twice, through t
 fixture designed to catch it. Making the layouts identical makes the question not arise. Declaring a
 binding a shader ignores costs nothing.
 
-### Host-visible buffers, rewritten every frame
+### Host-visible buffers, rewritten when the geometry changes
 
 No staging copy. The usual advice is the opposite and it is about data the GPU reads many times;
 interface geometry is read once, by one draw, and thrown away. A staging copy would add a transfer
 and a barrier to save nothing.
+
+⚠ **And not every frame, which is what this heading used to say.** A still window keeps the
+geometry `UiGeometryBuilder.TryBuild` already holds, and until `UiGeometry.Generation` existed the
+renderer could not tell — the lists are the builder's own, rewritten in place, so every frame is the
+same instances — and copied every vertex to the device again to put the bytes the region already
+held back where they were, four arrays allocated per frame to do it. `Upload` now answers a frame
+whose generation it has already written by **not advancing the ring**: the frame draws from the
+region the previous frame drew from, which is safe exactly because nothing is written at it. A
+frame that needs a write at that region — a descriptor set marked stale by a re-registered image,
+a box buffer that grew, a backdrop view that changed, a layer surface that has to be made — is not
+a skip, and `GeometryUploads` / `GeometryUploadsSkipped` are the pair that says which a frame was.
+`UiFrameLifetimeTests` drives the arrangement on a device with frames in flight and asks the
+validation layers, because a set rewritten under a bound frame is the failure and only they can
+see it.
 
 The atlas is the exception — it is a texture, it persists, and it is uploaded only when its
 **revision** changes. `AtlasUploads` counts them, because "a frame drawing text it has drawn before

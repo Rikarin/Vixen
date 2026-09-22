@@ -133,6 +133,52 @@ public class DiagnosticsPanelTests {
     }
 
     /// <summary>
+    ///     ⚠ With no probe, the subject's own hovered element is described — which is what makes the
+    ///     element rows appear in a host that never had a pointer position to hand over. The editor
+    ///     registered this panel and refreshed it for three batches and showed these rows to nobody,
+    ///     because a document does not expose where the pointer is and nothing set <c>Probe</c>.
+    /// </summary>
+    /// <remarks>
+    ///     The panel is in the document it describes here, deliberately: that is the editor's
+    ///     arrangement, and the hovered element has to be something other than the panel's own rows
+    ///     for the reading to mean anything — which is why the pointer is moved over a box beside it.
+    /// </remarks>
+    [Fact]
+    public void With_no_probe_the_hovered_element_is_described() {
+        using var fixture = new ControlFixture(
+            css: """
+                root { flex-direction: row; align-items: flex-start; }
+                .box { width: 100px; height: 50px; }
+                """
+        );
+
+        var box = fixture.Document.Root.Add("div", classNames: "box");
+        var panel = fixture.Add<DiagnosticsPanel>();
+
+        panel.Refresh();
+
+        var plain = panel.Rows.Count;
+
+        Assert.Null(Find(panel, "Under the pointer"));
+
+        fixture.MoveOver(box);
+        panel.Refresh();
+
+        Assert.Equal(box.Tag, Value(panel, "Under the pointer"));
+        Assert.Equal(
+            $"{box.AbsoluteLeft:0.#}, {box.AbsoluteTop:0.#} · {box.Width:0.#} × {box.Height:0.#}",
+            Value(panel, "Border box")
+        );
+
+        // Off the document: nothing is hovered, and the rows go rather than going stale.
+        fixture.MovePointer(-10f, -10f);
+        panel.Refresh();
+
+        Assert.Equal(plain, panel.Rows.Count);
+        Assert.Null(Find(panel, "Under the pointer"));
+    }
+
+    /// <summary>
     ///     A build that records no regions says so, rather than showing a zero that means two things.
     /// </summary>
     /// <remarks>

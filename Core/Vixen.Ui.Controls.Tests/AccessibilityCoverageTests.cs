@@ -90,6 +90,9 @@ public class AccessibilityCoverageTests {
         ["DiagnosticsPanel"] =
             "a shell over a `KeyValueList` whose rows are the words; a role on the frame would "
             + "announce a debug view as a widget and say nothing a reader could not already read",
+        ["DiagnosticsOverlay"] =
+            "a picture drawn over the document — outlines and a wash, no words and nothing operable — "
+            + "and transparent to the pointer; the panel beside it carries the same facts as rows",
         ["KeyValueRow"] = "a key and an editor side by side; the key names the editor through `LabelledBy`",
         ["Popover"] = "a positioned surface; what is inside it is what the user operates",
         ["Icon"] = "decoration beside a word that already says it — an icon announced twice is read twice",

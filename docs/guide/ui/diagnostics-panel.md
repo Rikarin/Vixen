@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.Controls.DiagnosticsPanel]
 tags: [ui, diagnostics, controls, overlay, performance, troubleshooting]
 since: 0.2
 status: preview
-related: [ui/document-diagnostics, ui/key-value-list, ui/desktop-application]
+related: [ui/diagnostics-overlay, ui/document-diagnostics, ui/key-value-list, ui/desktop-application]
 ---
 
 ## What it is
@@ -84,9 +84,17 @@ panel.Subject = game;
 ### The probe
 
 `Probe` is a point in the subject's coordinates, not an element, because the question is "what is
-under the pointer". Set it and the rows gain the element's tag and its margin, border, padding and
-content boxes; clear it and they go away rather than going stale — a panel that kept describing the
-last element the pointer crossed would be lying about a document whose layout has since moved.
+under the pointer". Set it and the rows carry the element's tag and its margin, border, padding and
+content boxes; move it off everything and they go away rather than going stale — a panel that kept
+describing the last element the pointer crossed would be lying about a document whose layout has
+since moved.
+
+⚠ **Left unset, the subject's own `Hovered` answers**, which is the same question asked of the
+document rather than of the host. That matters because a host usually has no pointer position to
+hand over: a `UiDocument` does not expose one, and for three batches the editor registered this
+panel, refreshed it correctly and showed the element rows to nobody, because nothing set `Probe`.
+`Hovered` is kept by the document's own hit test on every pointer event, so it is exactly as fresh
+as a probe and needs no wiring. A probe still wins when one is set.
 
 ### Reading the rows
 
@@ -98,11 +106,19 @@ last element the pointer crossed would be lying about a document whose layout ha
 | `Settling passes`, `Settled` | How many passes the frame needed, and whether it reached a fixed point |
 | `Last pass` | `cold` or `incremental` |
 | `Draw lists built`, `Draw lists changed` | Rebuilds, and the ones whose drawing differed |
+| `Draw commands emitted` | How big those rebuilds were, over every window and frame |
 | `Dirty regions`, `Regions recorded` | What invalidated the pass, when this build records them |
 
 ⚠ **`Last pass` is the row to read first.** One element moved and the whole document re-cascaded is a
 defect rather than a cost, and it is invisible in any total: a cold pass and a busy incremental one
 are both a large `Styles resolved`.
+
+⚠ **`Draw commands emitted` is the size of the rebuild where the two counts above are only how
+often it happened.** Thirty rebuilds of an eight-element window and thirty of the editor shell read
+alike and are three orders of magnitude apart, so a rebuild count cannot say how much of the machine
+the waste is. This can: a still window emits its whole picture on every frame, so the figure is the
+picture's length times the frame count, and all but one length of it produced nothing. It is the
+number a retained per-element surface would move.
 
 ⚠ **`Dirty regions` says "not recorded in this build" rather than showing a zero**, because "nothing
 was invalidated" and "nobody was recording" are the same empty span. The recording is behind
@@ -133,6 +149,8 @@ In markup, as an ordinary tag, with the host doing the refresh:
 
 ## See also
 
+- [The diagnostics overlay](diagnostics-overlay.md) — the same facts drawn over the document: the
+  element's four boxes where they are, and the invalidated regions washed.
 - [Document diagnostics](document-diagnostics.md) — the aggregator this reads, and the three rules
   that decide its shape.
 - [Key-value list](key-value-list.md) — the pooled rows the panel is built out of.
