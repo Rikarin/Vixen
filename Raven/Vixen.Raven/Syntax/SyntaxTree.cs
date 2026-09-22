@@ -7,6 +7,7 @@ using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Core.Syntax.Parsing;
 using Vixen.Core.Syntax.Text;
 using Vixen.Raven.Parsing;
+using Green = Vixen.Core.Syntax.InternalSyntax;
 
 namespace Vixen.Raven.Syntax;
 
@@ -23,6 +24,13 @@ public sealed class SyntaxTree : ISyntaxTree {
     ///     work done.
     /// </remarks>
     IReadOnlyList<LexedToken> tokens = [];
+
+    /// <summary>
+    ///     How far the parse of each member reached, by green node — see
+    ///     <see cref="SyntaxParser.Reach" />. Empty for a tree made by <see cref="Create" />, which
+    ///     then offers nothing beyond each node's own span and reparses conservatively.
+    /// </summary>
+    IReadOnlyDictionary<Green.GreenNode, int> reach = new Dictionary<Green.GreenNode, int>();
 
     public Encoding? Encoding { get; private init; }
     public string FilePath { get; private init; } = string.Empty;
@@ -94,7 +102,7 @@ public sealed class SyntaxTree : ISyntaxTree {
         }
 
         var blender = new Blender(
-            MemberCandidates(root, ReuseContext.MemberList, diagnostics, tokens),
+            MemberCandidates(root, ReuseContext.MemberList, diagnostics, tokens, reach),
             changes,
             tokens
         );
@@ -139,19 +147,22 @@ public sealed class SyntaxTree : ISyntaxTree {
         SyntaxNode node,
         int context,
         IReadOnlyList<Diagnostic> reported,
-        IReadOnlyList<LexedToken> tokens
+        IReadOnlyList<LexedToken> tokens,
+        IReadOnlyDictionary<Green.GreenNode, int> reach
     ) {
         foreach (var child in node.ChildNodesAndTokens()) {
             if (child is MemberDeclarationSyntax member) {
                 if (Clean(member, reported, tokens)) {
-                    yield return new(member, context);
+                    // A member the parser did not record — an enum member, which no reuse site
+                    // asks for — offers no reach, and the blender falls back to its span.
+                    yield return new(member, context, reach.TryGetValue(member.Green, out var looked) ? looked : -1);
                 }
 
-                foreach (var nested in MemberCandidates(member, Inside(member), reported, tokens)) {
+                foreach (var nested in MemberCandidates(member, Inside(member), reported, tokens, reach)) {
                     yield return nested;
                 }
             } else if (child is CompilationUnitSyntax or SyntaxListNode) {
-                foreach (var nested in MemberCandidates(child, context, reported, tokens)) {
+                foreach (var nested in MemberCandidates(child, context, reported, tokens, reach)) {
                     yield return nested;
                 }
             }
@@ -313,8 +324,9 @@ public sealed class SyntaxTree : ISyntaxTree {
         // erroneous parse yields a tree that reproduces the file byte-for-byte.
         var lexed = RavenLexer.Lex(text, bag, sourceText, filePath);
         syntaxTree.tokens = lexed;
-        syntaxTree.root = RavenParser.Parse(lexed, bag, sourceText, filePath, blender);
+        syntaxTree.root = RavenParser.Parse(lexed, bag, sourceText, filePath, blender, out var reach);
         syntaxTree.root.SyntaxTree = syntaxTree;
+        syntaxTree.reach = reach;
 
         syntaxTree.diagnostics = bag.ToArray();
 

@@ -278,4 +278,47 @@ public class IncrementalParseTests {
 
         AssertMatchesFullParse(oldTree.WithChangedText(newText), newText);
     }
+
+    /// <summary>
+    ///     A member whose parse looked past its own end is not reused across an edit in the text it
+    ///     looked at — even though the edit touches nothing the member owns.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A node's span is not the extent of the text that decided it.</b>
+    ///         <c>float[A(E{…</c> is not an array type, because the rank scan runs to the end of the
+    ///         line looking for the matching bracket and gives up at the <c>{</c>; the method therefore
+    ///         ends at <c>float</c>, and the <c>[A(E</c> after it becomes the next member's problem. Edit
+    ///         the <c>E{…[</c> away and the scan now finds its bracket, so a full parse makes the
+    ///         method's return type an array — while the blender, testing the change against a span
+    ///         that ended at <c>float</c>, called the member untouched and lent it whole.
+    ///     </para>
+    ///     <para>
+    ///         Every check the blender had passed: not overlapping, lexing identically up to the next
+    ///         visible token, same parse loop, no diagnostic inside. What was missing was the parser
+    ///         saying how far it had looked, which <c>SyntaxParser.Reach</c> now records per member
+    ///         and the blender tests the edit against. Found by <c>Vixen.Fuzz</c>'s <c>raven</c>
+    ///         target, which reported it every night from 2026-09-10; the input is
+    ///         <c>Corpus/raven/5e95b553667b1cae.bin</c> and the first row is it, and the second is the
+    ///         same shape cut down to three lines. ⚠ The cut-down row needs the <c>val</c> before
+    ///         the method: with the method as the file's first member the old blender did not lend
+    ///         it and the row passed against the defect, which is why it was measured against the
+    ///         old parser before being kept.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(
+        "\n\nimport .k\nval t\nfunc G(x: float): float[ComputeShader(Efunc{var a:, , 1)]\nimport Vixen.Core\n"
+        + "[ComputeShader(8, 8, 1)]\nif (a) {\n    G(1f)\n}\n\n",
+        56,
+        39,
+        "("
+    )]
+    [InlineData("val t\nfunc G(): float[A(E{a, 1)]\n[C(8)]\n", 24, 10, "(")]
+    public void A_member_is_not_reused_across_an_edit_its_parse_looked_at(string source, int start, int length, string inserted) {
+        var oldTree = SyntaxTree.ParseText(source, path: "incremental.rvn");
+        var newText = oldTree.Text!.WithChanges(new TextChange(new(start, length), inserted));
+
+        AssertMatchesFullParse(oldTree.WithChangedText(newText), newText);
+    }
 }

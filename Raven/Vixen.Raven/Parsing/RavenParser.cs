@@ -45,6 +45,19 @@ sealed class RavenParser : SyntaxParser {
     /// <summary>Type-argument lists whose arguments the parser is inside of, right now.</summary>
     int typeArgumentDepth;
 
+    /// <summary>
+    ///     For every member this parse produced, the absolute offset its parse looked as far as —
+    ///     the end of the furthest token it consumed, peeked or scanned. What the next incremental
+    ///     reparse tests an edit against, because the span alone is not it.
+    /// </summary>
+    /// <remarks>
+    ///     Keyed by the green node, which is what survives into the tree and what the blender is
+    ///     handed back; the red wrappers are rebuilt. Reference identity, because a green node's
+    ///     equality is structural and two identical members are two different parses. See
+    ///     <see cref="SyntaxParser.Reach" /> for the defect and the mark.
+    /// </remarks>
+    readonly Dictionary<Green.GreenNode, int> reach = new(ReferenceEqualityComparer.Instance);
+
     RavenParser(
         IReadOnlyList<LexedToken> tokens,
         DiagnosticBag diagnostics,
@@ -66,7 +79,34 @@ sealed class RavenParser : SyntaxParser {
         string filePath,
         Blender? blender = null
     ) =>
-        new RavenParser(tokens, diagnostics, text, filePath, blender).ParseCompilationUnit();
+        Parse(tokens, diagnostics, text, filePath, blender, out _);
+
+    /// <summary>
+    ///     Parses, and also hands back how far the parse of each member reached — what
+    ///     <c>SyntaxTree</c> keeps beside the tree so the next reparse can refuse a member whose
+    ///     shape an edit past its end would change.
+    /// </summary>
+    public static CompilationUnitSyntax Parse(
+        IReadOnlyList<LexedToken> tokens,
+        DiagnosticBag diagnostics,
+        SourceText text,
+        string filePath,
+        Blender? blender,
+        out IReadOnlyDictionary<Green.GreenNode, int> reach
+    ) {
+        var parser = new RavenParser(tokens, diagnostics, text, filePath, blender);
+        var unit = parser.ParseCompilationUnit();
+        reach = parser.reach;
+        return unit;
+    }
+
+    /// <summary>
+    ///     Records where the parse that just finished a member had looked as far as: the high-water
+    ///     mark now, or — for a member the blender lent — the distance its original parse reached,
+    ///     since nothing was read this time.
+    /// </summary>
+    void RecordReach(MemberDeclarationSyntax member, int lent = 0) =>
+        reach[member.Green] = Math.Max(Tokens[Reach].End, lent);
 
     // ================================================================== Tokens
 
@@ -243,6 +283,7 @@ sealed class RavenParser : SyntaxParser {
                 continue;
             }
 
+            RecordReach(member);
             members.Add(member);
             SkipNewLines();
         }
@@ -885,7 +926,8 @@ sealed class RavenParser : SyntaxParser {
         // same tokens read by two grammars. `ParseMemberDeclaration` is what runs here, so
         // `MemberList` is what may come back — an enum member lexes exactly as it did when its
         // `enum` header was still above it, and splicing one in here is a tree no full parse builds.
-        if (blender.TryReuse(ReuseContext.MemberList, fullStart, Tokens, out var next) is not { } green) {
+        if (blender.TryReuse(ReuseContext.MemberList, fullStart, Tokens, out var next, out var lent)
+            is not { } green) {
             return null;
         }
 
@@ -894,7 +936,15 @@ sealed class RavenParser : SyntaxParser {
         // immediately — so nothing here was ever wrong; VXML's does not, which is where the
         // difference between the two was found.
         ResumeAt(next);
-        return green.CreateRed(null, 0) as MemberDeclarationSyntax;
+
+        if (green.CreateRed(null, 0) is not MemberDeclarationSyntax reused) {
+            return null;
+        }
+
+        // Nothing read the text this time, so the distance the original parse looked past the
+        // node — lent by the blender along with it — is what the next reparse has to know.
+        RecordReach(reused, fullStart + green.FullWidth + lent);
+        return reused;
     }
 
     MemberDeclarationSyntax? ParseMemberDeclaration() {
@@ -1292,6 +1342,7 @@ sealed class RavenParser : SyntaxParser {
                     continue;
                 }
 
+                RecordReach(member);
                 parsed.Add(member);
                 SkipNewLines();
             }

@@ -50,8 +50,11 @@ namespace Vixen.Core.Syntax.Parsing;
 ///     </para>
 /// </remarks>
 sealed class Blender {
-    /// <summary>A lendable node, and where it sat in the text the previous parse read.</summary>
-    readonly record struct Candidate(GreenNode Green, int OldFullStart);
+    /// <summary>
+    ///     A lendable node, where it sat in the text the previous parse read, and how far past its
+    ///     own end that parse looked while building it.
+    /// </summary>
+    readonly record struct Candidate(GreenNode Green, int OldFullStart, int ReachBeyondEnd);
 
     readonly Dictionary<(int Context, int FullStart), Candidate> reusable = [];
     readonly IReadOnlyList<LexedToken> oldTokens;
@@ -63,11 +66,16 @@ sealed class Blender {
     ) {
         this.oldTokens = oldTokens;
 
-        foreach (var (node, context) in candidates) {
+        foreach (var (node, context, reach) in candidates) {
             var start = node.Position;
             var end = start + node.Green.FullWidth;
 
-            if (Affected(start, end, changes)) {
+            // ⚠ The change is tested against everything the node's parse read, not only against
+            // what the node kept. A member that ends at `float` because a scan ahead met a `{`
+            // forty characters later is a member whose shape an edit at any of those forty
+            // characters can change; the span alone would call it untouched. Found by
+            // Vixen.Fuzz's raven target — Corpus/raven/5e95b553667b1cae.bin.
+            if (Affected(start, Math.Max(end, reach), changes)) {
                 continue;
             }
 
@@ -78,7 +86,7 @@ sealed class Blender {
                 }
             }
 
-            reusable[(context, start + delta)] = new(node.Green, start);
+            reusable[(context, start + delta)] = new(node.Green, start, Math.Max(0, reach - end));
         }
     }
 
@@ -87,19 +95,31 @@ sealed class Blender {
     /// <param name="newFullStart">Where the pending trivia run begins in the new text.</param>
     /// <param name="newTokens">The new text's tokens, which have to read the node the old way.</param>
     /// <param name="resumeAt">The index in <paramref name="newTokens" /> the node ends at.</param>
+    /// <param name="reachBeyondEnd">
+    ///     How far past the node's end the parse that built it looked, in characters, so the caller
+    ///     can record the same reach against the node in the new tree. A reused node was not parsed
+    ///     this time, so nothing else knows; and the text between its end and that point is
+    ///     unchanged, or the candidate would not have been offered, so the old distance still
+    ///     describes what a fresh parse would read.
+    /// </param>
     /// <returns>A node to splice in, or null to parse the characters again.</returns>
     public GreenNode? TryReuse(
         int context,
         int newFullStart,
         IReadOnlyList<LexedToken> newTokens,
-        out int resumeAt
+        out int resumeAt,
+        out int reachBeyondEnd
     ) {
         resumeAt = 0;
+        reachBeyondEnd = 0;
 
-        return reusable.TryGetValue((context, newFullStart), out var candidate)
-            && LexesTheSame(candidate, newFullStart, newTokens, out resumeAt)
-                ? candidate.Green
-                : null;
+        if (!reusable.TryGetValue((context, newFullStart), out var candidate)
+            || !LexesTheSame(candidate, newFullStart, newTokens, out resumeAt)) {
+            return null;
+        }
+
+        reachBeyondEnd = candidate.ReachBeyondEnd;
+        return candidate.Green;
     }
 
     /// <summary>

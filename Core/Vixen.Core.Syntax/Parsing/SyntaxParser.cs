@@ -21,6 +21,32 @@ abstract class SyntaxParser {
 
     protected LexedToken Current => Tokens[RawPosition];
 
+    /// <summary>
+    ///     The highest raw index this parser has looked at so far — consumed, peeked or scanned —
+    ///     which is how far a decision it has made can depend on the text.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A node's span is not the extent of the text its parse read, and an incremental
+    ///         reparse that assumed it was built the wrong tree.</b> Raven decides whether
+    ///         <c>float[…</c> is an array type by scanning ahead for the matching bracket — as far as
+    ///         the end of the line, however many tokens that is — and, on a <c>{</c> before it,
+    ///         declines and leaves the member ending at <c>float</c>. That node's full span stops
+    ///         forty characters short of the <c>{</c> that decided it. An edit in between changes the
+    ///         decision and touches nothing the node owns, so a blender testing the change against
+    ///         the span reused the member with the wrong shape. Found by <c>Vixen.Fuzz</c>'s
+    ///         <c>raven</c> target, input <c>Corpus/raven/5e95b553667b1cae.bin</c>.
+    ///     </para>
+    ///     <para>
+    ///         So the base parser keeps a high-water mark over every index it hands out, and a
+    ///         language parser reads it after each member to record how far that member's parse
+    ///         reached. It is monotonic across a <see cref="ResetTo" />, because a rewound
+    ///         speculation still looked. It is an over-estimate whenever an earlier member looked
+    ///         further than the current one, which only refuses a reuse that would have been safe.
+    ///     </para>
+    /// </remarks>
+    protected int Reach { get; private set; }
+
     protected SyntaxParser(IReadOnlyList<LexedToken> tokens) {
         if (tokens.Count == 0 || tokens[^1].IsTrivia) {
             throw new ArgumentException("The token list must end with a parser-visible end-of-file token.");
@@ -28,6 +54,7 @@ abstract class SyntaxParser {
 
         Tokens = tokens;
         RawPosition = SkipTrivia(0);
+        Reach = RawPosition;
     }
 
     /// <summary>
@@ -73,6 +100,11 @@ abstract class SyntaxParser {
 
         split[RawPosition] = token with { RawKind = firstRawKind, Text = token.Text[..firstWidth] };
 
+        // Every index past the split moves up by one, and the high-water mark is one of them.
+        if (Reach > RawPosition) {
+            Reach++;
+        }
+
         split.Insert(
             RawPosition + 1,
             new(secondRawKind, token.Text[firstWidth..], token.Position + firstWidth, token.Flags)
@@ -89,6 +121,7 @@ abstract class SyntaxParser {
             index = SkipTrivia(index + 1);
         }
 
+        Reach = Math.Max(Reach, index);
         return index;
     }
 
@@ -99,11 +132,15 @@ abstract class SyntaxParser {
     protected int Advance() {
         var consumed = RawPosition;
         RawPosition = SkipTrivia(consumed + 1);
+        Reach = Math.Max(Reach, RawPosition);
         return consumed;
     }
 
     /// <summary>Rewinds to a raw position previously read from <see cref="RawPosition" />.</summary>
-    protected void ResetTo(int rawPosition) => RawPosition = rawPosition;
+    protected void ResetTo(int rawPosition) {
+        RawPosition = rawPosition;
+        Reach = Math.Max(Reach, rawPosition);
+    }
 
     /// <summary>Resumes at the first visible token at or after a raw index.</summary>
     /// <param name="rawPosition">Any raw index, trivia or not.</param>
@@ -117,7 +154,10 @@ abstract class SyntaxParser {
     ///     a parser that cannot see the token it is looking at: in VXML, an element whose close tag
     ///     went missing the moment its last child was reused.
     /// </remarks>
-    protected void ResumeAt(int rawPosition) => RawPosition = SkipTrivia(rawPosition);
+    protected void ResumeAt(int rawPosition) {
+        RawPosition = SkipTrivia(rawPosition);
+        Reach = Math.Max(Reach, RawPosition);
+    }
 
     int SkipTrivia(int index) {
         // The final token is never trivia, so this always lands on a visible token.

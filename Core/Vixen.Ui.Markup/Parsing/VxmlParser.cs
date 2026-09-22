@@ -491,7 +491,7 @@ sealed class VxmlParser : SyntaxParser {
         // unbalanced `</` two lines above turns `<panel class="root">` from a start tag into stray
         // characters inside a tag nobody closed — and splicing the old element in over that stream
         // is a tree that no full reparse would ever produce.
-        if (blender.TryReuse(ContentContext, fullStart, Tokens, out var next) is not { } green) {
+        if (blender.TryReuse(ContentContext, fullStart, Tokens, out var next, out _) is not { } green) {
             return null;
         }
 
