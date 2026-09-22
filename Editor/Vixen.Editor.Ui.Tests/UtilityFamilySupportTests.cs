@@ -888,6 +888,17 @@ public class UtilityFamilySupportTests {
         { "contain-size", "contain", "size" },
         { "contain-paint", "contain", "paint" },
 
+        // ⚠ <b>The marker family, and it is the one root in this table whose class name begins with
+        // a sigil.</b> `@container` is `container-type: inline-size`, and it was the last piece of
+        // container queries: the `@sm:` variants that ask the question landed a batch earlier, so
+        // until this every query container in the tree was declared in hand-written CSS. One row
+        // here for the property, because `ContainerMarkerFamilyTests` asks about the mapping and
+        // about the scope reaching a child's query; what this table adds is the editor's own tokens
+        // and its own theme, where `@container/main`'s second declaration would be dropped by a
+        // stricter loader without anybody noticing.
+        { "@container", "container-type", "inline-size" },
+        { "@container-normal", "container-type", "normal" },
+
         { "truncate", "overflow", "hidden" },
         { "overflow-scroll", "overflow", "scroll" },
         { "overflow-auto", "overflow", "auto" },
@@ -1049,7 +1060,42 @@ public class UtilityFamilySupportTests {
         // — over the declaration's text, not as a value kind — so the clause could never fire and the
         // row stayed `absent` over a capability the engine already had. See
         // <see cref="The_rotate_z_family_turns_the_box_the_way_the_rotate_property_does" />.
-        { "rotate-z-45", "transform", "rotateZ(45deg) skewX(0deg) skewY(0deg)" },
+        { "rotate-z-45", "transform", "rotateX(0deg) rotateY(0deg) rotateZ(45deg) skewX(0deg) skewY(0deg)" },
+
+        // ⚠ <b>The two three-dimensional rotations, and the expectations above changed again when
+        // they landed — which is the useful half of writing an assembled value out in full for the
+        // second time.</b> Every family that fills one slot of `transform` emits all five now, so a
+        // lone `rotate-z-45` spells two identity rotations it did not use to. The units are what make
+        // that safe: `rotateX(0)` is not a value CSS has, `TransformReader` refuses a list containing
+        // one, and the refusal is whole — so a bare `0` in `UtilityComposition.Initials` would make
+        // every class in this block stop working at once.
+        //
+        // ⚠ <b>Their refusal named a renderer and outlived it twice.</b> It ran "`UiTransform` is
+        // affine"; #547 made the type a homography, #548 gave the composite quad's vertices the `w`
+        // both rasterisers divide by, and #550 made `TransformReader.Functions` compose the whole
+        // list in four dimensions and reduce once at the end. See
+        // <see cref="A_rotate_x_is_a_squash_until_a_parent_supplies_a_perspective" />, which is what
+        // says the slot reaches a picture rather than only a declaration.
+        { "rotate-x-45", "transform", "rotateX(45deg) rotateY(0deg) rotateZ(0deg) skewX(0deg) skewY(0deg)" },
+        { "rotate-y-45", "transform", "rotateX(0deg) rotateY(45deg) rotateZ(0deg) skewX(0deg) skewY(0deg)" },
+
+        // ⚠ <b>A property and not a slot, and established by the PARENT.</b> `perspective-*` is the
+        // one family in this block that emits a whole declaration rather than a fragment, because
+        // CSS's `perspective` is a property an element sets for its CHILDREN — Transforms 2 § 6. The
+        // five distances are v4's own defaults written out; this engine has no `--perspective-*`
+        // scale and inventing one would be a name nothing else looks at.
+        { "perspective-normal", "perspective", "500px" },
+        { "perspective-dramatic", "perspective", "100px" },
+        { "perspective-none", "perspective", "none" },
+
+        // The vanishing point it is taken about — `origin-*`'s nine positions over a different
+        // property, and `SplitName`'s longest-prefix rule is what keeps the two families apart.
+        // ⚠ <c>right top</c> and not <c>top right</c>: ExCSS normalises a two-keyword position into
+        // axis order while parsing, exactly as it does for <c>origin-*</c>, and the computed value is
+        // what this row reads. `TransformReader.Origin` assigns two keywords by AXIS rather than by
+        // position for that reason — see its own remark, and the eight `origin-*` classes that would
+        // silently be `origin-center` under a positional reading.
+        { "perspective-origin-top-right", "perspective-origin", "right top" },
 
         // ⚠ <b>The three skews, and the expectation above changed when they landed — which is the
         // useful half of writing an assembled value out in full.</b> Every family that fills one slot
@@ -1061,9 +1107,9 @@ public class UtilityFamilySupportTests {
         //
         // ⚠ <b>`skew-6` writes both fragments rather than emitting `skew(6deg, 6deg)`</b>, which is
         // v4's own shape: two functions, so a `skew-y-0` written beside it has a slot to overwrite.
-        { "skew-x-6", "transform", "rotateZ(0deg) skewX(6deg) skewY(0deg)" },
-        { "skew-y-6", "transform", "rotateZ(0deg) skewX(0deg) skewY(6deg)" },
-        { "skew-6", "transform", "rotateZ(0deg) skewX(6deg) skewY(6deg)" },
+        { "skew-x-6", "transform", "rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(6deg) skewY(0deg)" },
+        { "skew-y-6", "transform", "rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(0deg) skewY(6deg)" },
+        { "skew-6", "transform", "rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(6deg) skewY(6deg)" },
 
         // ⚠ <b>The one keyword of v4's `transform-*` set this engine can honour.</b> `transform-cpu`
         // and `transform-gpu` are refused rather than absent — see `UtilityFamilies`, where the
@@ -1586,6 +1632,12 @@ public class UtilityFamilySupportTests {
             "element under test, so no computed-value row can express it at all. `ChildScopedFamilyTests` " +
             "is where these are held.",
             "divide", "divide-x", "divide-y", "space-x", "space-y"
+        ),
+        new UncoveredGroup(
+            "a `Family.Scope` root whose scope is a tag: the declaration lands on `& > field-placeholder` " +
+            "— the prompt `TextField` builds — and never on the element under test. " +
+            "`The_placeholder_root_colours_the_prompt_and_never_the_field` is its row.",
+            "placeholder"
         )
         ];
 
@@ -1619,8 +1671,14 @@ public class UtilityFamilySupportTests {
     /// </remarks>
     [Fact]
     public void Every_registered_root_is_claimed_by_a_row_or_named_here() {
+        // ⚠ Parsed rather than `SplitName`d, and the difference appeared the first time the surface
+        // spelled a modifier. `SplitName`'s contract is the name half of a class whose variants and
+        // modifiers are already off, so `@container/probe` comes back as its own name and reads as
+        // an unclaimed root that no row could ever claim.
         var roots = UtilityFamilies.Surface(Tokens())
-            .Select(utility => UtilityFamilies.SplitName(utility).Name)
+            .Select(utility => UtilityParser.TryParse(utility, out var parsed)
+                ? parsed.Name
+                : UtilityFamilies.SplitName(utility).Name)
             .ToHashSet(StringComparer.Ordinal);
 
         // ⚠ Anti-vacuity, and it is two claims rather than one: a floor on how many roots the walk
@@ -2765,7 +2823,10 @@ public class UtilityFamilySupportTests {
         ui.Frame();
 
         // One: the shorthand assembled, fragment and all.
-        Assert.Equal("rotateZ(90deg) skewX(0deg) skewY(0deg)", ui.StyleOf(spun, "transform"));
+        Assert.Equal(
+            "rotateX(0deg) rotateY(0deg) rotateZ(90deg) skewX(0deg) skewY(0deg)",
+            ui.StyleOf(spun, "transform")
+        );
 
         // Two: a group was opened for it. A transform that reached the draw list as no layer at all
         // is a box drawn unrotated, and every geometric assertion below would then be about the
@@ -2789,6 +2850,98 @@ public class UtilityFamilySupportTests {
         // inverted nothing would still pass.
         Assert.Same(spun, ui.Document.HitTest(20f, 24f));
         Assert.NotSame(spun, ui.Document.HitTest(2f, 2f));
+    }
+
+    /// <summary>
+    ///     <c>rotate-x-60</c> squashes the box on its own and projects it under a
+    ///     <c>perspective-*</c> on the parent, which is the pair every card flip is written from.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The row in the table above says the declaration computes; this says a consumer
+    ///         read it, and the two are different claims.</b> A `transform` naming a function
+    ///         <c>TransformReader</c> cannot read is dropped WHOLE — so a slot that resolved, cascaded
+    ///         and reached an element could still leave the element untransformed, and the assembled
+    ///         string would look identical. That is the parity gate's structural blind spot on this
+    ///         family: it can only say something moved.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, and the first one is not the degraded case.</b> A rotation about x
+    ///         foreshortens until something projects it, so <c>rotate-x-60</c> alone really is the box
+    ///         at <c>cos 60° = ½</c> of its height — what a browser draws too. The projection is what
+    ///         <c>perspective-*</c> adds, and it is observable as an <i>asymmetry</i> no affine can
+    ///         produce: the near edge grows and the far edge shrinks, about the same centre.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The numbers are closed form.</b> The box is 64 by 32 at the origin, so its centre
+    ///         is (32, 16) and its edges are 16 above and below. <c>rotateX(60deg)</c> sends the near
+    ///         edge to <c>y = 8</c>, <c>z = 13.86</c>; the parent's <c>perspective-dramatic</c> is 100
+    ///         points, so <c>w = 1 − 13.86/100 = 0.861</c> and the edge lands at <b>9.287</b> below
+    ///         the centre where the squash alone puts it at 8. The far edge is at <c>w = 1.139</c>
+    ///         and stops <b>7.026</b> above it. Unprojected both are 8 exactly, which is the equality
+    ///         the first half is written against.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_rotate_x_is_a_squash_until_a_parent_supplies_a_perspective() {
+        using var ui = Sheet("rotate-x-60", "perspective-dramatic", "w-16", "h-8", "bg-accent");
+
+        var flat = ui.Create("flat", ui.Document.Root, null, "rotate-x-60", "w-16", "h-8", "bg-accent");
+
+        // ⚠ The stage is the child's own size, so that the vanishing point it establishes lands on
+        // the child's centre. `perspective-origin`'s initial value is the centre of the PARENT's box,
+        // and a stage of a different size moves the projection sideways as well as in depth — which
+        // is correct and would turn the closed form below into two terms instead of one.
+        var stage = ui.Create("stage", ui.Document.Root, null, "perspective-dramatic", "w-16", "h-8");
+        var deep = ui.Create("deep", stage, null, "rotate-x-60", "w-16", "h-8", "bg-accent");
+
+        ui.Frame();
+
+        // One: both carry the assembled list, so what differs below is the parent and nothing else.
+        Assert.Equal(
+            "rotateX(60deg) rotateY(0deg) rotateZ(0deg) skewX(0deg) skewY(0deg)",
+            ui.StyleOf(flat, "transform")
+        );
+
+        Assert.Equal(ui.StyleOf(flat, "transform"), ui.StyleOf(deep, "transform"));
+        Assert.Equal("100px", ui.StyleOf(stage, "perspective"));
+
+        // Two: the consumer. Without a matrix on the element there is no group, and every measurement
+        // below would be about the untransformed rectangle.
+        var squashed = Assert.IsType<UiTransform>(flat.Transform);
+        var projected = Assert.IsType<UiTransform>(deep.Transform);
+
+        // Three: `rotate-x-60` alone is a pure squash — affine, symmetric, half the height.
+        Assert.True(squashed.IsAffine);
+
+        var flatCentre = new Vector2(flat.AbsoluteLeft + 32f, flat.AbsoluteTop + 16f);
+
+        Assert.Equal(flatCentre.Y + 8f, squashed.Apply(flatCentre + new Vector2(0f, 16f)).Y, 2);
+        Assert.Equal(flatCentre.Y - 8f, squashed.Apply(flatCentre - new Vector2(0f, 16f)).Y, 2);
+
+        // Four: under the parent's perspective it is a homography, and the two edges no longer move
+        // by the same amount — which is the whole observable difference and the thing an affine
+        // cannot fake.
+        Assert.False(projected.IsAffine);
+
+        var deepCentre = new Vector2(deep.AbsoluteLeft + 32f, deep.AbsoluteTop + 16f);
+
+        var near = projected.Apply(deepCentre + new Vector2(0f, 16f)).Y - deepCentre.Y;
+        var far = deepCentre.Y - projected.Apply(deepCentre - new Vector2(0f, 16f)).Y;
+
+        // ⚠ <b>The oracle is the ASYMMETRY and not either number, because either number alone is a
+        // quantity that moves with where the element sits.</b> The vanishing point is the parent's
+        // box centre in absolute coordinates, so the projection carries a term in it — correctly, and
+        // it is what makes a perspective look right when the element is not under the eye. What
+        // cannot move is the shape of the answer: an affine maps two points equidistant from a fixed
+        // point to two points equidistant from its image, whatever the coordinates, and a homography
+        // does not. <b>Measured: the near edge reaches 9.287 where the squash puts it at 8, and the
+        // far edge stops at 7.026.</b> The bounds are set well inside those, because the fact that
+        // matters is "not a rounding" rather than four figures of a number that a change to the
+        // fixture would move.
+        Assert.True(near > 9f, $"the near edge reached {near:0.###}, which is not past the squash's 8.");
+        Assert.True(far < 7.5f, $"the far edge stopped at {far:0.###}, which is not short of the squash's 8.");
+        Assert.True(near - far > 1.5f, $"the two edges moved by {near:0.###} and {far:0.###}, which an affine could do.");
     }
 
     /// <summary><c>skew-x-45</c> shears the box along x about its centre, and along x only.</summary>
@@ -2821,7 +2974,7 @@ public class UtilityFamilySupportTests {
         // One: the assembled declaration names all three slots, with the two this element did not ask
         // for carrying their identities — and carrying them with units, without which
         // `TransformReader` refuses the list whole and the class does nothing.
-        Assert.Equal("rotateZ(0deg) skewX(45deg) skewY(0deg)", ui.StyleOf(slanted, "transform"));
+        Assert.Equal("rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(45deg) skewY(0deg)", ui.StyleOf(slanted, "transform"));
 
         // Two: a group was opened, so the slant reached the draw list as a transform rather than as a
         // declaration nobody read.
@@ -2875,9 +3028,9 @@ public class UtilityFamilySupportTests {
 
         ui.Frame();
 
-        Assert.Equal("rotateZ(0deg) skewX(45deg) skewY(30deg)", ui.StyleOf(crossed, "transform"));
-        Assert.Equal("rotateZ(0deg) skewX(6deg) skewY(6deg)", ui.StyleOf(both, "transform"));
-        Assert.Equal("rotateZ(90deg) skewX(45deg) skewY(0deg)", ui.StyleOf(turned, "transform"));
+        Assert.Equal("rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(45deg) skewY(30deg)", ui.StyleOf(crossed, "transform"));
+        Assert.Equal("rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(6deg) skewY(6deg)", ui.StyleOf(both, "transform"));
+        Assert.Equal("rotateX(0deg) rotateY(0deg) rotateZ(90deg) skewX(45deg) skewY(0deg)", ui.StyleOf(turned, "transform"));
     }
 
     /// <summary>
@@ -3540,6 +3693,38 @@ public class UtilityFamilySupportTests {
         Assert.NotNull(accent);
         Assert.NotEqual(accent, hairline);
         Assert.Equal(accent, painted);
+    }
+
+    /// <summary>
+    ///     The sixth child-scoped root, and the first whose scope is a <i>tag</i>: <c>placeholder-*</c>
+    ///     colours <c>&gt; field-placeholder</c>, the prompt <c>TextField</c> builds, and never the
+    ///     field.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Against a real <c>TextBox</c> rather than a probe tagged by hand</b>, because the
+    ///     one way this family is wrong that no hand-built scene can see is a scope naming a tag the
+    ///     control does not build. And <c>color</c> inherits, so the negative is not "the value box
+    ///     holds nothing": it is that neither the field nor its value box holds the accent, which
+    ///     is the difference between colouring the prompt and colouring the field and letting the
+    ///     prompt inherit it.
+    /// </remarks>
+    [Fact]
+    public void The_placeholder_root_colours_the_prompt_and_never_the_field() {
+        using var ui = Sheet("placeholder-accent", "bg-accent");
+
+        var field = ui.Document.Root.Add<TextBox>(null, null, "placeholder-accent");
+        var accentSource = ui.Create("probe", ui.Document.Root, null, "bg-accent");
+
+        ui.Frame();
+
+        var prompt = field.Children.Single(child => child.Tag == "field-placeholder");
+        var text = field.Children.Single(child => child.Tag == "field-text");
+        var accent = ui.ColorOf(accentSource, "background-color");
+
+        Assert.NotNull(accent);
+        Assert.Equal(accent, ui.ColorOf(prompt, "color"));
+        Assert.NotEqual(accent, ui.ColorOf(text, "color"));
+        Assert.NotEqual(accent, ui.ColorOf(field, "color"));
     }
 
     /// <summary>

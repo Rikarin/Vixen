@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Reflection;
 using Vixen.Core.Mathematics;
 using Vixen.Ui;
 using Vixen.Ui.Styling;
@@ -319,6 +320,170 @@ public class SystemPaletteWiringTests {
         Assert.True(document.SystemColors.IsFromPlatform(SystemColor.AccentColor));
         Assert.False(document.SystemColors.IsFromPlatform(SystemColor.AccentColorText));
         Assert.False(document.Root.HasClass(SystemPalette.PlatformAccentClass));
+    }
+
+    /// <summary>
+    ///     The platform's label colour reaches a sheet that names <c>CanvasText</c>, without a
+    ///     reload, and outlives the two events that reset the tables underneath it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The done-looks-like of #838, end to end through the method the hosts call.</b>
+    ///         <c>A_colour_read_from_the_platform_outlives_an_appearance_change</c> above proves the
+    ///         seam by writing <c>SetPlatform</c> itself, which is what a test can do and a host
+    ///         should not; this goes in through <see cref="PlatformInput.ApplySemanticColors" /> with
+    ///         the sRGB value a platform reader hands over, and reads the frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>CanvasText</c> and not <c>Canvas</c>, deliberately.</b> Under forced colours the
+    ///         document paints its own <c>Canvas</c> behind everything, so a probe filled with it is
+    ///         the one rectangle this frame cannot tell from the root's — the trap the accent test
+    ///         above records. A label colour is nobody's backdrop.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_platform_label_colour_reaches_a_sheet_and_outlives_an_appearance_change() {
+        using var document = new UiDocument(200f, 100f);
+        document.Load(".probe { width: 10px; height: 10px; background-color: CanvasText; }");
+        document.Root.Add("div", classNames: "probe");
+
+        // AppKit's dark-appearance labelColor as measured: white at 84.7% alpha. The alpha is the
+        // component a reader is likeliest to drop, so it is the one asserted through.
+        var label = new Color4(1f, 1f, 1f, 0.847f);
+
+        PlatformInput.ApplySemanticColors(document, new SystemSemanticColors(CanvasText: label));
+        document.Update();
+        document.Draw();
+
+        Assert.True(document.SystemColors.IsFromPlatform(SystemColor.CanvasText));
+        Assert.Equal(Color4.FromSrgb(label), Fill(document));
+        Assert.Equal(0.847f, Fill(document).A, 0.001f);
+
+        // ⚠ And a partial read is the normal case: every role not supplied still follows the table.
+        Assert.False(document.SystemColors.IsFromPlatform(SystemColor.Canvas));
+        Assert.Equal(Light(SystemColor.Canvas), document.SystemColors[SystemColor.Canvas]);
+
+        // No `Load` between the draws — the shape the issue asked for — across both of the events
+        // that reset the default tables, from two places on two cadences.
+        PlatformInput.ApplyColorScheme(document, SystemColorScheme.Dark);
+        document.Draw();
+
+        Assert.Equal(Color4.FromSrgb(label), Fill(document));
+        Assert.Equal(Dark(SystemColor.Canvas), document.SystemColors[SystemColor.Canvas]);
+
+        PlatformInput.ApplyAccessibility(document, new SystemAccessibility(HighContrast: true));
+
+        Assert.Equal(Color4.FromSrgb(label), document.SystemColors[SystemColor.CanvasText]);
+        Assert.Equal(Forced(SystemColor.Canvas), document.SystemColors[SystemColor.Canvas]);
+    }
+
+    /// <summary>Every role the platform type carries lands on the role of the same name, and only there.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Eleven distinct colours, because the mapping is eleven hand-written lines and a
+    ///         transposition between two of them — <c>Field</c> written into <c>FieldText</c> — is a
+    ///         palette that looks fine until a field is drawn.</b> Each role is given a colour that
+    ///         encodes its own index, so a swap fails on the pair it swapped and names both.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the count is asked of the type rather than trusted, which is the half a list
+    ///         of eleven cannot supply about itself.</b> "Eleven rows" is "every role" only while the
+    ///         record declares eleven; a twelfth added to <see cref="SystemSemanticColors" /> and
+    ///         forgotten in <c>ApplySemanticColors</c> would leave every assertion below green and
+    ///         that role following <c>SystemPalette</c>'s browser table for ever. Comparing the two
+    ///         sets by <i>name</i> rather than by count also pins the correspondence this whole type
+    ///         is built on: a platform role is spelled exactly like the CSS system colour it fills.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_semantic_role_lands_on_its_own_palette_entry() {
+        using var document = new UiDocument(200f, 100f);
+
+        (SystemColor Role, Color4 Colour)[] rows = [
+            (SystemColor.Canvas, Keyed(1)),
+            (SystemColor.CanvasText, Keyed(2)),
+            (SystemColor.LinkText, Keyed(3)),
+            (SystemColor.ButtonFace, Keyed(4)),
+            (SystemColor.ButtonText, Keyed(5)),
+            (SystemColor.ButtonBorder, Keyed(6)),
+            (SystemColor.Field, Keyed(7)),
+            (SystemColor.FieldText, Keyed(8)),
+            (SystemColor.Highlight, Keyed(9)),
+            (SystemColor.HighlightText, Keyed(10)),
+            (SystemColor.GrayText, Keyed(11))
+        ];
+
+        var declared = typeof(SystemSemanticColors)
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(role => role.PropertyType == typeof(Color4?))
+            .Select(role => role.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        Assert.Equal(declared, rows.Select(row => row.Role.ToString()).ToHashSet(StringComparer.Ordinal));
+
+        PlatformInput.ApplySemanticColors(
+            document,
+            new SystemSemanticColors(
+                Canvas: Keyed(1),
+                CanvasText: Keyed(2),
+                LinkText: Keyed(3),
+                ButtonFace: Keyed(4),
+                ButtonText: Keyed(5),
+                ButtonBorder: Keyed(6),
+                Field: Keyed(7),
+                FieldText: Keyed(8),
+                Highlight: Keyed(9),
+                HighlightText: Keyed(10),
+                GrayText: Keyed(11)
+            )
+        );
+
+        foreach (var (role, colour) in rows) {
+            Assert.True(document.SystemColors.IsFromPlatform(role), $"{role} was not supplied.");
+            Assert.Equal((role, Color4.FromSrgb(colour)), (role, document.SystemColors[role]));
+        }
+
+        // ⚠ And not the accent pair, which `ApplyAccent` owns: two writers of one cell answer with
+        // whichever ran last.
+        Assert.False(document.SystemColors.IsFromPlatform(SystemColor.AccentColor));
+        Assert.False(document.SystemColors.IsFromPlatform(SystemColor.AccentColorText));
+
+        static Color4 Keyed(int index) => new(index / 16f, (index * 3 % 16) / 16f, (index * 7 % 16) / 16f, 1f);
+    }
+
+    /// <summary>A role the platform stops answering for goes back to the table rather than freezing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The real case is Windows leaving a high-contrast scheme</b>: <c>WindowsSemanticColors</c>
+    ///     answers the classic table only while one is on, so the read goes from eleven roles to
+    ///     none in one poll — and <c>ClearPlatform</c> forgets without reverting, so without the
+    ///     repalette every role would keep the scheme's colours until the user next toggled dark
+    ///     mode.
+    /// </remarks>
+    [Fact]
+    public void A_semantic_role_the_platform_stops_reporting_goes_back_to_the_table() {
+        using var document = new UiDocument(200f, 100f);
+
+        PlatformInput.ApplyColorScheme(document, SystemColorScheme.Dark);
+        PlatformInput.ApplySemanticColors(
+            document,
+            new SystemSemanticColors(CanvasText: new Color4(1f, 0f, 0f, 1f), GrayText: new Color4(0f, 1f, 0f, 1f))
+        );
+
+        Assert.True(document.SystemColors.IsFromPlatform(SystemColor.CanvasText));
+        Assert.True(document.SystemColors.IsFromPlatform(SystemColor.GrayText));
+
+        // Half the read goes away. The role that stays supplied keeps its colour; the one that went
+        // returns to the *dark* table, which is the appearance the platform last reported.
+        PlatformInput.ApplySemanticColors(document, new SystemSemanticColors(CanvasText: new Color4(1f, 0f, 0f, 1f)));
+
+        Assert.True(document.SystemColors.IsFromPlatform(SystemColor.CanvasText));
+        Assert.False(document.SystemColors.IsFromPlatform(SystemColor.GrayText));
+        Assert.Equal(Dark(SystemColor.GrayText), document.SystemColors[SystemColor.GrayText]);
+
+        PlatformInput.ApplySemanticColors(document, SystemSemanticColors.Unknown);
+
+        Assert.False(document.SystemColors.IsFromPlatform(SystemColor.CanvasText));
+        Assert.Equal(Dark(SystemColor.CanvasText), document.SystemColors[SystemColor.CanvasText]);
     }
 
     static Color4 Fill(UiDocument document) =>

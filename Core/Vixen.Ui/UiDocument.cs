@@ -57,6 +57,7 @@ public sealed partial class UiDocument : IDisposable {
     readonly int ellipsis;
     readonly int nowrap;
     readonly int preserved;
+    readonly int breakSpaces;
     readonly int balance;
     readonly int pretty;
     readonly int anywhere;
@@ -179,6 +180,7 @@ public sealed partial class UiDocument : IDisposable {
         ellipsis = Styles.Values.Intern("ellipsis");
         nowrap = Styles.Values.Intern("nowrap");
         preserved = Styles.Values.Intern("pre");
+        breakSpaces = Styles.Values.Intern("break-spaces");
         anywhere = Styles.Values.Intern("anywhere");
         breakWord = Styles.Values.Intern("break-word");
         breakAll = Styles.Values.Intern("break-all");
@@ -1649,6 +1651,14 @@ public sealed partial class UiDocument : IDisposable {
 
             Layout.SetStyle(element.LayoutNode, layoutStyle);
 
+            // ⚠ A scroll container to the layout is a clip to everything else in this assembly —
+            // see `NoteOverflowThatCannotScroll`. Read off the built style rather than the
+            // declaration, because `auto`, `scroll` and the per-axis longhands all arrive here as
+            // one answer and the answer is what the box will do.
+            if (layoutStyle.OverflowX == Overflow.Scroll || layoutStyle.OverflowY == Overflow.Scroll) {
+                NoteOverflowThatCannotScroll(element, style);
+            }
+
             // ⚠ The variable-length half of the same style, and it has to be a second call: a track
             // list lives in the tree's `TrackArena` behind a handle owned by the node, so `Build`
             // — which returns a value and never sees a node — has nowhere to put one. After
@@ -2268,6 +2278,28 @@ public sealed partial class UiDocument : IDisposable {
     internal bool WrapsOf(ComputedStyle style) =>
         (!style.TryGet(whiteSpace, out var collapsing) || (collapsing != nowrap && collapsing != preserved))
         && (!style.TryGet(textWrap, out var wrapping) || wrapping != nowrap);
+
+    /// <summary>Whether preserved white space takes up room and may be broken inside. <c>white-space: break-spaces</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The third <c>white-space</c> value this document reads, and it is the one that
+    ///         four places recorded as waiting on the collapsing.</b> <c>InlineKnownGaps.txt</c>, doc
+    ///         43's B3 row, the ledger's <c>whitespace</c> note and this issue's own comments paired
+    ///         it with <c>pre-line</c> because both "need CSS Text § 4"; <c>WhiteSpaceBreakSpacesTests</c>
+    ///         measured that it cannot be so, because <c>break-spaces</c> <i>preserves</i> exactly as
+    ///         <c>pre-wrap</c> does — which is what every undeclared paragraph here already is. It
+    ///         differs by two rules, the hang and the break between two spaces, and both live in
+    ///         <c>LineWrapper</c> behind one flag; this is the reader that sets it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it reaches the intrinsic measure</b>, which is § 3.1's third sentence: the
+    ///         spaces "take up space and do not hang, and thus affect the box's intrinsic sizes".
+    ///         <c>TextLine.Trimmed</c> is what the measure reads, and a line built under this value
+    ///         reports its untrimmed width there — see the internal constructor.
+    ///     </para>
+    /// </remarks>
+    internal bool BreakSpacesOf(ComputedStyle style) =>
+        style.TryGet(whiteSpace, out var value) && value == breakSpaces;
 
     /// <summary>Which of a paragraph's legal breaks it prefers. CSS Text 4's <c>text-wrap-style</c>.</summary>
     /// <remarks>

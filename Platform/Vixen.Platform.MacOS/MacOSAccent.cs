@@ -86,7 +86,7 @@ public static class MacOSAccent {
     ///         start on an older macOS.
     ///     </para>
     /// </remarks>
-    static Color4? Component(string colour) {
+    internal static Color4? Component(string colour) {
         var nsColor = ObjC.GetClass("NSColor");
 
         if (nsColor == 0 || !ObjC.SendBool(nsColor, ObjC.Selector("respondsToSelector:"), ObjC.Selector(colour))) {

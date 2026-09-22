@@ -341,7 +341,8 @@ public class RefusalExpiryTests {
     ///         says the pattern to look for is <i>rows sharing an anchor</i>, because "when that
     ///         premise closes, they all rot at once and the suite reports only the first". The
     ///         instrument had exactly the defect the census it reads on warns about. Three rows name
-    ///         <c>UiVertex.W</c> directly and four more reach it through <c>expires-with</c>, so the
+    ///         <c>UiVertex.W</c> directly (until #548 landed it and they moved to
+    ///         <c>expires-on Vixen.Ui.TransformReader.perspective</c>) and four more reach it through <c>expires-with</c>, so the
     ///         day #548 lands this used to print one root's name; a reader would size a seven-row
     ///         decision as a one-row one, fix the row they were shown, and be told about the next
     ///         one on the next run. It was measured on that exact anchor rather than predicted

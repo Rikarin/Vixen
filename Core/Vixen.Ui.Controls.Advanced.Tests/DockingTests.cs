@@ -736,4 +736,141 @@ public class DockingTests {
         Assert.Equal(ElementState.None, tabs[0].State & ElementState.Checked);
         Assert.True((tabs[1].State & ElementState.Checked) != 0);
     }
+
+    /// <summary>
+    ///     The standard shape — a 20 % browser, a centre, a 26 % inspector, a console under the centre.
+    /// </summary>
+    /// <remarks>
+    ///     Built by hand rather than through <c>LayoutPresets.Standard</c>, which lives in the editor
+    ///     assembly this project cannot see; the ratios are its, so the answer is the editor's.
+    /// </remarks>
+    static DockLayout Standard() =>
+        new() {
+            Root = new DockSplitNode(
+                Orientation.Horizontal,
+                new DockGroupNode("browser"),
+                new DockSplitNode(
+                    Orientation.Horizontal,
+                    new DockSplitNode(
+                        Orientation.Vertical,
+                        new DockGroupNode("scene"),
+                        new DockGroupNode("console"),
+                        0.72f
+                    ),
+                    new DockGroupNode("inspector"),
+                    0.74f
+                ),
+                0.2f
+            )
+        };
+
+    /// <summary>A panel the arrangement does not name goes where there is most room, not leftmost.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>Groups()[0]</c> is the tree's leftmost leaf, and in every standard preset that
+    ///         is the 20 % browser column</b> (#969). A shader graph registered after the layout was
+    ///         applied landed there, and with a fixed 300 px side strip its canvas measured 0 × 796.
+    ///         The room a leaf gets is the product of the ratios down its path — a fact about the
+    ///         arrangement, so the answer is the same before the first frame as after.
+    ///     </para>
+    ///     <para>
+    ///         Sabotage: <c>LargestGroup</c> returning <c>DockedGroups()[0]</c> puts the panel in the
+    ///         browser and the first assertion is red; measuring width alone (dropping the vertical
+    ///         complement) still finds the centre here, which is why the arrangement below has a
+    ///         console under it — 0.8 × 0.74 × 0.72 = 0.43 against the inspector's 0.8 × 0.26 = 0.21
+    ///         and the console's 0.17 — and why the second fact uses a tall narrow column.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_panel_the_arrangement_does_not_name_goes_where_there_is_most_room() {
+        using var fixture = new AdvancedFixture();
+
+        var host = fixture.Add<DockingHost>();
+        host.SetLayout(Standard());
+
+        foreach (var id in new[] { "browser", "scene", "console", "inspector" }) {
+            host.AddPanel(id);
+        }
+
+        host.AddPanel("shader-graph");
+        fixture.Update();
+
+        var placed = host.Layout.Find("shader-graph");
+
+        Assert.NotNull(placed);
+        Assert.Contains("scene", placed.Value.Group.Panels);
+        Assert.DoesNotContain("browser", placed.Value.Group.Panels);
+
+        // And it is the biggest box on screen, which is the whole point.
+        var group = host.Groups.Single(view => ReferenceEquals(view.Node, placed.Value.Group));
+        Assert.All(
+            host.Groups,
+            view => Assert.True(view.Width * view.Height <= group.Width * group.Height + Tolerance)
+        );
+    }
+
+    /// <summary>Area, not width: a tall narrow column loses to a short wide one only if it is smaller.</summary>
+    [Fact]
+    public void Room_is_measured_as_area_down_both_axes() {
+        var layout = new DockLayout {
+            // A 45 % column beside a 55 % half that is cut into a 30 % top and a 70 % bottom:
+            // the column (0.45) has more room than either piece (0.165, 0.385), though the bottom
+            // piece is wider than it is.
+            Root = new DockSplitNode(
+                Orientation.Horizontal,
+                new DockGroupNode("column"),
+                new DockSplitNode(
+                    Orientation.Vertical,
+                    new DockGroupNode("top"),
+                    new DockGroupNode("bottom"),
+                    0.3f
+                ),
+                0.45f
+            )
+        };
+
+        Assert.Equal("column", Assert.Single(layout.LargestGroup()!.Panels));
+
+        // Tip the ratio the other way and the wide bottom piece (0.55 × 0.7 = 0.385) beats a
+        // 0.35 column.
+        ((DockSplitNode)layout.Root).Ratio = 0.35f;
+        Assert.Equal("bottom", Assert.Single(layout.LargestGroup()!.Panels));
+    }
+
+    /// <summary>Equal halves place where they always did, and a floating window is not a place to guess.</summary>
+    [Fact]
+    public void A_tie_keeps_tree_order_and_a_floating_group_is_taken_only_when_nothing_is_docked() {
+        var layout = new DockLayout {
+            Root = new DockSplitNode(Orientation.Horizontal, new DockGroupNode("left"), new DockGroupNode("right"))
+        };
+
+        layout.AddFloating(new DockFloat(new DockGroupNode("torn"), 0f, 0f, 2000f, 2000f));
+
+        Assert.Equal("left", Assert.Single(layout.LargestGroup()!.Panels));
+
+        layout.Root = null;
+        Assert.Equal("torn", Assert.Single(layout.LargestGroup()!.Panels));
+
+        Assert.Null(new DockLayout().LargestGroup());
+    }
+
+    /// <summary>The same rule when an arrangement is applied over panels it does not mention.</summary>
+    [Fact]
+    public void Applying_an_arrangement_files_the_panels_it_does_not_name_where_there_is_most_room() {
+        using var fixture = new AdvancedFixture();
+
+        var host = fixture.Add<DockingHost>();
+
+        foreach (var id in new[] { "browser", "scene", "console", "inspector", "profiler" }) {
+            host.AddPanel(id);
+        }
+
+        host.SetLayout(Standard());
+        fixture.Update();
+
+        var placed = host.Layout.Find("profiler");
+
+        Assert.NotNull(placed);
+        Assert.Contains("scene", placed.Value.Group.Panels);
+    }
 }

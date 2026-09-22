@@ -663,13 +663,21 @@ group's surface exactly as it always did — upright, every command a rectangle,
 is the seam: Transforms 1 § 3 makes any transform other than `none` a stacking context, in the
 sentence shape Filter Effects uses for `filter`.
 
-⚠ **It costs no shader and no vertex format.** Both executors already interpolate a quad's texture
-coordinate linearly across its two triangles, and an affine map is exactly the class for which that
-interpolation is *exact* rather than approximate — so the two triangles agree along the shared
-diagonal and no seam appears. Moving four positions and leaving four coordinates alone is the whole
-of it. `perspective` is a different feature rather than a bigger one, for the same reason: a
-projective map needs a `w` this vertex format has nowhere to put, which is why `UiTransform` is a 2D
-affine and cannot express one.
+⚠ **An affine costs no shader arithmetic, and a perspective costs one float per vertex.** Both
+executors interpolate a quad's texture coordinate across its two triangles, and an affine map is
+exactly the class for which a linear interpolation is *exact* rather than approximate — so the two
+triangles agree along the shared diagonal and no seam appears. Moving four positions and leaving four
+coordinates alone is the whole of it. A projective map (`UiTransform` is a 3×3 homography since #547)
+does not have that property: the four corners land right and a coordinate interpolated linearly
+between them is wrong everywhere in the middle, with a seam down the diagonal — 30 surface pixels at
+a 400×300 group's own centre under a mild perspective, measured before #548. So `UiVertex` carries the
+`w` each corner was projected by, `UiGeometryBuilder.Quad` writes it from `UiTransform.Project`, the
+vertex stage hands the rasteriser `float4(xy · w, 0, w)` so the hardware divides per fragment for
+free, and `SoftwareUiRasterizer` weights its barycentrics by `1/w` and cuts a triangle against the
+eye plane before it takes a bound. Every vertex that is not a projected composite quad carries a one,
+where the multiply and the divide are both the identity, which is what keeps every affine picture
+bit-identical. ⚠ Nothing *parses* a perspective yet — `perspective`, `perspective-origin` and the 3D
+functions are #550 — so today the only way to reach this path is a `UiTransform` built by hand.
 
 **Layout never sees it, and neither does the subtree's own geometry.** `UiDocument.Accumulate`
 composes the matrix per element and deliberately does not pass it down — children accumulate from the

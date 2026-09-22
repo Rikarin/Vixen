@@ -659,12 +659,15 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             // carries a STYLE of its own, so it needs a second style slot rather than a second
             // rectangle. Until doc 43's A12, the author gets a message instead of a surprise.
             //
-            // ⚠ <b>Four ledger rows rest on this one refusal and until 2026-09-05 not one of them
+            // ⚠ <b>Three ledger rows rest on this one refusal and until 2026-09-05 not one of them
             // declared it, which is the exact shape `RefusalExpiry.txt`'s header warns about.</b>
-            // `list-*`, `list-image-*`, `list-style-position` and `placeholder-*` are all `absent`
-            // and all say "blocked on F6" in English; the day a generated box exists they rot
-            // together and nothing would have said so. The condition is written here, where the
-            // refusal is, and on the two rows that do not sit behind another one. The anchor is the
+            // `list-*`, `list-image-*` and `list-style-position` are all `absent` and all say
+            // "blocked on F6" in English; the day a generated box exists they rot together and
+            // nothing would have said so. The condition is written here, where the refusal is, and
+            // on the one row that does not sit behind another. ⚠ There were four: `placeholder-*`
+            // hung here too, and it never needed this — `::placeholder` names a box `TextField`
+            // already builds as a child with its own tag, so the root is a child-scoped family and
+            // the variant a child combinator, neither of which is a pseudo-element. The anchor is the
             // field this compiler deleted: a rule that really generates a box has to carry WHICH
             // pseudo-element it names, and `Selector` is where that lived. ⚠ It is walked around by
             // anyone who spells the returning thing differently — move the clause with it.

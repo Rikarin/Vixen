@@ -189,6 +189,7 @@ public abstract partial class ButtonBase : Control {
         AddHandler<PointerEvent>(static (element, args) => ((ButtonBase) element).Pointed(args));
         AddHandler<FocusEvent>(static (element, args) => ((ButtonBase) element).Refocused(args));
         AddHandler<AccessKeyEvent>(static (element, args) => ((ButtonBase) element).Accessed(args));
+        AddHandler<KeyEquivalentEvent>(static (element, args) => ((ButtonBase) element).Equivalent(args));
     }
 
     /// <summary>An access key naming this button presses it.</summary>
@@ -205,6 +206,21 @@ public abstract partial class ButtonBase : Control {
         }
 
         Activate(ActivationDevice.Keyboard, 1, ModifierKeys.Alt);
+        args.Handled = true;
+    }
+
+    /// <summary>Presses, because a bare Return or Escape reached the form and this is what it names.</summary>
+    /// <remarks>
+    ///     A keyboard activation with no modifier, which is what it was. ⚠ Unhandled when disabled
+    ///     rather than swallowed, so that the document's fallback reads "nobody took it" and a
+    ///     greyed-out default button does not also eat the Return that would have moved on.
+    /// </remarks>
+    void Equivalent(KeyEquivalentEvent args) {
+        if (Disabled) {
+            return;
+        }
+
+        Activate(ActivationDevice.Keyboard, 1, ModifierKeys.None);
         args.Handled = true;
     }
 

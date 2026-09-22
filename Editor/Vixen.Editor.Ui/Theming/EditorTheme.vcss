@@ -1220,23 +1220,36 @@ console-row:checked console-repeats { color: var(--accent-text); }
 
 /* ⚠ A fixed height and its own scroller. The stack of a deep exception is
    forty lines, and a pane that sized to its contents would leave the list
-   two rows tall the moment one was selected. */
+   two rows tall the moment one was selected.
+
+   ⚠ "Its own scroller" was `overflow: auto` on a plain element until #1275,
+   and in this UI that clips and does not scroll — every line of the stack
+   past the sixth was cut off with no way to reach it. The pane is a
+   `ScrollView` under this tag now, which is why the rule carries the
+   `overflow: hidden; position: relative` the `scroll-view` user-agent rule
+   would otherwise supply: a control under another tag gets none of it (#1327), and
+   without the clip the scrolled-off lines draw over the list above. The
+   padding is on the content, not the port, because the port's own padding
+   would be inside what the bars measure and leave the last lines unreachable
+   by exactly its height. */
 console-detail {
     flex-direction: column;
     flex-shrink: 0;
     height: 132px;
-    gap: 3px;
-    padding: 7px 9px;
     border-top-width: 1px;
     border-color: var(--border);
     background-color: var(--surface-sunken);
-    overflow: auto;
+    overflow: hidden;
+    position: relative;
 }
+
+console-detail > scroll-content { gap: 3px; padding: 7px 9px; }
 
 /* ⚠ One line tall with nothing selected. A console docked along the bottom is
    about six rows deep, and a detail pane holding a third of that open for a
    stack that is not there is a panel with no room to read the log in. */
-console-detail.empty { height: auto; padding: 5px 9px; color: var(--text-muted); }
+console-detail.empty { height: auto; color: var(--text-muted); }
+console-detail.empty > scroll-content { padding: 5px 9px; }
 console-detail-heading { color: var(--text); }
 console-detail-meta { color: var(--text-muted); font-size: 0.85em; }
 console-detail-stack { color: var(--text-muted); font-size: 0.85em; white-space: pre; }
@@ -1290,19 +1303,24 @@ message-detail-text { flex-grow: 1; overflow: hidden; color: var(--text-muted); 
 
 message-row:checked message-time, message-row:checked message-detail-text { color: var(--accent-text); }
 
+/* A `ScrollView` under this tag, for `console-detail`'s reason and with the
+   same three consequences: the clip and the anchor are written here, and the
+   padding sits on the content. */
 message-log-detail {
     flex-direction: column;
     flex-shrink: 0;
     height: 96px;
-    gap: 3px;
-    padding: 7px 9px;
     border-top-width: 1px;
     border-color: var(--border);
     background-color: var(--surface-sunken);
-    overflow: auto;
+    overflow: hidden;
+    position: relative;
 }
 
-message-log-detail.empty { height: auto; padding: 5px 9px; color: var(--text-muted); }
+message-log-detail > scroll-content { gap: 3px; padding: 7px 9px; }
+
+message-log-detail.empty { height: auto; color: var(--text-muted); }
+message-log-detail.empty > scroll-content { padding: 5px 9px; }
 message-detail-heading { color: var(--text); }
 message-detail-meta { color: var(--text-muted); font-size: 0.85em; }
 message-detail-body { color: var(--text-muted); font-size: 0.85em; white-space: pre; }
@@ -1609,6 +1627,16 @@ build-spacer { flex-grow: 1; }
 choice-scroller {
     min-width: 420px;
     max-height: 320px;
+    /* ⚠ A `ScrollView` under its own tag gets none of the `scroll-view` user-agent rule, and
+       that rule is where a scroll view's clip, its bars' anchor and its direction live.
+       Without the first two the rows scrolled past the top drew over the dialog's title.
+       All three of ControlTheme's declarations are restated, not the two that were visibly
+       missing: the port has a single `scroll-content` child carrying its own column
+       direction, so the third is invisible today — and a rule that copies a user-agent rule
+       in part is a rule the next child added underneath it will break silently. */
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
 }
 
 /* ⚠ No `overflow: auto` here any more. In this UI that property clips and does not scroll —

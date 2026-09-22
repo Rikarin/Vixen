@@ -59,16 +59,21 @@ pushed. The pull is one level too shallow, and every new panel is a new chance t
 > > scoped command is actually asking.
 >
 > That is load-bearing, and it was measured rather than argued.
-> `CommandContextTests.Two_panels_in_seven_leave_a_focus_behind_for_a_route_to_read` presses in
+> `CommandContextTests.Three_panels_in_seven_leave_a_focus_behind_for_a_route_to_read` presses in
 > each of the seven panels that claim a context and reads `UiDocument.Focused` afterwards:
 >
 > | Panel | Context claimed | `Document.Focused` after the press |
 > |---|---|---|
 > | `hierarchy` | `scene` | `<tree-view>`, inside the panel |
-> | `lighting` | `world` | `<slider>` in an inspector row, inside the panel |
-> | `scenes` · `project` · `console` · `world-settings` · `navigation` | `scene` · `project` · `console` · `world` ×2 | **none** |
+> | `world-settings` · `lighting` | `world` ×2 | a control in an inspector row, inside the panel |
+> | `scenes` · `project` · `console` · `navigation` | `scene` · `project` · `console` · `world` | **none** |
 >
-> **Five of seven leave nothing for a route to read**, because `git grep -a "Focusable = true" --
+> ⚠ The count has moved twice and neither time was a rule: #628 let a scroll viewport shrink, and
+> #969 moved every panel the arrangement does not name out of the 20 % browser column into the group
+> with the most room — so more panels now have a focusable control under their middle. What is under
+> the middle of a panel is a measurement of a layout.
+>
+> **Four of seven leave nothing for a route to read**, because `git grep -a "Focusable = true" --
 > 'Editor/**/*.cs'` matches nothing outside one test: no editor panel is focusable, and the press
 > lands on nothing that is. `hierarchy` is the exception only because it contains a `TreeView`, whose
 > rows are — and note what that costs rather than what it buys: a press in `hierarchy` gives the

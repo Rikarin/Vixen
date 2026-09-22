@@ -131,7 +131,10 @@ public sealed class ProxyShapeView : Control, IDisposable {
         var left = body.Add("shape-stage");
 
         Stage = left.Add<ViewportControl>();
-        List = left.Add("shape-list");
+        // The content of a `ScrollView` under the `shape-list` tag, for `MoveSetView.Table`'s reason:
+        // the sheet gives this list 180 px and thirty shapes are scrolled, and until #1275 they were
+        // clipped instead.
+        List = left.Add<ScrollView>("shape-list").Content;
 
         var side = body.Add("shape-side");
 

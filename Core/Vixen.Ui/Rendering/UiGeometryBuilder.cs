@@ -1954,34 +1954,30 @@ public sealed class UiGeometryBuilder {
     ///     no-op, and transforming the coordinates alone would sample a rotated window onto an
     ///     upright picture.
     ///     <para>
-    ///         ⚠ <b>Exact rather than approximate, and only for an affine.</b> Both executors
-    ///         interpolate the coordinate linearly across the two triangles — the software one by
-    ///         barycentrics in <c>SoftwareUiRasterizer.Triangle</c>, the device by the rasteriser's own
-    ///         — and the composition of an affine map with a linear interpolation is that same
-    ///         interpolation, so the two triangles agree along the shared diagonal and no seam appears.
+    ///         ⚠ <b>Exact for an affine, and exact for a homography only because the vertex carries
+    ///         the <c>w</c>.</b> Both executors interpolate the coordinate across the two triangles —
+    ///         the software one by barycentrics in <c>SoftwareUiRasterizer.Triangle</c>, the device by
+    ///         the rasteriser's own — and the composition of an affine map with a linear interpolation
+    ///         is that same interpolation, so the two triangles agree along the shared diagonal and no
+    ///         seam appears. A projective map does not have that property: the four positions land
+    ///         correctly and a coordinate interpolated linearly between them is wrong everywhere in
+    ///         the middle, with a seam down the diagonal — 30.4 surface pixels at a 400×300 group's own
+    ///         centre under a mild perspective, which was measured before this changed (#548). So the
+    ///         corners are placed with <see cref="UiTransform.Project" /> rather than
+    ///         <see cref="UiTransform.Apply" />, and the <c>w</c> the latter would have divided away
+    ///         goes onto the vertex, where each rasteriser interpolates <c>u/w</c> and <c>1/w</c> and
+    ///         divides per fragment. On an affine <c>w</c> is exactly <c>1f</c> and the division here
+    ///         is the identity, so every quad that existed before the field holds the same floats.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A projective map does not have that property, and this paragraph used to say the
-    ///         type could not express one — it can now.</b> <see cref="UiTransform" /> is a 3×3 since
-    ///         #547, so <see cref="UiTransform.Apply" /> here silently drops the <c>w</c> that a
-    ///         perspective needs: the four positions land correctly and the texture coordinate between
-    ///         them is interpolated as though they were affine, which is a seam along the shared
-    ///         diagonal and a picture that is wrong in the middle and right at the corners. Nothing
-    ///         constructs a projective transform yet, so nothing reaches this — and
-    ///         <see cref="UiTransform.Project" /> is the call this becomes when #548 gives the vertex
-    ///         format somewhere to put it.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>"Nothing reaches this" was re-checked rather than copied, and it holds — by an
-    ///         internal setter and not by the type.</b> <c>UiTransform</c>'s <c>M13</c>, <c>M23</c>
-    ///         and <c>M33</c> are public <c>init</c>, so anybody can build a homography; what they
-    ///         cannot do is put one on an element, because <c>UiElement.Transform</c>'s setter is
-    ///         internal and the style pipeline is its only writer, and <c>TransformReader</c> parses
-    ///         no <c>perspective()</c> yet (#550). One assembly away from a wrong picture is worth
-    ///         knowing, so how wrong is now a number rather than this paragraph:
-    ///         <c>UiTransformProjectiveTests.A_composited_group_under_a_homography_samples_the_wrong_texel_down_its_diagonal</c>
-    ///         builds exactly this quad under a mild perspective and reads 30.4 surface pixels of
-    ///         error at the group's own centre.
+    ///         ⚠ <b>A corner behind the eye is written as it comes, reflected, with its negative
+    ///         <c>w</c> beside it — and the clip is the rasterisers', not this method's.</b> Its
+    ///         projected position is a finite, plausible point on the far side of the vanishing point,
+    ///         which is why the sign has to travel with it: the device clips against <c>w = 0</c> in
+    ///         hardware (a vertex at <c>z = 0</c> is inside the clip volume exactly when
+    ///         <c>w ≥ 0</c>), and <c>SoftwareUiRasterizer</c> clips the triangle against the same
+    ///         plane in homogeneous space before it takes a bound over anything. Clipping here would be
+    ///         a polygon with a fifth corner and a third implementation of the same plane.
     ///     </para>
     ///     <para>
     ///         Null is the ordinary case and costs one null check per quad, on a path that already
@@ -2010,17 +2006,19 @@ public sealed class UiGeometryBuilder {
         var bottomRight = new Vector2(right, bottom);
         var bottomLeft = new Vector2(left, bottom);
 
+        var w = (1f, 1f, 1f, 1f);
+
         if (placed is { } matrix) {
-            topLeft = matrix.Apply(topLeft);
-            topRight = matrix.Apply(topRight);
-            bottomRight = matrix.Apply(bottomRight);
-            bottomLeft = matrix.Apply(bottomLeft);
+            (topLeft, w.Item1) = Place(matrix, topLeft);
+            (topRight, w.Item2) = Place(matrix, topRight);
+            (bottomRight, w.Item3) = Place(matrix, bottomRight);
+            (bottomLeft, w.Item4) = Place(matrix, bottomLeft);
         }
 
-        vertices.Add(new UiVertex(topLeft, textureMin, color, shape));
-        vertices.Add(new UiVertex(topRight, new Vector2(textureMax.X, textureMin.Y), color, shape));
-        vertices.Add(new UiVertex(bottomRight, textureMax, color, shape));
-        vertices.Add(new UiVertex(bottomLeft, new Vector2(textureMin.X, textureMax.Y), color, shape));
+        vertices.Add(new UiVertex(topLeft, textureMin, color, shape, w.Item1));
+        vertices.Add(new UiVertex(topRight, new Vector2(textureMax.X, textureMin.Y), color, shape, w.Item2));
+        vertices.Add(new UiVertex(bottomRight, textureMax, color, shape, w.Item3));
+        vertices.Add(new UiVertex(bottomLeft, new Vector2(textureMin.X, textureMax.Y), color, shape, w.Item4));
 
         indices.Add(start);
         indices.Add(start + 1);
@@ -2028,5 +2026,58 @@ public sealed class UiGeometryBuilder {
         indices.Add(start);
         indices.Add(start + 2);
         indices.Add(start + 3);
+    }
+
+    /// <summary>The <c>w</c> a corner exactly on the eye plane is written with instead of zero.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Negative, because a point on the eye plane has no image and the clip has to take
+    ///     it.</b> <c>SoftwareUiRasterizer.NearW</c> cuts at a small positive <c>w</c>, so anything
+    ///     at or below zero must arrive below it; writing a positive epsilon would keep the corner
+    ///     and hand the rasteriser a position eight orders of magnitude off screen. Big enough that
+    ///     the quotient below stays finite for any coordinate a surface can hold — a viewport is
+    ///     thousands of points, not <c>1e38</c> — which is the whole requirement, since the value is
+    ///     never interpolated towards and exists only to be clipped away.
+    /// </remarks>
+    const float EyePlaneW = -1e-6f;
+
+    /// <summary>One corner, projected, and the <c>w</c> it was projected by.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ The same two divisions <see cref="UiTransform.Apply" /> does, written out so that the
+    ///         divisor survives: <c>Apply</c> is <c>Project</c> and a divide, and calling both would be
+    ///         the matrix applied twice per corner for one answer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Exactly zero is the one divisor that cannot be let through, and not because it is
+    ///         large.</b> Both consumers recover the homogeneous triple as <i>position × w</i> — the
+    ///         software rasteriser's <c>Between</c> in so many words, the vertex stage as
+    ///         <c>float4(xy·w, 0, w)</c> — and that recovery is exact for a negative <c>w</c> and
+    ///         undefined for a zero one: the corner projects to an infinity and the product is
+    ///         <c>∞ · 0</c>, a NaN, which every comparison in a rasteriser answers <i>false</i> to. So
+    ///         the triangle is silently not drawn rather than clipped, which is the same picture as a
+    ///         bug. A corner on the eye plane has no image at all, so <see cref="EyePlaneW" /> puts it
+    ///         a hair behind the eye where the clip can see it and the product still recovers the
+    ///         corner it came from.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is a guard rather than a live path, which is why no test reaches it — that
+    ///         was measured rather than assumed.</b> The one call that passes a matrix is the layer
+    ///         composite quad, and it is built only after <c>Invert</c> and
+    ///         <see cref="UiTransform.TryBounds" /> have both succeeded over the viewport — which is
+    ///         exactly the statement that every screen point's pre-image is in FRONT of the eye, since
+    ///         the inverse's <c>w</c> at an image is the reciprocal of the forward <c>w</c> at its
+    ///         source. The quad is then cut to that pre-image's bound. A fixture that tries to place a
+    ///         corner at zero is dropped by one of those two instead, silently passing against code
+    ///         that never divides at all; the only thing left is an axis-aligned bound whose corner
+    ///         pokes across a diagonal eye plane and lands on the exact float zero of a chain that
+    ///         runs through an inversion. That is not constructible on purpose, and it is one
+    ///         comparison to make the two remarks above true whether or not it happens.
+    ///     </para>
+    /// </remarks>
+    static (Vector2 Position, float W) Place(in UiTransform placed, Vector2 corner) {
+        var projected = placed.Project(corner);
+        var w = projected.Z == 0f ? EyePlaneW : projected.Z;
+
+        return (new Vector2(projected.X / w, projected.Y / w), w);
     }
 }

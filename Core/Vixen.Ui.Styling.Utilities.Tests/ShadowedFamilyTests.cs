@@ -52,14 +52,48 @@ public class ShadowedFamilyTests {
     static readonly ThemeTokens Shipped = ThemeTokens.CreateDefault();
 
     /// <summary>Every name the registry holds, asked of the registry rather than counted by hand.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Parsed rather than <c>SplitName</c>d, which is the third site of a derivation that
+    ///     was written three times and fixed in two.</b> <see cref="UtilityFamilies.SplitName" />'s
+    ///     contract is the name half of a class whose variants and modifiers are already off, and
+    ///     its walk requires a <c>-</c> after a registered name — so <c>@container/probe</c>, which
+    ///     the surface spells since the marker family landed, fell through to the whole string and
+    ///     entered this set as a family name nothing has ever registered. The sweep below then
+    ///     considered <c>@container</c>/<c>@container/probe</c> as a nesting pair, which is a
+    ///     shadow between a family and a phantom.
+    /// </remarks>
     static SortedSet<string> Registered(ThemeTokens tokens) {
         var names = new SortedSet<string>(StringComparer.Ordinal);
 
         foreach (var utility in UtilityFamilies.Surface(tokens)) {
-            names.Add(UtilityFamilies.SplitName(utility).Name);
+            names.Add(
+                UtilityParser.TryParse(utility, out var parsed)
+                    ? parsed.Name
+                    : UtilityFamilies.SplitName(utility).Name
+            );
         }
 
         return names;
+    }
+
+    /// <summary>The derivation above answers a registered root and never a class carrying a modifier.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The assertion the two sites already fixed did not get, and the reason this one was
+    ///     missed.</b> Nothing was red: a phantom name is only a defect when something reads the
+    ///     set, and F8's sweep is empty today whichever spelling it walks. So the instrument has to
+    ///     be an assertion about the derivation itself rather than about the sweep's verdict — this
+    ///     is red against <c>SplitName</c> and green against the parser, on both themes.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public void A_modifier_on_the_surface_does_not_become_a_family_name(string theme) {
+        var names = Registered(Theme(theme));
+
+        // Anti-vacuity: the surface really does spell the modifier this is about.
+        Assert.Contains(UtilityFamilies.Surface(Theme(theme)), utility => utility.Contains('/', StringComparison.Ordinal));
+
+        Assert.Contains("@container", names);
+        Assert.DoesNotContain(names, name => name.Contains('/', StringComparison.Ordinal));
     }
 
     public static TheoryData<string> Themes => ["probe", "shipped"];

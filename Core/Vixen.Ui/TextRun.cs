@@ -331,13 +331,24 @@ public sealed record TextRun(
         var text = Shaped.Text;
 
         foreach (var placement in Shaped.Placements()) {
-            // ⚠ <b>A tab draws nothing, whatever the face had to say about it.</b> HarfBuzz maps
-            // U+0009 through the cmap like any other character, so a face without a glyph for it —
-            // which is most of them — shapes it to .notdef and the pen puts a tofu box in the middle
-            // of the line. Suppressed here rather than in the line, because it is true of a tab
-            // wherever it appears and for every consumer: CSS Text 3 makes a tab a *space*, and the
-            // width of that space is `TextLine`'s question rather than this glyph's.
-            if ((uint) placement.Cluster < (uint) text.Length && text[placement.Cluster] == '\t') {
+            // ⚠ <b>A tab draws nothing, whatever the face had to say about it, and neither does a
+            // segment break.</b> HarfBuzz maps U+0009 through the cmap like any other character, so
+            // a face without a glyph for it — which is most of them — shapes it to .notdef and the
+            // pen puts a tofu box in the middle of the line. Suppressed here rather than in the
+            // line, because it is true of a tab wherever it appears and for every consumer: CSS
+            // Text 3 makes a tab a *space*, and the width of that space is `TextLine`'s question
+            // rather than this glyph's.
+            //
+            // ⚠ Every word of that was true of U+000A too, and for a long time nothing suppressed
+            // it. A line the wrapper ended at a forced break is the substring *including* its
+            // terminator, so the run is re-shaped from `"ab\n"` and the newline goes through the
+            // same cmap — a hollow box at the end of every line but the last of any hard-broken
+            // paragraph, drawn outside the measured width (`TextLine.Terminator` takes its advance
+            // off) and so moving nothing, only visible. The set is § 4.1.1's segment breaks, the
+            // same seven `TextLine.IsSegmentBreak` reads off the width, and not U+000A alone: a
+            // face that maps CR to a blank glyph (OpenSans does, to glyph 2) still places one, and
+            // the whole defect is that the face gets a say.
+            if ((uint) placement.Cluster < (uint) text.Length && IsUndrawn(text[placement.Cluster])) {
                 continue;
             }
 
@@ -366,6 +377,10 @@ public sealed record TextRun(
             into.Add(new PositionedGlyph(placement.GlyphId, placement.X * scale + offset, -placement.Y * scale));
         }
     }
+
+    /// <summary>Whether a character is placed with no glyph: a tab, or a segment break.</summary>
+    /// <param name="value">The character at the cluster's start.</param>
+    static bool IsUndrawn(char value) => value == '\t' || TextLine.IsSegmentBreak(value);
 
     /// <summary>Where one decoration line sits on this run, relative to its baseline.</summary>
     /// <param name="line">Which line. Exactly one — <see cref="Bars" /> is what walks a set of them.</param>

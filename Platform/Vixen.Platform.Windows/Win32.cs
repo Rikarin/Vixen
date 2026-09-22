@@ -205,8 +205,26 @@ static unsafe partial class Win32 {
         ref uint size
     );
 
+    /// <summary><c>COLOR_WINDOW</c> — the background of a window's client area and of an edit control.</summary>
+    public const int ColorWindow = 5;
+
+    /// <summary><c>COLOR_WINDOWTEXT</c> — the text drawn on <see cref="ColorWindow" />.</summary>
+    public const int ColorWindowText = 8;
+
     /// <summary><c>COLOR_HIGHLIGHT</c> — the background of a selected item.</summary>
     public const int ColorHighlight = 13;
+
+    /// <summary><c>COLOR_BTNFACE</c> — the face of a push button and of a dialog.</summary>
+    public const int ColorButtonFace = 15;
+
+    /// <summary><c>COLOR_GRAYTEXT</c> — disabled text.</summary>
+    public const int ColorGrayText = 17;
+
+    /// <summary><c>COLOR_BTNTEXT</c> — the text on <see cref="ColorButtonFace" />, and a button's edge under high contrast.</summary>
+    public const int ColorButtonText = 18;
+
+    /// <summary><c>COLOR_HOTLIGHT</c> — a hyperlink.</summary>
+    public const int ColorHotlight = 26;
 
     /// <summary><c>COLOR_HIGHLIGHTTEXT</c> — the text drawn on <see cref="ColorHighlight" />.</summary>
     public const int ColorHighlightText = 14;

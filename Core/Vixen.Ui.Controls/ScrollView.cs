@@ -333,7 +333,19 @@ public enum ScrollSnapAlign : byte {
 ///         property of the control, and <c>overflow-x</c> on some other element is a clip and nothing
 ///         more. The consequence is worth stating plainly: <c>overflow-y: auto</c> on a plain
 ///         <c>div</c> cuts its content off and offers no way to reach it. Put a <see cref="ScrollView" />
-///         there instead.
+///         there instead. ⚠ Since <c>Rikarin/Vixen#1275</c> the document says so itself: a box whose
+///         layout style came out a scroll container is reported on log event 7009, by name, because
+///         two editor themes had two dozen such rules and every one was a list that silently lost
+///         its tail.
+///     </para>
+///     <para>
+///         ⚠ <b>And a scroll view under a tag of its own gets none of the <c>scroll-view</c>
+///         user-agent rule</b> — <c>parent.Add&lt;ScrollView&gt;("choice-scroller")</c> or
+///         <c>&lt;ScrollView tag="…"&gt;</c> is styled by whatever the sheet says about that tag,
+///         and the sheet has to write the <c>overflow: hidden; position: relative</c> the clip and
+///         the bars' anchor need. Without the first, the rows scrolled past the top draw over
+///         whatever sits above the view. ⚠ Nothing catches that today, and it has shipped once;
+///         <c>Rikarin/Vixen#1327</c> is the general form of it.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>It does read four other families, and the distinction is the whole of doc 43 A18.</b>

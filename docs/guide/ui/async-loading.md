@@ -128,6 +128,16 @@ and there will not be one — `SDL_MouseWheelEvent` carries no phase, so nothing
 where a gesture *ended*, which is the same measurement on which the rubber band is refused there.
 On a desktop the refresh is a button, a menu item or a key, and the panel above does not change.
 
+⚠ **Where the button goes is not taste; the editor already answers it the same way every time.**
+`MemoryView`, `StatisticsView`, `NetworkView` and `RemoteInspectorView` each put a small `Refresh`
+first in a toolbar *above* the list, and keep the list in a `ScrollView` of its own so the toolbar
+does not scroll with it — a refresh control that has scrolled away is one the reader has to go and
+find at exactly the moment the list has gone stale. `MemoryView.vxml` says why in prose, and
+`MarkupPanelTests.The_refresh_control_is_above_the_list_and_outside_its_scroller` says it as a
+measurement: two hundred lines, the button has no scroller above it, and scrolling the list to its
+end moves the first line and not the button. A new panel that refreshes should be able to pass the
+same test.
+
 ⚠ **The request must be synchronous, and the compiler is what enforces it.** Dependency tracking
 stops at the first `await` — the ambient consumer is thread-local and the continuation is on another
 thread — so an `async` function that read signals after awaiting would silently record half its

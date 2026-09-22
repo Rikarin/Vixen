@@ -123,7 +123,8 @@ public static class PlatformInput {
     ///     <para>
     ///         ⚠ <b>These are defaults and not a platform read.</b> They are the tables a browser
     ///         uses; the platform's own semantic colours — AppKit's <c>labelColor</c>, Windows'
-    ///         <c>UISettings</c> accent — are not read here.
+    ///         high-contrast scheme — are not read here. <see cref="ApplySemanticColors" /> is the
+    ///         read, and what it supplied survives this because it is held apart from the tables.
     ///     </para>
     ///     <para>
     ///         ⚠ <b><s>And the AppKit half is not merely unwritten but blocked, because an SDL
@@ -238,6 +239,67 @@ public static class PlatformInput {
             document.Root.AddClass(SystemPalette.PlatformAccentClass);
         } else {
             document.Root.RemoveClass(SystemPalette.PlatformAccentClass);
+        }
+
+        static bool Fill(SystemPalette palette, SystemColor role, Color4? srgb) {
+            if (srgb is { } value) {
+                palette.SetPlatform(role, Color4.FromSrgb(value));
+                return false;
+            }
+
+            return palette.ClearPlatform(role);
+        }
+    }
+
+    /// <summary>Puts the operating system's semantic palette into the document's system colours.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="colours">What <see cref="IPlatform.SemanticColors" /> says.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The read #838 asked for: <c>color: CanvasText</c> resolving to the platform's label
+    ///         colour and following an appearance change without a stylesheet reload.</b> Every
+    ///         other link existed — the keywords parse, <c>SystemPalette</c> substitutes them at
+    ///         resolve time behind a revision counter, <see cref="SystemPalette.SetPlatform" /> holds a
+    ///         supplied role across every <see cref="Repalette" /> — and the platforms could not be
+    ///         asked, because <c>IPlatform</c> had no member for it and, on macOS, three files said
+    ///         the read was impossible. It is <see cref="ApplyAccent" />'s shape over eleven roles
+    ///         rather than two, and it is called from the same two places on the same event.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Role by role, and a <c>null</c> role is cleared rather than left standing</b>, for
+    ///         the reason <see cref="ApplyAccent" /> gives: forgetting is not reverting, so a role the
+    ///         platform stopped answering for — Windows leaving high contrast is the real case —
+    ///         has to go back to the table, and the table has to be re-applied for it to do so.
+    ///         <c>Reset</c> honours the roles still supplied, so the partial read this is on every
+    ///         platform survives it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not the accent pair.</b> <see cref="SystemSemanticColors" /> does not carry them
+    ///         and <see cref="ApplyAccent" /> owns the class the sheet keys on; two writers of
+    ///         <c>AccentColor</c> would answer with whichever ran last.
+    ///     </para>
+    /// </remarks>
+    public static void ApplySemanticColors(UiDocument document, SystemSemanticColors colours) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var palette = document.SystemColors;
+
+        // ⚠ `|` and not `||`: every role is written, and the reset happens once after, if any was
+        // forgotten. Short-circuiting would leave every role after the first forgotten one standing.
+        var forgotten = Fill(palette, SystemColor.Canvas, colours.Canvas)
+            | Fill(palette, SystemColor.CanvasText, colours.CanvasText)
+            | Fill(palette, SystemColor.LinkText, colours.LinkText)
+            | Fill(palette, SystemColor.ButtonFace, colours.ButtonFace)
+            | Fill(palette, SystemColor.ButtonText, colours.ButtonText)
+            | Fill(palette, SystemColor.ButtonBorder, colours.ButtonBorder)
+            | Fill(palette, SystemColor.Field, colours.Field)
+            | Fill(palette, SystemColor.FieldText, colours.FieldText)
+            | Fill(palette, SystemColor.Highlight, colours.Highlight)
+            | Fill(palette, SystemColor.HighlightText, colours.HighlightText)
+            | Fill(palette, SystemColor.GrayText, colours.GrayText);
+
+        if (forgotten) {
+            Repalette(document);
         }
 
         static bool Fill(SystemPalette palette, SystemColor role, Color4? srgb) {

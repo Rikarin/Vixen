@@ -198,7 +198,10 @@ enum SlashMeaning : byte {
     ///     A line height beside a font size — <c>text-lg/7</c> — or an alpha when the value read as
     ///     a colour instead, which is the one family whose slash means two things.
     /// </summary>
-    Leading
+    Leading,
+
+    /// <summary>A container name beside the container type: <c>@container/main</c>.</summary>
+    Name
 }
 
 /// <summary>The utilities a class name can name, and what each one emits.</summary>
@@ -337,6 +340,14 @@ public static class UtilityFamilies {
 
     static readonly Dictionary<string, Family> Registry = new(StringComparer.Ordinal);
     static readonly List<string> Names = [];
+
+    /// <summary>What a <see cref="SlashMeaning.Name" /> modifier writes, spelled once.</summary>
+    /// <remarks>
+    ///     Two branches of <see cref="Resolve" /> emit it — the keyword form and the arbitrary one —
+    ///     and the second was written because the first did not cover the escape hatch. A property
+    ///     name spelled in both places is the next thing to drift, so it is spelled here.
+    /// </remarks>
+    static readonly string[] NameProperties = ["container-name"];
 
     static UtilityFamilies() {
         // ── Layout ──────────────────────────────────────────────────────────────────────────
@@ -1160,6 +1171,11 @@ public static class UtilityFamilies {
         // yet — collapsing runs of space and keeping newlines. Registering them adds no new gap and
         // closes a spelling gap.
         //
+        // ⚠ <b>And `break-spaces` has a second reader now</b>: `UiDocument.BreakSpacesOf`, which
+        // is what turns off the hang and adds the break between two spaces in `LineWrapper`. It
+        // never needed the collapsing — it preserves exactly as `pre-wrap` does — so of the six only
+        // `pre-line` is still answered as `pre-wrap` at the engine level.
+        //
         // ⚠ <b>This paragraph used to say `pre` was registered while being answered wrongly, and
         // that stopped being true.</b> `WrapsOf` honours it now: because this engine collapses
         // nothing and already breaks at every mandatory opportunity, an element with no declaration
@@ -1533,6 +1549,18 @@ public static class UtilityFamilies {
         // document's. Its sibling `accent-*` is absent for the opposite reason — see the refusals at
         // the foot of this table.
         Color("caret", "caret-color");
+
+        // ⚠ <b>The one Typography root that was refused on F6 and did not need F6.</b> v4's
+        // `placeholder-red-500` is `color` inside `&::placeholder`, and this table refused it for
+        // two reasons: the compiler refuses pseudo-element selectors, and "there is no element for
+        // such a rule to match — `TextField.Placeholder` is a C# property the control draws itself".
+        // The second was wrong at HEAD when it was re-read: `TextField.OnCreated` builds the prompt
+        // as `Part("field-placeholder")`, a direct child with a tag of its own that
+        // `ControlTheme.vcss` already styles. So this is `space-x-*`'s shape and not A12's — a rule
+        // about a relationship, scoped onto the child the control makes — and the same scope the
+        // `placeholder:` variant in `Variants.Parts` uses, kept in one place so the two cannot drift.
+        // ⚠ The other three roots in that bucket are still behind `::marker`, which nothing builds.
+        Register(new Family("placeholder", ValueKind.Color, ["color"], Scope: Variants.PlaceholderPart));
 
         // ⚠ <b>A ring is a <c>box-shadow</c> with a width, and this family used to emit
         // <c>outline-color</c> — which no version of Tailwind has ever emitted for it.</b> Not v4's
@@ -2499,6 +2527,56 @@ public static class UtilityFamilies {
         Skew("skew-x", [UtilityComposition.SkewX]);
         Skew("skew-y", [UtilityComposition.SkewY]);
 
+        // ⚠ <b>The two three-dimensional rotations, on <c>rotate-z-*</c>'s mechanism exactly — and
+        // the refusal they carried for months named a renderer rather than this layer.</b> It ran:
+        // `UiTransform` is affine, so a projective composite cannot be expressed. #547 made the type
+        // a homography, #548 gave the composite quad's vertices the `w` both rasterisers now divide
+        // by, and #550 made `TransformReader.Functions` compose the whole list in four dimensions and
+        // reduce once at the end. So `rotateX(…)` and `rotateY(…)` are slots in the assembler, under
+        // the rule the block above `RotateZ` states: a slot joins when its function parses.
+        //
+        // ⚠ <b>Without a `perspective-*` on the parent, `rotate-x-45` is a vertical squash — and that
+        // is the right picture.</b> A rotation about x foreshortens until something projects it, which
+        // is what a browser draws too. The pair is what makes a card flip.
+        Skew("rotate-x", [UtilityComposition.RotateX]);
+        Skew("rotate-y", [UtilityComposition.RotateY]);
+
+        // ⚠ <b>A property and not a function, established by the PARENT — which is the half of
+        // Transforms 2 § 6 that is easy to get backwards and produces a plausible picture either
+        // way.</b> An element's `perspective` applies to its children; a `perspective()` inside its
+        // own `transform` applies to itself. `TransformReader.Established` reads the parent's, and
+        // `TransformTests` asserts the two against each other with two elements rather than one.
+        //
+        // ⚠ <b>The five distances are written out rather than read from a theme token</b>, because
+        // this engine has no `--perspective-*` scale and inventing one would be a name nothing else
+        // looks at — the `--blur` failure this table has already paid for once. They are v4's own
+        // defaults, and a `perspective-[600px]` reaches the same property through the arbitrary
+        // branch.
+        Keywords("perspective", "perspective", new() {
+            ["dramatic"] = "100px",
+            ["near"] = "300px",
+            ["normal"] = "500px",
+            ["midrange"] = "800px",
+            ["distant"] = "1200px",
+            ["none"] = "none"
+        });
+
+        // ⚠ <b>`origin`'s nine positions over a different property, and `SplitName` is what makes the
+        // two coexist</b>: the longest registered prefix wins, so `perspective-origin-top-right`
+        // reaches here and `perspective-distant` still reaches the family above. The same rule that
+        // keeps `rotate-z-45` and `rotate-45` apart.
+        Keywords("perspective-origin", "perspective-origin", new() {
+            ["center"] = "center",
+            ["top"] = "top",
+            ["top-right"] = "top right",
+            ["right"] = "right",
+            ["bottom-right"] = "bottom right",
+            ["bottom"] = "bottom",
+            ["bottom-left"] = "bottom left",
+            ["left"] = "left",
+            ["top-left"] = "top left"
+        });
+
         // ⚠ <b>Both fragments from one class, which is v4's own reading and not a shorthand for it.</b>
         // Tailwind's `skew-6` emits `skewX(6deg) skewY(6deg)` — two functions — rather than CSS's
         // two-argument `skew(6deg, 6deg)`. Writing the CSS spelling instead would resolve and paint
@@ -2708,6 +2786,24 @@ public static class UtilityFamilies {
             ["layout"] = "layout", ["paint"] = "paint", ["style"] = "style"
         });
 
+        // ⚠ <b>The `@container` MARKER family — the class that makes a box a query container — and
+        // the one root in this table spelled with a sigil.</b> v4 emits `container-type: inline-size`
+        // for the bare `@container`, `normal` and `size` for the two keywords, and `container-name`
+        // beside it for `@container/main`. The `@sm:` variants that ask the question landed first
+        // (#273) and every container in this tree was declared in hand-written CSS until this did,
+        // because a marker faces `UtilityConsumptionGateTests` where a pure variant does not:
+        // `container-type` moves none of the four channels unless the scene holds a query reacting
+        // to it, which is what the `queried` probe scene is for.
+        //
+        // ⚠ <b>The name is not a prefix of `contain` and `contain` is not a prefix of it</b> — the
+        // `@` is what keeps the two apart in the longest-prefix walk — which is the collision the
+        // remark above warns a bare `container` root would have. The `@` reaches the registry only
+        // because `CandidateScanner` admits exactly this name without a colon; every other
+        // `@`-word it sees is an at-keyword.
+        Register(new Family("@container", ValueKind.Static, ["container-type"], Keywords: new(StringComparer.Ordinal) {
+            [string.Empty] = "inline-size", ["normal"] = "normal", ["size"] = "size"
+        }) { Slash = SlashMeaning.Name });
+
         // ⚠ <b>Lengths where the web has keywords, because the two are answering different
         // questions.</b> A browser's `scrollbar-width: auto | thin | none` is a page's *preference*
         // about a widget the browser owns and draws; nothing here owns one, so the useful value is
@@ -2780,9 +2876,10 @@ public static class UtilityFamilies {
         //   function in it is unreadable, and pinned against pixels in `TransformTests` (#585). What
         //   is true is the clause beside it: `StyleValue` has no function kind, which is why a
         //   `transform` declaration cannot interpolate — and it is not what holds these back.
-        //   `skew-*` is a family registration away (#227). The three-dimensional four are a *vertex*
-        //   away: `UiVertex` has nowhere to put a `w`, so a projective quad would be rasterised with
-        //   affine barycentrics (#548).
+        //   `skew-*` is a family registration away (#227). ⚠ <b>The three-dimensional four were a
+        //   *vertex* away until 2026-09-22, and are a *reader* away now.</b> `UiVertex` carries a `w`
+        //   since #548 and both executors divide by it; what is left is that `TransformReader` reads
+        //   no 3D function and no `perspective` property, which is #550.
         //
         //   ⚠ <b>3. The property is READ, and the value is refused — so the gate stays green over a
         //   class that paints nothing.</b> The dangerous kind, and the one this table has to catch
@@ -2969,6 +3066,15 @@ public static class UtilityFamilies {
                 Consider($"{name}-{value}");
             }
 
+            // ⚠ The one modifier that emits a SECOND property rather than changing the first, so it
+            // is the one the surface has to spell or the property never reaches the consumption
+            // gate at all. An alpha, a fraction, a ratio and a line height all resolve into the
+            // declarations the head already emits; `@container/main` adds `container-name`, and a
+            // surface without this line would leave that property in neither the read set nor the
+            // inert one — unclassified, which the probe's own remarks call worse than wrong.
+            if (family.Slash == SlashMeaning.Name) {
+                Consider($"{name}/probe");
+            }
         }
 
         return probes;
@@ -3262,6 +3368,20 @@ public static class UtilityFamilies {
                 return false;
             }
 
+            // ⚠ <b>The escape hatch goes through the slash rather than past it.</b> This branch runs
+            // before the one that reads a `SlashMeaning.Name`, so `@container-[inline-size]/main`
+            // used to emit the type and discard the name — the "quietly lose the suffix" failure the
+            // keyword branch below spends a paragraph refusing, arriving through the one door that
+            // refusal does not cover, and in its worse form: the class *works*, registering a
+            // container the author's `@container main (…)` query can never name. The name is held to
+            // the same identifier shape the keyword form holds it to, because `container-name: 24rem`
+            // is a declaration ExCSS drops whole.
+            if (family.Slash == SlashMeaning.Name && candidate.SlashSuffix is { } arbitraryName) {
+                return UtilityParser.IsIdentifierName(arbitraryName)
+                    && Emit(family, arbitrary, declarations)
+                    && EmitInto(NameProperties, arbitraryName, declarations);
+            }
+
             // ⚠ A widths-only border family — `divide-x`, `divide-y` — has nowhere to put an
             // arbitrary colour, so `divide-x-[red]` is refused rather than emitted as a width.
             if (family.Kind == ValueKind.BorderEdge && LooksLikeColor(arbitrary)) {
@@ -3290,6 +3410,18 @@ public static class UtilityFamilies {
             return TryRatioPart(candidate.Value, out var antecedent)
                 && TryRatioPart(denominator, out var consequent)
                 && Emit(family, antecedent + " / " + consequent, declarations);
+        }
+
+        // ⚠ A name before the keywords, for `aspect-*`'s reason one entry up: the keyword branch
+        // refuses every modifier, and `@container/main` is a keyword — the empty one — carrying a
+        // name. The name has to be an identifier, because `container-name: 24rem` is a declaration
+        // ExCSS drops whole and the class would then resolve to a container nobody can ask for.
+        if (family.Slash == SlashMeaning.Name && candidate.SlashSuffix is { } containerName) {
+            return UtilityParser.IsIdentifierName(containerName)
+                && family.Keywords is not null
+                && family.Keywords.TryGetValue(candidate.Value, out var containerType)
+                && Emit(family, containerType, declarations)
+                && EmitInto(NameProperties, containerName, declarations);
         }
 
         // Keywords first, because `text-center` has to beat any colour or size named `center`.

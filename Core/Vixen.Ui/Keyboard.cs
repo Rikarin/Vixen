@@ -280,6 +280,15 @@ public sealed partial class UiDocument {
             args.Handled = InvokeAccessKey(access);
         }
 
+        // ⚠ The same place and the same rule for a bare Return or Escape: a default button is a
+        // fallback for a press the focused control declined, never a claim on the key. A multi-line
+        // field keeps its newline, an open overlay keeps its Escape, and the button hears only what
+        // reached the end of the route with nobody wanting it. Before Tab only because Tab is not a
+        // key anything declares as an equivalent.
+        if (!args.Handled && args is { Action: KeyAction.Pressed } && args.Has(ModifierKeys.None)) {
+            args.Handled = InvokeKeyEquivalent(args.Key);
+        }
+
         if (!args.Handled && args is { Action: KeyAction.Pressed, Key: InputKey.Tab }) {
             // Shift picks the direction and everything else disqualifies it. Ctrl-Tab is a document
             // switcher in every application that has documents, and consuming it here would mean a

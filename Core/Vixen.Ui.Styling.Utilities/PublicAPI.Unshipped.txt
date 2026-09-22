@@ -156,6 +156,8 @@ const Vixen.Ui.Styling.Utilities.UtilityComposition.RingColor = "--tw-ring-color
 const Vixen.Ui.Styling.Utilities.UtilityComposition.RingOffsetColor = "--tw-ring-offset-color" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.RingOffsetWidth = "--tw-ring-offset-width" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.RingWidth = "--tw-ring-width" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.RotateX = "--tw-rotate-x" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.RotateY = "--tw-rotate-y" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.RotateZ = "--tw-rotate-z" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Saturate = "--tw-saturate" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.ScaleX = "--tw-scale-x" -> string
@@ -207,6 +209,7 @@ static Vixen.Ui.Styling.Utilities.UtilityGenerator.Escape(string name) -> string
 static Vixen.Ui.Styling.Utilities.UtilityParser.TryParse(string candidate, out Vixen.Ui.Styling.Utilities.UtilityCandidate parsed) -> bool
 static Vixen.Ui.Styling.Utilities.Variants.IsArbitrary(Vixen.Ui.Styling.Utilities.VariantEffect effect) -> bool
 static Vixen.Ui.Styling.Utilities.Variants.MediaVariants.get -> System.Collections.Generic.IReadOnlyCollection<string>
+static Vixen.Ui.Styling.Utilities.Variants.PartVariants.get -> System.Collections.Generic.IReadOnlyCollection<string>
 static Vixen.Ui.Styling.Utilities.Variants.StateVariants.get -> System.Collections.Generic.IReadOnlyCollection<string>
 static Vixen.Ui.Styling.Utilities.Variants.TryResolve(string variant, Vixen.Ui.Styling.Utilities.ThemeTokens tokens, out Vixen.Ui.Styling.Utilities.VariantEffect effect) -> bool
 static readonly Vixen.Ui.Styling.Utilities.UtilityComposition.MaskEdges -> string[]

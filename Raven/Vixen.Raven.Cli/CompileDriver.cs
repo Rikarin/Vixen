@@ -23,11 +23,23 @@ namespace Vixen.Raven.Cli;
 /// </summary>
 public static class CompileDriver {
     /// <summary>
-    ///     Indented, with enums as names: this file is read by people as often as by the engine,
-    ///     and a bare number for a DescriptorType tells a reader nothing.
+    ///     Indented, with enums as names, and LF: this file is read by people as often as by the
+    ///     engine, a bare number for a DescriptorType tells a reader nothing, and it is committed.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b><c>NewLine</c> is the load-bearing line.</b> A <c>.reflect.json</c> is a
+    ///     <em>committed</em> artefact that <c>CheckShaders</c> compares to the compiler's output
+    ///     byte for byte, and <c>.gitattributes</c> pins <c>*.json</c> to <c>eol=lf</c> — so the
+    ///     file on disk is LF on every platform. Since .NET 9 an indented <c>Utf8JsonWriter</c>
+    ///     defaults to <c>Environment.NewLine</c> instead of <c>\n</c>, which made this write CRLF
+    ///     on Windows and LF in CI. The bytes differ in nothing else, so the gate reported all
+    ///     twelve committed modules "stale" on Windows and nothing on Linux, and
+    ///     <c>--update-shaders</c> could not settle it: it wrote CRLF back, git normalised it to LF
+    ///     on the way in, and the next run failed identically.
+    /// </remarks>
     static readonly JsonSerializerOptions ReflectionJson = new() {
         WriteIndented = true,
+        NewLine = "\n",
         Converters = { new JsonStringEnumConverter() }
     };
 

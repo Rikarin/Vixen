@@ -38,6 +38,19 @@
 
     <ItemGroup>
         <!--
+            The fixed-pitch face the harness registers under `monospace`; `HarnessFonts` says why a
+            harness must not borrow the machine's.
+
+            ⚠ Linked from the suite that already commits it rather than copied, because two files
+            that must measure the same are one file. The logical name is this assembly's, so the
+            resource is found by `HarnessFonts` and not by the name the other project gives it.
+        -->
+        <EmbeddedResource Include="..\..\Core\Vixen.Ui.Controls.Advanced.Tests\Fonts\TestMono.ttf"
+                          LogicalName="Vixen.Editor.Testing.Fonts.TestMono.ttf" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
             The head's own suite reaches `Application` for the few assertions that are about the head
             rather than about the interface — installing a thumbnail uploader, for one. Everything
             else this assembly publishes is public.

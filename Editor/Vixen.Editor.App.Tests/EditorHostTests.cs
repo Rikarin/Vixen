@@ -5,6 +5,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Platform;
 using Vixen.Platform.Headless;
 using Vixen.Platform.Headless.Tests;
+using Vixen.Ui.Styling;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -36,6 +37,11 @@ namespace Vixen.Editor.App.Tests;
 ///     </para>
 /// </remarks>
 public class EditorHostTests {
+    /// <summary>A platform colour no default table could produce, so a match cannot be a coincidence.</summary>
+    static readonly Color4 Label = new(0.42f, 0.13f, 0.77f, 1f);
+
+    static SystemSemanticColors Palette => new(CanvasText: Label);
+
     static (TemporaryFileSystemHost Files, HeadlessPlatform Platform, IWindow Window) Open() {
         var files = new TemporaryFileSystemHost();
         var platform = new HeadlessPlatform(new HeadlessPlatformOptions { FileSystem = files });
@@ -131,6 +137,78 @@ public class EditorHostTests {
             // whole of the way down removed.
             Assert.True(File.Exists(Path.Combine(files.DataDirectory, "window.yaml")), "window.yaml");
             Assert.True(File.Exists(Path.Combine(files.DataDirectory, "keybindings.yaml")), "keybindings.yaml");
+        }
+    }
+
+    /// <summary>The palette the machine already had reaches the shell before the first frame.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The editor is the host a wire gets added to second, and the one where a missing
+    ///         wire is quietest.</b> Its theme uses the class dark-mode strategy and asks no media
+    ///         query, so the symptom of an unwired palette here is not a light window on a dark
+    ///         machine but <c>color: CanvasText</c> in a panel or a plug-in sheet silently keeping
+    ///         Chromium's black. CLAUDE.md's two-renderers rule is about exactly this pair, and
+    ///         until this test the four <c>PlatformInput.Apply…</c> calls in <c>Loop</c> were
+    ///         reachable from nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The queue is drained between the setting and the run, and without that line this
+    ///         proves nothing.</b> Setting a headless platform's palette queues the appearance event
+    ///         on purpose — that is what a desktop's poll does — so a run that kept it would have
+    ///         the seed and the handler apply the same value, and deleting the seed would leave this
+    ///         green. Draining makes the seed the only thing that could have supplied the colour.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_palette_the_platform_already_had_is_read_before_the_first_frame() {
+        var (files, platform, window) = Open();
+
+        using (files) {
+            using (platform) {
+                platform.SemanticColors = Palette;
+                platform.PumpEvents();
+
+                using var host = new EditorHost(platform, window);
+
+                Assert.Equal(0, host.Run(1));
+
+                var colours = host.Document.SystemColors;
+
+                Assert.True(colours.IsFromPlatform(SystemColor.CanvasText), "the host read no semantic palette.");
+                Assert.Equal(Color4.FromSrgb(Label), colours[SystemColor.CanvasText]);
+
+                // ⚠ And not the sRGB numbers themselves — the failure that looks like a working
+                // palette until somebody compares two screenshots.
+                Assert.NotEqual(Label, colours[SystemColor.CanvasText]);
+            }
+        }
+    }
+
+    /// <summary>And a palette that moves under the running editor is picked up.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Through <see cref="SwitchingPlatform" />, because the seed and the handler read the
+    ///     same property and this loop runs its seed on every <c>Run</c>.</b> See that class: the
+    ///     value has to differ between the two reads or neither line can be sabotaged on its own,
+    ///     and the platform is the only thing in reach that can make it differ mid-frame.
+    /// </remarks>
+    [Fact]
+    public void A_palette_that_moves_under_the_running_editor_is_picked_up() {
+        var (files, inner, window) = Open();
+
+        using (files) {
+            using (inner) {
+                var platform = new SwitchingPlatform(inner, 2, Palette);
+
+                using var host = new EditorHost(platform, window);
+
+                Assert.Equal(0, host.Run(4));
+                Assert.True(platform.Switched, "the palette never moved, so nothing was under the loop to notice.");
+
+                var colours = host.Document.SystemColors;
+
+                Assert.True(colours.IsFromPlatform(SystemColor.CanvasText), "the change reached no handler.");
+                Assert.Equal(Color4.FromSrgb(Label), colours[SystemColor.CanvasText]);
+            }
         }
     }
 }

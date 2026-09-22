@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Runtime.CompilerServices;
+using Vixen.Input;
 using Vixen.Ui;
 using Xunit;
 
@@ -380,6 +381,130 @@ public class DialogTests : IDisposable {
         } finally {
             SynchronizationContext.SetSynchronizationContext(restore);
         }
+    }
+
+    /// <summary>Return in a dialog answers it, because the primary button is the default one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>"OK" has meant "what Return does" on every platform since there were dialogs, and
+    ///         here it meant "no".</b> <c>Button</c> had no default key equivalent (#666's "present
+    ///         with a named gap"), and the dialog focused its first tab stop — which is the ✕ in the
+    ///         header, because the header is before the body in tree order — so a focused close
+    ///         button took Enter as an activation and answered false. Two halves of one bug, and the
+    ///         second could not be fixed until the first existed to say what the focus should prefer
+    ///         instead.
+    ///     </para>
+    ///     <para>
+    ///         Asserted through <c>Handled</c> as well as through the answer, because "the key went
+    ///         somewhere" and "the key went to the right place" fail apart: the version of this that
+    ///         focused the ✕ was handled and answered false.
+    ///     </para>
+    ///     <para>
+    ///         Escape is deliberately not asserted here as a <i>cancel button</i>: <c>Overlay</c>
+    ///         already closes on it from the root's capture leg with <c>CloseReason.Cancelled</c>,
+    ///         which the test above covers, and that runs before a key equivalent could.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task Return_presses_the_primary_button_of_an_open_dialog() {
+        var answer = dialogs.ConfirmAsync("Delete it?");
+        dialogs.Pump();
+
+        var accept = Button(dialogs.Current!, "OK");
+
+        Assert.True(accept.IsDefault);
+        Assert.False(Button(dialogs.Current!, "Cancel").IsDefault);
+
+        // And the focus is not on the ✕, which is what made the old first Enter mean "no".
+        Assert.NotSame(dialogs.Current!.CloseButton, document.Focused);
+
+        document.Update();
+
+        Assert.True(accept.Width > 0f, "the footer button has a box to be found by");
+
+        var press = new KeyEvent { Key = InputKey.Enter, Action = KeyAction.Pressed };
+        document.Dispatch(press);
+
+        Assert.True(press.Handled, "the press reached the default button");
+
+        dialogs.Pump();
+
+        Assert.True(answer.IsCompletedSuccessfully);
+        Assert.True(await answer);
+    }
+
+    /// <summary>Return from a body control that does not want it still presses the default button.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The test above cannot see the key-equivalent mechanism at all.</b> The new focus
+    ///         rule puts the focus on the default button in a confirm sheet, so Enter there is that
+    ///         button's ordinary route handling — disabling <see cref="UiDocument.InvokeKeyEquivalent" />
+    ///         in the key route entirely leaves every other case in this class green. This is the one
+    ///         that asks the question #666 is about: the focus is somewhere else, the route declines
+    ///         the press, and the default button must still hear it.
+    ///     </para>
+    ///     <para>
+    ///         A plain focusable element rather than a <c>TextBox</c>, because a text field commits
+    ///         from its own <c>Submitted</c> and would answer without the fallback — which is the
+    ///         same way the confirm sheet hid the gap. What is wanted here is a focus holder that
+    ///         declines Return, so the only path left to the answer is the equivalent.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task Return_from_a_body_control_that_declines_it_reaches_the_default_button() {
+        UiElement? holder = null;
+
+        var answer = dialogs.ShowAsync<bool>(
+            "Ship it?",
+            session => {
+                holder = session.Body.Add("dialog-message");
+                holder.Focusable = true;
+
+                session.AddButton("Cancel", () => false);
+                session.AddButton("OK", () => true, ControlVariant.Primary);
+            },
+            () => false
+        );
+
+        dialogs.Pump();
+        document.Update();
+
+        document.Focus(holder!);
+        Assert.Same(holder, document.Focused);
+
+        var press = new KeyEvent { Key = InputKey.Enter, Action = KeyAction.Pressed };
+        document.Dispatch(press);
+
+        Assert.True(press.Handled, "nothing on the route wanted Return, so the default button did");
+
+        // And a key equivalent does not take the focus, the way a click on the button would not.
+        Assert.Same(holder, document.Focused);
+
+        dialogs.Pump();
+
+        Assert.True(answer.IsCompletedSuccessfully);
+        Assert.True(await answer);
+    }
+
+    /// <summary>A dialog with a field opens with the field focused, not with a footer button.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The first clause of <c>Dialog.OnOpened</c>'s preference had nothing behind it.</b>
+    ///     The confirm sheet the other focus assertion uses has an empty body, so the second clause
+    ///     (the default button) answers for it and neutering the body-first rule left all of these
+    ///     green — a prompt whose field stopped being focused on open, where the user types and
+    ///     nothing happens, would have passed the suite. <c>PromptAsync</c> is the case the rule was
+    ///     written for: a dialog with a field is a dialog about that field.
+    /// </remarks>
+    [Fact]
+    public void A_prompt_opens_with_its_field_focused_rather_than_a_button() {
+        _ = dialogs.PromptAsync("Rename", initial: "walk");
+        dialogs.Pump();
+        document.Update();
+
+        var field = Find<TextBox>(dialogs.Current!.Body);
+
+        Assert.NotNull(field);
+        Assert.Same(field, document.Focused);
     }
 
     static void Press(Dialog dialog, string label) => Button(dialog, label).Activate();

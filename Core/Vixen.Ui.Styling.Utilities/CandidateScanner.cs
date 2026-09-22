@@ -234,6 +234,18 @@ public static class CandidateScanner {
     ///     container variant always does</b>, because the colon is what makes it a variant. So a run
     ///     containing an <c>@</c> and no <c>:</c> is refused, and no name has to be enumerated.
     ///     <para>
+    ///         ⚠ <b>With exactly one name enumerated after all, and it is the one v4 spells as a
+    ///         class.</b> <c>@container</c>, <c>@container-normal</c> and <c>@container/main</c> are
+    ///         utilities — the <i>marker</i> family, which makes a box a query container — and
+    ///         they have no colon by construction. They are also, letter for letter, the at-rule
+    ///         that queries one, so the grammar cannot tell the class from the keyword and this is
+    ///         the one place a name is. The cost is the scanner's usual one and no more: a sheet
+    ///         that writes <c>@container (min-width: …)</c> yields the candidate <c>@container</c>,
+    ///         and one unused rule is generated for it. The refusal keeps every other at-keyword
+    ///         out — <c>@apply</c>, <c>@theme</c>, <c>@layer</c>, <c>@media</c> — and keeps
+    ///         <c>@containers</c> out too: the name is followed by nothing, a hyphen or a slash.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b><c>@@</c> is folded to <c>@</c>, which is what makes the family reachable from
     ///         <c>.vxml</c> at all.</b> <c>@</c> is that dialect's interpolation marker inside an
     ///         attribute value, so <c>class="@sm:p-4"</c> interpolates an expression called
@@ -262,16 +274,27 @@ public static class CandidateScanner {
             return;
         }
 
-        if (run.Contains('@') && !run.Contains(':')) {
+        var text = run.ToString();
+
+        if (text.Contains("@@", StringComparison.Ordinal)) {
+            text = text.Replace("@@", "@", StringComparison.Ordinal);
+        }
+
+        if (text.Contains('@') && !text.Contains(':') && !IsContainerMarker(text)) {
             return;
         }
 
-        var text = run.ToString();
-
-        into.Add(text.Contains("@@", StringComparison.Ordinal)
-            ? text.Replace("@@", "@", StringComparison.Ordinal)
-            : text);
+        into.Add(text);
     }
+
+    /// <summary>Whether a colon-less <c>@</c> run is the one at-spelled utility rather than an at-keyword.</summary>
+    /// <param name="text">The run, with any <c>@@</c> already folded.</param>
+    /// <returns>Whether it is <c>@container</c>, <c>@container-…</c> or <c>@container/…</c>.</returns>
+    static bool IsContainerMarker(string text) =>
+        text.StartsWith(ContainerMarker, StringComparison.Ordinal)
+        && (text.Length == ContainerMarker.Length || text[ContainerMarker.Length] is '-' or '/');
+
+    const string ContainerMarker = "@container";
 
     static ReadOnlySpan<char> Interesting => "-:[/";
 

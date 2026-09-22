@@ -76,6 +76,7 @@ command-palette search-box	Started
 composite-editor expander	Documents
 composite-editor expander-content	Documents
 compositor-editor > node-graph	Documents
+console-detail > scroll-content	Started
 console-toolbar button	Started
 console-toolbar search-box	Started
 console-toolbar select	Started
@@ -155,6 +156,7 @@ meshbake-row select	Panels
 meshbake-row text	Panels
 meshbake-row textbox	Panels
 message-log virtualizing-panel	Panels
+message-log-detail > scroll-content	Panels
 message-log-toolbar search-box	Panels
 message-log-toolbar select	Panels
 mixer-body > mixer-strips	Documents

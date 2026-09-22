@@ -237,6 +237,16 @@ sealed class EditorHost : IDisposable {
 
         Fonts.Install(editor.Shell.Document);
 
+        // ⚠ After Open Sans, so that it cannot become the default. Four declarations across the
+        // advanced theme and the editor's sheets say `font-family: monospace` — the code editor,
+        // the errors panel, the revisions patch and the asset editors' code views — and the editor
+        // ships no fixed-pitch face, so until #1259 all four resolved to Open Sans and every
+        // `column × CharacterWidth` in `CodeEditor` was wrong for an `i`.
+        // Borrowed from the machine for now, which `Fonts` rightly calls a starting
+        // point rather than a design: the editor's own doctrine is to ship its faces, and the
+        // shipped fixed-pitch one is a licence decision that is not made here (#1315).
+        SystemFonts.InstallMonospace(editor.Shell.Document);
+
         // ⚠ After the font, because how a shortcut should be written depends on what the face can
         // draw. macOS's ⌘ ⇧ ⌥ ⌃ are missing from Arial — which is what `Fonts` finds there — and an
         // unmapped codepoint resolves to glyph zero rather than to a box, so the bar read "L+S" for
@@ -271,6 +281,18 @@ sealed class EditorHost : IDisposable {
     /// </remarks>
     public string? NextProject => editor.PendingProject;
 
+    /// <summary>The shell's document, for the tests that ask what the loop put in it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Internal, and it exists because the four <c>PlatformInput.Apply…</c> calls in this
+    ///     loop were reachable from no test.</b> A sweep for callers of <c>ApplyAccent</c> and
+    ///     <c>ApplySemanticColors</c> over <c>.cs</c> and <c>.vxml</c> found one test file, and it
+    ///     drives <c>PlatformInput</c> directly and builds no host — so deleting both lines from
+    ///     <em>either</em> host left every suite green while the surviving host kept working, which
+    ///     is the shape this repository's two-renderers rule is written about. What the assertion
+    ///     needs is the cell a platform colour lands in, and nothing else here exposes one.
+    /// </remarks>
+    internal UiDocument Document => editor.Shell.Document;
+
     /// <summary>Runs until the window closes, or for a fixed number of frames.</summary>
     /// <param name="frames">How many, or zero for as many as it takes.</param>
     /// <returns>A process exit code.</returns>
@@ -303,6 +325,7 @@ sealed class EditorHost : IDisposable {
         // notice — so a host that only handled the change would never see the first one.
         PlatformInput.ApplyColorScheme(editor.Shell.Document, platform.ColorScheme);
         PlatformInput.ApplyAccent(editor.Shell.Document, platform.Accent);
+        PlatformInput.ApplySemanticColors(editor.Shell.Document, platform.SemanticColors);
         PlatformInput.ApplyAccessibility(editor.Shell.Document, platform.Accessibility);
 
         while (running && (frames == 0 || drawn < frames)) {
@@ -512,6 +535,7 @@ sealed class EditorHost : IDisposable {
                     // paragraph above gives about wiring one of two: the editor's chrome is drawn
                     // with `--accent` too.
                     PlatformInput.ApplyAccent(editor.Shell.Document, platform.Accent);
+                    PlatformInput.ApplySemanticColors(editor.Shell.Document, platform.SemanticColors);
                     break;
 
                 case PlatformEventKind.SystemAccessibilityChanged:

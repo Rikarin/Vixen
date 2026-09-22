@@ -4,6 +4,7 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using Vixen.Core.Mathematics;
+using Vixen.Input;
 using Vixen.Ui.Layout;
 using Vixen.Ui.Rendering;
 using Vixen.Ui.Styling;
@@ -707,6 +708,25 @@ public partial class UiElement : Composition.IComposable {
     [UiProperty]
     public partial char AccessKey { get; set; }
 
+    /// <summary>The bare key that presses it when the key reaches the document unclaimed, or <c>Unknown</c> for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="AccessKey" /> with the Alt taken off, and the same rules: within the
+    ///         focus scope, only for a press nothing on the route wanted, disabled and collapsed
+    ///         elements skipped. What a control does when its key arrives is raised on it as a
+    ///         <see cref="KeyEquivalentEvent" />; a button presses. <c>Button.IsDefault</c> and
+    ///         <c>Button.IsCancel</c> are Return and Escape spelt as the two names every toolkit
+    ///         gives them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Unmodified only.</b> Ctrl-Return is somebody's shortcut and Shift-Escape is
+    ///         another; a key equivalent answers the bare key and nothing else, which is
+    ///         <see cref="KeyEvent.Has" />'s argument one modifier over.
+    ///     </para>
+    /// </remarks>
+    [UiProperty]
+    public partial InputKey KeyEquivalent { get; set; }
+
     /// <summary>Whether the focus can rest on it.</summary>
     /// <remarks>
     ///     False by default, because most elements are boxes. A control sets it, and setting it is
@@ -848,6 +868,7 @@ public partial class UiElement : Composition.IComposable {
         // compared here, so keying on it keys on the stop.
         var tabSize = Document.TabSizeOf(Style);
         var hyphens = Document.HyphensOf(Style);
+        var keepSpaces = Document.BreakSpacesOf(Style);
         var language = ResolvedLanguage;
 
         if (!Document.WrapsOf(Style)) {
@@ -921,6 +942,12 @@ public partial class UiElement : Composition.IComposable {
             // line that took one ends in a visible hyphen. A stale mode is a paragraph split at a
             // word the author asked to keep whole.
             && lineHyphens == hyphens
+
+            // ⚠ In the key because it changes both where the paragraph breaks and what a line
+            // reports: `break-spaces` counts a line's trailing spaces in the fit and in the width,
+            // so a block built under `pre-wrap` and reused under it is a paragraph wrapped a word
+            // late with a right-aligned edge in the wrong place.
+            && lineKeepSpaces == keepSpaces
             && lineWidth.Equals(width)
             && lineSize.Equals(FontSize)
             && lineTracking.Equals(LetterSpacing)
@@ -963,7 +990,7 @@ public partial class UiElement : Composition.IComposable {
 
         var lines = ImmutableArray.CreateBuilder<TextLine>();
         var tabStop = TabStop(text, tabSize, chain);
-        var whole = Runs(text, 0, chain, drawn, offset: indent, tabStop: tabStop);
+        var whole = Runs(text, 0, chain, drawn, offset: indent, tabStop: tabStop, keepSpaces: keepSpaces);
 
         // ⚠ Asked again, now against a line height that came out of this paragraph rather than out
         // of the last one — and it is this answer the block is kept for. Under floats the store
@@ -1014,6 +1041,7 @@ public partial class UiElement : Composition.IComposable {
                 wrapStyle,
                 language,
                 bands,
+                keepSpaces,
                 lines
             );
         }
@@ -1052,6 +1080,7 @@ public partial class UiElement : Composition.IComposable {
         lineClamp = clamp;
         lineTabSize = tabSize;
         lineHyphens = hyphens;
+        lineKeepSpaces = keepSpaces;
         lineTabStop = tabStop;
         lineTransformed = drawn;
         lineFamily = family;
@@ -1344,7 +1373,8 @@ public partial class UiElement : Composition.IComposable {
         TransformedText? transformed = null,
         float width = float.NaN,
         float offset = 0f,
-        float tabStop = 0f
+        float tabStop = 0f,
+        bool keepSpaces = false
     ) {
         var spans = new List<FontSpan>();
         FontRegistry.Cover(text, chain, spans);
@@ -1408,7 +1438,7 @@ public partial class UiElement : Composition.IComposable {
             }
         }
 
-        return new TextLine(runs.ToImmutable(), width, offset, transformed, tabStop);
+        return new TextLine(runs.ToImmutable(), width, offset, transformed, tabStop, keepSpaces);
     }
 
     /// <summary>A line, with a soft hyphen it ends on replaced by one that draws.</summary>
@@ -1604,6 +1634,7 @@ public partial class UiElement : Composition.IComposable {
         TextWrapStyle wrapStyle,
         string language,
         List<(float Start, float Available)>? bands,
+        bool keepSpaces,
         ImmutableArray<TextLine>.Builder into
     ) {
         var advances = new float[text.Length + 1];
@@ -1645,7 +1676,8 @@ public partial class UiElement : Composition.IComposable {
                 hyphen,
                 wrapStyle,
                 strictness,
-                language
+                language,
+                keepSpaces
             );
         } else {
             LineWrapper.Wrap(
@@ -1667,7 +1699,8 @@ public partial class UiElement : Composition.IComposable {
                 // cache key, so a second walk up the tree could only disagree with the key. What it
                 // buys is ICU's `_cj` rule files — a Japanese paragraph breaks before U+301C and
                 // around the wide currency signs, and an undetermined one must not.
-                language
+                language,
+                keepSpaces
             );
         }
 
@@ -1708,9 +1741,15 @@ public partial class UiElement : Composition.IComposable {
                     line.Start,
                     chain,
                     transformed,
-                    line.End < text.Length && !line.Mandatory ? line.Advance : float.NaN,
+
+                    // ⚠ Under `break-spaces` every line takes the wrapper's number, which is what
+                    // every line took before #1237 — the hang that made the last line and the
+                    // forced line different is the rule the keyword turns off, and the wrapper's
+                    // width already keeps their spaces and leaves out the segment break.
+                    keepSpaces || (line.End < text.Length && !line.Mandatory) ? line.Advance : float.NaN,
                     offsets.Count > 0 ? offsets[i] : line.Start == 0 ? indent : 0f,
-                    tabStop
+                    tabStop,
+                    keepSpaces
                 )
             );
         }
@@ -1762,7 +1801,8 @@ public partial class UiElement : Composition.IComposable {
         float hyphen,
         TextWrapStyle wrapStyle,
         LineBreakStrictness strictness,
-        string language
+        string language,
+        bool keepSpaces
     ) {
         var segment = new List<WrappedLine>();
         var start = 0;
@@ -1785,7 +1825,8 @@ public partial class UiElement : Composition.IComposable {
                 hyphen,
                 wrapStyle,
                 strictness,
-                language
+                language,
+                keepSpaces
             );
 
             if (segment.Count == 0 || segment[0].Length <= 0) {
@@ -1818,7 +1859,8 @@ public partial class UiElement : Composition.IComposable {
             hyphen,
             wrapStyle,
             strictness,
-            language
+            language,
+            keepSpaces
         );
 
         foreach (var line in segment) {
@@ -1882,6 +1924,7 @@ public partial class UiElement : Composition.IComposable {
     int lineClamp;
     float lineTabSize;
     HyphenMode lineHyphens;
+    bool lineKeepSpaces;
 
     // ⚠ The stop the current `block` was measured with, in pixels, kept for the same reason
     // `lineTransformed` is: `Ellipsized` measures the line it is cutting, and measuring it with a

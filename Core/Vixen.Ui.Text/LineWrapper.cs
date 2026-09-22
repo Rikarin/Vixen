@@ -163,6 +163,10 @@ public static class LineWrapper {
     ///     ICU's six rule files rather than among four, and a Japanese column breaks where an
     ///     English one may not.
     /// </param>
+    /// <param name="breakSpaces">
+    ///     Whether preserved white space takes up room and may be broken inside. CSS's
+    ///     <c>white-space: break-spaces</c>; see the other overload.
+    /// </param>
     public static void Wrap(
         ShapedText shaped,
         float maxAdvance,
@@ -174,7 +178,8 @@ public static class LineWrapper {
         HyphenMode hyphens = HyphenMode.Manual,
         TextWrapStyle style = TextWrapStyle.Auto,
         LineBreakStrictness strictness = LineBreakStrictness.Auto,
-        string? contentLanguage = null
+        string? contentLanguage = null,
+        bool breakSpaces = false
     ) {
         ArgumentNullException.ThrowIfNull(shaped);
 
@@ -191,7 +196,8 @@ public static class LineWrapper {
             hyphen: 0f,
             style,
             strictness,
-            contentLanguage
+            contentLanguage,
+            breakSpaces
         );
     }
 
@@ -302,6 +308,24 @@ public static class LineWrapper {
     ///         <paramref name="strictness" />'s reason: it changes which opportunities exist.
     ///     </para>
     /// </param>
+    /// <param name="breakSpaces">
+    ///     Whether preserved white space takes up room and may be broken inside. CSS Text § 3.1's
+    ///     <c>white-space: break-spaces</c>, which differs from <c>pre-wrap</c> — the behaviour of
+    ///     every paragraph here with no declaration at all — by exactly two rules, and this flag is
+    ///     both of them.
+    ///     <para>
+    ///         ⚠ <b>Neither rule is about collapsing.</b> Four places once recorded this keyword as
+    ///         waiting on CSS Text § 4's space collapsing beside <c>pre-line</c>; it preserves
+    ///         exactly as <c>pre-wrap</c> does. Rule one: a run of preserved white space at the end
+    ///         of a line takes up room rather than hanging, so <see cref="Width" /> stops trimming
+    ///         it for the fit test and for the width it reports. Rule two: there is a soft wrap
+    ///         opportunity after <i>every</i> preserved white space character, including between
+    ///         two of them, which UAX #14's LB7 and LB18 never offer — added here over the
+    ///         Consortium's answer rather than inside <see cref="LineBreaker" />, for the same reason
+    ///         <c>hyphens: none</c> is a filter over it: the conformance suite has never heard of a
+    ///         CSS property.
+    ///     </para>
+    /// </param>
     public static void Wrap(
         string text,
         ReadOnlySpan<float> advances,
@@ -315,7 +339,8 @@ public static class LineWrapper {
         float hyphen = 0f,
         TextWrapStyle style = TextWrapStyle.Auto,
         LineBreakStrictness strictness = LineBreakStrictness.Auto,
-        string? contentLanguage = null
+        string? contentLanguage = null,
+        bool breakSpaces = false
     ) {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(lines);
@@ -353,7 +378,11 @@ public static class LineWrapper {
             opportunities.RemoveAll(at => at > 0 && at < text.Length && text[at - 1] == '­');
         }
 
-        Greedy(text, advances, maxAdvance, opportunities, lines, mode, indent, tabStop, hyphen);
+        if (breakSpaces) {
+            AddSpaceOpportunities(text, opportunities);
+        }
+
+        Greedy(text, advances, maxAdvance, opportunities, lines, mode, indent, tabStop, hyphen, breakSpaces);
 
         // ⚠ <b>Both better-break styles are a SECOND pass over the greedy answer rather than a
         // different first-fit, and that is what keeps `auto` costing exactly what it always did.</b>
@@ -363,18 +392,75 @@ public static class LineWrapper {
         // went would have to guess.
         switch (style) {
             case TextWrapStyle.Balance:
-                Rebalance(text, advances, maxAdvance, opportunities, lines, mode, indent, tabStop, hyphen);
+                Rebalance(text, advances, maxAdvance, opportunities, lines, mode, indent, tabStop, hyphen, breakSpaces);
                 break;
 
             case TextWrapStyle.Pretty:
-                Unorphan(text, advances, maxAdvance, opportunities, lines, indent, tabStop, hyphen);
+                Unorphan(text, advances, maxAdvance, opportunities, lines, indent, tabStop, hyphen, breakSpaces);
                 break;
+        }
+    }
+
+    /// <summary>Adds a break opportunity after every preserved white space character.</summary>
+    /// <param name="text">The paragraph.</param>
+    /// <param name="opportunities">UAX #14's answer, ascending. Widened in place and kept sorted.</param>
+    /// <remarks>
+    ///     <para>
+    ///         CSS Text § 3.1's second <c>break-spaces</c> rule. UAX #14 offers a break after a
+    ///         <i>run</i> of spaces and never inside one — LB7 forbids breaking before a space and
+    ///         LB18 breaks after the run — so <c>"a  b"</c> offers 3 and this adds 2.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A space and a tab, which are what "preserved white space" means for a paragraph
+    ///         this engine did not collapse</b>; segment breaks are already mandatory and every
+    ///         other white space character is what UAX #14 already says about it. And never inside
+    ///         a surrogate pair or before a combining mark, because a break there is not a place a
+    ///         line can end whatever the property says.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And never before a segment break, which UAX #14's LB6 forbids and this rule
+    ///         never asked for.</b> The rule adds an opportunity <i>after</i> a preserved space, and
+    ///         the index between <c>"a "</c> and its newline is after one thing and before another.
+    ///         Offered, it is the only opportunity <see cref="Greedy" />'s "nothing fits" path can
+    ///         reach on a line the space overflows, and the mandatory branch then gives the newline
+    ///         a line of its own — a blank line box where every browser overflows the space instead.
+    ///     </para>
+    /// </remarks>
+    static void AddSpaceOpportunities(string text, List<int> opportunities) {
+        // ⚠ Collected apart rather than appended where they are found, because the search below is
+        // a binary one and the first append would leave the list it searches unsorted. Nothing was
+        // lost while it did — a miss can only duplicate an index that `Greedy` then skips — but the
+        // next reader should not have to re-derive that.
+        List<int>? found = null;
+
+        for (var i = 1; i < text.Length; i++) {
+            if (text[i - 1] is not (' ' or '\t')) {
+                continue;
+            }
+
+            if (IsSegmentBreak(text[i])) {
+                continue;
+            }
+
+            if (char.IsLowSurrogate(text[i]) || CharUnicodeInfo.GetUnicodeCategory(text[i]) is
+                    UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark or UnicodeCategory.EnclosingMark) {
+                continue;
+            }
+
+            if (opportunities.BinarySearch(i) < 0) {
+                (found ??= []).Add(i);
+            }
+        }
+
+        if (found is not null) {
+            opportunities.AddRange(found);
+            opportunities.Sort();
         }
     }
 
     /// <summary>Greedy first-fit: every line takes as much as it can hold.</summary>
     /// <remarks>
-    ///     The body this method holds was <see cref="Wrap(string,System.ReadOnlySpan{float},float,System.Collections.Generic.List{WrappedLine},TextWrapMode,WordBreakMode,float,float,HyphenMode,float,TextWrapStyle,LineBreakStrictness,string)" />'s
+    ///     The body this method holds was <see cref="Wrap(string,System.ReadOnlySpan{float},float,System.Collections.Generic.List{WrappedLine},TextWrapMode,WordBreakMode,float,float,HyphenMode,float,TextWrapStyle,LineBreakStrictness,string,bool)" />'s
     ///     own for the whole of its life, and it moved for one reason: <see cref="TextWrapStyle.Balance" />
     ///     has to run it several times at several widths over the <i>same</i> opportunities, and
     ///     collecting those again per attempt would make a bisection quadratic in the paragraph.
@@ -388,7 +474,8 @@ public static class LineWrapper {
         TextWrapMode mode,
         float indent,
         float tabStop,
-        float hyphen
+        float hyphen,
+        bool keepSpaces
     ) {
         lines.Clear();
 
@@ -425,7 +512,7 @@ public static class LineWrapper {
             // comes back marked mandatory, and a paragraph that fits on one line comes back as one
             // mandatory line, which is the opposite of what the flag is for.
             if (here < text.Length && LineBreaker.IsMandatory(text, here)) {
-                lines.Add(Line(text, advances, start, here, origin, tabStop, hyphen, mandatory: true));
+                lines.Add(Line(text, advances, start, here, origin, tabStop, hyphen, keepSpaces, mandatory: true));
                 start = here;
                 room = maxAdvance;
                 origin = 0f;
@@ -434,7 +521,7 @@ public static class LineWrapper {
                 continue;
             }
 
-            if (Width(text, advances, start, here, origin, tabStop, hyphen) <= room) {
+            if (Width(text, advances, start, here, origin, tabStop, hyphen, keepSpaces) <= room) {
                 candidate = here;
                 index++;
                 continue;
@@ -445,7 +532,7 @@ public static class LineWrapper {
                 // reconsidered against the new start rather than skipped — it may well fit now, and a
                 // wrapper that dropped it would put two words' worth of text on the next line and
                 // then break in the wrong place for the rest of the paragraph.
-                lines.Add(Line(text, advances, start, candidate, origin, tabStop, hyphen, mandatory: false));
+                lines.Add(Line(text, advances, start, candidate, origin, tabStop, hyphen, keepSpaces, mandatory: false));
                 start = candidate;
                 room = maxAdvance;
                 origin = 0f;
@@ -455,7 +542,7 @@ public static class LineWrapper {
 
             // Nothing fits: one unbreakable run is wider than the whole line.
             if (mode != TextWrapMode.Word) {
-                var forced = Squeeze(text, advances, start, here, room, origin, tabStop, hyphen);
+                var forced = Squeeze(text, advances, start, here, room, origin, tabStop, hyphen, keepSpaces);
 
                 // ⚠ <b>One grapheme even when none fits, and only under `anywhere`.</b> This is the
                 // single line on which the two breaking keywords differ, and it is the whole of
@@ -469,7 +556,7 @@ public static class LineWrapper {
                 }
 
                 if (forced > start) {
-                    lines.Add(Line(text, advances, start, forced, origin, tabStop, hyphen, mandatory: false));
+                    lines.Add(Line(text, advances, start, forced, origin, tabStop, hyphen, keepSpaces, mandatory: false));
                     start = forced;
                     room = maxAdvance;
                     origin = 0f;
@@ -477,7 +564,7 @@ public static class LineWrapper {
                 }
             }
 
-            lines.Add(Line(text, advances, start, here, origin, tabStop, hyphen, mandatory: false));
+            lines.Add(Line(text, advances, start, here, origin, tabStop, hyphen, keepSpaces, mandatory: false));
             start = here;
             room = maxAdvance;
             origin = 0f;
@@ -485,7 +572,7 @@ public static class LineWrapper {
         }
 
         if (start < text.Length) {
-            lines.Add(Line(text, advances, start, text.Length, origin, tabStop, hyphen, mandatory: false));
+            lines.Add(Line(text, advances, start, text.Length, origin, tabStop, hyphen, keepSpaces, mandatory: false));
         }
     }
 
@@ -547,7 +634,8 @@ public static class LineWrapper {
         TextWrapMode mode,
         float indent,
         float tabStop,
-        float hyphen
+        float hyphen,
+        bool keepSpaces
     ) {
         // ⚠ A short circuit rather than a correctness guard, and the sabotage says so: letting a
         // one-line paragraph through leaves every test green, because the search asks for a width
@@ -568,7 +656,7 @@ public static class LineWrapper {
 
         for (var i = 0; i < BalanceAttempts; i++) {
             var middle = (low + high) / 2f;
-            Greedy(text, advances, middle, opportunities, attempt, mode, indent, tabStop, hyphen);
+            Greedy(text, advances, middle, opportunities, attempt, mode, indent, tabStop, hyphen, keepSpaces);
 
             if (attempt.Count <= target && Widest(attempt) <= widest) {
                 accepted = middle;
@@ -583,7 +671,7 @@ public static class LineWrapper {
         // interval. Nothing is written unless a candidate was accepted, so a paragraph that cannot be
         // narrowed at all keeps the greedy answer exactly.
         if (accepted >= 0f) {
-            Greedy(text, advances, accepted, opportunities, lines, mode, indent, tabStop, hyphen);
+            Greedy(text, advances, accepted, opportunities, lines, mode, indent, tabStop, hyphen, keepSpaces);
         }
     }
 
@@ -616,7 +704,8 @@ public static class LineWrapper {
         List<WrappedLine> lines,
         float indent,
         float tabStop,
-        float hyphen
+        float hyphen,
+        bool keepSpaces
     ) {
         if (lines.Count < 2) {
             return;
@@ -641,13 +730,13 @@ public static class LineWrapper {
         // paragraph is two lines long — so the origin follows the line's position rather than being
         // assumed to be zero.
         var origin = lines.Count == 2 ? indent : 0f;
-        var moved = Line(text, advances, cut, last.End, 0f, tabStop, hyphen, last.Mandatory);
+        var moved = Line(text, advances, cut, last.End, 0f, tabStop, hyphen, keepSpaces, last.Mandatory);
 
         if (moved.Advance > maxAdvance) {
             return;
         }
 
-        lines[^2] = Line(text, advances, previous.Start, cut, origin, tabStop, hyphen, mandatory: false);
+        lines[^2] = Line(text, advances, previous.Start, cut, origin, tabStop, hyphen, keepSpaces, mandatory: false);
         lines[^1] = moved;
     }
 
@@ -744,9 +833,10 @@ public static class LineWrapper {
         float origin,
         float tabStop,
         float hyphen,
+        bool keepSpaces,
         bool mandatory
     ) =>
-        new(start, end - start, Width(text, advances, start, end, origin, tabStop, hyphen), mandatory);
+        new(start, end - start, Width(text, advances, start, end, origin, tabStop, hyphen, keepSpaces), mandatory);
 
     /// <summary>How wide a range is, ignoring whitespace at its end.</summary>
     /// <remarks>
@@ -784,6 +874,12 @@ public static class LineWrapper {
     /// <param name="hyphen">
     ///     What a hyphen costs, for a range that ends on a soft one, or zero when none will be drawn.
     /// </param>
+    /// <param name="keepSpaces">
+    ///     Whether trailing white space counts. <c>break-spaces</c>'s first rule: the spaces take
+    ///     up room and do not hang, so only the segment break a forced line ends on is left out —
+    ///     a newline occupies nothing in any browser, and the glyph the face has for it is not a
+    ///     width.
+    /// </param>
     static float Width(
         string text,
         ReadOnlySpan<float> advances,
@@ -791,11 +887,12 @@ public static class LineWrapper {
         int end,
         float origin,
         float tabStop,
-        float hyphen
+        float hyphen,
+        bool keepSpaces
     ) {
         var last = end;
 
-        while (last > start && char.IsWhiteSpace(text[last - 1])) {
+        while (last > start && (keepSpaces ? IsSegmentBreak(text[last - 1]) : char.IsWhiteSpace(text[last - 1]))) {
             last--;
         }
 
@@ -837,6 +934,16 @@ public static class LineWrapper {
 
         return x - origin;
     }
+
+    /// <summary>Whether a character forces a line to end. CSS Text § 4.1.1's segment breaks.</summary>
+    /// <param name="value">The character.</param>
+    /// <remarks>
+    ///     The characters <see cref="LineBreaker.IsMandatory" /> answers for, spelled out because
+    ///     <see cref="Width" /> asks about one character at the end of a range rather than about an
+    ///     index into a paragraph. <c>Vixen.Ui</c>'s <c>TextLine.IsSegmentBreak</c> is the same seven.
+    /// </remarks>
+    static bool IsSegmentBreak(char value) =>
+        value is '\n' or '\u000b' or '\u000c' or '\r' or '\u0085' or '\u2028' or '\u2029';
 
     /// <summary>The end of the first grapheme of a run.</summary>
     /// <param name="text">The source.</param>
@@ -885,7 +992,8 @@ public static class LineWrapper {
         float maxAdvance,
         float origin,
         float tabStop,
-        float hyphen
+        float hyphen,
+        bool keepSpaces
     ) {
         var boundaries = new List<int>();
         GraphemeBreaker.Collect(text.AsSpan(start, end - start), boundaries);
@@ -899,7 +1007,7 @@ public static class LineWrapper {
                 continue;
             }
 
-            if (Width(text, advances, start, here, origin, tabStop, hyphen) > maxAdvance) {
+            if (Width(text, advances, start, here, origin, tabStop, hyphen, keepSpaces) > maxAdvance) {
                 break;
             }
 

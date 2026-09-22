@@ -78,10 +78,10 @@ public static class Variants {
         // were refused for "there is no validation anywhere in `Vixen.Ui.Controls`", which stopped
         // being true without anyone coming back here. ⚠ <b>Both were found by a person re-reading
         // the sentence, and a fourth audit would have been the only thing standing between the next
-        // one and another year.</b> Re-checked at HEAD on 2026-09-06 and all five still hold —
-        // `Forms.cs` is `LabeledContent` and not a form, and `Vixen.Ui.Controls/Navigation.cs` is a
-        // breadcrumb and a pager over `ButtonBase` with no URL, no history and no fragment anywhere
-        // behind them:
+        // one and another year.</b> Re-checked at HEAD on 2026-09-06 and again on 2026-09-22, and
+        // all five still hold — `Forms.cs` is `LabeledContent` and not a form, and
+        // `Vixen.Ui.Controls/Navigation.cs` is a breadcrumb and a pager over `ButtonBase` with no
+        // URL, no history and no fragment anywhere behind them:
         //
         //   `visited` — nothing records that a place has been visited
         //     [expires-on Vixen.Ui.Styling.ElementState.Visited]
@@ -89,17 +89,38 @@ public static class Variants {
         //     [expires-on Vixen.Ui.Styling.ElementState.Target]
         //   `autofill` — no credential store, so no field is ever filled by one
         //     [expires-on Vixen.Ui.Controls.TextField.Autofilled]
-        //   `default` — Selectors 4 § 11.4 is the default button of a form, and there is no form
-        //     [expires-on Vixen.Ui.Controls.Button.IsDefault]
+        //   `default` — the default button announces itself with a `default` CLASS, not a state bit
+        //     [expires-on Vixen.Ui.Styling.ElementState.Default]
         //   `inert` — a subtree flag nothing carries; `Disabled` is per control and does not descend
         //     [expires-on Vixen.Ui.UiElement.Inert]
         //
-        // ⚠ <b>The two navigation anchors name the BIT rather than the model, and that is a
-        // limitation of the clause grammar rather than a choice.</b> `expires-on` requires the type
-        // half to resolve today, so a refusal waiting on a whole concept that has no type yet — a
-        // URL, a history — has nothing to hang on but the state bit the concept would eventually
-        // write. It is the weaker tripwire: it fires on whoever lands the bit, not on whoever lands
-        // the model. The other three name a member of a type that exists, which is the stronger form.
+        // ⚠ <b>`default`'s anchor FIRED on 2026-09-22 and the refusal survived it, which is the
+        // third worked case and the first of this shape.</b> #666 landed `Button.IsDefault`, the
+        // clause went red, and re-reading the sentence is what it bought: the refusal read "there is
+        // no form" and that half is STILL true — `IsDefault`'s one production caller is
+        // `DialogService.AddButton`, inside an `Overlay`, and `IsCancel` has none at all for the
+        // reason its own remarks give. But the sentence was wrong about which thing was missing.
+        // What `IsDefault` writes is a key equivalent and a `default` CLASS, deliberately, so a
+        // theme can already draw the button Return will press; what `:default` needs is an
+        // `ElementState` bit, and `ElementState` has none. Registering it against the arrival would
+        // have been this table's own named defect — an entry with no writer, matching nothing —
+        // committed because a tripwire went red. ⚠ <b>So the anchor moved to the thing genuinely
+        // absent rather than the plausible-sounding one</b>, which is `ring-offset-*`'s lesson
+        // applied a step earlier: the first spelling named a design decision (how a button says it
+        // is the default) and had two answers, of which the class was chosen; the bit has one.
+        //
+        // ⚠ <b>Three anchors now name the BIT rather than the model — the two navigation ones and,
+        // since the fire above, `default` — and that is a limitation of the clause grammar rather
+        // than a choice.</b> `expires-on` requires the type half to resolve today, so a refusal
+        // waiting on a whole concept that has no type yet — a URL, a history, a form — has nothing
+        // to hang on but the state bit the concept would eventually write. It is the weaker
+        // tripwire: it fires on whoever lands the bit, not on whoever lands the model. ⚠ But the
+        // fire above is the argument that weaker-and-exact beats stronger-and-approximate: naming a
+        // member of a type that exists is only the stronger form when that member is the thing
+        // actually missing, and `Button.IsDefault` was a guess at how a default button would be
+        // spelled rather than the bit `:default` needs. The remaining two — `autofill` and `inert` —
+        // name a member of a type that exists AND the thing genuinely absent, which is the strong
+        // form on both counts.
         //
         // ⚠ <b>A table entry here is worth nothing without a writer</b>, which is what the item this
         // came from underestimated: `:read-only` compiled against a bit no control sets resolves,
@@ -166,7 +187,8 @@ public static class Variants {
         //   `:not( field-placeholder)` — an element that is not a placeholder, rather than a field
         //   with no placeholder — and `group-placeholder:` the prefix `.group field-placeholder `.
         //   Every one of those is valid CSS meaning something else, which is F6's own failure mode
-        //   one level up. It needs a category of its own, with coverage rows of its own.
+        //   one level up. It lives in `Parts` below — a category of its own, with coverage rows of
+        //   its own.
         //
         //   `::selection` is not a box. `TextField` paints the highlight itself, from a colour it
         //   reads off its OWN style as the custom property `--selection-color` — see the
@@ -176,6 +198,54 @@ public static class Variants {
         //   prepend to it, or wrap it in an at-rule. No variant can express it, and the missing piece
         //   is a fourth shape rather than a generated box.
     };
+
+    /// <summary>The variants that name a <i>part</i> of a control — a child box that already exists.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A table of its own and not one more row in <see cref="States" />, because four
+    ///         variants compose over that table and every one of them would mean something else over
+    ///         a child combinator.</b> <c>not-</c> wraps a state in <c>:not()</c>, <c>has-</c> in
+    ///         <c>:has()</c>, <c>group-</c> and <c>peer-</c> put it on an ancestor or a sibling. A
+    ///         suffix that descends — <c>&gt; field-placeholder</c> — read through any of them is
+    ///         either not a selector (<c>:not(&gt; field-placeholder)</c>) or a valid one selecting
+    ///         the wrong thing (<c>.group &gt; field-placeholder </c> as a prefix asks for the
+    ///         placeholder's descendants). Keeping the two tables apart is what lets the four compose
+    ///         over <see cref="States" /> without a case each, and it is why
+    ///         <c>not-placeholder:</c> is <i>not a class</i> rather than a class that styles a field
+    ///         with no placeholder.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is the half of A12 (<c>Rikarin/Vixen#233</c>) that needs no generated box,
+    ///         and it is exactly one entry.</b> v4's <c>placeholder:</c> is <c>&amp;::placeholder</c>,
+    ///         and <c>::placeholder</c> is the one pseudo-element whose box this framework already
+    ///         builds: <c>TextField.OnCreated</c> makes it as <c>Part("field-placeholder")</c>, a
+    ///         direct child with a tag of its own that <c>ControlTheme.vcss</c> styles at
+    ///         <c>field-placeholder</c>. So the variant is a child combinator onto that tag and
+    ///         nothing more. <c>before</c>, <c>after</c> and <c>marker</c> name boxes nothing
+    ///         generates; <c>selection</c> names a colour the field reads off its own style;
+    ///         <c>file</c> and <c>backdrop</c> name controls that do not exist. None of them belongs
+    ///         here until the thing it names does.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The child combinator and not the descendant one.</b> The part is a direct child
+    ///         of the control that owns it, so <c>&gt;</c> is what the control says. A space would
+    ///         reach a field nested anywhere below — a filter row inside a panel that is itself
+    ///         inside a field's ancestor — and an outer <c>placeholder:text-red</c> would colour the
+    ///         inner field's prompt. <c>VariantCoverageTests</c> holds a grandchild row for exactly
+    ///         that.
+    ///     </para>
+    /// </remarks>
+    static readonly Dictionary<string, string> Parts = new(StringComparer.Ordinal) {
+        ["placeholder"] = PlaceholderPart
+    };
+
+    /// <summary>The child <c>TextField</c> builds its prompt as, as a scope onto the control.</summary>
+    /// <remarks>
+    ///     One constant for the variant and for the <c>placeholder-*</c> colour family in
+    ///     <c>UtilityFamilies</c>, because both are "the part the field calls its placeholder" and
+    ///     two spellings of that would be two things to move the day the control renames it.
+    /// </remarks>
+    internal const string PlaceholderPart = " > field-placeholder";
 
     /// <summary>The variants that are a media feature rather than a selector.</summary>
     /// <remarks>
@@ -249,6 +319,14 @@ public static class Variants {
     /// </remarks>
     public static IReadOnlyCollection<string> StateVariants => States.Keys;
 
+    /// <summary>The variants that select a part of a control rather than a state of it.</summary>
+    /// <remarks>
+    ///     Exposed for the reason <see cref="StateVariants" /> is: <c>VariantCoverageTests</c>
+    ///     enumerates it, so a second part registered without a scene proving that the child is
+    ///     styled and the element is not fails the build rather than joining the silent ones.
+    /// </remarks>
+    public static IReadOnlyCollection<string> PartVariants => Parts.Keys;
+
     /// <summary>Works out what a variant does.</summary>
     /// <param name="variant">The variant, without its colon.</param>
     /// <param name="tokens">The theme, for breakpoints and the dark-mode strategy.</param>
@@ -262,6 +340,11 @@ public static class Variants {
 
         if (States.TryGetValue(variant, out var state)) {
             effect = new VariantEffect(state, string.Empty, null);
+            return true;
+        }
+
+        if (Parts.TryGetValue(variant, out var part)) {
+            effect = new VariantEffect(part, string.Empty, null);
             return true;
         }
 
@@ -307,15 +390,20 @@ public static class Variants {
             && TryResolve(variant["has-".Length..], tokens, out var contained)
             && contained is { SelectorPrefix.Length: 0, AtRule: null, SelectorSuffix.Length: > 0 }
             && !IsArbitrary(contained)
-            && contained.SelectorSuffix.TrimStart()[0] is not ('>' or '+' or '~')) {
+            && IsWrappable(contained.SelectorSuffix)) {
             effect = new VariantEffect($":has({contained.SelectorSuffix})", string.Empty, null);
             return true;
         }
 
+        // ⚠ And the combinator refusal `has-` makes, for a different reason: `:not(> x)` is not a
+        // selector at all, so a part variant read through `not-` would reach the compiler as text
+        // it refuses. Refusing it here keeps `not-placeholder:` "not a class" rather than a
+        // diagnostic about a class — the distinction the whole `Parts` table exists for.
         if (variant.StartsWith("not-", StringComparison.Ordinal)
             && TryResolve(variant["not-".Length..], tokens, out var negated)
             && negated is { SelectorPrefix.Length: 0, AtRule: null, SelectorSuffix.Length: > 0 }
-            && !IsArbitrary(negated)) {
+            && !IsArbitrary(negated)
+            && IsWrappable(negated.SelectorSuffix)) {
             effect = new VariantEffect($":not({negated.SelectorSuffix})", string.Empty, null);
             return true;
         }
@@ -439,6 +527,34 @@ public static class Variants {
 
             return true;
         }
+    }
+
+    /// <summary>Whether a suffix can be put inside <c>:has()</c> or <c>:not()</c> at all.</summary>
+    /// <param name="suffix">A resolved variant's <c>SelectorSuffix</c>.</param>
+    /// <returns>Whether wrapping it produces a selector.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A length check and not a bare index, because <c>Length: &gt; 0</c> is not the
+    ///         question being asked.</b> Both call sites pattern-match a non-empty suffix and then
+    ///         wanted its first non-space character; a suffix that is non-empty and <em>all</em>
+    ///         space satisfies the first and has no second, so the index threw out of the middle of
+    ///         sheet generation rather than at a boundary anybody could diagnose. Nothing in the
+    ///         <c>States</c> or <c>Parts</c> tables spells one today — every value starts with
+    ///         <c>:</c> or, for the one part entry, <c>&gt; </c> — so this is the day-it-becomes-
+    ///         expressible guard rather than a live bug.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And whitespace-only is a <em>refusal</em> rather than an admission, which is the
+    ///         same verdict a combinator gets and for the same reason: <c>:not( )</c> is not a
+    ///         selector, so admitting it would put text the compiler rejects into a rule instead of
+    ///         leaving the class unrecognised. That distinction is what the <c>Parts</c> table
+    ///         exists for.
+    ///     </para>
+    /// </remarks>
+    internal static bool IsWrappable(string suffix) {
+        var trimmed = suffix.AsSpan().TrimStart();
+
+        return trimmed.Length > 0 && trimmed[0] is not ('>' or '+' or '~');
     }
 
     /// <summary>Whether a variant's effect goes where <c>&amp;</c> is rather than after the selector.</summary>

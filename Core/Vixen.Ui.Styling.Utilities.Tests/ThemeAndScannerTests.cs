@@ -428,6 +428,14 @@ public class ThemeAndScannerTests {
     ///     variant — where an at-keyword never does. So the rule is "an <c>@</c> without a
     ///     <c>:</c> is not a class name", and nobody has to remember to add <c>@custom-variant</c>
     ///     to a list the day it is invented.
+    ///     <para>
+    ///         ⚠ <b>With one name on a list after all: <c>@container</c>, the marker family, which
+    ///         v4 spells as a class with no colon and which is letter for letter the at-rule that
+    ///         queries it.</b> The grammar cannot tell the two apart, so the scanner takes the
+    ///         candidate from either — an at-rule in a sheet costs the one unused rule every false
+    ///         positive costs — and every other at-keyword stays refused. The name is followed by
+    ///         nothing, a hyphen or a slash, so a longer word beginning with it is still a keyword.
+    ///     </para>
     /// </summary>
     [Fact]
     public void An_at_keyword_is_not_a_candidate_and_a_container_variant_is() {
@@ -438,6 +446,8 @@ public class ThemeAndScannerTests {
             @layer components {
                 .card { @apply @sm:p-4 flex; }
                 @container (min-width: 400px) { .card { color: red; } }
+                @containers { }
+                @media (min-width: 400px) { .card { color: red; } }
             }
             """,
             found
@@ -448,7 +458,25 @@ public class ThemeAndScannerTests {
 
         Assert.DoesNotContain("@apply", found);
         Assert.DoesNotContain("@layer", found);
-        Assert.DoesNotContain("@container", found);
+        Assert.DoesNotContain("@media", found);
+        Assert.DoesNotContain("@containers", found);
+
+        // The one exception, and it is a candidate here for the scanner's usual reason: the text
+        // that could be the class is taken, and the generator decides. Here it happens to be the
+        // at-rule, and the rule generated for it selects an element nothing in this sheet has.
+        Assert.Contains("@container", found);
+    }
+
+    /// <summary>The marker family's three spellings reach the generator from markup, and a near-miss does not.</summary>
+    [Fact]
+    public void The_container_marker_is_a_candidate_in_all_three_of_its_spellings() {
+        var found = new HashSet<string>(StringComparer.Ordinal);
+        CandidateScanner.Scan("""<Panel class="@@container @@container-normal @@container/main @@custom-variant" />""", found);
+
+        Assert.Contains("@container", found);
+        Assert.Contains("@container-normal", found);
+        Assert.Contains("@container/main", found);
+        Assert.DoesNotContain("@custom-variant", found);
     }
 
     /// <summary>

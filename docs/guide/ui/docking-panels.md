@@ -129,7 +129,12 @@ host.Load(settings.Layout);
 
 `Save` and `Load` go through `DockLayout`, so the file names panel ids and the tree they sit in — not
 element identities. A panel the saved layout names and the application no longer creates is dropped;
-one the application creates and the layout does not name lands in the default group.
+one the application creates and the layout does not name lands in the group with the most room —
+`DockLayout.LargestGroup()`, the leaf whose split ratios multiply to the largest share of the root,
+measured on the arrangement rather than the screen so the answer is the same before the first frame.
+⚠ It used to be the *first* group in tree order, which in every standard preset is the 20 % browser
+column: a plugin panel or a document the preset did not list opened there, and one with a fixed side
+strip measured its main area at zero pixels wide (#969).
 
 ## Examples
 

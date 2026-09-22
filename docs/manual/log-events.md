@@ -147,8 +147,9 @@ that makes ten thousand identically styled cells one entry.
 | 7006 | Warning | `{Source} refused '{Text}' in '{Rule}': {Reason}.` — the same refusal, where the fragment is part of a larger rule and `{Rule}` is the selector or block to go and change | 0.1.0 |
 | 7007 | Warning | `The query container '{Container}' never settled: it measured {Width}×{Height} on the last of {Passes} layout passes and its box was still moving.` — a `container-type` on a box whose inline size is decided by its contents, which closes a loop the settle budget cuts rather than resolves | 0.1.0 |
 | 7008 | Warning | `The two-way binding on '{Tag}.{Property}' reads nothing reactive, so its forward leg runs once and never again.` — a `bind:` over a plain property. It is not a refusal and not a mismatch: the binding composes, writes the control once, and its write-back leg keeps working, so the control follows the model until anything other than the control writes it | 0.1.0 |
+| 7009 | Warning | `'{Element}' declares '{Declaration}', and in this UI that clips and does not scroll.` — `overflow: auto` or `scroll` on anything that is not a `ScrollView`. Not a refusal: the layout reads it as a scroll container and the draw list clips, and the one thing the author wrote it for is the one thing nothing does. Named by element, once per distinct box, from the per-element style pass; the cure is a `ScrollView` and never a taller box (#1275) | 0.1.0 |
 
-⚠ **7007 is not a refusal and is the only event in this range that is not.** Nothing was dropped: the
+⚠ **7007 and 7009 are not refusals and are the only events in this range that are not.** For 7007 nothing was dropped: the
 stylesheet is understood, the query is answered, and the frame is drawn. What it reports is that the
 answer is one pass stale, because a `container-type` makes an element answerable about its own
 measured box and a container sized by its *contents* can therefore change the contents that size it.

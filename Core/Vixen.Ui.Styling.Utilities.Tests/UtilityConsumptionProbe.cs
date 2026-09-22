@@ -1275,6 +1275,43 @@ static class UtilityConsumptionProbe {
             Pictured: true
         ),
 
+        // ⚠ <b>Spatial: a child under a three-dimensional transform, which is the only arrangement in
+        // which `perspective` can move anything at all.</b> `perspective` is a property an element
+        // establishes for its CHILDREN — Transforms 2 § 6 — so a scene whose probe has no descendant
+        // carrying a `rotateX` or a `translateZ` measures it inert with a reader present: every point
+        // of a flat element is at z = 0, where `w = 1 − z/d` is one and the projection is exactly the
+        // identity. That is not a hole in the reader, it is the property's own definition, and it is
+        // the shape this list's tally keeps recording — suspect the scenes before the reader.
+        //
+        // ⚠ <b>The probe carries a perspective of its own in the baseline, and `perspective-origin`
+        // is why.</b> A vanishing point is only observable once there is a projection to move, so an
+        // injected `perspective-origin: top left` over a probe with no `perspective` moves nothing —
+        // `outline-color`'s shape, one property over. Five hundred points is far enough from the
+        // family's own distances that injecting any of them is a different picture, and the verdict
+        // is a union over the values a family emits, so the one that happens to match is carried by
+        // its four siblings.
+        //
+        // ⚠ <b>No `Observes`, and the rule next door says why that is right rather than lazy.</b>
+        // `UtilityConsumptionGateTests.A_scene_carrying_a_transition_says_which_properties_it_may_answer_for`
+        // requires one exactly of the scenes whose frames move on their own, and refuses one
+        // anywhere else: a scene whose only moving part IS the injected declaration is a valid
+        // observer for everything, and narrowing it loses real verdicts. Nothing here moves on its
+        // own — the two transforms are static declarations on children the injection never reaches.
+        new(
+            "spatial",
+            """
+            #host  { display: flex; flex-direction: row; width: 200px; height: 160px; align-items: flex-start; }
+            #probe { display: flex; flex-direction: row; flex-wrap: wrap; width: 140px; height: 140px;
+                     background-color: #204080; color: #e0e0e0; perspective: 500px; }
+            .kid   { width: 60px; height: 60px; background-color: #a0a040; transform: rotateX(55deg); }
+            #wide  { width: 120px; height: 40px; background-color: #40a080;
+                     transform: perspective(300px) rotateY(35deg); }
+            #label { width: 100px; }
+            #short { width: 40px; }
+            #after { width: 30px; height: 20px; background-color: #a0a040; }
+            """
+        ),
+
         // ⚠ <b>Forced: the surface is in forced-colours mode, and no CSS declaration can put it
         // there.</b> Every scene before this one is a stylesheet, and `forced-color-adjust` is read
         // on a condition that lives on the SURFACE — `DrawListBuilder` asks
@@ -1331,6 +1368,39 @@ static class UtilityConsumptionProbe {
             #after { width: 40px; height: 20px; background-color: #a0a040; }
             """,
             Observes: TransitionProperties
+        ),
+
+        // ⚠ <b>Queried: a probe that already IS a query container, inside a host that is one too,
+        // with two queries waiting on it — and without all three of those, the `@container` marker
+        // family measures inert with the whole of container queries wired.</b> The eleventh entry
+        // on this list's tally, predicted rather than discovered (#273 said a marker family would
+        // want a fifteenth scene), and the shape is `primed`'s again: `container-type` and
+        // `container-name` are read by `Containers.KindOf` on every element, and reading them moves
+        // nothing unless some rule is asking a question of the box they describe.
+        //
+        // The two queries answer for the two properties separately, which is why the probe starts
+        // out a container rather than becoming one. Injecting `container-type: normal` — what
+        // `@container-normal` emits — STOPS the probe being one, so the nearest container for
+        // `.kid` becomes `#host`, which is wide enough for the first query where the probe was
+        // not; injecting `inline-size` onto a probe that already has it is correctly a no-op, and
+        // the union across the family's three values is what the gate judges. Injecting
+        // `container-name: probe` — the name `Surface`'s slash probe spells — onto that same
+        // container answers the second query, which no element answered before; and it can only
+        // answer it because the probe is already typed, since `Containers.KindOf` makes a name with
+        // no type a name nothing can ask for. A scene whose probe was untyped would therefore
+        // measure `container-name` inert with its reader perfectly correct.
+        new(
+            "queried",
+            """
+            #host  { display: flex; flex-direction: row; width: 120px; height: 60px; align-items: flex-start;
+                     container-type: inline-size; }
+            #probe { display: flex; flex-direction: row; flex-wrap: wrap; width: 44px; height: 50px;
+                     container-type: inline-size;
+                     background-color: #204080; color: #e0e0e0; }
+            #after { width: 40px; height: 20px; background-color: #a0a040; }
+            @container (min-width: 100px) { .kid { width: 30px; } }
+            @container probe (min-width: 10px) { .kid { height: 20px; } }
+            """
         )
     ];
 
@@ -1485,6 +1555,16 @@ static class UtilityConsumptionProbe {
     ///         childless baseline would attribute every inherited property to the child as though the
     ///         family had set it there.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And a third child tagged <c>field-placeholder</c>, last, for the scoped family
+    ///         whose scope is a tag rather than a position.</b> <c>placeholder-*</c> emits onto
+    ///         <c>&gt; field-placeholder</c> — the part <c>TextField</c> builds its prompt as — so
+    ///         under two <c>div</c>s it lands nowhere and the row reads <c>absent</c> with the family
+    ///         registered, which is the unclassified shape the paragraph above closed for
+    ///         <c>space-x-*</c>. Last, so that the two <c>div</c>s stay exactly what
+    ///         <c>:not(:last-child)</c> sees of them: the first is still collected and still not
+    ///         last. The bare element carries the same part, for the same inheritance reason.
+    ///     </para>
     /// </remarks>
     public static IReadOnlyList<(string Property, string Value, string Utility)> Emissions() {
         var tokens = ThemeTokens.Parse(ProbeTheme);
@@ -1498,10 +1578,12 @@ static class UtilityConsumptionProbe {
             var probe = document.Create("div", document.Root, null, utility);
             var child = document.Create("div", probe);
             document.Create("div", probe);
+            var part = document.Create("field-placeholder", probe);
 
             var bare = document.Create("div", document.Root);
             var bareChild = document.Create("div", bare);
             document.Create("div", bare);
+            var barePart = document.Create("field-placeholder", bare);
 
             document.Update();
 
@@ -1510,6 +1592,7 @@ static class UtilityConsumptionProbe {
 
             Collect(emissions, names, values, probe, bare, utility);
             Collect(emissions, names, values, child, bareChild, utility);
+            Collect(emissions, names, values, part, barePart, utility);
         }
 
         return emissions;
