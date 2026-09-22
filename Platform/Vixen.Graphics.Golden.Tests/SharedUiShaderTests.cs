@@ -167,14 +167,14 @@ public partial class SharedUiShaderTests {
     ///     optimised now where it was not" moves the constant folding the arithmetic census is
     ///     calibrated against. See <see cref="Flavour" />.
     /// </remarks>
-    static bool Reflavouring =>
+    internal static bool Reflavouring =>
         Environment.GetEnvironmentVariable("VIXEN_UPDATE_SHADER_FLAVOUR") is "1" or "true" or "TRUE";
 
     /// <summary>The <c>glslc</c> flag that reproduces a module with no debug instructions in it.</summary>
-    const string Optimised = "-O";
+    internal const string Optimised = "-O";
 
     /// <summary>The <c>glslc</c> flag that reproduces a module with its names and source line kept.</summary>
-    const string Unoptimised = "-O0";
+    internal const string Unoptimised = "-O0";
 
     /// <summary>Which way <c>glslc</c> was run to produce a module, read off the module.</summary>
     /// <param name="words">The module, as <see cref="WordsOf" /> returns it.</param>
@@ -392,7 +392,7 @@ public partial class SharedUiShaderTests {
     }
 
     /// <summary>A module with every debug instruction removed, for <see cref="TheFlavourColumnIsWhatTheModulesBytesSay" />.</summary>
-    static uint[] WithoutDebugSection(uint[] words) {
+    internal static uint[] WithoutDebugSection(uint[] words) {
         var kept = new List<uint>(words.Length);
 
         kept.AddRange(words.AsSpan(0, 5));
@@ -1356,7 +1356,7 @@ public partial class SharedUiShaderTests {
     ///     rather than assumed &#8212; a file that has stopped being SPIR-V walks to a census of nothing,
     ///     and a census of nothing agrees with every other census of nothing.
     /// </remarks>
-    static uint[] WordsOf(string module) {
+    internal static uint[] WordsOf(string module) {
         var bytes = File.ReadAllBytes(module);
 
         Assert.True(bytes.Length > 20 && bytes.Length % 4 == 0, $"{module} is not a SPIR-V module.");
