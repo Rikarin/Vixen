@@ -114,12 +114,13 @@
 
             <!--
                 ⚠ **The first caller `DocumentClosePrompt` has ever had, and it is a document close
-                rather than a quit.** `Root.RequestClose()` raises the request on the element that
-                holds the document instead of on the whole `UiDocument`, so the application's own
-                listener is never asked and Save / Don't Save / Cancel is about this material and
-                nothing else. A shell with tabs would call it on the tab.
+                rather than a quit.** The item is bound to `document.close`, which the route answers
+                on the element that hosts the document — so the request is raised there rather than
+                on the whole `UiDocument`, the application's own listener is never asked, and Save /
+                Don't Save / Cancel is about this material and nothing else. A shell with tabs would
+                get the tab's document from the same walk without changing a line here.
             -->
-            <MenuItem Label="Close" on:click="@CloseDocument" />
+            <MenuItem Label="Close" Command="document.close" ref="@closeItem" />
         </Menu>
 
         <!--
@@ -196,6 +197,7 @@
     MenuItem newItem = null!;
     MenuItem openItem = null!;
     MenuItem saveItem = null!;
+    MenuItem closeItem = null!;
 
     MaterialDocument? document;
     IDisposable? title;
@@ -361,9 +363,10 @@
         // handler, no command — and a chord beside an item that does nothing is the lie this file
         // kept explaining in a comment. Drawing a shortcut is a promise the keymap has to keep.
         keys.SetDefault(DocumentCommands.Save, new KeyChord(InputKey.S, ModifierKeys.Control));
+        keys.SetDefault(DocumentCommands.Close, new KeyChord(InputKey.W, ModifierKeys.Control));
 
-        var shown = keys.ChordFor(DocumentCommands.Save).ForPlatform();
-        saveItem.ShowShortcut(shown.Key, shown.Modifiers);
+        Draw(saveItem, DocumentCommands.Save);
+        Draw(closeItem, DocumentCommands.Close);
 
         // ⚠ On this component's `Root` rather than `CommandDispatcher.Attach`, which listens on the
         // *document's* root. `OnComposed` runs again on every markup hot reload, and a handler on
@@ -465,8 +468,17 @@
         toasts.Show("Closed the material");
     }
 
-    /// <summary>Asks the document whether it may go, from the element that holds it.</summary>
-    void CloseDocument() => Root.RequestClose();
+    /// <summary>Puts the keymap's chord for a command on the item bound to it.</summary>
+    /// <remarks>
+    ///     ⚠ In this machine's spelling rather than the table's — <c>ForPlatform</c> swaps Control
+    ///     for ⌘ on a Mac — so the row shows the keys the user will press. The editor's
+    ///     <c>MenuPresenter</c> does exactly this for every bound item; a shell with one menu bar
+    ///     does it twice, by hand, which is the honest amount of machinery for two rows.
+    /// </remarks>
+    void Draw(MenuItem item, string command) {
+        var shown = keys.ChordFor(command).ForPlatform();
+        item.ShowShortcut(shown.Key, shown.Modifiers);
+    }
 
     /// <summary>Lets the toasts count down.</summary>
     void Expire(UiDocument document, TimeSpan now) => toasts.Tick(now);

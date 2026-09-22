@@ -80,7 +80,7 @@ prompt.
 **`Save()` writes whether or not it is dirty; `IsDirty` is what greys the menu item.** Save As on an
 unchanged document must still write, so the two are not the same question.
 
-## Save and revert are commands
+## Save, revert and close are commands
 
 An element declares itself the host of a document, and one call makes it answer for it:
 
@@ -95,7 +95,16 @@ right one is decided by where the focus is. The route already walks focus → pa
 the nearest handler, so each panel answers for its own document and nothing has to know how many
 panels there are. A save routed to "the application's document" writes the wrong file, quietly.
 
-Both are greyed while there is nothing to write, read live out of `IsDirty`.
+Save and Revert are greyed while there is nothing to write, read live out of `IsDirty`.
+
+⚠ **`document.close` is the third, and it is never greyed.** Closing was a click handler calling
+`UiElement.RequestClose` by hand until it was an id, which meant a keymap had nothing to bind, a
+menu had nothing to grey, and an application with two panels closed whichever document the handler's
+author had named. As a command it is resolved by the same walk: the request is raised on the element
+that hosts the focused document, so `DocumentClosePrompt` — installed on that element — asks about
+*that* document, and `UiDocument.CloseRequested` is never told, because a tab going away is not the
+application going away. A document can always be *asked* to close; refusing is the prompt's job, and
+a Close that greyed itself on a clean document would vanish exactly when it is safe.
 
 ⚠ **A greyed item does not re-enable itself when a signal changes.** Command state is *pulled* by
 whatever is showing it, once per raise, so `Install` also stands up an effect that reads `IsDirty`
@@ -253,7 +262,7 @@ public for exactly that.
 ## See also
 
 - [Undo](../ui/undo.md) — the other thing a document owns, found by the same walk up the tree.
-- [Commands and the responder chain](../ui/commands.md) — `document.save` and `document.revert` are
-  ordinary commands, and grey out on the dirty flag.
+- [Commands and the responder chain](../ui/commands.md) — `document.save`, `document.revert` and
+  `document.close` are ordinary commands; the first two grey out on the dirty flag.
 - [Desktop applications](../ui/desktop-application.md) — the window title and the quit prompt, which
   are what a document is for from the host's side.
