@@ -1227,7 +1227,7 @@ console-row:checked console-repeats { color: var(--accent-text); }
    past the sixth was cut off with no way to reach it. The pane is a
    `ScrollView` under this tag now, which is why the rule carries the
    `overflow: hidden; position: relative` the `scroll-view` user-agent rule
-   would otherwise supply: a control under another tag gets none of it, and
+   would otherwise supply: a control under another tag gets none of it (#1327), and
    without the clip the scrolled-off lines draw over the list above. The
    padding is on the content, not the port, because the port's own padding
    would be inside what the bars measure and leave the last lines unreachable

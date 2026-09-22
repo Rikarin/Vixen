@@ -636,8 +636,8 @@ harness-body { flex-direction: row; flex-grow: 1; min-height: 0px; gap: 6px; }
 /* ⚠ `harness-matrix`, `moveset-table`, `shape-list` and `vocab-list` are `ScrollView`s under
    their own tags since #1275: the `overflow: auto` each of them carried clips and does not scroll
    in this UI, and every one is a list that silently lost its tail. A control under another tag
-   gets none of the `scroll-view` user-agent rule, so the clip and the bars' anchor — `overflow:
-   hidden; position: relative` — are written here. ⚠ Do not "fix" a list that cuts off by raising
+   gets none of the `scroll-view` user-agent rule (#1327), so the clip and the bars' anchor —
+   `overflow: hidden; position: relative` — are written here. ⚠ Do not "fix" a list that cuts off by raising
    its height; that moves the first unreachable row rather than reaching it. */
 harness-matrix { flex-direction: column; flex-grow: 1; min-width: 0px; overflow: hidden; position: relative; }
 harness-side { flex-direction: column; width: 300px; min-width: 120px; flex-shrink: 1; overflow-y: auto; }

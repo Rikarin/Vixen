@@ -344,7 +344,8 @@ public enum ScrollSnapAlign : byte {
 ///         <c>&lt;ScrollView tag="…"&gt;</c> is styled by whatever the sheet says about that tag,
 ///         and the sheet has to write the <c>overflow: hidden; position: relative</c> the clip and
 ///         the bars' anchor need. Without the first, the rows scrolled past the top draw over
-///         whatever sits above the view.
+///         whatever sits above the view. ⚠ Nothing catches that today, and it has shipped once;
+///         <c>Rikarin/Vixen#1327</c> is the general form of it.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>It does read four other families, and the distinction is the whole of doc 43 A18.</b>
