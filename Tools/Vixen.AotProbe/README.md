@@ -29,11 +29,13 @@ fails below a 4 MB floor so that an emptied root list cannot pass as a successfu
 ## What it covers, and the one rule every binding-library backend follows
 
 ⚠ **This section used to say "every `Core/` assembly", and that was wrong by a factor of four; then
-it said 29 of 95, and [#506](https://github.com/Rikarin/Vixen/issues/506)'s expansion has taken it to
-84.** Measured on 2026-09-10 against `git ls-files`: the probe roots **84** of the 95 `net10.0`
-non-test projects under `Core/` and `Platform/`. The eleven that are not rooted are written down in
-[`NotRooted.txt`](NotRooted.txt) with what an ILC publish said about each — the reactive `Vixen.Ui`
-wave and the three assemblies no shipped game links.
+it said 29 of 95, [#506](https://github.com/Rikarin/Vixen/issues/506)'s expansion took it to 84, and
+[#1240](https://github.com/Rikarin/Vixen/issues/1240) to 91.** Measured on 2026-09-22 against
+`git ls-files`: the probe roots **91** of the 95 `net10.0` non-test projects under `Core/` and
+`Platform/`. The four that are not rooted are written down in [`NotRooted.txt`](NotRooted.txt), and
+every one of them is there because no shipped game links it — the reactive `Vixen.Ui` wave, seven
+assemblies, was kept out by one true-positive IL2072 and joined the rooted set the day the generator
+started naming a base type's class constructor.
 
 ⚠ **`Vixen.Xr` and its OpenXR head were on that list until
 [#1239](https://github.com/Rikarin/Vixen/issues/1239), and the section below predicted why.** Their
@@ -54,14 +56,14 @@ the three desktop platform heads and `Vixen.Core.Yaml` — a serializer, the one
 predicted "is where reflection hides" — were every one of them clean on the first publish.
 
 ⚠ **Rooted and merely *present* are different things, and the difference is the whole point of this
-file.** Many of those eleven *are* in the publish graph transitively — a framework-dependent publish of
+file.** Several of those four *are* in the publish graph transitively — a framework-dependent publish of
 this probe writes 51 managed assemblies, `Vixen.Shaders`, `Vixen.Vfx`, `Vixen.Foliage` and
 `Vixen.Rendering.ScreenProbes` among them — so ILC does compile whatever `Main` reaches in them. What
 they do not get is the *rooted* question this file exists to ask. Reading the publish output as
 coverage is exactly the mistake the section below warns about.
 
 What *is* rooted publishes with **zero** trim or AOT warnings, and the resulting binary runs. The
-rooted set is every `net10.0` non-test assembly under `Core/` and `Platform/` except the eleven in
+rooted set is every `net10.0` non-test assembly under `Core/` and `Platform/` except the four in
 [`NotRooted.txt`](NotRooted.txt) — written once, as a complement, rather than as a second list that
 can disagree with the first.
 

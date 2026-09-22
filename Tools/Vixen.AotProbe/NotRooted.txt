@@ -25,17 +25,20 @@
 # remaining six are all in Vixen.Ui and Vixen.Ui.HotReload. ⚠ What that publish proves is that ILC
 # stops complaining, and not that OpenXR still initialises: this repository has no XR device.
 #
+# ⚠ Vixen.Ui and its six siblings — .Controls, .Controls.Advanced, .Markup, .Renderer, .Desktop and
+# Vixen.Platform.Ui — left this list on 2026-09-22 (#1240). They were here for ONE finding, the IL2072
+# in UiPropertyRegistry.Collect, and it was a true positive: the walk forced every base type's class
+# constructor through Type.BaseType, which ILC cannot name, so a NativeAOT build silently lost every
+# property a base class declared. The cure is in Vixen.Ui.Generators — each generated static
+# constructor runs its nearest property-declaring ancestor's by typeof — and the registry forces only
+# the leaf. Rooting all seven then published with zero ILC findings (win-x64, warnings as errors, a
+# 46.7 MB native binary that runs). So 91 of 95 are rooted and the four left are here because no
+# shipped game links them, not because of anything ILC said.
+#
 # The `-ios`, `-android` and `-browser` heads and the netstandard2.1 generators are out of scope by
 # target framework — `CheckAotIos` is the gate over the iOS one.
 
 Vixen.Fuzz the fuzzing harness, which no shipped game links; rooting it would measure the gate rather than the engine
-Vixen.Ui one IL2072, in UiPropertyRegistry.Collect (UiProperty.cs:259) — and #1240 asked whether it was safe to suppress. ⚠ MEASURED 2026-09-10 and the answer is NO: a base type's class constructor is NOT preserved when the derived type is, so the property IS silently absent in an AOT build. A throwaway probe with its own Base : UiElement and Derived : Base, published for osx-arm64 with PublishAot and nothing rooted, printed `[DerivedWeight]` where the same program on CoreCLR printed all ten — the base's property and UiElement's own eight, gone. So the warning is a true positive describing a live defect and a suppression would write the defect down as intended behaviour. ⚠ The same probe measured the cure: a derived class whose static constructor calls RunClassConstructor(typeof(Base).TypeHandle) by NAME gets its base back (`base=True`), while the identical pair without that call does not (`base=False`) — which is the control that says the probe can fail. So the fix is in Vixen.Ui.Generators: chain each generated static constructor to the nearest property-declaring ancestor. Not written yet; #1240 stays open with this in it
-Vixen.Ui.Controls a Vixen.Ui sibling: rooting it compiles Vixen.Ui.UiPropertyRegistry.Collect and reports the same IL2072, and carries the same measured defect behind it
-Vixen.Ui.Controls.Advanced as Vixen.Ui.Controls
-Vixen.Ui.Desktop as Vixen.Ui.Controls
 Vixen.Ui.Desktop.HotReload developer-loop only, and a shipped game does not link it
 Vixen.Ui.HotReload developer-loop only, and a shipped game does not link it; five findings of its own besides — IL2067 twice, IL2070, IL2072 and IL2075, all of them HotReloadHost reflecting over a type it was handed at run time, which is what hot reload is
-Vixen.Ui.Markup as Vixen.Ui.Controls
-Vixen.Ui.Renderer as Vixen.Ui.Controls
 Vixen.Ui.Testing a test harness, which no shipped game links
-Vixen.Platform.Ui as Vixen.Ui.Controls
