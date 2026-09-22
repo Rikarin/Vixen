@@ -1131,6 +1131,7 @@ public static class UtilityComposition {
     ///         <c>calc(var(--spacing) * 4)</c> and <c>TransformReader.Functions</c> refuses any
     ///         argument holding a nested parenthesis. A slot that refused its own value would take
     ///         the whole list down with it, which is the failure this block exists to name.
+    ///         <c>Rikarin/Vixen#1328</c> is where the three ways out are written down.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Every slot is substituted on every element that fills any of them</b>, so the

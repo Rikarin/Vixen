@@ -83,8 +83,10 @@
 # ⚠ So all four now rest on the same condition and none of them can name it: what stands is a
 # READING — `TransformReader.Functions` refuses any argument holding a nested parenthesis, so a
 # `calc()` cannot ride the transform list — which is a change to an existing method rather than a
-# member whose arrival a tripwire can watch for. Tracked as an issue, and this paragraph is the only
-# thing in the tree that says so.
+# member whose arrival a tripwire can watch for. Tracked as `Rikarin/Vixen#1328`, which asks for one
+# of three answers — fold the `calc()`, move the two roots onto the `translate`/`scale` properties,
+# or give this grammar a fourth kind — and this paragraph is the only other thing in the tree that
+# says so.
 #
 # ⚠ AND THREE MORE SHARE `LayoutStyle.WritingMode`, which is the first anchor here that is not a
 # refusal's blocker but a working implementation's PREMISE. `float: inline-start` and
