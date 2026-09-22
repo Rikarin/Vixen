@@ -66,11 +66,25 @@
 # unregistered. That is `hyphens`' shape, one root over. They anchored on the vertex directly rather
 # than `expires-with perspective-*`, because `expires-with` demands the carrier be refused OUTRIGHT
 # and these two half work. `Rikarin/Vixen#268`. ⚠ The vertex landed on 2026-09-22 (#548) and the
-# suite printed all three names at once, as it was rebuilt to; the three moved together onto
-# `TransformReader.perspective`, the interned id the reader will hold the day it reads the property
-# that now stands between a stylesheet and a picture (#550). ⚠ Not `expires-when-read perspective`,
-# which would be the measured kind: that clause needs a registered family to emit the property, and
-# `perspective-*` is exactly the family that is not registered yet.
+# suite printed all three names at once, as it was rebuilt to — the shared-anchor case it was rebuilt
+# FOR, observed rather than predicted. #550 closed `perspective-*` outright the same day, so that row
+# has no refusal left to expire.
+#
+# ⚠ AND FOUR ROWS LOST THEIR CLAUSE WITHOUT CLOSING, which is the outcome this file has no good shape
+# for and the finding worth carrying. `scale-*` and `translate-*` were given `expires-with scale-z-*`
+# and `expires-with translate-z-*` — the STRONGER kind, and exactly what each row's remaining gap is:
+# ONE CLASS that belongs to the z root beside it. ⚠ The suite refused both, and it is right to: an
+# `expires-with` may not sit on a `partial` row at all, because it says "this root is refused because
+# that one is" and a root that half works has already left that state. Only `expires-on` and
+# `expires-when-read` reach a partial row. `scale-z-*` and `translate-z-*` lost theirs for the
+# mirror-image reason — they are `absent` and could carry an `expires-with`, but the carrier would
+# have to be refused OUTRIGHT and the two roots that would carry them are `partial`.
+#
+# ⚠ So all four now rest on the same condition and none of them can name it: what stands is a
+# READING — `TransformReader.Functions` refuses any argument holding a nested parenthesis, so a
+# `calc()` cannot ride the transform list — which is a change to an existing method rather than a
+# member whose arrival a tripwire can watch for. Tracked as an issue, and this paragraph is the only
+# thing in the tree that says so.
 #
 # ⚠ AND THREE MORE SHARE `LayoutStyle.WritingMode`, which is the first anchor here that is not a
 # refusal's blocker but a working implementation's PREMISE. `float: inline-start` and
@@ -102,15 +116,7 @@ hyphens	expires-on	Vixen.Ui.Text.HyphenMode.Auto
 list-*	expires-on	Vixen.Ui.Styling.Selector.PseudoElement
 list-image-*	expires-with	list-*
 list-style-position	expires-with	list-*
-perspective-*	expires-on	Vixen.Ui.TransformReader.perspective
-perspective-origin-*	expires-with	perspective-*
 placeholder-*	expires-on	Vixen.Ui.Styling.Selector.PseudoElement
-rotate-x-*	expires-with	perspective-*
-rotate-y-*	expires-with	rotate-x-*
-scale-*	expires-on	Vixen.Ui.TransformReader.perspective
-scale-z-*	expires-with	perspective-*
 scrollbar-gutter	expires-on	Vixen.Ui.Layout.Overflow.Auto
 select	expires-when-read	user-select
 touch	expires-on	Vixen.Ui.UiDocument.TouchActionOf
-translate-*	expires-on	Vixen.Ui.TransformReader.perspective
-translate-z-*	expires-with	perspective-*

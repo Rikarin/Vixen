@@ -2499,6 +2499,56 @@ public static class UtilityFamilies {
         Skew("skew-x", [UtilityComposition.SkewX]);
         Skew("skew-y", [UtilityComposition.SkewY]);
 
+        // ⚠ <b>The two three-dimensional rotations, on <c>rotate-z-*</c>'s mechanism exactly — and
+        // the refusal they carried for months named a renderer rather than this layer.</b> It ran:
+        // `UiTransform` is affine, so a projective composite cannot be expressed. #547 made the type
+        // a homography, #548 gave the composite quad's vertices the `w` both rasterisers now divide
+        // by, and #550 made `TransformReader.Functions` compose the whole list in four dimensions and
+        // reduce once at the end. So `rotateX(…)` and `rotateY(…)` are slots in the assembler, under
+        // the rule the block above `RotateZ` states: a slot joins when its function parses.
+        //
+        // ⚠ <b>Without a `perspective-*` on the parent, `rotate-x-45` is a vertical squash — and that
+        // is the right picture.</b> A rotation about x foreshortens until something projects it, which
+        // is what a browser draws too. The pair is what makes a card flip.
+        Skew("rotate-x", [UtilityComposition.RotateX]);
+        Skew("rotate-y", [UtilityComposition.RotateY]);
+
+        // ⚠ <b>A property and not a function, established by the PARENT — which is the half of
+        // Transforms 2 § 6 that is easy to get backwards and produces a plausible picture either
+        // way.</b> An element's `perspective` applies to its children; a `perspective()` inside its
+        // own `transform` applies to itself. `TransformReader.Established` reads the parent's, and
+        // `TransformTests` asserts the two against each other with two elements rather than one.
+        //
+        // ⚠ <b>The five distances are written out rather than read from a theme token</b>, because
+        // this engine has no `--perspective-*` scale and inventing one would be a name nothing else
+        // looks at — the `--blur` failure this table has already paid for once. They are v4's own
+        // defaults, and a `perspective-[600px]` reaches the same property through the arbitrary
+        // branch.
+        Keywords("perspective", "perspective", new() {
+            ["dramatic"] = "100px",
+            ["near"] = "300px",
+            ["normal"] = "500px",
+            ["midrange"] = "800px",
+            ["distant"] = "1200px",
+            ["none"] = "none"
+        });
+
+        // ⚠ <b>`origin`'s nine positions over a different property, and `SplitName` is what makes the
+        // two coexist</b>: the longest registered prefix wins, so `perspective-origin-top-right`
+        // reaches here and `perspective-distant` still reaches the family above. The same rule that
+        // keeps `rotate-z-45` and `rotate-45` apart.
+        Keywords("perspective-origin", "perspective-origin", new() {
+            ["center"] = "center",
+            ["top"] = "top",
+            ["top-right"] = "top right",
+            ["right"] = "right",
+            ["bottom-right"] = "bottom right",
+            ["bottom"] = "bottom",
+            ["bottom-left"] = "bottom left",
+            ["left"] = "left",
+            ["top-left"] = "top left"
+        });
+
         // ⚠ <b>Both fragments from one class, which is v4's own reading and not a shorthand for it.</b>
         // Tailwind's `skew-6` emits `skewX(6deg) skewY(6deg)` — two functions — rather than CSS's
         // two-argument `skew(6deg, 6deg)`. Writing the CSS spelling instead would resolve and paint
