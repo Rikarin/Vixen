@@ -255,6 +255,65 @@ public class ShapeVocabularyTests {
         Assert.Equal("belly", Assert.Single(Assert.Single(reopened.Vocabulary.Classes).Members).Name);
     }
 
+    /// <summary>A vocabulary longer than the pane can reach its last row.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The sheet gave <c>vocab-list</c> <c>overflow: auto</c>, and in this UI that clips
+    ///         and does not scroll</b> — <c>OverflowReader</c> decides which edges cut off what hangs
+    ///         outside, and scrolling is <c>ScrollView</c>'s alone. So every name past the fold was
+    ///         unreachable by pointer or wheel for as long as the file had more of them than the pane
+    ///         had room for, which is the same defect the New Asset… picker had (#1275). The list is
+    ///         a <c>ScrollView</c> under the sheet's tag now, and this pins the property rather than
+    ///         the type: the last row starts below the fold, and a scroll brings it inside.
+    ///     </para>
+    ///     <para>
+    ///         Sabotage: put the plain <c>&lt;vocab-list&gt;</c> back in the markup and this is red at
+    ///         the scroller — there is none between the row and the view.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AVocabularyLongerThanThePaneReachesItsLastRow() {
+        using var harness = new ViewHarness();
+        var document = Open(harness.Project);
+
+        for (var i = 0; i < 60; i++) {
+            document.AddTerm($"shape-{i:00}", "One of many.");
+        }
+
+        var view = harness.Ui.Document.Root.Add<ShapeVocabularyView>();
+
+        // Boxed, because the harness's root is 800 tall and a list that fits proves nothing.
+        view.SetStyle("height", "240px");
+        view.Show(document);
+        harness.Ui.Frame();
+
+        var last = view.List.Children[^1];
+        var scroller = Scroller(last, view);
+
+        Assert.NotNull(scroller);
+        Assert.True(scroller.MaximumTop > 0f, "sixty rows in 240 px must overflow the pane");
+        Assert.True(last.AbsoluteTop >= scroller.AbsoluteTop + scroller.Height, "the last row starts below the fold");
+
+        scroller.ScrollIntoView(last);
+        harness.Ui.Frame();
+
+        Assert.True(last.AbsoluteTop >= scroller.AbsoluteTop, "the last row's top is inside the pane");
+        Assert.True(
+            last.AbsoluteTop + last.Height <= scroller.AbsoluteTop + scroller.Height + 0.5f,
+            "the last row's bottom is inside the pane"
+        );
+    }
+
+    static Vixen.Ui.Controls.ScrollView? Scroller(UiElement element, UiElement stopAt) {
+        for (var walk = element.Parent; walk is not null && !ReferenceEquals(walk, stopAt); walk = walk.Parent) {
+            if (walk is Vixen.Ui.Controls.ScrollView scroller) {
+                return scroller;
+            }
+        }
+
+        return null;
+    }
+
     static void Click(ViewHarness harness, UiElement element) {
         var x = element.AbsoluteLeft + (element.Width / 2f);
         var y = element.AbsoluteTop + (element.Height / 2f);

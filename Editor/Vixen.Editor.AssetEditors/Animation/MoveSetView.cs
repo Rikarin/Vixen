@@ -94,7 +94,11 @@ public sealed class MoveSetView : Control {
 
         var body = Part("moveset-body");
 
-        Table = body.Add("moveset-table");
+        // ⚠ The content of a `ScrollView` under the `moveset-table` tag, not a plain element: the
+        // sheet's `overflow: auto` clipped in this UI and never scrolled, so a set of more rows than
+        // the pane is tall lost its tail with nothing to reach it by (#1275). The rows stay the
+        // table's direct children, which is what the tests and the sheet both count on.
+        Table = body.Add<ScrollView>("moveset-table").Content;
 
         var side = body.Add("moveset-side");
         Fields = side.Add("moveset-fields");

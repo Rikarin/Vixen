@@ -64,7 +64,14 @@ public sealed partial class MessageLogView : Control {
     public VirtualizingPanel List { get; private set; } = null!;
 
     /// <summary>The pane under it showing the whole of the selected message.</summary>
+    /// <remarks>
+    ///     The content of a <see cref="ScrollView" /> rather than the 96 px pane itself, for
+    ///     <c>ConsoleView.Detail</c>'s reason: a plain element with <c>overflow: auto</c> clips in
+    ///     this UI, and a notification's detail is the part that did not fit on its row.
+    /// </remarks>
     public UiElement Detail { get; private set; } = null!;
+
+    ScrollView detailPane = null!;
 
     /// <summary>What it is showing.</summary>
     public NotificationCenter? Centre => centre;
@@ -133,7 +140,8 @@ public sealed partial class MessageLogView : Control {
         List.CreateRow = _ => Row();
         List.BindRow = Bind;
 
-        Detail = Part("message-log-detail");
+        detailPane = Part<ScrollView>("message-log-detail");
+        Detail = detailPane.Content;
         ShowDetail();
     }
 
@@ -243,13 +251,13 @@ public sealed partial class MessageLogView : Control {
         }
 
         if (Selected is not { } entry) {
-            Detail.AddClass("empty");
+            detailPane.AddClass("empty");
             Detail.Add<TextBlock>().Text = EditorStrings.MessagesNoSelection.Text;
 
             return;
         }
 
-        Detail.RemoveClass("empty");
+        detailPane.RemoveClass("empty");
         Detail.Add<UiElement>("message-detail-heading").Text = entry.Message;
 
         Detail.Add<UiElement>("message-detail-meta").Text = string.Create(

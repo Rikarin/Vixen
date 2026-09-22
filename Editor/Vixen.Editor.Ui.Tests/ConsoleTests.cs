@@ -372,6 +372,95 @@ public class ConsoleViewTests : IDisposable {
         Assert.Contains("InvalidOperationException", text, StringComparison.Ordinal);
     }
 
+    /// <summary>A stack deeper than the detail pane can be scrolled to its last line.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The pane is 132 px tall and was <c>overflow: auto</c>, which in this UI clips
+    ///         and does not scroll.</b> The comment above <c>ShowDetail</c> says the stack is the
+    ///         reason somebody clicked the row, and for as long as the pane was a plain element every
+    ///         frame of it past the first handful was cut off with no way to reach it — the same
+    ///         defect as the New Asset… picker's, in the place a user sees first (#1275). The pane is
+    ///         a <c>ScrollView</c> under the same tag now.
+    ///     </para>
+    ///     <para>
+    ///         Pinned on the property and not the type: the stack's element ends below the pane's
+    ///         fold, and a scroll brings its bottom inside. Sabotage: <c>Part("console-detail")</c>
+    ///         back in place of the scroll view leaves no scroller between the stack and the view,
+    ///         and the first assertion is red.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_stack_deeper_than_the_detail_pane_can_be_scrolled_to_its_last_line() {
+        Log(LogLevel.Error, "it went wrong", Deep(40));
+        Frame();
+
+        var row = view.List.RowOf(0);
+
+        Assert.NotNull(row);
+        Click(row);
+        Frame();
+
+        var stack = view.Detail.Children.Last(child => child.Tag == "console-detail-stack");
+
+        // ⚠ This document has no font, so forty lines of text measure nothing tall. The stack's box
+        // is given the height those lines would have, because the property under test is the pane's
+        // and not the text's: a 600 px element under a 132 px pane either scrolls or is cut off.
+        stack.SetStyle("height", "600px");
+        Frame();
+
+        var scroller = Scroller(stack, view);
+
+        Assert.NotNull(scroller);
+        Assert.True(scroller.MaximumTop > 0f, "forty frames in 132 px must overflow the pane");
+        Assert.True(
+            stack.AbsoluteTop + stack.Height > scroller.AbsoluteTop + scroller.Height,
+            "the stack ends below the fold"
+        );
+
+        scroller.ScrollIntoView(stack);
+        Frame();
+
+        // A stack taller than the pane cannot fit whole, so what `ScrollIntoView` promises is its
+        // near edge; asserting the far edge would be asserting the pane grew.
+        Assert.True(scroller.ScrollTop > 0f, "the pane scrolled");
+
+        scroller.ScrollTo(scroller.MaximumTop, 0f);
+        Frame();
+
+        Assert.True(
+            stack.AbsoluteTop + stack.Height <= scroller.AbsoluteTop + scroller.Height + 0.5f,
+            "the last line is inside the pane at the bottom of the scroll"
+        );
+    }
+
+    static Exception Deep(int frames) {
+        try {
+            Recurse(frames);
+        } catch (InvalidOperationException caught) {
+            return caught;
+        }
+
+        throw new InvalidOperationException("the recursion did not throw");
+
+        static void Recurse(int remaining) {
+            if (remaining == 0) {
+                throw new InvalidOperationException("because of this");
+            }
+
+            Recurse(remaining - 1);
+        }
+    }
+
+    static ScrollView? Scroller(UiElement element, UiElement stopAt) {
+        for (var walk = element.Parent; walk is not null && !ReferenceEquals(walk, stopAt); walk = walk.Parent) {
+            if (walk is ScrollView scroller) {
+                return scroller;
+            }
+        }
+
+        return null;
+    }
+
     [Fact]
     public void The_detail_pane_carries_the_event_id_the_register_is_keyed_by() {
         Log(LogLevel.Warning, "device lost", eventId: 2001);
