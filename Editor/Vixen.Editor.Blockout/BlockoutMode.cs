@@ -106,7 +106,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     public string Id => ModeId;
 
     /// <inheritdoc />
-    public StringId Title { get; } = EditorStrings.ModeBlockout;
+    public StringId Title { get; } = BlockoutStrings.ModeBlockout;
 
     /// <inheritdoc />
     /// <remarks>
@@ -625,8 +625,8 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         Declare(BlockoutElement.Face, InputKey.Number4);
 
         shell.Commands.Add(
-            new EditorCommand(ToggleMeshCommand, EditorStrings.CommandBlockoutToggleMesh, Toggle) {
-                Category = EditorStrings.CategoryBlockout,
+            new EditorCommand(ToggleMeshCommand, BlockoutStrings.Commands[ToggleMeshCommand], Toggle) {
+                Category = BlockoutStrings.CategoryBlockout,
                 Context = BlockoutContext,
                 Enablement = IsActive
             }
@@ -779,7 +779,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
                         run();
                     }
                 }) {
-                    Category = EditorStrings.CategoryBlockout,
+                    Category = BlockoutStrings.CategoryBlockout,
                     Context = BlockoutContext,
                     RadioGroup = radio ? KindGroup : null,
                     Checked = radio ? () => Shape == kind : null,
@@ -795,7 +795,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         void Verb(string id, Func<MeshEdit, bool> run, InputKey key = InputKey.Unknown, ModifierKeys modifiers = ModifierKeys.None) {
             shell.Commands.Add(
                 new EditorCommand(id, BlockoutStrings.Commands[id], () => Run(run)) {
-                    Category = EditorStrings.CategoryBlockout,
+                    Category = BlockoutStrings.CategoryBlockout,
                     Context = BlockoutContext,
 
                     // ⚠ Inside the mesh rather than merely in the mode. Every one of these is a
@@ -816,7 +816,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
 
             shell.Commands.Add(
                 new EditorCommand(id, BlockoutStrings.Commands[id], () => this.Element = element) {
-                    Category = EditorStrings.CategoryBlockout,
+                    Category = BlockoutStrings.CategoryBlockout,
 
                     // ⚠ This is the whole of doc 24's B2 in one line. The command belongs to the
                     // blockout context, so `KeyMap` files its chord under that context rather than

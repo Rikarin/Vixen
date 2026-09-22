@@ -64,11 +64,38 @@ public static class WaterStrings {
         ]
     );
 
+    // ── The names the shell used to keep a copy of ─────────────────────────
+    //
+    // ⚠ Declared in EditorStrings until #1301, one assembly up from the only code that reads them.
+    // The shell cannot name this class (StringContributions.cs says why), so the ids it held for
+    // this toolset were a copy the toolset could not own — a translator saw them under the
+    // editor's own words, and a toolset shipped out of tree would have had no way to add its own.
+    // The ids themselves are unchanged, so a catalogue written against the old table still finds
+    // every one of them.
+
+    /// <summary>The <c>Water</c> command category.</summary>
+    public static StringId CategoryWater { get; } = new("editor.category.water", "Water");
+
+    /// <summary>The water mode, as the mode bar names it.</summary>
+    public static StringId ModeWater { get; } = new("editor.mode.water", "Water");
+
+    /// <summary>The <c>Water</c> panel.</summary>
+    public static StringId PanelWater { get; } = new("editor.panel.water", "Water");
+
+    /// <summary>The <c>Water Zone</c> panel.</summary>
+    public static StringId PanelWaterZone { get; } = new("editor.panel.water.zone", "Water Zone");
+
     /// <summary>What a translator's template for this toolset holds.</summary>
     /// <remarks>
     ///     Spread from the family, which is what puts every member of it in the template. A family
     ///     left out of this list would hide nineteen strings rather than one, which is why
     ///     <c>VXS0310</c> counts a <see cref="StringFamily" /> property as a declaration.
     /// </remarks>
-    public static IReadOnlyList<StringId> All { get; } = [.. Commands.All];
+    public static IReadOnlyList<StringId> All { get; } = [
+        .. Commands.All,
+        CategoryWater,
+        ModeWater,
+        PanelWater,
+        PanelWaterZone
+    ];
 }

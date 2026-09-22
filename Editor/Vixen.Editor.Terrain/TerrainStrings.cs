@@ -107,6 +107,42 @@ public static class TerrainStrings {
         "Removing a type renumbers every instance above it; not yet built."
     );
 
+    // ── The names the shell used to keep a copy of ─────────────────────────
+    //
+    // ⚠ These nine were declared in EditorStrings until #1301, one assembly up from the only code
+    // that reads them. The shell cannot name this class (StringContributions.cs says why), so the
+    // ids it held for a toolset were a copy the toolset could not own — a translator saw them
+    // under the editor's own words, and a toolset shipped out of tree would have had no way to add
+    // its own. The ids themselves are unchanged, so a catalogue written against the old table still
+    // finds every one of them.
+
+    /// <summary>The <c>Terrain</c> command category.</summary>
+    public static StringId CategoryTerrain { get; } = new("editor.category.terrain", "Terrain");
+
+    /// <summary>The <c>Foliage</c> command category.</summary>
+    public static StringId CategoryFoliage { get; } = new("editor.category.foliage", "Foliage");
+
+    /// <summary>The terrain mode, as the mode bar names it.</summary>
+    public static StringId ModeTerrain { get; } = new("editor.mode.terrain", "Terrain");
+
+    /// <summary>The foliage mode, as the mode bar names it.</summary>
+    public static StringId ModeFoliage { get; } = new("editor.mode.foliage", "Foliage");
+
+    /// <summary>The <c>Terrain</c> panel.</summary>
+    public static StringId PanelTerrain { get; } = new("editor.panel.terrain", "Terrain");
+
+    /// <summary>The <c>Foliage</c> panel.</summary>
+    public static StringId PanelFoliage { get; } = new("editor.panel.foliage", "Foliage");
+
+    /// <summary>The <c>Grass</c> panel.</summary>
+    public static StringId PanelGrass { get; } = new("editor.panel.grass", "Grass");
+
+    /// <summary>The <c>Growth</c> panel.</summary>
+    public static StringId PanelGrowth { get; } = new("editor.panel.growth", "Growth");
+
+    /// <summary>The <c>Splines</c> panel.</summary>
+    public static StringId PanelSplines { get; } = new("editor.panel.splines", "Splines");
+
     /// <summary>What a translator's template for these two toolsets holds.</summary>
     /// <remarks>
     ///     Spread from both families, which is what puts every member of them in the template. A
@@ -116,6 +152,15 @@ public static class TerrainStrings {
     public static IReadOnlyList<StringId> All { get; } = [
         .. TerrainCommands.All,
         .. FoliageCommands.All,
-        FoliageTypeRemoveUnavailable
+        FoliageTypeRemoveUnavailable,
+        CategoryTerrain,
+        CategoryFoliage,
+        ModeTerrain,
+        ModeFoliage,
+        PanelTerrain,
+        PanelFoliage,
+        PanelGrass,
+        PanelGrowth,
+        PanelSplines
     ];
 }

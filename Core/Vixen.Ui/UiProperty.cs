@@ -159,13 +159,52 @@ public static class UiPropertyRegistry {
         return key;
     }
 
-    /// <summary>The properties a type declares, including those it inherits from its bases.</summary>
+    /// <summary>
+    ///     The properties a type declares, together with its bases' — complete for a type that
+    ///     declares at least one itself, and otherwise complete only as far as something has
+    ///     already put its bases in play.
+    /// </summary>
     /// <param name="ownerType">The type.</param>
     /// <returns>The keys, bases first.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Only <paramref name="ownerType" />'s class constructor is forced here, and the
+    ///         bases' come with it</b> (#1240). The walk used to force every level by handle, which
+    ///         is one <c>IL2072</c> — <c>Type.BaseType</c> carries no annotation, and the annotation
+    ///         is what keeps a class constructor from being trimmed — and what it described was live:
+    ///         a NativeAOT publish answered <c>Of(typeof(Derived))</c> with the derived property and
+    ///         nothing from any base, because ILC preserves a constructor it can <em>name</em> and not
+    ///         one reached through <c>BaseType</c> at run time. So the generator now names it: every
+    ///         generated static constructor runs its nearest property-declaring ancestor's, by
+    ///         <c>typeof</c>, and that one runs the next. Forcing the leaf registers the chain in
+    ///         either runtime, and the walk below reads the table and touches nothing a trimmer could
+    ///         remove.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What that does not cover is a narrowing of this method, not a wash</b>: a type
+    ///         that declares <em>nothing</em> of its own, asked about by <c>typeof</c> before
+    ///         anything has constructed it or touched its base, has no generated constructor to
+    ///         chain from, so its bases' registrations are whatever has already run. The old walk
+    ///         answered that case completely <em>on CoreCLR</em> — it was under ILC that it answered
+    ///         with the leaf and nothing else — so the fix traded a silently wrong AOT answer for a
+    ///         narrower contract on both runtimes. ⚠ It is not closable the same way: naming the
+    ///         ancestor is what makes the chain survive trimming, and <c>Type.BaseType</c> is exactly
+    ///         the thing that cannot name it.
+    ///     </para>
+    ///     <para>
+    ///         Every binding in the tree goes through <see cref="TryFindFor" /> on an element that
+    ///         exists, and constructing one runs every base's constructor on both runtimes, which is
+    ///         why that path never forced anything — and why nothing in the repository reaches the
+    ///         gap today. <c>UiPropertyTests.A_type_that_declares_nothing_reaches_its_base_only_once_something_has_run_it</c>
+    ///         pins both halves, so the gap cannot widen and cannot quietly close either.
+    ///     </para>
+    /// </remarks>
     public static IReadOnlyList<UiPropertyKey> Of(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.NonPublicConstructors)] Type ownerType
     ) {
         ArgumentNullException.ThrowIfNull(ownerType);
+
+        RuntimeHelpers.RunClassConstructor(ownerType.TypeHandle);
 
         var result = new List<UiPropertyKey>();
         Collect(ownerType, result);
@@ -232,6 +271,12 @@ public static class UiPropertyRegistry {
     /// <param name="name">The property's name.</param>
     /// <param name="key">Receives the key.</param>
     /// <returns>Whether it was found.</returns>
+    /// <remarks>
+    ///     This is <see cref="Of" /> read for one name, and it carries <see cref="Of" />'s limit with
+    ///     it: an <paramref name="ownerType" /> that declares no property of its own can answer
+    ///     <c>false</c> for a name one of its bases declares, while nothing has yet put that base in
+    ///     play. <see cref="TryFindFor" /> takes an element instead and does not have the gap.
+    /// </remarks>
     public static bool TryFind(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.NonPublicConstructors)] Type ownerType,
         string name,
@@ -256,41 +301,28 @@ public static class UiPropertyRegistry {
     /// <param name="into">Where the keys go.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The IL2072 on the recursion below is a true positive, and what it describes is
-    ///         live.</b> <c>Type.BaseType</c> carries no annotation while this parameter asks for
-    ///         <c>NonPublicConstructors</c> — which is what preserves a class constructor, which is
-    ///         what <see cref="RuntimeHelpers.RunClassConstructor" /> needs. Measured on 2026-09-10
-    ///         (#1240) with a NativeAOT publish of a probe declaring its own <c>Base : UiElement</c>
-    ///         and <c>Derived : Base</c>: <c>Of(typeof(Derived))</c> came back with the derived
-    ///         property and <b>nothing else</b>, where the same program on CoreCLR returned all ten
-    ///         — the base's property and <see cref="UiElement" />'s own eight among them. A base
-    ///         type's class constructor is <b>not</b> preserved because a derived type is, so an
-    ///         <c>UnconditionalSuppressMessage</c> here would write a defect down as intent.
+    ///         ⚠ <b>This used to force each level's class constructor on the way down, and that call
+    ///         was the one IL2072 keeping <c>Vixen.Ui</c> and six siblings off the AOT probe</b>
+    ///         (#1240). It was a true positive: measured on 2026-09-10 with a NativeAOT publish of a
+    ///         probe declaring <c>Base : UiElement</c> and <c>Derived : Base</c>,
+    ///         <c>Of(typeof(Derived))</c> came back with the derived property and <b>nothing else</b>,
+    ///         where CoreCLR returned all ten. A base type's class constructor is not preserved
+    ///         because a derived type's is; a constructor ILC can <em>name</em> is. So the forcing
+    ///         moved to where the name is — each generated static constructor runs its nearest
+    ///         property-declaring ancestor's by <c>typeof</c> — and this walk reads the table only.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Nothing in this repository can go red on it.</b> The registry's own
-    ///         <c>A_property_is_findable_before_anything_has_touched_its_type</c> asserts exactly the
-    ///         guarantee that fails, and passes, because no test runs against an AOT publish and
-    ///         <c>CheckAot</c> never executes the binary it produces. That is why
-    ///         <c>Vixen.Ui</c> and six siblings are on <c>Tools/Vixen.AotProbe/NotRooted.txt</c>.
-    ///     </para>
-    ///     <para>
-    ///         The cure is measured too and is not here: a derived class whose static constructor
-    ///         calls <c>RunClassConstructor(typeof(Base).TypeHandle)</c> — <em>by name</em>, so ILC
-    ///         can see the type — gets its base's properties back, while the identical pair without
-    ///         that call does not. So it belongs in <c>Vixen.Ui.Generators</c>, chaining each
-    ///         generated static constructor to the nearest property-declaring ancestor.
+    ///         ⚠ <b>Nothing in this repository can go red on the AOT half of that.</b> No test runs
+    ///         against an AOT publish and <c>CheckAot</c> never executes the binary it produces
+    ///         (#1255). What <c>Vixen.Ui.Tests</c> can see is the CoreCLR half: with the walk no
+    ///         longer forcing bases, an untouched base's properties reach the answer only through
+    ///         the generated chain, so a generator that stopped emitting it goes red there.
     ///     </para>
     /// </remarks>
-    static void Collect(
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.NonPublicConstructors)] Type type,
-        List<UiPropertyKey> into
-    ) {
+    static void Collect(Type type, List<UiPropertyKey> into) {
         if (type.BaseType is { } baseType) {
             Collect(baseType, into);
         }
-
-        RuntimeHelpers.RunClassConstructor(type.TypeHandle);
 
         if (!Declared.TryGetValue(type, out var keys)) {
             return;

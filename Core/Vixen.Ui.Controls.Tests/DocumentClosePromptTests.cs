@@ -352,6 +352,95 @@ public class DocumentClosePromptTests : IDisposable {
         Assert.Equal(1, heads);
     }
 
+    /// <summary>
+    ///     ⌘W and File ▸ Close are one verb: <c>document.close</c> resolves to the element hosting
+    ///     the focused document and the prompt asks about <em>that</em> document.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/656">#656</a>. Save and Revert were
+    ///         ids the route answered while closing was a click handler calling
+    ///         <see cref="UiElement.RequestClose" /> by hand — so a keymap had nothing to bind, and
+    ///         an application with two panels closed whichever document the handler's author had
+    ///         named. What is asserted here is the resolution: the focus is in the <em>second</em>
+    ///         panel, and the id is executed on the document rather than on either panel, so the
+    ///         only thing that can pick one is the route.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Close is never greyed.</b> Both documents below are clean at the first execute;
+    ///         a handler that greyed itself on a clean document would be a Close that vanishes
+    ///         exactly when it is safe, and <c>CommandRoute.Execute</c> would answer false.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_close_command_resolves_to_the_focused_panels_document() {
+        var mine = new Note();
+        var neighbour = new Note();
+
+        var panel = document.Root.Add<Panel>();
+        var other = document.Root.Add<Panel>();
+
+        panel.HostedDocument = mine;
+        other.HostedDocument = neighbour;
+
+        DocumentCommands.Install(panel);
+        DocumentCommands.Install(other);
+
+        var field = panel.Add<TextBox>();
+        field.Focusable = true;
+
+        using var mineClose = DocumentClosePrompt.Install(panel, dialogs, Close, answers.Add);
+        using var otherClose = DocumentClosePrompt.Install(other, dialogs, Close, answers.Add);
+
+        // ⚠ The head, which is the half that tells a document close from a quit. The focus is inside
+        // the panel, so a handler that raised on the UiDocument instead would reach this panel's
+        // prompt anyway and ask about the right document — the walk starts at the focus either way.
+        // What it would ALSO do is tell the application it is going away, which is the wrong
+        // question and the discriminator. The first version of this test asserted only the dialog's
+        // name and stayed green under exactly that sabotage.
+        var heads = 0;
+        document.CloseRequested += _ => heads++;
+
+        UiCloseReason? reason = null;
+        panel.AddHandler<CloseRequestEvent>((_, args) => reason = args.Reason);
+
+        document.Update();
+        document.Focus(field);
+
+        // Clean, so the verb runs and nothing is asked: Close is available whatever the dirty flag.
+        Assert.True(CommandRoute.Execute(document, DocumentCommands.Close));
+
+        dialogs.Pump();
+        Assert.False(dialogs.IsOpen);
+
+        // ⚠ Nothing outside the element tree has been told anything, and the reason says which
+        // question was asked: a document being put down, not an application quitting.
+        Assert.Equal(0, heads);
+        Assert.Equal(UiCloseReason.DocumentClosed, reason);
+
+        mine.MarkDirty();
+        neighbour.MarkDirty();
+
+        Assert.True(CommandRoute.Execute(document, DocumentCommands.Close));
+
+        dialogs.Pump();
+
+        // The focused panel's document, by name — the neighbour is dirty too and would have been
+        // asked about by a close that raised on the UiDocument or on a remembered element.
+        Assert.True(dialogs.IsOpen);
+        Assert.Equal(mine.Name.Value, DialogMessage());
+
+        Press(ControlStrings.DocumentSave.Text);
+        dialogs.Pump();
+
+        Assert.Equal(1, mine.Saves);
+        Assert.Equal(0, neighbour.Saves);
+
+        // One, from `Close` — the host's own quit, which is the application's question. Two would
+        // mean the command's request had reached the head as well.
+        Assert.Equal(1, heads);
+    }
+
     /// <summary>The reason carried is the document's, and the default says so without being written.</summary>
     /// <remarks>
     ///     A handler that treats a quit and a tab close alike is a handler that cannot offer "Save

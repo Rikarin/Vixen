@@ -56,6 +56,11 @@ public sealed partial class AssetEditorsModule : IEditorPlugin {
 
         Frames(context, editors);
 
+        // The two panel titles below go into the translator's template with the module, not with
+        // the shell (#1301): EditorStrings cannot name this class, and a template taken while this
+        // module is off should not carry them.
+        context.AddStrings(AssetEditorStrings.All);
+
         // Doc 37 § P7's panel, which was built with tests and never registered — see
         // Ai/AgentDebuggerPanel.cs for why it is this module's and not the application's.
         AgentDebuggerPanel(context);

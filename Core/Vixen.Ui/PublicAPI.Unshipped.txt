@@ -1897,6 +1897,7 @@ const Vixen.Ui.AccessKey.Marker = '_' -> char
 const Vixen.Ui.Composition.BuildContext.DefaultSlot = "default" -> string
 const Vixen.Ui.DataFormats.FileUrl = "public.file-url" -> string
 const Vixen.Ui.DataFormats.Text = "public.utf8-plain-text" -> string
+const Vixen.Ui.DocumentCommands.Close = "document.close" -> string
 const Vixen.Ui.DocumentCommands.Revert = "document.revert" -> string
 const Vixen.Ui.DocumentCommands.Save = "document.save" -> string
 const Vixen.Ui.FontRegistry.BoldWeight = 700 -> int

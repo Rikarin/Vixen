@@ -119,8 +119,8 @@ public sealed class AotProbeProjectFileTests : IDisposable {
     ///         The README's non-negotiable is that <em>iOS is NativeAOT-only, and that is gated</em>.
     ///         The gate is a publish of one probe, so its reach is exactly that probe's reference
     ///         list — and the iOS probe names <b>21</b> assemblies where the desktop probe names
-    ///         <b>84</b>. Counted 2026-09-10: 63 of the engine are outside the iOS gate, and eight of
-    ///         those were outside it before #506's expansion ever ran. Among the eight are
+    ///         <b>91</b>. Re-counted 2026-09-22: 70 of the engine are outside the iOS gate, and eight
+    ///         of those were outside it before #506's expansion ever ran. Among the eight are
     ///         <c>Vixen.Physics</c> and the whole audio stack: the reflection-heaviest subsystems in
     ///         the tree, which is to say the ones an ahead-of-time publish is most likely to break.
     ///         Nothing in either csproj, the README or <c>docs/overview.md</c> says whether that is a
@@ -258,6 +258,36 @@ public sealed class AotProbeProjectFileTests : IDisposable {
             // here: the `ios` workload is not installed and `CheckAotIos` has no CI leg (#327).
             // This entry belongs to #1252, and the list it is in must SHRINK.
             "Vixen.Xr",
+
+            // ⚠ Inferred, and the only one of the seven below with a reason of its own: the desktop
+            // UI host. It references Vixen.Platform.Desktop and Vixen.Graphics.Vulkan directly
+            // (Platform/Vixen.Ui.Desktop/Vixen.Ui.Desktop.csproj), and Vixen.Platform.Desktop is
+            // already written down above as "the desktop windowing backend, and the phone has
+            // Vixen.Platform.Native". A phone's UI host would be a different assembly, so this one
+            // belongs beside Vixen.Platform.Desktop rather than in the owed block.
+            "Vixen.Ui.Desktop",
+
+            // ⚠ Owed, and added on 2026-09-22 by #1240 — which rooted the Vixen.Ui wave in the
+            // DESKTOP probe after fixing the one finding that had kept it off (UiPropertyRegistry
+            // losing every base class's properties under ILC). ⚠ These six are NOT owed merely
+            // because nobody looked: the iOS probe cannot take them yet, and the blocker is on this
+            // very list. Vixen.Ui's own direct references are Vixen.Ui.Styling,
+            // Vixen.Ui.Styling.Utilities, Vixen.Ui.Text and Vixen.Input; Vixen.Ui.Renderer's is
+            // Vixen.Rendering; Vixen.Ui.Controls.Advanced's is Vixen.Core.Yaml — six names all
+            // written down above as outside the iOS gate. AotProbeProjectFile.ReferencedAssemblies
+            // reads DIRECT ProjectReference items only, so adding Vixen.Ui to the iOS probe would
+            // have ILC compile those six for ios-arm64 while this list still claimed they were
+            // outside the gate: the list would report a reach it does not have, which is the exact
+            // failure mode it exists to prevent. The wave has to join the iOS probe together with
+            // the wave it sits on, in one move, on a machine that can actually run the publish —
+            // the `ios` workload is still not installed here and `CheckAotIos` still has no CI leg
+            // (#327). That move is #1252, and the list it is in must SHRINK.
+            "Vixen.Platform.Ui",
+            "Vixen.Ui",
+            "Vixen.Ui.Controls",
+            "Vixen.Ui.Controls.Advanced",
+            "Vixen.Ui.Markup",
+            "Vixen.Ui.Renderer",
         ];
 
         var desktop = AotProbeProjectFile.ReferencedAssemblies(ProbeProject());

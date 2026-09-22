@@ -126,8 +126,8 @@ public sealed partial class BlockoutModule : IEditorPlugin {
         // because choosing what the tool makes and reaching for the tool are two acts — a flat list
         // of twelve "Create Stairs" entries beside "Duplicate" would bury the four verbs somebody
         // actually runs.
-        var creation = context.AddSubmenu(scene, EditorStrings.MenuBlockoutCreate, at++);
-        var kinds = creation.AddSubmenu(EditorStrings.MenuBlockoutShape);
+        var creation = context.AddSubmenu(scene, BlockoutStrings.MenuCreate, at++);
+        var kinds = creation.AddSubmenu(BlockoutStrings.MenuShape);
 
         foreach (var kind in BlockoutMode.Kinds) {
             kinds.Add(BlockoutMode.KindCommand(kind));
@@ -143,7 +143,7 @@ public sealed partial class BlockoutModule : IEditorPlugin {
 
         // And P5's, less the material assignment — which comes from a palette rather than from a
         // key, and a palette is the inspector's.
-        context.AddSubmenu(scene, EditorStrings.MenuBlockoutSurfaces, at++)
+        context.AddSubmenu(scene, BlockoutStrings.MenuSurfaces, at++)
             .Add(BlockoutMode.ProjectWorldCommand, BlockoutMode.ProjectBoxCommand, BlockoutMode.FitUvCommand)
             .AddSeparator()
             .Add(BlockoutMode.SmoothCommand, BlockoutMode.HardenCommand, BlockoutMode.AutoSmoothCommand)
@@ -153,14 +153,14 @@ public sealed partial class BlockoutModule : IEditorPlugin {
         // ⚠ Doc 24's P6 and P7. The booleans are Object-mode verbs and sit beside the creation ones
         // rather than inside Geometry, because what they act on is entities: a subtract of two walls
         // is a statement about the outliner, not about a face selection.
-        context.AddSubmenu(scene, EditorStrings.MenuBlockoutBoolean, at++)
+        context.AddSubmenu(scene, BlockoutStrings.MenuBoolean, at++)
             .Add(BlockoutMode.UnionCommand, BlockoutMode.SubtractCommand, BlockoutMode.IntersectCommand)
             .AddSeparator()
             .Add(BlockoutMode.PlaneCutCommand, BlockoutMode.TrimCommand)
             .AddSeparator()
             .Add(BlockoutMode.ApplyBooleanCommand);
 
-        context.AddSubmenu(scene, EditorStrings.MenuBlockoutHandoff, at)
+        context.AddSubmenu(scene, BlockoutStrings.MenuHandoff, at)
             .Add(BlockoutMode.BakeCommand, BlockoutMode.EditableCommand)
             .AddSeparator()
             .Add(BlockoutMode.ExportObjCommand, BlockoutMode.ExportGltfCommand);

@@ -85,7 +85,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
     public string Id => ModeId;
 
     /// <inheritdoc />
-    public StringId Title { get; } = EditorStrings.ModeWater;
+    public StringId Title { get; } = WaterStrings.ModeWater;
 
     /// <inheritdoc />
     /// <remarks>None, so the mode bar draws the word — <c>FoliageMode.Icon</c>'s reason.</remarks>
@@ -253,7 +253,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
 
             shell.Commands.Add(
                 new EditorCommand(id, WaterStrings.Commands[id], () => SelectSlot(slot)) {
-                    Category = EditorStrings.CategoryWater,
+                    Category = WaterStrings.CategoryWater,
                     Context = WaterContext,
                     Enablement = () => IsActive() && slot < Tools.Count
                 }
@@ -268,7 +268,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
 
             shell.Commands.Add(
                 new EditorCommand(id, WaterStrings.Commands[id], () => Tool = chosen) {
-                    Category = EditorStrings.CategoryWater,
+                    Category = WaterStrings.CategoryWater,
                     Context = WaterContext,
                     RadioGroup = ToolGroup,
                     Checked = () => Tool == chosen,
@@ -283,7 +283,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
                 WaterStrings.Commands[FinishCommand],
                 () => Finish()
             ) {
-                Category = EditorStrings.CategoryWater,
+                Category = WaterStrings.CategoryWater,
                 Context = WaterContext,
 
                 // ⚠ Enabled on the point count rather than on "is drawing", because a lake needs
@@ -304,7 +304,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
                 WaterStrings.Commands[CreateZoneCommand],
                 () => CreateZone()
             ) {
-                Category = EditorStrings.CategoryWater,
+                Category = WaterStrings.CategoryWater,
                 Context = WaterContext,
 
                 // ⚠ Not gated on the mode being active, and deliberately: "I placed a lake and there
@@ -320,7 +320,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
                 WaterStrings.Commands[PreviewCarveCommand],
                 () => Editing.CarvePreview = !Editing.CarvePreview
             ) {
-                Category = EditorStrings.CategoryWater,
+                Category = WaterStrings.CategoryWater,
                 Context = WaterContext,
                 Checked = () => Editing.CarvePreview,
                 Enablement = IsActive
@@ -330,7 +330,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
         void Verb(string id, Action run, InputKey key) {
             shell.Commands.Add(
                 new EditorCommand(id, WaterStrings.Commands[id], run) {
-                    Category = EditorStrings.CategoryWater,
+                    Category = WaterStrings.CategoryWater,
                     Context = WaterContext,
                     Enablement = IsActive
                 }

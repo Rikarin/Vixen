@@ -161,7 +161,18 @@ public static class DocumentCommands {
     /// <summary>Throw the nearest document's changes away.</summary>
     public const string Revert = "document.revert";
 
-    /// <summary>Makes an element answer <see cref="Save" /> and <see cref="Revert" /> for the document it hosts.</summary>
+    /// <summary>Ask whether the nearest document may be put down.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A verb, so ⌘W, File ▸ Close and a tab's own button are one thing</b> — and until it
+    ///     existed the close was the only one of the three that could not be. Save and Revert were
+    ///     ids the route answered while closing was a click handler calling
+    ///     <see cref="UiElement.RequestClose" /> by hand, so a keymap had nothing to bind, a menu
+    ///     had nothing to grey, and an application with two panels closed whichever document the
+    ///     handler's author had named rather than the one the user was in.
+    /// </remarks>
+    public const string Close = "document.close";
+
+    /// <summary>Makes an element answer <see cref="Save" />, <see cref="Revert" /> and <see cref="Close" /> for the document it hosts.</summary>
     /// <param name="element">The element hosting the document — the panel, the tab's content, the window's root.</param>
     /// <exception cref="InvalidOperationException"><paramref name="element" /> hosts no document.</exception>
     /// <remarks>
@@ -190,6 +201,18 @@ public static class DocumentCommands {
 
         element.AddCommandHandler(Save, () => document.Save(), () => document.IsDirty.Value);
         element.AddCommandHandler(Revert, () => document.Revert(), () => document.IsDirty.Value);
+
+        // ⚠ Raised on the hosting element and not on the UiDocument, which is what makes the close
+        // be about THIS document: the route picked this handler because this element is the nearest
+        // host of one, and `DocumentClosePrompt`'s walk starts from the event's source — so a window
+        // with two panels asks about the panel the focus is in. `UiDocument.RequestClose` would ask
+        // about the application instead and reach the head's own listener, which is a different
+        // question with a different subject.
+        //
+        // ⚠ And never greyed. A document can always be ASKED; refusing is what the prompt does, and
+        // a Close that greyed itself on a clean document would be a Close that vanishes exactly
+        // when it is safe.
+        element.AddCommandHandler(Close, () => element.RequestClose());
 
         var ui = element.Document;
         element.TrackDocumentCommands(new Effect(() => {
