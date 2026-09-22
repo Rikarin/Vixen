@@ -99,8 +99,42 @@ public sealed class UiRavenAgreementTests {
     ///         named tolerance with the measurement in its remark, not a quiet widening — this
     ///         repository has shipped an allow-list that outlived its reason more than once.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>lavapipe is that driver, and <see cref="LastPlaceOnSoftware" /> is that
+    ///         tolerance.</b> Exact holds on MoltenVK (Apple M1 Max) and on NVIDIA (RTX 4060 Ti,
+    ///         2026-09-22) — every fixture in this file is bit-identical through both modules there.
+    ///         On CI's <c>llvmpipe (LLVM 20.1.2, 256 bits)</c> the box theory's <c>bordered</c> frame
+    ///         differs in 24 of 16384 pixels and <c>gradient</c> in 1, every one of them by exactly
+    ///         1/255, byte-identical across every run since 2026-09-09 (#1190). Three investigations
+    ///         found the two modules' arithmetic identical to the instruction and the constant, and
+    ///         differing only in shape: <c>glslc</c> branches where Raven selects, so LLVM's fuser
+    ///         sees different basic-block boundaries and may contract a multiply-add on one side of
+    ///         a store and not the other. That is a last-place bit, it is one driver's, and it is
+    ///         what the paragraph above said to record rather than hide.
+    ///     </para>
     /// </remarks>
-    static ImageTolerance Agreement => ImageTolerance.Exact;
+    internal static ImageTolerance Agreement(AdapterKind adapter) =>
+        adapter == AdapterKind.Software ? LastPlaceOnSoftware : ImageTolerance.Exact;
+
+    /// <summary>
+    ///     One code of rounding anywhere and not a pixel further, on a software rasterizer only.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The measurement it encodes is <see cref="Agreement" />'s: 1/255 in at most 0.15 % of
+    ///         pixels on lavapipe, and nothing on either hardware driver. A channel bound of one with
+    ///         no fraction is the narrowest shape that admits it — a pixel two codes off, or any
+    ///         number of pixels one code off, is not a fused multiply-add and still fails.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Keyed on <see cref="AdapterKind.Software" /> rather than on the string
+    ///         <c>llvmpipe</c>, because the mechanism is an LLVM back end optimising two differently
+    ///         shaped programs, which is what any CPU driver has. The day #1190 lands a
+    ///         no-contraction decoration for both modules, this goes back to
+    ///         <see cref="ImageTolerance.Exact" /> everywhere and the ubuntu leg is what proves it.
+    ///     </para>
+    /// </remarks>
+    internal static ImageTolerance LastPlaceOnSoftware => new(1, 0.0);
 
     /// <summary>Every branch of the box shader, drawn through both sources and compared.</summary>
     /// <param name="fixture">Which frame to draw. <see cref="UiBoxAgreementTests.Frame" /> builds it.</param>
@@ -169,7 +203,7 @@ public sealed class UiRavenAgreementTests {
         var copy = owned.Render(one.Target, Upload);
         var source = owned.Render(two.Target, Upload);
 
-        var comparison = ImageComparer.Compare(copy, source, Agreement);
+        var comparison = ImageComparer.Compare(copy, source, Agreement(owned.Device.Adapter.Kind));
 
         Assert.True(
             comparison.Matches,
@@ -285,7 +319,7 @@ public sealed class UiRavenAgreementTests {
             Assert.Equal(2, renderer.Shadowed);
         }
 
-        var comparison = ImageComparer.Compare(copy, source, Agreement);
+        var comparison = ImageComparer.Compare(copy, source, Agreement(owned.Device.Adapter.Kind));
 
         Assert.True(
             comparison.Matches,
@@ -377,7 +411,7 @@ public sealed class UiRavenAgreementTests {
             Assert.Equal(0, renderer.SquareBackdrops);
         }
 
-        var comparison = ImageComparer.Compare(copy, source, Agreement);
+        var comparison = ImageComparer.Compare(copy, source, Agreement(owned.Device.Adapter.Kind));
 
         Assert.True(
             comparison.Matches,
@@ -495,7 +529,7 @@ public sealed class UiRavenAgreementTests {
             Assert.Equal(geometry.Draws.Count, renderer.Draws);
         }
 
-        var comparison = ImageComparer.Compare(copy, source, Agreement);
+        var comparison = ImageComparer.Compare(copy, source, Agreement(owned.Device.Adapter.Kind));
 
         Assert.True(
             comparison.Matches,
