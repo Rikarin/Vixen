@@ -72,9 +72,26 @@ public class ThumbnailTests {
     ///     fifteenth of the thirty seconds it promised — a failure that appears only under load, which
     ///     is exactly the shape the remark above says is the worst kind to leave in.
     /// </remarks>
+    /// <remarks>
+    ///     ⚠ <b>Two minutes, because thirty seconds is a plausible queueing delay on the leg this
+    ///     runs on and a hang check has to be implausible.</b> The two remarks above fixed the two
+    ///     mechanisms that made this loop spend its budget without waiting; what was left is the
+    ///     budget itself. `test-ubuntu-latest` runs ~181 assemblies with collection parallelism on
+    ///     top, so a thread-pool item can sit queued for a long time behind work that was admitted
+    ///     first — and "the decode in flight never came back" is what this reports either way, on a
+    ///     test that passes alone every time (run 35736475229).
+    ///     <para>
+    ///         This is the third of the three replacements CLAUDE.md names for a wall-clock budget,
+    ///         and it is here because the first two cannot be had: no counter can observe a
+    ///         thread-pool hand-off, and a differential would need <c>ThumbnailCache</c> to hand
+    ///         back the in-flight decode, which is production surface added for a test. So the
+    ///         clock stays and is made absurd instead — two minutes is not a queueing delay, it is
+    ///         a decode that is never coming.
+    ///     </para>
+    /// </remarks>
     static bool Settle(ThumbnailCache cache, Func<bool> until) {
         var waited = Stopwatch.StartNew();
-        var patience = TimeSpan.FromSeconds(30);
+        var patience = TimeSpan.FromMinutes(2);
 
         var spins = 0;
 
