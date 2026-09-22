@@ -14,13 +14,25 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///     surface transparent and every test about colours quietly meaningless.
 /// </remarks>
 sealed class AdvancedFixture : IDisposable {
-    static readonly FontFace Font = LoadFont();
+    static readonly FontFace Font = LoadFont("TestShapeLana");
+
+    /// <summary>The fixed-pitch face the advanced theme's <c>font-family: monospace</c> resolves to.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Registered under the generic family name the stylesheet uses, and it has to be
+    ///     fixed-pitch.</b> <c>CodeEditor</c> turns a column into an x by multiplying a one-digit
+    ///     probe, so with only the proportional face registered — which was this fixture until
+    ///     #1259 — the whole geometry suite ran in the state the theme's own comment forbids and
+    ///     could not notice, because every expected x was computed the way the control computes
+    ///     it. <c>MonospaceFixtureTests</c> is what asks the text pipeline instead.
+    /// </remarks>
+    public static readonly FontFace Monospace = LoadFont("TestMono");
 
     TimeSpan clock;
 
     public AdvancedFixture(float width = 800f, float height = 600f, string? css = null) {
         Document = new UiDocument(width, height);
         Document.Fonts.Register("Test", Font);
+        Document.Fonts.Register("monospace", Monospace);
 
         ControlTheme.Install(Document);
         AdvancedTheme.Install(Document);
@@ -276,14 +288,14 @@ sealed class AdvancedFixture : IDisposable {
 
     public void Dispose() => Document.Dispose();
 
-    static FontFace LoadFont() {
+    static FontFace LoadFont(string name) {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Controls.Advanced.Tests.Fonts.TestShapeLana.ttf")
-            ?? throw new InvalidOperationException("the test font is not embedded");
+            .GetManifestResourceStream($"Vixen.Ui.Controls.Advanced.Tests.Fonts.{name}.ttf")
+            ?? throw new InvalidOperationException($"the test font {name} is not embedded");
 
         using var memory = new MemoryStream();
         stream.CopyTo(memory);
 
-        return FontFace.Load(memory.ToArray(), name: "TestShapeLana");
+        return FontFace.Load(memory.ToArray(), name: name);
     }
 }

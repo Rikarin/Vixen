@@ -661,9 +661,10 @@ white-space / nowrap              the container-level suppression of line breaki
                                   undeclared element already behaves as `pre-wrap` and wrapping is
                                   the only third `pre` was missing. `WhiteSpacePreTests` measures
                                   both halves rather than asserting the conclusion. What is still
-                                  owed is `pre-line` and `break-spaces`, and ⚠ THE SENTENCE THAT
-                                  ENDED HERE — "which need the collapsing" — WAS BOTH UNFINISHED AND
-                                  WRONG ABOUT ONE OF THE TWO. `pre-line` does need CSS Text §4's
+                                  owed is `pre-line`; `break-spaces` LANDED (below), and ⚠ THE
+                                  SENTENCE THAT ONCE ENDED HERE — "what is still owed is `pre-line`
+                                  and `break-spaces`, which need the collapsing" — WAS BOTH
+                                  UNFINISHED AND WRONG ABOUT ONE OF THE TWO. `pre-line` does need CSS Text §4's
                                   collapsing; its longhand is `white-space-collapse: preserve-breaks`
                                   and nothing in `Vixen.Ui` collapses a run of spaces. `break-spaces`
                                   cannot, because that value PRESERVES exactly as `preserve` does —
@@ -673,8 +674,18 @@ white-space / nowrap              the container-level suppression of line breaki
                                   there is a break opportunity after every one of them INCLUDING
                                   between two. Both are a place rather than a subsystem —
                                   `LineWrapper.Width`'s trailing trim at :779, and UAX #14's LB7/LB18
-                                  in `LineBreaker` — and `WhiteSpaceBreakSpacesTests` pins the current
-                                  answer to each, sabotage-checked at both. ⚠ Measuring that also
+                                  in `LineBreaker` — and `WhiteSpaceBreakSpacesTests` pinned the
+                                  current answer to each. ⚠ `break-spaces` LANDED ON THAT RECIPE:
+                                  `LineWrapper.Wrap`'s `breakSpaces` flag turns the trim off for the
+                                  fit and the reported width, and adds the opportunity after every
+                                  space OVER UAX #14's answer rather than inside `LineBreaker`, which
+                                  the Consortium's 19 338 cases keep judging as written;
+                                  `UiDocument.BreakSpacesOf` reads the value beside `WrapsOf`; and
+                                  `TextLine.Trimmed` carries the spaces into the intrinsic measure,
+                                  which is § 3.1's third sentence. The same test file holds each
+                                  rule as a PAIR now — the `pre-wrap` control at the same width, then
+                                  the declaration — so a wrapper that ignored the flag where the two
+                                  answers happen to agree cannot pass. ⚠ Measuring that also
                                   turned up #1211, and #1211 turned out to be half wrong — the half
                                   it named. The trim reaches the line's reported width only where the
                                   wrapper chose the break, so a right-aligned label ending in two

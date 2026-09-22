@@ -137,6 +137,28 @@ public sealed class TextLine {
         float offset = 0f,
         TransformedText? transformed = null,
         float tabStop = 0f
+    ) : this(runs, width, offset, transformed, tabStop, keepsSpaces: false) { }
+
+    /// <summary>The constructor <c>UiElement</c> uses, with <c>white-space: break-spaces</c> in hand.</summary>
+    /// <param name="runs">The runs, in text order.</param>
+    /// <param name="width">The line's width, or NaN to sum the runs.</param>
+    /// <param name="offset">Where the line's content begins.</param>
+    /// <param name="transformed">The map back to the author's text, if a transform moved it.</param>
+    /// <param name="tabStop">How far apart the tab stops are.</param>
+    /// <param name="keepsSpaces">
+    ///     Whether the line's trailing white space takes up room — CSS Text § 3.1's
+    ///     <c>break-spaces</c>, whose spaces "affect the box's intrinsic sizes". It changes exactly
+    ///     one number: <see cref="Trimmed" /> is <see cref="Width" /> rather than the runs less
+    ///     whatever hangs, so a max-content measure of <c>ab  </c> is two glyphs and two spaces
+    ///     wide. The width a caller gives is already whatever the wrapper reported.
+    /// </param>
+    internal TextLine(
+        ImmutableArray<TextRun> runs,
+        float width,
+        float offset,
+        TransformedText? transformed,
+        float tabStop,
+        bool keepsSpaces
     ) {
         if (runs.IsDefaultOrEmpty) {
             throw new ArgumentException("a line has at least one run", nameof(runs));
@@ -211,7 +233,7 @@ public sealed class TextLine {
         // trailing white space before it measures — so subtracting the run's own spaces from it
         // again would report a soft-wrapped line as narrower than its glyphs by the spaces it does
         // not contain. Only the summed width has anything hanging in it.
-        Trimmed = float.IsNaN(width) ? Hung(runs, widths, pen) : Width;
+        Trimmed = keepsSpaces || !float.IsNaN(width) ? Width : Hung(runs, widths, pen);
 
         Baseline = above;
         Height = above + below;
@@ -324,7 +346,12 @@ public sealed class TextLine {
 
     /// <summary>Whether a character forces a line to end. CSS Text § 4.1.1's break.</summary>
     /// <param name="value">The character.</param>
-    static bool IsSegmentBreak(char value) =>
+    /// <remarks>
+    ///     Shared with <see cref="TextRun.Place" />, which draws nothing for one: a line ended at a
+    ///     forced break carries its terminator, and the same set that comes off the width here has
+    ///     to come off the glyphs there, or the two disagree about what a line's end is.
+    /// </remarks>
+    internal static bool IsSegmentBreak(char value) =>
         value is '\n' or '\u000b' or '\u000c' or '\r' or '\u0085' or '\u2028' or '\u2029';
 
     /// <summary>How wide the white space at the end of a run is, in pixels.</summary>
