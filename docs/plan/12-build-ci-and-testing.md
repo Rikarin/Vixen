@@ -294,7 +294,8 @@ committed baseline rather than precede it.
 `nightly.yml`, seven jobs: `targets` (reads the fuzz target list and its budgets), `fuzz` (a job per
 target, over a committed corpus), `properties` (a job per suite), `postgres`, `docker` and
 `kubernetes` — the three that need a real service rather than a double — and `ci-freshness`, which
-asks the API when CI last reached a verdict about master and fails at forty-eight hours. ⚠️ **That
+asks the API whether the tip of master has a CI verdict and fails once a push has waited forty-eight
+hours for one (⚠ not "when did any run last finish": that reading was red on every quiet weekend). ⚠️ **That
 last one was not named here for as long as this paragraph has existed**, which is the failure it
 exists to catch, one level up: a run that never happens says nothing, and a job nobody has written
 down is one nobody misses.
