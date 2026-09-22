@@ -185,9 +185,26 @@ user chose for themselves:
 
 ## What is not here
 
-Dynamic semantic colours and an OS text-size scale are absent.
+An OS text-size scale is absent.
 
-⚠ **The system accent colour is no longer among them, and it arrives by a different door.** All three
+⚠ **Dynamic semantic colours are no longer among them, on two of the three desktops, and they arrive
+by the accent's door.** A sheet that names a CSS system colour — `color: CanvasText`,
+`border-color: ButtonBorder` — reads `SystemPalette`, whose fifteen roles follow the appearance and
+the contrast setting out of a browser's own tables. `IPlatform.SemanticColors` is the platform's
+answer for eleven of them, and `PlatformInput.ApplySemanticColors` writes whichever roles it
+supplied over the table with `SetPlatform`, which survives every later appearance and contrast
+change; a role the platform did not supply keeps following the table, and one it stops supplying
+goes back to it. `MacOSSemanticColors` reads AppKit's class colours — `labelColor`,
+`textBackgroundColor`, `separatorColor` and the rest — which resolve without an `NSApplication`,
+contrary to what three files once said. ⚠ `WindowsSemanticColors` reads the classic
+`GetSysColor` table **only while a high-contrast scheme is on**: outside one that table is a light
+palette whatever the app theme says, and supplying it would put a white canvas under a dark window.
+A Windows in dark mode without a scheme therefore answers nothing and the document follows
+`SystemPalette.Dark`, which is what a browser does there too; the read that would follow the app
+theme is WinRT's `UISettings`, which nothing in the platform assembly activates yet. Linux has no
+reader: GNOME's `gsettings` carries an accent name and nothing else of this shape.
+
+⚠ **The system accent colour is no longer among them either, and it arrives by a different door.** All three
 desktops now read it — `MacOSAccent`, `WindowsAccent` and `LinuxAccent` — and `PlatformInput`
 puts it into the document's `SystemPalette` and toggles `root.system-accent`, which is what moves
 `--accent`. That is a *class*, not a media feature: a media query answers yes or no and an accent is a

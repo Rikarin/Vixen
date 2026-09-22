@@ -50,6 +50,7 @@ static Vixen.Platform.Ui.PlatformCursor.ToShape(Vixen.Ui.UiCursor cursor) -> Vix
 static Vixen.Platform.Ui.PlatformInput.ApplyAccent(Vixen.Ui.UiDocument document, Vixen.Platform.SystemAccent accent) -> void
 static Vixen.Platform.Ui.PlatformInput.ApplyAccessibility(Vixen.Ui.UiDocument document, Vixen.Platform.SystemAccessibility accessibility) -> void
 static Vixen.Platform.Ui.PlatformInput.ApplyColorScheme(Vixen.Ui.UiDocument document, Vixen.Platform.SystemColorScheme scheme) -> void
+static Vixen.Platform.Ui.PlatformInput.ApplySemanticColors(Vixen.Ui.UiDocument document, Vixen.Platform.SystemSemanticColors colours) -> void
 static Vixen.Platform.Ui.PlatformInput.Dispatch(Vixen.Ui.UiDocument document, Vixen.Ui.UiSurface surface, in Vixen.Platform.PlatformEvent platformEvent, float wheelLineHeight = 48) -> bool
 static Vixen.Platform.Ui.PlatformInput.Dispatch(Vixen.Ui.UiDocument document, in Vixen.Platform.PlatformEvent platformEvent) -> bool
 static Vixen.Platform.Ui.PlatformInput.Repalette(Vixen.Ui.UiDocument document) -> void

@@ -216,6 +216,7 @@ Vixen.Platform.IPlatform.Name.get -> string
 Vixen.Platform.IPlatform.Power.get -> Vixen.Platform.IPowerInfo
 Vixen.Platform.IPlatform.Processors.get -> Vixen.Platform.IProcessorTopology
 Vixen.Platform.IPlatform.PumpEvents() -> System.ReadOnlySpan<Vixen.Platform.PlatformEvent>
+Vixen.Platform.IPlatform.SemanticColors.get -> Vixen.Platform.SystemSemanticColors
 Vixen.Platform.IPlatform.TextInput.get -> Vixen.Platform.ITextInput
 Vixen.Platform.IPlatform.TryGetWindow(uint id, out Vixen.Platform.IWindow? window) -> bool
 Vixen.Platform.IPlatform.TryOpenUrl(string url) -> bool
@@ -632,6 +633,33 @@ Vixen.Platform.SystemColorScheme.Dark = 2 -> Vixen.Platform.SystemColorScheme
 Vixen.Platform.SystemColorScheme.Light = 1 -> Vixen.Platform.SystemColorScheme
 Vixen.Platform.SystemColorScheme.SystemColorScheme() -> void
 Vixen.Platform.SystemColorScheme.Unknown = 0 -> Vixen.Platform.SystemColorScheme
+Vixen.Platform.SystemSemanticColors -> readonly struct
+Vixen.Platform.SystemSemanticColors : System.IEquatable<Vixen.Platform.SystemSemanticColors>
+Vixen.Platform.SystemSemanticColors.ButtonBorder.get -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.ButtonBorder.init -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.ButtonFace.get -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.ButtonFace.init -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.ButtonText.get -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.ButtonText.init -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.Canvas.get -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.Canvas.init -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.CanvasText.get -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.CanvasText.init -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.Field.get -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.Field.init -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.FieldText.get -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.FieldText.init -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.GrayText.get -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.GrayText.init -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.Highlight.get -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.Highlight.init -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.HighlightText.get -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.HighlightText.init -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.IsKnown.get -> bool
+Vixen.Platform.SystemSemanticColors.LinkText.get -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.LinkText.init -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemSemanticColors.SystemSemanticColors() -> void
+Vixen.Platform.SystemSemanticColors.SystemSemanticColors(Vixen.Core.Mathematics.Color4? Canvas = null, Vixen.Core.Mathematics.Color4? CanvasText = null, Vixen.Core.Mathematics.Color4? LinkText = null, Vixen.Core.Mathematics.Color4? ButtonFace = null, Vixen.Core.Mathematics.Color4? ButtonText = null, Vixen.Core.Mathematics.Color4? ButtonBorder = null, Vixen.Core.Mathematics.Color4? Field = null, Vixen.Core.Mathematics.Color4? FieldText = null, Vixen.Core.Mathematics.Color4? Highlight = null, Vixen.Core.Mathematics.Color4? HighlightText = null, Vixen.Core.Mathematics.Color4? GrayText = null) -> void
 Vixen.Platform.ThermalState -> enum : byte
 Vixen.Platform.ThermalState.Critical = 3 -> Vixen.Platform.ThermalState
 Vixen.Platform.ThermalState.Fair = 1 -> Vixen.Platform.ThermalState
@@ -708,3 +736,4 @@ static Vixen.Platform.PlatformExtensions.Has(this Vixen.Platform.IPlatform platf
 static Vixen.Platform.PlatformExtensions.Pickers(this Vixen.Platform.IPlatform platform) -> Vixen.Platform.INativeDialogs?
 static Vixen.Platform.SystemAccent.Unknown.get -> Vixen.Platform.SystemAccent
 static Vixen.Platform.SystemAccessibility.Unknown.get -> Vixen.Platform.SystemAccessibility
+static Vixen.Platform.SystemSemanticColors.Unknown.get -> Vixen.Platform.SystemSemanticColors

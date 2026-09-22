@@ -64,6 +64,7 @@ Vixen.Platform.Desktop.DesktopPlatform.Name.get -> string
 Vixen.Platform.Desktop.DesktopPlatform.Power.get -> Vixen.Platform.IPowerInfo
 Vixen.Platform.Desktop.DesktopPlatform.Processors.get -> Vixen.Platform.IProcessorTopology
 Vixen.Platform.Desktop.DesktopPlatform.PumpEvents() -> System.ReadOnlySpan<Vixen.Platform.PlatformEvent>
+Vixen.Platform.Desktop.DesktopPlatform.SemanticColors.get -> Vixen.Platform.SystemSemanticColors
 Vixen.Platform.Desktop.DesktopPlatform.TextInput.get -> Vixen.Platform.ITextInput
 Vixen.Platform.Desktop.DesktopPlatform.TryGetWindow(uint id, out Vixen.Platform.IWindow? window) -> bool
 Vixen.Platform.Desktop.DesktopPlatform.TryOpenUrl(string url) -> bool

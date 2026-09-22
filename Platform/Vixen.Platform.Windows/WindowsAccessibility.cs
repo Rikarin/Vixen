@@ -82,7 +82,13 @@ public static class WindowsAccessibility {
             : null;
     }
 
-    static unsafe bool? HighContrast() {
+    /// <summary>Whether a high-contrast scheme is on, or <c>null</c> where the setting could not be read.</summary>
+    /// <remarks>
+    ///     Internal because <see cref="WindowsSemanticColors" /> gates its whole read on it: the
+    ///     classic system colours are only the palette the user is looking at while a high-contrast
+    ///     scheme is on.
+    /// </remarks>
+    internal static unsafe bool? HighContrast() {
         var contrast = new Win32.HighContrast { Size = (uint)sizeof(Win32.HighContrast) };
 
         return Win32.SystemParametersInfo(Win32.SpiGetHighContrast, contrast.Size, &contrast, 0)

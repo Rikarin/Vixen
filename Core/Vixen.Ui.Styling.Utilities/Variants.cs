@@ -166,7 +166,8 @@ public static class Variants {
         //   `:not( field-placeholder)` — an element that is not a placeholder, rather than a field
         //   with no placeholder — and `group-placeholder:` the prefix `.group field-placeholder `.
         //   Every one of those is valid CSS meaning something else, which is F6's own failure mode
-        //   one level up. It needs a category of its own, with coverage rows of its own.
+        //   one level up. It lives in `Parts` below — a category of its own, with coverage rows of
+        //   its own.
         //
         //   `::selection` is not a box. `TextField` paints the highlight itself, from a colour it
         //   reads off its OWN style as the custom property `--selection-color` — see the
@@ -176,6 +177,54 @@ public static class Variants {
         //   prepend to it, or wrap it in an at-rule. No variant can express it, and the missing piece
         //   is a fourth shape rather than a generated box.
     };
+
+    /// <summary>The variants that name a <i>part</i> of a control — a child box that already exists.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A table of its own and not one more row in <see cref="States" />, because four
+    ///         variants compose over that table and every one of them would mean something else over
+    ///         a child combinator.</b> <c>not-</c> wraps a state in <c>:not()</c>, <c>has-</c> in
+    ///         <c>:has()</c>, <c>group-</c> and <c>peer-</c> put it on an ancestor or a sibling. A
+    ///         suffix that descends — <c>&gt; field-placeholder</c> — read through any of them is
+    ///         either not a selector (<c>:not(&gt; field-placeholder)</c>) or a valid one selecting
+    ///         the wrong thing (<c>.group &gt; field-placeholder </c> as a prefix asks for the
+    ///         placeholder's descendants). Keeping the two tables apart is what lets the four compose
+    ///         over <see cref="States" /> without a case each, and it is why
+    ///         <c>not-placeholder:</c> is <i>not a class</i> rather than a class that styles a field
+    ///         with no placeholder.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is the half of A12 (<c>Rikarin/Vixen#233</c>) that needs no generated box,
+    ///         and it is exactly one entry.</b> v4's <c>placeholder:</c> is <c>&amp;::placeholder</c>,
+    ///         and <c>::placeholder</c> is the one pseudo-element whose box this framework already
+    ///         builds: <c>TextField.OnCreated</c> makes it as <c>Part("field-placeholder")</c>, a
+    ///         direct child with a tag of its own that <c>ControlTheme.vcss</c> styles at
+    ///         <c>field-placeholder</c>. So the variant is a child combinator onto that tag and
+    ///         nothing more. <c>before</c>, <c>after</c> and <c>marker</c> name boxes nothing
+    ///         generates; <c>selection</c> names a colour the field reads off its own style;
+    ///         <c>file</c> and <c>backdrop</c> name controls that do not exist. None of them belongs
+    ///         here until the thing it names does.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The child combinator and not the descendant one.</b> The part is a direct child
+    ///         of the control that owns it, so <c>&gt;</c> is what the control says. A space would
+    ///         reach a field nested anywhere below — a filter row inside a panel that is itself
+    ///         inside a field's ancestor — and an outer <c>placeholder:text-red</c> would colour the
+    ///         inner field's prompt. <c>VariantCoverageTests</c> holds a grandchild row for exactly
+    ///         that.
+    ///     </para>
+    /// </remarks>
+    static readonly Dictionary<string, string> Parts = new(StringComparer.Ordinal) {
+        ["placeholder"] = PlaceholderPart
+    };
+
+    /// <summary>The child <c>TextField</c> builds its prompt as, as a scope onto the control.</summary>
+    /// <remarks>
+    ///     One constant for the variant and for the <c>placeholder-*</c> colour family in
+    ///     <c>UtilityFamilies</c>, because both are "the part the field calls its placeholder" and
+    ///     two spellings of that would be two things to move the day the control renames it.
+    /// </remarks>
+    internal const string PlaceholderPart = " > field-placeholder";
 
     /// <summary>The variants that are a media feature rather than a selector.</summary>
     /// <remarks>
@@ -249,6 +298,14 @@ public static class Variants {
     /// </remarks>
     public static IReadOnlyCollection<string> StateVariants => States.Keys;
 
+    /// <summary>The variants that select a part of a control rather than a state of it.</summary>
+    /// <remarks>
+    ///     Exposed for the reason <see cref="StateVariants" /> is: <c>VariantCoverageTests</c>
+    ///     enumerates it, so a second part registered without a scene proving that the child is
+    ///     styled and the element is not fails the build rather than joining the silent ones.
+    /// </remarks>
+    public static IReadOnlyCollection<string> PartVariants => Parts.Keys;
+
     /// <summary>Works out what a variant does.</summary>
     /// <param name="variant">The variant, without its colon.</param>
     /// <param name="tokens">The theme, for breakpoints and the dark-mode strategy.</param>
@@ -262,6 +319,11 @@ public static class Variants {
 
         if (States.TryGetValue(variant, out var state)) {
             effect = new VariantEffect(state, string.Empty, null);
+            return true;
+        }
+
+        if (Parts.TryGetValue(variant, out var part)) {
+            effect = new VariantEffect(part, string.Empty, null);
             return true;
         }
 
@@ -312,10 +374,15 @@ public static class Variants {
             return true;
         }
 
+        // ⚠ And the combinator refusal `has-` makes, for a different reason: `:not(> x)` is not a
+        // selector at all, so a part variant read through `not-` would reach the compiler as text
+        // it refuses. Refusing it here keeps `not-placeholder:` "not a class" rather than a
+        // diagnostic about a class — the distinction the whole `Parts` table exists for.
         if (variant.StartsWith("not-", StringComparison.Ordinal)
             && TryResolve(variant["not-".Length..], tokens, out var negated)
             && negated is { SelectorPrefix.Length: 0, AtRule: null, SelectorSuffix.Length: > 0 }
-            && !IsArbitrary(negated)) {
+            && !IsArbitrary(negated)
+            && negated.SelectorSuffix.TrimStart()[0] is not ('>' or '+' or '~')) {
             effect = new VariantEffect($":not({negated.SelectorSuffix})", string.Empty, null);
             return true;
         }

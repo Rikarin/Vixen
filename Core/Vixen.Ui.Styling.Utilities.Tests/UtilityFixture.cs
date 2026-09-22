@@ -27,12 +27,20 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         select the same element — so a scene built out of identical siblings cannot tell an
 ///         of-type test from the child test it must not be.
 ///     </para>
+///     <para>
+///         <paramref name="Children" /> is the knob the part variants needed: <c>placeholder:</c>
+///         is a <i>child</i> combinator onto a tag, and the row that tells <c>&gt;</c> from a
+///         descendant combinator is a grandchild carrying the tag — which a flat list of children
+///         cannot express.
+///     </para>
 /// </remarks>
+/// <param name="Children">Its own children, for a scene that needs a grandchild.</param>
 sealed record Probe(
     string[] Classes,
     ElementState State = ElementState.None,
     (string Name, string Value)[]? Attributes = null,
-    string Tag = "div"
+    string Tag = "div",
+    Probe[]? Children = null
 );
 
 /// <summary>A theme, a generator, and a style engine to load the result into.</summary>
@@ -138,6 +146,11 @@ sealed class UtilityFixture {
     /// <param name="containerName">That container's <c>container-name</c>, or empty.</param>
     /// <param name="tag">The element's own tag name.</param>
     /// <param name="children">Children to give it, which is what <c>:empty</c> is about.</param>
+    /// <param name="measure">
+    ///     The probe to read the property off instead of the element — one of
+    ///     <paramref name="children" /> or of their children — for a variant whose whole claim is
+    ///     that it styles a part and not the element carrying the class.
+    /// </param>
     /// <returns>The computed value, or null.</returns>
     /// <remarks>
     ///     The end-to-end path, and the only assertion that is worth much: it checks the generator
@@ -158,9 +171,14 @@ sealed class UtilityFixture {
         ContainerBox? container = null,
         string containerName = "",
         string tag = "div",
-        Probe[]? children = null
+        Probe[]? children = null,
+        Probe? measure = null
     ) {
         var engine = new StyleEngine();
+
+        // By reference, because two probes with the same classes and tag are equal as records and
+        // a scene of identical siblings is the normal case.
+        var placed = new Dictionary<Probe, StyleNodeId>(ReferenceEqualityComparer.Instance);
         engine.Load(Generator.Generate(classNames), StyleOrigin.Author, media);
 
         if (extraCss.Length > 0) {
@@ -172,7 +190,7 @@ sealed class UtilityFixture {
         StyleNodeId? parent = null;
 
         if (ancestor is not null || before is { Length: > 0 } || after is { Length: > 0 } || container is not null) {
-            parent = Add(engine, ancestor ?? new Probe([]), null);
+            parent = Add(engine, ancestor ?? new Probe([]), null, placed);
         }
 
         // ⚠ The scope goes on the *parent* and never on the element under test, which is CSS
@@ -187,17 +205,17 @@ sealed class UtilityFixture {
         }
 
         foreach (var sibling in before ?? []) {
-            Add(engine, sibling, parent);
+            Add(engine, sibling, parent, placed);
         }
 
-        var element = Add(engine, new Probe(classNames, state, attributes, tag), parent);
+        var element = Add(engine, new Probe(classNames, state, attributes, tag), parent, placed);
 
         foreach (var child in children ?? []) {
-            Add(engine, child, element);
+            Add(engine, child, element, placed);
         }
 
         foreach (var sibling in after ?? []) {
-            Add(engine, sibling, parent);
+            Add(engine, sibling, parent, placed);
         }
 
         // ⚠ `ResolveAll` rather than resolving the one element, and it is not tidiness: a descendant
@@ -208,17 +226,31 @@ sealed class UtilityFixture {
         var styles = engine.ResolveAll();
         var id = engine.Properties.Lookup(property);
 
-        return id != NameTable.None && styles[element.Index].TryGet(id, out var value)
+        // A probe to measure that was never placed is a test asking about an element that is not in
+        // the document, which is a null that would read exactly like "the variant did not apply".
+        var measured = measure is null
+            ? element
+            : placed.TryGetValue(measure, out var placedMeasure)
+                ? placedMeasure
+                : throw new ArgumentException("The probe to measure is not in the scene.", nameof(measure));
+
+        return id != NameTable.None && styles[measured.Index].TryGet(id, out var value)
             ? engine.Values.NameOf(value)
             : null;
     }
 
-    static StyleNodeId Add(StyleEngine engine, Probe probe, StyleNodeId? parent) {
+    static StyleNodeId Add(StyleEngine engine, Probe probe, StyleNodeId? parent, Dictionary<Probe, StyleNodeId> placed) {
         var element = engine.Tree.CreateElement(probe.Tag, parent, classNames: probe.Classes);
         engine.Tree.SetState(element, probe.State);
 
         foreach (var (name, value) in probe.Attributes ?? []) {
             engine.Tree.SetAttribute(element, name, value);
+        }
+
+        placed[probe] = element;
+
+        foreach (var child in probe.Children ?? []) {
+            Add(engine, child, element, placed);
         }
 
         return element;

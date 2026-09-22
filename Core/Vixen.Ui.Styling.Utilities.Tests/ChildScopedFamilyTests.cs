@@ -179,12 +179,14 @@ public class ChildScopedFamilyTests {
     [InlineData("space-x-4")]
     [InlineData("divide-y")]
     [InlineData("divide-accent")]
+    [InlineData("placeholder-accent")]
     public void Apply_refuses_a_family_that_styles_children(string utility) {
         var expander = new ApplyExpander(new UtilityFixture().Tokens);
         var expanded = expander.Expand($".card {{ @apply {utility}; }}");
 
         Assert.DoesNotContain("margin", expanded, StringComparison.Ordinal);
         Assert.DoesNotContain("border", expanded, StringComparison.Ordinal);
+        Assert.DoesNotContain("color", expanded, StringComparison.Ordinal);
         Assert.Contains(expander.Diagnostics, diagnostic => diagnostic.Contains(utility, StringComparison.Ordinal));
     }
 
@@ -339,5 +341,53 @@ public class ChildScopedFamilyTests {
         // rule that had simply stopped matching would also pass the line above.
         Assert.True(styles[plain.Index].TryGet(id, out var spaced));
         Assert.Equal("16px", engine.Values.NameOf(spaced));
+    }
+
+    /// <summary><c>placeholder-*</c> colours the prompt a real field builds, and nothing beside it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The third scoped family, and the first whose scope is a <i>tag</i> rather than a
+    ///         position.</b> The ledger refused this root on F6 for two years of batches, and one of
+    ///         its two reasons was false at HEAD: "<c>TextField.Placeholder</c> is a C# property the
+    ///         control draws itself, not a child in the tree". It is a child in the tree —
+    ///         <c>TextField.OnCreated</c> builds it as <c>Part("field-placeholder")</c> — so the
+    ///         family is <c>space-x-*</c>'s shape onto that tag, and the pseudo-element the refusal
+    ///         was really waiting on was never needed.
+    ///     </para>
+    ///     <para>
+    ///         Read off a <c>TextBox</c> the control made rather than off probes tagged by hand, for
+    ///         the reason <c>VariantCoverageTests</c> has a twin of this: a scope naming a tag no
+    ///         control builds would pass every hand-built scene while colouring nothing anywhere.
+    ///         And the expected colour is what <c>text-accent</c> computes to on a plain element, so
+    ///         the assertion is about <i>which box</i> got the colour and not about how the engine
+    ///         spells one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_placeholder_family_colours_the_prompt_a_real_text_field_builds() {
+        var fixture = new UtilityFixture();
+        var accent = fixture.Computed(["text-accent"], "color");
+
+        Assert.NotNull(accent);
+
+        using var document = new UiDocument(200f, 100f);
+        document.Load(fixture.Generate("placeholder-accent"), StyleOrigin.Author);
+
+        var field = document.Root.Add<Vixen.Ui.Controls.TextBox>(null, null, "placeholder-accent");
+        document.Update();
+
+        var placeholder = field.Children.Single(child => child.Tag == "field-placeholder");
+        var text = field.Children.Single(child => child.Tag == "field-text");
+        var color = document.Styles.Properties.Lookup("color");
+
+        Assert.True(placeholder.Style.TryGet(color, out var prompt), "the placeholder part was not coloured.");
+        Assert.Equal(accent, document.Styles.Values.NameOf(prompt));
+
+        // ⚠ `color` inherits, so the negative is not "the text part holds nothing" — it holds
+        // whatever the field inherited. The negative is that neither the field nor its value box
+        // holds the accent, which is the difference between colouring the prompt and colouring the
+        // field and letting the prompt inherit it.
+        Assert.NotEqual(accent, text.Style.TryGet(color, out var value) ? document.Styles.Values.NameOf(value) : null);
+        Assert.NotEqual(accent, field.Style.TryGet(color, out var own) ? document.Styles.Values.NameOf(own) : null);
     }
 }
