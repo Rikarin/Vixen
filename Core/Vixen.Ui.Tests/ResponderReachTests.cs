@@ -147,6 +147,31 @@ public class ResponderReachTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>A non-editor application draws a shortcut beside a menu item and pressing it does
+    ///     something.</b> That sentence is the opening of #650, negated. <c>MenuItem.ShowShortcut</c>
+    ///     has always been able to draw "⌘S"; the keymap, the registry and the dispatcher behind it
+    ///     were editor types until doc 49 § 4.4's move, and after the move they had exactly one
+    ///     caller, which was still the editor — so the symptom the move exists to end was unchanged
+    ///     for every application that is not it. <c>Samples/02-HelloUi</c>'s shell is the first
+    ///     thing outside <c>Editor/</c> to build one.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Asserted <i>outside</i> <c>Editor/</c>, and that is the falsifiable half: a theory
+    ///     satisfied by <c>EditorShell</c> would have been green on the day the issue was filed.
+    /// </remarks>
+    [Fact]
+    public void Something_that_is_not_the_editor_dispatches_a_keymap() {
+        var callers = ProductionCallers("new CommandDispatcher(");
+
+        Assert.NotEmpty(callers);
+
+        Assert.Contains(
+            callers,
+            path => !path.Contains(Path.DirectorySeparatorChar + "Editor" + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+        );
+    }
+
+    /// <summary>
     ///     ⚠ <b>The in-app drag had a model, a router, a keyboard leg and no producer.</b>
     ///     <c>UiDocument.BeginDrag</c> is what fills a <c>DataObject</c> and starts a session, and
     ///     outside its own tests the only thing that named it was a comment in
