@@ -215,21 +215,25 @@ public readonly record struct UiMask(
 
     /// <summary>The coverage at a point, in document pixels.</summary>
     /// <remarks>
-    ///     ⚠ <b>A transcription of <c>UiMask.Coverage</c> in <c>Ui.rvn</c>, the module that ships,
-    ///     and of <c>ui-mask.frag</c>'s <c>mask_coverage</c> beside it.</b> The parameterisation is
-    ///     the shader's, deliberately and to the constant — and so, one step over, is
-    ///     <c>SoftwareUiRasterizer.Parameter</c>'s: a <c>mask-image</c> and a
-    ///     <c>background-image</c> written with the same gradient have to produce ramps that line up,
-    ///     and the only way to be sure of that is to compute the same number the same way rather than
-    ///     a number that ought to agree.
-    ///     ⚠ <b>"To the constant" used to name only the sibling C# port, and the two ports agreed with
-    ///     each other and not with the shader</b> (#1256): both divided the conic angle by
-    ///     <see cref="MathF.Tau" /> where both shaders multiply by <c>0.15915494309189535f</c>, and a
-    ///     correctly-rounded quotient is not in general the correctly-rounded product by a rounded
-    ///     reciprocal. <c>UiCompositingTests</c> compares this against the device at a tolerance a
-    ///     last-place bit of a conic ramp does not reach, and the arithmetic census walks modules, so
-    ///     a C# port is outside both by construction. <c>ConicSweepTests</c> is what holds the two
-    ///     ports to the shader's spelling now.
+    ///     <para>
+    ///         ⚠ <b>A transcription of <c>UiMask.Coverage</c> in <c>Ui.rvn</c>, the module that
+    ///         ships, and of <c>ui-mask.frag</c>'s <c>mask_coverage</c> beside it.</b> The
+    ///         parameterisation is the shader's, deliberately and to the constant — and so, one step
+    ///         over, is <c>SoftwareUiRasterizer.Parameter</c>'s: a <c>mask-image</c> and a
+    ///         <c>background-image</c> written with the same gradient have to produce ramps that line
+    ///         up, and the only way to be sure of that is to compute the same number the same way
+    ///         rather than a number that ought to agree.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>"To the constant" used to name only the sibling C# port, and the two ports agreed
+    ///         with each other and not with the shader</b> (#1256): both divided the conic angle by
+    ///         <see cref="MathF.Tau" /> where both shaders multiply by <c>0.15915494309189535f</c>,
+    ///         and a correctly-rounded quotient is not in general the correctly-rounded product by a
+    ///         rounded reciprocal. <c>UiCompositingTests</c> compares this against the device at a
+    ///         tolerance a last-place bit of a conic ramp does not reach, and the arithmetic census
+    ///         walks modules, so a C# port is outside both by construction. <c>ConicSweepTests</c> is
+    ///         what holds the two ports to the shader's spelling now.
+    ///     </para>
     /// </remarks>
     public float Coverage(Vector2 point) {
         var local = point;
@@ -285,9 +289,9 @@ public readonly record struct UiMask(
             // ⚠ A multiplication by the shader's reciprocal literal rather than a division by `Tau`,
             // because they are two numbers: `Ui.rvn` and `ui-mask.frag` both write
             // `frac(angle * 0.15915494309189535f + 1f)`, and `angle / 6.2831855f` rounds differently
-            // from `angle * round(1 / 6.2831855f)` on about one angle in twenty (measured: 162 of 3600). The wrap beside it is
-            // *not* the same story — C# has no `frac`, and `turns - Floor(turns)` is exactly what
-            // `GLSL.std.450 Fract` is defined as. #1256.
+            // from `angle * round(1 / 6.2831855f)` on about one angle in twenty — 162 of 3600
+            // measured. The wrap beside it is *not* the same story: C# has no `frac`, and
+            // `turns - Floor(turns)` is exactly what `GLSL.std.450 Fract` is defined as. #1256.
             var turns = (angle * 0.15915494309189535f) + 1f;
 
             return turns - MathF.Floor(turns);

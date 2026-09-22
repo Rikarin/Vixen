@@ -11,9 +11,23 @@ using Xunit;
 namespace Vixen.Ui.Testing.Tests;
 
 /// <summary>
-///     The two C# ports of the conic sweep compute the number the shader computes, to the last bit.
+///     The two C# ports of the conic sweep spell the shader's operation with the shader's constant.
 /// </summary>
 /// <remarks>
+///     <para>
+///         ⚠ <b>That summary said "compute the number the shader computes, to the last bit", and
+///         that is a stronger claim than anything here holds.</b> The expected value below is a C#
+///         re-implementation of the shader's line with only the literal taken from <c>Ui.rvn</c>, so
+///         what is proved is that both ports perform the same operation on the same constant. Going
+///         further would need the module's own answer, and a driver is entitled to differ from one:
+///         neither box module withholds contraction — no <c>NoContraction</c> decoration and no
+///         precision execution mode, which
+///         <c>SharedUiShaderTests.TheGlslCopiesDoTheSameArithmeticAsTheRavenModules</c> states — so
+///         an implementation may fuse <c>angle * r + 1f</c> into an fma and land where no C# port
+///         can follow. That is
+///         <see href="https://github.com/Rikarin/Vixen/issues/1190">#1190</see>'s open half, not
+///         this one's.
+///     </para>
 ///     <para>
 ///         ⚠ <b>Both ports divided by <see cref="MathF.Tau" /> where both shaders multiply by the
 ///         rounded reciprocal, and nothing could see it</b> —
