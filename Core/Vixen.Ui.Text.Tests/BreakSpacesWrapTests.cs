@@ -114,6 +114,37 @@ public class BreakSpacesWrapTests {
         Assert.Equal(Shape("ab ").Advance, lines[0].Advance, 0.01f);
     }
 
+    /// <summary>An overflowing line before a forced break does not gain an empty line box.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         UAX #14's LB6 forbids a break <i>before</i> a hard break, and CSS Text § 3.1's second
+    ///         rule adds an opportunity <i>after</i> a preserved space and never before one — so the
+    ///         index between <c>"a "</c> and its newline is offered by neither. Added anyway, it is
+    ///         the only opportunity the "nothing fits" path can reach when <c>a</c> alone fills the
+    ///         line, and the mandatory branch then turns the newline into a line of its own: three
+    ///         lines where Chrome draws two, the middle one blank.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The width is what makes this reachable.</b> The two other newline tests run at
+    ///         widths nothing overflows, where the spurious opportunity is never the last one that
+    ///         did not fit. Here the room is one glyph, so it is.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_forced_break_after_a_space_gains_no_empty_line() {
+        const string text = "a \nb";
+
+        var width = Shape("a").Advance;
+
+        var hung = Lines(text, width, breakSpaces: false);
+        var kept = Lines(text, width, breakSpaces: true);
+
+        Assert.Equal(hung.Count, kept.Count);
+        Assert.DoesNotContain(kept, line => line.Length == 0);
+        Assert.True(kept[0].Mandatory, "the first line no longer ends on the newline");
+        Assert.Equal("a \n", text.Substring(kept[0].Start, kept[0].Length));
+    }
+
     /// <summary>The paragraph's last line keeps its spaces too, and the flag changes nothing there.</summary>
     [Fact]
     public void The_last_lines_advance_is_unchanged_by_the_flag_when_nothing_trails() {

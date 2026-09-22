@@ -272,4 +272,49 @@ public class WhiteSpaceBreakSpacesTests {
         Assert.Equal(2, lines.Length);
         Assert.Equal(Measure("ab "), lines[0].Width, 0.05f);
     }
+
+    /// <summary>A space before a forced break is not an opportunity, however little room is left.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The pair the first landing of this keyword did not write, and the one shape in
+    ///         which rule two departed from Chrome.</b> The two newline tests above run in an
+    ///         800-point box, where nothing overflows and an extra opportunity before the newline is
+    ///         never the one a line ends on. In a box one glyph wide it is the only one reachable,
+    ///         and the line that ended there made the newline a line of its own — three line boxes,
+    ///         the middle one blank. UAX #14's LB6 forbids breaking before a hard break and § 3.1
+    ///         adds its opportunity <i>after</i> a space, so neither rule ever offered that index.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read against Chrome 152.0.7977.76 through the same fixture rather than reasoned
+    ///         from the specification</b>, because the specification is what the first landing read
+    ///         and it still produced three lines. In an 8.891-point block — <c>measure("a")</c> in
+    ///         that browser — both <c>pre-wrap</c> and <c>break-spaces</c> give two rows,
+    ///         <c>[0,3)</c> at 13.047 and <c>[3,4)</c> at 9.797: the space overflows the block and
+    ///         the newline ends the line it is on. 13.047 is Chrome's <c>a </c>, which is why the
+    ///         first line's width is asserted against this engine's measure of the same range.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Under_break_spaces_a_space_before_a_forced_break_is_not_an_opportunity() {
+        const string text = "a \nb";
+
+        // ⚠ `min-width: 0` and the test is green without it. A label in a flex root takes
+        // `min-width: auto`, so the box is never narrower than the paragraph's min-content
+        // contribution — and under this value that contribution counts the space, which is
+        // precisely the overflow the defect needed. The declaration is CSS's own way of saying the
+        // box may be narrower than its content, and it is what makes this pair reach the wrapper's
+        // "nothing fits" path at all.
+        const string narrow = "min-width: 0;";
+
+        var width = Measure("a");
+
+        var hung = Box(text, width, narrow).Lines;
+        var kept = Box(text, width, narrow + BreakSpaces).Lines;
+
+        Assert.Equal(2, hung.Length);
+        Assert.Equal(hung.Length, kept.Length);
+        Assert.DoesNotContain(kept, line => line.Length == 0);
+        Assert.Equal(3, kept[0].Length);
+        Assert.Equal(Measure("a "), kept[0].Width, 0.05f);
+    }
 }

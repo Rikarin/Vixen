@@ -417,12 +417,28 @@ public static class LineWrapper {
     ///         a surrogate pair or before a combining mark, because a break there is not a place a
     ///         line can end whatever the property says.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And never before a segment break, which UAX #14's LB6 forbids and this rule
+    ///         never asked for.</b> The rule adds an opportunity <i>after</i> a preserved space, and
+    ///         the index between <c>"a "</c> and its newline is after one thing and before another.
+    ///         Offered, it is the only opportunity <see cref="Greedy" />'s "nothing fits" path can
+    ///         reach on a line the space overflows, and the mandatory branch then gives the newline
+    ///         a line of its own — a blank line box where every browser overflows the space instead.
+    ///     </para>
     /// </remarks>
     static void AddSpaceOpportunities(string text, List<int> opportunities) {
-        var added = false;
+        // ⚠ Collected apart rather than appended where they are found, because the search below is
+        // a binary one and the first append would leave the list it searches unsorted. Nothing was
+        // lost while it did — a miss can only duplicate an index that `Greedy` then skips — but the
+        // next reader should not have to re-derive that.
+        List<int>? found = null;
 
         for (var i = 1; i < text.Length; i++) {
             if (text[i - 1] is not (' ' or '\t')) {
+                continue;
+            }
+
+            if (IsSegmentBreak(text[i])) {
                 continue;
             }
 
@@ -432,12 +448,12 @@ public static class LineWrapper {
             }
 
             if (opportunities.BinarySearch(i) < 0) {
-                opportunities.Add(i);
-                added = true;
+                (found ??= []).Add(i);
             }
         }
 
-        if (added) {
+        if (found is not null) {
+            opportunities.AddRange(found);
             opportunities.Sort();
         }
     }
