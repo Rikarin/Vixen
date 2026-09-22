@@ -186,6 +186,83 @@ public class RefusalExpiryTests {
         Assert.Equal(census, declared.Select(clause => clause.Line).ToList());
     }
 
+    /// <summary>A row that emits and is read by nothing declares the condition that ends it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The gate the census cannot be, and it exists because a clause was lost exactly
+    ///         the way the census is blind to.</b> <c>5103da9b3</c> gave <c>select</c> a second
+    ///         clause — <c>expires-on Vixen.Ui.UiDocument.Selection</c> — with the argument that its
+    ///         first one, <c>expires-when-read user-select</c>, comes due on the cheap close the
+    ///         note spends a paragraph declining, so the row's only tripwire would have certified
+    ///         the wrong fix. Seventy-seven minutes later a conflict resolution in <c>295ffa867</c>
+    ///         took the side of the <c>note</c> cell without it, and seventeen minutes after that
+    ///         <c>b68f80aba</c> regenerated the census, which dropped its own copy to match.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So both halves of the guard went, in the one direction the equality above
+    ///         cannot see.</b> That equality does catch a clause deleted on its own — sabotaging
+    ///         this row reddens it verbatim. What it cannot catch is a deletion followed by a
+    ///         regeneration, because the census is <i>derived</i> from the ledger: the run that
+    ///         writes it back is the run that makes the two files agree about having lost the
+    ///         clause, and an equality between a thing and its own shadow says nothing about
+    ///         either. Here the two runs were seventeen minutes apart and the second had every
+    ///         reason to regenerate, since a different row's refusal had genuinely expired in the
+    ///         same merge. What can be checked instead is
+    ///         a property of the row itself — a root that resolves, computes a value and is read by
+    ///         nothing is a recorded debt, and the one thing that stops such a row becoming
+    ///         permanent is a stated condition — so an <c>inert</c> row with no clause at all fails
+    ///         here whether it never had one or quietly lost it.
+    ///     </para>
+    ///     <para>
+    ///         <c>absent</c> is deliberately not on this rule: fifty-odd roots are simply not
+    ///         emitted yet and most are work nobody has started, where a clause would be a
+    ///         prediction rather than a refusal. <c>inert</c> is the state that means somebody
+    ///         decided, wrote the family, and left the engine not reading it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And the set is asserted non-empty first, for this file's standing reason: a rule
+    ///         applied to no rows passes vacuously, and today the set is exactly one row.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_inert_row_declares_a_condition() {
+        var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
+        var clauses = RefusalExpiry.All(rows, RefusalExpiry.Root());
+
+        var inert = rows
+            .Where(row => string.Equals(row.State, "inert", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.True(
+            inert.Count > 0,
+            "no ledger row reads `inert`, so this rule has no subjects. That is either a state the "
+            + "table has left behind — in which case delete this and say so — or the ledger is not "
+            + "being read, which is what every anti-vacuity assertion in this suite is about."
+        );
+
+        var bare = inert
+            .Where(row => !clauses.Any(clause => !clause.Prose && string.Equals(clause.Root, row.Root, StringComparison.Ordinal)))
+            .Select(row => row.Root)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(
+            bare.Count == 0,
+            $"""
+             {bare.Count} `inert` row(s) declare no expiry clause at all:
+
+               {string.Join("\n  ", bare)}
+
+             An inert root emits a property and nothing reads it — a debt this repository has written
+             down. Say in the row's `note` what ends it: `[expires-when-read <property>]` when a
+             reader is what is missing, `[expires-on <Type>.<Member>]` when the blocker is a symbol
+             that does not exist yet. ⚠ A row here may be one that HAD a clause: see this test's
+             remarks for the merge that took one, which is why the rule is on the row and not on the
+             census.
+             """
+        );
+    }
+
     /// <summary>Every clause that opened parsed, so a mistyped one is a failure and not an exemption.</summary>
     [Fact]
     public void A_clause_that_does_not_parse_is_a_failure_rather_than_a_row_the_sweep_skips() {
