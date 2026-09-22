@@ -73,7 +73,7 @@ public partial class EditorCombinatorPairTests {
     static readonly Depth[] Ladder = [Depth.Started, Depth.Panels, Depth.Documents, Depth.Overlays];
 
     /// <summary>What each sweep matched, filled by <see cref="Scope" /> as the sweep runs.</summary>
-    static readonly Dictionary<Depth, HashSet<string>> scoped = [];
+    static readonly Dictionary<Depth, HashSet<string>> Matched = [];
 
     /// <summary>How many selectors the shallowest sweep asked about, so that "it ran" can be asserted.</summary>
     static int scopedAsked;
@@ -108,7 +108,7 @@ public partial class EditorCombinatorPairTests {
     ];
 
     /// <summary>Which of <see cref="Mirrored" /> some sweep credited, which must stay empty.</summary>
-    static readonly HashSet<string> mirrorsMatched = new(StringComparer.Ordinal);
+    static readonly HashSet<string> MirrorSightings = new(StringComparer.Ordinal);
 
     /// <summary>The domain: every type-only selector a committed sheet declares, with the first sheet declaring it.</summary>
     static IReadOnlyDictionary<string, string> ScopedDomain => scopedDomain ??= ReadScopedDomain();
@@ -148,7 +148,7 @@ public partial class EditorCombinatorPairTests {
         // ignored the combinator's direction, or a scan that credited whatever it was handed,
         // would credit both spellings, and only this sees it.
         _ = VerdictOf(Scoped[0].Selector);
-        Assert.Empty(mirrorsMatched);
+        Assert.Empty(MirrorSightings);
     }
 
     /// <summary>The scoped census is exactly what is committed, verdict for verdict.</summary>
@@ -250,7 +250,7 @@ public partial class EditorCombinatorPairTests {
 
         foreach (var mirror in Mirrored) {
             if (fixture.Ui.Get(mirror).Count > 0) {
-                mirrorsMatched.Add($"{mirror} ({depth})");
+                MirrorSightings.Add($"{mirror} ({depth})");
             }
         }
 
@@ -258,7 +258,7 @@ public partial class EditorCombinatorPairTests {
             scopedAsked = ScopedDomain.Count;
         }
 
-        scoped[depth] = matched;
+        Matched[depth] = matched;
     }
 
     /// <summary>The shallowest depth that matched a selector, or null when none did.</summary>
@@ -270,7 +270,7 @@ public partial class EditorCombinatorPairTests {
         _ = Overlays;
 
         foreach (var depth in Ladder) {
-            if (scoped.TryGetValue(depth, out var matched) && matched.Contains(selector)) {
+            if (Matched.TryGetValue(depth, out var matched) && matched.Contains(selector)) {
                 return depth;
             }
         }
