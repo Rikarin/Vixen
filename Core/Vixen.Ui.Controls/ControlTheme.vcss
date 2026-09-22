@@ -37,6 +37,23 @@
    what LayoutStyleBuilder deliberately left to a user-agent sheet to say. */
 * { box-sizing: border-box; }
 
+/* ── Phrase-level markup ───────────────────────────────────────────────
+   Markup emits one `text` element per literal stretch and a nested tag as an element of its own,
+   so `Hello <b>world</b> again` is already three elements with three cascades — what nothing had
+   said until here is which of them is *inline*. `text` is the analogue of a DOM text node, so it is
+   inline for the same reason a text node is; the four phrase tags carry the weight and slant HTML
+   gives them, and `span` is the bare one. In `base` rather than `components`, because this is what
+   the elements are before anybody styles them, and a panel's own `b { display: block }` should win.
+
+   ⚠ This changes nothing about any panel in the tree, and that is measured rather than hoped: a
+   flex item, a grid item, a float, an absolutely positioned box and the root are blockified, and
+   every container this tree puts text in today is one of those (no sheet or view here sets
+   `display: block`). `PhraseTagDefaultTests` pins both halves — the line the stretches share in a
+   block container, and the stack they keep in a flex one. */
+text, span, b, strong, i, em { display: inline; }
+b, strong { font-weight: 700; }
+i, em { font-style: italic; }
+
 /* ── Tokens ────────────────────────────────────────────────────────────
    Everything below is written against these. An application that wants a
    different palette sets them on the root and touches nothing else; one

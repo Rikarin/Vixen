@@ -1,0 +1,28 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Rich text the way an author writes it: one line of markup with the phrase tags in it.
+
+    ⚠ **The tags stay on one line on purpose.** The markup's whitespace policy makes a run that
+    crosses a line break trivia and one that does not text, so the space before `<b>` and the one
+    after `</b>` are the content that keeps the words apart — reflowing this to one tag per line
+    would delete them and join `Hello` to `world`.
+
+    ⚠ **And this file is the only place in the tree that writes the phrase tags as markup.** Every
+    `<b>` a grep finds elsewhere is inside a doc comment. `TypeSelectorReachTests` holds every type
+    selector in every sheet to a tag something creates, and the phrase rules in `ControlTheme.vcss`
+    are created by this sheet and by `PhraseTagDefaultTests` — remove either and the census says so.
+-->
+@component PhraseSheet
+@namespace Vixen.Ui.Controls.Tests
+@using Vixen.Ui
+
+<phrase-paragraph ref="@paragraph">Hello <b>world</b> and <strong>again</strong>, <i>softly</i>, <em>quietly</em>, in a <span>span</span>.</phrase-paragraph>
+
+@code {
+    UiElement paragraph = null!;
+
+    /// <summary>The paragraph, whose children are the stretches.</summary>
+    public UiElement Paragraph => paragraph;
+}
