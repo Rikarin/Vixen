@@ -128,8 +128,10 @@
 # any `transition` written over the shorthand. The 3D family is further out again — `perspective`,
 # `transform-style` and `backface-visibility` — and ⚠ NOT because `UiTransform` cannot express the
 # matrix, which is what this paragraph used to imply: #547 (`bfad9599`) made it a 3×3 homography on
-# 2026-09-04. What stands is one level down, in the vertex: `UiVertex` has nowhere to put a `w`, so a
-# projective quad would be rasterised with affine barycentrics. #228 and #548.
+# 2026-09-04. ⚠ And NOT because the vertex has nowhere to put a `w`, which is what this paragraph said
+# next until 2026-09-22: #548 gave `UiVertex` its `W`, both executors divide by it, and
+# `UiCompositingTests` holds them together under a perspective. What stands is the reader alone:
+# `TransformReader` reads no `perspective` property and no 3D function. #228 and #550.
 
 # ── Filters — A8. CLOSED for blur, and it was the same shape as the transforms above: `blur-2` wrote
 # a number into `--blur`, a name of this engine's own invention that no assembler and no engine — this

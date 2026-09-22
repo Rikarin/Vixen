@@ -2759,9 +2759,10 @@ public static class UtilityFamilies {
         //   function in it is unreadable, and pinned against pixels in `TransformTests` (#585). What
         //   is true is the clause beside it: `StyleValue` has no function kind, which is why a
         //   `transform` declaration cannot interpolate — and it is not what holds these back.
-        //   `skew-*` is a family registration away (#227). The three-dimensional four are a *vertex*
-        //   away: `UiVertex` has nowhere to put a `w`, so a projective quad would be rasterised with
-        //   affine barycentrics (#548).
+        //   `skew-*` is a family registration away (#227). ⚠ <b>The three-dimensional four were a
+        //   *vertex* away until 2026-09-22, and are a *reader* away now.</b> `UiVertex` carries a `w`
+        //   since #548 and both executors divide by it; what is left is that `TransformReader` reads
+        //   no 3D function and no `perspective` property, which is #550.
         //
         //   ⚠ <b>3. The property is READ, and the value is refused — so the gate stays green over a
         //   class that paints nothing.</b> The dangerous kind, and the one this table has to catch

@@ -57,15 +57,20 @@
 # three — it listed `rotate-z-*`, which has measured `works` for as long as the census has existed
 # and never carried a clause at all. Prose beside a derived list is not derived.
 #
-# ⚠ AND THREE ROWS SHARE `UiVertex.W` ON PURPOSE NOW, which is the same pattern used deliberately
+# ⚠ AND THREE ROWS SHARED `UiVertex.W` ON PURPOSE, which is the same pattern used deliberately
 # rather than fallen into. `scale-*` and `translate-*` are `partial` on one class each — `scale-3d`
-# and `translate-z-px` — and both of those close with the projective vertex, exactly as the four
-# `absent` transform rows do. Until 2026-09-06 neither said so in a clause: `scale-z-*` and
-# `translate-z-*` would have gone red on the day the vertex landed while the two `partial` rows
-# beside them, whose state column stopped moving when their other keywords shipped, sat green with
-# the class still unregistered. That is `hyphens`' shape, one root over. They anchor on the vertex
-# directly rather than `expires-with perspective-*`, because `expires-with` demands the carrier be
-# refused OUTRIGHT and these two half work. `Rikarin/Vixen#268`.
+# and `translate-z-px` — and both of those close with the third axis, exactly as the four `absent`
+# transform rows do. Until 2026-09-06 neither said so in a clause: `scale-z-*` and `translate-z-*`
+# would have gone red on the day the vertex landed while the two `partial` rows beside them, whose
+# state column stopped moving when their other keywords shipped, sat green with the class still
+# unregistered. That is `hyphens`' shape, one root over. They anchored on the vertex directly rather
+# than `expires-with perspective-*`, because `expires-with` demands the carrier be refused OUTRIGHT
+# and these two half work. `Rikarin/Vixen#268`. ⚠ The vertex landed on 2026-09-22 (#548) and the
+# suite printed all three names at once, as it was rebuilt to; the three moved together onto
+# `TransformReader.perspective`, the interned id the reader will hold the day it reads the property
+# that now stands between a stylesheet and a picture (#550). ⚠ Not `expires-when-read perspective`,
+# which would be the measured kind: that clause needs a registered family to emit the property, and
+# `perspective-*` is exactly the family that is not registered yet.
 #
 # ⚠ AND THREE MORE SHARE `LayoutStyle.WritingMode`, which is the first anchor here that is not a
 # refusal's blocker but a working implementation's PREMISE. `float: inline-start` and
@@ -97,15 +102,15 @@ hyphens	expires-on	Vixen.Ui.Text.HyphenMode.Auto
 list-*	expires-on	Vixen.Ui.Styling.Selector.PseudoElement
 list-image-*	expires-with	list-*
 list-style-position	expires-with	list-*
-perspective-*	expires-on	Vixen.Ui.Rendering.UiVertex.W
+perspective-*	expires-on	Vixen.Ui.TransformReader.perspective
 perspective-origin-*	expires-with	perspective-*
 placeholder-*	expires-on	Vixen.Ui.Styling.Selector.PseudoElement
 rotate-x-*	expires-with	perspective-*
 rotate-y-*	expires-with	rotate-x-*
-scale-*	expires-on	Vixen.Ui.Rendering.UiVertex.W
+scale-*	expires-on	Vixen.Ui.TransformReader.perspective
 scale-z-*	expires-with	perspective-*
 scrollbar-gutter	expires-on	Vixen.Ui.Layout.Overflow.Auto
 select	expires-when-read	user-select
 touch	expires-on	Vixen.Ui.UiDocument.TouchActionOf
-translate-*	expires-on	Vixen.Ui.Rendering.UiVertex.W
+translate-*	expires-on	Vixen.Ui.TransformReader.perspective
 translate-z-*	expires-with	perspective-*

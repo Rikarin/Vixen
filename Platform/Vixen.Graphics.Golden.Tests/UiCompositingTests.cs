@@ -853,6 +853,115 @@ public sealed class UiCompositingTests {
         Assert.Equal((255, 0, 0), Middle(software));
     }
 
+    /// <summary>
+    ///     A group under a real perspective is the same picture on both executors, and the affine
+    ///     fixtures above are the pictures they were.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 43 § A7, issue #548 — the fixture its "done looks like" asks for.</b> The quad's
+    ///         four corners arrive with four <c>w</c>s, and each executor divides by them in its own
+    ///         way: the hardware interpolates the varyings perspective-correctly because the vertex
+    ///         stage hands it <c>float4(xy · w, 0, w)</c>, and <c>SoftwareUiRasterizer.Rasterise</c>
+    ///         weights its barycentrics by <c>1/w</c>. Those are two implementations of one
+    ///         specification, which is exactly what this file exists to hold against each other.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The instrument is the <c>w</c> itself, read off the geometry before either
+    ///         renderer runs.</b> An affine has <c>w = 1</c> at every corner, and a comparison over
+    ///         one would agree whatever either executor did with the field — including nothing. So
+    ///         the composite quad's four <c>w</c>s are asserted to straddle one, which is what says
+    ///         the picture below is of a perspective and not of a quad that happens to be a trapezium.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The contents have structure where the seam would be.</b> A flat group under a
+    ///         homography looks right however its texture coordinate is interpolated, because every
+    ///         texel is the same texel. Four quadrants in four colours put a boundary along both
+    ///         diagonals and through the centre — which is where a linear interpolation is furthest
+    ///         from the right one (<c>ProjectiveCompositeTests</c> reads that error off a pixel) — so
+    ///         a device that divided and a software path that did not would differ along the whole of
+    ///         the shared diagonal. And the group is translucent, so the composite is a real blend
+    ///         rather than a copy that any sampling would reproduce.
+    ///     </para>
+    ///     <para>
+    ///         "The affine fixtures unchanged" is not a separate assertion here because it is not a
+    ///         separate fact: every other test in this file is an agreement between the two executors
+    ///         on a frame whose <c>w</c>s are all exactly one, and the software rasteriser's affine
+    ///         branch is float-for-float the code that existed before the field. The committed
+    ///         screenshots in <c>Vixen.Ui.Controls.Tests</c> are what say that last part, byte for byte.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AGroupUnderAPerspectiveIsCompositedTheSameOnBothExecutors() {
+        if (!TryOpen(out var fixture, out _)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var colour = owned.ColourTarget("ui-perspective");
+
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var geometry = new UiGeometryBuilder().Build(Perspective(), cache, Viewport);
+
+        // The instrument: one group, and its composite quad is projective — its `w`s straddle one.
+        var layer = Assert.Single(geometry.Layers);
+        var composite = geometry.Draws[layer.First + layer.Count];
+
+        Assert.Equal(BatchKind.Image, composite.Kind);
+
+        var corners = Enumerable.Range(0, 4)
+            .Select(corner => geometry.Vertices[(int)geometry.Indices[composite.First + corner]].W)
+            .ToList();
+
+        Assert.True(corners.Min() < 0.9f && corners.Max() > 1.1f, $"the composite quad's w's are {string.Join(", ", corners)}, which is not a perspective.");
+
+        var renderer = new UiRenderer(
+            owned.Device,
+            new(
+                owned.Shader("ui.vert.spv", ShaderStage.Vertex),
+                owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
+                owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
+                owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
+            ) {
+                Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment),
+                Blur = owned.Shader("ui-blur.frag.spv", ShaderStage.Fragment),
+                Colour = owned.Shader("ui-colour.frag.spv", ShaderStage.Fragment),
+                Mask = owned.Shader("ui-mask.frag.spv", ShaderStage.Fragment)
+            },
+            new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
+        );
+
+        owned.Owns(renderer.Dispose);
+
+        owned.Graph.AddPass("ui-perspective", pass => {
+            pass.ColourAttachment(colour, LoadAction.Clear, Background);
+            pass.SideEffect();
+            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+        });
+
+        var rendered = owned.Render(
+            colour,
+            commands => {
+                renderer.Upload(commands, geometry, cache.Atlas);
+                renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+            }
+        );
+
+        Assert.Equal(1, renderer.Composited);
+
+        var software = SoftwareUiRasterizer.Render(geometry, cache.Atlas, Side, Side, Background);
+
+        var comparison = ImageComparer.Compare(rendered, software, Agreement);
+
+        Assert.True(
+            comparison.Matches,
+            "the device and the software renderer disagree about a group under a perspective, and one "
+            + $"of them is wrong: {comparison}. A difference concentrated along the quad's diagonal is "
+            + "one executor interpolating the texture coordinate linearly — the vertex stage not "
+            + "multiplying by `w`, or `SoftwareUiRasterizer.Rasterise` taking its affine branch."
+        );
+    }
+
     /// <summary>A rounded group's backdrop stops at the curve on the device too.</summary>
     /// <remarks>
     ///     <para>
@@ -978,6 +1087,45 @@ public sealed class UiCompositingTests {
         );
 
         list.Add(new(DrawCommandKind.Rectangle, 24, 24, 80, 80, new Color4(1f, 1f, 1f, 0.25f), 16, 0));
+        list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+
+        list.EndFrame();
+
+        return list;
+    }
+
+    /// <summary>
+    ///     A translucent group of four coloured quadrants and a centre mark, under a perspective that
+    ///     brings its top edge nearer than its bottom.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Built as nine numbers rather than parsed from a <c>perspective()</c>, because nothing
+    ///     parses one yet (#550)</b> — the same reason <c>UiTransformProjectiveTests</c> gives. The
+    ///     matrix is <c>w = 1 + 0.006 · (y − 64)</c> about the group's centre: the corners forty
+    ///     points above and below it get <c>w = 0.76</c> and <c>w = 1.24</c>, far from the eye plane
+    ///     and far from each other. <c>internal</c> for <see cref="Groups" />' reason:
+    ///     <see cref="UiRavenAgreementTests" /> draws this frame through both vertex stages, because
+    ///     it is the one frame on which the two stages' <c>w</c> arithmetic is not the identity.
+    /// </remarks>
+    internal static DrawList Perspective() {
+        var list = new DrawList();
+        list.BeginFrame();
+
+        list.Add(new(DrawCommandKind.Rectangle, 0, 0, Side, Side, new Color4(0.1f, 0.1f, 0.3f, 1f), 0, 0));
+
+        var centre = new Vector2(Side / 2f, Side / 2f);
+
+        list.Add(
+            new DrawCommand(DrawCommandKind.LayerPush, 24, 24, 80, 80, new Color4(1f, 1f, 1f, 0.8f), 0, 0) {
+                Transform = (UiTransform.Identity with { M23 = 0.006f }).About(centre)
+            }
+        );
+
+        list.Add(new(DrawCommandKind.Rectangle, 24, 24, 40, 40, new Color4(1f, 0f, 0f, 1f), 0, 0));
+        list.Add(new(DrawCommandKind.Rectangle, 64, 24, 40, 40, new Color4(0f, 1f, 0f, 1f), 0, 0));
+        list.Add(new(DrawCommandKind.Rectangle, 24, 64, 40, 40, new Color4(1f, 1f, 0f, 1f), 0, 0));
+        list.Add(new(DrawCommandKind.Rectangle, 64, 64, 40, 40, new Color4(0f, 1f, 1f, 1f), 0, 0));
+        list.Add(new(DrawCommandKind.Rectangle, 60, 60, 8, 8, Color4.White, 0, 0));
         list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
 
         list.EndFrame();
