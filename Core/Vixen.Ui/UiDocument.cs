@@ -789,6 +789,7 @@ public sealed partial class UiDocument : IDisposable {
         }
 
         parent.MoveChild(element, index);
+        ElementsMoved++;
 
         // ⚠ The style tree takes the element index unchanged below and the layout tree cannot, for
         // the reason `LayoutIndexOf` documents: a surface root stays in the element tree and the

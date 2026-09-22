@@ -358,6 +358,104 @@ public class CompositionTests {
     }
 
     /// <summary>
+    ///     ⚠ A rotation by one changes every row's index, and a reconciler that walks the new order
+    ///     assigning each row its index moves every row but the last to get there — one layout
+    ///     remove-and-insert and one style-tree move per row, for a change that is one row going to
+    ///     the end. The rows that keep their relative order are the longest increasing subsequence of
+    ///     their old positions, and only what is not in it has to move.
+    /// </summary>
+    /// <remarks>
+    ///     Stated as work rather than as time: <c>ElementsMoved</c> counts a move that changed an
+    ///     index, so the number here is the same on a fast machine and a loaded one. Before the pass
+    ///     this read three for four rows, which is the walk; it is also what the sabotage that keeps
+    ///     nothing in the subsequence reads.
+    /// </remarks>
+    [Fact]
+    public void A_rotation_by_one_costs_one_move_and_not_one_per_row() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<Listing>(document, document.Root);
+
+        component.Items.Value = ["a", "b", "c", "d"];
+        document.Effects.Flush();
+        var before = document.Diagnostics.ElementsMoved;
+
+        component.Items.Value = ["b", "c", "d", "a"];
+        document.Effects.Flush();
+
+        Assert.Equal(["head", "b", "c", "d", "a", "tail"], component.Root.Children.Select(Label));
+        Assert.Equal(1, document.Diagnostics.ElementsMoved - before);
+
+        // ⚠ And back the other way, which is the half a backwards placement walk gets right by
+        // accident without any subsequence at all: the last row going to the end is one move
+        // however the rest is decided, and the last row coming to the front is not.
+        before = document.Diagnostics.ElementsMoved;
+        component.Items.Value = ["a", "b", "c", "d"];
+        document.Effects.Flush();
+
+        Assert.Equal(["head", "a", "b", "c", "d", "tail"], component.Root.Children.Select(Label));
+        Assert.Equal(1, document.Diagnostics.ElementsMoved - before);
+    }
+
+    /// <summary>
+    ///     The general case the minimal pass has to get right: rows leave, rows arrive at the end of
+    ///     the parent, survivors change order, and a sibling after the loop must still come after
+    ///     every row. The survivors that kept their order — <c>c</c>, <c>d</c>, <c>e</c> — are the
+    ///     three that must not move, so the cost is the other three and no more.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The survivors rotate here, and that is the whole reason this input was chosen.</b>
+    ///     The first shape written for this case was <c>a b c d e</c> to <c>f e a c g</c>, which
+    ///     reads like the general case and cannot see the defect: the forward walk it was meant to
+    ///     refute costs three on it as well, because the walk pays only for an element that is not
+    ///     already standing where the next sequential index wants it, and two arrivals plus one
+    ///     survivor moving forward is three either way. It was reported as red against the old code
+    ///     and it is green against the old code — the claim was never measured. The walk is only bad
+    ///     when the survivors' *relative* order changes, so this input rotates <c>a</c> to the back
+    ///     of them: the walk then drags <c>c</c>, <c>d</c> and <c>e</c> one place left each on its
+    ///     way past, and costs five.
+    /// </remarks>
+    [Fact]
+    public void A_reorder_with_arrivals_and_departures_moves_only_what_left_the_subsequence() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<Listing>(document, document.Root);
+
+        component.Items.Value = ["a", "b", "c", "d", "e"];
+        document.Effects.Flush();
+        var before = document.Diagnostics.ElementsMoved;
+
+        component.Items.Value = ["f", "c", "d", "e", "a", "g"];
+        document.Effects.Flush();
+
+        Assert.Equal(["head", "f", "c", "d", "e", "a", "g", "tail"], component.Root.Children.Select(Label));
+        Assert.Equal(3, document.Diagnostics.ElementsMoved - before);
+        Assert.Equal(component.Root.Children.Select(child => child.StyleNode), StyleChildren(document, component.Root));
+    }
+
+    /// <summary>
+    ///     A row is not always one element: an item carrying an open branch is two, and both have to
+    ///     travel together. Rotating such a list must keep each row's elements adjacent, and it must
+    ///     still cost the moved row's elements only — a pass that kept the branch's mark but moved its
+    ///     item would land the mark inside another row.
+    /// </summary>
+    [Fact]
+    public void A_row_of_several_elements_rotates_as_one() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<Nested>(document, document.Root);
+
+        component.Items.Value = ["a", "b", "c"];
+        component.Open.Value = true;
+        document.Effects.Flush();
+        Assert.Equal(["a", "mark", "b", "mark", "c", "mark"], component.Root.Children.Select(Label));
+        var before = document.Diagnostics.ElementsMoved;
+
+        component.Items.Value = ["b", "c", "a"];
+        document.Effects.Flush();
+
+        Assert.Equal(["b", "mark", "c", "mark", "a", "mark"], component.Root.Children.Select(Label));
+        Assert.Equal(2, document.Diagnostics.ElementsMoved - before);
+    }
+
+    /// <summary>
     ///     Control flow inside a loop item, which is the only thing that reads an item region's
     ///     position. A reorder that moved the elements but left the region chain pointing at the
     ///     old neighbours would rebuild the branch into somebody else's item.

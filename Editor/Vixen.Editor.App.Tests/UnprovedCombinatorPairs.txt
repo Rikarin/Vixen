@@ -24,8 +24,8 @@
 # What this gate is worth, said plainly: it catches the `compositor-editor > node-canvas` class of
 # defect — a rule whose two halves are real tags that never meet — at the moment the rule is written,
 # rather than when somebody notices a graph drawn at zero width. It does NOT catch a rule that is
-# live somewhere and wrong under the scope it was written for; that is the scoped gate, which is
-# still unbuilt (#531).
+# live somewhere and wrong under the scope it was written for; that is the scoped census beside
+# this file, `ScopedSelectors.txt`, which asks the matcher about each whole selector (#531).
 choice-list > button	Built only by a modal dialog: EditorProjects.cs:236 adds the list and its buttons while asking which project to open, and no sweep answers a dialog.
 compiled-scene-diagnostic > compiled-scene-severity	CompiledSceneView.vxml:103 emits one row per diagnostic; the document sweep opens an EMPTY .vxscene, which compiles with none.
 override-cell > textbox	⚠ The rule is correct and has no producer today. TargetOverrideMatrix builds the member's own drawer under the cell, StringDrawer is the only one rooted on a textbox, and neither import-settings mirror in the tree (TextureImportEdits, ModelImportEdits) declares a string member. Its three siblings — checkbox, numeric-input, select — come from the bool, numeric and enum members importers do have.

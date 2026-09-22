@@ -169,6 +169,14 @@ public readonly struct UiDiagnostics(UiDocument document) {
     /// </remarks>
     public int DrawListsChanged => document.DrawListsChanged;
 
+    /// <summary>How many elements have changed index among their siblings.</summary>
+    /// <remarks>
+    ///     A count of moves that moved: <c>UiDocument.Move</c> to the index an element already has
+    ///     is not one. A keyed list that rotates by one item and reports one here has been
+    ///     reconciled minimally; one that reports its length has been walked.
+    /// </remarks>
+    public int ElementsMoved => document.ElementsMoved;
+
     /// <summary>How many times a binding in this document has thrown and been suspended.</summary>
     /// <remarks>
     ///     <para>
@@ -348,6 +356,17 @@ public partial class UiDocument {
 
     /// <summary>How many of those rebuilds produced drawing that differs from the frame before.</summary>
     internal int DrawListsChanged { get; private set; }
+
+    /// <summary>How many times an element has changed index among its siblings.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Counts a move that moved, not a call to <c>Move</c>.</b> The reconciler asks for a
+    ///     position per element it owns and <c>Move</c> returns at once when the element is already
+    ///     there, so the number a <c>@for</c> costs is the number of elements that actually changed
+    ///     place — each of which is a layout remove-and-insert and a style-tree move that restyles
+    ///     the siblings it passed. It is what makes "a rotation by one costs one move" a property a
+    ///     test can state as work rather than as time.
+    /// </remarks>
+    internal int ElementsMoved { get; private set; }
 
     /// <summary>How many effects in this document have been suspended after misbehaving.</summary>
     internal int BrokenBindings { get; private set; }
