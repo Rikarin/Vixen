@@ -102,6 +102,15 @@ that ships decides what it looks like and registers its own asset. Nothing found
 the document has no face, every label measures zero, and the controls draw their boxes exactly as
 before. Text is a thing an element has, not a thing the layout requires.
 
+⚠ **It borrows a fixed-pitch face too, and registers that one under a name: `monospace`.**
+`FontRegistry` has no generic families, so a stylesheet's `font-family: monospace` is an ordinary
+family lookup, and until #1259 nothing in the tree registered one — every such declaration fell
+through to `Default`, and `CodeEditor`, whose caret is `column × CharacterWidth`, drew code in the
+UI face with the caret two thirds of a cell off after an `i`. `InstallMonospace` runs after
+`Install` and never becomes the default. The editor host calls the same method after its shipped
+Open Sans, which is the interim its own `Fonts` doctrine argues against: a shipped fixed-pitch face
+is a licence decision, filed as #1315 rather than made there.
+
 ## The user-agent stylesheet
 
 `UiApplication` loads four declarations of its own, at `StyleOrigin.UserAgent`, so anything an

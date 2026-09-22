@@ -162,6 +162,15 @@ this as its own case rather than as a stricter kind of reading.
         NOT transcribed — generated from the two sides and committed as a
         reviewable ledger of where they disagree. Listed here because the
         Chromium half of every row is Parley's expected value.
+      Core/Vixen.Ui.Tests/ChromeBreakPositionTests.cs
+        NOT transcribed and carrying nothing of Parley's — its expected values
+        were read from Chrome directly, in this repository's own face, with the
+        fixture beside it. Listed because it names Parley twice in prose: once
+        to say why that browser reading was taken rather than Parley's recorded
+        CSVs, and once because the seven paragraphs it and Chrome disagree about
+        are exactly the deltas the ledger above already holds. The sweep that
+        keeps this section honest cannot tell a citation from a transcription,
+        which is the right way round for it to err.
 
   text-rendering-tests
     Apache-2.0, fonts under OFL-1.1 — https://github.com/unicode-org/text-rendering-tests

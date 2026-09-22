@@ -85,4 +85,83 @@ public static class SystemFonts {
             yield return "/usr/share/fonts/TTF/DejaVuSans.ttf";
         }
     }
+
+    /// <summary>The generic family name a stylesheet uses for a fixed-pitch face.</summary>
+    /// <remarks>
+    ///     CSS's own keyword, registered as an ordinary family name because <c>FontRegistry</c> has
+    ///     no notion of a generic family: a declaration that names nothing registered resolves to
+    ///     <c>Default</c>, and for a document whose default is a UI face that is a code editor
+    ///     drawn in a proportional font.
+    /// </remarks>
+    public const string MonospaceFamily = "monospace";
+
+    /// <summary>Registers the machine's fixed-pitch face under <see cref="MonospaceFamily" />, if one can be found.</summary>
+    /// <param name="document">The document.</param>
+    /// <returns>Whether one was found.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The family it registers is not decoration.</b> <c>CodeEditor</c> turns a column
+    ///         into an x by multiplying a one-digit probe, so a document whose
+    ///         <c>font-family: monospace</c> resolves to the UI face puts the caret, the selection
+    ///         and every click in the wrong place — an <c>i</c> is a third of a cell wide in a
+    ///         proportional face. Until #1259 nothing in the tree registered a family by this name,
+    ///         so every declaration of it fell through to <c>Default</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Never the default.</b> <c>FontRegistry.Register</c> makes the first face
+    ///         registered the document's default, so on a document with no face yet this would make
+    ///         every label monospaced; the default is put back to what it was. Call this after
+    ///         <see cref="Install" /> or after the application's own face, not instead of either.
+    ///     </para>
+    /// </remarks>
+    public static bool InstallMonospace(UiDocument document) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        foreach (var path in MonospaceCandidates()) {
+            if (!File.Exists(path)) {
+                continue;
+            }
+
+            try {
+                var face = FontFace.Load(File.ReadAllBytes(path), name: Path.GetFileNameWithoutExtension(path));
+                var standby = document.Fonts.Default;
+
+                document.Fonts.Register(MonospaceFamily, face);
+                document.Fonts.Default = standby;
+
+                return true;
+            } catch (InvalidDataException) {
+                // As in `Install`: the next candidate, not an exception.
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Where a plain TrueType fixed-pitch face tends to live, best first.</summary>
+    /// <remarks>
+    ///     The same rule as <see cref="Candidates" />: single-face files only. macOS's Menlo and
+    ///     Monaco are collections, so Courier New from the supplemental directory is what is left.
+    /// </remarks>
+    public static IEnumerable<string> MonospaceCandidates() {
+        if (OperatingSystem.IsMacOS()) {
+            yield return "/System/Library/Fonts/Supplemental/Courier New.ttf";
+            yield return "/System/Library/Fonts/Supplemental/Andale Mono.ttf";
+            yield return "/Library/Fonts/Courier New.ttf";
+        }
+
+        if (OperatingSystem.IsWindows()) {
+            yield return @"C:\Windows\Fonts\consola.ttf";
+            yield return @"C:\Windows\Fonts\CascadiaMono.ttf";
+            yield return @"C:\Windows\Fonts\lucon.ttf";
+            yield return @"C:\Windows\Fonts\cour.ttf";
+        }
+
+        if (OperatingSystem.IsLinux()) {
+            yield return "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf";
+            yield return "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf";
+            yield return "/usr/share/fonts/liberation-fonts/LiberationMono-Regular.ttf";
+            yield return "/usr/share/fonts/TTF/DejaVuSansMono.ttf";
+        }
+    }
 }

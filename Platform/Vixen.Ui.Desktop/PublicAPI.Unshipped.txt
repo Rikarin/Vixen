@@ -85,9 +85,12 @@ Vixen.Ui.Desktop.UiWindowSurface.Tessellate(Vixen.Ui.Text.Rasterizing.GlyphField
 Vixen.Ui.Desktop.UiWindowSurface.UiWindowSurface(Vixen.Ui.UiSurface surface, Vixen.Platform.IWindow window) -> void
 Vixen.Ui.Desktop.UiWindowSurface.Viewport.get -> Vixen.Core.Mathematics.Int2
 Vixen.Ui.Desktop.UiWindowSurface.Window.get -> Vixen.Platform.IWindow
+const Vixen.Ui.Desktop.SystemFonts.MonospaceFamily = "monospace" -> string
 const Vixen.Ui.Desktop.UiApplication.ContentClass = "ui-window-content" -> string
 static Vixen.Ui.Desktop.SystemFonts.Candidates() -> System.Collections.Generic.IEnumerable<string>
 static Vixen.Ui.Desktop.SystemFonts.Install(Vixen.Ui.UiDocument document) -> bool
+static Vixen.Ui.Desktop.SystemFonts.InstallMonospace(Vixen.Ui.UiDocument document) -> bool
+static Vixen.Ui.Desktop.SystemFonts.MonospaceCandidates() -> System.Collections.Generic.IEnumerable<string>
 static Vixen.Ui.Desktop.UiApplication.Run(Vixen.Ui.Desktop.UiApplicationOptions options) -> int
 static Vixen.Ui.Desktop.UiApplication.Run(Vixen.Ui.Desktop.UiApplicationOptions options, params System.ReadOnlySpan<string> arguments) -> int
 static Vixen.Ui.Desktop.UiDevelopment.Mount.get -> System.Func<Vixen.Ui.UiDocument, Vixen.Ui.UiElement, System.Func<Vixen.Ui.Composition.Component>, Vixen.Ui.Composition.Component>?
