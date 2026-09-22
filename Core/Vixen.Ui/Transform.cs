@@ -146,6 +146,17 @@ sealed class TransformReader {
         var about = Origin(element, metrics);
         var composed = UiTransform.Identity;
 
+        // ⚠ <b>The spatial path carries a 4×4 all the way to the end, because the parent's
+        // perspective is the LAST factor and the reduction does not commute with it.</b> `rotate` and
+        // `scale` are the element's own properties and Transforms 2 §3 puts them inside its
+        // `transform`; §6 then projects the whole of that through the parent's vanishing point. So a
+        // perspective multiplied in beside the list — before these two — reads as a rotation seen
+        // through the parent's eye and THEN scaled, which is a different picture whenever the
+        // transform origin and the vanishing point differ. It is exactly right when they coincide,
+        // which is why a two-element fixture written the natural way cannot see it.
+        var spatial = false;
+        var composition = Matrix4x4.Identity;
+
         if (hasList) {
             // ⚠ <b>The list is innermost, and that is the specification's order rather than the
             // written one.</b> Transforms 2 §3 builds the matrix as translate, then rotate, then
@@ -158,26 +169,46 @@ sealed class TransformReader {
             // separate properties and are not made invalid by their neighbour. Returning nothing at
             // all here would let one `perspective()` somebody pasted in cancel a rotation two lines
             // above it.
-            if (Functions(values.NameOf(written), element, metrics, out var read, out var spatial)) {
+            if (Functions(values.NameOf(written), element, metrics, out var read, out var isSpatial)) {
                 // ⚠ <b>Two branches over one specification, and the flat one is here so that nothing
                 // affine moves by a bit.</b> `UiTransform.About` is a closed form; folding the origin
                 // in four dimensions is two matrix products, and the two differ in the last bit — on
                 // a picture every committed screenshot in `Vixen.Ui.Controls.Tests` was rendered
                 // against. A list with no z in it cannot tell a 4×4 composition from the old one,
                 // which is why `spatial` selects rather than a reader deciding.
-                composed = spatial
-                    ? Reduce(Matrix4x4.Multiply(Fold(read, about), Established(element, metrics)))
-                    : Reduce(read).About(about);
+                spatial = isSpatial;
+
+                if (isSpatial) {
+                    composition = Fold(read, about);
+                } else {
+                    composed = Reduce(read).About(about);
+                }
             }
         }
 
         if (hasScale) {
             Scaling(parser.Parse(scaling), out var x, out var y);
-            composed = composed.Then(UiTransform.Scale(x, y, about));
+            var step = UiTransform.Scale(x, y, about);
+
+            if (spatial) {
+                composition = Matrix4x4.Multiply(composition, Lift(step));
+            } else {
+                composed = composed.Then(step);
+            }
         }
 
         if (hasRotation) {
-            composed = composed.Then(UiTransform.Rotation(Degrees(parser.Parse(rotation)), about));
+            var step = UiTransform.Rotation(Degrees(parser.Parse(rotation)), about);
+
+            if (spatial) {
+                composition = Matrix4x4.Multiply(composition, Lift(step));
+            } else {
+                composed = composed.Then(step);
+            }
+        }
+
+        if (spatial) {
+            composed = Reduce(Matrix4x4.Multiply(composition, Established(element, metrics)));
         }
 
         return composed.IsIdentity ? null : composed;
@@ -378,6 +409,20 @@ sealed class TransformReader {
     ///         would need is <c>transform-style: preserve-3d</c>, which is a rendering model with its
     ///         own sorting rather than a matrix change and is refused (#550).
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And measured in the PARENT's font, because the declaration is the parent's.</b>
+    ///         <c>perspective</c> and <c>perspective-origin</c> are the only two properties this
+    ///         reader takes off an element other than the one it was called for, so they are the only
+    ///         two whose <c>em</c> — and whose <c>perspective-origin: 50%</c>, against the parent's
+    ///         box — belongs to a different element. A stage at <c>font-size: 32px</c> declaring
+    ///         <c>perspective: 10em</c> means 320 points however small the card inside it is, and
+    ///         resolving it in the caller's context gives a plausible number rather than an error.
+    ///         ⚠ The caller's context is <i>not</i> the child's own, either: <c>UiDocument.Accumulate</c>
+    ///         threads one surface-wide <see cref="LengthContext" /> through the whole tree, so every
+    ///         <c>em</c> in every <c>transform</c> resolves against the ROOT font size. That is a
+    ///         wider gap than this one and is not fixed here; what is fixed is the one declaration
+    ///         whose owner is known to differ from the element being measured.
+    ///     </para>
     /// </remarks>
     Matrix4x4 Established(UiElement element, LengthContext metrics) {
         if (element.Parent is not { } parent) {
@@ -388,7 +433,8 @@ sealed class TransformReader {
             return Matrix4x4.Identity;
         }
 
-        var length = metrics.ToLength(parser.Parse(declared));
+        var context = metrics.WithFontSize(parent.FontSize).WithLineHeight(parent.LineHeight);
+        var length = context.ToLength(parser.Parse(declared));
 
         // ⚠ A non-positive distance is not a flat element, it is an invalid declaration: CSS
         // Transforms 2 § 6 requires a positive length, and a zero would put every point of the plane
@@ -397,7 +443,7 @@ sealed class TransformReader {
             return Matrix4x4.Identity;
         }
 
-        var vanishing = Origin(parent, metrics, perspectiveOrigin);
+        var vanishing = Origin(parent, context, perspectiveOrigin);
 
         var projection = Projection(length.Value);
 
@@ -760,6 +806,19 @@ sealed class TransformReader {
             0f, 0f, 1f, 0f,
             dx, dy, 0f, 1f
         );
+
+    /// <summary>A 2D affine step back up into the four dimensions the spatial path composes in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only ever handed a <see cref="UiTransform.Scale(float, float, Vector2)" /> or a
+    ///     <see cref="UiTransform.Rotation" />, both of which are affine by construction</b> — their
+    ///     <c>M13</c>, <c>M23</c> are zero and their <c>M33</c> is one, so there is no projective part
+    ///     for <see cref="Flat" />'s zeroed z row and column to lose. Lifting the step rather than
+    ///     re-deriving the matrix here is what keeps the spatial path's cells bit-identical to the
+    ///     flat path's for the same declaration; a hand-written sine beside <c>UiTransform.Rotation</c>
+    ///     is two spellings of one rotation that agree until one of them is tuned.
+    /// </remarks>
+    static Matrix4x4 Lift(in UiTransform transform) =>
+        Flat(transform.M11, transform.M12, transform.M21, transform.M22, transform.Dx, transform.Dy);
 
     /// <summary>A cosine and a sine of an angle in degrees.</summary>
     static (float Cos, float Sin) Turn(float degrees) {

@@ -953,6 +953,133 @@ public class TransformTests {
     }
 
     /// <summary>
+    ///     The parent's <c>perspective</c> is outermost — outside the element's own <c>scale</c> and
+    ///     <c>rotate</c>, not merely outside its <c>transform</c> list.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two of the element's three transform properties at once, and an origin that is
+    ///         not the vanishing point, because neither alone can see this.</b> Transforms 2 § 3
+    ///         composes <c>transform</c>, then <c>scale</c>, then <c>rotate</c> into the element's own
+    ///         matrix, and § 6 projects <i>that</i> through the parent's vanishing point. Folding the
+    ///         perspective in beside the list instead scales and rotates a picture that has already
+    ///         been projected. The two agree exactly whenever <c>transform-origin</c> and
+    ///         <c>perspective-origin</c> coincide — a 2D scale or rotation about the projection's own
+    ///         centre genuinely does commute with it — so a fixture with one centred child, which is
+    ///         how one is written without thinking about it, proves nothing here.
+    ///     </para>
+    ///     <para>
+    ///         <b>Closed form, derived rather than recorded.</b> The stage is 300 square at the
+    ///         origin, so its vanishing point is (150, 150); each card is 100 square at (200, 60), so
+    ///         its <c>transform-origin</c> is (250, 110) and both coordinates of the two centres
+    ///         differ. A card point at <c>u</c> below the origin leaves <c>rotateX(60deg)</c> at
+    ///         <c>(0, u/2, u·sin60)</c>, and the projection's <c>w</c> is <c>1 − u·sin60 / 200</c> —
+    ///         0.78349365 for the bottom edge at <c>u = 50</c>. Carrying that through the spec's order
+    ///         puts the bottom-centre of the scaled card at <c>100/w + 150</c> across and
+    ///         <c>−2.5/w + 150</c> down; carrying it through the other order gives <c>200/w + 50</c>
+    ///         and <c>−22.5/w + 170</c>, which are the second pair of numbers below. Both are written
+    ///         out, so a failure says which composition the reader performed rather than only that it
+    ///         missed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The scale is non-uniform and the rotation is a half turn for the same reason.</b>
+    ///         A uniform scale about a point whose y already matches the vanishing point's moves only
+    ///         x, and half of the evidence disappears.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_parents_perspective_is_applied_after_the_elements_own_scale_and_rotate() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .stage { position: absolute; left: 0px; top: 0px; width: 300px; height: 300px;
+                     perspective: 200px; }
+            .scaled { position: absolute; left: 200px; top: 60px; width: 100px; height: 100px;
+                      background-color: #111; transform: rotateX(60deg); scale: 2 1.5; }
+            .turned { position: absolute; left: 200px; top: 60px; width: 100px; height: 100px;
+                      background-color: #222; transform: rotateX(60deg); rotate: 180deg; }
+            """,
+            document => {
+                var stage = document.Root.Add("div", classNames: "stage");
+                stage.Add("div", classNames: "scaled");
+                stage.Add("div", classNames: "turned");
+            }
+        );
+
+        var scaled = Assert.IsType<UiTransform>(document.Root.Children[0].Children[0].Transform);
+        var turned = Assert.IsType<UiTransform>(document.Root.Children[0].Children[1].Transform);
+
+        // The instrument first: both really are projective, so a pair of numbers that happened to
+        // match could not be two affines that never met a perspective at all.
+        Assert.False(scaled.IsAffine);
+        Assert.False(turned.IsAffine);
+
+        var bottom = new Vector2(250f, 160f);
+
+        var scaledAt = scaled.Apply(bottom);
+        Assert.Equal(277.6335f, scaledAt.X, 0.01f);
+        Assert.Equal(146.8092f, scaledAt.Y, 0.01f);
+
+        // ⚠ And not where a perspective folded in beside the list puts it, which is 27.6 points
+        // across and 5.5 down from the right answer — a difference no test on a centred child can
+        // produce and one a card under a `perspective-normal` stage produces immediately.
+        Assert.NotEqual(305.2670f, scaledAt.X, 0.01f);
+        Assert.NotEqual(141.2825f, scaledAt.Y, 0.01f);
+
+        var turnedAt = turned.Apply(bottom);
+        Assert.Equal(277.6335f, turnedAt.X, 0.01f);
+        Assert.Equal(67.0382f, turnedAt.Y, 0.01f);
+        Assert.NotEqual(222.3665f, turnedAt.X, 0.01f);
+        Assert.NotEqual(89.1450f, turnedAt.Y, 0.01f);
+    }
+
+    /// <summary>
+    ///     A <c>perspective</c> written in <c>em</c> is measured in the font of the element that
+    ///     declared it, which is the parent.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The only two properties this reader takes off another element are the only two
+    ///         whose <c>em</c> belongs to another element.</b> A stage at <c>font-size: 32px</c>
+    ///         declaring <c>perspective: 10em</c> means 320 points; measuring it in the caller's
+    ///         context makes it 160, which is a projection twice as strong as authored and nothing
+    ///         says so.
+    ///     </para>
+    ///     <para>
+    ///         The card's bottom-centre is 50 below its origin, so <c>w = 1 − 50·sin60 / d</c> and the
+    ///         point lands at <c>−50/w + 120</c> across. At the parent's 320 that is 62.18; at the
+    ///         160 a caller-context reading gives, 51.45. The card's own <c>font-size: 16px</c> is
+    ///         written explicitly so the two fonts cannot be confused by inheritance.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_perspective_in_em_is_measured_in_the_parents_font() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .stage { position: absolute; left: 20px; top: 20px; width: 200px; height: 200px;
+                     font-size: 32px; perspective: 10em; }
+            .card { position: absolute; left: 0px; top: 0px; width: 100px; height: 100px;
+                    font-size: 16px; background-color: #111; transform: rotateX(60deg); }
+            """,
+            document => document.Root.Add("div", classNames: "stage").Add("div", classNames: "card")
+        );
+
+        var card = Assert.IsType<UiTransform>(document.Root.Children[0].Children[0].Transform);
+        Assert.False(card.IsAffine);
+
+        var at = card.Apply(new Vector2(70f, 120f));
+
+        Assert.Equal(62.1756f, at.X, 0.01f);
+        Assert.Equal(91.0878f, at.Y, 0.01f);
+
+        // ⚠ Not the half-distance a reading in the caller's context gives. Both are plausible
+        // pictures of a card tipped away, which is why the number is named rather than bounded.
+        Assert.NotEqual(51.4473f, at.X, 0.01f);
+        Assert.NotEqual(85.7237f, at.Y, 0.01f);
+    }
+
+    /// <summary>
     ///     <c>rotate3d</c> about x and <c>matrix3d</c> spelling a perspective are the same matrices
     ///     the named functions are.
     /// </summary>
