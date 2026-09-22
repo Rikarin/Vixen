@@ -88,6 +88,9 @@ public static class BlockoutStrings {
             new(BlockoutMode.EditableCommand, "Make Mesh Editable"),
             new(BlockoutMode.ExportObjCommand, "Export OBJ…"),
             new(BlockoutMode.ExportGltfCommand, "Export glTF…"),
+            // ⚠ Was EditorStrings.CommandBlockoutToggleMesh (#1301): the shell held one of this
+            // mode's command labels out of the family the other sixty-nine are in.
+            new(BlockoutMode.ToggleMeshCommand, "Enter / Leave Mesh"),
             .. BlockoutMode.Kinds.Select(
                 kind => new KeyValuePair<string, string>(BlockoutMode.KindCommand(kind), "Shape: " + kind)
             ),
@@ -98,11 +101,58 @@ public static class BlockoutStrings {
         ]
     );
 
+    // ── The names the shell used to keep a copy of ─────────────────────────
+    //
+    // ⚠ Declared in EditorStrings until #1301, one assembly up from the only code that reads them.
+    // The shell cannot name this class (StringContributions.cs says why), so the ids it held for
+    // this toolset were a copy the toolset could not own — a translator saw them under the
+    // editor's own words, and a toolset shipped out of tree would have had no way to add its own.
+    // The ids themselves are unchanged, so a catalogue written against the old table still finds
+    // every one of them.
+
+    /// <summary>The <c>Blockout</c> command category.</summary>
+    public static StringId CategoryBlockout { get; } = new("editor.category.blockout", "Blockout");
+
+    /// <summary>The blockout mode, as the mode bar names it.</summary>
+    public static StringId ModeBlockout { get; } = new("editor.mode.blockout", "Blockout");
+
+    /// <summary>The <c>Blockout</c> panel.</summary>
+    public static StringId PanelBlockout { get; } = new("editor.panel.blockout", "Blockout");
+
+    /// <summary>The <c>Blockout UV</c> panel.</summary>
+    public static StringId PanelBlockoutUv { get; } = new("editor.panel.blockout-uv", "Blockout UV");
+
+    /// <summary>The <c>Create</c> submenu the mode adds under Scene.</summary>
+    public static StringId MenuCreate { get; } = new("editor.menu.blockout-create", "Create");
+
+    /// <summary>The <c>Shape</c> submenu under Create.</summary>
+    public static StringId MenuShape { get; } = new("editor.menu.blockout-shape", "Shape");
+
+    /// <summary>The <c>Surfaces</c> submenu the mode adds under Scene.</summary>
+    public static StringId MenuSurfaces { get; } = new("editor.menu.blockout-surfaces", "Surfaces");
+
+    /// <summary>The <c>Boolean</c> submenu the mode adds under Scene.</summary>
+    public static StringId MenuBoolean { get; } = new("editor.menu.blockout-boolean", "Boolean");
+
+    /// <summary>The <c>Handoff</c> submenu the mode adds under Scene.</summary>
+    public static StringId MenuHandoff { get; } = new("editor.menu.blockout-handoff", "Handoff");
+
     /// <summary>What a translator's template for this toolset holds.</summary>
     /// <remarks>
     ///     Spread from the family, which is what puts every member of it in the template. A family
-    ///     left out of this list would hide sixty-nine strings rather than one, which is why
+    ///     left out of this list would hide seventy strings rather than one, which is why
     ///     <c>VXS0310</c> counts a <see cref="StringFamily" /> property as a declaration.
     /// </remarks>
-    public static IReadOnlyList<StringId> All { get; } = [.. Commands.All];
+    public static IReadOnlyList<StringId> All { get; } = [
+        .. Commands.All,
+        CategoryBlockout,
+        ModeBlockout,
+        PanelBlockout,
+        PanelBlockoutUv,
+        MenuCreate,
+        MenuShape,
+        MenuSurfaces,
+        MenuBoolean,
+        MenuHandoff
+    ];
 }

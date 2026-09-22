@@ -63,7 +63,7 @@ public sealed partial class BlockoutModule {
     void SettingsPanels() {
         Shell.RegisterPanel(
             SettingsPanel,
-            EditorStrings.PanelBlockout,
+            BlockoutStrings.PanelBlockout,
             panel => {
                 panel.WhenPressedIn(() => Shell.Context = BlockoutMode.BlockoutContext);
 
@@ -114,7 +114,7 @@ public sealed partial class BlockoutModule {
 
         Shell.RegisterPanel(
             UvPanel,
-            EditorStrings.PanelBlockoutUv,
+            BlockoutStrings.PanelBlockoutUv,
             panel => {
                 var view = panel.Add<BlockoutUvView>();
 

@@ -440,9 +440,6 @@ public static class EditorStrings {
     /// <summary>The <c>Assets</c> command category.</summary>
     public static StringId CategoryAssets { get; } = new("editor.category.assets", "Assets");
 
-    /// <summary>The <c>Blockout</c> command category.</summary>
-    public static StringId CategoryBlockout { get; } = new("editor.category.blockout", "Blockout");
-
     /// <summary>The <c>Build</c> command category.</summary>
     public static StringId CategoryBuild { get; } = new("editor.category.build", "Build");
 
@@ -452,23 +449,14 @@ public static class EditorStrings {
     /// <summary>The <c>Entity</c> command category.</summary>
     public static StringId CategoryEntity { get; } = new("editor.category.entity", "Entity");
 
-    /// <summary>The <c>Foliage</c> command category.</summary>
-    public static StringId CategoryFoliage { get; } = new("editor.category.foliage", "Foliage");
-
     /// <summary>The <c>Play</c> command category.</summary>
     public static StringId CategoryPlay { get; } = new("editor.category.play", "Play");
 
     /// <summary>The <c>Scene</c> command category.</summary>
     public static StringId CategoryScene { get; } = new("editor.category.scene", "Scene");
 
-    /// <summary>The <c>Terrain</c> command category.</summary>
-    public static StringId CategoryTerrain { get; } = new("editor.category.terrain", "Terrain");
-
     /// <summary>The <c>Tools</c> command category.</summary>
     public static StringId CategoryTools { get; } = new("editor.category.tools", "Tools");
-
-    /// <summary>The <c>Water</c> command category.</summary>
-    public static StringId CategoryWater { get; } = new("editor.category.water", "Water");
 
     /// <summary>The <c>Bake Mesh Maps…</c> command.</summary>
     public static StringId CommandAssetsBakeMeshMaps { get; } =
@@ -522,10 +510,6 @@ public static class EditorStrings {
     /// <summary>The <c>Show in File Manager</c> command.</summary>
     public static StringId CommandAssetsShowInExplorer { get; } =
         new("editor.command.assets.show-in-explorer", "Show in File Manager");
-
-    /// <summary>The <c>Enter / Leave Mesh</c> command.</summary>
-    public static StringId CommandBlockoutToggleMesh { get; } =
-        new("editor.command.blockout.toggle-mesh", "Enter / Leave Mesh");
 
     /// <summary>The <c>Build Content</c> command.</summary>
     public static StringId CommandBuildContent { get; } = new("editor.command.build-content", "Build Content");
@@ -826,10 +810,6 @@ public static class EditorStrings {
     public static StringId CommandSceneWorldSettings { get; } =
         new("editor.command.scene.world-settings", "World Settings…");
 
-    /// <summary>The <c>Rebuild Editor Scripts</c> command.</summary>
-    public static StringId CommandScriptsRebuild { get; } =
-        new("editor.command.scripts.rebuild", "Rebuild Editor Scripts");
-
     /// <summary>The <c>Generate Diagnostics Report…</c> command.</summary>
     public static StringId CommandToolsDiagnosticsReport { get; } =
         new("editor.command.tools.diagnostics-report", "Generate Diagnostics Report…");
@@ -875,21 +855,6 @@ public static class EditorStrings {
 
     /// <summary>The <c>Shading</c> workspace layout.</summary>
     public static StringId LayoutShading { get; } = new("editor.layout.shading", "Shading");
-
-    /// <summary>The <c>Boolean</c> menu.</summary>
-    public static StringId MenuBlockoutBoolean { get; } = new("editor.menu.blockout-boolean", "Boolean");
-
-    /// <summary>The <c>Create</c> menu.</summary>
-    public static StringId MenuBlockoutCreate { get; } = new("editor.menu.blockout-create", "Create");
-
-    /// <summary>The <c>Handoff</c> menu.</summary>
-    public static StringId MenuBlockoutHandoff { get; } = new("editor.menu.blockout-handoff", "Handoff");
-
-    /// <summary>The <c>Shape</c> menu.</summary>
-    public static StringId MenuBlockoutShape { get; } = new("editor.menu.blockout-shape", "Shape");
-
-    /// <summary>The <c>Surfaces</c> menu.</summary>
-    public static StringId MenuBlockoutSurfaces { get; } = new("editor.menu.blockout-surfaces", "Surfaces");
 
     /// <summary>The <c>Bookmarks</c> menu.</summary>
     public static StringId MenuBookmarks { get; } = new("editor.menu.bookmarks", "Bookmarks");
@@ -960,29 +925,8 @@ public static class EditorStrings {
     /// <summary>The <c>Work Plane</c> menu.</summary>
     public static StringId MenuWorkPlane { get; } = new("editor.menu.work-plane", "Work Plane");
 
-    /// <summary>What the mode strip calls the <c>Blockout</c> mode.</summary>
-    public static StringId ModeBlockout { get; } = new("editor.mode.blockout", "Blockout");
-
-    /// <summary>What the mode strip calls the <c>Foliage</c> mode.</summary>
-    public static StringId ModeFoliage { get; } = new("editor.mode.foliage", "Foliage");
-
-    /// <summary>What the mode strip calls the <c>Terrain</c> mode.</summary>
-    public static StringId ModeTerrain { get; } = new("editor.mode.terrain", "Terrain");
-
-    /// <summary>What the mode strip calls the <c>Water</c> mode.</summary>
-    public static StringId ModeWater { get; } = new("editor.mode.water", "Water");
-
     /// <summary>The <c>Addressables</c> panel.</summary>
     public static StringId PanelAddressables { get; } = new("editor.panel.addressables", "Addressables");
-
-    /// <summary>The <c>Agent Debugger</c> panel.</summary>
-    public static StringId PanelAiDebugger { get; } = new("editor.panel.ai-debugger", "Agent Debugger");
-
-    /// <summary>The <c>Blockout</c> panel.</summary>
-    public static StringId PanelBlockout { get; } = new("editor.panel.blockout", "Blockout");
-
-    /// <summary>The <c>Blockout UV</c> panel.</summary>
-    public static StringId PanelBlockoutUv { get; } = new("editor.panel.blockout-uv", "Blockout UV");
 
     /// <summary>The <c>Build Settings</c> panel.</summary>
     public static StringId PanelBuild { get; } = new("editor.panel.build", "Build Settings");
@@ -990,29 +934,8 @@ public static class EditorStrings {
     /// <summary>The <c>Console</c> panel.</summary>
     public static StringId PanelConsole { get; } = new("editor.panel.console", "Console");
 
-    /// <summary>The <c>Devices</c> panel.</summary>
-    public static StringId PanelDevices { get; } = new("editor.panel.devices", "Devices");
-
-    /// <summary>The <c>Foliage</c> panel.</summary>
-    public static StringId PanelFoliage { get; } = new("editor.panel.foliage", "Foliage");
-
-    /// <summary>The <c>Frame Debugger</c> panel.</summary>
-    public static StringId PanelFrameDebugger { get; } = new("editor.panel.frame-debugger", "Frame Debugger");
-
-    /// <summary>The <c>GPU</c> panel.</summary>
-    public static StringId PanelGpu { get; } = new("editor.panel.gpu", "GPU");
-
-    /// <summary>The <c>Grass</c> panel.</summary>
-    public static StringId PanelGrass { get; } = new("editor.panel.grass", "Grass");
-
-    /// <summary>The <c>Growth</c> panel.</summary>
-    public static StringId PanelGrowth { get; } = new("editor.panel.growth", "Growth");
-
     /// <summary>The <c>Hierarchy</c> panel.</summary>
     public static StringId PanelHierarchy { get; } = new("editor.panel.hierarchy", "Hierarchy");
-
-    /// <summary>The <c>Input Debug</c> panel.</summary>
-    public static StringId PanelInputDebug { get; } = new("editor.panel.input-debug", "Input Debug");
 
     /// <summary>The <c>Inspector</c> panel.</summary>
     public static StringId PanelInspector { get; } = new("editor.panel.inspector", "Inspector");
@@ -1020,14 +943,8 @@ public static class EditorStrings {
     /// <summary>The <c>Inspector 2</c> panel.</summary>
     public static StringId PanelInspector2 { get; } = new("editor.panel.inspector2", "Inspector 2");
 
-    /// <summary>The <c>Layer Stack</c> panel.</summary>
-    public static StringId PanelLayerStack { get; } = new("editor.panel.layer-stack", "Layer Stack");
-
     /// <summary>The <c>Lighting</c> panel.</summary>
     public static StringId PanelLighting { get; } = new("editor.panel.lighting", "Lighting");
-
-    /// <summary>The <c>Memory</c> panel.</summary>
-    public static StringId PanelMemory { get; } = new("editor.panel.memory", "Memory");
 
     /// <summary>The <c>Bake Mesh Maps</c> panel.</summary>
     public static StringId PanelMeshMapBake { get; } = new("editor.panel.mesh-map-bake", "Bake Mesh Maps");
@@ -1035,17 +952,8 @@ public static class EditorStrings {
     /// <summary>The <c>Navigation</c> panel.</summary>
     public static StringId PanelNavigation { get; } = new("editor.panel.navigation", "Navigation");
 
-    /// <summary>The <c>Network</c> panel.</summary>
-    public static StringId PanelNetwork { get; } = new("editor.panel.network", "Network");
-
-    /// <summary>The <c>Profiler</c> panel.</summary>
-    public static StringId PanelProfiler { get; } = new("editor.panel.profiler", "Profiler");
-
     /// <summary>The <c>Project</c> panel.</summary>
     public static StringId PanelProject { get; } = new("editor.panel.project", "Project");
-
-    /// <summary>The <c>Remote Inspector</c> panel.</summary>
-    public static StringId PanelRemoteInspector { get; } = new("editor.panel.remote-inspector", "Remote Inspector");
 
     /// <summary>The <c>Scene</c> panel.</summary>
     public static StringId PanelScene { get; } = new("editor.panel.scene", "Scene");
@@ -1053,35 +961,8 @@ public static class EditorStrings {
     /// <summary>The <c>Scenes</c> panel.</summary>
     public static StringId PanelScenes { get; } = new("editor.panel.scenes", "Scenes");
 
-    /// <summary>The <c>Editor Scripts</c> panel.</summary>
-    public static StringId PanelScripts { get; } = new("editor.panel.scripts", "Editor Scripts");
-
-    /// <summary>The <c>Splines</c> panel.</summary>
-    public static StringId PanelSplines { get; } = new("editor.panel.splines", "Splines");
-
-    /// <summary>The <c>Statistics</c> panel.</summary>
-    public static StringId PanelStatistics { get; } = new("editor.panel.statistics", "Statistics");
-
-    /// <summary>The <c>Terrain</c> panel.</summary>
-    public static StringId PanelTerrain { get; } = new("editor.panel.terrain", "Terrain");
-
-    /// <summary>The <c>Texture Graph</c> panel.</summary>
-    public static StringId PanelTextureGraph { get; } = new("editor.panel.texture-graph", "Texture Graph");
-
-    /// <summary>The <c>Paint</c> panel.</summary>
-    public static StringId PanelTexturePaint { get; } = new("editor.panel.texture-paint", "Paint");
-
-    /// <summary>The <c>Paint (3D)</c> panel.</summary>
-    public static StringId PanelTexturePaint3d { get; } = new("editor.panel.texture-paint-3d", "Paint (3D)");
-
     /// <summary>The <c>UI Diagnostics</c> panel.</summary>
     public static StringId PanelUiDiagnostics { get; } = new("editor.panel.ui-diagnostics", "UI Diagnostics");
-
-    /// <summary>The <c>Water</c> panel.</summary>
-    public static StringId PanelWater { get; } = new("editor.panel.water", "Water");
-
-    /// <summary>The <c>Water Zone</c> panel.</summary>
-    public static StringId PanelWaterZone { get; } = new("editor.panel.water.zone", "Water Zone");
 
     /// <summary>The <c>World Settings</c> panel.</summary>
     public static StringId PanelWorld { get; } = new("editor.panel.world", "World Settings");
@@ -1375,16 +1256,12 @@ public static class EditorStrings {
         ProjectsNew,
         ProjectsMissing,
         CategoryAssets,
-        CategoryBlockout,
         CategoryBuild,
         CategoryCreate,
         CategoryEntity,
-        CategoryFoliage,
         CategoryPlay,
         CategoryScene,
-        CategoryTerrain,
         CategoryTools,
-        CategoryWater,
         CommandAssetsBakeMeshMaps,
         CommandAssetsCreate,
         CommandAssetsRevert,
@@ -1400,7 +1277,6 @@ public static class EditorStrings {
         CommandAssetsRename,
         CommandAssetsSelectDependencies,
         CommandAssetsShowInExplorer,
-        CommandBlockoutToggleMesh,
         CommandBuildContent,
         CommandBuildCleanLibrary,
         CommandBuildRebuildShaders,
@@ -1485,7 +1361,6 @@ public static class EditorStrings {
         CommandSceneSaveAllScenes,
         CommandSceneScenes,
         CommandSceneWorldSettings,
-        CommandScriptsRebuild,
         CommandToolsDiagnosticsReport,
         CommandToolsExportStrings,
         CommandToolsPlugins,
@@ -1500,11 +1375,6 @@ public static class EditorStrings {
         LayoutScene,
         LayoutSequencing,
         LayoutShading,
-        MenuBlockoutBoolean,
-        MenuBlockoutCreate,
-        MenuBlockoutHandoff,
-        MenuBlockoutShape,
-        MenuBlockoutSurfaces,
         MenuBookmarks,
         MenuBrowser,
         MenuBuildConfiguration,
@@ -1528,47 +1398,19 @@ public static class EditorStrings {
         MenuSpeed,
         MenuViewMode,
         MenuWorkPlane,
-        ModeBlockout,
-        ModeFoliage,
-        ModeTerrain,
-        ModeWater,
         PanelAddressables,
-        PanelAiDebugger,
-        PanelBlockout,
-        PanelBlockoutUv,
         PanelBuild,
         PanelConsole,
-        PanelDevices,
-        PanelFoliage,
-        PanelFrameDebugger,
-        PanelGpu,
-        PanelGrass,
-        PanelGrowth,
         PanelHierarchy,
-        PanelInputDebug,
         PanelInspector,
         PanelInspector2,
-        PanelLayerStack,
         PanelLighting,
-        PanelMemory,
         PanelMeshMapBake,
         PanelNavigation,
-        PanelNetwork,
-        PanelProfiler,
         PanelProject,
-        PanelRemoteInspector,
         PanelScene,
         PanelScenes,
-        PanelScripts,
-        PanelSplines,
-        PanelStatistics,
-        PanelTerrain,
-        PanelTextureGraph,
-        PanelTexturePaint,
-        PanelTexturePaint3d,
         PanelUiDiagnostics,
-        PanelWater,
-        PanelWaterZone,
         PanelWorld,
         SettingsAppearance,
         SettingsContent,

@@ -366,7 +366,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     void Panels(PluginContext context) {
         context.AddPanel(
             "profiler",
-            EditorStrings.PanelProfiler,
+            DiagnosticsStrings.PanelProfiler,
             panel => {
                 // ⚠ The profiler keeps its toolbar and its two grids outside its own scroller and
                 // scrolls only the flame chart, which is the one part with an unbounded number of
@@ -390,7 +390,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
 
         context.AddPanel(
             "gpu",
-            EditorStrings.PanelGpu,
+            DiagnosticsStrings.PanelGpu,
             panel => {
                 // ⚠ The timeline lays its bars out absolutely inside a `width: 100%` lane strip whose
                 // laid-out width it then reads back to place them. Every one of those three facts
@@ -418,7 +418,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
 
         context.AddPanel(
             "memory",
-            EditorStrings.PanelMemory,
+            DiagnosticsStrings.PanelMemory,
             panel => {
                 // Its own scroller, with the refresh button and the status line kept out of it.
                 panel.Scrolls = false;
@@ -448,7 +448,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
 
         context.AddPanel(
             "statistics",
-            EditorStrings.PanelStatistics,
+            DiagnosticsStrings.PanelStatistics,
             panel => {
                 panel.WhenPressedIn(() => shell.Context = DiagnosticsContext);
 
@@ -471,7 +471,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
 
         context.AddPanel(
             "network",
-            EditorStrings.PanelNetwork,
+            DiagnosticsStrings.PanelNetwork,
             panel => {
                 panel.WhenPressedIn(() => shell.Context = DiagnosticsContext);
 
@@ -506,7 +506,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
 
         context.AddPanel(
             "frame-debugger",
-            EditorStrings.PanelFrameDebugger,
+            DiagnosticsStrings.PanelFrameDebugger,
             panel => {
                 panel.WhenPressedIn(() => shell.Context = DiagnosticsContext);
 
@@ -520,7 +520,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
 
         context.AddPanel(
             "remote-inspector",
-            EditorStrings.PanelRemoteInspector,
+            DiagnosticsStrings.PanelRemoteInspector,
             panel => {
                 panel.WhenPressedIn(() => shell.Context = DiagnosticsContext);
 
@@ -530,7 +530,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
 
         context.AddPanel(
             "devices",
-            EditorStrings.PanelDevices,
+            DiagnosticsStrings.PanelDevices,
             panel => {
                 panel.WhenPressedIn(() => shell.Context = DiagnosticsContext);
 

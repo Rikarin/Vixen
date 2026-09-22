@@ -32,7 +32,7 @@ public sealed partial class WaterModule {
     void WaterPanels() {
         Shell.RegisterPanel(
             ZonePanel,
-            EditorStrings.PanelWaterZone,
+            WaterStrings.PanelWaterZone,
             panel => {
                 panel.WhenPressedIn(() => Shell.Context = WaterMode.WaterContext);
 
@@ -62,7 +62,7 @@ public sealed partial class WaterModule {
 
         Shell.RegisterPanel(
             BodyPanel,
-            EditorStrings.PanelWater,
+            WaterStrings.PanelWater,
             panel => {
                 panel.WhenPressedIn(() => Shell.Context = WaterMode.WaterContext);
 
