@@ -237,7 +237,7 @@ public class UiBlendTests {
     [Fact]
     public void Normal_and_an_unknown_mode_are_the_source() {
         Same(SourceA, UiBlend.Blend(UiBlendMode.Normal, BackdropA, SourceA), "normal");
-        Same(SourceA, UiBlend.Blend((UiBlendMode) 99, BackdropA, SourceA), "an unknown mode");
+        Same(SourceA, UiBlend.Blend((UiBlendMode)99, BackdropA, SourceA), "an unknown mode");
     }
 
     /// <summary>

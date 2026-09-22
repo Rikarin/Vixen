@@ -217,7 +217,7 @@ public class IdleFrameWorkTests {
 
         // The fixture draws something, so the product below is not zero times thirty.
         Assert.True(picture > 0, "the still window emitted no commands at all");
-        Assert.Equal((long) picture, document.Diagnostics.DrawCommandsEmitted);
+        Assert.Equal((long)picture, document.Diagnostics.DrawCommandsEmitted);
 
         for (var pass = 1; pass < Frames; pass++) {
             document.Update();
@@ -226,7 +226,7 @@ public class IdleFrameWorkTests {
 
         Assert.Equal(Frames, document.Diagnostics.DrawListsBuilt);
         Assert.Equal(1, document.Diagnostics.DrawListsChanged);
-        Assert.Equal((long) picture * Frames, document.Diagnostics.DrawCommandsEmitted);
+        Assert.Equal((long)picture * Frames, document.Diagnostics.DrawCommandsEmitted);
     }
 
     /// <summary>
@@ -247,7 +247,7 @@ public class IdleFrameWorkTests {
         var both = document.Drawing.Commands.Count + torn.Drawing.Commands.Count;
 
         Assert.True(torn.Drawing.Commands.Count > 0, "the second window drew nothing, so this counts one picture");
-        Assert.Equal((long) both, document.Diagnostics.DrawCommandsEmitted);
+        Assert.Equal((long)both, document.Diagnostics.DrawCommandsEmitted);
     }
 
     /// <summary>A builder, an atlas with room in it, and the extent <see cref="Still" /> lays out in.</summary>
