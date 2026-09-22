@@ -809,6 +809,42 @@ public partial class UiElement {
     /// <summary>Stops handling a command.</summary>
     /// <param name="id">The command id.</param>
     /// <returns>Whether this element was handling it.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This has no production caller, and the zero is recorded here rather than left to
+    ///         be rediscovered.</b> <c>Rikarin/Vixen#642</c> measured seven APIs on this chain with
+    ///         none; every other one has since been answered by something an application really is,
+    ///         and this is the last. What is written down is the two candidates and why each turned
+    ///         out to be the wrong caller, because both read like obvious ones.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Undo was going to be it, and <see cref="UndoCommands.Install" /> answered the
+    ///         same problem without withdrawing anything.</b> The argument ran: a focused
+    ///         <c>TextField</c> that registered <c>edit.undo</c> swallows the application's Undo,
+    ///         because <see cref="CommandRoute.Resolve" /> stops at the first element that
+    ///         <i>registered</i> an id and its refusal is final — so the field would have to
+    ///         register and unregister around the focus. It does neither: undo is the manager's verb,
+    ///         the pair is installed on whatever owns a manager, and the same walk that would have
+    ///         found the field finds the stack the field records into.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The other candidate is a handler whose element stops being able to run it, and
+    ///         that is what <c>canExecute</c> is for.</b>
+    ///         <c>Samples/02-HelloUi/Panels/Hierarchy.vxml</c> makes the argument where it applies:
+    ///         with no row selected the panel's Copy <i>greys</i> rather than falling through to the
+    ///         shell's, because a refusal from the nearest responder being final is what stops one
+    ///         menu item meaning two different things depending on whether it happens to be enabled.
+    ///         Withdrawing the handler instead would be choosing the behaviour that file argues
+    ///         against in order to give this method a caller.
+    ///     </para>
+    ///     <para>
+    ///         So the caller this is waiting for is an element that must stop <i>claiming</i> an id
+    ///         while staying in the tree and focusable — where "not mine" and "mine, greyed" are
+    ///         genuinely different answers. Teardown is not it: an element removed from the tree
+    ///         takes its handlers with it. Nothing here has needed that yet, and inventing one would
+    ///         be this repository's commonest defect built on purpose.
+    ///     </para>
+    /// </remarks>
     public bool RemoveCommandHandler(string id) {
         ArgumentNullException.ThrowIfNull(id);
 

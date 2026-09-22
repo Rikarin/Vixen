@@ -969,6 +969,19 @@ public class UtilityFamilySupportTests {
         { "cursor-help", "cursor", "help" },
         { "pointer-events-none", "pointer-events", "none" },
 
+        // ⚠ <b>`touch-*` was a refusal for the whole life of the ledger and every reason it gave
+        // expired in turn</b> — no touch routing, then no `PointerType`, then no touch pan to
+        // govern — and the last of those closed the day `ScrollView.Dragged` began scrolling under
+        // any finger, which is exactly the UA default a slider in a list needed to withhold.
+        // `ScrollView.Admits` reads the intersection `UiDocument.TouchActionBetween` computes over
+        // the chain from the touched element to the view. The directional row is here because the
+        // ledger called the trio "an at-boundary check nothing computes"; it is a sign test on the
+        // slop travel that began the gesture, which `DragEvent.TotalX/Y` has always carried.
+        { "touch-none", "touch-action", "none" },
+        { "touch-pan-y", "touch-action", "pan-y" },
+        { "touch-pan-left", "touch-action", "pan-left" },
+        { "touch-manipulation", "touch-action", "manipulation" },
+
         // ⚠ <b>`caret-*` is a reader that existed under a different name, which is a shape this
         // table had not seen before.</b> `TextField` and `CodeEditor` have drawn the insertion point
         // off Vixen's own `--caret-color` since they were written; the family emits CSS's
