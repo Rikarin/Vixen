@@ -20,5 +20,10 @@ text pipeline rather than multiplying.
 cells. That is enough to tell a wide row from a narrow one and is otherwise decoration; anything that
 wants to see letters wants a real face, and a real fixed-pitch face is the editor's to ship (#1315).
 
+⚠ **It is linked, not copied, by a second project.** `Vixen.Editor.Testing` embeds this same file
+as `Vixen.Editor.Testing.Fonts.TestMono.ttf` and registers it under `monospace` on every editor a
+test starts, for the same reason and against three more stylesheets — see `HarnessFonts`. Two files
+that have to measure the same are one file, so a regeneration here moves both.
+
 Regenerate with `py -3 TestMono.py` (any Python 3 with `fonttools`). The script pins the `head`
 timestamps, so a regeneration that changed nothing produces the same bytes.
