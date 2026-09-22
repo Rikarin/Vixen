@@ -397,12 +397,23 @@ public class CompositionTests {
     }
 
     /// <summary>
-    ///     The general case the minimal pass has to get right, and the one a reader would write
-    ///     first: rows leave, rows arrive at the end of the parent, survivors change order, and a
-    ///     sibling after the loop must still come after every row. The survivors that kept their
-    ///     order — <c>a</c> before <c>c</c> — are the two that must not move, so the cost is the
-    ///     other three and no more.
+    ///     The general case the minimal pass has to get right: rows leave, rows arrive at the end of
+    ///     the parent, survivors change order, and a sibling after the loop must still come after
+    ///     every row. The survivors that kept their order — <c>c</c>, <c>d</c>, <c>e</c> — are the
+    ///     three that must not move, so the cost is the other three and no more.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The survivors rotate here, and that is the whole reason this input was chosen.</b>
+    ///     The first shape written for this case was <c>a b c d e</c> to <c>f e a c g</c>, which
+    ///     reads like the general case and cannot see the defect: the forward walk it was meant to
+    ///     refute costs three on it as well, because the walk pays only for an element that is not
+    ///     already standing where the next sequential index wants it, and two arrivals plus one
+    ///     survivor moving forward is three either way. It was reported as red against the old code
+    ///     and it is green against the old code — the claim was never measured. The walk is only bad
+    ///     when the survivors' *relative* order changes, so this input rotates <c>a</c> to the back
+    ///     of them: the walk then drags <c>c</c>, <c>d</c> and <c>e</c> one place left each on its
+    ///     way past, and costs five.
+    /// </remarks>
     [Fact]
     public void A_reorder_with_arrivals_and_departures_moves_only_what_left_the_subsequence() {
         using var document = new UiDocument(200f, 200f);
@@ -412,10 +423,10 @@ public class CompositionTests {
         document.Effects.Flush();
         var before = document.Diagnostics.ElementsMoved;
 
-        component.Items.Value = ["f", "e", "a", "c", "g"];
+        component.Items.Value = ["f", "c", "d", "e", "a", "g"];
         document.Effects.Flush();
 
-        Assert.Equal(["head", "f", "e", "a", "c", "g", "tail"], component.Root.Children.Select(Label));
+        Assert.Equal(["head", "f", "c", "d", "e", "a", "g", "tail"], component.Root.Children.Select(Label));
         Assert.Equal(3, document.Diagnostics.ElementsMoved - before);
         Assert.Equal(component.Root.Children.Select(child => child.StyleNode), StyleChildren(document, component.Root));
     }

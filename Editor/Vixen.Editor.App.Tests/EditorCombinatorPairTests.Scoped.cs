@@ -70,12 +70,20 @@ public partial class EditorCombinatorPairTests {
     static readonly Regex TypeOnly = new($"^{Tag}(?:\\s*>\\s*{Tag}|\\s+{Tag})+$", RegexOptions.Compiled);
 
     /// <summary>The order the verdicts are decided in: a selector is credited to the first depth that matched it.</summary>
-    static readonly Depth[] Ladder = [Depth.Started, Depth.Panels, Depth.Documents, Depth.Overlays];
+    /// <remarks>
+    ///     ⚠ <b>Derived from the enum rather than listed.</b> <see cref="Depth" /> is ordered by
+    ///     declaration — each member does everything the one before it does and then more — so
+    ///     <c>Enum.GetValues</c>, which returns members in underlying-value order, *is* shallowest
+    ///     first. A hand-written list would go on looking right while a fifth depth added to the enum
+    ///     was silently left out of every verdict, and the census would read <c>-</c> for whatever
+    ///     only that depth reaches — a row that looks like a dead rule and is a missing sweep.
+    /// </remarks>
+    static readonly Depth[] Ladder = Enum.GetValues<Depth>();
 
     /// <summary>What each sweep matched, filled by <see cref="Scope" /> as the sweep runs.</summary>
     static readonly Dictionary<Depth, HashSet<string>> Matched = [];
 
-    /// <summary>How many selectors the shallowest sweep asked about, so that "it ran" can be asserted.</summary>
+    /// <summary>How many selectors the shallowest sweep handed to the matcher, counted as it handed them.</summary>
     static int scopedAsked;
 
     /// <summary>
@@ -118,10 +126,14 @@ public partial class EditorCombinatorPairTests {
     /// <summary>The premise: the scan found the sheets, the selectors, and a running editor answered them.</summary>
     /// <remarks>
     ///     ⚠ Three claims rather than one floor, on the pair sweep's reasoning. The domain has the
-    ///     size of the real sheets; the editor was asked about every selector in it; and three named
+    ///     size of the real sheets; the editor was handed every selector in it; and three named
     ///     selectors of three shapes are credited no deeper than the depth that first builds them.
     ///     The third is what a floor cannot give: a matcher that answered true for everything, or a
     ///     domain read from the wrong files, keeps every count and fails here by name.
+    ///     ⚠ <b>The second claim is only worth making because <see cref="Scope" /> counts where the
+    ///     matcher answers.</b> It used to assign <c>ScopedDomain.Count</c> to the field outright,
+    ///     which made this line compare a value with itself — a predicate whose only false case was
+    ///     the sweep never running at all, while its prose claimed to prove every selector was asked.
     /// </remarks>
     [Fact]
     public void The_scoped_scan_actually_ran() {
@@ -130,7 +142,10 @@ public partial class EditorCombinatorPairTests {
         // Force the shallowest sweep, which is what fills `scopedAsked`.
         _ = Observed;
 
-        Assert.Equal(ScopedDomain.Count, scopedAsked);
+        Assert.True(
+            scopedAsked == ScopedDomain.Count,
+            $"the started sweep handed {scopedAsked} of the domain's {ScopedDomain.Count} selectors to the matcher, so something inside the scan skips part of the domain."
+        );
 
         foreach (var (selector, atMost) in Scoped) {
             Assert.True(ScopedDomain.ContainsKey(selector), $"'{selector}' is no longer a rule any sheet declares.");
@@ -241,9 +256,18 @@ public partial class EditorCombinatorPairTests {
     /// </remarks>
     static void Scope(EditorSession fixture, Depth depth) {
         var matched = new HashSet<string>(StringComparer.Ordinal);
+        var asked = 0;
 
         foreach (var selector in ScopedDomain.Keys) {
-            if (fixture.Ui.Get(selector).Count > 0) {
+            // ⚠ Counted where the matcher answers, not where the loop begins. `asked` is the number
+            // of selectors this editor was actually handed, so a skip added inside the loop — a
+            // `continue` past a shape somebody found awkward, a guard that quietly narrows the
+            // domain — is a number that no longer matches the domain. Assigning the domain's own
+            // count here instead is what made the caller's assertion compare a value with itself.
+            var hits = fixture.Ui.Get(selector).Count;
+            asked++;
+
+            if (hits > 0) {
                 matched.Add(selector);
             }
         }
@@ -255,7 +279,7 @@ public partial class EditorCombinatorPairTests {
         }
 
         if (depth == Depth.Started) {
-            scopedAsked = ScopedDomain.Count;
+            scopedAsked = asked;
         }
 
         Matched[depth] = matched;

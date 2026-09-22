@@ -985,6 +985,16 @@ public partial class EditorCombinatorPairTests {
         return rows;
     }
 
+    /// <summary>Rewrites a census, header kept, one row per line.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The newline is written out rather than left to <c>AppendLine</c>.</b>
+    ///     <c>StringBuilder.AppendLine</c> emits <see cref="Environment.NewLine" />, so a regeneration
+    ///     on Windows rewrote all six censuses with CRLF against a <c>.gitattributes</c> that says
+    ///     <c>* text=auto eol=lf</c> — a whole-file diff in which the rows that actually changed are
+    ///     invisible, and one somebody then has to hand-normalise or revert. The census is a committed
+    ///     artefact of this repository rather than a file for the local console, so it takes the
+    ///     repository's line ending on every platform.
+    /// </remarks>
     static void Write(string path, IEnumerable<string> rows) {
         var text = new StringBuilder();
 
@@ -993,11 +1003,11 @@ public partial class EditorCombinatorPairTests {
                 break;
             }
 
-            text.AppendLine(line);
+            text.Append(line).Append('\n');
         }
 
         foreach (var row in rows) {
-            text.AppendLine(row);
+            text.Append(row).Append('\n');
         }
 
         File.WriteAllText(path, text.ToString());

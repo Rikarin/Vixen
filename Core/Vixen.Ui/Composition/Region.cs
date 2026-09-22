@@ -300,8 +300,18 @@ sealed class Region {
     ///         no move of this region's own elements can take away. So the candidates are the
     ///         children from <see cref="Start" /> up to the first one that is not this region's, and
     ///         that first one — the <i>follower</i> — is what the last element is placed in front of.
-    ///         For a cleared-and-rebuilt branch the run is empty, every element moves, and the cost
-    ///         is the same as the walk it replaced.
+    ///         For a cleared-and-rebuilt branch the run is empty and every element moves, so this
+    ///         costs the same <em>moves</em> as the walk it replaced.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Same moves is not same work.</b> Placing an element reads
+    ///         <see cref="UiElement.IndexInParent" /> for it and for its successor, and that is an
+    ///         <c>IndexOf</c> over the parent's children — so the full-rebuild path pays two extra
+    ///         scans per element on top of the scan the move itself was already doing. A constant
+    ///         factor on a path that was linear per move either way, bought because the indices
+    ///         shift underneath as the placements run and the map built above goes stale with the
+    ///         first one. What the pass buys back is the case that is not a full rebuild, where the
+    ///         move count itself falls.
     ///     </para>
     /// </remarks>
     internal void Reposition() {
