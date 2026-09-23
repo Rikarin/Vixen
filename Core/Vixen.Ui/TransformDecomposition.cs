@@ -264,9 +264,27 @@ readonly record struct TransformDecomposition(
 
     /// <summary>The unit quaternion of a row-vector rotation, given its three rows.</summary>
     /// <remarks>
-    ///     The standard extraction from the column-vector matrix <c>C = Rᵀ</c>, whose cell <c>Cᵢⱼ</c>
-    ///     is <c>R</c>'s <c>Rⱼᵢ</c>. Each component's magnitude comes from the diagonal and its sign
-    ///     from the antisymmetric part — Transforms 2's own choice, which keeps <c>w</c> non-negative.
+    ///     <para>
+    ///         Shoemake's extraction from the column-vector matrix <c>C = Rᵀ</c>, whose cell
+    ///         <c>Cᵢⱼ</c> is <c>R</c>'s <c>Rⱼᵢ</c>: the LARGEST of the four components is read from the
+    ///         diagonal, and the other three from sums and differences of the off-diagonal cells
+    ///         divided by it. The result is then negated where needed to keep <c>w</c> non-negative,
+    ///         which is the hemisphere Transforms 2's own extraction lands in and the one
+    ///         <see cref="Lerp" /> assumes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not the specification's extraction, which cannot recover a half turn.</b> That one
+    ///         reads every magnitude from the diagonal and every sign from the antisymmetric part
+    ///         <c>Cᵢⱼ − Cⱼᵢ</c> — and a half turn's rotation matrix is symmetric, so every sign comes
+    ///         out positive. <c>rotate3d(1, −1, 0, 180deg)</c> was recomposed as
+    ///         <c>rotate3d(1, 1, 0, 180deg)</c>, and <c>matrix(0, 1, 1, 0, 0, 0)</c> — a diagonal
+    ///         reflection, which is a half turn once the mirror is folded into the scale — as its
+    ///         point reflection, so a transition out of one began with a 180° jump on its first
+    ///         frame. Here the signs of <c>x</c>, <c>y</c> and <c>z</c> relative to each other come
+    ///         from the SYMMETRIC part <c>Cᵢⱼ + Cⱼᵢ = 4·qᵢ·qⱼ</c>, which a half turn keeps.
+    ///         <c>TransformDecompositionTests</c> holds half turns about skew axes to a round trip,
+    ///         because random matrices never produce <c>w = 0</c> exactly.
+    ///     </para>
     /// </remarks>
     static (double X, double Y, double Z, double W) Quaternion(
         (double X, double Y, double Z) r0,
@@ -274,24 +292,48 @@ readonly record struct TransformDecomposition(
         (double X, double Y, double Z) r2
     ) {
         // C = Rᵀ: C00 = r0.X, C11 = r1.Y, C22 = r2.Z; C21 = R12 = r1.Z; C12 = R21 = r2.Y; and so on.
-        var x = 0.5d * Math.Sqrt(Math.Max(1d + r0.X - r1.Y - r2.Z, 0d));
-        var y = 0.5d * Math.Sqrt(Math.Max(1d - r0.X + r1.Y - r2.Z, 0d));
-        var z = 0.5d * Math.Sqrt(Math.Max(1d - r0.X - r1.Y + r2.Z, 0d));
-        var w = 0.5d * Math.Sqrt(Math.Max(1d + r0.X + r1.Y + r2.Z, 0d));
+        var (c00, c11, c22) = (r0.X, r1.Y, r2.Z);
+        var (c01, c10) = (r1.X, r0.Y);
+        var (c02, c20) = (r2.X, r0.Z);
+        var (c12, c21) = (r2.Y, r1.Z);
 
-        if (r1.Z - r2.Y < 0d) {
-            x = -x;
+        var trace = c00 + c11 + c22;
+        double x, y, z, w;
+
+        if (trace > 0d) {
+            var s = 2d * Math.Sqrt(1d + trace);
+            w = 0.25d * s;
+            x = (c21 - c12) / s;
+            y = (c02 - c20) / s;
+            z = (c10 - c01) / s;
+        } else if (c00 >= c11 && c00 >= c22) {
+            var s = 2d * Math.Sqrt(Math.Max(1d + c00 - c11 - c22, 0d));
+            x = 0.25d * s;
+            y = (c01 + c10) / s;
+            z = (c02 + c20) / s;
+            w = (c21 - c12) / s;
+        } else if (c11 >= c22) {
+            var s = 2d * Math.Sqrt(Math.Max(1d - c00 + c11 - c22, 0d));
+            y = 0.25d * s;
+            x = (c01 + c10) / s;
+            z = (c12 + c21) / s;
+            w = (c02 - c20) / s;
+        } else {
+            var s = 2d * Math.Sqrt(Math.Max(1d - c00 - c11 + c22, 0d));
+            z = 0.25d * s;
+            x = (c02 + c20) / s;
+            y = (c12 + c21) / s;
+            w = (c10 - c01) / s;
         }
 
-        if (r2.X - r0.Z < 0d) {
-            y = -y;
+        if (w < 0d) {
+            (x, y, z, w) = (-x, -y, -z, -w);
         }
 
-        if (r0.Y - r1.X < 0d) {
-            z = -z;
-        }
+        // The rows are orthonormal only to rounding; renormalising keeps slerp's arccosine honest.
+        var length = Math.Sqrt((x * x) + (y * y) + (z * z) + (w * w));
 
-        return (x, y, z, w);
+        return (x / length, y / length, z / length, w / length);
     }
 
     static double Length((double X, double Y, double Z) v) => Math.Sqrt(Dot(v, v));

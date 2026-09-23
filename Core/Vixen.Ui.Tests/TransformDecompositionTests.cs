@@ -83,6 +83,56 @@ public class TransformDecompositionTests {
         Assert.Equal(200, checkedCount);
     }
 
+    /// <summary>
+    ///     ⚠ <b>A half turn about a skew axis comes back as itself, and not as the half turn about
+    ///     that axis's mirror image.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A half turn's rotation matrix is symmetric, so its antisymmetric part — where Transforms
+    ///         2's extraction reads the sign of every quaternion component — is zero, and every sign
+    ///         came out positive: <c>rotate3d(1, −1, 0, 180deg)</c> recomposed as
+    ///         <c>rotate3d(1, 1, 0, 180deg)</c>. ⚠ The two-hundred-matrix round trip above could not
+    ///         see it, because uniformly drawn cells never produce <c>w = 0</c> exactly.
+    ///     </para>
+    ///     <para>
+    ///         <c>matrix(0, 1, 1, 0, 0, 0)</c> is the everyday way into the same case: a reflection in
+    ///         the diagonal, which the decomposition carries as a negated scale and a half turn about
+    ///         <c>(1, −1, 0)</c>, and which came back as the reflection through the origin.
+    ///     </para>
+    /// </remarks>
+    /// <param name="x">The axis's x.</param>
+    /// <param name="y">The axis's y.</param>
+    /// <param name="z">The axis's z.</param>
+    [Theory]
+    [InlineData(1f, -1f, 0f)]
+    [InlineData(1f, 0f, -1f)]
+    [InlineData(0f, 1f, -1f)]
+    [InlineData(1f, 2f, 3f)]
+    [InlineData(-3f, 1f, 2f)]
+    [InlineData(1f, 0f, 0f)]
+    [InlineData(0f, 0f, 1f)]
+    public void A_half_turn_about_any_axis_recomposes_to_itself(float x, float y, float z) {
+        var turn = HalfTurn(x, y, z);
+
+        Assert.True(TransformDecomposition.TryDecompose(turn, out var parts));
+        AssertCells(turn, parts.Recompose(), 1e-5f, $"half turn about ({x}, {y}, {z})");
+    }
+
+    /// <summary>A reflection in the diagonal, the 2D <c>matrix()</c> that reaches the half-turn case.</summary>
+    [Fact]
+    public void A_diagonal_reflection_recomposes_to_itself() {
+        var reflection = new Matrix4x4(
+            0f, 1f, 0f, 0f,
+            1f, 0f, 0f, 0f,
+            0f, 0f, 1f, 0f,
+            0f, 0f, 0f, 1f
+        );
+
+        Assert.True(TransformDecomposition.TryDecompose(reflection, out var parts));
+        AssertCells(reflection, parts.Recompose(), 1e-5f, "matrix(0, 1, 1, 0, 0, 0)");
+    }
+
     /// <summary>Half way from no turn to a quarter turn is an eighth of a turn, the same way round.</summary>
     [Fact]
     public void Half_way_between_two_turns_is_the_turn_between_them() {
@@ -91,6 +141,22 @@ public class TransformDecompositionTests {
 
         AssertCells(Rotation(45f), TransformDecomposition.Interpolate(none, quarter, 0.5f), 1e-5f, "an eighth");
         AssertCells(Rotation(22.5f), TransformDecomposition.Interpolate(none, quarter, 0.25f), 1e-5f, "a sixteenth");
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A turn of more than a third is interpolated the short way round, as a browser does.</b>
+    /// </summary>
+    /// <remarks>
+    ///     Past 120° the trace of a rotation is not positive, so the extraction reads the quaternion
+    ///     from its largest vector component, whose sign it picks positive — and a turn of −150° then
+    ///     comes out with <c>w</c> negative. Slerp from the identity, which has <c>w = 1</c>, walks
+    ///     the other way round the great circle from a negative dot product: +105° half way rather
+    ///     than −75°. The extraction keeps <c>w</c> non-negative for exactly this.
+    /// </remarks>
+    [Fact]
+    public void Half_way_to_a_large_turn_goes_the_short_way_round() {
+        AssertCells(Rotation(-75f), TransformDecomposition.Interpolate(Rotation(0f), Rotation(-150f), 0.5f), 1e-5f, "half of −150°");
+        AssertCells(Rotation(75f), TransformDecomposition.Interpolate(Rotation(0f), Rotation(150f), 0.5f), 1e-5f, "half of +150°");
     }
 
     /// <summary>
@@ -126,6 +192,19 @@ public class TransformDecompositionTests {
             cos, sin, 0f, 0f,
             -sin, cos, 0f, 0f,
             0f, 0f, 1f, 0f,
+            0f, 0f, 0f, 1f
+        );
+    }
+
+    /// <summary>A half turn about an axis, <c>2·n·nᵀ − I</c>, which is symmetric and so its own transpose.</summary>
+    static Matrix4x4 HalfTurn(float x, float y, float z) {
+        var length = MathF.Sqrt((x * x) + (y * y) + (z * z));
+        var (a, b, c) = (x / length, y / length, z / length);
+
+        return new Matrix4x4(
+            (2f * a * a) - 1f, 2f * a * b, 2f * a * c, 0f,
+            2f * a * b, (2f * b * b) - 1f, 2f * b * c, 0f,
+            2f * a * c, 2f * b * c, (2f * c * c) - 1f, 0f,
             0f, 0f, 0f, 1f
         );
     }

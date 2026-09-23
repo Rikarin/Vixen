@@ -292,7 +292,7 @@ sealed partial class TransformReader {
                 return true;
 
             case (TransformStepKind.Rotate, TransformStepKind.Rotate):
-                result = a with { Angle = L(a.Angle, b.Angle, t) };
+                result = a with { Angle = L(a.Angle, b.Angle, t), Spatial = spatial };
                 return true;
 
             case (TransformStepKind.Perspective, TransformStepKind.Perspective):

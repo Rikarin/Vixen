@@ -211,6 +211,36 @@ public class TransformTransitionTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>A transition out of a diagonal reflection starts where the reflection is, rather than
+    ///     half a turn away from it.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <c>matrix(0, 1, 1, 0, 0, 0)</c> against <c>rotate(45deg)</c> pairs nothing, so both ends are
+    ///     decomposed — and the reflection decomposes to a negated scale and a half turn about
+    ///     <c>(1, −1, 0)</c>, which the specification's quaternion extraction cannot recover the sign
+    ///     of. The point <c>(100, 20)</c> sits at <c>(20, 100)</c> at rest and was drawn at
+    ///     <c>(−20, −100)</c> on the transition's first frame.
+    /// </remarks>
+    [Fact]
+    public void A_transition_out_of_a_reflection_starts_at_the_reflection() {
+        using var document = new UiDocument(400f, 300f);
+        var box = Settled(document, "#box { transform: matrix(0, 1, 1, 0, 0, 0); } #box.turned { transform: rotate(45deg); }");
+
+        var rest = Assert.IsType<UiTransform>(box.Transform).Apply(new Vector2(100f, 20f));
+
+        Assert.Equal(20f, rest.X, Tolerance);
+        Assert.Equal(100f, rest.Y, Tolerance);
+
+        box.AddClass("turned");
+        Frame(document, 0.0);
+
+        var first = Assert.IsType<UiTransform>(box.Transform).Apply(new Vector2(100f, 20f));
+
+        Assert.Equal(20f, first.X, 0.05f);
+        Assert.Equal(100f, first.Y, 0.05f);
+    }
+
+    /// <summary>
     ///     ⚠ <b><c>backface-visibility</c> is decided at every step, so a turning card disappears at
     ///     the crossing and not at either end.</b>
     /// </summary>
