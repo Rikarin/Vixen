@@ -941,6 +941,15 @@ viewport-bar.hidden { display: none; }
    and the toolbar are not. A readout under the corner gizmo is one that
    is unreadable in exactly the pane somebody is navigating. */
 viewport-stats {
+    /* ⚠ `display` restated, and as what it has always drawn as. This is a
+       `TextBlock` under a tag of its own, so `text { display: inline }` in the
+       control theme never reached it and it laid out at the initial `flex` —
+       which is the box every picture of the viewport shows. Writing `flex`
+       keeps that picture pixel for pixel (compared, not assumed) and makes the
+       choice the sheet's rather than an accident of the rename; writing the
+       control's own `inline` would be the change #1327's ledger warned about.
+       Without it the 7010 warning names this element on every start. */
+    display: flex;
     position: absolute;
     left: 8px;
     bottom: 6px;
@@ -955,6 +964,8 @@ viewport-stats {
    with your eye on the object — so it goes where the eye already is, and
    a little above it so the pointer is not on top of it. */
 viewport-readout {
+    /* `flex` restated for `viewport-stats`' reason, above. */
+    display: flex;
     position: absolute;
     left: 0px;
     right: 0px;
@@ -1344,25 +1355,44 @@ settings-header {
 settings-header search-box { flex-grow: 1; }
 settings-body { flex-direction: row; flex-grow: 1; flex-basis: 0px; min-height: 0px; gap: 0px; }
 
+/* ⚠ A `ScrollView` under this tag, and so is `settings-pane` below (#1275).
+   Both were `overflow: auto` on a plain element, which in this UI clips and
+   does not scroll: at 640 px the Appearance page's theme editor was cut off
+   with no way to reach its bottom. (The General page fits at that height and
+   drew the same before and after — compared, not assumed.) The clip, the
+   bars' anchor and the direction are restated because a control under a tag of its own gets none
+   of the `scroll-view` user-agent rule (#1327), and the gap and padding moved
+   to the content, where the tabs and the page's rows now are: padding on the
+   port would sit inside what the bars measure and leave the last row short of
+   reachable by exactly its height. */
 settings-rail {
     flex-direction: column;
     flex-shrink: 0;
     width: 168px;
-    gap: 1px;
-    padding: 5px;
     border-right-width: 1px;
     border-color: var(--border);
     background-color: var(--surface-sunken);
-    overflow: auto;
+    overflow: hidden;
+    position: relative;
 }
+
+settings-rail > scroll-content { gap: 1px; padding: 5px; }
 
 /* ⚠ Left-aligned and full width, because a rail is a list rather than a
    row of buttons that happen to be stacked. The checked state is the
    selection and there is no hover rule fighting it, for the palette
-   row's reason. */
-settings-rail > button.settings-tab {
+   row's reason.
+
+   ⚠ Full width by the column's stretch and not by `width: 100%`, which is
+   what this rule said until the rail became a `ScrollView`. A percentage
+   resolves against the parent's width, and `scroll-content` is sized by
+   what is in it — so the percentage had nothing definite to take a share of,
+   fell back to the label's own width, and the selected tab's highlight shrank
+   to its word. Seen in the picture, not in a counter: every tab still
+   existed, still clicked and still read `:checked`. */
+settings-rail > scroll-content > button.settings-tab {
     justify-content: flex-start;
-    width: 100%;
+    align-self: stretch;
     padding: 4px 8px;
     border-width: 0px;
     border-radius: var(--radius-row);
@@ -1370,18 +1400,19 @@ settings-rail > button.settings-tab {
     color: var(--text);
 }
 
-settings-rail > button.settings-tab:hover { background-color: var(--surface-hover); }
-settings-rail > button.settings-tab:checked { background-color: var(--accent); color: var(--accent-text); }
+settings-rail > scroll-content > button.settings-tab:hover { background-color: var(--surface-hover); }
+settings-rail > scroll-content > button.settings-tab:checked { background-color: var(--accent); color: var(--accent-text); }
 
 settings-pane {
     flex-direction: column;
     flex-grow: 1;
     flex-basis: 0px;
     min-width: 0px;
-    gap: 4px;
-    padding: 8px 10px;
-    overflow: auto;
+    overflow: hidden;
+    position: relative;
 }
+
+settings-pane > scroll-content { gap: 4px; padding: 8px 10px; }
 
 settings-footer {
     flex-direction: row;
@@ -1405,7 +1436,7 @@ settings-spacer { flex-grow: 1; }
 /* What the window's search box hides on a page built from commands rather than from a
    settings object. A class rather than the inspector's `filtered`, because that one is
    the inspector's own vocabulary and these are ordinary buttons. */
-settings-pane > .filtered-out { display: none; }
+settings-pane > scroll-content > .filtered-out { display: none; }
 
 /* ── Plugins and history ────────────────────────────────────────────────
    Two panels over lists the editor already keeps: a grid for the plugins,

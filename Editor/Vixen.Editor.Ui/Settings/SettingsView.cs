@@ -19,8 +19,8 @@ namespace Vixen.Editor.Ui;
 ///     <para>
 ///         ⚠ <b>And it is what the panel ledger's exclusion on this window was about, wrongly.</b>
 ///         Markup cannot <i>be</i> an <c>Action&lt;UiElement&gt;</c> — but it never had to be. The
-///         factory needs a host to be invoked <i>into</i>, and <c>&lt;settings-pane ref="@Pane" /&gt;</c>
-///         is one.
+///         factory needs a host to be invoked <i>into</i>, and the content of
+///         <c>&lt;ScrollView tag="settings-pane" ref="@PaneView" /&gt;</c> is one.
 ///     </para>
 /// </remarks>
 public sealed record SettingsCategory(string Id, StringId Title, Action<UiElement> Build) {
@@ -96,7 +96,7 @@ public sealed partial class SettingsView;
 ///         <see cref="Button" /> is sealed.</b> The two are the same type — <see cref="Button" /> adds
 ///         a tag name and nothing else — so this answers to <c>button</c>, carries the same
 ///         <c>size-md variant-subtle settings-tab</c>, and
-///         <c>settings-rail &gt; button.settings-tab:checked</c> reaches it unchanged. A whole-tree
+///         <c>settings-rail &gt; scroll-content &gt; button.settings-tab:checked</c> reaches it. A whole-tree
 ///         dump of the rail before and after the port is identical, which is the test of that claim.
 ///     </para>
 /// </remarks>

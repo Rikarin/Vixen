@@ -5,7 +5,8 @@
     Doc 36 § F7 wave 5, and the panel the ledger carried an exclusion on for two waves before lifting
     it. The exclusion said a `SettingsCategory.Build` is an `Action<UiElement>` and markup cannot be
     one; the lift said the factory never had to be *invoked from* the `.vxml` — it needs a host to be
-    invoked *into*, and `<settings-pane ref="@Pane" />` is that host. Both are right, and `Reload`'s
+    invoked *into*, and the content of `<ScrollView tag="settings-pane" ref="@PaneView" />` is that
+    host. Both are right, and `Reload`'s
     clear-and-refill is safe on it precisely because no region owns it.
 
     ⚠ **What the exclusion did not anticipate is the rail, and that is where the work was.** Every
@@ -19,7 +20,7 @@
     four-line `ButtonBase` whose `Selected` property owns the one bit and leaves the other three
     alone, and `Selected="@IsChosen(page)"` is then an ordinary binding that re-runs when the
     selection moves. The tag is still `button` and the classes are still `size-md variant-subtle
-    settings-tab`, so `settings-rail > button.settings-tab:checked` reaches it unchanged — which is
+    settings-tab`, so `settings-rail > scroll-content > button.settings-tab:checked` reaches it — which is
     the whole test of whether an escape is an escape or a redesign. **A binding may not assign a flag
     set; it may assign a property that owns one bit of it.** That is worth more than this panel: it
     is the same remedy `FlameChartView`'s reason 3 was waiting for, and it needs no `refs` at all.
@@ -61,7 +62,15 @@
 </settings-header>
 
 <settings-body>
-    <settings-rail ref="@Rail">
+    <!--
+        ⚠ Both halves of the body are `ScrollView`s under the sheet's tags (#1275). Each used to be a
+        plain element declaring `overflow: auto`, which in this UI clips and does not scroll: at
+        640 px the Appearance page's theme editor was cut off with no way to reach its bottom. (The
+        General page fits at that height and drew the same before and after.) So the tabs and the page are
+        children of each view's `scroll-content` now, and every rule that said `settings-rail >` or
+        `settings-pane >` says `> scroll-content >` as well.
+    -->
+    <ScrollView tag="settings-rail" ref="@Rail">
         @for (var page in Visible) {
             <SettingsTab key="@page"
                          Variant="Subtle"
@@ -70,14 +79,15 @@
                          Selected="@IsChosen(page)"
                          on:click="@(() => Select(page.Id))" />
         }
-    </settings-rail>
+    </ScrollView>
 
     <!--
-        ⚠ No content and no region. `Reload` clears and refills it, which is only safe because
-        nothing here owns it — a `@for` or an `@if` over this element would be reconciling against
-        children a caller's factory put there.
+        ⚠ No content and no region. `Reload` clears and refills the view's content, which is only safe
+        because nothing here owns it — a `@for` or an `@if` in here would be reconciling against
+        children a caller's factory put there. `Pane` is that content, not the view: a page's factory
+        adds rows to what it is handed, and the rows have to land inside the scroller.
     -->
-    <settings-pane ref="@Pane" />
+    <ScrollView tag="settings-pane" ref="@PaneView" />
 </settings-body>
 
 <settings-footer ref="@Footer">
@@ -134,11 +144,14 @@
     /// <summary>The search box over every setting on every page.</summary>
     public SearchBox Search { get; private set; } = null!;
 
-    /// <summary>The list of pages down the left.</summary>
-    public UiElement Rail { get; private set; } = null!;
+    /// <summary>The list of pages down the left, a scroller whose content holds the tabs.</summary>
+    public ScrollView Rail { get; private set; } = null!;
 
-    /// <summary>Where the chosen page is built.</summary>
-    public UiElement Pane { get; private set; } = null!;
+    /// <summary>The scroller the chosen page is built inside.</summary>
+    public ScrollView PaneView { get; private set; } = null!;
+
+    /// <summary>Where the chosen page is built: <see cref="PaneView" />'s content.</summary>
+    public UiElement Pane => PaneView.Content;
 
     /// <summary>The strip along the bottom.</summary>
     public UiElement Footer { get; private set; } = null!;

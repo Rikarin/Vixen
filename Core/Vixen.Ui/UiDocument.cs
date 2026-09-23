@@ -626,6 +626,7 @@ public sealed partial class UiDocument : IDisposable {
     public void Invalidate() {
         dirty = true;
         ForgetChanges();
+        ForgetOwnTagProperties();
 
         // The one invalidation with no element behind it, so the region it records is the document's
         // own — which is the truth about a cold pass and is what a highlight should paint.
@@ -1677,6 +1678,14 @@ public sealed partial class UiDocument : IDisposable {
             // one answer and the answer is what the box will do.
             if (layoutStyle.OverflowX == Overflow.Scroll || layoutStyle.OverflowY == Overflow.Scroll) {
                 NoteOverflowThatCannotScroll(element, style);
+            }
+
+            // ⚠ A control under a tag that is not its own matches none of its own rule — see
+            // `NoteRetaggedControl`. `div` is what an element that never named a tag answers, so a
+            // plain element under a tag of the sheet's choosing is not a renamed control.
+            if (!string.Equals(element.Tag, element.TagName, StringComparison.Ordinal)
+                && !string.Equals(element.TagName, "div", StringComparison.Ordinal)) {
+                NoteRetaggedControl(element, style);
             }
 
             // ⚠ The variable-length half of the same style, and it has to be a second call: a track

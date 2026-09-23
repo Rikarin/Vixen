@@ -37,17 +37,13 @@ namespace Vixen.Ui.Composition;
 ///         and one <c>BuildContext.Pool</c> fills either, which is the whole of what the seam buys.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Shipped ahead of its callers, deliberately and not by oversight.</b> Nothing in the
-///         engine or the editor fills a virtualizing control through this seam today: every
-///         production list that virtualizes is a <c>Control</c> that sets <c>CreateRow</c> and
-///         <c>BindRow</c> in C# — <c>ConsoleView</c> at <c>ConsoleView.cs:206</c> and
-///         <c>MessageLogView</c> at <c>MessageLogView.cs:140</c> — and <i>no</i> production
-///         <c>.vxml</c> names <c>VirtualizingPanel</c> or <c>VirtualizingGrid</c> at all, so there
-///         is no build region for a <c>Pool</c> call to sit in yet. Porting those two views is what
-///         #758 still owes; until it lands, the only callers are
-///         <c>Vixen.Ui.Controls.Tests</c>. Recorded here rather than left to a grep, because "a
-///         finished thing nothing calls" is this repository's commonest defect and a reader is owed
-///         the reason before they conclude the seam is dead.
+///         ⚠ <b>Shipped ahead of its callers, and it has one now.</b> <c>MessageLogView.vxml</c>
+///         fills its <c>VirtualizingPanel</c> through this seam with an <c>@rows</c> block, which the
+///         markup compiler turns into <c>BuildContext.Pool</c> (#758). <c>ConsoleView</c> is the one
+///         production list left that sets <c>CreateRow</c> and <c>BindRow</c> in C#. Recorded here
+///         rather than left to a grep, because "a finished thing nothing calls" is this repository's
+///         commonest defect and a reader is owed the callers before concluding anything about the
+///         seam.
 ///     </para>
 /// </remarks>
 public interface IRowPool {

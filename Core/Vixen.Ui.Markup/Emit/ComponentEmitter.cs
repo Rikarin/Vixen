@@ -412,6 +412,14 @@ public sealed class ComponentEmitter {
                 EmitFor(@for, context, parent);
                 break;
 
+            // Reached here only where the binder has already said `VXML2028` — a capitalised tag's
+            // own `@rows` is taken out of its children in `EmitElement` and pooled over the tag, not
+            // over `Inner`. Emitted anyway against whatever the parent is, so the C# compiler's
+            // conversion error lands on the keyword beside the binder's.
+            case BoundRows rows:
+                EmitRows(rows, context, parent);
+                break;
+
             default:
                 break;
         }
@@ -429,7 +437,7 @@ public sealed class ComponentEmitter {
     static bool IsParameter(BoundAttribute attribute, BoundElement element) =>
         element.IsComponent && attribute.Kind == BoundAttributeKind.Parameter && !IsUniversal(attribute.Name);
 
-    void EmitElement(BoundElement element, string context, string parent) {
+    void EmitElement(BoundElement element, string context, string parent, string? adopt = null) {
         var name = $"n{names++}";
 
         // ⚠ **A component's parameters have to be assigned before its `Build` runs**, and for years
@@ -443,7 +451,10 @@ public sealed class ComponentEmitter {
         // no parameter at all — keep emitting the exact call they always did.
         var deferred = element.IsComponent && element.Attributes.Any(a => IsParameter(a, element));
 
-        if (element.IsSelf) {
+        if (adopt is not null) {
+            // An `@rows` row: the pool made the element, by the row's tag, and this fills it in.
+            Line($"var {name} = {adopt};");
+        } else if (element.IsSelf) {
             // ⚠ **`Host(this)` and not `Root`, for the reason `Target` is a call.** A `@inherits`
             // file's class *is* a `UiElement` and a plain component's is not, so the one expression
             // that names "the element this markup is building into" in both is the overload pair —
@@ -515,7 +526,69 @@ public sealed class ComponentEmitter {
             return;
         }
 
-        EmitProjected(element.Children, context, name);
+        // ⚠ An `@rows` is taken out of the projected children and pooled over the tag itself, not
+        // over `Inner`. A virtualizing control's content host is the scroller's interior — the
+        // place its rows *live* — but what the block fills is the control, which is the only thing
+        // that knows how many rows fit; handed `Inner`, the call would be a conversion error on a
+        // perfectly good `<VirtualizingPanel>`. Everything else keeps the exact path it had, so a
+        // file with no `@rows` in it generates what it always did.
+        if (!element.Children.Any(static child => child is BoundRows)) {
+            EmitProjected(element.Children, context, name);
+            return;
+        }
+
+        var projected = element.Children.Where(static child => child is not BoundRows).ToImmutableArray();
+
+        if (!projected.IsEmpty) {
+            EmitProjected(projected, context, name);
+        }
+
+        foreach (var child in element.Children) {
+            if (child is BoundRows rows) {
+                EmitRows(rows, context, name);
+            }
+        }
+    }
+
+    /// <summary>Emits an <c>@rows</c> as a <c>BuildContext.Pool</c> over the control it is written in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The host argument is mapped to the <c>@rows</c> keyword.</b> Whether the tag can
+    ///         pool is a type question — <c>Pool</c> takes an <c>IRowPool</c>, which
+    ///         <c>VirtualizingPanel</c> and <c>VirtualizingGrid</c> are — and this compiler resolves
+    ///         no types. Under the directive, a tag that cannot pool is Roslyn's conversion error on
+    ///         the keyword the author wrote rather than on <c>n3</c> in a file they have never seen,
+    ///         which is the same bargain every other expression in the markup makes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The row element is filled in, not created.</b> The pool creates a slot by the
+    ///         row's tag when the control discovers it needs one, and the body applies the row's
+    ///         attributes and children to that slot — once per slot, never per item. The index is
+    ///         the body's third lambda parameter, a <c>Signal&lt;int&gt;</c> the pool writes on every
+    ///         rebind.
+    ///     </para>
+    /// </remarks>
+    void EmitRows(BoundRows rows, string context, string host) {
+        // Nothing for a broken one: the binder has said what is wrong with the body or the header,
+        // and a call built round a missing row or an empty count adds an error on generated code.
+        if (rows.Row is not { } row || rows.Count.Text.Length == 0) {
+            return;
+        }
+
+        MappedText(rows.KeywordPosition, $"{context}.Pool(", host, ",");
+        depth++;
+        Line($"{Quote(row.Tag)},");
+        Mapped(rows.Count, "() => ", ",");
+
+        var innerContext = $"c{depth.ToString(CultureInfo.InvariantCulture)}";
+        var innerParent = $"p{depth.ToString(CultureInfo.InvariantCulture)}";
+
+        Line($"({innerContext}, {innerParent}, {rows.Index}) => {{");
+        depth++;
+        EmitElement(row, innerContext, innerParent, adopt: innerParent);
+        depth--;
+        Line("});");
+        depth--;
     }
 
     /// <summary>A component tag's children, each into the slot it named or the default one.</summary>

@@ -61,7 +61,7 @@
     own rule: two documents over one file are two undo histories over one set of bytes, and whichever
     saves last wins.
 -->
-<Tabs ref="@Tabs">
+<Tabs ref="@Tabs" class="document-tabs">
     <TabItem Label="Texture">
         <Image ref="@Preview" Description="The texture's source pixels" class="texture-preview" />
 

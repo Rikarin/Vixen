@@ -715,7 +715,7 @@ internal sealed class SettingsTab : ButtonBase {
 ```
 
 and `Selected="@IsChosen(page)"` is an ordinary binding. Same tag, same `size-md variant-subtle
-settings-tab`, so `settings-rail > button.settings-tab:checked` reaches it unchanged — which is the
+settings-tab`, so `settings-rail > scroll-content > button.settings-tab:checked` reaches it — which is the
 test of whether an escape is an escape or a redesign. ⚠ **`ButtonBase` rather than `Button` only
 because `Button` is sealed**, and the two are the same type: `Button` adds a tag name and nothing
 else. ⚠ **This is also what `FlameChartView`'s reason 3 was actually waiting for** — `refs` was
@@ -1112,8 +1112,8 @@ every row on one line — a blank line inside a cell ends the table, which is ho
 | `AudioMixerView` | snapshot | no | ~~**no**~~ ~~**port**~~ **done, wave 3 (2026-08-23).** 541 lines of C# → a 250-line `.vxml`, a 60-line `.cs` of records and captions, and a whole-tree rectangle dump in three states that is byte-identical to what it replaced | ~~XL~~ M |
 | `AnimationClipView` | snapshot | no | **no** — `Timeline.AddTrack`/`AddSpan` + `CurveEditor` is the whole panel | L |
 | `NodeGraphView` | live | no | **no** — `Canvas.Graph = built` and four `OnDraw` layers; nodes, ports and wires are not elements | XL |
-| `ConsoleView` · `AssetGrid` | live | no | ~~**no** — `VirtualizingPanel`/`Grid` row templates~~ **pending [#758](https://github.com/Rikarin/Vixen/issues/758)** — the row templates are the whole obstacle and #758 is the markup spelling for them, so this is a wait rather than a decline; `docs/MarkupPending.txt` has said so since 2026-09-22 and this row said "no" beside it. ⚠ The ledger lists `ConsoleView` and not `AssetGrid` (`Vixen.Editor.App/AssetGrid.cs`), because it counts only classes named `*View`, `*Panel`, `*Inspector` or `*Popup` — so it and this row differ by one, and the gate cannot see `AssetGrid`'s verdict | — |
-| `MessageLogView` | live | the selection, yes; the history, deliberately no | ~~**no** — `VirtualizingPanel` row template~~ **done (#89, 2026-09-23), and the "no" was about the rows only.** The toolbar and the detail pane are markup; `Row`/`Bind` are the hand-written methods, handed to the panel in `OnComposed`, exactly as the "two earlier exclusions" section below predicted. The model decision is one `Signal<int>` — the chosen row's index, not the `Notification`, because the record struct makes two same-second duplicates equal — and the pane and its `empty` class are bindings over it, where the C# cleared and refilled the pane from four call sites. ⚠ **Recording the reference found the pane unreachable**: rows waited for a `ClickEvent`, which only a `Control` raises, so no pointer could choose a message — `ConsoleView`'s fix of July, never applied to the panel beside it. Fixed before the reference was taken (`7d5ba5692`). `MessageLogViewDumpTests` is the first dump **committed before the port it judges**, recorded from the C# control in six states reached through the interface; the port matches every tree and flags dump byte for byte, and the six software-rasterised captures are byte-identical PNGs. Sabotage: a heading binding that stops reading the signal after its first run (`??=`) reddens only the second-choice test; `Selected` read with `Peek()` reddens the three that choose a row | S |
+| `ConsoleView` · `AssetGrid` | live | no | ~~**no** — `VirtualizingPanel`/`Grid` row templates~~ **pending [#758](https://github.com/Rikarin/Vixen/issues/758)** — the row templates are the whole obstacle and #758 is the markup spelling for them, so this is a wait rather than a decline; `docs/MarkupPending.txt` has said so since 2026-09-22 and this row said "no" beside it. That spelling now exists — `@rows` — and `MessageLogView` was the first port over it; `ConsoleView` is the next. ⚠ The ledger lists `ConsoleView` and not `AssetGrid` (`Vixen.Editor.App/AssetGrid.cs`), because it counts only classes named `*View`, `*Panel`, `*Inspector` or `*Popup` — so it and this row differ by one, and the gate cannot see `AssetGrid`'s verdict | — |
+| `MessageLogView` | live | the selection, yes; the history, deliberately no | ~~**no** — `VirtualizingPanel` row template~~ **done (#89, 2026-09-23), and the "no" was about the rows only.** The toolbar and the detail pane are markup; `Row`/`Bind` are the hand-written methods, handed to the panel in `OnComposed`, exactly as the "two earlier exclusions" section below predicted. The model decision is one `Signal<int>` — the chosen row's index, not the `Notification`, because the record struct makes two same-second duplicates equal — and the pane and its `empty` class are bindings over it, where the C# cleared and refilled the pane from four call sites. ⚠ **Recording the reference found the pane unreachable**: rows waited for a `ClickEvent`, which only a `Control` raises, so no pointer could choose a message — `ConsoleView`'s fix of July, never applied to the panel beside it. Fixed before the reference was taken (`7d5ba5692`). `MessageLogViewDumpTests` is the first dump **committed before the port it judges**, recorded from the C# control in six states reached through the interface; the port matches every tree and flags dump byte for byte, and the six software-rasterised captures are byte-identical PNGs. Sabotage: a heading binding that stops reading the signal after its first run (`??=`) reddens only the second-choice test; `Selected` read with `Peek()` reddens the three that choose a row. ⚠ **And then the rows moved too (#758, same day)**: a second port landed in parallel with an `@rows` block over the `VirtualizingPanel`, so `Row`/`Bind` are gone, the row's `on:click` is the tap, and `:checked` is written by a `use=` effect that reads the slot's index and the selection. The merge kept that version and holds it to the same six dumps | S |
 | `InspectorView` + the four drawers · `TargetOverrideMatrix` · `MarkupInspector` | — | — | **no** — a drawer *is* a factory, and markup cannot be one; `MarkupInspector` *is* the markup inspector, so writing it in markup is circular | — |
 | `ProjectBrowser` · `ViewportLayout` · `ToolbarPresenter` · `MenuPresenter` · `AssetPicker` · `ViewportChrome` · `EditorSettingsPanels` · `EditorDiagnostics` · `DeclaredContributions` · `CustomInspector` · `BlockoutUvPanel` | — | — | **not panels** — shape 4. `CustomInspector` is the registry record a `[CustomInspector]` contributes, and `BlockoutUvPanel` computes island layouts for `BlockoutUvView.vxml` to draw and adds no element | — |
 | `BehaviorSearchPopup` · `AddressableGroupsView` · `ProfilerView` · `LayerStackView` · `PaintBrushInspector` | mixed | no | **pending** — never surveyed in this table; each one's model decision is named on its line in `docs/MarkupPending.txt`. `ProfilerView`'s candidate is the per-scope table beside the flame chart, not the chart | — |
@@ -1185,7 +1185,7 @@ event's contract is only testable once something subscribes.
 
 ### The two earlier exclusions, re-checked
 
-**`MessageLogView` — still excluded, but the reason is narrower than recorded.** There is no tag
+**`MessageLogView` — ported ([#758](https://github.com/Rikarin/Vixen/issues/758)), and the history below is why it waited.** There is no tag
 registry to add `VirtualizingPanel` to: the emitter writes `ctx.Child<Tag>(…)` for any capitalised
 tag and lets C# overload resolution settle it, so `<VirtualizingPanel ref="@List" />` is already
 legal. What markup cannot express is the **row template and its per-index binder** — `CreateRow`,
@@ -1197,11 +1197,15 @@ instead of four, and is the least suitable file in the editor.
 that virtualises through `use=` and a pair of lambdas in `@code`, counted by `VirtualListReachTests`.
 So the exclusion is exactly and only the two delegates: everything else about a virtualised list is
 already sayable, and a port would move the tag, the `ref`, the toolbar and the detail pane and leave
-`CreateRow`/`BindRow` in the code-behind — which is the shape #758's `@rows` block would finish.
+`CreateRow`/`BindRow` in the code-behind — which is the shape #758's `@rows` block now finishes:
+the row template is markup (see `docs/guide/ui/markup-panels.md`), and `MessageLogView.vxml` is the
+port: pixel-identical over the panel on both renderers, and its rows hear a tap, which the hand-built
+rows did not until `7d5ba5692` (#89) fixed them on the way to recording the reference.
 
-✅ **Ported exactly that way (#89, 2026-09-23)**, and the prediction held to the letter: the tag, the
-three `ref`s, the toolbar and the detail pane moved; `Row` and `Bind` are the hand-written methods in
-`@code`, assigned in `OnComposed` rather than through `use=` because nothing about them is reactive.
+✅ **Ported first exactly that way (#89, 2026-09-23)**, and the prediction held to the letter: the tag,
+the three `ref`s, the toolbar and the detail pane moved, and `Row` and `Bind` stayed hand-written in
+`@code`. The `@rows` port above landed in parallel and replaced those two methods at the merge, so
+`MessageLogViewDumpTests` — recorded from the hand-written control — now judges the `@rows` version.
 See the panel ledger's `MessageLogView` row. `ConsoleView` stays — its detail pane is the same shape,
 but its rows carry five columns and a double-tap that opens a source file, and it has no reference
 dump yet to be held to.
@@ -1210,8 +1214,9 @@ dump yet to be held to.
 invoked at one site (`Reload()`), from seven callers in `EditorSettingsPanels`. But the factory never
 had to be *invoked from* the `.vxml` — it needs a host element to be invoked *into*, and `ref` gives
 one. `PrefabView.vxml` is the proof: `<TabItem ref="@HierarchyTab" Label="Hierarchy" />` has no
-content and `Show` builds the tree against `HierarchyTab.Panel`. `<settings-pane ref="@Pane" />` is
-the same pattern and simpler — an element owned by no region, so `Reload()`'s clear-and-refill is safe.
+content and `Show` builds the tree against `HierarchyTab.Panel`. `<ScrollView tag="settings-pane"
+ref="@PaneView" />` is the same pattern — its content is an element owned by no region, so `Reload()`'s
+clear-and-refill is safe.
 
 ✅ **Ported 2026-08-23, and the pane was the easy half exactly as written.** What the lift did not
 mention is the **rail**, which is where the work turned out to be: `Restate` sets

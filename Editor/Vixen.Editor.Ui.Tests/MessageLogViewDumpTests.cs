@@ -41,6 +41,17 @@ namespace Vixen.Editor.Ui.Tests;
 ///         detail, the chosen message filtered away (the pane must fall back rather than keep showing
 ///         a message the list no longer has), and the history cleared under a selection.
 ///     </para>
+///     <para>
+///         ⚠ <b>Three of the references moved once, at the merge of the <c>@rows</c> port (#758), and
+///         only in the parked rows.</b> The hand-written <c>Bind</c> returned early for a slot past
+///         the end of the list, so a slot parked by a filter, a search or a clear kept the last
+///         message it showed — its text, its <c>level-*</c> class and, twice, its
+///         <c>Checked</c> bit, so the searched state had two checked rows. An <c>@rows</c> slot
+///         re-reads its index, finds no message and goes blank. The filtered, searched and cleared
+///         dumps differ from the recording in <c>.parked</c> 0×0 rows and nowhere else, and all six
+///         software-rasterised captures are byte-identical PNGs before and after — the wave-6 pool
+///         finding in <c>Editor/Vixen.Editor.Ui/README.md</c> again.
+///     </para>
 /// </remarks>
 [SuppressMessage("Trimming", "IL2026", Justification = "UiTest.Flags reads nine properties by name; tests are not trimmed.")]
 public sealed class MessageLogViewDumpTests {
@@ -473,15 +484,15 @@ public sealed class MessageLogViewDumpTests {
                   <message-text> 89,1 40×20 "Saved"
                   <message-detail-text> 137,11 565×0
                 <message-row .parked> 0,0 0×0
-                  <message-mark .level-warning> 0,0 0×0
-                  <message-time> 0,0 0×0 "01:02:05"
-                  <message-text> 0,0 0×0 "Texture cache is 90% full"
+                  <message-mark> 0,0 0×0
+                  <message-time> 0,0 0×0
+                  <message-text> 0,0 0×0
                   <message-detail-text> 0,0 0×0
                 <message-row .parked> 0,0 0×0
-                  <message-mark .level-error> 0,0 0×0
-                  <message-time> 0,0 0×0 "01:01:01"
-                  <message-text> 0,0 0×0 "Could not import"
-                  <message-detail-text> 0,0 0×0 "wood.png …"
+                  <message-mark> 0,0 0×0
+                  <message-time> 0,0 0×0
+                  <message-text> 0,0 0×0
+                  <message-detail-text> 0,0 0×0
               <scrollbar .size-md .variant-default .vertical> 700,0 10×245
               <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
           <message-log-detail .empty .size-md .variant-default> 0,286 710×33
@@ -500,7 +511,7 @@ public sealed class MessageLogViewDumpTests {
         <virtualizing-panel .size-md .variant-default> State=Hover
         <scroll-view .size-md .variant-default> State=Hover
         <scroll-content .virtual-content> State=Hover
-        <message-row .parked> State=Hover, Checked
+        <message-row .parked> State=Hover
         <message-detail-text> State=Hover
         <scrollbar .size-md .variant-default .vertical> Value=0
         <scrollbar .horizontal .size-md .variant-default> Value=0
@@ -532,15 +543,15 @@ public sealed class MessageLogViewDumpTests {
                   <message-text> 89,1 115×20 "Could not import"
                   <message-detail-text> 212,1 490×20 "wood.png …"
                 <message-row .parked> 0,0 0×0
-                  <message-mark .level-warning> 0,0 0×0
-                  <message-time> 0,0 0×0 "01:02:05"
-                  <message-text> 0,0 0×0 "Texture cache is 90% full"
+                  <message-mark> 0,0 0×0
+                  <message-time> 0,0 0×0
+                  <message-text> 0,0 0×0
                   <message-detail-text> 0,0 0×0
                 <message-row .parked> 0,0 0×0
-                  <message-mark .level-error> 0,0 0×0
-                  <message-time> 0,0 0×0 "01:01:01"
-                  <message-text> 0,0 0×0 "Could not import"
-                  <message-detail-text> 0,0 0×0 "wood.png …"
+                  <message-mark> 0,0 0×0
+                  <message-time> 0,0 0×0
+                  <message-text> 0,0 0×0
+                  <message-detail-text> 0,0 0×0
               <scrollbar .size-md .variant-default .vertical> 700,0 10×178
               <scrollbar .horizontal .size-md .variant-default> 0,168 8×10
           <message-log-detail .size-md .variant-default> 0,223 710×96
@@ -563,7 +574,7 @@ public sealed class MessageLogViewDumpTests {
         <scroll-view .size-md .variant-default> State=Hover
         <scroll-content .virtual-content> State=Hover
         <message-row> State=Checked
-        <message-row .parked> State=Hover, Checked
+        <message-row .parked> State=Hover
         <message-detail-text> State=Hover
         <scrollbar .size-md .variant-default .vertical> Value=0
         <scrollbar .horizontal .size-md .variant-default> Value=0
@@ -590,20 +601,20 @@ public sealed class MessageLogViewDumpTests {
             <scroll-view .size-md .variant-default> 0,0 710×245
               <scroll-content .virtual-content> 0,0 710×0
                 <message-row .parked> 0,0 0×0
-                  <message-mark .level-success> 0,0 0×0
-                  <message-time> 0,0 0×0 "01:03:10"
-                  <message-text> 0,0 0×0 "Saved"
+                  <message-mark> 0,0 0×0
+                  <message-time> 0,0 0×0
+                  <message-text> 0,0 0×0
                   <message-detail-text> 0,0 0×0
                 <message-row .parked> 0,0 0×0
-                  <message-mark .level-warning> 0,0 0×0
-                  <message-time> 0,0 0×0 "01:02:05"
-                  <message-text> 0,0 0×0 "Texture cache is 90% full"
+                  <message-mark> 0,0 0×0
+                  <message-time> 0,0 0×0
+                  <message-text> 0,0 0×0
                   <message-detail-text> 0,0 0×0
                 <message-row .parked> 0,0 0×0
-                  <message-mark .level-error> 0,0 0×0
-                  <message-time> 0,0 0×0 "01:01:01"
-                  <message-text> 0,0 0×0 "Could not import"
-                  <message-detail-text> 0,0 0×0 "wood.png …"
+                  <message-mark> 0,0 0×0
+                  <message-time> 0,0 0×0
+                  <message-text> 0,0 0×0
+                  <message-detail-text> 0,0 0×0
               <scrollbar .size-md .variant-default .vertical> 700,0 10×245
               <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
           <message-log-detail .empty .size-md .variant-default> 0,286 710×33
@@ -621,7 +632,6 @@ public sealed class MessageLogViewDumpTests {
         <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter…"
         <icon-button .size-md .variant-subtle> Label="Clear"
         <select .size-sm .variant-default> State=Valid
-        <message-row .parked> State=Checked
         <scrollbar .size-md .variant-default .vertical> Value=0
         <scrollbar .horizontal .size-md .variant-default> Value=0
         <scrollbar .size-md .variant-default .vertical> Value=0

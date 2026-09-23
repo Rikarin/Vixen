@@ -21,7 +21,7 @@ namespace Vixen.Ui.Controls.Tests;
 ///         is reachable, and now demonstrably. The gap is that a row <i>template</i> has no markup
 ///         construct: `CreateRow` builds an element tree in C# and `BindRow` writes it by index, and
 ///         both live in `@code` in a file whose whole subject is the tree. That is ergonomics, and
-///         ergonomics is what the `@rows` block in the issue would buy.
+///         ergonomics is what `@rows` now buys — see <c>RowsMarkupTests</c>.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Asserted by counting elements, per the issue's own criterion</b> — never by a

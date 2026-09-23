@@ -12,8 +12,8 @@
     construction because **a row template is the one thing markup has no word for**.
 
     ⚠ **Which is the gap stated as a measurement rather than as a claim.** `CreateRow` builds an
-    element tree in C#; a `@rows` block would be that tree written as markup, with the pool slot's
-    item and index arriving as signals. Nothing else here would change: `Count`, the scroller, the
+    element tree in C#; `@rows` is that tree written as markup (`RowsSheet.vxml`), with the pool
+    slot's item index arriving as a signal. Nothing else here would change: `Count`, the scroller, the
     pool and the rebinding are the control's and are already right.
 -->
 @component VirtualListSheet

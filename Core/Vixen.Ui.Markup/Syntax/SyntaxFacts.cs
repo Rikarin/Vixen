@@ -23,6 +23,7 @@ public static class SyntaxFacts {
             SyntaxKind.IfKeyword => "@if",
             SyntaxKind.ElseKeyword => "else",
             SyntaxKind.ForKeyword => "@for",
+            SyntaxKind.RowsKeyword => "@rows",
             SyntaxKind.VarKeyword => "var",
             SyntaxKind.InKeyword => "in",
             SyntaxKind.EmptyKeyword => "@empty",

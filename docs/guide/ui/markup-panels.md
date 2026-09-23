@@ -4,7 +4,7 @@ slug: ui/markup-panels
 kind: guide
 area: Core
 summary: Writing a control in .vxml — @inherits for a class callers can hold and add, ref and refs for the parts they read, change: for the values they edit, and the key rule — for @for and for @if alike — that decides whether a row updates at all.
-api: [L:7008, T:Vixen.Ui.Composition.IRowPool, T:Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax, T:Vixen.Ui.Styling.InlineDeclaration, T:Vixen.Editor.Ui.FactRow, T:Vixen.Ui.Composition.ElementRefs`1, T:Vixen.Ui.Composition.EventSubscription, T:Vixen.Ui.Controls.SubmitEvent]
+api: [L:7008, T:Vixen.Ui.Composition.IRowPool, T:Vixen.Ui.Markup.Syntax.RowsSyntax, T:Vixen.Ui.Markup.Binding.BoundRows, T:Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax, T:Vixen.Ui.Styling.InlineDeclaration, T:Vixen.Editor.Ui.FactRow, T:Vixen.Ui.Composition.ElementRefs`1, T:Vixen.Ui.Composition.EventSubscription, T:Vixen.Ui.Controls.SubmitEvent]
 tags: [ui, markup, vxml, controls, components, reactivity]
 since: 0.2
 status: preview
@@ -659,10 +659,42 @@ sharper version of the same reason. The body is never re-run, so a row that read
 show the item it was built for for ever, while scrolling perfectly. Writing the signal is what
 rebinding *is*.
 
-⚠ **There is still no markup spelling for it.** A `@rows` block would put that body in the tree
-rather than in `@code`, which is what
-[#758](https://github.com/Rikarin/Vixen/issues/758) is finally about; this is the runtime it would
-compile to, and it is the part that could be finished without inventing a keyword.
+### `@rows`, the same template written as markup
+
+```xml
+<VirtualizingPanel ref="@List">
+    @rows (var index in Items.Value.Length) {
+        <message-row class="line">@Label(index.Value)</message-row>
+    }
+</VirtualizingPanel>
+```
+
+`@rows` compiles to exactly the `Context.Pool` call above, over the tag it is written directly
+inside. The header names the index and gives the count — an `int`, re-read whenever what it reads
+changes — and the body is **one plain element, which is the row**: its tag is what every pool slot
+is created under, and its attributes and children are applied to each slot once.
+`Core/Vixen.Ui.Controls.Tests/Markup/RowsSheet.vxml` is the whole file
+([#758](https://github.com/Rikarin/Vixen/issues/758)).
+
+⚠ **`index` is a `Signal<int>`**, for the reason the section above gives: read `index.Value` inside
+an expression and the expression re-runs when the panel rebinds the slot. A slot the pool has made
+and not yet bound holds `-1`.
+
+⚠ **The row is the element, not a child of one**, so the tag a stylesheet styles rows by is written
+where every other tag is. A capitalised tag cannot be the row — a pool creates slots by tag name, and
+a component or a control is not a tag name it can create — so wrap one in a plain element, and the
+plain element is the row. `VXML2027` refuses anything else: two elements, a component, a branch, an
+empty body.
+
+⚠ **It fills the capitalised tag it is written directly inside, and only that.** Under a plain
+element, at the top level or inside an `@if` there is nothing to pool, and `VXML2028` says so.
+Whether the capitalised tag *can* pool — whether it is a `VirtualizingPanel` or a `VirtualizingGrid`,
+or anything else implementing `IRowPool` — is a type question this compiler leaves to the C# one,
+which reports it on the `@rows` keyword.
+
+⚠ **No `key`, and no `refs`.** A slot is not an identity, so there is nothing for a key to say; and a
+`refs` in the row would file every slot under whichever the pool made last. The syntax types are
+`RowsSyntax` and `BoundRows`.
 
 ### `help`, for a sentence a screen reader can reach
 

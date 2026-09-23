@@ -438,6 +438,7 @@ sealed class VxmlParser : SyntaxParser {
             VxmlTokenKind.At => ParseInterpolation(),
             VxmlTokenKind.IfKeyword => ParseIf(),
             VxmlTokenKind.ForKeyword => ParseFor(),
+            VxmlTokenKind.RowsKeyword => ParseRows(),
             VxmlTokenKind.SwitchKeyword => ParseSwitch(),
             VxmlTokenKind.CodeKeyword => ParseCodeBlock(),
             VxmlTokenKind.OpenBrace => SyntaxFactory.Text(Take(SyntaxKind.TextToken)),
@@ -730,6 +731,18 @@ sealed class VxmlParser : SyntaxParser {
             emptyKeyword,
             emptyKeyword is null ? null : ParseMarkupBlock()
         );
+    }
+
+    RowsSyntax ParseRows() {
+        var keyword = Take(SyntaxKind.RowsKeyword);
+        var openParen = Expect(VxmlTokenKind.OpenParen, SyntaxKind.OpenParenToken);
+        var varKeyword = Expect(VxmlTokenKind.VarKeyword, SyntaxKind.VarKeyword);
+        var identifier = Expect(VxmlTokenKind.Name, SyntaxKind.IdentifierToken);
+        var inKeyword = Expect(VxmlTokenKind.InKeyword, SyntaxKind.InKeyword);
+        var count = Expect(VxmlTokenKind.Expression, SyntaxKind.ExpressionToken);
+        var closeParen = Fabricate(VxmlTokenKind.CloseParen, SyntaxKind.CloseParenToken);
+
+        return SyntaxFactory.Rows(keyword, openParen, varKeyword, identifier, inKeyword, count, closeParen, ParseMarkupBlock());
     }
 
     SwitchSyntax ParseSwitch() {

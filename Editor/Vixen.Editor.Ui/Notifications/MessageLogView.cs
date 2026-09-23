@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui;
+
 namespace Vixen.Editor.Ui;
 
 /// <summary>The panel doc 20's A7 asks for: where the toasts accumulate once they have gone.</summary>
@@ -27,11 +29,59 @@ namespace Vixen.Editor.Ui;
 ///         then bounded by the centre's own limit rather than by two lists that have to agree.
 ///     </para>
 ///     <para>
-///         The panel is <c>MessageLogView.vxml</c> (#89); this file is the accessibility modifier
-///         and the reasoning, the arrangement <c>SceneHierarchyView</c> uses. The toolbar and the
-///         detail pane are markup; the rows stay a <c>VirtualizingPanel</c> row template, because a
-///         virtualiser's pool slot is not an identity a <c>@for</c> could key on (#758).
-///         <c>MessageLogViewDumpTests</c> holds the port to what the hand-written control drew.
+///         The panel is <c>MessageLogView.vxml</c>, its rows an <c>@rows</c> block (#758); this file
+///         is the accessibility modifier and the intrinsic tags the rows and the detail pane are
+///         written in. The toolbar and the detail pane were ported first (#89);
+///         <c>MessageLogViewDumpTests</c> holds the panel to what the hand-written control drew.
 ///     </para>
 /// </remarks>
 public sealed partial class MessageLogView;
+
+/// <summary>A message row's severity stripe, coloured by its <c>level-*</c> class.</summary>
+/// <remarks>
+///     ⚠ <b>One tiny type per tag, and that is the markup ports' convention rather than
+///     ceremony</b> — see <c>Captions.cs</c> in the asset editors. A capitalised tag with a
+///     <c>Text</c> writes the element's own text, where an interpolation inside a plain element makes
+///     a child text node; the columns here were written as their own text by the hand-built rows, and
+///     a row whose layout the stylesheet sizes by column has to stay that shape.
+/// </remarks>
+internal sealed class MessageMark : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "message-mark";
+}
+
+/// <inheritdoc cref="MessageMark" />
+internal sealed class MessageTime : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "message-time";
+}
+
+/// <inheritdoc cref="MessageMark" />
+internal sealed class MessageText : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "message-text";
+}
+
+/// <inheritdoc cref="MessageMark" />
+internal sealed class MessageDetailText : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "message-detail-text";
+}
+
+/// <inheritdoc cref="MessageMark" />
+internal sealed class MessageDetailHeading : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "message-detail-heading";
+}
+
+/// <inheritdoc cref="MessageMark" />
+internal sealed class MessageDetailMeta : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "message-detail-meta";
+}
+
+/// <inheritdoc cref="MessageMark" />
+internal sealed class MessageDetailBody : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "message-detail-body";
+}

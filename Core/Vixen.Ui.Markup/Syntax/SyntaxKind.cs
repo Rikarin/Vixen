@@ -222,5 +222,13 @@ public enum SyntaxKind : ushort {
 
     /// <summary><c>@empty</c>, the arm an <c>@for</c> draws when it drew no rows.</summary>
     /// <remarks>At the end, on <see cref="CommaToken" />'s rule.</remarks>
-    EmptyKeyword
+    EmptyKeyword,
+
+    /// <summary><c>@rows (var index in Count) { &lt;row&gt; … &lt;/row&gt; }</c>, a virtualizing control's row template.</summary>
+    /// <remarks>At the end, on <see cref="CommaToken" />'s rule.</remarks>
+    Rows,
+
+    /// <summary><c>@rows</c>.</summary>
+    /// <remarks>At the end, on <see cref="CommaToken" />'s rule.</remarks>
+    RowsKeyword
 }

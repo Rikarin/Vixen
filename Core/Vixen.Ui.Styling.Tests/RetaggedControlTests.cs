@@ -51,13 +51,15 @@ public sealed partial class RetaggedControlTests {
     /// <summary>The losses that are known and accepted, as <c>Type under tag: properties</c>.</summary>
     /// <remarks>
     ///     <para>
-    ///         Both entries are <c>TextBlock</c>, whose own rule is <c>text { display: inline }</c>
-    ///         plus a colour that each of these two restates. They are the viewport's two
-    ///         absolutely-positioned readouts, and <b>the <c>display</c> is recorded rather than
-    ///         restated because restating it changes what the editor draws</b> — an inline box and a
-    ///         flex box do not lay a glyph run out identically, and rule 7 of this repository's
-    ///         working agreement says a visual change wants a picture rather than an argument. So
-    ///         this is a ledger entry and not a fix, and it says so.
+    ///         ⚠ <b>Empty, and the two entries it held were closed by restating what was drawn rather
+    ///         than what was lost.</b> Both were <c>TextBlock</c> — the viewport's
+    ///         <c>viewport-stats</c> and <c>viewport-readout</c> — whose own rule is
+    ///         <c>text { display: inline }</c>. They were recorded rather than restated because
+    ///         restating <c>inline</c> changes what the editor draws. But the rename had already
+    ///         decided the box: never reaching the own rule, both laid out at the initial
+    ///         <c>flex</c>, and <c>EditorTheme.vcss</c> now says <c>display: flex</c> on each. The
+    ///         editor drawn at 1600×1000 with the stats and a measurement showing is pixel-identical
+    ///         across the change over the whole Scene pane — compared, not argued (#1327).
     ///     </para>
     ///     <para>
     ///         ⚠ Keyed by type and tag rather than by <c>file:line</c>, deliberately: a line number
@@ -66,10 +68,7 @@ public sealed partial class RetaggedControlTests {
     ///         stale.
     ///     </para>
     /// </remarks>
-    static readonly string[] Known = [
-        "TextBlock under viewport-readout: display",
-        "TextBlock under viewport-stats: display"
-    ];
+    static readonly string[] Known = [];
 
     /// <summary>
     ///     Every production site that renames a control is named here with what the rename costs, and

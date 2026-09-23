@@ -968,6 +968,129 @@ public class EmitterTests {
         Assert.Equal(1, inspections.GetValue(roster));
     }
 
+    // ================================================================== @rows
+
+    /// <summary>A stand-in pooling control, and a row template over it, for the whole pipeline.</summary>
+    /// <remarks>
+    ///     ⚠ The control is written in the component's own <c>@code</c> because this assembly
+    ///     references <c>Vixen.Ui</c> and not <c>Vixen.Ui.Controls</c>: <c>IRowPool</c> is the seam,
+    ///     and anything implementing it is what <c>@rows</c> fills. <c>Vixen.Ui.Controls.Tests</c>
+    ///     runs the same shape over a real <c>VirtualizingPanel</c>.
+    /// </remarks>
+    const string PooledRows = """
+                        @component Greeter
+                        @using System
+                        @using Vixen.Ui
+                        @using Vixen.Ui.Composition
+                        @using Vixen.Ui.Reactive
+
+                        <Pool ref="@List">
+                            @rows (var slot in Items.Value.Length) {
+                                <item-row class="line" data-made="@Made()">@Label(slot.Value)</item-row>
+                            }
+                        </Pool>
+
+                        @code {
+                            public sealed class Pool : UiElement, IRowPool {
+                                public int RowCount { get; set; }
+                                public UiElement RowHost => this;
+                                public Func<UiElement>? CreateRow { get; set; }
+                                public Action<UiElement, int>? BindRow { get; set; }
+                            }
+
+                            public Pool List { get; private set; } = null!;
+                            public Signal<string[]> Items { get; } = new(["alpha", "beta", "gamma"]);
+                            public int Bodies { get; private set; }
+
+                            string Made() => (++Bodies).ToString();
+                            string Label(int index) => index >= 0 && index < Items.Value.Length ? Items.Value[index] : "";
+                        }
+                        """;
+
+    /// <summary>
+    ///     An <c>@rows</c> builds one row per slot the control asks for, under the row's own tag, and
+    ///     rebinding a slot changes what it says without building it again.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Driven the way a virtualizing control drives it</b>: the control reads
+    ///         <c>RowCount</c>, calls <c>CreateRow</c> for each slot it needs and <c>BindRow</c> each
+    ///         time a slot shows a different item. Nothing here is a call the markup made.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Bodies</c> is the assertion that tells a pool from a list.</b> A body run per
+    ///         item — an <c>@for</c> in disguise — would draw the same three words and count six
+    ///         after the rebinds; a pool counts two, one per slot, however many times they rebind.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Rows_build_one_row_per_slot_and_rebinding_rewrites_it_without_rebuilding() {
+        var (_, instance, document) = Run(PooledRows);
+        document.Effects.Flush();
+
+        var pool = (IRowPool)Property(instance, "List");
+
+        Assert.Equal(3, pool.RowCount);
+        Assert.NotNull(pool.CreateRow);
+        Assert.NotNull(pool.BindRow);
+
+        var first = pool.CreateRow!();
+        var second = pool.CreateRow!();
+
+        Assert.Equal("item-row", first.Tag);
+        Assert.True(first.HasClass("line"));
+
+        pool.BindRow!(first, 2);
+        pool.BindRow!(second, 0);
+        document.Effects.Flush();
+
+        Assert.Equal("gamma", Text(first));
+        Assert.Equal("alpha", Text(second));
+
+        // A scroll: the same slot shows another item.
+        pool.BindRow!(first, 1);
+        document.Effects.Flush();
+
+        Assert.Equal("beta", Text(first));
+        Assert.Equal(2, (int)Property(instance, "Bodies"));
+
+        // And the count is live: a longer list is a longer scroll.
+        ((Signal<string[]>)Property(instance, "Items")).Value = ["a", "b", "c", "d", "e"];
+        document.Effects.Flush();
+
+        Assert.Equal(5, pool.RowCount);
+    }
+
+    /// <summary>
+    ///     ⚠ A tag that cannot pool is Roslyn's conversion error, reported at the <c>@rows</c> keyword
+    ///     and not at a generated local.
+    /// </summary>
+    /// <remarks>
+    ///     This is the half of the design the no-<c>VXML3xxx</c> policy rests on: the binder resolves
+    ///     no types, so whether <c>&lt;Plain&gt;</c> can pool is the C# compiler's question — and the
+    ///     answer is only the author's if it lands on characters the author wrote. Sabotage: the host
+    ///     argument written with <c>Line</c> instead of <c>MappedText</c> puts the error in
+    ///     <c>Counter.g.cs</c> and this is red on the path.
+    /// </remarks>
+    [Fact]
+    public void Rows_over_a_tag_that_cannot_pool_are_reported_at_the_keyword() {
+        const string Source = """
+                              @component Counter
+                              <Plain>
+                                  @rows (var i in 3) { <row /> }
+                              </Plain>
+                              @code { public sealed class Plain : Vixen.Ui.UiElement { } }
+                              """;
+
+        var error = Assert.Single(Errors(Compile(Emit(Source))));
+        var span = error.Location.GetMappedLineSpan();
+
+        Assert.Equal("CS1503", error.Id);
+        Assert.Equal(Path, span.Path);
+        Assert.Equal(2, span.StartLinePosition.Line);
+        Assert.Equal(4, span.StartLinePosition.Character);
+    }
+
     static string Text(UiElement element) => element.Children.Single().Text ?? string.Empty;
 
     static Signal<int> Count(object instance) => (Signal<int>)Property(instance, "Count");

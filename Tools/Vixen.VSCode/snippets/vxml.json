@@ -49,6 +49,15 @@
         ],
         "description": "⚠ Key on the item's value when the item is immutable data, and on the object only when that object holds signals: a surviving key keeps its region and its body is NOT re-run, so per-item bindings go on reading the value the key first appeared with."
     },
+    "Pooled rows": {
+        "prefix": "rows",
+        "body": [
+            "@rows (var ${1:index} in ${2:Items.Value.Length}) {",
+            "\t<${3:row}>$0</${3:row}>",
+            "}"
+        ],
+        "description": "A virtualizing control's row template, written directly inside <VirtualizingPanel> or <VirtualizingGrid>. ⚠ The one element IS the pool slot and is built once per slot, not per item; the index is a Signal<int> the control rewrites when the slot scrolls to another item, so read index.Value inside an expression. No key, no refs."
+    },
     "Conditional": {
         "prefix": "if",
         "body": [
