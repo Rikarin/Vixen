@@ -265,6 +265,81 @@ public class AdvancedTouchActionTests {
         Assert.Matches("^[a-z0-9]+$", editor.SelectedText);
     }
 
+    /// <summary>A code editor of a hundred and fifty three-line blocks, each one a fold, so the gutter has arrows all the way down.</summary>
+    static CodeEditor Folding(AdvancedFixture fixture) {
+        var editor = fixture.Add<CodeEditor>();
+        editor.Source = string.Join('\n', Enumerable.Range(0, 150).Select(static block => $"block{block}\n    alpha\n    bravo"));
+
+        fixture.Update();
+        editor.Refresh();
+        fixture.Update();
+
+        return editor;
+    }
+
+    /// <summary>The gutter row of a line that starts a fold, in the middle of what the editor shows.</summary>
+    static CodeGutterRow Arrow(CodeEditor editor) {
+        var middle = AdvancedFixture.Centre(editor.Scroller).Y;
+
+        return editor.Gutter.Children
+            .OfType<CodeGutterRow>()
+            .Where(row => row.Index > 0 && row.Index % 3 == 0 && row.Bounds.Height > 0f)
+            .OrderBy(row => MathF.Abs(AdvancedFixture.Centre(row).Y - middle))
+            .First();
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A finger folds on the tap, not on the press.</b> The fold arrow used to answer every
+    ///     device's press, which for a finger is two defects: a scroll that happened to start on the
+    ///     gutter folded the code under it, and the tap that followed the press then moved the caret
+    ///     to the line the gutter maps to — which a mouse's press on the same arrow does not do.
+    ///     Answered on the tap, a scroll is never a fold and a fold never moves the caret.
+    /// </summary>
+    [Fact]
+    public void A_finger_tap_on_a_fold_arrow_folds_and_leaves_the_caret_where_it_was() {
+        using var fixture = new AdvancedFixture();
+        var editor = Folding(fixture);
+
+        var arrow = Arrow(editor);
+        var (x, y) = AdvancedFixture.Centre(arrow);
+        var caret = editor.Caret;
+
+        fixture.Touch(PointerAction.Pressed, x, y);
+        fixture.Touch(PointerAction.Released, x, y);
+
+        Assert.True(editor.IsCollapsed(arrow.Index), $"a tap on line {arrow.Index}'s arrow folded nothing");
+        Assert.Equal(caret, editor.Caret);
+    }
+
+    /// <summary>The other half: a finger that starts a scroll on the gutter scrolls, and folds nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Inside an outer view, because the gutter is not inside the editor's own.</b>
+    ///     <c>code-gutter</c> is a sibling of <see cref="CodeEditor.Scroller" />, so a finger dragged
+    ///     on it scrolls whatever view holds the editor and never the code — a first draft that
+    ///     measured the editor's scroller went red on its "the drag scrolled" precondition for exactly
+    ///     that reason. The outer view moving is what says the gesture was a scroll and not a tap.
+    /// </remarks>
+    [Fact]
+    public void A_finger_scroll_that_starts_on_the_gutter_folds_nothing() {
+        var (fixture, view, control) = Themed(static (document, parent) => document.Create<CodeEditor>(null, parent, "knob"));
+        using var _ = fixture;
+
+        var editor = (CodeEditor)control;
+        editor.Source = string.Join('\n', Enumerable.Range(0, 150).Select(static block => $"block{block}\n    alpha\n    bravo"));
+
+        fixture.Update();
+        editor.Refresh();
+        fixture.Update();
+
+        var arrow = Arrow(editor);
+        var line = arrow.Index;
+        var (x, y) = AdvancedFixture.Centre(arrow);
+
+        Assert.True(Drag(fixture, view, x, y, 0f, -Step).Top > 0f, "the drag from the gutter never scrolled, so it folding nothing proves nothing");
+        Assert.False(editor.IsCollapsed(line), $"a scroll that started on line {line}'s arrow folded it");
+        Assert.DoesNotContain(editor.Folds, fold => editor.IsCollapsed(fold.Start));
+    }
+
     static UiElement Create(UiDocument document, UiElement parent, string tag) => tag switch {
         "node-canvas" => document.Create<NodeCanvas>(null, parent, "knob"),
         "node-minimap" => document.Create<NodeMinimap>(null, parent, "knob"),
