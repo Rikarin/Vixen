@@ -351,7 +351,10 @@ public sealed class AnimationGraphView : Control {
         var body = Part("animgraph-body");
 
         Map = body.Add<StateMapView>();
-        Side = body.Add("animgraph-side");
+        // ⚠ The content of a `ScrollView` under the `animgraph-side` tag, not a plain element: the
+        // sheet's `overflow-y: auto` clips in this UI and never scrolls, so a fields column longer
+        // than the pane simply ended (#1275). The fields stay the column's direct children.
+        Side = body.Add<ScrollView>("animgraph-side").Content;
         Fields = Side.Add("animgraph-fields");
         Parameters = Side.Add("animgraph-parameters");
         Diagnostics = Side.Add("analysis-list");

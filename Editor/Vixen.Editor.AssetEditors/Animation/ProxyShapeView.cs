@@ -136,7 +136,10 @@ public sealed class ProxyShapeView : Control, IDisposable {
         // clipped instead.
         List = left.Add<ScrollView>("shape-list").Content;
 
-        var side = body.Add("shape-side");
+        // ⚠ The content of a `ScrollView` under the `shape-side` tag, not a plain element: the
+        // sheet's `overflow-y: auto` clips in this UI and never scrolls, so a fields column longer
+        // than the pane simply ended (#1275). The fields stay the column's direct children.
+        var side = body.Add<ScrollView>("shape-side").Content;
 
         Fields = side.Add("shape-fields");
         Report = side.Add("shape-report");

@@ -91,7 +91,10 @@
         }
     </ScrollView>
 
-    <harness-side>
+    <!-- ⚠ A `ScrollView` under the sheet's tag: the `overflow-y: auto` this column carried clips
+         and does not scroll in this UI, so a column longer than the pane simply ended (#1275). Its
+         `gap` moved to `> scroll-content`, which is where the children are now. -->
+    <ScrollView tag="harness-side">
         <harness-fields ref="@Fields">
             @if (Chosen is null) {
                 @("Select a cell.")
@@ -132,7 +135,7 @@
                 }
             }
         </harness-fields>
-    </harness-side>
+    </ScrollView>
 </harness-body>
 
 @code {

@@ -48,10 +48,14 @@ add-component-list > scroll-content	Overlays
 add-component-menu > search-box	Overlays
 add-component-row > icon	Overlays
 add-component-row > label	Overlays
+agent-debugger-agents > scroll-content	Panels
+agent-debugger-detail > scroll-content	Panels
 animation-body > animation-stage	Documents
+animation-side > scroll-content	Documents
 animation-stage > curve-editor	Documents
 animation-stage > timeline	Documents
 animgraph-body > state-map	Documents
+animgraph-side > scroll-content	Documents
 asset-field > icon-button	Documents
 asset-tile > icon	Started
 asset-tile > image	Started
@@ -92,6 +96,7 @@ editor-shell > menu-bar	Started
 empty-state icon	-
 expander-header icon	Panels
 font-body > font-atlas	Documents
+font-side > scroll-content	Documents
 frame-editor > scroll-view	Documents
 frame-editor analysis-message	Documents
 frame-editor analysis-row	Documents
@@ -106,6 +111,7 @@ icon-button label	Started
 import-settings > scroll-view	Documents
 import-settings > scroll-view > scroll-content	Documents
 input-body > tree-view	Documents
+input-side > scroll-content	Documents
 inspector > scroll-view	Started
 inspector combo-box	-
 inspector expander	Panels
@@ -160,6 +166,7 @@ message-log-detail > scroll-content	Panels
 message-log-toolbar search-box	Panels
 message-log-toolbar select	Panels
 mixer-body > mixer-strips	Documents
+mixer-side > scroll-content	Documents
 mode-bar > toolbar	Started
 model-editor > tree-view	Documents
 moveset-bar > textbox	Documents
@@ -198,11 +205,14 @@ search-box field-placeholder	Started
 search-box icon	Started
 select icon	Started
 sequence-body > timeline	Documents
+sequence-side > scroll-content	Documents
 settings-header search-box	Panels
 shadergraph-editor > node-graph	Documents
+shadergraph-side > scroll-content	Documents
 shadergraph-source > code-editor	Documents
 shape-fields fact-value	Documents
 shape-fields fact-value > numeric-input	-
+shape-side > scroll-content	Documents
 shape-stage > viewport	Documents
 sprite-canvas > image	Documents
 sprite-field-row > numeric-input	Documents
@@ -237,7 +247,9 @@ tree-view virtualizing-panel	Started
 vector-component > text	Panels
 vector-component numeric-input	Panels
 vfx-editor > node-graph	Documents
+vfx-side > scroll-content	Documents
 viewport-bar > toolbar	Started
 virtualizing-grid scroll-view	Started
 virtualizing-panel scroll-view	Started
 virtualizing-panel scrollbar	Started
+vocab-side > scroll-content	Documents

@@ -234,7 +234,10 @@ public sealed class ChromeDumpTests {
         var tree = harness.Ui.Tree(view);
         var flags = harness.Ui.Flags(view);
 
-        Assert.Contains("<vfx-side>", tree, StringComparison.Ordinal);
+        // ⚠ The two default control classes are the dump saying `vfx-side` is a `ScrollView` under
+        // that tag rather than a plain box (#1275): the column declared `overflow-y: auto`, which in
+        // this UI clips and never scrolls. Neither class is styled anywhere, so nothing moved.
+        Assert.Contains("<vfx-side .size-md .variant-default>", tree, StringComparison.Ordinal);
         Assert.Contains("<vfx-transport>", tree, StringComparison.Ordinal);
         Assert.Contains("<vfx-readout>", tree, StringComparison.Ordinal);
         Assert.Contains("<node-inspector>", tree, StringComparison.Ordinal);
