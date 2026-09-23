@@ -817,9 +817,9 @@ form and to `SoftwareUiRasterizer` on a device, plus overlapping siblings (the s
 replays the first one's *blended* composite) and a blend nested in a translucent group.
 
 ⚠ **Four arrangements still composite source-over on the device, and `UiRenderer.Unblended` counts
-each one** — it needs to, because a blend over a flat backdrop is often the identity (`multiply`
-against white, `screen` against black), so neither a screenshot nor a comparison of the two executors
-can tell:
+the first three** — it needs to, because a blend over a flat backdrop is often the identity
+(`multiply` against white, `screen` against black), so neither a screenshot nor a comparison of the
+two executors can tell. The fourth has no counter, for the reason given against it:
 
 - a group under `rotate`, `scale` or `perspective` — the backdrop is read at the composite quad's
   texture coordinate, which is the target texel only while the quad is where the surface is, and
@@ -828,11 +828,17 @@ can tell:
   belongs to the module that applies those and samples one texture;
 - a blended group's `drop-shadow()` quad, which the software path blends separately from the group
   (its own word-for-word approximation) and the device composites plainly — which of the two is
-  right is still to be settled rather than reproduced;
+  right is still to be settled rather than reproduced. It is counted as a draw of its own, so a
+  blended shadowed group reads `Blended` for its composite and `Unblended` for its shadow;
 - a top-level panel of a HUD drawn inside a world renderer: `UiRenderFeature.Compose` has no
   backdrop to hand over because the scene is not drawn when these passes are recorded, so the panel
   blends with the interface beneath it and composites source-over onto the world — the same limit
-  `backdrop-filter` has there, for the same reason.
+  `backdrop-filter` has there, for the same reason. ⚠ **This one is counted in `Blended`, not
+  `Unblended`**: the panel *does* go through `UiBlend`, against the interface's own prefix over
+  transparent black, which is right wherever the interface painted under it and is source-over
+  wherever only the scene did. The renderer cannot tell those apart — a default `UiBackdropSource` is
+  also what a host that painted nothing would pass — and declining the blend would lose it in the
+  case that works, a badge over a plain HUD panel.
 
 ⚠ **The price written here until 2026-09-06 — "a fourth binding on the shared `ui atlas` layout" —
 was not a price, it was an impossibility.** Raven's `BindingPlan.Of` numbers a descriptor set by

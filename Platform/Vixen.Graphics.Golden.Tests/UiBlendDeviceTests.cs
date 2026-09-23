@@ -271,6 +271,133 @@ public sealed class UiBlendDeviceTests {
         Assert.Equal(1, renderer.Unblended);
     }
 
+    /// <summary>A blended group's drop-shadow quad goes out source-over, and is counted as a decline.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The software path blends the shadow and this one does not, so the counter is the
+    ///         only thing that says the two pictures differ on purpose.</b> <c>SoftwareUiRasterizer</c>
+    ///         records the mode under <see cref="UiLayer.ShadowImage" /> as well as under the group's
+    ///         own number; the device composites the shadow through the colour stage, which is what
+    ///         turns the surface into a silhouette and which samples no backdrop. Until the renderer
+    ///         recorded the mode on the shadow's number too, this frame read <c>Unblended</c> 0 — the
+    ///         shadow quad carried no mode as far as the draw could see.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two, not one, because the count is per draw across both halves of the frame.</b>
+    ///         The shadow is submitted once by <see cref="UiRenderer.Record" /> and once more inside the
+    ///         group's own blend capture, which replays everything its composite lands on — and the
+    ///         shadow quad is painted before the composite. <see cref="UiRenderer.Blended" /> is one:
+    ///         the composite itself is never inside its own capture.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ABlendedGroupsShadowIsDeclinedAndCounted() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var list = new DrawList();
+        list.BeginFrame();
+        list.Add(new(DrawCommandKind.Rectangle, 0, 0, Side, Side, Field, 0, 0));
+
+        list.Add(
+            new DrawCommand(DrawCommandKind.LayerPush, 24, 24, 80, 80, new Color4(1f, 1f, 1f, Opacity), 0, 0) {
+                Blend = UiBlendMode.Multiply,
+                Shadow = new UiDropShadow(new Vector2(6f, 6f), 0f, new Color4(0.1f, 0.6f, 0.9f, 1f))
+            }
+        );
+
+        list.Add(new(DrawCommandKind.Rectangle, 24, 24, 80, 80, new Color4(0.5f, 0.5f, 0.5f, 1f), 0, 0));
+        list.Add(new(DrawCommandKind.Rectangle, 40, 40, 48, 48, Paint, 0, 0));
+        list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+        list.EndFrame();
+
+        var (_, _, renderer) = Draw(owned, list, "blend-shadow");
+
+        Assert.Equal(1, renderer.Shadowed);
+        Assert.Equal(1, renderer.Blended);
+        Assert.Equal(2, renderer.Unblended);
+    }
+
+    /// <summary>A top-level blend with nothing handed over beneath it is blended, and not counted as declined.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This pins a limitation, so that the documents stating it stay true.</b> It is the
+    ///         world renderer's arrangement: <c>UiRenderFeature.Compose</c> passes no
+    ///         <see cref="UiBackdropSource" />, because the scene is not drawn when the passes are
+    ///         recorded. The group goes through <c>UiBlend</c> against the interface's own prefix over
+    ///         transparent black, and a backdrop of alpha zero weights § 5.1 to nothing — so over the
+    ///         bare target the composite is exactly source-over, and <see cref="UiRenderer.Unblended" />
+    ///         is still zero, because the renderer cannot tell a scene beneath from a host that painted
+    ///         nothing. <c>docs/guide/ui/compositing.md</c> says so; a change that starts counting or
+    ///         declining this has to change that page too, and this is what will tell it.
+    ///     </para>
+    ///     <para>
+    ///         The pixel half is the closed form: with no field under the group, the middle is
+    ///         <see cref="Paint" /> at <see cref="Opacity" /> source-over the target's clear.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ATopLevelBlendWithNothingBeneathIsBlendedAndNotCounted() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var list = new DrawList();
+        list.BeginFrame();
+
+        list.Add(new DrawCommand(DrawCommandKind.LayerPush, 24, 24, 80, 80, new Color4(1f, 1f, 1f, Opacity), 0, 0) { Blend = UiBlendMode.Multiply });
+        list.Add(new(DrawCommandKind.Rectangle, 24, 24, 80, 80, new Color4(0.5f, 0.5f, 0.5f, 1f), 0, 0));
+        list.Add(new(DrawCommandKind.Rectangle, 40, 40, 48, 48, Paint, 0, 0));
+        list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+        list.EndFrame();
+
+        var colour = owned.ColourTarget("ui-blend-nothing-beneath");
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var geometry = new UiGeometryBuilder().Build(list, cache, Viewport);
+
+        var renderer = new UiRenderer(
+            owned.Device,
+            UiShaderLibrary.Load(owned.Device),
+            new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
+        );
+
+        owned.Owns(renderer.Dispose);
+
+        owned.Graph.AddPass("ui-blend-nothing-beneath", pass => {
+            pass.ColourAttachment(colour, LoadAction.Clear, Background);
+            pass.SideEffect();
+            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+        });
+
+        var rendered = owned.Render(
+            colour,
+            commands => {
+                renderer.Upload(commands, geometry, cache.Atlas);
+                renderer.Compose(commands, geometry, new Int2(Side, Side));
+            }
+        );
+
+        Assert.Equal(1, renderer.Blended);
+        Assert.Equal(0, renderer.Unblended);
+
+        var over = (
+            Code((Paint.R * Opacity) + (Background.R * (1f - Opacity))),
+            Code((Paint.G * Opacity) + (Background.G * (1f - Opacity))),
+            Code((Paint.B * Opacity) + (Background.B * (1f - Opacity)))
+        );
+
+        var middle = Middle(rendered);
+
+        Assert.True(Distance(middle, over) <= 3, $"a blend with nothing beneath: middle {middle}, source-over {over}");
+
+        static int Code(float value) => (int)MathF.Round(Math.Clamp(value, 0f, 1f) * 255f);
+    }
+
     /// <summary>A capture left over from last frame is not used for this frame's group at the same number.</summary>
     /// <remarks>
     ///     ⚠ <b>Surface numbers are reused by position from frame to frame, and a capture outlives the

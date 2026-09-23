@@ -423,8 +423,11 @@ public sealed class UiRenderer : IDisposable {
     ///     a group in this map whose capture exists in <see cref="blendCaptures" /> is composited
     ///     through <see cref="blendPipeline" />, and one whose capture does not — no blend stage, a
     ///     transformed group, a group whose composite also needs a matrix or a mask — still goes out
-    ///     source-over and <see cref="SubmitDraw" /> says so in <see cref="Unblended" />. Rebuilt by
-    ///     <see cref="Compose" /> each frame for <see cref="layerFilters" />' reason.
+    ///     source-over and <see cref="SubmitDraw" /> says so in <see cref="Unblended" />. ⚠ A blended
+    ///     group's drop-shadow quad is in it too, under <see cref="UiLayer.ShadowImage" />: it is never
+    ///     blendable, and the entry is what makes its source-over composite a counted decline rather
+    ///     than a silent one. Rebuilt by <see cref="Compose" /> each frame for
+    ///     <see cref="layerFilters" />' reason.
     /// </remarks>
     readonly Dictionary<ulong, UiBlendMode> layerBlends = [];
 
@@ -1091,7 +1094,23 @@ public sealed class UiRenderer : IDisposable {
     ///         composite also needs a colour matrix or a mask, which the module that applies those
     ///         cannot combine with a second texture; and the drop-shadow quad of a blended group, which
     ///         the software path blends separately and this one composites plainly (#783's second
-    ///         question, still to be settled rather than reproduced).
+    ///         question, still to be settled rather than reproduced). The shadow is counted as its own
+    ///         draw, so a blended shadowed group reads <see cref="Blended" /> for its composite and this
+    ///         for its shadow — twice, because the group's own capture replays the shadow quad it lands
+    ///         on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this does <i>not</i> count: a top-level blended group in a world renderer.</b>
+    ///         <c>UiRenderFeature.Compose</c> passes no <c>beneath</c>, because the scene is not drawn
+    ///         when these passes are recorded, so such a group blends through <c>UiBlend</c> — and
+    ///         reads <see cref="Blended" /> — against the interface's own prefix over transparent
+    ///         black. Where the interface has painted under it that is the right answer; where only
+    ///         the scene has, a backdrop of alpha zero weights the blend to nothing and the composite
+    ///         lands source-over on the world. It is not counted here because nothing this renderer is
+    ///         handed tells the two apart: a default <see cref="UiBackdropSource" /> is also what a
+    ///         host that genuinely painted nothing would pass, and there the picture is right. And it
+    ///         is not declined, because declining would lose the blend in the case that works — a
+    ///         top-level badge over a plain HUD panel, which is not a group and so is in the prefix.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>History worth keeping, because two refusals were written here as blockers and both
@@ -1530,6 +1549,19 @@ public sealed class UiRenderer : IDisposable {
         foreach (var layer in geometry.Layers) {
             if (layer.Blend != UiBlendMode.Normal) {
                 layerBlends[layer.Image] = layer.Blend;
+
+                // ⚠ <b>And on the shadow's quad, keyed by the shadow's own number, so that the
+                // decline is counted rather than silent.</b> `SoftwareUiRasterizer` records the mode
+                // on both quads and blends the silhouette separately; this renderer composites the
+                // shadow through `colourPipeline` — the tint is what makes it a shadow — which never
+                // samples a backdrop, so the shadow goes out source-over. Until this entry existed
+                // the draw carried no mode as far as `SubmitDraw` could see, and a blended shadowed
+                // group read `Unblended` 0 while the two executors disagreed about its shadow.
+                // Conditional on the surface existing, for the tint's reason above: a shadow that is
+                // never drawn has no composite to decline.
+                if (layer.Shadow is not null && layerSurfaces.ContainsKey(layer.ShadowImage)) {
+                    layerBlends[layer.ShadowImage] = layer.Blend;
+                }
             }
 
             // ⚠ Keyed by the BACKDROP's surface and not the group's, because the curve is on the

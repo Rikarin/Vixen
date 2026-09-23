@@ -172,7 +172,8 @@ box: sizing a replaced element from its content is a separate thing this framewo
 ⚠ **`mix-blend-*` is applied on both executors since #783, with four stated exceptions on the
 device.** A transformed group, a blended group that also carries a `filter` matrix or a `mask-*`, a
 blended group's `drop-shadow` quad, and a top-level HUD panel in a world renderer still composite
-source-over on the GPU, and `UiRenderer.Unblended` is what says it happened. See
+source-over on the GPU. `UiRenderer.Unblended` says so for the first three; the HUD panel has no
+counter, because it does go through the blend, against an interface-only backdrop. See
 `docs/guide/ui/compositing.md` and `docs/plan/43-web-styling-parity.md` § Part 9, Bucket 2.
 
 ⚠ **The `scroll-*` set is written now, and every one of them only means something inside a
