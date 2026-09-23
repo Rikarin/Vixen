@@ -995,6 +995,23 @@ holds it to them:
   this clause may be `partial`, unlike the two above: a half-read longhand *is* what a `partial` row
   usually is, and there are 29 of them.
 
+⚠ **And a fourth form that declares nothing**, `[~expires-<kind> <anchor>]`, the *quotation* — a note
+talking **about** a clause rather than writing one. It exists because the grammar had no way to spell
+that and the omission was expensive (**#1325**). The `select` row's note narrates the commit that gave
+it a second clause and the merge that took it away seventy-seven minutes later, which is exactly what
+this column is for and exactly what the paragraph above asks for when it says a clause sits "against
+the prose it formalises" — and written in the only spelling available, that sentence **declared a
+second real clause**, off the same cell as the live one. The census then held two identical rows and
+every test in the suite agreed with it: an equality against a list the same sweep produced, a
+condition evaluated twice and agreeing with itself twice, and an opening count that balances two for
+two. ⚠ A quotation is held to **one** thing only — being well formed. It resolves no anchor and
+expires on no condition, because the commonest thing worth quoting is a clause that has been
+*deleted*. `[~expires-` does not contain `[expires-`, so the opening count had to be widened to see
+the form at all; without that a mistyped quotation would read as prose, one tilde away from being a
+live declaration again. ⚠ And `RefusalExpiryTests.No_root_declares_the_same_condition_twice` is the
+other half of #1325: no guard of the shape "derive a set and hold it against a committed copy" can see
+a set holding one member twice.
+
 **Why a clause in the prose and not another column.** The failure being prevented is that nobody
 writes the condition down *as* a condition. Anything that makes recording one a separate act loses to
 what it competes with, which is finishing the sentence you were already writing.

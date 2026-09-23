@@ -39,6 +39,17 @@
 #                         nobody re-reads it. `hyphens: auto`'s second blocker closed in #600 and the
 #                         sentence naming it stood in three files, unreachable by this suite.
 #
+#   [~expires-… …]        NOT a kind: the quotation form, a note talking ABOUT a clause rather than
+#                         declaring one. It contributes nothing to this file. ⚠ It exists because
+#                         the `select` row's note narrates the commit that gave it a second clause —
+#                         which is what the `note` column is for — and in the only spelling the
+#                         grammar had, that sentence DECLARED a second real one: two identical rows
+#                         below, green on every test in the suite, because a duplicate is consistent
+#                         with an equality against a list the same sweep produced. #1325. A quotation
+#                         is held to being well formed and to nothing else — the thing most worth
+#                         quoting is a clause that has since been deleted, whose anchor no longer
+#                         resolves.
+#
 #   expires-when-read <p> The refusal stands only while nothing in the engine reads that CSS
 #                         property. As exact as `expires-with`, because its condition is the same
 #                         measurement `InertProperties.txt` expires on — `UtilityConsumptionProbe`
