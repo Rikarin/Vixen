@@ -38,7 +38,7 @@ namespace Vixen.Ui.Desktop.Tests;
 public class SurfaceScaleTests {
     static (UiDocument Document, UiWindowSurface Surface, HeadlessWindow Window) Opened(float scale) {
         var platform = new HeadlessPlatform();
-        var window = (HeadlessWindow) platform.CreateWindow(
+        var window = (HeadlessWindow)platform.CreateWindow(
             new WindowOptions { Title = "scale", Size = new Int2(200, 200) }
         );
 
