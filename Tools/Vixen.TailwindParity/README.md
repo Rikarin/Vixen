@@ -39,6 +39,14 @@ the snapshot was taken would pass the check with nothing having looked at it. A 
 `checked` fails as TWP004 — *the snapshot is stale* — which is a different sentence from *this class
 is wrong*, and both are failures.
 
+⚠ **And it asks two control questions nobody needed answered.** Every other name it asks about comes
+out of the ledger, so on a healthy ledger `refused` is *empty* — and an empty array cannot be told
+apart from a generator that stopped recording refusals, or a compiler that answered every question
+with success. So `p-4` and `vixen-parity-control-no-such-utility` are always asked, the first must
+compile and the second must not, and `ParityAuditTests` spends both. Neither is a ledger name, so
+neither can produce a finding of its own — what they buy is that `refused: []` means *nothing was
+refused* rather than *nothing was measured*.
+
 ## Re-taking the snapshot
 
 ```bash
@@ -69,12 +77,21 @@ Bumping the pinned version is a deliberate act: it will move `staticRoots`, `fun
 | `TWP009` | An unsupported-file entry Vixen resolves now, so the file must shrink. |
 | `TWP010` | A variant v4 compiles no class from, so nothing here can ask about it. |
 | `TWP011` | An unsupported-file entry v4 does not register at all. |
+| `TWP012` | A count doc 43's prose states that the artefact holding it disagrees with. |
+| `TWP013` | A gated sentence of doc 43 that matches zero times or twice — reworded, so nothing checks it. |
 
 ⚠ **`TWP003` is the one that costs something.** `ParityLedger.Derive` demotes a row from `works` to
 `partial` when any class in its `classes` column fails to resolve, and never promotes a row on the
 strength of that column. A class Tailwind does not ship is therefore a *permanent* demotion of a root
 that may well be finished — the pessimistic error `ParityLedger`'s own remarks call the expensive
 kind, arriving through the one column nothing in the tree could read.
+
+⚠ **But it is a two-step, and the first step is `TWP004`.** The snapshot records a refusal only for
+a class the ledger named *when it was taken*, so putting a Vixen-only spelling back into a row today
+reddens the gate as TWP004 — "the snapshot was never asked about it, re-take it" — and TWP003 only
+follows once somebody has. Each message names the next step, and
+`A_ledger_row_naming_a_class_the_real_snapshot_refuses_is_TWP003` exercises the second half against
+the real snapshot without needing npm, by naming the control class the generator always asks about.
 
 The first run of this tool found two: the `backdrop-blur-*` row listed `backdrop-blur-2` and
 `backdrop-blur-4`. Those are real classes *in Vixen* — `UtilityFamilies` answers a blur with a named
@@ -117,3 +134,21 @@ business; listing both would double the ledger to say nothing.
 **Whether a root is implemented well.** That is the ledger's `emits`, `engine_reads` and `state`
 columns, and they are re-derived from the engine on every run of
 `Core/Vixen.Ui.Styling.Utilities.Tests`.
+
+## The document's own numbers
+
+⚠ **Doc 43 states counts in prose that these artefacts measure, and `ProseAudit` checks them.** It is
+here because the batch that made these numbers measurable left one of them asserted: one commit wrote
+"163 of v4's 890 static utilities are named by no row", the next shrank that list to 150 and did not
+revisit the sentence, a third edited the same document and did not either. Nothing could see it,
+because the audit read the `.txt` and never the `.md`.
+
+⚠ **A prose gate's real failure is going quiet, not going wrong.** Reword a gated sentence and a regex
+stops matching, and a check that simply compares whatever it found reports nothing. So each claim must
+match **exactly once**: zero matches and two matches are both `TWP013`. Rewording one of these
+sentences is therefore meant to cost an edit in `ProseAudit.cs` — that is the price of the number
+staying checked. The patterns are whitespace-tolerant because the document is hard-wrapped and a
+sentence moves across the wrap column whenever a word above it changes.
+
+Only claims whose source is a file in `RepositoryFiles` are gated. Doc 43's other numbers come from
+suites elsewhere and are their business.

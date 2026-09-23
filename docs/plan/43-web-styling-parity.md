@@ -962,10 +962,19 @@ Vixen has.
 
 ⚠ **And the survey's shortfall against v4 is enumerated rather than described.** The `classes` column
 was known to be short — the `display` row's note counts 7 of 21 keywords — and nobody could say by
-how much. Measured: **163 of v4's 890 static utilities are named by no row**, listed one per line in
+how much. Measured: **150 of v4's 890 static utilities are named by no row**, listed one per line in
 `docs/plan/43-web-styling-unlisted.txt`. It is `CheckWhitespace`'s exemption shape, so a static
 utility in neither file fails, and a line there that a row has since listed fails too — the list can
 only shrink. Every line in it is a question the ledger has not asked the engine.
+
+⚠ **And the three counts this part states are checked against the files that hold them**, by
+`ProseAudit` in the same tool — because the first version of this section said 163 where the list
+said 150. Three commits in a row edited this document; one shrank the list and neither of the others
+looked, and nothing could see it, since the audit read the `.txt` and never the `.md`. A number here
+that disagrees with its artefact is `TWP012`; a sentence reworded so the pattern no longer finds it is
+`TWP013`, which matters more — **a prose gate that stops matching goes green rather than red**, so
+the claim and its count are asserted together and rewording one of these sentences costs an edit in
+`Tools/Vixen.TailwindParity/ProseAudit.cs`.
 
 ⚠ **And the join between the two vocabularies is declared, because they collide.** `vixen_family` is
 the column a person maintains, and four names still mean different things on either side of it:
@@ -4131,7 +4140,7 @@ ask is not "where is this read" but "what else reads the number it changes".**
    ✅ **And the roots themselves are checked now**, against `docs/plan/tailwind-registry.json` by
    `Tools/Vixen.TailwindParity`: 245 functional roots surveyed and 245 registered, with no row on
    either side that the other lacks. The static half is compared through the class names a row lists,
-   and the 163 v4 static utilities no row names are enumerated in
+   and the 150 v4 static utilities no row names are enumerated in
    `docs/plan/43-web-styling-unlisted.txt` rather than assumed away.
 2. ✅ **No family emits a property no consumer *acts on***, except entries on the allow-list, each of
    which names a task this document contains. `UtilityConsumptionGateTests` fails otherwise — a test

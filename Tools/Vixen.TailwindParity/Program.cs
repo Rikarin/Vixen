@@ -26,6 +26,7 @@ var tokens = ThemeTokens.CreateDefault();
 
 var findings = ParityAudit.Run(registry, rows, unlisted)
     .Concat(VariantAudit.Run(registry, probe => Variants.TryResolve(probe, tokens, out _), unsupported))
+    .Concat(ProseAudit.Run(File.ReadAllText(files.Document), registry, unlisted, unsupported))
     .ToList();
 
 foreach (var finding in findings) {
