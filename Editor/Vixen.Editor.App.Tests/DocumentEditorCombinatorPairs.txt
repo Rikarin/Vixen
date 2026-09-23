@@ -72,6 +72,7 @@ inspector-header > search-box
 inspector-row > icon-button
 inspector-row > inspector-editor
 inspector-row > inspector-label
+keybindings-status > text
 material-bar > textbox
 material-editor > image
 memory-view > scroll-view

@@ -50,6 +50,7 @@ inspector-header > search-box
 inspector-row > icon-button
 inspector-row > inspector-editor
 inspector-row > inspector-label
+keybindings-status > text
 memory-view > scroll-view
 message-log-detail > scroll-content
 mode-bar > toolbar

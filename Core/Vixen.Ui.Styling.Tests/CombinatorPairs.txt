@@ -72,6 +72,7 @@ inspector-header > search-box	Editor/Vixen.Editor.Inspector/InspectorTheme.vcss
 inspector-row > icon-button	Editor/Vixen.Editor.Inspector/InspectorTheme.vcss
 inspector-row > inspector-editor	Editor/Vixen.Editor.Inspector/InspectorTheme.vcss
 inspector-row > inspector-label	Editor/Vixen.Editor.Inspector/InspectorTheme.vcss
+keybindings-status > text	Core/Vixen.Ui.Controls.Advanced/AdvancedTheme.vcss
 material-bar > textbox	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 material-editor > image	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 memory-view > scroll-view	Editor/Vixen.Editor.Profiler/ProfilerTheme.vcss

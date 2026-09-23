@@ -47,6 +47,10 @@ key-value-value slider	-
 key-value-value stepper	-
 key-value-value textarea	-
 key-value-value textbox	-
+keybindings-status > text	Bare
+keybindings-toolbar search-box	Bare
+keybindings-toolbar select	Bare
+keybindings-view data-grid	Bare
 menu-item icon	-
 menu-item kbd	-
 multi-select icon	Bare
