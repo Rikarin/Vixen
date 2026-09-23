@@ -51,6 +51,16 @@ public sealed class SharedCatalogue {
 ///         translation loaded</i> — and that question keeps its meaning as controls are added.
 ///     </para>
 ///     <para>
+///         ⚠ <b>And the window itself is still a hand-written list, which is a different defect from
+///         the one above and is not fixed here.</b> The question is about the class; its <i>domain</i>
+///         is whatever somebody typed below, so a control that takes a catalogue-fed name after this
+///         was written is uncovered until somebody remembers — and three of them were, within two
+///         weeks (#1321). <c>Vixen.Ui.Controls.Advanced.Tests.AccessibleNameDomainTests</c> asks the
+///         same question over a domain derived from both assemblies, and it lives there because only
+///         that project can see both. This file keeps the seeded cases and the
+///         <see cref="AccessibilitySnapshot.Unnamed" /> claim, neither of which a bare sweep can make.
+///     </para>
+///     <para>
 ///         ⚠ <b>The window is built <i>after</i> the language is chosen, and that is the behaviour
 ///         rather than a convenience.</b> A control assigns its labels in <c>OnCreated</c>, so it
 ///         shows the language it was built in — <see cref="ControlStrings" /> says so at length and

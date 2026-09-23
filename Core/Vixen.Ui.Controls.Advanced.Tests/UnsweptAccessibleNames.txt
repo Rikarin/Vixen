@@ -1,0 +1,20 @@
+# The control types that override `NativeAccessibleName` — that is, that answer with words of their
+# own rather than with what they display — and that `AccessibleNameDomainTests`' sweep cannot build.
+#
+#     <type><TAB>#<issue><TAB><reason>
+#
+# Held against the derived set by
+# `AccessibleNameDomainTests.Every_type_that_names_itself_is_swept_or_excused`, EXACTLY and in both
+# directions. A type that becomes constructible must LEAVE this file: a row excusing a type the
+# sweep now covers would outlive its reason, and the next unreachable control would take the seat it
+# vacated.
+#
+# ⚠ A row here is a control nothing in that file judges. It is not a control that is wrong — it is a
+# control whose accessible name no derived gate has ever looked at, which is the blindness
+# `Rikarin/Vixen#1321` is about. Each row says who does cover it instead, or names the issue that
+# will make it reachable.
+#
+# ⚠ Empty is the answer rather than the absence of one: every self-naming control in the two
+# assemblies has a parameterless constructor today, so the sweep reaches all of them. What makes
+# that a pass rather than a silence is `The_naming_sweep_actually_ran` beside it, and the floor on
+# the derived set inside the assertion itself.

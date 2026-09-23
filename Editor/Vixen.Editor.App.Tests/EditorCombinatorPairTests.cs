@@ -159,25 +159,47 @@ public partial class EditorCombinatorPairTests {
     /// </remarks>
     const int Floor = 16;
 
-    /// <summary>Every parent→child tag pairing a started editor grows, done once for the class.</summary>
-    static IReadOnlySet<string> Observed => observed ??= Sweep(Depth.Started);
+    /// <summary>What each sweep observed, run on first ask and kept for the class.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Keyed by <see cref="Depth" /> rather than held in a field per sweep, so that the
+    ///     ladder has exactly one hand-written list and it is the enum.</b> Four memo fields meant
+    ///     four places naming the four depths — <c>Ladder</c> was derived from the enum and
+    ///     <c>VerdictOf</c> still forced the sweeps by naming their four properties, so a fifth depth
+    ///     added to the enum would have entered the ladder, never been swept, and reported <c>-</c>
+    ///     for everything only it reaches. A row that looks like a dead rule and is a missing sweep
+    ///     is the failure this family of censuses exists to avoid.
+    /// </remarks>
+    static readonly Dictionary<Depth, IReadOnlySet<string>> Swept = [];
 
-    static IReadOnlySet<string>? observed;
+    /// <summary>The sweep at one depth, run once.</summary>
+    static IReadOnlySet<string> At(Depth depth) =>
+        Swept.TryGetValue(depth, out var pairs) ? pairs : Swept[depth] = Sweep(depth);
+
+    /// <summary>Every parent→child tag pairing a started editor grows, done once for the class.</summary>
+    static IReadOnlySet<string> Observed => At(Depth.Started);
 
     /// <summary>The same for an editor with every registered panel opened, done once for the class.</summary>
-    static IReadOnlySet<string> Opened => opened ??= Sweep(Depth.Panels);
-
-    static IReadOnlySet<string>? opened;
+    static IReadOnlySet<string> Opened => At(Depth.Panels);
 
     /// <summary>The same again with a document of every registered kind open, done once for the class.</summary>
-    static IReadOnlySet<string> Documents => documents ??= Sweep(Depth.Documents);
-
-    static IReadOnlySet<string>? documents;
+    static IReadOnlySet<string> Documents => At(Depth.Documents);
 
     /// <summary>The panel sweep with the chrome's own overlays open too, done once for the class.</summary>
-    static IReadOnlySet<string> Overlays => overlays ??= Sweep(Depth.Overlays);
+    static IReadOnlySet<string> Overlays => At(Depth.Overlays);
 
-    static IReadOnlySet<string>? overlays;
+    /// <summary>Runs every sweep the ladder names, so that a verdict is over the whole of it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Over <see cref="Ladder" />, which is the enum, so adding a depth needs no line
+    ///     here.</b> The version this replaced wrote the four properties out; the property that
+    ///     bought is asserted next door by
+    ///     <c>Every_depth_on_the_ladder_is_swept_before_a_verdict_is_read</c>, because "the climb
+    ///     covers the ladder" is otherwise a claim only the reading of this method makes.
+    /// </remarks>
+    static void Climb() {
+        foreach (var depth in Ladder) {
+            _ = At(depth);
+        }
+    }
 
     /// <summary>How many assets the document sweep created and asked the editor to open.</summary>
     static int authored;

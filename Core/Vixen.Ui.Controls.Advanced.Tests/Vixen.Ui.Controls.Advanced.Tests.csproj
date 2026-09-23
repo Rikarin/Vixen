@@ -32,6 +32,20 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!--
+            What a `.vxml` line is allowed to say, compiled into this assembly rather than referenced
+            from `Vixen.Ui.Styling.Tests`, which is why its namespace matches neither. Two sweeps in
+            two assemblies read the same files for different names — which tags the repository writes,
+            and which words a control is handed to say — and the batch that taught the first to skip
+            XML comments and `@code` bodies shipped the second with no filter at all. The tests are linked
+            beside it so each assembly proves its own copy; `Vixen.Geometry.Uv.Tests`' `RunawayGuard`
+            is shared the same way.
+        -->
+        <Compile Include="..\Vixen.Ui.Styling.Tests\Shared\VxmlLines.cs" Link="Shared\VxmlLines.cs" />
+        <Compile Include="..\Vixen.Ui.Styling.Tests\Shared\VxmlLinesTests.cs" Link="Shared\VxmlLinesTests.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
 
         <!--

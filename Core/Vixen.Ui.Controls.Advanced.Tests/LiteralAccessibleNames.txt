@@ -1,0 +1,201 @@
+# Every English word a `.vxml` hands a control to SAY rather than to show: a `Label`, `Title`,
+# `Message`, `Description`, `Name`, `AccessibleName` or `AccessibleDescription` attribute written as
+# a literal rather than as an `@` expression reading a `*Strings` declaration.
+#
+#     <path><TAB><attribute><TAB><value>
+#
+# Held against the markup by
+# `MarkupAccessibleNameTests.Every_literal_spoken_name_in_markup_is_in_the_committed_census`,
+# EXACTLY and in both directions. Derived: re-run that test with VIXEN_REGENERATE=1 to write this
+# back, and read the diff.
+#
+# ⚠ A row is a word no translator can reach. The control answers `NativeAccessibleName` with this
+# attribute — `ButtonBase` with `Label`, `Alert` and `Dialog` with `Title`, `Toast` with `Message`,
+# `Image` with `Description`, `Avatar` with `Name` — so the literal is what a screen reader says, in
+# English, in every language. Nothing else in this repository can see one: the localisation gate
+# compares an announced word against the DECLARATION table, and a word no class declares is not in
+# it (`Rikarin/Vixen#1338`).
+#
+# ⚠ This file can only shrink. A row leaving means a panel's words moved into a `*Strings` class,
+# which is the change it exists to make visible; a row ARRIVING is a new untranslatable name and is
+# the loud direction.
+#
+# ⚠ The scan is over-inclusive on `Name`, which is a generic attribute only `Avatar` turns into a
+# spoken name. A row on something else costs a line; a spoken name the scan declined to see costs a
+# screen-reader user a word.
+#
+# ⚠ It is NOT over-inclusive about which lines it reads. A `<!-- … -->` comment quoting an attribute
+# as an example, and a `Label = "Add"` in a `@code` body, are prose and C# about markup rather than
+# markup; `VxmlLines` takes both out before the pattern runs, the same reader the tag census uses.
+# Without that a reworded comment would move a committed row, in a file that is supposed to shrink.
+Core/Vixen.Ui.Controls.Tests/Markup/AmbientHost.vxml	Name	dark
+Core/Vixen.Ui.Controls.Tests/Markup/BoundOverlaySheet.vxml	Title	Delete it?
+Core/Vixen.Ui.Controls.Tests/Markup/CommandMenu.vxml	Label	Copy
+Core/Vixen.Ui.Controls.Tests/Markup/CommandMenu.vxml	Label	Edit
+Core/Vixen.Ui.Controls.Tests/Markup/CommandMenu.vxml	Label	Paste
+Core/Vixen.Ui.Controls.Tests/Markup/FoldoutSheet.vxml	Label	Remove
+Core/Vixen.Ui.Controls.Tests/Markup/HelpSheet.vxml	Label	Save
+Core/Vixen.Ui.Controls.Tests/Markup/OverlaySheet.vxml	Label	Only modified
+Core/Vixen.Ui.Controls.Tests/Markup/OverlaySheet.vxml	Title	Delete it?
+Core/Vixen.Ui.Controls.Tests/Markup/RefreshableSheet.vxml	Label	Refresh
+Core/Vixen.Ui.Controls.Tests/Markup/ShellConsumer.vxml	Label	Reload
+Core/Vixen.Ui.Controls.Tests/Markup/StateDialogSheet.vxml	Label	Delete
+Core/Vixen.Ui.Controls.Tests/Markup/StateDialogSheet.vxml	Label	Keep
+Core/Vixen.Ui.Controls.Tests/Markup/StateDialogSheet.vxml	Title	Delete it?
+Core/Vixen.Ui.Controls.Tests/Markup/TabbedSheet.vxml	Label	General
+Editor/Vixen.Editor.App/BuildSettingsView.vxml	Label	Add
+Editor/Vixen.Editor.App/BuildSettingsView.vxml	Label	Build
+Editor/Vixen.Editor.App/BuildSettingsView.vxml	Label	Build and Run
+Editor/Vixen.Editor.App/BuildSettingsView.vxml	Label	Move Down
+Editor/Vixen.Editor.App/BuildSettingsView.vxml	Label	Move Up
+Editor/Vixen.Editor.App/BuildSettingsView.vxml	Label	Remove
+Editor/Vixen.Editor.App/ComponentsView.vxml	Label	Add Component
+Editor/Vixen.Editor.App/ComponentsView.vxml	Label	Raw
+Editor/Vixen.Editor.App/ComponentsView.vxml	Label	Remove Component
+Editor/Vixen.Editor.App/MeshMapBakeView.vxml	Label	Ambient Occlusion
+Editor/Vixen.Editor.App/MeshMapBakeView.vxml	Label	Bake
+Editor/Vixen.Editor.App/MeshMapBakeView.vxml	Label	Bent Normal
+Editor/Vixen.Editor.App/MeshMapBakeView.vxml	Label	Curvature
+Editor/Vixen.Editor.App/MeshMapBakeView.vxml	Label	ID
+Editor/Vixen.Editor.App/MeshMapBakeView.vxml	Label	Overwrite painted maps
+Editor/Vixen.Editor.App/MeshMapBakeView.vxml	Label	Position
+Editor/Vixen.Editor.App/MeshMapBakeView.vxml	Label	Thickness
+Editor/Vixen.Editor.App/MeshMapBakeView.vxml	Label	World Normal
+Editor/Vixen.Editor.AssetEditors/Ai/AgentDebuggerView.vxml	Label	Continue
+Editor/Vixen.Editor.AssetEditors/Ai/AgentDebuggerView.vxml	Label	Open asset
+Editor/Vixen.Editor.AssetEditors/Ai/GoapDomainView.vxml	Label	Compile
+Editor/Vixen.Editor.AssetEditors/Ai/QueryView.vxml	Label	Compile
+Editor/Vixen.Editor.AssetEditors/Ai/UtilitySetView.vxml	Label	Compile
+Editor/Vixen.Editor.AssetEditors/Animation/ShapeVocabularyView.vxml	Label	Add Class
+Editor/Vixen.Editor.AssetEditors/Animation/ShapeVocabularyView.vxml	Label	Add Name
+Editor/Vixen.Editor.AssetEditors/Animation/ShapeVocabularyView.vxml	Label	Add Required Shape
+Editor/Vixen.Editor.AssetEditors/Animation/ShapeVocabularyView.vxml	Label	Add Tag
+Editor/Vixen.Editor.AssetEditors/Animation/ShapeVocabularyView.vxml	Label	Remove
+Editor/Vixen.Editor.AssetEditors/Animation/VariationHarnessView.vxml	Label	Run
+Editor/Vixen.Editor.AssetEditors/Animation/VariationHarnessView.vxml	Label	Worst Cell
+Editor/Vixen.Editor.AssetEditors/Audio/AudioMixerView.vxml	Label	Add Bus
+Editor/Vixen.Editor.AssetEditors/Audio/AudioMixerView.vxml	Label	Add Snapshot
+Editor/Vixen.Editor.AssetEditors/Audio/AudioMixerView.vxml	Label	M
+Editor/Vixen.Editor.AssetEditors/Audio/AudioMixerView.vxml	Label	Remove
+Editor/Vixen.Editor.AssetEditors/Audio/AudioMixerView.vxml	Label	Remove Bus
+Editor/Vixen.Editor.AssetEditors/Audio/AudioMixerView.vxml	Label	S
+Editor/Vixen.Editor.AssetEditors/Code/CodeEditorView.vxml	Label	Wrap
+Editor/Vixen.Editor.AssetEditors/Compositor/CompositorView.vxml	Label	Compile frame
+Editor/Vixen.Editor.AssetEditors/Frame/LookInspector.vxml	Label	Bloom
+Editor/Vixen.Editor.AssetEditors/Frame/LookInspector.vxml	Label	Exposure
+Editor/Vixen.Editor.AssetEditors/Frame/LookInspector.vxml	Label	Fog
+Editor/Vixen.Editor.AssetEditors/Frame/LookInspector.vxml	Label	Grade
+Editor/Vixen.Editor.AssetEditors/Frame/LookInspector.vxml	Label	Lens
+Editor/Vixen.Editor.AssetEditors/Frame/StandardFrameInspector.vxml	Label	Image
+Editor/Vixen.Editor.AssetEditors/Frame/StandardFrameInspector.vxml	Label	Lighting
+Editor/Vixen.Editor.AssetEditors/Frame/StandardFrameInspector.vxml	Label	Output
+Editor/Vixen.Editor.AssetEditors/Frame/StandardFrameInspector.vxml	Label	Scalability
+Editor/Vixen.Editor.AssetEditors/Frame/StandardFrameView.vxml	Label	Explode to a full document
+Editor/Vixen.Editor.AssetEditors/Frame/StandardFrameView.vxml	Label	Fold again
+Editor/Vixen.Editor.AssetEditors/Frame/StandardFrameView.vxml	Label	Only what is overridden
+Editor/Vixen.Editor.AssetEditors/Importing/ImportSettingsView.vxml	Label	Addressable
+Editor/Vixen.Editor.AssetEditors/Importing/ImportSettingsView.vxml	Label	Import Settings
+Editor/Vixen.Editor.AssetEditors/Importing/ImportSettingsView.vxml	Label	Platform Overrides
+Editor/Vixen.Editor.AssetEditors/Importing/ImportSettingsView.vxml	Title	This sidecar has settings this editor does not know
+Editor/Vixen.Editor.AssetEditors/Importing/ModelImportView.vxml	Description	Nothing has been produced from this file, so there is nothing to list. Import the project and the meshes, skeleton and clips appear here.
+Editor/Vixen.Editor.AssetEditors/Importing/ModelImportView.vxml	Title	Not imported yet
+Editor/Vixen.Editor.AssetEditors/Importing/TextureImportView.vxml	Description	The texture's source pixels
+Editor/Vixen.Editor.AssetEditors/Importing/TextureImportView.vxml	Label	Sprites
+Editor/Vixen.Editor.AssetEditors/Importing/TextureImportView.vxml	Label	Texture
+Editor/Vixen.Editor.AssetEditors/Importing/TextureImportView.vxml	Title	No preview
+Editor/Vixen.Editor.AssetEditors/Input/InputActionsView.vxml	Label	Add Action
+Editor/Vixen.Editor.AssetEditors/Input/InputActionsView.vxml	Label	Add Binding
+Editor/Vixen.Editor.AssetEditors/Input/InputActionsView.vxml	Label	Add Map
+Editor/Vixen.Editor.AssetEditors/Input/InputActionsView.vxml	Label	Add Scheme
+Editor/Vixen.Editor.AssetEditors/Input/InputActionsView.vxml	Label	Listen
+Editor/Vixen.Editor.AssetEditors/Input/InputActionsView.vxml	Label	Remove
+Editor/Vixen.Editor.AssetEditors/Materials/MaterialView.vxml	Description	The material on a preview shape
+Editor/Vixen.Editor.AssetEditors/Materials/MaterialView.vxml	Label	Add
+Editor/Vixen.Editor.AssetEditors/Materials/MaterialView.vxml	Title	This material did not read
+Editor/Vixen.Editor.AssetEditors/Materials/MaterialView.vxml	Title	This material's shader graph
+Editor/Vixen.Editor.AssetEditors/Prefabs/PrefabView.vxml	Label	Compiled
+Editor/Vixen.Editor.AssetEditors/Prefabs/PrefabView.vxml	Label	Hierarchy
+Editor/Vixen.Editor.AssetEditors/Prefabs/PrefabView.vxml	Title	Editing a prefab in isolation
+Editor/Vixen.Editor.AssetEditors/Scenes/CompiledSceneView.vxml	Label	Compile
+Editor/Vixen.Editor.AssetEditors/Shading/ShaderGraphView.vxml	Label	Compile
+Editor/Vixen.Editor.AssetEditors/Shading/ShaderGraphView.vxml	Label	Generated code
+Editor/Vixen.Editor.AssetEditors/Vfx/VfxGraphView.vxml	Label	Compile
+Editor/Vixen.Editor.AssetEditors/Vfx/VfxGraphView.vxml	Label	Play
+Editor/Vixen.Editor.AssetEditors/Vfx/VfxGraphView.vxml	Label	Restart
+Editor/Vixen.Editor.Blockout/BlockoutUvView.vxml	Label	Chart
+Editor/Vixen.Editor.Blockout/BlockoutUvView.vxml	Label	Flatten
+Editor/Vixen.Editor.Blockout/BlockoutUvView.vxml	Label	Pack
+Editor/Vixen.Editor.Debugger/DeviceManagerView.vxml	Label	Attach
+Editor/Vixen.Editor.Debugger/DeviceManagerView.vxml	Label	Deploy
+Editor/Vixen.Editor.Debugger/DeviceManagerView.vxml	Label	Discover
+Editor/Vixen.Editor.Debugger/FrameDebuggerView.vxml	Label	Capture Frame
+Editor/Vixen.Editor.Debugger/FrameDebuggerView.vxml	Label	Draw ▶
+Editor/Vixen.Editor.Debugger/FrameDebuggerView.vxml	Label	◀ Draw
+Editor/Vixen.Editor.Debugger/NetworkView.vxml	Description	A ledger belongs to whatever is running the session. Attach one to a ReplicationServer and an RpcRouter, and point this panel at it.
+Editor/Vixen.Editor.Debugger/NetworkView.vxml	Label	Per object
+Editor/Vixen.Editor.Debugger/NetworkView.vxml	Label	Refresh
+Editor/Vixen.Editor.Debugger/NetworkView.vxml	Label	Reset
+Editor/Vixen.Editor.Debugger/NetworkView.vxml	Title	No bandwidth ledger
+Editor/Vixen.Editor.Debugger/RemoteInspectorView.vxml	Label	Refresh
+Editor/Vixen.Editor.Debugger/RemoteInspectorView.vxml	Label	Set
+Editor/Vixen.Editor.Profiler/MemoryView.vxml	Label	Refresh
+Editor/Vixen.Editor.Profiler/StatisticsView.vxml	Label	Refresh
+Editor/Vixen.Editor.Terrain/PaletteBlock.vxml	Name	No types
+Editor/Vixen.Editor.Terrain/TerrainBrushInspector.vxml	Label	Pattern
+Editor/Vixen.Editor.Terrain/TerrainBrushInspector.vxml	Label	Shape
+Editor/Vixen.Editor.Terrain/TerrainBrushInspector.vxml	Label	Stroke
+Editor/Vixen.Editor.Texturing/LayerRowView.vxml	Label	Delete
+Editor/Vixen.Editor.Texturing/LayerRowView.vxml	Label	Enabled
+Editor/Vixen.Editor.Texturing/LayerRowView.vxml	Label	Move down
+Editor/Vixen.Editor.Texturing/LayerRowView.vxml	Label	Move up
+Editor/Vixen.Editor.Texturing/LayerStackChrome.vxml	Label	Add layer
+Samples/02-HelloUi/Panels/Gallery.vxml	Description	At least eight characters.
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Advanced
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Assets
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Blend
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Cast shadows
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Contact hardening
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Cutout
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Debug
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	High
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Layers
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Low
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Materials
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Medium
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Only modified
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Opaque
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Password
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Receive shadows
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Shading
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Shadows
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Show filters
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Soft edges
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Standard
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Subsurface
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Surface
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Unlit
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Wireframe
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	vixenengine.org/docs/ui
+Samples/02-HelloUi/Panels/Gallery.vxml	Message	Ui/Msdf.rvn(42): expected ';'
+Samples/02-HelloUi/Panels/Gallery.vxml	Name	Ada Lovelace
+Samples/02-HelloUi/Panels/Gallery.vxml	Title	Shader failed to compile
+Samples/02-HelloUi/Shell.vxml	Label	Close
+Samples/02-HelloUi/Shell.vxml	Label	Copy
+Samples/02-HelloUi/Shell.vxml	Label	New
+Samples/02-HelloUi/Shell.vxml	Label	Open…
+Samples/02-HelloUi/Shell.vxml	Label	Reset Layout
+Samples/02-HelloUi/Shell.vxml	Label	Revert
+Samples/02-HelloUi/Shell.vxml	Label	Save
+Samples/02-HelloUi/Shell.vxml	Label	Toggle Dark
+Samples/02-HelloUi/Shell.vxml	Label	Toggle UI Diagnostics
+Samples/02-HelloUi/Shell.vxml	Label	_Edit
+Samples/02-HelloUi/Shell.vxml	Label	_File
+Samples/02-HelloUi/Shell.vxml	Label	_View
+Samples/02-HelloUi/Shell.vxml	Title	Controls
+Samples/02-HelloUi/Shell.vxml	Title	Hierarchy
+Samples/02-HelloUi/Shell.vxml	Title	Inspector
+Samples/14-Mmo/Mmo.Ui/LootRoll.vxml	Label	Greed
+Samples/14-Mmo/Mmo.Ui/LootRoll.vxml	Label	Need
+Samples/14-Mmo/Mmo.Ui/LootRoll.vxml	Label	Pass
+Samples/14-Mmo/Mmo.Ui/VendorPanel.vxml	Label	Buy
+Tools/Vixen.Templates/templates/vixen-app/AppShell.vxml	Label	Click me

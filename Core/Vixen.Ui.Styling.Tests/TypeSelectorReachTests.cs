@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.RegularExpressions;
+using Vixen.Ui.Markup.Testing;
 using Xunit;
 
 namespace Vixen.Ui.Styling.Tests;
@@ -79,6 +80,23 @@ namespace Vixen.Ui.Styling.Tests;
 ///         <c>&lt;World-title&gt;</c> in a <c>.vxml</c> is a C# syntax error and cannot reach a build.
 ///         A capitalised hyphenated tag can therefore only exist in a C# string literal, and there it
 ///         can only ever be a typo.
+///     </para>
+///     <para>
+///         ⚠ <b>A <c>.vxml</c> is three languages in one file, and only one of them is markup.</b>
+///         The element rule below reads <c>&lt;b&gt;</c> out of a <c>///</c> block, <c>&lt;int</c>
+///         out of a <c>List&lt;int&gt;</c> in a <c>@code</c> body and <c>&lt;fieldset&gt;</c> out of a
+///         <c>&lt;!-- … --&gt;</c> header, all of which are prose or C# about markup rather than
+///         markup. While it did, <c>b { … }</c>, <c>i { … }</c> and <c>em { … }</c> were created by
+///         336 doc comments and <c>strong { … }</c> — the one phrase tag no XML doc element is named
+///         after — was the only one of the four the census could ever report (#1317). An instrument
+///         that answers differently for two selectors in one declaration is answering about its own
+///         vocabulary. The sweep now reads a <c>@code</c> body the way the <c>.cs</c> sweep reads
+///         C#, on the premise <see cref="A_code_block_is_the_tail_of_its_file" /> asserts.
+///         ⚠ Measured by deleting <c>PhraseSheet.vxml</c>: <c>i</c>, <c>em</c> and <c>strong</c> are
+///         then all reported and <c>b</c> is not, because <c>CollectionTests</c> writes
+///         <c>list.Add("b")</c> and the "written as a tag" rule is line-local by design. A
+///         one-letter type selector is therefore still unfalsifiable — a false negative, which is
+///         the direction the paragraph below chooses on purpose, and not the <c>@code</c> defect.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The scan is over-inclusive and the assertion is exact</b>, which is what keeps the
@@ -249,6 +267,35 @@ public partial class TypeSelectorReachTests {
         );
 
         Assert.DoesNotContain(Declared, candidate => candidate.Name == "model-facts");
+
+        // ⚠ A fourth bucket, and the one this file used to put in the first: a name a `.vxml`
+        // writes in something that is not markup (#1317). `paramref` and `inheritdoc` are XML doc
+        // elements in a `///` block, `int` is the argument of a `List<int>` in a `@code` body, and
+        // `fieldset` is prose inside a `<!-- … -->` header. All four match the element rule
+        // exactly, and while they counted as tags, a rule named after any of them could never be
+        // reported dead — `b { … }` and `strong { … }` in one declaration got opposite verdicts.
+        // ⚠ `para` looks like the obvious fifth and is not one: `TextWrapTests.cs:473` does
+        // `Root.Add("para")`, so it is a tag this repository really writes. Which of the doc
+        // vocabulary is also a tag had to be measured rather than assumed.
+        foreach (var name in new[] { "paramref", "inheritdoc", "int", "fieldset" }) {
+            Assert.False(
+                written.Tags.ContainsKey(name),
+                $"'{name}' is written only as prose or as C# in a `.vxml`, and the scan counted it "
+                + $"as a tag (at {written.Tags.GetValueOrDefault(name)}). Every selector sharing a "
+                + "name with an XML doc element or a built-in type is then unfalsifiable."
+            );
+        }
+
+        // And the markup half still reads markup, in both of its `.vxml` forms: an element written
+        // as one, and a tag literal in a `@code` body. Without these the fix above is
+        // indistinguishable from a sweep that stopped reading `.vxml` at all.
+        Assert.True(written.Tags.ContainsKey("b"), "'b' was not read out of `PhraseSheet.vxml`'s markup.");
+        Assert.True(written.Tags.ContainsKey("em"), "'em' was not read out of `PhraseSheet.vxml`'s markup.");
+
+        Assert.True(
+            written.Tags.ContainsKey("input-title"),
+            "'input-title' was not read out of `InputActionsView.vxml`'s `@code` body."
+        );
     }
 
     /// <summary>Every bare type selector the repository's stylesheets declare.</summary>
@@ -503,6 +550,64 @@ public partial class TypeSelectorReachTests {
         );
     }
 
+    /// <summary>
+    ///     The premise the <c>.vxml</c> sweep's <c>@code</c> handling rests on: one code block per
+    ///     file, and nothing after it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The sweep treats everything from <c>@code</c> to the end of the file as C#, and that
+    ///     is a shortcut rather than the grammar.</b> <c>VxmlParser</c> will take markup after a code
+    ///     block; nothing in the tree writes any, and finding the closing brace without it would mean
+    ///     counting braces without knowing where the strings are — which is precisely what
+    ///     <c>VxmlLexer</c> needs a lexer to do. So the shortcut is asserted rather than assumed: the
+    ///     day somebody writes an element under a code block, this fails and says the sweep has gone
+    ///     blind to that file's markup, instead of the census silently accusing whatever tags were
+    ///     down there.
+    /// </remarks>
+    [Fact]
+    public void A_code_block_is_the_tail_of_its_file() {
+        var root = RepositoryRoot();
+        var offenders = new List<string>();
+        var scanned = 0;
+
+        foreach (var path in SourceFiles("*.vxml")) {
+            var lines = File.ReadAllLines(path);
+            var blocks = lines.Count(VxmlLines.IsCode);
+
+            if (blocks == 0) {
+                continue;
+            }
+
+            scanned++;
+            var name = Path.GetRelativePath(root, path);
+
+            if (blocks > 1) {
+                offenders.Add($"{name} — {blocks} `@code` lines, and the sweep enters at the first");
+            }
+
+            var last = lines.LastOrDefault(text => text.Trim().Length > 0)?.Trim() ?? "";
+
+            if (!last.Equals("}", StringComparison.Ordinal)) {
+                offenders.Add($"{name} — its last line is '{last}' rather than the code block's brace");
+            }
+        }
+
+        Assert.True(scanned >= 50, "almost no `.vxml` was found to carry a `@code` block.");
+
+        Assert.True(
+            offenders.Count == 0,
+            $"""
+             A `.vxml` no longer ends with its `@code` body:
+             {Lines(offenders)}
+
+             `ReadSources` reads everything from the `@code` line to the end of the file as C#, so
+             markup below one is invisible to the tag scan and every tag it creates would be
+             reported as a name the repository never writes. Either move the markup above the code
+             block, or teach the sweep where the body closes.
+             """
+        );
+    }
+
     /// <summary>What the sources write, sorted into the two kinds this file can tell apart.</summary>
     /// <param name="Tags">Names used at an element-creation site, to the first such site.</param>
     /// <param name="Literals">Every quoted name and markup class, to the first place it appears.</param>
@@ -598,10 +703,23 @@ public partial class TypeSelectorReachTests {
         }
 
         foreach (var path in SourceFiles("*.vxml")) {
-            var line = 0;
+            // ⚠ A `.vxml` is three languages in one file, and two of them read as markup —
+            // `<!-- … -->` is prose *about* markup and a `@code` body is C#. `VxmlLines` is where
+            // that is decided, shared with `MarkupAccessibleNameTests` one assembly away because two
+            // copies of "what is a markup line" are two chances to answer it differently; see its
+            // own remarks for what reading either as markup cost this census (#1317).
+            foreach (var (line, text, region) in VxmlLines.Read(File.ReadLines(path))) {
+                if (region == VxmlRegion.Code) {
+                    // The C# half, scanned the way the `.cs` sweep scans C#: only a creation call
+                    // names a tag. `Fields.Add("input-title")` is here rather than in the markup,
+                    // which is what the note below is about.
+                    foreach (Match match in TagLiteral.Matches(text)) {
+                        Note(tags, match.Groups["tag"].Value, path, line);
+                        Note(literals, match.Groups["tag"].Value, path, line);
+                    }
 
-            foreach (var text in File.ReadLines(path)) {
-                line++;
+                    continue;
+                }
 
                 foreach (Match match in MarkupElement.Matches(text)) {
                     Note(tags, match.Groups["name"].Value, path, line);
@@ -627,7 +745,7 @@ public partial class TypeSelectorReachTests {
                     }
                 }
 
-                // ⚠ A `.vxml` carries C# as well as markup, and until this line the scan read only
+                // ⚠ A `.vxml` carries C# as well as markup, and until this rule the scan read only
                 // its markup. `Fields.Add("input-title")` in `InputActionsView.vxml` creates a tag
                 // no lower-case element and no `.cs` file mentions, so `input-title` and
                 // `vocab-error` — both live, both styled — counted as names the repository never
@@ -635,6 +753,8 @@ public partial class TypeSelectorReachTests {
                 // `A_type_selector_names_a_tag_rather_than_a_class`, which lets an unwritten name
                 // through; it is a false accusation the moment
                 // `Every_type_selector_names_a_tag_the_repository_writes` reads the same table.
+                // ⚠ Both of those live in a `@code` body and are read by the branch above now; this
+                // copy is for a tag literal in an attribute value, which is markup.
                 // `TagLiteral` rather than the line-local rule the `.cs` sweep uses, because a
                 // markup line's quoted values are attributes and taking all of them would call
                 // every class on a line that also says `Add(` a tag.
