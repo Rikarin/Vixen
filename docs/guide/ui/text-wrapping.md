@@ -128,11 +128,21 @@ thing in this engine that makes the drawn text **shorter** than what the author 
 `TransformedText` hands out a map in both directions — a caret index, a selection and a line's start
 all have to come back as a position in the string the author actually typed.
 
-⚠ **Phase II is not implemented.** CSS Text § 4.1.3 also removes a collapsible space at the *start of
-a line*, which is a question about a line rather than about a string — and at the moment the string
-is transformed there is no line yet. So `"   ab"` under `pre-line` still draws one leading space
-where a browser draws none. `WhiteSpacePreLineTests` pins that, so a change towards the browser comes
-through the test rather than past it.
+**Phase II is here too.** CSS Text § 4.1.3 also removes a collapsible space at the *start or end of a
+line*. That reads like a question about lines, which do not exist yet when the string is transformed
+— but after phase I the only runs a line can begin or end on are at the two ends of the text, so for
+a label that is its own paragraph they are removed with the rest:
+
+```
+    "   ab"               →    "ab"                drawn from the content edge, as a browser does
+    "ab   "               →    "ab"                a right-aligned label ends flush
+    "   "                 →    (no line at all)    as tall as a label with no text
+```
+
+⚠ **One element keeps its leading space**: a `display: inline` label inside a block container, whose
+text can start in the middle of a line a sibling began. Whether the space survives there depends on
+the text before it, which is collapsing across an element boundary, and this engine does not do it.
+A line that a `line-break: anywhere` break starts on a space keeps that space too.
 
 ## Examples
 

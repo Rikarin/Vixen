@@ -675,13 +675,24 @@ white-space / nowrap              the container-level suppression of line breaki
                                   `UiDocument.WhiteSpaceCollapseOf` reads the value,
                                   `WhiteSpaceCollapseTests` holds the string and both directions of
                                   the map, and `WhiteSpacePreLineTests` holds each rule as a PAIR
-                                  against a `normal` control at the same width. ⚠ WHAT IS OWED NOW IS
-                                  §4.1.3's PHASE II — a collapsible space at the START of a line is
-                                  removed — and it is owed for all six values rather than for this
-                                  one, since an undeclared paragraph here preserves everything. It is
-                                  a question about a LINE, and at the moment a string is transformed
-                                  there is no line; whatever closes it lives where the wrapper's
-                                  trailing trim already does. ⚠ AND `normal` STILL DOES NOT COLLAPSE,
+                                  against a `normal` control at the same width. ⚠ §4.1.3's PHASE II
+                                  LANDED TOO — a collapsible run at the start or end of a line is
+                                  not drawn — and the sentence that stood here was wrong twice. It
+                                  said phase II was owed for all six values: it removes a
+                                  COLLAPSIBLE space, so `pre`, `pre-wrap` and `break-spaces` never
+                                  had it to owe. And it said phase II was a question about a LINE
+                                  that no string transform could answer: after phase I every middle
+                                  run is one space with its break opportunity AFTER it, and every run
+                                  beside a segment break is gone, so the only runs a line can still
+                                  begin or end on are at the two ends of the text — string positions.
+                                  `TransformedText.Of(…, ownsLines: true)` removes them for every
+                                  leaf that is its own paragraph; `WhiteSpacePhaseTwoPixelTests` reads
+                                  it off the picture. Withheld from ONE element: a `display: inline`
+                                  leaf in an inline formatting context, whose first line can begin
+                                  mid-line after a sibling — that answer is collapsing across an
+                                  element boundary, and it is still owed. So is a line begun on a
+                                  space by a break that falls BEFORE one (`line-break: anywhere`, or
+                                  an emergency break). ⚠ AND `normal` STILL DOES NOT COLLAPSE,
                                   deliberately: CSS collapses under it and turns its segment breaks
                                   into spaces, and honouring half of that would change what every
                                   paragraph in every interface on this engine draws. `break-spaces`

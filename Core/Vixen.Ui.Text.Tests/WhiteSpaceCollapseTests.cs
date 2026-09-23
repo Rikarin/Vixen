@@ -25,12 +25,13 @@ namespace Vixen.Ui.Text.Tests;
 ///         reads back as.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What this does not do, stated because a test file is where the next reader looks.</b>
-///         § 4.1.3's phase II — a collapsible space at the <i>start</i> of a line is removed — is a
-///         question about a line, and no line exists at the moment a string is transformed. So
-///         <c>  ab</c> under <c>pre-line</c> keeps its leading space here and a browser eats it. That
-///         gap belongs to every value in this engine rather than to this one, since an undeclared
-///         paragraph preserves everything. <c>Rikarin/Vixen#249</c>.
+///         ⚠ <b>§ 4.1.3's phase II is here too, for the half of it that is a question about the
+///         string.</b> It removes a collapsible space at the start or end of a line, which was
+///         refused for years as "a question about a line" — but after phase I the only runs a line
+///         can still begin or end on are the ones at the very start and end of the text, so for a
+///         paragraph that owns its lines they are string positions.
+///         <see cref="A_paragraph_that_owns_its_lines_loses_a_run_at_either_end" /> holds that, and
+///         the same source without <c>ownsLines</c> is its control. <c>Rikarin/Vixen#249</c>.
 ///     </para>
 /// </remarks>
 public class WhiteSpaceCollapseTests {
@@ -201,6 +202,83 @@ public class WhiteSpaceCollapseTests {
         Assert.Equal(8, collapsed.ToSource(6));
         Assert.Equal(8, collapsed.ToSource(7));
         Assert.Equal(9, collapsed.ToSource(8));
+    }
+
+    /// <summary>
+    ///     ⚠ A paragraph that owns its lines loses a collapsible run at either end — § 4.1.3's phase
+    ///     II — and one that does not keeps each as one space.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Both ends and both answers, over one string.</b> The pair is what makes this a
+    ///         measurement of the parameter rather than of the collapse: without <c>ownsLines</c> the
+    ///         same source is phase I alone, a run at each end folded to one space, and the difference
+    ///         between the two answers is the two spaces phase II removes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The map is the half a caret reads.</b> Every index of the leading run lands on
+    ///         the first letter, since the run is at no position a caret can occupy any more; the
+    ///         trailing run lands on the end of the drawn text, as a removed run before a newline lands
+    ///         on the newline.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_paragraph_that_owns_its_lines_loses_a_run_at_either_end() {
+        var source = " \t a  b  ";
+        var owned = TransformedText.Of(source, TextTransform.None, language: null, WhiteSpaceCollapse.PreserveBreaks, ownsLines: true);
+        var shared = Collapsed(source);
+
+        Assert.Equal(" a b ", shared.Text);
+        Assert.Equal("a b", owned.Text);
+
+        Assert.Equal(0, owned.ToDrawn(0));
+        Assert.Equal(0, owned.ToDrawn(2));
+        Assert.Equal(0, owned.ToDrawn(3));
+        Assert.Equal(3, owned.ToDrawn(7));
+        Assert.Equal(3, owned.ToDrawn(source.Length));
+        Assert.Equal(3, owned.ToSource(0));
+        Assert.Equal(6, owned.ToSource(2));
+    }
+
+    /// <summary>A run in the middle is phase I's and is not touched by the paragraph's edges.</summary>
+    /// <remarks>
+    ///     ⚠ The shape an implementation keyed on "any run" rather than on "a run at an end" would
+    ///     get wrong, and it would get it wrong silently everywhere: <c>a b</c> drawn as <c>ab</c>.
+    /// </remarks>
+    [Fact]
+    public void A_run_between_two_words_still_becomes_one_space() {
+        var owned = TransformedText.Of("a   b", TextTransform.None, language: null, WhiteSpaceCollapse.PreserveBreaks, ownsLines: true);
+
+        Assert.Equal("a b", owned.Text);
+    }
+
+    /// <summary>A text that is nothing but collapsible white space draws nothing at all.</summary>
+    /// <remarks>
+    ///     The run is at both ends at once. Chrome gives such a paragraph no line box; what this
+    ///     asserts is the string, and <c>WhiteSpacePreLineTests</c> asserts the element survives it.
+    /// </remarks>
+    [Fact]
+    public void A_text_of_only_spaces_draws_nothing() {
+        var owned = TransformedText.Of("  \t ", TextTransform.None, language: null, WhiteSpaceCollapse.PreserveBreaks, ownsLines: true);
+
+        Assert.Equal("", owned.Text);
+        Assert.Equal(0, owned.ToDrawn(2));
+    }
+
+    /// <summary>The paragraph's edges mean nothing to a value that preserves.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Phase II removes a <i>collapsible</i> space, and under <c>preserve</c> there is
+    ///     none.</b> Chrome draws a <c>pre-wrap</c> paragraph's leading spaces, and this engine's
+    ///     undeclared paragraph is <c>pre-wrap</c> — so a parameter that reached this value would move
+    ///     every label with a leading space in every interface. Same instance, for
+    ///     <see cref="Preserve_returns_the_same_string_instance" />'s reason.
+    /// </remarks>
+    [Fact]
+    public void Owning_its_lines_changes_nothing_under_preserve() {
+        var source = "  a  ";
+        var preserved = TransformedText.Of(source, TextTransform.None, language: null, WhiteSpaceCollapse.Preserve, ownsLines: true);
+
+        Assert.Same(source, preserved.Text);
     }
 
     /// <summary>Collapsing under <c>pre-line</c>.</summary>

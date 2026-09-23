@@ -44,13 +44,30 @@ public enum TextTransform : byte {
 ///         computed a value and did nothing is the state this repository's gates exist to keep out.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is phase I only.</b> § 4.1.1 is a transformation of the string and is what this
-///         type does; § 4.1.3's phase II — a collapsible space at the <i>start</i> of a line is
-///         removed — is a question about a line, which does not exist yet at the moment a string is
-///         transformed. So <c>pre-line</c> here collapses a run of spaces to one and drops the ones
-///         around a newline, and still draws a leading space that a browser would eat. That half is
-///         owed for every value rather than for this one: an undeclared paragraph in this engine
-///         preserves everything, so the leading space is what it has always drawn.
+///         <b>Phase I, and the part of phase II that is a question about the string.</b> § 4.1.1 is a
+///         transformation of the string. § 4.1.3's phase II — a collapsible space at the start or the
+///         end of a <i>line</i> is removed — reads like a question about lines, which do not exist
+///         yet when a string is transformed. ⚠ <b>But after phase I there are only two places a line
+///         can begin or end on a collapsible space the wrapper does not already handle, and both are
+///         string positions.</b> Every run in the middle has become one space with a break
+///         opportunity <i>after</i> it (UAX #14 breaks after spaces and never before them), so a soft
+///         wrap leaves the space at the end of the earlier line, where <c>LineWrapper</c>'s trailing
+///         trim already takes it out of the measure; every run touching a segment break is gone.
+///         What is left is a run at the very start of the text and one at the very end — and for a
+///         paragraph whose first line starts a line box and whose last line ends one, those are line
+///         edges. <c>TransformedText.Of</c>'s <c>ownsLines</c> is that condition, and its remarks
+///         name the one element it is false for.
+///     </para>
+///     <para>
+///         ⚠ <b>So phase II was owed for one value, not six.</b> Under <c>pre</c>, <c>pre-wrap</c>
+///         and <c>break-spaces</c> a space is preserved rather than collapsible and phase II does not
+///         apply to it — Chrome draws a <c>pre-wrap</c> paragraph's leading space. Under
+///         <c>normal</c> and <c>nowrap</c> it applies, but so does phase I, and this engine performs
+///         neither there deliberately: an undeclared paragraph renders as CSS's <c>pre-wrap</c>, and
+///         collapsing it would move every label in every interface. ⚠ One corner is still a
+///         question about a line: a break that falls <i>before</i> a space — <c>line-break:
+///         anywhere</c>, which offers every grapheme boundary, or an emergency break inside a word
+///         too long for its line — can begin a wrapped line on one, and nothing here removes it.
 ///     </para>
 /// </remarks>
 public enum WhiteSpaceCollapse : byte {
@@ -157,6 +174,14 @@ public sealed class TransformedText {
     ///     spaces collapsing never moves a word boundary, so <c>capitalize</c> titlecases the same
     ///     letters either way.
     /// </param>
+    /// <param name="ownsLines">
+    ///     Whether the text's start begins a line box and its end finishes one, which makes a
+    ///     collapsible run at either end § 4.1.3's phase II and removes it. True for a paragraph that
+    ///     is its own block; ⚠ false for a <c>display: inline</c> element in an inline formatting
+    ///     context, whose text may begin in the middle of a line a sibling started — there the answer
+    ///     depends on the neighbour, which is collapsing across an element boundary and is not done.
+    ///     Ignored unless <paramref name="collapse" /> collapses.
+    /// </param>
     /// <returns>The drawn text and the map between the two.</returns>
     /// <remarks>
     ///     <para>
@@ -216,7 +241,8 @@ public sealed class TransformedText {
         string? source,
         TextTransform transform,
         string? language = null,
-        WhiteSpaceCollapse collapse = WhiteSpaceCollapse.Preserve
+        WhiteSpaceCollapse collapse = WhiteSpaceCollapse.Preserve,
+        bool ownsLines = false
     ) {
         source ??= string.Empty;
 
@@ -264,8 +290,14 @@ public sealed class TransformedText {
                 // before U+2029 is as adjacent to a break as one before a newline, and asking a
                 // narrower question here would leave a space the wrapper then ends a line on —
                 // which is the defect § 4.1.1's first step exists to prevent.
+                //
+                // ⚠ And the paragraph's two edges are treated as if a break touched them, which is
+                // § 4.1.3's phase II: a collapsible run at the start or end of a line is removed. For
+                // a paragraph that owns its lines those are the only line edges a run can still sit on
+                // — see the remarks on `WhiteSpaceCollapse` for why every other one is already gone.
                 var touching = (end < source.Length && LineWrapper.IsSegmentBreak(source[end]))
-                    || (at > 0 && LineWrapper.IsSegmentBreak(source[at - 1]));
+                    || (at > 0 && LineWrapper.IsSegmentBreak(source[at - 1]))
+                    || (ownsLines && (at == 0 || end == source.Length));
 
                 Record(sourceOf, drawnOf, at, end - at, text.Length, touching ? 0 : 1);
                 moved |= touching || end - at != 1;
@@ -418,26 +450,26 @@ public sealed class TransformedText {
     /// <param name="source">The untransformed text.</param>
     /// <param name="at">Where the sigma starts.</param>
     /// <param name="length">Its length in UTF-16 code units.</param>
-    /// <returns>Whether it lowercases to \u03c2 rather than to \u03c3.</returns>
+    /// <returns>Whether it lowercases to ς rather than to σ.</returns>
     /// <remarks>
     ///     <para>
     ///         UAX #21's <c>Final_Sigma</c>, verbatim: preceded by a cased letter with only
     ///         case-ignorable characters in between, and <i>not</i> followed by one on the same
-    ///         terms. Both halves are needed and the second is the one an implementation forgets \u2014
-    ///         without it <c>\u039f\u0394\u039f\u03a3 \u039c\u039f\u03a5</c> would end its first word correctly and <c>\u03a3\u039f\u03a6\u039f\u03a3</c> would
+    ///         terms. Both halves are needed and the second is the one an implementation forgets —
+    ///         without it <c>ΟΔΟΣ ΜΟΥ</c> would end its first word correctly and <c>ΣΟΦΟΣ</c> would
     ///         turn its leading sigma final as well.
     ///     </para>
     ///     <para>
-    ///         \u26a0 <b>Read against the source and not against what has been written so far.</b> The
+    ///         ⚠ <b>Read against the source and not against what has been written so far.</b> The
     ///         text ahead has not been transformed yet, so the two are different strings, and the
     ///         condition is defined on the input. Casing does not change whether a character is
     ///         cased or ignorable, so reading backwards from the source is the same answer for less
     ///         bookkeeping.
     ///     </para>
     ///     <para>
-    ///         \u26a0 <b>No <c>CultureInfo</c> here either.</b> <c>Cased</c> and <c>Case_Ignorable</c>
+    ///         ⚠ <b>No <c>CultureInfo</c> here either.</b> <c>Cased</c> and <c>Case_Ignorable</c>
     ///         come out of the Unicode general categories and this assembly's own word-break table,
-    ///         both of which are the same on every machine \u2014 see the remarks on
+    ///         both of which are the same on every machine — see the remarks on
     ///         <see cref="Of" />.
     ///     </para>
     /// </remarks>
@@ -487,8 +519,8 @@ public sealed class TransformedText {
 
     /// <summary>The <c>Cased</c> derived property.</summary>
     /// <remarks>
-    ///     Uppercase, lowercase or titlecase. \u26a0 <b>Titlecase is the third one and is a real
-    ///     category</b> \u2014 <c>\u01c5</c> is neither <c>Lu</c> nor <c>Ll</c>, so a test written as
+    ///     Uppercase, lowercase or titlecase. ⚠ <b>Titlecase is the third one and is a real
+    ///     category</b> — <c>ǅ</c> is neither <c>Lu</c> nor <c>Ll</c>, so a test written as
     ///     "upper or lower" would read a Latin digraph as uncased and break a sigma's word at it.
     /// </remarks>
     static bool IsCased(Rune rune) =>
@@ -498,9 +530,9 @@ public sealed class TransformedText {
 
     /// <summary>The <c>Case_Ignorable</c> derived property.</summary>
     /// <remarks>
-    ///     \u26a0 <b>Five categories <i>and</i> three word-break classes</b>, which is DerivedCoreProperties'
+    ///     ⚠ <b>Five categories <i>and</i> three word-break classes</b>, which is DerivedCoreProperties'
     ///     own definition and not a simplification of it. The word-break half is what makes
-    ///     <c>\u039c.\u039f.\u03a3.</c> and an apostrophe inside a word behave: a full stop between two letters is
+    ///     <c>Μ.Ο.Σ.</c> and an apostrophe inside a word behave: a full stop between two letters is
     ///     <c>MidNumLet</c>, so the sigma before it is still followed by a cased letter and stays
     ///     non-final. Dropping that half would be invisible in every fixture written out of one word.
     /// </remarks>

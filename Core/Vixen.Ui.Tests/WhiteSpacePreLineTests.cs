@@ -27,13 +27,12 @@ namespace Vixen.Ui.Tests;
 ///         nothing — which is the property a pair has and a single-sided assertion does not.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What is not here.</b> § 4.1.3's phase II — a collapsible space at the <i>start</i> of
-///         a line is removed — is not implemented, so <c>  ab</c> still draws its leading space and a
-///         browser eats it. That is a question about a line rather than about a string, it is owed
-///         for every value in this engine rather than for this one, and
-///         <see cref="A_leading_space_is_still_drawn_which_is_phase_two_and_is_owed" /> pins the
-///         current answer so a change towards Chrome comes through it rather than past it.
-///         <c>Rikarin/Vixen#249</c>.
+///         ⚠ <b>§ 4.1.3's phase II is here too</b> — a collapsible run at the start or end of a line
+///         is not drawn — for every label that is its own paragraph, and
+///         <see cref="An_inline_leaf_keeps_its_leading_space_only_where_it_shares_a_line" /> is the
+///         one element it is withheld from. It was refused as "a question about a line"; after phase
+///         I the only runs a line can still begin or end on are at the two ends of the text, so it
+///         was a question about the string after all. <c>Rikarin/Vixen#249</c>.
 ///     </para>
 /// </remarks>
 public class WhiteSpacePreLineTests {
@@ -230,21 +229,170 @@ public class WhiteSpacePreLineTests {
         Assert.Equal(Width("a b", PreLine), collapsed, Tolerance);
     }
 
-    /// <summary>A collapsible run is still drawn at the start of a line, which is phase II and is owed.</summary>
+    /// <summary>A collapsible run at the start of a paragraph is not drawn, which is phase II.</summary>
     /// <remarks>
-    ///     ⚠ <b>Named so that a change towards Chrome comes through this test rather than past it</b>,
-    ///     which is the arrangement <c>WhiteSpaceBreakSpacesTests</c>' <c>NotEqual</c> row uses for
-    ///     the other half-landed rule. Chrome removes a collapsible space at the start of a line;
-    ///     this engine keeps it, because § 4.1.3 is a question about a line and the transformation
-    ///     happens before any line exists. The run does collapse to one space first, which is the
-    ///     part that landed.
+    ///     <para>
+    ///         ⚠ <b>This test used to be called
+    ///         <c>A_leading_space_is_still_drawn_which_is_phase_two_and_is_owed</c></b>, named so a
+    ///         change towards Chrome would come through it rather than past it — and it did. Chrome
+    ///         removes a collapsible space at the start of a line; the refusal said that was a question
+    ///         about a line and no line exists when the string is transformed. True, and it did not
+    ///         matter: after phase I the start of the text is the only place a line can begin on a
+    ///         collapsible run, and for a label that is its own paragraph the start of the text is
+    ///         the start of its first line.
+    ///     </para>
+    ///     <para>
+    ///         The control is <c>normal</c>, which in this engine is CSS's <c>pre-wrap</c> and keeps
+    ///         the spaces — the premise the whole file rests on — so the difference is phase II and
+    ///         nothing else.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void A_leading_space_is_still_drawn_which_is_phase_two_and_is_owed() {
+    public void A_leading_run_is_not_drawn_because_it_starts_the_line() {
         var bare = Width("ab", PreLine);
-        var padded = Width("   ab", PreLine);
 
-        Assert.True(padded > bare, "phase II is not implemented, so the leading space is still drawn");
-        Assert.Equal(Width(" ab", PreLine), padded, Tolerance);
+        Assert.True(Width("   ab", Normal) > bare + Tolerance, "the control has to draw the spaces or this measures nothing");
+        Assert.Equal(bare, Width("   ab", PreLine), Tolerance);
+        Assert.Equal(bare, Width("\t ab", PreLine), Tolerance);
+    }
+
+    /// <summary>A collapsible run at the end of a paragraph is not drawn either.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half the wrapper could not reach.</b> <c>LineWrapper</c> trims a line's trailing
+    ///     spaces only where it chose the break, so the last line of a paragraph kept them — correct
+    ///     for a preserved space, which hangs, and wrong for a collapsible one, which phase II
+    ///     removes. So a right-aligned <c>pre-line</c> label ending in a space drew short of its edge,
+    ///     where Chrome draws it flush.
+    /// </remarks>
+    [Fact]
+    public void A_trailing_run_is_not_drawn_because_it_ends_the_line() {
+        var bare = Width("ab", PreLine);
+
+        Assert.True(Width("ab   ", Normal) > Width("ab", Normal) + Tolerance, "the control has to count the spaces");
+        Assert.Equal(bare, Width("ab   ", PreLine), Tolerance);
+    }
+
+    /// <summary>A label of nothing but spaces has no line at all, as it has no text.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The first thing in this engine that can turn a non-empty <c>Text</c> into an empty
+    ///     drawn string, and the first version of this change threw on it</b> — <c>TextLine</c>
+    ///     refuses a line of no runs, and the layout pass that asked for the block took the exception
+    ///     with it. Chrome gives such a paragraph no line box, so the element is as tall as one with
+    ///     no text; the control under <c>normal</c>, whose spaces are preserved, is one line tall.
+    /// </remarks>
+    [Fact]
+    public void A_label_of_only_spaces_has_no_line() {
+        var (block, height) = Only("   ", PreLine);
+        var (_, control) = Only("   ", Normal);
+
+        Assert.Null(block);
+        Assert.Equal(0f, height);
+        Assert.True(control > 0f, "the control has to be a line tall or this measures nothing");
+    }
+
+    /// <summary>One label, its block and its laid-out height.</summary>
+    /// <param name="text">What the author wrote.</param>
+    /// <param name="label">The declaration.</param>
+    /// <returns>The block, which may be null, and the element's height.</returns>
+    static (TextLayout? Block, float Height) Only(string text, string label) {
+        var document = new UiDocument(900f, 300f);
+        document.Fonts.Register("Test", Font);
+
+        document.Load(
+            $$"""
+              root { width: 800px; height: 300px; align-items: flex-start; }
+              label { font-family: Test; font-size: 16px; {{label}} }
+              """
+        );
+
+        var element = document.Root.Add("label");
+        element.Text = text;
+        document.Update();
+
+        return (element.Block(), element.Height);
+    }
+
+    /// <summary>
+    ///     ⚠ An inline leaf on a line its parent lays out keeps its leading space, and the same leaf in
+    ///     a flex container, where it is blockified, loses it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one element phase II is withheld from, and why.</b> A <c>display: inline</c>
+    ///         element in an inline formatting context can begin in the middle of a line a sibling
+    ///         started, and then whether its leading space survives depends on whether the text before
+    ///         it ended in one — collapsing across an element boundary, which this engine does not
+    ///         do. Removing it unconditionally would draw <c>foo</c> and <c> bar</c> as one word.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The flex half is the control and it is not decoration</b>: an implementation that
+    ///         keyed the decision on the element's own <c>display</c> alone would pass the first half
+    ///         and fail this one, because a flex item is blockified whatever its <c>display</c> says.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_inline_leaf_keeps_its_leading_space_only_where_it_shares_a_line() {
+        Assert.Equal(Width(" ab", Normal), Inline("   ab", "display: block;"), Tolerance);
+        Assert.Equal(Width("ab", PreLine), Inline("   ab", "display: flex;"), Tolerance);
+    }
+
+    /// <summary>A <c>display: inline</c> label under <c>pre-line</c>, inside a root of a given display.</summary>
+    /// <param name="text">What the author wrote.</param>
+    /// <param name="root">The root's <c>display</c> declaration.</param>
+    /// <returns>The first line's width.</returns>
+    static float Inline(string text, string root) {
+        var document = new UiDocument(900f, 300f);
+        document.Fonts.Register("Test", Font);
+
+        document.Load(
+            $$"""
+              root { width: 800px; height: 300px; {{root}} }
+              label { font-family: Test; font-size: 16px; display: inline; {{PreLine}} }
+              """
+        );
+
+        var element = document.Root.Add("label");
+        element.Text = text;
+        document.Update();
+
+        return element.Block()!.Lines[0].Width;
+    }
+
+    /// <summary>
+    ///     Turning the parent from flex to block rebuilds an inline leaf's block, though nothing of the
+    ///     leaf's own changed.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The key entry decided by somebody else's style</b>, and the one a test built from one
+    ///     document cannot see: every assertion above makes a fresh element under a fixed parent. The
+    ///     leaf's own declarations, its text and — in a column — its measured width are the same
+    ///     either side of the toggle, so the entry is the only thing in <c>UiElement.Block</c>'s key
+    ///     that can tell the two apart.
+    /// </remarks>
+    [Fact]
+    public void Turning_the_parent_to_block_rebuilds_an_inline_leafs_block() {
+        var document = new UiDocument(900f, 300f);
+        document.Fonts.Register("Test", Font);
+
+        document.Load(
+            $$"""
+              root         { width: 800px; height: 300px; display: flex; flex-direction: column; }
+              root.flowing { display: block; }
+              label        { font-family: Test; font-size: 16px; display: inline; {{PreLine}} }
+              """
+        );
+
+        var element = document.Root.Add("label");
+        element.Text = "   ab";
+        document.Update();
+
+        var blockified = element.Block()!.Lines[0].Width;
+
+        Assert.Equal(Width("ab", PreLine), blockified, Tolerance);
+
+        document.Root.AddClass("flowing");
+        document.Update();
+
+        Assert.Equal(Width(" ab", Normal), element.Block()!.Lines[0].Width, Tolerance);
     }
 }

@@ -871,6 +871,7 @@ public partial class UiElement : Composition.IComposable {
         var hyphens = Document.HyphensOf(Style);
         var keepSpaces = Document.BreakSpacesOf(Style);
         var collapse = Document.WhiteSpaceCollapseOf(Style);
+        var ownsLines = OwnsItsLines();
         var language = ResolvedLanguage;
 
         if (!Document.WrapsOf(Style)) {
@@ -957,6 +958,12 @@ public partial class UiElement : Composition.IComposable {
             // which no other entry in this key can notice because the element's own string is the
             // same instance the reference test above compares.
             && lineCollapse == collapse
+
+            // ⚠ In the key for `lineCollapse`'s reason, and it is the one entry here decided by
+            // somebody else's style: a parent turning from flex to block makes an inline leaf share
+            // its first line with a sibling, and whether the leading run is phase II's to remove
+            // changes with it — while nothing about this element's own declarations moved.
+            && lineOwnsLines == ownsLines
             && lineWidth.Equals(width)
             && lineSize.Equals(FontSize)
             && lineTracking.Equals(LetterSpacing)
@@ -994,8 +1001,18 @@ public partial class UiElement : Composition.IComposable {
         // ⚠ The language goes in because casing is language-dependent, and it is already in the
         // cache key above for the shaper's sake — so a block built in one language is not reused in
         // another, which is what makes passing it here safe rather than merely correct.
-        var drawn = TransformedText.Of(Text, transform, language, collapse);
+        var drawn = TransformedText.Of(Text, transform, language, collapse, ownsLines);
         var text = drawn.Text;
+
+        // ⚠ Phase II can remove every character a paragraph has — a `pre-line` label of nothing but
+        // spaces is one run touching both of its edges — and a line cannot be built out of no runs:
+        // `TextLine` refuses it outright. Chrome gives such a paragraph no line box at all, which is
+        // exactly the answer an element with no text gets here, so it takes the same exit.
+        if (text.Length == 0) {
+            block = null;
+            lineText = null;
+            return null;
+        }
 
         var lines = ImmutableArray.CreateBuilder<TextLine>();
         var tabStop = TabStop(text, tabSize, chain);
@@ -1091,6 +1108,7 @@ public partial class UiElement : Composition.IComposable {
         lineHyphens = hyphens;
         lineKeepSpaces = keepSpaces;
         lineCollapse = collapse;
+        lineOwnsLines = ownsLines;
         lineTabStop = tabStop;
         lineTransformed = drawn;
         lineFamily = family;
@@ -1947,6 +1965,39 @@ public partial class UiElement : Composition.IComposable {
     HyphenMode lineHyphens;
     bool lineKeepSpaces;
     WhiteSpaceCollapse lineCollapse;
+    bool lineOwnsLines;
+
+    /// <summary>Whether this element's text begins a line box and ends one.</summary>
+    /// <returns>
+    ///     False only for a <c>display: inline</c> element that its parent lays out on lines, whose
+    ///     text can begin in the middle of a line a sibling started.
+    /// </returns>
+    /// <remarks>
+    ///     <para>
+    ///         It decides whether CSS Text § 4.1.3's phase II may remove a collapsible run at either
+    ///         end of the text — see <see cref="TransformedText.Of" />. For every other element the
+    ///         text is a paragraph of its own: a flex item, a grid item, a float and an absolutely
+    ///         positioned box are all blockified whatever their <c>display</c> says, and a block or
+    ///         inline-block lays its own lines out from its own content edge.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The inline case is left as it was rather than guessed.</b> Whether a leading
+    ///         space survives there depends on whether the text before it on the line ended in one —
+    ///         collapsing across an element boundary — and this engine measures a leaf before it
+    ///         knows its line (<c>InlineKnownGaps.txt</c>, "a text leaf's first line"). Removing it
+    ///         unconditionally would join <c>foo</c> and <c> bar</c> into one word.
+    ///     </para>
+    /// </remarks>
+    bool OwnsItsLines() {
+        ref readonly var own = ref Document.Layout.GetStyle(LayoutNode);
+
+        if (own.Display != Display.Inline || own.Float != FloatSide.None || own.PositionType == PositionType.Absolute) {
+            return true;
+        }
+
+        return Parent is null
+            || Document.Layout.GetStyle(Parent.LayoutNode).Display is Display.Flex or Display.InlineFlex or Display.Grid;
+    }
 
     // ⚠ The stop the current `block` was measured with, in pixels, kept for the same reason
     // `lineTransformed` is: `Ellipsized` measures the line it is cutting, and measuring it with a

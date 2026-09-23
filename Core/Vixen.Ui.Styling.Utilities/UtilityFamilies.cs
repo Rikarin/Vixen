@@ -1209,9 +1209,12 @@ public static class UtilityFamilies {
         // it waited: `TransformedText` had to exist first, because an index into the drawn text and
         // an index into the author's text stop being the same number. ⚠ `normal` still does NOT
         // collapse, deliberately: CSS collapses under it too, and honouring that here would change
-        // what every undeclared paragraph in every interface on this engine draws. § 4.1.3's phase
-        // II — a collapsible space at the START of a line — is owed for all six values, not for this
-        // one. #249.
+        // what every undeclared paragraph in every interface on this engine draws. ⚠ § 4.1.3's phase
+        // II — a collapsible space at the start or end of a line — LANDED for this value, and the
+        // sentence here that said it was owed for all six was wrong twice: phase II removes a
+        // COLLAPSIBLE space, so `pre`, `pre-wrap` and `break-spaces` never had it to owe, and it was
+        // not a question about lines after all — after phase I the only runs a line can begin or end
+        // on are at the two ends of the text, which `TransformedText.Of`'s `ownsLines` removes. #249.
         //
         // ⚠ <b>This paragraph used to say `pre` was registered while being answered wrongly, and
         // that stopped being true.</b> `WrapsOf` honours it now: because this engine collapses
