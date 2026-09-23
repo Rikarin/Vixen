@@ -183,8 +183,8 @@ public class AdvancedTouchActionTests {
     }
 
     static void Send(AdvancedFixture fixture, PointerAction action, float x, float y, PointerType type) {
-        if (type == PointerType.Touch) {
-            fixture.Touch(action, x, y);
+        if (type is PointerType.Touch or PointerType.Pen) {
+            fixture.Touch(action, x, y, type);
         } else if (action == PointerAction.Pressed) {
             fixture.Press(x, y);
         } else if (action == PointerAction.Moved) {
@@ -206,17 +206,21 @@ public class AdvancedTouchActionTests {
     /// <remarks>
     ///     Settled the way <c>TextField</c> is: a finger's drag is the scroller's and begins no
     ///     selection. Diagonal, so the drag crosses both lines and columns and the old behaviour's
-    ///     selection cannot be empty by accident.
+    ///     selection cannot be empty by accident. And a pen, for the reason
+    ///     <c>TouchActionTests.A_finger_dragging_a_text_field_scrolls_the_view_and_selects_nothing</c>
+    ///     gives: <c>CodeEditor.IsDirect</c> names both devices and nothing else drove the second.
     /// </remarks>
-    [Fact]
-    public void A_finger_dragging_a_code_editor_scrolls_its_own_view_and_selects_nothing() {
+    [Theory]
+    [InlineData(PointerType.Touch)]
+    [InlineData(PointerType.Pen)]
+    public void A_finger_dragging_a_code_editor_scrolls_its_own_view_and_selects_nothing(PointerType device) {
         using var fixture = new AdvancedFixture();
         var editor = Code(fixture);
 
-        var scrolled = DragCode(fixture, editor, -Step, -Step, PointerType.Touch);
+        var scrolled = DragCode(fixture, editor, -Step, -Step, device);
 
-        Assert.True(scrolled > 0f, $"a finger's drag no longer scrolls the editor's own view (scrolled {scrolled})");
-        Assert.False(editor.HasSelection, $"a finger's drag selected `{editor.SelectedText}`");
+        Assert.True(scrolled > 0f, $"a {device}'s drag no longer scrolls the editor's own view (scrolled {scrolled})");
+        Assert.False(editor.HasSelection, $"a {device}'s drag selected `{editor.SelectedText}`");
     }
 
     /// <summary>The paired half: a mouse drag still selects, and does not scroll a view that only a finger drags.</summary>

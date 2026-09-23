@@ -258,13 +258,13 @@ sealed class AdvancedFixture : IDisposable {
     public void Release(UiSurface surface, float x, float y, PointerButton button = PointerButton.Primary) =>
         Send(surface, x, y, PointerAction.Released, button, ModifierKeys.None);
 
-    /// <summary>Sends one pointer event from a finger, at a bare point.</summary>
+    /// <summary>Sends one pointer event from a finger — or a pen, when <paramref name="type" /> says so — at a bare point.</summary>
     /// <remarks>
     ///     ⚠ <b>The device is the point of it.</b> <c>touch-action</c> governs a finger or a pen and
     ///     never a mouse, so a test about it driven by <see cref="Press(float,float,PointerButton,ModifierKeys)" />
     ///     is a test of a gesture the property deliberately ignores — green whatever the theme says.
     /// </remarks>
-    public void Touch(PointerAction action, float x, float y) =>
+    public void Touch(PointerAction action, float x, float y, PointerType type = PointerType.Touch) =>
         Send(
             Document.Primary,
             x,
@@ -272,7 +272,7 @@ sealed class AdvancedFixture : IDisposable {
             action,
             action == PointerAction.Moved ? PointerButton.None : PointerButton.Primary,
             ModifierKeys.None,
-            PointerType.Touch
+            type
         );
 
     void Send(float x, float y, PointerAction action, PointerButton button, ModifierKeys modifiers) =>

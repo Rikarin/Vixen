@@ -228,25 +228,25 @@ public class TouchActionTests {
     ///         is left with nothing in flight — it is only read before rather than after.
     ///     </para>
     /// </remarks>
-    static (float Top, float Left) DragAcross(ControlFixture fixture, ScrollView view, float dx, float dy, int steps = 3) {
+    static (float Top, float Left) DragAcross(ControlFixture fixture, ScrollView view, float dx, float dy, int steps = 3, PointerType type = PointerType.Touch) {
         var bounds = view.Bounds;
         var x = bounds.X + (bounds.Width * 0.5f);
         var y = bounds.Y + (bounds.Height * 0.5f);
 
-        fixture.Press(x, y, type: PointerType.Touch);
+        fixture.Press(x, y, type: type);
         fixture.Advance(Frame);
 
         var top = view.ScrollTop;
         var left = view.ScrollLeft;
 
         for (var step = 1; step <= steps; step++) {
-            fixture.MovePointer(x + (dx * step), y + (dy * step), type: PointerType.Touch);
+            fixture.MovePointer(x + (dx * step), y + (dy * step), type: type);
             fixture.Advance(Frame);
         }
 
         var moved = (view.ScrollTop - top, view.ScrollLeft - left);
 
-        fixture.Release(x + (dx * steps), y + (dy * steps), type: PointerType.Touch);
+        fixture.Release(x + (dx * steps), y + (dy * steps), type: type);
 
         return moved;
     }
@@ -388,19 +388,30 @@ public class TouchActionTests {
     ///         ⚠ <b>And the view is asserted to move in the same gesture</b>, so "selected nothing" is
     ///         not satisfied by a finger that never reached the field or a view that never scrolled.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And a pen, which is the half nothing else covered.</b> <c>TextField.IsDirect</c>
+    ///         names both devices, and a sabotage dropping the pen from it left every test green. A
+    ///         pen is the device a texture artist has in hand, so taking drag-selection away from it
+    ///         is the part of this rule most likely to be noticed — and it is the view's own rule
+    ///         (<c>ScrollView.Dragged</c> drags for a pen), so a pen that also selected would do both
+    ///         at once exactly as the finger did. <c>PlatformInput</c> reports no pen yet (see
+    ///         <c>pointer-devices.md</c>), which is why only a test can reach this today.
+    ///     </para>
     /// </remarks>
     [Theory]
-    [InlineData("textbox")]
-    [InlineData("textarea")]
-    public void A_finger_dragging_a_text_field_scrolls_the_view_and_selects_nothing(string tag) {
+    [InlineData("textbox", PointerType.Touch)]
+    [InlineData("textarea", PointerType.Touch)]
+    [InlineData("textbox", PointerType.Pen)]
+    [InlineData("textarea", PointerType.Pen)]
+    public void A_finger_dragging_a_text_field_scrolls_the_view_and_selects_nothing(string tag, PointerType device) {
         var (fixture, view, control) = Themed((document, parent) => Field(document, parent, tag));
         using var _ = fixture;
 
         var field = (TextField)control;
-        var moved = DragAcross(fixture, view, -Step, -Step);
+        var moved = DragAcross(fixture, view, -Step, -Step, type: device);
 
-        Assert.True(moved.Top > 0f, $"a finger dragging a `{tag}` no longer scrolls the view around it (top {moved.Top})");
-        Assert.False(field.HasSelection, $"a finger's drag selected `{field.SelectedText}` in a `{tag}`");
+        Assert.True(moved.Top > 0f, $"a {device} dragging a `{tag}` no longer scrolls the view around it (top {moved.Top})");
+        Assert.False(field.HasSelection, $"a {device}'s drag selected `{field.SelectedText}` in a `{tag}`");
     }
 
     /// <summary>
