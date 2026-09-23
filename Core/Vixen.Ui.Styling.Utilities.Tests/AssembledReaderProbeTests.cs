@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui.Rendering;
 using Vixen.Ui.Styling;
 using Xunit;
 
@@ -137,13 +138,52 @@ public class AssembledReaderProbeTests {
     }
 
     /// <summary>
+    ///     A valid filter beside a negative spelling now reaches the draw list — the other half of the
+    ///     fix, which "the negative no longer resolves" does not say on its own.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The fix changes a picture, in the direction of the author's intent.</b> While
+    ///     <c>-brightness-50</c> resolved, <c>-brightness-50 invert</c> assembled
+    ///     <c>brightness(-0.5) invert(1)</c>, the executor refused the whole list, and the element drew
+    ///     unfiltered. Now the negative is not a class, so the list is <c>invert(1)</c> and the
+    ///     element is inverted. Asserted on the draw list's filtered group rather than on the
+    ///     refusals, because an empty refusal list is also what a filter that never reached the
+    ///     executor leaves; the group's matrix is exactly <see cref="UiColorMatrix.Invert" />, a
+    ///     closed form with nothing to eyeball.
+    /// </remarks>
+    [Fact]
+    public void A_valid_filter_beside_a_negative_spelling_reaches_the_draw_list() {
+        var inverted = UiColorMatrix.Invert(1f);
+
+        // The instrument first: the bare class opens a group with the inversion on it.
+        Assert.Equal(inverted, AssembledReaderProbe.FilterOf(Tokens, "invert"));
+        Assert.Null(AssembledReaderProbe.FilterOf(Tokens, "filter-none"));
+
+        Assert.Equal(inverted, AssembledReaderProbe.FilterOf(Tokens, "-brightness-50", "invert"));
+        Assert.Equal(inverted, AssembledReaderProbe.FilterOf(Tokens, "-sepia-100", "invert"));
+    }
+
+    /// <summary>
     ///     Every slot value on the surface is one the reader takes — the gate, and the reason the
     ///     ledger's <c>works</c> for the transform roots now means the engine does it.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>With a floor, because a candidate list that offered no slot class would pass this over
-    ///     an empty loop.</b> Every transform, filter and backdrop slot family, over the scale
-    ///     vocabulary and both signs: 659 classes when this was written.
+    ///     <para>
+    ///         ⚠ <b>With a floor, because a candidate list that offered no slot class would pass this
+    ///         over an empty loop.</b> Every transform, filter and backdrop slot family, over the scale
+    ///         vocabulary and both signs: 659 classes when this was written.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Its minute and a half is not its own.</b> Run alone it takes about that long, and
+    ///         the 659 documents are not why: asking the reader about every candidate one document at a
+    ///         time was measured at 1.5 s, and the same answers batched into a handful of documents at
+    ///         0.3 s. The rest is <see cref="UtilityConsumptionProbe.Take" />, the consumption ledger
+    ///         <see cref="ParityLedger.Measure" /> starts from, which is cached for the process and
+    ///         costs <c>UtilityConsumptionGateTests</c> the same 80 s when that runs alone. In a
+    ///         whole-assembly run whichever test asks first pays it once. So batching was measured and
+    ///         not kept: it saved a second and added a bisection that would have needed a test of its
+    ///         own.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void No_slot_value_on_the_surface_is_one_the_reader_declines() {

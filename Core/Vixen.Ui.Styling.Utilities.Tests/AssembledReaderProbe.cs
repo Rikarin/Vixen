@@ -237,4 +237,29 @@ static class AssembledReaderProbe {
 
         return document.Refusals();
     }
+
+    /// <summary>
+    ///     The colour matrix the draw list carries for one painted element with exactly these classes,
+    ///     or null where the element opened no filtered group.
+    /// </summary>
+    /// <param name="tokens">The theme the classes resolve against.</param>
+    /// <param name="classes">The classes, all of which are generated into the sheet.</param>
+    /// <remarks>
+    ///     The draw list rather than <see cref="RefusalsOf" />, because "nothing was refused" is also
+    ///     what a filter that never reached the executor leaves behind. A
+    ///     <see cref="DrawCommandKind.LayerPush" /> carrying a <see cref="DrawCommand.Filter" /> is the
+    ///     list reaching the frame. Compositing is on, as it is in a host, because without it no
+    ///     filter opens a group at all.
+    /// </remarks>
+    public static UiColorMatrix? FilterOf(ThemeTokens tokens, params string[] classes) {
+        using var document = new UiDocument(200f, 100f) { Compositing = true };
+        document.Load(new UtilityGenerator(tokens).Generate(classes), StyleOrigin.Author);
+        document.Load(Painted, StyleOrigin.Author);
+
+        document.Create("div", document.Root, "probe", classes);
+        document.Update();
+        document.Draw();
+
+        return document.Drawing.Commands.FirstOrDefault(c => c is { Kind: DrawCommandKind.LayerPush, Filter: not null }).Filter;
+    }
 }
