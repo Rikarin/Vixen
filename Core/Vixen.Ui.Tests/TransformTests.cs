@@ -893,6 +893,75 @@ public class TransformTests {
         Assert.Same(document.Root, document.HitTest(120f, 120f));
     }
 
+    /// <summary>
+    ///     A back-facing element is neither drawn nor clicked, and a mirrored one is both.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The mirror is the point of this test and the reason it is not one determinant
+    ///         sign.</b> <c>rotateY(180deg)</c> and <c>scale3d(-1, 1, 1)</c> reduce to the <i>same</i>
+    ///         <c>UiTransform</c> — an x mirror about the element's centre — because
+    ///         <c>TransformReader.Reduce</c> keeps rows x, y, w against columns x, y, 1 and throws the
+    ///         z row and column away. Only one of them has turned the plane over. So a consumer
+    ///         handed the matrix cannot answer, and a rule written on the winding — which is the
+    ///         obvious one, and the only one the reduced matrix can express — hides an element CSS
+    ///         keeps: Transforms 2 § 6.3 asks for the <c>m33</c> of the composition's inverse, and a
+    ///         mirror leaves it positive where it leaves the determinant negative.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>scale3d</c> and not <c>scaleX</c>, which would prove nothing.</b> A
+    ///         <c>scaleX(-1)</c> is flat, so it never reaches the four-dimensional branch and is
+    ///         front-facing by construction rather than by the rule. The three-argument spelling is
+    ///         the same matrix down the branch that has to decide.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both consumers, in one test, deliberately.</b> An element hidden by the paint walk
+    ///         and left in the hit test is the invisible-hit-target bug — the one defect this property
+    ///         could plausibly introduce — and only an assertion naming both can see the two disagree.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The third card has no <c>backface-visibility</c> at all</b>, so it is back-facing
+    ///         and shown. Without it, a reader that ignored the keyword and hid every turned element
+    ///         would pass on the first two.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_back_facing_element_is_not_drawn_and_not_clicked_while_a_mirrored_one_is_both() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .turned { position: absolute; left: 0px; top: 0px; width: 40px; height: 40px;
+                      background-color: #111; transform: rotateY(180deg); backface-visibility: hidden; }
+            .mirrored { position: absolute; left: 100px; top: 0px; width: 40px; height: 40px;
+                        background-color: #222; transform: scale3d(-1, 1, 1); backface-visibility: hidden; }
+            .shown { position: absolute; left: 200px; top: 0px; width: 40px; height: 40px;
+                     background-color: #333; transform: rotateY(180deg); }
+            """,
+            document => {
+                document.Root.Add("div", classNames: "turned");
+                document.Root.Add("div", classNames: "mirrored");
+                document.Root.Add("div", classNames: "shown");
+            }
+        );
+
+        var turned = document.Root.Children[0];
+        var mirrored = document.Root.Children[1];
+        var shown = document.Root.Children[2];
+
+        // The instrument first: the two cards really do reduce to the same matrix, so what separates
+        // them below cannot be anything a consumer could have read off it.
+        Assert.Equal(Assert.IsType<UiTransform>(turned.Transform).M11, Assert.IsType<UiTransform>(mirrored.Transform).M11, Tolerance);
+        Assert.Equal(Assert.IsType<UiTransform>(turned.Transform).M22, Assert.IsType<UiTransform>(mirrored.Transform).M22, Tolerance);
+
+        // The picture: two rectangles where three elements have a background.
+        Assert.Equal(2, document.Drawing.Commands.Count(command => command.Kind == DrawCommandKind.Rectangle));
+
+        // And the pointer agrees with it, card for card.
+        Assert.Same(document.Root, document.HitTest(20f, 20f));
+        Assert.Same(mirrored, document.HitTest(120f, 20f));
+        Assert.Same(shown, document.HitTest(220f, 20f));
+    }
+
     /// <summary>An <c>em</c> in a transform is the element's own font size and not the root's.</summary>
     /// <remarks>
     ///     <para>

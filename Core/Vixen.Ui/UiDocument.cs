@@ -2752,6 +2752,15 @@ public sealed partial class UiDocument : IDisposable {
         // that paints and does not click, or clicks and does not paint. `UiTransform.TryBounds`
         // refuses on `Z <= 0` for the same reason and with the same strictness — a point *on* the eye
         // plane has no image at all, so zero belongs on this side of the test rather than the other.
+        // ⚠ <b>Before the matrix, because a back-facing element is not there at all rather than
+        // there and unreachable.</b> `DrawListBuilder` returns at the same point and for the same
+        // reason: an element that is hidden and still takes the pointer is the invisible-hit-target
+        // bug, which is the one failure `backface-visibility` would otherwise ADD to the engine —
+        // the property's whole purpose is to make the back half of a card flip not be there.
+        if (element.BackfaceHidden) {
+            return null;
+        }
+
         if (element.Transform is { } placed) {
             if (placed.Invert() is not { } undo) {
                 return null;
@@ -2981,7 +2990,13 @@ public sealed partial class UiDocument : IDisposable {
         // transforms compose for nothing — the inner group's composite quad is transformed by the
         // inner matrix and then rasterised into the outer group's surface, which the outer matrix
         // transforms in turn — and it is what stops a transform leaking into layout.
-        element.Transform = transform.Of(element, own);
+        // ⚠ <b>And whether it has turned away, which the matrix beside it cannot answer.</b>
+        // `Reduce` throws the z row and column, so a `rotateY(180deg)` and a `scaleX(-1)` arrive here
+        // as the same homography and only one of them is showing its back. The reader answers while
+        // it still holds the 4×4; see `UiElement.BackfaceHidden`, which both consumers read instead of
+        // re-deriving a predicate neither of them has the inputs for.
+        element.Transform = transform.Of(element, own, out var turnedAway);
+        element.BackfaceHidden = turnedAway;
 
         // ⚠ <b>A scrolling box is the scrollport its descendants stick to, and the rectangle is the
         // one the clip uses.</b> `Cut` clips against this element's border box, so a sticky header

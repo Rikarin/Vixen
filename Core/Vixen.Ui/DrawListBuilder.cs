@@ -797,6 +797,24 @@ public sealed class DrawListBuilder {
             return;
         }
 
+        // ⚠ <b>A back-facing element skips the subtree on exactly those terms, and the flag is read
+        // rather than derived because the matrix beside it cannot answer.</b> `Reduce` throws the z
+        // row and column away, so a `rotateY(180deg)` and a `scaleX(-1)` arrive as the same
+        // homography and only the first has turned the plane over — `TransformReader` decides while
+        // it still holds the 4×4. See `UiElement.BackfaceHidden`.
+        //
+        // ⚠ <b>The subtree goes with it, unlike `visibility: hidden` twenty lines down.</b> A
+        // transformed element's descendants are composited into ITS plane, so they have turned away
+        // with it; `visibility` is inherited and asked per element precisely so that a child can
+        // declare itself back, which is a different question and not one a rotation can be argued out
+        // of. ⚠ Ungated by `Compositing`, like the degenerate case above and unlike the group below:
+        // an element facing away is absent on any renderer, and `UiDocument.HitTest` returns at the
+        // same point — a box that is hidden and still swallows the pointer is the one bug this
+        // property could plausibly introduce.
+        if (element.BackfaceHidden) {
+            return;
+        }
+
         // ⚠ <b>The sixth reason to open a group, and the first whose output is a function of two
         // pictures rather than one.</b> The other five transform what the subtree drew; this one
         // decides how the result meets what is already there. It cannot be pushed down onto the

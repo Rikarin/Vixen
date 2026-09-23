@@ -2283,6 +2283,27 @@ public partial class UiElement : Composition.IComposable {
     /// </remarks>
     public UiTransform? Transform { get; internal set; }
 
+    /// <summary>Whether this element has turned its back and asked not to be drawn when it does.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Both halves in one bit, and it is stored rather than derived because the answer is
+    ///         not in <see cref="Transform" />.</b> Reducing the composition to a homography throws
+    ///         away the z row and column, and those are the only thing that separates a
+    ///         <c>rotateY(180deg)</c> — which really has turned the plane over — from a
+    ///         <c>scaleX(-1)</c>, which draws the identical picture and is still facing the viewer.
+    ///         A consumer handed the matrix cannot tell them apart, so <see cref="TransformReader" />
+    ///         answers while it still has the 4×4 and this carries the answer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <c>backface-visibility</c> keyword is folded in here rather than left to the
+    ///         consumers</b>, for the reason <see cref="Transform" />'s own remark gives one paragraph
+    ///         up: the draw list and the hit test must agree, and a two-term predicate written out
+    ///         twice is the shape that drifts. An element that is drawn where it cannot be clicked is
+    ///         the failure this whole path is arranged against.
+    ///     </para>
+    /// </remarks>
+    internal bool BackfaceHidden { get; set; }
+
     /// <summary>
     ///     Whether a pointer can land on it. <c>pointer-events: none</c> and
     ///     <c>visibility: hidden</c> each make it false.

@@ -55,6 +55,17 @@ sealed class TransformReader {
     /// <summary>The vanishing point <see cref="perspective" /> is taken about, in the parent's box.</summary>
     readonly int perspectiveOrigin;
 
+    /// <summary>The <c>backface-visibility</c> property, and the one keyword of it that does anything.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read here rather than beside <c>visibility</c>, because the question it asks is about
+    ///     a matrix.</b> <c>visibility: hidden</c> is a property a consumer can answer on its own;
+    ///     whether an element has turned away is a fact about the composition this reader builds and
+    ///     discards — see <see cref="TurnedAway" />, and <see cref="Reduce" />, which throws the z row
+    ///     and column that hold the answer.
+    /// </remarks>
+    readonly int backface;
+
+    readonly int hidden;
     readonly int none;
     readonly int left;
     readonly int centre;
@@ -93,7 +104,9 @@ sealed class TransformReader {
         origin = properties.Intern("transform-origin");
         perspective = properties.Intern("perspective");
         perspectiveOrigin = properties.Intern("perspective-origin");
+        backface = properties.Intern("backface-visibility");
         this.values = values;
+        hidden = values.Intern("hidden");
         none = values.Intern("none");
         left = keywords.Intern("left");
         centre = keywords.Intern("center");
@@ -106,6 +119,12 @@ sealed class TransformReader {
     /// <summary>The affine an element's style places it under, or null where there is none.</summary>
     /// <param name="element">The element, whose border box the origin and any percentage resolve against.</param>
     /// <param name="metrics">The lengths <c>em</c>, <c>rem</c> and the viewport units resolve against.</param>
+    /// <param name="turnedAway">
+    ///     Whether the element has turned its back AND its <c>backface-visibility</c> asked not to be
+    ///     drawn when it does. ⚠ An out parameter rather than something a consumer reads off the
+    ///     returned matrix, because the answer is exactly what <see cref="Reduce" /> discards — see
+    ///     <see cref="TurnedAway" />.
+    /// </param>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Null rather than the identity, and the two misses are checked before anything is
@@ -132,8 +151,10 @@ sealed class TransformReader {
     ///         surface and a render pass on the identical picture. See <see cref="UiTransform.IsIdentity" />.
     ///     </para>
     /// </remarks>
-    public UiTransform? Of(UiElement element, LengthContext metrics) {
+    public UiTransform? Of(UiElement element, LengthContext metrics, out bool turnedAway) {
         ArgumentNullException.ThrowIfNull(element);
+
+        turnedAway = false;
 
         var hasRotation = element.Style.TryGet(rotate, out var rotation) && rotation != none;
         var hasScale = element.Style.TryGet(scale, out var scaling) && scaling != none;
@@ -208,10 +229,49 @@ sealed class TransformReader {
         }
 
         if (spatial) {
-            composed = Reduce(Matrix4x4.Multiply(composition, Established(element, metrics)));
+            var whole = Matrix4x4.Multiply(composition, Established(element, metrics));
+
+            // ⚠ <b>Asked of the 4×4 and nowhere else, because the answer is exactly what
+            // <see cref="Reduce" /> throws away.</b> `rotateY(180deg)` and `scaleX(-1)` reduce to the
+            // SAME homography — an x mirror about the origin — and one of them is showing its back
+            // while the other is not. Nothing downstream of this line can tell them apart, so the
+            // flag is computed here and carried, rather than recovered from the matrix by a consumer.
+            // Reached only on the spatial branch: a list with no z in it has the identity's z row and
+            // column, and a flat element never turns away — which is why `scaleX(-1)` stays visible.
+            turnedAway = element.Style.TryGet(backface, out var facing) && facing == hidden && TurnedAway(whole);
+
+            composed = Reduce(whole);
         }
 
         return composed.IsIdentity ? null : composed;
+    }
+
+    /// <summary>Whether a composition leaves the element's plane facing away from the viewer.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The <c>m33</c> of the INVERSE, which is Transforms 2 § 6.3's own rule and not the
+    ///         winding — and the two disagree on exactly the case a reader would reach for.</b> A
+    ///         mirror reverses the winding and does not turn the plane over: <c>scaleX(-1)</c> is a
+    ///         front-facing element written backwards, and a test on the sign of the determinant calls
+    ///         it back-facing and hides it. <c>rotateY(180deg)</c>, which a reader would expect to
+    ///         behave the same way because it draws the same picture, really has turned the plane
+    ///         over. The two differ only in the z row and column.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Neither matrix is inverted here.</b> Cramer makes the inverse's <c>M33</c> equal
+    ///         to the <c>(3,3)</c> cofactor over the determinant, so the SIGN is the product of the
+    ///         two signs — three multiplications and a minor rather than a division by a determinant
+    ///         that may be near zero. A singular composition answers false and is dropped a line later
+    ///         by <see cref="UiTransform.IsIdentity" /> or by the consumers' own inverse.
+    ///     </para>
+    /// </remarks>
+    static bool TurnedAway(in Matrix4x4 matrix) {
+        // The (3,3) cofactor: the determinant of the minor with the third row and third column gone.
+        var cofactor = (matrix.M11 * ((matrix.M22 * matrix.M44) - (matrix.M24 * matrix.M42)))
+            - (matrix.M12 * ((matrix.M21 * matrix.M44) - (matrix.M24 * matrix.M41)))
+            + (matrix.M14 * ((matrix.M21 * matrix.M42) - (matrix.M22 * matrix.M41)));
+
+        return cofactor * Matrix4x4.Determinant(matrix) < 0f;
     }
 
     /// <summary>Reads a <c>&lt;transform-list&gt;</c> into one matrix, in the element's own space.</summary>
