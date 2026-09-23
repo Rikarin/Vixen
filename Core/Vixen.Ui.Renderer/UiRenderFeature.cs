@@ -486,9 +486,9 @@ public sealed class UiRenderFeature : RootRenderFeature {
             }
 
             // ⚠ Checked here as well as in `Upload`, and not because the two can disagree. A host
-            // that never uploaded reaches this method having drawn from a buffer nothing wrote —
-            // which is the failure the upload half exists to stop — and it must not be the path on
-            // which a shared renderer is quietly tolerated.
+            // that never uploaded reaches this method with no vertex ring to draw from — on Vulkan
+            // the bind throws, which is the failure the upload half exists to stop — and it must not
+            // be the path on which a shared renderer is quietly tolerated.
             if (Serve(node.Object.Index) is not { } renderer) {
                 continue;
             }

@@ -46,7 +46,11 @@ needs the shader modules and the formats of the pass; `Mount`, once, with the st
 `Set`, every frame, with the geometry the document's builder produced; and `Upload`, every frame,
 on a command list that is **not inside a render pass**.
 
-⚠ **`Upload` is not optional and forgetting it draws from memory nothing has written.** `Draw` runs
+⚠ **`Upload` is not optional, and forgetting it is a fault rather than a picture.** It was written
+here as drawing from memory nothing has written; ⚠ the ring the vertices live in is created by the
+first upload, so on Vulkan the first `Record` binds a handle that names nothing and
+`BindVertexBuffer` throws (measured by `InterfaceOverASceneDeviceTests` with the call removed).
+`WorldRenderer.Draw` now makes the call for a world host (#627). `Draw` runs
 inside the pass and can only `Record`; the vertices, indices, box records and the glyph atlas are
 written by `UiRenderer.Upload`, and a texture copy is the one thing a Vulkan command list may not do
 inside a pass — which is why the renderer splits the two at all. The feature had no upload half for
