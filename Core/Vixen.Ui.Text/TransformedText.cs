@@ -418,26 +418,26 @@ public sealed class TransformedText {
     /// <param name="source">The untransformed text.</param>
     /// <param name="at">Where the sigma starts.</param>
     /// <param name="length">Its length in UTF-16 code units.</param>
-    /// <returns>Whether it lowercases to \u03c2 rather than to \u03c3.</returns>
+    /// <returns>Whether it lowercases to ς rather than to σ.</returns>
     /// <remarks>
     ///     <para>
     ///         UAX #21's <c>Final_Sigma</c>, verbatim: preceded by a cased letter with only
     ///         case-ignorable characters in between, and <i>not</i> followed by one on the same
-    ///         terms. Both halves are needed and the second is the one an implementation forgets \u2014
-    ///         without it <c>\u039f\u0394\u039f\u03a3 \u039c\u039f\u03a5</c> would end its first word correctly and <c>\u03a3\u039f\u03a6\u039f\u03a3</c> would
+    ///         terms. Both halves are needed and the second is the one an implementation forgets —
+    ///         without it <c>ΟΔΟΣ ΜΟΥ</c> would end its first word correctly and <c>ΣΟΦΟΣ</c> would
     ///         turn its leading sigma final as well.
     ///     </para>
     ///     <para>
-    ///         \u26a0 <b>Read against the source and not against what has been written so far.</b> The
+    ///         ⚠ <b>Read against the source and not against what has been written so far.</b> The
     ///         text ahead has not been transformed yet, so the two are different strings, and the
     ///         condition is defined on the input. Casing does not change whether a character is
     ///         cased or ignorable, so reading backwards from the source is the same answer for less
     ///         bookkeeping.
     ///     </para>
     ///     <para>
-    ///         \u26a0 <b>No <c>CultureInfo</c> here either.</b> <c>Cased</c> and <c>Case_Ignorable</c>
+    ///         ⚠ <b>No <c>CultureInfo</c> here either.</b> <c>Cased</c> and <c>Case_Ignorable</c>
     ///         come out of the Unicode general categories and this assembly's own word-break table,
-    ///         both of which are the same on every machine \u2014 see the remarks on
+    ///         both of which are the same on every machine — see the remarks on
     ///         <see cref="Of" />.
     ///     </para>
     /// </remarks>
@@ -487,8 +487,8 @@ public sealed class TransformedText {
 
     /// <summary>The <c>Cased</c> derived property.</summary>
     /// <remarks>
-    ///     Uppercase, lowercase or titlecase. \u26a0 <b>Titlecase is the third one and is a real
-    ///     category</b> \u2014 <c>\u01c5</c> is neither <c>Lu</c> nor <c>Ll</c>, so a test written as
+    ///     Uppercase, lowercase or titlecase. ⚠ <b>Titlecase is the third one and is a real
+    ///     category</b> — <c>ǅ</c> is neither <c>Lu</c> nor <c>Ll</c>, so a test written as
     ///     "upper or lower" would read a Latin digraph as uncased and break a sigma's word at it.
     /// </remarks>
     static bool IsCased(Rune rune) =>
@@ -498,9 +498,9 @@ public sealed class TransformedText {
 
     /// <summary>The <c>Case_Ignorable</c> derived property.</summary>
     /// <remarks>
-    ///     \u26a0 <b>Five categories <i>and</i> three word-break classes</b>, which is DerivedCoreProperties'
+    ///     ⚠ <b>Five categories <i>and</i> three word-break classes</b>, which is DerivedCoreProperties'
     ///     own definition and not a simplification of it. The word-break half is what makes
-    ///     <c>\u039c.\u039f.\u03a3.</c> and an apostrophe inside a word behave: a full stop between two letters is
+    ///     <c>Μ.Ο.Σ.</c> and an apostrophe inside a word behave: a full stop between two letters is
     ///     <c>MidNumLet</c>, so the sigma before it is still followed by a cased letter and stays
     ///     non-final. Dropping that half would be invisible in every fixture written out of one word.
     /// </remarks>

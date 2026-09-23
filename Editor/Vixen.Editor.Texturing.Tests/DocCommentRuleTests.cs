@@ -397,10 +397,145 @@ public class DocCommentRuleTests {
     [InlineData("/// <param name=\"b\">Not a parameter.</param>\npublic void M(int a) { }", "`b`")]
     [InlineData("/// <param name=\"b\">Not a parameter.</param>\npublic int Value => 0;", "takes no parameters at all")]
     [InlineData("public void M() {\n/// <summary>Discarded.</summary>\nstatic int Inner() => 0;\nInner();\n}", "local function `Inner`")]
+    [InlineData("/// <summary>A warning: \\u26a0.</summary>\npublic void M() { }", "the escape `\\u26a0` as prose")]
     public void Each_check_fails_on_its_own(string member, string expected) {
         var findings = DocCommentRule.Check("One.cs", "class Fixture {\n" + member + "\n}");
 
         Assert.Single(findings);
         Assert.Contains(expected, findings[0].Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     <c>TransformedText.cs</c>'s casing remarks as they stood before
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1347">#1347</a>, the ten escaped lines
+    ///     with their members.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Written with every backslash doubled and halved at run time, and that is the defect's
+    ///     own mechanism rather than a style.</b> The issue that filed these had its escapes resolved
+    ///     into the characters they name twice on the way to the tracker, and the same happens to a
+    ///     fixture typed through any tool that decodes JSON-style escapes: the file would then hold
+    ///     the fixed text, and this test would be asserting the rule is silent on a file that was
+    ///     never wrong. A doubled backslash survives that trip.
+    /// </remarks>
+    static readonly string EscapedCasingRemarks = """
+        namespace Fixture;
+
+        static class TransformedText {
+            /// <summary>Whether a sigma at an offset is the last letter of its word.</summary>
+            /// <param name="source">The untransformed text.</param>
+            /// <returns>Whether it lowercases to \\u03c2 rather than to \\u03c3.</returns>
+            /// <remarks>
+            ///     <para>
+            ///         terms. Both halves are needed and the second is the one an implementation forgets \\u2014
+            ///         without it <c>\\u039f\\u0394\\u039f\\u03a3 \\u039c\\u039f\\u03a5</c> would end its first word correctly and <c>\\u03a3\\u039f\\u03a6\\u039f\\u03a3</c> would
+            ///     </para>
+            ///     <para>
+            ///         \\u26a0 <b>Read against the source and not against what has been written so far.</b> The
+            ///     </para>
+            ///     <para>
+            ///         \\u26a0 <b>No <c>CultureInfo</c> here either.</b> <c>Cased</c> and <c>Case_Ignorable</c>
+            ///         both of which are the same on every machine \\u2014 see the remarks on
+            ///     </para>
+            /// </remarks>
+            static bool IsFinalSigma(string source) => false;
+
+            /// <summary>The <c>Cased</c> derived property.</summary>
+            /// <remarks>
+            ///     Uppercase, lowercase or titlecase. \\u26a0 <b>Titlecase is the third one and is a real
+            ///     category</b> \\u2014 <c>\\u01c5</c> is neither <c>Lu</c> nor <c>Ll</c>, so a test written as
+            /// </remarks>
+            static bool IsCased(int rune) => false;
+
+            /// <summary>The <c>Case_Ignorable</c> derived property.</summary>
+            /// <remarks>
+            ///     \\u26a0 <b>Five categories <i>and</i> three word-break classes</b>, which is DerivedCoreProperties'
+            ///     <c>\\u039c.\\u039f.\\u03a3.</c> and an apostrophe inside a word behave: a full stop between two letters is
+            /// </remarks>
+            static bool IsCaseIgnorable(int rune) => false;
+
+            /// <summary>LATIN CAPITAL LETTER I WITH DOT ABOVE, U+0130.</summary>
+            const string DottedCapitalI = "\\u0130";
+        }
+        """.Replace(@"\\", @"\", StringComparison.Ordinal);
+
+    /// <summary>
+    ///     ⚠ <a href="https://github.com/Rikarin/Vixen/issues/1347">#1347</a>: every escaped line of
+    ///     the casing remarks is a finding on its own line, and the string literal beneath them is not.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Ten lines, not twenty-five escapes, is the count that says the positions are
+    ///         right.</b> The rule reports each escape; grouping by line is what the issue counted and
+    ///         what a reader fixes, and a rule reporting every escape at the block's first line would
+    ///         give one line where this asserts ten.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <c>const string</c> at the bottom is the other half.</b> An escape there is the
+    ///         correct spelling — the issue warned that a blanket sweep of the file would break exactly
+    ///         those — so a rule that read the whole text rather than the documentation trivia would
+    ///         report an eleventh line.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Each_escaped_line_of_the_casing_remarks_is_reported() {
+        var findings = DocCommentRule.Check("TransformedText.cs", EscapedCasingRemarks);
+        var lines = EscapedCasingRemarks.Split('\n');
+        var escaped = Enumerable
+            .Range(1, lines.Length)
+            .Where(line => lines[line - 1].TrimStart().StartsWith("///", StringComparison.Ordinal) && lines[line - 1].Contains('\\'))
+            .ToArray();
+
+        Assert.Equal(10, escaped.Length);
+        Assert.Equal(escaped, findings.Select(finding => finding.Line).Distinct().ToArray());
+        Assert.All(findings, finding => Assert.Contains("as prose", finding.Message, StringComparison.Ordinal));
+        Assert.Equal(25, findings.Count);
+
+        // And the same text written the way #1347 fixed it: the characters, not their escapes.
+        var fixedText = string.Join(
+            '\n',
+            lines.Select(line => line.TrimStart().StartsWith("///", StringComparison.Ordinal) ? Unescape(line) : line)
+        );
+
+        Assert.Equal([], DocCommentRule.Check("TransformedText.cs", fixedText).Select(finding => finding.ToString()).ToArray());
+    }
+
+    /// <summary>Resolves every backslash-u escape in a line into the character it names.</summary>
+    /// <param name="line">One line of a fixture.</param>
+    /// <returns>The line with its escapes written as characters.</returns>
+    static string Unescape(string line) =>
+        System.Text.RegularExpressions.Regex.Replace(
+            line,
+            @"\\u([0-9a-fA-F]{4})",
+            match => ((char)Convert.ToInt32(match.Groups[1].Value, 16)).ToString()
+        );
+
+    /// <summary>
+    ///     ⚠ An escape the prose means as an escape is left alone.
+    /// </summary>
+    /// <remarks>
+    ///     A <c>&lt;code&gt;</c> sample is source, where the escape is how the character is written; a
+    ///     doubled backslash describes a literal whose value is the backslash; an attribute is read by
+    ///     the compiler, not drawn; and a backslash-u with fewer than four hex digits after it is not
+    ///     an escape at all. A rule that flagged these would be asking a sample to be wrong.
+    /// </remarks>
+    [Fact]
+    public void An_escape_the_prose_means_as_an_escape_is_left_alone() {
+        var sample = """
+            class Fixture {
+                /// <summary>Writes a sign.</summary>
+                /// <remarks>
+                ///     <code>
+                ///     var sign = "\\u26a0";
+                ///     </code>
+                ///     The value of <c>"\\\\u26a0"</c> is six characters, and <c>\\uffz</c> is no escape.
+                /// </remarks>
+                /// <param name="x">See <see cref="M(string)" /> and <a href="\\u26a0">this</a>.</param>
+                public void M(string x) { }
+            }
+            """.Replace(@"\\", @"\", StringComparison.Ordinal);
+
+        Assert.Contains(@"\u26a0""", sample, StringComparison.Ordinal);
+        Assert.Equal([], DocCommentRule.Check("Sample.cs", sample).Select(finding => finding.ToString()).ToArray());
     }
 }

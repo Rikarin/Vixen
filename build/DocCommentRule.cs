@@ -8,6 +8,7 @@ using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 
 namespace Vixen.Build;
 
@@ -58,7 +59,7 @@ namespace Vixen.Build;
 static class DocCommentRule {
     /// <summary>One thing wrong with one doc comment block.</summary>
     /// <param name="File">The file it is in, as given to <see cref="Check" />.</param>
-    /// <param name="Line">The one-based line the block starts on.</param>
+    /// <param name="Line">The one-based line the block starts on, or the line an escape is on.</param>
     /// <param name="Message">What is wrong, in the words the gate fails with.</param>
     public sealed record Finding(string File, int Line, string Message) {
         /// <summary>The finding as one line, the way a compiler reports one.</summary>
@@ -196,11 +197,12 @@ static class DocCommentRule {
     /// <returns>One finding per problem, in source order; empty when the file is clean.</returns>
     /// <remarks>
     ///     <para>
-    ///         <b>Four questions, all of them syntactic.</b> Does a block carry two of a tag a member
+    ///         <b>Five questions, all of them syntactic.</b> Does a block carry two of a tag a member
     ///         has one of; does it name one parameter twice; does it name a parameter the member the
     ///         block is attached to does not have; is it attached to a local function, where the
-    ///         compiler discards it. Each is a property of the block and the following declaration
-    ///         alone, which is why no compilation and no workspace is needed.
+    ///         compiler discards it; does its prose spell a character as a literal's escape, which
+    ///         a doc comment draws as the escape. Each is a property of the block and the following
+    ///         declaration alone, which is why no compilation and no workspace is needed.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A block attached to nothing is left alone deliberately.</b> A doc comment before a
@@ -261,6 +263,10 @@ static class DocCommentRule {
 
             foreach (var duplicate in documented.GroupBy(name => name, StringComparer.Ordinal).Where(group => group.Count() > 1)) {
                 findings.Add(new(file, line, $"this doc comment block documents the parameter `{duplicate.Key}` {duplicate.Count()} times."));
+            }
+
+            foreach (var (position, escape) in Escapes(block)) {
+                findings.Add(new(file, tree.GetLineSpan(new TextSpan(position, 0)).StartLinePosition.Line + 1, Escaped(escape)));
             }
 
             if (Owner(trivia) is not { } owner) {
@@ -342,6 +348,87 @@ static class DocCommentRule {
         + "CS1587 — the compiler discards it, so it reaches no XML file, no tooltip and no doc generator "
         + "however carefully it is written. Make it a `//` comment, or move it onto a member that can carry "
         + "documentation.";
+
+    /// <summary>What to say about a character escape written into prose.</summary>
+    /// <param name="escape">The escape as it stands in the file.</param>
+    /// <returns>The message the gate fails with.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An escape is a construct of a string or char literal, and a doc comment has
+    ///         none</b> (<a href="https://github.com/Rikarin/Vixen/issues/1347">#1347</a>). Inside
+    ///         <c>///</c> a backslash-u sequence is six characters — ten for the eight-digit form —
+    ///         and that is what a tooltip and the doc generator draw. <c>TransformedText.cs</c>
+    ///         carried ten of them in its casing remarks: a warning sign, three em dashes, and the
+    ///         whole Greek example that existed to show a reader what <c>Final_Sigma</c> does to a
+    ///         real phrase, which showed them hexadecimal.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing else here could see it.</b> The comment is well-formed XML, no Roslyn
+    ///         diagnostic reads prose, and the other checks in this rule ask what a block is
+    ///         attached to rather than what its characters render as. And the defect is easy to make
+    ///         and hard to report: the issue that filed it had the escapes resolved out from under it
+    ///         in transit twice, so the report kept becoming an instance of what it described.
+    ///     </para>
+    /// </remarks>
+    static string Escaped(string escape) =>
+        $"this doc comment writes the escape `{escape}` as prose. An escape only means a character inside a "
+        + "string or char literal; in a doc comment it is its own backslash and digits, and that is what a "
+        + "tooltip and the doc generator draw. Write the character itself — or, if the escape is what the "
+        + "sentence means to show, put it in a <code> sample.";
+
+    /// <summary>Every backslash-u escape in a block's prose, outside a <c>&lt;code&gt;</c> sample.</summary>
+    /// <param name="block">The parsed block.</param>
+    /// <returns>Where each escape starts in the file, and its text.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Text nodes only, so an attribute value is not read</b> — a <c>cref</c> or a
+    ///         <c>name</c> is resolved by the compiler, not drawn — and <b>a <c>&lt;code&gt;</c>
+    ///         sample is skipped</b>, because a sample is source and an escape in source is spelled
+    ///         exactly that way. <c>&lt;c&gt;</c> is not skipped: every one of the ten escapes
+    ///         #1347 found that sat inside an element sat inside a <c>&lt;c&gt;</c>, and meant the
+    ///         character.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A doubled backslash is consumed as a pair.</b> Prose describing a literal whose
+    ///         <i>value</i> is a backslash followed by <c>u</c> writes it with two, and that is
+    ///         not an escape somebody meant as a character.
+    ///     </para>
+    /// </remarks>
+    static IEnumerable<(int Position, string Escape)> Escapes(DocumentationCommentTriviaSyntax block) {
+        foreach (var node in block.DescendantNodes().OfType<XmlTextSyntax>()) {
+            if (node.Ancestors().OfType<XmlElementSyntax>().Any(element => string.Equals(element.StartTag.Name.ToString(), "code", StringComparison.Ordinal))) {
+                continue;
+            }
+
+            foreach (var token in node.TextTokens) {
+                var text = token.Text;
+
+                for (var i = 0; i + 1 < text.Length; i++) {
+                    if (text[i] != '\\') {
+                        continue;
+                    }
+
+                    var digits = text[i + 1] switch {
+                        'u' => 4,
+                        'U' => 8,
+                        _ => 0
+                    };
+
+                    if (text[i + 1] == '\\') {
+                        i++;
+                        continue;
+                    }
+
+                    if (digits == 0 || i + 2 + digits > text.Length || !text.Substring(i + 2, digits).All(char.IsAsciiHexDigit)) {
+                        continue;
+                    }
+
+                    yield return (token.SpanStart + i, text.Substring(i, 2 + digits));
+                    i += 1 + digits;
+                }
+            }
+        }
+    }
 
     /// <summary>The XML elements directly inside a doc comment block, with their <c>name</c>.</summary>
     /// <param name="block">The parsed block.</param>

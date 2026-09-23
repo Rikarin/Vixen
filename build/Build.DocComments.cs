@@ -114,6 +114,14 @@ partial class Build {
             + "\"none\", so nothing else here would have said so."
         );
 
+        // ⚠ And a third, for the same reason: #1347's check also answers "none" on a clean tree, and
+        // the ten escapes that prompted it are fixed, so this fixture is all that says it still reads.
+        Assert.True(
+            DocCommentRule.Check("fixture.cs", EscapedFixture.Replace(@"\\", @"\", StringComparison.Ordinal)).Count > 0,
+            "The doc comment rule found nothing in a block whose prose spells a warning sign as a backslash-u "
+            + "escape, which a tooltip draws as the escape. That check did not run."
+        );
+
         if (UpdateExemptions) {
             WriteDocCommentExemptions(findings);
 
@@ -190,6 +198,24 @@ partial class Build {
 
                 Held(0);
             }
+        }
+        """;
+
+    /// <summary>A block whose prose spells a character as a literal's escape, so a run can prove that check fires.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Reduced from <c>TransformedText.IsCased</c>'s remarks as they stood before
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1347">#1347</a>, and written with its
+    ///     backslash doubled</b> — halved where it is used. A single one does not survive every tool
+    ///     that edits this file: an editor or an agent that decodes JSON-style escapes resolves it
+    ///     into the character, and the fixture silently becomes the fixed text.
+    /// </remarks>
+    const string EscapedFixture = """
+        namespace Fixture;
+
+        static class Casing {
+            /// <summary>The <c>Cased</c> derived property.</summary>
+            /// <remarks>Uppercase, lowercase or titlecase. \\u26a0 Titlecase is a real category.</remarks>
+            static bool IsCased(int rune) => false;
         }
         """;
 
