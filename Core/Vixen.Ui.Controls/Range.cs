@@ -733,13 +733,22 @@ public sealed partial class ProgressBar : RangeBase {
 ///         readout in the set and every panel wanting a capacity had to misuse it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Which direction is bad is inferred from the order of the two thresholds and never
-///         from a flag.</b> A flag and two numbers can disagree — <c>Descending = true</c> with
-///         <c>Critical</c> above <c>Warning</c> is a control that is silently wrong and looks
-///         configured — and the numbers cannot disagree with themselves. So
-///         <c>Warning = 0.7, Critical = 0.9</c> is a disk filling up and
-///         <c>Warning = 0.3, Critical = 0.1</c> is a battery running down, with no third property to
-///         keep in step. See <see cref="Level" />.
+///         ⚠ <b>Which direction is bad is inferred from the order of the two thresholds</b> whenever
+///         there are two. <c>Warning = 0.7, Critical = 0.9</c> is a disk filling up and
+///         <c>Warning = 0.3, Critical = 0.1</c> is a battery running down, with nothing else to set.
+///         See <see cref="Level" />.
+///     </para>
+///     <para>
+///         ⚠ <b>And stated by <see cref="Direction" /> when there is one line, because one line has
+///         no order.</b> This type used to refuse any such property, arguing that a flag beside two
+///         numbers can contradict them and leave a control "silently wrong and looking configured".
+///         Both halves of that were wrong. A contradiction is not silent: a falling direction over a
+///         disk's rising pair reads <see cref="LevelReading.Critical" /> at every ordinary reading,
+///         which is the first thing anybody sees. What <i>was</i> silent was the case the refusal
+///         created — a battery with only <c>Critical = 0.1</c> set had no way to say it falls, was
+///         inferred rising, and read critical at a full charge with nothing to show it was a guess
+///         (#1353). <see cref="LevelDirection.Inferred" /> is still the default and still reads a
+///         lone line as a ceiling, so no existing indicator moves.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The level is a class rather than a colour.</b> <c>level-indicator.warning</c> and
@@ -794,11 +803,33 @@ public sealed partial class LevelIndicator : RangeBase {
 
     /// <summary>Where it stops being acceptable, or <see cref="float.NaN" /> for nowhere.</summary>
     /// <remarks>
-    ///     Below <see cref="Warning" /> this reads downwards: see the type's remarks. Setting this
-    ///     alone is a ceiling, because a capacity is what a lone threshold means.
+    ///     Below <see cref="Warning" /> this reads downwards: see the type's remarks. Set alone it is
+    ///     a ceiling unless <see cref="Direction" /> says otherwise — a lone line has no order to read
+    ///     a direction from, and a capacity is what one usually means.
     /// </remarks>
     [UiProperty(Default = float.NaN, Changed = nameof(OnThresholdChanged))]
     public partial float Critical { get; set; }
+
+    /// <summary>Which way the reading gets worse, or <see cref="LevelDirection.Inferred" /> to read it off the thresholds.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Needed for exactly one configuration, and that is the reason it exists:</b> a
+    ///         single threshold. <c>Critical = 0.1</c> alone on a battery is inferred rising, because
+    ///         a lone line on a capacity is a ceiling, and a battery so configured reads
+    ///         <see cref="LevelReading.Critical" /> at a full charge. <c>Direction = Falling</c> is
+    ///         how it says otherwise. With both lines set the order already says it and this can be
+    ///         left alone.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Stated beats inferred, including against the pair.</b> A direction that
+    ///         contradicts the order of two lines is obeyed rather than overruled, because a
+    ///         property that is sometimes ignored is the silent kind of wrong — and obeying it is the
+    ///         loud kind: a falling direction over <c>0.7 / 0.9</c> reads critical at every value
+    ///         below ninety per cent, which nobody ships without noticing.
+    ///     </para>
+    /// </remarks>
+    [UiProperty(Changed = nameof(OnDirectionChanged))]
+    public partial LevelDirection Direction { get; set; }
 
     /// <summary>How many blocks the bar is cut into, or zero for a continuous one.</summary>
     [UiProperty(Coerce = nameof(CoerceSegments))]
@@ -812,38 +843,16 @@ public sealed partial class LevelIndicator : RangeBase {
     ///         threshold and never touches the value again.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both lines are compared in the <see cref="Rising" /> direction the pair implies,
-    ///         and the critical one is asked first.</b> With <c>Critical</c> above <c>Warning</c> a
-    ///         reading is worse as it rises; with <c>Critical</c> below it, as it falls. A fixed
-    ///         <c>&gt;=</c> for both would make every battery indicator in the world report
-    ///         <c>Critical</c> at full charge.
+    ///         ⚠ <b>Both lines are compared in one direction — the one <see cref="Direction" />
+    ///         states, or else the one the pair implies — and the critical one is asked first.</b>
+    ///         With <c>Critical</c> above <c>Warning</c> a reading is worse as it rises; with
+    ///         <c>Critical</c> below it, as it falls. A fixed <c>&gt;=</c> for both would make every
+    ///         battery indicator in the world report <c>Critical</c> at full charge. The arithmetic
+    ///         is shared with <see cref="Gauge" />, so a bar and a dial over the same numbers cannot
+    ///         come to disagree.
     ///     </para>
     /// </remarks>
-    public LevelReading Level {
-        get {
-            if (Reached(Critical)) {
-                return LevelReading.Critical;
-            }
-
-            return Reached(Warning) ? LevelReading.Warning : LevelReading.Ordinary;
-        }
-    }
-
-    /// <summary>Whether a bigger reading is a worse one.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Decided once for the pair rather than per threshold, which is how the first draft of
-    ///     this got it wrong.</b> Asking each threshold "am I on the far side of the other one" gives
-    ///     the two comparisons opposite senses — the critical line reads upward exactly when the
-    ///     warning line reads downward — so a disk at a hundred per cent came back <i>ordinary</i>
-    ///     with a warning at seventy. There is one direction and both lines are on it.
-    ///     <para>
-    ///         Rising when only one line is set, because a lone threshold on a capacity is a ceiling.
-    ///         <see cref="float.IsNaN(float)" /> rather than a comparison, since every comparison
-    ///         against <see cref="float.NaN" /> is false and <c>Critical &gt;= Warning</c> would
-    ///         therefore answer "falling" for an indicator with no thresholds at all.
-    ///     </para>
-    /// </remarks>
-    bool Rising => float.IsNaN(Warning) || float.IsNaN(Critical) || Critical >= Warning;
+    public LevelReading Level => Levels.Of(Value, Warning, Critical, Direction);
 
     /// <inheritdoc />
     protected override void OnCreated() {
@@ -900,13 +909,6 @@ public sealed partial class LevelIndicator : RangeBase {
         }
     }
 
-    /// <summary>Whether the reading has passed <paramref name="threshold" />, in the pair's direction.</summary>
-    /// <param name="threshold">The line to compare against.</param>
-    /// <returns><see langword="true" /> when the reading is at or past it.</returns>
-    /// <remarks>An unset line is passed by nothing, which is what <see cref="float.NaN" /> buys.</remarks>
-    bool Reached(float threshold) =>
-        !float.IsNaN(threshold) && (Rising ? Value >= threshold : Value <= threshold);
-
     /// <inheritdoc cref="RangeBase.Snap" />
     float CoerceValue(float value) => Snap(value);
 
@@ -920,22 +922,89 @@ public sealed partial class LevelIndicator : RangeBase {
 
     void OnThresholdChanged(float previous, float current) => Apply(Level);
 
-    /// <summary>Puts the level on the element, where a stylesheet can see it.</summary>
-    void Apply(LevelReading level) {
-        Toggle("warning", level == LevelReading.Warning);
-        Toggle("critical", level == LevelReading.Critical);
+    void OnDirectionChanged(LevelDirection previous, LevelDirection current) => Apply(Level);
+
+    void Apply(LevelReading level) => Levels.Apply(this, level);
+}
+
+/// <summary>
+///     The level arithmetic <see cref="LevelIndicator" /> and <see cref="Gauge" /> share: which side of
+///     two lines a reading is on, and the class that tells the theme.
+/// </summary>
+/// <remarks>
+///     One copy because a bar and a dial are one reading drawn two ways, and two copies of a rule
+///     about which way is worse are two chances to get the battery case wrong in only one of them.
+/// </remarks>
+static class Levels {
+    /// <summary>What <paramref name="value" /> amounts to against the two lines.</summary>
+    /// <param name="value">The reading.</param>
+    /// <param name="warning">Where it stops being ordinary, or <see cref="float.NaN" />.</param>
+    /// <param name="critical">Where it stops being acceptable, or <see cref="float.NaN" />.</param>
+    /// <param name="direction">Which way is worse, or <see cref="LevelDirection.Inferred" />.</param>
+    /// <returns>The level; the critical line is asked first.</returns>
+    public static LevelReading Of(float value, float warning, float critical, LevelDirection direction) {
+        var rising = Rising(warning, critical, direction);
+
+        if (Reached(value, critical, rising)) {
+            return LevelReading.Critical;
+        }
+
+        return Reached(value, warning, rising) ? LevelReading.Warning : LevelReading.Ordinary;
     }
 
-    void Toggle(string className, bool on) {
+    /// <summary>Puts <paramref name="level" /> on <paramref name="element" />, where a stylesheet can see it.</summary>
+    /// <param name="element">The indicator.</param>
+    /// <param name="level">What its reading amounts to.</param>
+    public static void Apply(UiElement element, LevelReading level) {
+        Toggle(element, "warning", level == LevelReading.Warning);
+        Toggle(element, "critical", level == LevelReading.Critical);
+    }
+
+    /// <summary>Whether a bigger reading is a worse one.</summary>
+    /// <param name="warning">The warning line.</param>
+    /// <param name="critical">The critical line.</param>
+    /// <param name="direction">What the caller stated.</param>
+    /// <returns><see langword="true" /> when the reading gets worse as it rises.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Decided once for the pair rather than per threshold, which is how the first draft of
+    ///     this got it wrong.</b> Asking each threshold "am I on the far side of the other one" gives
+    ///     the two comparisons opposite senses — the critical line reads upward exactly when the
+    ///     warning line reads downward — so a disk at a hundred per cent came back <i>ordinary</i>
+    ///     with a warning at seventy. There is one direction and both lines are on it.
+    ///     <para>
+    ///         <paramref name="direction" /> first, when it has been stated. Otherwise rising when
+    ///         only one line is set, because a lone threshold on a capacity is a ceiling.
+    ///         <see cref="float.IsNaN(float)" /> rather than a comparison, since every comparison
+    ///         against <see cref="float.NaN" /> is false and <c>Critical &gt;= Warning</c> would
+    ///         therefore answer "falling" for an indicator with no thresholds at all.
+    ///     </para>
+    /// </remarks>
+    static bool Rising(float warning, float critical, LevelDirection direction) =>
+        direction switch {
+            LevelDirection.Rising => true,
+            LevelDirection.Falling => false,
+            _ => float.IsNaN(warning) || float.IsNaN(critical) || critical >= warning
+        };
+
+    /// <summary>Whether the reading has passed <paramref name="threshold" />, in the one direction.</summary>
+    /// <param name="value">The reading.</param>
+    /// <param name="threshold">The line to compare against.</param>
+    /// <param name="rising">Whether a bigger reading is a worse one.</param>
+    /// <returns><see langword="true" /> when the reading is at or past it.</returns>
+    /// <remarks>An unset line is passed by nothing, which is what <see cref="float.NaN" /> buys.</remarks>
+    static bool Reached(float value, float threshold, bool rising) =>
+        !float.IsNaN(threshold) && (rising ? value >= threshold : value <= threshold);
+
+    static void Toggle(UiElement element, string className, bool on) {
         if (on) {
-            AddClass(className);
+            element.AddClass(className);
         } else {
-            RemoveClass(className);
+            element.RemoveClass(className);
         }
     }
 }
 
-/// <summary>What a <see cref="LevelIndicator" />'s reading amounts to.</summary>
+/// <summary>What a <see cref="LevelIndicator" />'s or a <see cref="Gauge" />'s reading amounts to.</summary>
 /// <remarks>
 ///     ⚠ <b>Three named answers rather than a <see cref="bool" /> pair.</b> "Warning and critical"
 ///     is not a state a reading can be in, and a pair of flags can express it — which is one more
@@ -950,6 +1019,26 @@ public enum LevelReading {
 
     /// <summary>It has passed <see cref="LevelIndicator.Critical" />.</summary>
     Critical
+}
+
+/// <summary>Which way a <see cref="LevelIndicator" />'s or a <see cref="Gauge" />'s reading gets worse.</summary>
+/// <remarks>
+///     ⚠ <b><see cref="Inferred" /> is zero, so an indicator nobody configured reads its thresholds'
+///     order exactly as it always has.</b> A direction is only worth stating where there is no order
+///     to read — a single threshold. See <see cref="LevelIndicator.Direction" />.
+/// </remarks>
+public enum LevelDirection {
+    /// <summary>
+    ///     From the thresholds: worse as it falls when <see cref="LevelIndicator.Critical" /> is below
+    ///     <see cref="LevelIndicator.Warning" />, and as it rises otherwise — a lone line included.
+    /// </summary>
+    Inferred,
+
+    /// <summary>A bigger reading is a worse one — a disk, a temperature, a memory pool.</summary>
+    Rising,
+
+    /// <summary>A smaller reading is a worse one — a battery, a signal, a remaining budget.</summary>
+    Falling
 }
 
 /// <summary>A turning arc, for a wait with no length.</summary>

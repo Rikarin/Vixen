@@ -4,11 +4,11 @@ slug: ui/level-indicator
 kind: guide
 area: Core
 summary: LevelIndicator shows how much of a capacity is in use, and whether that is a problem. ProgressBar draws nearly the same picture and means something else — a job, which only ever goes up and whose full state is the good one.
-api: [T:Vixen.Ui.Controls.LevelIndicator, T:Vixen.Ui.Controls.LevelReading]
+api: [T:Vixen.Ui.Controls.LevelIndicator, T:Vixen.Ui.Controls.LevelReading, T:Vixen.Ui.Controls.LevelDirection]
 tags: [ui, controls, readout, accessibility, vxml]
 since: 0.2
 status: preview
-related: [ui/accessibility, ui/key-value-list, ui/markup-panels]
+related: [ui/accessibility, ui/key-value-list, ui/markup-panels, ui/gauge]
 ---
 
 ## What it is
@@ -46,9 +46,9 @@ bounds are the capacity and "446" is the number the listener wanted, not "0.87".
 
 ### Which direction is bad
 
-⚠ **The order of the two thresholds is the direction, and there is no flag.** A disk gets worse as it
-fills; a battery gets worse as it empties. Both are level indicators, and the control tells them apart
-from the numbers alone:
+⚠ **With two thresholds, their order is the direction.** A disk gets worse as it fills; a battery
+gets worse as it empties. Both are level indicators, and with both lines set the control tells them
+apart from the numbers alone:
 
 ```vxml
 <!-- A disk. Critical is above Warning, so a bigger reading is a worse one. -->
@@ -58,12 +58,22 @@ from the numbers alone:
 <LevelIndicator Value="@Charge" Warning="0.3" Critical="0.1" />
 ```
 
-A `Descending` property beside those two numbers could contradict them, and a control that is
-configured-looking and silently wrong is worse than one that is awkward. Two numbers cannot disagree
-with themselves.
-
 Leave either threshold unset — they default to `float.NaN` — and nothing on that line ever fires.
-A single threshold on its own reads upward, because a lone line on a capacity is a ceiling.
+
+⚠ **One line has no order, so with one line you say which way is worse.** Left to itself a single
+threshold reads upward, because a lone line on a capacity is a ceiling — and so a battery given only
+`Critical="0.1"` reads *critical at a full charge*. `Direction` is how it says otherwise:
+
+```vxml
+<!-- One line, and a smaller reading is the worse one. -->
+<LevelIndicator Value="@Charge" Critical="0.1" Direction="Falling" />
+```
+
+`Direction` is `Inferred` unless it is set, which is the pair's order when there are two lines and
+upward when there is one, so an indicator that never mentions it behaves exactly as it always has.
+A stated direction is obeyed even against the pair. That is deliberate: a falling direction over a
+disk's `0.7`/`0.9` reads critical at every ordinary reading, which is loud, whereas a property that
+was quietly ignored whenever two lines were set would be the silent kind of wrong.
 
 ### What it looks like
 
@@ -166,3 +176,4 @@ other control that belongs in that half of a row.
   `meter` is not a `progressbar`.
 - [Key-value list](key-value-list) — where a reading usually sits, beside the word for what it is.
 - [Labeled content](labeled-content) — the same, for a form row rather than a table of facts.
+- [Gauge](gauge) — the same reading, thresholds and levels, drawn as a dial.

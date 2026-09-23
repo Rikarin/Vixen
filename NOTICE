@@ -45,9 +45,15 @@ Components currently in use:
 
   Open Sans
     OFL-1.1 — https://github.com/googlefonts/opensans
-    Vendored, and it is the one binary asset the tree carries: the editor embeds
+    Vendored, and the only font anything that ships embeds: the editor embeds
     OpenSans-Regular.ttf and OpenSans-SemiBold.ttf from
-    Editor/Vixen.Editor.App/Fonts/, where OFL.txt is the licence as it ships. An
+    Editor/Vixen.Editor.App/Fonts/, where OFL.txt is the licence as it ships.
+    (Test code embeds fonts too, none of it packed or shipped: the
+    text-rendering-tests faces under "Conformance corpora" below, which several
+    suites link out of Core/Vixen.Ui.Text.Tests/Fonts/, and Vixen's own synthetic
+    TestMono.ttf, which the Vixen.Editor.Testing harness, not packed either,
+    carries as well.) The editor has no fixed-pitch face of its
+    own yet and borrows one from the machine — see issue #1315. An
     interface whose text is laid out by whatever face the operating system
     happened to have lays out differently on every machine it runs on, which is
     why this is not left to a system lookup — see `Vixen.Editor.App.Fonts`.

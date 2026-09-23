@@ -34,9 +34,8 @@ public class LevelIndicatorTests {
     /// </summary>
     /// <remarks>
     ///     A disk is worse as it fills and a battery is worse as it empties, and both are level
-    ///     indicators. A <c>Descending</c> flag beside two numbers can contradict them — and the
-    ///     control is then silently wrong while looking configured — so the pair says which way it
-    ///     runs and there is no third property to keep in step.
+    ///     indicators. With two lines set the pair says which way it runs and nothing else need be;
+    ///     <see cref="LevelIndicator.Direction" /> is left at its default here on purpose.
     /// </remarks>
     [Fact]
     public void The_pair_of_thresholds_says_which_way_the_reading_gets_worse() {
@@ -90,6 +89,90 @@ public class LevelIndicatorTests {
 
         meter.Value = 0.1f;
         Assert.Equal(LevelReading.Ordinary, meter.Level);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A lone <c>Critical</c> reads critical at a full charge until the direction is stated
+    ///     (#1353).</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The assertion #1353 said nothing made out loud: one line and the reading at its
+    ///         maximum. Inferred, a lone line is a ceiling, so a battery configured with only
+    ///         <c>Critical = 0.1</c> is critical when full — the capacity reading, kept because every
+    ///         disk and memory indicator with one line depends on it.
+    ///     </para>
+    ///     <para>
+    ///         Then the same indicator told that it falls, and the class asserted as well as the
+    ///         property: <see cref="LevelIndicator.Level" /> is computed on every read, so it would
+    ///         come out right even if changing the direction never reached the element — the class is
+    ///         what the theme colours, and it is only rewritten by a change hook.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_lone_critical_line_reads_critical_at_a_full_charge_until_the_direction_says_it_falls() {
+        using var ui = Opened();
+        var battery = ui.Add<LevelIndicator>("battery");
+
+        battery.Critical = 0.1f;
+        battery.Value = battery.Maximum;
+        ui.Frame();
+
+        Assert.Equal(LevelDirection.Inferred, battery.Direction);
+        Assert.Equal(LevelReading.Critical, battery.Level);
+        Assert.True(battery.HasClass("critical"));
+
+        battery.Direction = LevelDirection.Falling;
+        ui.Frame();
+
+        Assert.Equal(LevelReading.Ordinary, battery.Level);
+        Assert.False(battery.HasClass("critical"), "the direction changed and the theme was never told");
+
+        battery.Value = 0.1f;
+        Assert.Equal(LevelReading.Critical, battery.Level);
+
+        battery.Value = 0.05f;
+        Assert.Equal(LevelReading.Critical, battery.Level);
+
+        // And stated back to rising, the same lone line is the ceiling the inferred default already
+        // was — the default is not a third behaviour.
+        battery.Direction = LevelDirection.Rising;
+        Assert.Equal(LevelReading.Ordinary, battery.Level);
+
+        battery.Value = battery.Maximum;
+        Assert.Equal(LevelReading.Critical, battery.Level);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A stated direction is obeyed against the pair, and the contradiction is loud rather
+    ///     than silent.</b>
+    /// </summary>
+    /// <remarks>
+    ///     The type used to refuse a direction property on the ground that one contradicting the
+    ///     thresholds leaves a control "silently wrong and looking configured". This is that
+    ///     contradiction, and it is not silent: a disk's rising pair told to fall reads critical at
+    ///     an ordinary half-full reading.
+    /// </remarks>
+    [Fact]
+    public void A_stated_direction_is_obeyed_against_the_pair_and_the_contradiction_shows() {
+        using var ui = Opened();
+        var disk = ui.Add<LevelIndicator>("disk");
+
+        disk.Warning = 0.7f;
+        disk.Critical = 0.9f;
+        disk.Value = 0.5f;
+
+        Assert.Equal(LevelReading.Ordinary, disk.Level);
+
+        disk.Direction = LevelDirection.Falling;
+        Assert.Equal(LevelReading.Critical, disk.Level);
+
+        // Stating the direction the pair already implied changes nothing.
+        disk.Direction = LevelDirection.Rising;
+        Assert.Equal(LevelReading.Ordinary, disk.Level);
+
+        disk.Value = 0.95f;
+        Assert.Equal(LevelReading.Critical, disk.Level);
     }
 
     /// <summary>

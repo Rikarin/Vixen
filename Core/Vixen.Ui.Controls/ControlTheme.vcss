@@ -626,6 +626,16 @@ level-indicator.vertical {
 level-indicator.warning { --fill-color: var(--warning); }
 level-indicator.critical { --fill-color: var(--danger); }
 
+/* The same reading on a dial, and the same two classes, so one palette answers for both. */
+gauge {
+    width: 48px;
+    height: 48px;
+    --arc-width: 5px;
+}
+
+gauge.warning { --fill-color: var(--warning); }
+gauge.critical { --fill-color: var(--danger); }
+
 spinner { width: 20px; height: 20px; color: var(--accent); }
 
 /* ── Containers ─────────────────────────────────────────────────────── */
