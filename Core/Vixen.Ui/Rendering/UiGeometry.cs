@@ -101,6 +101,20 @@ public readonly record struct UiDraw(BatchKind Kind, int First, int Count, int F
 ///         Sizing it to the element's rectangle instead would cut off exactly the overflow that
 ///         <c>overflow: visible</c> promises to keep.
 ///     </para>
+///     <para>
+///         ⚠ <b>Every surface this names is colour, and #232's <c>background-clip: text</c> wants a
+///         coverage one.</b> <see cref="Image" />, <see cref="ShadowImage" /> and
+///         <see cref="BackdropImage" /> are all the group's own pixels; nothing here can say "the
+///         shape my glyphs covered". The standing assumption is that adding one costs #783's second
+///         descriptor set, because it would be a second sampled texture beside the group's colour —
+///         but that reads the feature as a group composite, and it is not one: <c>bg-clip: text</c>
+///         clips an element's OWN background, which for the idiom the issue names (a gradient behind
+///         transparent text) is analytic in the box fragment. On that reading the only texture wanted
+///         is the coverage, which is exactly the one sampled texture <c>UiRenderer</c>'s shared layout
+///         already provides, and #232 is cheaper than #783 and independent of it rather than blocked
+///         on it. ⚠ A reading, not a result: it holds only while the background is a colour or a
+///         gradient, and a background <i>image</i> occupies that slot itself.
+///     </para>
 /// </remarks>
 public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, float Alpha) {
     /// <summary>The number the composite draw names its surface by.</summary>

@@ -223,6 +223,15 @@ public sealed class UiGeometryBuilder {
     ///     multisampling the pass should do: two antialiasing schemes over one edge do not make it
     ///     twice as smooth, they make a seam. <see cref="FringeFor" /> is what a host that knows its
     ///     scale should set it from; the default is that answer at scale one.
+    ///     <para>
+    ///         ⚠ <b>A builder owned by a <c>UiWindowSurface</c> is not one to switch off here.</b>
+    ///         That surface assigns this and <see cref="Tolerance" /> from its own DPI scale on every
+    ///         <c>Tessellate</c>, so a zero written from outside is restored before the next build and
+    ///         the pass draws two antialiasing schemes over one edge with nothing to say so. The
+    ///         escape is for a host that drives a builder itself. No override was added to the
+    ///         surface, because nothing in the tree multisamples the UI pass — every zero written
+    ///         today is a test's — and an unreachable knob is worse than a documented constraint.
+    ///     </para>
     /// </remarks>
     public float Fringe {
         get;

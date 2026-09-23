@@ -57,6 +57,19 @@ public readonly record struct UiInterface(UiGeometry Geometry, GlyphAtlas Atlas,
     ///         <see cref="UiRenderer.Record" /> and <see cref="UiRenderer.Compose" /> refuse a
     ///         non-positive scale by drawing nothing rather than by dividing by it.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is the projection's density and not the geometry's, and a game HUD needs
+    ///         both.</b> Setting it right still leaves <c>UiGeometryBuilder.Tolerance</c> and
+    ///         <c>UiGeometryBuilder.Fringe</c> — the two numbers spent <i>inside</i> the triangles —
+    ///         at their scale-one defaults, so a HUD on a 2× display comes out correctly placed and
+    ///         flattened to twice the intended chord error with a fringe band twice as wide. #1329
+    ///         wired that on the desktop path only: <c>UiWindowSurface.Tessellate</c> sets both from
+    ///         the window's scale, and it is the only thing in the tree that builds UI geometry, so a
+    ///         host that drives its own builder for a HUD has to set
+    ///         <c>UiGeometryBuilder.ToleranceFor(scale)</c> and <c>FringeFor(scale)</c> itself. The
+    ///         symptom is a softness rather than a fault, so nothing fails and everything looks
+    ///         slightly woolly.
+    ///     </para>
     /// </remarks>
     public float Scale { get; init; } = 1f;
 }
