@@ -88,6 +88,32 @@ static partial class StyleLog {
     )]
     public static partial void OverflowDoesNotScroll(ILogger logger, string element, string declaration);
 
+    /// <summary>A control put under a tag of its own that lost what its own tag's rules declare.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not a refusal either — the third event in this range that is not.</b> The rename is
+    ///         sanctioned and nothing was dropped. But a control's own user-agent rule is keyed on its
+    ///         <c>TagName</c>, so <c>&lt;ScrollView tag="choice-scroller"&gt;</c> matches none of
+    ///         <c>scroll-view { overflow: hidden; position: relative }</c>: without the first the
+    ///         scrolled-off rows draw over whatever is above the view, and without the second the bars
+    ///         anchor to some ancestor and the thumb is somewhere else on screen.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Invisible where the mistake is.</b> The rule under the new tag was written by
+    ///         copying the old tag's declarations, which is what a person does, and it is exactly what
+    ///         loses the control's own. The New Asset… picker shipped like that. See
+    ///         <c>Rikarin/Vixen#1327</c>.
+    ///     </para>
+    /// </remarks>
+    [LoggerMessage(
+        EventId = 7010,
+        Level = LogLevel.Warning,
+        Message = "'{Element}' is a <{Control}> under a tag of its own, so it matches none of the rules for "
+            + "<{Control}> and has none of what they declare: {Properties}. Restate them on the new tag's rule — "
+            + "for a scroll view the clip and the bars' anchor are among them."
+    )]
+    public static partial void ControlLostItsOwnRule(ILogger logger, string element, string control, string properties);
+
     [LoggerMessage(
         EventId = 7005,
         Level = LogLevel.Warning,

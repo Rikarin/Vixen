@@ -941,6 +941,15 @@ viewport-bar.hidden { display: none; }
    and the toolbar are not. A readout under the corner gizmo is one that
    is unreadable in exactly the pane somebody is navigating. */
 viewport-stats {
+    /* ⚠ `display` restated, and as what it has always drawn as. This is a
+       `TextBlock` under a tag of its own, so `text { display: inline }` in the
+       control theme never reached it and it laid out at the initial `flex` —
+       which is the box every picture of the viewport shows. Writing `flex`
+       keeps that picture pixel for pixel (compared, not assumed) and makes the
+       choice the sheet's rather than an accident of the rename; writing the
+       control's own `inline` would be the change #1327's ledger warned about.
+       Without it the 7010 warning names this element on every start. */
+    display: flex;
     position: absolute;
     left: 8px;
     bottom: 6px;
@@ -955,6 +964,8 @@ viewport-stats {
    with your eye on the object — so it goes where the eye already is, and
    a little above it so the pointer is not on top of it. */
 viewport-readout {
+    /* `flex` restated for `viewport-stats`' reason, above. */
+    display: flex;
     position: absolute;
     left: 0px;
     right: 0px;

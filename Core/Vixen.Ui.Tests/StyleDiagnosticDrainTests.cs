@@ -774,4 +774,114 @@ public class StyleDiagnosticDrainTests {
         Assert.Contains(warnings, one => one.Message.Contains("'console-detail'", StringComparison.Ordinal));
         Assert.Contains(warnings, one => one.Message.Contains("'message-log-detail'", StringComparison.Ordinal));
     }
+
+    /// <summary>A stand-in for a control: an element that names a tag of its own, as every control does.</summary>
+    sealed class Scroller : UiElement {
+        protected internal override string TagName => "own-scroller";
+    }
+
+    /// <summary>The sheet for the renames below: the control's own rule, and three spellings of a new tag's.</summary>
+    const string RetagSheet =
+        "root { width: 200px; height: 200px } "
+        + "own-scroller { flex-direction: column; overflow: hidden; position: relative } "
+        + "copied-list { flex-direction: column; height: 40px } "
+        + "restated-list { flex-direction: column; overflow: hidden; position: relative; height: 40px }";
+
+    /// <summary>A control renamed by a rule that copied the old tag's declarations says what it lost.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The shape #1327 was filed about, at run time.</b> <c>copied-list</c> carries the
+    ///         two declarations its author could see and none of the two the control's own rule
+    ///         supplied; the census in <c>RetaggedControlTests</c> catches that for a literal tag in
+    ///         a committed file, and this catches it wherever it runs.
+    ///     </para>
+    ///     <para>
+    ///         Sabotage: the call in <c>UiDocument</c>'s style walk removed leaves the first assertion
+    ///         red; the probe answering with an empty set (nothing the own rule declares) leaves it
+    ///         red too, which is the half that proves the comparison is over what the <i>own</i> tag
+    ///         resolves rather than over nothing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_control_under_a_tag_of_its_own_says_which_of_its_own_rules_declarations_it_lost() {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        document.Load(RetagSheet);
+        document.Root.Add<Scroller>("copied-list", classNames: "tall");
+
+        Assert.Empty(Warnings(sink));
+
+        document.Update();
+
+        var warning = Assert.Single(Warnings(sink));
+
+        Assert.Equal(7010, warning.EventId.Id);
+        Assert.Contains("'copied-list.tall'", warning.Message, StringComparison.Ordinal);
+        Assert.Contains("<own-scroller>", warning.Message, StringComparison.Ordinal);
+        Assert.Contains("overflow", warning.Message, StringComparison.Ordinal);
+        Assert.Contains("position", warning.Message, StringComparison.Ordinal);
+
+        // ⚠ And only what was lost: the rule restated `flex-direction`, so naming it would send the
+        // reader to fix a declaration that is already there.
+        Assert.DoesNotContain("flex-direction", warning.Message, StringComparison.Ordinal);
+
+        Assert.Contains(document.Refusals(), line => line.Contains("copied-list.tall", StringComparison.Ordinal));
+    }
+
+    /// <summary>The same control restated, under its own tag, or a plain element under any tag says nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half that keeps a warning on a running interface honest.</b> Every
+    ///     <c>Add("console-row")</c> in the editor is a plain element under a tag of the sheet's
+    ///     choosing, and a plain element's own tag is <c>div</c> — so a check keyed on "the tag is not
+    ///     the element's own" alone would fire on nearly every element in every document.
+    /// </remarks>
+    [Fact]
+    public void A_restated_rename_its_own_tag_and_a_plain_element_say_nothing() {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        // ⚠ A rule for `div`, so a plain element's own tag has something to lose. Without it the
+        // guard below is untested: a plain element would resolve an empty own rule and say nothing
+        // whether or not the check excluded it.
+        document.Load(RetagSheet + " div { gap: 1px }");
+        document.Root.Add<Scroller>("restated-list");
+        document.Root.Add<Scroller>();
+        document.Root.Add("copied-list");
+
+        for (var frame = 0; frame < 3; frame++) {
+            document.Update();
+            document.Draw();
+        }
+
+        Assert.Empty(Warnings(sink));
+    }
+
+    /// <summary>A rule loaded later that restates what was lost is heard, and a sheet that drops it is heard again.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The own tag's answer is cached, and a cache that outlived a sheet change would report
+    ///     the old sheet for ever.</b> Asked here the only way that matters: the same elements, the
+    ///     own rule narrowed by a later sheet, and a fresh report that names what the new sheet asks
+    ///     for.
+    /// </remarks>
+    [Fact]
+    public void The_own_rule_is_read_again_when_the_sheets_change() {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        document.Load("root { width: 200px; height: 200px } own-scroller { overflow: hidden }");
+        document.Root.Add<Scroller>("copied-list");
+        document.Update();
+
+        var first = Assert.Single(Warnings(sink));
+        Assert.DoesNotContain("position", first.Message, StringComparison.Ordinal);
+
+        document.ForgetPassRefusals();
+        document.Load("own-scroller { position: relative }");
+        document.Update();
+
+        var warnings = Warnings(sink);
+        var second = warnings[^1];
+        Assert.Contains("position", second.Message, StringComparison.Ordinal);
+    }
 }
