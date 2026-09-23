@@ -3,8 +3,8 @@ title: Stylesheet diagnostics
 slug: ui/stylesheet-diagnostics
 kind: guide
 area: Core
-summary: What happens to CSS Vixen cannot read — the at-rules, selectors and @apply names it drops, the build step's two refusal channels, where each refusal is now reported, why a rule that does nothing used to be indistinguishable from a rule that was never written, and the two rules that apply and still warn.
-api: [L:7004, L:7005, L:7006, L:7007, L:7009, T:Vixen.Ui.Styling.Utilities.UtilityRefusal, T:Vixen.Ui.Styling.Utilities.UtilityRefusalKind]
+summary: What happens to CSS Vixen cannot read — the at-rules, selectors and @apply names it drops, the build step's two refusal channels, where each refusal is now reported, why a rule that does nothing used to be indistinguishable from a rule that was never written, and the three rules that apply and still warn.
+api: [L:7004, L:7005, L:7006, L:7007, L:7009, L:7010, T:Vixen.Ui.Styling.Utilities.UtilityRefusal, T:Vixen.Ui.Styling.Utilities.UtilityRefusalKind]
 tags: [ui, styling, vcss, diagnostics, logging, troubleshooting, apply]
 since: 0.2
 status: preview
@@ -98,7 +98,7 @@ discarded — so there is no rule left to name. What it gives you instead is a t
 of its own: `grid-template-columns: 4furlongs` is the declaration as you wrote it, and greppable
 across a project's sheets in a way a bare `::before` is not.
 
-## The two events here that are not refusals
+## The three events here that are not refusals
 
 ⚠ **`7009` reports a box that asked to scroll and got a clip.** `overflow: auto` and
 `overflow: scroll` are understood — the layout reads both as a scroll container, so the box drops the
@@ -126,6 +126,26 @@ under one rule is one line. The cure is a `ScrollView`, and never a taller box: 
 ⚠ **A `ScrollView` under a tag of its own does not get the `scroll-view` user-agent rule**, which is
 where its `overflow: hidden` and `position: relative` live — so a rule keyed on that tag has to
 write both, or the scrolled-off rows draw over whatever is above the view.
+
+⚠ **`7010` is that trap reported where it happens, for every control and not only `ScrollView`.**
+`tag=` on a capitalised markup tag and `Add<T>("some-tag")` are the sanctioned way to put a control
+under a name a sheet already knows, but a control's own user-agent rule is keyed on its `TagName`,
+so the renamed control matches none of it. The style pass resolves a bare element under the
+control's own tag and names every property that resolves and that the renamed box does not have:
+
+```vcss
+choice-scroller { min-width: 420px; max-height: 320px; }   /* <ScrollView tag="choice-scroller"> */
+```
+
+> `'choice-scroller' is a <scroll-view> under a tag of its own, so it matches none of the rules for
+> <scroll-view> and has none of what they declare: flex-direction, overflow, position. Restate them on
+> the new tag's rule — for a scroll view the clip and the bars' anchor are among them.`
+
+It compares *presence*, not value: a rule that restates `overflow` as anything has decided about it.
+The bare probe has no parent, classes or state, so a rule under an ancestor or a `var()` the probe
+cannot resolve is not counted — it errs towards silence. And it is a log event only, not an entry in
+`UiDocument.Refusals()`: a hot reload rolls back any sheet that adds to that ledger, and deleting the
+rule that restated a control's declarations is a legitimate edit (`Rikarin/Vixen#1327`).
 
 ⚠ **`7007` reports a rule that applied and answered *late*, which is the opposite failure and needs
 saying separately.** A `container-type` makes an element answerable about its own measured box, so
