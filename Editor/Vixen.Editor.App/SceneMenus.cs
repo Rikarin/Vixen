@@ -185,9 +185,14 @@ sealed partial class EditorApplication {
 
             // The chord, so that the list is also where somebody learns the shortcut — which is most
             // of what a context menu is for once the commands are known.
-            if (Shell.Keys.ChordFor(id) is { } chord) {
-                item.ShowShortcut(chord.Key, chord.Modifiers);
-            }
+            //
+            // ⚠ **This was `if (Shell.Keys.ChordFor(id) is { } chord) item.ShowShortcut(chord.Key,
+            // chord.Modifiers)` and it was wrong twice (#650).** `KeyChord` is a struct, so `is { }`
+            // matches `KeyChord.None` as happily as a real chord — the guard refused nothing, and an
+            // unbound command drew the literal word `Unknown` in the shortcut column. And the chord
+            // went out in the table's vocabulary, so a Mac read `Ctrl+D` for a command its user
+            // presses `⌘D` for. The overload is where both are decided now.
+            item.ShowShortcut(Shell.Keys, id);
 
             offered++;
         }

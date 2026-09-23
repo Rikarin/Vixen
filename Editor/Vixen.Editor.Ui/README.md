@@ -610,12 +610,23 @@ because signal *reads* are immediate and only the effects are queued. Three asse
 `Frame()`. `BuildSettingsView` stays imperative because its callers really do read it back.
 
 **4. It is not a panel.** Roughly a third of the "UI" files are presenters that build into a
-caller's element (`ProjectBrowser`, `ViewportLayout`, `SceneHierarchyView`, `ToolbarPresenter`,
+caller's element (`ProjectBrowser`, `ViewportLayout`, `ToolbarPresenter`,
 `MenuPresenter`), services with no fixed tree (`AssetPicker`), registration wiring
 (`EditorSettingsPanels`), or scanners with no UI at all (`DeclaredContributions`,
 `EditorDiagnostics`, `FoliageMode`, `BlockoutUvPanel`). ⚠ `MenuPresenter` and `ToolbarPresenter` are
 worth their own line: their menus and popovers hang off the **document root**, so the bar is not an
 ancestor of its own items. There is no tree for markup to describe.
+
+⚠ **`SceneHierarchyView` was in that list until `dc6851a7a` and is not a counter-example, it is the
+shape's boundary.** Building into a caller's element is a property of the *binding*, not of the
+model: a presenter whose tree is contiguous and rooted at the panel it was handed is one `Control`
+subclass away from being a panel, and the port did exactly that rename. What actually keeps the
+others here is the sentence above — a tree that is not contiguous (`MenuPresenter`,
+`ToolbarPresenter`), or no tree at all. So the question to ask of a shape-4 entry is *"where does its
+tree live"*, not *"who calls it"*. ⚠ And the port turned up why the distinction is not cosmetic:
+a presenter constructed for its effect has no lifetime, so `SceneEditorFactory` wrote
+`_ = new SceneHierarchyView(scene, panel)` and had nothing to call `Detach()` on — a control gets
+`OnUnmounted` for free.
 
 **5. Markup cannot write an element's own `Text`.** An interpolation is `BuildContext.Text`, which
 creates a `text` *child*; and an attribute on an intrinsic tag is not a property assignment —
@@ -1062,7 +1073,8 @@ record, an additive signal-backing, and shapes 1–3 above saying leave it alone
 | `NodeGraphView` | live | no | **no** — `Canvas.Graph = built` and four `OnDraw` layers; nodes, ports and wires are not elements | XL |
 | `ConsoleView` · `MessageLogView` · `AssetGrid` | live | no | **no** — `VirtualizingPanel`/`Grid` row templates | — |
 | `InspectorView` + the four drawers · `TargetOverrideMatrix` | — | — | **no** — a drawer *is* a factory, and markup cannot be one | — |
-| `ProjectBrowser` · `SceneHierarchyView` · `ViewportLayout` · `ToolbarPresenter` · `MenuPresenter` · `AssetPicker` · `ViewportChrome` · `EditorSettingsPanels` · `EditorDiagnostics` · `DeclaredContributions` | — | — | **not panels** — shape 4 | — |
+| `ProjectBrowser` · `ViewportLayout` · `ToolbarPresenter` · `MenuPresenter` · `AssetPicker` · `ViewportChrome` · `EditorSettingsPanels` · `EditorDiagnostics` · `DeclaredContributions` | — | — | **not panels** — shape 4 | — |
+| `SceneHierarchyView` | dump | yes | ~~**not a panel** — shape 4~~ **done, `dc6851a7a` (2026-09-23).** ⚠ **This row was wrong for four waves and nothing could catch it**, which is the first thing to record: "not a panel" was read off the *binding* (`new SceneHierarchyView(scene, panel)` building into a caller's element) rather than off the tree, and the tree was contiguous and rooted at that panel all along — the port is a `Control` subclass and a 177-line `.vxml`, and the `.cs` is `public sealed partial class SceneHierarchyView;`. The rows stay `TreeNode` data painted by `Refresh()` rather than a `@for`, because the `VirtualizingPanel` exists so that element count follows the viewport; `Renamed` stays a row-text move so an expansion deeper than the roots survives; selection still travels **out** only, deliberately, since closing that loop means a second author on `SelectedNodes`. `SelectionChanged` became `change:SelectedNodes`, which is strictly quieter — the old form answered a reselect of the already-selected row with a clear-and-re-add. ⚠ **The port closed a live defect rather than being cosmetic**: the old class exposed `Detach()` and the one production site kept no handle, so a reopened panel left a view subscribed and the next `scene.Add` threw `InvalidOperationException` out of `SceneDocument.Add` when `TreeView.Refresh` asked a removed `VirtualizingPanel` for a row height. `OnUnmounted` answers it — not an `OnRemoved` override, which the generator writes. ⚠ **A new component host needs its own `.vcss` rule or the child lays out at zero**: deleting the `scene-hierarchy` rule takes the A/B from `1200x773` to `1200x0` with every row present, answerable and invisible, and that sabotage is what makes the A/B evidence rather than a number | S |
 
 ⚠ **`FlameChartView` was nominated for the wrong reason and is a "no" for three.** The nomination
 read "it still pools, and a keyed `@for` is that pool", which is what made the GPU timeline's port

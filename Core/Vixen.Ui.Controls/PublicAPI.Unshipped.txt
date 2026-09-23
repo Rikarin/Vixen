@@ -509,6 +509,7 @@ Vixen.Ui.Controls.MenuItem.Mark.get -> Vixen.Ui.Controls.Icon
 Vixen.Ui.Controls.MenuItem.MenuItem() -> void
 Vixen.Ui.Controls.MenuItem.Shortcut.get -> Vixen.Ui.Controls.KeyboardShortcut?
 Vixen.Ui.Controls.MenuItem.ShowShortcut(Vixen.Input.InputKey key, Vixen.Ui.ModifierKeys modifiers = Vixen.Ui.ModifierKeys.None) -> Vixen.Ui.Controls.KeyboardShortcut
+Vixen.Ui.Controls.MenuItem.ShowShortcut(Vixen.Ui.Controls.KeyMap keys, string commandId) -> Vixen.Ui.Controls.KeyboardShortcut?
 Vixen.Ui.Controls.MenuItem.Submenu.get -> Vixen.Ui.Controls.Menu?
 Vixen.Ui.Controls.MultiSelect -> sealed class
 Vixen.Ui.Controls.MultiSelect : Vixen.Ui.Controls.SelectBase

@@ -443,13 +443,11 @@ public sealed class MenuPresenter : IDisposable {
         // whose mark did not exist yet would be shown ticked with an empty gutter.
         item.Command = command.Id;
 
-        // ⚠ Swapped out of the table's vocabulary before it is drawn: the keymap holds Ctrl+S and a
-        // Mac has to read ⌘S, which is the key its user will actually press. See
-        // `KeyChord.ForPlatform`.
-        if (keys.ChordFor(command.Id) is { IsBound: true } chord) {
-            var shown = chord.ForPlatform();
-            item.ShowShortcut(shown.Key, shown.Modifiers);
-        }
+        // ⚠ One call where there were four lines, and the overload is what makes the three decisions
+        // in them — read the map that dispatches, say nothing for an unbound command, and swap out of
+        // the table's vocabulary before drawing — a property of the framework rather than of this
+        // file. `SceneMenus` wrote the same three lines and got two of them wrong (#650).
+        item.ShowShortcut(keys, command.Id);
 
         return item;
     }

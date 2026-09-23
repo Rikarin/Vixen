@@ -40,9 +40,32 @@ public interface IEditableDocument {
 
     /// <summary>Where it lives, or <see langword="null" /> if it has never been saved.</summary>
     /// <remarks>
-    ///     ⚠ <b>Null is what makes Save mean Save As.</b> A new document with unsaved changes and no
-    ///     location cannot be written anywhere, so a host that does not check this is a host whose
-    ///     ⌘S silently does nothing the first time it is pressed.
+    ///     <para>
+    ///         ⚠ <b>Null is what makes Save mean Save As.</b> A new document with unsaved changes and
+    ///         no location cannot be written anywhere, so a host that does not check this is a host
+    ///         whose ⌘S silently does nothing the first time it is pressed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing in this repository writes one and nothing reads one</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/656">#656</a>). Measured on
+    ///         2026-09-23: there is exactly <b>one</b> write in the whole tree,
+    ///         <c>EditableDocumentTests.cs:164</c>. <see cref="EditableDocument.Rename(string, string?)" />
+    ///         is called four times and the other three pass a name only, so the
+    ///         <c>newLocation is not null</c> guard below leaves the signal alone. And
+    ///         <see cref="UiWindowTitle.Bind" /> — the one thing that takes an
+    ///         <see cref="IEditableDocument" /> and shows it — reads
+    ///         <see cref="Name" /> and <see cref="IsDirty" /> and not this.
+    ///         <c>Samples/02-HelloUi</c>'s save is in memory and says so;
+    ///         <c>EditorDocument</c>'s identity is an <c>AssetId</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That is one blocker wearing three hats, and doc 49 § 5 lists it as three jobs.</b>
+    ///         A recent-documents list is keyed on this. A proxy icon <i>is</i> this — a represented
+    ///         file is a path, so the missing <c>IUiWindow</c> member is the second obstacle and not
+    ///         the first. And half of "nothing in the editor implements
+    ///         <see cref="IEditableDocument" />" is the question of what an <c>AssetId</c>'s location
+    ///         is. Whoever gives one document a real location discharges the larger part of all three.
+    ///     </para>
     /// </remarks>
     IReadOnlySignal<string?> Location { get; }
 
