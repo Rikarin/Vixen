@@ -301,6 +301,87 @@ public class ResponderReachTests {
         );
     }
 
+    /// <summary>The seven rows of doc 49's measurement table, as the needle each one counts.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Keyed by the text of the table's first cell</b>, so renaming a row in the document
+    ///     fails this file rather than silently dropping the row from the comparison — which is the
+    ///     failure mode of every gate that matches on a name it does not also require to exist.
+    /// </remarks>
+    static readonly (string Row, string Call)[] PlanTable = [
+        ("UiElement.AddCommandHandler", "AddCommandHandler("),
+        ("UiElement.RemoveCommandHandler", "RemoveCommandHandler("),
+        ("UiElement.CommandScope", "CommandScope = "),
+        ("CommandRoute.ScopeOf", "CommandRoute.ScopeOf("),
+        ("UiDocument.CommandResponder", ".CommandResponder = "),
+        ("UiElement.AccessKey", ".AccessKey = "),
+        ("UiDocument.MoveFocus(NavigationDirection)", "MoveFocus(NavigationDirection.")
+    ];
+
+    /// <summary>
+    ///     ⚠ <b>Doc 49's measurement table printed <c>0</c> for all seven rows for three batches
+    ///     after six of them had closed</b>, and it said so in a document whose whole purpose is to
+    ///     let somebody size this work. That is the same defect the table is *about* — a recorded
+    ///     number nothing re-measures — committed by the recording itself, and it survived three
+    ///     passes precisely because a stale measurement reads exactly like a fresh one.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Only the zero-ness is compared, deliberately. Gating the file lists would put the
+    ///         document in the path of every new caller and make it churn; what has to stay true is
+    ///         the one thing a reader acts on, which is whether a row is open.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both directions.</b> A row the document calls closed that the sweep finds at zero
+    ///         is a claim the tree does not support, and a row it still calls open that the sweep
+    ///         finds callers for is the stale half this test exists for. Neither is more forgivable
+    ///         than the other, so neither is excused.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_plan_documents_measurement_table_agrees_with_the_sweep() {
+        var document = Path.Combine(RepositoryRoot(), "docs", "plan", "49-responder-chain-and-appkit-parity.md");
+
+        Assert.True(File.Exists(document), $"doc 49 is not at '{document}'");
+
+        foreach (var (row, call) in PlanTable) {
+            var cell = NowCell(document, row);
+            var counted = ProductionCallers(call).Count;
+            var claimed = cell.Contains("**0**", StringComparison.Ordinal);
+
+            Assert.True(
+                claimed == (counted == 0),
+                $"""
+                 doc 49's row for `{row}` says `{cell.Trim()}` and the sweep counts {counted} production caller(s).
+
+                 The table is a measurement, not an intention: bring the row into line with the tree
+                 and say in the same edit which theory above now covers it.
+                 """
+            );
+        }
+    }
+
+    /// <summary>The last cell of the measurement row whose first cell names an API.</summary>
+    /// <remarks>
+    ///     ⚠ A row that is not there throws rather than returning an empty cell, because an empty
+    ///     cell contains no <c>**0**</c> and would read as "the document says this row is closed" —
+    ///     a deleted row would then satisfy the comparison for every API that has a caller.
+    /// </remarks>
+    static string NowCell(string document, string row) {
+        foreach (var line in File.ReadLines(document)) {
+            if (!line.StartsWith("| `" + row + "`", StringComparison.Ordinal)) {
+                continue;
+            }
+
+            var cells = line.Split('|');
+
+            Assert.True(cells.Length >= 6, $"doc 49's row for `{row}` has {cells.Length - 2} cells, not 4");
+
+            return cells[^2];
+        }
+
+        throw new InvalidOperationException($"doc 49 has no measurement row for `{row}`.");
+    }
+
     /// <summary>
     ///     The instrument, checked before the thing it measures: the sweep must be able to tell a
     ///     production file from a test one, or the theory above is green on the test projects alone.
