@@ -719,6 +719,8 @@ public class EditorShellBudgetTests {
         for (var attempt = 0; attempt < attempts && reading.Measured < frames; attempt++) {
             // ⚠ First, and the whole of #1330's guard: no context to lose means nothing to be
             // charged for losing it.
+            // ⚠ First, and the whole of #1330's guard: no context to lose means nothing to be
+            // charged for losing it.
             GC.Collect(0, GCCollectionMode.Forced, blocking: true);
             reading.Retired++;
 
@@ -802,20 +804,40 @@ public class EditorShellBudgetTests {
     ///         ⚠ <b>Ordered by work and not by bytes</b>, because the artifact it guards against is
     ///         rare enough — one window in 200 000 — that no sampling run can see it go away. What
     ///         can be asserted is the <i>order</i>: a collection happened before each frame, so the
-    ///         thread held no context while the frame ran. Removing the forced collection from
-    ///         <see cref="Measure" /> leaves this red and every byte assertion in the file green.
+    ///         thread held no context while the frame ran.
     ///     </para>
     ///     <para>
-    ///         The bound is <c>&gt;=</c> rather than <c>==</c> because another thread may collect
-    ///         while this one measures, which is the whole reason the guard exists.
+    ///         ⚠ <b>Counting the collections does not say they came first, and this test used to do
+    ///         only that.</b> Moving <see cref="Measure" />'s
+    ///         <c>GC.Collect</c> from the top of the loop to just after <c>frame()</c> keeps one
+    ///         collection per attempt and left the count assertion green — the position, which is the
+    ///         whole of #1330's guard, was pinned by the byte tests elsewhere in this file and by
+    ///         nothing here. So the frame reads the collection count <i>from inside itself</i>: by
+    ///         its <c>n</c>th call the counter must already have advanced <c>n</c> times, which is
+    ///         false the instant the collection moves after it. Removing the forced collection
+    ///         altogether leaves this red too, and every byte assertion in the file green.
+    ///     </para>
+    ///     <para>
+    ///         The bounds are <c>&gt;=</c> rather than <c>==</c> because another thread may collect
+    ///         while this one measures, which is the whole reason the guard exists. That direction is
+    ///         the safe one: a foreign collection can only make a real red harder to reach, never
+    ///         manufacture one.
+    ///     </para>
+    ///     <para>
+    ///         The frame allocates nothing — the slots and the closure exist before the first attempt
+    ///         — because a frame that allocated would be discarded by the loop it is measuring.
     ///     </para>
     /// </remarks>
     [Fact]
     public void A_measurement_retires_this_thread_s_allocation_context_before_every_frame() {
         const int Frames = 5;
+        const int Attempts = Frames * 10;
+
+        var seen = new int[Attempts];
+        var calls = 0;
 
         var before = GC.CollectionCount(0);
-        var reading = Measure(Frames, Frames * 10, static () => false);
+        var reading = Measure(Frames, Attempts, Frame);
         var collections = GC.CollectionCount(0) - before;
 
         Assert.True(
@@ -828,6 +850,25 @@ public class EditorShellBudgetTests {
             $"{collections} gen-0 collection(s) happened across {reading.Retired} attempt(s), so the "
             + "measurement is not emptying this thread's allocation context before each frame (#1330)"
         );
+
+        Assert.True(calls >= Frames, $"the frame ran {calls} time(s), so the order below is not asserted");
+
+        for (var call = 0; call < calls; call++) {
+            Assert.True(
+                seen[call] - before >= call + 1,
+                $"by its call {call + 1} the frame had seen {seen[call] - before} gen-0 collection(s), so the "
+                + "measurement is not retiring this thread's allocation context BEFORE the frame runs (#1330)"
+            );
+        }
+
+        return;
+
+        bool Frame() {
+            seen[calls] = GC.CollectionCount(0);
+            calls++;
+
+            return false;
+        }
     }
 
     /// <summary>What a breakdown of the cost means, which is two different investigations.</summary>
