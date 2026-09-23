@@ -20,7 +20,7 @@ related: [ui/accessibility, ui/key-value-list, ui/markup-panels]
 ```
 
 The reading is `Value` between `Minimum` and `Maximum`, as for every other
-[range control](../../api/Vixen.Ui.Controls.RangeBase). What this one adds is two lines drawn across
+[range control](/docs/api/vixen.ui.controls/rangebase). What this one adds is two lines drawn across
 that range — `Warning` and `Critical` — and a `Level` that says which side of them the reading is on.
 
 ## What it is for
@@ -38,7 +38,7 @@ things:
 
 ⚠ **The accessible role is the substance of that table, not the colour.** A screen reader told
 "progress bar, eighty-seven per cent" about a disk has been told a job is nearly done. `LevelIndicator`
-reports [`AccessibleRole.Meter`](../../api/Vixen.Ui.AccessibleRole) — ARIA's `meter`, which exists for
+reports [`AccessibleRole.Meter`](/docs/api/vixen.ui/accessiblerole) — ARIA's `meter`, which exists for
 exactly this distinction — and announces **the reading** rather than a fraction, because a meter's
 bounds are the capacity and "446" is the number the listener wanted, not "0.87".
 
