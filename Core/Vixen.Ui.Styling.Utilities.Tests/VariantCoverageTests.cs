@@ -926,6 +926,79 @@ public class VariantCoverageTests {
     }
 
     [Fact]
+    public void Every_wider_breakpoint_overrides_every_narrower_one_where_both_apply() {
+        // ⚠ **Mobile-first is an ORDER, and the generator used to emit these in string order.** Two
+        // breakpoint utilities on one element are one class each — equal specificity — so where both
+        // media queries hold, the later rule wins, and "later" was `SortedDictionary`'s ordinal
+        // order over the at-rule text: `@media (min-width: 1024px)` sorts before
+        // `@media (min-width: 640px)` because `'1' < '6'`. So `sm:p-2 lg:p-4` at 1200px drew `p-2`,
+        // the narrow value on the wide window, and every one-condition test above passed because a
+        // single breakpoint has nothing to lose to. Enumerated pairwise off the shipped theme, since
+        // which pairs a string sort gets right is an accident of their digit counts.
+        var fixture = new UtilityFixture("");
+        var screens = fixture.Tokens.Screens.OrderBy(pair => pair.Value).ToArray();
+
+        Assert.True(screens.Length >= 2, "the shipped theme is expected to declare several breakpoints");
+
+        for (var narrow = 0; narrow < screens.Length; narrow++) {
+            for (var wide = narrow + 1; wide < screens.Length; wide++) {
+                var classes = new[] { $"{screens[narrow].Key}:p-2", $"{screens[wide].Key}:p-4" };
+                var both = new MediaContext(screens[wide].Value + 1f, 800f);
+
+                Assert.True(
+                    fixture.Computed(classes, "padding-left", media: both) == "16px",
+                    $"{string.Join(' ', classes)} at {both.Width}px should take the wider breakpoint's value"
+                );
+
+                // And between the two only the narrow one holds, which proves the row above is the
+                // order deciding and not the narrow rule failing to match.
+                Assert.Equal(
+                    "8px",
+                    fixture.Computed(classes, "padding-left", media: new MediaContext(screens[wide].Value - 1f, 800f))
+                );
+            }
+        }
+    }
+
+    [Fact]
+    public void Every_wider_container_size_overrides_every_narrower_one_where_both_apply() {
+        // The same order on the container scale, which the same string sort broke from `@5xl` up:
+        // `(min-width: 1024px)` sorts before `(min-width: 384px)`.
+        var fixture = new UtilityFixture("");
+        var sizes = fixture.Tokens.Containers.OrderBy(pair => pair.Value).ToArray();
+
+        for (var narrow = 0; narrow < sizes.Length; narrow++) {
+            for (var wide = narrow + 1; wide < sizes.Length; wide++) {
+                var classes = new[] { $"@{sizes[narrow].Key}:p-2", $"@{sizes[wide].Key}:p-4" };
+                var box = new ContainerBox(sizes[wide].Value + 1f, 0f, ContainerKind.InlineSize);
+
+                Assert.True(
+                    fixture.Computed(classes, "padding-left", container: box) == "16px",
+                    $"{string.Join(' ', classes)} in a {box.Width}px container should take the wider size's value"
+                );
+            }
+        }
+    }
+
+    [Fact]
+    public void A_container_variant_overrides_a_breakpoint_where_both_apply() {
+        // v4 registers the container family after the breakpoints, so a component's own `@md:`
+        // refines the page's `md:` rather than losing to it — and an ordinal sort put `@container`
+        // before `@media`, which is the opposite.
+        var fixture = new UtilityFixture("");
+
+        Assert.Equal(
+            "16px",
+            fixture.Computed(
+                ["md:p-2", "@sm:p-4"],
+                "padding-left",
+                media: new MediaContext(1200f, 800f),
+                container: new ContainerBox(900f, 0f, ContainerKind.InlineSize)
+            )
+        );
+    }
+
+    [Fact]
     public void The_themes_container_sizes_have_no_untested_entry() {
         // ⚠ The gate that says the scale is a *container's* and not a window's. The two namespaces
         // spell `sm` alike and mean numbers two-thirds apart, so the one assertion that catches a

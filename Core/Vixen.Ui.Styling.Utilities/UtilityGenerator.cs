@@ -226,8 +226,12 @@ public sealed class UtilityGenerator {
         /// <summary>The rules written directly at this level.</summary>
         public StringBuilder Body { get; } = new();
 
-        /// <summary>The groups nested inside this one, ordered so the file is byte-stable.</summary>
-        public SortedDictionary<string, AtRuleGroup> Nested { get; } = new(StringComparer.Ordinal);
+        /// <summary>The groups nested inside this one, in the order that decides which of them wins.</summary>
+        /// <remarks>
+        ///     ⚠ <see cref="AtRuleOrder" /> and not an ordinal sort, which kept the file byte-stable
+        ///     and wrote <c>lg:</c> before <c>sm:</c> — see there.
+        /// </remarks>
+        public SortedDictionary<string, AtRuleGroup> Nested { get; } = new(AtRuleOrder.Instance);
 
         /// <summary>The group for an at-rule inside this one, created if it is the first to ask.</summary>
         /// <param name="atRule">The at-rule.</param>
