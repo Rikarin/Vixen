@@ -317,6 +317,25 @@ Vixen.Ui.Controls.ExpanderHeader -> sealed class
 Vixen.Ui.Controls.ExpanderHeader : Vixen.Ui.Controls.ButtonBase
 Vixen.Ui.Controls.ExpanderHeader.Chevron.get -> Vixen.Ui.Controls.Icon
 Vixen.Ui.Controls.ExpanderHeader.ExpanderHeader() -> void
+Vixen.Ui.Controls.Gauge -> sealed class
+Vixen.Ui.Controls.Gauge : Vixen.Ui.Controls.RangeBase
+Vixen.Ui.Controls.Gauge.ClearCritical() -> void
+Vixen.Ui.Controls.Gauge.ClearDirection() -> void
+Vixen.Ui.Controls.Gauge.ClearSweep() -> void
+Vixen.Ui.Controls.Gauge.ClearValue() -> void
+Vixen.Ui.Controls.Gauge.ClearWarning() -> void
+Vixen.Ui.Controls.Gauge.Critical.get -> float
+Vixen.Ui.Controls.Gauge.Critical.set -> float
+Vixen.Ui.Controls.Gauge.Direction.get -> Vixen.Ui.Controls.LevelDirection
+Vixen.Ui.Controls.Gauge.Direction.set -> Vixen.Ui.Controls.LevelDirection
+Vixen.Ui.Controls.Gauge.Gauge() -> void
+Vixen.Ui.Controls.Gauge.Level.get -> Vixen.Ui.Controls.LevelReading
+Vixen.Ui.Controls.Gauge.Sweep.get -> float
+Vixen.Ui.Controls.Gauge.Sweep.set -> float
+Vixen.Ui.Controls.Gauge.Value.get -> float
+Vixen.Ui.Controls.Gauge.Value.set -> float
+Vixen.Ui.Controls.Gauge.Warning.get -> float
+Vixen.Ui.Controls.Gauge.Warning.set -> float
 Vixen.Ui.Controls.GroupBox -> sealed class
 Vixen.Ui.Controls.GroupBox : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.GroupBox.ClearLabel() -> void
@@ -472,14 +491,22 @@ Vixen.Ui.Controls.LabeledContent.Label.get -> string?
 Vixen.Ui.Controls.LabeledContent.Label.set -> string?
 Vixen.Ui.Controls.LabeledContent.LabeledContent() -> void
 Vixen.Ui.Controls.LabeledContent.Message.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.LevelDirection -> enum : int
+Vixen.Ui.Controls.LevelDirection.Falling = 2 -> Vixen.Ui.Controls.LevelDirection
+Vixen.Ui.Controls.LevelDirection.Inferred = 0 -> Vixen.Ui.Controls.LevelDirection
+Vixen.Ui.Controls.LevelDirection.LevelDirection() -> void
+Vixen.Ui.Controls.LevelDirection.Rising = 1 -> Vixen.Ui.Controls.LevelDirection
 Vixen.Ui.Controls.LevelIndicator -> sealed class
 Vixen.Ui.Controls.LevelIndicator : Vixen.Ui.Controls.RangeBase
 Vixen.Ui.Controls.LevelIndicator.ClearCritical() -> void
+Vixen.Ui.Controls.LevelIndicator.ClearDirection() -> void
 Vixen.Ui.Controls.LevelIndicator.ClearSegments() -> void
 Vixen.Ui.Controls.LevelIndicator.ClearValue() -> void
 Vixen.Ui.Controls.LevelIndicator.ClearWarning() -> void
 Vixen.Ui.Controls.LevelIndicator.Critical.get -> float
 Vixen.Ui.Controls.LevelIndicator.Critical.set -> float
+Vixen.Ui.Controls.LevelIndicator.Direction.get -> Vixen.Ui.Controls.LevelDirection
+Vixen.Ui.Controls.LevelIndicator.Direction.set -> Vixen.Ui.Controls.LevelDirection
 Vixen.Ui.Controls.LevelIndicator.Level.get -> Vixen.Ui.Controls.LevelReading
 Vixen.Ui.Controls.LevelIndicator.LevelIndicator() -> void
 Vixen.Ui.Controls.LevelIndicator.Segments.get -> int
@@ -1205,6 +1232,12 @@ override Vixen.Ui.Controls.Expander.TagName.get -> string
 override Vixen.Ui.Controls.ExpanderHeader.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
 override Vixen.Ui.Controls.ExpanderHeader.OnCreated() -> void
 override Vixen.Ui.Controls.ExpanderHeader.TagName.get -> string
+override Vixen.Ui.Controls.Gauge.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Gauge.NativeAccessibleValue.get -> string?
+override Vixen.Ui.Controls.Gauge.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.Gauge.OnCreated() -> void
+override Vixen.Ui.Controls.Gauge.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.Gauge.TagName.get -> string
 override Vixen.Ui.Controls.GroupBox.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.GroupBox.ContentHost.get -> Vixen.Ui.UiElement
 override Vixen.Ui.Controls.GroupBox.NativeAccessibleName.get -> string?
@@ -1527,6 +1560,11 @@ static readonly Vixen.Ui.Controls.Control.SizeProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Control.VariantProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Drawer.SideProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Expander.IsExpandedProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Gauge.CriticalProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Gauge.DirectionProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Gauge.SweepProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Gauge.ValueProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Gauge.WarningProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.GroupBox.LabelProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Icon.ArtProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Icon.FillRuleProperty -> Vixen.Ui.UiPropertyKey
@@ -1542,6 +1580,7 @@ static readonly Vixen.Ui.Controls.KeyboardShortcut.ModifiersProperty -> Vixen.Ui
 static readonly Vixen.Ui.Controls.LabeledContent.DescriptionProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.LabeledContent.LabelProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.LevelIndicator.CriticalProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.LevelIndicator.DirectionProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.LevelIndicator.SegmentsProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.LevelIndicator.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.LevelIndicator.WarningProperty -> Vixen.Ui.UiPropertyKey
