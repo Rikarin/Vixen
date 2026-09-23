@@ -191,4 +191,66 @@ public sealed class ParityAuditTests {
         // would pass every membership test the unsupported list can express while measuring nothing.
         Assert.All(registry.Variants, variant => Assert.NotNull(variant.Probe));
     }
+
+    /// <summary>⚠ That the committed snapshot can record a refusal at all, which <c>refused: []</c> cannot say.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Verify the instrument first.</b> Every class the snapshot is asked about comes out
+    ///         of the ledger, so on a healthy ledger <c>refused</c> is empty — and an empty array is
+    ///         indistinguishable from a generator that never recorded a refusal, a compiler that
+    ///         answered every question with success, or a field somebody stopped writing. That is the
+    ///         comparator calling three empty manifests identical, and this repository has shipped it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So <c>snapshot.mjs</c> always asks two control questions whose answers are known
+    ///         in advance</b>, and this is the assertion that spends them: <c>p-4</c> must compile and
+    ///         <c>vixen-parity-control-no-such-utility</c> must not. Both are in <c>checked</c>, so a
+    ///         snapshot taken with a broken compiler — one that refuses everything, or nothing — is
+    ///         a red run rather than a clean one. Neither name is in the ledger, so neither can produce
+    ///         a finding of its own.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_committed_snapshot_records_a_refusal_it_was_meant_to_record() {
+        var registry = TailwindRegistry.Read(Files.Registry);
+
+        Assert.Contains("p-4", registry.Checked);
+        Assert.DoesNotContain("p-4", registry.Refused);
+
+        Assert.Contains("vixen-parity-control-no-such-utility", registry.Checked);
+        Assert.Contains("vixen-parity-control-no-such-utility", registry.Refused);
+    }
+
+    /// <summary>⚠ And that TWP003 fires against the REAL snapshot, not only against the miniature one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>TWP003 cannot fire on the committed pair, and that is correct rather than a
+    ///         hole — but it means nothing here exercised it over the real snapshot.</b> The snapshot
+    ///         records a refusal only for a class the ledger named when it was taken, so a healthy
+    ///         ledger produces an empty <c>refused</c> set and TWP003 has nothing to say. Restoring
+    ///         the defect this tool found on its first run (<c>backdrop-blur-2</c> in the
+    ///         <c>backdrop-blur-*</c> row) therefore reddens the gate as <c>TWP004</c> — "the snapshot
+    ///         was never asked about it" — and TWP003 follows only after the snapshot is re-taken by
+    ///         hand. Two steps, each with a message naming the next.
+    ///     </para>
+    ///     <para>
+    ///         This asserts the second step without needing <c>npm</c>: the control class the
+    ///         generator always asks about IS in <c>refused</c>, so a row naming it is a row whose
+    ///         class v4 compiles to nothing, which is exactly TWP003's subject.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_ledger_row_naming_a_class_the_real_snapshot_refuses_is_TWP003() {
+        var registry = TailwindRegistry.Read(Files.Registry);
+        var rows = ParityLedgerTable.Read(Files.Ledger).ToList();
+
+        rows.Add(new LedgerRow("top-*", "functional", "", ["vixen-parity-control-no-such-utility"]));
+
+        var findings = ParityAudit.Run(registry, rows, ParityAudit.ReadUnlisted(Files.Unlisted));
+
+        Assert.Equal(
+            ["TWP003 vixen-parity-control-no-such-utility"],
+            findings.Select(finding => $"{finding.Code} {finding.Subject}")
+        );
+    }
 }

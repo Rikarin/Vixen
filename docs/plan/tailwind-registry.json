@@ -2221,6 +2221,7 @@
         "overscroll-y-contain",
         "overscroll-y-none",
         "p-0",
+        "p-4",
         "p-px",
         "pb-0",
         "pb-px",
@@ -2509,6 +2510,7 @@
         "uppercase",
         "via-0%",
         "visible",
+        "vixen-parity-control-no-such-utility",
         "w-0",
         "w-dvh",
         "w-dvw",
@@ -2534,5 +2536,7 @@
         "z-0",
         "zoom-50"
     ],
-    "refused": []
+    "refused": [
+        "vixen-parity-control-no-such-utility"
+    ]
 }

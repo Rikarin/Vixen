@@ -66,6 +66,15 @@ for (const line of lines.slice(1)) {
     }
 }
 
+// ⚠ Two controls, and they are what make `refused: []` mean something. Every name above comes out
+// of the ledger, so on a healthy ledger nothing is refused — and an empty `refused` array is then
+// indistinguishable from a snapshot that never recorded a refusal at all, which is the "comparator
+// that called three empty manifests identical" shape this repository has shipped once. So the
+// snapshot always asks about one class v4 certainly compiles and one it certainly cannot, and
+// `ParityAuditTests` asserts both answers. Neither is a ledger name, so no finding is about them.
+asked.add('p-4');
+asked.add('vixen-parity-control-no-such-utility');
+
 const checked = [...asked].sort(ordinal);
 const compiled = ds.candidatesToCss(checked);
 const refused = checked.filter((_, index) => compiled[index] === null);
