@@ -1062,7 +1062,9 @@ public sealed partial class ScrollView : Control {
     /// <summary>Asks for a refresh if this release was a pull past the top and far enough.</summary>
     void AskForRefresh() {
         // ⚠ A view with no height has no edge to give, and `Resist` answers zero for it — which the
-        // comparison below would read as a pull of exactly the (zero) threshold.
+        // comparison below would read as a pull of exactly the (zero) threshold. Reached by a view
+        // collapsed under a finger that is still dragging it, since nothing in a box with no height
+        // takes a press to start one.
         if (PulledToRefresh is not { } handler || PullToRefreshDistance <= 0f || Height <= 0f) {
             return;
         }

@@ -462,6 +462,55 @@ public class ScrollRubberBandTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>The cap's edge case: a view with no height declines.</b> Half of nothing is a
+    ///     threshold of zero, and a view with no height gives nothing however far it is pulled — so
+    ///     without its own refusal the comparison reads the zero give as a pull of exactly the
+    ///     threshold, and the view asks for a refresh on a release that pulled nothing into sight.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Collapsed under the finger, because a press cannot start there.</b> A first draft
+    ///         pressed on content overflowing a zero-height view, and its "the drag was the view's"
+    ///         assertion went red: nothing inside a box with no height takes the press. So the pull
+    ///         starts on a 60-pixel view and the view is collapsed while it is held — a panel an
+    ///         accordion or a splitter closes under a finger, which is the case the guard is for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The drag is asserted to still be the view's</b> after the collapse — held past its
+    ///         start — so "no refresh" is not satisfied by a gesture the collapse cancelled.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_view_collapsed_to_no_height_under_the_finger_never_asks_for_a_refresh() {
+        var (fixture, view) = Tall();
+        using var _ = fixture;
+
+        var (x, y) = Middle(view);
+        var refreshes = 0;
+        view.PulledToRefresh += _ => refreshes++;
+
+        PullDown(fixture, view, steps: 10);
+
+        view.SetStyle("height", "0px");
+        fixture.Update();
+        fixture.Advance(Frame);
+
+        // The resize drops the stretch (its end moved — see `ScrollView.Refresh`), so the finger pulls
+        // on after it: a stretch again is what says the drag is still the view's.
+        for (var step = 11; step <= 14; step++) {
+            fixture.MovePointer(x, y + (Step * step));
+            fixture.Advance(Frame);
+        }
+
+        Assert.Equal(0f, view.Height);
+        Assert.Equal(0f, view.OverscrollTop);
+        Assert.True(view.IsRubberBanding, "the collapse ended the drag, so the refusal below proves nothing");
+
+        fixture.Release(x, y + (Step * 14));
+        Assert.Equal(0, refreshes);
+    }
+
+    /// <summary>
     ///     ⚠ <b>The bottom edge is a different verb.</b> Pulling past the end means "there is more,
     ///     fetch it"; answering that with a refresh reloads the list from the top at the moment the
     ///     user has finally reached the end of it. The sign of the overscroll is the whole of the
