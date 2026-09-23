@@ -54,6 +54,12 @@ public class StyleValueTests {
     [InlineData("50vh", 50f, StyleUnit.ViewportHeight)]
     [InlineData("10vmin", 10f, StyleUnit.ViewportMin)]
     [InlineData("10vmax", 10f, StyleUnit.ViewportMax)]
+    [InlineData("50cqw", 50f, StyleUnit.ContainerWidth)]
+    [InlineData("50cqh", 50f, StyleUnit.ContainerHeight)]
+    [InlineData("50cqi", 50f, StyleUnit.ContainerInline)]
+    [InlineData("50cqb", 50f, StyleUnit.ContainerBlock)]
+    [InlineData("50cqmin", 50f, StyleUnit.ContainerMin)]
+    [InlineData("50cqmax", 50f, StyleUnit.ContainerMax)]
     public void Lengths_carry_their_unit(string text, float expected, StyleUnit unit) {
         var value = Parser().Parse(text);
 
@@ -69,7 +75,15 @@ public class StyleValueTests {
         // ⚠ `em` is a suffix of `rem`, so a suffix test in the wrong order silently reads the first
         // as the second and every root-relative length in the document becomes font-relative. The
         // round trip is what makes that visible rather than a plausible-looking number.
-        foreach (var text in new[] { "2em", "1.5rem", "100vw", "50vh", "10vmin", "10vmax" }) {
+        // ⚠ `lh` is in this list and was not in the suffix table, so `1lh` printed as the bare
+        // number `1` — in every assertion message and every debug dump, from the day the unit
+        // landed. Nothing reads the string back so it cost no behaviour, but it is the exact failure
+        // the suffix table's own remark describes happening to a *second* table and not to itself.
+        // The six container units arrived at the same seam, which is how it was found.
+        foreach (var text in new[] {
+            "2em", "1.5rem", "100vw", "50vh", "10vmin", "10vmax", "1lh",
+            "50cqw", "50cqh", "50cqi", "50cqb", "50cqmin", "50cqmax",
+        }) {
             Assert.Equal(text, parser.Parse(text).ToString());
         }
     }

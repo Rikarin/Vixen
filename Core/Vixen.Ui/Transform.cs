@@ -433,7 +433,15 @@ sealed class TransformReader {
             return Matrix4x4.Identity;
         }
 
-        var context = metrics.WithFontSize(parent.FontSize).WithLineHeight(parent.LineHeight);
+        // ⚠ And the parent's query container for the same reason as the parent's font: an element
+        // that is itself a query container hands its children a narrower context than the one its own
+        // `perspective: 50cqw` measures against, so reading the caller's would resolve the parent's
+        // declaration against the parent's own box.
+        var context = parent
+            .WithAppliedContainer(metrics)
+            .WithFontSize(parent.FontSize)
+            .WithLineHeight(parent.LineHeight);
+
         var length = context.ToLength(parser.Parse(declared));
 
         // ⚠ A non-positive distance is not a flat element, it is an invalid declaration: CSS
@@ -827,6 +835,49 @@ sealed class TransformReader {
         return (MathF.Cos(radians), MathF.Sin(radians));
     }
 
+    /// <summary>The unit a transform component's suffix names, or <see cref="StyleUnit.None" />.</summary>
+    /// <param name="suffix">Whatever followed the number.</param>
+    /// <returns>The unit, or <see cref="StyleUnit.None" /> for one a transform may not take.</returns>
+    /// <remarks>
+    ///     ⚠ <b>One table, because there were two identical ones — <c>Depth</c>'s and
+    ///     <c>Distance</c>'s — and <see cref="StyleValue" />'s own suffix table carries the remark
+    ///     about what that costs.</b> They were still in step when the container units arrived, so
+    ///     nothing had gone wrong yet; the point of folding them is that the next unit is added once.
+    ///     <para>
+    ///         ⚠ <b><c>lh</c> is deliberately still absent, and its absence is now visible rather
+    ///         than duplicated.</b> A transform resolves against a box and not against a line, and
+    ///         nothing in this repository writes <c>translate: 1lh</c> — but the unit parses
+    ///         everywhere else, so this is a gap to decide about rather than one to close in passing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The six <c>cq*</c> rows were added here one commit before the context that can
+    ///         answer them, and that is the trap the paragraph above nearly walked into.</b> A unit
+    ///         listed in this table but unreachable in the reader's context is not a refusal, it is
+    ///         the viewport with a plausible number on it — <c>translate: 50cqi</c> inside a 200px
+    ///         container moved five hundred points instead of a hundred, and the refusal it replaced
+    ///         had at least moved nothing. Adding a row here is therefore a claim about
+    ///         <c>UiDocument.Accumulate</c>'s <see cref="LengthContext" /> and not only about a
+    ///         spelling; <c>UiElement.WithAppliedContainer</c> is what makes the claim true, and
+    ///         <c>ContainerUnitTests</c> asserts it on the number rather than on the parse.
+    ///     </para>
+    /// </remarks>
+    static StyleUnit UnitOf(ReadOnlySpan<char> suffix) => suffix switch {
+        var u when u.Equals("px", StringComparison.OrdinalIgnoreCase) => StyleUnit.Pixels,
+        var u when u.Equals("em", StringComparison.OrdinalIgnoreCase) => StyleUnit.Em,
+        var u when u.Equals("rem", StringComparison.OrdinalIgnoreCase) => StyleUnit.Rem,
+        var u when u.Equals("vw", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportWidth,
+        var u when u.Equals("vh", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportHeight,
+        var u when u.Equals("vmin", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportMin,
+        var u when u.Equals("vmax", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportMax,
+        var u when u.Equals("cqw", StringComparison.OrdinalIgnoreCase) => StyleUnit.ContainerWidth,
+        var u when u.Equals("cqh", StringComparison.OrdinalIgnoreCase) => StyleUnit.ContainerHeight,
+        var u when u.Equals("cqi", StringComparison.OrdinalIgnoreCase) => StyleUnit.ContainerInline,
+        var u when u.Equals("cqb", StringComparison.OrdinalIgnoreCase) => StyleUnit.ContainerBlock,
+        var u when u.Equals("cqmin", StringComparison.OrdinalIgnoreCase) => StyleUnit.ContainerMin,
+        var u when u.Equals("cqmax", StringComparison.OrdinalIgnoreCase) => StyleUnit.ContainerMax,
+        _ => StyleUnit.None
+    };
+
     /// <summary>A length along z, which takes no percentage.</summary>
     /// <remarks>
     ///     ⚠ <b>Transforms 2 § 12 makes a percentage here invalid rather than zero</b>, because there
@@ -856,16 +907,7 @@ sealed class TransformReader {
             return false;
         }
 
-        var unit = text[digits..] switch {
-            var u when u.Equals("px", StringComparison.OrdinalIgnoreCase) => StyleUnit.Pixels,
-            var u when u.Equals("em", StringComparison.OrdinalIgnoreCase) => StyleUnit.Em,
-            var u when u.Equals("rem", StringComparison.OrdinalIgnoreCase) => StyleUnit.Rem,
-            var u when u.Equals("vw", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportWidth,
-            var u when u.Equals("vh", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportHeight,
-            var u when u.Equals("vmin", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportMin,
-            var u when u.Equals("vmax", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportMax,
-            _ => StyleUnit.None
-        };
+        var unit = UnitOf(text[digits..]);
 
         if (unit == StyleUnit.None) {
             return false;
@@ -1007,16 +1049,7 @@ sealed class TransformReader {
             return false;
         }
 
-        var unit = text[digits..] switch {
-            var u when u.Equals("px", StringComparison.OrdinalIgnoreCase) => StyleUnit.Pixels,
-            var u when u.Equals("em", StringComparison.OrdinalIgnoreCase) => StyleUnit.Em,
-            var u when u.Equals("rem", StringComparison.OrdinalIgnoreCase) => StyleUnit.Rem,
-            var u when u.Equals("vw", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportWidth,
-            var u when u.Equals("vh", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportHeight,
-            var u when u.Equals("vmin", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportMin,
-            var u when u.Equals("vmax", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportMax,
-            _ => StyleUnit.None
-        };
+        var unit = UnitOf(text[digits..]);
 
         if (unit == StyleUnit.None) {
             return false;

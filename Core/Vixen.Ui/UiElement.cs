@@ -2459,6 +2459,80 @@ public partial class UiElement : Composition.IComposable {
     /// </remarks>
     internal int AppliedFontRevision { get; set; } = -1;
 
+    /// <summary>The box this element handed its descendants as a query container, last pass.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The settle loop's other driver, and without it a <c>cqw</c> is resolved once against
+    ///     a box of nothing and never again.</b> Styles are built before layout runs, so the first
+    ///     pass of a document resolves every container unit against an unmeasured container — the
+    ///     second pass is what makes it right, and a second pass happens only because something
+    ///     invalidated the document. <c>Recontain</c> is that something for a <c>@container</c>
+    ///     <i>rule</i>; it does not run at all for a document that declares no container group, and a
+    ///     container unit needs no group. So the box goes here, and a container whose own box moved
+    ///     asks for another pass.
+    ///     <para>
+    ///         ⚠ <b><see cref="float.NaN" /> and not a zero box</b>: zero is what an unmeasured
+    ///         container legitimately reports on the first pass, so a zero initial value would make
+    ///         the first pass look settled to the one element whose box really is nothing.
+    ///     </para>
+    /// </remarks>
+    internal ContainerBox AppliedContainerBox { get; set; } =
+        new(float.NaN, float.NaN, ContainerKind.Normal);
+
+    /// <summary>The query container inline size the layout style was built against.</summary>
+    /// <remarks>
+    ///     ⚠ <b>In the rebuild test for exactly the reason the line height is</b>, one unit along: an
+    ///     element whose own declarations did not change still has to rebuild when the container it
+    ///     measures <c>cqi</c> against resizes, and its <see cref="ComputedStyle" /> is the same
+    ///     interned object on both passes. Without these two the first pass builds <c>50cqi</c>
+    ///     against an unmeasured container — a width of nothing — and the reference test declares the
+    ///     element up to date for ever after.
+    /// </remarks>
+    internal float AppliedContainerInline { get; set; } = float.NaN;
+
+    /// <summary>And the block size, which a <c>size</c> container can move on its own.</summary>
+    internal float AppliedContainerBlock { get; set; } = float.NaN;
+
+    /// <summary>Which axes the container above this element had claimed when its style was built.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not part of the rebuild test above and written on every pass, because it is not a
+    ///     staleness key — it is the other half of a number.</b>
+    ///     <see cref="AppliedContainerInline" /> stores what the getter answered, which for an
+    ///     element under no container is the viewport's width; without the flag beside it there is no
+    ///     way to tell that reading apart from a container that happens to be viewport-wide, and
+    ///     <see cref="WithAppliedContainer" /> would pin a torn-off window's <c>cqw</c> to the
+    ///     primary display's width rather than to its own.
+    /// </remarks>
+    internal ContainerKind AppliedContainerAxes { get; set; }
+
+    /// <summary>The context this element's own declarations resolve their container units against.</summary>
+    /// <param name="metrics">A context for the surface this element is on.</param>
+    /// <returns>The same context, carrying the query container the style walk found above it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>This exists because a container unit has <i>two</i> readers and only one of them is
+    ///     on the style walk.</b> <c>UiDocument.Apply</c> descends with a
+    ///     <see cref="LengthContext" /> that <c>Containers.WithContainerOf</c> has narrowed at every
+    ///     query container, so <c>width: 50cqi</c> is right; <c>UiDocument.Accumulate</c> and
+    ///     <c>DrawListBuilder</c> build theirs from the surface and never see that walk, so
+    ///     <c>translate: 50cqi</c>, <c>transform: translateX(50cqi)</c>, a sticky inset and a shadow
+    ///     offset all resolved against the <i>viewport</i> — a plausible number, five times too large
+    ///     on the fixture that found it, with nothing logged. Replaying the walk from an element
+    ///     would be a second copy of the search; the walk's own answer is recorded instead, and every
+    ///     later reader asks the element for it.
+    ///     <para>
+    ///         ⚠ <b>An element under no container <i>resets</i> the container rather than passing the
+    ///         argument through</b>, which is not tidiness: the two callers that re-base a context —
+    ///         <c>TransformReader.Established</c>, for the parent's <c>perspective</c> — hand in a
+    ///         context that already carries somebody else's container, and a pass-through would let
+    ///         it stand. Reset to <see cref="ContainerKind.Normal" /> the answer is the surface's
+    ///         viewport, which is what CSS Containment 3 § 5.3 asks for and what keeps a torn-off
+    ///         window's <c>cqw</c> measuring that window.
+    ///     </para>
+    /// </remarks>
+    internal LengthContext WithAppliedContainer(in LengthContext metrics) =>
+        AppliedContainerAxes == ContainerKind.Normal
+            ? metrics.WithContainer(metrics.ViewportWidth, metrics.ViewportHeight, ContainerKind.Normal)
+            : metrics.WithContainer(AppliedContainerInline, AppliedContainerBlock, AppliedContainerAxes);
+
     /// <summary>The letter spacing that went with it.</summary>
     internal float AppliedLetterSpacing { get; set; } = float.NaN;
 

@@ -2248,7 +2248,15 @@ public sealed class DrawListBuilder {
     /// <summary>Reads one shadow's lengths and colour, appending it to <see cref="shadows" />.</summary>
     /// <returns>Whether it read. A refusal is recorded on the way out.</returns>
     bool TryShadow(UiDocument document, UiElement element, StyleValue value, int id) {
-        var context = document.Viewport.WithFontSize(element.FontSize).WithLineHeight(element.LineHeight);
+        // ⚠ Through the element rather than straight off the viewport, because a container unit
+        // reaches this reader too and there is nothing in a wrong answer to see: `box-shadow: 0 10cqi`
+        // inside a 200px container came out at a hundred points rather than twenty, which is an offset
+        // in range, drawn, and never logged. `WithAppliedContainer` replays nothing — it reads the
+        // answer `UiDocument.Apply`'s walk already recorded on this element.
+        var context = element
+            .WithAppliedContainer(document.Viewport)
+            .WithFontSize(element.FontSize)
+            .WithLineHeight(element.LineHeight);
         Span<float> lengths = [0f, 0f, 0f, 0f];
         var count = 0;
         Color4? shade = null;
@@ -3015,7 +3023,15 @@ public sealed class DrawListBuilder {
             return null;
         }
 
-        var context = document.Viewport.WithFontSize(element.FontSize).WithLineHeight(element.LineHeight);
+        // ⚠ Through the element rather than straight off the viewport, because a container unit
+        // reaches this reader too and there is nothing in a wrong answer to see: `box-shadow: 0 10cqi`
+        // inside a 200px container came out at a hundred points rather than twenty, which is an offset
+        // in range, drawn, and never logged. `WithAppliedContainer` replays nothing — it reads the
+        // answer `UiDocument.Apply`'s walk already recorded on this element.
+        var context = element
+            .WithAppliedContainer(document.Viewport)
+            .WithFontSize(element.FontSize)
+            .WithLineHeight(element.LineHeight);
         Span<float> lengths = [0f, 0f, 0f];
         var count = 0;
         Color4? shade = null;

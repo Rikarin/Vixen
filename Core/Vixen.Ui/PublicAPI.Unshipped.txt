@@ -831,6 +831,12 @@ Vixen.Ui.LayoutStyleBuilder.LayoutStyleBuilder(Vixen.Ui.Styling.NameTable proper
 Vixen.Ui.LayoutStyleBuilder.ResolveFontSize(Vixen.Ui.Styling.ComputedStyle style, float parentFontSize, in Vixen.Ui.LengthContext context) -> float
 Vixen.Ui.LengthContext -> readonly struct
 Vixen.Ui.LengthContext : System.IEquatable<Vixen.Ui.LengthContext>
+Vixen.Ui.LengthContext.ContainerAxes.get -> Vixen.Ui.Styling.ContainerKind
+Vixen.Ui.LengthContext.ContainerAxes.init -> Vixen.Ui.Styling.ContainerKind
+Vixen.Ui.LengthContext.ContainerBlockSize.get -> float
+Vixen.Ui.LengthContext.ContainerBlockSize.init -> float
+Vixen.Ui.LengthContext.ContainerInlineSize.get -> float
+Vixen.Ui.LengthContext.ContainerInlineSize.init -> float
 Vixen.Ui.LengthContext.FontSize.get -> float
 Vixen.Ui.LengthContext.FontSize.init -> float
 Vixen.Ui.LengthContext.LengthContext() -> void
@@ -845,6 +851,7 @@ Vixen.Ui.LengthContext.ViewportHeight.get -> float
 Vixen.Ui.LengthContext.ViewportHeight.init -> float
 Vixen.Ui.LengthContext.ViewportWidth.get -> float
 Vixen.Ui.LengthContext.ViewportWidth.init -> float
+Vixen.Ui.LengthContext.WithContainer(float inlineSize, float blockSize, Vixen.Ui.Styling.ContainerKind axes) -> Vixen.Ui.LengthContext
 Vixen.Ui.LengthContext.WithFontSize(float fontSize) -> Vixen.Ui.LengthContext
 Vixen.Ui.LengthContext.WithLineHeight(float lineHeight) -> Vixen.Ui.LengthContext
 Vixen.Ui.LineCap -> enum : byte

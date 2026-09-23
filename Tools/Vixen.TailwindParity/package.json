@@ -1,0 +1,13 @@
+{
+    "name": "vixen-tailwind-parity-snapshot",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "description": "Takes the tailwindcss registry snapshot that docs/plan/43-web-styling-parity.tsv is checked against. Not shipped, not built by MSBuild, and run by hand when the pinned tailwindcss version moves.",
+    "scripts": {
+        "snapshot": "node snapshot.mjs ../.."
+    },
+    "dependencies": {
+        "tailwindcss": "4.3.3"
+    }
+}

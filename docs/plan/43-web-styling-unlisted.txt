@@ -1,0 +1,170 @@
+# Static tailwindcss utilities that docs/plan/43-web-styling-parity.tsv does not name.
+#
+# The ledger's `classes` column is Tailwind's static set for a root as the original survey
+# transcribed it by hand, and for a good many roots it is short of what v4 actually ships. Until
+# Tools/Vixen.TailwindParity existed there was no way to say how short, because the registry is not
+# in this tree. It was 163 of v4's 890 static utilities named by no row; it is 150, because the
+# `display` row's thirteen missing keywords went back where they belong.
+#
+# It is an exemption list in CheckWhitespace's shape, so it can only shrink. A static utility that is
+# in neither the ledger nor this file fails as TWP005; a line here that a row has since listed fails
+# as TWP006; a line here that v4 does not register at all fails as TWP007. Nothing adds to this file
+# automatically.
+#
+# A line here is not a gap in the engine. It is a gap in the survey's record of Tailwind — and it
+# matters because ParityLedger.Derive demotes a row to `partial` on a listed class that does not
+# resolve and never promotes one for a class nobody listed. So every name below is a question the
+# ledger has not asked Vixen, and some of them will demote a row that reads `works` today.
+#
+# Negative spellings (`-inset-full`) are left out entirely rather than listed: they are generated
+# from the positive root and are a row's business only through it.
+bg-blend-color
+bg-blend-difference
+bg-blend-exclusion
+bg-blend-hard-light
+bg-blend-hue
+bg-blend-luminosity
+bg-blend-saturation
+bg-blend-soft-light
+bg-bottom
+bg-bottom-left
+bg-bottom-right
+bg-center
+bg-fixed
+bg-gradient-to-tl
+bg-left
+bg-left-bottom
+bg-left-top
+bg-local
+bg-right
+bg-right-bottom
+bg-right-top
+bg-scroll
+bg-top
+bg-top-left
+bg-top-right
+block-lh
+block-px
+block-screen
+content-baseline
+content-evenly
+content-stretch
+cursor-all-scroll
+cursor-cell
+cursor-col-resize
+cursor-context-menu
+cursor-copy
+cursor-crosshair
+cursor-e-resize
+cursor-ew-resize
+cursor-grab
+cursor-grabbing
+cursor-n-resize
+cursor-ne-resize
+cursor-nesw-resize
+cursor-no-drop
+cursor-none
+cursor-ns-resize
+cursor-nw-resize
+cursor-nwse-resize
+cursor-progress
+cursor-row-resize
+cursor-s-resize
+cursor-se-resize
+cursor-sw-resize
+cursor-vertical-text
+cursor-w-resize
+cursor-zoom-in
+cursor-zoom-out
+divide-dashed
+divide-dotted
+divide-double
+divide-none
+divide-solid
+duration-initial
+font-stretch-ultra-expanded
+h-auto
+h-fit
+h-lh
+h-max
+h-px
+h-screen
+inline-px
+inline-screen
+inset-shadow-initial
+justify-baseline
+justify-evenly
+justify-stretch
+mask-auto
+mask-bottom
+mask-bottom-left
+mask-bottom-right
+mask-center
+mask-contain
+mask-cover
+mask-left
+mask-radial-at-bottom-left
+mask-radial-at-bottom-right
+mask-radial-at-center
+mask-radial-at-left
+mask-radial-at-right
+mask-radial-at-top
+mask-radial-at-top-left
+mask-radial-at-top-right
+mask-right
+mask-top
+mask-top-left
+mask-top-right
+max-block-none
+max-block-px
+max-block-screen
+max-h-fit
+max-h-lh
+max-h-max
+max-h-none
+max-h-px
+max-h-screen
+max-inline-none
+max-inline-px
+max-w-fit
+max-w-max
+max-w-none
+max-w-px
+max-w-screen
+min-block-lh
+min-block-px
+min-block-screen
+min-h-auto
+min-h-fit
+min-h-lh
+min-h-max
+min-h-px
+min-h-screen
+min-inline-px
+min-inline-screen
+min-w-auto
+min-w-fit
+min-w-max
+min-w-px
+min-w-screen
+mix-blend-plus-darker
+mix-blend-plus-lighter
+overflow-ellipsis
+place-content-baseline
+place-content-stretch
+ring-inset
+self-baseline-last
+shadow-initial
+size-auto
+size-fit
+size-max
+size-px
+text-shadow-initial
+touch-pinch-zoom
+translate-3d
+via-none
+w-auto
+w-fit
+w-max
+w-px
+w-screen
