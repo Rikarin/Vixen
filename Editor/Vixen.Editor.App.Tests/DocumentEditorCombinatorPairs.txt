@@ -95,12 +95,14 @@ profiler-body > scroll-view
 profiler-view > data-grid
 remote-body > tree-view
 remote-write > textbox
+scroll-content > button
 scroll-view > scroll-content
 segment > icon
 segmented-control > segment
 sequence-body > timeline
 sequence-side > scroll-content
-settings-rail > button
+settings-pane > scroll-content
+settings-rail > scroll-content
 shadergraph-editor > node-graph
 shadergraph-side > scroll-content
 shadergraph-source > code-editor

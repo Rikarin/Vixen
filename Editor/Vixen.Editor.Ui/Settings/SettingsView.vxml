@@ -61,7 +61,16 @@
 </settings-header>
 
 <settings-body>
-    <settings-rail ref="@Rail">
+    <!--
+        ⚠ Both halves of the body are `ScrollView`s under the sheet's tags (#1275). Each used to be a
+        plain element declaring `overflow: auto`, which in this UI clips and does not scroll: at
+        640 px the Appearance page's theme editor was cut off with no way to reach its bottom, and the
+        General page's rows were squeezed on top of one another, because a scroll container drops the
+        flex items' content-sized floor and the rows then shrank to fit. So the tabs and the page are
+        children of each view's `scroll-content` now, and every rule that said `settings-rail >` or
+        `settings-pane >` says `> scroll-content >` as well.
+    -->
+    <ScrollView tag="settings-rail" ref="@Rail">
         @for (var page in Visible) {
             <SettingsTab key="@page"
                          Variant="Subtle"
@@ -70,14 +79,15 @@
                          Selected="@IsChosen(page)"
                          on:click="@(() => Select(page.Id))" />
         }
-    </settings-rail>
+    </ScrollView>
 
     <!--
-        ⚠ No content and no region. `Reload` clears and refills it, which is only safe because
-        nothing here owns it — a `@for` or an `@if` over this element would be reconciling against
-        children a caller's factory put there.
+        ⚠ No content and no region. `Reload` clears and refills the view's content, which is only safe
+        because nothing here owns it — a `@for` or an `@if` in here would be reconciling against
+        children a caller's factory put there. `Pane` is that content, not the view: a page's factory
+        adds rows to what it is handed, and the rows have to land inside the scroller.
     -->
-    <settings-pane ref="@Pane" />
+    <ScrollView tag="settings-pane" ref="@PaneView" />
 </settings-body>
 
 <settings-footer ref="@Footer">
@@ -134,11 +144,14 @@
     /// <summary>The search box over every setting on every page.</summary>
     public SearchBox Search { get; private set; } = null!;
 
-    /// <summary>The list of pages down the left.</summary>
-    public UiElement Rail { get; private set; } = null!;
+    /// <summary>The list of pages down the left, a scroller whose content holds the tabs.</summary>
+    public ScrollView Rail { get; private set; } = null!;
 
-    /// <summary>Where the chosen page is built.</summary>
-    public UiElement Pane { get; private set; } = null!;
+    /// <summary>The scroller the chosen page is built inside.</summary>
+    public ScrollView PaneView { get; private set; } = null!;
+
+    /// <summary>Where the chosen page is built: <see cref="PaneView" />'s content.</summary>
+    public UiElement Pane => PaneView.Content;
 
     /// <summary>The strip along the bottom.</summary>
     public UiElement Footer { get; private set; } = null!;

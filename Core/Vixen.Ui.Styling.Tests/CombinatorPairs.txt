@@ -98,12 +98,14 @@ profiler-view > data-grid	Editor/Vixen.Editor.Profiler/ProfilerTheme.vcss
 radial-item > icon	Core/Vixen.Ui.Controls/ControlTheme.vcss
 remote-body > tree-view	Editor/Vixen.Editor.Debugger/DebuggerTheme.vcss
 remote-write > textbox	Editor/Vixen.Editor.Debugger/DebuggerTheme.vcss
+scroll-content > button	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 scroll-view > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 segment > icon	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 segmented-control > segment	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 sequence-body > timeline	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 sequence-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
-settings-rail > button	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+settings-pane > scroll-content	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+settings-rail > scroll-content	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 shadergraph-editor > node-graph	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 shadergraph-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 shadergraph-source > code-editor	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss

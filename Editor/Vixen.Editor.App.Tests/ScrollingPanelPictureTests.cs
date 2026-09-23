@@ -73,6 +73,10 @@ public sealed class ScrollingPanelPictureTests {
     const int Width = 1600;
     const int Height = 1000;
 
+    static int WidthOf(EditorSession fixture) => (int)MathF.Round(fixture.Document.Viewport.ViewportWidth);
+
+    static int HeightOf(EditorSession fixture) => (int)MathF.Round(fixture.Document.Viewport.ViewportHeight);
+
     static readonly Color4 Background = new(0.05f, 0.05f, 0.05f, 1f);
 
     /// <summary>Where the pictures go, or null when nobody asked for any.</summary>
@@ -163,7 +167,28 @@ public sealed class ScrollingPanelPictureTests {
         Check(fixture, Scroller(fixture, "message-log-detail"), "message-log-detail");
     }
 
-    static EditorSession Start() => EditorSession.Start(new EditorSessionOptions { Width = Width, Height = Height });
+    /// <summary>The preferences window's page, on the page taller than a short window.</summary>
+    /// <remarks>
+    ///     ⚠ <b>640 px, because that is where it goes wrong.</b> The Appearance page is a button, a
+    ///     sentence and a theme editor that will not shrink below 220 px, and at this height the pane is
+    ///     229 px — so before the pane was a <c>ScrollView</c> the theme editor was cut off at the
+    ///     bottom with nothing to reach it, and on the General page the rows were squeezed over one
+    ///     another instead, because a scroll container drops its flex items' content floor.
+    /// </remarks>
+    [Fact]
+    public void The_settings_page_scrolls_inside_its_box_and_nowhere_else() {
+        using var fixture = Start(Width, 640);
+
+        var view = fixture.Control<SettingsView>("preferences");
+
+        Assert.True(view.Select("appearance"), "the preferences window has no Appearance page");
+        fixture.Settle();
+
+        Check(fixture, Scroller(fixture, "settings-pane"), "settings-pane");
+    }
+
+    static EditorSession Start(int width = Width, int height = Height) =>
+        EditorSession.Start(new EditorSessionOptions { Width = width, Height = height });
 
     /// <summary>Draws the editor at the top of the scroll and at the bottom, and holds the difference to the view.</summary>
     static void Check(EditorSession fixture, ScrollView view, string name) {
@@ -191,7 +216,7 @@ public sealed class ScrollingPanelPictureTests {
             Assert.True(
                 box.Left >= cut.Left && box.Top >= cut.Top && box.Right <= cut.Right && box.Bottom <= cut.Bottom,
                 $"<{view.Tag}> {box} is cut by <{ancestor.Tag}> {cut}, so the far end of its scroll is behind "
-                + $"that element's edge at {Width}×{Height}."
+                + $"that element's edge at {WidthOf(fixture)}×{HeightOf(fixture)}."
             );
         }
 
@@ -223,7 +248,7 @@ public sealed class ScrollingPanelPictureTests {
         }
 
         using var device = OpenDevice();
-        using var gpu = device is null ? null : new GpuPicture(device);
+        using var gpu = device is null ? null : new GpuPicture(device, WidthOf(fixture), HeightOf(fixture));
 
         view.ScrollTo(0f, 0f);
         fixture.Frames(2);
@@ -293,9 +318,10 @@ public sealed class ScrollingPanelPictureTests {
 
     static (Bitmap Software, Bitmap? Gpu) Draw(EditorSession fixture, GpuPicture? gpu, string name) {
         var glyphs = new GlyphFieldCache(new GlyphAtlas(1024, 1024));
-        var geometry = new UiGeometryBuilder().Build(fixture.Document.Drawing, glyphs, new Rectangle(0, 0, Width, Height));
+        var (width, height) = (WidthOf(fixture), HeightOf(fixture));
+        var geometry = new UiGeometryBuilder().Build(fixture.Document.Drawing, glyphs, new Rectangle(0, 0, width, height));
 
-        var software = SoftwareUiRasterizer.Render(geometry, glyphs.Atlas, Width, Height, Background);
+        var software = SoftwareUiRasterizer.Render(geometry, glyphs.Atlas, width, height, Background);
         var hardware = gpu?.Render(geometry, glyphs.Atlas);
 
         if (Destination is { Length: > 0 } directory) {
@@ -388,7 +414,7 @@ public sealed class ScrollingPanelPictureTests {
     }
 
     /// <summary>One device, one renderer, one target, drawn into and read back once per picture.</summary>
-    sealed class GpuPicture(VulkanDevice device) : IDisposable {
+    sealed class GpuPicture(VulkanDevice device, int width, int height) : IDisposable {
         readonly UiRenderer renderer = new(device, UiShaderLibrary.Load(device), new RenderOutput([PixelFormat.Rgba8UNorm]));
 
         public Bitmap Render(in UiGeometry geometry, GlyphAtlas atlas) {
@@ -397,22 +423,22 @@ public sealed class ScrollingPanelPictureTests {
             var target = device.CreateTexture(
                 new(
                     PixelFormat.Rgba8UNorm,
-                    Width,
-                    Height,
+                    width,
+                    height,
                     TextureUsage.ColourTarget | TextureUsage.Sampled | TextureUsage.CopySource,
                     Name: "scrolling panel picture"
                 )
             );
 
             var view = device.CreateTextureView(target);
-            var bytes = Width * Height * 4;
+            var bytes = width * height * 4;
             var readback = device.CreateBuffer(new(bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "readback"));
 
             device.BeginFrame();
 
             using (var commands = device.BeginCommandList(QueueKind.Graphics, "scrolling panel picture")) {
                 renderer.Upload(commands, geometry, atlas);
-                renderer.Compose(commands, geometry, new Int2(Width, Height), beneath: new UiBackdropSource(Background));
+                renderer.Compose(commands, geometry, new Int2(width, height), beneath: new UiBackdropSource(Background));
 
                 commands.Barrier(
                     new BarrierGroup([], [new TextureBarrier(target, ResourceState.Undefined, ResourceState.ColourTarget)])
@@ -422,7 +448,7 @@ public sealed class ScrollingPanelPictureTests {
                     new([new ColourAttachment(view, LoadAction.Clear, StoreAction.Store, Background)], name: "scrolling panel picture")
                 );
 
-                renderer.Record(commands, geometry, new Int2(Width, Height));
+                renderer.Record(commands, geometry, new Int2(width, height));
 
                 commands.EndRenderPass();
 
@@ -430,7 +456,7 @@ public sealed class ScrollingPanelPictureTests {
                     new BarrierGroup([], [new TextureBarrier(target, ResourceState.ColourTarget, ResourceState.CopySource)])
                 );
 
-                commands.CopyTextureToBuffer(new TextureRegion(target), new(Width, Height, 1), readback, 0);
+                commands.CopyTextureToBuffer(new TextureRegion(target), new(width, height, 1), readback, 0);
 
                 commands.Finish();
                 device.GraphicsQueue.Submit([commands]);
@@ -453,7 +479,7 @@ public sealed class ScrollingPanelPictureTests {
                 + string.Join(Environment.NewLine, VulkanDiagnostics.Messages)
             );
 
-            return new Bitmap(Width, Height, pixels);
+            return new Bitmap(width, height, pixels);
         }
 
         public void Dispose() => renderer.Dispose();

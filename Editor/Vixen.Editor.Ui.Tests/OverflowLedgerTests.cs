@@ -18,7 +18,7 @@ namespace Vixen.Editor.Ui.Tests;
 ///         kinds (#1275), and the issue counted six more. ⚠ <b>The count was twenty-four</b>: the
 ///         issue grepped the shorthand, and <c>overflow-y: auto</c> is the same defect spelt for one
 ///         axis — sixteen more rules across the two editor themes, every one on a side panel or a
-///         list. Seventeen of the twenty-four are converted; the seven below say why they are not.
+///         list. Nineteen of the twenty-four are converted; the five below say why they are not.
 ///     </para>
 ///     <para>
 ///         <b>This is the build-time half of the report; <c>UiDocument</c>'s 7009 is the run-time
@@ -62,13 +62,18 @@ public class OverflowLedgerTests {
     ///         is what makes them one batch rather than nine judgements.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The seven that are left are each left for a reason, not for want of time.</b>
-    ///         <c>override-body</c>, <c>settings-rail</c> and <c>settings-pane</c> carry
-    ///         <b>child-combinator</b> rules (<c>override-body &gt; override-row</c>,
-    ///         <c>settings-rail &gt; button.settings-tab</c>, <c>settings-pane &gt;
-    ///         .filtered-out</c>), and a <c>ScrollView</c> puts a <c>scroll-content</c> between the
-    ///         box and its rows — so converting one silently stops three rules matching, which is a
-    ///         separate change with a separate picture to check. <c>input-debug</c> is a
+    ///         ⚠ <b><c>settings-rail</c> and <c>settings-pane</c> went next, and their reason was
+    ///         the child combinators.</b> A <c>ScrollView</c> puts a <c>scroll-content</c> between the
+    ///         box and its rows, so <c>settings-rail &gt; button.settings-tab</c> and
+    ///         <c>settings-pane &gt; .filtered-out</c> became <c>… &gt; scroll-content &gt; …</c> — and
+    ///         the picture caught a third thing the combinators did not: the tabs' <c>width: 100%</c>
+    ///         had nothing definite to take a share of inside the content and the selected tab's
+    ///         highlight shrank to its label. <c>ScrollingPanelPictureTests</c> holds the page.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The five that are left are each left for a reason, not for want of time.</b>
+    ///         <c>override-body</c> carries a <b>child-combinator</b> rule
+    ///         (<c>override-body &gt; override-row</c>) and scrolls sideways. <c>input-debug</c> is a
     ///         <i>component's own host tag</i> (<c>@tag</c> in <c>InputDebugView.vxml</c>), and a
     ///         host element is built by the runtime as a plain <c>UiElement</c>: it cannot be given
     ///         a control's type from the sheet's side at all, so that one wants a scroller inside
@@ -85,9 +90,7 @@ public class OverflowLedgerTests {
         "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:override-body",
         "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:sprite-list",
         "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:mixer-strips",
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:input-debug",
-        "Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss:settings-rail",
-        "Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss:settings-pane"
+        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:input-debug"
     ];
 
     [Fact]

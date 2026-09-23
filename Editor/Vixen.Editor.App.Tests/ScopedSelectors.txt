@@ -208,6 +208,8 @@ select icon	Started
 sequence-body > timeline	Documents
 sequence-side > scroll-content	Documents
 settings-header search-box	Panels
+settings-pane > scroll-content	Panels
+settings-rail > scroll-content	Panels
 shadergraph-editor > node-graph	Documents
 shadergraph-side > scroll-content	Documents
 shadergraph-source > code-editor	Documents
