@@ -73,11 +73,16 @@ namespace Vixen.Editor.App.Tests;
 ///         either. And again, in the same sweep, with <c>key-value-value level-indicator</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Regenerating fixes the symptom and leaves the gap</b>, so the standing instruction
-///         is the one thing that closes it: <b>an edit to any committed <c>.vcss</c> that adds,
-///         removes or renames a <c>A &gt; B</c> rule with a bare type on both sides owes a run of
-///         this project before it is called done</b>, whichever assembly the sheet lives in. It is
-///         the slow suite, and it is the only one that can answer.
+///         ⚠ <b>Regenerating fixes the symptom and leaves the gap</b>, and the gap is closed now in
+///         the suite that owns the domain rather than by an instruction here (#1349).
+///         <c>CombinatorCensusDriftTests</c> in <c>Vixen.Ui.Styling.Tests</c> joins this project's
+///         committed censuses, the controls' two and <c>UnprovedCombinatorPairs.txt</c> against the
+///         pairs the sheets declare <i>now</i>, and holds <c>ScopedSelectors.txt</c>'s selector
+///         column against the same <c>TypeOnlySelectors</c> reader this class compiles. So a sheet
+///         edit that adds a pairing nothing proves, strands a proof, or adds or removes a type-only
+///         selector is red where its author is already standing. What it cannot do is say whether
+///         the new pairing is <i>built</i> — only the sweeps here can — so its message sends its
+///         reader to this project to regenerate, and this is still the only suite that can answer.
 ///     </para>
 /// </remarks>
 public partial class EditorCombinatorPairTests {

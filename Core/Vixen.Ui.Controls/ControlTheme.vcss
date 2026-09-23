@@ -29,13 +29,14 @@
    `UserAgent`, which is what makes the ladder mean anything; a game's own sheet is `Author` and
    beats the whole of it regardless of what either says about layers. See `docs/guide/ui/cascade-layers.md`.
 
-   ⚠ **An `A > B` rule added or removed here is gated from `Editor/Vixen.Editor.App.Tests`, which no
-   `Vixen.Ui.*` test run reaches.** The domain is `Core/Vixen.Ui.Styling.Tests/CombinatorPairs.txt`
-   and the proofs are five censuses in that editor project, so a child-combinator edit in this file
-   is green in every suite its author would think to start and red only in a ten-minute one they
-   have no reason to. That has already left master red for three weeks once. Run
-   `dotnet test Editor/Vixen.Editor.App.Tests` before calling such an edit done;
-   `EditorCombinatorPairTests`' own remarks carry the history. */
+   ⚠ **An `A > B` rule, or any selector spelled only in tags, added or removed here goes red in
+   `Core/Vixen.Ui.Styling.Tests`** — `CombinatorPairTests` for the domain, and
+   `CombinatorCensusDriftTests` for the censuses that prove it, which live in
+   `Vixen.Ui.Controls.Advanced.Tests` and `Vixen.Editor.App.Tests`. Until #1349 only the domain was
+   checked there, so regenerating it as that suite says left an edit green in every suite its author
+   would start and red only in the ten-minute editor one; that left master red for weeks. The drift
+   test cannot build anything, so when it names a pairing, run the suite it names to regenerate the
+   census, and read the verdicts before committing them. */
 
 @layer base, components, utilities;
 
