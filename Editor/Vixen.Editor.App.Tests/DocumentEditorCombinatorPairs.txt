@@ -45,6 +45,7 @@ code-column > code-editor
 code-editor-pane > code-column
 color-input > color-swatch
 compositor-editor > node-graph
+console-detail > scroll-content
 debugger-body > tree-view
 device-manager > data-grid
 dock-guide > dock-hint
@@ -68,6 +69,7 @@ inspector-row > inspector-label
 material-bar > textbox
 material-editor > image
 memory-view > scroll-view
+message-log-detail > scroll-content
 mixer-body > mixer-strips
 mixer-strip > slider
 mode-bar > toolbar

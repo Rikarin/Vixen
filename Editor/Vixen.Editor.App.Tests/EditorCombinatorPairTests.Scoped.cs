@@ -166,6 +166,44 @@ public partial class EditorCombinatorPairTests {
         Assert.Empty(MirrorSightings);
     }
 
+    /// <summary>
+    ///     Every depth the ladder names was actually swept, so a <c>-</c> verdict means no sweep
+    ///     matched the selector rather than that no sweep ran.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one thing a census of verdicts cannot say about itself.</b>
+    ///         <see cref="VerdictOf" /> walks <see cref="Ladder" /> and reads
+    ///         <see cref="Matched" />; a depth the climb never ran has no entry there, so every
+    ///         selector only that depth reaches silently becomes <c>-</c> — the exact spelling of "a
+    ///         sheet declares this and nothing builds it". A missing sweep would therefore be
+    ///         regenerated into the census as 44 dead rules and read as a finding.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This used to be true only by hand.</b> <c>Ladder</c> has been derived from the
+    ///         <c>Depth</c> enum for two passes while the climb still forced the sweeps by naming
+    ///         four properties, so a fifth depth would have joined the ladder and never been swept.
+    ///         The climb is over the ladder now, and this is what makes that a property rather than
+    ///         a reading of the method: with the old climb and a fifth member, this fails at
+    ///         "4 of 5".
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_depth_on_the_ladder_is_swept_before_a_verdict_is_read() {
+        Climb();
+
+        Assert.True(Ladder.Length >= 4, $"the ladder has only {Ladder.Length} depths, which is not this class's four sweeps.");
+
+        var unswept = Ladder.Where(static depth => !Matched.ContainsKey(depth)).ToList();
+
+        Assert.True(
+            unswept.Count == 0,
+            $"the climb ran {Matched.Count} of the ladder's {Ladder.Length} sweeps — "
+            + $"{string.Join(", ", unswept)} never ran, so every selector only that depth reaches is "
+            + "written into the scoped census as '-', which is the spelling of a dead rule."
+        );
+    }
+
     /// <summary>The scoped census is exactly what is committed, verdict for verdict.</summary>
     /// <remarks>
     ///     <para>
@@ -288,10 +326,7 @@ public partial class EditorCombinatorPairTests {
     /// <summary>The shallowest depth that matched a selector, or null when none did.</summary>
     /// <remarks>Forces every sweep, since a verdict is over the whole ladder.</remarks>
     static Depth? VerdictOf(string selector) {
-        _ = Observed;
-        _ = Opened;
-        _ = Documents;
-        _ = Overlays;
+        Climb();
 
         foreach (var depth in Ladder) {
             if (Matched.TryGetValue(depth, out var matched) && matched.Contains(selector)) {
