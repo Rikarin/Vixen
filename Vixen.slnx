@@ -609,6 +609,7 @@
     <Project Path="Tools/Vixen.Templates.Tests/Vixen.Templates.Tests.csproj" />
     <Project Path="Tools/Vixen.TextRenderingTestGen/Vixen.TextRenderingTestGen.csproj" />
     <Project Path="Tools/Vixen.UnicodeTableGen/Vixen.UnicodeTableGen.csproj" />
+    <Project Path="Tools/Vixen.UnicodeTableGen.Tests/Vixen.UnicodeTableGen.Tests.csproj" />
     <Project Path="Tools/Vixen.YogaTestGen/Vixen.YogaTestGen.csproj" />
   </Folder>
 

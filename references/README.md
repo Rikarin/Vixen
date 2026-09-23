@@ -90,10 +90,19 @@ dotnet run --project Tools/Vixen.UnicodeTableGen -- \
 
 Then two things go red on purpose and are the checklist: `GeneratedUnicodeVersionTests` refuses a
 table its list does not name, so the two names go into `Tables`; and `SoftDottedClass` is a public
-enum like its siblings, so `CheckApi`'s baseline moves. ⚠ The generator was proved against a
+enum like its siblings, so `CheckApi`'s baseline moves. ⚠ The generator is proved against a
 hand-written slice of both files in the shape the UCD writes them, not against the real ones — the
 first real run is the first time the range counts are meaningful, and ~400 combining-class ranges is
 the order of magnitude to expect.
+
+⚠ **That slice is `Tools/Vixen.UnicodeTableGen.Tests` and not a run somebody once made.** It was the
+second for a while: the commit that taught the generator these two tables said it had been proved
+against a hand-written database, and the database was in a temporary directory — so the claim was
+true of one afternoon and of no machine afterwards, which is the same thing as untrue. The fixtures
+now live in the suite, the three casing arms are driven through `Main`, and the properties that hold
+are the ones a reader of a generated table depends on: class 0 by omission, adjacent equal classes
+merged, one property taken out of a file of many, each table's version read from its own header, and
+a source file that is absent failing the run rather than writing a table of nothing.
 
 ## What each one is for
 

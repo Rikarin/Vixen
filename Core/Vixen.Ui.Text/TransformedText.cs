@@ -137,6 +137,16 @@ public sealed class TransformedText {
     ///         whose "no intervening character of class 0 or 230" is the same missing data.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>Of those, <c>Not_Before_Dot</c> is the one producing wrong output rather than
+    ///         none.</b> The two-character row below asks whether the <i>next</i> character is
+    ///         U+0307, where the condition asks whether the next one that is not an intervening mark
+    ///         is — so <c>I</c> + a class-220 mark + U+0307 under <c>tr</c> comes out as a dotless
+    ///         <c>ı</c> carrying both marks, where it is a plain <c>i</c> whose dot <c>After_I</c>
+    ///         removes. <c>TurkicCasingTests.A_capital_I_whose_dot_is_one_mark_away_is_still_dotless_and_should_not_be</c>
+    ///         asserts that answer deliberately, so the day the classes land is a test that changes
+    ///         rather than a defect somebody rediscovers.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>No <c>CultureInfo</c>, deliberately and not merely incidentally.</b> The tag is
     ///         read from the element, so the same document uppercases the same way on a Turkish
     ///         laptop and on CI — the property <c>TextShaper</c> protects for shaping, held here for

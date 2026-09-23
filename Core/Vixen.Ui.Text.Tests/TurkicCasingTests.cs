@@ -105,6 +105,47 @@ public class TurkicCasingTests {
         Assert.Equal("ai̇b", TransformedText.Of("AİB", TextTransform.Lowercase).Text);
     }
 
+    /// <summary>A capital <c>I</c> separated from its dot by another mark comes out dotless, and should not.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This asserts the wrong answer on purpose, because the row is producing wrong
+    ///         output today rather than merely missing.</b> SpecialCasing's two <c>tr</c> rows are
+    ///         <c>0049; 0131; …; tr Not_Before_Dot</c> and <c>0307; ; …; tr After_I</c>, and
+    ///         "before dot" skips an intervening character that is neither combining class 0 nor
+    ///         230. U+0316 is class 220, so the dot above is still the dot of this <c>I</c>: the
+    ///         dotless row does not apply, the letter is a plain <c>i</c>, and <c>After_I</c> takes
+    ///         the dot away — <c>i̖</c>. What comes out instead is a dotless <c>ı</c> with
+    ///         both marks left on it, which is a different letter in Turkish and a second dot in any
+    ///         language.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is not a bug with a fix in this file.</b> The condition is a question about
+    ///         combining classes and no generated table in this assembly carries them, which is
+    ///         #913; this row and the two Lithuanian ones are the same predicate and land together.
+    ///         Pinned rather than left to be rediscovered, exactly as
+    ///         <c>LithuanianCasingTests.A_capital_i_with_a_separate_mark_is_left_alone</c> is — when
+    ///         the class data lands, this is a test that has to change, and that is the point of it.
+    ///     </para>
+    ///     <para>
+    ///         The second assertion is the boundary and is <i>right</i> today: with nothing between
+    ///         them the two-character row in <c>TransformedText.Of</c> does fire. So what separates
+    ///         the working case from the broken one is exactly one intervening mark, which is the
+    ///         difference a reader of either of them should be able to see.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_capital_I_whose_dot_is_one_mark_away_is_still_dotless_and_should_not_be() {
+        // `I`, COMBINING GRAVE ACCENT BELOW (canonical combining class 220), COMBINING DOT ABOVE —
+        // in escapes, because the three of them draw as one glyph and the whole test is which three.
+        var transformed = TransformedText.Of("İ̖", TextTransform.Lowercase, "tr");
+
+        // Owed: "i̖".
+        Assert.Equal("ı̖̇", transformed.Text);
+
+        // The immediate-neighbour case, which is right: the letter loses its separate dot.
+        Assert.Equal("i", TransformedText.Of("İ", TextTransform.Lowercase, "tr").Text);
+    }
+
     /// <summary>The instrument's own check: the obvious implementation could not have been shown wrong.</summary>
     /// <remarks>
     ///     ⚠ <b>This asserts a fact about the test host, not about Vixen</b>, and it is here because
