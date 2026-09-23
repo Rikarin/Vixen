@@ -8,12 +8,12 @@ using Vixen.Ui.Renderer;
 
 namespace Vixen.Ui.Desktop;
 
-/// <summary>The eight modules <see cref="UiRenderer" /> draws with, embedded and compiled on demand.</summary>
+/// <summary>The nine modules <see cref="UiRenderer" /> draws with, embedded and compiled on demand.</summary>
 /// <remarks>
 ///     <para>
 ///         <b>The whole set, because half of it is optional in the way that hurts.</b>
-///         <see cref="UiShaders" /> takes four stages positionally and four as init properties, and
-///         the four optional ones are documented — correctly — as degrading to a picture rather than
+///         <see cref="UiShaders" /> takes four stages positionally and five as init properties, and
+///         the five optional ones are documented — correctly — as degrading to a picture rather than
 ///         to a failure. That is exactly what makes forgetting them expensive: an application with no
 ///         <c>Image</c> stage has <c>UiRenderer.Compose</c> return having done nothing, so every
 ///         faded subtree draws at full strength and a disabled button comes out opaque. One with no
@@ -46,7 +46,7 @@ namespace Vixen.Ui.Desktop;
 public static class UiShaderLibrary {
     /// <summary>Compiles every stage against a device.</summary>
     /// <param name="device">The device to create the modules on.</param>
-    /// <returns>A complete shader table: four required stages and all four optional ones.</returns>
+    /// <returns>A complete shader table: four required stages and all five optional ones.</returns>
     /// <remarks>
     ///     ⚠ <b>Once per device, not once per window.</b> A <see cref="ShaderHandle" /> is a module
     ///     and a module is not a pipeline — two windows each build their own
@@ -80,6 +80,11 @@ public static class UiShaderLibrary {
             // module — which is why supplying this one without `Colour` would be stranger than
             // supplying neither: `grayscale` would then work on masked elements and nowhere else.
             Mask = device.CreateShader(ShaderStage.Fragment, Module("UiMask.frag.spv"), "ui mask"),
+
+            // `mix-blend-mode`: the group's surface mixed with a capture of what it lands on, by
+            // § 5.1's arithmetic, then composited source-over like every other group (#783). The one
+            // stage with a second descriptor set — see `UiShaders.Blend`.
+            Blend = device.CreateShader(ShaderStage.Fragment, Module("UiBlend.frag.spv"), "ui blend"),
 
             // ⚠ Read out of Raven's reflection rather than written down — see the remark on the
             // class. `Vixen.Shaders.Generators` turns `Shaders/UiVertex.reflect.json` into these five

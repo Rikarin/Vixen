@@ -180,9 +180,10 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     ///         nothing.</b> A consumer that ignores this composites the group source-over, which is
     ///         the same bargain <see cref="Blur" /> and <see cref="Filter" /> make: the picture the
     ///         frame would have had without the declaration rather than a wrong one. ⚠ <c>UiRenderer</c>
-    ///         is such a consumer today — the device has no read of the destination in the UI pass —
-    ///         so a blended group is a divergence between the two executors rather than a shared
-    ///         picture, and <c>docs/guide/ui/compositing.md</c> prices closing it.
+    ///         was such a consumer until #783; it now composites a blended group through
+    ///         <c>UiBlend</c> against a replayed capture of what the composite lands on, and remains
+    ///         one only for the arrangements <c>UiRenderer.Unblended</c> counts — see
+    ///         <c>docs/guide/ui/compositing.md</c>.
     ///     </para>
     /// </remarks>
     public UiBlendMode Blend { get; init; }
