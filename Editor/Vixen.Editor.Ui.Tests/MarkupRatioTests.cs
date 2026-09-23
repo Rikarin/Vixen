@@ -93,6 +93,144 @@ public class MarkupRatioTests {
         }
     }
 
+    /// <summary>
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1342">#1342</a>: the module README's port
+    ///     table — the half a porting wave actually reads — says the same thing as the ledger about
+    ///     every view the ledger names.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The ledger was gated in both directions and the reasoning beside it in nothing</b>,
+    ///         and they disagreed for four waves: the README declined <c>SceneHierarchyView</c> as "not
+    ///         a panel" while the ledger listed it as a candidate, and every wave read the README. A
+    ///         port has to touch both files; this is what makes forgetting the second one red.
+    ///     </para>
+    ///     <para>
+    ///         A row's verdict is its fourth cell with every <c>~~struck~~</c> span removed — the
+    ///         table records each reversal by striking the old verdict rather than deleting it, so the
+    ///         <em>live</em> verdict is what is left. It is a decline when it starts <c>no</c> or
+    ///         <c>not a panel</c>, done when <c>done</c> is among its first three words, and open
+    ///         otherwise.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_readme_port_table_agrees_with_the_ledger_about_every_view_it_names() {
+        var root = RepositoryRoot();
+        var (withMarkup, _) = Measure(root);
+        var ledger = ReadLedger(root);
+        var rows = ReadReadmeLedger(root);
+
+        var ported = withMarkup.Select(Path.GetFileNameWithoutExtension).ToHashSet(StringComparer.Ordinal);
+        var pending = ledger.Where(entry => entry.Value.StartsWith("pending", StringComparison.Ordinal))
+            .Select(entry => Path.GetFileNameWithoutExtension(entry.Key)!)
+            .ToHashSet(StringComparer.Ordinal);
+        var declined = ledger.Keys.Select(path => Path.GetFileNameWithoutExtension(path)!)
+            .Except(pending, StringComparer.Ordinal)
+            .ToHashSet(StringComparer.Ordinal);
+
+        List<string> disagreements = [];
+
+        foreach (var name in ledger.Keys.Select(path => Path.GetFileNameWithoutExtension(path)!).Order(StringComparer.Ordinal)) {
+            var named = rows.Where(row => row.Names.Contains(name)).ToList();
+
+            if (named.Count == 0) {
+                disagreements.Add($"{name} is in {Ledger} and in no row of the README's port table");
+
+                continue;
+            }
+
+            foreach (var row in named) {
+                if (pending.Contains(name) && row.Verdict != ReadmeVerdict.Open) {
+                    disagreements.Add($"{name} is pending in {Ledger} and the README's row says {row.Verdict}: '{row.Live}'");
+                } else if (declined.Contains(name) && row.Verdict != ReadmeVerdict.Declined) {
+                    disagreements.Add($"{name} is '{ledger.First(entry => Path.GetFileNameWithoutExtension(entry.Key) == name).Value}' in {Ledger} and the README's row says {row.Verdict}: '{row.Live}'");
+                }
+            }
+        }
+
+        foreach (var row in rows.Where(row => row.Verdict == ReadmeVerdict.Declined)) {
+            foreach (var name in row.Names.Where(ported.Contains)) {
+                disagreements.Add($"{name} has a .vxml beside it and the README's row still declines it: '{row.Live}'");
+            }
+        }
+
+        // A row whose every named view has markup and none is still pending has been ported; an open
+        // verdict on it is the history's first sentence and not its last.
+        foreach (var row in rows.Where(row => row.Verdict == ReadmeVerdict.Open)) {
+            if (row.Names.Any(ported.Contains) && !row.Names.Any(pending.Contains)) {
+                disagreements.Add($"{string.Join(" · ", row.Names.Where(ported.Contains))} has a .vxml beside it and the README's row reads as still open: '{row.Live}'");
+            }
+        }
+
+        Assert.True(
+            disagreements.Count == 0,
+            "Editor/Vixen.Editor.Ui/README.md's port table (under '### The ledger') and " + Ledger
+            + " disagree — a port or a decline owes both files (#1342):\n  " + string.Join("\n  ", disagreements)
+        );
+
+        // ⚠ The instrument. A parser that found no table, or a table whose verdicts all read as one
+        // class, would pass every line above vacuously.
+        Assert.True(rows.Count >= 25, $"only {rows.Count} row(s) of the README's port table were read");
+        Assert.Contains(rows, row => row.Verdict == ReadmeVerdict.Done);
+        Assert.Contains(rows, row => row.Verdict == ReadmeVerdict.Declined);
+        Assert.Contains(rows, row => row.Verdict == ReadmeVerdict.Open);
+        Assert.NotEmpty(pending);
+    }
+
+    enum ReadmeVerdict {
+        Open,
+        Declined,
+        Done
+    }
+
+    sealed record ReadmeRow(HashSet<string> Names, string Live, ReadmeVerdict Verdict);
+
+    /// <summary>The rows of the table under <c>### The ledger</c> in the module README.</summary>
+    static List<ReadmeRow> ReadReadmeLedger(string root) {
+        const string Readme = "Editor/Vixen.Editor.Ui/README.md";
+        var lines = File.ReadAllLines(Path.Combine(root, Readme));
+        var heading = Array.IndexOf(lines, "### The ledger");
+
+        Assert.True(heading >= 0, $"{Readme} has no '### The ledger' heading");
+
+        var header = Array.FindIndex(lines, heading, line => line.StartsWith("| Panel |", StringComparison.Ordinal));
+
+        Assert.True(header > heading, $"{Readme}: no '| Panel |' table under '### The ledger'");
+
+        List<ReadmeRow> rows = [];
+
+        // Header, then the |---| separator, then rows until the first line that is not one.
+        for (var index = header + 2; index < lines.Length && lines[index].StartsWith('|'); index++) {
+            // ⚠ A cell may carry an escaped pipe (`State \|= Checked`), which is not a column.
+            var cells = Regex.Split(lines[index].Trim().Trim('|'), @"(?<!\\)\|");
+
+            Assert.True(cells.Length >= 4, $"{Readme}: a port-table row with {cells.Length} cell(s): {lines[index]}");
+
+            var names = Regex.Matches(cells[0], @"`(\w+)`").Select(match => match.Groups[1].Value)
+                .ToHashSet(StringComparer.Ordinal);
+            var live = Regex.Replace(cells[3], "~~.*?~~", "").Replace("*", "").Trim();
+            var verdict = Regex.IsMatch(live, @"^(?:no|not\s+(?:a\s+)?panels?)\b", RegexOptions.IgnoreCase)
+                ? ReadmeVerdict.Declined
+                : Regex.IsMatch(live, @"^(?:\w+\s+){0,2}done\b", RegexOptions.IgnoreCase)
+                    ? ReadmeVerdict.Done
+                    : ReadmeVerdict.Open;
+
+            rows.Add(new(names, live.Length > 80 ? live[..80] + "…" : live, verdict));
+        }
+
+        // ⚠ A blank line inside a cell ends a Markdown table, and every row after it renders as loose
+        // pipe text under a paragraph — which is how this table lost its whole decline half for three
+        // weeks (#1342). A row-shaped line before the next heading is one the table no longer holds.
+        for (var index = header + 2 + rows.Count; index < lines.Length && !lines[index].StartsWith('#'); index++) {
+            Assert.False(
+                lines[index].StartsWith("| `", StringComparison.Ordinal),
+                $"{Readme}:{index + 1} is a port-table row outside the table — a blank line above it ended the table: {lines[index][..Math.Min(80, lines[index].Length)]}"
+            );
+        }
+
+        return rows;
+    }
+
     /// <summary>The two module partials the issue's audit miscounted are not views, and their views are markup.</summary>
     [Fact]
     public void A_module_partial_that_registers_a_markup_view_is_not_a_hand_built_view() {

@@ -23,6 +23,14 @@
 #                bumping a revision counter to force redraws is the thing to avoid — and, because a
 #                port is a visual change, an A/B of the same panel before and after.
 #
+# ⚠ This file is the half that is counted; the half a porting wave READS is the port table under
+# "### The ledger" in Editor/Vixen.Editor.Ui/README.md, which carries the reasoning. They disagreed
+# for four waves (#1342: the README declined SceneHierarchyView while this file listed it pending),
+# so `MarkupRatioTests.The_readme_port_table_agrees_with_the_ledger_about_every_view_it_names` now
+# requires every view named here to have a README row whose live verdict agrees — `pending` is an
+# open row, canvas/machinery/not-a-view is a "no"/"not a panel" row — and no row to decline or leave
+# open a view that has a `.vxml`. A port or a decline owes both files in the same commit.
+#
 # Measured 2026-09-23: 38 view-shaped types have a `.vxml`, 25 do not, and 9 of those 25 are
 # candidates: SceneHierarchyView was the tenth of the ten and is ported (#1322).
 # The audit on the issue counted 34/23 on 2026-09-04 and listed InputDebugPanel and
