@@ -10,21 +10,23 @@
 #     listed, goes red until somebody says here what answers it;
 #   * each `tag: value` must be what `ControlTheme` + `AdvancedTheme` actually resolve on an element of
 #     that tag;
-#   * each `undecided:` tag must resolve to no declaration at all, so the day somebody decides, this file
-#     is where it is recorded.
+#   * each `mouse-only:` tag must resolve to no declaration at all. Those files capture for a MOUSE's
+#     selection drag only — a finger or a pen begins no selection there, so its drag is meant to reach
+#     the scroll view, and a row would take that away.
 #
 # The tag is the element the FINGER lands on, which is not always the element that captures —
 # `DataGrid` captures on the grid for a press on a header cell, and the paint views capture on the
-# `ImageView` they own. `undecided` is the text-selection shape, where no keyword is right because the
-# drag that scrolls is the drag that selects: see `TouchActionTests` and #225.
+# `ImageView` they own. `mouse-only` is the text-selection shape, where no keyword is right because the
+# drag that scrolls is the drag that selects; it is settled in the control instead (`TextField.Pointed`,
+# `CodeEditor.Pointed`), and `TouchActionTests` / `AdvancedTouchActionTests` prove the finger's half.
 #
 # path | sites | answer
 Core/Vixen.Ui.Controls/Range.cs | 2 | slider: none; range-slider: none
 Core/Vixen.Ui.Controls/ScrollView.cs | 1 | scrollbar: none
 Core/Vixen.Ui.Controls/SplitView.cs | 1 | split-bar: none
-Core/Vixen.Ui.Controls/TextField.cs | 1 | undecided: textbox; secure-textbox; textarea; search-box
+Core/Vixen.Ui.Controls/TextField.cs | 1 | mouse-only: textbox; secure-textbox; textarea; search-box
 Core/Vixen.Ui.Controls/TextInputs.cs | 1 | numeric-input: pan-y
-Core/Vixen.Ui.Controls.Advanced/CodeEditor.cs | 1 | undecided: code-editor
+Core/Vixen.Ui.Controls.Advanced/CodeEditor.cs | 1 | mouse-only: code-editor
 Core/Vixen.Ui.Controls.Advanced/ColorPicker.cs | 2 | color-strip: pan-y; color-field: none
 Core/Vixen.Ui.Controls.Advanced/CurveEditor.cs | 3 | curve-editor: none
 Core/Vixen.Ui.Controls.Advanced/DataGrid.cs | 2 | data-header-cell: pan-y

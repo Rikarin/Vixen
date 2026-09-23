@@ -357,56 +357,121 @@ public class TouchActionTests {
         fixture.Release(x - (Step * 3), y, type: PointerType.Touch);
     }
 
+    /// <summary>A text field of each tag with enough text that a drag across it would select something.</summary>
+    static TextField Field(UiDocument document, UiElement parent, string tag) {
+        TextField field = tag == "textarea"
+            ? document.Create<TextArea>(null, parent, "knob")
+            : document.Create<TextBox>(null, parent, "knob");
+
+        field.Value = "alpha bravo charlie delta echo foxtrot golf hotel india juliet";
+
+        return field;
+    }
+
     /// <summary>
-    ///     ⚠ <b>The family the theme leaves undeclared, measured rather than assumed — and it has the
-    ///     defect the rules above fix.</b> <see cref="TextField" /> captures the pointer at
-    ///     <c>TextField.cs:1284</c> to keep a selection drag alive past its own border, which is the
-    ///     sixth <c>CapturePointer</c> call site in <c>Vixen.Ui.Controls</c> and the one no rule
-    ///     names. So a finger dragging inside a <c>textbox</c> or a <c>textarea</c> in a list moves
-    ///     the caret <i>and</i> scrolls the list by the whole travel, exactly as a slider did.
+    ///     ⚠ <b>The family the theme could not settle, settled in the control (#1357).</b>
+    ///     <see cref="TextField" /> captured a finger for its selection drag, so a finger dragging
+    ///     inside a <c>textbox</c> or a <c>textarea</c> in a list moved the caret <i>and</i> scrolled
+    ///     the list by the whole travel, exactly as a slider did. No keyword was the answer — a
+    ///     blanket <c>none</c> makes a form unscrollable from anywhere a finger lands, and
+    ///     <c>pan-y</c> does not help because the drag that scrolls is the vertical one — so the
+    ///     field now does what a browser does: a finger's drag is the view's, and begins no selection.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This asserts the defect, deliberately, because the remedy is a behaviour decision
-    ///         and not a missing line.</b> A blanket <c>none</c> on <c>textbox</c> would make a form
-    ///         of text fields unscrollable from anywhere a finger naturally lands — the trap the
-    ///         <c>numeric-input</c> comment in <c>ControlTheme.vcss</c> warns about — and <c>pan-y</c>
-    ///         would not help, because the drag measured here <i>is</i> the vertical one and the
-    ///         field takes it anyway. What browsers do instead is not begin a text selection from a
-    ///         plain finger drag at all, which is a change in <c>TextField.Pointed</c> rather than in
-    ///         a stylesheet, and is the same change <c>docs/InertProperties.txt</c> records as the
-    ///         one that would expire <c>user-select</c>'s refusal (#225).
+    ///         ⚠ <b>Diagonal, because a vertical drag in a single-line field selects nothing
+    ///         anyway.</b> The caret follows the drag's <c>x</c>, so a straight vertical drag lands on
+    ///         the index it started from and "selected nothing" would have been true of the defect.
+    ///         This one crosses a dozen characters: before the change it selected them.
     ///     </para>
     ///     <para>
-    ///         So the number is recorded where it can go red: the day somebody makes that decision,
-    ///         this theory fails and says to write the outcome into the guide and the theme. A
-    ///         sentence in a review comment would not have.
+    ///         ⚠ <b>And the view is asserted to move in the same gesture</b>, so "selected nothing" is
+    ///         not satisfied by a finger that never reached the field or a view that never scrolled.
     ///     </para>
     /// </remarks>
     [Theory]
     [InlineData("textbox")]
     [InlineData("textarea")]
-    public void A_finger_dragging_a_text_field_still_reaches_the_view_and_that_is_not_yet_decided(string tag) {
-        var (fixture, view, control) = Themed((document, parent) => tag == "textarea"
-            ? document.Create<TextArea>(null, parent, "knob")
-            : (UiElement)document.Create<TextBox>(null, parent, "knob"));
-
+    public void A_finger_dragging_a_text_field_scrolls_the_view_and_selects_nothing(string tag) {
+        var (fixture, view, control) = Themed((document, parent) => Field(document, parent, tag));
         using var _ = fixture;
 
-        var moved = DragAcross(fixture, view, 0f, -Step);
+        var field = (TextField) control;
+        var moved = DragAcross(fixture, view, -Step, -Step);
 
-        Assert.True(
-            moved.Top > 0f,
-            $"""
-             a finger dragging a `{tag}` no longer scrolls the view around it (top {moved.Top}).
+        Assert.True(moved.Top > 0f, $"a finger dragging a `{tag}` no longer scrolls the view around it (top {moved.Top})");
+        Assert.False(field.HasSelection, $"a finger's drag selected `{field.SelectedText}` in a `{tag}`");
+    }
 
-             Something now declares `touch-action` for the `TextField` family, or the field stopped
-             taking a finger's drag as a selection. Either is the decision this theory was waiting
-             for: say which in `docs/guide/ui/touch-action.md` beside the paragraph naming this
-             family as undeclared, add the row to `ControlTheme.vcss` if that is what was done, and
-             turn this into the refusal its siblings above are.
-             """
-        );
+    /// <summary>
+    ///     The paired half: the same drag with a mouse still selects, so what changed is the device's
+    ///     answer and not the field's ability to select.
+    /// </summary>
+    [Theory]
+    [InlineData("textbox")]
+    [InlineData("textarea")]
+    public void A_mouse_dragging_a_text_field_still_selects(string tag) {
+        var (fixture, view, control) = Themed((document, parent) => Field(document, parent, tag));
+        using var _ = fixture;
+
+        var field = (TextField) control;
+        var (x, y) = (view.Bounds.X + (view.Bounds.Width * 0.5f), view.Bounds.Y + (view.Bounds.Height * 0.5f));
+
+        fixture.Press(x, y, type: PointerType.Mouse);
+
+        for (var step = 1; step <= 3; step++) {
+            fixture.MovePointer(x - (Step * step), y, type: PointerType.Mouse);
+            fixture.Advance(Frame);
+        }
+
+        fixture.Release(x - (Step * 3), y, type: PointerType.Mouse);
+
+        Assert.True(field.HasSelection, $"a mouse drag across a `{tag}` selected nothing");
+    }
+
+    /// <summary>A finger's caret arrives on the tap — the release that says the press was not a scroll.</summary>
+    [Fact]
+    public void A_finger_tap_focuses_the_field_and_puts_the_caret_where_it_landed() {
+        var (fixture, view, control) = Themed(static (document, parent) => Field(document, parent, "textbox"));
+        using var _ = fixture;
+
+        var field = (TextField) control;
+        var (x, y) = (field.Bounds.X + (field.Bounds.Width * 0.5f), field.Bounds.Y + (field.Bounds.Height * 0.5f));
+
+        fixture.Press(x, y, type: PointerType.Touch);
+        Assert.False(field.IsFocused, "a finger's press focused the field before it could know the press was not a scroll");
+
+        fixture.Release(x, y, type: PointerType.Touch);
+
+        Assert.True(field.IsFocused);
+        Assert.True(field.CaretIndex > 0, $"the caret is at {field.CaretIndex}, not where the tap landed");
+        Assert.False(field.HasSelection);
+    }
+
+    /// <summary>Selection without a drag: a double tap, and a finger held still, each select the word under it.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_finger_selects_a_word_by_double_tap_or_by_holding_still(bool hold) {
+        var (fixture, view, control) = Themed(static (document, parent) => Field(document, parent, "textbox"));
+        using var _ = fixture;
+
+        var field = (TextField) control;
+        var (x, y) = (field.Bounds.X + (field.Bounds.Width * 0.5f), field.Bounds.Y + (field.Bounds.Height * 0.5f));
+
+        if (hold) {
+            fixture.Press(x, y, type: PointerType.Touch);
+            fixture.Advance(TimeSpan.FromSeconds(2));
+            fixture.Release(x, y, type: PointerType.Touch);
+        } else {
+            fixture.Press(x, y, type: PointerType.Touch);
+            fixture.Release(x, y, type: PointerType.Touch);
+            fixture.Press(x, y, type: PointerType.Touch);
+            fixture.Release(x, y, type: PointerType.Touch);
+        }
+
+        Assert.True(field.IsFocused);
+        Assert.Matches("^[a-z]+$", field.SelectedText);
     }
 
     /// <summary>A pen is a finger for this purpose, as it is for <see cref="ScrollView.DragToScroll" />.</summary>

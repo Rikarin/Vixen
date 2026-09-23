@@ -165,12 +165,18 @@ public class TouchActionCensusTests {
         return rows;
     }
 
-    /// <summary>A row's answer: <c>tag: value</c> pairs, or <c>undecided:</c> and the tags that must still declare nothing.</summary>
+    /// <summary>A row's answer: <c>tag: value</c> pairs, or <c>mouse-only:</c> and the tags that must declare nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>mouse-only</c> is asserted, not exempted.</b> Those controls capture for a mouse's
+    ///     selection drag and begin nothing for a finger, so a finger's drag is meant to reach the
+    ///     scroll view — and a row on them would take that away as surely as a missing row elsewhere
+    ///     leaves a finger doing two things.
+    /// </remarks>
     static List<(string Tag, TouchAction Value)> Answers(string cell) {
-        const string Undecided = "undecided:";
+        const string MouseOnly = "mouse-only:";
 
-        if (cell.StartsWith(Undecided, StringComparison.Ordinal)) {
-            return cell[Undecided.Length..]
+        if (cell.StartsWith(MouseOnly, StringComparison.Ordinal)) {
+            return cell[MouseOnly.Length..]
                 .Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
                 .Select(tag => (tag, TouchAction.Auto))
                 .ToList();

@@ -1148,10 +1148,11 @@ timeline-lanes { touch-action: none; }
    along the ruler, a column resized or reordered along the header), so the vertical half of a
    finger's travel is still the panel's to scroll.
 
-   ⚠ `code-editor` is NOT here, and neither is it an omission. Its capture is a text selection inside
-   its OWN scroll view — the `TextField` shape `ControlTheme.vcss` records as undecided, where no
-   keyword is right because the drag that scrolls is the drag that selects. A row on `code-editor`
-   would not even reach it: the editor is above its scroller, not between the finger and it. */
+   ⚠ `code-editor` is NOT here, and must not be. Its capture is a text selection inside its OWN
+   scroll view — the `TextField` shape, where no keyword is right because the drag that scrolls is
+   the drag that selects, and a row on `code-editor` would not even reach it: the editor is above
+   its scroller, not between the finger and it. It is settled in the control as `TextField` is: a
+   finger or a pen begins no selection drag (`CodeEditor.Pointed`), so the drag is the scroller's. */
 color-strip, gradient-rail, timeline-ruler, data-header-cell { touch-action: pan-y; }
 
 }

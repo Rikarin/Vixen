@@ -150,60 +150,115 @@ public class AdvancedTouchActionTests {
         Assert.True(Drag(fixture, view, rulerX, rulerY, 0f, -Step).Top > 0f, "a vertical finger on the ruler is the view's");
     }
 
-    /// <summary>
-    ///     ⚠ <b>The code editor is the text-field shape, not the canvas shape, and it is measured here
-    ///     rather than declared.</b> #1357 listed it with the controls whose fix is a mechanical
-    ///     <c>none</c>; its capture is a text selection, and the view a finger drags is the editor's
-    ///     <i>own</i> <see cref="CodeEditor.Scroller" /> — which a row on <c>code-editor</c> cannot
-    ///     reach at all, because <c>touch-action</c> is read between the pressed element and the view
-    ///     and the editor is above its own view, not between. So one finger selects <b>and</b> scrolls
-    ///     the code under the selection it is making.
-    /// </summary>
-    /// <remarks>
-    ///     This asserts the defect, as <c>TouchActionTests</c> does for <c>textbox</c> and
-    ///     <c>textarea</c>, because the remedy is the same undecided change: a plain finger drag that
-    ///     does not begin a selection at all (#225). The day that is decided this goes red, and the
-    ///     census row for <c>CodeEditor.cs</c> is what to update.
-    /// </remarks>
-    [Fact]
-    public void A_finger_dragging_a_code_editor_selects_and_scrolls_its_own_view_and_that_is_not_yet_decided() {
-        using var fixture = new AdvancedFixture();
-
+    /// <summary>A code editor of four hundred lines filling the fixture, so its own scroller has somewhere to go.</summary>
+    static CodeEditor Code(AdvancedFixture fixture) {
         var editor = fixture.Add<CodeEditor>();
-        editor.Source = string.Join('\n', Enumerable.Range(0, 400).Select(static line => $"line {line}"));
+        editor.Source = string.Join('\n', Enumerable.Range(0, 400).Select(static line => $"line {line} alpha bravo charlie"));
 
         fixture.Update();
         editor.Refresh();
         fixture.Update();
 
+        return editor;
+    }
+
+    /// <summary>Drags from the middle of the editor's scroller and reports how far that scroller moved during the drag.</summary>
+    static float DragCode(AdvancedFixture fixture, CodeEditor editor, float dx, float dy, PointerType type) {
         var (x, y) = AdvancedFixture.Centre(editor.Scroller);
 
-        fixture.Touch(PointerAction.Pressed, x, y);
+        Send(fixture, PointerAction.Pressed, x, y, type);
         fixture.Advance(Frame);
 
         var top = editor.Scroller.ScrollTop;
 
         for (var step = 1; step <= 3; step++) {
-            fixture.Touch(PointerAction.Moved, x, y - (Step * step));
+            Send(fixture, PointerAction.Moved, x + (dx * step), y + (dy * step), type);
             fixture.Advance(Frame);
         }
 
         var scrolled = editor.Scroller.ScrollTop - top;
-        var selected = editor.HasSelection;
+        Send(fixture, PointerAction.Released, x + (dx * 3f), y + (dy * 3f), type);
 
-        fixture.Touch(PointerAction.Released, x, y - (Step * 3f));
+        return scrolled;
+    }
 
-        Assert.True(
-            scrolled > 0f && selected,
-            $"""
-             a finger dragging a code editor no longer both selects and scrolls (scrolled {scrolled}, selected {selected}).
+    static void Send(AdvancedFixture fixture, PointerAction action, float x, float y, PointerType type) {
+        if (type == PointerType.Touch) {
+            fixture.Touch(action, x, y);
+        } else if (action == PointerAction.Pressed) {
+            fixture.Press(x, y);
+        } else if (action == PointerAction.Moved) {
+            fixture.Move(x, y);
+        } else {
+            fixture.Release(x, y);
+        }
+    }
 
-             Either the editor stopped taking a finger's drag as a selection, or its own view stopped taking
-             the drag: that is the decision this theory was waiting for. Record it in
-             `TouchActionCensus.txt`'s `CodeEditor.cs` row and in `AdvancedTheme.vcss`'s touch block, and
-             turn this into the assertion its siblings are.
-             """
-        );
+    /// <summary>
+    ///     ⚠ <b>The code editor is the text-field shape, not the canvas shape.</b> #1357 listed it with
+    ///     the controls whose fix is a mechanical <c>none</c>; its capture is a text selection, and the
+    ///     view a finger drags is the editor's <i>own</i> <see cref="CodeEditor.Scroller" /> — which a
+    ///     row on <c>code-editor</c> cannot reach at all, because <c>touch-action</c> is read between
+    ///     the pressed element and the view and the editor is above its own view, not between. So one
+    ///     finger selected <b>and</b> scrolled the code under the selection it was making: measured
+    ///     at 40 pixels of scroll with the selection spanning the lines it crossed.
+    /// </summary>
+    /// <remarks>
+    ///     Settled the way <c>TextField</c> is: a finger's drag is the scroller's and begins no
+    ///     selection. Diagonal, so the drag crosses both lines and columns and the old behaviour's
+    ///     selection cannot be empty by accident.
+    /// </remarks>
+    [Fact]
+    public void A_finger_dragging_a_code_editor_scrolls_its_own_view_and_selects_nothing() {
+        using var fixture = new AdvancedFixture();
+        var editor = Code(fixture);
+
+        var scrolled = DragCode(fixture, editor, -Step, -Step, PointerType.Touch);
+
+        Assert.True(scrolled > 0f, $"a finger's drag no longer scrolls the editor's own view (scrolled {scrolled})");
+        Assert.False(editor.HasSelection, $"a finger's drag selected `{editor.SelectedText}`");
+    }
+
+    /// <summary>The paired half: a mouse drag still selects, and does not scroll a view that only a finger drags.</summary>
+    [Fact]
+    public void A_mouse_dragging_a_code_editor_still_selects() {
+        using var fixture = new AdvancedFixture();
+        var editor = Code(fixture);
+
+        DragCode(fixture, editor, -Step, -Step, PointerType.Mouse);
+
+        Assert.True(editor.HasSelection, "a mouse drag across the code selected nothing");
+    }
+
+    /// <summary>A finger's caret arrives on the tap, and a finger held still selects the word under it.</summary>
+    [Fact]
+    public void A_finger_tap_places_the_caret_and_holding_still_selects_a_word() {
+        using var fixture = new AdvancedFixture();
+        var editor = Code(fixture);
+
+        fixture.Document.Focus(null);
+        fixture.Update();
+
+        // Near the start of a line rather than the scroller's middle, which is past the end of every
+        // line here — a word selected there is the line break, for a mouse's double click as well.
+        var x = editor.Scroller.Bounds.X + 12f;
+        var y = AdvancedFixture.Centre(editor.Scroller).Y;
+
+        fixture.Touch(PointerAction.Pressed, x, y);
+        Assert.False(editor.IsFocused, "a finger's press focused the editor before it could know the press was not a scroll");
+
+        fixture.Touch(PointerAction.Released, x, y);
+        Assert.True(editor.IsFocused);
+        Assert.False(editor.HasSelection);
+        Assert.True(editor.Caret.Line > 0, $"the caret is at {editor.Caret}, not where the tap landed");
+
+        fixture.Rest();
+
+        fixture.Touch(PointerAction.Pressed, x, y);
+        fixture.Advance(TimeSpan.FromSeconds(2));
+        fixture.Touch(PointerAction.Released, x, y);
+
+        Assert.Matches("^[a-z0-9]+$", editor.SelectedText);
     }
 
     static UiElement Create(UiDocument document, UiElement parent, string tag) => tag switch {
