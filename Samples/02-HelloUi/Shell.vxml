@@ -486,8 +486,12 @@
     ///     wrote out.</b> They read the map, refuse an unbound command, and swap out of the table's
     ///     vocabulary so the row shows the keys this machine's user will press — three decisions that
     ///     a sample should not be in a position to get wrong. <c>MenuItem.ShowShortcut(KeyMap,
-    ///     string)</c> is where they live now (#650), which is also why New and Open draw nothing
-    ///     without this file having to say so: they are bound to no command.
+    ///     string)</c> is where they live now (#650).
+    ///     ⚠ New and Open draw nothing because <b>nothing calls this on them</b> — the two calls
+    ///     above pass <c>saveItem</c> and <c>closeItem</c> and no others, and those items were
+    ///     already inert. Were they passed here they would still draw nothing, for the different
+    ///     reason this overload exists, but that is not what is happening and the file should not
+    ///     claim credit for it.
     /// </remarks>
     void Draw(MenuItem item, string command) => item.ShowShortcut(keys, command);
 

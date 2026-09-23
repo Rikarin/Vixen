@@ -110,7 +110,8 @@ public sealed class SceneEditorFactory(Func<AssetEditorRequest, World> worlds) :
         tabs.AddClass("document-tabs");
 
         // ⚠ An element in the tab rather than a binding constructed for its effect on one. The
-        // difference is what happens when the tab goes: the control hears `OnRemoved` and stops
+        // difference is what happens when the tab goes: the control hears `OnUnmounted` — the
+        // component hook, not an `OnRemoved` override, which the generator writes — and stops
         // listening to the document, where the old form exposed a `Detach()` this line had no handle
         // to call — and a hierarchy left subscribed does not merely rebuild a tree nobody can see,
         // it throws out of the next `SceneDocument.Add` when `Refresh` asks a removed panel for a

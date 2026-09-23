@@ -48,8 +48,10 @@ public interface IEditableDocument {
     ///     <para>
     ///         ⚠ <b>Nothing in this repository writes one and nothing reads one</b>
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/656">#656</a>). Measured on
-    ///         2026-09-23: the only writes are <c>EditableDocumentTests</c>' four
-    ///         <see cref="EditableDocument.Rename(string, string?)" /> calls, and
+    ///         2026-09-23: there is exactly <b>one</b> write in the whole tree,
+    ///         <c>EditableDocumentTests.cs:164</c>. <see cref="EditableDocument.Rename(string, string?)" />
+    ///         is called four times and the other three pass a name only, so the
+    ///         <c>newLocation is not null</c> guard below leaves the signal alone. And
     ///         <see cref="UiWindowTitle.Bind" /> — the one thing that takes an
     ///         <see cref="IEditableDocument" /> and shows it — reads
     ///         <see cref="Name" /> and <see cref="IsDirty" /> and not this.

@@ -217,7 +217,9 @@ as for a quit could not tell the two apart. `UiCloseReason.DocumentClosed` is it
 
 ⚠ **The three entries below are one blocker wearing three hats, which is worth saying before reading
 them as three jobs.** `IEditableDocument.Location` has no writer and no reader anywhere in this
-repository. Measured 2026-09-23: the only writes are `EditableDocumentTests`' four `Rename` calls, and
+repository. Measured 2026-09-23: there is exactly **one** write in the whole tree, at
+`Core/Vixen.Ui.Tests/EditableDocumentTests.cs:164` — `Rename(string, string?)` is called four times
+and the other three pass a name only, which the null guard in `Rename` leaves alone. And
 `UiWindowTitle.Bind` — the one thing that takes an `IEditableDocument` and shows it — reads `Name` and
 `IsDirty` and not the location. A recent list is *keyed* on it; a proxy icon *is* it, because a
 represented file is a path; and half of the editor port is the question of what an `AssetId`'s
