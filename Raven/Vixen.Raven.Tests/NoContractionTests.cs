@@ -236,6 +236,74 @@ public class NoContractionTests {
         Assert.DoesNotContain(helperOnly, decorated);
     }
 
+    /// <summary>A marked method of a generic struct is still marked in every instantiation.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The path the flag was likeliest to be lost on, and the only one of the three the
+    ///         first landing did not cover.</b> A generic's body is bound once, against the open
+    ///         definition, and lowered once per instantiation through a substitution — so the symbol
+    ///         the lowering reads is a <c>SubstitutedMethodSymbol</c> and not the one the file was
+    ///         written for. Sabotaging that symbol's forwarder left the whole 2049-test suite
+    ///         unmoved, which is what this fixture is here to stop: nothing reached it.
+    ///     </para>
+    ///     <para>
+    ///         Asserted through SPIR-V rather than through the IR flag, because the claim is about
+    ///         what the instantiated body emits. Two methods of the same shape again, so the
+    ///         instantiation is compared against its own neighbour and not against another fixture's
+    ///         module.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AnInstantiationKeepsTheDeclarationsFlag() {
+        const string source = """
+                              package A
+
+                              struct Box<T> {
+                                  var value: T
+
+                                  [NoContraction]
+                                  func Fused(a: float, b: float): float {
+                                      return a * b + a
+                                  }
+
+                                  func Free(a: float, b: float): float {
+                                      return a * b + a
+                                  }
+                              }
+
+                              shader Edge {
+                                  [FragmentShader]
+                                  func Shade(): float4 {
+                                      var box: Box<float>
+                                      box.value = 2f
+                                      return float4(box.Fused(1f, 3f), box.Free(1f, 3f), 0f, 1f)
+                                  }
+                              }
+
+                              """;
+
+        // The instrument first: the open definition is emitted nowhere, so a listing naming `Fused`
+        // rather than the instantiation would mean monomorphisation did not happen and the fixture
+        // is about nothing. ⚠ Off the module and not off the shader: an instantiation of a
+        // struct's method is a module-level function, which is the whole point of the name.
+        var names = Lower(source).Functions.Select(f => f.Name).ToArray();
+
+        Assert.Contains("Box_float_Fused", names);
+        Assert.DoesNotContain("Fused", names);
+
+        var listing = Spirv(source);
+        var decorated = Decorated(listing);
+
+        var fused = Arithmetic(Body(listing, "Box_float_Fused"));
+        var free = Arithmetic(Body(listing, "Box_float_Free"));
+
+        Assert.Equal(2, fused.Length);
+        Assert.Equal(2, free.Length);
+
+        Assert.All(fused, id => Assert.Contains(id, decorated));
+        Assert.All(free, id => Assert.DoesNotContain(id, decorated));
+    }
+
     // --- GLSL: the target that cannot say it -------------------------------
 
     /// <summary>The GLSL backend reports what it is dropping rather than dropping it quietly.</summary>
@@ -290,9 +358,18 @@ public class NoContractionTests {
     ///     ⚠ <b>The consumer has no declaration to read it from.</b> A linked function is decoded
     ///     from the artefact and lowered from nothing, so a flag the codec dropped would mean a
     ///     library function its author marked is fused anyway in every consumer — and a request about
-    ///     the last bit of a float is precisely the kind that fails no test. The property is
-    ///     additive, so an artefact written before it existed says false by absence, which is what
-    ///     those functions asked for.
+    ///     the last bit of a float is precisely the kind that fails no test.
+    ///     <para>
+    ///         ⚠ <b>Through the real bytes and not only the codec.</b> The codec is half the path:
+    ///         a <c>.rvnlib</c> is <c>System.Text.Json</c> over the encoded record, and an in-memory
+    ///         encode/decode pair says nothing about a property the serializer does not carry. So
+    ///         this writes and reads the artefact as well. ⚠ The earlier claim that "an artefact
+    ///         written before this existed says false by absence, so an older reader can only lose
+    ///         it" is <b>moot</b>: <c>CompiledLibraryReader</c> compares the version for exact
+    ///         equality, so a reader of any other version refuses the file outright rather than
+    ///         misreading it. What the property being additive actually buys is that
+    ///         <c>Version</c> did not have to move.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void ALibraryCarriesTheFlagAcross() {
@@ -316,5 +393,13 @@ public class NoContractionTests {
 
         Assert.True(decoder.Functions.Values.Single(f => f.Name == "Fused").NoContraction);
         Assert.False(decoder.Functions.Values.Single(f => f.Name == "Free").NoContraction);
+
+        // And the same encoded record through the bytes a consumer is actually handed, because the
+        // serializer is the layer that drops a property nobody listed.
+        var written = CompiledLibraryWriter.Write(new() { Name = "Test", Ir = encoded });
+        var read = CompiledLibraryReader.Read(written);
+
+        Assert.True(Assert.Single(read.Ir.Functions, f => f.Name == "Fused").NoContraction);
+        Assert.False(Assert.Single(read.Ir.Functions, f => f.Name == "Free").NoContraction);
     }
 }

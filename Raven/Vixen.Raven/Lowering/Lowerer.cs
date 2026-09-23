@@ -1889,8 +1889,18 @@ public sealed partial class Lowerer {
         // ⚠ Off the symbol rather than off the syntax, so an inherited copy, a monomorphised
         // instantiation and a body reached through a `compose` slot all keep what the declaration
         // said — each of those lowers from a symbol that is not the one the file was written for.
+        //
+        // ⚠ And off `member` rather than `body.Member`, which are NOT the same symbol here:
+        // `FindBody` resolves an instantiation to its `OriginalDefinition`, because the body is
+        // bound once and read through a map — so `body.Member` is always the open source method and
+        // `SubstitutedMethodSymbol`'s own answer would never be asked for. Both give the same answer
+        // today, the substituted symbol being a forwarder; reading the symbol actually being lowered
+        // is what makes that forwarder load-bearing instead of unreachable. The fallback is for a
+        // property, whose `member` is the property and whose accessor is the body's.
+        var declaration = member as MethodSymbol ?? body.Member as MethodSymbol;
+
         var function = new IrFunction(name, returnType) {
-            NoContraction = (body.Member as MethodSymbol)?.NoContraction ?? false
+            NoContraction = declaration?.NoContraction ?? false
         };
 
         IrVariable? shellSelfParameter = null;

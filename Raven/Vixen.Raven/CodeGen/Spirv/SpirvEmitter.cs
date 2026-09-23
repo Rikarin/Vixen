@@ -1006,6 +1006,13 @@ sealed partial class SpirvEmitter {
             EmitFunction(function);
         }
 
+        // ⚠ Cleared rather than left: `EmitEntryPoint` writes the compiler's own wrapper, and the
+        // flag is otherwise whatever the last body in call order set — which is the entry point's
+        // own, `InCallOrder` putting it last. Harmless today only because the wrapper emits nothing
+        // the op filter calls contractible, so the scoping the field's remark describes was true of
+        // every function except the one written after the loop.
+        noContraction = false;
+
         EmitEntryPoint();
         return module;
     }

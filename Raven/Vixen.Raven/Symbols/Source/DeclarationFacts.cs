@@ -297,6 +297,14 @@ internal static class DeclarationFacts {
     ///         <c>precise</c> instead propagates backwards from a marked output through everything
     ///         that contributed to it — a stronger tool and a harder one to see the edges of.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It reaches the body's core arithmetic and not its <c>GLSL.std.450</c> calls.</b>
+    ///         SPIR-V's decoration targets arithmetic instructions, so <c>mix</c>, <c>smoothstep</c>,
+    ///         <c>Fma</c>, <c>Length</c> and <c>Normalize</c> stay fusable in a marked body — the
+    ///         decoration has nowhere to attach. A body whose divergence lives in one of those is not
+    ///         answered by this attribute, and an experiment that marks it and sees no change has
+    ///         learned that and not that the attribute is broken.
+    ///     </para>
     /// </remarks>
     public static bool IsNoContraction(SyntaxList<AttributeListSyntax> attributeLists) {
         foreach (var attribute in GetAttributes(attributeLists)) {

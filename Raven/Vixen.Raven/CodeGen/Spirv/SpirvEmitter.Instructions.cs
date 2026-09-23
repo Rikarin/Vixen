@@ -93,6 +93,16 @@ partial class SpirvEmitter {
     ///         decorating it buys nothing and only widens what a validator has to agree with.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>A <c>GLSL.std.450</c> result is not in it and cannot be.</b> SPIR-V's
+    ///         <c>NoContraction</c> targets core arithmetic instructions, so <c>mix</c>,
+    ///         <c>smoothstep</c>, <c>Fma</c>, <c>Length</c> and <c>Normalize</c> in a marked body stay
+    ///         fusable however the body was declared — the decoration has nowhere to go. That is a
+    ///         real limit on what marking a function buys, and the UI box path #1190 is about is full
+    ///         of exactly those: a lavapipe run whose 1/255 survives marking has not shown the
+    ///         attribute does not work, only that the divergent rounding lives in an
+    ///         <c>OpExtInst</c> this cannot reach.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>Not checked against <c>spirv-val</c> on the machine this was written on</b>,
     ///         which had no Vulkan SDK; <c>SpirvTestBase.Validate</c> returns without validating
     ///         when the tool is missing, so a local green says nothing about the module's validity
