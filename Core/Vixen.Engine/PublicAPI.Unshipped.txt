@@ -467,7 +467,9 @@ Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.History.get -> System.Collecti
 Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.Output.get -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.Register(string name, string help, System.Action<Vixen.Engine.Diagnostics.Overlays.ConsoleContext> run) -> void
 Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.RegisterFrom(System.Reflection.Assembly assembly) -> int
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.RegisterFrom(System.Reflection.Assembly assembly) [method: RequiresUnreferencedCode()]
 Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.RegisterFrom(System.Type type) -> int
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.RegisterFrom(System.Type type) [method: RequiresUnreferencedCode()]
 Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.Registered.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Engine.Diagnostics.Overlays.ConsoleCommand>
 Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.Remove(string name) -> bool
 Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.Write(string text) -> void

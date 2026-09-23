@@ -317,6 +317,102 @@ public sealed class ApiSurfaceReaderTests : IDisposable {
         Assert.Equal(first.OrderBy(entry => entry, StringComparer.Ordinal), first);
     }
 
+    /// <summary>
+    ///     ⚠ A trim contract is signature (#1359): <c>UiPropertyRegistry.Of</c>'s parameter was
+    ///     widened from <c>NonPublicConstructors</c> to <c>All</c> and the gate reported nothing,
+    ///     because no annotation reaches the display string a member's line is made from.
+    /// </summary>
+    /// <remarks>
+    ///     Asserted as a difference between two readings rather than as the presence of a line,
+    ///     because a difference is what the gate acts on: two assemblies that differ only in the
+    ///     annotation must not read as the same surface.
+    /// </remarks>
+    [Fact]
+    public void WideningADynamicallyAccessedMembersRequirement_ChangesTheSurface() {
+        const string template = """
+            using System;
+            using System.Diagnostics.CodeAnalysis;
+
+            namespace Sample;
+
+            public static class Registry {
+                public static int Of([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.KIND)] Type ownerType) => 0;
+            }
+            """;
+
+        var narrow = Read(template.Replace("KIND", "NonPublicConstructors", StringComparison.Ordinal), "narrow");
+        var wide = Read(template.Replace("KIND", "All", StringComparison.Ordinal), "wide");
+
+        Assert.NotEqual(narrow, wide);
+        Assert.Contains(
+            "static Sample.Registry.Of(System.Type ownerType) [param ownerType: DynamicallyAccessedMembers(All)]",
+            wide
+        );
+        Assert.Contains(
+            "static Sample.Registry.Of(System.Type ownerType) [param ownerType: DynamicallyAccessedMembers(NonPublicConstructors)]",
+            narrow
+        );
+
+        // The member's own line is untouched: the annotation moves beside it, not inside it.
+        Assert.Contains("static Sample.Registry.Of(System.Type ownerType) -> int", wide);
+        Assert.Contains("static Sample.Registry.Of(System.Type ownerType) -> int", narrow);
+    }
+
+    /// <summary>
+    ///     Every place a trim contract can sit on a public surface: the type, a type parameter, a
+    ///     method, a parameter, a return value, a property, an accessor and a field — and a
+    ///     combined flag set spelt by its names.
+    /// </summary>
+    [Fact]
+    public void EveryTrimContractOnTheSurface_IsALineOfItsOwn() {
+        var surface = Read(
+            """
+            using System;
+            using System.Diagnostics.CodeAnalysis;
+
+            namespace Sample;
+
+            [RequiresUnreferencedCode("scans")]
+            public class Scanner {
+                [RequiresDynamicCode("emits")]
+                public void Emit() { }
+            }
+
+            public class Pool<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T> {
+                [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicFields)]
+                public Type Make() => typeof(T);
+
+                [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)]
+                public Type? Kind { get; set; }
+
+                public Type? Other {
+                    [RequiresUnreferencedCode("reads")]
+                    get => null;
+                }
+
+                [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicEvents)]
+                public Type? Field;
+
+                internal void Hidden([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type) { }
+            }
+            """
+        );
+
+        Assert.Contains("Sample.Scanner [type: RequiresUnreferencedCode()]", surface);
+        Assert.Contains("Sample.Scanner.Emit() [method: RequiresDynamicCode()]", surface);
+        Assert.Contains("Sample.Pool<T> [typeparam T: DynamicallyAccessedMembers(PublicParameterlessConstructor)]", surface);
+        Assert.Contains("Sample.Pool<T>.Make() [return: DynamicallyAccessedMembers(PublicMethods | NonPublicFields)]", surface);
+        Assert.Contains("Sample.Pool<T>.Kind [property: DynamicallyAccessedMembers(PublicProperties)]", surface);
+        Assert.Contains("Sample.Pool<T>.Other.get [method: RequiresUnreferencedCode()]", surface);
+        Assert.Contains("Sample.Pool<T>.Field [field: DynamicallyAccessedMembers(PublicEvents)]", surface);
+
+        // An internal member's contract is nobody's business outside the assembly.
+        Assert.DoesNotContain(surface, entry => entry.Contains("Hidden", StringComparison.Ordinal));
+
+        // The message is prose, and rewording a warning is not a change to what a caller must do.
+        Assert.DoesNotContain(surface, entry => entry.Contains("scans", StringComparison.Ordinal));
+    }
+
     IReadOnlyList<string> Read(string source, string name = "Sample") {
         var path = Compile(source, name);
 

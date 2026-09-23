@@ -53,6 +53,13 @@ public sealed class PublicApiTypeNamesTests {
     [InlineData("const Vixen.Net.Engine.Content.NetworkRulesContent.Label = \"network-rules\" -> string")]
     [InlineData("static Vixen.Platform.MacOS.MacOSAccessibility.Read() -> Vixen.Platform.SystemAccessibility")]
     [InlineData("#nullable enable")]
+    // ⚠ The trim-contract lines #1359 added. A type-level one has no arrow and no argument list of
+    // its own, so only the parenthesis the reader always writes keeps it from being a type that
+    // wants a guide page.
+    [InlineData("Vixen.Sample.Scanner [type: RequiresUnreferencedCode()]")]
+    [InlineData("Vixen.Sample.Holder.Kind [property: DynamicallyAccessedMembers(PublicMethods)]")]
+    [InlineData("Vixen.Sample.Pool<T> [typeparam T: DynamicallyAccessedMembers(PublicParameterlessConstructor)]")]
+    [InlineData("static Vixen.Ui.UiPropertyRegistry.Of(System.Type ownerType) [param ownerType: DynamicallyAccessedMembers(All)]")]
     public void AMemberIsNotATypeDeclaration(string line) => Assert.Null(PublicApiTypeNames.DocumentationId(line));
 
     /// <summary>

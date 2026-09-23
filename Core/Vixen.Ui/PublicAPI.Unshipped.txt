@@ -2064,8 +2064,10 @@ static Vixen.Ui.TextLayout.Measure(in Vixen.Ui.Layout.MeasureRequest request) ->
 static Vixen.Ui.TextRun.Under(Vixen.Ui.TextDecorationLine line) -> bool
 static Vixen.Ui.UiDocument.TabOrder(Vixen.Ui.UiElement scope) -> System.Collections.Generic.List<Vixen.Ui.UiElement>
 static Vixen.Ui.UiPropertyRegistry.Of(System.Type ownerType) -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiPropertyKey>
+static Vixen.Ui.UiPropertyRegistry.Of(System.Type ownerType) [param ownerType: DynamicallyAccessedMembers(All)]
 static Vixen.Ui.UiPropertyRegistry.Register(string name, System.Type ownerType, System.Type valueType, bool inherits, System.Func<Vixen.Ui.UiElement, object?> get, System.Action<Vixen.Ui.UiElement, object?> set) -> Vixen.Ui.UiPropertyKey
 static Vixen.Ui.UiPropertyRegistry.TryFind(System.Type ownerType, string name, out Vixen.Ui.UiPropertyKey? key) -> bool
+static Vixen.Ui.UiPropertyRegistry.TryFind(System.Type ownerType, string name, out Vixen.Ui.UiPropertyKey? key) [param ownerType: DynamicallyAccessedMembers(All)]
 static Vixen.Ui.UiPropertyRegistry.TryFindFor(Vixen.Ui.UiElement element, string name, out Vixen.Ui.UiPropertyKey? key) -> bool
 static Vixen.Ui.UiWindowTitle.Bind(Vixen.Ui.IUiWindow window, Vixen.Ui.IEditableDocument document, Vixen.Ui.Reactive.EffectScheduler? scheduler = null, string dirtyMarker = "• ") -> System.IDisposable
 static Vixen.Ui.UndoCommands.Install(Vixen.Ui.UiElement element) -> void

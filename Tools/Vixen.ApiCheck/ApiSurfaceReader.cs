@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -85,6 +86,10 @@ public static class ApiSurfaceReader {
 
             foreach (var relation in Relations(type, name)) {
                 entries.Add(relation);
+            }
+
+            foreach (var annotation in Annotations(type, name)) {
+                entries.Add(annotation);
             }
 
             foreach (var entry in type.GetMembers().SelectMany(member => Members(type, member))) {
@@ -222,8 +227,14 @@ public static class ApiSurfaceReader {
                     yield break;
                 }
 
-                yield return $"{method.ToDisplayString(MemberFormat)} -> "
+                var methodName = method.ToDisplayString(MemberFormat);
+
+                yield return $"{methodName} -> "
                     + (method.ReturnsVoid ? "void" : method.ReturnType.ToDisplayString(TypeFormat));
+
+                foreach (var annotation in Annotations(method, methodName)) {
+                    yield return annotation;
+                }
 
                 break;
 
@@ -242,6 +253,24 @@ public static class ApiSurfaceReader {
                     yield return $"{propertyName}.{(setter.IsInitOnly ? "init" : "set")} -> {propertyType}";
                 }
 
+                foreach (var annotation in Annotations(property, propertyName)) {
+                    yield return annotation;
+                }
+
+                // An accessor carries its own attributes — `[RequiresUnreferencedCode]` goes on a
+                // `get`, not on the property — and is surface wherever its line above is.
+                foreach (var accessor in new[] { property.GetMethod, property.SetMethod }) {
+                    if (accessor is null || !IsVisibleOutside(accessor)) {
+                        continue;
+                    }
+
+                    var kind = accessor.MethodKind == MethodKind.PropertyGet ? "get" : accessor.IsInitOnly ? "init" : "set";
+
+                    foreach (var annotation in Annotations(accessor, $"{propertyName}.{kind}")) {
+                        yield return annotation;
+                    }
+                }
+
                 break;
 
             case IEventSymbol @event:
@@ -250,11 +279,122 @@ public static class ApiSurfaceReader {
                 break;
 
             case IFieldSymbol field:
-                yield return $"{field.ToDisplayString(MemberFormat)} -> {field.Type.ToDisplayString(TypeFormat)}";
+                var fieldName = field.ToDisplayString(MemberFormat);
+
+                yield return $"{fieldName} -> {field.Type.ToDisplayString(TypeFormat)}";
+
+                foreach (var annotation in Annotations(field, fieldName)) {
+                    yield return annotation;
+                }
 
                 break;
         }
     }
+
+    /// <summary>
+    ///     The trim-analysis contracts a symbol carries, one line each, sorted beside the line of the
+    ///     symbol they belong to.
+    /// </summary>
+    /// <param name="symbol">A visible type or member.</param>
+    /// <param name="name">How the symbol's own line spells it, which every annotation line repeats.</param>
+    /// <returns>
+    ///     <c>{name} [{target}: {Attribute}({argument})]</c> for each contract on the symbol itself,
+    ///     one of its parameters, its return value or one of its type parameters.
+    /// </returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>These are signature, and the reading could not see them</b> (#1359).
+    ///         <c>[DynamicallyAccessedMembers]</c> on a public parameter is a requirement every
+    ///         caller in a trimmed application has to satisfy — widening it roots more of the
+    ///         caller's types, and narrowing one on a return value silently withdraws a guarantee a
+    ///         caller was relying on. <c>[RequiresUnreferencedCode]</c>, <c>[RequiresDynamicCode]</c>
+    ///         and <c>[RequiresAssemblyFiles]</c> turn every call site into a warning. None of them
+    ///         changes one character of the display string a member's own line is made from, so
+    ///         <c>UiPropertyRegistry.Of</c>'s parameter went from <c>NonPublicConstructors</c> to
+    ///         <c>All</c> and the gate reported no difference.
+    ///     </para>
+    ///     <para>
+    ///         A line of its own rather than a suffix on the member's, for the reason a base type gets
+    ///         one: the member line stays exactly the format
+    ///         <c>Microsoft.CodeAnalysis.PublicApiAnalyzers</c> reads, and an annotation changing is
+    ///         one line out and one in beside a member line that did not move. ⚠ The line carries no
+    ///         <c>" -&gt; "</c> and always carries a parenthesis, which is what keeps the two other
+    ///         readers of these files — <c>BaselineAgreement.ReadTypes</c> in DocGen and
+    ///         <c>PublicApiTypeNames.DocumentationId</c> in the build — from reading it as a type
+    ///         that wants a guide page. That is why a <c>Requires*</c> contract is written with an
+    ///         empty argument list.
+    ///     </para>
+    ///     <para>
+    ///         A <c>Requires*</c> attribute's message and URL are prose and are left out: a reworded
+    ///         warning is not a change to what a caller has to do.
+    ///     </para>
+    /// </remarks>
+    static IEnumerable<string> Annotations(ISymbol symbol, string name) {
+        foreach (var contract in Contracts(symbol.GetAttributes())) {
+            yield return $"{name} [{TargetOf(symbol)}: {contract}]";
+        }
+
+        var typeParameters = symbol switch {
+            IMethodSymbol method => method.TypeParameters,
+            INamedTypeSymbol type => type.TypeParameters,
+            _ => []
+        };
+
+        foreach (var typeParameter in typeParameters) {
+            foreach (var contract in Contracts(typeParameter.GetAttributes())) {
+                yield return $"{name} [typeparam {typeParameter.Name}: {contract}]";
+            }
+        }
+
+        if (symbol is not IMethodSymbol signature) {
+            yield break;
+        }
+
+        foreach (var parameter in signature.Parameters) {
+            foreach (var contract in Contracts(parameter.GetAttributes())) {
+                yield return $"{name} [param {parameter.Name}: {contract}]";
+            }
+        }
+
+        foreach (var contract in Contracts(signature.GetReturnTypeAttributes())) {
+            yield return $"{name} [return: {contract}]";
+        }
+    }
+
+    /// <summary>The C# attribute target a symbol's own contracts are written against.</summary>
+    static string TargetOf(ISymbol symbol) =>
+        symbol switch {
+            INamedTypeSymbol => "type",
+            IMethodSymbol => "method",
+            IPropertySymbol => "property",
+            IFieldSymbol => "field",
+            _ => symbol.Kind.ToString().ToLowerInvariant()
+        };
+
+    /// <summary>The trim-analysis attributes among <paramref name="attributes" />, spelt as a line ends.</summary>
+    static IEnumerable<string> Contracts(IEnumerable<AttributeData> attributes) =>
+        attributes.Select(Contract).OfType<string>().Order(StringComparer.Ordinal);
+
+    /// <summary>One attribute as a contract, or <see langword="null" /> when it is not one.</summary>
+    static string? Contract(AttributeData attribute) =>
+        attribute.AttributeClass?.ToDisplayString(TypeFormat) switch {
+            "System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembersAttribute" =>
+                $"DynamicallyAccessedMembers({MemberTypes(attribute)})",
+            "System.Diagnostics.CodeAnalysis.RequiresUnreferencedCodeAttribute" => "RequiresUnreferencedCode()",
+            "System.Diagnostics.CodeAnalysis.RequiresDynamicCodeAttribute" => "RequiresDynamicCode()",
+            "System.Diagnostics.CodeAnalysis.RequiresAssemblyFilesAttribute" => "RequiresAssemblyFiles()",
+            _ => null
+        };
+
+    /// <summary>
+    ///     A <c>DynamicallyAccessedMemberTypes</c> value by its names — <c>All</c>,
+    ///     <c>NonPublicConstructors | PublicMethods</c> — rather than by its number, so a diff reads
+    ///     as what was widened or narrowed.
+    /// </summary>
+    static string MemberTypes(AttributeData attribute) =>
+        attribute.ConstructorArguments is [{ Value: int value }]
+            ? ((DynamicallyAccessedMemberTypes)value).ToString().Replace(", ", " | ", StringComparison.Ordinal)
+            : "?";
 
     /// <summary>
     ///     Whether a consumer outside the assembly can see this symbol at all.
