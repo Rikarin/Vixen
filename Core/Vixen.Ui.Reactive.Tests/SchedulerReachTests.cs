@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui.Markup.Testing;
 using Xunit;
 
 namespace Vixen.Ui.Reactive.Tests;
@@ -74,25 +75,7 @@ public class SchedulerReachTests {
         Dictionary<string, int> seen = Doors.ToDictionary(door => door.Token, _ => 0, StringComparer.Ordinal);
 
         foreach (var file in Production()) {
-            var text = File.ReadAllText(file);
-
-            foreach (var (token, least, what) in Doors) {
-                for (var at = text.IndexOf(token, StringComparison.Ordinal);
-                     at >= 0;
-                     at = text.IndexOf(token, at + token.Length, StringComparison.Ordinal)) {
-                    // `new EffectScheduler` and `new AsyncComputedFoo` start with the same letters,
-                    // and a `<see cref="…" />` naming one of these is prose rather than a call.
-                    if (Opening(text, at + token.Length) is not { } open) {
-                        continue;
-                    }
-
-                    seen[token]++;
-
-                    if (Arguments(text, open) < least) {
-                        unscheduled.Add($"{Path.GetRelativePath(Root(), file)}:{Line(text, at)} — {what}");
-                    }
-                }
-            }
+            Census(Path.GetRelativePath(Root(), file), File.ReadAllLines(file), seen, unscheduled);
         }
 
         // The instrument, before anything is concluded from the emptiness below: a walk that found no
@@ -109,6 +92,80 @@ public class SchedulerReachTests {
             + "logger, and the interface simply keeps the frame it had (#1129): "
             + string.Join("; ", unscheduled)
         );
+    }
+
+    /// <summary>Counts one file's calls through each door, and notes every one that names no scheduler.</summary>
+    /// <param name="file">The file's path as reported, which also decides whether it is markup.</param>
+    /// <param name="lines">Its lines — handed in so a test can give it lines no committed file holds.</param>
+    /// <param name="seen">How many calls through each door have been located so far.</param>
+    /// <param name="unscheduled">Where a call that takes the thread's scheduler is reported.</param>
+    /// <remarks>
+    ///     ⚠ <b>A <c>.vxml</c> is read through <see cref="VxmlLines" /> and before #1341 it was read
+    ///     whole.</b> The paren walk steps over C# comments inside an argument list and nothing else,
+    ///     so a header comment demonstrating how a view makes an effect was a call on both counts: one
+    ///     more located call towards the floor below — the "it measured something" check satisfied by
+    ///     prose — and, written the short way, a false accusation. The shared parts demonstrate their
+    ///     own element in exactly that kind of header. Masked rather than filtered, so the file keeps
+    ///     every line in its place and <see cref="Line" /> still reports the right one.
+    ///     <para>
+    ///         A <c>.cs</c> file is read as it is: its <c>///</c> prose names these types in
+    ///         <c>&lt;c&gt;</c> and <c>cref</c> spans that <see cref="Opening" /> already refuses, and
+    ///         none of today's writes a door followed by an argument list.
+    ///     </para>
+    /// </remarks>
+    static void Census(string file, IReadOnlyList<string> lines, Dictionary<string, int> seen, List<string> unscheduled) {
+        var text = string.Join('\n', VxmlLines.Source(file, lines));
+
+        foreach (var (token, least, what) in Doors) {
+            for (var at = text.IndexOf(token, StringComparison.Ordinal);
+                 at >= 0;
+                 at = text.IndexOf(token, at + token.Length, StringComparison.Ordinal)) {
+                // `new EffectScheduler` and `new AsyncComputedFoo` start with the same letters,
+                // and a `<see cref="…" />` naming one of these is prose rather than a call.
+                if (Opening(text, at + token.Length) is not { } open) {
+                    continue;
+                }
+
+                seen[token]++;
+
+                if (Arguments(text, open) < least) {
+                    unscheduled.Add($"{file}:{Line(text, at)} — {what}");
+                }
+            }
+        }
+    }
+
+    /// <summary>A <c>.vxml</c> header that demonstrates an effect is neither a call nor an accusation.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Synthetic, because no committed <c>.vxml</c> writes this today</b> — measured — so a
+    ///     test reading the repository is green against a census that read every comment as code. The
+    ///     control is the same call in the <c>@code</c> body, which must be both counted and reported,
+    ///     and on the line the file puts it on: a reader that dropped the comment's lines rather than
+    ///     blanking them would report line 3. <c>Rikarin/Vixen#1341</c>.
+    /// </remarks>
+    [Fact]
+    public void A_markup_comment_is_not_a_call() {
+        var seen = Doors.ToDictionary(door => door.Token, _ => 0, StringComparer.Ordinal);
+        List<string> unscheduled = [];
+
+        Census(
+            "Demo.vxml",
+            [
+                "<!--",
+                "    A view makes one as new Effect(() => Refresh()) and forgets the scheduler.",
+                "-->",
+                "<Panel /> <!-- new AsyncComputed(Request, Load) -->",
+                "@code {",
+                "    void Wire() => new Effect(() => Refresh());",
+                "}"
+            ],
+            seen,
+            unscheduled
+        );
+
+        Assert.Equal(1, seen["new Effect"]);
+        Assert.Equal(0, seen["new AsyncComputed"]);
+        Assert.Equal(["Demo.vxml:6 — Effect(action, scheduler)"], unscheduled);
     }
 
     /// <summary>Every source file in the working tree that is not a test.</summary>
