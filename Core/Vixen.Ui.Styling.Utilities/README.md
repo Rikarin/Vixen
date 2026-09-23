@@ -384,7 +384,10 @@ fails it too. ⚠ The parts table is separate from the states table for a reason
 `not-`, `has-`, `group-` and `peer-` compose over `States`, and a child-combinator suffix such as
 `placeholder:`'s `> field-placeholder` read through any of them is either not a selector or a valid
 one meaning something else — so a part must be *not a class* under those four, which the coverage
-file asserts by name.
+file asserts by name. `Variants.RewriteVariants` — `selection:`, which moves a utility's
+`background-color` onto the `--selection-color` the text controls paint from — is a tripwire rather
+than an enumeration, because what proves an entry is a control reading its property, and no generic
+scene can: a second entry fails until it has a row like `selection:`'s, which draws a real `TextBox`.
 
 ## What it found
 
