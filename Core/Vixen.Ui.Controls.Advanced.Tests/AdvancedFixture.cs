@@ -258,10 +258,35 @@ sealed class AdvancedFixture : IDisposable {
     public void Release(UiSurface surface, float x, float y, PointerButton button = PointerButton.Primary) =>
         Send(surface, x, y, PointerAction.Released, button, ModifierKeys.None);
 
+    /// <summary>Sends one pointer event from a finger, at a bare point.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The device is the point of it.</b> <c>touch-action</c> governs a finger or a pen and
+    ///     never a mouse, so a test about it driven by <see cref="Press(float,float,PointerButton,ModifierKeys)" />
+    ///     is a test of a gesture the property deliberately ignores — green whatever the theme says.
+    /// </remarks>
+    public void Touch(PointerAction action, float x, float y) =>
+        Send(
+            Document.Primary,
+            x,
+            y,
+            action,
+            action == PointerAction.Moved ? PointerButton.None : PointerButton.Primary,
+            ModifierKeys.None,
+            PointerType.Touch
+        );
+
     void Send(float x, float y, PointerAction action, PointerButton button, ModifierKeys modifiers) =>
         Send(Document.Primary, x, y, action, button, modifiers);
 
-    void Send(UiSurface surface, float x, float y, PointerAction action, PointerButton button, ModifierKeys modifiers) {
+    void Send(
+        UiSurface surface,
+        float x,
+        float y,
+        PointerAction action,
+        PointerButton button,
+        ModifierKeys modifiers,
+        PointerType type = PointerType.Unknown
+    ) {
         clock += TimeSpan.FromMilliseconds(16);
 
         Document.Dispatch(
@@ -272,6 +297,7 @@ sealed class AdvancedFixture : IDisposable {
                 Action = action,
                 Button = button,
                 Modifiers = modifiers,
+                PointerType = type,
                 Timestamp = clock
             }
         );

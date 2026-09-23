@@ -1123,4 +1123,35 @@ timeline-name { flex-grow: 1; }
 
 timeline-lanes { flex-grow: 1; flex-shrink: 1; min-width: 0px; }
 
+/* ── Controls that own a finger ─────────────────────────────────────── */
+/* ⚠ `ControlTheme.vcss`'s block, continued for this assembly, and for the same reason: capturing
+   the pointer does NOT keep a scroll view out of the gesture. The capture redirects the raw
+   pointer events; the `DragEvent` the recogniser reads out of them is raised on the pressed
+   element and bubbles past it, so a finger dragging a node or a colour inside a scrolling panel
+   moved the thing AND scrolled the panel (#1357). `TouchActionCensus.txt` in the tests lists every
+   production `CapturePointer` call and the row here that answers it, and fails on a new one.
+
+   ⚠ The rows name the element the finger lands on, which is not always the one that captures.
+   `DataGrid` captures on the grid, but only for a press on a header cell — `none` on `data-grid`
+   would have made every row of every table unscrollable by finger, the one gesture a table is
+   scrolled with. `GradientEditor` grabs only on its two rails, and `Timeline` scrubs on its ruler
+   and draws a marquee on its lanes, so each of those is two rows and not one.
+
+   Owned outright, with no axis to share: a canvas pans or bands in both, a field picks a point in
+   two dimensions, a splitter drags across whichever way it lies. `image-view` covers the editor's
+   paint strokes too — `PaintMeshView` and `PaintUvView` capture on an `ImageView`. */
+node-canvas, node-minimap, viewport, image-view, curve-editor, color-field, dock-splitter,
+timeline-lanes { touch-action: none; }
+
+/* `pan-y` for the one-axis drags, `numeric-input`'s argument: each of these reads the horizontal
+   travel and nothing else (`ColorStrip` from `args.X`, a gradient stop along its rail, a scrub
+   along the ruler, a column resized or reordered along the header), so the vertical half of a
+   finger's travel is still the panel's to scroll.
+
+   ⚠ `code-editor` is NOT here, and neither is it an omission. Its capture is a text selection inside
+   its OWN scroll view — the `TextField` shape `ControlTheme.vcss` records as undecided, where no
+   keyword is right because the drag that scrolls is the drag that selects. A row on `code-editor`
+   would not even reach it: the editor is above its scroller, not between the finger and it. */
+color-strip, gradient-rail, timeline-ruler, data-header-cell { touch-action: pan-y; }
+
 }

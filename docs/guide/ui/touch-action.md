@@ -103,6 +103,35 @@ control rather than in a stylesheet. Until somebody decides it,
 `TouchActionTests.A_finger_dragging_a_text_field_still_reaches_the_view_and_that_is_not_yet_decided`
 holds the measurement and fails the day the behaviour changes.
 
+### What the advanced theme declares
+
+`AdvancedTheme.vcss` continues the list for `Vixen.Ui.Controls.Advanced`:
+
+```vcss
+node-canvas, node-minimap, viewport, image-view, curve-editor, color-field, dock-splitter,
+timeline-lanes { touch-action: none; }
+color-strip, gradient-rail, timeline-ruler, data-header-cell { touch-action: pan-y; }
+```
+
+⚠ **A row names the element the finger lands on, which is not always the control that captures.**
+`DataGrid` captures on the grid, but only for a press on a header cell — `none` on `data-grid` would
+make every row of a table unscrollable by finger, which is the one gesture a table is scrolled with.
+A `Timeline` is two rows because it is two gestures: its ruler scrubs along time (`pan-y`) and its
+lanes draw a marquee in both axes (`none`). The editor's paint strokes need no row of their own,
+because `PaintMeshView` and `PaintUvView` capture on the `ImageView` they own.
+
+⚠ **`CodeEditor` is the text-field shape, and is undeclared for the same reason.** Its capture is a
+text selection, and the view a finger drags is the editor's *own* scroller — which a row on
+`code-editor` cannot reach, because the editor is above that view and not between it and the finger.
+`AdvancedTouchActionTests.A_finger_dragging_a_code_editor_selects_and_scrolls_its_own_view_and_that_is_not_yet_decided`
+holds the measurement.
+
+⚠ **Every production `CapturePointer` call is accounted for, and a new one fails the build.**
+`Core/Vixen.Ui.Controls.Advanced.Tests/TouchActionCensus.txt` lists each file that captures, how many
+times, and the row that answers it; `TouchActionCensusTests` holds the list to the tree (`.cs` and
+`.vxml`, outside test projects) and each answer to what the two themes actually resolve. A control
+that starts capturing a finger adds a row to the theme and a line to the census in the same change.
+
 `touch-pinch-zoom` is deliberately not a utility. The keyword parses (`TouchAction.PinchZoom`), but
 nothing here performs a pinch as a user-agent default, so the class would resolve and configure
 nothing.

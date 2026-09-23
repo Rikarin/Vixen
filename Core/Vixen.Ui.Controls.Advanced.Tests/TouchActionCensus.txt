@@ -1,0 +1,39 @@
+# Every production `CapturePointer(` call in the tree, by file, and the `touch-action` row that answers it.
+#
+# A capture redirects the raw pointer events and nothing else: the `DragEvent` the recogniser reads out
+# of them is raised on the pressed element and bubbles past it, so a control that captures a finger and
+# declares no `touch-action` is driven by the finger AND scrolls whatever scroll view is around it
+# (#1337, #1357). `TouchActionCensusTests` holds this file to the tree in both directions:
+#
+#   * the files and per-file counts must be exactly what a sweep of Core, Editor and Samples finds, over
+#     `.cs` and `.vxml`, outside the test projects — so a new capture, or a second one in a file already
+#     listed, goes red until somebody says here what answers it;
+#   * each `tag: value` must be what `ControlTheme` + `AdvancedTheme` actually resolve on an element of
+#     that tag;
+#   * each `undecided:` tag must resolve to no declaration at all, so the day somebody decides, this file
+#     is where it is recorded.
+#
+# The tag is the element the FINGER lands on, which is not always the element that captures —
+# `DataGrid` captures on the grid for a press on a header cell, and the paint views capture on the
+# `ImageView` they own. `undecided` is the text-selection shape, where no keyword is right because the
+# drag that scrolls is the drag that selects: see `TouchActionTests` and #225.
+#
+# path | sites | answer
+Core/Vixen.Ui.Controls/Range.cs | 2 | slider: none; range-slider: none
+Core/Vixen.Ui.Controls/ScrollView.cs | 1 | scrollbar: none
+Core/Vixen.Ui.Controls/SplitView.cs | 1 | split-bar: none
+Core/Vixen.Ui.Controls/TextField.cs | 1 | undecided: textbox; secure-textbox; textarea; search-box
+Core/Vixen.Ui.Controls/TextInputs.cs | 1 | numeric-input: pan-y
+Core/Vixen.Ui.Controls.Advanced/CodeEditor.cs | 1 | undecided: code-editor
+Core/Vixen.Ui.Controls.Advanced/ColorPicker.cs | 2 | color-strip: pan-y; color-field: none
+Core/Vixen.Ui.Controls.Advanced/CurveEditor.cs | 3 | curve-editor: none
+Core/Vixen.Ui.Controls.Advanced/DataGrid.cs | 2 | data-header-cell: pan-y
+Core/Vixen.Ui.Controls.Advanced/DockingHost.cs | 1 | dock-splitter: none
+Core/Vixen.Ui.Controls.Advanced/GradientEditor.cs | 2 | gradient-rail: pan-y
+Core/Vixen.Ui.Controls.Advanced/ImageView.cs | 1 | image-view: none
+Core/Vixen.Ui.Controls.Advanced/NodeCanvas.cs | 5 | node-canvas: none
+Core/Vixen.Ui.Controls.Advanced/NodeMinimap.cs | 1 | node-minimap: none
+Core/Vixen.Ui.Controls.Advanced/Timeline.cs | 4 | timeline-ruler: pan-y; timeline-lanes: none
+Core/Vixen.Ui.Controls.Advanced/Viewport.cs | 2 | viewport: none
+Editor/Vixen.Editor.Texturing/Painting/PaintMeshView.cs | 2 | image-view: none
+Editor/Vixen.Editor.Texturing/Painting/PaintUvView.cs | 3 | image-view: none
