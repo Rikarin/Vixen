@@ -1153,7 +1153,8 @@ instead of four, and is the least suitable file in the editor.
 that virtualises through `use=` and a pair of lambdas in `@code`, counted by `VirtualListReachTests`.
 So the exclusion is exactly and only the two delegates: everything else about a virtualised list is
 already sayable, and a port would move the tag, the `ref`, the toolbar and the detail pane and leave
-`CreateRow`/`BindRow` in the code-behind — which is the shape #758's `@rows` block would finish.
+`CreateRow`/`BindRow` in the code-behind — which is the shape #758's `@rows` block now finishes:
+the row template is markup (see `docs/guide/ui/markup-panels.md`), and the port itself is what is left.
 
 **`SettingsView` — no longer excluded.** `SettingsCategory.Build` is still an `Action<UiElement>`,
 invoked at one site (`Reload()`), from seven callers in `EditorSettingsPanels`. But the factory never

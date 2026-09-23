@@ -635,7 +635,7 @@ tag and reads as a property — so `use` is the general answer rather than the f
 ⚠ **One `use` per tag**, because attribute names are unique on an element. A lambda with a body does
 several things; two `use`s would also have needed an order, which is a rule nobody wants to remember.
 
-### The one call `use` reaches that is still not a spelling: a row template
+### The one call `use` reaches that was not a spelling: a row template
 
 ⚠ **`use` is what makes a virtualizing panel reachable, and reaching it was never the gap.** #758
 was audited four times as "`VirtualizingPanel` is reachable only through `use=` and a pair of
@@ -653,9 +653,42 @@ ever grows, a row that was line 4 is line 900 after a scroll — so every rule t
 false of it: nothing is matched, nothing survives, the body runs once per slot rather than once per
 item, and `refs`/`key`/`VXML2011` would all mean something else under one attribute.
 
-What is still owed is the syntax: a block directive with a header, which is a lexer keyword, a
-`Syntax.xml` node, a parser branch, a bound record and an emitter branch — the emitter target,
-which used to be the open question, is now `ctx.Pool(subject, tag, count, body)` and exists.
+### `@rows`, which is that row template spelled
+
+```xml
+<VirtualizingPanel ref="@List">
+    @rows (var index in Items.Value.Length) {
+        <message-row class="line">@Label(index.Value)</message-row>
+    }
+</VirtualizingPanel>
+```
+
+The syntax is a block directive (`RowsSyntax`, bound as `BoundRows`) and the emitter writes
+`ctx.Pool(host, "message-row", () => count, (c, slot, index) => { … })` — the call above, over the
+tag the block is written directly inside. Two decisions the design question had left open are
+settled by what the pool is:
+
+- ⚠ **The body's one element *is* the slot.** A pool creates a slot by tag name when the control
+  discovers it needs another row, so the row is written as the element it will be: its tag is the
+  slot's tag, and its attributes and children are applied to each slot once. That keeps the tag a
+  stylesheet styles rows by where every other tag is written, rather than in a header string — and it
+  is why the body must be exactly one plain element (`VXML2027`): a second element, a component, a
+  branch or nothing has no slot to be.
+- ⚠ **The host is the capitalised tag, not its `Inner`.** A virtualizing control's content host is
+  its scroller's interior, which is where rows live but not what can pool them, so `EmitElement` takes
+  a tag's `@rows` out of its projected children and pools over the tag itself. Written anywhere that
+  is not directly inside a capitalised tag, there is nothing to pool (`VXML2028`). Whether the tag
+  *can* pool is a type question, and this compiler resolves no types — the host argument is emitted
+  under a `#line` mapped to the `@rows` keyword, so a tag that is not an `IRowPool` is Roslyn's
+  `CS1503` on the keyword the author wrote. That is the no-`VXML3xxx` bargain kept, not broken.
+
+⚠ **`@rows` is a keyword only with a `(var` header after it.** `rows` is a legal C# identifier and
+`@rows[0]` is an ordinary interpolation; `@empty` makes the same bargain with the brace. And the index
+is a `Signal<int>` holding `-1` in a slot the pool has made and not yet bound.
+
+What is left of #758 is not language: `MessageLogView` and `ConsoleView` are still hand-written C#
+controls setting `CreateRow`/`BindRow`, and porting either to a `.vxml` is what gives `@rows` a
+production caller.
 
 ## `help`, and where an attach-shaped directive's runtime has to live
 

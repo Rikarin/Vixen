@@ -12,10 +12,10 @@
     hands it a `Signal<int>` holding the item that slot is showing, and everything the framework can
     do inside a region — `@if`, a nested loop, `refs`, a binding — works in it.
 
-    ⚠ **What is still missing is a way to SAY it in markup.** A `@rows` block would put the body
-    below in the tree rather than in `@code`; the runtime it would compile to is what this file
-    exercises, and it exists. That is the half that was owed and could be finished without inventing
-    a keyword; the keyword is still owed.
+    ⚠ **The markup spelling now exists, and `RowsSheet.vxml` beside this file is it.** `@rows` puts
+    the body below in the tree rather than in `@code` and compiles to exactly this `Context.Pool`
+    call. This file stays as the seam's own test — the call driven by hand — and as the one place a
+    pooled row's body can still be counted synchronously, since a counter in markup is an effect.
 
     ⚠ **The body runs once per SLOT, not once per item.** Ten thousand items, about a dozen bodies.
     `Built` counts them, which is the assertion that tells a pooled list from a correct one that

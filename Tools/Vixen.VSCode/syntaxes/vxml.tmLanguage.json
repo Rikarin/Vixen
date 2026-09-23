@@ -140,7 +140,7 @@
             "patterns": [
                 {
                     "comment": "@if / @for / @switch, whose parenthesised head is C#. @for's head is `var x in expr`, which C# parses as a declaration only inside a real for-each \u2014 so the head is scoped as an expression and `var`/`in` are called out by hand.",
-                    "begin": "(@(?:if|for|switch|while))\\s*(\\()",
+                    "begin": "(@(?:if|for|rows|switch|while))\\s*(\\()",
                     "end": "(\\))",
                     "beginCaptures": {
                         "1": {

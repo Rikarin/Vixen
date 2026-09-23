@@ -611,6 +611,39 @@ public class ParserTests {
         Assert.Equal("a < b", ((TextSyntax)Assert.Single(element.Content.Items())).TextToken.Text);
     }
 
+    /// <summary>An <c>@rows</c> header splits into its index name and its count, and the block reproduces its file.</summary>
+    [Fact]
+    public void A_rows_header_splits_into_its_index_and_its_count() {
+        const string Source = "@component A\n<VirtualizingPanel>\n    @rows (var index in Items.Value.Length) { <row /> }\n</VirtualizingPanel>";
+
+        var rows = First<RowsSyntax>(Source);
+
+        Assert.Equal("@rows", rows.RowsKeyword.Text);
+        Assert.Equal("index", rows.Identifier.Text);
+        Assert.Equal("Items.Value.Length", rows.Count.Text);
+        Assert.Single(rows.Body.Content.Items().OfType<ElementSyntax>());
+        Assert.Equal(Source, Vxml.ParseClean(Source).ToFullString());
+    }
+
+    /// <summary>
+    ///     ⚠ <c>@rows</c> is a keyword only with a <c>(var</c> header after it, because <c>rows</c> is a
+    ///     legal C# identifier and an interpolation of one is ordinary markup.
+    /// </summary>
+    /// <remarks>
+    ///     Sabotage: the lookahead removed from the lexer turns the first case into an <c>@rows</c> with
+    ///     a missing header, and this reddens.
+    /// </remarks>
+    [Theory]
+    [InlineData("@component A\n<p>@rows[0]</p>")]
+    [InlineData("@component A\n<p>@rows</p>")]
+    [InlineData("@component A\n<p>@rows.Count</p>")]
+    public void An_interpolation_of_something_called_rows_is_still_an_interpolation(string source) {
+        var document = Vxml.ParseClean(source);
+
+        Assert.Empty(document.DescendantNodes().OfType<RowsSyntax>());
+        Assert.Single(document.DescendantNodes().OfType<InterpolationSyntax>());
+    }
+
     static T First<T>(string source) where T : VxmlSyntaxNode =>
         Vxml.ParseClean(source).DescendantNodes().OfType<T>().First();
 }

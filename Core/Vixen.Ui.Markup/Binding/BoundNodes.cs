@@ -368,6 +368,43 @@ public sealed record BoundBranch(BoundExpression Condition, ImmutableArray<Bound
 /// <param name="Else">The untested arm; empty when there is none.</param>
 public sealed record BoundIf(ImmutableArray<BoundBranch> Branches, ImmutableArray<BoundNode> Else) : BoundNode;
 
+/// <summary>An <c>@rows</c>: a virtualizing control's row template, built once per pool slot.</summary>
+/// <param name="Index">
+///     The name the body reads the slot's item index through — a <c>Signal&lt;int&gt;</c>, written
+///     each time the control rebinds the slot, and <c>-1</c> for a slot that is showing nothing.
+/// </param>
+/// <param name="Count">The C# that says how many items there are.</param>
+/// <param name="Row">
+///     The body's one element, which <i>is</i> the slot: its tag is what every slot is created under
+///     and its attributes and children are applied to each one. Null when the body was not exactly one
+///     plain element, which the binder has reported.
+/// </param>
+/// <param name="KeywordPosition">
+///     Where <c>@rows</c> is, which is where a control that cannot pool is reported — Roslyn's
+///     conversion error on the generated call, mapped back to the keyword.
+/// </param>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Not an <c>@for</c> modifier, and the difference is the whole design.</b> A pool slot is
+///         not an identity: the pool only ever grows, a slot that showed row 4 shows row 900 after a
+///         scroll, and nothing is matched, survives or is re-keyed. Every rule the keyed reconciler
+///         teaches — a surviving key keeps its region, a key's body is not re-run, <c>refs</c> files
+///         under the matched key — is false here, so a keyword of its own keeps all of them true of
+///         <c>@for</c>. See <c>Rikarin/Vixen#758</c>.
+///     </para>
+///     <para>
+///         ⚠ <b>The row element is the slot rather than a child of one</b>, so the tag a stylesheet
+///         styles rows by is written where every other tag is — on the element — and not in a
+///         header string.
+///     </para>
+/// </remarks>
+public sealed record BoundRows(
+    string Index,
+    BoundExpression Count,
+    BoundElement? Row,
+    LinePositionSpan KeywordPosition
+) : BoundNode;
+
 /// <summary>An <c>@for</c>.</summary>
 /// <param name="Variable">The loop variable's name.</param>
 /// <param name="Sequence">The C# that produces the items.</param>

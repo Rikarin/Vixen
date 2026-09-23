@@ -1,0 +1,48 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    `PooledListSheet` with the row template written as markup, which is what #758 asked for.
+
+    ⚠ **The row is the element inside `@rows`, and it is the pool slot.** `virtual-row` is the tag
+    every slot is created under when the panel discovers it needs another row, and the class and the
+    text are applied to each slot once. `index` is a `Signal<int>` the panel writes
+    each time the slot shows a different item, so the text re-reads without the row being rebuilt —
+    the difference between this file and `PooledListSheet` is that nothing here is C# about the tree.
+
+    ⚠ **The tests count elements, not bodies**: ten thousand items and a dozen rows in the scroller,
+    and the same dozen element instances after a scroll, is what tells a pool from a correct list
+    that allocated ten thousand boxes or rebuilt a dozen on every frame.
+-->
+@component RowsSheet
+@namespace Vixen.Ui.Controls.Tests
+@using System.Collections.Generic
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<rows-sheet>
+    <VirtualizingPanel ref="@List">
+        @rows (var index in Items.Value.Length) {
+            <virtual-row class="line">@Label(index.Value)</virtual-row>
+        }
+    </VirtualizingPanel>
+</rows-sheet>
+
+@code {
+    /// <summary>The panel, so a test can scroll it the way a person would.</summary>
+    public VirtualizingPanel List { get; private set; } = null!;
+
+    /// <summary>What it is listing.</summary>
+    public Signal<string[]> Items { get; } = new([]);
+
+    /// <summary>Every item index a row was drawn for, which is what rebinding looks like.</summary>
+    public List<int> Bound { get; } = [];
+
+    string Label(int index) {
+        Bound.Add(index);
+
+        var items = Items.Value;
+        return index >= 0 && index < items.Length ? items[index] : string.Empty;
+    }
+}

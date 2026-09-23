@@ -813,6 +813,69 @@ public class BinderTests {
     static BoundElement FirstElement(string source) =>
         BindClean(source).Content.OfType<BoundElement>().First();
 
+    // ================================================================== @rows
+
+    /// <summary>A well-formed <c>@rows</c> binds to its index, its count and the one row element.</summary>
+    [Fact]
+    public void Rows_bind_to_an_index_a_count_and_the_row_element() {
+        var component = Binder.Bind(
+            Vxml.Parse("@component A\n<VirtualizingPanel>\n    @rows (var slot in Count) {\n        <row class=\"line\">@slot.Value</row>\n    }\n</VirtualizingPanel>"),
+            out var diagnostics
+        );
+
+        Assert.Empty(diagnostics.Select(d => d.Descriptor.Id));
+
+        var panel = Assert.IsType<BoundElement>(Assert.Single(component!.Content));
+        var rows = Assert.IsType<BoundRows>(Assert.Single(panel.Children.Where(child => child is not BoundText)));
+
+        Assert.Equal("slot", rows.Index);
+        Assert.Equal("Count", rows.Count.Text);
+        Assert.Equal("row", rows.Row!.Tag);
+
+        // ⚠ And no `VXML2004`: a row is not an `@for` row, and a slot is not an identity to key.
+        Assert.DoesNotContain("VXML2004", diagnostics.Select(d => d.Descriptor.Id));
+    }
+
+    /// <summary>The body is exactly one plain element, because that element is the slot.</summary>
+    /// <remarks>
+    ///     Each is a body the emitter would have nothing sensible to pool: two slots' worth, a
+    ///     component the pool cannot create by name, a branch, nothing, and a stray word.
+    /// </remarks>
+    [Theory]
+    [InlineData("<VirtualizingPanel>@rows (var i in N) { <a /><b /> }</VirtualizingPanel>")]
+    [InlineData("<VirtualizingPanel>@rows (var i in N) { <Button /> }</VirtualizingPanel>")]
+    [InlineData("<VirtualizingPanel>@rows (var i in N) { @if (x) { <a /> } }</VirtualizingPanel>")]
+    [InlineData("<VirtualizingPanel>@rows (var i in N) { }</VirtualizingPanel>")]
+    [InlineData("<VirtualizingPanel>@rows (var i in N) { text <a /> }</VirtualizingPanel>")]
+    public void A_rows_body_that_is_not_one_plain_element_is_refused(string markup) =>
+        Assert.Contains("VXML2027", Ids("@component A\n" + markup));
+
+    /// <summary>
+    ///     An <c>@rows</c> fills the capitalised tag it is written directly inside, and nowhere else is
+    ///     there a control for it to fill.
+    /// </summary>
+    [Theory]
+    [InlineData("@rows (var i in N) { <a /> }")]
+    [InlineData("<div>@rows (var i in N) { <a /> }</div>")]
+    [InlineData("<VirtualizingPanel>@if (x) { @rows (var i in N) { <a /> } }</VirtualizingPanel>")]
+    [InlineData("<VirtualizingPanel><div>@rows (var i in N) { <a /> }</div></VirtualizingPanel>")]
+    public void Rows_outside_a_capitalised_tag_are_refused(string markup) =>
+        Assert.Contains("VXML2028", Ids("@component A\n" + markup));
+
+    /// <summary>The negative for both: the one shape that is right says nothing.</summary>
+    /// <remarks>
+    ///     ⚠ The instrument for the two theories above. <c>VXML2028</c> is keyed on a flag the binder
+    ///     sets for a capitalised tag's direct children and clears one level down; a flag never set
+    ///     would pass every refusal above and fail here.
+    /// </remarks>
+    [Fact]
+    public void Rows_directly_inside_a_capitalised_tag_with_one_row_say_nothing() {
+        var ids = Ids("@component A\n<VirtualizingPanel>\n    @rows (var i in N) {\n        <a><b /></a>\n    }\n</VirtualizingPanel>");
+
+        Assert.DoesNotContain("VXML2027", ids);
+        Assert.DoesNotContain("VXML2028", ids);
+    }
+
     static ImmutableArray<string> Ids(string source) {
         _ = Binder.Bind(Vxml.Parse(source), out var diagnostics);
         return [.. diagnostics.Select(d => d.Descriptor.Id)];
