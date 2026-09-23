@@ -44,11 +44,11 @@ public class GaugeTests {
 
         gauge.Value = 0.5f;
         ui.Frame();
-        Assert.InRange(Lit(ui).Count / (float) full, 0.47f, 0.53f);
+        Assert.InRange(Lit(ui).Count / (float)full, 0.47f, 0.53f);
 
         gauge.Value = 0.25f;
         ui.Frame();
-        Assert.InRange(Lit(ui).Count / (float) full, 0.22f, 0.28f);
+        Assert.InRange(Lit(ui).Count / (float)full, 0.22f, 0.28f);
 
         gauge.Value = 0f;
         ui.Frame();

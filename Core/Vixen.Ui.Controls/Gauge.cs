@@ -152,7 +152,7 @@ public sealed partial class Gauge : RangeBase {
 
     /// <summary>Fills the part of the ring between two angles.</summary>
     void Sector(DrawContext context, Vector2 centre, float inner, float outer, float start, float sweep, Color4 colour) {
-        var steps = Math.Max(2, (int) MathF.Ceiling(sweep * 12f));
+        var steps = Math.Max(2, (int)MathF.Ceiling(sweep * 12f));
 
         arc.Clear();
 
