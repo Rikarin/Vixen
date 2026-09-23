@@ -1,10 +1,10 @@
 # Static tailwindcss utilities that docs/plan/43-web-styling-parity.tsv does not name.
 #
 # The ledger's `classes` column is Tailwind's static set for a root as the original survey
-# transcribed it by hand, and for a good many roots it is short of what v4 actually ships — the
-# `display` row's own note counts 7 of 21 keywords. Until Tools/Vixen.TailwindParity existed there
-# was no way to say how short, because the registry is not in this tree. This is the answer, taken
-# against the committed snapshot: 163 of v4's 890 static utilities are named by no row.
+# transcribed it by hand, and for a good many roots it is short of what v4 actually ships. Until
+# Tools/Vixen.TailwindParity existed there was no way to say how short, because the registry is not
+# in this tree. It was 163 of v4's 890 static utilities named by no row; it is 150, because the
+# `display` row's thirteen missing keywords went back where they belong.
 #
 # It is an exemption list in CheckWhitespace's shape, so it can only shrink. A static utility that is
 # in neither the ledger nor this file fails as TWP005; a line here that a row has since listed fails
@@ -49,7 +49,6 @@ block-screen
 content-baseline
 content-evenly
 content-stretch
-contents
 cursor-all-scroll
 cursor-cell
 cursor-col-resize
@@ -83,24 +82,19 @@ divide-double
 divide-none
 divide-solid
 duration-initial
-flex
-flow-root
 font-stretch-ultra-expanded
-grid
 h-auto
 h-fit
 h-lh
 h-max
 h-px
 h-screen
-inline-grid
 inline-px
 inline-screen
 inset-shadow-initial
 justify-baseline
 justify-evenly
 justify-stretch
-list-item
 mask-auto
 mask-bottom
 mask-bottom-left
@@ -165,13 +159,6 @@ size-auto
 size-fit
 size-max
 size-px
-table-cell
-table-column
-table-column-group
-table-footer-group
-table-header-group
-table-row
-table-row-group
 text-shadow-initial
 touch-pinch-zoom
 translate-3d
