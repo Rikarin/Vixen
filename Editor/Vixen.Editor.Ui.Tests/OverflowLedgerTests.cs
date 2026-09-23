@@ -18,7 +18,7 @@ namespace Vixen.Editor.Ui.Tests;
 ///         kinds (#1275), and the issue counted six more. ⚠ <b>The count was twenty-four</b>: the
 ///         issue grepped the shorthand, and <c>overflow-y: auto</c> is the same defect spelt for one
 ///         axis — sixteen more rules across the two editor themes, every one on a side panel or a
-///         list. Twenty-two of the twenty-four are closed; the two below say why they are not.
+///         list. Twenty-three of the twenty-four are closed; the one below says why it is not.
 ///     </para>
 ///     <para>
 ///         <b>This is the build-time half of the report; <c>UiDocument</c>'s 7009 is the run-time
@@ -94,18 +94,23 @@ public class OverflowLedgerTests {
     ///         120 px floor (142 px measured, in a 521 px mixer).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The two that are left are each left for a reason, not for want of time.</b>
+    ///         ⚠ <b><c>input-debug</c> went the compiled scene's way, and its recorded reason was
+    ///         beside the point.</b> It was held back because a component's host cannot be given a
+    ///         control's type from the sheet — true, and irrelevant: its dock panel scrolls as a whole,
+    ///         the view is the panel's direct child and so never shrinks, and the panel's bar reached
+    ///         every row. The declaration went; the panel is pixel-identical and the 7009 line is gone.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The one that is left is left for a reason, not for want of time.</b>
     ///         <c>override-body</c> carries a <b>child-combinator</b> rule
-    ///         (<c>override-body &gt; override-row</c>) and scrolls sideways. <c>input-debug</c> is a
-    ///         <i>component's own host tag</i> (<c>@tag</c> in <c>InputDebugView.vxml</c>), and a
-    ///         host element is built by the runtime as a plain <c>UiElement</c>: it cannot be given
-    ///         a control's type from the sheet's side at all, so that one wants a scroller inside
-    ///         the view.
+    ///         (<c>override-body &gt; override-row</c>), scrolls sideways, and lives in
+    ///         <c>ImportSettingsView</c> — which in the texture document's Texture tab sits below the
+    ///         mip ladder, past the tab's bottom edge at 1600×1000 with nothing to scroll the tab. So it
+    ///         wants a model document, or that tab fixed, before it can be pictured.
     ///     </para>
     /// </remarks>
     static readonly string[] Remaining = [
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:override-body",
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:input-debug"
+        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:override-body"
     ];
 
     [Fact]

@@ -1017,7 +1017,13 @@ agent-symptom { flex-shrink: 0; color: var(--danger, #f2696e); font-weight: 600;
 
 /* The input debug panel. ⚠ `flex-grow` and both `min-*: 0` on the host, which is the trap one level
    up from the four lists: a panel element that only styles its rows lays out in a strip down the
-   side of the pane, because `flex-direction` is CSS-initial `row` and nothing told it to fill. */
+   side of the pane, because `flex-direction` is CSS-initial `row` and nothing told it to fill.
+
+   ⚠ No scroll container, because the panel already is one (#1275). This rule said
+   `overflow-y: auto`, which in this UI clips and does not scroll — and here it did neither: the
+   view is the direct child of a scrolling dock panel, whose `dock-panel.scrolls > *
+   { flex-shrink: 0 }` makes it as tall as its rows, and the panel's own bar reaches the last. The
+   declaration's only effect was a 7009 line every time the panel opened. */
 input-debug {
     flex-direction: column;
     flex-grow: 1;
@@ -1025,7 +1031,6 @@ input-debug {
     min-height: 0;
     gap: 2px;
     padding: 2px;
-    overflow-y: auto;
 }
 
 /* ⚠ Not muted, because it is the sentence that says whether anything below it is real. */

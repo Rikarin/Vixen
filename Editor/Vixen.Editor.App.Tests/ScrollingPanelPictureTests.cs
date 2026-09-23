@@ -376,6 +376,55 @@ public sealed class ScrollingPanelPictureTests {
         Check(fixture, strips, "mixer-strips", sideways: true);
     }
 
+    /// <summary>The input debug panel, over more rows than the panel is tall.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The ledger kept <c>input-debug</c> for a scroller inside the view, and it needed
+    ///         none.</b> The panel's dock panel scrolls as a whole (<c>dock-panel.scrolls</c>) and the
+    ///         view is its direct child, so <c>dock-panel.scrolls &gt; * { flex-shrink: 0 }</c> makes
+    ///         the view as tall as its rows and the panel's bar reaches the last. The view's own
+    ///         <c>overflow-y: auto</c> never clipped a row; it only raised 7009 on every open.
+    ///     </para>
+    ///     <para>
+    ///         The rows are stood in for by the first list's height, because a headless session has no
+    ///         devices to list — the property under test is the panel's, not the rows'.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_input_debug_view_is_reached_by_the_panel_s_own_scroll() {
+        using var fixture = Start();
+
+        var view = fixture.Control<Vixen.Editor.AssetEditors.Input.InputDebugView>(
+            Vixen.Editor.AssetEditors.AssetEditorsModule.InputDebugPanelId
+        );
+
+        view.Devices.SetStyle("min-height", "1400px");
+        fixture.Frames(2);
+
+        var last = view.Actions;
+
+        Assert.True(
+            last.AbsoluteTop + last.Height <= view.AbsoluteTop + view.Height + 0.5f,
+            "the last list is below the bottom of the view, so the view cuts its content off."
+        );
+
+        var panel = Ancestors(view).OfType<Vixen.Ui.Controls.Advanced.DockPanel>().First();
+
+        Draw(fixture, null, "input-debug-top");
+
+        panel.ScrollTo(float.MaxValue);
+        fixture.Frames(2);
+
+        Draw(fixture, null, "input-debug-bottom");
+
+        Assert.True(panel.ScrollTop > 0f, "the input debug panel did not scroll, so nothing reaches its last list.");
+
+        Assert.True(
+            last.AbsoluteTop + last.Height <= panel.AbsoluteTop + panel.Height + 0.5f,
+            $"at the bottom of the panel's scroll the last list still ends {last.AbsoluteTop + last.Height - (panel.AbsoluteTop + panel.Height):0} px below it."
+        );
+    }
+
     static EditorSession Start(int width = Width, int height = Height) =>
         EditorSession.Start(new EditorSessionOptions { Width = width, Height = height });
 
