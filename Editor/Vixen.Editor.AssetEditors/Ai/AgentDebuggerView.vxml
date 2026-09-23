@@ -43,7 +43,10 @@
 @using Vixen.Ui.Reactive
 
 <agent-debugger-body>
-    <agent-debugger-agents>
+    <!-- ⚠ A `ScrollView` under the sheet's tag: the `overflow-y: auto` this column carried clips
+         and does not scroll in this UI, so a column longer than the pane simply ended (#1275). Its
+         `gap` moved to `> scroll-content`, which is where the children are now. -->
+    <ScrollView tag="agent-debugger-agents">
         <PanelTitle Text="Agents" />
 
         <agent-list ref="@Agents">
@@ -57,9 +60,12 @@
                 </agent-row>
             }
         </agent-list>
-    </agent-debugger-agents>
+    </ScrollView>
 
-    <agent-debugger-detail>
+    <!-- ⚠ A `ScrollView` under the sheet's tag: the `overflow-y: auto` this column carried clips
+         and does not scroll in this UI, so a column longer than the pane simply ended (#1275). Its
+         `gap` moved to `> scroll-content`, which is where the children are now. -->
+    <ScrollView tag="agent-debugger-detail">
         <agent-header ref="@Header">
             @if (HasHead) {
                 <AgentPlanner Text="@HeadPlanner" />
@@ -174,7 +180,7 @@
                 </agent-log-row>
             }
         </agent-log>
-    </agent-debugger-detail>
+    </ScrollView>
 </agent-debugger-body>
 
 @code {

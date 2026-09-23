@@ -78,6 +78,24 @@ root {
     --accent-text: #ffffff;
     --danger: #d64545;
 
+    /* ⚠ A third semantic colour, and it is not a lighter `--danger`. Danger says a thing has gone
+       wrong or is about to be destroyed; warning says a reading is heading somewhere and there is
+       still time. `LevelIndicator` is the first control in THIS set that has to say the second
+       without saying the first, and a theme that spelt them the same would make a disk at seventy
+       per cent look like a failure.
+
+       ⚠ **New here and not new in the tree**: `EditorTheme.vcss` has declared `--warning` for as
+       long as the editor has had a console, and a dozen editor sheets read it — several with a
+       `var(--warning, #e2b341)` fallback, which is what a token with no declaration underneath it
+       looks like from the consumer's side. Being the third sheet loaded, the editor's value still
+       wins wherever the editor is running; what this adds is the default beneath it, so that an
+       application which installs only the control set has the token at all.
+
+       ⚠ Darker than the amber a dark palette can use: #a26507 is 4.7:1 against `--surface`, so the
+       same token carries text as well as a fill — an amber picked for the bar alone is one that
+       becomes unreadable the first time somebody writes a word in it. */
+    --warning: #a26507;
+
     --track-color: #e3e6eb;
     --fill-color: #3b6cf0;
     --thumb-color: #ffffff;
@@ -118,6 +136,7 @@ root.dark {
     --accent: #5b87ff;
     --accent-text: #0d0f12;
     --danger: #f07171;
+    --warning: #e0a33a;
 
     --track-color: #33373d;
     --fill-color: #5b87ff;
@@ -567,6 +586,28 @@ progress-bar.vertical {
     min-height: 80px;
 }
 
+/* ⚠ A capacity readout rather than a progress bar, and the two are deliberately the same size and
+   shape: they sit in the same column of a panel and a reader compares them by their fill, not by
+   their outline. What differs is the colour, and the colour is a class the control writes from its
+   thresholds — so which hues mean "nearly full" is settled here and `LevelIndicator` knows none of
+   them. See its remarks for why the direction comes from the order of the two thresholds. */
+level-indicator {
+    height: 6px;
+    min-width: 80px;
+    border-radius: 3px;
+    --segment-gap: 2px;
+}
+
+level-indicator.vertical {
+    width: 6px;
+    height: auto;
+    min-width: 0px;
+    min-height: 80px;
+}
+
+level-indicator.warning { --fill-color: var(--warning); }
+level-indicator.critical { --fill-color: var(--danger); }
+
 spinner { width: 20px; height: 20px; color: var(--accent); }
 
 /* ── Containers ─────────────────────────────────────────────────────── */
@@ -872,7 +913,8 @@ key-value-row.heading key-value-key, key-value-row.heading key-value-value { col
    inches from its label. Same list and same argument as `property-editor`. */
 key-value-value textbox, key-value-value textarea, key-value-value numeric-input, key-value-value stepper,
 key-value-value secure-textbox, key-value-value search-box, key-value-value select, key-value-value multi-select,
-key-value-value combo-box, key-value-value slider, key-value-value progress-bar {
+key-value-value combo-box, key-value-value slider, key-value-value progress-bar,
+key-value-value level-indicator {
     flex-grow: 1;
     min-width: 0px;
 }

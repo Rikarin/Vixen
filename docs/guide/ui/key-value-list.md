@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.Controls.KeyValueList, T:Vixen.Ui.Controls.KeyValueRow]
 tags: [ui, controls, layout, theming, vxml]
 since: 0.2
 status: preview
-related: [editor/inspectors-in-markup]
+related: [editor/inspectors-in-markup, ui/level-indicator]
 ---
 
 ## What it is

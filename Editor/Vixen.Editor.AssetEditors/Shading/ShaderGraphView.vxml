@@ -53,7 +53,10 @@
     <CodeEditor ref="@Generated" Tokenizer="@CStyleTokenizer.Raven" ReadOnly="true" />
 </shadergraph-source>
 
-<shadergraph-side ref="@Side">
+<!-- ⚠ A `ScrollView` under the sheet's tag: the `overflow-y: auto` this column carried clips
+     and does not scroll in this UI, so a fields column longer than the pane simply ended (#1275).
+     `Side` is the view's content, so the fields stay its direct children. -->
+<ScrollView tag="shadergraph-side" ref="@sidePane">
     <shadergraph-transport>
         <Button ref="@Build" Label="Compile" />
         <ToggleButton ref="@ShowCode"
@@ -101,7 +104,7 @@
             <AnalysisRow key="@note" Stage="@note.Stage" Message="@note.Message" />
         }
     </analysis-list>
-</shadergraph-side>
+</ScrollView>
 
 @code {
     /// <summary>Whether the generated Raven is showing.</summary>
@@ -170,8 +173,15 @@
     /// <summary>The emitted shader, read-only.</summary>
     public CodeEditor Generated { get; private set; } = null!;
 
-    /// <summary>The column beside the canvas.</summary>
-    public UiElement Side { get; private set; } = null!;
+    /// <summary>The column beside it: the fields' direct parent, which is the side pane's content.</summary>
+    /// <remarks>
+    ///     ⚠ The pane itself is a <see cref="ScrollView" /> under the sheet's own tag (#1275), and
+    ///     this is deliberately its <see cref="ScrollView.Content" /> rather than the view: a caller
+    ///     that adds a field wants it beside the others, not beside the scrollbars.
+    /// </remarks>
+    public UiElement Side => sidePane.Content;
+
+    ScrollView sidePane = null!;
 
     /// <summary>The button that compiles the graph.</summary>
     public Button Build { get; private set; } = null!;

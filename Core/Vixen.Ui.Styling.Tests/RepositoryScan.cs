@@ -76,6 +76,67 @@ static class RepositoryScan {
         throw new DirectoryNotFoundException($"the repository root was not found above '{AppContext.BaseDirectory}'.");
     }
 
+    /// <summary>Every stylesheet in the repository, loaded into one engine.</summary>
+    /// <returns>An engine holding every rule the working tree declares.</returns>
+    /// <remarks>
+    ///     ⚠ <b>One engine for sheets no single document loads together</b>, and that is the
+    ///     conservative direction rather than the sloppy one. A tag some <i>other</i> assembly's
+    ///     sheet happens to style can only make a name look reachable and pass, never make a clean
+    ///     one fail — so the answer this gives is a floor on the defect, which is the right way
+    ///     round for a gate.
+    /// </remarks>
+    public static StyleEngine Sheets() {
+        var engine = new StyleEngine();
+
+        foreach (var path in Files("*.vcss")) {
+            engine.Load(File.ReadAllText(path), StyleOrigin.Author);
+        }
+
+        return engine;
+    }
+
+    /// <summary>
+    ///     What the sheets would have given <paramref name="declared" /> and do not give
+    ///     <paramref name="written" />.
+    /// </summary>
+    /// <param name="engine">The loaded sheets.</param>
+    /// <param name="written">The tag the element actually carries.</param>
+    /// <param name="declared">The spelling to compare against.</param>
+    /// <returns>The property names only the second spelling resolves, sorted ordinally.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Resolved rather than looked up</b>, because the question is what the cascade
+    ///         computes and not what a selector list contains. A tag can be named by a rule that
+    ///         never applies — sealed in a <c>@media</c>, or beaten outright — and reporting that as
+    ///         a lost style would be a failure with nothing behind it. Two elements, same parent,
+    ///         same absence of classes: the only thing that differs is the spelling, so anything the
+    ///         second one has is exactly what the spelling cost.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It answers in longhands, which is what makes it usable for a shorthand.</b>
+    ///         <c>overflow: hidden</c> is expanded at load, so a rule writing the shorthand and a
+    ///         rule writing both axes are the same answer here — a comparison over declaration
+    ///         <i>text</i> would call one of them a loss and send somebody to rewrite a correct
+    ///         sheet.
+    ///     </para>
+    /// </remarks>
+    public static List<string> Missing(StyleEngine engine, string written, string declared) {
+        var a = engine.Resolver.Resolve(engine.Tree, engine.Tree.CreateElement(written));
+        var b = engine.Resolver.Resolve(engine.Tree, engine.Tree.CreateElement(declared));
+
+        var lost = new List<string>();
+
+        for (var i = 0; i < b.Properties.Length; i++) {
+            if (!a.TryGet(b.Properties[i], out _)) {
+                lost.Add(engine.Properties.NameOf(b.Properties[i]));
+            }
+        }
+
+        lost.Sort(StringComparer.Ordinal);
+
+        return lost;
+    }
+
     /// <summary>Every name of one kind a compiled selector holds, including the nested ones.</summary>
     /// <param name="engine">The engine the selector was compiled by.</param>
     /// <param name="selector">The selector.</param>

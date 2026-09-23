@@ -100,7 +100,10 @@ public sealed class MoveSetView : Control {
         // table's direct children, which is what the tests and the sheet both count on.
         Table = body.Add<ScrollView>("moveset-table").Content;
 
-        var side = body.Add("moveset-side");
+        // ⚠ The content of a `ScrollView` under the `moveset-side` tag, not a plain element: the
+        // sheet's `overflow-y: auto` clips in this UI and never scrolls, so a fields column longer
+        // than the pane simply ended (#1275). The fields stay the column's direct children.
+        var side = body.Add<ScrollView>("moveset-side").Content;
         Fields = side.Add("moveset-fields");
 
         Filter.ValueChanged += (_, _) => Reload();

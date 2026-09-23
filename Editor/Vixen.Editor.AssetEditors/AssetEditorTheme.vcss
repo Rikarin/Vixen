@@ -543,7 +543,16 @@ shadergraph-source {
 
 shadergraph-source > code-editor { flex-grow: 1; min-height: 0; }
 
-shadergraph-side { flex-direction: column; width: 300px; flex-shrink: 0; gap: 6px; overflow-y: auto; }
+/* ⚠ The `*-side` field columns are `ScrollView`s under their own tags since #1275: each carried
+   `overflow-y: auto`, which in this UI reserves a gutter, drops the min-content floor and
+   clips — and then nothing moves the content, so a fields column longer than the pane simply
+   ended. A control under a tag of its own matches none of its own user-agent rule (#1327), so
+   `overflow: hidden; position: relative` — the clip and the bars' anchor — are written on each
+   rule here rather than inherited from `scroll-view`. ⚠ And the `gap` moves to the view's
+   `scroll-content`: on the port it would space the viewport from its own scrollbars and leave
+   the fields touching. */
+shadergraph-side { flex-direction: column; width: 300px; flex-shrink: 0; overflow: hidden; position: relative; }
+shadergraph-side > scroll-content { gap: 6px; }
 shadergraph-transport { flex-direction: row; align-items: center; gap: 4px; flex-shrink: 0; }
 shadergraph-property { flex-direction: column; gap: 2px; flex-shrink: 0; }
 
@@ -556,7 +565,8 @@ shadergraph-preview { flex-direction: column; gap: 2px; flex-shrink: 0; }
    node graph wants: a block chain is wide and a preview of particles reads fine small. */
 vfx-editor { flex-direction: row; gap: 6px; }
 vfx-editor > node-graph { flex-grow: 1; min-width: 0; }
-vfx-side { flex-direction: column; width: 300px; flex-shrink: 0; gap: 6px; overflow-y: auto; }
+vfx-side { flex-direction: column; width: 300px; flex-shrink: 0; overflow: hidden; position: relative; }
+vfx-side > scroll-content { gap: 6px; }
 vfx-transport { flex-direction: row; align-items: center; gap: 4px; flex-shrink: 0; }
 
 vfx-preview {
@@ -607,8 +617,13 @@ animation-side, animgraph-side, input-side, mixer-side, font-side, sequence-side
     width: 300px;
     min-width: 120px;
     flex-shrink: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+animation-side > scroll-content, animgraph-side > scroll-content, input-side > scroll-content,
+mixer-side > scroll-content, font-side > scroll-content, sequence-side > scroll-content {
     gap: 6px;
-    overflow-y: auto;
 }
 
 animation-proposals { flex-direction: column; gap: 2px; margin-top: 8px; }
@@ -640,7 +655,7 @@ harness-body { flex-direction: row; flex-grow: 1; min-height: 0px; gap: 6px; }
    `overflow: hidden; position: relative` — are written here. ⚠ Do not "fix" a list that cuts off by raising
    its height; that moves the first unreachable row rather than reaching it. */
 harness-matrix { flex-direction: column; flex-grow: 1; min-width: 0px; overflow: hidden; position: relative; }
-harness-side { flex-direction: column; width: 300px; min-width: 120px; flex-shrink: 1; overflow-y: auto; }
+harness-side { flex-direction: column; width: 300px; min-width: 120px; flex-shrink: 1; overflow: hidden; position: relative; }
 harness-fields { flex-direction: column; gap: 2px; }
 harness-title { font-weight: 600; margin-top: 4px; }
 harness-error { color: var(--danger, #f2696e); margin-top: 6px; }
@@ -670,7 +685,7 @@ moveset-bar { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6p
 moveset-bar > textbox { flex-grow: 1; min-width: 160px; }
 moveset-body { flex-direction: row; flex-grow: 1; min-height: 0px; gap: 6px; }
 moveset-table { flex-direction: column; flex-grow: 1; min-width: 0px; overflow: hidden; position: relative; }
-moveset-side { flex-direction: column; width: 300px; min-width: 120px; flex-shrink: 1; overflow-y: auto; }
+moveset-side { flex-direction: column; width: 300px; min-width: 120px; flex-shrink: 1; overflow: hidden; position: relative; }
 moveset-fields { flex-direction: column; gap: 2px; }
 moveset-title { font-weight: 600; margin-top: 4px; }
 moveset-error { color: var(--danger, #f2696e); margin-top: 6px; }
@@ -704,7 +719,8 @@ shape-body { flex-direction: row; flex-grow: 1; min-height: 0px; gap: 6px; }
 shape-stage { flex-direction: column; flex-grow: 1; min-width: 0px; gap: 6px; }
 shape-stage > viewport { flex-grow: 1; min-height: 120px; }
 shape-list { flex-direction: column; height: 180px; min-height: 60px; flex-shrink: 0; overflow: hidden; position: relative; }
-shape-side { flex-direction: column; width: 300px; min-width: 120px; flex-shrink: 1; gap: 6px; overflow-y: auto; }
+shape-side { flex-direction: column; width: 300px; min-width: 120px; flex-shrink: 1; overflow: hidden; position: relative; }
+shape-side > scroll-content { gap: 6px; }
 shape-fields, shape-report { flex-direction: column; gap: 2px; }
 shape-title { font-weight: 600; margin-top: 4px; }
 shape-error { color: var(--danger, #f2696e); margin-top: 6px; }
@@ -733,7 +749,8 @@ vocab-editor { flex-direction: column; flex-grow: 1; gap: 6px; padding: 6px; ove
 vocab-bar { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
 vocab-body { flex-direction: row; flex-grow: 1; min-height: 0px; gap: 6px; }
 vocab-list { flex-direction: column; flex-grow: 1; min-width: 0px; overflow: hidden; position: relative; }
-vocab-side { flex-direction: column; width: 300px; min-width: 120px; flex-shrink: 1; gap: 6px; overflow-y: auto; }
+vocab-side { flex-direction: column; width: 300px; min-width: 120px; flex-shrink: 1; overflow: hidden; position: relative; }
+vocab-side > scroll-content { gap: 6px; }
 vocab-fields, vocab-report { flex-direction: column; gap: 2px; }
 vocab-title { font-weight: 600; margin-top: 4px; }
 vocab-error { color: var(--danger, #f2696e); margin-top: 6px; }
@@ -900,18 +917,22 @@ agent-debugger-agents {
     width: 104px;
     min-width: 72px;
     flex-shrink: 0;
-    gap: 1px;
-    overflow-y: auto;
+    overflow: hidden;
+    position: relative;
 }
+
+agent-debugger-agents > scroll-content { gap: 1px; }
 
 agent-debugger-detail {
     flex-direction: column;
     flex-grow: 1;
     min-width: 0;
     min-height: 0;
-    gap: 2px;
-    overflow-y: auto;
+    overflow: hidden;
+    position: relative;
 }
+
+agent-debugger-detail > scroll-content { gap: 2px; }
 
 agent-list { flex-direction: column; gap: 1px; }
 

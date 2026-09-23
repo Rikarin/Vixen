@@ -146,6 +146,16 @@ public enum AccessibleRole : ushort {
     /// <summary>ARIA <c>menuitemradio</c>.</summary>
     MenuItemRadio,
 
+    /// <summary>ARIA <c>meter</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <see cref="ProgressBar" />, and the difference is what the reading <i>means</i>
+    ///     rather than how it is drawn.</b> A progress bar says how far through a job something is
+    ///     and its value only ever goes up; a meter says how much of a fixed capacity is in use, and
+    ///     it goes both ways and never finishes. A screen reader told "progress bar, ninety per
+    ///     cent" about a disk that is nearly full has been told a job is nearly done.
+    /// </remarks>
+    Meter,
+
     /// <summary>ARIA <c>navigation</c>.</summary>
     Navigation,
 

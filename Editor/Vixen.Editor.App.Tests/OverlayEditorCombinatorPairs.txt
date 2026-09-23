@@ -26,12 +26,15 @@ add-component-list > scroll-content
 add-component-menu > search-box
 add-component-row > icon
 add-component-row > label
+agent-debugger-agents > scroll-content
+agent-debugger-detail > scroll-content
 asset-grid > asset-path
 asset-tile > icon
 asset-tile > image
 browser-filters > search-box
 browser-filters > select
 color-input > color-swatch
+console-detail > scroll-content
 debugger-body > tree-view
 device-manager > data-grid
 dock-guide > dock-hint
@@ -48,6 +51,7 @@ inspector-row > icon-button
 inspector-row > inspector-editor
 inspector-row > inspector-label
 memory-view > scroll-view
+message-log-detail > scroll-content
 mode-bar > toolbar
 outliner-filters > search-box
 outliner-filters > select

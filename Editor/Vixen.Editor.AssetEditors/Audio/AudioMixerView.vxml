@@ -98,7 +98,10 @@
         }
     </mixer-strips>
 
-    <mixer-side ref="@Side">
+    <!-- ⚠ A `ScrollView` under the sheet's tag: the `overflow-y: auto` this column carried clips
+         and does not scroll in this UI, so a fields column longer than the pane simply ended (#1275).
+         `Side` is the view's content, so the fields stay its direct children. -->
+    <ScrollView tag="mixer-side" ref="@sidePane">
         <mixer-fields ref="@Fields">
             @if (Bus is null) {
                 @("Select a bus.")
@@ -183,7 +186,7 @@
                 <AnalysisRow key="@note" Stage="@note.Stage" Message="@note.Message" />
             }
         </analysis-list>
-    </mixer-side>
+    </ScrollView>
 </mixer-body>
 
 @code {
@@ -260,8 +263,15 @@
     /// <summary>The strips.</summary>
     public UiElement Strips { get; private set; } = null!;
 
-    /// <summary>The column beside them.</summary>
-    public UiElement Side { get; private set; } = null!;
+    /// <summary>The column beside it: the fields' direct parent, which is the side pane's content.</summary>
+    /// <remarks>
+    ///     ⚠ The pane itself is a <see cref="ScrollView" /> under the sheet's own tag (#1275), and
+    ///     this is deliberately its <see cref="ScrollView.Content" /> rather than the view: a caller
+    ///     that adds a field wants it beside the others, not beside the scrollbars.
+    /// </remarks>
+    public UiElement Side => sidePane.Content;
+
+    ScrollView sidePane = null!;
 
     /// <summary>The selected bus's inserts and sends.</summary>
     public UiElement Fields { get; private set; } = null!;

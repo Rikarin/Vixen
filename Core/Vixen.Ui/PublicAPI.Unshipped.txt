@@ -114,36 +114,37 @@ Vixen.Ui.AccessibleRole.MenuBar = 30 -> Vixen.Ui.AccessibleRole
 Vixen.Ui.AccessibleRole.MenuItem = 31 -> Vixen.Ui.AccessibleRole
 Vixen.Ui.AccessibleRole.MenuItemCheckBox = 32 -> Vixen.Ui.AccessibleRole
 Vixen.Ui.AccessibleRole.MenuItemRadio = 33 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.Navigation = 34 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Meter = 34 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Navigation = 35 -> Vixen.Ui.AccessibleRole
 Vixen.Ui.AccessibleRole.None = 0 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.Note = 35 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.Option = 36 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.ProgressBar = 37 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.Radio = 38 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.RadioGroup = 39 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.Region = 40 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.Row = 41 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.RowGroup = 42 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.RowHeader = 43 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.ScrollBar = 44 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.Search = 45 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.SearchBox = 46 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.Separator = 47 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.Slider = 48 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.SpinButton = 49 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.Status = 50 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.Switch = 51 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.Tab = 52 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.TabList = 54 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.TabPanel = 55 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.Table = 53 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.TextBox = 56 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.Timer = 57 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.Toolbar = 58 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.Tooltip = 59 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.Tree = 60 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.TreeGrid = 61 -> Vixen.Ui.AccessibleRole
-Vixen.Ui.AccessibleRole.TreeItem = 62 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Note = 36 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Option = 37 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.ProgressBar = 38 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Radio = 39 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.RadioGroup = 40 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Region = 41 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Row = 42 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.RowGroup = 43 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.RowHeader = 44 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.ScrollBar = 45 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Search = 46 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.SearchBox = 47 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Separator = 48 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Slider = 49 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.SpinButton = 50 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Status = 51 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Switch = 52 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Tab = 53 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.TabList = 55 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.TabPanel = 56 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Table = 54 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.TextBox = 57 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Timer = 58 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Toolbar = 59 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Tooltip = 60 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.Tree = 61 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.TreeGrid = 62 -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibleRole.TreeItem = 63 -> Vixen.Ui.AccessibleRole
 Vixen.Ui.AccessibleStates -> enum : uint
 Vixen.Ui.AccessibleStates.AccessibleStates() -> void
 Vixen.Ui.AccessibleStates.Busy = 8192 -> Vixen.Ui.AccessibleStates
@@ -802,6 +803,11 @@ Vixen.Ui.KeyChord.KeyChord(Vixen.Input.InputKey Key, Vixen.Ui.ModifierKeys Modif
 Vixen.Ui.KeyChord.Modifiers.get -> Vixen.Ui.ModifierKeys
 Vixen.Ui.KeyChord.Modifiers.init -> Vixen.Ui.ModifierKeys
 Vixen.Ui.KeyChord.Save() -> string
+Vixen.Ui.KeyEquivalentEvent -> sealed class
+Vixen.Ui.KeyEquivalentEvent : Vixen.Ui.UiEvent
+Vixen.Ui.KeyEquivalentEvent.Key.get -> Vixen.Input.InputKey
+Vixen.Ui.KeyEquivalentEvent.Key.init -> Vixen.Input.InputKey
+Vixen.Ui.KeyEquivalentEvent.KeyEquivalentEvent() -> void
 Vixen.Ui.KeyEvent -> sealed class
 Vixen.Ui.KeyEvent : Vixen.Ui.UiEvent
 Vixen.Ui.KeyEvent.Action.get -> Vixen.Ui.KeyAction
@@ -816,11 +822,6 @@ Vixen.Ui.KeyEvent.Modifiers.get -> Vixen.Ui.ModifierKeys
 Vixen.Ui.KeyEvent.Modifiers.init -> Vixen.Ui.ModifierKeys
 Vixen.Ui.KeyEvent.Timestamp.get -> System.TimeSpan
 Vixen.Ui.KeyEvent.Timestamp.init -> System.TimeSpan
-Vixen.Ui.KeyEquivalentEvent -> sealed class
-Vixen.Ui.KeyEquivalentEvent : Vixen.Ui.UiEvent
-Vixen.Ui.KeyEquivalentEvent.Key.get -> Vixen.Input.InputKey
-Vixen.Ui.KeyEquivalentEvent.Key.init -> Vixen.Input.InputKey
-Vixen.Ui.KeyEquivalentEvent.KeyEquivalentEvent() -> void
 Vixen.Ui.LayoutStyleBuilder -> sealed class
 Vixen.Ui.LayoutStyleBuilder.ApplyVariableLength(Vixen.Ui.Styling.ComputedStyle style, Vixen.Ui.Layout.LayoutTree tree, Vixen.Ui.Layout.LayoutNodeId node) -> void
 Vixen.Ui.LayoutStyleBuilder.Build(Vixen.Ui.Styling.ComputedStyle style, in Vixen.Ui.LengthContext context) -> Vixen.Ui.Layout.LayoutStyle
