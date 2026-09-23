@@ -315,6 +315,100 @@ public class TouchActionTests {
         Assert.True(scrolls == (top != 0f || left != 0f), $"top {top}, left {left}");
     }
 
+    /// <summary>
+    ///     ⚠ <b>A refusal is only half the property: the control still has to get the finger.</b> The
+    ///     two theories above assert that the <i>view</i> stayed put, which a change that made
+    ///     <c>touch-action: none</c> disarm the control's own drag would also satisfy — and the pair
+    ///     that closes it is one gesture: the thumb moved <b>and</b> the list did not.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Horizontal, because a horizontal slider's value cannot answer a vertical drag.</b>
+    ///     The vertical cases above are the right axis for the view's own scroll; the knob only
+    ///     reports having been dragged along its own track, so the closed-form version of the pair
+    ///     has to run along it. The view overflows both ways, so <c>ScrollLeft</c> is the offset that
+    ///     would have moved had the declaration not been read.
+    /// </remarks>
+    [Fact]
+    public void A_slider_that_takes_the_finger_still_moves_its_own_thumb() {
+        var (fixture, view, control) = Themed(static (document, parent) => document.Create<Slider>(null, parent, "knob"));
+        using var _ = fixture;
+
+        var slider = (Slider)control;
+        var bounds = view.Bounds;
+        var x = bounds.X + (bounds.Width * 0.5f);
+        var y = bounds.Y + (bounds.Height * 0.5f);
+
+        fixture.Press(x, y, type: PointerType.Touch);
+        fixture.Advance(Frame);
+
+        var pressed = slider.Value;
+        var top = view.ScrollTop;
+        var left = view.ScrollLeft;
+
+        for (var step = 1; step <= 3; step++) {
+            fixture.MovePointer(x - (Step * step), y, type: PointerType.Touch);
+            fixture.Advance(Frame);
+        }
+
+        Assert.True(slider.Value < pressed, $"the thumb did not move: {pressed} -> {slider.Value}");
+        Assert.Equal(top, view.ScrollTop);
+        Assert.Equal(left, view.ScrollLeft);
+
+        fixture.Release(x - (Step * 3), y, type: PointerType.Touch);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The family the theme leaves undeclared, measured rather than assumed — and it has the
+    ///     defect the rules above fix.</b> <see cref="TextField" /> captures the pointer at
+    ///     <c>TextField.cs:1284</c> to keep a selection drag alive past its own border, which is the
+    ///     sixth <c>CapturePointer</c> call site in <c>Vixen.Ui.Controls</c> and the one no rule
+    ///     names. So a finger dragging inside a <c>textbox</c> or a <c>textarea</c> in a list moves
+    ///     the caret <i>and</i> scrolls the list by the whole travel, exactly as a slider did.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This asserts the defect, deliberately, because the remedy is a behaviour decision
+    ///         and not a missing line.</b> A blanket <c>none</c> on <c>textbox</c> would make a form
+    ///         of text fields unscrollable from anywhere a finger naturally lands — the trap the
+    ///         <c>numeric-input</c> comment in <c>ControlTheme.vcss</c> warns about — and <c>pan-y</c>
+    ///         would not help, because the drag measured here <i>is</i> the vertical one and the
+    ///         field takes it anyway. What browsers do instead is not begin a text selection from a
+    ///         plain finger drag at all, which is a change in <c>TextField.Pointed</c> rather than in
+    ///         a stylesheet, and is the same change <c>docs/InertProperties.txt</c> records as the
+    ///         one that would expire <c>user-select</c>'s refusal (#225).
+    ///     </para>
+    ///     <para>
+    ///         So the number is recorded where it can go red: the day somebody makes that decision,
+    ///         this theory fails and says to write the outcome into the guide and the theme. A
+    ///         sentence in a review comment would not have.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("textbox")]
+    [InlineData("textarea")]
+    public void A_finger_dragging_a_text_field_still_reaches_the_view_and_that_is_not_yet_decided(string tag) {
+        var (fixture, view, control) = Themed((document, parent) => tag == "textarea"
+            ? document.Create<TextArea>(null, parent, "knob")
+            : (UiElement)document.Create<TextBox>(null, parent, "knob"));
+
+        using var _ = fixture;
+
+        var moved = DragAcross(fixture, view, 0f, -Step);
+
+        Assert.True(
+            moved.Top > 0f,
+            $"""
+             a finger dragging a `{tag}` no longer scrolls the view around it (top {moved.Top}).
+
+             Something now declares `touch-action` for the `TextField` family, or the field stopped
+             taking a finger's drag as a selection. Either is the decision this theory was waiting
+             for: say which in `docs/guide/ui/touch-action.md` beside the paragraph naming this
+             family as undeclared, add the row to `ControlTheme.vcss` if that is what was done, and
+             turn this into the refusal its siblings above are.
+             """
+        );
+    }
+
     /// <summary>A pen is a finger for this purpose, as it is for <see cref="ScrollView.DragToScroll" />.</summary>
     [Fact]
     public void A_pen_is_governed_like_a_finger() {

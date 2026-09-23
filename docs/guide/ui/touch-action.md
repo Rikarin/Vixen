@@ -91,6 +91,18 @@ keywords.** The scrub reads the horizontal travel and nothing else, so the verti
 travel is still the list's. A blanket `none` there would make a form of numeric fields unscrollable
 from anywhere a finger naturally lands.
 
+⚠ **That list is not every control that owns a finger, and the text fields are the gap.**
+`TextField` captures the pointer for its own selection drag, so `textbox`, `secure-textbox`,
+`textarea` and `search-box` have the defect the rows above fix and no rule naming them: measured
+against this theme, a finger dragging inside a `textbox` or a `textarea` in a 100×100 scroll view
+moves the caret **and** scrolls the view by the whole travel. It is undeclared deliberately, because
+neither keyword is the answer — `none` makes a form of text fields unscrollable, and `pan-y` does not
+help, since the drag that scrolls is the vertical one and the field takes it anyway. What a browser
+does instead is not begin a text selection from a plain finger drag at all, which is a change in the
+control rather than in a stylesheet. Until somebody decides it,
+`TouchActionTests.A_finger_dragging_a_text_field_still_reaches_the_view_and_that_is_not_yet_decided`
+holds the measurement and fails the day the behaviour changes.
+
 `touch-pinch-zoom` is deliberately not a utility. The keyword parses (`TouchAction.PinchZoom`), but
 nothing here performs a pinch as a user-agent default, so the class would resolve and configure
 nothing.
