@@ -1120,6 +1120,15 @@ public class UtilityFamilySupportTests {
         // silently be `origin-center` under a positional reading.
         { "perspective-origin-top-right", "perspective-origin", "right top" },
 
+        // ⚠ <b>A plain property, and its root waited on the probe rather than on the engine.</b>
+        // Both walks have honoured `backface-visibility` since #550's second pass; no
+        // `UtilityConsumptionProbe` scene had a back-facing probe until the `flipped` one, so the
+        // family could not be registered without measuring inert. What the rows say computes,
+        // <see cref="A_backface_hidden_card_that_has_turned_away_is_neither_drawn_nor_clicked" />
+        // says both consumers read.
+        { "backface-hidden", "backface-visibility", "hidden" },
+        { "backface-visible", "backface-visibility", "visible" },
+
         // ⚠ <b>The three skews, and the expectation above changed when they landed — which is the
         // useful half of writing an assembled value out in full.</b> Every family that fills one slot
         // of `transform` emits all three, so `rotate-z-45` now carries two identity skews and a
@@ -2873,6 +2882,73 @@ public class UtilityFamilySupportTests {
         // inverted nothing would still pass.
         Assert.Same(spun, ui.Document.HitTest(20f, 24f));
         Assert.NotSame(spun, ui.Document.HitTest(2f, 2f));
+    }
+
+    /// <summary>
+    ///     <c>backface-hidden</c> takes a card that has turned its back out of the picture and away
+    ///     from the pointer, and leaves one that has not exactly where it was.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The rows in the table above say the keyword computes; this says both consumers
+    ///         read it, and a keyword read by one of them is worse than one read by neither.</b> A
+    ///         card the draw list drops and the hit test keeps is an invisible rectangle that eats
+    ///         clicks — so every card is asserted in both walks, card for card.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Three cards, because each pair of them is satisfiable by a wrong reader.</b> The
+    ///         turned-and-hidden card alone passes a reader that hides everything carrying the class;
+    ///         the front-facing hidden card is what refuses that. The turned-and-visible card is the
+    ///         instrument: it is the same <c>rotate-y-180</c> without the class, so it proves the
+    ///         rotation reached a matrix at all — an unread <c>transform</c> leaves a flat card that
+    ///         never turned, and the first card would then be drawn for the wrong reason.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_backface_hidden_card_that_has_turned_away_is_neither_drawn_nor_clicked() {
+        using var ui = Sheet(
+            "rotate-y-180",
+            "backface-hidden",
+            "backface-visible",
+            "absolute",
+            "top-0",
+            "left-0",
+            "left-24",
+            "left-48",
+            "w-16",
+            "h-8",
+            "bg-accent"
+        );
+
+        var hidden = ui.Create("hidden", ui.Document.Root, null, "absolute", "top-0", "left-0", "rotate-y-180", "backface-hidden", "w-16", "h-8", "bg-accent");
+        var shown = ui.Create("shown", ui.Document.Root, null, "absolute", "top-0", "left-24", "rotate-y-180", "backface-visible", "w-16", "h-8", "bg-accent");
+        var facing = ui.Create("facing", ui.Document.Root, null, "absolute", "top-0", "left-48", "backface-hidden", "w-16", "h-8", "bg-accent");
+
+        ui.Frame();
+
+        Assert.Equal("hidden", ui.StyleOf(hidden, "backface-visibility"));
+        Assert.Equal("visible", ui.StyleOf(shown, "backface-visibility"));
+
+        // The instrument: both turned cards carry a matrix, so the rotation was read.
+        Assert.NotNull(hidden.Transform);
+        Assert.NotNull(shown.Transform);
+
+        // The picture: exactly the two cards that are not showing their back to a hidden face. Each
+        // opens a rectangle at its own left edge — a half-turn about the centre maps the box onto
+        // itself — so the lefts say WHICH two rather than only how many. Card-sized only, so a
+        // background the theme may give the root cannot stand in for the card at the same left.
+        var lefts = ui.Document.Drawing.Commands
+            .Where(command => command.Kind == DrawCommandKind.Rectangle && command.Width == 64f && command.Height == 32f)
+            .Select(command => command.X)
+            .Order()
+            .ToArray();
+
+        Assert.Equal([96f, 192f], lefts);
+
+        // And the pointer agrees, card for card.
+        Assert.NotSame(hidden, ui.Document.HitTest(32f, 16f));
+        Assert.Same(shown, ui.Document.HitTest(128f, 16f));
+        Assert.Same(facing, ui.Document.HitTest(224f, 16f));
     }
 
     /// <summary>

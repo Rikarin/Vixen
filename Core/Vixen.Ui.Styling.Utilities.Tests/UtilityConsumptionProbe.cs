@@ -1312,6 +1312,37 @@ static class UtilityConsumptionProbe {
             """
         ),
 
+        // ⚠ <b>Flipped: a probe that has turned its back, which is the only arrangement in which
+        // `backface-visibility` decides anything — and the twelfth instance of this list's lesson.</b>
+        // The property hides an element whose back faces the viewer, so on every other scene's probe
+        // it is a no-op however well it is read: `spatial` turns the probe's CHILDREN, because that
+        // is what `perspective` needs, and leaves the probe itself facing forward. So the root was
+        // held unregistered with both consumers finished (#550), for want of this.
+        //
+        // ⚠ <b>It was held for a second reason that did not survive measurement.</b> #550's second
+        // pass recorded that a scene like this "also flipped `select` and the two `border-s`/`border-e`
+        // colours to `read`" — the #973 poison's exact signature, on two properties nothing reads.
+        // Measured on 2026-09-23, against this tree AND against the UI sources of the commit that
+        // recorded it (52c2deb33): this scene, and a `rotateY(180deg)` appended to every other scene
+        // in the list, move nothing for any `user-select` or `border-inline-*-color` the families
+        // emit, and the full ledger regeneration changes the `backface` row and no other.
+        // `UtilityConsumptionGateTests.The_flipped_scene_sees_a_hidden_back_face_and_nothing_nothing_reads`
+        // keeps that a measurement rather than a sentence.
+        //
+        // `turned`'s arrangement with its rotation and scale replaced by a half-turn about y — no `perspective`,
+        // deliberately: a half-turn is edge-on to nothing and needs no projection to have turned over.
+        new(
+            "flipped",
+            """
+            #host  { display: flex; flex-direction: row; width: 120px; height: 46px; overflow: hidden; }
+            #probe { display: flex; flex-direction: row; flex-wrap: wrap; width: 44px;
+                     transform: rotateY(180deg);
+                     border-width: 2px; border-color: #c02020;
+                     background-color: #204080; color: #e0e0e0; }
+            #after { width: 96px; height: 20px; background-color: #a0a040; }
+            """
+        ),
+
         // ⚠ <b>Forced: the surface is in forced-colours mode, and no CSS declaration can put it
         // there.</b> Every scene before this one is a stylesheet, and `forced-color-adjust` is read
         // on a condition that lives on the SURFACE — `DrawListBuilder` asks

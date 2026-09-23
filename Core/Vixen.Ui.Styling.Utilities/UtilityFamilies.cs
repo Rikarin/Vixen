@@ -2667,6 +2667,16 @@ public static class UtilityFamilies {
             ["top-left"] = "top left"
         });
 
+        // ⚠ <b>A plain property, and the registration waited on the INSTRUMENT rather than on the
+        // engine.</b> `TransformReader` has answered "has this element turned away" since #550's
+        // second pass and `UiElement.BackfaceHidden` carries it, keyword folded in, to both
+        // `DrawListBuilder` and `UiDocument.HitTest` — so `backface-hidden` on a flipped card is
+        // neither drawn nor clicked. What held the root was that no probe scene had a back-facing
+        // PROBE (`spatial` turns the probe's children, because that is what `perspective` needs),
+        // so the family would have measured inert with a reader present. The `flipped` scene is that
+        // probe.
+        Keywords("backface", "backface-visibility", new() { ["visible"] = "visible", ["hidden"] = "hidden" });
+
         // ⚠ <b>Both fragments from one class, which is v4's own reading and not a shorthand for it.</b>
         // Tailwind's `skew-6` emits `skewX(6deg) skewY(6deg)` — two functions — rather than CSS's
         // two-argument `skew(6deg, 6deg)`. Writing the CSS spelling instead would resolve and paint
@@ -2681,10 +2691,12 @@ public static class UtilityFamilies {
         // `transform-gpu` are compositing hints — v4's `transform-gpu` prepends `translateZ(0)` to
         // force a layer — and this engine has no layer to force: `DrawListBuilder` rebuilds the whole
         // draw list every frame and promotion is decided by what the element does, not by what its
-        // classes ask for, which is `will-change-*`'s refusal one property over. Emitting the
-        // `translateZ(0)` v4 emits would be worse than nothing: `TransformReader` cannot read it and
-        // refuses the whole list, so `transform-gpu` beside a `rotate-z-45` would silently unrotate
-        // the box. `transform-flat`/`transform-3d` are `transform-style` and `transform-content` and
+        // classes ask for, which is `will-change-*`'s refusal one property over. ⚠ This comment gave a
+        // second reason until 2026-09-23 — that `TransformReader` could not read v4's `translateZ(0)`
+        // and would refuse the whole list, silently unrotating a `rotate-z-45` beside it. That half
+        // is refuted: `translateZ` has been read since #550 and `translateZ(0)` is the identity, so
+        // the refusal stands on the first reason alone, as the census row already says.
+        // `transform-flat`/`transform-3d` are `transform-style` and `transform-content` and
         // its four siblings are `transform-box` — different properties, both refused with the 3D
         // family under #228 rather than here.
         Keywords("transform", "transform", new() { ["none"] = "none" });

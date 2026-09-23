@@ -356,10 +356,11 @@ public class ContainerUnitTests {
 
     /// <summary>⚠ And a shadow's offset, which is a third seeding of the same context in the draw list.</summary>
     /// <remarks>
-    ///     <c>DrawListBuilder</c> builds its own context from <c>UiDocument.Viewport</c> rather than
-    ///     receiving one, so it is a third place a container unit can silently become a viewport unit
-    ///     — and the number it produces is an offset in points, where nothing is out of range and
-    ///     nothing is logged. <c>filter: drop-shadow()</c> reads through the same helper.
+    ///     <c>DrawListBuilder</c> resolves lengths on a walk of its own, so it is a third place a
+    ///     container unit can silently become a viewport unit — and the number it produces is an
+    ///     offset in points, where nothing is out of range and nothing is logged. It built its context
+    ///     from <c>UiDocument.Viewport</c> until #1345 and reads <c>UiElement.AppliedLengths</c> now;
+    ///     <c>filter: drop-shadow()</c> and <c>filter: blur()</c> read the same value.
     /// </remarks>
     [Fact]
     public void A_shadow_offset_in_container_units_measures_the_container() {
@@ -388,6 +389,38 @@ public class ContainerUnitTests {
 
         // Ten hundredths of the 200px container is 20. Ten hundredths of the 1000px viewport is 100.
         Assert.Equal(card.AbsoluteTop + 20f, shadow.Y, Tolerance);
+    }
+
+    /// <summary>⚠ And <c>filter: blur()</c>'s radius, the one draw-list reader a8c0c6ab6 did not reach.</summary>
+    /// <remarks>
+    ///     The two shadow readers were given the element's recorded container; the blur reader one
+    ///     screen further down the same file built its context from the viewport and the font alone,
+    ///     so <c>blur(5cqi)</c> inside a 200px container was a fifty-point blur rather than a
+    ///     ten-point one — a picture that is merely very soft, which is nothing anyone reports. Found
+    ///     while fixing #1345, which moved all three onto the position walk's context.
+    /// </remarks>
+    [Fact]
+    public void A_filter_blur_in_container_units_measures_the_container() {
+        using var document = Document(
+            """
+            root { width: 1000px; height: 600px; flex-direction: column; }
+            .panel { container-type: inline-size; width: 200px; height: 100px; }
+            .card { width: 50px; height: 20px; background-color: #ffffff; filter: blur(5cqi); }
+            """
+        );
+
+        document.Root.Add("div", classNames: "panel").Add("div", classNames: "card");
+
+        document.Update();
+        document.Draw();
+
+        var layer = Assert.Single(
+            document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.LayerPush && command.Blur > 0f
+        );
+
+        // Five hundredths of the 200px container is 10. Of the 1000px viewport, 50.
+        Assert.Equal(10f, layer.Blur, Tolerance);
     }
 
     /// <summary>⚠ And the parent's <c>perspective</c> measures the parent's container, not the child's.</summary>
