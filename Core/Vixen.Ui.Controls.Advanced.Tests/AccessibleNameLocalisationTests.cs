@@ -49,6 +49,14 @@ public sealed class SharedCatalogue {
 ///         announced ones.
 ///     </para>
 ///     <para>
+///         ⚠ <b>The window below is a hand-written list and was measured to have drifted within two
+///         weeks of being written</b> — <c>GradientEditor</c> and <c>NodeCanvas</c> are in it because
+///         #1321 found them missing. <see cref="AccessibleNameDomainTests" /> asks the same question
+///         over every constructible element type in both assemblies, so the next control to take a
+///         catalogue-fed name is covered with nothing edited here. This file keeps the seeded cases
+///         and the two named regressions, which a sweep over bare controls cannot reach.
+///     </para>
+///     <para>
 ///         The rest of the reasoning — why a pseudo-locale, why the window is built after the
 ///         language is chosen, and why the assertion is about the declarations rather than about a
 ///         list of controls — is on <c>Vixen.Ui.Controls.Tests.AccessibleNameLocalisationTests</c>
