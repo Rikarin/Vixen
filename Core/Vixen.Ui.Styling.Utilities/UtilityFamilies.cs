@@ -2541,6 +2541,42 @@ public static class UtilityFamilies {
         Skew("rotate-x", [UtilityComposition.RotateX]);
         Skew("rotate-y", [UtilityComposition.RotateY]);
 
+        // ⚠ <b>The third axis of the two families that already had two, and they are slots in the
+        // TRANSFORM assembler rather than a third component on their own properties — which is not
+        // v4's spelling and is v4's composition.</b> v4 writes
+        // `translate: var(--tw-translate-x) var(--tw-translate-y) var(--tw-translate-z)`; this
+        // engine folds `translate` into an accumulated POSITION, a pair of numbers with nowhere to
+        // put a z, and `TransformReader.Scaling` reads a pair of factors. Transforms 2 § 3 applies
+        // `transform` to a point before both properties, so writing the two functions at the HEAD of
+        // the list — applied last, because a list is applied right to left — puts them exactly where
+        // v4's properties put them. See `UtilityComposition.Transform`.
+        //
+        // ⚠ <b>Their recorded blocker was refuted, not removed.</b> The census said a
+        // `translate-z-4` resolves to `calc(var(--spacing) * 4)` and that
+        // `TransformReader.Functions` refuses a nested parenthesis, so a slot here would take the
+        // whole list down with it. The refusal was real and is gone (#1328); the `calc()` never
+        // existed in this engine — `TrySpacing` folds the spacing scale at resolution time and
+        // emits `16px`, which `CompositionTests` has pinned for `translate-x-2` the whole time.
+        //
+        // ⚠ <b><see cref="ValueKind.Size" /> here and <see cref="ValueKind.CountTemplate" /> beside
+        // it, which is the same split `Translate` and `Scale` carry one axis over</b>: a depth is a
+        // length on the spacing scale and a scale's count is a percentage. `scale-z-150` resolving
+        // through the spacing scale would be six hundred pixels of nothing.
+        Register(new Family(
+            "translate-z",
+            ValueKind.Size,
+            [UtilityComposition.TranslateZ],
+            Alongside: [new UtilityDeclaration("transform", UtilityComposition.Transform())]
+        ));
+
+        Register(new Family(
+            "scale-z",
+            ValueKind.CountTemplate,
+            [UtilityComposition.ScaleZ],
+            Template: "{0}%",
+            Alongside: [new UtilityDeclaration("transform", UtilityComposition.Transform())]
+        ));
+
         // ⚠ <b>A property and not a function, established by the PARENT — which is the half of
         // Transforms 2 § 6 that is easy to get backwards and produces a plausible picture either
         // way.</b> An element's `perspective` applies to its children; a `perspective()` inside its

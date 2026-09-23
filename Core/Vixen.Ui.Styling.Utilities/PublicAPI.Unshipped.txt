@@ -162,6 +162,7 @@ const Vixen.Ui.Styling.Utilities.UtilityComposition.RotateZ = "--tw-rotate-z" ->
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Saturate = "--tw-saturate" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.ScaleX = "--tw-scale-x" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.ScaleY = "--tw-scale-y" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.ScaleZ = "--tw-scale-z" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.ScrollSnapStrictness = "--tw-scroll-snap-strictness" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Sepia = "--tw-sepia" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Shadow = "--tw-shadow" -> string
@@ -171,6 +172,7 @@ const Vixen.Ui.Styling.Utilities.UtilityComposition.SlashedZero = "--tw-slashed-
 const Vixen.Ui.Styling.Utilities.UtilityComposition.TransitionDuration = "--tw-duration" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.TranslateX = "--tw-translate-x" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.TranslateY = "--tw-translate-y" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.TranslateZ = "--tw-translate-z" -> string
 static Vixen.Ui.Styling.Utilities.CandidateScanner.Scan(string text, System.Collections.Generic.ISet<string> into) -> void
 static Vixen.Ui.Styling.Utilities.CandidateScanner.ScanStyleSheet(string text, System.Collections.Generic.ISet<string> into) -> void
 static Vixen.Ui.Styling.Utilities.ThemeTokens.CreateDefault() -> Vixen.Ui.Styling.Utilities.ThemeTokens

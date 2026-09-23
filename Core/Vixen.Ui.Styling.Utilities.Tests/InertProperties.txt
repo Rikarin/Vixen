@@ -134,13 +134,23 @@
 # what this paragraph said until #550 landed beside #548 on the same day: `TransformReader.Functions`
 # reads `rotateX`, `rotateY`, `rotate3d`, `translateZ`, `translate3d`, `scaleZ`, `scale3d`,
 # `perspective` and `matrix3d`, and `perspective`/`perspective-origin` are read as the properties the
-# PARENT establishes. What is left is narrower again and is three separate things: `translate-z-*` and
-# `scale-z-*` wait on a value grammar rather than on the engine, because `Functions` refuses any
-# argument holding a nested parenthesis and v4 spells both through a `calc(var(--spacing) * n)`
-# (#1328); `backface-visibility` needs a second consumer, since suppressing a subtree without lying
-# about its matrix is a mechanism `DrawListBuilder` and `UiDocument.HitTest` would both have to gain;
-# and `transform-style: preserve-3d` stays refused as a rendering model with its own sorting. #228,
-# #550 and #1328.
+# PARENT establishes. ⚠ And NOT a value grammar for the two z roots, which is what this paragraph
+# said until 2026-09-23 and which was half a fiction: `Functions` no longer refuses a nested
+# parenthesis (#1328), and the `calc(var(--spacing) * n)` it named was never this engine's output —
+# `TrySpacing` folds the spacing scale at resolution time and emits `16px`. `translate-z-*` and
+# `scale-z-*` are slots in `UtilityComposition.Transform()` now, written first so that they are
+# applied last and therefore where v4's `translate`/`scale` properties put them. What is left is two
+# things, and ⚠ NOT `backface-visibility`'s consumers either, which is what this paragraph said until
+# 2026-09-23: both walks return early on `UiElement.BackfaceHidden` now, so a back-facing element is
+# neither drawn nor clicked. ⚠ The cost was misstated as "one determinant sign" and the sign is not in
+# the matrix at all — `Reduce` throws the z row and column, so `rotateY(180deg)` and
+# `scale3d(-1, 1, 1)` arrive as the same homography and only the first has turned over; Transforms 2
+# § 6.3 asks for the `m33` of the composition's inverse. What is left is the `backface-*` ROOT, which
+# is held not by the engine but by the instrument: no `UtilityConsumptionProbe` scene has a
+# back-facing PROBE, so the family would measure inert with a reader present — the ninth entry on
+# that list's own tally — and a scene that fixes it also flipped `select` and two `border-*` colours
+# to `read`, which nothing in the engine reads. And `transform-style: preserve-3d` stays refused as a
+# rendering model with its own sorting. #228 and #550.
 
 # ── Filters — A8. CLOSED for blur, and it was the same shape as the transforms above: `blur-2` wrote
 # a number into `--blur`, a name of this engine's own invention that no assembler and no engine — this

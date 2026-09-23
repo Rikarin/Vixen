@@ -1060,7 +1060,7 @@ public class UtilityFamilySupportTests {
         // — over the declaration's text, not as a value kind — so the clause could never fire and the
         // row stayed `absent` over a capability the engine already had. See
         // <see cref="The_rotate_z_family_turns_the_box_the_way_the_rotate_property_does" />.
-        { "rotate-z-45", "transform", "rotateX(0deg) rotateY(0deg) rotateZ(45deg) skewX(0deg) skewY(0deg)" },
+        { "rotate-z-45", "transform", "translateZ(0px) scaleZ(1) rotateX(0deg) rotateY(0deg) rotateZ(45deg) skewX(0deg) skewY(0deg)" },
 
         // ⚠ <b>The two three-dimensional rotations, and the expectations above changed again when
         // they landed — which is the useful half of writing an assembled value out in full for the
@@ -1076,8 +1076,31 @@ public class UtilityFamilySupportTests {
         // list in four dimensions and reduce once at the end. See
         // <see cref="A_rotate_x_is_a_squash_until_a_parent_supplies_a_perspective" />, which is what
         // says the slot reaches a picture rather than only a declaration.
-        { "rotate-x-45", "transform", "rotateX(45deg) rotateY(0deg) rotateZ(0deg) skewX(0deg) skewY(0deg)" },
-        { "rotate-y-45", "transform", "rotateX(0deg) rotateY(45deg) rotateZ(0deg) skewX(0deg) skewY(0deg)" },
+        { "rotate-x-45", "transform", "translateZ(0px) scaleZ(1) rotateX(45deg) rotateY(0deg) rotateZ(0deg) skewX(0deg) skewY(0deg)" },
+        { "rotate-y-45", "transform", "translateZ(0px) scaleZ(1) rotateX(0deg) rotateY(45deg) rotateZ(0deg) skewX(0deg) skewY(0deg)" },
+
+        // ⚠ <b>The third axis of the two composed pairs, and the expectations above changed a THIRD
+        // time — which is now the argument for writing the assembled value out in full rather than a
+        // cost of it.</b> Both are slots in the same assembler, so every class in this block spells
+        // `translateZ(0px) scaleZ(1)` whether it asked for depth or not, and each initial is the
+        // identity of its own axis: a `scaleZ(0)` here would flatten the z of every transformed
+        // element in the document, which nothing looks wrong about until a `perspective-*` arrives
+        // and finds no depth to divide by.
+        //
+        // ⚠ <b>They are written FIRST, and that is v4's composition rather than v4's spelling.</b>
+        // v4 puts both on the `translate` and `scale` PROPERTIES, which Transforms 2 § 3 applies
+        // AFTER `transform`; a list is applied right to left, so a function written first is applied
+        // last, which is the same place. Written last instead, `translate-z-12 rotate-x-45` would
+        // rotate the depth offset into y.
+        //
+        // ⚠ <b>Their recorded blocker was refuted, not removed (#1328).</b> It said a
+        // `translate-z-4` resolves to `calc(var(--spacing) * 4)` and that `TransformReader.Functions`
+        // refuses a nested parenthesis. The refusal was real and is gone; the `calc()` is not what
+        // this engine emits — `TrySpacing` folds the spacing scale at resolution time, which is why
+        // the row below reads `16px`. See
+        // <see cref="A_translate_z_lifts_the_card_only_once_a_parent_supplies_a_perspective" />.
+        { "translate-z-4", "transform", "translateZ(16px) scaleZ(1) rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(0deg) skewY(0deg)" },
+        { "scale-z-150", "transform", "translateZ(0px) scaleZ(150%) rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(0deg) skewY(0deg)" },
 
         // ⚠ <b>A property and not a slot, and established by the PARENT.</b> `perspective-*` is the
         // one family in this block that emits a whole declaration rather than a fragment, because
@@ -1107,9 +1130,9 @@ public class UtilityFamilySupportTests {
         //
         // ⚠ <b>`skew-6` writes both fragments rather than emitting `skew(6deg, 6deg)`</b>, which is
         // v4's own shape: two functions, so a `skew-y-0` written beside it has a slot to overwrite.
-        { "skew-x-6", "transform", "rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(6deg) skewY(0deg)" },
-        { "skew-y-6", "transform", "rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(0deg) skewY(6deg)" },
-        { "skew-6", "transform", "rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(6deg) skewY(6deg)" },
+        { "skew-x-6", "transform", "translateZ(0px) scaleZ(1) rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(6deg) skewY(0deg)" },
+        { "skew-y-6", "transform", "translateZ(0px) scaleZ(1) rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(0deg) skewY(6deg)" },
+        { "skew-6", "transform", "translateZ(0px) scaleZ(1) rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(6deg) skewY(6deg)" },
 
         // ⚠ <b>The one keyword of v4's `transform-*` set this engine can honour.</b> `transform-cpu`
         // and `transform-gpu` are refused rather than absent — see `UtilityFamilies`, where the
@@ -2824,7 +2847,7 @@ public class UtilityFamilySupportTests {
 
         // One: the shorthand assembled, fragment and all.
         Assert.Equal(
-            "rotateX(0deg) rotateY(0deg) rotateZ(90deg) skewX(0deg) skewY(0deg)",
+            "translateZ(0px) scaleZ(1) rotateX(0deg) rotateY(0deg) rotateZ(90deg) skewX(0deg) skewY(0deg)",
             ui.StyleOf(spun, "transform")
         );
 
@@ -2899,7 +2922,7 @@ public class UtilityFamilySupportTests {
 
         // One: both carry the assembled list, so what differs below is the parent and nothing else.
         Assert.Equal(
-            "rotateX(60deg) rotateY(0deg) rotateZ(0deg) skewX(0deg) skewY(0deg)",
+            "translateZ(0px) scaleZ(1) rotateX(60deg) rotateY(0deg) rotateZ(0deg) skewX(0deg) skewY(0deg)",
             ui.StyleOf(flat, "transform")
         );
 
@@ -2944,6 +2967,112 @@ public class UtilityFamilySupportTests {
         Assert.True(near - far > 1.5f, $"the two edges moved by {near:0.###} and {far:0.###}, which an affine could do.");
     }
 
+    /// <summary>
+    ///     <c>translate-z-4</c> lifts the card only once a parent projects it, and
+    ///     <c>scale-z-200</c> is read only once something else has moved a point off the plane.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Both roots are nothing on their own, and that is the right picture rather than a
+    ///         degraded one.</b> Every point of an element sits at z = 0 and <c>w = 1 − z/d</c> is one
+    ///         until something supplies the <c>d</c>, so <c>translate-z-4</c> with no
+    ///         <c>perspective-*</c> above it reduces to the identity — which
+    ///         <c>TransformReader.Of</c> answers as <b>no transform at all</b>, so the assertion is a
+    ///         null and not a matrix. A browser draws the same nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The row in the table above says the declaration computes; this says a consumer
+    ///         read it.</b> A <c>transform</c> naming a function <c>TransformReader</c> cannot read is
+    ///         dropped WHOLE, so a slot that resolved and cascaded could still leave every other slot
+    ///         doing nothing — which is exactly what these two were kept out of the assembler to
+    ///         avoid, on a premise (#1328) that turned out to be about a <c>calc()</c> this engine
+    ///         does not emit.
+    ///     </para>
+    ///     <para>
+    ///         <b>Closed form, and a uniform magnification is the shape that pins the distance.</b>
+    ///         The stage is the card's own size, so the vanishing point is the card's centre: a pure
+    ///         z offset of 16 points under a 100-point perspective is <c>w = 1 − 16/100 = 0.84</c>,
+    ///         and the card magnifies about its own centre by <c>1/0.84 = 1.190476</c> in every
+    ///         direction. Half of 32 becomes <b>19.048</b> and half of 64 becomes <b>38.095</b>. A z
+    ///         distance read at a different scale — <c>4px</c> rather than the spacing scale's
+    ///         <c>16px</c>, say — gives a different magnification, and an unread one gives no
+    ///         transform.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>scale-z-*</c> needs a third class to be observable at all, which is why it is
+    ///         measured against <c>rotate-x-60</c> rather than beside <c>translate-z-4</c>.</b> A z
+    ///         scale multiplies a depth, and both a flat element and a <c>translateZ</c> written
+    ///         AFTER it have nothing for it to multiply — <c>scale-z-200 translate-z-4</c> is
+    ///         <c>translate-z-4</c> exactly, in this engine and in a browser. It is the rotation that
+    ///         moves a point off the plane, and the slot order is what puts the scale after it:
+    ///         measured, the near edge reaches <b>11.067</b> where <c>rotate-x-60</c> alone reaches
+    ///         9.287 and the unprojected squash reaches 8.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_translate_z_lifts_the_card_only_once_a_parent_supplies_a_perspective() {
+        using var ui = Sheet(
+            "translate-z-4",
+            "scale-z-200",
+            "rotate-x-60",
+            "perspective-dramatic",
+            "w-16",
+            "h-8",
+            "bg-accent"
+        );
+
+        var flat = ui.Create("flat", ui.Document.Root, null, "translate-z-4", "w-16", "h-8", "bg-accent");
+
+        // The stage is the child's own size, so the vanishing point lands on the child's centre and
+        // the closed form below is one term rather than two — `A_rotate_x_is_a_squash…`'s argument.
+        var stage = ui.Create("stage", ui.Document.Root, null, "perspective-dramatic", "w-16", "h-8");
+        var lifted = ui.Create("lifted", stage, null, "translate-z-4", "w-16", "h-8", "bg-accent");
+
+        var deeper = ui.Create("deeper", stage, null, "rotate-x-60", "scale-z-200", "w-16", "h-8", "bg-accent");
+
+        ui.Frame();
+
+        // One: the assembled list, with the spacing scale already folded to a literal — which is the
+        // `calc()` this family was refused over and which this engine never emitted.
+        Assert.Equal(
+            "translateZ(16px) scaleZ(1) rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(0deg) skewY(0deg)",
+            ui.StyleOf(flat, "transform")
+        );
+
+        Assert.Equal(ui.StyleOf(flat, "transform"), ui.StyleOf(lifted, "transform"));
+
+        Assert.Equal(
+            "translateZ(0px) scaleZ(200%) rotateX(60deg) rotateY(0deg) rotateZ(0deg) skewX(0deg) skewY(0deg)",
+            ui.StyleOf(deeper, "transform")
+        );
+
+        // Two: with nothing to project it, the identical declaration is no transform whatsoever. This
+        // is the half that would pass vacuously if the list were being refused, which is what the
+        // magnification below is for.
+        Assert.Null(flat.Transform);
+
+        // Three: under the parent's perspective the same 16 points of depth magnify the card about
+        // its own centre by exactly 1/0.84, in both axes.
+        var projected = Assert.IsType<UiTransform>(lifted.Transform);
+        var centre = new Vector2(lifted.AbsoluteLeft + 32f, lifted.AbsoluteTop + 16f);
+
+        Assert.Equal(centre.Y + 19.048f, projected.Apply(centre + new Vector2(0f, 16f)).Y, 2);
+        Assert.Equal(centre.Y - 19.048f, projected.Apply(centre - new Vector2(0f, 16f)).Y, 2);
+        Assert.Equal(centre.X + 38.095f, projected.Apply(centre + new Vector2(32f, 0f)).X, 2);
+
+        // Four: the z scale, read after the rotation that gave it a depth to multiply. 11.067 against
+        // `rotate-x-60` alone's 9.287 — so a slot that resolved and was never composed, or one
+        // composed before the rotation, both fail here.
+        var doubled = Assert.IsType<UiTransform>(deeper.Transform);
+        var deeperCentre = new Vector2(deeper.AbsoluteLeft + 32f, deeper.AbsoluteTop + 16f);
+
+        Assert.Equal(
+            deeperCentre.Y + 11.067f,
+            doubled.Apply(deeperCentre + new Vector2(0f, 16f)).Y,
+            2
+        );
+    }
+
     /// <summary><c>skew-x-45</c> shears the box along x about its centre, and along x only.</summary>
     /// <remarks>
     ///     <para>
@@ -2974,7 +3103,10 @@ public class UtilityFamilySupportTests {
         // One: the assembled declaration names all three slots, with the two this element did not ask
         // for carrying their identities — and carrying them with units, without which
         // `TransformReader` refuses the list whole and the class does nothing.
-        Assert.Equal("rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(45deg) skewY(0deg)", ui.StyleOf(slanted, "transform"));
+        Assert.Equal(
+            "translateZ(0px) scaleZ(1) rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(45deg) skewY(0deg)",
+            ui.StyleOf(slanted, "transform")
+        );
 
         // Two: a group was opened, so the slant reached the draw list as a transform rather than as a
         // declaration nobody read.
@@ -3028,9 +3160,18 @@ public class UtilityFamilySupportTests {
 
         ui.Frame();
 
-        Assert.Equal("rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(45deg) skewY(30deg)", ui.StyleOf(crossed, "transform"));
-        Assert.Equal("rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(6deg) skewY(6deg)", ui.StyleOf(both, "transform"));
-        Assert.Equal("rotateX(0deg) rotateY(0deg) rotateZ(90deg) skewX(45deg) skewY(0deg)", ui.StyleOf(turned, "transform"));
+        Assert.Equal(
+            "translateZ(0px) scaleZ(1) rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(45deg) skewY(30deg)",
+            ui.StyleOf(crossed, "transform")
+        );
+        Assert.Equal(
+            "translateZ(0px) scaleZ(1) rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(6deg) skewY(6deg)",
+            ui.StyleOf(both, "transform")
+        );
+        Assert.Equal(
+            "translateZ(0px) scaleZ(1) rotateX(0deg) rotateY(0deg) rotateZ(90deg) skewX(45deg) skewY(0deg)",
+            ui.StyleOf(turned, "transform")
+        );
     }
 
     /// <summary>
