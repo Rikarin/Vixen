@@ -185,10 +185,22 @@ public static class UiPropertyRegistry {
     ///         constructor is non-public, which is exactly why
     ///         <c>NonPublicConstructors</c> could not carry the walk and <c>All</c> can. So the
     ///         requirement moved from the callee to the caller: whoever names the leaf keeps the
-    ///         chain, and <c>typeof(Leaf)</c> satisfies it statically. The trim analyzer is the
-    ///         witness — with this annotation the recursive
-    ///         <c>RunClassConstructor(type.BaseType.TypeHandle)</c> raises no <c>IL2072</c>, and
-    ///         restoring <c>NonPublicConstructors</c> here brings it straight back.
+    ///         chain, and <c>typeof(Leaf)</c> satisfies it statically.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>CheckAot</c> is the witness, and the Roslyn trim analyzer is not</b> — which
+    ///         matters, because the obvious way to check this annotation cannot see it. Measured on
+    ///         2026-09-23, an ILC publish of a probe rooting <c>Vixen.Ui</c>: with
+    ///         <c>NonPublicConstructors</c> here the recursive
+    ///         <c>RunClassConstructor(type.BaseType.TypeHandle)</c> below is <c>IL2059</c> and
+    ///         <c>IL2072</c> ("the return value of method <c>System.Type.BaseType.get</c> does not
+    ///         have matching annotations"), and with <c>All</c> the same publish reports nothing.
+    ///         <c>dotnet build Core/Vixen.Ui</c> reports <b>0 warnings either way</b>, and with the
+    ///         attribute deleted outright as well — and it is not asleep: a
+    ///         <c>type.GetMethods()</c> added to the unannotated parameter is <c>IL2070</c> on the
+    ///         spot. So the analyzer that runs on an ordinary build does not model this flow and
+    ///         ILC does, and <c>./build.sh CheckAot</c> is the only thing here that can go red on an
+    ///         edit to these three attributes.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The price is paid by a trimmed application and not by this method</b>: a call
@@ -200,9 +212,10 @@ public static class UiPropertyRegistry {
     ///         constructor.
     ///     </para>
     ///     <para>
-    ///         The generated chain stays as it is. It is redundant for this method now and it is
-    ///         belt and braces for an AOT publish nothing in the repository executes (#1255);
-    ///         <c>UiPropertyTests.An_untouched_base_is_registered_by_its_leaf_s_generated_constructor</c>
+    ///         The generated chain stays as it is. It is redundant for this method on both runtimes
+    ///         now — the executed publish below answers completely without it for a leaf that has
+    ///         one and for a leaf that does not — and it stays because deleting it is a decision
+    ///         rather than a patch. <c>UiPropertyTests.An_untouched_base_is_registered_by_its_leaf_s_generated_constructor</c>
     ///         reads the table without forcing anything, so the chain keeps a test that can see it
     ///         disappear.
     ///     </para>
@@ -346,12 +359,27 @@ public static class UiPropertyRegistry {
     ///         supply.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Nothing in this repository can go red on the AOT half of either claim.</b> No
-    ///         test runs against an AOT publish and <c>CheckAot</c> never executes the binary it
-    ///         produces (#1255), so what stands behind this is the trim analyzer's own flow analysis
-    ///         — the same rules ILC applies — and not a measured publish. What <c>Vixen.Ui.Tests</c>
-    ///         can see is the CoreCLR half, which is the complete answer for a cold, declaration-less
-    ///         leaf.
+    ///         ⚠ <b>Measured on a publish that was executed, not argued from the propagation rule</b>
+    ///         (2026-09-23, win-x64, ILC 10.0.11, a probe rooting <c>Vixen.Ui</c> and declaring
+    ///         <c>ProbeBase : UiElement</c> with a property and <c>ProbeLeaf : ProbeBase</c> with
+    ///         none — the exact shape #1240 got wrong — in its own <b>un-rooted</b> assembly, so
+    ///         nothing but this walk can reach <c>ProbeBase</c>'s class constructor).
+    ///         <c>Of(typeof(ProbeLeaf))</c> answered <c>[AllowDrop, …, ProbeWeight]</c> from the
+    ///         native binary: the base's property is there, and so are
+    ///         <see cref="UiElement" />'s from two links up and another assembly. Reverting this one
+    ///         attribute to <c>NonPublicConstructors</c> and republishing the same probe drops
+    ///         <c>ProbeWeight</c> from the same binary's answer. So the annotation is load-bearing at
+    ///         run time and not merely warning-silencing, and #1240's finding reproduces on demand.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The claim that nothing here publishes ahead of time is false and was the reason
+    ///         this was left unproved.</b> <c>./build.sh CheckAot</c> publishes
+    ///         <c>Tools/Vixen.AotProbe</c> with <c>ILLinkTreatWarningsAsErrors</c> and
+    ///         <c>Vixen.Ui</c> among its <c>TrimmerRootAssembly</c> entries, and <c>ci.yml</c> runs
+    ///         it per platform. #1255 is about not <em>executing</em> the binary it produces, which
+    ///         is a narrower thing. ⚠ <c>CheckAot</c> is not in the default <c>./build.sh</c> chain,
+    ///         so an edit here that passes <c>Test</c> and <c>CheckFormat</c> is still owed that
+    ///         target before it is believed.
     ///     </para>
     /// </remarks>
     static void Collect(

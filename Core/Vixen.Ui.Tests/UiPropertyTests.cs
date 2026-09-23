@@ -251,8 +251,10 @@ public class UiPropertyTests {
     ///         generator — each static constructor runs its nearest property-declaring ancestor's by
     ///         <c>typeof</c>, which is the form ILC preserves — and
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1336">#1336</a> gave the registry its
-    ///         own walk back. The chain is therefore redundant on CoreCLR and is kept for the AOT
-    ///         publish nothing here executes (#1255), which leaves it with no test at all unless one
+    ///         own walk back. ⚠ The chain is redundant on <b>both</b> runtimes now, not just on
+    ///         CoreCLR — an executed ILC publish answers a chain-less leaf completely, which
+    ///         <c>UiProperty.cs</c>'s <c>Collect</c> records — so what keeps it is that removing it
+    ///         is a decision rather than a patch, and that leaves it with no test at all unless one
     ///         asks the table directly.
     ///     </para>
     ///     <para>

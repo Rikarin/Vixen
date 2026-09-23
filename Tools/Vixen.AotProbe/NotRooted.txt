@@ -29,11 +29,20 @@
 # Vixen.Platform.Ui — left this list on 2026-09-22 (#1240). They were here for ONE finding, the IL2072
 # in UiPropertyRegistry.Collect, and it was a true positive: the walk forced every base type's class
 # constructor through Type.BaseType, which ILC cannot name, so a NativeAOT build silently lost every
-# property a base class declared. The cure is in Vixen.Ui.Generators — each generated static
-# constructor runs its nearest property-declaring ancestor's by typeof — and the registry forces only
-# the leaf. Rooting all seven then published with zero ILC findings (win-x64, warnings as errors, a
-# 46.7 MB native binary that runs). So 91 of 95 are rooted and the four left are here because no
-# shipped game links them, not because of anything ILC said.
+# property a base class declared. Rooting all seven then published with zero ILC findings (win-x64,
+# warnings as errors, a 46.7 MB native binary that runs). So 91 of 95 are rooted and the four left
+# are here because no shipped game links them, not because of anything ILC said.
+#
+# ⚠ The cure has since changed, and this file is where a reader looks before touching that rooting.
+# #1240's cure was in Vixen.Ui.Generators — each generated static constructor runs its nearest
+# property-declaring ancestor's by typeof — with UiPropertyRegistry forcing only the leaf. That left
+# a leaf declaring nothing of its own, which gets no generated constructor, answering without its
+# bases. #1336 put the registry's own walk back and made it legal with
+# DynamicallyAccessedMemberTypes.All on Of/TryFind/Collect, which is the one annotation ILC
+# propagates across Type.BaseType intact. So the registry forces EVERY level again, and those three
+# attributes are what keeps Vixen.Ui off this list: measured 2026-09-23, reverting the one on
+# Collect to NonPublicConstructors is IL2059 + IL2072 out of ILC — and zero warnings out of an
+# ordinary `dotnet build`, which is why CheckAot is the only thing that can see an edit to them.
 #
 # The `-ios`, `-android` and `-browser` heads and the netstandard2.1 generators are out of scope by
 # target framework — `CheckAotIos` is the gate over the iOS one.
