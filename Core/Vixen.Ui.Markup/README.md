@@ -1090,9 +1090,13 @@ way: *a binding may close over a region's identity and never over its content.* 
 identity is the key. For an arm it is the **predicate**, which usually identifies far less.
 
 ```html
-<!-- Wrong. Choosing a different cell does not change which arm is live, so the arm is not rebuilt
-     and `shown` is whatever was selected the first time anything was. -->
+<!-- Wrong, and a build error: the arm is a separate lambda from the predicate, so `shown` is
+     CS0103 here. It would be stale if it compiled. Choosing a different cell does not change which
+     arm is live, so the arm is not rebuilt. -->
 @if (Chosen is { } shown) { <FactValue Text="@shown.Label" /> }
+
+<!-- Wrong, and it compiles: a binding that stops reading the signal after its first run. -->
+@if (Chosen is not null) { <FactValue use="@(value => value.Text ??= Chosen?.Label)" /> }
 
 <!-- Right. The condition may be a shape; every readout goes back through the signal. -->
 @if (Chosen is null) { … } else { <FactValue Text="@ChosenLabel" /> }
@@ -1100,8 +1104,11 @@ identity is the key. For an arm it is the **predicate**, which usually identifie
 
 ⚠ **This is the sharper edge of the two, because there is no `VXML2011` for it.** A `ref` in a loop
 is `VXML2010`, a `refs` outside one is `VXML2013`, and a projected key is `VXML2011` — the loop shape
-is watched from three sides. A pattern variable in an `@if` arm is ordinary, legal C# that compiles,
-runs, and is correct for the first value it ever sees. It is not decidable here for `VXML2011`'s
+is watched from three sides. ⚠ The `is { } shown` spelling used to be ordinary, legal C# that
+compiled, ran, and was correct for the first value it ever saw. It is now `CS0103`, because the
+arm's body is a separate lambda from the predicate. That catches one spelling. A readout that reads
+the signal once and keeps the answer (`??=`, or a plain field) still compiles, still goes stale, and
+no diagnostic sees it. It is not decidable here for `VXML2011`'s
 reason and one more: the arm's own condition *must* be allowed to read the thing the arm is about, so
 the mistake and the correct spelling mention the same variable.
 

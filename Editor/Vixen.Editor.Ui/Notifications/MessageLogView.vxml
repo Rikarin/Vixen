@@ -167,7 +167,8 @@
 
         // ⚠ The selection follows the message rather than the row index. New messages arrive at the
         // top — the history is newest-first — so an index kept across a change would silently move
-        // the detail pane onto whatever has just been logged.
+        // the detail pane onto whatever has just been logged. `A_new_message_does_not_move_the_selection`
+        // is the one test that posts after choosing, and the clamped index turns it red.
         selected.Value = was is { } message ? shown.IndexOf(message) : -1;
 
         List.Count = shown.Count;
@@ -241,7 +242,11 @@
         // *activation* and only a `Control` raises one, so a handler on a bare row waited for ever.
         // A tap bubbles from whichever column was under it. And no `List.Realise()` beside the write,
         // although `ConsoleView` makes one: the panel realises itself on `LayoutFinished`, and a
-        // choice rewrites the detail pane, which is a layout.
+        // choice usually rewrites the detail pane, which is a layout. ⚠ "Usually" is load-bearing.
+        // `UiDocument.Update` raises `LayoutFinished` only for a dirty document. Choosing between
+        // two record-equal duplicates leaves the pane's text the same, so there the checked bit
+        // repaints only because the tap's hover and press states dirtied the tree. So the call is
+        // not needed on any path a test reaches. It has not been shown to be unnecessary.
         row.AddHandler<TapEvent>(
             (element, args) => {
                 if (indices.TryGetValue(element, out var index) && index < shown.Count) {

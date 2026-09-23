@@ -111,6 +111,45 @@ public sealed class MessageLogViewDumpTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>A message logged under a selection does not take it.</b> The history is newest-first,
+    ///     so a new message pushes every row down one. The chosen message's index changes and the
+    ///     message itself does not.
+    /// </summary>
+    /// <remarks>
+    ///     The panel's one signal is an index, and the port's argument that an index is sound rests
+    ///     on <c>Restate</c> recomputing it with <c>IndexOf</c>. Keeping the old index, clamped,
+    ///     compiles, passes every other test here, and moves the pane onto the warning when the
+    ///     next message arrives, because no other test posts after choosing.
+    /// </remarks>
+    [Fact]
+    public void A_new_message_does_not_move_the_selection() {
+        using var harness = new Harness();
+
+        harness.Post();
+        harness.ClickRow(2);
+
+        Assert.Equal(2, harness.View.Shown.ToList().FindIndex(entry => entry.Message == "Could not import"));
+
+        harness.Shell.Notifications.Tick(TimeSpan.FromSeconds(4100));
+        harness.Shell.Notifications.Show("Rebuilt the lighting", NotificationSeverity.Info);
+        harness.Shell.Notifications.Tick(TimeSpan.FromSeconds(4400));
+        harness.Settle();
+
+        Assert.Equal(4, harness.View.Shown.Count);
+        Assert.Equal("Rebuilt the lighting", harness.View.Shown[0].Message);
+        Assert.Equal("Could not import", harness.View.Selected?.Message);
+        Assert.Equal("Could not import", harness.View.Detail.Children[0].Text);
+
+        // And the checked bit went with it, onto the one row showing that message.
+        var chosen = Assert.Single(
+            harness.View.List.Scroller.Content.Children,
+            row => (row.State & ElementState.Checked) != 0
+        );
+
+        Assert.Equal("Could not import", chosen.Children.Single(child => child.Tag == "message-text").Text);
+    }
+
+    /// <summary>
     ///     ⚠ The chosen message filtered away: the pane must fall back to "nothing chosen" rather
     ///     than keep describing a row the list no longer has.
     /// </summary>

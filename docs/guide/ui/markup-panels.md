@@ -895,10 +895,16 @@ binding may close over a region's identity and never over its content.* For a ro
 the key; for an arm it is the predicate, which usually identifies far less.
 
 ```vxml
-<!-- Wrong. Choosing a different cell does not change which arm is live, so the arm is not rebuilt
-     and `shown` stays whatever was selected the first time anything was. -->
+<!-- Wrong, and a build error (CS0103): the arm is a separate lambda from the predicate, so it
+     cannot see `shown`. It would be stale if it compiled. Choosing a different cell does not
+     change which arm is live, so the arm is not rebuilt. -->
 @if (Chosen is { } shown) {
     <FactValue Text="@shown.Label" />
+}
+
+<!-- Wrong, and it compiles: a binding that stops reading the signal after its first run. -->
+@if (Chosen is not null) {
+    <FactValue use="@(value => value.Text ??= Chosen?.Label)" />
 }
 
 <!-- Right. The condition may be a shape; every readout goes back through the signal. -->
@@ -910,8 +916,9 @@ the key; for an arm it is the predicate, which usually identifies far less.
 ```
 
 ⚠ **Nothing diagnoses this one.** The loop shape is watched from three sides — `VXML2010`,
-`VXML2013`, `VXML2011` — but a pattern variable in an `@if` arm is ordinary, legal C# that is correct
-for the first value it ever sees. **If your panel has a detail pane over a selection, the test that
+`VXML2013`, `VXML2011` — and the compiler catches only the pattern-variable spelling. A readout in an
+`@if` arm that reads the signal once and keeps the value compiles, and is correct only for the first
+value it ever sees. **If your panel has a detail pane over a selection, the test that
 catches it is the one that selects a second thing.**
 
 ## Examples
