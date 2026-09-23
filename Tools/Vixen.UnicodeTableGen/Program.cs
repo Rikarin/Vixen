@@ -734,7 +734,14 @@ static class Program {
         builder.Append("}\n");
 
         File.WriteAllText(path, builder.ToString());
-        Console.WriteLine($"{Path.GetFileName(path)}: {merged.Count} ranges, {names.Count} classes");
+        // ⚠ The release is named here and not only in the file's header, because `only` runs are the
+        // ones with no banner above them: a whole run prints `Unicode <version>` once before any arm,
+        // and a one-table refresh prints nothing but this line. `SoftDotted` is refreshed alone —
+        // it is the arm #913 adds — so without the version the console cannot answer the question
+        // #544 was filed over, which is which release a table in the tree came from.
+        Console.WriteLine(
+            $"{Path.GetFileName(path)}: Unicode {version}, {merged.Count} ranges, {names.Count} classes"
+        );
     }
 
     /// <summary>Writes the full case mappings that are not one code point to one code point.</summary>
@@ -1062,23 +1069,32 @@ static class Program {
         builder.Append(CultureInfo.InvariantCulture, $"        mapping = {name}Mappings[index];\n        return true;\n    }}\n");
     }
 
+    /// <summary>Appends an array body, twelve values to the line.</summary>
+    /// <param name="builder">The file being built.</param>
+    /// <param name="values">The elements, in order.</param>
+    /// <remarks>
+    ///     ⚠ The indent is written <i>before</i> each element rather than after each line, which is
+    ///     what keeps an exact multiple of twelve from ending the array with a blank line: the
+    ///     earlier shape appended the next line's indent unconditionally and then unwound only the
+    ///     indent, leaving the newline it came with. <c>ExtendedPictographicTable.g.cs</c> and
+    ///     <c>ScriptTable.g.cs</c> carried that blank line twice each; both are corrected in the
+    ///     same commit, so the committed tables are what a regeneration would now write.
+    /// </remarks>
     static void AppendNumbers(StringBuilder builder, IEnumerable<int> values) {
         var count = 0;
-        builder.Append("        ");
 
         foreach (var value in values) {
-            builder.Append(CultureInfo.InvariantCulture, $"0x{value:X}, ");
+            builder.Append(count % 12 == 0 ? "        " : " ");
+            builder.Append(CultureInfo.InvariantCulture, $"0x{value:X},");
 
-            if (++count % 12 != 0) {
-                continue;
+            if (++count % 12 == 0) {
+                builder.Append('\n');
             }
-
-            builder.Length -= 1;
-            builder.Append("\n        ");
         }
 
-        builder.Length -= count % 12 == 0 ? 8 : 1;
-        builder.Append('\n');
+        if (count % 12 != 0) {
+            builder.Append('\n');
+        }
     }
 
     /// <summary>Turns a UCD property name into a C# identifier.</summary>

@@ -38,10 +38,23 @@ namespace Vixen.UnicodeTableGen.Tests;
 public sealed class CasingTableGeneratorTests : IDisposable {
     /// <summary>A combining-class database with one range of every shape that matters.</summary>
     /// <remarks>
-    ///     Class 0 is present and must not reach the table; 0x0320..0x0321 and 0x0322 are adjacent
-    ///     and share a class and must merge into one; 0x0300..0x0314 and 0x031A share a class and
-    ///     are <i>not</i> adjacent and must not; and the file is deliberately not sorted by code
-    ///     point, because the UCD groups by property value and the generator is what sorts.
+    ///     <para>
+    ///         Class 0 is present and must not reach the table; 0x0320..0x0321 and 0x0322 are
+    ///         adjacent and share a class and must merge into one; and the file is deliberately not
+    ///         sorted by code point, because the UCD groups by property value and the generator is
+    ///         what sorts.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>0x0322 and 0x0330 are the pair that makes an <i>over</i>-merge visible, and
+    ///         nothing else here is.</b> The merge compares each entry against the previous one in
+    ///         sort order only, so a same-class pair with something of another class between them —
+    ///         0x0300..0x0314 and 0x031A, which 0x0315 and 0x0316..0x0319 separate — is held apart
+    ///         by the <i>class</i> test and would stay apart however far the adjacency test were
+    ///         widened. Proved: widening <c>merged[^1].Last + 1 >= entry.First</c> to <c>+ 64</c>
+    ///         left this suite green before 0x0330 was added, and reddens the shape assertion now.
+    ///         So the gap at 0x0323..0x032F is the whole point of the row, and those code points
+    ///         being class 220 in the real UCD is beside it — this database is not that one.
+    ///     </para>
     /// </remarks>
     const string CombiningClasses = """
         # DerivedCombiningClass-17.0.0.txt
@@ -76,12 +89,41 @@ public sealed class CasingTableGeneratorTests : IDisposable {
         0316..0319    ; 220 # Mn  [4] COMBINING GRAVE ACCENT BELOW..COMBINING RIGHT TACK BELOW
         0320..0321    ; 220 # Mn  [2] COMBINING MINUS SIGN BELOW..COMBINING PALATALIZED HOOK BELOW
         0322          ; 220 # Mn      COMBINING RETROFLEX HOOK BELOW
+        0330          ; 220 # Mn      COMBINING TILDE BELOW
 
         # ================================================
 
         # Canonical_Combining_Class=Attached_Below
 
         05B0          ; 202 # Mn      HEBREW POINT SHEVA
+
+        # EOF
+        """;
+
+    /// <summary>Twelve ranges of one class, none of them adjacent, so none of them merge.</summary>
+    /// <remarks>
+    ///     Twelve is the number of values the emitter puts on a line, and the only count it got
+    ///     wrong. Every row is one code point with one code point of gap after it, which is what
+    ///     keeps the merge out of the way: what is under test here is the layout and not the data.
+    /// </remarks>
+    const string TwelveRanges = """
+        # DerivedCombiningClass-17.0.0.txt
+        # Date: 2025-04-01
+
+        # Canonical_Combining_Class=Above
+
+        0300          ; 230 # Mn      COMBINING GRAVE ACCENT
+        0302          ; 230 # Mn      COMBINING CIRCUMFLEX ACCENT
+        0304          ; 230 # Mn      COMBINING MACRON
+        0306          ; 230 # Mn      COMBINING BREVE
+        0308          ; 230 # Mn      COMBINING DIAERESIS
+        030A          ; 230 # Mn      COMBINING RING ABOVE
+        030C          ; 230 # Mn      COMBINING CARON
+        030E          ; 230 # Mn      COMBINING DOUBLE VERTICAL LINE ABOVE
+        0310          ; 230 # Mn      COMBINING CANDRABINDU
+        0312          ; 230 # Mn      COMBINING TURNED COMMA ABOVE
+        0314          ; 230 # Mn      COMBINING REVERSED COMMA ABOVE
+        0316          ; 230 # Mn      COMBINING GRAVE ACCENT BELOW
 
         # EOF
         """;
@@ -151,11 +193,11 @@ public sealed class CasingTableGeneratorTests : IDisposable {
 
     /// <summary>Class zero never reaches the table, and adjacent ranges of one class become one.</summary>
     /// <remarks>
-    ///     ⚠ <b>Both halves are invisible from <c>Of</c> alone.</b> A code point of class 0 answers
-    ///     0 whether the table says so in a range or says nothing at all, so a generator that
-    ///     emitted the zero ranges would be right and enormous — <c>DerivedCombiningClass.txt</c> is
-    ///     almost entirely class 0 — and no lookup could tell. What tells is the range count and the
-    ///     starts, which is why this asserts those and not only the answers.
+    ///     ⚠ <b>Every half of this is invisible from <c>Of</c> alone.</b> A code point of class 0
+    ///     answers 0 whether the table says so in a range or says nothing at all, so a generator
+    ///     that emitted the zero ranges would be right and enormous — <c>DerivedCombiningClass.txt</c>
+    ///     is almost entirely class 0 — and no lookup could tell. What tells is the range count and
+    ///     the starts, which is why this asserts those and not only the answers.
     /// </remarks>
     [Fact]
     public void Class_zero_is_left_out_and_adjacent_ranges_of_one_class_are_merged() {
@@ -167,11 +209,12 @@ public sealed class CasingTableGeneratorTests : IDisposable {
         var ends = Numbers(table, "Ends");
         var classes = Numbers(table, "Classes");
 
-        // Six ranges out of nine rows: the class-0 row is dropped, and 0x0320..0x0321 and 0x0322
-        // become one. Seven would be a lost merge; ten, a table that kept the base characters.
-        Assert.Equal([0x300, 0x315, 0x316, 0x31A, 0x320, 0x5B0], starts);
-        Assert.Equal([0x314, 0x315, 0x319, 0x31A, 0x322, 0x5B0], ends);
-        Assert.Equal([230, 232, 220, 230, 220, 202], classes);
+        // Seven ranges out of ten rows: the class-0 row is dropped, and 0x0320..0x0321 and 0x0322
+        // become one. Eight would be a lost merge; eleven, a table that kept the base characters;
+        // six, an over-merge that swallowed 0x0323..0x032F on its way to 0x0330.
+        Assert.Equal([0x300, 0x315, 0x316, 0x31A, 0x320, 0x330, 0x5B0], starts);
+        Assert.Equal([0x314, 0x315, 0x319, 0x31A, 0x322, 0x330, 0x5B0], ends);
+        Assert.Equal([230, 232, 220, 230, 220, 220, 202], classes);
 
         Assert.DoesNotContain(0, classes);
     }
@@ -191,6 +234,8 @@ public sealed class CasingTableGeneratorTests : IDisposable {
     [InlineData(0x0316, 220)] // `Below` — the class that makes `Not_Before_Dot` wrong today.
     [InlineData(0x031A, 230)]
     [InlineData(0x0321, 220)] // Inside the merged range rather than at either end of it.
+    [InlineData(0x0323, 0)]   // In the gap between two ranges of one class — 0 unless they over-merged.
+    [InlineData(0x0330, 220)]
     [InlineData(0x05B0, 202)]
     [InlineData(0x10FFFF, 0)]
     public void A_code_point_reads_back_the_class_the_database_gave_it(int codePoint, int expected) {
@@ -199,6 +244,69 @@ public sealed class CasingTableGeneratorTests : IDisposable {
 
         var table = Read("CombiningClassTable.g.cs");
         Assert.Equal(expected, Lookup(table, codePoint));
+    }
+
+    /// <summary>The array body is laid out the way it is, down to the newline that ends it.</summary>
+    /// <remarks>
+    ///     Asserted as text rather than as values because <see cref="Numbers" /> parses whitespace
+    ///     away, and the whitespace is the defect: see
+    ///     <see cref="Twelve_values_end_the_array_without_a_blank_line_after_them" />.
+    /// </remarks>
+    [Fact]
+    public void An_array_shorter_than_a_line_is_one_line_ending_in_one_newline() {
+        Given("DerivedCombiningClass.txt", CombiningClasses);
+        Assert.Equal(0, Run("CombiningClass"));
+
+        Assert.Equal(
+            "        0x300, 0x315, 0x316, 0x31A, 0x320, 0x330, 0x5B0,\n",
+            Body(Read("CombiningClassTable.g.cs"), "Starts")
+        );
+    }
+
+    /// <summary>An element count that is an exact multiple of the line width ends cleanly.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Twelve to the line is the only count that was wrong, which is why the fixture has
+    ///     exactly twelve ranges.</b> The emitter used to append the next line's indent after every
+    ///     twelfth value and then unwind only the eight spaces, leaving the newline that came with
+    ///     them — so an array whose length divides by twelve ended with a blank line inside the
+    ///     initialiser. Cosmetic, but it is in generated source that is read as the record of what
+    ///     the database says, and two committed tables carry it
+    ///     (<c>ExtendedPictographicTable.g.cs</c> and <c>ScriptTable.g.cs</c>, twice each); both are
+    ///     corrected in the same commit so the tree matches what a regeneration would now write.
+    /// </remarks>
+    [Fact]
+    public void Twelve_values_end_the_array_without_a_blank_line_after_them() {
+        Given("DerivedCombiningClass.txt", TwelveRanges);
+        Assert.Equal(0, Run("CombiningClass"));
+
+        var table = Read("CombiningClassTable.g.cs");
+
+        Assert.Equal(12, Numbers(table, "Starts").Length);
+        Assert.Equal(
+            "        0x300, 0x302, 0x304, 0x306, 0x308, 0x30A, 0x30C, 0x30E, 0x310, 0x312, 0x314, 0x316,\n",
+            Body(table, "Starts")
+        );
+    }
+
+    /// <summary>A one-table run names the release it read, because nothing above it does.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A whole run prints <c>Unicode &lt;version&gt;</c> once before any arm; an
+    ///     <c>only</c> run prints nothing but the per-table line.</b> So for exactly the arms that
+    ///     exist to be refreshed alone — which is what #913 asks of <c>SoftDotted</c> — the console
+    ///     was the one place the provenance question #544 was filed over could not be answered.
+    ///     Both arms are pinned here, because a line that says the release for one table and not
+    ///     its neighbour is how the two stopped agreeing in the first place.
+    /// </remarks>
+    [Fact]
+    public void A_single_table_run_says_which_release_it_read() {
+        Given("PropList.txt", Properties);
+        Given("DerivedCombiningClass.txt", CombiningClasses);
+
+        Assert.Equal(0, Run("SoftDotted", out var soft));
+        Assert.Equal(0, Run("CombiningClass", out var combining));
+
+        Assert.Contains("SoftDottedTable.g.cs: Unicode 17.0.0,", soft, StringComparison.Ordinal);
+        Assert.Contains("CombiningClassTable.g.cs: Unicode 17.0.0,", combining, StringComparison.Ordinal);
     }
 
     /// <summary>The table names the class the conditions are written in terms of.</summary>
@@ -312,6 +420,29 @@ public sealed class CasingTableGeneratorTests : IDisposable {
 
     int Run(string only) => global::Vixen.UnicodeTableGen.Program.Main([Ucd, Tables, Suites, only]);
 
+    /// <summary>Runs one arm and keeps what it said on the way.</summary>
+    /// <param name="only">The artefact name.</param>
+    /// <param name="output">Receives everything the run wrote to standard output.</param>
+    /// <returns>Its exit code.</returns>
+    /// <remarks>
+    ///     <c>Console.Out</c> is process-wide, so this is safe only because xunit runs the tests of
+    ///     one class in sequence and this assembly holds one class. A second test class here would
+    ///     have to declare itself in the same collection.
+    /// </remarks>
+    int Run(string only, out string output) {
+        var captured = new StringWriter();
+        var previous = Console.Out;
+
+        try {
+            Console.SetOut(captured);
+
+            return Run(only);
+        } finally {
+            Console.SetOut(previous);
+            output = captured.ToString();
+        }
+    }
+
     string Read(string name) => File.ReadAllText(Path.Combine(Tables, name));
 
     string[] Written() {
@@ -362,6 +493,19 @@ public sealed class CasingTableGeneratorTests : IDisposable {
         }
 
         return [.. values];
+    }
+
+    /// <summary>One of the generated arrays as text, from the opening bracket to the closing one.</summary>
+    /// <param name="table">The generated file.</param>
+    /// <param name="name">The array's name.</param>
+    /// <returns>Its body, indentation and line breaks included.</returns>
+    static string Body(string table, string name) {
+        var opening = table.IndexOf($" {name} = [\n", StringComparison.Ordinal);
+        Assert.True(opening >= 0, $"the generated table declares no array called {name}");
+
+        var body = table[(table.IndexOf("[\n", opening, StringComparison.Ordinal) + 2)..];
+
+        return body[..body.IndexOf("    ];", StringComparison.Ordinal)];
     }
 
     /// <summary>The lookup the generated <c>Of</c> performs, over the arrays as emitted.</summary>
