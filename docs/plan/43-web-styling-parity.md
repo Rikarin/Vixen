@@ -1478,11 +1478,17 @@ does mirror that one.
    rotate — strictly worse than the unrecognised class it replaced. ⚠ **This is shape 3 arriving
    through a value the family itself emits**, and the measurement was blind to it by construction: a
    class counted as resolvable when it EMITTED a declaration, never when a consumer read one. ✅ **Not
-   for this shape any more (#1348):** `AssembledReaderProbe` hands every named value a `transform`
-   slot family answers — the scale vocabulary, both signs, 242 classes, where the surface held one
-   value per family — to a real document beside a witness in another slot, and a class whose element
-   ends up with no transform is declined: not `Resolvable`, and its root cannot read `works`. Putting
-   `ValueKind.Size` back reddens `translate-z-*` to `partial` in the ledger. It is
+   for this shape any more (#1348):** `AssembledReaderProbe` hands every named value a `transform`,
+   `filter` or `backdrop-filter` slot family answers — the scale vocabulary, both signs, 659 classes,
+   where the surface held one value per family — to a real document, and a class the reader throws
+   away is declined: not `Resolvable`, and its root cannot read `works`. A transform slot is judged
+   beside a witness in another slot (the reader says nothing and returns null for identity and
+   refusal alike); a filter slot by the executor's own refusal. Putting `ValueKind.Size` back reddens
+   `translate-z-*` to `partial` in the ledger. ⚠ **Its first run found the shape a third time, in
+   fourteen families at once**: every negative filter proportion — `-brightness-50`, `-blur-2`,
+   `-backdrop-sepia-100` — resolved, because `TryNegate` flips any value that starts with a number,
+   and `brightness(-0.5)` is a function the executor cannot run, so each dropped the whole `filter`.
+   Those families are `Unsigned` now; `-hue-rotate-*`, an angle, keeps its negative. It is
    `ValueKind.Depth` now — the spacing scale without `auto` — which is also v4's own surface for
    this root. ⚠ **And the new kind then vanished the family a second time, from the other end**:
    `UtilityFamilies.ValuesFor` had no arm for it and fell through a `default: break;`, so the root

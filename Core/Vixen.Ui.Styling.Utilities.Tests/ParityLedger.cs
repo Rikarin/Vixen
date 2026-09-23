@@ -170,9 +170,10 @@ static class ParityLedger {
     ///     reader accepts — see <paramref name="Declined" />.
     /// </param>
     /// <param name="Declined">
-    ///     Per family, the classes the resolver answers and the reader throws away: a slot value of the
-    ///     shared <c>transform</c> that <c>TransformReader</c> declines, taking every slot beside it
-    ///     down too (#1348). Empty on a healthy tree, and a family with any is not <c>works</c>.
+    ///     Per family, the classes the resolver answers and the reader throws away: a slot value of a
+    ///     shared <c>transform</c>, <c>filter</c> or <c>backdrop-filter</c> that its reader declines,
+    ///     taking every slot beside it down too (#1348). Empty on a healthy tree, and a family with any
+    ///     is not <c>works</c>.
     /// </param>
     public sealed record Measurement(
         IReadOnlyDictionary<string, IReadOnlyList<string>> ByFamily,
@@ -242,9 +243,9 @@ static class ParityLedger {
         }
 
         // ⚠ Emission was the whole test until #1348, and emission is not acceptance. A class that fills
-        // a slot of the shared `transform` resolves to a declaration whether or not the reader takes
-        // the value, and a value it declines drops the ENTIRE list — every other slot on the element
-        // with it. So for those classes the reader is asked too — over every named value a slot family
+        // a slot of a shared `transform`, `filter` or `backdrop-filter` resolves to a declaration
+        // whether or not the reader takes the value, and a value it declines drops the ENTIRE list —
+        // every other slot on the element with it. So for those classes the reader is asked too — over every named value a slot family
         // answers (`AssembledReaderProbe.Candidates`; the surface alone is one value per family, and
         // one value is what hid #1328) and over the listed classes, which may be spelled outside it.
         var declined = new SortedDictionary<string, SortedSet<string>>(StringComparer.Ordinal);
@@ -252,7 +253,7 @@ static class ParityLedger {
         var listedNames = listed as IReadOnlyCollection<string> ?? [.. listed];
 
         foreach (var name in AssembledReaderProbe.Candidates(surface).Concat(listedNames).Distinct(StringComparer.Ordinal)) {
-            if (!AssembledReaderProbe.FillsASlot(name, tokens, out _) || !AssembledReaderProbe.Declines(name)) {
+            if (!AssembledReaderProbe.FillsASlot(name, tokens) || !AssembledReaderProbe.Declines(name)) {
                 continue;
             }
 

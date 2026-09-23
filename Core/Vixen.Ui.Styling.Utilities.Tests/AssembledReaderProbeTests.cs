@@ -8,8 +8,8 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 
 /// <summary>
 ///     <a href="https://github.com/Rikarin/Vixen/issues/1348">#1348</a>: the parity ledger scores a
-///     slot of the assembled <c>transform</c> by whether the reader accepts it, not by whether the
-///     family emits it.
+///     slot of an assembled <c>transform</c>, <c>filter</c> or <c>backdrop-filter</c> by whether the
+///     reader accepts it, not by whether the family emits it.
 /// </summary>
 /// <remarks>
 ///     Each assertion here is shown to be falsifiable on the tree as it is, not only under a sabotage:
@@ -26,9 +26,9 @@ public class AssembledReaderProbeTests {
         Assert.NotNull(AssembledReaderProbe.TransformOf(Tokens, AssembledReaderProbe.Witness));
         Assert.NotNull(AssembledReaderProbe.TransformOf(Tokens, AssembledReaderProbe.OtherWitness));
 
-        Assert.True(AssembledReaderProbe.FillsASlot(AssembledReaderProbe.Witness, Tokens, out var slots));
+        Assert.True(AssembledReaderProbe.FillsASlot(AssembledReaderProbe.Witness, Tokens, out _, out var slots));
         Assert.Contains(UtilityComposition.RotateZ, slots);
-        Assert.True(AssembledReaderProbe.FillsASlot(AssembledReaderProbe.OtherWitness, Tokens, out slots));
+        Assert.True(AssembledReaderProbe.FillsASlot(AssembledReaderProbe.OtherWitness, Tokens, out _, out slots));
         Assert.DoesNotContain(UtilityComposition.RotateZ, slots);
     }
 
@@ -47,7 +47,7 @@ public class AssembledReaderProbeTests {
     public void A_slot_value_the_reader_refuses_is_declined_and_takes_the_witness_with_it() {
         const string refused = "translate-z-[50%]";
 
-        Assert.True(AssembledReaderProbe.FillsASlot(refused, Tokens, out _), $"{refused} should resolve into a transform slot");
+        Assert.True(AssembledReaderProbe.FillsASlot(refused, Tokens), $"{refused} should resolve into a transform slot");
         Assert.True(AssembledReaderProbe.Declines(refused));
         Assert.Null(AssembledReaderProbe.TransformOf(Tokens, refused, AssembledReaderProbe.Witness));
     }
@@ -60,14 +60,80 @@ public class AssembledReaderProbeTests {
     [InlineData("-skew-y-6")]
     [InlineData("rotate-x-180")]
     public void A_slot_value_the_reader_takes_is_not_declined(string utility) {
-        Assert.True(AssembledReaderProbe.FillsASlot(utility, Tokens, out _), $"{utility} should resolve into a transform slot");
+        Assert.True(AssembledReaderProbe.FillsASlot(utility, Tokens), $"{utility} should resolve into a transform slot");
         Assert.False(AssembledReaderProbe.Declines(utility));
     }
 
-    /// <summary><c>transform-none</c> writes the property and fills no slot, and a witness beside it is meant to vanish.</summary>
+    /// <summary><c>transform-none</c> and <c>filter-none</c> write the property and fill no slot.</summary>
+    [Theory]
+    [InlineData("transform-none")]
+    [InlineData("filter-none")]
+    public void A_keyword_that_writes_the_property_is_not_a_slot(string utility) {
+        Assert.False(AssembledReaderProbe.FillsASlot(utility, Tokens));
+    }
+
+    /// <summary>
+    ///     A filter slot value the executor cannot run is reported through the document's refusals,
+    ///     which is the filter half's observation and needs no witness.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <c>blur(200ms)</c> is a time where a length belongs. Like the transform case it is an
+    ///     arbitrary value and refused on purpose — what matters is that the class resolves and the
+    ///     executor says no, so the probe has something to be false about on the tree as it is.
+    /// </remarks>
     [Fact]
-    public void A_keyword_that_writes_the_property_is_not_a_slot() {
-        Assert.False(AssembledReaderProbe.FillsASlot("transform-none", Tokens, out _));
+    public void A_filter_slot_value_the_executor_refuses_is_declined() {
+        const string refused = "blur-[200ms]";
+
+        Assert.True(AssembledReaderProbe.FillsASlot(refused, Tokens, out var property, out _), $"{refused} should resolve into a filter slot");
+        Assert.Equal("filter", property);
+        Assert.True(AssembledReaderProbe.Declines(refused));
+        Assert.True(AssembledReaderProbe.Refuses(AssembledReaderProbe.RefusalsOf(Tokens, refused), "filter"));
+        Assert.False(AssembledReaderProbe.Refuses(AssembledReaderProbe.RefusalsOf(Tokens, refused), "backdrop-filter"));
+    }
+
+    /// <summary>Named filter and backdrop values the executor runs are not declined.</summary>
+    [Theory]
+    [InlineData("blur-probe", "filter")]
+    [InlineData("brightness-150", "filter")]
+    [InlineData("hue-rotate-90", "filter")]
+    [InlineData("backdrop-blur-probe", "backdrop-filter")]
+    [InlineData("backdrop-opacity-50", "backdrop-filter")]
+    public void A_filter_slot_value_the_executor_runs_is_not_declined(string utility, string expected) {
+        Assert.True(AssembledReaderProbe.FillsASlot(utility, Tokens, out var property, out _), $"{utility} should resolve into a slot");
+        Assert.Equal(expected, property);
+        Assert.False(AssembledReaderProbe.Declines(utility));
+    }
+
+    /// <summary>
+    ///     A negative filter proportion is no class, and the one filter that is an angle keeps its
+    ///     negative — the defect the three-list probe found on its first run.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Every negative of fourteen filter and backdrop families resolved, and the executor
+    ///     refused every one.</b> <c>TryNegate</c> flips any value that starts with a digit, and a
+    ///     filter fragment is a bare number, so <c>-brightness-50</c> became
+    ///     <c>brightness(-0.5)</c> — a function the executor cannot run, which drops the whole
+    ///     <c>filter</c> and every slot beside it. The ledger read <c>works</c> for all seven rows.
+    /// </remarks>
+    /// <param name="utility">A negative spelling.</param>
+    /// <param name="resolves">Whether it should resolve at all.</param>
+    [Theory]
+    [InlineData("-brightness-50", false)]
+    [InlineData("-blur-2", false)]
+    [InlineData("-blur-probe", false)]
+    [InlineData("-sepia-100", false)]
+    [InlineData("-backdrop-blur-2", false)]
+    [InlineData("-backdrop-saturate-150", false)]
+    [InlineData("-backdrop-opacity-50", false)]
+    [InlineData("-hue-rotate-90", true)]
+    [InlineData("-backdrop-hue-rotate-90", true)]
+    public void A_negative_filter_proportion_is_no_class_and_a_negative_angle_still_is(string utility, bool resolves) {
+        Assert.Equal(resolves, AssembledReaderProbe.FillsASlot(utility, Tokens));
+
+        if (resolves) {
+            Assert.False(AssembledReaderProbe.Declines(utility));
+        }
     }
 
     /// <summary>
@@ -76,8 +142,8 @@ public class AssembledReaderProbeTests {
     /// </summary>
     /// <remarks>
     ///     ⚠ <b>With a floor, because a candidate list that offered no slot class would pass this over
-    ///     an empty loop.</b> Seven slot families, each over the scale vocabulary, both signs: 242 classes
-    ///     when this was written.
+    ///     an empty loop.</b> Every transform, filter and backdrop slot family, over the scale
+    ///     vocabulary and both signs: 659 classes when this was written.
     /// </remarks>
     [Fact]
     public void No_slot_value_on_the_surface_is_one_the_reader_declines() {
@@ -86,11 +152,11 @@ public class AssembledReaderProbeTests {
 
         Assert.True(
             measured.Declined.Count == 0,
-            "Classes the resolver answers and TransformReader declines — each one drops every other transform "
-            + "slot on its element (#1348, #1328):\n  "
+            "Classes the resolver answers and the reader declines — each one drops every other slot of its "
+            + "transform or filter list on its element (#1348, #1328):\n  "
             + string.Join("\n  ", measured.Declined.Select(p => $"{p.Key}: {string.Join(' ', p.Value)}"))
         );
 
-        Assert.True(probed >= 200, $"only {probed} class(es) fill a transform slot");
+        Assert.True(probed >= 500, $"only {probed} class(es) fill a slot of an assembled list");
     }
 }

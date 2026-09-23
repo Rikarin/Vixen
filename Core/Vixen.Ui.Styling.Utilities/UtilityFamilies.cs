@@ -333,6 +333,15 @@ public static class UtilityFamilies {
     ///         drop into the block. <see cref="ApplyExpander" /> refuses it by name.
     ///     </para>
     /// </param>
+    /// <param name="Unsigned">
+    ///     Whether a leading <c>-</c> is refused rather than flipping the sign. ⚠ <b>For the filter
+    ///     slots, where a negative is not a smaller value but an invalid one</b> (#1348):
+    ///     <c>-brightness-50</c> resolved to <c>--tw-brightness: -0.5</c>, and <c>brightness(-0.5)</c>
+    ///     is a function the executor cannot run — so it dropped the whole assembled <c>filter</c>,
+    ///     and <c>-blur-2 hue-rotate-90</c> did not rotate the hue. <see cref="TryNegate" /> could not
+    ///     see it: the fragment is a bare number and flips as cleanly as <c>-mt-4</c>'s. Tailwind has
+    ///     no negative form of any of these; <c>hue-rotate</c>, an angle, keeps its own.
+    /// </param>
     sealed record Family(
         string Name,
         ValueKind Kind,
@@ -343,7 +352,8 @@ public static class UtilityFamilies {
         UtilityDeclaration[]? Alongside = null,
         Dictionary<string, UtilityDeclaration[]>? ValueAlongside = null,
         string? Template = null,
-        string? Scope = null
+        string? Scope = null,
+        bool Unsigned = false
     ) {
         /// <summary>Which reading of a top-level slash this family takes.</summary>
         /// <remarks>
@@ -1955,7 +1965,8 @@ public static class UtilityFamilies {
             "blur",
             ValueKind.Blur,
             [UtilityComposition.Blur],
-            Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
+            Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())],
+            Unsigned: true
         ));
 
         // ── The colour filters ──────────────────────────────────────────────────────────
@@ -2103,7 +2114,8 @@ public static class UtilityFamilies {
             "backdrop-blur",
             ValueKind.Blur,
             [UtilityComposition.BackdropBlur],
-            Alongside: BackdropAlongside
+            Alongside: BackdropAlongside,
+            Unsigned: true
         ));
 
         Backdrop("backdrop-brightness", UtilityComposition.BackdropBrightness);
@@ -3389,7 +3401,8 @@ public static class UtilityFamilies {
 
         // Negation is applied to the result rather than threaded through every branch below, because
         // `-mt-4` sets exactly what `mt-4` sets and the only difference is the sign of the number.
-        if (!Resolve(family, candidate, tokens, declarations)
+        if ((candidate.Negative && family.Unsigned)
+            || !Resolve(family, candidate, tokens, declarations)
             || (candidate.Negative && !TryNegate(candidate, declarations))) {
             return false;
         }
@@ -4450,7 +4463,8 @@ public static class UtilityFamilies {
             bare is null
                 ? null
                 : new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = fragment + ":" + bare },
-            Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
+            Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())],
+            Unsigned: true
         ));
 
     /// <summary>What every <c>backdrop-*</c> family emits beside its own fragment.</summary>
@@ -4486,7 +4500,8 @@ public static class UtilityFamilies {
             bare is null
                 ? null
                 : new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = fragment + ":" + bare },
-            Alongside: BackdropAlongside
+            Alongside: BackdropAlongside,
+            Unsigned: true
         ));
 
     /// <summary>Registers a family whose rule is about the element's children rather than the element.</summary>
