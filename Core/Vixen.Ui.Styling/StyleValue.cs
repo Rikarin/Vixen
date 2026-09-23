@@ -100,7 +100,46 @@ public enum StyleUnit : byte {
     ///         multiple of the font size for that case, and says so.
     ///     </para>
     /// </remarks>
-    LineHeight
+    LineHeight,
+
+    /// <summary>A hundredth of the query container's width — CSS Containment 3's <c>cqw</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Appended, like <see cref="LineHeight" /> and for the same reason</b>: these are bytes
+    ///     on a struct that is interned and compared, so filing the six container units beside the
+    ///     four viewport ones would change what every persisted <see cref="StyleValue" /> means.
+    ///     <para>
+    ///         ⚠ <b>Resolving to the <i>viewport</i> when there is no query container is the
+    ///         specification and not a fallback this engine invented</b> — CSS Containment 3 § 5.3
+    ///         says the container units are relative to the small viewport size when no eligible
+    ///         container exists. So a <c>cqw</c> outside every container is a <c>vw</c>, which is why
+    ///         a stylesheet that loses its <c>container-type</c> reflows rather than collapsing.
+    ///     </para>
+    /// </remarks>
+    ContainerWidth,
+
+    /// <summary>A hundredth of the query container's height — <c>cqh</c>.</summary>
+    ContainerHeight,
+
+    /// <summary>A hundredth of the query container's inline size — <c>cqi</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An exact substitution for <see cref="ContainerWidth" /> here, not an approximation of
+    ///     one.</b> The inline axis is the horizontal axis in every writing mode
+    ///     <c>Vixen.Ui.Layout</c> has, and it has one — the same argument doc 43 records for
+    ///     <c>inset-x-*</c> emitting <c>left</c> and <c>right</c> where v4 emits <c>inset-inline</c>.
+    ///     It is a distinct member all the same, because a stylesheet that wrote <c>cqi</c> has to
+    ///     round-trip as <c>cqi</c>, and because the day a writing mode arrives is the day this stops
+    ///     being a substitution and the two have to differ.
+    /// </remarks>
+    ContainerInline,
+
+    /// <summary>A hundredth of the query container's block size — <c>cqb</c>.</summary>
+    ContainerBlock,
+
+    /// <summary>A hundredth of the query container's smaller axis — <c>cqmin</c>.</summary>
+    ContainerMin,
+
+    /// <summary>A hundredth of the query container's larger axis — <c>cqmax</c>.</summary>
+    ContainerMax
 }
 
 /// <summary>A declaration's value, parsed far enough to be interpolated.</summary>
@@ -431,6 +470,19 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
         StyleUnit.ViewportHeight => "vh",
         StyleUnit.ViewportMin => "vmin",
         StyleUnit.ViewportMax => "vmax",
+
+        // ⚠ `lh` was missing here from the day it was added, which is the failure this table's own
+        // remark describes happening to a *second* table and not to itself: `1lh` printed as `1`, a
+        // bare number, in every assertion message and every debug dump. Nothing reads the string
+        // back, so it cost nothing but a reader's confidence — and the six below arrived at the same
+        // seam, which is how it was noticed.
+        StyleUnit.LineHeight => "lh",
+        StyleUnit.ContainerWidth => "cqw",
+        StyleUnit.ContainerHeight => "cqh",
+        StyleUnit.ContainerInline => "cqi",
+        StyleUnit.ContainerBlock => "cqb",
+        StyleUnit.ContainerMin => "cqmin",
+        StyleUnit.ContainerMax => "cqmax",
         _ => string.Empty
     };
 

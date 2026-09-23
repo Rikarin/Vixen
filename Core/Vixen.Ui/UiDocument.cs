@@ -1631,12 +1631,23 @@ public sealed partial class UiDocument : IDisposable {
         // Without it, an interface built before its font is installed keeps a strut of nothing for
         // ever — the same fault `Refont` repairs for the measure function, and it is not enough on
         // its own because a strut is written here rather than measured there.
+        //
+        // ⚠ And the query container's two sizes, which is the fourth thing that moves under an
+        // unchanged style and the one that moves on the *second pass of the first frame*. Styles are
+        // built before layout runs, so a `50cqi` is first built against a container nobody has
+        // measured — a width of nothing — and without these two the reference test then declares the
+        // element up to date for ever. It is the `lh` trap one unit along, and it fails the other
+        // way round: `lh` had a stand-in that was merely wrong, this has a zero that is invisible.
         if (!ReferenceEquals(element.AppliedStyle, style)
             || !element.AppliedFontSize.Equals(element.FontSize)
             || !element.AppliedLineHeight.Equals(element.LineHeight)
+            || !element.AppliedContainerInline.Equals(metrics.ContainerInlineSize)
+            || !element.AppliedContainerBlock.Equals(metrics.ContainerBlockSize)
             || element.AppliedFontRevision != Fonts.Revision) {
             element.AppliedStyle = style;
             element.AppliedFontSize = element.FontSize;
+            element.AppliedContainerInline = metrics.ContainerInlineSize;
+            element.AppliedContainerBlock = metrics.ContainerBlockSize;
             element.AppliedFontRevision = Fonts.Revision;
             StylesApplied++;
 
@@ -1711,10 +1722,17 @@ public sealed partial class UiDocument : IDisposable {
             }
         }
 
+        // ⚠ <b>After this element's own style is built and before its children's.</b> A query
+        // container is a container for its DESCENDANTS and not for itself — CSS Containment 3 § 5.3
+        // — so `width: 50cqw` on the element that declares `container-type: inline-size` measures
+        // against whatever contains *it*, and a `cqw` resolved from the element's own box would be a
+        // width defined in terms of itself.
+        var childMetrics = WithContainerOf(element, style, metrics);
+
         // ⚠ `ChildList` rather than `Children`, here and in `Accumulate`, and it is worth forty bytes
         // per element with children per frame. See the remarks on it.
         foreach (var child in element.ChildList) {
-            Apply(child, element.FontSize, text, metrics, cascaded, style);
+            Apply(child, element.FontSize, text, childMetrics, cascaded, style);
         }
     }
 

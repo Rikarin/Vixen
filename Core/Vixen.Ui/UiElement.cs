@@ -2437,6 +2437,39 @@ public partial class UiElement : Composition.IComposable {
     /// </remarks>
     internal int AppliedFontRevision { get; set; } = -1;
 
+    /// <summary>The box this element handed its descendants as a query container, last pass.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The settle loop's other driver, and without it a <c>cqw</c> is resolved once against
+    ///     a box of nothing and never again.</b> Styles are built before layout runs, so the first
+    ///     pass of a document resolves every container unit against an unmeasured container — the
+    ///     second pass is what makes it right, and a second pass happens only because something
+    ///     invalidated the document. <c>Recontain</c> is that something for a <c>@container</c>
+    ///     <i>rule</i>; it does not run at all for a document that declares no container group, and a
+    ///     container unit needs no group. So the box goes here, and a container whose own box moved
+    ///     asks for another pass.
+    ///     <para>
+    ///         ⚠ <b><see cref="float.NaN" /> and not a zero box</b>: zero is what an unmeasured
+    ///         container legitimately reports on the first pass, so a zero initial value would make
+    ///         the first pass look settled to the one element whose box really is nothing.
+    ///     </para>
+    /// </remarks>
+    internal ContainerBox AppliedContainerBox { get; set; } =
+        new(float.NaN, float.NaN, ContainerKind.Normal);
+
+    /// <summary>The query container inline size the layout style was built against.</summary>
+    /// <remarks>
+    ///     ⚠ <b>In the rebuild test for exactly the reason the line height is</b>, one unit along: an
+    ///     element whose own declarations did not change still has to rebuild when the container it
+    ///     measures <c>cqi</c> against resizes, and its <see cref="ComputedStyle" /> is the same
+    ///     interned object on both passes. Without these two the first pass builds <c>50cqi</c>
+    ///     against an unmeasured container — a width of nothing — and the reference test declares the
+    ///     element up to date for ever after.
+    /// </remarks>
+    internal float AppliedContainerInline { get; set; } = float.NaN;
+
+    /// <summary>And the block size, which a <c>size</c> container can move on its own.</summary>
+    internal float AppliedContainerBlock { get; set; } = float.NaN;
+
     /// <summary>The letter spacing that went with it.</summary>
     internal float AppliedLetterSpacing { get; set; } = float.NaN;
 

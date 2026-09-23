@@ -49,6 +49,8 @@ public readonly record struct LengthContext(
     const float NormalLineHeightFactor = 1.2f;
 
     readonly float lineHeight;
+    readonly float containerInline;
+    readonly float containerBlock;
 
     /// <summary>A context for a surface, before any element's own font size is known.</summary>
     /// <param name="width">The surface's width.</param>
@@ -86,6 +88,54 @@ public readonly record struct LengthContext(
     /// <returns>The context.</returns>
     public LengthContext WithLineHeight(float lineHeight) => this with { LineHeight = lineHeight };
 
+    /// <summary>Which axes an eligible query container was found on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A flag and not a sentinel value, because a query container of zero width is a real
+    ///     thing and zero is this file's own documented trap.</b> Reading "no container" off a width
+    ///     of zero would make <c>10cqw</c> inside a collapsed panel resolve against the
+    ///     <i>viewport</i> — a number that is not small but large, which is the direction that shows
+    ///     as a layout explosion rather than as nothing being drawn.
+    ///     <para>
+    ///         <see cref="ContainerKind.Normal" /> is the default, so a context nobody told about
+    ///         containers answers the viewport, which is what CSS Containment 3 § 5.3 asks for.
+    ///     </para>
+    /// </remarks>
+    public ContainerKind ContainerAxes { get; init; }
+
+    /// <summary>The query container's inline size. A hundredth of it is <c>1cqi</c> and <c>1cqw</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The <i>small viewport</i> when there is no eligible container</b> — CSS Containment 3
+    ///     § 5.3, not a guess. A container unit outside every container is a viewport unit, which is
+    ///     why deleting a <c>container-type</c> from a sheet reflows a document rather than
+    ///     collapsing it.
+    /// </remarks>
+    public float ContainerInlineSize {
+        get => ContainerAxes >= ContainerKind.InlineSize ? containerInline : ViewportWidth;
+        init => containerInline = value;
+    }
+
+    /// <summary>The query container's block size. A hundredth of it is <c>1cqb</c> and <c>1cqh</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It takes a <c>size</c> container and not an <c>inline-size</c> one</b>, so the
+    ///     container answering <c>cqb</c> is often a different ancestor from the one answering
+    ///     <c>cqi</c> — and may be no ancestor at all while <c>cqi</c> has one. That is the whole
+    ///     reason this is two numbers and one <see cref="ContainerAxes" /> rather than one box:
+    ///     containment on the block axis is the thing an author opts into separately, and an
+    ///     <c>inline-size</c> container's height is still its content's.
+    /// </remarks>
+    public float ContainerBlockSize {
+        get => ContainerAxes == ContainerKind.Size ? containerBlock : ViewportHeight;
+        init => containerBlock = value;
+    }
+
+    /// <summary>The same context inside a query container.</summary>
+    /// <param name="inlineSize">The nearest inline-axis container's content-box width.</param>
+    /// <param name="blockSize">The nearest block-axis container's content-box height.</param>
+    /// <param name="axes">Which of the two were found.</param>
+    /// <returns>The context.</returns>
+    public LengthContext WithContainer(float inlineSize, float blockSize, ContainerKind axes) =>
+        this with { ContainerInlineSize = inlineSize, ContainerBlockSize = blockSize, ContainerAxes = axes };
+
     /// <summary>How many pixels one of a unit is worth.</summary>
     /// <param name="unit">The unit.</param>
     /// <returns>The pixels, or zero for a unit that is not a length.</returns>
@@ -119,6 +169,14 @@ public readonly record struct LengthContext(
         StyleUnit.ViewportMin => MathF.Min(ViewportWidth, ViewportHeight) / 100f,
         StyleUnit.ViewportMax => MathF.Max(ViewportWidth, ViewportHeight) / 100f,
         StyleUnit.LineHeight => LineHeight,
+
+        // ⚠ <c>cqi</c> and <c>cqw</c> answer the same number, and <c>cqb</c> and <c>cqh</c> do, which
+        // is exact rather than approximate: the inline axis is the horizontal one in every writing
+        // mode `Vixen.Ui.Layout` has, and it has one. See <see cref="StyleUnit.ContainerInline" />.
+        StyleUnit.ContainerWidth or StyleUnit.ContainerInline => ContainerInlineSize / 100f,
+        StyleUnit.ContainerHeight or StyleUnit.ContainerBlock => ContainerBlockSize / 100f,
+        StyleUnit.ContainerMin => MathF.Min(ContainerInlineSize, ContainerBlockSize) / 100f,
+        StyleUnit.ContainerMax => MathF.Max(ContainerInlineSize, ContainerBlockSize) / 100f,
         _ => 0f
     };
 
@@ -159,5 +217,11 @@ public readonly record struct LengthContext(
             or StyleUnit.ViewportHeight
             or StyleUnit.ViewportMin
             or StyleUnit.ViewportMax
-            or StyleUnit.LineHeight;
+            or StyleUnit.LineHeight
+            or StyleUnit.ContainerWidth
+            or StyleUnit.ContainerHeight
+            or StyleUnit.ContainerInline
+            or StyleUnit.ContainerBlock
+            or StyleUnit.ContainerMin
+            or StyleUnit.ContainerMax;
 }
