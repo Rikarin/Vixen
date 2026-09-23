@@ -593,6 +593,30 @@ public sealed class WorldRenderer : IDisposable {
     ///         id — whichever was created first — and a tooltip would appear under the modal it
     ///         belongs to as often as over it.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No host in this repository performs those five steps, and the first of them is
+    ///         why</b> (#627). <c>Vixen.App.Hosting.AppGraphics</c> is the one thing that builds a
+    ///         game's renderer from data — it resolves the camera's stage, the caster stages and the
+    ///         particle stage by name out of the frame document — and it names no interface stage,
+    ///         assigns no <see cref="UiRenderFeature.Renderer" /> and mounts nothing. It cannot: a
+    ///         <c>UiRenderer</c> needs the shader modules, the only thing that loads them is
+    ///         <c>UiShaderLibrary</c> in <c>Platform/Vixen.Ui.Desktop</c>, and a <c>Core/</c>
+    ///         assembly referencing <c>Platform/</c> is a <c>CheckArchitecture</c> violation
+    ///         (<c>build/Build.ArchitectureRules.cs:231</c>). So the interface stage is a stage a
+    ///         <i>game's own head</i> declares and drives, the way <c>EditorHost</c> does for the
+    ///         editor — and until one does, everything below this line is proved by
+    ///         <c>Core/Vixen.Engine.Renderer.Tests/InterfaceInAWorldTests.cs</c> and by nothing that
+    ///         draws a picture.
+    ///     </para>
+    ///     <para>
+    ///         The precedent to copy is already written twice, and neither copy is in the editor
+    ///         alone: <c>Editor/Vixen.Editor.Host/EditorHost.cs:1287</c> and
+    ///         <c>Platform/Vixen.Ui.Desktop/UiApplication.cs:1012</c> both open a device and call
+    ///         <c>UiShaderLibrary.Load</c> once per device, sharing the table across every surface.
+    ///         Both sit <i>above</i> <c>Core/</c> and <c>Platform/</c> rather than inside either, so
+    ///         a game's head can do the same without moving anything — which is what makes the open
+    ///         question a question about where the deliverable lives rather than about the layering.
+    ///     </para>
     /// </remarks>
     public UiRenderFeature Ui { get; } = new();
 

@@ -160,47 +160,70 @@ public static class UiPropertyRegistry {
     }
 
     /// <summary>
-    ///     The properties a type declares, together with its bases' — complete for a type that
-    ///     declares at least one itself, and otherwise complete only as far as something has
-    ///     already put its bases in play.
+    ///     The properties a type declares, together with its bases' — complete for any type,
+    ///     whether or not it declares one itself and whether or not anything has run its bases.
     /// </summary>
     /// <param name="ownerType">The type.</param>
     /// <returns>The keys, bases first.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Only <paramref name="ownerType" />'s class constructor is forced here, and the
-    ///         bases' come with it</b> (#1240). The walk used to force every level by handle, which
-    ///         is one <c>IL2072</c> — <c>Type.BaseType</c> carries no annotation, and the annotation
-    ///         is what keeps a class constructor from being trimmed — and what it described was live:
-    ///         a NativeAOT publish answered <c>Of(typeof(Derived))</c> with the derived property and
-    ///         nothing from any base, because ILC preserves a constructor it can <em>name</em> and not
-    ///         one reached through <c>BaseType</c> at run time. So the generator now names it: every
-    ///         generated static constructor runs its nearest property-declaring ancestor's, by
-    ///         <c>typeof</c>, and that one runs the next. Forcing the leaf registers the chain in
-    ///         either runtime, and the walk below reads the table and touches nothing a trimmer could
-    ///         remove.
+    ///         ⚠ <b>Every level's class constructor is forced, and the parameter's annotation is
+    ///         what makes that legal</b> (#1336). The walk that did this before #1240 was one
+    ///         <c>IL2072</c>, and the warning described something live: a NativeAOT publish answered
+    ///         <c>Of(typeof(Derived))</c> with the derived property and nothing from any base,
+    ///         because ILC preserves a constructor it can <em>name</em> and not one reached through
+    ///         <c>BaseType</c> at run time. #1240 answered that by moving the forcing into generated
+    ///         static constructors — each runs its nearest property-declaring ancestor's by
+    ///         <c>typeof</c> — and narrowed this method to what the chain reaches, which is nothing
+    ///         for a leaf that declares no property of its own and so gets no generated file.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What that does not cover is a narrowing of this method, not a wash</b>: a type
-    ///         that declares <em>nothing</em> of its own, asked about by <c>typeof</c> before
-    ///         anything has constructed it or touched its base, has no generated constructor to
-    ///         chain from, so its bases' registrations are whatever has already run. The old walk
-    ///         answered that case completely <em>on CoreCLR</em> — it was under ILC that it answered
-    ///         with the leaf and nothing else — so the fix traded a silently wrong AOT answer for a
-    ///         narrower contract on both runtimes. ⚠ It is not closable the same way: naming the
-    ///         ancestor is what makes the chain survive trimming, and <c>Type.BaseType</c> is exactly
-    ///         the thing that cannot name it.
+    ///         ⚠ <b>Refuted: <c>Type.BaseType</c> <em>can</em> name it, given
+    ///         <see cref="DynamicallyAccessedMemberTypes.All" />.</b> That is the one annotation the
+    ///         trimmer propagates across <c>BaseType</c> in full — the rest propagate only their
+    ///         public halves, because a non-public member of a base is not inherited and a class
+    ///         constructor is non-public, which is exactly why
+    ///         <c>NonPublicConstructors</c> could not carry the walk and <c>All</c> can. So the
+    ///         requirement moved from the callee to the caller: whoever names the leaf keeps the
+    ///         chain, and <c>typeof(Leaf)</c> satisfies it statically.
     ///     </para>
     ///     <para>
-    ///         Every binding in the tree goes through <see cref="TryFindFor" /> on an element that
-    ///         exists, and constructing one runs every base's constructor on both runtimes, which is
-    ///         why that path never forced anything — and why nothing in the repository reaches the
-    ///         gap today. <c>UiPropertyTests.A_type_that_declares_nothing_reaches_its_base_only_once_something_has_run_it</c>
-    ///         pins both halves, so the gap cannot widen and cannot quietly close either.
+    ///         ⚠ <b><c>CheckAot</c> is the witness, and the Roslyn trim analyzer is not</b> — which
+    ///         matters, because the obvious way to check this annotation cannot see it. Measured on
+    ///         2026-09-23, an ILC publish of a probe rooting <c>Vixen.Ui</c>: with
+    ///         <c>NonPublicConstructors</c> here the recursive
+    ///         <c>RunClassConstructor(type.BaseType.TypeHandle)</c> below is <c>IL2059</c> and
+    ///         <c>IL2072</c> ("the return value of method <c>System.Type.BaseType.get</c> does not
+    ///         have matching annotations"), and with <c>All</c> the same publish reports nothing.
+    ///         <c>dotnet build Core/Vixen.Ui</c> reports <b>0 warnings either way</b>, and with the
+    ///         attribute deleted outright as well — and it is not asleep: a
+    ///         <c>type.GetMethods()</c> added to the unannotated parameter is <c>IL2070</c> on the
+    ///         spot. So the analyzer that runs on an ordinary build does not model this flow and
+    ///         ILC does, and <c>./build.sh CheckAot</c> is the only thing here that can go red on an
+    ///         edit to these three attributes. Run on the merged tree the same day: succeeded in
+    ///         1 m 31 s, 44.6 MB native binary, no findings.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The price is paid by a trimmed application and not by this method</b>: a call
+    ///         with <c>typeof(MyPanel)</c> now roots every member of <c>MyPanel</c> and of every
+    ///         base up to <see cref="UiElement" />. That is the honest cost of a complete answer
+    ///         from a reflective API, and it is charged only where such a call exists — every
+    ///         binding in the tree goes through <see cref="TryFindFor" /> on an element that exists,
+    ///         which forces nothing because constructing an element already runs every base's
+    ///         constructor.
+    ///     </para>
+    ///     <para>
+    ///         The generated chain stays as it is. It is redundant for this method on both runtimes
+    ///         now — the executed publish below answers completely without it for a leaf that has
+    ///         one and for a leaf that does not — and it stays because deleting it is a decision
+    ///         rather than a patch.
+    ///         <c>UiPropertyTests.An_untouched_base_is_registered_by_its_leaf_s_generated_constructor</c>
+    ///         reads the table without forcing anything, so the chain keeps a test that can see it
+    ///         disappear.
     ///     </para>
     /// </remarks>
     public static IReadOnlyList<UiPropertyKey> Of(
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.NonPublicConstructors)] Type ownerType
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type ownerType
     ) {
         ArgumentNullException.ThrowIfNull(ownerType);
 
@@ -272,13 +295,14 @@ public static class UiPropertyRegistry {
     /// <param name="key">Receives the key.</param>
     /// <returns>Whether it was found.</returns>
     /// <remarks>
-    ///     This is <see cref="Of" /> read for one name, and it carries <see cref="Of" />'s limit with
-    ///     it: an <paramref name="ownerType" /> that declares no property of its own can answer
-    ///     <c>false</c> for a name one of its bases declares, while nothing has yet put that base in
-    ///     play. <see cref="TryFindFor" /> takes an element instead and does not have the gap.
+    ///     This is <see cref="Of" /> read for one name, and it carries <see cref="Of" />'s contract
+    ///     with it — complete for an <paramref name="ownerType" /> that declares nothing of its own,
+    ///     cold, and asked about by <c>typeof</c> (#1336) — and its annotation too, which is what
+    ///     lets the walk force each base. <see cref="TryFindFor" /> takes an element instead and
+    ///     needs neither.
     /// </remarks>
     public static bool TryFind(
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.NonPublicConstructors)] Type ownerType,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type ownerType,
         string name,
         [NotNullWhen(true)] out UiPropertyKey? key
     ) {
@@ -296,31 +320,76 @@ public static class UiPropertyRegistry {
         return false;
     }
 
+    /// <summary>The properties one type has registered, forcing nothing and walking nowhere.</summary>
+    /// <param name="type">The type, asked about exactly.</param>
+    /// <returns>Its own keys, empty while its class constructor has not run.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The only read here that can observe a registration <i>not</i> happening</b>, which
+    ///     is why it exists: <see cref="Of" /> forces every level, so it answers the same whether
+    ///     the generated chain runs or not, and a test written against it could no longer go red on
+    ///     a generator that stopped emitting the chain — a predicate that cannot be false. This one
+    ///     asks the table what it holds at this instant and is internal because that is a question
+    ///     only a test has any business asking.
+    /// </remarks>
+    internal static IReadOnlyList<UiPropertyKey> DeclaredBy(Type type) {
+        ArgumentNullException.ThrowIfNull(type);
+
+        if (!Declared.TryGetValue(type, out var keys)) {
+            return [];
+        }
+
+        lock (keys) {
+            return keys.ToArray();
+        }
+    }
+
     /// <summary>Fills <paramref name="into" /> with a type's properties and its bases', bases first.</summary>
     /// <param name="type">The type.</param>
     /// <param name="into">Where the keys go.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This used to force each level's class constructor on the way down, and that call
-    ///         was the one IL2072 keeping <c>Vixen.Ui</c> and six siblings off the AOT probe</b>
-    ///         (#1240). It was a true positive: measured on 2026-09-10 with a NativeAOT publish of a
-    ///         probe declaring <c>Base : UiElement</c> and <c>Derived : Base</c>,
-    ///         <c>Of(typeof(Derived))</c> came back with the derived property and <b>nothing else</b>,
-    ///         where CoreCLR returned all ten. A base type's class constructor is not preserved
-    ///         because a derived type's is; a constructor ILC can <em>name</em> is. So the forcing
-    ///         moved to where the name is — each generated static constructor runs its nearest
-    ///         property-declaring ancestor's by <c>typeof</c> — and this walk reads the table only.
+    ///         ⚠ <b>The forcing on the way down is back, and the <c>IL2072</c> it used to raise is
+    ///         not</b> (#1336, undoing #1240's half of the trade). The warning was a true positive:
+    ///         measured on 2026-09-10 with a NativeAOT publish of a probe declaring
+    ///         <c>Base : UiElement</c> and <c>Derived : Base</c>, <c>Of(typeof(Derived))</c> came
+    ///         back with the derived property and <b>nothing else</b>, where CoreCLR returned all
+    ///         ten. What was wrong was the conclusion drawn from it — that a base reached through
+    ///         <c>BaseType</c> can never be named. <see cref="DynamicallyAccessedMemberTypes.All" />
+    ///         on <paramref name="type" /> names it: the trimmer propagates <c>All</c>, and only
+    ///         <c>All</c>, across <c>BaseType</c> intact, so the recursive call below inherits the
+    ///         requirement from its caller instead of asking for one <c>Type.BaseType</c> cannot
+    ///         supply.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Nothing in this repository can go red on the AOT half of that.</b> No test runs
-    ///         against an AOT publish and <c>CheckAot</c> never executes the binary it produces
-    ///         (#1255). What <c>Vixen.Ui.Tests</c> can see is the CoreCLR half: with the walk no
-    ///         longer forcing bases, an untouched base's properties reach the answer only through
-    ///         the generated chain, so a generator that stopped emitting it goes red there.
+    ///         ⚠ <b>Measured on a publish that was executed, not argued from the propagation rule</b>
+    ///         (2026-09-23, win-x64, ILC 10.0.11, a probe rooting <c>Vixen.Ui</c> and declaring
+    ///         <c>ProbeBase : UiElement</c> with a property and <c>ProbeLeaf : ProbeBase</c> with
+    ///         none — the exact shape #1240 got wrong — in its own <b>un-rooted</b> assembly, so
+    ///         nothing but this walk can reach <c>ProbeBase</c>'s class constructor).
+    ///         <c>Of(typeof(ProbeLeaf))</c> answered <c>[AllowDrop, …, ProbeWeight]</c> from the
+    ///         native binary: the base's property is there, and so are
+    ///         <see cref="UiElement" />'s from two links up and another assembly. Reverting this one
+    ///         attribute to <c>NonPublicConstructors</c> and republishing the same probe drops
+    ///         <c>ProbeWeight</c> from the same binary's answer. So the annotation is load-bearing at
+    ///         run time and not merely warning-silencing, and #1240's finding reproduces on demand.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The claim that nothing here publishes ahead of time is false and was the reason
+    ///         this was left unproved.</b> <c>./build.sh CheckAot</c> publishes
+    ///         <c>Tools/Vixen.AotProbe</c> with <c>ILLinkTreatWarningsAsErrors</c> and
+    ///         <c>Vixen.Ui</c> among its <c>TrimmerRootAssembly</c> entries, and <c>ci.yml</c> runs
+    ///         it per platform. #1255 is about not <em>executing</em> the binary it produces, which
+    ///         is a narrower thing. ⚠ <c>CheckAot</c> is not in the default <c>./build.sh</c> chain,
+    ///         so an edit here that passes <c>Test</c> and <c>CheckFormat</c> is still owed that
+    ///         target before it is believed.
     ///     </para>
     /// </remarks>
-    static void Collect(Type type, List<UiPropertyKey> into) {
+    static void Collect(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type,
+        List<UiPropertyKey> into
+    ) {
         if (type.BaseType is { } baseType) {
+            RuntimeHelpers.RunClassConstructor(baseType.TypeHandle);
             Collect(baseType, into);
         }
 

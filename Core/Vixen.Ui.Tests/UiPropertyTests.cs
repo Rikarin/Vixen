@@ -212,32 +212,25 @@ public class UiPropertyTests {
     }
 
     /// <summary>
-    ///     An untouched base's properties reach a derived type's answer through the generated
-    ///     constructor chain, not through the registry forcing each level.
+    ///     A cold chain answers completely, bases first, for a leaf nothing has run.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1240">#1240</a>. The registry used to
-    ///         call <c>RunClassConstructor</c> on every base type on the way down, which is the one
-    ///         IL2072 that kept <c>Vixen.Ui</c> and six siblings off the AOT probe — and a true
-    ///         positive: a NativeAOT publish answered <c>Of(typeof(Derived))</c> with the derived
-    ///         property and nothing from any base, because ILC preserves a class constructor it can
-    ///         name and not one reached through <c>Type.BaseType</c>. The registry now forces only
-    ///         the type it was given, and each generated static constructor names its nearest
-    ///         property-declaring ancestor's.
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1240">#1240</a> and
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1336">#1336</a>. Both types are named
+    ///         nowhere else, so nothing has warmed either, and <c>AllowDrop</c> is two links up and
+    ///         in another assembly — a walk that stopped at the assembly boundary would lose it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The CoreCLR half is what this can see</b>, and it is the same guarantee: with the
-    ///         walk no longer forcing bases, <see cref="ChainedBase" />'s registration is in the
-    ///         answer only if <see cref="ChainedLeaf" />'s constructor ran it. Both types are named
-    ///         nowhere else, so nothing has warmed either. A generator that stopped chaining leaves
-    ///         <c>BaseWeight</c> out and this goes red; so does <c>UiElement</c>'s own
-    ///         <c>AllowDrop</c>, which is two links up and in another assembly — the chain has to
-    ///         cross metadata, not just source.
+    ///         ⚠ <b>This no longer tells the generated chain from the registry's own forcing</b>, and
+    ///         that is why the test below it exists: with <c>Of</c> forcing each level again, the
+    ///         answer here is complete whether the chain is emitted or not. What this still pins is
+    ///         the <em>order</em> — bases first, which every inheriting lookup relies on — and that a
+    ///         cold leaf answers at all.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void An_untouched_base_s_properties_arrive_through_the_generated_chain() {
+    public void An_untouched_base_s_properties_reach_a_cold_leaf_s_answer() {
         var names = UiPropertyRegistry.Of(typeof(ChainedLeaf)).Select(key => key.Name).ToList();
 
         Assert.Contains("LeafWeight", names);
@@ -250,45 +243,70 @@ public class UiPropertyTests {
     }
 
     /// <summary>
-    ///     ⚠ Where the chain does not reach, pinned so it cannot move in either direction without
-    ///     somebody deciding to move it.
+    ///     The generated constructor chain, watched through the one read that forces nothing.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1240">#1240</a> put the forcing in the
+    ///         generator — each static constructor runs its nearest property-declaring ancestor's by
+    ///         <c>typeof</c>, which is the form ILC preserves — and
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1336">#1336</a> gave the registry its
+    ///         own walk back. ⚠ The chain is redundant on <b>both</b> runtimes now, not just on
+    ///         CoreCLR — an executed ILC publish answers a chain-less leaf completely, which
+    ///         <c>UiProperty.cs</c>'s <c>Collect</c> records — so what keeps it is that removing it
+    ///         is a decision rather than a patch, and that leaves it with no test at all unless one
+    ///         asks the table directly.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, and the first is the one that makes this a real predicate</b>:
+    ///         <see cref="LinkedBase" /> is registered by nothing until <see cref="LinkedLeaf" />'s
+    ///         constructor runs it, and neither type is named anywhere else in the tree, so an empty
+    ///         first read is a fact about the chain rather than about test ordering. A generator that
+    ///         stopped emitting the chain leaves the second read empty too.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_untouched_base_is_registered_by_its_leaf_s_generated_constructor() {
+        Assert.Empty(UiPropertyRegistry.DeclaredBy(typeof(LinkedBase)));
+
+        RuntimeHelpers.RunClassConstructor(typeof(LinkedLeaf).TypeHandle);
+
+        Assert.Contains(
+            "LinkedWeight",
+            UiPropertyRegistry.DeclaredBy(typeof(LinkedBase)).Select(key => key.Name)
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ The gap #1240 opened and #1336 closed: a type that declares nothing of its own,
+    ///     stone cold, answers with its base's properties.
     /// </summary>
     /// <remarks>
     ///     <para>
     ///         The chain hangs off generated static constructors, and a type that declares no
     ///         <c>[UiProperty]</c> of its own gets no generated file and so no constructor to chain
-    ///         from. Asked about by <c>typeof</c> before anything has put its base in play,
-    ///         <see cref="UiPropertyRegistry.Of" /> therefore answers without the base's properties.
-    ///         That is a <b>narrowing</b> of what the method promised before #1240, and it went in
-    ///         with nothing in the tree able to contradict it — the chain test above only covers the
-    ///         case where the leaf declares something.
+    ///         from. While <see cref="UiPropertyRegistry.Of" /> forced only the type it was given,
+    ///         such a leaf answered with whatever had already run — which for
+    ///         <see cref="SilentLeaf" /> is nothing. The registry forces each level again, with an
+    ///         annotation the trimmer propagates across <c>Type.BaseType</c>, so the answer is
+    ///         complete on both runtimes.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The first assertion is red if per-level forcing comes back</b>, which is the
-    ///         point of keeping it. Restoring <c>RunClassConstructor</c> inside
-    ///         <c>UiPropertyRegistry.Collect</c> re-broadens the answer here and re-introduces the
-    ///         <c>IL2072</c> that kept <c>Vixen.Ui</c> and six siblings off the AOT probe — a true
-    ///         positive, measured: under ILC that walk returned the derived property and nothing
-    ///         else. Nothing but this line can see that regression from a test run; the alternative
-    ///         is an ILC warning on a publish, and <c>CheckAot</c> has no CI leg.
+    ///         ⚠ <b>The first assertion is the instrument, not the subject.</b> It says the base
+    ///         really was cold at this instant — <see cref="UiPropertyRegistry.DeclaredBy" /> forces
+    ///         nothing and walks nowhere — because a passing second assertion means nothing if some
+    ///         earlier test had already put <see cref="SilentBase" /> in play. Nothing else in the
+    ///         tree names either type.
     ///     </para>
     ///     <para>
-    ///         The second assertion is the guarantee that survives, and it is the one every caller
-    ///         in the tree relies on: the moment anything has run the declaring ancestor's
-    ///         constructor — constructing an element does, which is what
-    ///         <see cref="UiPropertyRegistry.TryFindFor" /> depends on — the same silent leaf answers
-    ///         completely. Closing the gap for the cold case means deleting the first assertion and
-    ///         widening <c>Of</c>'s summary in the same commit, not weakening this test.
+    ///         Removing the <c>RunClassConstructor</c> from <c>UiPropertyRegistry.Collect</c> leaves
+    ///         the second assertion red and the first green, which is the shape of the regression
+    ///         this pins.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void A_type_that_declares_nothing_reaches_its_base_only_once_something_has_run_it() {
-        Assert.DoesNotContain(
-            "SilentWeight",
-            UiPropertyRegistry.Of(typeof(SilentLeaf)).Select(key => key.Name)
-        );
-
-        RuntimeHelpers.RunClassConstructor(typeof(SilentBase).TypeHandle);
+    public void A_type_that_declares_nothing_reaches_its_base_while_still_cold() {
+        Assert.Empty(UiPropertyRegistry.DeclaredBy(typeof(SilentBase)));
 
         Assert.Contains(
             "SilentWeight",
@@ -351,6 +369,24 @@ public partial class SilentBase : UiElement {
 
 /// <summary>
 ///     ⚠ Declares nothing, so the generator emits nothing for it — not even an empty constructor.
-///     This is the shape <see cref="UiPropertyRegistry.Of" /> cannot answer completely while cold.
+///     This is the shape <see cref="UiPropertyRegistry.Of" /> could not answer completely while cold
+///     until #1336 gave the walk its forcing back.
 /// </summary>
 public class SilentLeaf : SilentBase;
+
+/// <summary>
+///     A declaring base kept apart from every other pair here, so that the only thing which can ever
+///     have registered it is the generated chain the test watches.
+/// </summary>
+public partial class LinkedBase : UiElement {
+    /// <summary>Its only property.</summary>
+    [UiProperty(Default = 13)]
+    public partial int LinkedWeight { get; set; }
+}
+
+/// <summary>The leaf whose generated constructor names <see cref="LinkedBase" />, and nothing else does.</summary>
+public partial class LinkedLeaf : LinkedBase {
+    /// <summary>Its only property, and the reason it gets a generated constructor at all.</summary>
+    [UiProperty(Default = 14)]
+    public partial int LinkedLeafWeight { get; set; }
+}

@@ -140,9 +140,18 @@
             ⚠ The Vixen.Ui wave was on NotRooted.txt for ONE finding, and it was a true positive:
             UiPropertyRegistry.Collect forced every base type's class constructor through
             Type.BaseType, which ILC cannot see, so an AOT build silently lost every property a
-            base class declared. The generator now chains each static constructor to its nearest
-            property-declaring ancestor by name and the registry forces only the leaf (#1240); with
-            that, these seven root with nothing to report.
+            base class declared. The generator chains each static constructor to its nearest
+            property-declaring ancestor by name (#1240); with that, these seven root with nothing to
+            report.
+
+            ⚠ "ILC cannot see" was too strong, and the registry no longer forces only the leaf.
+            #1336 put its walk over Type.BaseType back, because the one annotation ILC propagates
+            across BaseType intact is DynamicallyAccessedMemberTypes.All — so Of/TryFind/Collect
+            carry All and the requirement falls on the caller, who has the typeof. What keeps these
+            seven off NotRooted.txt is therefore those three attributes and not only the generator:
+            measured 2026-09-23, narrowing Collect's back to NonPublicConstructors is IL2059 +
+            IL2072 here, and zero warnings on an ordinary `dotnet build Core/Vixen.Ui`. This target
+            is the only instrument in the repository that can tell the two apart.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Ui\Vixen.Ui.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Ui.Controls\Vixen.Ui.Controls.csproj" />
