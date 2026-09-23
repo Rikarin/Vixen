@@ -527,7 +527,6 @@ sealed class VxmlLexer {
         LexName(tokens);
     }
 
-    /// <summary>Whether a <c>{</c> starts <paramref name="offset" /> characters ahead, past spaces.</summary>
     /// <summary>Whether <c>( var</c> follows, whitespace allowed either side of the paren.</summary>
     bool AtVarHeaderAhead(int offset) {
         while (IsWhitespace(window.Peek(offset))) {
@@ -547,6 +546,7 @@ sealed class VxmlLexer {
         return AtWord("var", offset);
     }
 
+    /// <summary>Whether a <c>{</c> starts <paramref name="offset" /> characters ahead, past spaces.</summary>
     bool AtBraceAhead(int offset) {
         while (IsWhitespace(window.Peek(offset))) {
             offset++;
