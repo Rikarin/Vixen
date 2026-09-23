@@ -9,7 +9,22 @@ namespace Vixen.Ui.Styling.Utilities;
 /// <param name="SelectorSuffix">Appended to the class selector — <c>:hover</c>, <c>[data-x]</c>.</param>
 /// <param name="SelectorPrefix">Prepended, for the variants that need an ancestor — <c>.dark </c>.</param>
 /// <param name="AtRule">An at-rule to wrap the whole thing in, such as a media query.</param>
-public readonly record struct VariantEffect(string SelectorSuffix, string SelectorPrefix, string? AtRule);
+public readonly record struct VariantEffect(string SelectorSuffix, string SelectorPrefix, string? AtRule) {
+    /// <summary>
+    ///     The property this variant moves the utility's declaration from, and the one it moves it
+    ///     to — or <c>null</c> for every variant that only touches the selector.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The shape <c>selection:</c> needed and the three strings could not say.</b>
+    ///     <c>TextField</c> paints its highlight from <c>--selection-color</c> on its own style, so
+    ///     <c>selection:bg-blue-200</c> is a <i>property</i> rewrite — <c>background-color</c> becomes
+    ///     <c>--selection-color</c> — and no suffix, prefix or at-rule expresses that. A utility whose
+    ///     declarations are not all <c>From</c> is refused by the generator rather than emitted
+    ///     unmoved, because <c>selection:text-white</c> as <c>color: white</c> is a class that means
+    ///     something else.
+    /// </remarks>
+    public (string From, string To)? Rewrite { get; init; }
+}
 
 /// <summary>Turns a variant prefix into what it does to the selector.</summary>
 /// <remarks>
@@ -34,6 +49,13 @@ public readonly record struct VariantEffect(string SelectorSuffix, string Select
 ///         never the wiring: it was that the <c>--container-*</c> scale did not exist, so the only
 ///         numbers <c>@sm</c> could have been resolved against were the breakpoints, and those are
 ///         a window's rather than a box's.
+///     </para>
+///     <para>
+///         ⚠ <b>And one shape that is not about the selector at all</b>: <c>selection:</c> moves the
+///         utility's <i>property</i> — <c>background-color</c> onto <c>--selection-color</c>, which
+///         is what the text controls paint their highlight from — through
+///         <see cref="VariantEffect.Rewrite" />. Everything else here only decides where a rule
+///         applies; this decides what it says.
 ///     </para>
 ///     <para>
 ///         The arbitrary form <c>[&amp;>*]:</c> substitutes the selector for the <c>&amp;</c>, which
@@ -193,11 +215,38 @@ public static class Variants {
         //   `::selection` is not a box. `TextField` paints the highlight itself, from a colour it
         //   reads off its OWN style as the custom property `--selection-color` — see the
         //   `selectionColor` id it interns and the `ColorOf` beside the fallback. So
-        //   `selection:bg-blue-200` would have to rewrite the utility's PROPERTY rather than its
-        //   selector, and `VariantEffect` is three strings that can only append to a selector,
-        //   prepend to it, or wrap it in an at-rule. No variant can express it, and the missing piece
-        //   is a fourth shape rather than a generated box.
+        //   `selection:bg-blue-200` has to rewrite the utility's PROPERTY rather than its selector,
+        //   which three strings could not say; it is `Rewrites` below and `VariantEffect.Rewrite`,
+        //   a fourth shape rather than a generated box.
     };
+
+    /// <summary>The variants that move a utility's declaration onto the property a control reads.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One entry, and a table rather than a branch because it is the shape and not the
+    ///         entry that is new.</b> v4's <c>selection:</c> is <c>&amp; *::selection, &amp;::selection</c>
+    ///         — the element and everything in it. Here no box is selected text; <c>TextField</c> and
+    ///         <c>CodeEditor</c> paint their bands from <c>--selection-color</c>, and a custom property
+    ///         inherits, so writing it on the element reaches the element and every descendant the
+    ///         way v4's two selectors do, without either of them.
+    ///     </para>
+    ///     <para>
+    ///         Only the background moves, because only the background has a reader: v4's
+    ///         <c>selection:text-white</c> recolours the selected glyphs, and nothing here paints
+    ///         selected glyphs in a colour of their own. It is refused — not a class — rather than
+    ///         emitted as a <c>color</c> on the element.
+    ///     </para>
+    /// </remarks>
+    static readonly Dictionary<string, (string From, string To)> Rewrites = new(StringComparer.Ordinal) {
+        ["selection"] = ("background-color", "--selection-color")
+    };
+
+    /// <summary>The variants that rewrite a utility's property rather than its selector.</summary>
+    /// <remarks>
+    ///     Exposed for the reason <see cref="StateVariants" /> is: a second entry with no test that a
+    ///     control actually reads its property fails the build rather than joining the silent ones.
+    /// </remarks>
+    public static IReadOnlyCollection<string> RewriteVariants => Rewrites.Keys;
 
     /// <summary>The variants that name a <i>part</i> of a control — a child box that already exists.</summary>
     /// <remarks>
@@ -345,6 +394,13 @@ public static class Variants {
 
         if (Parts.TryGetValue(variant, out var part)) {
             effect = new VariantEffect(part, string.Empty, null);
+            return true;
+        }
+
+        if (Rewrites.TryGetValue(variant, out var rewrite)) {
+            // No suffix, so `not-` and `has-` — which wrap one — refuse it below, and `group-` and
+            // `peer-` never see it: they read `States`.
+            effect = new VariantEffect(string.Empty, string.Empty, null) { Rewrite = rewrite };
             return true;
         }
 

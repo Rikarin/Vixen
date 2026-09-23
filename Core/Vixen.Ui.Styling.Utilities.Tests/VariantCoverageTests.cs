@@ -429,6 +429,107 @@ public class VariantCoverageTests {
         Assert.False(field.Style.TryGet(padding, out _), "the field itself was styled, which is F6's own defect.");
     }
 
+    [Fact]
+    public void The_selection_variant_moves_a_background_onto_the_selection_colour() {
+        // ⚠ The fourth shape: not a selector, not an at-rule, but a PROPERTY. `TextField` paints the
+        // highlight from `--selection-color` read off its own style, so v4's
+        // `selection:bg-fuchsia-500` is that custom property here, and a `background-color` on the
+        // element — what the class would mean if the variant were dropped — is exactly the wrong
+        // answer, so it is asserted absent.
+        var fixture = new UtilityFixture();
+
+        Assert.Equal("#ff00ff", fixture.Computed(["selection:bg-[#ff00ff]"], "--selection-color"));
+        Assert.Null(fixture.Computed(["selection:bg-[#ff00ff]"], "background-color"));
+
+        // And it composes with a state, which is the other half of being a variant rather than a
+        // utility of its own: only while hovered.
+        Assert.Equal(
+            "#ff00ff",
+            fixture.Computed(["hover:selection:bg-[#ff00ff]"], "--selection-color", state: ElementState.Hover)
+        );
+
+        Assert.Null(fixture.Computed(["hover:selection:bg-[#ff00ff]"], "--selection-color"));
+    }
+
+    [Fact]
+    public void The_selection_variant_reaches_the_descendants_the_way_v4s_does() {
+        // v4 writes `& *::selection, &::selection` — the element and everything in it. A custom
+        // property inherits, so writing it on the element is that, without a descendant selector.
+        var fixture = new UtilityFixture();
+        var css = fixture.Generate("selection:bg-[#ff00ff]");
+
+        Assert.Equal(
+            "#ff00ff",
+            fixture.Computed([], "--selection-color", extraCss: css, ancestor: new Probe(["selection:bg-[#ff00ff]"]))
+        );
+
+        Assert.Null(fixture.Computed([], "--selection-color", extraCss: css, ancestor: new Probe([])));
+    }
+
+    [Theory]
+    // ⚠ A utility whose property the variant cannot move is refused rather than emitted where it
+    // stands: `selection:text-white` as `color: white` on the element would recolour all of its text,
+    // which is F6's failure mode — a class that means something else — through a property.
+    [InlineData("selection:text-[#ff00ff]")]
+    [InlineData("selection:p-4")]
+    // And the composers that wrap a selector suffix have none to wrap.
+    [InlineData("not-selection:bg-[#ff00ff]")]
+    [InlineData("has-selection:bg-[#ff00ff]")]
+    [InlineData("group-selection:bg-[#ff00ff]")]
+    public void A_selection_class_the_variant_cannot_express_is_not_a_class(string candidate) {
+        var fixture = new UtilityFixture();
+        var css = fixture.Generate(candidate);
+
+        Assert.DoesNotContain("{", css.Replace("@layer utilities {", string.Empty, StringComparison.Ordinal), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_rewrite_variant_table_has_no_untested_entry() {
+        // ⚠ A tripwire rather than an enumeration, because each entry names a property a CONTROL
+        // reads and no generic scene can prove a control reads it. A second entry fails here until
+        // somebody writes its end-to-end row beside `selection`'s.
+        Assert.Equal(["selection"], Variants.RewriteVariants.Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void The_selection_variant_colours_the_band_a_real_text_field_paints() {
+        // ⚠ The writer's side, which the rows above cannot see: they prove a custom property was
+        // written, not that anything paints from it. A field inside a `selection:` container, with
+        // its text selected, must draw its band in the container's colour — pure magenta, whose
+        // channels survive the draw list's linear conversion exactly.
+        var fixture = new UtilityFixture();
+
+        Assert.NotEmpty(Bands(fixture, "selection:bg-[#ff00ff]"));
+        Assert.Empty(Bands(fixture, string.Empty));
+
+        static List<DrawCommand> Bands(UtilityFixture fixture, string classes) {
+            using var document = new UiDocument(400f, 100f);
+
+            // Without a face there are no glyphs, no line and so no band to colour.
+            document.Fonts.Default = UtilityConsumptionProbe.FiguredFace;
+
+            if (classes.Length > 0) {
+                document.Load(fixture.Generate(classes), StyleOrigin.Author);
+            }
+
+            string[] names = classes.Length > 0 ? [classes] : [];
+            var panel = document.Root.Add("div", null, names);
+            var field = panel.Add<TextBox>();
+            field.Value = "selected";
+            document.Focus(field);
+            field.SelectAll();
+            document.Update();
+            document.Draw();
+
+            return document.Drawing.Commands
+                .Where(command => command.Kind == DrawCommandKind.Rectangle
+                    && command.Color.R == 1f
+                    && command.Color.G == 0f
+                    && command.Color.B == 1f)
+                .ToList();
+        }
+    }
+
     /// <summary>The surfaces the media variants are judged against, by name.</summary>
     /// <remarks>
     ///     ⚠ <b>Named rather than inlined, because a <see cref="MediaContext" /> in a theory row is
