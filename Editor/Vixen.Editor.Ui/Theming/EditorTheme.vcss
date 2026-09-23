@@ -1393,10 +1393,9 @@ settings-body { flex-direction: row; flex-grow: 1; flex-basis: 0px; min-height: 
 /* ⚠ A `ScrollView` under this tag, and so is `settings-pane` below (#1275).
    Both were `overflow: auto` on a plain element, which in this UI clips and
    does not scroll: at 640 px the Appearance page's theme editor was cut off
-   with no way to reach its bottom, and the General page's rows were squeezed
-   over one another — a scroll container drops its flex items' content-sized
-   floor, so the rows shrank to fit instead. The clip, the bars' anchor and the
-   direction are restated because a control under a tag of its own gets none
+   with no way to reach its bottom. (The General page fits at that height and
+   drew the same before and after — compared, not assumed.) The clip, the
+   bars' anchor and the direction are restated because a control under a tag of its own gets none
    of the `scroll-view` user-agent rule (#1327), and the gap and padding moved
    to the content, where the tabs and the page's rows now are: padding on the
    port would sit inside what the bars measure and leave the last row short of

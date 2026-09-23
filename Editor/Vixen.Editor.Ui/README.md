@@ -698,7 +698,7 @@ internal sealed class SettingsTab : ButtonBase {
 ```
 
 and `Selected="@IsChosen(page)"` is an ordinary binding. Same tag, same `size-md variant-subtle
-settings-tab`, so `settings-rail > button.settings-tab:checked` reaches it unchanged — which is the
+settings-tab`, so `settings-rail > scroll-content > button.settings-tab:checked` reaches it — which is the
 test of whether an escape is an escape or a redesign. ⚠ **`ButtonBase` rather than `Button` only
 because `Button` is sealed**, and the two are the same type: `Button` adds a tag name and nothing
 else. ⚠ **This is also what `FlameChartView`'s reason 3 was actually waiting for** — `refs` was
@@ -1162,8 +1162,9 @@ rows did not.
 invoked at one site (`Reload()`), from seven callers in `EditorSettingsPanels`. But the factory never
 had to be *invoked from* the `.vxml` — it needs a host element to be invoked *into*, and `ref` gives
 one. `PrefabView.vxml` is the proof: `<TabItem ref="@HierarchyTab" Label="Hierarchy" />` has no
-content and `Show` builds the tree against `HierarchyTab.Panel`. `<settings-pane ref="@Pane" />` is
-the same pattern and simpler — an element owned by no region, so `Reload()`'s clear-and-refill is safe.
+content and `Show` builds the tree against `HierarchyTab.Panel`. `<ScrollView tag="settings-pane"
+ref="@PaneView" />` is the same pattern — its content is an element owned by no region, so `Reload()`'s
+clear-and-refill is safe.
 
 ✅ **Ported 2026-08-23, and the pane was the easy half exactly as written.** What the lift did not
 mention is the **rail**, which is where the work turned out to be: `Restate` sets

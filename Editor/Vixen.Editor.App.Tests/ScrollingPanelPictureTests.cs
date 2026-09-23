@@ -167,8 +167,8 @@ public sealed class ScrollingPanelPictureTests {
     ///     ⚠ <b>640 px, because that is where it goes wrong.</b> The Appearance page is a button, a
     ///     sentence and a theme editor that will not shrink below 220 px, and at this height the pane is
     ///     229 px — so before the pane was a <c>ScrollView</c> the theme editor was cut off at the
-    ///     bottom with nothing to reach it, and on the General page the rows were squeezed over one
-    ///     another instead, because a scroll container drops its flex items' content floor.
+    ///     bottom with nothing to reach it. The General page fits at this height and drew the same
+    ///     before and after, so it is not the page this looks at.
     /// </remarks>
     [Fact]
     public void The_settings_page_scrolls_inside_its_box_and_nowhere_else() {
