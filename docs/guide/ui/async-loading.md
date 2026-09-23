@@ -118,7 +118,10 @@ Scroller.PulledToRefresh += _ => generation.Value++;
 
 Four things about it are worth knowing before relying on it. The distance is measured on what the
 edge *gave* rather than on how far the finger travelled, because the elastic curve is scaled by the
-view's own height — a threshold in raw pixels fires at a visibly different place in a short view. Only
+view's own height — a threshold in raw pixels fires at a visibly different place in a short view. ⚠
+The same curve never gives the view's *whole* height, so the distance is capped at half the view when
+it is read: without that, a view 64 pixels tall or shorter could not refresh at all against the
+default. A view taller than twice the distance never meets the cap. Only
 the top counts: pulling past the *bottom* means "there is more, fetch it", and refreshing there
 reloads the list from the beginning at the moment the reader has finally got to the end of it. A
 cancelled gesture never asks, because a drag the system took away is not a request. And ⚠ **nothing

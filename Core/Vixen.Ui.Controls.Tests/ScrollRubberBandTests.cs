@@ -368,6 +368,99 @@ public class ScrollRubberBandTests {
         Assert.Equal(1, refreshes);
     }
 
+    /// <summary>A view of a given height over content twenty times as tall, at its top edge, in a root with room for it.</summary>
+    static (ControlFixture Fixture, ScrollView View) Sized(float height) {
+        var fixture = new ControlFixture(css: $$"""
+            root  { width: 400px; height: 2000px; }
+            #view { width: 100px; height: {{height}}px; }
+            #body { width: 100px; height: {{height * 20f}}px; }
+            """);
+
+        var view = fixture.Document.Create<ScrollView>(null, fixture.Document.Root, "view");
+        fixture.Document.Create("div", view.Content, "body");
+
+        view.DragToScroll = true;
+
+        fixture.Update();
+        fixture.Advance(Frame);
+
+        return (fixture, view);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A short view can ask with the default distance at all (#1355).</b> The edge gives
+    ///     <c>(1 − 1/(d·K/h + 1))·h</c>, which is strictly less than the view's own height <c>h</c>
+    ///     for every pull — so against a threshold of 64 pixels, a view 64 pixels tall or shorter
+    ///     was a pull-to-refresh no gesture could trigger, and the fixture every other theory here
+    ///     uses is one of them: 60 pixels, which is why each of them sets the distance by hand.
+    /// </summary>
+    /// <remarks>
+    ///     Forty steps is 780 pixels of travel — thirteen viewports for the 60-pixel view, which is
+    ///     further than any thumb goes and still short of the threshold as written. What makes the
+    ///     theory about reachability rather than about one fixture is the first assertion: the pull
+    ///     really is short of <see cref="ScrollView.PullToRefreshDistance" />, so a release that
+    ///     asks is one the distance as written could not have produced.
+    /// </remarks>
+    [Theory]
+    [InlineData(24f)]
+    [InlineData(60f)]
+    [InlineData(64f)]
+    public void A_view_no_taller_than_the_default_distance_can_still_ask_for_a_refresh(float height) {
+        var (fixture, view) = Sized(height);
+        using var _ = fixture;
+
+        var (x, y) = Middle(view);
+        var refreshes = 0;
+        view.PulledToRefresh += _ => refreshes++;
+
+        const int Steps = 40;
+        var given = PullDown(fixture, view, Steps)[^1];
+
+        Assert.True(
+            -given < view.PullToRefreshDistance,
+            $"the edge gave {-given} of a {height}px view, which is past the default distance and proves nothing"
+        );
+
+        fixture.Release(x, y + (Step * Steps));
+        Assert.Equal(1, refreshes);
+    }
+
+    /// <summary>
+    ///     The other half of the cap: a view tall enough keeps the distance exactly as written, so the
+    ///     cap is a floor under reachability and not a new threshold everywhere.
+    /// </summary>
+    /// <remarks>
+    ///     A 300-pixel view, pulled once to about 38 pixels of give and once to about 102 — either
+    ///     side of the default 64 and both well short of half the view. A cap applied as the whole
+    ///     rule (half the height, 150) would refuse the second; a cap not applied at all is the
+    ///     theory above.
+    /// </remarks>
+    [Fact]
+    public void A_tall_view_asks_at_the_distance_as_written() {
+        var (fixture, view) = Sized(300f);
+        using var _ = fixture;
+
+        var (x, y) = Middle(view);
+        var refreshes = 0;
+        view.PulledToRefresh += _ => refreshes++;
+
+        var shallow = PullDown(fixture, view, steps: 5)[^1];
+        Assert.InRange(-shallow, 1f, view.PullToRefreshDistance - 1f);
+
+        fixture.Release(x, y + (Step * 5));
+        Assert.Equal(0, refreshes);
+
+        for (var frame = 0; frame < 120 && view.IsRubberBanding; frame++) {
+            fixture.Advance(Frame);
+        }
+
+        var deep = PullDown(fixture, view, steps: 15)[^1];
+        Assert.InRange(-deep, view.PullToRefreshDistance + 1f, (view.Height * 0.5f) - 1f);
+
+        fixture.Release(x, y + (Step * 15));
+        Assert.Equal(1, refreshes);
+    }
+
     /// <summary>
     ///     ⚠ <b>The bottom edge is a different verb.</b> Pulling past the end means "there is more,
     ///     fetch it"; answering that with a refresh reloads the list from the top at the moment the
