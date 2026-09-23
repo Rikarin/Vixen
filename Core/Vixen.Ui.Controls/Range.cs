@@ -812,11 +812,11 @@ public sealed partial class LevelIndicator : RangeBase {
     ///         threshold and never touches the value again.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Each threshold is compared in the direction that pair implies, which is why the
-    ///         two comparisons are not the same expression.</b> With <c>Critical</c> above
-    ///         <c>Warning</c> a reading is worse as it rises; with <c>Critical</c> below it, as it
-    ///         falls. A single <c>&gt;=</c> for both would make every battery indicator in the world
-    ///         report <c>Critical</c> at full charge.
+    ///         ⚠ <b>Both lines are compared in the <see cref="Rising" /> direction the pair implies,
+    ///         and the critical one is asked first.</b> With <c>Critical</c> above <c>Warning</c> a
+    ///         reading is worse as it rises; with <c>Critical</c> below it, as it falls. A fixed
+    ///         <c>&gt;=</c> for both would make every battery indicator in the world report
+    ///         <c>Critical</c> at full charge.
     ///     </para>
     /// </remarks>
     public LevelReading Level {
