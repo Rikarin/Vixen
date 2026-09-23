@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime;
 using System.Runtime.CompilerServices;
 using Vixen.EditorShell;
 using Vixen.Ui.Rendering;
@@ -513,6 +514,50 @@ public class EditorShellBudgetTests {
     ///         than outside it, and the array it fills is rented from nowhere and made before the
     ///         measurement starts — so the next red names the shape as well as the size.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the guard above was not enough, which is #1330.</b> Three of nine whole-suite
+    ///         runs on a saturated machine failed here with one frame of ten paying 2 952 bytes and
+    ///         <b>no collection recorded inside it</b>, so the discard could not see it. Reproduced on
+    ///         Windows x64 in the control shape — a thread holding a partly-consumed allocation
+    ///         context, allocating nothing inside the window, with a neighbour churning the heap:
+    ///         <b>one window of 200 000 read +7 760 bytes</b>, and that window recorded <b>zero</b>
+    ///         collections while 12 911 collections landed inside 12 615 of its neighbours. A jump
+    ///         this instrument takes without a collection to point at is not something
+    ///         <c>GC.CollectionCount</c> can be asked about.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the payer has a name now, which is what #1330 asked for.</b> It is the
+    ///         retirement charge, and it is reproducible on demand rather than once in 200 000:
+    ///         allocate 64 bytes, read the counter, force a blocking gen-0, read it again — with this
+    ///         class running whole, that sequence charges a thread that allocated nothing in between
+    ///         <b>3 688 bytes</b>, in 4 of 5 runs, and the same sequence in a class of its own charged
+    ///         0 in 5 of 5. ⚠ 3 688 is the order of #1330's unexplained <b>2 952</b>, and both are
+    ///         part of one 8 KB allocation context. So "something warmed, pooled or grown on that
+    ///         pass" is refuted: nothing in the shell was warmed, the counter was.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the frame is measured with no allocation context to lose</b> —
+    ///         <see cref="Measure" /> forces a blocking gen-0 immediately before each attempt and
+    ///         before anything is read, which retires this thread's context and takes the charge
+    ///         outside the window; a settled frame allocates nothing and so takes no new context for
+    ///         a foreign collection to charge it for. Ordered by work, once per attempt, and the same
+    ///         shape as the discard beside it rather than a wider bound. ⚠ <b>The elimination is
+    ///         argued from the mechanism and not proved by sampling</b> — a charge lands on a
+    ///         measured frame about once in 200 000 windows, so no affordable run tells the two
+    ///         worlds apart — but the mechanism is now measured rather than supposed, and a context
+    ///         that does not exist has no unconsumed remainder to be charged for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two of the three candidates #1330 lists are eliminated by measurement.</b> The JIT
+    ///         is not indistinguishable from a real cost: <c>JitInfo.GetCompiledMethodCount</c> takes
+    ///         a <c>currentThread</c> argument, it reads <b>0 compilations across 2 000 settled
+    ///         frames</b>, and a first call of a fresh method compiles two methods for <b>0 bytes</b>
+    ///         on this thread's counter — so the column is in the failure message and the next red
+    ///         can say whether anything was warming. And a no-GC region, the obvious way to make the
+    ///         artifact impossible rather than rare, is unusable here: a 16 MB region held 100 of 100
+    ///         attempts idle, <b>1 of 100 with a single allocating neighbour and 0 of 100 with four</b>
+    ///         (64 MB did not help), and this suite's classes run in parallel.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_settled_frame_allocates_nothing() {
@@ -532,64 +577,26 @@ public class EditorShellBudgetTests {
         // microseconds, it never is.
         const int Frames = 10;
 
-        // ⚠ Counted rather than asserted, because the assertion belongs outside the measured region:
-        // an `Assert` that fails allocates its message, and one that passes still has to be a call
-        // this loop can afford to be wrong about. An int is free.
-        var worked = 0;
-
-        // Made before the measurement, for the same reason, and written to by index inside it —
-        // storing a long into a `long[]` is not an allocation, so keeping the breakdown is free.
-        var cost = new long[Frames];
-
         // ⚠ How many attempts a clean frame is allowed, and it is a count of work rather than a
-        // deadline. A frame a collection landed in is not measurable — the retired allocation
-        // context's unconsumed remainder lands in this thread's counter, up to 16 344 bytes of it —
-        // so such a frame is thrown away and another is drawn in its place. Ten times the frames,
-        // because a machine busy enough to collect inside nine attempts out of ten is a machine
-        // this measurement cannot be taken on, and saying so is better than a number.
+        // deadline. Ten times the frames, because a machine busy enough to collect inside nine
+        // attempts out of ten is a machine this measurement cannot be taken on, and saying so is
+        // better than a number.
         const int Attempts = Frames * 10;
 
-        // How many attempts were spent, and how many were discarded — reported on a red, because
-        // "nine of ten frames had a collection in them" is a different failure from "the draw walk
-        // allocates" and the message has to be able to say which.
-        var discarded = 0;
-        var measured = 0;
+        var reading = Measure(Frames, Attempts, DrawTheShell);
 
-        for (var attempt = 0; attempt < Attempts && measured < Frames; attempt++) {
-            var gen0 = GC.CollectionCount(0);
-            var gen1 = GC.CollectionCount(1);
-            var gen2 = GC.CollectionCount(2);
-            var before = GC.GetAllocatedBytesForCurrentThread();
-            var dirty = Shell.Document.Update();
-
-            Shell.Document.Draw();
-
-            var spent = GC.GetAllocatedBytesForCurrentThread() - before;
-            var collected = GC.CollectionCount(0) - gen0
-                + (GC.CollectionCount(1) - gen1)
-                + (GC.CollectionCount(2) - gen2);
-
-            // ⚠ Discarded rather than recorded. Nothing about the frame is wrong; the *instrument*
-            // cannot read it, and a reading the instrument cannot take is not evidence either way.
-            if (collected != 0) {
-                discarded++;
-
-                continue;
-            }
-
-            if (dirty) {
-                worked++;
-            }
-
-            cost[measured] = spent;
-            measured++;
-        }
+        var measured = reading.Measured;
+        var discarded = reading.Discarded;
+        var worked = reading.Worked;
+        var cost = reading.Cost;
 
         var allocated = 0L;
         var frames = 0;
+        var compiled = 0L;
 
         for (var i = 0; i < measured; i++) {
             allocated += cost[i];
+            compiled += reading.Compiled[i];
 
             if (cost[i] > 0) {
                 frames++;
@@ -626,8 +633,200 @@ public class EditorShellBudgetTests {
             $"{Frames} settled frames of the shell, none of them containing a collection, allocated "
             + $"{allocated} bytes between them, and {frames} of the {Frames} paid: "
             + $"[{string.Join(", ", cost)}] ({discarded} further frames were discarded for having a "
-            + "collection in them). "
+            + $"collection in them; the JIT compiled {compiled} method(s) on this thread across the "
+            + $"measured frames: [{string.Join(", ", reading.Compiled)}]). "
             + Reading(frames)
+        );
+    }
+
+    /// <summary>The shell's frame, as the thing <see cref="Measure" /> drives.</summary>
+    /// <returns>Whether the frame reported work to do.</returns>
+    /// <remarks>
+    ///     A method rather than a lambda written at the call site, so that nothing inside the
+    ///     measured window is a closure this test allocated on the way in.
+    /// </remarks>
+    static bool DrawTheShell() {
+        var dirty = Shell.Document.Update();
+
+        Shell.Document.Draw();
+
+        return dirty;
+    }
+
+    /// <summary>What one run of the measurement saw, per frame.</summary>
+    /// <remarks>
+    ///     Every array is made before the window opens and written to by index inside it — storing a
+    ///     <c>long</c> into a <c>long[]</c> is not an allocation, so keeping the breakdown is free.
+    /// </remarks>
+    sealed class Costs {
+        /// <summary>Bytes each measured frame asked the allocator for.</summary>
+        internal long[] Cost { get; init; } = [];
+
+        /// <summary>Methods the JIT compiled on this thread inside each measured frame.</summary>
+        internal long[] Compiled { get; init; } = [];
+
+        /// <summary>How many frames were measured.</summary>
+        internal int Measured { get; set; }
+
+        /// <summary>How many attempts were thrown away because a collection landed inside them.</summary>
+        internal int Discarded { get; set; }
+
+        /// <summary>How many measured frames reported work to do.</summary>
+        internal int Worked { get; set; }
+
+        /// <summary>How many times this thread's allocation context was retired before a frame.</summary>
+        internal int Retired { get; set; }
+    }
+
+    /// <summary>Drives a frame until <paramref name="frames" /> of them could be read cleanly.</summary>
+    /// <param name="frames">How many clean frames are wanted.</param>
+    /// <param name="attempts">How many frames may be drawn to get them. Work, not a deadline.</param>
+    /// <param name="frame">The frame. Returns whether it reported work to do.</param>
+    /// <returns>What was seen.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The forced collection is the guard #1330 asks for and it is first in the loop,
+    ///         before anything is read.</b> It retires this thread's allocation context; a frame that
+    ///         allocates nothing then takes no new one, so a foreign thread's collection has nothing
+    ///         of ours to account for. The artifact it is aimed at is a jump in
+    ///         <c>GC.GetAllocatedBytesForCurrentThread</c> on a thread that allocated nothing —
+    ///         measured here at +7 760 bytes in one window of 200 000, in a window that recorded no
+    ///         collection at all, which is why the discard below cannot be the whole guard.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And this repository had worked that out already, in a helper this file never
+    ///         used.</b> <c>Testing/Measured.cs</c> collects before its window for exactly this
+    ///         reason, in as many words — "it hands the loop an <i>empty</i> allocation context, and
+    ///         work that allocates nothing never asks for another one" — and a dozen test projects
+    ///         opt into it by naming the file. This one measures its own frames because it needs a
+    ///         per-frame breakdown, the settled flag and the JIT column rather than one total, and
+    ///         re-derived the artefact from a red the helper would have prevented.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing is asserted in here</b>, for the reason the budget above records: a
+    ///         failing <c>Assert</c> allocates its message and a passing one is still a call the
+    ///         window cannot afford to be wrong about. Everything is counted and read afterwards.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The JIT counter is read outside the byte window</b> — after the bytes on the way
+    ///         in and before them on the way out — because it is a diagnostic and not a subject, and
+    ///         an instrument that costs the thing it measures is not one.
+    ///     </para>
+    /// </remarks>
+    static Costs Measure(int frames, int attempts, Func<bool> frame) {
+        var reading = new Costs { Cost = new long[frames], Compiled = new long[frames] };
+
+        for (var attempt = 0; attempt < attempts && reading.Measured < frames; attempt++) {
+            // ⚠ First, and the whole of #1330's guard: no context to lose means nothing to be
+            // charged for losing it.
+            GC.Collect(0, GCCollectionMode.Forced, blocking: true);
+            reading.Retired++;
+
+            var gen0 = GC.CollectionCount(0);
+            var gen1 = GC.CollectionCount(1);
+            var gen2 = GC.CollectionCount(2);
+            var jit = JitInfo.GetCompiledMethodCount(currentThread: true);
+            var before = GC.GetAllocatedBytesForCurrentThread();
+
+            var dirty = frame();
+
+            var spent = GC.GetAllocatedBytesForCurrentThread() - before;
+            var compiled = JitInfo.GetCompiledMethodCount(currentThread: true) - jit;
+            var collected = GC.CollectionCount(0) - gen0
+                + (GC.CollectionCount(1) - gen1)
+                + (GC.CollectionCount(2) - gen2);
+
+            // ⚠ Discarded rather than recorded. Nothing about the frame is wrong; the *instrument*
+            // cannot read it, and a reading the instrument cannot take is not evidence either way.
+            if (collected != 0) {
+                reading.Discarded++;
+
+                continue;
+            }
+
+            if (dirty) {
+                reading.Worked++;
+            }
+
+            reading.Cost[reading.Measured] = spent;
+            reading.Compiled[reading.Measured] = compiled;
+            reading.Measured++;
+        }
+
+        return reading;
+    }
+
+    /// <summary>
+    ///     The instrument, first: the measurement reports the bytes a frame really asked for.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>What does this gate print on the day it stops measuring?</b> Zero — the same thing a
+    ///     perfect frame prints, which is why the loop above needs a test of its own rather than only
+    ///     the shell's zero. A frame asking for a known array must read as at least that array, and a
+    ///     measurement that discarded everything must not look like a clean sheet: both are asserted.
+    /// </remarks>
+    [Fact]
+    public void A_measurement_reports_the_bytes_a_frame_asked_for() {
+        const int Frames = 5;
+        const int Size = 4096;
+
+        var reading = Measure(Frames, Frames * 10, Allocate);
+
+        Assert.True(
+            reading.Measured == Frames,
+            $"only {reading.Measured} of {Frames} frames could be measured, so this asserted nothing"
+        );
+
+        for (var i = 0; i < reading.Measured; i++) {
+            Assert.True(
+                reading.Cost[i] >= Size,
+                $"frame {i} asked for a {Size}-byte array and the measurement read {reading.Cost[i]} bytes"
+            );
+        }
+
+        return;
+
+        static bool Allocate() {
+            GC.KeepAlive(new byte[Size]);
+
+            return false;
+        }
+    }
+
+    /// <summary>
+    ///     The other half of the instrument: every attempt starts with this thread's allocation
+    ///     context retired.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Ordered by work and not by bytes</b>, because the artifact it guards against is
+    ///         rare enough — one window in 200 000 — that no sampling run can see it go away. What
+    ///         can be asserted is the <i>order</i>: a collection happened before each frame, so the
+    ///         thread held no context while the frame ran. Removing the forced collection from
+    ///         <see cref="Measure" /> leaves this red and every byte assertion in the file green.
+    ///     </para>
+    ///     <para>
+    ///         The bound is <c>&gt;=</c> rather than <c>==</c> because another thread may collect
+    ///         while this one measures, which is the whole reason the guard exists.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_measurement_retires_this_thread_s_allocation_context_before_every_frame() {
+        const int Frames = 5;
+
+        var before = GC.CollectionCount(0);
+        var reading = Measure(Frames, Frames * 10, static () => false);
+        var collections = GC.CollectionCount(0) - before;
+
+        Assert.True(
+            reading.Retired >= Frames,
+            $"{reading.Retired} attempts were made for {Frames} frames, so the count below is not about them"
+        );
+
+        Assert.True(
+            collections >= reading.Retired,
+            $"{collections} gen-0 collection(s) happened across {reading.Retired} attempt(s), so the "
+            + "measurement is not emptying this thread's allocation context before each frame (#1330)"
         );
     }
 
@@ -635,18 +834,29 @@ public class EditorShellBudgetTests {
     /// <param name="frames">How many of the measured frames paid.</param>
     /// <returns>The sentence to put after the numbers.</returns>
     /// <remarks>
-    ///     ⚠ <b>The third reading this used to have is gone, because the frames it described are no
-    ///     longer measured.</b> "Every paying frame is a frame a collection landed in, so look for
-    ///     something the draw walk re-fills after a GC" was the reading of #992 for a while, and it
-    ///     is refuted: forcing a blocking gen-2 immediately before a measured frame costs zero, and
-    ///     the correlation was the instrument rather than the code — a GC retires this thread's
-    ///     allocation context and its unconsumed remainder lands in the counter. Frames with a
-    ///     collection in them are discarded now, so anything that reaches here was measured cleanly.
+    ///     <para>
+    ///         ⚠ <b>The third reading this used to have is gone, because the frames it described are
+    ///         no longer measured.</b> "Every paying frame is a frame a collection landed in, so look
+    ///         for something the draw walk re-fills after a GC" was the reading of #992 for a while,
+    ///         and it is refuted: forcing a blocking gen-2 immediately before a measured frame costs
+    ///         zero, and the correlation was the instrument rather than the code.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the sentence that replaced it — "anything that reaches here was measured
+    ///         cleanly" — is refuted too (#1330).</b> The charge for a retired allocation context
+    ///         does not arrive with a collection this window can count: three of nine whole-suite
+    ///         runs saw one frame pay 2 952 bytes with <c>GC.CollectionCount</c> flat across it. The
+    ///         discard is half the guard; retiring this thread's context before the frame is the
+    ///         other half.
+    ///     </para>
     /// </remarks>
     static string Reading(int frames) =>
         frames == 1
-            ? "One frame alone, with no collection in it, is a one-off — look for something warmed, "
-            + "pooled or grown on that pass, not for a boxed enumerator."
+            ? "One frame alone, with no collection in it, is a one-off: either something in the shell "
+            + "was warmed, pooled or grown on that pass — read the JIT column, which says whether "
+            + "anything ran for the first time — or this thread was charged the unconsumed remainder "
+            + "of an allocation context a foreign collection retired, which measures 3 688 bytes here "
+            + "and is what the forced retirement before each frame exists to prevent (#1330)."
             : "Every frame paying is something on the draw walk asking the allocator per frame — a "
             + "boxed enumerator over a collection typed as an interface is what it has been every "
             + "time.";
@@ -705,6 +915,12 @@ public class EditorShellBudgetTests {
             + (drawing.Boxes.Count * Unsafe.SizeOf<BoxStyle>())
             + (drawing.Masks.Count * Unsafe.SizeOf<UiMask>());
 
+        // ⚠ The same guard the loop above takes, and for the same reason (#1330): this thread must
+        // hold no allocation context while it measures, or a collection on any other thread can
+        // charge it that context's unconsumed remainder — 3 688 bytes, measured, which is most of
+        // the headroom this assertion has.
+        GC.Collect(0, GCCollectionMode.Forced, blocking: true);
+
         var before = GC.GetAllocatedBytesForCurrentThread();
 
         scene.Document.Draw();
@@ -722,6 +938,8 @@ public class EditorShellBudgetTests {
 
         // And the third draw and every one after it is free, which is what makes the second a
         // property of the list's life rather than of the frame.
+        GC.Collect(0, GCCollectionMode.Forced, blocking: true);
+
         before = GC.GetAllocatedBytesForCurrentThread();
 
         scene.Document.Draw();
