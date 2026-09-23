@@ -485,11 +485,13 @@ public partial class MarkupAccessibleNameTests {
                 break;
             }
 
-            text.AppendLine(line);
+            // '\n', not AppendLine: the census is committed under `eol=lf`, and Environment.NewLine
+            // made every regeneration on Windows a whole-file CRLF diff.
+            text.Append(line).Append('\n');
         }
 
         foreach (var row in rows) {
-            text.AppendLine(row);
+            text.Append(row).Append('\n');
         }
 
         File.WriteAllText(path, text.ToString());

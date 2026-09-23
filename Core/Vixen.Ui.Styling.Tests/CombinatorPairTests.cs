@@ -238,11 +238,13 @@ public class CombinatorPairTests {
                 break;
             }
 
-            text.AppendLine(line);
+            // '\n', not AppendLine: the domain is committed under `eol=lf`, and Environment.NewLine
+            // made every regeneration on Windows a whole-file CRLF diff.
+            text.Append(line).Append('\n');
         }
 
         foreach (var pair in Declared) {
-            text.Append(pair.Text).Append('\t').AppendLine(pair.Sheet);
+            text.Append(pair.Text).Append('\t').Append(pair.Sheet).Append('\n');
         }
 
         File.WriteAllText(path, text.ToString());

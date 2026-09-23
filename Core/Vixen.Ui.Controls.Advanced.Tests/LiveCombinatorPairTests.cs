@@ -387,6 +387,13 @@ public partial class LiveCombinatorPairTests {
         return rows;
     }
 
+    /// <summary>Writes a census back under its own header, with the repository's line ending.</summary>
+    /// <remarks>
+    ///     ⚠ <c>'\n'</c> and not <c>AppendLine</c>, which is <c>Environment.NewLine</c>: every census
+    ///     here is a committed file under <c>* text=auto eol=lf</c>, and a regeneration on Windows
+    ///     otherwise rewrote the three this writes and the one <see cref="WriteSuspects" /> writes
+    ///     with CRLF — a whole-file diff for a one-row change. Measured both ways.
+    /// </remarks>
     static void Write(string path, IEnumerable<string> rows) {
         var text = new StringBuilder();
 
@@ -395,11 +402,11 @@ public partial class LiveCombinatorPairTests {
                 break;
             }
 
-            text.AppendLine(line);
+            text.Append(line).Append('\n');
         }
 
         foreach (var row in rows) {
-            text.AppendLine(row);
+            text.Append(row).Append('\n');
         }
 
         File.WriteAllText(path, text.ToString());
@@ -414,11 +421,11 @@ public partial class LiveCombinatorPairTests {
                 break;
             }
 
-            text.AppendLine(line);
+            text.Append(line).Append('\n');
         }
 
         foreach (var (pair, reason) in rows) {
-            text.Append(pair).Append('\t').AppendLine(reason);
+            text.Append(pair).Append('\t').Append(reason).Append('\n');
         }
 
         File.WriteAllText(path, text.ToString());
