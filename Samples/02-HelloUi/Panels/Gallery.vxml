@@ -195,6 +195,15 @@
             <ProgressBar class="text-brand" Value="@Model.Progress.Value" />
             <Spinner Phase="@Model.Phase.Value" />
 
+            <!--
+                ⚠ The same number as the bar above it, drawn by the control that means something
+                else by it. A progress bar full is a job finished; a level indicator full is a disk
+                that has run out — so this one is driven past its two thresholds by the same clock
+                and changes colour on the way, which the bar above never does.
+            -->
+            <LevelIndicator Value="@Model.Progress.Value" Warning="0.6" Critical="0.85" />
+            <LevelIndicator Value="@Model.Progress.Value" Segments="8" />
+
             <Alert Variant="Danger"
                    Title="Shader failed to compile"
                    Message="Ui/Msdf.rvn(42): expected ';'" />

@@ -721,6 +721,237 @@ public sealed partial class ProgressBar : RangeBase {
     }
 }
 
+/// <summary>Where a reading sits between two thresholds, and whether that is a problem.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Not a <see cref="ProgressBar" /> with colours, and the difference is what the
+///         reading means rather than how it is drawn.</b> A progress bar is about a job: it starts
+///         empty, only ever goes up, and being full is the good outcome. A level indicator is about
+///         a capacity — a disk, a battery, a budget, a memory pool — which goes both ways, never
+///         finishes, and where <i>full</i> may be exactly the thing you are worried about. Doc 49
+///         § 7.1 ranks this sixth of the missing controls because <c>ProgressBar</c> was the only
+///         readout in the set and every panel wanting a capacity had to misuse it.
+///     </para>
+///     <para>
+///         ⚠ <b>Which direction is bad is inferred from the order of the two thresholds and never
+///         from a flag.</b> A flag and two numbers can disagree — <c>Descending = true</c> with
+///         <c>Critical</c> above <c>Warning</c> is a control that is silently wrong and looks
+///         configured — and the numbers cannot disagree with themselves. So
+///         <c>Warning = 0.7, Critical = 0.9</c> is a disk filling up and
+///         <c>Warning = 0.3, Critical = 0.1</c> is a battery running down, with no third property to
+///         keep in step. See <see cref="Level" />.
+///     </para>
+///     <para>
+///         ⚠ <b>The level is a class rather than a colour.</b> <c>level-indicator.warning</c> and
+///         <c>.critical</c> are what the theme selects on, exactly as <c>.indeterminate</c> is for a
+///         progress bar, so which hues mean "nearly full" stays a decision of the stylesheet and one
+///         palette answers for the whole interface. A <c>Color4</c> property here would be a second
+///         palette that the theme cannot see.
+///     </para>
+///     <para>
+///         <b>Segmented and continuous are one control</b>: <see cref="Segments" /> at zero draws a
+///         bar and above zero draws that many blocks of which the filled fraction is lit, which is
+///         what a signal strength or a rating is. Splitting them would be two controls with one
+///         arithmetic problem and two chances to round the boundary differently.
+///     </para>
+/// </remarks>
+public sealed partial class LevelIndicator : RangeBase {
+    int segmentGap;
+
+    /// <inheritdoc />
+    protected override string TagName => "level-indicator";
+
+    /// <inheritdoc />
+    /// <remarks>A readout is not operated, so it is not in the tab order — <c>ProgressBar</c>'s rule.</remarks>
+    protected override bool AcceptsFocus => false;
+
+    /// <inheritdoc />
+    protected override AccessibleRole NativeRole => AccessibleRole.Meter;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The reading itself, not the fraction <see cref="ProgressBar" /> reports.</b> A
+    ///     progress bar's range is always nought to one in meaning whatever its bounds say, so a
+    ///     fraction loses nothing; a meter's bounds are the capacity — 0 to 512 GB, 0 to 100 °C — and
+    ///     announcing "0.87" for 446 GB throws away the only number the listener wanted.
+    /// </remarks>
+    protected override string? NativeAccessibleValue => Value.ToString("0.###", CultureInfo.InvariantCulture);
+
+    /// <summary>The reading.</summary>
+    [UiProperty(Coerce = nameof(CoerceValue), Changed = nameof(OnValueChanged))]
+    public partial float Value { get; set; }
+
+    /// <summary>Where the reading stops being ordinary, or <see cref="float.NaN" /> for nowhere.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="float.NaN" /> and not a sentinel inside the range</b>, for
+    ///     <see cref="ProgressBar.IsIndeterminate" />'s reason: a threshold of <c>-1</c> or
+    ///     <c>0</c> meaning "none" is a threshold that fires the day somebody's arithmetic produces
+    ///     that number, and every comparison against <see cref="float.NaN" /> is already false, which
+    ///     is exactly the behaviour "nowhere" wants.
+    /// </remarks>
+    [UiProperty(Default = float.NaN, Changed = nameof(OnThresholdChanged))]
+    public partial float Warning { get; set; }
+
+    /// <summary>Where it stops being acceptable, or <see cref="float.NaN" /> for nowhere.</summary>
+    /// <remarks>
+    ///     Below <see cref="Warning" /> this reads downwards: see the type's remarks. Setting this
+    ///     alone is a ceiling, because a capacity is what a lone threshold means.
+    /// </remarks>
+    [UiProperty(Default = float.NaN, Changed = nameof(OnThresholdChanged))]
+    public partial float Critical { get; set; }
+
+    /// <summary>How many blocks the bar is cut into, or zero for a continuous one.</summary>
+    [UiProperty(Coerce = nameof(CoerceSegments))]
+    public partial int Segments { get; set; }
+
+    /// <summary>What the reading currently amounts to.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Computed rather than stored, so it cannot come to disagree with the three numbers it
+    ///         is made of — the failure a cached level has is that it is right until somebody sets a
+    ///         threshold and never touches the value again.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Each threshold is compared in the direction that pair implies, which is why the
+    ///         two comparisons are not the same expression.</b> With <c>Critical</c> above
+    ///         <c>Warning</c> a reading is worse as it rises; with <c>Critical</c> below it, as it
+    ///         falls. A single <c>&gt;=</c> for both would make every battery indicator in the world
+    ///         report <c>Critical</c> at full charge.
+    ///     </para>
+    /// </remarks>
+    public LevelReading Level {
+        get {
+            if (Reached(Critical)) {
+                return LevelReading.Critical;
+            }
+
+            return Reached(Warning) ? LevelReading.Warning : LevelReading.Ordinary;
+        }
+    }
+
+    /// <summary>Whether a bigger reading is a worse one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Decided once for the pair rather than per threshold, which is how the first draft of
+    ///     this got it wrong.</b> Asking each threshold "am I on the far side of the other one" gives
+    ///     the two comparisons opposite senses — the critical line reads upward exactly when the
+    ///     warning line reads downward — so a disk at a hundred per cent came back <i>ordinary</i>
+    ///     with a warning at seventy. There is one direction and both lines are on it.
+    ///     <para>
+    ///         Rising when only one line is set, because a lone threshold on a capacity is a ceiling.
+    ///         <see cref="float.IsNaN(float)" /> rather than a comparison, since every comparison
+    ///         against <see cref="float.NaN" /> is false and <c>Critical &gt;= Warning</c> would
+    ///         therefore answer "falling" for an indicator with no thresholds at all.
+    ///     </para>
+    /// </remarks>
+    bool Rising => float.IsNaN(Warning) || float.IsNaN(Critical) || Critical >= Warning;
+
+    /// <inheritdoc />
+    protected override void OnCreated() {
+        base.OnCreated();
+
+        segmentGap = Document.PropertyId("--segment-gap");
+        Apply(Level);
+    }
+
+    /// <inheritdoc />
+    protected override void OnDraw(DrawContext context) {
+        base.OnDraw(context);
+
+        var bounds = context.Bounds;
+
+        if (bounds.Width <= 0f || bounds.Height <= 0f) {
+            return;
+        }
+
+        var radius = Thickness(bounds) * 0.5f;
+        var filled = Fraction(Value);
+
+        if (Segments <= 0) {
+            context.FillRectangle(bounds, TrackColor, radius);
+
+            if (filled > 0f) {
+                context.FillRectangle(Span(bounds, 0f, filled), FillColor, radius);
+            }
+
+            return;
+        }
+
+        // ⚠ The gap is taken out of each block rather than added between them, so that the blocks
+        // together occupy exactly the rail the continuous bar would — a segmented indicator and a
+        // plain one of the same width end in the same place, which is what lets them sit in a
+        // column together.
+        var gap = Document.LengthOf(Style, segmentGap) ?? 2f;
+        var axis = IsVertical ? bounds.Height : bounds.Width;
+        var share = 1f / Segments;
+        var inset = axis > 0f ? MathF.Min(gap / axis, share * 0.5f) : 0f;
+
+        // ⚠ Rounded rather than truncated, and the boundary is the whole of what a reader checks:
+        // four blocks at a half reading is two, and at anything over five-eighths it is three. A
+        // truncating version shows three blocks only at seven hundred and fifty thousandths, so a
+        // meter sitting on a boundary reads one block low for ever.
+        var lit = (int) MathF.Round(filled * Segments);
+
+        for (var i = 0; i < Segments; i++) {
+            var from = (i * share) + (i == 0 ? 0f : inset * 0.5f);
+            var to = ((i + 1) * share) - (i == Segments - 1 ? 0f : inset * 0.5f);
+            var block = Span(bounds, from, to);
+
+            context.FillRectangle(block, i < lit ? FillColor : TrackColor, radius);
+        }
+    }
+
+    /// <summary>Whether the reading has passed <paramref name="threshold" />, in the pair's direction.</summary>
+    /// <param name="threshold">The line to compare against.</param>
+    /// <returns><see langword="true" /> when the reading is at or past it.</returns>
+    /// <remarks>An unset line is passed by nothing, which is what <see cref="float.NaN" /> buys.</remarks>
+    bool Reached(float threshold) =>
+        !float.IsNaN(threshold) && (Rising ? Value >= threshold : Value <= threshold);
+
+    /// <inheritdoc cref="RangeBase.Snap" />
+    float CoerceValue(float value) => Snap(value);
+
+    /// <summary>A negative count is a continuous bar and not a crash.</summary>
+    static int CoerceSegments(int value) => Math.Max(0, value);
+
+    void OnValueChanged(float previous, float current) {
+        Apply(Level);
+        InvalidateAccessibility();
+    }
+
+    void OnThresholdChanged(float previous, float current) => Apply(Level);
+
+    /// <summary>Puts the level on the element, where a stylesheet can see it.</summary>
+    void Apply(LevelReading level) {
+        Toggle("warning", level == LevelReading.Warning);
+        Toggle("critical", level == LevelReading.Critical);
+    }
+
+    void Toggle(string className, bool on) {
+        if (on) {
+            AddClass(className);
+        } else {
+            RemoveClass(className);
+        }
+    }
+}
+
+/// <summary>What a <see cref="LevelIndicator" />'s reading amounts to.</summary>
+/// <remarks>
+///     ⚠ <b>Three named answers rather than a <see cref="bool" /> pair.</b> "Warning and critical"
+///     is not a state a reading can be in, and a pair of flags can express it — which is one more
+///     thing every caller and every theme rule has to decide what to do about.
+/// </remarks>
+public enum LevelReading {
+    /// <summary>Nothing worth saying: the reading has passed no threshold.</summary>
+    Ordinary,
+
+    /// <summary>It has passed <see cref="LevelIndicator.Warning" /> and not <see cref="LevelIndicator.Critical" />.</summary>
+    Warning,
+
+    /// <summary>It has passed <see cref="LevelIndicator.Critical" />.</summary>
+    Critical
+}
+
 /// <summary>A turning arc, for a wait with no length.</summary>
 /// <remarks>
 ///     Its <see cref="Phase" /> is advanced by the application, for the reason
