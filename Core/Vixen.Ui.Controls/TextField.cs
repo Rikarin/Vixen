@@ -398,6 +398,7 @@ public abstract partial class TextField : Control, ITextInputTarget {
         AddHandler<TextCompositionEvent>(static (element, args) => ((TextField) element).Composing(args));
         AddHandler<PointerEvent>(static (element, args) => ((TextField) element).Pointed(args));
         AddHandler<TapEvent>(static (element, args) => ((TextField) element).Tapped(args));
+        AddHandler<LongPressEvent>(static (element, args) => ((TextField) element).LongPressed(args));
         AddHandler<FocusEvent>(static (element, args) => ((TextField) element).Refocused(args));
 
         // ⚠ <b>A field that is valid from birth has to say so, and nothing else would have made it.</b>
@@ -1271,8 +1272,35 @@ public abstract partial class TextField : Control, ITextInputTarget {
         }
     }
 
+    /// <summary>Whether a pointer is a finger or a pen, which have no cursor to select with.</summary>
+    /// <remarks>
+    ///     <c>ScrollView.Dragged</c>'s own test, and deliberately the same one: the view drags its
+    ///     content for exactly these two devices, so these are the two for which a field that also
+    ///     began a selection from the same drag would do both at once.
+    /// </remarks>
+    static bool IsDirect(PointerType type) => type is PointerType.Touch or PointerType.Pen;
+
     void Pointed(PointerEvent args) {
         switch (args.Action) {
+            // ⚠ <b>A finger or a pen does not begin a selection drag</b> (#1357). The capture below
+            // redirects the raw pointer events, but the `DragEvent` the recogniser raises from them
+            // still bubbles to any scroll view around the field — so one finger moved the caret AND
+            // scrolled the form, by the whole of its travel. No `touch-action` keyword settles it:
+            // `none` makes a form of fields unscrollable from anywhere a finger lands, and `pan-y`
+            // does not help, because the drag that scrolls is the vertical one. What a browser does
+            // is what this does — a finger's drag is the scroll view's, the caret goes where a TAP
+            // lands (`Tapped`), and selection is a double tap or a long press (`LongPressed`).
+            //
+            // ⚠ Not `user-select`, and not #225. Nothing here reads that property: the condition is
+            // the device, so the ledger line waiting for a reader of `user-select` does not expire.
+            //
+            // Still handled, as the mouse's press is: the recogniser sees the press whether or not
+            // anything handled it, and an ancestor that acts on a press — a row that selects itself —
+            // must not start answering a press on a field inside it just because it came from a finger.
+            case PointerAction.Pressed when args.Button == PointerButton.Primary && IsDirect(args.PointerType):
+                args.Handled = true;
+                break;
+
             case PointerAction.Pressed when args.Button == PointerButton.Primary:
                 Document.Focus(this);
                 var pressed = PositionAt(args.X, args.Y);
@@ -1313,10 +1341,38 @@ public abstract partial class TextField : Control, ITextInputTarget {
     /// </remarks>
     void Tapped(TapEvent args) {
         if (args.Count < 2) {
+            // A finger's press did nothing (see `Pointed`), because until the release it could have
+            // been the start of a scroll. A tap is the release that says it was not — so the focus
+            // and the caret arrive here, where a mouse's arrived on the press.
+            if (args.Count == 1 && IsDirect(args.PointerType)) {
+                Document.Focus(this);
+
+                var tapped = PositionAt(args.X, args.Y);
+                MoveCaret(tapped.Index, tapped.Affinity, false);
+
+                args.Handled = true;
+            }
+
             return;
         }
 
         SelectAt(IndexAt(args.X, args.Y), args.Count);
+        args.Handled = true;
+    }
+
+    /// <summary>A finger held still on a word selects it, which is how a finger selects without a drag.</summary>
+    /// <remarks>
+    ///     A mouse never raises this for a field to act on — a held button is a drag that has not
+    ///     moved yet, and the field has already captured it — so it is asked about the device all the
+    ///     same, rather than trusting that it cannot happen.
+    /// </remarks>
+    void LongPressed(LongPressEvent args) {
+        if (!IsDirect(args.PointerType)) {
+            return;
+        }
+
+        Document.Focus(this);
+        SelectAt(IndexAt(args.X, args.Y), 2);
         args.Handled = true;
     }
 

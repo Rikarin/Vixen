@@ -649,6 +649,7 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
         AddHandler<TextInputEvent>(static (element, args) => ((CodeEditor) element).Typed(args));
         AddHandler<PointerEvent>(static (element, args) => ((CodeEditor) element).Pointed(args));
         AddHandler<TapEvent>(static (element, args) => ((CodeEditor) element).Tapped(args));
+        AddHandler<LongPressEvent>(static (element, args) => ((CodeEditor) element).LongPressed(args));
 
         // ⚠ **The fourth event, and its absence was not a missing line but a whole invisible mode.**
         // Without it a Japanese, Chinese or Korean pre-edit is not drawn at all until it commits, so
@@ -1910,8 +1911,25 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
         CaretMoved?.Invoke(this);
     }
 
+    /// <summary>Whether a pointer is a finger or a pen — <c>TextField.IsDirect</c>'s test, for its reason.</summary>
+    static bool IsDirect(PointerType type) => type is PointerType.Touch or PointerType.Pen;
+
     void Pointed(PointerEvent args) {
         switch (args.Action) {
+            // ⚠ <b>A finger or a pen begins no selection drag</b> (#1357), as in `TextField`: the drag
+            // is the editor's own scroller's, which a `touch-action` row on `code-editor` could not
+            // even reach — the editor is above that view, not between it and the finger. So one
+            // finger selected AND scrolled the code under the selection it was making. The caret
+            // arrives on the tap, and a word on a double tap or a long press.
+            //
+            // ⚠ <b>And a fold arrow answers the tap too</b>, not the press. Folding on a finger's
+            // press folded the code under any scroll that happened to start in the gutter — the
+            // gutter is outside `Scroller`, so that drag scrolls whatever holds the editor — and the
+            // tap that followed the press then moved the caret to the folded line, which a mouse's
+            // press on the same arrow does not do.
+            case PointerAction.Pressed when args.Button == PointerButton.Primary && IsDirect(args.PointerType):
+                break;
+
             case PointerAction.Pressed when args.Button == PointerButton.Primary:
                 Document.Focus(this);
 
@@ -1943,8 +1961,8 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
         args.Handled = true;
     }
 
-    /// <summary>Whether the press was on a gutter arrow, and folded something.</summary>
-    bool Fold(PointerEvent args) {
+    /// <summary>Whether the press — or, for a finger, the tap — was on a gutter arrow, and folded something.</summary>
+    bool Fold(UiEvent args) {
         for (var walk = args.Source; walk is not null; walk = walk.Parent) {
             if (walk is CodeGutterRow { Index: >= 0 } row) {
                 return ToggleFold(row.Index);
@@ -1955,19 +1973,56 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
     }
 
     void Tapped(TapEvent args) {
+        // A finger's press did nothing (see `Pointed`), so the focus and the caret arrive on the
+        // tap — the release that says the press was not the start of a scroll. A tap on the
+        // completion popup is the popup's, as a mouse press there is, and a tap on a fold arrow
+        // folds and leaves the caret alone, as a mouse press there does.
+        if (args.Count == 1 && IsDirect(args.PointerType)) {
+            if (Completion.Bounds.Contains(new Vector2(args.X, args.Y))) {
+                return;
+            }
+
+            Document.Focus(this);
+
+            if (Fold(args)) {
+                args.Handled = true;
+                return;
+            }
+
+            Move(ToPosition(args.X, args.Y), false);
+
+            args.Handled = true;
+            return;
+        }
+
         if (args.Count != 2) {
             return;
         }
 
-        var at = ToPosition(args.X, args.Y);
+        SelectWord(args.X, args.Y);
+        args.Handled = true;
+    }
+
+    /// <summary>A finger held still selects the word under it, which is how a finger selects without a drag.</summary>
+    void LongPressed(LongPressEvent args) {
+        if (!IsDirect(args.PointerType)) {
+            return;
+        }
+
+        Document.Focus(this);
+        SelectWord(args.X, args.Y);
+
+        args.Handled = true;
+    }
+
+    void SelectWord(float x, float y) {
+        var at = ToPosition(x, y);
 
         Anchor = buffer.WordStart(buffer.Forward(at));
         Caret = buffer.WordEnd(at);
 
         CaretMoved?.Invoke(this);
         Document.Invalidate();
-
-        args.Handled = true;
     }
 
     // ── Completion ───────────────────────────────────────────────────────────

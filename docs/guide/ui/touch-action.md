@@ -91,17 +91,49 @@ keywords.** The scrub reads the horizontal travel and nothing else, so the verti
 travel is still the list's. A blanket `none` there would make a form of numeric fields unscrollable
 from anywhere a finger naturally lands.
 
-⚠ **That list is not every control that owns a finger, and the text fields are the gap.**
-`TextField` captures the pointer for its own selection drag, so `textbox`, `secure-textbox`,
-`textarea` and `search-box` have the defect the rows above fix and no rule naming them: measured
-against this theme, a finger dragging inside a `textbox` or a `textarea` in a 100×100 scroll view
-moves the caret **and** scrolls the view by the whole travel. It is undeclared deliberately, because
-neither keyword is the answer — `none` makes a form of text fields unscrollable, and `pan-y` does not
-help, since the drag that scrolls is the vertical one and the field takes it anyway. What a browser
-does instead is not begin a text selection from a plain finger drag at all, which is a change in the
-control rather than in a stylesheet. Until somebody decides it,
-`TouchActionTests.A_finger_dragging_a_text_field_still_reaches_the_view_and_that_is_not_yet_decided`
-holds the measurement and fails the day the behaviour changes.
+⚠ **The text fields are not in that list, and are settled in the control instead.** `TextField`
+captures the pointer for its selection drag, so a finger dragging inside a `textbox` or a `textarea`
+in a scroll view used to move the caret **and** scroll the view by the whole travel. Neither keyword
+is the answer — `none` makes a form of text fields unscrollable from anywhere a finger lands, and
+`pan-y` does not help, since the drag that scrolls is the vertical one. So the field does what a
+browser does: **a finger or a pen begins no selection drag.** The drag is the scroll view's; the focus
+and the caret arrive on the *tap*, when the release has said the press was not a scroll; and a finger
+selects a word by a double tap or by holding still (a `LongPressEvent`). A mouse selects by dragging
+exactly as before. `textbox`, `secure-textbox`, `textarea` and `search-box` therefore declare nothing,
+and must not: a finger on them is meant to reach the view.
+
+### What the advanced theme declares
+
+`AdvancedTheme.vcss` continues the list for `Vixen.Ui.Controls.Advanced`:
+
+```vcss
+node-canvas, node-minimap, viewport, image-view, curve-editor, color-field, dock-splitter,
+timeline-lanes { touch-action: none; }
+color-strip, gradient-rail, timeline-ruler, data-header-cell { touch-action: pan-y; }
+```
+
+⚠ **A row names the element the finger lands on, which is not always the control that captures.**
+`DataGrid` captures on the grid, but only for a press on a header cell — `none` on `data-grid` would
+make every row of a table unscrollable by finger, which is the one gesture a table is scrolled with.
+A `Timeline` is two rows because it is two gestures: its ruler scrubs along time (`pan-y`) and its
+lanes draw a marquee in both axes (`none`). The editor's paint strokes need no row of their own,
+because `PaintMeshView` and `PaintUvView` capture on the `ImageView` they own.
+
+⚠ **`CodeEditor` is the text-field shape, settled the same way.** Its capture is a text selection,
+and the view a finger drags is the editor's *own* scroller — which a row on `code-editor` could not
+even reach, because the editor is above that view rather than between it and the finger. A finger's
+drag scrolls the code and selects nothing; the caret arrives on the tap and a word on a double tap or
+a long press. A fold arrow answers a finger's tap rather than its press, so a scroll that starts in
+the gutter folds nothing, and a fold leaves the caret where it was, as a mouse's does.
+
+⚠ **Every production `CapturePointer` call is accounted for, and a new one fails a test.**
+`Core/Vixen.Ui.Controls.Advanced.Tests/TouchActionCensus.txt` lists each file that captures, how many
+times, and the row that answers it; `TouchActionCensusTests` holds the list to the tree (`.cs` and
+`.vxml`, outside test projects) and each answer to what the two themes actually resolve. A control
+that starts capturing a finger adds a row to the theme and a line to the census in the same change.
+⚠ The test lives in `Vixen.Ui.Controls.Advanced.Tests` because it resolves both themes, and it
+polices `Vixen.Ui.Controls` as well — so a new capture in `TextField` is green in that project's own
+suite and red only in the advanced one. Run both.
 
 `touch-pinch-zoom` is deliberately not a utility. The keyword parses (`TouchAction.PinchZoom`), but
 nothing here performs a pinch as a user-agent default, so the class would resolve and configure

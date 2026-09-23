@@ -1012,8 +1012,22 @@ public sealed partial class ScrollView : Control {
     ///         The default is a distance rather than a fraction because the gesture is a thumb's
     ///         travel, which does not scale with the panel it happens in.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Capped at half the viewport's height when it is read, because the edge can never
+    ///         give the viewport's whole height.</b> <see cref="Resist" /> approaches the height and
+    ///         does not reach it, so a distance at or past it is a threshold no finger can cross: a
+    ///         view 64 pixels tall or shorter, measured against this default, could never raise
+    ///         <see cref="PulledToRefresh" /> by any gesture at all (#1355). Half is reached after
+    ///         about 1.8 viewports of travel — every fraction short of one is reachable, and half is
+    ///         where the curve has flattened to a quarter of its slope at the boundary, so the
+    ///         content is visibly resisting before the release counts. The property keeps the value
+    ///         written; a view tall enough never meets the cap.
+    ///     </para>
     /// </remarks>
     public float PullToRefreshDistance { get; set; } = 64f;
+
+    /// <summary>The share of the viewport's height past which a pull always counts, whatever the distance says.</summary>
+    const float ReachableRefreshFraction = 0.5f;
 
     /// <summary>Raised when the content was pulled past its top and let go.</summary>
     /// <remarks>
@@ -1047,13 +1061,19 @@ public sealed partial class ScrollView : Control {
 
     /// <summary>Asks for a refresh if this release was a pull past the top and far enough.</summary>
     void AskForRefresh() {
-        if (PulledToRefresh is not { } handler || PullToRefreshDistance <= 0f) {
+        // ⚠ A view with no height has no edge to give, and `Resist` answers zero for it — which the
+        // comparison below would read as a pull of exactly the (zero) threshold. Reached by a view
+        // collapsed under a finger that is still dragging it, since nothing in a box with no height
+        // takes a press to start one.
+        if (PulledToRefresh is not { } handler || PullToRefreshDistance <= 0f || Height <= 0f) {
             return;
         }
 
         // Negative is above the start. `OverscrollTop`'s own summary says so, and the sign is the
-        // whole of the top/bottom test.
-        if (OverscrollTop > -PullToRefreshDistance) {
+        // whole of the top/bottom test. The cap is `PullToRefreshDistance`'s last remark.
+        var threshold = MathF.Min(PullToRefreshDistance, Height * ReachableRefreshFraction);
+
+        if (OverscrollTop > -threshold) {
             return;
         }
 
