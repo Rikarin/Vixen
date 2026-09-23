@@ -80,6 +80,37 @@ public sealed class MessageLogViewDumpTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>A second choice moves the pane off the first</b>, which is the test a panel whose
+    ///     pane is an <c>@if</c> arm needs and a suite that only ever chooses one row cannot be.
+    /// </summary>
+    /// <remarks>
+    ///     An arm survives while its predicate stays true, so a readout that closed over the arm's
+    ///     pattern variable would keep describing the first message ever chosen — which is how
+    ///     <c>VariationHarnessView</c> shipped past a suite in which every test selected exactly one
+    ///     cell. Asserted on the elements, and on the checked bit moving with it.
+    /// </remarks>
+    [Fact]
+    public void Choosing_a_second_row_moves_the_pane_off_the_first() {
+        using var harness = new Harness();
+
+        harness.Post();
+        harness.ClickRow(2);
+        harness.ClickRow(0);
+
+        Assert.Equal("Saved", harness.View.Selected?.Message);
+
+        Assert.Equal(
+            ["message-detail-heading:Saved", "message-detail-meta:Success · 01:03:10"],
+            harness.View.Detail.Children.Select(child => $"{child.Tag}:{child.Text}")
+        );
+
+        var rows = harness.View.List.Scroller.Content.Children;
+
+        Assert.True((rows[0].State & ElementState.Checked) != 0);
+        Assert.False((rows[2].State & ElementState.Checked) != 0);
+    }
+
+    /// <summary>
     ///     ⚠ The chosen message filtered away: the pane must fall back to "nothing chosen" rather
     ///     than keep describing a row the list no longer has.
     /// </summary>

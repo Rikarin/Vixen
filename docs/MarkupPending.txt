@@ -23,8 +23,10 @@
 #                bumping a revision counter to force redraws is the thing to avoid — and, because a
 #                port is a visual change, an A/B of the same panel before and after.
 #
-# Measured 2026-09-23: 38 view-shaped types have a `.vxml`, 25 do not, and 9 of those 25 are
-# candidates: SceneHierarchyView was the tenth of the ten and is ported (#1322).
+# Measured 2026-09-23: 39 view-shaped types have a `.vxml`, 24 do not, and 8 of those 24 are
+# candidates: SceneHierarchyView was the tenth of the ten and is ported (#1322), and MessageLogView
+# the ninth (#89) — its toolbar and detail pane are markup, its rows stay a VirtualizingPanel row
+# template, and MessageLogViewDumpTests holds it to what the hand-written control drew.
 # The audit on the issue counted 34/23 on 2026-09-04 and listed InputDebugPanel and
 # AgentDebuggerPanel among the unported; ⚠ both are partials of AssetEditorsModule that REGISTER a
 # view, and InputDebugView.vxml and AgentDebuggerView.vxml exist — a name-shaped count that does not
@@ -54,4 +56,3 @@ Editor/Vixen.Editor.Texturing/Painting/PaintMeshView.cs canvas — paints onto a
 Editor/Vixen.Editor.Texturing/Painting/PaintUvView.cs canvas
 Editor/Vixen.Editor.Texturing/TextureGraphView.cs canvas
 Editor/Vixen.Editor.Ui/Console/ConsoleView.cs pending — a filtered virtualised log; #758 is the markup spelling it waits on
-Editor/Vixen.Editor.Ui/Notifications/MessageLogView.cs pending — a filtered list with a level picker
