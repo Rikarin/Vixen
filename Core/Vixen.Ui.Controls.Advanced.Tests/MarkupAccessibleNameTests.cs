@@ -3,6 +3,7 @@
 
 using System.Text;
 using System.Text.RegularExpressions;
+using Vixen.Ui.Markup.Testing;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Advanced.Tests;
@@ -35,13 +36,13 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         <c>Label</c>, <c>Alert</c>'s and <c>Dialog</c>'s is <c>Title</c>, <c>Toast</c>'s is
 ///         <c>Message</c>, <c>Image</c>'s is <c>Description</c> and <c>Avatar</c>'s is <c>Name</c>.
 ///         <see cref="Every_watched_attribute_reaches_a_spoken_name" /> builds one control per
-///         attribute and shows the word coming back out of <c>AccessibleName</c>, so the day an
-///         override moves, this census is reported as watching a dead attribute instead of going
-///         quietly vacuous.
+///         attribute and shows the word coming back out of a walk of the accessibility tree, so the
+///         day an override moves, this census is reported as watching a dead attribute instead of
+///         going quietly vacuous.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A census rather than a refusal, and the difference is that there are 173 of them.</b>
-///         "Fail on a literal name" is a gate with 173 failures on its first run, which is the wall
+///         ⚠ <b>A census rather than a refusal, and the difference is that there are 171 of them.</b>
+///         "Fail on a literal name" is a gate with 171 failures on its first run, which is the wall
 ///         nobody keeps green. What is committed is the <i>set</i>, compared exactly in both
 ///         directions: a new literal cannot arrive without a line, and a row that has been localised
 ///         must leave. The loud direction is arrival — the editor's words are being moved into
@@ -53,6 +54,21 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         row that is not a defect. That is the safe direction for a census whose loud event is a
 ///         row arriving: a name that is not really spoken costs a line, and a spoken name the scan
 ///         declined to see costs a screen-reader user a word no translator can reach.
+///     </para>
+///     <para>
+///         ⚠ <b>It is not over-inclusive about which <i>lines</i> it reads, and that is a different
+///         direction with a different cost.</b> A <c>&lt;!-- … --&gt;</c> comment quoting an
+///         attribute as an example, and a <c>Label = "Add"</c> in a <c>@code</c> body, are prose and
+///         C# about markup rather than markup — the two sources <c>Rikarin/Vixen#1317</c> found in
+///         the tag census, in the same batch as this file, which shipped with no filter at all.
+///         <see cref="VxmlLines" /> takes both out before the pattern runs and is the same reader
+///         that census uses. A row sourced from a comment is permanent, and fails the day somebody
+///         rewords the comment, in a file whose whole argument is that it can only shrink.
+///         ⚠ <b>Believed latent and measured live.</b> The first census committed 172 rows and one
+///         of them — <c>Editor/Vixen.Editor.Ui/Parts/FactRow.vxml Name …</c> — came from
+///         <c>&lt;FactRow Name="…" Value="…" /&gt;</c> written in that file's header comment as an
+///         <i>example of how to use the part</i>. It is 171 now, and the word it recorded was never
+///         said by anything.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Markup only, which is a slice and not the whole of #1338.</b>
@@ -109,45 +125,87 @@ public partial class MarkupAccessibleNameTests {
 
     static Markup Scan() {
         var root = Root();
-        var watched = Watched.ToHashSet(StringComparer.Ordinal);
         var rows = new SortedSet<string>(StringComparer.Ordinal);
         var bound = 0;
         var files = 0;
 
         foreach (var path in Sources()) {
             files++;
+
             var name = Path.GetRelativePath(root, path).Replace('\\', '/');
+            var found = ScanFile(name, File.ReadLines(path));
 
-            foreach (var text in File.ReadLines(path)) {
-                foreach (Match match in Attribute.Matches(text)) {
-                    var attribute = match.Groups["attribute"].Value;
-
-                    if (!watched.Contains(attribute)) {
-                        continue;
-                    }
-
-                    var value = match.Groups["value"].Value;
-
-                    // ⚠ An `@` expression is the localised spelling and the whole discriminator:
-                    // `Label="@EditorStrings.PluginsReload.Text"` reads the catalogue, and so does
-                    // `Label="@row.Label"` one hop further on. Neither is a word written here.
-                    if (value.StartsWith('@')) {
-                        bound++;
-                        continue;
-                    }
-
-                    // A value with nothing in it is not a word anybody says.
-                    if (value.Trim().Length == 0) {
-                        continue;
-                    }
-
-                    Assert.DoesNotContain('\t', value);
-                    rows.Add($"{name}\t{attribute}\t{value}");
-                }
-            }
+            rows.UnionWith(found.Literal);
+            bound += found.Bound;
         }
 
         return new Markup([.. rows], bound, files);
+    }
+
+    /// <summary>What one file says, with its prose and its C# left out.</summary>
+    /// <param name="name">How a row spells the file.</param>
+    /// <param name="lines">The file, in order.</param>
+    /// <returns>Its literal rows, and how many of its watched attributes were bound.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A markup line is what <see cref="VxmlLines" /> says it is, rather than what this
+    ///         file assumes.</b> The first spelling of this ran the pattern over every line, which is
+    ///         exactly the defect <c>Rikarin/Vixen#1317</c> fixed in the tag sweep one assembly away
+    ///         in this same batch: a header comment writing <c>Label="Add Component"</c> as an
+    ///         <i>example</i>, and a <c>Label = "Add"</c> in a <c>@code</c> body, both match the
+    ///         pattern and both become permanent committed rows. A census that is exact in both
+    ///         directions then turns such a row into a failure the day somebody rewords the comment,
+    ///         which is how a file whose whole argument is that it can only shrink acquires a reason
+    ///         to be deleted. No committed <c>.vxml</c> writes one today — measured — so this moves
+    ///         no row; it is the guard for the day one does, and the reason the reader is shared
+    ///         rather than written a second time.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The C# is skipped rather than scanned, which is the honest answer and not the
+    ///         complete one.</b> <c>button.Label = "Add"</c> is the same defect whether it is in a
+    ///         <c>@code</c> body or a <c>.cs</c> file. Reading it here would cover the <c>@code</c>
+    ///         bodies and none of the <c>.cs</c> files — a census whose domain is an accident of
+    ///         where somebody happened to put a line.
+    ///     </para>
+    /// </remarks>
+    internal static Markup ScanFile(string name, IEnumerable<string> lines) {
+        var watched = Watched.ToHashSet(StringComparer.Ordinal);
+        var rows = new SortedSet<string>(StringComparer.Ordinal);
+        var bound = 0;
+
+        foreach (var line in VxmlLines.Read(lines)) {
+            if (line.Region == VxmlRegion.Code) {
+                continue;
+            }
+
+            foreach (Match match in Attribute.Matches(line.Text)) {
+                var attribute = match.Groups["attribute"].Value;
+
+                if (!watched.Contains(attribute)) {
+                    continue;
+                }
+
+                var value = match.Groups["value"].Value;
+
+                // ⚠ An `@` expression is the localised spelling and the whole discriminator:
+                // `Label="@EditorStrings.PluginsReload.Text"` reads the catalogue, and so does
+                // `Label="@row.Label"` one hop further on. Neither is a word written here.
+                if (value.StartsWith('@')) {
+                    bound++;
+                    continue;
+                }
+
+                // A value with nothing in it is not a word anybody says.
+                if (value.Trim().Length == 0) {
+                    continue;
+                }
+
+                Assert.DoesNotContain('\t', value);
+                rows.Add($"{name}\t{attribute}\t{value}");
+            }
+        }
+
+        return new Markup([.. rows], bound, 1);
     }
 
     /// <summary>
@@ -158,9 +216,10 @@ public partial class MarkupAccessibleNameTests {
     ///     list is a claim about seven <c>NativeAccessibleName</c> overrides in
     ///     <c>Vixen.Ui.Controls</c>, and a claim in a list is a claim nothing tests. If
     ///     <c>ButtonBase</c> stopped answering with its <c>Label</c>, this census would go on
-    ///     committing 149 rows about an attribute nobody speaks, and every one of them would read as
+    ///     committing 148 rows about an attribute nobody speaks, and every one of them would read as
     ///     evidence. So each attribute is set on the control that maps it and the word is read back
-    ///     out of <see cref="UiElement.AccessibleName" /> — which is what a screen reader is handed.
+    ///     out of the accessibility tree by <see cref="Announced" /> — which is what a screen reader
+    ///     is handed, and is not the same claim as reading the property back.
     /// </remarks>
     [Fact]
     public void Every_watched_attribute_reaches_a_spoken_name() {
@@ -168,48 +227,137 @@ public partial class MarkupAccessibleNameTests {
 
         var spoken = new List<string>();
 
-        void Says(string attribute, UiElement element, string word) {
+        void Says(string attribute, string word) {
             fixture.Update();
 
-            Assert.Equal(word, element.AccessibleName);
+            Assert.Contains(word, Announced(fixture.Document.Root), StringComparer.Ordinal);
             spoken.Add(attribute);
         }
 
         var button = fixture.Document.Root.Add<Button>();
         button.Label = "the button";
-        Says("Label", button, "the button");
+        Says("Label", "the button");
 
         var alert = fixture.Document.Root.Add<Alert>();
         alert.Title = "the alert";
-        Says("Title", alert, "the alert");
+        Says("Title", "the alert");
 
         var toast = fixture.Document.Root.Add<Toast>();
         toast.Message = "the toast";
-        Says("Message", toast, "the toast");
+        Says("Message", "the toast");
 
         var image = fixture.Document.Root.Add<Image>();
         image.Description = "the image";
-        Says("Description", image, "the image");
+        Says("Description", "the image");
 
         var avatar = fixture.Document.Root.Add<Avatar>();
         avatar.Name = "the avatar";
-        Says("Name", avatar, "the avatar");
+        Says("Name", "the avatar");
 
         // The two direct spellings, which any element answers with and which markup may write on
         // anything at all.
+        // ⚠ The role is set because a `Panel` has none, and an element with no role is not in the
+        // accessibility tree at all — so the pair of legs below used to be the only two that could
+        // not have reached a screen reader, and were the only two written as a property round-trip.
+        // Markup sets `Role` the same way, and `Containers.cs:31` says so in as many words.
         var panel = fixture.Document.Root.Add<Panel>();
+        panel.Role = AccessibleRole.Region;
+
         panel.AccessibleName = "the panel";
-        Says("AccessibleName", panel, "the panel");
+        Says("AccessibleName", "the panel");
 
         panel.AccessibleDescription = "the description";
-        fixture.Update();
-        Assert.Equal("the description", panel.AccessibleDescription);
-        spoken.Add("AccessibleDescription");
+        Says("AccessibleDescription", "the description");
 
         Assert.Equal(
             Watched.Order(StringComparer.Ordinal),
             spoken.Order(StringComparer.Ordinal)
         );
+    }
+
+    /// <summary>
+    ///     Every word a rendered accessibility tree carries, which is what a screen reader is handed.
+    /// </summary>
+    /// <param name="root">Where to start.</param>
+    /// <returns>Each announced name and description under <paramref name="root" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The walk <c>AccessibilitySnapshot.Untranslated</c> makes, rather than a read of the
+    ///     property that was just written.</b> Asserting <c>element.AccessibleName == word</c> after
+    ///     setting <c>AccessibleName</c> is a settable property returning what it was given: it stays
+    ///     green if <c>UiElement</c> stops consulting the value for the tree entirely, which is
+    ///     exactly the failure this instrument check exists to catch for the other five attributes.
+    ///     Requiring the word to come back out of a tree walk asks the question the census needs
+    ///     answered — is this attribute a word somebody hears — for all seven on the same footing.
+    /// </remarks>
+    static List<string> Announced(UiElement root) {
+        var words = new List<string>();
+        Hear(root, words);
+
+        return words;
+    }
+
+    static void Hear(UiElement element, List<string> into) {
+        if (element.IsInAccessibilityTree) {
+            if (element.AccessibleName is { Length: > 0 } name) {
+                into.Add(name);
+            }
+
+            if (element.AccessibleDescription is { Length: > 0 } description) {
+                into.Add(description);
+            }
+        }
+
+        foreach (var child in element.Children) {
+            Hear(child, into);
+        }
+    }
+
+    /// <summary>A comment about markup, and the C# below it, are not words anybody says.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Synthetic lines, because no committed <c>.vxml</c> writes one of these — and that
+    ///         is why a test reading the tree could not show it.</b> Every one of the census's rows
+    ///         comes from real markup today, so the scan with no filter at all and the scan with this
+    ///         one produce the identical file. What differs is what happens the day somebody writes a
+    ///         header comment showing how to label a button: with no filter that example becomes a
+    ///         committed row, and the census — exact in both directions — then fails whenever the
+    ///         comment is reworded, in a file whose whole argument is that it can only shrink.
+    ///     </para>
+    ///     <para>
+    ///         The same two sources are what <c>Rikarin/Vixen#1317</c> fixed in the tag sweep, and
+    ///         this is the same reader answering for both.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Prose_and_code_are_not_a_spoken_name() {
+        var found = ScanFile(
+            "Editor/Vixen.Editor.App/Synthetic.vxml",
+            [
+                "<!--",
+                "    The panel's buttons are labelled the translatable way. Do not write",
+                "    Label=\"From A Comment\" here — it is a word no translator can reach.",
+                "-->",
+                "<Panel>",
+                "    <Button Label=\"From Markup\" />",
+                "    <Button Label=\"@EditorStrings.PluginsReload.Text\" />",
+                "</Panel>",
+                "@code {",
+                "    /// <summary>The <c>Title=\"From A Doc Comment\"</c> spelling.</summary>",
+                "    void Build() {",
+                "        Root.Add<Button>(new() { Label = \"From Code\" });",
+                "    }",
+                "}"
+            ]
+        );
+
+        Assert.Equal(
+            ["Editor/Vixen.Editor.App/Synthetic.vxml\tLabel\tFrom Markup"],
+            found.Literal
+        );
+
+        // The bound value is counted, and only it — a scan that saw the comment's `Label` would have
+        // found a second literal, and one that read the `@code` body a third.
+        Assert.Equal(1, found.Bound);
     }
 
     /// <summary>The walk found the repository, and can tell its two kinds of value apart.</summary>
@@ -255,7 +403,7 @@ public partial class MarkupAccessibleNameTests {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Exact rather than a floor, which is the guard this repository has twice had eaten
-    ///         by success.</b> A ceiling — "no more than 173" — cannot say that a word came back, so
+    ///         by success.</b> A ceiling — "no more than 171" — cannot say that a word came back, so
     ///         a row would outlive the literal it records and the next untranslatable name would take
     ///         the seat a localised one vacated.
     ///     </para>

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.RegularExpressions;
+using Vixen.Ui.Markup.Testing;
 using Xunit;
 
 namespace Vixen.Ui.Styling.Tests;
@@ -571,7 +572,7 @@ public partial class TypeSelectorReachTests {
 
         foreach (var path in SourceFiles("*.vxml")) {
             var lines = File.ReadAllLines(path);
-            var blocks = lines.Count(MarkupCode.IsMatch);
+            var blocks = lines.Count(VxmlLines.IsCode);
 
             if (blocks == 0) {
                 continue;
@@ -660,17 +661,6 @@ public partial class TypeSelectorReachTests {
     [GeneratedRegex(@"\bclass\s*=\s*""(?<names>[^""]*)""")]
     private static partial Regex MarkupClasses { get; }
 
-    /// <summary>The <c>@code</c> directive, after which a <c>.vxml</c> is C# to the end of the file.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The line matters rather than the brace, because the brace is not where the C# stops
-    ///     looking like markup.</b> <see cref="A_code_block_is_the_tail_of_its_file" /> asserts the
-    ///     premise this rests on — there is one <c>@code</c> per file and nothing follows it — so the
-    ///     region does not have to be found by counting braces, which
-    ///     <c>VxmlLexer</c> can only do because it knows where the strings are.
-    /// </remarks>
-    [GeneratedRegex(@"^\s*@code\b")]
-    private static partial Regex MarkupCode { get; }
-
     static Sources ReadSources() {
         var root = RepositoryRoot();
         var tags = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -713,44 +703,16 @@ public partial class TypeSelectorReachTests {
         }
 
         foreach (var path in SourceFiles("*.vxml")) {
-            var line = 0;
-            var prose = false;
-            var code = false;
-
-            foreach (var text in File.ReadLines(path)) {
-                line++;
-
-                // ⚠ A `.vxml` is three languages in one file, and two of them read as markup.
-                // `<!-- … -->` is prose *about* markup — `<harness-matrix>` and `<mixer-strip-name>`
-                // are described in a header comment that way — and a `@code` body is C#, where
-                // `List<int>` matches the element rule and `<b>`, `<para>` and `<paramref` match it
-                // from the `///` blocks. Reading either as markup made `b`, `i` and `em` tags the
-                // repository writes while `strong`, which no XML doc element is named after, was
-                // correctly reported (#1317): an instrument that answers differently for two
-                // selectors in one declaration.
-                if (prose) {
-                    prose = !text.Contains("-->", StringComparison.Ordinal);
-                    continue;
-                }
-
-                if (text.Contains("<!--", StringComparison.Ordinal)) {
-                    prose = !text.Contains("-->", StringComparison.Ordinal);
-                    continue;
-                }
-
-                if (!code && MarkupCode.IsMatch(text)) {
-                    code = true;
-                }
-
-                if (code) {
-                    // The C# half, scanned the way the `.cs` sweep scans C#: comment lines are
-                    // prose, and only a creation call names a tag. `Fields.Add("input-title")` is
-                    // here rather than in the markup, which is what the note below is about.
-                    var csharp = text.TrimStart();
-                    if (csharp.StartsWith("//", StringComparison.Ordinal) || csharp.StartsWith('*')) {
-                        continue;
-                    }
-
+            // ⚠ A `.vxml` is three languages in one file, and two of them read as markup —
+            // `<!-- … -->` is prose *about* markup and a `@code` body is C#. `VxmlLines` is where
+            // that is decided, shared with `MarkupAccessibleNameTests` one assembly away because two
+            // copies of "what is a markup line" are two chances to answer it differently; see its
+            // own remarks for what reading either as markup cost this census (#1317).
+            foreach (var (line, text, region) in VxmlLines.Read(File.ReadLines(path))) {
+                if (region == VxmlRegion.Code) {
+                    // The C# half, scanned the way the `.cs` sweep scans C#: only a creation call
+                    // names a tag. `Fields.Add("input-title")` is here rather than in the markup,
+                    // which is what the note below is about.
                     foreach (Match match in TagLiteral.Matches(text)) {
                         Note(tags, match.Groups["tag"].Value, path, line);
                         Note(literals, match.Groups["tag"].Value, path, line);

@@ -23,6 +23,11 @@
 # ⚠ The scan is over-inclusive on `Name`, which is a generic attribute only `Avatar` turns into a
 # spoken name. A row on something else costs a line; a spoken name the scan declined to see costs a
 # screen-reader user a word.
+#
+# ⚠ It is NOT over-inclusive about which lines it reads. A `<!-- … -->` comment quoting an attribute
+# as an example, and a `Label = "Add"` in a `@code` body, are prose and C# about markup rather than
+# markup; `VxmlLines` takes both out before the pattern runs, the same reader the tag census uses.
+# Without that a reworded comment would move a committed row, in a file that is supposed to shrink.
 Core/Vixen.Ui.Controls.Tests/Markup/AmbientHost.vxml	Name	dark
 Core/Vixen.Ui.Controls.Tests/Markup/BoundOverlaySheet.vxml	Title	Delete it?
 Core/Vixen.Ui.Controls.Tests/Markup/CommandMenu.vxml	Label	Copy
@@ -144,7 +149,6 @@ Editor/Vixen.Editor.Texturing/LayerRowView.vxml	Label	Enabled
 Editor/Vixen.Editor.Texturing/LayerRowView.vxml	Label	Move down
 Editor/Vixen.Editor.Texturing/LayerRowView.vxml	Label	Move up
 Editor/Vixen.Editor.Texturing/LayerStackChrome.vxml	Label	Add layer
-Editor/Vixen.Editor.Ui/Parts/FactRow.vxml	Name	…
 Samples/02-HelloUi/Panels/Gallery.vxml	Description	At least eight characters.
 Samples/02-HelloUi/Panels/Gallery.vxml	Label	Advanced
 Samples/02-HelloUi/Panels/Gallery.vxml	Label	Assets
