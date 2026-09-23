@@ -114,8 +114,9 @@ public sealed partial class LayoutTree {
         // CSS Containment § 3.1 and § 3.3 in one clause: both `layout` and `paint` make the box an
         // independent formatting context, which here is what stops a child's margin collapsing out
         // through it and what keeps a float inside it. `size` does not — a box may size itself as
-        // if empty and still be part of its parent's flow.
-        || (styles[index].Containment & (Containment.Layout | Containment.Paint)) != 0;
+        // if empty and still be part of its parent's flow. `FormattingContext` is a query
+        // container's: the same independent context, without layout containment's containing block.
+        || (styles[index].Containment & (Containment.Layout | Containment.Paint | Containment.FormattingContext)) != 0;
 
     /// <summary>
     ///     Whether this node's vertical margins are allowed to collapse with its parent's.

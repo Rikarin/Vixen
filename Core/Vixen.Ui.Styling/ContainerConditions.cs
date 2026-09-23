@@ -43,6 +43,17 @@ public sealed class ContainerConditions {
     readonly List<Group> groups = [new(-1, string.Empty, string.Empty)];
     readonly Dictionary<Group, int> interned = [];
 
+    // Parallel to `groups`, null for every size group. Kept out of `Group` so the record stays a
+    // value the interning dictionary can compare — an array field would compare by reference.
+    readonly List<StyleFeature[]?> styles = [null];
+
+    /// <summary>Whether any registered group is a <c>style()</c> query.</summary>
+    /// <remarks>
+    ///     The cascade's fast path: every stylesheet this repository ships has none, and the resolver
+    ///     asks this once per element before it would walk a group's enclosing chain per candidate.
+    /// </remarks>
+    internal bool HasStyleQueries { get; private set; }
+
     /// <summary>How many groups there are, the unconditional one included.</summary>
     public int Count => groups.Count;
 
@@ -69,16 +80,66 @@ public sealed class ContainerConditions {
         }
 
         groups.Add(key);
+        styles.Add(null);
         interned[key] = groups.Count - 1;
         Revision++;
 
         return groups.Count - 1;
     }
 
+    /// <summary>Registers an unnamed <c>style()</c> group, or finds the one already registered.</summary>
+    /// <param name="within">The group this one is nested in, or <see cref="Unconditional" />.</param>
+    /// <param name="condition">The condition as written, which is what diagnostics and interning use.</param>
+    /// <param name="features">The features it was read into.</param>
+    /// <returns>The group's id, which a rule carries.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Its verdict per container chain is always "holds"</b>, because a chain is boxes and this
+    ///     asks nothing of a box: <see cref="Evaluate" /> passes it through and the cascade answers the
+    ///     features against the parent's style — see <see cref="StyleQuery" /> for why there and only
+    ///     for the unnamed form.
+    /// </remarks>
+    internal int RegisterStyle(int within, string condition, StyleFeature[] features) {
+        ArgumentOutOfRangeException.ThrowIfNegative(within);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(within, groups.Count);
+
+        // A name no size query can carry, so a style group and a size group never intern together.
+        var key = new Group(within, "\0style", condition);
+
+        if (interned.TryGetValue(key, out var existing)) {
+            return existing;
+        }
+
+        groups.Add(key);
+        styles.Add(features);
+        interned[key] = groups.Count - 1;
+        HasStyleQueries = true;
+        Revision++;
+
+        return groups.Count - 1;
+    }
+
+    /// <summary>Whether every <c>style()</c> group in a group's stack holds against a parent's style.</summary>
+    /// <param name="group">The group a rule carries.</param>
+    /// <param name="parent">The parent's resolved style, or null for a root.</param>
+    /// <param name="properties">The table property names are interned in.</param>
+    /// <param name="values">The table values are interned in.</param>
+    /// <returns>Whether the style half of the stack holds; the size half is the verdicts' question.</returns>
+    internal bool StyleHolds(int group, ComputedStyle? parent, NameTable properties, NameTable values) {
+        for (var at = group; at > Unconditional; at = groups[at].Within) {
+            if (styles[at] is { } features && !StyleQuery.Holds(features, parent, properties, values)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>Forgets every group, as a reload does.</summary>
     public void Reset() {
         groups.RemoveRange(1, groups.Count - 1);
+        styles.RemoveRange(1, styles.Count - 1);
         interned.Clear();
+        HasStyleQueries = false;
         Revision++;
     }
 
@@ -117,6 +178,13 @@ public sealed class ContainerConditions {
             if (!holds[group.Within]) {
                 // Sealed behind a group that does not hold, so the condition is never asked and the
                 // name is never walked for.
+                continue;
+            }
+
+            if (styles[i] is not null) {
+                // A style group asks the parent's style and no box, so the chain has nothing to say
+                // about it; the cascade answers it per element. See `RegisterStyle`.
+                holds[i] = true;
                 continue;
             }
 

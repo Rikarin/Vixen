@@ -145,18 +145,19 @@ that makes ten thousand identically styled cells one entry.
 | 7004 | Warning | `{Source} refused '{Text}': {Reason}.` — an at-rule, a selector or a declaration the cascade dropped, where the text is the whole of what can be named. The rule stays in the sheet and does nothing, which is why silence was expensive | 0.1.0 |
 | 7005 | Warning | `An @apply could not be expanded: {Reason}.` — a utility name that is not one, or one carrying a variant. The declarations it stood for are simply absent from the block | 0.1.0 |
 | 7006 | Warning | `{Source} refused '{Text}' in '{Rule}': {Reason}.` — the same refusal, where the fragment is part of a larger rule and `{Rule}` is the selector or block to go and change | 0.1.0 |
-| 7007 | Warning | `The query container '{Container}' never settled: it measured {Width}×{Height} on the last of {Passes} layout passes and its box was still moving.` — a `container-type` on a box whose inline size is decided by its contents, which closes a loop the settle budget cuts rather than resolves | 0.1.0 |
+| 7007 | Warning | `The query container '{Container}' never settled: it measured {Width}×{Height} on the last of {Passes} layout passes and its box was still moving.` — a query container whose verdict moves its surroundings (a flex line it wraps onto, a track it resizes) and whose surroundings then move it back, a loop the settle budget cuts rather than resolves. Its own contents cannot close that loop: `container-type` applies size containment | 0.1.0 |
 | 7008 | Warning | `The two-way binding on '{Tag}.{Property}' reads nothing reactive, so its forward leg runs once and never again.` — a `bind:` over a plain property. It is not a refusal and not a mismatch: the binding composes, writes the control once, and its write-back leg keeps working, so the control follows the model until anything other than the control writes it | 0.1.0 |
 | 7009 | Warning | `'{Element}' declares '{Declaration}', and in this UI that clips and does not scroll.` — `overflow: auto` or `scroll` on anything that is not a `ScrollView`. Not a refusal: the layout reads it as a scroll container and the draw list clips, and the one thing the author wrote it for is the one thing nothing does. Named by element, once per distinct box, from the per-element style pass; the cure is a `ScrollView` and never a taller box (#1275) | 0.1.0 |
 
 ⚠ **7007 and 7009 are not refusals and are the only events in this range that are not.** For 7007 nothing was dropped: the
 stylesheet is understood, the query is answered, and the frame is drawn. What it reports is that the
 answer is one pass stale, because a `container-type` makes an element answerable about its own
-measured box and a container sized by its *contents* can therefore change the contents that size it.
-`UiDocument.Settled` has reported that since the wiring landed, and reports it about the *document* —
-which is not a thing anybody can go and fix in an interface with a dozen containers. This names the
-box. Until doc 43 § A16's containment coercion lands, this is the whole of the report; the coercion
-is what would stop the oscillation rather than describe it.
+measured box and a verdict can move what surrounds that box. `UiDocument.Settled` has reported that
+since the wiring landed, and reports it about the *document* — which is not a thing anybody can go and
+fix in an interface with a dozen containers. This names the box. ⚠ The loop through a container's
+*own contents*, which this event was first written for, no longer happens: `container-type` applies
+size containment (doc 43 § A16's coercion), so a container's contents cannot size it on the axis it
+answers. What still reaches this event is a container its surroundings move.
 
 ### `Vixen.Audio` and its backends
 

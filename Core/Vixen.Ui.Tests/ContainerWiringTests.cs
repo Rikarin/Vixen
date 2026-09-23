@@ -587,33 +587,25 @@ public class ContainerWiringTests {
         Assert.Equal(10f, torn.Width, 0.001f);
     }
 
-    /// <summary>A container sized by its contents oscillates, and the log names <i>it</i>.</summary>
+    /// <summary>A container that used to be sized by its contents takes nothing from them, and settles.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The failure doc 43 § D3 predicted, and until now the only report of it was a
-    ///         document-level boolean.</b> <c>.seesaw</c> is a flex item with no width, so its inline
-    ///         size is its content's; the query fires when it is narrow and widens the content, the
-    ///         wider content widens the container past the threshold, and the next pass takes the
-    ///         width away again. The loop does not hang — it exhausts <see cref="UiDocument.SettlePasses" />
-    ///         and reports <see cref="UiDocument.Settled" /> false — but "this document did not
-    ///         settle" is not a thing anybody can go and fix, and a real interface has dozens of
-    ///         containers.
+    ///         ⚠ <b>This fixture oscillated on purpose until the containment landed.</b>
+    ///         <c>.seesaw</c> is a flex item with no width, so its inline size was its content's: the
+    ///         query fired while it was narrow and widened the content, the wider content widened the
+    ///         container past the threshold, and the next pass took the width away again —
+    ///         <see cref="UiDocument.Settled" /> false and log event 7007, every frame.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Both halves are asserted, and the boolean alone is the weaker one.</b> It was
-    ///         already true before this walk recorded anything, so a test asserting only
-    ///         <c>Settled == false</c> passes against a document that says nothing at all. The
-    ///         message has to name the container, which is why the fixture gives it a
-    ///         <c>container-name</c>: that is the string an author can search their stylesheet for.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>This is the diagnostic half of the owed containment coercion and not the
-    ///         coercion.</b> The box still oscillates; what changed is that it is named. Forcing
-    ///         <c>SizingMode.StretchFit</c> on a contained node is still owed under A16.
+    ///         A query container is a contained box (CSS Containment 3 § 3.1), so its content-based
+    ///         inline size is its padding and border: nought here. The query holds at nought, the body
+    ///         is 900 wide, and nothing about that moves the container, so the loop closes on the first
+    ///         extra pass — which is doc 43 § D3's owed coercion, measured on the very document that
+    ///         demonstrated the defect.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void A_container_sized_by_its_contents_never_settles_and_the_log_names_it() {
+    public void A_container_that_was_sized_by_its_contents_takes_no_width_from_them_and_settles() {
         var sink = new RingBufferSink(64);
 
         using var document = new UiDocument(1000f, 600f, logger: sink.CreateLogger("Vixen.Ui.Styling"));
@@ -621,10 +613,57 @@ public class ContainerWiringTests {
         document.Load("""
             root { width: 1000px; height: 600px; flex-direction: row; }
             .seesaw { container-type: inline-size; container-name: seesaw; height: 100px; }
-            .body { width: 10px; height: 10px; }
+            .body { width: 10px; height: 10px; flex-shrink: 0; }
             @container seesaw (max-width: 100px) { .body { width: 900px; } }
             """);
 
+        var seesaw = document.Root.Add("div", classNames: "seesaw");
+        var body = seesaw.Add("div", classNames: "body");
+        document.Update();
+
+        Assert.True(document.Settled, "a query container still oscillates, so its contents are still sizing it");
+        Assert.Equal(0f, seesaw.Width, 0.001f);
+
+        // ⚠ The query answered, and answered from the contained box: 900 is the rule inside it. A
+        // container that had merely stopped being a container would settle too, at 10.
+        Assert.Equal(900f, body.Width, 0.001f);
+        Assert.DoesNotContain(sink.Snapshot(), record => record.EventId.Id == 7007);
+    }
+
+    /// <summary>A container its surroundings keep moving still oscillates, and the log names <i>it</i>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Containment stops a container's contents from sizing it; it does not stop its
+    ///         contents from moving its surroundings.</b> <c>.seesaw</c> is stretched to its column's
+    ///         width in a wrapping column flex container. Short, it shares the first column with the
+    ///         500-wide <c>.wide</c> and is stretched to 500, so the query holds and makes the body
+    ///         tall; tall, it no longer fits under <c>.wide</c> and wraps into a column of its own,
+    ///         whose width is its own contained width of nought, so the query fails and makes the body
+    ///         short again. Nothing a style can say removes that loop, which is why 7007 outlived the
+    ///         coercion rather than being retired by it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves are asserted, and the boolean alone is the weaker one.</b> A test
+    ///         asserting only <c>Settled == false</c> passes against a document that says nothing at
+    ///         all. The message has to name the container, which is why the fixture gives it a
+    ///         <c>container-name</c>: that is the string an author can search their stylesheet for.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_container_whose_surroundings_move_it_never_settles_and_the_log_names_it() {
+        var sink = new RingBufferSink(64);
+
+        using var document = new UiDocument(1000f, 600f, logger: sink.CreateLogger("Vixen.Ui.Styling"));
+
+        document.Load("""
+            root { width: 1000px; height: 100px; flex-direction: column; flex-wrap: wrap; align-content: flex-start; }
+            .wide { width: 500px; height: 60px; flex-shrink: 0; }
+            .seesaw { container-type: inline-size; container-name: seesaw; flex-shrink: 0; }
+            .body { height: 10px; flex-shrink: 0; }
+            @container seesaw (min-width: 400px) { .body { height: 60px; } }
+            """);
+
+        document.Root.Add("div", classNames: "wide");
         document.Root.Add("div", classNames: "seesaw").Add("div", classNames: "body");
         document.Update();
 
@@ -637,6 +676,55 @@ public class ContainerWiringTests {
 
         Assert.Contains("seesaw", warning.Message, StringComparison.Ordinal);
         Assert.Contains("never settled", warning.Message, StringComparison.Ordinal);
+
+        // ⚠ And the box it names is the wrapped one — a column of its own, nought wide because it
+        // is contained and 60 tall because the previous pass's verdict held — which is the loop the
+        // remarks describe and not some other way for this document to fail to settle.
+        Assert.Contains("0×60", warning.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A <c>style()</c> query follows its parent's value through the incremental restyle.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The half the styling project's tests cannot see.</b> They resolve every element by
+    ///         hand, parent first; a live document resolves only what a change could reach and stops
+    ///         where a style did not move. A style query is sound under that rule only if the element
+    ///         asking re-resolves whenever its parent's value changes — which it does, because the
+    ///         value is on the parent's computed style and a moved style is exactly what descends.
+    ///         So the assertion is a class toggled on the card, twice, with the label's <i>width</i>
+    ///         read back — a box, so a green run means the answer reached the layout.
+    ///     </para>
+    ///     <para>
+    ///         The label sits one level below the element that declares the value, under an
+    ///         <c>.inner</c> that declares nothing: the parent it asks is <c>.inner</c>, whose value is
+    ///         inherited, so the toggle has to travel two levels to reach it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_style_query_follows_its_parents_value_through_an_incremental_restyle() {
+        using var document = Document("""
+            root { width: 1000px; height: 600px; flex-direction: column; }
+            .card { height: 100px; }
+            .primary { --variant: primary; }
+            .label { width: 10px; height: 10px; }
+            @container style(--variant: primary) { .label { width: 300px; } }
+            """);
+
+        var card = document.Root.Add("div", classNames: ["card", "primary"]);
+        var label = card.Add("div", classNames: "inner").Add("div", classNames: "label");
+        document.Update();
+
+        Assert.Equal(300f, label.Width, 0.001f);
+
+        card.RemoveClass("primary");
+        document.Update();
+
+        Assert.Equal(10f, label.Width, 0.001f);
+
+        card.AddClass("primary");
+        document.Update();
+
+        Assert.Equal(300f, label.Width, 0.001f);
     }
 
     /// <summary>And a document that settles says nothing, so the channel stays worth reading.</summary>

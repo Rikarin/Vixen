@@ -226,8 +226,12 @@ public sealed class UtilityGenerator {
         /// <summary>The rules written directly at this level.</summary>
         public StringBuilder Body { get; } = new();
 
-        /// <summary>The groups nested inside this one, ordered so the file is byte-stable.</summary>
-        public SortedDictionary<string, AtRuleGroup> Nested { get; } = new(StringComparer.Ordinal);
+        /// <summary>The groups nested inside this one, in the order that decides which of them wins.</summary>
+        /// <remarks>
+        ///     ⚠ <see cref="AtRuleOrder" /> and not an ordinal sort, which kept the file byte-stable
+        ///     and wrote <c>lg:</c> before <c>sm:</c> — see there.
+        /// </remarks>
+        public SortedDictionary<string, AtRuleGroup> Nested { get; } = new(AtRuleOrder.Instance);
 
         /// <summary>The group for an at-rule inside this one, created if it is the first to ask.</summary>
         /// <param name="atRule">The at-rule.</param>
@@ -316,9 +320,38 @@ public sealed class UtilityGenerator {
             if (effect.AtRule is not null && !atRules.Contains(effect.AtRule, StringComparer.Ordinal)) {
                 atRules.Add(effect.AtRule);
             }
+
+            if (effect.Rewrite is { } rewrite && !TryRewrite(rewrite)) {
+                refused = variant;
+                return null;
+            }
         }
 
         return prefix + selector;
+    }
+
+    /// <summary>Moves every resolved declaration from a rewrite's property to its target.</summary>
+    /// <param name="rewrite">The variant's rewrite.</param>
+    /// <returns>Whether every declaration was the property the variant moves.</returns>
+    /// <remarks>
+    ///     ⚠ <b>All or nothing</b>, and a refusal rather than a partial move: a utility with one
+    ///     declaration the variant cannot move would otherwise land that one on the element as it
+    ///     stands — <c>selection:text-white</c> recolouring all of the element's text is the class
+    ///     meaning something else, which is the one outcome worse than no class. Applied in variant
+    ///     order, so two rewrites chain; today there is one and it cannot meet itself twice.
+    /// </remarks>
+    bool TryRewrite((string From, string To) rewrite) {
+        for (var i = 0; i < declarations.Count; i++) {
+            if (!string.Equals(declarations[i].Property, rewrite.From, StringComparison.Ordinal)) {
+                return false;
+            }
+        }
+
+        for (var i = 0; i < declarations.Count; i++) {
+            declarations[i] = declarations[i] with { Property = rewrite.To };
+        }
+
+        return declarations.Count > 0;
     }
 
     /// <summary>Escapes a class name so it can be a CSS selector.</summary>

@@ -38,6 +38,7 @@ Vixen.Ui.Layout.Clear.None = 0 -> Vixen.Ui.Layout.Clear
 Vixen.Ui.Layout.Clear.Right = 2 -> Vixen.Ui.Layout.Clear
 Vixen.Ui.Layout.Containment -> enum : byte
 Vixen.Ui.Layout.Containment.Containment() -> void
+Vixen.Ui.Layout.Containment.FormattingContext = 16 -> Vixen.Ui.Layout.Containment
 Vixen.Ui.Layout.Containment.InlineSize = 2 -> Vixen.Ui.Layout.Containment
 Vixen.Ui.Layout.Containment.Layout = 4 -> Vixen.Ui.Layout.Containment
 Vixen.Ui.Layout.Containment.None = 0 -> Vixen.Ui.Layout.Containment

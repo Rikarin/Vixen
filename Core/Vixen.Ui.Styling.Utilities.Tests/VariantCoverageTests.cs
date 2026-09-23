@@ -429,6 +429,107 @@ public class VariantCoverageTests {
         Assert.False(field.Style.TryGet(padding, out _), "the field itself was styled, which is F6's own defect.");
     }
 
+    [Fact]
+    public void The_selection_variant_moves_a_background_onto_the_selection_colour() {
+        // ⚠ The fourth shape: not a selector, not an at-rule, but a PROPERTY. `TextField` paints the
+        // highlight from `--selection-color` read off its own style, so v4's
+        // `selection:bg-fuchsia-500` is that custom property here, and a `background-color` on the
+        // element — what the class would mean if the variant were dropped — is exactly the wrong
+        // answer, so it is asserted absent.
+        var fixture = new UtilityFixture();
+
+        Assert.Equal("#ff00ff", fixture.Computed(["selection:bg-[#ff00ff]"], "--selection-color"));
+        Assert.Null(fixture.Computed(["selection:bg-[#ff00ff]"], "background-color"));
+
+        // And it composes with a state, which is the other half of being a variant rather than a
+        // utility of its own: only while hovered.
+        Assert.Equal(
+            "#ff00ff",
+            fixture.Computed(["hover:selection:bg-[#ff00ff]"], "--selection-color", state: ElementState.Hover)
+        );
+
+        Assert.Null(fixture.Computed(["hover:selection:bg-[#ff00ff]"], "--selection-color"));
+    }
+
+    [Fact]
+    public void The_selection_variant_reaches_the_descendants_the_way_v4s_does() {
+        // v4 writes `& *::selection, &::selection` — the element and everything in it. A custom
+        // property inherits, so writing it on the element is that, without a descendant selector.
+        var fixture = new UtilityFixture();
+        var css = fixture.Generate("selection:bg-[#ff00ff]");
+
+        Assert.Equal(
+            "#ff00ff",
+            fixture.Computed([], "--selection-color", extraCss: css, ancestor: new Probe(["selection:bg-[#ff00ff]"]))
+        );
+
+        Assert.Null(fixture.Computed([], "--selection-color", extraCss: css, ancestor: new Probe([])));
+    }
+
+    [Theory]
+    // ⚠ A utility whose property the variant cannot move is refused rather than emitted where it
+    // stands: `selection:text-white` as `color: white` on the element would recolour all of its text,
+    // which is F6's failure mode — a class that means something else — through a property.
+    [InlineData("selection:text-[#ff00ff]")]
+    [InlineData("selection:p-4")]
+    // And the composers that wrap a selector suffix have none to wrap.
+    [InlineData("not-selection:bg-[#ff00ff]")]
+    [InlineData("has-selection:bg-[#ff00ff]")]
+    [InlineData("group-selection:bg-[#ff00ff]")]
+    public void A_selection_class_the_variant_cannot_express_is_not_a_class(string candidate) {
+        var fixture = new UtilityFixture();
+        var css = fixture.Generate(candidate);
+
+        Assert.DoesNotContain("{", css.Replace("@layer utilities {", string.Empty, StringComparison.Ordinal), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_rewrite_variant_table_has_no_untested_entry() {
+        // ⚠ A tripwire rather than an enumeration, because each entry names a property a CONTROL
+        // reads and no generic scene can prove a control reads it. A second entry fails here until
+        // somebody writes its end-to-end row beside `selection`'s.
+        Assert.Equal(["selection"], Variants.RewriteVariants.Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void The_selection_variant_colours_the_band_a_real_text_field_paints() {
+        // ⚠ The writer's side, which the rows above cannot see: they prove a custom property was
+        // written, not that anything paints from it. A field inside a `selection:` container, with
+        // its text selected, must draw its band in the container's colour — pure magenta, whose
+        // channels survive the draw list's linear conversion exactly.
+        var fixture = new UtilityFixture();
+
+        Assert.NotEmpty(Bands(fixture, "selection:bg-[#ff00ff]"));
+        Assert.Empty(Bands(fixture, string.Empty));
+
+        static List<DrawCommand> Bands(UtilityFixture fixture, string classes) {
+            using var document = new UiDocument(400f, 100f);
+
+            // Without a face there are no glyphs, no line and so no band to colour.
+            document.Fonts.Default = UtilityConsumptionProbe.FiguredFace;
+
+            if (classes.Length > 0) {
+                document.Load(fixture.Generate(classes), StyleOrigin.Author);
+            }
+
+            string[] names = classes.Length > 0 ? [classes] : [];
+            var panel = document.Root.Add("div", null, names);
+            var field = panel.Add<TextBox>();
+            field.Value = "selected";
+            document.Focus(field);
+            field.SelectAll();
+            document.Update();
+            document.Draw();
+
+            return document.Drawing.Commands
+                .Where(command => command.Kind == DrawCommandKind.Rectangle
+                    && command.Color.R == 1f
+                    && command.Color.G == 0f
+                    && command.Color.B == 1f)
+                .ToList();
+        }
+    }
+
     /// <summary>The surfaces the media variants are judged against, by name.</summary>
     /// <remarks>
     ///     ⚠ <b>Named rather than inlined, because a <see cref="MediaContext" /> in a theory row is
@@ -923,6 +1024,165 @@ public class VariantCoverageTests {
                 fixture.Computed([candidate], "padding-left", media: new MediaContext(width - 1f, 800f))
             );
         }
+    }
+
+    [Fact]
+    public void Every_wider_breakpoint_overrides_every_narrower_one_where_both_apply() {
+        // ⚠ **Mobile-first is an ORDER, and the generator used to emit these in string order.** Two
+        // breakpoint utilities on one element are one class each — equal specificity — so where both
+        // media queries hold, the later rule wins, and "later" was `SortedDictionary`'s ordinal
+        // order over the at-rule text: `@media (min-width: 1024px)` sorts before
+        // `@media (min-width: 640px)` because `'1' < '6'`. So `sm:p-2 lg:p-4` at 1200px drew `p-2`,
+        // the narrow value on the wide window, and every one-condition test above passed because a
+        // single breakpoint has nothing to lose to. Enumerated pairwise off the shipped theme, since
+        // which pairs a string sort gets right is an accident of their digit counts.
+        var fixture = new UtilityFixture("");
+        var screens = fixture.Tokens.Screens.OrderBy(pair => pair.Value).ToArray();
+
+        Assert.True(screens.Length >= 2, "the shipped theme is expected to declare several breakpoints");
+
+        for (var narrow = 0; narrow < screens.Length; narrow++) {
+            for (var wide = narrow + 1; wide < screens.Length; wide++) {
+                var classes = new[] { $"{screens[narrow].Key}:p-2", $"{screens[wide].Key}:p-4" };
+                var both = new MediaContext(screens[wide].Value + 1f, 800f);
+
+                Assert.True(
+                    fixture.Computed(classes, "padding-left", media: both) == "16px",
+                    $"{string.Join(' ', classes)} at {both.Width}px should take the wider breakpoint's value"
+                );
+
+                // And between the two only the narrow one holds, which proves the row above is the
+                // order deciding and not the narrow rule failing to match.
+                Assert.Equal(
+                    "8px",
+                    fixture.Computed(classes, "padding-left", media: new MediaContext(screens[wide].Value - 1f, 800f))
+                );
+            }
+        }
+    }
+
+    [Fact]
+    public void The_themes_breakpoints_have_no_untested_range_entry() {
+        // #1346: `max-*` and `min-*` over every shipped breakpoint, enumerated for the reason the bare
+        // form is — a sixth breakpoint must not join the untested. ⚠ Each probe sits AT the threshold
+        // or one pixel under it, because those are the only two widths that can tell v4's exclusive
+        // `max-sm` — `(width < 40rem)` — from an inclusive `max-width`; any other width answers the
+        // same under both, which is how `@max-*` stayed wrong on containers until #609.
+        var fixture = new UtilityFixture("");
+
+        foreach (var (name, width) in fixture.Tokens.Screens) {
+            var at = new MediaContext(width, 800f);
+            var under = new MediaContext(width - 1f, 800f);
+
+            Assert.Null(fixture.Computed([$"max-{name}:p-4"], "padding-left", media: at));
+            Assert.Equal("16px", fixture.Computed([$"max-{name}:p-4"], "padding-left", media: under));
+
+            Assert.Equal("16px", fixture.Computed([$"min-{name}:p-4"], "padding-left", media: at));
+            Assert.Null(fixture.Computed([$"min-{name}:p-4"], "padding-left", media: under));
+        }
+    }
+
+    [Fact]
+    public void The_breakpoint_range_forms_meet_at_the_threshold_without_overlapping_on_it() {
+        // The same contract `@max-sm`/`@sm` keep on containers, on the window: at exactly the
+        // threshold the width belongs to `sm:` and `min-sm:` and never to `max-sm:`, and one pixel
+        // narrower they swap — so a class list `max-sm:p-2 sm:p-4` has exactly one answer at
+        // every width, including 640.
+        var fixture = new UtilityFixture("");
+        var sm = fixture.Tokens.Screens["sm"];
+
+        Assert.Equal("16px", fixture.Computed(["max-sm:p-2", "sm:p-4"], "padding-left", media: new MediaContext(sm, 800f)));
+        Assert.Equal("8px", fixture.Computed(["max-sm:p-2", "sm:p-4"], "padding-left", media: new MediaContext(sm - 1f, 800f)));
+
+        // `min-sm:` and `sm:` are one condition, so they share one group rather than opening two.
+        Assert.Single(fixture.Generate("min-sm:p-4", "sm:m-2").Split("@media")[1..]);
+    }
+
+    [Fact]
+    public void The_arbitrary_breakpoint_ranges_take_the_width_written_in_them() {
+        // The only spelling that can name a width the theme has no breakpoint for.
+        var fixture = new UtilityFixture("");
+
+        Assert.Equal("16px", fixture.Computed(["max-[600px]:p-4"], "padding-left", media: new MediaContext(599f, 800f)));
+        Assert.Null(fixture.Computed(["max-[600px]:p-4"], "padding-left", media: new MediaContext(600f, 800f)));
+
+        Assert.Equal("16px", fixture.Computed(["min-[600px]:p-4"], "padding-left", media: new MediaContext(600f, 800f)));
+        Assert.Null(fixture.Computed(["min-[600px]:p-4"], "padding-left", media: new MediaContext(599f, 800f)));
+    }
+
+    [Fact]
+    public void A_breakpoint_range_stacks_with_a_breakpoint_into_a_band() {
+        // `md:max-lg:` is v4's way of saying "tablets only", and the reason `BuildSelector` nests.
+        var fixture = new UtilityFixture("");
+
+        Assert.Equal("16px", fixture.Computed(["md:max-lg:p-4"], "padding-left", media: new MediaContext(900f, 800f)));
+        Assert.Null(fixture.Computed(["md:max-lg:p-4"], "padding-left", media: new MediaContext(700f, 800f)));
+        Assert.Null(fixture.Computed(["md:max-lg:p-4"], "padding-left", media: new MediaContext(1100f, 800f)));
+    }
+
+    [Fact]
+    public void Where_a_max_range_and_a_breakpoint_overlap_the_breakpoint_wins_and_the_tighter_max_wins() {
+        // ⚠ v4's order, which is the half of #1346 an at-rule's text cannot say: `max-*` is written
+        // widest-first and before every `min-*`, so in the 768–1023 overlap `md:` refines
+        // `max-lg:`, and at 500px `max-sm:` — the tighter condition — refines `max-lg:`. An ordinal
+        // sort puts `(width < …)` after `(min-width: …)` and gets the first one backwards.
+        var fixture = new UtilityFixture("");
+
+        Assert.Equal("16px", fixture.Computed(["max-lg:p-2", "md:p-4"], "padding-left", media: new MediaContext(900f, 800f)));
+        Assert.Equal("4px", fixture.Computed(["max-sm:p-1", "max-lg:p-2"], "padding-left", media: new MediaContext(500f, 800f)));
+    }
+
+    [Theory]
+    // Nothing after the prefix, an empty arbitrary, and a name the theme does not declare.
+    [InlineData("max-:p-4")]
+    [InlineData("min-[]:p-4")]
+    [InlineData("max-nothing:p-4")]
+    // ⚠ And the two wrappers that refuse every at-rule: `not-max-sm:` is `@media not …` in v4, a
+    // different production, so it is not a class here rather than a class meaning something else.
+    [InlineData("not-max-sm:p-4")]
+    [InlineData("has-min-sm:p-4")]
+    public void A_breakpoint_range_that_names_nothing_is_not_a_class(string candidate) {
+        var fixture = new UtilityFixture("");
+
+        Assert.DoesNotContain("padding", fixture.Generate(candidate), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Every_wider_container_size_overrides_every_narrower_one_where_both_apply() {
+        // The same order on the container scale, which the same string sort broke from `@5xl` up:
+        // `(min-width: 1024px)` sorts before `(min-width: 384px)`.
+        var fixture = new UtilityFixture("");
+        var sizes = fixture.Tokens.Containers.OrderBy(pair => pair.Value).ToArray();
+
+        for (var narrow = 0; narrow < sizes.Length; narrow++) {
+            for (var wide = narrow + 1; wide < sizes.Length; wide++) {
+                var classes = new[] { $"@{sizes[narrow].Key}:p-2", $"@{sizes[wide].Key}:p-4" };
+                var box = new ContainerBox(sizes[wide].Value + 1f, 0f, ContainerKind.InlineSize);
+
+                Assert.True(
+                    fixture.Computed(classes, "padding-left", container: box) == "16px",
+                    $"{string.Join(' ', classes)} in a {box.Width}px container should take the wider size's value"
+                );
+            }
+        }
+    }
+
+    [Fact]
+    public void A_container_variant_overrides_a_breakpoint_where_both_apply() {
+        // v4 registers the container family after the breakpoints, so a component's own `@md:`
+        // refines the page's `md:` rather than losing to it — and an ordinal sort put `@container`
+        // before `@media`, which is the opposite.
+        var fixture = new UtilityFixture("");
+
+        Assert.Equal(
+            "16px",
+            fixture.Computed(
+                ["md:p-2", "@sm:p-4"],
+                "padding-left",
+                media: new MediaContext(1200f, 800f),
+                container: new ContainerBox(900f, 0f, ContainerKind.InlineSize)
+            )
+        );
     }
 
     [Fact]

@@ -1,6 +1,6 @@
 # tailwindcss variants that Vixen.Ui.Styling.Utilities does not resolve.
 #
-# 21 of tailwindcss@4.3.3's 88. Measured, not transcribed: Tools/Vixen.TailwindParity hands each
+# 18 of tailwindcss@4.3.3's 88. Measured, not transcribed: Tools/Vixen.TailwindParity hands each
 # variant's probe class to `Variants.TryResolve` — the same call the generator makes — and this file
 # is what it refused. A variant v4 has that Vixen refuses and this file does not name fails as
 # TWP008; a name here that Vixen has since learned fails as TWP009; a name here v4 does not have
@@ -19,14 +19,11 @@
 # Registering any of these ahead of the generated box would emit selectors the compiler refuses,
 # which is F6's own failure mode.
 #
-# ⚠ `selection` is here for a DIFFERENT reason and is not behind the box. `TextField` paints the
-# highlight from a `--selection-color` read off its own style, so `selection:bg-blue-200` would have
-# to rewrite the utility's *property* — and `VariantEffect` is three strings that can only append to
-# a selector, prepend to it, or wrap it in an at-rule. That one wants a fourth variant shape.
-#
-# ⚠ `placeholder` is NOT here, and that is the correction five audits of #233 needed: `TextField`
-# builds the prompt as `Part("field-placeholder")`, a real child with its own tag, so it landed as a
-# child combinator with no pseudo-element involved at all.
+# ⚠ `placeholder` and `selection` are NOT here, and neither needed the box. `TextField` builds the
+# prompt as `Part("field-placeholder")`, a real child with its own tag, so `placeholder:` landed as a
+# child combinator. And it paints the highlight from a `--selection-color` read off its own style, so
+# `selection:` landed as a fourth variant shape — `VariantEffect.Rewrite`, which moves a utility's
+# `background-color` onto that property (#233) — rather than as a pseudo-element.
 after
 backdrop
 before
@@ -35,7 +32,6 @@ file
 first-letter
 first-line
 marker
-selection
 
 # ── Structural combinators ────────────────────────────────────────────────────────────────────────
 #
@@ -57,15 +53,12 @@ inert
 target
 visited
 
-# ── Range and ancestor variants ───────────────────────────────────────────────────────────────────
+# ── Ancestor variants ─────────────────────────────────────────────────────────────────────────────
 #
-# `max-sm:` and `min-sm:` are the breakpoint *ranges*; `TryResolve` reads `tokens.Screens` as a
-# min-width and has no range syntax, which is the same gap #609 records for `@max-*` on containers.
 # `in-*` is v4 4.1's "any ancestor matches", a `:where()` ancestor rather than the `.group` class
-# `group-*` uses.
+# `group-*` uses. (`max-*` and `min-*`, the breakpoint ranges, were listed here until #1346 landed
+# them; TWP009 is what said to delete the two lines.)
 in
-max
-min
 
 # ── At-rules the engine cannot evaluate ───────────────────────────────────────────────────────────
 #
