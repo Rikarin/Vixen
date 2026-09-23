@@ -45,7 +45,7 @@ public class TransformDecompositionTests {
 
         for (var attempt = 0; attempt < 400 && checkedCount < 200; attempt++) {
             for (var index = 0; index < 16; index++) {
-                cells[index] = (float) ((random.NextDouble() * 4d) - 2d);
+                cells[index] = (float)((random.NextDouble() * 4d) - 2d);
             }
 
             // A perspective column small enough that the matrix is a plausible projection rather
@@ -53,7 +53,7 @@ public class TransformDecompositionTests {
             cells[3] *= 0.01f;
             cells[7] *= 0.01f;
             cells[11] *= 0.01f;
-            cells[15] = (float) (0.5d + random.NextDouble());
+            cells[15] = (float)(0.5d + random.NextDouble());
 
             var matrix = new Matrix4x4(
                 cells[0], cells[1], cells[2], cells[3],

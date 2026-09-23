@@ -190,10 +190,10 @@ readonly record struct TransformDecomposition(
         var (tx, ty, tz) = Translate;
 
         return new Matrix4x4(
-            (float) u0.X, (float) u0.Y, (float) u0.Z, (float) Dot(u0, (px, py, pz)),
-            (float) u1.X, (float) u1.Y, (float) u1.Z, (float) Dot(u1, (px, py, pz)),
-            (float) u2.X, (float) u2.Y, (float) u2.Z, (float) Dot(u2, (px, py, pz)),
-            (float) tx, (float) ty, (float) tz, (float) (Dot((tx, ty, tz), (px, py, pz)) + pw)
+            (float)u0.X, (float)u0.Y, (float)u0.Z, (float)Dot(u0, (px, py, pz)),
+            (float)u1.X, (float)u1.Y, (float)u1.Z, (float)Dot(u1, (px, py, pz)),
+            (float)u2.X, (float)u2.Y, (float)u2.Z, (float)Dot(u2, (px, py, pz)),
+            (float)tx, (float)ty, (float)tz, (float)(Dot((tx, ty, tz), (px, py, pz)) + pw)
         );
     }
 
