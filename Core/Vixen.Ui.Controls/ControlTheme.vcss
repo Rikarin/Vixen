@@ -80,11 +80,20 @@ root {
 
     /* ⚠ A third semantic colour, and it is not a lighter `--danger`. Danger says a thing has gone
        wrong or is about to be destroyed; warning says a reading is heading somewhere and there is
-       still time. `LevelIndicator` is the first control that has to say the second without saying
-       the first, and a theme that spelt them the same would make a disk at seventy per cent look
-       like a failure. ⚠ Darker than the amber a dark palette can use: #a26507 is 4.7:1 against
-       `--surface`, so the same token carries text as well as a fill — an amber picked for the bar
-       alone is one that becomes unreadable the first time somebody writes a word in it. */
+       still time. `LevelIndicator` is the first control in THIS set that has to say the second
+       without saying the first, and a theme that spelt them the same would make a disk at seventy
+       per cent look like a failure.
+
+       ⚠ **New here and not new in the tree**: `EditorTheme.vcss` has declared `--warning` for as
+       long as the editor has had a console, and a dozen editor sheets read it — several with a
+       `var(--warning, #e2b341)` fallback, which is what a token with no declaration underneath it
+       looks like from the consumer's side. Being the third sheet loaded, the editor's value still
+       wins wherever the editor is running; what this adds is the default beneath it, so that an
+       application which installs only the control set has the token at all.
+
+       ⚠ Darker than the amber a dark palette can use: #a26507 is 4.7:1 against `--surface`, so the
+       same token carries text as well as a fill — an amber picked for the bar alone is one that
+       becomes unreadable the first time somebody writes a word in it. */
     --warning: #a26507;
 
     --track-color: #e3e6eb;
