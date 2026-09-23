@@ -1155,4 +1155,48 @@ timeline-lanes { touch-action: none; }
    finger or a pen begins no selection drag (`CodeEditor.Pointed`), so the drag is the scroller's. */
 color-strip, gradient-rail, timeline-ruler, data-header-cell { touch-action: pan-y; }
 
+/* ── Keybindings ────────────────────────────────────────────────────────
+   A strip, a grid and a status line. The status line is the part that is
+   easy to leave out and is the whole of "conflict reporting inline": a
+   rebind that is refused with no explanation is one the user repeats. */
+keybindings-view { flex-direction: column; flex-grow: 1; flex-basis: 0px; min-height: 0px; gap: 0px; }
+
+keybindings-toolbar {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px 6px;
+    border-bottom-width: 1px;
+    border-color: var(--border);
+}
+
+keybindings-toolbar search-box { flex-grow: 1; min-width: 90px; }
+keybindings-toolbar select { width: 110px; flex-shrink: 0; }
+keybindings-view data-grid { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
+
+keybindings-status {
+    flex-shrink: 0;
+    padding: 4px 9px;
+    border-top-width: 1px;
+    border-color: var(--border);
+    background-color: var(--surface-sunken);
+    color: var(--text-muted);
+    font-size: 0.85em;
+}
+
+/* ⚠ Coloured only while there is a conflict. A status line that is always
+   red is one nobody reads the day it matters. */
+keybindings-status.conflict { color: var(--danger); }
+
+/* ⚠ The line draws no glyph itself: its sentence is a child `text`, which
+   ControlTheme's `text { color: var(--text); }` colours over anything it
+   would have inherited. With only the two rules above, the line was muted
+   and reddened in its computed style and neither ever reached a pixel — the
+   refusal was drawn in plain `--text`, from the day the panel was ported.
+   So the colour is said again where it is drawn. */
+keybindings-status > text { color: var(--text-muted); }
+keybindings-status.conflict > text { color: var(--danger); }
+
 }

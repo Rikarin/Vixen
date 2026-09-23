@@ -241,6 +241,73 @@ public static class ControlStrings {
     /// <summary>The button that throws the changes away.</summary>
     public static StringId DocumentDiscard { get; } = new("ui.control.document.discard", "Don't Save");
 
+    /// <summary>What the keybinding panel's filter box says when it is empty.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The nineteen <c>Keys…</c> strings were the editor's</b> (<c>editor.keys.*</c>) until
+    ///     <c>KeyBindingsView</c> came down into <c>Vixen.Ui.Controls.Advanced</c> (#650). They are
+    ///     re-declared here under this class's own prefix rather than referenced from there, because
+    ///     a control library cannot reach an editor's declaration class, and no catalogue in the
+    ///     repository had translated the old ids yet.
+    /// </remarks>
+    public static StringId KeysFilter { get; } = new("ui.control.keys.filter", "Filter commands…");
+
+    /// <summary>Puts the keybinding panel into capture mode.</summary>
+    public static StringId KeysRecord { get; } = new("ui.control.keys.record", "Press a Key…");
+
+    /// <summary>What that button says while it is waiting.</summary>
+    public static StringId KeysRecording { get; } = new("ui.control.keys.recording", "Waiting…");
+
+    /// <summary>Unbinds the selected command.</summary>
+    public static StringId KeysClear { get; } = new("ui.control.keys.clear", "Unbind");
+
+    /// <summary>Puts one row back to the layer underneath.</summary>
+    public static StringId KeysResetRow { get; } = new("ui.control.keys.reset-row", "Reset");
+
+    /// <summary>Puts every row back.</summary>
+    public static StringId KeysResetAll { get; } = new("ui.control.keys.reset-all", "Reset All");
+
+    /// <summary>Asks for a keymap file to be read in.</summary>
+    public static StringId KeysImport { get; } = new("ui.control.keys.import", "Import…");
+
+    /// <summary>Asks for one to be written out.</summary>
+    public static StringId KeysExport { get; } = new("ui.control.keys.export", "Export…");
+
+    /// <summary>The command column.</summary>
+    public static StringId KeysColumnCommand { get; } = new("ui.control.keys.column.command", "Command");
+
+    /// <summary>The category column.</summary>
+    public static StringId KeysColumnCategory { get; } = new("ui.control.keys.column.category", "Category");
+
+    /// <summary>The shortcut column.</summary>
+    public static StringId KeysColumnBinding { get; } = new("ui.control.keys.column.binding", "Shortcut");
+
+    /// <summary>The column saying which layer a binding came from.</summary>
+    public static StringId KeysColumnSource { get; } = new("ui.control.keys.column.source", "Source");
+
+    /// <summary>What that column says for a binding the application shipped.</summary>
+    public static StringId KeysSourceDefault { get; } = new("ui.control.keys.source.default", "Default");
+
+    /// <summary>And for one the user made.</summary>
+    public static StringId KeysSourceUser { get; } = new("ui.control.keys.source.user", "Yours");
+
+    /// <summary>What the status line says with no row chosen.</summary>
+    public static StringId KeysPickRow { get; } = new("ui.control.keys.pick-row", "Choose a command to rebind it.");
+
+    /// <summary>And with one chosen.</summary>
+    public static StringId KeysReady { get; } = new("ui.control.keys.ready", "Press a Key, or double-click the row.");
+
+    /// <summary>And while it is waiting for one.</summary>
+    public static StringId KeysWaiting { get; } =
+        new("ui.control.keys.waiting", "Press the shortcut you want. Escape cancels.");
+
+    /// <summary>What it says when the chord is taken.</summary>
+    public static StringId KeysConflict { get; } =
+        new("ui.control.keys.conflict", "{0} is already {1}. Press it again to take it.");
+
+    /// <summary>What it says when a keymap names a preset the application has not got.</summary>
+    public static StringId KeysUnknownPreset { get; } =
+        new("ui.control.keys.unknown-preset", "There is no keymap preset called '{0}'.");
+
     /// <summary>Every string above, for a translator to start from.</summary>
     /// <remarks>
     ///     ⚠ <b>Spelled out rather than reflected over</b>, for the reason <c>Strings.Template</c>
@@ -283,6 +350,25 @@ public static class ControlStrings {
         SplitViewDivider,
         DocumentSavePrompt,
         DocumentSave,
-        DocumentDiscard
+        DocumentDiscard,
+        KeysFilter,
+        KeysRecord,
+        KeysRecording,
+        KeysClear,
+        KeysResetRow,
+        KeysResetAll,
+        KeysImport,
+        KeysExport,
+        KeysColumnCommand,
+        KeysColumnCategory,
+        KeysColumnBinding,
+        KeysColumnSource,
+        KeysSourceDefault,
+        KeysSourceUser,
+        KeysPickRow,
+        KeysReady,
+        KeysWaiting,
+        KeysConflict,
+        KeysUnknownPreset
     ];
 }

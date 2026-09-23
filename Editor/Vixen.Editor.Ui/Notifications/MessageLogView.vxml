@@ -1,0 +1,326 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    #89, the second of the ten candidates `docs/MarkupPending.txt` named to be ported.
+
+    ⚠ **What moves into markup is the chrome and the detail pane, and deliberately not the rows.**
+    The list is a `VirtualizingPanel`, and a virtualiser's row template and per-index binder are the
+    one thing markup has no word for (#758): a pool slot is not an identity, so every rule a keyed
+    `@for` teaches about keys is false of it, and a `@for` over two hundred notifications would undo
+    the virtualiser that exists so element count follows the viewport. `Row` and `Bind` below are the
+    hand-written methods, handed to the panel in `OnComposed` — the arrangement the README's
+    "two earlier exclusions" section predicted and `VirtualListSheet.vxml` proved reachable.
+
+    ⚠ **The model decision is one signal, and it is the selection's index — not the history.**
+    `NotificationCenter` is a live model with a `Changed` event and a bounded history the panel holds
+    no copy of; the rows read it through `Bind`, which the virtualiser calls, so signal-backing it
+    would change no pixel. What the C# repainted by hand was the detail pane — `ShowDetail` cleared
+    and refilled it from four call sites, each somebody remembering to. The pane is a function of
+    which message is chosen, so that is the signal, and the pane and the `empty` class are bindings
+    over it.
+
+    ⚠ **An index rather than the chosen `Notification`, although the value would read more
+    naturally.** `Notification` is a record struct, so two messages with the same text in the same
+    second are equal; the C# remembered the *row* that was tapped, and a value signal would move the
+    checked row onto the first of two duplicates. An index that stays the same across a `Restate`
+    also names the same message — `Restate` recomputes it with `IndexOf` — so reading
+    `shown[index]` untracked beside the tracked index is sound.
+
+    ⚠ **Every readout in the chosen arm goes back through `Selected` each time it runs.** An `@if`
+    arm survives while its predicate stays true, so choosing a second row re-runs nothing in it but
+    the arm's own bindings — `VariationHarnessView` shipped a stale readout past a whole suite that
+    only ever chose one cell. The wave-4 spelling of that mistake, `@if (Selected is { } entry)` with
+    `entry.Message` in the arm, no longer compiles (CS0103: the arm is a separate lambda from the
+    predicate), so the sabotage that proves `Choosing_a_second_row_moves_the_pane_off_the_first`
+    can fail is the spelling that still does: `heading.Text ??= Selected?.Message`, a binding that
+    stops reading the signal after its first run. It turns exactly that test red.
+-->
+@component MessageLogView
+@namespace Vixen.Editor.Ui
+@inherits Vixen.Ui.Controls.Control
+@tag message-log
+@using System.Globalization
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+@using Vixen.Ui.Styling
+
+<message-log-toolbar ref="@Toolbar">
+    <Button Size="Small" Variant="Subtle" Label="@EditorStrings.NotificationsClear.Text" on:click="@Clear" />
+    <SearchBox ref="@Search" Placeholder="@EditorStrings.ConsoleSearch.Text" />
+    <Select ref="@Levels" Size="Small" />
+</message-log-toolbar>
+
+<VirtualizingPanel ref="@List" />
+
+<!--
+    The content of a `ScrollView` rather than the 96 px pane itself, for `ConsoleView.Detail`'s
+    reason: a plain element with `overflow: auto` clips in this UI, and a notification's detail is
+    the part that did not fit on its row.
+-->
+<ScrollView tag="message-log-detail" ref="@detailPane" class='@(Selected is null ? "empty" : "")'>
+    @if (Selected is not null) {
+        <message-detail-heading use="@(heading => heading.Text = Selected?.Message)" />
+        <message-detail-meta use="@(meta => meta.Text = Meta(Selected))" />
+
+        @if (Selected?.Detail is { Length: > 0 }) {
+            <message-detail-body use="@(body => body.Text = Selected?.Detail)" />
+        }
+    } else {
+        <TextBlock Text="@EditorStrings.MessagesNoSelection.Text" />
+    }
+</ScrollView>
+
+@code {
+    /// <summary>How the timestamp column is written, on the shell's clock rather than the wall's.</summary>
+    const string TimeFormat = @"hh\:mm\:ss";
+
+    /// <summary>The four classes a mark can carry, for taking the previous one off.</summary>
+    static readonly string[] Marks = ["level-error", "level-warning", "level-success", "level-info"];
+
+    readonly List<Notification> shown = [];
+    readonly Dictionary<UiElement, int> indices = [];
+
+    /// <summary>Which of <see cref="Shown" /> is chosen, or -1: the one fact the pane is a function of.</summary>
+    readonly Signal<int> selected = new(-1);
+
+    NotificationCenter? centre;
+
+    NotificationSeverity? level;
+    string? search;
+
+    ScrollView detailPane = null!;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>The strip along the top.</summary>
+    public UiElement Toolbar { get; private set; } = null!;
+
+    /// <summary>The search box.</summary>
+    public SearchBox Search { get; private set; } = null!;
+
+    /// <summary>The severity picker.</summary>
+    public Select Levels { get; private set; } = null!;
+
+    /// <summary>The list.</summary>
+    public VirtualizingPanel List { get; private set; } = null!;
+
+    /// <summary>The pane under it showing the whole of the selected message.</summary>
+    /// <remarks>
+    ///     The content of the <see cref="ScrollView" /> rather than the pane itself — see the comment
+    ///     on the tag.
+    /// </remarks>
+    public UiElement Detail => detailPane.Content;
+
+    /// <summary>What it is showing.</summary>
+    public NotificationCenter? Centre => centre;
+
+    /// <summary>What passes the filters, newest first.</summary>
+    public IReadOnlyList<Notification> Shown => shown;
+
+    /// <summary>How many messages pass the filters.</summary>
+    public int Count => shown.Count;
+
+    /// <summary>Which message the detail pane is showing, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     ⚠ Reads <c>selected</c> tracked and <c>shown</c> untracked, which is what lets the pane
+    ///     bind to it: see the file's remarks for why an unchanged index is an unchanged message.
+    /// </remarks>
+    public Notification? Selected => At(selected.Value);
+
+    /// <summary>Points the panel at a notification centre.</summary>
+    /// <param name="notifications">Whose history to show.</param>
+    public void Show(NotificationCenter notifications) {
+        ArgumentNullException.ThrowIfNull(notifications);
+
+        Detach();
+
+        centre = notifications;
+        notifications.Changed += Changed;
+
+        Restate();
+    }
+
+    /// <summary>Throws the history away.</summary>
+    public void Clear() {
+        selected.Value = -1;
+        centre?.Clear();
+    }
+
+    /// <summary>Rebuilds the filtered list and the rows over it.</summary>
+    public void Restate() {
+        // Untracked, here and in `Bind`: both run from whatever called them, and a restate reached
+        // from inside some other effect must not make that effect depend on this panel's selection.
+        var was = At(selected.Peek());
+
+        shown.Clear();
+
+        if (centre is { } notifications) {
+            foreach (var entry in notifications.History) {
+                if (Passes(entry)) {
+                    shown.Add(entry);
+                }
+            }
+        }
+
+        // ⚠ The selection follows the message rather than the row index. New messages arrive at the
+        // top — the history is newest-first — so an index kept across a change would silently move
+        // the detail pane onto whatever has just been logged. `A_new_message_does_not_move_the_selection`
+        // is the one test that posts after choosing, and the clamped index turns it red.
+        selected.Value = was is { } message ? shown.IndexOf(message) : -1;
+
+        List.Count = shown.Count;
+        List.Realise();
+    }
+
+    /// <summary>The toolbar's two subscriptions and the list's row template, once the <c>ref</c>s exist.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>ref</c> and a subscription rather than <c>on:</c></b>, for
+    ///     <c>KeyBindingsView</c>'s reason: <c>Select</c> has to be filled with <c>AddOption</c>,
+    ///     which no attribute carries, and the row template is two delegates markup has no word for.
+    /// </remarks>
+    partial void OnComposed() {
+        Search.ValueChanged += Searched;
+
+        // The empty value is "all of them", for `ConsoleView`'s reason: a filter you can enter and
+        // not leave is the shape of complaint a picker earns.
+        Levels.ClearOptions();
+        Levels.AddOption(string.Empty, EditorStrings.MessagesAllLevels.Text);
+        Levels.AddOption(nameof(NotificationSeverity.Error), EditorStrings.MessagesErrors.Text);
+        Levels.AddOption(nameof(NotificationSeverity.Warning), EditorStrings.MessagesWarnings.Text);
+        Levels.AddOption(nameof(NotificationSeverity.Success), EditorStrings.MessagesSuccesses.Text);
+        Levels.AddOption(nameof(NotificationSeverity.Info), EditorStrings.MessagesInfos.Text);
+        Levels.Value = string.Empty;
+
+        Levels.SelectionChanged += Leveled;
+
+        List.CreateRow = _ => Row();
+        List.BindRow = Bind;
+    }
+
+    /// <summary>
+    ///     ⚠ <c>OnUnmounted</c> rather than an <c>OnRemoved</c> override, because the generator
+    ///     writes that one.
+    /// </summary>
+    partial void OnUnmounted() => Detach();
+
+    /// <summary>Stops listening to whatever it was showing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A method group rather than a field holding a lambda.</b> Two delegates over the same
+    ///     method and target compare equal, so <c>-=</c> finds this one — which is what makes the
+    ///     field, and the <c>??=</c> that kept one instance alive to unsubscribe with, unnecessary.
+    /// </remarks>
+    void Detach() {
+        if (centre is not null) {
+            centre.Changed -= Changed;
+        }
+    }
+
+    void Changed(NotificationCenter _) => Restate();
+
+    void Searched(TextField _, string? value) {
+        search = string.IsNullOrWhiteSpace(value) ? null : value;
+        Restate();
+    }
+
+    void Leveled(Select _, string? value) {
+        level = Enum.TryParse<NotificationSeverity>(value, out var chosen) ? chosen : null;
+        Restate();
+    }
+
+    UiElement Row() {
+        var row = List.Scroller.Content.Add<UiElement>("message-row");
+
+        row.Add<UiElement>("message-mark");
+        row.Add<UiElement>("message-time");
+        row.Add<UiElement>("message-text");
+        row.Add<UiElement>("message-detail-text");
+
+        // ⚠ `TapEvent` and not `ClickEvent`, for `ConsoleView.Row`'s reason: a click is an
+        // *activation* and only a `Control` raises one, so a handler on a bare row waited for ever.
+        // A tap bubbles from whichever column was under it. And no `List.Realise()` beside the write,
+        // although `ConsoleView` makes one: the panel realises itself on `LayoutFinished`, and a
+        // choice usually rewrites the detail pane, which is a layout. ⚠ "Usually" is load-bearing.
+        // `UiDocument.Update` raises `LayoutFinished` only for a dirty document. Choosing between
+        // two record-equal duplicates leaves the pane's text the same, so there the checked bit
+        // repaints only because the tap's hover and press states dirtied the tree. So the call is
+        // not needed on any path a test reaches. It has not been shown to be unnecessary.
+        row.AddHandler<TapEvent>(
+            (element, args) => {
+                if (indices.TryGetValue(element, out var index) && index < shown.Count) {
+                    selected.Value = index;
+                    args.Handled = true;
+                }
+            }
+        );
+
+        return row;
+    }
+
+    void Bind(UiElement row, int index) {
+        if (index >= shown.Count) {
+            return;
+        }
+
+        var entry = shown[index];
+        indices[row] = index;
+
+        var mark = row.Children[0];
+
+        foreach (var name in Marks) {
+            mark.RemoveClass(name);
+        }
+
+        mark.AddClass(ClassOf(entry.Severity));
+
+        row.Children[1].Text = entry.When.ToString(TimeFormat, CultureInfo.InvariantCulture);
+        row.Children[2].Text = entry.Message;
+        row.Children[3].Text = entry.Detail is { Length: > 0 } detail ? Line(detail) : null;
+
+        // ⚠ The one appearance here that is not a binding, and the type is why: `State` is a flag
+        // set that also holds Hover and Pressed, so an effect assigning it whole would undo whatever
+        // the pointer had just put there — `KeyBindingsView`'s Record button, for the same reason.
+        if (index == selected.Peek()) {
+            row.State |= ElementState.Checked;
+        } else {
+            row.State &= ~ElementState.Checked;
+        }
+    }
+
+    bool Passes(Notification entry) {
+        if (level is { } wanted && entry.Severity != wanted) {
+            return false;
+        }
+
+        return search is null
+            || entry.Message.Contains(search, StringComparison.OrdinalIgnoreCase)
+            || (entry.Detail?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false);
+    }
+
+    Notification? At(int index) => index >= 0 && index < shown.Count ? shown[index] : null;
+
+    static string? Meta(Notification? entry) =>
+        entry is { } message
+            ? string.Create(
+                CultureInfo.CurrentCulture,
+                $"{message.Severity} · {message.When.ToString(TimeFormat, CultureInfo.InvariantCulture)}"
+            )
+            : null;
+
+    static string ClassOf(NotificationSeverity severity) =>
+        severity switch {
+            NotificationSeverity.Error => "level-error",
+            NotificationSeverity.Warning => "level-warning",
+            NotificationSeverity.Success => "level-success",
+            _ => "level-info"
+        };
+
+    /// <summary>The first line of a detail, which is all a row has space for.</summary>
+    /// <inheritdoc cref="ConsoleView" select="remarks" />
+    static string Line(string text) {
+        var breakAt = text.AsSpan().IndexOfAny('\r', '\n');
+        return breakAt < 0 ? text : string.Concat(text.AsSpan(0, breakAt), " …");
+    }
+}

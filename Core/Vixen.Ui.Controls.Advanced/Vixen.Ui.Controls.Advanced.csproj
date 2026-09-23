@@ -46,6 +46,16 @@
         <ProjectReference Include="..\Vixen.Ui.Generators\Vixen.Ui.Generators.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+            The VXML compiler, for `KeyBindingsView.vxml` (#650) — the first `.vxml` a shipped `Core/`
+            library compiles. Analyzers do not flow through a ProjectReference, so the assembly that
+            owns a `.vxml` names the generator itself; without this line the file is an
+            `AdditionalFiles` item nothing reads and VX4001 says so.
+        -->
+        <ProjectReference Include="..\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>
@@ -59,7 +69,7 @@
         message it throws names this import for that reason.
 
         At the bottom of the file, because the glob has to run after DefaultItemExcludes is final.
-        There is no `.vxml` in this project, so the other half of the .targets is inert here.
+        The other half of the .targets — the `**/*.vxml` glob — has one file to find since #650.
     -->
     <Import Project="..\Vixen.Ui\build\Vixen.Ui.targets" />
 

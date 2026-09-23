@@ -1,13 +1,14 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
 using Vixen.Input;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Styling;
 using Xunit;
 
-namespace Vixen.Editor.Ui.Tests;
+namespace Vixen.Ui.Controls.Advanced.Tests;
 
 /// <summary>
 ///     The keybinding panel doc 36 § F7 wave 1b moved into <c>.vxml</c>, asserted through the
@@ -40,7 +41,7 @@ public class KeyBindingsViewTests : IDisposable {
 
     public KeyBindingsViewTests() {
         ControlTheme.Install(document);
-        EditorTheme.Install(document);
+        AdvancedTheme.Install(document);
 
         commands.Add("file.save", new StringId("cmd.save", "Save Scene"), static () => { });
         commands.Add("scene.frame-all", new StringId("cmd.frame", "Frame All"), static () => { });
@@ -70,7 +71,7 @@ public class KeyBindingsViewTests : IDisposable {
     [Fact]
     public void With_no_row_chosen_the_line_says_to_choose_one() {
         Assert.True(view.Record.Disabled);
-        Assert.Equal(EditorStrings.KeysPickRow.Text, Shown(view.Status));
+        Assert.Equal(ControlStrings.KeysPickRow.Text, Shown(view.Status));
         Assert.False(view.Status.HasClass("conflict"));
     }
 
@@ -84,7 +85,7 @@ public class KeyBindingsViewTests : IDisposable {
 
         Assert.Equal("file.save", view.Selected);
         Assert.False(view.Record.Disabled);
-        Assert.Equal(EditorStrings.KeysReady.Text, Shown(view.Status));
+        Assert.Equal(ControlStrings.KeysReady.Text, Shown(view.Status));
     }
 
     /// <summary>Capture renames the button, ticks it, and says what it is waiting for.</summary>
@@ -95,24 +96,33 @@ public class KeyBindingsViewTests : IDisposable {
         view.Capture(true);
         Settle();
 
-        Assert.Equal(EditorStrings.KeysRecording.Text, view.Record.Label);
+        Assert.Equal(ControlStrings.KeysRecording.Text, view.Record.Label);
         Assert.True(view.Record.State.HasFlag(ElementState.Checked));
-        Assert.Equal(EditorStrings.KeysWaiting.Text, Shown(view.Status));
+        Assert.Equal(ControlStrings.KeysWaiting.Text, Shown(view.Status));
 
         view.Capture(false);
         Settle();
 
-        Assert.Equal(EditorStrings.KeysRecord.Text, view.Record.Label);
+        Assert.Equal(ControlStrings.KeysRecord.Text, view.Record.Label);
         Assert.False(view.Record.State.HasFlag(ElementState.Checked));
     }
 
     /// <summary>
     ///     ⚠ A conflict is the one thing on this panel that is red, and the class is what makes it
-    ///     so — <c>keybindings-status.conflict</c> in <c>EditorTheme.vcss</c>.
+    ///     so — <c>keybindings-status.conflict</c> in <c>AdvancedTheme.vcss</c>, said twice: once on
+    ///     the line and once on the <c>text</c> child that actually draws the sentence.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ The colour is read off the drawn child and not the line. The line's own computed
+    ///     <c>color</c> went red from the day the panel was ported while every glyph stayed
+    ///     <c>--text</c>, because <c>ControlTheme</c>'s <c>text</c> rule outranks inheritance —
+    ///     and a test reading the parent certified it.
+    /// </remarks>
     [Fact]
     public void A_refused_chord_says_who_has_it_and_reddens_the_line() {
         Choose("scene.frame-all");
+
+        var calm = Drawn(view.Status);
 
         Assert.Equal(BindResult.Conflict, view.Rebind(new KeyChord(InputKey.S, ModifierKeys.Control)));
 
@@ -122,13 +132,27 @@ public class KeyBindingsViewTests : IDisposable {
         Assert.True(view.Status.HasClass("conflict"));
         Assert.Contains("Save Scene", Shown(view.Status), StringComparison.Ordinal);
 
-        // The second press takes it, and the line goes back to black.
+        var refused = Drawn(view.Status);
+        Assert.NotEqual(calm, refused);
+        Assert.True(refused.R > refused.G + 0.3f && refused.R > refused.B + 0.3f, $"the refusal is drawn in {refused}, which is not red");
+
+        // The second press takes it, and the line goes back to its calm colour.
         Assert.NotEqual(BindResult.Conflict, view.Rebind(new KeyChord(InputKey.S, ModifierKeys.Control), replace: true));
 
         Settle();
 
         Assert.Null(view.Conflict);
         Assert.False(view.Status.HasClass("conflict"));
+        Assert.Equal(calm, Drawn(view.Status));
+    }
+
+    /// <summary>The colour the line's sentence is drawn in: its one <c>text</c> child's, never its own.</summary>
+    Color4 Drawn(UiElement line) {
+        var sentence = Assert.Single(line.Children);
+        Assert.Equal("text", sentence.Tag);
+
+        return document.ColorOf(sentence.Style, document.PropertyId("color"))
+            ?? throw new InvalidOperationException("the sentence resolved no colour");
     }
 
     /// <summary>
@@ -149,7 +173,49 @@ public class KeyBindingsViewTests : IDisposable {
         // `Restate` used to.
         Choose("file.save");
 
-        Assert.Equal(EditorStrings.KeysReady.Text, Shown(view.Status));
+        Assert.Equal(ControlStrings.KeysReady.Text, Shown(view.Status));
+    }
+
+    /// <summary>
+    ///     ⚠ The panel is a control library's (#650), and which assembly this file is in is half of
+    ///     what that asserts: this project cannot reference the editor.
+    /// </summary>
+    [Fact]
+    public void The_panel_is_the_control_librarys_and_offers_no_presets_of_its_own() {
+        Assert.Equal("Vixen.Ui.Controls.Advanced", typeof(KeyBindingsView).Assembly.GetName().Name);
+
+        // The editor's Unity and Unreal were baked into the picker while it was the editor's. An
+        // application that names none gets the one choice that is always true.
+        Assert.Equal([KeyMap.NoPreset], view.Presets.Options.Select(option => option.Value));
+    }
+
+    /// <summary>
+    ///     A host naming its presets after <c>Show</c> — which is the order a panel factory writes —
+    ///     fills the picker without taking away the preset already in force.
+    /// </summary>
+    [Fact]
+    public void Naming_the_presets_after_Show_keeps_the_one_in_force() {
+        var studio = KeyMapPreset.Of(
+            "Studio",
+            new Dictionary<string, KeyChord>(StringComparer.Ordinal) { ["scene.frame-all"] = new(InputKey.F, ModifierKeys.None) }
+        );
+
+        keys.PresetSource = name => string.Equals(name, studio.Name, StringComparison.Ordinal) ? studio : null;
+        Assert.True(keys.UsePreset(studio.Name));
+        Settle();
+
+        view.PresetNames = [KeyMap.NoPreset, studio.Name];
+        Settle();
+
+        Assert.Equal([KeyMap.NoPreset, studio.Name], view.Presets.Options.Select(option => option.Value));
+        Assert.Equal(studio.Name, view.Presets.Value);
+        Assert.Equal(studio.Name, keys.PresetName);
+
+        // And the picker still does its job once it has been refilled.
+        view.Presets.Value = KeyMap.NoPreset;
+        Settle();
+
+        Assert.Equal(KeyMap.NoPreset, keys.PresetName);
     }
 
     /// <summary>The filter narrows the grid, and the panel keeps working after it does.</summary>

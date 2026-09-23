@@ -109,6 +109,23 @@ global reset, and import/export raised as events for whoever has a file picker. 
 rather than a modal**, so the harness can drive it; the consequence is that Escape is the one chord it
 will not bind.
 
+⚠ **It is not this assembly's any more (#650).** `KeyBindingsView` and `KeyMapYaml` are
+`Vixen.Ui.Controls.Advanced`'s, so an application that can dispatch a chord can now also list,
+rebind and keep one; what stays here is the editor's data — `KeyMapPresets`, supplied to the panel
+through `KeyBindingsView.PresetNames` exactly as another host would supply its own. The move was held
+to `KeyBindingsViewDumpTests`, recorded before it, and every tree, flags dump and software-rasterised
+capture in five states came out byte-identical. It also found a defect nothing here could: the panel
+is a tab stop and had no accessibility role, which the Advanced suite's two sweeps refused the first
+time they built it.
+
+⚠ **Byte-identical was not the same as right.** The status line was never red. Its sentence is an
+interpolation, so it is drawn by a child `text` element, and `ControlTheme`'s
+`text { color: var(--text); }` beats anything that child inherits. `keybindings-status.conflict`
+turned the *line's* computed colour red, and no pixel changed, in every capture since the wave-1b
+port. The dump test first read the line's colour and passed. It now counts red pixels inside the
+line in a capture, and `AdvancedTheme.vcss` sets the colour on `keybindings-status > text`, where the
+glyphs are. The captures stopped being identical at that commit, and that change was the fix.
+
 `KeyBindingsView.vxml` since doc 36 § F7 wave 1b, and two things about that port are worth keeping.
 
 ⚠ **`KeyMap` and `CommandRegistry` needed no signals.** The wave's brief was that every panel ported
@@ -717,9 +734,9 @@ was selected first.
 
 ⚠ **It is worse than the `@for` version in one specific way: nothing warns you.** A `ref` in a loop
 is `VXML2010` and a `refs` outside one is `VXML2013`, so the loop shape has two diagnostics pointing
-at it. A pattern variable in an `@if` arm is ordinary, legal C# that compiles, runs, and is correct
-for the first value it ever sees. `VariationHarnessView` was written with one and the whole existing
-suite passed: **every test in `HarnessViewTests` selected exactly one cell.**
+at it. A pattern variable in an `@if` arm was ordinary, legal C# that compiled, ran, and was
+correct for the first value it ever saw. `VariationHarnessView` was written with one and the whole
+existing suite passed: **every test in `HarnessViewTests` selected exactly one cell.**
 
 **So the rule generalises to: a binding may close over a region's *identity* and never over its
 content.** For a `@for` row that identity is the key; for an `@if` arm it is the *predicate* — and a
@@ -728,6 +745,12 @@ sharper edge of the two. Every readout in that arm goes back through the signal
 (`ChosenCase`, `ChosenResidual`, …) and the arm's condition is the only thing allowed to be a shape.
 `ChoosingASecondCellMovesTheSidePanelOffTheFirst` is the test, and it was confirmed to fail against a
 deliberately reintroduced stale readout while the other six passed.
+
+⚠ **The pattern-variable spelling no longer compiles.** The arm is a separate lambda from its
+predicate, so a readout in the arm that names `shown` is `CS0103` (re-measured 2026-09-23 on
+`MessageLogView.vxml`; see "A binding over a plain field is a build failure in one shape" below).
+The trap is the same without it. `use="@(e => e.Text ??= Chosen?.Label)"` reads the signal once and
+keeps the answer. It compiles, and it is stale in the same way.
 
 ⚠ **And `refs` has a second use, which the mixer's write-up did not have a case for.** There it was
 "a handler must reach a sibling control it cannot read off the model". Here nothing is edited at all
@@ -980,7 +1003,7 @@ matched byte-for-byte across six states, because every state had rows.
 went stale the same way.** It is a claim about the tree written in a document, which is the same
 failure the sentence above it describes — and the second one lasted a single wave: wave 9's own
 `ComponentsViewDumpTests` was missing from the table below while the file's remarks called themselves
-"a committed dump rather than a wave note". There are **nine**.
+"a committed dump rather than a wave note". There are **eleven**.
 
 ⚠ **The table is derived now, and that is the only part of this section a reader should trust
 without checking.** `DumpLedgerTests` scans every `Editor/**/*.Tests` source for a call to
@@ -999,8 +1022,16 @@ prose is still prose; the list is a measurement.
 | `Vixen.Editor.App.Tests/AddComponentMenuDumpTests` | `AddComponentMenu` (wave 8) |
 | `Vixen.Editor.AssetEditors.Tests/InputActionsViewDumpTests` | `InputActionsView` (wave 9) |
 | `Vixen.Editor.App.Tests/ComponentsViewDumpTests` | `ComponentsView`'s header, in four states reached through the interface (wave 9) |
+| `Vixen.Editor.Ui.Tests/MessageLogViewDumpTests` | `MessageLogView`, in six states reached through the interface, recorded from the hand-written control *before* its port (#89) |
+| `Vixen.Editor.Ui.Tests/KeyBindingsViewDumpTests` | `KeyBindingsView` as the editor hosts it, in five states, recorded while it was still the editor's and held to that after it moved to `Vixen.Ui.Controls.Advanced` (#650) |
 
-⚠ **There is still no overlap between those nine and the nine claims.** Every panel with a committed
+⚠ **`MessageLogViewDumpTests` is the first dump committed before the port it judges rather than
+after it.** Its reference strings are what the hand-written C# control drew, so the port is held to
+them rather than to itself — the one arrangement in which "byte-identical" is a test and not a wave
+note. It overlaps none of the nine claims below either; it is simply the shape the next port should
+copy.
+
+⚠ **There is still no overlap between the first nine and the nine claims.** Every panel with a committed
 dump is one whose row makes *no* byte-identical claim, and every panel that makes one has no dump —
 `ComponentsViewDumpTests` is the evidence for the panel ledger's own last row and not for any of the
 nine adjudicated below. So the count going from three to nine closed none of this, and reading the two
@@ -1081,7 +1112,8 @@ every row on one line — a blank line inside a cell ends the table, which is ho
 | `AudioMixerView` | snapshot | no | ~~**no**~~ ~~**port**~~ **done, wave 3 (2026-08-23).** 541 lines of C# → a 250-line `.vxml`, a 60-line `.cs` of records and captions, and a whole-tree rectangle dump in three states that is byte-identical to what it replaced | ~~XL~~ M |
 | `AnimationClipView` | snapshot | no | **no** — `Timeline.AddTrack`/`AddSpan` + `CurveEditor` is the whole panel | L |
 | `NodeGraphView` | live | no | **no** — `Canvas.Graph = built` and four `OnDraw` layers; nodes, ports and wires are not elements | XL |
-| `ConsoleView` · `MessageLogView` · `AssetGrid` | live | no | ~~**no** — `VirtualizingPanel`/`Grid` row templates~~ **pending [#758](https://github.com/Rikarin/Vixen/issues/758)** — the row templates are the whole obstacle and #758 is the markup spelling for them, so this is a wait rather than a decline; `docs/MarkupPending.txt` has said so since 2026-09-22 and this row said "no" beside it. ⚠ The ledger lists the two views and not `AssetGrid` (`Vixen.Editor.App/AssetGrid.cs`), because it counts only classes named `*View`, `*Panel`, `*Inspector` or `*Popup` — so it and this row differ by one, and the gate cannot see `AssetGrid`'s verdict | — |
+| `ConsoleView` · `AssetGrid` | live | no | ~~**no** — `VirtualizingPanel`/`Grid` row templates~~ **pending [#758](https://github.com/Rikarin/Vixen/issues/758)** — the row templates are the whole obstacle and #758 is the markup spelling for them, so this is a wait rather than a decline; `docs/MarkupPending.txt` has said so since 2026-09-22 and this row said "no" beside it. ⚠ The ledger lists `ConsoleView` and not `AssetGrid` (`Vixen.Editor.App/AssetGrid.cs`), because it counts only classes named `*View`, `*Panel`, `*Inspector` or `*Popup` — so it and this row differ by one, and the gate cannot see `AssetGrid`'s verdict | — |
+| `MessageLogView` | live | the selection, yes; the history, deliberately no | ~~**no** — `VirtualizingPanel` row template~~ **done (#89, 2026-09-23), and the "no" was about the rows only.** The toolbar and the detail pane are markup; `Row`/`Bind` are the hand-written methods, handed to the panel in `OnComposed`, exactly as the "two earlier exclusions" section below predicted. The model decision is one `Signal<int>` — the chosen row's index, not the `Notification`, because the record struct makes two same-second duplicates equal — and the pane and its `empty` class are bindings over it, where the C# cleared and refilled the pane from four call sites. ⚠ **Recording the reference found the pane unreachable**: rows waited for a `ClickEvent`, which only a `Control` raises, so no pointer could choose a message — `ConsoleView`'s fix of July, never applied to the panel beside it. Fixed before the reference was taken (`7d5ba5692`). `MessageLogViewDumpTests` is the first dump **committed before the port it judges**, recorded from the C# control in six states reached through the interface; the port matches every tree and flags dump byte for byte, and the six software-rasterised captures are byte-identical PNGs. Sabotage: a heading binding that stops reading the signal after its first run (`??=`) reddens only the second-choice test; `Selected` read with `Peek()` reddens the three that choose a row | S |
 | `InspectorView` + the four drawers · `TargetOverrideMatrix` · `MarkupInspector` | — | — | **no** — a drawer *is* a factory, and markup cannot be one; `MarkupInspector` *is* the markup inspector, so writing it in markup is circular | — |
 | `ProjectBrowser` · `ViewportLayout` · `ToolbarPresenter` · `MenuPresenter` · `AssetPicker` · `ViewportChrome` · `EditorSettingsPanels` · `EditorDiagnostics` · `DeclaredContributions` · `CustomInspector` · `BlockoutUvPanel` | — | — | **not panels** — shape 4. `CustomInspector` is the registry record a `[CustomInspector]` contributes, and `BlockoutUvPanel` computes island layouts for `BlockoutUvView.vxml` to draw and adds no element | — |
 | `BehaviorSearchPopup` · `AddressableGroupsView` · `ProfilerView` · `LayerStackView` · `PaintBrushInspector` | mixed | no | **pending** — never surveyed in this table; each one's model decision is named on its line in `docs/MarkupPending.txt`. `ProfilerView`'s candidate is the per-scope table beside the flame chart, not the chart | — |
@@ -1166,6 +1198,13 @@ that virtualises through `use=` and a pair of lambdas in `@code`, counted by `Vi
 So the exclusion is exactly and only the two delegates: everything else about a virtualised list is
 already sayable, and a port would move the tag, the `ref`, the toolbar and the detail pane and leave
 `CreateRow`/`BindRow` in the code-behind — which is the shape #758's `@rows` block would finish.
+
+✅ **Ported exactly that way (#89, 2026-09-23)**, and the prediction held to the letter: the tag, the
+three `ref`s, the toolbar and the detail pane moved; `Row` and `Bind` are the hand-written methods in
+`@code`, assigned in `OnComposed` rather than through `use=` because nothing about them is reactive.
+See the panel ledger's `MessageLogView` row. `ConsoleView` stays — its detail pane is the same shape,
+but its rows carry five columns and a double-tap that opens a source file, and it has no reference
+dump yet to be held to.
 
 **`SettingsView` — no longer excluded.** `SettingsCategory.Build` is still an `Action<UiElement>`,
 invoked at one site (`Reload()`), from seven callers in `EditorSettingsPanels`. But the factory never

@@ -315,6 +315,10 @@ public sealed class EditorShell : IDisposable {
                 EditorStrings.PanelKeys,
                 panel => {
                     Keyboard = panel.Add<KeyBindingsView>();
+
+                    // ⚠ The editor's three presets, supplied as any host of the panel supplies its
+                    // own — the panel is a control library's since #650 and knows nobody's names.
+                    Keyboard.PresetNames = KeyMapPresets.Names;
                     Keyboard.Show(Commands, Keys);
 
                     KeyboardBuilt?.Invoke(Keyboard);

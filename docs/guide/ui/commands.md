@@ -4,7 +4,7 @@ slug: ui/commands
 kind: guide
 area: Core
 summary: A menu declares what, and the focus decides who — a command id resolved by walking outwards from the focused element and on past the root to the document and the application, so two views can answer the same verb without knowing each other exists and an item nothing handles greys itself out.
-api: [T:Vixen.Ui.CommandRoute, T:Vixen.Ui.CommandHandler, T:Vixen.Ui.IResponder, T:Vixen.Ui.CommandResponder, T:Vixen.Ui.ShortcutFormat, T:Vixen.Ui.Controls.EditorCommand, T:Vixen.Ui.Controls.CommandRegistry, T:Vixen.Ui.Controls.KeyMap]
+api: [T:Vixen.Ui.CommandRoute, T:Vixen.Ui.CommandHandler, T:Vixen.Ui.IResponder, T:Vixen.Ui.CommandResponder, T:Vixen.Ui.ShortcutFormat, T:Vixen.Ui.Controls.EditorCommand, T:Vixen.Ui.Controls.CommandRegistry, T:Vixen.Ui.Controls.KeyMap, T:Vixen.Ui.Controls.Advanced.KeyMapYaml, T:Vixen.Ui.Controls.Advanced.KeyBindingsView, T:Vixen.Ui.Controls.Advanced.KeyBindingRow]
 tags: [ui, commands, focus, input, menus]
 since: 0.2
 status: preview
@@ -216,10 +216,57 @@ holding every binding freezes the defaults at the version its owner first ran.
 
 ⚠ **A keymap cannot read or write a file, deliberately.** `Overrides` and `Restore` are the two
 halves of the round trip and neither names a format, because *where* an application keeps its
-preferences is the application's question — the editor answers it in `Vixen.Editor.Ui.KeyMapYaml`,
-beside the presets it ships, and a control library that answered it would put a YAML parser in the
-dependency closure of every application that has a button. `KeyMap.PresetSource` is the same seam for
-the names: left alone it resolves nothing, because the presets are the application's too.
+preferences is the application's question, and `Vixen.Ui.Controls` answering it would put a YAML
+parser in the dependency closure of every application that has a button. `KeyMap.PresetSource` is
+the same seam for the names: left alone it resolves nothing, because the presets are the
+application's too.
+
+`KeyMapYaml` is one answer, and it lives one assembly up, in `Vixen.Ui.Controls.Advanced` — which
+already carries YAML because a `DockLayout` is a document somebody edits and diffs. It writes the
+preset's name and the user's own moves and nothing else, and reads a stale file as far as it can
+rather than refusing it:
+
+```csharp compile
+using Vixen.Ui.Controls;
+using Vixen.Ui.Controls.Advanced;
+
+public static class KeymapFile {
+    public static string Save(KeyMap keys) => KeyMapYaml.Write(keys);
+
+    public static void Load(KeyMap keys, string text) => KeyMapYaml.Read(keys, text);
+}
+```
+
+⚠ It was the editor's until #650, on the argument above — which is true of `Vixen.Ui.Controls` and
+was never true of the assembly it now lives in. A game that keeps its settings in JSON still writes
+the other half of `Overrides` and `Restore` itself, and owes `KeyMapYaml` nothing.
+
+`KeyBindingsView` is the panel over all three — every command as a `KeyBindingRow`, its chord, and
+which layer the chord came from, with a filter, a preset picker, a "press a key" capture and inline
+conflict reporting. It is a control, so an application adds one wherever it wants the list:
+
+```csharp compile
+using Vixen.Ui;
+using Vixen.Ui.Controls;
+using Vixen.Ui.Controls.Advanced;
+
+public static class ShortcutsPanel {
+    public static KeyBindingsView Open(UiElement host, CommandRegistry commands, KeyMap keys) {
+        var view = host.Add<KeyBindingsView>();
+
+        // The application's presets, by name; `keys.PresetSource` is how each is looked up.
+        view.PresetNames = [KeyMap.NoPreset, "Studio"];
+        view.Show(commands, keys);
+
+        return view;
+    }
+}
+```
+
+⚠ **Import and Export are events, not file calls** — a control has no file picker, so the panel
+raises `ImportRequested` and `ExportRequested` and the application answers them. ⚠ **Capture is a
+mode rather than a modal**: while it is on every key the panel sees is a candidate binding, which
+makes Escape the one chord it will not bind.
 
 ⚠ **The dispatcher listens on the bubble leg, at the root.** A key event is routed from the focus
 outwards, so by the time it arrives every control that might have wanted it has had its turn — which
@@ -406,7 +453,7 @@ twenty items on the tick allocates nothing.
 ## See also
 
 * [The editor shell](/docs/guide/editor/index) — what the editor adds over the table and the map:
-  its three keymap presets, and `KeyMapYaml`, the file a user's bindings are kept in.
+  its three keymap presets, and the panel that rebinds a chord.
 * [Panels in markup](/docs/guide/ui/markup-panels) — where the elements that declare handlers
   usually come from.
 * [Dialogs that answer](/docs/guide/ui/dialogs) — what a command does when it has to ask something

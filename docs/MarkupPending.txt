@@ -31,8 +31,13 @@
 # open row, canvas/machinery/not-a-view is a "no"/"not a panel" row — and no row to decline or leave
 # open a view that has a `.vxml`. A port or a decline owes both files in the same commit.
 #
-# Measured 2026-09-23: 38 view-shaped types have a `.vxml`, 25 do not, and 9 of those 25 are
-# candidates: SceneHierarchyView was the tenth of the ten and is ported (#1322).
+# Measured 2026-09-23: 38 view-shaped editor types have a `.vxml`, 24 do not, and 8 of those 24
+# are candidates. SceneHierarchyView was the tenth of the ten and is ported (#1322). MessageLogView
+# was the ninth (#89): its toolbar and detail pane are markup, its rows stay a VirtualizingPanel row
+# template, and MessageLogViewDumpTests holds it to what the hand-written control drew.
+# History, not a second figure: that port made the count 39, and KeyBindingsView then left the
+# editor for Vixen.Ui.Controls.Advanced (#650) with its markup, which made it 38. Nothing was
+# unported.
 # The audit on the issue counted 34/23 on 2026-09-04 and listed InputDebugPanel and
 # AgentDebuggerPanel among the unported; ⚠ both are partials of AssetEditorsModule that REGISTER a
 # view, and InputDebugView.vxml and AgentDebuggerView.vxml exist — a name-shaped count that does not
@@ -62,4 +67,3 @@ Editor/Vixen.Editor.Texturing/Painting/PaintMeshView.cs canvas — paints onto a
 Editor/Vixen.Editor.Texturing/Painting/PaintUvView.cs canvas
 Editor/Vixen.Editor.Texturing/TextureGraphView.cs canvas
 Editor/Vixen.Editor.Ui/Console/ConsoleView.cs pending — a filtered virtualised log; #758 is the markup spelling it waits on
-Editor/Vixen.Editor.Ui/Notifications/MessageLogView.cs pending — a filtered list with a level picker
