@@ -1,9 +1,30 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
+
 namespace Vixen.Ui.Styling;
 
 /// <summary>One property on its way from one value to another.</summary>
+/// <param name="Element">The element it runs on.</param>
+/// <param name="Property">The interned property.</param>
+/// <param name="From">The value it left, for a transition interpolated here.</param>
+/// <param name="To">The value it is heading for.</param>
+/// <param name="Duration">How long the run takes, in seconds, after any shortening.</param>
+/// <param name="Delay">How long it waits before it starts moving.</param>
+/// <param name="Timing">The easing.</param>
+/// <param name="StartedAt">When it was started, in the animator's seconds.</param>
+/// <param name="MixFrom">
+///     For a property the animator hands on as a mix rather than interpolating itself, the interned
+///     text of the value the mix is taken FROM; <see cref="NameTable.None" /> otherwise. See
+///     <see cref="Animator" />'s <c>mixes</c>.
+/// </param>
+/// <param name="MixTo">The interned text the mix is taken TO.</param>
+/// <param name="MixStart">Where along <see cref="MixFrom" /> → <see cref="MixTo" /> this run begins.</param>
+/// <param name="MixEnd">
+///     Where it ends — one, or zero for a run reversing towards <see cref="MixFrom" />. Always one of
+///     the two: a run heading anywhere else is a new mix with this one nested as its start.
+/// </param>
 readonly record struct RunningTransition(
     StyleNodeId Element,
     int Property,
@@ -12,8 +33,23 @@ readonly record struct RunningTransition(
     float Duration,
     float Delay,
     TimingFunction Timing,
-    float StartedAt
+    float StartedAt,
+    int MixFrom = NameTable.None,
+    int MixTo = NameTable.None,
+    float MixStart = 0f,
+    float MixEnd = 1f
 ) {
+    /// <summary>Whether this is a mix handed on as text rather than a value interpolated here.</summary>
+    public bool IsMix => MixTo != NameTable.None;
+
+    /// <summary>How far along <see cref="MixFrom" /> → <see cref="MixTo" /> it has got.</summary>
+    /// <param name="now">The current time in seconds.</param>
+    /// <returns>The mix progress, eased — so outside zero to one where the timing overshoots.</returns>
+    public float MixAt(float now) => MixStart + ((MixEnd - MixStart) * Timing.Evaluate(Progress(now)));
+
+    /// <summary>The interned text the mix ends at.</summary>
+    public int MixDestination => MixEnd >= 0.5f ? MixTo : MixFrom;
+
     /// <summary>Where it has got to.</summary>
     /// <param name="now">The current time in seconds.</param>
     /// <returns>The interpolated value.</returns>
@@ -85,6 +121,34 @@ public sealed class Animator {
     ///     other consumer in the engine.
     /// </remarks>
     readonly InitialValues initials;
+
+    /// <summary>The properties this animator times and does not interpolate, and the function it hands each on as.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One entry, <c>transform</c>, and it is what #174 and #51 were blocked on for four
+    ///         passes.</b> A <c>&lt;transform-list&gt;</c> parses as <see cref="StyleValueKind.Unknown" />
+    ///         — <see cref="StyleValueKind" /> has no function form — and <see cref="Observe" /> dropped
+    ///         a transition whose either end was <c>Unknown</c>, so a transform transition never
+    ///         started: not "started and jumped", never started. Interpolating one here was never an
+    ///         option: it needs the element's box for a <c>translateX(50%)</c>, its font for an
+    ///         <c>em</c>, and a matrix decomposition for two lists that do not pair up, and
+    ///         <c>Vixen.Ui.Styling</c> has none of the three. <c>Vixen.Ui</c> has all of them and
+    ///         depends on this assembly rather than the other way round.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the transition is timed here and written as CSS Values 5's own spelling of "this
+    ///         far between these two" — <c>transform-mix(p, A, B)</c> — and the reader that owns the
+    ///         arithmetic resolves it.</b> Nothing downstream is told a transition exists: the overlaid
+    ///         value is simply a transform, re-read every pass like any other, which is also what
+    ///         re-decides <c>backface-visibility</c> at every step. <c>TransformReader</c>'s
+    ///         interpolation half is the other end of this.
+    ///     </para>
+    /// </remarks>
+    readonly Dictionary<int, string> mixes = [];
+
+    /// <summary>The interned <c>none</c>, which is what a property the cascade stopped holding mixes to.</summary>
+    readonly int noneValue;
+
     readonly int animationName;
     readonly int animationDuration;
     readonly int animationDelay;
@@ -131,6 +195,9 @@ public sealed class Animator {
         transitionDelay = properties.Intern("transition-delay");
         transitionTiming = properties.Intern("transition-timing-function");
         transitionBehavior = properties.Intern("transition-behavior");
+
+        mixes[properties.Intern("transform")] = "transform-mix";
+        noneValue = values.Intern("none");
     }
 
     /// <summary>Whether the user has asked for less movement, and everything therefore snaps.</summary>
@@ -240,6 +307,14 @@ public sealed class Animator {
             // is one and the previous computed value where there is not. Reading the previous
             // computed value alone is what makes an interrupted fade jump.
             var key = (element.Index, property);
+
+            // ⚠ <b>Before the `Unknown` test below, which is what stopped every transform transition
+            // from ever starting.</b> See `mixes`.
+            if (mixes.TryGetValue(property, out var function)) {
+                StartMix(key, property, function, wanted);
+                return;
+            }
+
             var displayed = running.TryGetValue(key, out var current)
                 ? current.ValueAt(now)
                 : Computed(before, property);
@@ -292,7 +367,91 @@ public sealed class Animator {
                 now
             );
         }
+
+        // A transition this animator times and `Vixen.Ui` interpolates — see `mixes`.
+        //
+        // ⚠ <b>A reversal re-aims the same mix rather than nesting a new one</b>, which is both CSS
+        // Transitions 1 § 3's reversing rule and what keeps a pointer brushing on and off a card from
+        // growing the value without bound. Heading back to where it came from, the run keeps its two
+        // ends and walks its progress back from where it has got to, over the fraction of the
+        // duration that distance is — the reversing-shortening factor, exactly, because the progress
+        // is already the eased one. Only a third destination nests: the displayed mix, frozen at the
+        // moment of interruption, becomes the new run's start.
+        void StartMix((int Element, int Property) key, int property, string function, TransitionSpec wanted) {
+            var target = after.TryGet(property, out var declared) ? declared : noneValue;
+
+            if (running.TryGetValue(key, out var current) && current.IsMix) {
+                // Other properties on the element changed and this one did not: the run goes on.
+                if (target == current.MixDestination) {
+                    return;
+                }
+
+                var reached = current.MixAt(now);
+
+                if (target == current.MixFrom || target == current.MixTo) {
+                    var end = target == current.MixTo ? 1f : 0f;
+
+                    running[key] = current with {
+                        Duration = wanted.Duration * Math.Clamp(MathF.Abs(end - reached), 0.05f, 1f),
+                        Delay = wanted.Delay,
+                        Timing = wanted.Timing,
+                        StartedAt = now,
+                        MixStart = reached,
+                        MixEnd = end
+                    };
+
+                    return;
+                }
+
+                var frozen = MixText(function, reached, current.MixFrom, current.MixTo);
+
+                // ⚠ A hard stop on the nesting a stream of distinct destinations can build — a
+                // theme switch retargeting a card that is already on its third — and a snap is the
+                // honest answer at the stop: `TransformReader` refuses a mix nested past sixteen, and
+                // a refused transform is the element drawn untransformed.
+                if (frozen.Length > MixLimit) {
+                    running.Remove(key);
+                    return;
+                }
+
+                running[key] = Mix(property, values.Intern(frozen), target, wanted);
+                return;
+            }
+
+            var from = before.TryGet(property, out var previous) ? previous : noneValue;
+
+            if (from == target) {
+                running.Remove(key);
+                return;
+            }
+
+            running[key] = Mix(property, from, target, wanted);
+        }
+
+        RunningTransition Mix(int property, int from, int to, TransitionSpec wanted) =>
+            new(
+                element,
+                property,
+                StyleValue.Unknown,
+                StyleValue.Unknown,
+                wanted.Duration,
+                wanted.Delay,
+                wanted.Timing,
+                now,
+                from,
+                to
+            );
     }
+
+    /// <summary>How long a mix's text may grow by nesting before an interruption snaps instead.</summary>
+    const int MixLimit = 4096;
+
+    /// <summary>A mix written out as the CSS function <c>TransformReader</c> reads it back from.</summary>
+    string MixText(string function, float progress, int from, int to) =>
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"{function}({progress}, {values.NameOf(from)}, {values.NameOf(to)})"
+        );
 
     /// <summary>What a style computes a property to, filling in an initial value where it says nothing.</summary>
     /// <param name="style">The computed style.</param>
@@ -449,6 +608,56 @@ public sealed class Animator {
     bool TryGetAnimated(RunningAnimation entry, int property, float now, out StyleValue value) {
         value = StyleValue.Unknown;
 
+        if (!TryGetAnimatedEnds(entry, property, now, out var start, out var end, out var t)) {
+            return false;
+        }
+
+        value = end == NameTable.None ? parser.Parse(start) : StyleValue.Lerp(parser.Parse(start), parser.Parse(end), t);
+        return true;
+    }
+
+    /// <summary>The same question for a property handed on as a mix, answered as the mix's interned text.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>@keyframes</c> over <c>transform</c> wrote an empty string before this</b>, not a
+    ///     jump: <see cref="StyleValue.Lerp" /> of two <c>Unknown</c>s is an <c>Unknown</c>, whose CSS
+    ///     is nothing — so a spin written with <c>transform: rotate(360deg)</c> overlaid a transform of
+    ///     "" and the element lost even the transform its own rule gave it, for as long as the
+    ///     animation ran. A stop pair is a mix like any transition's; see <c>mixes</c>.
+    /// </remarks>
+    bool TryGetAnimatedMix(StyleNodeId element, int property, string function, float now, out int value) {
+        value = NameTable.None;
+
+        if (!animations.TryGetValue(element.Index, out var entries)) {
+            return false;
+        }
+
+        var found = false;
+
+        foreach (var entry in entries) {
+            if (!TryGetAnimatedEnds(entry, property, now, out var start, out var end, out var t)) {
+                continue;
+            }
+
+            value = end == NameTable.None ? start : values.Intern(MixText(function, t, start, end));
+            found = true;
+        }
+
+        return found;
+    }
+
+    /// <summary>The two stops a keyframe animation is between for a property, and how far between.</summary>
+    /// <param name="entry">The animation.</param>
+    /// <param name="property">The interned property.</param>
+    /// <param name="now">The current time in seconds.</param>
+    /// <param name="start">The earlier stop's interned value — or the only stop's, where there is one.</param>
+    /// <param name="end">The later stop's, or <see cref="NameTable.None" /> where one stop decides it alone.</param>
+    /// <param name="t">How far from the first to the second.</param>
+    /// <returns>Whether the animation says anything about the property at this moment.</returns>
+    bool TryGetAnimatedEnds(RunningAnimation entry, int property, float now, out int start, out int end, out float t) {
+        start = NameTable.None;
+        end = NameTable.None;
+        t = 0f;
+
         if (!entry.Spec.TryOffsetAt(now - entry.StartedAt, out var offset)
             || !keyframes.TryGet(entry.Spec.Name, out var stops)
             || stops.Count == 0) {
@@ -478,24 +687,21 @@ public sealed class Animator {
         }
 
         if (before < 0) {
-            Declares(stops[after], property, out var only);
-            value = parser.Parse(only);
+            Declares(stops[after], property, out start);
             return true;
         }
 
-        Declares(stops[before], property, out var start);
+        Declares(stops[before], property, out start);
 
         if (after < 0) {
-            value = parser.Parse(start);
             return true;
         }
 
-        Declares(stops[after], property, out var end);
+        Declares(stops[after], property, out end);
 
         var span = stops[after].Offset - stops[before].Offset;
-        var t = span <= 0f ? 0f : (offset - stops[before].Offset) / span;
+        t = span <= 0f ? 0f : (offset - stops[before].Offset) / span;
 
-        value = StyleValue.Lerp(parser.Parse(start), parser.Parse(end), t);
         return true;
     }
 
@@ -553,21 +759,87 @@ public sealed class Animator {
         for (var i = 0; i < style.Count; i++) {
             var property = style.Properties[i];
 
-            // Transitions above animations, which is the order CSS Cascading 5 §6.2 puts them in and
-            // is the only one that reads right: a transition is a response to something that just
-            // happened and has to win over a loop that was already running.
-            if (!TryGetCurrent(element, property, now, out var value)
-                && !TryGetAnimated(element, property, now, out value)) {
+            if (!TryOverlay(element, property, now, out var value)) {
                 continue;
             }
 
             overlaid ??= Copy(style);
-            overlaid[i] = new KeyValuePair<int, int>(property, values.Intern(value.ToCss(values)));
+            overlaid[i] = new KeyValuePair<int, int>(property, value);
         }
 
         overlaid = Introduce(element, style, now, overlaid);
+        overlaid = Withdrawing(element, style, now, overlaid);
 
         return overlaid is null ? style : ComputedStyle.Create(overlaid, style.Parent);
+    }
+
+    /// <summary>What the transition tier puts in a property's place, as an interned value.</summary>
+    /// <remarks>
+    ///     Transitions above animations, which is the order CSS Cascading 5 §6.2 puts them in and is
+    ///     the only one that reads right: a transition is a response to something that just happened
+    ///     and has to win over a loop that was already running. A property in <c>mixes</c> is
+    ///     answered as the mix's text on both tiers, never through <see cref="StyleValue" />, which
+    ///     has nothing to hold it in.
+    /// </remarks>
+    bool TryOverlay(StyleNodeId element, int property, float now, out int value) {
+        if (mixes.TryGetValue(property, out var function)) {
+            if (running.TryGetValue((element.Index, property), out var mixing) && mixing.IsMix) {
+                value = values.Intern(MixText(function, mixing.MixAt(now), mixing.MixFrom, mixing.MixTo));
+                return true;
+            }
+
+            return TryGetAnimatedMix(element, property, function, now, out value);
+        }
+
+        if (!TryGetCurrent(element, property, now, out var current)
+            && !TryGetAnimated(element, property, now, out current)) {
+            value = NameTable.None;
+            return false;
+        }
+
+        value = values.Intern(current.ToCss(values));
+        return true;
+    }
+
+    /// <summary>Adds a mix still running for a property the cascade no longer gives the element.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The commonest transform transition there is, and without this it would run and never
+    ///     be seen.</b> <c>hover:rotate-z-45</c> puts a <c>transform</c> on an element that has none
+    ///     at rest, so the moment the pointer leaves, the cascade stops holding the property at all
+    ///     and <see cref="Apply" />'s loop — which walks the properties the style has — never reaches
+    ///     the transition <see cref="Observe" /> started back to <c>none</c>. The card snapped home.
+    ///     Mixes only: whether a numeric fade back to an initial value has the same gap is a question
+    ///     about that path, recorded rather than changed here.
+    /// </remarks>
+    List<KeyValuePair<int, int>>? Withdrawing(
+        StyleNodeId element,
+        ComputedStyle style,
+        float now,
+        List<KeyValuePair<int, int>>? overlaid
+    ) {
+        if (running.Count == 0) {
+            return overlaid;
+        }
+
+        foreach (var ((index, property), transition) in running) {
+            if (index != element.Index || !transition.IsMix || style.TryGet(property, out _)) {
+                continue;
+            }
+
+            if (overlaid is not null && overlaid.Exists(pair => pair.Key == property)) {
+                continue;
+            }
+
+            overlaid ??= Copy(style);
+            overlaid.Add(
+                new KeyValuePair<int, int>(
+                    property,
+                    values.Intern(MixText(mixes[property], transition.MixAt(now), transition.MixFrom, transition.MixTo))
+                )
+            );
+        }
+
+        return overlaid;
     }
 
     /// <summary>Adds the properties this element's animations name and its cascade never gave it.</summary>
@@ -626,16 +898,14 @@ public sealed class Animator {
                         continue;
                     }
 
-                    // Transitions still first, for `Apply`'s reason. A transition on a property the
-                    // cascade never set cannot start, so this arm is all but unreachable — it is here
-                    // so that the precedence is stated once rather than in two places that can drift.
-                    if (!TryGetCurrent(element, property, now, out var value)
-                        && !TryGetAnimated(element, property, now, out value)) {
+                    // Transitions still first, for `Apply`'s reason — see `TryOverlay`, which is the
+                    // one place the precedence is stated.
+                    if (!TryOverlay(element, property, now, out var value)) {
                         continue;
                     }
 
                     overlaid ??= Copy(style);
-                    overlaid.Add(new KeyValuePair<int, int>(property, values.Intern(value.ToCss(values))));
+                    overlaid.Add(new KeyValuePair<int, int>(property, value));
                     (introduced ??= []).Add(property);
                 }
             }

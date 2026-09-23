@@ -121,11 +121,13 @@
 # `UtilityComposition.Transform`. They carry no line here for the fragments' usual reason — a `--tw-*`
 # is half a declaration and is judged through its assembler.
 #
-# ⚠ What IS still absent, and it is narrower than what this paragraph used to claim: `StyleValueKind`
-# has no function kind, so `StyleValue.CanInterpolate` cannot take a transform list and `Lerp` falls
-# to its discrete branch — a transitioned or animated `transform` jumps at the halfway mark instead of
-# moving. That is not a consumption gap and has no line here either; it sizes `animate-*` (#270) and
-# any `transition` written over the shorthand. The 3D family is further out again — `perspective`,
+# ⚠ A transitioned or animated `transform` moves now (#174), and what this paragraph said about it
+# was wrong in both halves: a TRANSITION did not jump at the halfway mark, it never started —
+# `Animator.Observe` removed one whose either end was `StyleValueKind.Unknown`, which every function
+# list is — and a `@keyframes` block over `transform` did not jump either, it overlaid the empty
+# string, because the CSS of an `Unknown` is nothing. The animator times both and writes
+# `transform-mix(p, A, B)`; `TransformReader` interpolates it. Not a consumption gap then or now, so
+# no line here. The 3D family is further out again — `perspective`,
 # `transform-style` and `backface-visibility` — and ⚠ NOT because `UiTransform` cannot express the
 # matrix, which is what this paragraph used to imply: #547 (`bfad9599`) made it a 3×3 homography on
 # 2026-09-04. ⚠ And NOT because the vertex has nowhere to put a `w`, which is what this paragraph said
