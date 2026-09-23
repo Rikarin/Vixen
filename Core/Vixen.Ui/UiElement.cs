@@ -2470,6 +2470,47 @@ public partial class UiElement : Composition.IComposable {
     /// <summary>And the block size, which a <c>size</c> container can move on its own.</summary>
     internal float AppliedContainerBlock { get; set; } = float.NaN;
 
+    /// <summary>Which axes the container above this element had claimed when its style was built.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not part of the rebuild test above and written on every pass, because it is not a
+    ///     staleness key — it is the other half of a number.</b>
+    ///     <see cref="AppliedContainerInline" /> stores what the getter answered, which for an
+    ///     element under no container is the viewport's width; without the flag beside it there is no
+    ///     way to tell that reading apart from a container that happens to be viewport-wide, and
+    ///     <see cref="WithAppliedContainer" /> would pin a torn-off window's <c>cqw</c> to the
+    ///     primary display's width rather than to its own.
+    /// </remarks>
+    internal ContainerKind AppliedContainerAxes { get; set; }
+
+    /// <summary>The context this element's own declarations resolve their container units against.</summary>
+    /// <param name="metrics">A context for the surface this element is on.</param>
+    /// <returns>The same context, carrying the query container the style walk found above it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>This exists because a container unit has <i>two</i> readers and only one of them is
+    ///     on the style walk.</b> <c>UiDocument.Apply</c> descends with a
+    ///     <see cref="LengthContext" /> that <c>Containers.WithContainerOf</c> has narrowed at every
+    ///     query container, so <c>width: 50cqi</c> is right; <c>UiDocument.Accumulate</c> and
+    ///     <c>DrawListBuilder</c> build theirs from the surface and never see that walk, so
+    ///     <c>translate: 50cqi</c>, <c>transform: translateX(50cqi)</c>, a sticky inset and a shadow
+    ///     offset all resolved against the <i>viewport</i> — a plausible number, five times too large
+    ///     on the fixture that found it, with nothing logged. Replaying the walk from an element
+    ///     would be a second copy of the search; the walk's own answer is recorded instead, and every
+    ///     later reader asks the element for it.
+    ///     <para>
+    ///         ⚠ <b>An element under no container <i>resets</i> the container rather than passing the
+    ///         argument through</b>, which is not tidiness: the two callers that re-base a context —
+    ///         <c>TransformReader.Established</c>, for the parent's <c>perspective</c> — hand in a
+    ///         context that already carries somebody else's container, and a pass-through would let
+    ///         it stand. Reset to <see cref="ContainerKind.Normal" /> the answer is the surface's
+    ///         viewport, which is what CSS Containment 3 § 5.3 asks for and what keeps a torn-off
+    ///         window's <c>cqw</c> measuring that window.
+    ///     </para>
+    /// </remarks>
+    internal LengthContext WithAppliedContainer(in LengthContext metrics) =>
+        AppliedContainerAxes == ContainerKind.Normal
+            ? metrics.WithContainer(metrics.ViewportWidth, metrics.ViewportHeight, ContainerKind.Normal)
+            : metrics.WithContainer(AppliedContainerInline, AppliedContainerBlock, AppliedContainerAxes);
+
     /// <summary>The letter spacing that went with it.</summary>
     internal float AppliedLetterSpacing { get; set; } = float.NaN;
 

@@ -1638,6 +1638,13 @@ public sealed partial class UiDocument : IDisposable {
         // measured — a width of nothing — and without these two the reference test then declares the
         // element up to date for ever. It is the `lh` trap one unit along, and it fails the other
         // way round: `lh` had a stand-in that was merely wrong, this has a zero that is invisible.
+        // ⚠ <b>Outside the test below and written every pass, because the readers that are not on
+        // this walk need it.</b> `translate`, `transform`, a sticky inset and a shadow offset are all
+        // resolved in `Accumulate` and in `DrawListBuilder`, from a context built off the surface
+        // rather than descended through `WithContainerOf` — so a container unit in any of them
+        // measured the viewport until this was recorded. See `UiElement.WithAppliedContainer`.
+        element.AppliedContainerAxes = metrics.ContainerAxes;
+
         if (!ReferenceEquals(element.AppliedStyle, style)
             || !element.AppliedFontSize.Equals(element.FontSize)
             || !element.AppliedLineHeight.Equals(element.LineHeight)
@@ -2914,7 +2921,21 @@ public sealed partial class UiDocument : IDisposable {
         // their content with, and survives a restyle; a translation is declarative and is whatever the
         // cascade last computed. Folding the second into the first would make a stylesheet silently
         // erase a scroll position, which reads as the panel jumping home on an unrelated theme change.
-        translation.Of(element, metrics, out var dx, out var dy);
+        // ⚠ <b>Per element rather than the surface's, and only the container part of it.</b> The
+        // three readers below all take lengths off this element's own declarations, and a container
+        // unit in one of them measured the viewport until this line existed — `WithContainerOf` runs
+        // on the style walk and this walk is a different one, so `width: 50cqi` was right on the
+        // element whose `translate: 50cqi` was five times too large. The element carries the walk's
+        // answer; see `UiElement.WithAppliedContainer`, which returns the argument unchanged for the
+        // elements — nearly all of them — that are under no query container.
+        //
+        // ⚠ The font size and the line height are deliberately NOT narrowed here, because that is a
+        // wider gap with a wider blast radius: `TransformReader.Established`'s remark records that
+        // every `em` in every transform resolves against the ROOT font size, and closing that is a
+        // change to what existing documents draw rather than a refusal turned into an answer.
+        var lengths = element.WithAppliedContainer(metrics);
+
+        translation.Of(element, lengths, out var dx, out var dy);
 
         element.AbsoluteLeft = x + element.Left + element.OffsetX + dx;
         element.AbsoluteTop = y + element.Top + element.OffsetY + dy;
@@ -2932,7 +2953,7 @@ public sealed partial class UiDocument : IDisposable {
         // gives for nothing because it passes this element's accumulated position on. See
         // `Sticky.cs`.
         if (sticky.Is(element)) {
-            sticky.Of(element, metrics, in port, out var sx, out var sy);
+            sticky.Of(element, lengths, in port, out var sx, out var sy);
 
             element.AbsoluteLeft += sx;
             element.AbsoluteTop += sy;
@@ -2958,7 +2979,7 @@ public sealed partial class UiDocument : IDisposable {
         // transforms compose for nothing — the inner group's composite quad is transformed by the
         // inner matrix and then rasterised into the outer group's surface, which the outer matrix
         // transforms in turn — and it is what stops a transform leaking into layout.
-        element.Transform = transform.Of(element, metrics);
+        element.Transform = transform.Of(element, lengths);
 
         // ⚠ <b>A scrolling box is the scrollport its descendants stick to, and the rectangle is the
         // one the clip uses.</b> `Cut` clips against this element's border box, so a sticky header

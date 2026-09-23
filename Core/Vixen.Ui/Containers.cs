@@ -311,6 +311,19 @@ public sealed partial class UiDocument {
         var kind = KindOf(style, out _);
 
         if (kind == ContainerKind.Normal) {
+            // ⚠ <b>An element that STOPS being a query container forgets the box it used to hand
+            // out, and the guard is what keeps that free.</b> The field is the settle loop's driver:
+            // it requests a pass when a container's box moves, by comparing against what it handed
+            // out last time. Left standing across a `container-type` that a class change removed, it
+            // would still hold that box — so an element that became a container again at the same
+            // measured size would compare equal, and the pass a first-frame container unit needs
+            // would not be asked for. `Kind` is `Normal` in the sentinel and in nothing `BoxOf`
+            // returns, so this writes only on the transition and not on the overwhelming majority of
+            // elements that were never containers.
+            if (element.AppliedContainerBox.Kind != ContainerKind.Normal) {
+                element.AppliedContainerBox = new(float.NaN, float.NaN, ContainerKind.Normal);
+            }
+
             return metrics;
         }
 

@@ -433,7 +433,15 @@ sealed class TransformReader {
             return Matrix4x4.Identity;
         }
 
-        var context = metrics.WithFontSize(parent.FontSize).WithLineHeight(parent.LineHeight);
+        // ⚠ And the parent's query container for the same reason as the parent's font: an element
+        // that is itself a query container hands its children a narrower context than the one its own
+        // `perspective: 50cqw` measures against, so reading the caller's would resolve the parent's
+        // declaration against the parent's own box.
+        var context = parent
+            .WithAppliedContainer(metrics)
+            .WithFontSize(parent.FontSize)
+            .WithLineHeight(parent.LineHeight);
+
         var length = context.ToLength(parser.Parse(declared));
 
         // ⚠ A non-positive distance is not a flat element, it is an invalid declaration: CSS
@@ -840,6 +848,17 @@ sealed class TransformReader {
     ///         than duplicated.</b> A transform resolves against a box and not against a line, and
     ///         nothing in this repository writes <c>translate: 1lh</c> — but the unit parses
     ///         everywhere else, so this is a gap to decide about rather than one to close in passing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The six <c>cq*</c> rows were added here one commit before the context that can
+    ///         answer them, and that is the trap the paragraph above nearly walked into.</b> A unit
+    ///         listed in this table but unreachable in the reader's context is not a refusal, it is
+    ///         the viewport with a plausible number on it — <c>translate: 50cqi</c> inside a 200px
+    ///         container moved five hundred points instead of a hundred, and the refusal it replaced
+    ///         had at least moved nothing. Adding a row here is therefore a claim about
+    ///         <c>UiDocument.Accumulate</c>'s <see cref="LengthContext" /> and not only about a
+    ///         spelling; <c>UiElement.WithAppliedContainer</c> is what makes the claim true, and
+    ///         <c>ContainerUnitTests</c> asserts it on the number rather than on the parse.
     ///     </para>
     /// </remarks>
     static StyleUnit UnitOf(ReadOnlySpan<char> suffix) => suffix switch {

@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
+using Vixen.Ui.Rendering;
 using Xunit;
 
 namespace Vixen.Ui.Tests;
@@ -286,5 +288,153 @@ public class ContainerUnitTests {
         document.Update();
 
         Assert.Equal(200f, body.Width, Tolerance);
+    }
+
+    /// <summary>⚠ And a <c>translate</c> distance measures it too, which the sizing half cannot show.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A second reader, seeded from a different context, and it is the one a container
+    ///         unit can reach without anybody noticing.</b> Every assertion above resolves through
+    ///         <c>UiDocument.Apply</c>, which is the walk <c>WithContainerOf</c> runs on;
+    ///         <c>translate</c>, <c>transform</c> and <c>position: sticky</c> resolve in
+    ///         <c>UiDocument.Accumulate</c>, which used to thread the bare surface context through the
+    ///         whole tree. So the unit parsed, the reader accepted it, and the answer was a viewport
+    ///         fraction — the exact failure this file's own header calls the plausible one, arriving
+    ///         through the one path the header's fixtures cannot see.
+    ///     </para>
+    ///     <para>
+    ///         The pair is what makes it an assertion rather than a coincidence: the same declaration
+    ///         on a sibling with no container above it is 500, so an engine that resolved both against
+    ///         the viewport gives 500 twice and an engine that resolved both against the container
+    ///         gives 100 twice.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_translation_in_container_units_measures_the_container() {
+        using var document = Document(
+            """
+            root { width: 1000px; height: 600px; flex-direction: column; }
+            .panel { container-type: inline-size; width: 200px; height: 100px; }
+            .body { width: 10px; height: 10px; translate: 50cqi; }
+            """
+        );
+
+        var inside = document.Root.Add("div", classNames: "panel").Add("div", classNames: "body");
+        var outside = document.Root.Add("div", classNames: "body");
+
+        document.Update();
+
+        Assert.Equal(100f, inside.AbsoluteLeft, Tolerance);
+        Assert.Equal(500f, outside.AbsoluteLeft, Tolerance);
+    }
+
+    /// <summary>⚠ And a <c>transform</c> function's distance, which is the same context one reader on.</summary>
+    /// <remarks>
+    ///     <c>translate</c> lands in the accumulated position and <c>transform</c> lands in a matrix,
+    ///     so they are two readers with two outputs sharing one <see cref="LengthContext" />. Asserted
+    ///     separately because a fix that reached only the position would leave the matrix answering the
+    ///     viewport, and nothing about the number 500 looks wrong in a matrix.
+    /// </remarks>
+    [Fact]
+    public void A_transform_distance_in_container_units_measures_the_container() {
+        using var document = Document(
+            """
+            root { width: 1000px; height: 600px; flex-direction: column; }
+            .panel { container-type: inline-size; width: 200px; height: 100px; }
+            .body { width: 10px; height: 10px; transform: translateX(50cqi); }
+            """
+        );
+
+        var inside = document.Root.Add("div", classNames: "panel").Add("div", classNames: "body");
+        var outside = document.Root.Add("div", classNames: "body");
+
+        document.Update();
+
+        Assert.Equal(100f, Assert.NotNull(inside.Transform).Dx, Tolerance);
+        Assert.Equal(500f, Assert.NotNull(outside.Transform).Dx, Tolerance);
+    }
+
+    /// <summary>⚠ And a shadow's offset, which is a third seeding of the same context in the draw list.</summary>
+    /// <remarks>
+    ///     <c>DrawListBuilder</c> builds its own context from <c>UiDocument.Viewport</c> rather than
+    ///     receiving one, so it is a third place a container unit can silently become a viewport unit
+    ///     — and the number it produces is an offset in points, where nothing is out of range and
+    ///     nothing is logged. <c>filter: drop-shadow()</c> reads through the same helper.
+    /// </remarks>
+    [Fact]
+    public void A_shadow_offset_in_container_units_measures_the_container() {
+        using var document = Document(
+            """
+            root { width: 1000px; height: 600px; flex-direction: column; }
+            .panel { container-type: inline-size; width: 200px; height: 100px; }
+            .card {
+                width: 50px;
+                height: 20px;
+                background-color: #ffffff;
+                box-shadow: 0px 10cqi 0px #000000;
+            }
+            """
+        );
+
+        var card = document.Root.Add("div", classNames: "panel").Add("div", classNames: "card");
+
+        document.Update();
+        document.Draw();
+
+        var shadow = Assert.Single(
+            document.Drawing.Commands,
+            command => command.Kind == DrawCommandKind.Shadow
+        );
+
+        // Ten hundredths of the 200px container is 20. Ten hundredths of the 1000px viewport is 100.
+        Assert.Equal(card.AbsoluteTop + 20f, shadow.Y, Tolerance);
+    }
+
+    /// <summary>⚠ And the parent's <c>perspective</c> measures the parent's container, not the child's.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>perspective</c> is the one declaration <c>TransformReader</c> reads off an element
+    ///         other than the one it is measuring, so it is the one place a per-element container
+    ///         context has to be re-based rather than accepted — the same argument
+    ///         <see cref="TransformTests.A_perspective_in_em_is_measured_in_the_parents_font" /> makes
+    ///         for the font, one unit along. The stage below is <i>itself</i> the query container, so
+    ///         the context its card resolves in carries the stage's own 200px box while the stage's
+    ///         own <c>50cqw</c> is under no container at all and is half the viewport.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is what makes <c>UiElement.WithAppliedContainer</c> reset on the
+    ///         no-container branch instead of passing its argument through.</b> Every other caller
+    ///         hands it a context with no container in it, where a pass-through and a reset are the
+    ///         same thing; this one hands it the child's, and a pass-through would read the stage's
+    ///         <c>perspective: 50cqw</c> as 100 rather than 320 — a projection three times as strong
+    ///         as authored, which is a plausible picture of a card tipped further away.
+    ///     </para>
+    ///     <para>
+    ///         The numbers are <c>A_perspective_in_em_is_measured_in_the_parents_font</c>'s, because
+    ///         the geometry is deliberately identical and only the way the 320 is spelled differs.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_parent_perspective_in_container_units_measures_the_parents_container() {
+        using var document = Document(
+            """
+            root { width: 640px; height: 300px; }
+            .stage { position: absolute; left: 20px; top: 20px; width: 200px; height: 200px;
+                     container-type: inline-size; perspective: 50cqw; }
+            .card { position: absolute; left: 0px; top: 0px; width: 100px; height: 100px;
+                    background-color: #111111; transform: rotateX(60deg); }
+            """,
+            640f,
+            300f
+        );
+
+        document.Root.Add("div", classNames: "stage").Add("div", classNames: "card");
+        document.Update();
+
+        var card = Assert.IsType<UiTransform>(document.Root.Children[0].Children[0].Transform);
+        var at = card.Apply(new Vector2(70f, 120f));
+
+        Assert.Equal(62.1756f, at.X, 0.01f);
+        Assert.Equal(91.0878f, at.Y, 0.01f);
     }
 }
