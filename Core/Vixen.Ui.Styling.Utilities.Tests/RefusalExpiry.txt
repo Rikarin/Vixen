@@ -80,13 +80,26 @@
 # mirror-image reason — they are `absent` and could carry an `expires-with`, but the carrier would
 # have to be refused OUTRIGHT and the two roots that would carry them are `partial`.
 #
-# ⚠ So all four now rest on the same condition and none of them can name it: what stands is a
-# READING — `TransformReader.Functions` refuses any argument holding a nested parenthesis, so a
-# `calc()` cannot ride the transform list — which is a change to an existing method rather than a
-# member whose arrival a tripwire can watch for. Tracked as `Rikarin/Vixen#1328`, which asks for one
-# of three answers — fold the `calc()`, move the two roots onto the `translate`/`scale` properties,
-# or give this grammar a fourth kind — and this paragraph is the only other thing in the tree that
-# says so.
+# ⚠ So all four rested on the same condition and none of them could name it: a READING —
+# `TransformReader.Functions` refusing any argument holding a nested parenthesis — which is a change
+# to an existing method rather than a member whose arrival a tripwire can watch for. Tracked as
+# `Rikarin/Vixen#1328`, which asked for one of three answers: fold the `calc()`, move the two roots
+# onto the `translate`/`scale` properties, or give this grammar a fourth kind.
+#
+# ⚠ IT CLOSED ON 2026-09-23, AND THE CONDITION FOUR ROWS COULD NOT NAME WAS HALF A FICTION. The fold
+# landed — a `calc()` argument now goes through `StyleValueParser` and only what cannot fold still
+# drops the list whole — but that was never what kept `scale-z-*` and `translate-z-*` out. A
+# `translate-z-4` does not resolve to `calc(var(--spacing) * 4)` in this engine at all:
+# `TrySpacing` multiplies the step count by the theme's spacing base at resolution time and emits
+# `16px`, which `CompositionTests` has pinned for `translate-x-2` since the axis families landed.
+# The two roots are slots in `UtilityComposition.Transform()` now and measure `works`, `translate-*`
+# went with them, and `scale-*` keeps its `partial` on `scale-3d` — which is a decision rather than a
+# gap, because v4's enabling class has nothing to enable where the z slot always applies.
+#
+# ⚠ THE LESSON IS ABOUT THIS FILE AND NOT ABOUT THOSE ROWS. A condition the grammar cannot hold gets
+# written as prose, and prose is not measured — so it was wrong for eighteen days in four places at
+# once and every reader of this paragraph inherited the error. A clause that cannot be anchored is a
+# clause whose premise nobody has checked; that is the thing to look at, not the missing anchor.
 #
 # ⚠ AND THREE MORE SHARE `LayoutStyle.WritingMode`, which is the first anchor here that is not a
 # refusal's blocker but a working implementation's PREMISE. `float: inline-start` and

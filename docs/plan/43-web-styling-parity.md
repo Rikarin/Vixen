@@ -84,7 +84,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **331** | 319 families |
+| Utility **roots** (the unit of this table) | **331** | 321 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **107** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **90** |
 | Variant keys | **88** | **55** |
@@ -107,10 +107,10 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **256** |
-| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **24** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **259** |
+| **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **23** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **47** |
+| **absent** | not emitted at all | **45** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 
 ⚠ **There was a sixth, `unknown`, and it described a row rather than a state.** Exactly one row held
@@ -509,7 +509,7 @@ refusal block, which already says so for the same reason.
 | Flexbox and Grid | 34 | 30 | 2 | 0 | 2 | 0 |
 | Typography | 34 | 24 | 2 | 0 | 8 | 0 |
 | Spacing | 24 | 24 | 0 | 0 | 0 | 0 |
-| Transforms | 23 | 14 | 3 | 0 | 6 | 0 |
+| Transforms | 23 | 17 | 2 | 0 | 4 | 0 |
 | Filters | 20 | 10 | 10 | 0 | 0 | 0 |
 | Sizing | 15 | 13 | 0 | 0 | 2 | 0 |
 | Backgrounds | 11 | 6 | 1 | 0 | 4 | 0 |
@@ -517,7 +517,7 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 |
 | Accessibility | 1 | 1 | 0 | 0 | 0 | 0 |
-| **Total** | **331** | **256** | **24** | **1** | **47** | **3** |
+| **Total** | **331** | **259** | **23** | **1** | **45** | **3** |
 
 Flexbox and Grid leads at 30 of 34, with only two absent roots left and both of those refused on
 policy rather than owed; then Layout at 36 of 49, Interactivity at 31 of 40, Borders at 28 of 34,
@@ -1400,8 +1400,20 @@ does mirror that one.
    those rows carried no note at all, so there was no refusal to expire and nothing for
    `RefusalExpiryTests` to catch. The three-dimensional four were a *vertex* away and not a parser
    away until 2026-09-22: `UiVertex` had nowhere to put a `w`, so a projective quad was rasterised
-   with affine barycentrics. #548 landed the vertex and both executors' divide; they are a *reader*
-   away now (#550), which is what their own ledger rows say.
+   with affine barycentrics. #548 landed the vertex and both executors' divide, #550 the reader, and
+   `rotate-x-*`/`rotate-y-*` closed with it. ⚠ **The last two closed on 2026-09-23 (#1328), and their
+   stated blocker was refuted rather than removed.** It ran: a `translate-z-4` resolves to
+   `calc(var(--spacing) * n)` and `TransformReader.Functions` refuses a nested parenthesis, so a slot
+   would take the whole list down with it. The refusal was real and the fold landed; the `calc()` was
+   never this engine's output — `TrySpacing` multiplies the step count by the theme's spacing base at
+   resolution time, so what the assembler substitutes is `16px`. ⚠ **And they are slots in the
+   `transform` assembler rather than a third component on the `translate`/`scale` properties, which
+   is not v4's spelling and IS v4's composition**: Transforms 2 § 3 applies `transform` before both
+   properties, a list is applied right to left, so the two functions written FIRST are applied last —
+   the same place. Written last instead, `translate-z-12 rotate-x-45` would rotate the depth offset
+   into y and the card would swing rather than lift. Third family in this list to close on a premise
+   nobody had re-measured, and the first where the premise was about a *value the engine emits* rather
+   than about a reader it lacks.
 3. ⚠ *The property is **read** and the **value** is refused, so a registration keeps the gate green
    over a class that paints nothing.* The dangerous shape, and no per-property measurement can catch
    it. ⚠ **Two of this shape's three examples closed on 2026-09-06, and neither closed by being
