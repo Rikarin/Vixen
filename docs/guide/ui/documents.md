@@ -215,7 +215,19 @@ raised on the element that holds the document, so the prompt's walk finds *that*
 as for a quit could not tell the two apart. `UiCloseReason.DocumentClosed` is its default reason, and
 `Samples/02-HelloUi`'s File ▸ Close is the first caller either has had.
 
-**A proxy icon.** A platform seam with no interface here.
+⚠ **The three entries below are one blocker wearing three hats, which is worth saying before reading
+them as three jobs.** `IEditableDocument.Location` has no writer and no reader anywhere in this
+repository. Measured 2026-09-23: the only writes are `EditableDocumentTests`' four `Rename` calls, and
+`UiWindowTitle.Bind` — the one thing that takes an `IEditableDocument` and shows it — reads `Name` and
+`IsDirty` and not the location. A recent list is *keyed* on it; a proxy icon *is* it, because a
+represented file is a path; and half of the editor port is the question of what an `AssetId`'s
+location is. Whoever gives one document a real location discharges the larger part of all three, and
+anyone taking one of them on its own will find the same wall.
+
+**A proxy icon.** A platform seam with no interface here — ⚠ and that is the *second* obstacle rather
+than the first. `IUiWindow` has `Title` and nothing like `NSWindow.representedURL`; but a represented
+file is a path, so even with the member there would be nothing to put in it until a document sets a
+`Location`.
 
 ⚠ **A recent-documents list, and both halves of that entry were wrong.** It is not a platform seam —
 `Vixen.Editor.App` has a complete one in ordinary C#: `ProjectHistory` keeps a most-recent-first
