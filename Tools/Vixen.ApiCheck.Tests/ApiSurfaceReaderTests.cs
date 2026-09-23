@@ -413,6 +413,44 @@ public sealed class ApiSurfaceReaderTests : IDisposable {
         Assert.DoesNotContain(surface, entry => entry.Contains("scans", StringComparison.Ordinal));
     }
 
+    /// <summary>An event's accessors and an indexer's parameters carry trim contracts too.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The two places the first reading of #1359 left out.</b> Neither attribute can go on
+    ///     an event itself — <c>[RequiresUnreferencedCode]</c> targets constructors, methods and
+    ///     classes — so an event's contract lives on its <c>add</c>/<c>remove</c>, which are members
+    ///     a caller reaches by writing <c>+=</c>. An indexer's parameter is a parameter every caller
+    ///     supplies, like a method's.
+    /// </remarks>
+    [Fact]
+    public void AnEventAccessorAndAnIndexerParameter_CarryTheirContracts() {
+        var surface = Read(
+            """
+            using System;
+            using System.Diagnostics.CodeAnalysis;
+
+            namespace Sample;
+
+            public class Hub {
+                public event Action? Changed {
+                    [RequiresUnreferencedCode("subscribes by reflection")]
+                    add { }
+                    remove { }
+                }
+
+                public int this[[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] Type key] => 0;
+            }
+            """
+        );
+
+        Assert.Contains("Sample.Hub.Changed.add [method: RequiresUnreferencedCode()]", surface);
+        Assert.Contains(surface, entry => entry.Contains("this[", StringComparison.Ordinal) && entry.EndsWith("[param key: DynamicallyAccessedMembers(PublicMethods)]", StringComparison.Ordinal));
+
+        // One line per contract: the indexer's parameter must not be reported by the indexer and
+        // again by its getter, which would make one attribute change read as two.
+        Assert.Single(surface, entry => entry.Contains("DynamicallyAccessedMembers(PublicMethods)", StringComparison.Ordinal));
+        Assert.Single(surface, entry => entry.Contains("RequiresUnreferencedCode", StringComparison.Ordinal));
+    }
+
     IReadOnlyList<string> Read(string source, string name = "Sample") {
         var path = Compile(source, name);
 

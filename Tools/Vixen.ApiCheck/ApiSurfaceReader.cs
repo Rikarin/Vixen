@@ -274,7 +274,23 @@ public static class ApiSurfaceReader {
                 break;
 
             case IEventSymbol @event:
-                yield return $"{@event.ToDisplayString(MemberFormat)} -> {@event.Type.ToDisplayString(TypeFormat)}";
+                var eventName = @event.ToDisplayString(MemberFormat);
+
+                yield return $"{eventName} -> {@event.Type.ToDisplayString(TypeFormat)}";
+
+                // ⚠ The accessors, for the property's reason and more so: neither trim attribute can
+                // target an event at all, so an `add`/`remove` is the only place an event's contract
+                // can sit — and `+=` is a call to it. An indexer needs no such case: its parameters
+                // are its getter's, which the property case above already reads.
+                foreach (var (accessor, kind) in new[] { (@event.AddMethod, "add"), (@event.RemoveMethod, "remove") }) {
+                    if (accessor is null || !IsVisibleOutside(accessor)) {
+                        continue;
+                    }
+
+                    foreach (var annotation in Annotations(accessor, $"{eventName}.{kind}")) {
+                        yield return annotation;
+                    }
+                }
 
                 break;
 

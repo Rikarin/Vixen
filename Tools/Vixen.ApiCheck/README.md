@@ -88,7 +88,8 @@ Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.RegisterFrom(System.Type type)
 
 `[DynamicallyAccessedMembers]` on a parameter, a return value, a type parameter, a property, a field
 or a type, and `[RequiresUnreferencedCode]`, `[RequiresDynamicCode]` and `[RequiresAssemblyFiles]` on
-a member, an accessor or a type. ⚠ **These are signature and the reading used to be blind to them**
+a member, an accessor or a type — an event's `add`/`remove` included, since neither attribute can
+target an event itself, and an indexer's parameters through its getter. ⚠ **These are signature and the reading used to be blind to them**
 (#1359): an annotation changes no character of the display string a member's line is made from, so
 `UiPropertyRegistry.Of`'s requirement was widened from `NonPublicConstructors` to `All` — which roots
 every member of whatever a trimmed caller passes — and the gate reported no difference, and a
