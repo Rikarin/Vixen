@@ -35,7 +35,9 @@ public class KeyMapTests {
     /// <remarks>
     ///     A structural claim rather than a behavioural one, and deliberately so: every other test
     ///     here would pass just as well against a copy of these types in the editor. The symptom the
-    ///     move exists to end is <see cref="MenuItem.ShowShortcut" /> — the controls library could
+    ///     move exists to end is
+    ///     <see cref="MenuItem.ShowShortcut(Vixen.Input.InputKey, Vixen.Ui.ModifierKeys)" /> — the
+    ///     controls library could
     ///     <i>draw</i> "⌘S" while every part of the machinery behind it lived in the editor.
     /// </remarks>
     [Fact]
