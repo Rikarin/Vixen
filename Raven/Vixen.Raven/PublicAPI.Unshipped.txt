@@ -176,6 +176,8 @@ Vixen.Raven.Artefacts.LibraryIrFunction.Body.init -> Vixen.Raven.Artefacts.Libra
 Vixen.Raven.Artefacts.LibraryIrFunction.LibraryIrFunction() -> void
 Vixen.Raven.Artefacts.LibraryIrFunction.Locals.get -> System.Collections.Immutable.ImmutableArray<Vixen.Raven.Artefacts.LibraryIrVariable>
 Vixen.Raven.Artefacts.LibraryIrFunction.Locals.init -> System.Collections.Immutable.ImmutableArray<Vixen.Raven.Artefacts.LibraryIrVariable>
+Vixen.Raven.Artefacts.LibraryIrFunction.NoContraction.get -> bool
+Vixen.Raven.Artefacts.LibraryIrFunction.NoContraction.init -> bool
 Vixen.Raven.Artefacts.LibraryIrFunction.Parameters.get -> System.Collections.Immutable.ImmutableArray<Vixen.Raven.Artefacts.LibraryIrVariable>
 Vixen.Raven.Artefacts.LibraryIrFunction.Parameters.init -> System.Collections.Immutable.ImmutableArray<Vixen.Raven.Artefacts.LibraryIrVariable>
 Vixen.Raven.Artefacts.LibraryIrFunction.ValueCount.get -> int
@@ -654,6 +656,7 @@ Vixen.Raven.IR.IrFunction.Discards.get -> bool
 Vixen.Raven.IR.IrFunction.IrFunction(string name, Vixen.Raven.IR.IrType returnType) -> void
 Vixen.Raven.IR.IrFunction.Locals.get -> System.Collections.Generic.IReadOnlyList<Vixen.Raven.IR.IrVariable>
 Vixen.Raven.IR.IrFunction.Name.get -> string
+Vixen.Raven.IR.IrFunction.NoContraction.get -> bool
 Vixen.Raven.IR.IrFunction.Parameters.get -> System.Collections.Generic.IReadOnlyList<Vixen.Raven.IR.IrVariable>
 Vixen.Raven.IR.IrFunction.ReturnType.get -> Vixen.Raven.IR.IrType
 Vixen.Raven.IR.IrFunction.ValueCount.get -> int
@@ -2765,6 +2768,7 @@ override Vixen.Raven.Symbols.SubstitutedMethodSymbol.DeclaringSyntax.get -> Vixe
 override Vixen.Raven.Symbols.SubstitutedMethodSymbol.IsStatic.get -> bool
 override Vixen.Raven.Symbols.SubstitutedMethodSymbol.MethodKind.get -> Vixen.Raven.Symbols.MethodKind
 override Vixen.Raven.Symbols.SubstitutedMethodSymbol.Name.get -> string
+override Vixen.Raven.Symbols.SubstitutedMethodSymbol.NoContraction.get -> bool
 override Vixen.Raven.Symbols.SubstitutedMethodSymbol.Parameters.get -> System.Collections.Generic.IReadOnlyList<Vixen.Raven.Symbols.ParameterSymbol>
 override Vixen.Raven.Symbols.SubstitutedMethodSymbol.ReturnType.get -> Vixen.Raven.Symbols.TypeSymbol
 override Vixen.Raven.Symbols.SubstitutedMethodSymbol.SemanticName.get -> string?
@@ -3608,6 +3612,7 @@ virtual Vixen.Raven.Symbols.FieldSymbol.IsValueParameter.get -> bool
 virtual Vixen.Raven.Symbols.FieldSymbol.ResourceKind.get -> Vixen.Raven.Symbols.ResourceKind
 virtual Vixen.Raven.Symbols.FieldSymbol.ResourceSet.get -> Vixen.Raven.Symbols.ResourceSet
 virtual Vixen.Raven.Symbols.FieldSymbol.SemanticName.get -> string?
+virtual Vixen.Raven.Symbols.MethodSymbol.NoContraction.get -> bool
 virtual Vixen.Raven.Symbols.MethodSymbol.SemanticName.get -> string?
 virtual Vixen.Raven.Symbols.MethodSymbol.Stage.get -> Vixen.Raven.Symbols.ShaderStage
 virtual Vixen.Raven.Symbols.MethodSymbol.TypeParameters.get -> System.Collections.Generic.IReadOnlyList<Vixen.Raven.Symbols.TypeParameterSymbol>

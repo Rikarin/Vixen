@@ -72,6 +72,8 @@ internal sealed class SourceMethodSymbol : MethodSymbol {
 
     public override string? SemanticName => DeclarationFacts.GetSemanticName(AttributeLists);
 
+    public override bool NoContraction => DeclarationFacts.IsNoContraction(AttributeLists);
+
     public override IReadOnlyList<ParameterSymbol> Parameters => parameters ??= ResolveParameters();
 
     public override IReadOnlyList<TypeParameterSymbol> TypeParameters {

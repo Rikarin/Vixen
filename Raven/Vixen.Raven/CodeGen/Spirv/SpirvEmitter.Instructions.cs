@@ -56,6 +56,15 @@ partial class SpirvEmitter {
     /// <summary>True once the block being built has branched or returned.</summary>
     bool terminated;
 
+    /// <summary>True while emitting a body whose declaration forbade fusing its arithmetic.</summary>
+    /// <remarks>
+    ///     Emitter state rather than a parameter threaded through every <c>Emit</c> call, and set by
+    ///     <c>EmitFunction</c> for the body it is about to write — so the entry-point wrapper and the
+    ///     shader's initializer, which are the compiler's functions and nobody's declaration, are
+    ///     never decorated by a neighbour's flag.
+    /// </remarks>
+    bool noContraction;
+
     // --- Blocks ------------------------------------------------------------
 
     void Add(SpirvInstruction instruction) => module.AddFunctionInstruction(instruction);
@@ -63,8 +72,56 @@ partial class SpirvEmitter {
     uint Emit(SpirvOp op, uint resultType, params SpirvOperand[] operands) {
         var id = module.AllocateId();
         Add(new(op, resultType, id, operands));
+
+        // ⚠ Here rather than at each arithmetic site, because "every arithmetic instruction this
+        // body emits" is the claim, and a claim spread over thirty `return Emit(...)` calls is one
+        // an intrinsic added next year silently falls outside of. The op set is the filter.
+        if (noContraction && Contractible(op)) {
+            module.Decorate(id, SpirvDecoration.NoContraction);
+        }
+
         return id;
     }
+
+    /// <summary>Whether a fused multiply-add could absorb this instruction.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A decoration on anything else is an invalid module</b>, and this list is the
+    ///         conservative reading of "arithmetic instruction": the five floating-point operators,
+    ///         and the four products that are internally the multiply-add chains contraction exists
+    ///         to describe. <c>OpFNegate</c> is deliberately out — a sign flip is exact, so
+    ///         decorating it buys nothing and only widens what a validator has to agree with.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A <c>GLSL.std.450</c> result is not in it and cannot be.</b> SPIR-V's
+    ///         <c>NoContraction</c> targets core arithmetic instructions, so <c>mix</c>,
+    ///         <c>smoothstep</c>, <c>Fma</c>, <c>Length</c> and <c>Normalize</c> in a marked body stay
+    ///         fusable however the body was declared — the decoration has nowhere to go. That is a
+    ///         real limit on what marking a function buys, and the UI box path #1190 is about is full
+    ///         of exactly those: a lavapipe run whose 1/255 survives marking has not shown the
+    ///         attribute does not work, only that the divergent rounding lives in an
+    ///         <c>OpExtInst</c> this cannot reach.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not checked against <c>spirv-val</c> on the machine this was written on</b>,
+    ///         which had no Vulkan SDK; <c>SpirvTestBase.Validate</c> returns without validating
+    ///         when the tool is missing, so a local green says nothing about the module's validity
+    ///         and the ubuntu leg is what proves it.
+    ///     </para>
+    /// </remarks>
+    static bool Contractible(SpirvOp op) =>
+        op is SpirvOp.FAdd
+            or SpirvOp.FSub
+            or SpirvOp.FMul
+            or SpirvOp.FDiv
+            or SpirvOp.FRem
+            or SpirvOp.FMod
+            or SpirvOp.VectorTimesScalar
+            or SpirvOp.MatrixTimesScalar
+            or SpirvOp.VectorTimesMatrix
+            or SpirvOp.MatrixTimesVector
+            or SpirvOp.MatrixTimesMatrix
+            or SpirvOp.Dot;
 
     void BeginBlock(uint label) {
         Add(new(SpirvOp.Label, null, label));

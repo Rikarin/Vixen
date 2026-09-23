@@ -45,7 +45,7 @@ internal static class DeclarationFacts {
     /// </remarks>
     static readonly string[] MarkerAttributes = [
         "Permutation", "PushConstant", "Shared", "MaterialIndex", "Format", "Semantic", "DynamicOffset",
-        "Interpolation"
+        "Interpolation", "NoContraction"
     ];
 
     /// <summary>The word each <see cref="InterpolationMode" /> is written as.</summary>
@@ -274,6 +274,41 @@ internal static class DeclarationFacts {
     public static bool IsPushConstant(SyntaxList<AttributeListSyntax> attributeLists) {
         foreach (var attribute in GetAttributes(attributeLists)) {
             if (GetAttributeName(attribute) == "PushConstant") {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Whether the declaration is marked <c>[NoContraction]</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one attribute that changes no interface and no picture that is not already
+    ///         wrong.</b> A driver is permitted to fuse a multiply and an add into one instruction
+    ///         that rounds once, and it is permitted not to; two compilers that agree on every
+    ///         operand and every constant can therefore disagree in the last place, which is what a
+    ///         1/255 difference on an antialiased edge is made of. This is the author saying that
+    ///         this function's arithmetic is a comparison rather than a picture.
+    ///     </para>
+    ///     <para>
+    ///         Per function, and it does <i>not</i> reach a callee: a function says it for its own
+    ///         body, which is the rule a reader can check by looking at one declaration. GLSL's
+    ///         <c>precise</c> instead propagates backwards from a marked output through everything
+    ///         that contributed to it — a stronger tool and a harder one to see the edges of.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It reaches the body's core arithmetic and not its <c>GLSL.std.450</c> calls.</b>
+    ///         SPIR-V's decoration targets arithmetic instructions, so <c>mix</c>, <c>smoothstep</c>,
+    ///         <c>Fma</c>, <c>Length</c> and <c>Normalize</c> stay fusable in a marked body — the
+    ///         decoration has nowhere to attach. A body whose divergence lives in one of those is not
+    ///         answered by this attribute, and an experiment that marks it and sees no change has
+    ///         learned that and not that the attribute is broken.
+    ///     </para>
+    /// </remarks>
+    public static bool IsNoContraction(SyntaxList<AttributeListSyntax> attributeLists) {
+        foreach (var attribute in GetAttributes(attributeLists)) {
+            if (GetAttributeName(attribute) == "NoContraction") {
                 return true;
             }
         }

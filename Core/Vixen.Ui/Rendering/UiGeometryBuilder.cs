@@ -200,7 +200,8 @@ public sealed class UiGeometryBuilder {
     ///     twice the scale wants half of this, or its curves are visibly faceted — the flattening
     ///     error is in the geometry and the projection magnifies it along with everything else.
     ///     Settable rather than derived, because the builder is handed a viewport and not a scale,
-    ///     and inventing one would be guessing.
+    ///     and inventing one would be guessing. <see cref="ToleranceFor" /> is the arithmetic a host
+    ///     that knows its scale should set it from; the default is that answer at scale one.
     /// </remarks>
     public float Tolerance {
         get;
@@ -212,7 +213,7 @@ public sealed class UiGeometryBuilder {
             field = value;
             flatteningMoved = true;
         }
-    } = 0.2f;
+    } = ToleranceFor(1f);
 
     /// <summary>How far a path's antialiasing fringe reaches past its outline, in document pixels.</summary>
     /// <remarks>
@@ -220,7 +221,17 @@ public sealed class UiGeometryBuilder {
     ///     at twice the scale wants half of this, or the fringe is a whole device pixel wide and the
     ///     edge reads as soft rather than smooth. Zero switches it off, which is what a caller
     ///     multisampling the pass should do: two antialiasing schemes over one edge do not make it
-    ///     twice as smooth, they make a seam.
+    ///     twice as smooth, they make a seam. <see cref="FringeFor" /> is what a host that knows its
+    ///     scale should set it from; the default is that answer at scale one.
+    ///     <para>
+    ///         ⚠ <b>A builder owned by a <c>UiWindowSurface</c> is not one to switch off here.</b>
+    ///         That surface assigns this and <see cref="Tolerance" /> from its own DPI scale on every
+    ///         <c>Tessellate</c>, so a zero written from outside is restored before the next build and
+    ///         the pass draws two antialiasing schemes over one edge with nothing to say so. The
+    ///         escape is for a host that drives a builder itself. No override was added to the
+    ///         surface, because nothing in the tree multisamples the UI pass — every zero written
+    ///         today is a test's — and an unreachable knob is worse than a documented constraint.
+    ///     </para>
     /// </remarks>
     public float Fringe {
         get;
@@ -232,7 +243,34 @@ public sealed class UiGeometryBuilder {
             field = value;
             flatteningMoved = true;
         }
-    } = 0.5f;
+    } = FringeFor(1f);
+
+    /// <summary>What <see cref="Tolerance" /> should be on a surface drawn at this scale.</summary>
+    /// <param name="scale">Device pixels per document pixel — a window's DPI scale.</param>
+    /// <returns>The chord error, in the document pixels <see cref="Tolerance" /> is stated in.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A fifth of a <i>device</i> pixel, expressed in document ones.</b> The flattening error
+    ///     is baked into the triangles in document units and the projection magnifies it along with
+    ///     everything else, so the number that has to stay put as the scale moves is the product —
+    ///     which makes this a division and not a constant. Static, and read by the host rather than
+    ///     applied by the builder, for the reason <see cref="Tolerance" /> gives: the builder is handed
+    ///     a viewport and not a scale, two windows of one application can be on two displays, and a
+    ///     scale invented from the viewport would be a guess. This is the same shape as
+    ///     <c>UiRenderer.WhiteLevelFor</c> — one derivation, every host.
+    /// </remarks>
+    public static float ToleranceFor(float scale) => 0.2f / (scale > 0f ? scale : 1f);
+
+    /// <summary>What <see cref="Fringe" /> should be on a surface drawn at this scale.</summary>
+    /// <param name="scale">Device pixels per document pixel — a window's DPI scale.</param>
+    /// <returns>The fringe reach, in the document pixels <see cref="Fringe" /> is stated in.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Half a <i>device</i> pixel, expressed in document ones.</b> A fringe left at half a
+    ///     document pixel on a 2× display reaches a whole device pixel past the outline on each side —
+    ///     a two-pixel band where the design is half of one, which reads as a soft edge rather than a
+    ///     smooth one and is a softness rather than a fault, so nothing fails and everything looks
+    ///     slightly woolly. Zero is preserved by the division and still means off.
+    /// </remarks>
+    public static float FringeFor(float scale) => 0.5f / (scale > 0f ? scale : 1f);
 
     /// <summary>Whether <see cref="Tolerance" /> or <see cref="Fringe" /> has moved since the geometry was built.</summary>
     /// <remarks>
@@ -245,12 +283,12 @@ public sealed class UiGeometryBuilder {
     ///     triangles at build time, both documented as wanting to halve at twice the scale, and
     ///     neither was in the key — so a host that did what their remarks ask would have set them
     ///     and then drawn the geometry built for the old ones for as long as nothing else changed.
-    ///     ⚠ No host sets them today, which is why the hole was invisible: the key was complete only
-    ///     because nobody turned the knob — and that absence is its own defect, filed as
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/1329">#1329</a>. Both hosts have the DPI
-    ///     scale at the call site and hand over the gamut beside it; until they hand these over too,
-    ///     a 2× display flattens curves at twice the error and draws a two-pixel antialiasing band.
-    ///     This part of the key is what makes doing so safe.
+    ///     ⚠ <b>No host set them at all until <a href="https://github.com/Rikarin/Vixen/issues/1329">#1329</a></b>,
+    ///     which is why the hole was invisible: the key was complete only because nobody turned the
+    ///     knob, and a 2× display flattened curves at twice the error and drew a two-pixel
+    ///     antialiasing band. <c>UiWindowSurface.Tessellate</c> — the one path both hosts reach the
+    ///     builder through — now sets both from the window's own DPI scale on every frame, so this
+    ///     part of the key is what a display change actually travels along.
     /// </remarks>
     bool flatteningMoved;
 

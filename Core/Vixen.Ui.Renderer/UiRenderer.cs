@@ -764,6 +764,19 @@ public sealed class UiRenderer : IDisposable {
         // in three other places at once. `ShaderReflectionTests.TheBackdropBoxIsWhereTheHostPushesIt`
         // now pins where the box landed, and is the test to read before believing anything about this
         // block again.
+        //
+        // ⚠ <b>A second pipeline layout has to repeat set 0 AND this exact range, or the sharing
+        // above buys nothing.</b> #783's plan for a blended group is a two-texture composite with the
+        // backdrop in a SECOND descriptor set — right, because `BindingPlan.Of` numbers a set by kind
+        // (uniform block, textures, samplers, storage buffers, each in declaration order), so a Raven
+        // composite declaring a second `Texture2D` would take binding 1 for it and push its own
+        // sampler to 2 and its storage buffer to 3, moving the layout that is shared precisely so no
+        // pipeline change disturbs a bound set. But Vulkan's compatibility rule is that two layouts
+        // are compatible for set N only when set layouts 0..N and the push-constant ranges are ALL
+        // identical: a blend layout that adds set 1 and narrows or re-stages [0, 128] makes set 0
+        // incompatible, and un-binds the atlas for every UI draw after the blend. That is the same
+        // undefined-behaviour-a-golden-cannot-see class this comment opens with, reached from the
+        // other direction.
         layout = device.CreatePipelineLayout(
             new([atlasLayout], [new(PushStages, 0, 128)], "ui")
         );

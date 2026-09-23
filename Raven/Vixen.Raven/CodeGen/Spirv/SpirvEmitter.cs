@@ -711,6 +711,11 @@ sealed partial class SpirvEmitter {
         opaqueParameters.Clear();
         loops.Clear();
 
+        // Assigned rather than or-ed, so it goes off again at the next function: this is the only
+        // place a body's own declaration is in scope, and every other function the module emits is
+        // entitled to be fused.
+        noContraction = function.NoContraction;
+
         var returnType = types.Type(function.ReturnType);
 
         // A by-reference parameter takes a pointer into function storage. Function storage rather
@@ -1000,6 +1005,13 @@ sealed partial class SpirvEmitter {
         foreach (var function in CallGraph.InCallOrder(entryPoint.Function)) {
             EmitFunction(function);
         }
+
+        // ⚠ Cleared rather than left: `EmitEntryPoint` writes the compiler's own wrapper, and the
+        // flag is otherwise whatever the last body in call order set — which is the entry point's
+        // own, `InCallOrder` putting it last. Harmless today only because the wrapper emits nothing
+        // the op filter calls contractible, so the scoping the field's remark describes was true of
+        // every function except the one written after the loop.
+        noContraction = false;
 
         EmitEntryPoint();
         return module;

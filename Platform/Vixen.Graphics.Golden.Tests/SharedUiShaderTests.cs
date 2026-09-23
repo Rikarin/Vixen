@@ -1400,8 +1400,18 @@ public partial class SharedUiShaderTests {
     ///         erases before the first fragment is not a difference in the picture.
     ///     </para>
     /// </remarks>
-    static Dictionary<string, int> ArithmeticIn(string module) {
+    static Dictionary<string, int> ArithmeticIn(string module) => ArithmeticIn(module, out _);
+
+    /// <summary>The same walk, also saying how many instructions it skipped as constant-only.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The skipped count is the normalisation's own instrument</b>, and
+    ///     <see cref="TheFlavourColumnDoesNotDecideWhatIsFolded" /> is what reads it: the paragraph
+    ///     above justifies skipping by "<c>glslc</c> folds both and Raven does not", and that is a
+    ///     claim about two compilers which nothing could measure until this was handed back.
+    /// </remarks>
+    static Dictionary<string, int> ArithmeticIn(string module, out int folded) {
         var words = WordsOf(module);
+        var skipped = 0;
 
         // Type id to how many scalar lanes a value of it has, and every id that names a constant.
         var lanes = new Dictionary<uint, int>();
@@ -1477,12 +1487,15 @@ public partial class SharedUiShaderTests {
                 }
 
                 if (!live) {
+                    skipped++;
                     return;
                 }
 
                 census[name] = census.GetValueOrDefault(name) + Math.Max(lanes.GetValueOrDefault(words[start + 1], 1), 1);
             }
         }
+
+        folded = skipped;
 
         return census;
     }
@@ -1737,6 +1750,182 @@ public partial class SharedUiShaderTests {
             stale.Length == 0,
             $"`Reconciled` still excuses {string.Join(", ", stale)}, and the two modules no longer "
             + "differ there. An exemption list can only shrink: delete the line."
+        );
+    }
+
+    /// <summary>
+    ///     Which flavour a module was built with does not decide what its constants are folded into.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The cost <a href="https://github.com/Rikarin/Vixen/issues/1257">#1257</a> puts on
+    ///         normalising the eight is not there, and this is the measurement that says so.</b> That
+    ///         issue declines to build all eight the same way because "normalising would refold
+    ///         constants in five modules and move the census under my own feet" — the census skipping
+    ///         constant-only expressions being calibrated, it argues, against a build flavour the
+    ///         ledger did not record. It is not: <b>every one of the eight committed GLSL modules
+    ///         holds zero constant-only arithmetic, the five <c>-O0</c> ones exactly like the three
+    ///         <c>-O</c> ones</b>. Folding a literal expression is glslang's front end and not
+    ///         <c>-O</c>, so rebuilding the five at <c>-O</c> cannot change what this walk skips.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which refutes #1257's mechanism and not its worry.</b> "The census moves under my
+    ///         own feet" is still true of a rebuild at <c>-O</c>, by a route that has nothing to do
+    ///         with constants: <c>-O</c> runs <c>spirv-opt</c>, which inlines exhaustively, and this
+    ///         walk counts opcodes linearly over the whole module with no reachability filter — so an
+    ///         inlined body is counted once per call site. Measured on the committed bytes: the three
+    ///         <c>-O</c> modules hold one <c>OpFunction</c> and zero <c>OpFunctionCall</c> each,
+    ///         already flat, while <c>ui-box.frag.spv</c> holds sixteen functions across thirty-nine
+    ///         call sites, with callees reached six, three and two times. Rebuilding that one at
+    ///         <c>-O</c> replicates its arithmetic by those multiples and moves
+    ///         <see cref="TheGlslCopiesDoTheSameArithmeticAsTheRavenModules" /> and most of
+    ///         <c>Reconciled</c> with it. So normalising to <c>-O0</c> is the toolchain step this
+    ///         fixture licenses; normalising to <c>-O</c> is still a decision about the census.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the skipping is entirely about the Raven side</b>, which is the half the
+    ///         census's own remark states and nothing measured. All three instructions it skips in
+    ///         all sixteen modules are in <c>UiBox.frag.spv</c>: two <c>OpFNegate</c> of a positive
+    ///         literal and the <c>1f / 2.4f</c> whose quotient is bit-for-bit the constant the GLSL
+    ///         copy carries folded.
+    ///     </para>
+    ///     <para>
+    ///         <b>Both halves, because a walk that found nothing would satisfy the first on its own.</b>
+    ///         The instrument is shown able to find a constant-only expression — it finds exactly
+    ///         three — before it is believed about finding none.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheFlavourColumnDoesNotDecideWhatIsFolded() {
+        var root = RepositoryRoot();
+        var raven = Path.Combine(root, "Platform", "Vixen.Ui.Desktop", "Shaders");
+        var flavours = Recorded();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var (glsl, module) in Pairs) {
+            var copy = Path.Combine(root, Shaders, glsl + ".spv");
+
+            // The census itself, so this reads the predicate the normalisation is made of rather
+            // than a second opinion about what a constant is.
+            var census = ArithmeticIn(copy, out var folded);
+
+            Assert.NotEmpty(census);
+
+            Assert.True(
+                flavours.TryGetValue(glsl, out var recorded) && recorded.Flavour is { } flavour,
+                $"Shaders/modules.sha256 records no flavour for {glsl}, so this fixture cannot say "
+                + "what it was built with."
+            );
+
+            seen.Add(recorded.Flavour!);
+
+            Assert.True(
+                folded == 0,
+                $"Shaders/{glsl}.spv was built `glslc {recorded.Flavour}` and holds {folded} arithmetic "
+                + "instructions on nothing but constants. The census skips those on the argument that "
+                + "glslc folds them whatever the flavour, and #1257's cost for normalising the eight "
+                + "rests on that argument -- so read both before rebuilding anything."
+            );
+
+            ArithmeticIn(Path.Combine(raven, module), out var ravenFolded);
+
+            Assert.True(
+                ravenFolded == (module == "UiBox.frag.spv" ? 3 : 0),
+                $"{module} holds {ravenFolded} constant-only arithmetic instructions, and the census's "
+                + "remark records three in UiBox.frag.spv and none anywhere else. If Raven has started "
+                + "folding, or stopped, the skipping is measuring something different from what it says."
+            );
+        }
+
+        // ⚠ The half that makes the loop above an answer about the flavour rather than about eight
+        // modules that happen to agree: both flavours have to be in the set that was walked.
+        Assert.Equal(2, seen.Count);
+    }
+
+    /// <summary>How many functions a module still has, and how many times each is called.</summary>
+    /// <remarks>
+    ///     <c>OpFunction</c> is 54 and <c>OpFunctionCall</c> is 57, and both are readable without
+    ///     tracking a single type: the walk needs only each instruction's length to step over it.
+    /// </remarks>
+    static (int Functions, int Calls) ShapeOf(string module) {
+        var words = WordsOf(module);
+        var functions = 0;
+        var calls = 0;
+
+        for (var at = 5; at < words.Length;) {
+            var opcode = (int) (words[at] & 0xFFFF);
+            var length = (int) (words[at] >> 16);
+
+            Assert.True(length > 0, $"{module} has a zero-length instruction at word {at}.");
+
+            if (opcode == 54) {
+                functions++;
+            } else if (opcode == 57) {
+                calls++;
+            }
+
+            at += length;
+        }
+
+        return (functions, calls);
+    }
+
+    /// <summary>
+    ///     What the flavour column does decide is how many times one body is counted.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The other half of
+    ///         <see cref="TheFlavourColumnDoesNotDecideWhatIsFolded" />, and the reason its refutation
+    ///         does not make #1257 free.</b> Constant folding is the front end's and moves nothing;
+    ///         inlining is <c>-O</c>'s and moves a great deal, because
+    ///         <see cref="ArithmeticIn(string, out int)" /> walks a module linearly with no
+    ///         reachability filter — a body <c>spirv-opt</c> inlined at six call sites contributes its
+    ///         arithmetic six times.
+    ///     </para>
+    ///     <para>
+    ///         So this fixture pins the measurement the narrowing rests on rather than leaving it in
+    ///         prose: <b>every <c>-O</c> module is already flat</b> — one function, no calls — and <b>at
+    ///         least one <c>-O0</c> module is not</b>, so rebuilding the five at <c>-O</c> is a change
+    ///         to the census and rebuilding the three at <c>-O0</c> is not. Which direction #1257 takes
+    ///         is still Jiu's call; what is settled is that the two directions do not cost the same.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheFlavourColumnDecidesHowOftenABodyIsCounted() {
+        var root = RepositoryRoot();
+        var flavours = Recorded();
+        var deep = 0;
+
+        foreach (var (glsl, _) in Pairs) {
+            var shape = ShapeOf(Path.Combine(root, Shaders, glsl + ".spv"));
+
+            Assert.True(
+                flavours.TryGetValue(glsl, out var recorded) && recorded.Flavour is not null,
+                $"Shaders/modules.sha256 records no flavour for {glsl}."
+            );
+
+            if (recorded.Flavour == "-O") {
+                Assert.True(
+                    shape is { Functions: 1, Calls: 0 },
+                    $"Shaders/{glsl}.spv was built `glslc {recorded.Flavour}` and still holds "
+                    + $"{shape.Functions} functions and {shape.Calls} calls. `-O` was taken to inline "
+                    + "exhaustively, which is what makes "
+                    + "rebuilding a -O0 module at -O a change to the census -- so if it does not, read "
+                    + "TheFlavourColumnDoesNotDecideWhatIsFolded's second paragraph again before moving "
+                    + "anything."
+                );
+            } else if (shape.Calls > 0) {
+                deep++;
+            }
+        }
+
+        // ⚠ Both halves, so the loop cannot pass by finding no -O0 module with a call in it and
+        // asserting nothing: at least one of the five has a body that -O would replicate.
+        Assert.True(
+            deep > 0,
+            "no -O0 module holds a call any more, so nothing here says the two normalisation "
+            + "directions differ. Either glslc's output changed or the ledger's flavours have."
         );
     }
 

@@ -2029,7 +2029,9 @@ static Vixen.Ui.Rendering.UiColorMatrix.Identity.get -> Vixen.Ui.Rendering.UiCol
 static Vixen.Ui.Rendering.UiColorMatrix.Invert(float amount) -> Vixen.Ui.Rendering.UiColorMatrix
 static Vixen.Ui.Rendering.UiColorMatrix.Saturate(float amount) -> Vixen.Ui.Rendering.UiColorMatrix
 static Vixen.Ui.Rendering.UiColorMatrix.Sepia(float amount) -> Vixen.Ui.Rendering.UiColorMatrix
+static Vixen.Ui.Rendering.UiGeometryBuilder.FringeFor(float scale) -> float
 static Vixen.Ui.Rendering.UiGeometryBuilder.LayerImage(int index) -> ulong
+static Vixen.Ui.Rendering.UiGeometryBuilder.ToleranceFor(float scale) -> float
 static Vixen.Ui.Rendering.UiLayer.KernelRadius(float blur, float scale) -> int
 static Vixen.Ui.Rendering.UiMask.Compose(Vixen.Ui.Rendering.MaskComposite composite, float source, float backdrop) -> float
 static Vixen.Ui.Rendering.UiMask.Coverage(System.ReadOnlySpan<Vixen.Ui.Rendering.UiMask> masks, Vixen.Core.Mathematics.Vector2 point) -> float
