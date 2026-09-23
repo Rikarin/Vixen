@@ -28,10 +28,14 @@ add-component-list > scroll-content	Editor/Vixen.Editor.Inspector/BrowserTheme.v
 add-component-menu > search-box	Editor/Vixen.Editor.Inspector/BrowserTheme.vcss
 add-component-row > icon	Editor/Vixen.Editor.Inspector/BrowserTheme.vcss
 add-component-row > label	Editor/Vixen.Editor.Inspector/BrowserTheme.vcss
+agent-debugger-agents > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+agent-debugger-detail > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 animation-body > animation-stage	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+animation-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 animation-stage > curve-editor	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 animation-stage > timeline	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 animgraph-body > state-map	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+animgraph-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 asset-field > icon-button	Editor/Vixen.Editor.Inspector/InspectorTheme.vcss
 asset-grid > asset-path	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 asset-tile > icon	Editor/Vixen.Editor.Inspector/BrowserTheme.vcss
@@ -57,10 +61,12 @@ expander-header > label	Editor/Vixen.Editor.Inspector/BrowserTheme.vcss
 fact-row > fact-value	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 fact-value > numeric-input	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 font-body > font-atlas	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+font-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 frame-editor > scroll-view	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 group-editor > tree-view	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 import-settings > scroll-view	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 input-body > tree-view	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+input-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 inspector > scroll-view	Editor/Vixen.Editor.Inspector/InspectorTheme.vcss
 inspector-header > search-box	Editor/Vixen.Editor.Inspector/InspectorTheme.vcss
 inspector-row > icon-button	Editor/Vixen.Editor.Inspector/InspectorTheme.vcss
@@ -71,6 +77,7 @@ material-editor > image	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 memory-view > scroll-view	Editor/Vixen.Editor.Profiler/ProfilerTheme.vcss
 message-log-detail > scroll-content	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 mixer-body > mixer-strips	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+mixer-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 mixer-strip > slider	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 mode-bar > toolbar	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 model-editor > tree-view	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
@@ -95,9 +102,12 @@ scroll-view > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.v
 segment > icon	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 segmented-control > segment	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 sequence-body > timeline	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+sequence-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 settings-rail > button	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 shadergraph-editor > node-graph	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+shadergraph-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 shadergraph-source > code-editor	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+shape-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 shape-stage > viewport	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 split-view > split-bar	Core/Vixen.Ui.Controls/ControlTheme.vcss
 sprite-canvas > image	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
@@ -114,4 +124,6 @@ task-row > task-line	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 toolbar > segmented-control	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 vector-component > text	Editor/Vixen.Editor.Inspector/InspectorTheme.vcss
 vfx-editor > node-graph	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+vfx-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 viewport-bar > toolbar	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+vocab-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss

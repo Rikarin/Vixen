@@ -59,18 +59,27 @@ public sealed class InputActionsViewDumpTests {
 
         Assert.Contains("<input-bar>", tree, StringComparison.Ordinal);
         Assert.Contains("<input-body>", tree, StringComparison.Ordinal);
-        Assert.Contains("<input-side>", tree, StringComparison.Ordinal);
+        // ⚠ `input-side` carries a control's two default classes now, which is the dump saying it is
+        // a `ScrollView` under that tag rather than a plain box (#1275): the column used to declare
+        // `overflow-y: auto`, which in this UI clips and never scrolls, so a map with more actions
+        // than the pane is tall reported its diagnostics into a place with no way to look. Neither
+        // class is styled by any sheet in the tree, so nothing about the panel moved.
+        Assert.Contains("<input-side .size-md .variant-default>", tree, StringComparison.Ordinal);
+        Assert.Contains("<scroll-content>", tree, StringComparison.Ordinal);
         Assert.Contains("<input-fields>", tree, StringComparison.Ordinal);
         Assert.Contains("<analysis-list>", tree, StringComparison.Ordinal);
 
         // The `ref`s are the parts the C# assigned in `OnCreated`, and every caller reads them.
-        // `input-bar` holds the six controls; `input-body` holds the tree and `Side` beside it,
-        // with `Fields` and `Diagnostics` stacked inside that — which is `body.Add("input-side")`
-        // followed by two `Side.Add`s, exactly as the hand-written `OnCreated` had it.
+        // `input-bar` holds the six controls; `input-body` holds the tree and the side pane beside
+        // it, with `Fields` and `Diagnostics` stacked inside the pane's content — which is what
+        // `Side` is, so that a caller adding a field puts it beside the others rather than beside
+        // the scrollbars.
+        var pane = view.Side.Parent!;
+
         Assert.Same(view.Children[0], view.AddMap.Parent);
         Assert.Same(view.Children[1], view.Tree.Parent);
-        Assert.Same(view.Children[1], view.Side.Parent);
-        Assert.Equal([view.Tree, view.Side], view.Children[1].Children);
+        Assert.Same(view.Children[1], pane.Parent);
+        Assert.Equal([view.Tree, pane], view.Children[1].Children);
         Assert.Equal([view.Fields, view.Diagnostics], view.Side.Children);
 
         // The six labels, none of which a tree dump can see.

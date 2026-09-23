@@ -304,6 +304,71 @@ public class ShapeVocabularyTests {
         );
     }
 
+    /// <summary>The fields column beside the list reaches its last line too.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The <i>side</i> was the same defect as the list and was reported separately.</b>
+    ///         #1275's first pass converted the six rules that spelt <c>overflow</c> as a shorthand
+    ///         and left sixteen that spelt it <c>overflow-y</c> — <c>vocab-side</c> among them, along
+    ///         with every other asset editor's fields column. One axis or two, the layout reads it
+    ///         the same way and nothing scrolls it, so a vocabulary with more problems than the pane
+    ///         is tall reported them into a place with no way to look.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <c>gap</c> had to move with the conversion.</b> A <c>ScrollView</c>'s
+    ///         children are its content and its two bars, so the column's <c>gap: 6px</c> left on the
+    ///         port would have spaced the viewport from its own scrollbars and let the fields touch —
+    ///         which is why the sheet writes <c>vocab-side &gt; scroll-content { gap: 6px }</c> and
+    ///         why that pair is in the committed combinator census.
+    ///     </para>
+    ///     <para>
+    ///         Sabotage: put the plain <c>&lt;vocab-side&gt;</c> back and this is red at the
+    ///         scroller — there is none between the note and the view.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AReportLongerThanThePaneReachesItsLastProblem() {
+        using var harness = new ViewHarness();
+        var document = Open(harness.Project);
+
+        document.AddTerm("belly", "The front of the torso.");
+
+        var humanoid = document.AddClass("humanoid");
+
+        // Each member names a shape the vocabulary does not declare, which is one problem each.
+        // ⚠ The class record is threaded through the return value: a `ShapeClassRecord` is immutable
+        // and every edit replaces it, so sixty calls against the first one are sixty edits of a class
+        // with no members — one problem, a report that fits, and a green assertion about nothing.
+        for (var i = 0; i < 60; i++) {
+            humanoid = document.AddMember(humanoid, $"missing-{i:00}").Class;
+        }
+
+        Assert.Equal(60, document.Problems().Count);
+
+        var view = harness.Ui.Document.Root.Add<ShapeVocabularyView>();
+
+        // Boxed, for the reason the list's test is: a column that fits proves nothing.
+        view.SetStyle("height", "240px");
+        view.Show(document);
+        harness.Ui.Frame();
+
+        var last = view.Report.Children[^1];
+        var scroller = Scroller(last, view);
+
+        Assert.NotNull(scroller);
+        Assert.True(scroller.MaximumTop > 0f, "sixty problems in 240 px must overflow the column");
+        Assert.True(last.AbsoluteTop >= scroller.AbsoluteTop + scroller.Height, "the last note starts below the fold");
+
+        scroller.ScrollIntoView(last);
+        harness.Ui.Frame();
+
+        Assert.True(last.AbsoluteTop >= scroller.AbsoluteTop, "the last note's top is inside the column");
+        Assert.True(
+            last.AbsoluteTop + last.Height <= scroller.AbsoluteTop + scroller.Height + 0.5f,
+            "the last note's bottom is inside the column"
+        );
+    }
+
     static Vixen.Ui.Controls.ScrollView? Scroller(UiElement element, UiElement stopAt) {
         for (var walk = element.Parent; walk is not null && !ReferenceEquals(walk, stopAt); walk = walk.Parent) {
             if (walk is Vixen.Ui.Controls.ScrollView scroller) {

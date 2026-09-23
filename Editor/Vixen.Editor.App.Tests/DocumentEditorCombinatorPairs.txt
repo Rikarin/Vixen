@@ -30,10 +30,14 @@
 # has stopped building a child while a committed sheet still declares the rule is a selector that
 # matches nothing, which draws nothing and reports nothing. That is `compositor-editor > node-canvas`
 # (#525) exactly. Read the diff; do not regenerate past it.
+agent-debugger-agents > scroll-content
+agent-debugger-detail > scroll-content
 animation-body > animation-stage
+animation-side > scroll-content
 animation-stage > curve-editor
 animation-stage > timeline
 animgraph-body > state-map
+animgraph-side > scroll-content
 asset-field > icon-button
 asset-grid > asset-path
 asset-tile > icon
@@ -57,10 +61,12 @@ expander-header > label
 fact-row > fact-value
 fact-value > numeric-input
 font-body > font-atlas
+font-side > scroll-content
 frame-editor > scroll-view
 group-editor > tree-view
 import-settings > scroll-view
 input-body > tree-view
+input-side > scroll-content
 inspector > scroll-view
 inspector-header > search-box
 inspector-row > icon-button
@@ -71,6 +77,7 @@ material-editor > image
 memory-view > scroll-view
 message-log-detail > scroll-content
 mixer-body > mixer-strips
+mixer-side > scroll-content
 mixer-strip > slider
 mode-bar > toolbar
 model-editor > tree-view
@@ -92,9 +99,12 @@ scroll-view > scroll-content
 segment > icon
 segmented-control > segment
 sequence-body > timeline
+sequence-side > scroll-content
 settings-rail > button
 shadergraph-editor > node-graph
+shadergraph-side > scroll-content
 shadergraph-source > code-editor
+shape-side > scroll-content
 shape-stage > viewport
 sprite-canvas > image
 sprite-field-row > numeric-input
@@ -108,4 +118,6 @@ task-center > text
 toolbar > segmented-control
 vector-component > text
 vfx-editor > node-graph
+vfx-side > scroll-content
 viewport-bar > toolbar
+vocab-side > scroll-content

@@ -99,7 +99,10 @@
         }
     </ScrollView>
 
-    <vocab-side>
+    <!-- ⚠ A `ScrollView` under the sheet's tag: the `overflow-y: auto` this column carried clips
+         and does not scroll in this UI, so a column longer than the pane simply ended (#1275). Its
+         `gap` moved to `> scroll-content`, which is where the children are now. -->
+    <ScrollView tag="vocab-side">
         <vocab-fields ref="@Fields" />
 
         <vocab-report ref="@Report">
@@ -111,7 +114,7 @@
                 <VocabNote key="@problem" class="@problem.Class" Text="@problem.Message" />
             }
         </vocab-report>
-    </vocab-side>
+    </ScrollView>
 </vocab-body>
 
 @code {

@@ -90,7 +90,10 @@
 <input-body>
     <TreeView ref="@Tree" MultiSelect="false" />
 
-    <input-side ref="@Side">
+    <!-- ⚠ A `ScrollView` under the sheet's tag: the `overflow-y: auto` this column carried clips
+         and does not scroll in this UI, so a fields column longer than the pane simply ended (#1275).
+         `Side` is the view's content, so the fields stay its direct children. -->
+    <ScrollView tag="input-side" ref="@sidePane">
         <input-fields ref="@Fields" />
 
         <analysis-list ref="@Diagnostics">
@@ -98,7 +101,7 @@
                 <AnalysisRow key="@note" Stage="@note.Where" Message="@note.Message" class="error" />
             }
         </analysis-list>
-    </input-side>
+    </ScrollView>
 </input-body>
 
 @code {
@@ -143,8 +146,15 @@
     /// <summary>The maps, actions and bindings.</summary>
     public TreeView Tree { get; private set; } = null!;
 
-    /// <summary>The column beside it.</summary>
-    public UiElement Side { get; private set; } = null!;
+    /// <summary>The column beside it: the fields' direct parent, which is the side pane's content.</summary>
+    /// <remarks>
+    ///     ⚠ The pane itself is a <see cref="ScrollView" /> under the sheet's own tag (#1275), and
+    ///     this is deliberately its <see cref="ScrollView.Content" /> rather than the view: a caller
+    ///     that adds a field wants it beside the others, not beside the scrollbars.
+    /// </remarks>
+    public UiElement Side => sidePane.Content;
+
+    ScrollView sidePane = null!;
 
     /// <summary>The selected row's fields.</summary>
     public UiElement Fields { get; private set; } = null!;

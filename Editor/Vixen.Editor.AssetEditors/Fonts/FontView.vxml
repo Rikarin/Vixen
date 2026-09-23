@@ -63,7 +63,10 @@
 <font-body>
     <FontAtlasView ref="@Atlas" />
 
-    <font-side ref="@Side">
+    <!-- ⚠ A `ScrollView` under the sheet's tag: the `overflow-y: auto` this column carried clips
+         and does not scroll in this UI, so a fields column longer than the pane simply ended (#1275).
+         `Side` is the view's content, so the fields stay its direct children. -->
+    <ScrollView tag="font-side" ref="@sidePane">
         <font-facts ref="@Facts">
             <FontTitle Text="@Name" />
 
@@ -142,7 +145,7 @@
                 </fact-row>
             }
         </font-blocks>
-    </font-side>
+    </ScrollView>
 </font-body>
 
 @code {
@@ -174,8 +177,15 @@
     /// </remarks>
     public FontAtlasView Atlas { get; private set; } = null!;
 
-    /// <summary>The column beside it.</summary>
-    public UiElement Side { get; private set; } = null!;
+    /// <summary>The column beside it: the fields' direct parent, which is the side pane's content.</summary>
+    /// <remarks>
+    ///     ⚠ The pane itself is a <see cref="ScrollView" /> under the sheet's own tag (#1275), and
+    ///     this is deliberately its <see cref="ScrollView.Content" /> rather than the view: a caller
+    ///     that adds a field wants it beside the others, not beside the scrollbars.
+    /// </remarks>
+    public UiElement Side => sidePane.Content;
+
+    ScrollView sidePane = null!;
 
     /// <summary>The face's own facts and the atlas settings.</summary>
     public UiElement Facts { get; private set; } = null!;

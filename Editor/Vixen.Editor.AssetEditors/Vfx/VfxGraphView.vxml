@@ -46,7 +46,10 @@
 
 <NodeGraphView ref="@GraphView" />
 
-<vfx-side ref="@Side">
+<!-- ⚠ A `ScrollView` under the sheet's tag: the `overflow-y: auto` this column carried clips
+     and does not scroll in this UI, so a fields column longer than the pane simply ended (#1275).
+     `Side` is the view's content, so the fields stay its direct children. -->
+<ScrollView tag="vfx-side" ref="@sidePane">
     <vfx-transport>
         <Button ref="@Build" Label="Compile" />
         <Button ref="@Restart" Label="Restart" />
@@ -66,7 +69,7 @@
             <AnalysisRow key="@note" Stage="@note.Stage" Message="@note.Message" />
         }
     </analysis-list>
-</vfx-side>
+</ScrollView>
 
 @code {
     /// <summary>What the last compile said, in the order it said it.</summary>
@@ -81,8 +84,15 @@
     /// <summary>The canvas.</summary>
     public NodeGraphView GraphView { get; private set; } = null!;
 
-    /// <summary>The column beside it.</summary>
-    public UiElement Side { get; private set; } = null!;
+    /// <summary>The column beside it: the fields' direct parent, which is the side pane's content.</summary>
+    /// <remarks>
+    ///     ⚠ The pane itself is a <see cref="ScrollView" /> under the sheet's own tag (#1275), and
+    ///     this is deliberately its <see cref="ScrollView.Content" /> rather than the view: a caller
+    ///     that adds a field wants it beside the others, not beside the scrollbars.
+    /// </remarks>
+    public UiElement Side => sidePane.Content;
+
+    ScrollView sidePane = null!;
 
     /// <summary>The selected block's settings.</summary>
     public NodeInspector Settings { get; private set; } = null!;

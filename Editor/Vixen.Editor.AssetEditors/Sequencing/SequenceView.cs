@@ -104,7 +104,10 @@ public sealed class SequenceView : Control {
         Tracks = body.Add<Timeline>();
         Tracks.SnapToFrames = true;
 
-        Side = body.Add("sequence-side");
+        // ⚠ The content of a `ScrollView` under the `sequence-side` tag, not a plain element: the
+        // sheet's `overflow-y: auto` clips in this UI and never scrolls, so a fields column longer
+        // than the pane simply ended (#1275). The fields stay the column's direct children.
+        Side = body.Add<ScrollView>("sequence-side").Content;
         Fields = Side.Add("sequence-fields");
         Log = Side.Add("analysis-list");
 

@@ -30,6 +30,8 @@
 #
 # ⚠ A ROW LEAVING IS THE LOUD DIRECTION, for the reason the first census gives: a panel that has
 # stopped building a child while a committed sheet still declares the rule.
+agent-debugger-agents > scroll-content
+agent-debugger-detail > scroll-content
 asset-grid > asset-path
 asset-tile > icon
 asset-tile > image

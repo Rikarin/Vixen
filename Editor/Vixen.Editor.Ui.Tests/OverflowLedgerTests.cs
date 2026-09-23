@@ -18,7 +18,7 @@ namespace Vixen.Editor.Ui.Tests;
 ///         kinds (#1275), and the issue counted six more. ⚠ <b>The count was twenty-four</b>: the
 ///         issue grepped the shorthand, and <c>overflow-y: auto</c> is the same defect spelt for one
 ///         axis — sixteen more rules across the two editor themes, every one on a side panel or a
-///         list.
+///         list. Seventeen of the twenty-four are converted; the seven below say why they are not.
 ///     </para>
 ///     <para>
 ///         <b>This is the build-time half of the report; <c>UiDocument</c>'s 7009 is the run-time
@@ -47,25 +47,44 @@ namespace Vixen.Editor.Ui.Tests;
 public class OverflowLedgerTests {
     /// <summary>The rules still to convert, as <c>file:selector</c>.</summary>
     /// <remarks>
-    ///     Each is a plain element declaring a scroll container it will never be. The cure for each
-    ///     is a <c>ScrollView</c> — the element under the tag, with <c>overflow: hidden; position:
-    ///     relative</c> written on the rule since the user-agent rule cannot reach it — and never a
-    ///     taller box, which moves the first unreachable row rather than reaching it.
+    ///     <para>
+    ///         Each is a plain element declaring a scroll container it will never be. The cure for
+    ///         each is a <c>ScrollView</c> — the element under the tag, with <c>overflow: hidden;
+    ///         position: relative</c> written on the rule since the user-agent rule cannot reach it
+    ///         — and never a taller box, which moves the first unreachable row rather than reaching
+    ///         it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Sixteen became seven, and the nine that went were one shape: the asset editors'
+    ///         fixed-width <c>*-side</c> field columns.</b> Every one of them sits in a
+    ///         <c>flex-direction: row</c> body, so the column's height is its parent's and a
+    ///         <c>ScrollView</c> there fills and scrolls without needing a <c>flex-basis</c> — which
+    ///         is what makes them one batch rather than nine judgements.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The seven that are left are each left for a reason, not for want of time.</b>
+    ///         <c>override-body</c>, <c>settings-rail</c> and <c>settings-pane</c> carry
+    ///         <b>child-combinator</b> rules (<c>override-body &gt; override-row</c>,
+    ///         <c>settings-rail &gt; button.settings-tab</c>, <c>settings-pane &gt;
+    ///         .filtered-out</c>), and a <c>ScrollView</c> puts a <c>scroll-content</c> between the
+    ///         box and its rows — so converting one silently stops three rules matching, which is a
+    ///         separate change with a separate picture to check. <c>input-debug</c> is a
+    ///         <i>component's own host tag</i> (<c>@tag</c> in <c>InputDebugView.vxml</c>), and a
+    ///         host element is built by the runtime as a plain <c>UiElement</c>: it cannot be given
+    ///         a control's type from the sheet's side at all, so that one wants a scroller inside
+    ///         the view. <c>mixer-strips</c> and <c>override-body</c> scroll <i>sideways</i>, which
+    ///         is the one axis none of the twelve conversions so far has exercised.
+    ///         <c>compiled-scene-blocks</c>, <c>compiled-scene-diagnostics</c> and
+    ///         <c>sprite-list</c> sit in a <b>column</b>, where <c>ScrollView</c>'s own remarks warn
+    ///         that a <c>flex-grow</c> without a <c>flex-basis: 0px</c> grows the viewport to its
+    ///         content and the bar never appears — so each needs a picture rather than a pattern.
+    ///     </para>
     /// </remarks>
     static readonly string[] Remaining = [
         "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:compiled-scene-blocks, compiled-scene-diagnostics",
         "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:override-body",
         "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:sprite-list",
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:shadergraph-side",
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:vfx-side",
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:animation-side, animgraph-side, input-side, mixer-side, font-side, sequence-side",
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:harness-side",
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:moveset-side",
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:shape-side",
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:vocab-side",
         "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:mixer-strips",
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:agent-debugger-agents",
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:agent-debugger-detail",
         "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:input-debug",
         "Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss:settings-rail",
         "Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss:settings-pane"

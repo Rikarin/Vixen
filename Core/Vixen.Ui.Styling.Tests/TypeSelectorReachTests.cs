@@ -811,45 +811,23 @@ public partial class TypeSelectorReachTests {
     /// <param name="declared">The spelling to compare against.</param>
     /// <returns>The property names only the second spelling resolves.</returns>
     /// <remarks>
-    ///     ⚠ <b>Resolved rather than looked up</b>, because the question is what the cascade computes
-    ///     and not what a selector list contains. A tag can be named by a rule that never applies —
-    ///     sealed in a <c>@media</c>, or beaten outright — and reporting that as a lost style would
-    ///     be a failure with nothing behind it. Two elements, same parent, same absence of classes:
-    ///     the only thing that differs is the spelling, so anything the second one has is exactly
-    ///     what the spelling cost.
+    ///     ⚠ <b>Shared with <see cref="RetaggedControlTests" /> rather than copied</b>, and the
+    ///     reasoning for resolving rather than looking up is on
+    ///     <see cref="RepositoryScan.Missing" />. The two censuses ask the same question of two
+    ///     different pairs of names — a mis-cased tag against its lowercase spelling here, a
+    ///     retagged control against its own tag there — and two copies of "what did this spelling
+    ///     cost" are two chances to answer it differently.
     /// </remarks>
-    static List<string> Missing(StyleEngine engine, string written, string declared) {
-        var a = engine.Resolver.Resolve(engine.Tree, engine.Tree.CreateElement(written));
-        var b = engine.Resolver.Resolve(engine.Tree, engine.Tree.CreateElement(declared));
-
-        var lost = new List<string>();
-        for (var i = 0; i < b.Properties.Length; i++) {
-            if (!a.TryGet(b.Properties[i], out _)) {
-                lost.Add(engine.Properties.NameOf(b.Properties[i]));
-            }
-        }
-
-        lost.Sort(StringComparer.Ordinal);
-        return lost;
-    }
+    static List<string> Missing(StyleEngine engine, string written, string declared) =>
+        RepositoryScan.Missing(engine, written, declared);
 
     /// <summary>Every stylesheet in the repository, in one engine.</summary>
     /// <remarks>
-    ///     ⚠ <b>One engine for sheets no single document loads together</b>, and that is the
-    ///     conservative direction rather than the sloppy one. A tag some *other* assembly's sheet
-    ///     happens to style can only make a candidate look reachable and pass, never make a clean one
-    ///     fail — so the answer this gives is a floor on the defect, which is the right way round for
-    ///     a gate.
+    ///     Shared with the other repository-wide censuses; see <see cref="RepositoryScan.Sheets" />
+    ///     for why one engine over sheets no single document loads together is the conservative
+    ///     direction rather than the sloppy one.
     /// </remarks>
-    static StyleEngine Sheets() {
-        var engine = new StyleEngine();
-
-        foreach (var path in SourceFiles("*.vcss")) {
-            engine.Load(File.ReadAllText(path), StyleOrigin.Author);
-        }
-
-        return engine;
-    }
+    static StyleEngine Sheets() => RepositoryScan.Sheets();
 
     /// <summary>Every file in the working tree matching a pattern.</summary>
     /// <remarks>

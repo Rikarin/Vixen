@@ -168,7 +168,10 @@ public sealed class AnimationClipView : Control {
         Curves = stage.Add<CurveEditor>();
         Curves.AddClass("hidden");
 
-        Side = body.Add("animation-side");
+        // ⚠ The content of a `ScrollView` under the `animation-side` tag, not a plain element: the
+        // sheet's `overflow-y: auto` clips in this UI and never scrolls, so a fields column longer
+        // than the pane simply ended (#1275). The fields stay the column's direct children.
+        Side = body.Add<ScrollView>("animation-side").Content;
         Fields = Side.Add("animation-fields");
 
         // Below the fields rather than in a panel of its own: reading a proposal and looking at the

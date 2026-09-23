@@ -26,6 +26,8 @@ add-component-list > scroll-content
 add-component-menu > search-box
 add-component-row > icon
 add-component-row > label
+agent-debugger-agents > scroll-content
+agent-debugger-detail > scroll-content
 asset-grid > asset-path
 asset-tile > icon
 asset-tile > image
