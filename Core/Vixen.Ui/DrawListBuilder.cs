@@ -2278,12 +2278,14 @@ public sealed class DrawListBuilder {
         // ⚠ Through the element rather than straight off the viewport, because a container unit
         // reaches this reader too and there is nothing in a wrong answer to see: `box-shadow: 0 10cqi`
         // inside a 200px container came out at a hundred points rather than twenty, which is an offset
-        // in range, drawn, and never logged. `WithAppliedContainer` replays nothing — it reads the
-        // answer `UiDocument.Apply`'s walk already recorded on this element.
-        var context = element
-            .WithAppliedContainer(document.Viewport)
-            .WithFontSize(element.FontSize)
-            .WithLineHeight(element.LineHeight);
+        // in range, drawn, and never logged.
+        //
+        // ⚠ <b>And the element's <i>surface</i>, which is the half that stayed wrong until #1345.</b>
+        // This context was rebuilt here off `document.Viewport`, which is the primary window's, so
+        // `box-shadow: 0 5vw` in a torn-off window measured the main one — the same silent offset one
+        // unit over. `AppliedLengths` is what the position walk handed `translate` for this element
+        // on this element's own surface; see its remarks.
+        var context = element.AppliedLengths;
         Span<float> lengths = [0f, 0f, 0f, 0f];
         var count = 0;
         Color4? shade = null;
@@ -2938,10 +2940,13 @@ public sealed class DrawListBuilder {
             // `filter` was silently the identity. `ToLength` makes it the refusal it always should
             // have been, which takes the declaration with it and is therefore visible. A bare `0` is
             // still a length and only that one — `blur(0)` is the identity somebody wrote on purpose.
-            var length = document.Viewport
-                .WithFontSize(element.FontSize)
-                .WithLineHeight(element.LineHeight)
-                .ToLength(argument);
+            //
+            // ⚠ <b>Off the element's own context, and this reader had both of the shadow readers'
+            // defects rather than one.</b> It seeded from `document.Viewport` — the primary window's,
+            // so `blur(1vw)` in a torn-off window measured the main one (#1345) — and it never took the
+            // container the style walk recorded, so `blur(2cqi)` measured the viewport even after
+            // a8c0c6ab6 fixed the two readers beside it.
+            var length = element.AppliedLengths.ToLength(argument);
             var pixels = length.Unit == LayoutUnit.Point ? length.Value : float.NaN;
 
             if (float.IsNaN(pixels) || pixels < 0f || !float.IsFinite(pixels)) {
@@ -3050,15 +3055,10 @@ public sealed class DrawListBuilder {
             return null;
         }
 
-        // ⚠ Through the element rather than straight off the viewport, because a container unit
-        // reaches this reader too and there is nothing in a wrong answer to see: `box-shadow: 0 10cqi`
-        // inside a 200px container came out at a hundred points rather than twenty, which is an offset
-        // in range, drawn, and never logged. `WithAppliedContainer` replays nothing — it reads the
-        // answer `UiDocument.Apply`'s walk already recorded on this element.
-        var context = element
-            .WithAppliedContainer(document.Viewport)
-            .WithFontSize(element.FontSize)
-            .WithLineHeight(element.LineHeight);
+        // ⚠ Through the element rather than straight off the viewport, for `TryShadow`'s two reasons:
+        // a container unit (a8c0c6ab6) and a viewport unit in a torn-off window (#1345) both came out
+        // as a plausible offset measured against the wrong box, drawn and never logged.
+        var context = element.AppliedLengths;
         Span<float> lengths = [0f, 0f, 0f];
         var count = 0;
         Color4? shade = null;

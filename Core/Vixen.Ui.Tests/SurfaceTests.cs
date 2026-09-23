@@ -80,6 +80,75 @@ public class SurfaceTests {
         Assert.Equal(200f, there.Width, 0.001f);
     }
 
+    /// <summary>⚠ And in the draw list's three length readers, which were seeded from the primary window.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>box-shadow</c>, <c>filter: drop-shadow()</c> and <c>filter: blur()</c> resolve their
+    ///         lengths while the draw list is built, not on the style or position walks, and
+    ///         <c>DrawListBuilder</c> is handed a surface's root and never the surface — so until #1345
+    ///         all three built their context from <c>UiDocument.Viewport</c>, which is the
+    ///         <i>primary</i> window's. The number that produced is an offset in points: in range,
+    ///         drawn, never logged.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A pair and not a single surface, and the two windows differ in width.</b> An
+    ///         engine that resolved every <c>vw</c> against either one window would satisfy an
+    ///         assertion on that window alone; only the two together, 800 against 400, separate
+    ///         "the surface's own" from "some surface's".
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_shadow_or_filter_length_in_viewport_units_is_the_surfaces_own() {
+        using var document = Document();
+
+        var second = document.CreateSurface(400f, 200f);
+
+        UiElement Card(UiElement parent) {
+            var card = parent.Add("box");
+
+            card.SetStyle("width", "50px");
+            card.SetStyle("height", "20px");
+            card.SetStyle("box-shadow", "0px 5vw 0px #000000");
+
+            // In its own group, because a filter opens one and a group is a sibling of the box.
+            var filtered = parent.Add("box");
+
+            filtered.SetStyle("width", "50px");
+            filtered.SetStyle("height", "20px");
+            filtered.SetStyle("filter", "blur(1vw) drop-shadow(0px 2vw 0px #000000)");
+
+            return card;
+        }
+
+        var here = Card(document.Root);
+        var there = Card(second.Root);
+
+        document.Update();
+        document.Draw();
+
+        static (float Offset, float Blur, float Drop) Read(UiSurface surface, UiElement card) {
+            var shadow = Assert.Single(surface.Drawing.Commands, command => command.Kind == DrawCommandKind.Shadow);
+            var layer = Assert.Single(
+                surface.Drawing.Commands,
+                command => command.Kind == DrawCommandKind.LayerPush && command.Shadow is not null
+            );
+
+            return (shadow.Y - card.AbsoluteTop, layer.Blur, layer.Shadow!.Value.Offset.Y);
+        }
+
+        var primary = Read(document.Primary, here);
+        var torn = Read(second, there);
+
+        // Five hundredths of 800 is 40 and of 400 is 20; one hundredth is 8 and 4; two, 16 and 8.
+        Assert.Equal(40f, primary.Offset, 0.001f);
+        Assert.Equal(8f, primary.Blur, 0.001f);
+        Assert.Equal(16f, primary.Drop, 0.001f);
+
+        Assert.Equal(20f, torn.Offset, 0.001f);
+        Assert.Equal(4f, torn.Blur, 0.001f);
+        Assert.Equal(8f, torn.Drop, 0.001f);
+    }
+
     [Fact]
     public void A_surfaces_subtree_is_not_drawn_or_hit_tested_by_another() {
         using var document = Document();
