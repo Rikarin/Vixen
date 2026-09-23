@@ -335,9 +335,14 @@ public partial class ClassSelectorReachTests {
         return new Sources(names, prefixes);
     }
 
-    /// <summary>Whether a source file is one of the two reach censuses, which write every name they discuss.</summary>
+    /// <summary>Whether a source file is one of the repository-wide censuses, which write every name
+    /// they discuss.</summary>
+    /// <param name="path">The file.</param>
+    /// <returns><see langword="true" /> when its names are prose about tags rather than uses of them.</returns>
     internal static bool Census(string path) =>
-        Path.GetFileName(path) is "TypeSelectorReachTests.cs" or "ClassSelectorReachTests.cs";
+        Path.GetFileName(path) is "TypeSelectorReachTests.cs"
+            or "ClassSelectorReachTests.cs"
+            or "RetaggedControlTests.cs";
 
     static List<(string Name, string Sheet)> ReadDeclared() {
         var root = RepositoryScan.Root();

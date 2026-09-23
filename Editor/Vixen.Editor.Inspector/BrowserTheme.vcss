@@ -380,7 +380,19 @@ add-component-menu > search-box { flex-shrink: 0; }
    full content height and drew straight through the bottom edge and off the window. Capping
    the thing that scrolls means the number is enforced by the element whose `overflow` can do
    something about it, and the popup's own height then follows its content as it should. */
-add-component-list { flex-shrink: 0; max-height: 300px; }
+/* ⚠ The three declarations after the cap are `scroll-view`'s own, restated because this is a
+   `ScrollView` under a tag of its own and a control's user-agent rule is keyed on its tag — so
+   it matched `scroll-view { … }` not at all (#1327). `position: relative` is the one that was
+   visible: the bars are `position: absolute`, and the nearest positioned ancestor they found
+   instead was `add-component-menu`, so the scrollbar ran the full height of the popup — past
+   the search box it has nothing to do with — rather than the height of the list. */
+add-component-list {
+    flex-shrink: 0;
+    max-height: 300px;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
 add-component-list > scroll-content { gap: 1px; }
 
 add-component-row {
