@@ -106,6 +106,9 @@ enum VxmlTokenKind {
     /// <summary><c>@for</c>.</summary>
     ForKeyword,
 
+    /// <summary><c>@rows</c>, a virtualizing control's row template.</summary>
+    RowsKeyword,
+
     /// <summary><c>var</c>.</summary>
     VarKeyword,
 

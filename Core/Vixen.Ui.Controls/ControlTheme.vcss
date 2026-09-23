@@ -94,13 +94,13 @@ root {
        per cent look like a failure.
 
        ⚠ **New here and not new in the tree**: `EditorTheme.vcss` has declared `--warning` (:94 and
-       :143) for as long as the editor has had a console, and six editor sheets read it — five of
-       the read sites, all of them in `AssetEditorTheme.vcss`, as `var(--warning, #e2b341)`, which
-       is what a token with no declaration underneath it looks like from the consumer's side. ⚠
-       Those five fallbacks were *already* dead before this rule existed, because the editor loads
-       `EditorTheme` and that declares the token; they are a signal that the same `var(--x, …)`
-       written over and over means `--x` has no declaration in the sheet that should own it, not
-       that this rule made them redundant.
+       :143) for as long as the editor has had a console, and six editor sheets read it. Five of
+       the read sites, all in `AssetEditorTheme.vcss`, used to write `var(--warning, #e2b341)` —
+       dead before this rule existed, because the editor loads `EditorTheme` and that declares the
+       token, and wrong where they were not dead, since `#e2b341` is none of the four values the
+       tree declares. They now write the token bare (#1351), and `PaletteFallbackTests` in
+       `Vixen.Editor.Ui.Tests` refuses a fallback whose literal is none of its token's declared
+       values, with a ledger of the `--danger`/`--accent`/`--radius-row` ones still owed.
 
        ⚠ The editor's value wins by **layer** and not by load order: this palette is in `base`
        (see the paragraph above) and `EditorTheme` is wholly in `components`, so the editor's

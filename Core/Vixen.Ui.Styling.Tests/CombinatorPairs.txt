@@ -79,6 +79,7 @@ message-log-detail > scroll-content	Editor/Vixen.Editor.Ui/Theming/EditorTheme.v
 mixer-body > mixer-strips	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 mixer-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 mixer-strip > slider	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+mixer-strips > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 mode-bar > toolbar	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 model-editor > tree-view	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 moveset-bar > textbox	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
@@ -86,7 +87,7 @@ node-graph > node-canvas	Editor/Vixen.Editor.NodeGraph/NodeGraphTheme.vcss
 outliner-filters > search-box	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 outliner-filters > select	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 override-bar > textbox	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
-override-body > override-row	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+override-body > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 override-cell > checkbox	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 override-cell > numeric-input	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 override-cell > select	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
@@ -98,12 +99,15 @@ profiler-view > data-grid	Editor/Vixen.Editor.Profiler/ProfilerTheme.vcss
 radial-item > icon	Core/Vixen.Ui.Controls/ControlTheme.vcss
 remote-body > tree-view	Editor/Vixen.Editor.Debugger/DebuggerTheme.vcss
 remote-write > textbox	Editor/Vixen.Editor.Debugger/DebuggerTheme.vcss
+scroll-content > button	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+scroll-content > override-row	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 scroll-view > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 segment > icon	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 segmented-control > segment	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 sequence-body > timeline	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 sequence-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
-settings-rail > button	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+settings-pane > scroll-content	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+settings-rail > scroll-content	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 shadergraph-editor > node-graph	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 shadergraph-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 shadergraph-source > code-editor	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
@@ -113,6 +117,7 @@ split-view > split-bar	Core/Vixen.Ui.Controls/ControlTheme.vcss
 sprite-canvas > image	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 sprite-field-row > numeric-input	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 sprite-field-row > textbox	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+sprite-list > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 sprite-rect > sprite-rect-label	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 sprite-toolbar > numeric-input	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 sprite-toolbar > select	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss

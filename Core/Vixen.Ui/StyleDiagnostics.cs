@@ -82,6 +82,8 @@ public sealed partial class UiDocument {
 
     int drainedOverflowCount;
 
+    int drainedRetagCount;
+
     object? drainedDrawing;
     int drainedDrawingCount;
 
@@ -196,6 +198,118 @@ public sealed partial class UiDocument {
         overflowDiagnostics.Add(new SelectorDiagnostic(text, DeclaredOverflow(style)));
     }
 
+    /// <summary>Every control under a tag of its own that lost what its own tag's rules declare, once per box.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A seventh producer, and like the sixth it is not a refusal.</b> Everything was
+    ///         understood: <c>tag=</c> on a capitalised markup tag and <c>Add&lt;T&gt;("some-tag")</c>
+    ///         are the sanctioned way to put a control under a name a sheet already knows. What
+    ///         neither says is that a control's own rule is keyed on its <c>TagName</c>, so the
+    ///         renamed control silently matches none of it — and for <c>ScrollView</c> that rule is
+    ///         <c>overflow: hidden; position: relative</c>, the clip that stops scrolled-off rows
+    ///         drawing over the dialog above and the anchor that keeps the bars on the view. The
+    ///         New Asset… picker shipped without both. See <c>Rikarin/Vixen#1327</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The build-time census (<c>RetaggedControlTests</c>) sees what is committed and
+    ///         spelt as a literal; this sees what runs.</b> A tag held in a variable, a control built
+    ///         by a plugin, an application outside this repository — the census reads none of them,
+    ///         and each is exactly as silent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the control would have had is answered by resolving its own tag, alone, on a
+    ///         tree of its own</b> — no parent, no classes, no state. So it is the rules that name the
+    ///         tag unconditionally, which is what a user-agent rule is; a rule under an ancestor
+    ///         (<c>root.dark scroll-view</c>) or a <c>var()</c> the bare probe cannot resolve is not
+    ///         counted. That errs towards silence, which is the right way round for a warning that
+    ///         fires on a running interface. ⚠ And it compares <i>presence</i>, not value: a rule
+    ///         that restates <c>overflow</c> as anything at all has decided about it, and an
+    ///         inherited property the element receives from its parent counts as present.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Logged, and deliberately not in <see cref="Refusals" /></b>, which was the first
+    ///         draft and turned a hot reload into a trap. <c>HotReloadHost</c> rolls back any saved
+    ///         sheet that adds an entry to that list — and deleting the rule that restated a control's
+    ///         declarations is exactly the edit that adds one here. The editor refused its own theme
+    ///         being emptied (<c>HotReloadModeTests.A_rule_deleted_from_the_editor_s_own_theme_stops_applying</c>
+    ///         went red) because a warning had been filed where only refusals belong.
+    ///     </para>
+    /// </remarks>
+    readonly List<(string Element, string Own, string Lost)> retagDiagnostics = [];
+
+    /// <summary>The properties each control tag's own rules declare, resolved once per tag per invalidation.</summary>
+    Dictionary<string, int[]>? ownTagProperties;
+
+    /// <summary>
+    ///     A tree of its own for the bare probe elements, so resolving one neither grows nor rewires
+    ///     the document's.
+    /// </summary>
+    StyleTree? probes;
+
+    /// <summary>Forgets every own-tag answer, because a sheet loaded or replaced may have changed them.</summary>
+    void ForgetOwnTagProperties() => ownTagProperties?.Clear();
+
+    /// <summary>Notes a control under a tag that is not its own, if that cost it anything.</summary>
+    /// <param name="element">The control.</param>
+    /// <param name="style">Its computed style.</param>
+    void NoteRetaggedControl(UiElement element, ComputedStyle style) {
+        var own = element.TagName;
+        string? lost = null;
+
+        foreach (var property in OwnTagProperties(own)) {
+            if (style.TryGet(property, out _)) {
+                continue;
+            }
+
+            var name = Styles.Properties.NameOf(property);
+            lost = lost is null ? name : $"{lost}, {name}";
+        }
+
+        if (lost is null) {
+            return;
+        }
+
+        var text = DescribeForDiagnostic(element);
+
+        foreach (var existing in retagDiagnostics) {
+            if (existing.Element == text) {
+                return;
+            }
+        }
+
+        retagDiagnostics.Add((text, own, lost));
+    }
+
+    /// <summary>What a bare element under <paramref name="tag" /> resolves, as property ids.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>Cascade</c> and not <c>Resolve</c>.</b> <c>Resolve</c> files its answer in the
+    ///     resolver's sharing cache under a key of parent, tag, id and classes — and a parentless
+    ///     probe's key is the one a parentless live element of the same tag would look up, so the
+    ///     live element could be handed the probe's style for the rest of the pass.
+    /// </remarks>
+    int[] OwnTagProperties(string tag) {
+        ownTagProperties ??= new Dictionary<string, int[]>(StringComparer.Ordinal);
+
+        if (ownTagProperties.TryGetValue(tag, out var known)) {
+            return known;
+        }
+
+        // One probe per tag for the document's lifetime rather than one per question: the answers are
+        // forgotten whenever a sheet changes, and a probe made and removed each time would leave a
+        // dead slot behind per tag per invalidation, for as long as the document lived.
+        probes ??= new StyleTree(Styles.Names);
+        probeNodes ??= new Dictionary<string, StyleNodeId>(StringComparer.Ordinal);
+
+        if (!probeNodes.TryGetValue(tag, out var probe)) {
+            probeNodes[tag] = probe = probes.CreateElement(tag);
+        }
+
+        return ownTagProperties[tag] = Styles.Resolver.Cascade(probes, probe).Properties.ToArray();
+    }
+
+    /// <summary>The bare element standing for each tag in <see cref="probes" />.</summary>
+    Dictionary<string, StyleNodeId>? probeNodes;
+
     /// <summary>The element as a selector would name it: tag, <c>#id</c>, then its classes.</summary>
     static string DescribeForDiagnostic(UiElement element) {
         var tree = element.Document.Styles.Tree;
@@ -301,11 +415,13 @@ public sealed partial class UiDocument {
         Builder.ClearDiagnostics();
         textDiagnostics.Clear();
         overflowDiagnostics.Clear();
+        retagDiagnostics.Clear();
         drawings.ClearDiagnostics();
 
         drainedBuilderCount = 0;
         drainedTextCount = 0;
         drainedOverflowCount = 0;
+        drainedRetagCount = 0;
         drainedDrawingCount = 0;
 
         Forget();
@@ -380,6 +496,12 @@ public sealed partial class UiDocument {
         for (; drainedOverflowCount < overflowDiagnostics.Count; drainedOverflowCount++) {
             var diagnostic = overflowDiagnostics[drainedOverflowCount];
             StyleLog.OverflowDoesNotScroll(logger, diagnostic.Text, diagnostic.Reason);
+        }
+
+        // And the controls renamed out of their own rule, for the same reason and in the same pass.
+        for (; drainedRetagCount < retagDiagnostics.Count; drainedRetagCount++) {
+            var (element, own, lost) = retagDiagnostics[drainedRetagCount];
+            StyleLog.ControlLostItsOwnRule(logger, element, own, lost);
         }
     }
 

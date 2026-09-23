@@ -573,6 +573,56 @@
         </TypeComment>
     </Node>
 
+    <Node Name="RowsSyntax" Base="MarkupSyntax">
+        <Kind Name="Rows"/>
+        <Field Name="RowsKeyword" Type="SyntaxToken">
+            <Kind Name="RowsKeyword"/>
+        </Field>
+        <Field Name="OpenParenToken" Type="SyntaxToken">
+            <Kind Name="OpenParenToken"/>
+        </Field>
+        <Field Name="VarKeyword" Type="SyntaxToken">
+            <Kind Name="VarKeyword"/>
+        </Field>
+        <Field Name="Identifier" Type="SyntaxToken">
+            <Kind Name="IdentifierToken"/>
+            <PropertyComment>
+                <summary>
+                    The name bound to the item index the slot is showing. ⚠ A <c>Signal&lt;int&gt;</c>,
+                    and for a sharper reason than <c>@for</c>'s index: a slot's body runs once and is
+                    rebound by writing this, so a captured <c>int</c> would draw the item the slot
+                    showed when the pool grew, for ever.
+                </summary>
+            </PropertyComment>
+        </Field>
+        <Field Name="InKeyword" Type="SyntaxToken">
+            <Kind Name="InKeyword"/>
+        </Field>
+        <Field Name="Count" Type="SyntaxToken">
+            <Kind Name="ExpressionToken"/>
+            <PropertyComment>
+                <summary>How many items there are — an <c>int</c>, re-read whenever what it reads changes.</summary>
+            </PropertyComment>
+        </Field>
+        <Field Name="CloseParenToken" Type="SyntaxToken">
+            <Kind Name="CloseParenToken"/>
+        </Field>
+        <Field Name="Body" Type="MarkupBlockSyntax">
+            <PropertyComment>
+                <summary>
+                    Exactly one plain element, which <i>is</i> the slot: its tag is what every pool slot
+                    is created under, and its attributes and children are applied to each one.
+                </summary>
+            </PropertyComment>
+        </Field>
+        <TypeComment>
+            <summary>
+                <c>@rows (var index in Count) { &lt;row&gt; … &lt;/row&gt; }</c> — a virtualizing control's
+                row template, built once per pool slot rather than once per item.
+            </summary>
+        </TypeComment>
+    </Node>
+
     <Node Name="SwitchSyntax" Base="MarkupSyntax">
         <Kind Name="Switch"/>
         <Field Name="SwitchKeyword" Type="SyntaxToken">

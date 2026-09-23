@@ -560,4 +560,55 @@ public static class MarkupDiagnostics {
         BindingCategory,
         DiagnosticSeverity.Error
     );
+
+    // ⚠ VXML2026 is retired — it refused an `exit` on an indexed `@for` — and is not reused: an id
+    // is a search term in somebody's build log, and one that meant something else last year sends
+    // them to the wrong page.
+
+    /// <summary>An <c>@rows</c> body that is not exactly one plain element.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The element is the slot, so there has to be exactly one and it has to be one the
+    ///         pool can create.</b> A pool slot is created by the control, by tag name, when it
+    ///         discovers it needs another row — so the row is written as the element it will be, its
+    ///         tag is what every slot is made under, and a second element or a stray <c>@if</c> would
+    ///         have no slot to be. A capitalised tag names a component or a control, which a pool
+    ///         cannot create by name; wrap it in a plain element and the plain element is the row.
+    ///     </para>
+    ///     <para>
+    ///         See <c>Rikarin/Vixen#758</c>.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor RowsBodyNotOneElement = new(
+        "VXML2027",
+        "@rows body is not one plain element",
+        "An @rows body is exactly one plain element — the row, which every pool slot is created as, "
+        + "such as a <message-row> holding the row's parts. A capitalised tag, a second element or a "
+        + "control-flow block has no slot to be.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>An <c>@rows</c> that is not directly inside a capitalised tag.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Where the rows go is the control the block is written in, and nothing else can
+    ///         say it.</b> The block compiles to <c>BuildContext.Pool</c> over the element it is a
+    ///         direct child of, so under a plain element, at the top level or inside an <c>@if</c> it
+    ///         has no pooling control to fill. Whether the capitalised tag it <i>is</i> in can pool —
+    ///         whether it is a <c>VirtualizingPanel</c> or a <c>VirtualizingGrid</c> — is the C#
+    ///         compiler's question, and its answer is reported at the <c>@rows</c> keyword.
+    ///     </para>
+    ///     <para>
+    ///         See <c>Rikarin/Vixen#758</c>.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor RowsOutsideControl = new(
+        "VXML2028",
+        "@rows outside a control",
+        "@rows fills the virtualizing control it is written directly inside — <VirtualizingPanel> or "
+        + "<VirtualizingGrid> — and here it is inside nothing that can pool rows.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
 }

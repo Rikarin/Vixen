@@ -172,6 +172,7 @@ message-log-toolbar search-box	Panels
 message-log-toolbar select	Panels
 mixer-body > mixer-strips	Documents
 mixer-side > scroll-content	Documents
+mixer-strips > scroll-content	Documents
 mode-bar > toolbar	Started
 model-editor > tree-view	Documents
 moveset-bar > textbox	Documents
@@ -185,7 +186,8 @@ option icon	Panels
 outliner-filters > search-box	Started
 outliner-filters > select	Started
 override-bar > textbox	Documents
-override-body > override-row	Documents
+override-body > scroll-content	Documents
+override-body > scroll-content > override-row	Documents
 override-cell > checkbox	Documents
 override-cell > numeric-input	Documents
 override-cell > select	Documents
@@ -212,6 +214,8 @@ select icon	Started
 sequence-body > timeline	Documents
 sequence-side > scroll-content	Documents
 settings-header search-box	Panels
+settings-pane > scroll-content	Panels
+settings-rail > scroll-content	Panels
 shadergraph-editor > node-graph	Documents
 shadergraph-side > scroll-content	Documents
 shadergraph-source > code-editor	Documents
@@ -222,6 +226,7 @@ shape-stage > viewport	Documents
 sprite-canvas > image	Documents
 sprite-field-row > numeric-input	Documents
 sprite-field-row > textbox	Documents
+sprite-list > scroll-content	Documents
 sprite-toolbar > numeric-input	Documents
 sprite-toolbar > select	Documents
 statistic-row progress-bar	Panels

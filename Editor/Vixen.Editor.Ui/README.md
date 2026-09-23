@@ -1071,7 +1071,7 @@ record, an additive signal-backing, and shapes 1–3 above saying leave it alone
 | `AudioMixerView` | snapshot | no | ~~**no**~~ ~~**port**~~ **done, wave 3 (2026-08-23).** 541 lines of C# → a 250-line `.vxml`, a 60-line `.cs` of records and captions, and a whole-tree rectangle dump in three states that is byte-identical to what it replaced | ~~XL~~ M |
 | `AnimationClipView` | snapshot | no | **no** — `Timeline.AddTrack`/`AddSpan` + `CurveEditor` is the whole panel | L |
 | `NodeGraphView` | live | no | **no** — `Canvas.Graph = built` and four `OnDraw` layers; nodes, ports and wires are not elements | XL |
-| `ConsoleView` · `MessageLogView` · `AssetGrid` | live | no | **no** — `VirtualizingPanel`/`Grid` row templates | — |
+| `ConsoleView` · `AssetGrid` | live | no | **no** — `VirtualizingPanel`/`Grid` row templates, which `@rows` now spells (#758); `MessageLogView` was the first port over it | — |
 | `InspectorView` + the four drawers · `TargetOverrideMatrix` | — | — | **no** — a drawer *is* a factory, and markup cannot be one | — |
 | `ProjectBrowser` · `ViewportLayout` · `ToolbarPresenter` · `MenuPresenter` · `AssetPicker` · `ViewportChrome` · `EditorSettingsPanels` · `EditorDiagnostics` · `DeclaredContributions` | — | — | **not panels** — shape 4 | — |
 | `SceneHierarchyView` | dump | yes | ~~**not a panel** — shape 4~~ **done, `dc6851a7a` (2026-09-23).** ⚠ **This row was wrong for four waves and nothing could catch it**, which is the first thing to record: "not a panel" was read off the *binding* (`new SceneHierarchyView(scene, panel)` building into a caller's element) rather than off the tree, and the tree was contiguous and rooted at that panel all along — the port is a `Control` subclass and a 177-line `.vxml`, and the `.cs` is `public sealed partial class SceneHierarchyView;`. The rows stay `TreeNode` data painted by `Refresh()` rather than a `@for`, because the `VirtualizingPanel` exists so that element count follows the viewport; `Renamed` stays a row-text move so an expansion deeper than the roots survives; selection still travels **out** only, deliberately, since closing that loop means a second author on `SelectedNodes`. `SelectionChanged` became `change:SelectedNodes`, which is strictly quieter — the old form answered a reselect of the already-selected row with a clear-and-re-add. ⚠ **The port closed a live defect rather than being cosmetic**: the old class exposed `Detach()` and the one production site kept no handle, so a reopened panel left a view subscribed and the next `scene.Add` threw `InvalidOperationException` out of `SceneDocument.Add` when `TreeView.Refresh` asked a removed `VirtualizingPanel` for a row height. `OnUnmounted` answers it — not an `OnRemoved` override, which the generator writes. ⚠ **A new component host needs its own `.vcss` rule or the child lays out at zero**: deleting the `scene-hierarchy` rule takes the A/B from `1200x773` to `1200x0` with every row present, answerable and invisible, and that sabotage is what makes the A/B evidence rather than a number | S |
@@ -1141,7 +1141,7 @@ event's contract is only testable once something subscribes.
 
 ### The two earlier exclusions, re-checked
 
-**`MessageLogView` — still excluded, but the reason is narrower than recorded.** There is no tag
+**`MessageLogView` — ported ([#758](https://github.com/Rikarin/Vixen/issues/758)), and the history below is why it waited.** There is no tag
 registry to add `VirtualizingPanel` to: the emitter writes `ctx.Child<Tag>(…)` for any capitalised
 tag and lets C# overload resolution settle it, so `<VirtualizingPanel ref="@List" />` is already
 legal. What markup cannot express is the **row template and its per-index binder** — `CreateRow`,
@@ -1153,7 +1153,10 @@ instead of four, and is the least suitable file in the editor.
 that virtualises through `use=` and a pair of lambdas in `@code`, counted by `VirtualListReachTests`.
 So the exclusion is exactly and only the two delegates: everything else about a virtualised list is
 already sayable, and a port would move the tag, the `ref`, the toolbar and the detail pane and leave
-`CreateRow`/`BindRow` in the code-behind — which is the shape #758's `@rows` block would finish.
+`CreateRow`/`BindRow` in the code-behind — which is the shape #758's `@rows` block now finishes:
+the row template is markup (see `docs/guide/ui/markup-panels.md`), and `MessageLogView.vxml` is the
+port: pixel-identical over the panel on both renderers, and its rows hear a tap, which the hand-built
+rows did not.
 
 **`SettingsView` — no longer excluded.** `SettingsCategory.Build` is still an `Action<UiElement>`,
 invoked at one site (`Reload()`), from seven callers in `EditorSettingsPanels`. But the factory never

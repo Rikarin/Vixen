@@ -79,6 +79,7 @@ message-log-detail > scroll-content
 mixer-body > mixer-strips
 mixer-side > scroll-content
 mixer-strip > slider
+mixer-strips > scroll-content
 mode-bar > toolbar
 model-editor > tree-view
 moveset-bar > textbox
@@ -86,7 +87,7 @@ node-graph > node-canvas
 outliner-filters > search-box
 outliner-filters > select
 override-bar > textbox
-override-body > override-row
+override-body > scroll-content
 override-cell > checkbox
 override-cell > numeric-input
 override-cell > select
@@ -95,12 +96,15 @@ profiler-body > scroll-view
 profiler-view > data-grid
 remote-body > tree-view
 remote-write > textbox
+scroll-content > button
+scroll-content > override-row
 scroll-view > scroll-content
 segment > icon
 segmented-control > segment
 sequence-body > timeline
 sequence-side > scroll-content
-settings-rail > button
+settings-pane > scroll-content
+settings-rail > scroll-content
 shadergraph-editor > node-graph
 shadergraph-side > scroll-content
 shadergraph-source > code-editor
@@ -109,6 +113,7 @@ shape-stage > viewport
 sprite-canvas > image
 sprite-field-row > numeric-input
 sprite-field-row > textbox
+sprite-list > scroll-content
 sprite-toolbar > numeric-input
 sprite-toolbar > select
 status-bar > status-trailing

@@ -427,6 +427,17 @@ sealed class VxmlLexer {
             return;
         }
 
+        // ⚠ A keyword only when a `(var` header follows, on `@empty`'s reasoning: `rows` is a legal C#
+        // identifier, and `@rows` alone or `@rows[i]` is an interpolation somebody may already have
+        // written. `rows(var x …)` is not an expression anybody writes, so that is the one spelling
+        // this takes.
+        if (AtDirective("rows") && AtVarHeaderAhead(5)) {
+            Emit(tokens, VxmlTokenKind.RowsKeyword, 5);
+            LexParenthesizedHeader(tokens, forLoop: true);
+            LexBlockOpen(tokens, isSwitch: false);
+            return;
+        }
+
         if (AtDirective("switch")) {
             Emit(tokens, VxmlTokenKind.SwitchKeyword, 7);
             LexParenthesizedHeader(tokens, forLoop: false);
@@ -514,6 +525,25 @@ sealed class VxmlLexer {
 
         SkipWhitespace(tokens);
         LexName(tokens);
+    }
+
+    /// <summary>Whether <c>( var</c> follows, whitespace allowed either side of the paren.</summary>
+    bool AtVarHeaderAhead(int offset) {
+        while (IsWhitespace(window.Peek(offset))) {
+            offset++;
+        }
+
+        if (window.Peek(offset) != '(') {
+            return false;
+        }
+
+        offset++;
+
+        while (IsWhitespace(window.Peek(offset))) {
+            offset++;
+        }
+
+        return AtWord("var", offset);
     }
 
     /// <summary>Whether a <c>{</c> starts <paramref name="offset" /> characters ahead, past spaces.</summary>

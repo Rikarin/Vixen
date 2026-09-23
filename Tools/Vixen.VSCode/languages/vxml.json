@@ -93,7 +93,7 @@
         }
     },
     "indentationRules": {
-        "increaseIndentPattern": "<(?!\\?|[^>]*/>)([-_.A-Za-z0-9]+)(?=\\s|>)\\b[^>]*>(?!.*</\\1>)|\\{\\s*$|@(if|else|for|switch|while|code)\\b.*\\{\\s*$",
+        "increaseIndentPattern": "<(?!\\?|[^>]*/>)([-_.A-Za-z0-9]+)(?=\\s|>)\\b[^>]*>(?!.*</\\1>)|\\{\\s*$|@(if|else|for|rows|switch|while|code)\\b.*\\{\\s*$",
         "decreaseIndentPattern": "^\\s*(</[-_.A-Za-z0-9]+\\s*>|\\}|-->)"
     },
     "onEnterRules": [

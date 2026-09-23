@@ -102,11 +102,16 @@ compiled-scene { flex-direction: column; flex-grow: 1; gap: 8px; padding: 6px; o
 compiled-scene-bar { flex-direction: row; align-items: center; gap: 8px; flex-shrink: 0; }
 compiled-scene-label { color: var(--text-muted); }
 
+/* ⚠ No scroll container, because the panel already is one (#1275). These two used to say
+   `overflow-y: auto; min-height: 0`, which in this UI clips and does not scroll — and here it did
+   neither: the scene document's dock panel scrolls as a whole (`dock-panel.scrolls`, whose
+   `> * { flex-shrink: 0 }` keeps the tab set from ever being squeezed), so the tables were always
+   as tall as their rows and a level of 35 archetypes was reached by the panel's own bar. The
+   declaration's only effect was a 7009 line on every open. A `ScrollView` here was tried and its
+   bar never appeared, for the same reason; the panel is the scroller, and these are its rows. */
 compiled-scene-blocks, compiled-scene-diagnostics {
     flex-direction: column;
     gap: 2px;
-    overflow-y: auto;
-    min-height: 0;
 }
 
 compiled-scene-block {
@@ -127,7 +132,7 @@ compiled-scene-severity { width: 88px; flex-shrink: 0; }
 compiled-scene-message { flex-grow: 1; min-width: 0; }
 
 compiled-scene-diagnostic.error > compiled-scene-severity { color: var(--danger, #f2696e); }
-compiled-scene-diagnostic.warning > compiled-scene-severity { color: var(--warning, #e2b341); }
+compiled-scene-diagnostic.warning > compiled-scene-severity { color: var(--warning); }
 compiled-scene-diagnostic.information > compiled-scene-severity { color: var(--text-muted); }
 
 /* ── The override matrix ─────────────────────────────────────────────
@@ -135,8 +140,21 @@ compiled-scene-diagnostic.information > compiled-scene-severity { color: var(--t
    squeezing: four platforms in a docked inspector is narrower than any cell can be, and a
    column that shrank to nothing would be a tick nobody can hit. */
 override-matrix { flex-direction: column; gap: 6px; }
-override-body { flex-direction: column; overflow-x: auto; }
-override-body > override-row { min-width: 100%; }
+/* ⚠ A `ScrollView` under this tag, scrolling sideways (#1275) — `overflow-x: auto` cut the last
+   platform columns at the edge and scrolled nothing. The rows are in the view's content now, so the
+   row rule reaches through it; the clip and anchor are restated for #1327's reason. A gutter under
+   the rows, because the horizontal bar is drawn over the port and would otherwise sit on the last
+   setting's fields.
+
+   ⚠ `contain: inline-size`, and it is what makes the sideways scroll exist at all. The grid sits in
+   the import settings' own vertical `ScrollView`, whose content is as wide as its widest child — so
+   a grid that reported its full width upwards widened everything above it to 1 286 px, fitted, and
+   had nothing to scroll (measured: content 1286 in a view 1286). Containing the inline size makes
+   the grid take the column's width and keep its own width for its own scroll; `min-width: 0` is
+   the automatic-minimum half of the same thing. */
+override-body { flex-direction: column; min-width: 0; contain: inline-size; overflow: hidden; position: relative; }
+override-body > scroll-content { padding-bottom: 10px; }
+override-body > scroll-content > override-row { min-width: 100%; }
 override-bar { flex-direction: row; align-items: center; gap: 6px; }
 override-bar > textbox { flex-grow: 1; min-width: 0; }
 
@@ -285,7 +303,23 @@ sprite-guide.horizontal { left: 0; right: 0; height: 1px; }
 
 sprite-side { flex-direction: column; gap: 6px; width: 260px; flex-shrink: 0; min-height: 0; }
 sprite-list-bar { flex-direction: row; gap: 4px; flex-shrink: 0; }
-sprite-list { flex-direction: column; flex-grow: 1; min-height: 0; overflow-y: auto; }
+/* ⚠ A `ScrollView` under this tag (#1275), in a column — the case the overflow ledger held back
+   for a picture. `flex-basis: 0px` because a scroll view that grows from a content basis grows
+   to its content and the bar never appears; the clip, anchor and direction because a control
+   under a tag of its own gets none of the `scroll-view` user-agent rule (#1327). */
+sprite-list {
+    flex-direction: column;
+    flex-grow: 1;
+    flex-basis: 0px;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+}
+
+/* ⚠ A gutter the width of the bar. The bars are drawn over the port rather than beside it, and a
+   row's size column is right-aligned — so without this the thumb sat on the last two digits of
+   every "16×16" the list showed, which the picture made plain and no count could. */
+sprite-list > scroll-content { padding-right: 10px; }
 
 sprite-row {
     flex-direction: row;
@@ -365,7 +399,7 @@ analysis-row {
 }
 
 analysis-row.error { color: var(--danger, #f2696e); }
-analysis-row.warning { color: var(--warning, #e2b341); }
+analysis-row.warning { color: var(--warning); }
 analysis-stage { width: 72px; flex-shrink: 0; color: var(--text-muted); }
 analysis-message { flex-grow: 1; min-width: 0; }
 
@@ -682,7 +716,7 @@ harness-cell.failed { background-color: var(--danger, #f2696e); color: #ffffff; 
 /* ⚠ A different colour and not a redder one. "Never resolved" is a different kind of fact
    from "off by four centimetres", and grading it on the same scale is how an author ends up
    tuning a goal that is not running at all. */
-harness-cell.missing { background-color: var(--warning, #e2b341); color: #1a1a1a; }
+harness-cell.missing { background-color: var(--warning); color: #1a1a1a; }
 harness-cell.selected { border-width: 1px; border-color: var(--accent); }
 
 /* ── The move set table ───────────────────────────────────────────────
@@ -766,7 +800,7 @@ vocab-fields, vocab-report { flex-direction: column; gap: 2px; }
 vocab-title { font-weight: 600; margin-top: 4px; }
 vocab-error { color: var(--danger, #f2696e); margin-top: 6px; }
 
-vocab-note { color: var(--warning, #e2b341); margin-top: 4px; }
+vocab-note { color: var(--warning); margin-top: 4px; }
 vocab-note.fatal { color: var(--danger, #f2696e); }
 
 vocab-row { flex-direction: row; align-items: center; gap: 6px; padding: 1px 4px; min-height: 20px; }
@@ -780,7 +814,7 @@ vocab-detail { flex-grow: 1; min-width: 0px; color: var(--text-muted); }
 shape-fields fact-value > numeric-input { flex-grow: 1; flex-basis: 0px; min-width: 0; }
 
 fact-row.error { color: var(--danger, #f2696e); }
-fact-row.warning { color: var(--warning, #e2b341); }
+fact-row.warning { color: var(--warning); }
 fact-row.selected { background-color: var(--accent-deep, var(--surface-raised)); border-radius: 3px; }
 
 /* ⚠ **A column holding a bar and a row, never one row that wraps.** The bar has to span the
@@ -841,11 +875,22 @@ state-box-motion { color: var(--text-muted); font-size: 11px; }
 /* ── The mixer ──────────────────────────────────────────────────────
    Strips side by side, which is the layout every mixer has had since the hardware ones: a
    fader is a thing you compare against its neighbours. */
+/* ⚠ A `ScrollView` under this tag, scrolling sideways (#1275) — `overflow-x: auto` clipped every
+   strip past the body's edge and scrolled nothing. The view keeps the column the user-agent rule
+   gives it, and the strips run in a row in its content: `min-height: 100%` there is what keeps a
+   fader's travel the body's height rather than its 120 px floor, since a scroll content is only as
+   tall as what it holds. The clip and the anchor are restated for #1327's reason. */
 mixer-strips {
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+mixer-strips > scroll-content {
     flex-direction: row;
     align-items: stretch;
     gap: 4px;
-    overflow-x: auto;
+    min-height: 100%;
 }
 
 mixer-strip {
@@ -985,7 +1030,13 @@ agent-symptom { flex-shrink: 0; color: var(--danger, #f2696e); font-weight: 600;
 
 /* The input debug panel. ⚠ `flex-grow` and both `min-*: 0` on the host, which is the trap one level
    up from the four lists: a panel element that only styles its rows lays out in a strip down the
-   side of the pane, because `flex-direction` is CSS-initial `row` and nothing told it to fill. */
+   side of the pane, because `flex-direction` is CSS-initial `row` and nothing told it to fill.
+
+   ⚠ No scroll container, because the panel already is one (#1275). This rule said
+   `overflow-y: auto`, which in this UI clips and does not scroll — and here it did neither: the
+   view is the direct child of a scrolling dock panel, whose `dock-panel.scrolls > *
+   { flex-shrink: 0 }` makes it as tall as its rows, and the panel's own bar reaches the last. The
+   declaration's only effect was a 7009 line every time the panel opened. */
 input-debug {
     flex-direction: column;
     flex-grow: 1;
@@ -993,7 +1044,6 @@ input-debug {
     min-height: 0;
     gap: 2px;
     padding: 2px;
-    overflow-y: auto;
 }
 
 /* ⚠ Not muted, because it is the sentence that says whether anything below it is real. */

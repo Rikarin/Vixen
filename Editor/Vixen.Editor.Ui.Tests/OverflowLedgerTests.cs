@@ -18,7 +18,7 @@ namespace Vixen.Editor.Ui.Tests;
 ///         kinds (#1275), and the issue counted six more. ⚠ <b>The count was twenty-four</b>: the
 ///         issue grepped the shorthand, and <c>overflow-y: auto</c> is the same defect spelt for one
 ///         axis — sixteen more rules across the two editor themes, every one on a side panel or a
-///         list. Seventeen of the twenty-four are converted; the seven below say why they are not.
+///         list. All twenty-four are closed now; the paragraphs below say how.
 ///     </para>
 ///     <para>
 ///         <b>This is the build-time half of the report; <c>UiDocument</c>'s 7009 is the run-time
@@ -62,33 +62,59 @@ public class OverflowLedgerTests {
     ///         is what makes them one batch rather than nine judgements.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The seven that are left are each left for a reason, not for want of time.</b>
-    ///         <c>override-body</c>, <c>settings-rail</c> and <c>settings-pane</c> carry
-    ///         <b>child-combinator</b> rules (<c>override-body &gt; override-row</c>,
-    ///         <c>settings-rail &gt; button.settings-tab</c>, <c>settings-pane &gt;
-    ///         .filtered-out</c>), and a <c>ScrollView</c> puts a <c>scroll-content</c> between the
-    ///         box and its rows — so converting one silently stops three rules matching, which is a
-    ///         separate change with a separate picture to check. <c>input-debug</c> is a
-    ///         <i>component's own host tag</i> (<c>@tag</c> in <c>InputDebugView.vxml</c>), and a
-    ///         host element is built by the runtime as a plain <c>UiElement</c>: it cannot be given
-    ///         a control's type from the sheet's side at all, so that one wants a scroller inside
-    ///         the view. <c>mixer-strips</c> and <c>override-body</c> scroll <i>sideways</i>, which
-    ///         is the one axis none of the twelve conversions so far has exercised.
-    ///         <c>compiled-scene-blocks</c>, <c>compiled-scene-diagnostics</c> and
-    ///         <c>sprite-list</c> sit in a <b>column</b>, where <c>ScrollView</c>'s own remarks warn
-    ///         that a <c>flex-grow</c> without a <c>flex-basis: 0px</c> grows the viewport to its
-    ///         content and the bar never appears — so each needs a picture rather than a pattern.
+    ///         ⚠ <b><c>settings-rail</c> and <c>settings-pane</c> went next, and their reason was
+    ///         the child combinators.</b> A <c>ScrollView</c> puts a <c>scroll-content</c> between the
+    ///         box and its rows, so <c>settings-rail &gt; button.settings-tab</c> and
+    ///         <c>settings-pane &gt; .filtered-out</c> became <c>… &gt; scroll-content &gt; …</c> — and
+    ///         the picture caught a third thing the combinators did not: the tabs' <c>width: 100%</c>
+    ///         had nothing definite to take a share of inside the content and the selected tab's
+    ///         highlight shrank to its label. <c>ScrollingPanelPictureTests</c> holds the page.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>sprite-list</c> was the first of the column ones, and the column was not the
+    ///         hard part.</b> The list got its <c>flex-basis: 0px</c>, and still could not scroll,
+    ///         because nothing above it was height-bound: the texture document's tab set was not a
+    ///         <c>document-tabs</c> set, so the sprite editor grew to 1 512 px in a 555 px tab and
+    ///         the dock panel did the clipping. It is one now, and the picture test opens a real
+    ///         texture on its Sprites tab and holds the list to the bottom of its document.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>compiled-scene-blocks</c> and <c>compiled-scene-diagnostics</c> were closed
+    ///         by removing the declaration, and the ledger's premise for them was wrong.</b> They never
+    ///         lost a row: the scene document's dock panel scrolls as a whole and
+    ///         <c>dock-panel.scrolls &gt; *</c> keeps the tab set from shrinking, so the tables were
+    ///         always as tall as their rows and the panel's bar reached the last one. A
+    ///         <c>ScrollView</c> there was tried and its bar never appeared. The document is
+    ///         pixel-identical without the declaration; what changed is the 7009 line on every open.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>mixer-strips</c> was the first sideways one.</b> The view keeps its column and
+    ///         the strips run in a row in its content, with <c>min-height: 100%</c> there — a scroll
+    ///         content is only as tall as what it holds, so without it every fader shrank to its
+    ///         120 px floor (142 px measured, in a 521 px mixer).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>input-debug</c> went the compiled scene's way, and its recorded reason was
+    ///         beside the point.</b> It was held back because a component's host cannot be given a
+    ///         control's type from the sheet — true, and irrelevant: its dock panel scrolls as a whole,
+    ///         the view is the panel's direct child and so never shrinks, and the panel's bar reached
+    ///         every row. The declaration went; the panel is pixel-identical and the 7009 line is gone.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>override-body</c> was the last, and pictured in a model document</b> — in the
+    ///         texture document <c>ImportSettingsView</c> sits below the mip ladder, past the Texture
+    ///         tab's edge. Sideways inside a vertical scroller, which cost one thing more than the
+    ///         mixer did: the outer scroll's content is as wide as its widest child, so the grid had to
+    ///         <c>contain: inline-size</c> or it widened everything above it and had nothing to scroll.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the ledger is empty, and stays a test.</b> Two rules were closed by removing a
+    ///         declaration whose panel already scrolled (the compiled-scene pair and
+    ///         <c>input-debug</c>); every other one is a <c>ScrollView</c>. A new rule asking a plain box
+    ///         to scroll fails here from now on.
     ///     </para>
     /// </remarks>
-    static readonly string[] Remaining = [
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:compiled-scene-blocks, compiled-scene-diagnostics",
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:override-body",
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:sprite-list",
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:mixer-strips",
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:input-debug",
-        "Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss:settings-rail",
-        "Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss:settings-pane"
-    ];
+    static readonly string[] Remaining = [];
 
     [Fact]
     public void Every_rule_asking_a_plain_box_to_scroll_is_named_here_and_nowhere_else() {

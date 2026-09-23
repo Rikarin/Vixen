@@ -76,8 +76,11 @@ public sealed class TargetOverrideMatrix : Control {
     /// <summary>Which drawer edits which member.</summary>
     public DrawerRegistry Drawers { get; set; } = DrawerRegistry.Default;
 
-    /// <summary>Where the header and the setting rows go.</summary>
+    /// <summary>Where the header and the setting rows go: the content of <see cref="BodyView" />.</summary>
     public UiElement Body { get; private set; } = null!;
+
+    /// <summary>The scroller the grid runs sideways in.</summary>
+    public ScrollView BodyView { get; private set; } = null!;
 
     /// <summary>The field a new target's name is typed into.</summary>
     public TextBox TargetName { get; private set; } = null!;
@@ -95,7 +98,12 @@ public sealed class TargetOverrideMatrix : Control {
     protected override void OnCreated() {
         base.OnCreated();
 
-        Body = Part("override-body");
+        // ⚠ A `ScrollView` under the sheet's tag, scrolling sideways (#1275). It was a plain element with
+        // `overflow-x: auto`, which in this UI clips and does not scroll: with six targets on a model the
+        // last two platform columns were cut at the edge with no way to reach them. The rows go in its
+        // content, which is what `Body` is.
+        BodyView = Part<ScrollView>("override-body");
+        Body = BodyView.Content;
 
         var bar = Part("override-bar");
 

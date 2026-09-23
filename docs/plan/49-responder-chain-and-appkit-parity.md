@@ -631,8 +631,8 @@ that virtualises — about a dozen elements, rebinding as it scrolls — and `Vi
 counts them, which is #758's own criterion. So the escape hatch works, no `.vxml` had ever taken it,
 and the gap is not *reach*: it is that a row **template** has no markup construct. `CreateRow` builds
 an element tree in C# and `BindRow` writes it by index, and both sit in `@code` in a file whose whole
-subject is the tree. That is ergonomics — real ergonomics, and the whole of what a `@rows` block
-would buy — rather than a control an author cannot get at.
+subject is the tree. That is ergonomics — real ergonomics, and the whole of what `@rows` now buys
+(`RowsSheet.vxml`, `RowsMarkupTests`) — rather than a control an author cannot get at.
 
 ⚠ **And it is why the block cannot be a modifier on `@for`.** A pool slot is not an identity: the
 pool only ever grows and `VirtualizingPanel.Rows` is documented as pool order, so every rule the loop

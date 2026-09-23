@@ -63,7 +63,13 @@
 </mixer-bar>
 
 <mixer-body>
-    <mixer-strips ref="@Strips">
+    <!--
+        ⚠ A `ScrollView` under the sheet's tag, scrolling sideways (#1275). It was a plain element with
+        `overflow-x: auto`, which in this UI clips and does not scroll: a mixer with more buses than the
+        body is wide lost every strip past the edge. The strips are the view's content, which is what
+        `Strips` is.
+    -->
+    <ScrollView tag="mixer-strips" ref="@StripsView">
         @for (var column in Columns) {
             <mixer-strip key="@column" class="@Chosen(column)" on:pointerdown="@(() => Pick(column))">
                 <MixerStripName Text="@column.Name" />
@@ -96,7 +102,7 @@
                 </mixer-strip-buttons>
             </mixer-strip>
         }
-    </mixer-strips>
+    </ScrollView>
 
     <!-- ⚠ A `ScrollView` under the sheet's tag: the `overflow-y: auto` this column carried clips
          and does not scroll in this UI, so a fields column longer than the pane simply ended (#1275).
@@ -261,7 +267,10 @@
     public ElementRefs<ToggleButton> Mutes { get; } = new();
 
     /// <summary>The strips.</summary>
-    public UiElement Strips { get; private set; } = null!;
+    public UiElement Strips => StripsView.Content;
+
+    /// <summary>The scroller the strips run sideways in.</summary>
+    public ScrollView StripsView { get; private set; } = null!;
 
     /// <summary>The column beside it: the fields' direct parent, which is the side pane's content.</summary>
     /// <remarks>

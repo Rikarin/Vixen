@@ -125,6 +125,15 @@ public sealed class Binder {
     /// </remarks>
     bool atTopLevel;
 
+    /// <summary>Whether the content being bound is the direct children of a capitalised tag.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Direct children only, and <see cref="BindContent(IEnumerable{MarkupSyntax})" /> takes
+    ///     it and clears it on the way in</b>, so an <c>@rows</c> one <c>@if</c> or one plain element
+    ///     further down sees it false — the block compiles to a pool over the element it is written
+    ///     in, and an <c>@if</c> is not one. <c>VXML2028</c>.
+    /// </remarks>
+    bool rowsHosted;
+
     Binder(SourceText text, string filePath, DiagnosticBag diagnostics) {
         this.text = text;
         this.filePath = filePath;
@@ -273,6 +282,7 @@ public sealed class Binder {
                 BoundIf @if => @if.Branches.Any(branch => BuildsAnything(branch.Body)) || BuildsAnything(@if.Else),
                 BoundSwitch @switch => @switch.Cases.Any(section => BuildsAnything(section.Body)),
                 BoundFor @for => BuildsAnything(@for.Body),
+                BoundRows rows => rows.Row is not null,
                 _ => false
             };
 
@@ -321,6 +331,10 @@ public sealed class Binder {
     ImmutableArray<BoundNode> BindContent(IEnumerable<MarkupSyntax> content) {
         var bound = ImmutableArray.CreateBuilder<BoundNode>();
 
+        // Taken for this level and cleared for every level under it — see `rowsHosted`.
+        var hosted = rowsHosted;
+        rowsHosted = false;
+
         foreach (var node in content) {
             switch (node) {
                 case TextSyntax text:
@@ -346,6 +360,10 @@ public sealed class Binder {
                     bound.Add(BindFor(@for));
                     break;
 
+                case RowsSyntax rows:
+                    bound.Add(BindRows(rows, hosted));
+                    break;
+
                 case SwitchSyntax @switch:
                     bound.Add(BindSwitch(@switch));
                     break;
@@ -358,6 +376,8 @@ public sealed class Binder {
                     break;
             }
         }
+
+        rowsHosted = hosted;
 
         return bound.ToImmutable();
     }
@@ -411,13 +431,18 @@ public sealed class Binder {
             Report(MarkupDiagnostics.MissingKey, element.StartTag.Name.Span, tag);
         }
 
+        var component = SyntaxFacts.IsComponentName(tag);
+
         // Only the roots of a loop body need identity; once inside one, children move with it.
         var outer = inLoop;
         inLoop = false;
-        var children = BindContent(element.Content);
-        inLoop = outer;
 
-        var component = SyntaxFacts.IsComponentName(tag);
+        // A capitalised tag's direct children are the one place an `@rows` has a control to fill.
+        var outerHosted = rowsHosted;
+        rowsHosted = component;
+        var children = BindContent(element.Content);
+        rowsHosted = outerHosted;
+        inLoop = outer;
 
         // ⚠ Here rather than in the attribute binder, because `slot="footer"` is legal by virtue of
         // its *parent* and an attribute cannot see one. This is the only place in the walk that holds
@@ -644,6 +669,60 @@ public sealed class Binder {
         }
 
         return new(branches.ToImmutable(), @else);
+    }
+
+    /// <summary>Binds an <c>@rows</c>: the index name, the count, and the one element that is the slot.</summary>
+    /// <param name="rows">The block.</param>
+    /// <param name="hosted">Whether it is a direct child of a capitalised tag.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The row is bound outside any loop scope.</b> It is not an <c>@for</c> row: it needs
+    ///         no <c>key</c> — a slot is not an identity, so there is nothing for one to say — and
+    ///         <c>refs</c> in it would file every slot under whichever the pool made last. Binding it
+    ///         as ordinary content leaves <c>VXML2004</c> quiet about the key it must not have.
+    ///     </para>
+    ///     <para>
+    ///         Whitespace between the braces and the row is not a second child; anything else is.
+    ///     </para>
+    /// </remarks>
+    BoundRows BindRows(RowsSyntax rows, bool hosted) {
+        var index = rows.Identifier.IsMissing ? "index" : rows.Identifier.Text;
+
+        if (!hosted) {
+            Report(MarkupDiagnostics.RowsOutsideControl, rows.RowsKeyword.Span);
+        }
+
+        ElementSyntax? row = null;
+        var more = false;
+
+        foreach (var node in rows.Body.Content) {
+            if (node is TextSyntax text && Decode(text.TextToken.Text).Trim().Length == 0) {
+                continue;
+            }
+
+            if (row is null && node is ElementSyntax element) {
+                row = element;
+                continue;
+            }
+
+            more = true;
+        }
+
+        BoundElement? bound = null;
+
+        if (row is null
+            || more
+            || SyntaxFacts.IsComponentName(row.StartTag.Name.Text)
+            || row.StartTag.Name.Text is "slot" or "provide" or BoundElement.SelfTag) {
+            Report(MarkupDiagnostics.RowsBodyNotOneElement, rows.RowsKeyword.Span);
+        } else {
+            var outer = inLoop;
+            inLoop = false;
+            bound = BindElement(row) as BoundElement;
+            inLoop = outer;
+        }
+
+        return new(index, Expression(rows.Count), bound, Position(rows.RowsKeyword));
     }
 
     BoundFor BindFor(ForSyntax @for) {
