@@ -45,6 +45,7 @@ code-editor-pane > code-column	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme
 color-input > color-swatch	Core/Vixen.Ui.Controls.Advanced/AdvancedTheme.vcss
 compiled-scene-diagnostic > compiled-scene-severity	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 compositor-editor > node-graph	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+console-detail > scroll-content	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 debugger-body > tree-view	Editor/Vixen.Editor.Debugger/DebuggerTheme.vcss
 device-manager > data-grid	Editor/Vixen.Editor.Debugger/DebuggerTheme.vcss
 dock-guide > dock-hint	Core/Vixen.Ui.Controls.Advanced/AdvancedTheme.vcss
@@ -68,6 +69,7 @@ inspector-row > inspector-label	Editor/Vixen.Editor.Inspector/InspectorTheme.vcs
 material-bar > textbox	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 material-editor > image	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 memory-view > scroll-view	Editor/Vixen.Editor.Profiler/ProfilerTheme.vcss
+message-log-detail > scroll-content	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 mixer-body > mixer-strips	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 mixer-strip > slider	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 mode-bar > toolbar	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
