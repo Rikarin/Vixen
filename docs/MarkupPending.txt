@@ -23,8 +23,9 @@
 #                bumping a revision counter to force redraws is the thing to avoid — and, because a
 #                port is a visual change, an A/B of the same panel before and after.
 #
-# Measured 2026-09-22: 37 view-shaped types have a `.vxml`, 26 do not, and 10 of those 26 are
-# candidates. The audit on the issue counted 34/23 on 2026-09-04 and listed InputDebugPanel and
+# Measured 2026-09-23: 38 view-shaped types have a `.vxml`, 25 do not, and 9 of those 25 are
+# candidates: SceneHierarchyView was the tenth of the ten and is ported (#1322).
+# The audit on the issue counted 34/23 on 2026-09-04 and listed InputDebugPanel and
 # AgentDebuggerPanel among the unported; ⚠ both are partials of AssetEditorsModule that REGISTER a
 # view, and InputDebugView.vxml and AgentDebuggerView.vxml exist — a name-shaped count that does not
 # read the class declaration reports two ports that are already done.
@@ -38,7 +39,6 @@ Editor/Vixen.Editor.AssetEditors/Animation/MoveSetView.cs pending — a form ove
 Editor/Vixen.Editor.AssetEditors/Animation/ProxyShapeView.cs pending — a form over a document; live model
 Editor/Vixen.Editor.AssetEditors/Content/AddressableGroupsView.cs pending — holds `List<AssetEntry> groups` and a `Rebuild()`; a `@for` over that list without making it reactive first is the revision-counter shape
 Editor/Vixen.Editor.AssetEditors/Importing/SpriteSheetView.cs canvas — slices are hit-tested in image pixels
-Editor/Vixen.Editor.AssetEditors/Scenes/SceneHierarchyView.cs pending — a binding over one sealed TreeView; rows, selection and renames, rebuilt from StructureChanged
 Editor/Vixen.Editor.AssetEditors/Sequencing/SequenceView.cs canvas — a timeline
 Editor/Vixen.Editor.AssetEditors/Vfx/VfxPreviewView.cs canvas — OnDraw projects every particle through a fixed orbit camera
 Editor/Vixen.Editor.Blockout/BlockoutUvPanel.cs not-a-view — computes island layouts for the panel that draws them; it adds no element

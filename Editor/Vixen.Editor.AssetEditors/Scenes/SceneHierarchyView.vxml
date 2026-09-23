@@ -1,0 +1,177 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    #1322, the smallest of the ten candidates `docs/MarkupPending.txt` names for #89.
+
+    ⚠ **What moves into markup is the element and the wiring, and deliberately not the rows.** A
+    `TreeView` is painted from `TreeNode` *data* by `Refresh()` — the panel ledger's shape 1 — so
+    there is no element tree for a `@for` to describe and `Rebuild` below is the hand-written method
+    unchanged. `Samples/02-HelloUi`'s Hierarchy says the same thing in more words and for a second
+    reason: a virtualiser exists so that the number of elements follows the size of the viewport
+    rather than the size of the data, and a `@for` over a thousand entities would undo it.
+
+    ⚠ **`change:SelectedNodes` rather than a `SelectionChanged` subscription, and it is quieter than
+    what it replaces.** `SelectedNodes` is written by `Restate` only when the set actually differs;
+    `SelectionChanged` fires on every `Select`, including the click that reselects the one row
+    already selected. The old binding answered each of those with `Selection.Set`, which clears and
+    re-adds — so clicking the selected row emptied and refilled the scene's selection, and anything
+    watching it saw the entity deselected and selected again.
+
+    ⚠ **`OnUnmounted` is where the port earns its keep, and the defect it closes was unreachable
+    before it.** The hand-written class exposed `Detach()` and `SceneEditorFactory.CreateView` wrote
+    `_ = new SceneHierarchyView(scene, panel)` — constructed for its effect, no handle kept, so the
+    one production path that can reopen a panel had nothing to call it on. A view left subscribed
+    does not merely rebuild a tree nobody can see: `TreeView.Refresh` asks its `VirtualizingPanel`
+    for a row height and that panel is no longer in a document, so the next `scene.Add` **throws**
+    out of `SceneDocument.Add`, taking the command that called it with it. An element hears that its
+    subtree is going; a plain class never could.
+
+    ⚠ **The rename stays a subscription**, because a rename is not a value. `Renamed` moves one
+    row's text and does not rebuild, which is what keeps an expansion deeper than the roots — the
+    same property the document's refusal to raise `StructureChanged` for a transform edit exists to
+    protect, and the model decision #1322 says this port is really about.
+
+    ⚠ **Selection still travels out only.** Something else selecting an entity does not move the
+    highlight. The port deliberately does not close that: the fix is an `Effect` over
+    `SceneDocument.Selection`, and writing one here would put a second author on `SelectedNodes`
+    with nothing deciding which of the two wins on the frame a click and a command arrive together.
+-->
+@component SceneHierarchyView
+@namespace Vixen.Editor.AssetEditors.Scenes
+@inherits Vixen.Ui.Controls.Control
+@tag scene-hierarchy
+@using Vixen.Core
+@using Vixen.Ecs
+@using Vixen.Editor.SceneView
+@using Vixen.Engine.Transforms
+@using Vixen.Ui
+@using Vixen.Ui.Controls.Advanced
+
+<TreeView ref="@Tree" MultiSelect="true" change:SelectedNodes="@(_ => Chose())" />
+
+@code {
+    SceneDocument? document;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>The rows.</summary>
+    public TreeView Tree { get; private set; } = null!;
+
+    /// <summary>The scene being shown, or <see langword="null" /> before the first <see cref="Show" />.</summary>
+    public SceneDocument? Scene => document;
+
+    /// <summary>How many rows are at the top level.</summary>
+    public int RootCount => Tree.Root.Children.Count;
+
+    partial void OnComposed() => Tree.Renamed += Committed;
+
+    /// <summary>Shows a scene, and stops showing whatever was here before.</summary>
+    /// <param name="scene">The document.</param>
+    public void Show(SceneDocument scene) {
+        ArgumentNullException.ThrowIfNull(scene);
+
+        Unsubscribe();
+
+        document = scene;
+        scene.StructureChanged += Restructured;
+        scene.Renamed += Renamed;
+
+        Rebuild();
+    }
+
+    /// <summary>
+    ///     ⚠ The hook that closes the defect this port exists for, and it is <c>OnUnmounted</c>
+    ///     rather than an <c>OnRemoved</c> override because the generator writes that one.
+    /// </summary>
+    partial void OnUnmounted() => Unsubscribe();
+
+    /// <summary>Rebuilds the rows from the document as it stands.</summary>
+    public void Rebuild() {
+        while (Tree.Root.Children.Count > 0) {
+            Tree.Root.Remove(Tree.Root.Children[^1]);
+        }
+
+        if (document is not { } scene) {
+            Tree.Refresh();
+
+            return;
+        }
+
+        foreach (var entity in scene.Roots) {
+            Branch(Tree.Root, scene, entity);
+        }
+
+        Tree.Refresh();
+
+        // The roots, so a scene opens showing something. Deeper than that is the user's business —
+        // the same rule the project browser follows.
+        foreach (var node in Tree.Root.Children) {
+            Tree.Expand(node);
+        }
+    }
+
+    void Unsubscribe() {
+        if (document is not { } scene) {
+            return;
+        }
+
+        scene.StructureChanged -= Restructured;
+        scene.Renamed -= Renamed;
+        document = null;
+    }
+
+    void Chose() {
+        if (document is not { } scene) {
+            return;
+        }
+
+        List<Entity> picked = [];
+
+        foreach (var node in Tree.SelectedNodes) {
+            if (node.Tag is Entity entity) {
+                picked.Add(entity);
+            }
+        }
+
+        scene.Selection.Set(picked);
+    }
+
+    void Committed(TreeView tree, TreeNode node, string name) {
+        if (document is { } scene && node.Tag is Entity entity) {
+            scene.Rename(entity, name);
+        }
+    }
+
+    static void Branch(TreeNode parent, SceneDocument scene, Entity entity) {
+        var node = parent.Add(scene.NameOf(entity), entity);
+
+        foreach (var child in Hierarchy.ChildrenOf(scene.World, entity)) {
+            Branch(node, scene, child);
+        }
+    }
+
+    void Restructured(SceneDocument changed) => Rebuild();
+
+    void Renamed(SceneDocument changed, Entity entity) {
+        foreach (var node in Descendants(Tree.Root)) {
+            if (node.Tag is Entity found && found == entity) {
+                node.Text = changed.NameOf(entity);
+                Tree.Refresh();
+
+                return;
+            }
+        }
+    }
+
+    static IEnumerable<TreeNode> Descendants(TreeNode node) {
+        foreach (var child in node.Children) {
+            yield return child;
+
+            foreach (var nested in Descendants(child)) {
+                yield return nested;
+            }
+        }
+    }
+}
