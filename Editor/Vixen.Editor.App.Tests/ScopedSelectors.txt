@@ -150,6 +150,7 @@ key-value-value slider	-
 key-value-value stepper	-
 key-value-value textarea	-
 key-value-value textbox	-
+keybindings-status > text	Panels
 keybindings-toolbar search-box	Panels
 keybindings-toolbar select	Panels
 keybindings-view data-grid	Panels
