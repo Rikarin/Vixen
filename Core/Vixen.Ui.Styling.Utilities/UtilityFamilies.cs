@@ -18,6 +18,32 @@ enum ValueKind : byte {
     /// <summary>A multiple of the spacing unit: <c>p-4</c>.</summary>
     Spacing,
 
+    /// <summary>A length along z: <c>translate-z-4</c>, <c>translate-z-px</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="Spacing" /> minus <c>auto</c>, and the subtraction is the whole
+    ///         reason it is a kind.</b> Every other value <see cref="Spacing" /> and
+    ///         <see cref="Size" /> answer — <c>auto</c>, <c>full</c>, <c>min</c>, <c>max</c>,
+    ///         <c>fit</c>, <c>screen</c>, <c>lh</c>, and any <c>n/d</c> fraction — is a value
+    ///         <c>TransformReader.Depth</c> refuses, because Transforms 2 § 12 gives a z offset no
+    ///         box dimension to resolve a percentage against and a keyword is not a length at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And a refused argument drops the <i>whole</i> transform list</b>, so the cost of
+    ///         resolving one of those is not a slot that does nothing: <c>translate-z-full
+    ///         rotate-z-90</c> would emit a <c>transform</c> the reader declines entirely and the
+    ///         element would not rotate. That is worse than the unrecognised class it was before the
+    ///         root existed, which is what makes this a kind rather than a tolerated rough edge.
+    ///     </para>
+    ///     <para>
+    ///         It is also v4's own spelling: <c>translate-z-*</c> takes a number, <c>px</c>, or an
+    ///         arbitrary value, and ships no keyword or fraction arm. The arbitrary branch is left
+    ///         open on purpose — <c>translate-z-[50%]</c> is dropped here exactly as a browser drops
+    ///         a hand-written <c>translateZ(50%)</c>, which is the escape hatch behaving as itself.
+    ///     </para>
+    /// </remarks>
+    Depth,
+
     /// <summary>A colour token: <c>bg-accent</c>.</summary>
     Color,
 
@@ -2558,13 +2584,24 @@ public static class UtilityFamilies {
         // existed in this engine — `TrySpacing` folds the spacing scale at resolution time and
         // emits `16px`, which `CompositionTests` has pinned for `translate-x-2` the whole time.
         //
-        // ⚠ <b><see cref="ValueKind.Size" /> here and <see cref="ValueKind.CountTemplate" /> beside
-        // it, which is the same split `Translate` and `Scale` carry one axis over</b>: a depth is a
-        // length on the spacing scale and a scale's count is a percentage. `scale-z-150` resolving
-        // through the spacing scale would be six hundred pixels of nothing.
+        // ⚠ <b><see cref="ValueKind.Depth" /> here and <see cref="ValueKind.CountTemplate" /> beside
+        // it</b>: a depth is a length on the spacing scale and a scale's count is a percentage.
+        // `scale-z-150` resolving through the spacing scale would be six hundred pixels of nothing.
+        //
+        // ⚠ <b><see cref="ValueKind.Depth" /> and NOT <see cref="ValueKind.Size" />, which is what
+        // `Translate` carries one axis over and what this registration said first.</b> `Size` is
+        // right for x and y precisely because a percentage there is the element's own border box —
+        // `-translate-x-full` is the idiom for sliding a panel its own width off the edge. Along z
+        // there is no box dimension to resolve one against, so `translate-z-full`, `translate-z-1/2`,
+        // `translate-z-auto` and `translate-z-lh` all resolve to values `TransformReader.Depth`
+        // refuses, and a refused argument drops the WHOLE list: `translate-z-full rotate-z-90` would
+        // not rotate. ⚠ <b>That is strictly worse than the unrecognised class it was before this
+        // root existed</b>, and the census could not see it — it measures a class as resolvable when
+        // it emits a declaration, not when a consumer reads one. `scale-z-*` was never exposed to it:
+        // `TryCount` takes positive integers only.
         Register(new Family(
             "translate-z",
-            ValueKind.Size,
+            ValueKind.Depth,
             [UtilityComposition.TranslateZ],
             Alongside: [new UtilityDeclaration("transform", UtilityComposition.Transform())]
         ));
@@ -3137,7 +3174,15 @@ public static class UtilityFamilies {
     /// </remarks>
     static IEnumerable<string> ValuesFor(Family family, ThemeTokens tokens) {
         switch (family.Kind) {
+            // ⚠ <see cref="ValueKind.Depth" /> belongs here and the omission is not a missing probe,
+            // it is a family that VANISHES. A kind with no arm yields no valued class, so
+            // <see cref="Surface" /> never spells one, the consumption gate never meets the
+            // <c>--tw-*</c> fragment, and the ledger measures the root <c>absent</c> — which reads
+            // exactly like a root nobody registered. The three suites that caught it did so only
+            // because the row already claimed the family; a NEW root added with a new kind would
+            // have been silently invisible to all of them.
             case ValueKind.Spacing:
+            case ValueKind.Depth:
             case ValueKind.Size:
             case ValueKind.Number:
             case ValueKind.CountTemplate:
@@ -3265,10 +3310,28 @@ public static class UtilityFamilies {
 
                 break;
 
+            // The two kinds that genuinely have no valued class to probe: their whole surface is the
+            // bare name and the keyword table, which `Surface` spells before it asks this.
             case ValueKind.Static:
             case ValueKind.Keyword:
-            default:
                 break;
+
+            // ⚠ <b>A throw and not a <c>break</c>, because the silent version of this cost a root.</b>
+            // The arm below used to be `default: break;`, so a kind added without a probe value
+            // yielded no valued class — and a family that contributes no class to
+            // <see cref="Surface" /> is not a family with a thin probe, it is a family that has
+            // VANISHED: the consumption gate never meets its `--tw-*` fragment and the parity ledger
+            // measures the root `absent`, indistinguishable from one nobody registered.
+            // <c>ValueKind.Depth</c> did exactly that on the day it was added. The ledger caught it
+            // only because a row already claimed the family; a NEW root arriving with a NEW kind
+            // would have been invisible to every suite at once, which is the shape of vacuity this
+            // method's other remarks have each been wrong about once.
+            default:
+                throw new NotSupportedException(
+                    $"{family.Kind} has no probe value in UtilityFamilies.ValuesFor, so every family "
+                    + "registered with it is absent from the surface — add an arm, or list the kind "
+                    + "beside Static and Keyword if it really has no valued class."
+                );
         }
     }
 
@@ -3487,6 +3550,7 @@ public static class UtilityFamilies {
             // utility that does not take one.
             ValueKind.Static => false,
             ValueKind.Spacing => TrySpacing(candidate.Value, tokens, out var spacing) && Emit(family, spacing, declarations),
+            ValueKind.Depth => TryDepth(candidate.Value, tokens, out var depth) && Emit(family, depth, declarations),
             ValueKind.Size => TrySize(candidate, tokens, out var size) && Emit(family, size, declarations),
             ValueKind.Number => TryNumber(candidate.Value, out var number) && Emit(family, number, declarations),
             ValueKind.CountTemplate => TryCount(candidate.Value, out var count)
@@ -4009,6 +4073,21 @@ public static class UtilityFamilies {
 
         result = Px(steps * tokens.SpacingBase);
         return true;
+    }
+
+    /// <summary>The spacing scale as a length along z — <see cref="TrySpacing" /> without <c>auto</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>auto</c> is the one value that has to be subtracted here, and the reason it is
+    ///     easy to miss is that it is the only keyword <see cref="TrySpacing" /> answers.</b> Reaching
+    ///     for <see cref="ValueKind.Spacing" /> on the belief that it is already lengths-only leaves
+    ///     <c>translate-z-auto</c> emitting <c>translateZ(auto)</c>, which
+    ///     <c>TransformReader.Depth</c> refuses — and one refused function drops the whole list. See
+    ///     <see cref="ValueKind.Depth" />.
+    /// </remarks>
+    static bool TryDepth(string value, ThemeTokens tokens, out string result) {
+        result = string.Empty;
+
+        return !value.Equals("auto", StringComparison.Ordinal) && TrySpacing(value, tokens, out result);
     }
 
     /// <summary>Resolves the value half of a sizing utility.</summary>

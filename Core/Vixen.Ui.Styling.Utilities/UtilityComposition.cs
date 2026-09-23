@@ -322,20 +322,29 @@ public static class UtilityComposition {
     //
     // ── The transform list's fragments ──────────────────────────────────────────────────────
     //
-    // ⚠ <b>Three fragments and one assembler, and the arrangement is the reason a second family
-    // could join without touching the first</b> — the argument <see cref="Blur" /> makes one
-    // property over. CSS's `transform` is an ordered list, so `rotate-z-45 skew-x-6` has to come out
-    // as one declaration holding both functions; two families each writing a whole `transform` would
-    // let the cascade pick one and drop the other, silently, which is the failure `translate-x`/
+    // ⚠ <b>Fragments and one assembler, and the arrangement is the reason a second family could join
+    // without touching the first</b> — the argument <see cref="Blur" /> makes one property over.
+    // CSS's `transform` is an ordered list, so `rotate-z-45 skew-x-6` has to come out as one
+    // declaration holding both functions; two families each writing a whole `transform` would let
+    // the cascade pick one and drop the other, silently, which is the failure `translate-x`/
     // `translate-y` had.
     //
-    // ⚠ <b>And it is a list this engine can only partly spell, which is why the assembler names
-    // three slots rather than v4's five.</b> `TransformReader.Functions` refuses a list outright if
-    // any one function in it is unreadable — deliberately, because a card flip read as the two flat
-    // halves of a `rotateX rotateY` pair is a picture, and a wrong one. So writing v4's whole
-    // `rotateX(…) rotateY(…) rotateZ(…) skewX(…) skewY(…)` today would make `rotate-z-45` emit a
-    // declaration the engine drops *whole*: the family would resolve, cascade and do nothing. A slot
-    // joins this assembler when its function parses, and not before.
+    // ⚠ <b>The slot count is not a shortfall against v4 and reading it as one is how this comment
+    // kept going stale.</b> It said "three slots rather than v4's five" while the assembler named
+    // five, and it named seven the moment `translateZ` and `scaleZ` joined — two slots v4 does not
+    // have in its `transform` at all, because v4 spells them on the separate `translate` and `scale`
+    // properties and this engine cannot (see `Transform`'s own remark). Count the fragments in
+    // `Transform()` rather than trusting a number written here.
+    //
+    // ⚠ <b>What IS a condition on joining: the function has to parse.</b>
+    // `TransformReader.Functions` refuses a list outright if any one function in it is unreadable —
+    // deliberately, because a card flip read as the two flat halves of a `rotateX rotateY` pair is a
+    // picture, and a wrong one. So a slot written before its function parsed would make every class
+    // in the list emit a declaration the engine drops *whole*: the families would resolve, cascade
+    // and do nothing. ⚠ <b>And the same rule binds a slot's VALUES, which #1328 got wrong once</b> —
+    // `translate-z-*` shipped over `ValueKind.Size`, whose `full`/`auto`/fraction arms are values
+    // `Depth` refuses, so `translate-z-full rotate-z-90` dropped the rotation too. A slot joins when
+    // its function parses *and* its family cannot resolve to an argument that function declines.
     //
     // ⚠ <b>Which is a condition and not a verdict, and the two skews are the case that proves it —
     // for the second time on this feature.</b> `skewX` and `skewY` have parsed since

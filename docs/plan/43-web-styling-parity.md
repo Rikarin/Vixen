@@ -1414,6 +1414,21 @@ does mirror that one.
    into y and the card would swing rather than lift. Third family in this list to close on a premise
    nobody had re-measured, and the first where the premise was about a *value the engine emits* rather
    than about a reader it lacks.
+   ⚠ **And the value KIND they landed with was wrong, which the census could not see.**
+   `translate-z-*` registered over `ValueKind.Size` — `translate-x`'s kind, right there because a
+   percentage resolves against the element's own border box, and wrong along z where Transforms 2 § 12
+   gives a percentage no dimension to resolve against. So `translate-z-full`, `translate-z-auto`,
+   `translate-z-lh` and `translate-z-1/2` each resolved to an argument `TransformReader.Depth`
+   declines, and one declined function drops the WHOLE list: `translate-z-full rotate-z-90` did not
+   rotate — strictly worse than the unrecognised class it replaced. ⚠ **This is shape 3 arriving
+   through a value the family itself emits**, and the measurement is blind to it by construction: a
+   class counts as resolvable when it EMITS a declaration, never when a consumer reads one. It is
+   `ValueKind.Depth` now — the spacing scale without `auto` — which is also v4's own surface for
+   this root. ⚠ **And the new kind then vanished the family a second time, from the other end**:
+   `UtilityFamilies.ValuesFor` had no arm for it and fell through a `default: break;`, so the root
+   contributed no class to `Surface`, met no consumption probe, and measured `absent` — identical
+   to a root nobody registered. That arm is a throw now, because the silent version is a new kind's
+   default behaviour and a new root would have been invisible to every suite at once.
 3. ⚠ *The property is **read** and the **value** is refused, so a registration keeps the gate green
    over a class that paints nothing.* The dangerous shape, and no per-property measurement can catch
    it. ⚠ **Two of this shape's three examples closed on 2026-09-06, and neither closed by being

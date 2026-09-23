@@ -947,35 +947,7 @@ sealed class TransformReader {
             return bare == 0f;
         }
 
-        var digits = Mantissa(text);
-
-        if (!float.TryParse(text[..digits], NumberStyles.Float, CultureInfo.InvariantCulture, out var number)) {
-            return false;
-        }
-
-        var unit = text[digits..] switch {
-            var u when u.Equals("px", StringComparison.OrdinalIgnoreCase) => StyleUnit.Pixels,
-            var u when u.Equals("em", StringComparison.OrdinalIgnoreCase) => StyleUnit.Em,
-            var u when u.Equals("rem", StringComparison.OrdinalIgnoreCase) => StyleUnit.Rem,
-            var u when u.Equals("vw", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportWidth,
-            var u when u.Equals("vh", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportHeight,
-            var u when u.Equals("vmin", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportMin,
-            var u when u.Equals("vmax", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportMax,
-            _ => StyleUnit.None
-        };
-
-        if (unit == StyleUnit.None) {
-            return false;
-        }
-
-        var length = metrics.ToLength(StyleValue.FromLength(number, unit));
-
-        if (length.Unit != LayoutUnit.Point) {
-            return false;
-        }
-
-        points = length.Value;
-        return true;
+        return Dimension(text, metrics, out points);
     }
 
     /// <summary>One argument that is itself a function, folded to a number or a length.</summary>
@@ -1258,6 +1230,34 @@ sealed class TransformReader {
             return bare == 0f;
         }
 
+        return Dimension(text, metrics, out points);
+    }
+
+    /// <summary>A number and its unit, resolved to points — the one place this reader spells a unit.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One switch and not two, because it was two and they disagreed.</b>
+    ///         <see cref="Distance" /> and <see cref="Depth" /> each carried their own copy of the
+    ///         same seven units, which is the two-readers-one-grammar shape that produced #1339's
+    ///         exponent defect one line up; a unit added to one copy and not the other is the same
+    ///         failure one unit over, and it silently drops the <i>whole</i> list rather than the one
+    ///         function that named it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>lh</c> is in the list, and it was the copy's missing unit.</b>
+    ///         <c>LengthContext.PixelsPer</c> and <c>StyleValueParser.ParseNumeric</c> have
+    ///         both read it since <c>max-block-lh</c> arrived, so <c>width: 1lh</c> resolved while
+    ///         <c>translate(1lh)</c> was refused and took every function beside it down.
+    ///     </para>
+    ///     <para>
+    ///         A percentage never reaches here: both callers answer one before this, and they answer
+    ///         it differently — against the element's box in <see cref="Distance" />, and with a
+    ///         refusal in <see cref="Depth" />, which is exactly the part that cannot be shared.
+    ///     </para>
+    /// </remarks>
+    static bool Dimension(ReadOnlySpan<char> text, LengthContext metrics, out float points) {
+        points = 0f;
+
         var digits = Mantissa(text);
 
         if (!float.TryParse(text[..digits], NumberStyles.Float, CultureInfo.InvariantCulture, out var number)) {
@@ -1268,6 +1268,7 @@ sealed class TransformReader {
             var u when u.Equals("px", StringComparison.OrdinalIgnoreCase) => StyleUnit.Pixels,
             var u when u.Equals("em", StringComparison.OrdinalIgnoreCase) => StyleUnit.Em,
             var u when u.Equals("rem", StringComparison.OrdinalIgnoreCase) => StyleUnit.Rem,
+            var u when u.Equals("lh", StringComparison.OrdinalIgnoreCase) => StyleUnit.LineHeight,
             var u when u.Equals("vw", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportWidth,
             var u when u.Equals("vh", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportHeight,
             var u when u.Equals("vmin", StringComparison.OrdinalIgnoreCase) => StyleUnit.ViewportMin,

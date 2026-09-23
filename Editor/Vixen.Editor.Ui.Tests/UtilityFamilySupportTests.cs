@@ -3073,6 +3073,83 @@ public class UtilityFamilySupportTests {
         );
     }
 
+    /// <summary>
+    ///     A <c>translate-z-*</c> value that is not a depth is no class at all, and the slot beside
+    ///     it still turns.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The root shipped over <c>ValueKind.Size</c> — <c>Translate</c>'s kind,
+    ///         which is right for x and y and wrong along z — and that made it strictly worse than
+    ///         the unrecognised class it replaced.</b> <c>Size</c> answers <c>full</c> and
+    ///         <c>screen</c> as <c>100%</c>, <c>auto</c>/<c>min</c>/<c>max</c>/<c>fit</c> as
+    ///         keywords, <c>lh</c> as a line box, and an <c>n/d</c> suffix as a percentage. Every one
+    ///         of those substitutes into <c>translateZ(…)</c> as a value
+    ///         <c>TransformReader.Depth</c> declines — Transforms 2 § 12 gives z no box dimension to
+    ///         resolve a percentage against — and <c>Functions</c> drops the <b>whole</b> list on one
+    ///         declined function. So <c>translate-z-full rotate-z-90</c> did not rotate.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing in the census could see it, which is why the assertion is here and not
+    ///         a row in <see cref="Supported" />.</b> A class is measured resolvable when it emits a
+    ///         declaration, not when a consumer reads one, so the ledger scored the root <c>works</c>
+    ///         on the strength of a <c>transform</c> the engine throws away.
+    ///     </para>
+    ///     <para>
+    ///         <b>Both directions, because over-refusing is the other way to be wrong.</b> The
+    ///         spacing arm has to survive the narrowing — <c>translate-z-px</c> is one point and
+    ///         <c>translate-z-4</c> is sixteen — and it is the half a fix that simply deleted the
+    ///         family would pass without.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <c>scale-z-*</c> was never exposed to this: <c>ValueKind.CountTemplate</c> goes
+    ///         through <c>TryCount</c>, which takes positive integers and nothing else.
+    ///     </para>
+    /// </remarks>
+    /// <param name="value">The value half of the class, after <c>translate-z-</c>.</param>
+    [Theory]
+    [InlineData("full")]
+    [InlineData("screen")]
+    [InlineData("auto")]
+    [InlineData("min")]
+    [InlineData("max")]
+    [InlineData("fit")]
+    [InlineData("lh")]
+    [InlineData("1/2")]
+    public void A_translate_z_that_is_not_a_depth_is_no_class_rather_than_a_dropped_list(string value) {
+        var refused = "translate-z-" + value;
+
+        using var ui = Sheet(refused, "rotate-z-90", "translate-z-px", "w-16", "h-8", "bg-accent");
+
+        var alone = ui.Create("alone", ui.Document.Root, null, refused, "w-16", "h-8", "bg-accent");
+        var beside = ui.Create("beside", ui.Document.Root, null, refused, "rotate-z-90", "w-16", "h-8", "bg-accent");
+        var kept = ui.Create("kept", ui.Document.Root, null, "translate-z-px", "w-16", "h-8", "bg-accent");
+
+        ui.Frame();
+
+        // One: the class resolves to nothing, so no `transform` is emitted at all. This is the half
+        // that was a declaration the engine dropped.
+        Assert.Null(ui.StyleOf(alone, "transform"));
+        Assert.Null(alone.Transform);
+
+        // Two: and the neighbour is untouched — the whole point. `rotate-z-90` writes the assembler
+        // with the z slot at its initial `0px`, and the card turns a quarter about its own centre:
+        // a point 32 to the right of centre lands 32 below it, and nowhere to the right.
+        var turned = Assert.IsType<UiTransform>(beside.Transform);
+        var centre = new Vector2(beside.AbsoluteLeft + 32f, beside.AbsoluteTop + 16f);
+        var corner = turned.Apply(centre + new Vector2(32f, 0f));
+
+        Assert.Equal(centre.X, corner.X, 2);
+        Assert.Equal(32f, MathF.Abs(corner.Y - centre.Y), 2);
+
+        // Three: the narrowing kept the arm it was supposed to keep. `px` is one point on the
+        // spacing scale, and a fix that refused the family outright would fail here.
+        Assert.Equal(
+            "translateZ(1px) scaleZ(1) rotateX(0deg) rotateY(0deg) rotateZ(0deg) skewX(0deg) skewY(0deg)",
+            ui.StyleOf(kept, "transform")
+        );
+    }
+
     /// <summary><c>skew-x-45</c> shears the box along x about its centre, and along x only.</summary>
     /// <remarks>
     ///     <para>

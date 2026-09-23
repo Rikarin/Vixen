@@ -718,6 +718,54 @@ public sealed class DrawListBuilder {
             return;
         }
 
+        // ⚠ <b>Read here rather than resolved here, because the hit test needs the same matrix and
+        // neither of them may own it.</b> `UiDocument.Accumulate` composes it once per pass, origin
+        // folded in; a transform painted from one composition and clicked through another is the
+        // failure `TransformTests` exists to make unstateable. It is *used* as the fifth reason to
+        // open a group, thirty lines down; it is read at the top because the two refusals below are.
+        var placed = element.Transform;
+
+        // ⚠ <b>A degenerate transform skips the subtree outright, on `opacity: 0`'s terms and for a
+        // sharper reason.</b> `scale: 0` — and `scale: 1 0`, and any composition that collapses to a
+        // line — maps every point of the element to zero area, so there is nothing it could paint.
+        // Dropping it later, where the group is resolved, is *not* the same thing and was measured
+        // wrong: the subtree's own draws are appended as the walk descends, so a group discarded at
+        // the geometry stage leaves them behind and the element paints at full size, unscaled, which
+        // is the opposite of what was asked for. `scale-0` is a real class and a common way to hide
+        // something, so this is the ordinary path rather than an edge case.
+        //
+        // ⚠ Ungated by `Compositing`, unlike the group below, because this is not a compositing
+        // decision. An element scaled to nothing is invisible on any renderer, and the hit test
+        // refuses it through the same singular matrix — see `UiDocument.HitTest`.
+        if (placed is { } collapsed && collapsed.Invert() is null) {
+            return;
+        }
+
+        // ⚠ <b>A back-facing element skips the subtree on exactly those terms, and the flag is read
+        // rather than derived because the matrix beside it cannot answer.</b> `Reduce` throws the z
+        // row and column away, so a `rotateY(180deg)` and a `scaleX(-1)` arrive as the same
+        // homography and only the first has turned the plane over — `TransformReader` decides while
+        // it still holds the 4×4. See `UiElement.BackfaceHidden`.
+        //
+        // ⚠ <b>The subtree goes with it, unlike `visibility: hidden` further down.</b> A transformed
+        // element's descendants are composited into ITS plane, so they have turned away with it;
+        // `visibility` is inherited and asked per element precisely so that a child can declare
+        // itself back, which is a different question and not one a rotation can be argued out of.
+        // ⚠ Ungated by `Compositing`, like the degenerate case above and unlike the group below: an
+        // element facing away is absent on any renderer, and `UiDocument.HitTest` returns at the same
+        // point — a box that is hidden and still swallows the pointer is the one bug this property
+        // could plausibly introduce.
+        if (element.BackfaceHidden) {
+            return;
+        }
+
+        // ⚠ <b>Both refusals above the reads below, and that ordering is the point of hoisting
+        // them.</b> They used to sit under `MasksFor` — a `stackalloc` and up to twelve gradient
+        // reads — and under `Backdrop`, all of it for an element about to be skipped whole. A card
+        // flip is precisely the case where half the cards are back-facing on *every* frame, so the
+        // wasted half was not a tail case. Nothing below this point can change either answer: the
+        // matrix and the flag are both composed by `UiDocument.Accumulate` before this walk begins.
+
         // ⚠ <b>The second reason to open a group, and the first one that is not <i>optional</i>.</b>
         // An opacity can always be approximated by fading each element — that is what this file did
         // for years and what `Compositing` off still does. A blur cannot: it is a function of the
@@ -766,12 +814,8 @@ public sealed class DrawListBuilder {
         // what came out of it; this one leaves what came out of it alone and moves it. What they share
         // is the reason a surface is needed at all: a `DrawCommand` is an axis-aligned rectangle, so
         // there is no per-command form of a rotation to push down — the same shape of argument as a
-        // colour matrix, arriving at the same seam from the other side.
-        //
-        // ⚠ <b>Read off the element rather than resolved here, because the hit test needs the same
-        // matrix and neither of them may own it.</b> `UiDocument.Accumulate` composes it once per
-        // pass, origin folded in; a transform painted from one composition and clicked through another
-        // is the failure `TransformTests` exists to make unstateable.
+        // colour matrix, arriving at the same seam from the other side. `placed` is read at the top
+        // of this method, where the two refusals that need it are.
         //
         // ⚠ <b>And it is `Compositing`-gated with the rest, which is a real consequence rather than
         // an oversight.</b> With compositing off there is no surface, so a rotated element paints
@@ -779,41 +823,6 @@ public sealed class DrawListBuilder {
         // describes for a consumer that ignores it. The hit test is not gated, so it would then be
         // clicked where it is *not* drawn; that is stated in the guide rather than papered over,
         // because the flag exists for tests that want a draw list with no brackets in it.
-        var placed = element.Transform;
-
-        // ⚠ <b>A degenerate transform skips the subtree outright, on `opacity: 0`'s terms and for a
-        // sharper reason.</b> `scale: 0` — and `scale: 1 0`, and any composition that collapses to a
-        // line — maps every point of the element to zero area, so there is nothing it could paint.
-        // Dropping it later, where the group is resolved, is *not* the same thing and was measured
-        // wrong: the subtree's own draws are appended as the walk descends, so a group discarded at
-        // the geometry stage leaves them behind and the element paints at full size, unscaled, which
-        // is the opposite of what was asked for. `scale-0` is a real class and a common way to hide
-        // something, so this is the ordinary path rather than an edge case.
-        //
-        // ⚠ Ungated by `Compositing`, unlike the group below, because this is not a compositing
-        // decision. An element scaled to nothing is invisible on any renderer, and the hit test
-        // refuses it through the same singular matrix — see `UiDocument.HitTest`.
-        if (placed is { } collapsed && collapsed.Invert() is null) {
-            return;
-        }
-
-        // ⚠ <b>A back-facing element skips the subtree on exactly those terms, and the flag is read
-        // rather than derived because the matrix beside it cannot answer.</b> `Reduce` throws the z
-        // row and column away, so a `rotateY(180deg)` and a `scaleX(-1)` arrive as the same
-        // homography and only the first has turned the plane over — `TransformReader` decides while
-        // it still holds the 4×4. See `UiElement.BackfaceHidden`.
-        //
-        // ⚠ <b>The subtree goes with it, unlike `visibility: hidden` twenty lines down.</b> A
-        // transformed element's descendants are composited into ITS plane, so they have turned away
-        // with it; `visibility` is inherited and asked per element precisely so that a child can
-        // declare itself back, which is a different question and not one a rotation can be argued out
-        // of. ⚠ Ungated by `Compositing`, like the degenerate case above and unlike the group below:
-        // an element facing away is absent on any renderer, and `UiDocument.HitTest` returns at the
-        // same point — a box that is hidden and still swallows the pointer is the one bug this
-        // property could plausibly introduce.
-        if (element.BackfaceHidden) {
-            return;
-        }
 
         // ⚠ <b>The sixth reason to open a group, and the first whose output is a function of two
         // pictures rather than one.</b> The other five transform what the subtree drew; this one

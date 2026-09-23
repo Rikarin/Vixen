@@ -1026,6 +1026,63 @@ public class TransformTests {
         Assert.NotSame(shifted, document.HitTest(40f, 210f));
     }
 
+    /// <summary>An <c>lh</c> in a transform is a line box, and the function beside it survives.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The second half of #1339's finding, and the same shape: two readers of one
+    ///         grammar, one correct.</b> <c>LengthContext.PixelsPer</c> and
+    ///         <c>StyleValueParser.ParseNumeric</c> have both read <c>lh</c> since
+    ///         <c>max-block-lh</c> arrived, so <c>width: 1lh</c> resolved — while this reader
+    ///         enumerated px/em/rem/vw/vh/vmin/vmax by hand, in <b>two</b> hand-written copies, and
+    ///         had neither. The two copies are now one; see <c>TransformReader.Dimension</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The neighbour is the assertion, exactly as it is for a <c>calc()</c>.</b> A
+    ///         refused argument drops the <i>whole</i> list, so the cost of a missing unit was never
+    ///         "that one translation did nothing" — it was every function written beside it silently
+    ///         stopping too, which is why the first card carries a <c>translateY</c> the refusal
+    ///         would have taken with it.
+    ///     </para>
+    ///     <para>
+    ///         <b>The oracle is a ratio, so no card can pass on a coincidence of the font.</b> Both
+    ///         cards write the same literal at the same 20-point font, and the only difference
+    ///         between them is a line height of 30 against 60 — so the second must move exactly twice
+    ///         as far. An <c>lh</c> misread as an <c>em</c> would move both by 20 and fail both.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_lh_in_a_transform_is_a_line_box_and_the_function_beside_it_survives() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; font-size: 16px; }
+            .near { position: absolute; left: 0px; top: 0px; width: 20px; height: 20px;
+                    font-size: 20px; line-height: 30px; background-color: #111;
+                    transform: translateX(1lh) translateY(10px); }
+            .far { position: absolute; left: 0px; top: 100px; width: 20px; height: 20px;
+                   font-size: 20px; line-height: 60px; background-color: #222;
+                   transform: translateX(1lh); }
+            """,
+            document => {
+                document.Root.Add("div", classNames: "near");
+                document.Root.Add("div", classNames: "far");
+            }
+        );
+
+        var near = document.Root.Children[0];
+        var far = document.Root.Children[1];
+
+        // One line box across and ten points down: x in [30, 50], y in [10, 30]. Both coordinates,
+        // because the y is the neighbour a refused `lh` used to take down with it — a dropped list
+        // leaves the card at the origin, which the second probe refuses.
+        Assert.Same(near, document.HitTest(40f, 20f));
+        Assert.Same(document.Root, document.HitTest(10f, 5f));
+
+        // Twice the line box is twice the distance: x in [60, 80], not the 30 above and not the
+        // 20 an `em` reading would give.
+        Assert.Same(far, document.HitTest(70f, 110f));
+        Assert.NotSame(far, document.HitTest(40f, 110f));
+    }
+
     /// <summary>A <c>calc()</c> along z is folded and then projected by the parent's perspective.</summary>
     /// <remarks>
     ///     <para>
