@@ -39,7 +39,7 @@ open rows where there is one.
 
 | API | Purpose | Filed | Now |
 |---|---|---|---|
-| `UiElement.AddCommandHandler` (`Commands.cs:784`) | how an element *becomes* a responder | **0** | 6 — `Documents.cs:202`, `Undo.cs:217`, `TextField.cs:391`, `CodeEditor.cs:633`, `Hierarchy.vxml:96` |
+| `UiElement.AddCommandHandler` (`Commands.cs:784`) | how an element *becomes* a responder | **0** | 5 — `Documents.cs:202`, `Undo.cs:217`, `TextField.cs:391`, `CodeEditor.cs:633`, `Hierarchy.vxml:96` |
 | `UiElement.RemoveCommandHandler` (`Commands.cs:848`) | — | **0** | **0**, and correctly so — see the remark on the method |
 | `UiElement.CommandScope` (`Commands.cs:699`) | the derived scope 45 § G2 was written to build | **0** | 2 — `Hierarchy.vxml:84`, `Inspector.vxml:63` |
 | `CommandRoute.ScopeOf` (`Commands.cs:418`) | reads it | **0** | 1 — `Shell.vxml:311` |
@@ -47,11 +47,16 @@ open rows where there is one.
 | `UiElement.AccessKey` (`UiElement.cs:709`) | Alt-mnemonics | **0** | 1 — `Shell.vxml:591` |
 | `UiDocument.MoveFocus(NavigationDirection)` (`Navigation.cs:48`) | arrow/D-pad navigation | **0** | 1 — `Shell.vxml:546` |
 
-⚠ **The "now" column is not maintained by hand and must not be.** Every row of it is asserted by
-`Core/Vixen.Ui.Tests/ResponderReachTests.cs`, which sweeps `*.cs` **and** `*.vxml` outside `*.Tests`
-for each call and fails at zero — including the seventh, inverted, so the one recorded zero cannot
-quietly stop being one. Two of the closing callers are `.vxml` only, so a `--include="*.cs"` sweep
-still reports them at zero and is wrong.
+⚠ **Two halves of the "now" column are gated and a third is not, and the difference matters to a
+reader deciding what to trust.** `Core/Vixen.Ui.Tests/ResponderReachTests.cs` sweeps `*.cs` **and**
+`*.vxml` outside `*.Tests` for each call, and asserts (a) that every row this table calls closed has
+callers and every row it records at `**0**` has none — both directions, so the seventh's zero cannot
+quietly stop being one either — and (b) that a row's count is the number of citations beside it.
+What nothing checks is the **file and line of each citation**: those are read by a human and rot the
+way every line number in `docs/plan` rots. ⚠ **The count was `6` against five names for a whole
+batch**, in the artefact whose entire purpose is to be a measurement, which is why (b) exists at all.
+Five of the six closed rows are closed by `.vxml` alone, so a `--include="*.cs"` sweep still reports
+them at zero and is wrong.
 
 As filed, outside test projects the **only** files in the repository that mentioned
 `AddCommandHandler`, `CommandScope` or `AccessKey` were their own definitions plus

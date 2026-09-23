@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using Xunit;
 
 namespace Vixen.Ui.Tests;
@@ -360,6 +361,58 @@ public class ResponderReachTests {
         }
     }
 
+    /// <summary>
+    ///     ⚠ <b>A row's count against the row's own citations, which is the half the theory above
+    ///     deliberately does not cover.</b> Comparing only zero-ness keeps the document out of the
+    ///     path of every new caller — but it left the number itself hand-maintained, and the
+    ///     <c>AddCommandHandler</c> row said <c>6</c> beside five names for a whole batch, inside the
+    ///     one artefact that exists to be a measurement.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Internal rather than against the tree, and that is what makes it free.</b> A caller
+    ///     arriving makes the count and its citation list stale <i>together</i>, so this never goes
+    ///     red for a change somewhere else in the repository; it goes red only for a number nobody
+    ///     could have read off the list beside it. The citations themselves — file and line — are
+    ///     still unchecked, and the paragraph under the table says so rather than implying the whole
+    ///     column is gated.
+    /// </remarks>
+    [Fact]
+    public void The_plan_documents_counts_agree_with_their_own_citations() {
+        var document = Path.Combine(RepositoryRoot(), "docs", "plan", "49-responder-chain-and-appkit-parity.md");
+        var rows = 0;
+
+        foreach (var (row, _) in PlanTable) {
+            var cell = NowCell(document, row).Trim();
+            var digits = new string(cell.TakeWhile(char.IsAsciiDigit).ToArray());
+
+            // A `**0**` row carries prose instead of a list, and its zero is the other theory's to
+            // hold. Only a row that states a number is claiming something this can check.
+            if (digits.Length == 0) {
+                continue;
+            }
+
+            var citations = cell.Count(character => character == '`') / 2;
+
+            Assert.True(
+                int.Parse(digits, CultureInfo.InvariantCulture) == citations,
+                $"""
+                 doc 49's row for `{row}` claims {digits} caller(s) and names {citations}:
+
+                   {cell}
+
+                 The count is the length of the list beside it. Either a citation was dropped when the
+                 row was last re-measured, or the number was typed rather than counted.
+                 """
+            );
+
+            rows++;
+        }
+
+        // ⚠ Without this the theory passes on a table whose every count has been deleted — the
+        // vacuous path, and the one this file has had to close twice before.
+        Assert.True(rows >= 5, $"only {rows} row(s) of doc 49's table carry a count to check");
+    }
+
     /// <summary>The last cell of the measurement row whose first cell names an API.</summary>
     /// <remarks>
     ///     ⚠ A row that is not there throws rather than returning an empty cell, because an empty
@@ -391,6 +444,15 @@ public class ResponderReachTests {
     ///     <c>AddCommandHandler</c> has dozens of callers inside <c>*.Tests</c> assemblies and had
     ///     none outside them; a filter that let one test file through would have made the theory
     ///     above pass on the day it was written against the tree it was written to fail on.
+    ///     <para>
+    ///         ⚠ <b>And the exclusion is asserted against the unfiltered sweep, because the obvious
+    ///         spelling of it cannot fail.</b> <c>DoesNotContain(ProductionCallers(…), IsTest)</c>
+    ///         restates the filter that produced the list — <c>ProductionCallers</c> has already
+    ///         dropped every path <c>IsTest</c> matches, so that line is green against any filter at
+    ///         all, including one that dropped the whole repository. What has weight is that the same
+    ///         needle finds test callers when the filter is not applied: the exclusion is then
+    ///         removing something that is really there.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void The_sweep_excludes_test_projects_and_still_finds_the_repository() {
@@ -398,7 +460,9 @@ public class ResponderReachTests {
 
         Assert.True(everywhere.Count > 1000, $"the sweep found only {everywhere.Count} C# files");
         Assert.Contains(everywhere, path => path.Contains(".Tests", StringComparison.Ordinal));
-        Assert.DoesNotContain(ProductionCallers("AddCommandHandler("), path => IsTest(path));
+
+        Assert.Contains(Callers("AddCommandHandler(", productionOnly: false), path => IsTest(path));
+        Assert.DoesNotContain(Callers("AddCommandHandler(", productionOnly: true), path => IsTest(path));
 
         // ⚠ The markup half, asserted separately because it is the half that can silently find
         // nothing: a `.vxml` `@code` block compiles to C# under `obj/`, which this walk prunes, so a
@@ -410,6 +474,11 @@ public class ResponderReachTests {
     }
 
     /// <summary>The production files with at least one live call to something.</summary>
+    static List<string> ProductionCallers(string call) => Callers(call, productionOnly: true);
+
+    /// <summary>The files with at least one live call to something, test projects included or not.</summary>
+    /// <param name="call">The needle, matched inside a line that is not a comment or a declaration.</param>
+    /// <param name="productionOnly">Whether to drop the test assemblies, which is what every theory here asks.</param>
     /// <remarks>
     ///     ⚠ <b>Line by line and past the comments, and the first version of this was not — it read
     ///     whole files, and the sabotage came back green.</b> Commenting both controls' registrations
@@ -418,12 +487,16 @@ public class ResponderReachTests {
     ///     none. A gate that cannot tell a call from a call somebody disabled is a gate that reports
     ///     success on the day it should not: exactly the instrument failure this repository keeps
     ///     rediscovering, in the test written to catch a different one.
+    ///     <para>
+    ///         The unfiltered spelling exists for one caller: the instrument check below, which has
+    ///         to see the test callers the filter removes in order to say the filter removes them.
+    ///     </para>
     /// </remarks>
-    static List<string> ProductionCallers(string call) {
+    static List<string> Callers(string call, bool productionOnly) {
         List<string> found = [];
 
         foreach (var path in SourceFiles("*.cs").Concat(SourceFiles("*.vxml"))) {
-            if (IsTest(path)) {
+            if (productionOnly && IsTest(path)) {
                 continue;
             }
 
