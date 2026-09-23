@@ -1886,7 +1886,13 @@ public sealed partial class Lowerer {
             ? selfType!
             : LowerType(body.ReturnType, body.Member.DeclaringSyntax);
 
-        var function = new IrFunction(name, returnType);
+        // ⚠ Off the symbol rather than off the syntax, so an inherited copy, a monomorphised
+        // instantiation and a body reached through a `compose` slot all keep what the declaration
+        // said — each of those lowers from a symbol that is not the one the file was written for.
+        var function = new IrFunction(name, returnType) {
+            NoContraction = (body.Member as MethodSymbol)?.NoContraction ?? false
+        };
+
         IrVariable? shellSelfParameter = null;
         IrVariable? shellSelfLocal = null;
 

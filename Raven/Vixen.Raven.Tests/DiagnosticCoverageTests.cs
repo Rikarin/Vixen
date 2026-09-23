@@ -58,7 +58,7 @@ public class DiagnosticCoverageTests {
         "RVN2014", "RVN2015", "RVN2032", "RVN2041", "RVN2042", "RVN2043",
         "RVN2045", "RVN2093",
         "RVN2113", "RVN2114", "RVN2122", "RVN2131", "RVN3001",
-        "RVN3003", "RVN3004", "RVN3007", "RVN3010", "RVN4001", "RVN4003", "RVN5003", "RVN5004",
+        "RVN3003", "RVN3004", "RVN3007", "RVN3010", "RVN4001", "RVN5003", "RVN5004",
         "RVN5005", "RVN5006"
     ];
 

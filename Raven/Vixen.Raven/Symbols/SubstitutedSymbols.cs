@@ -82,6 +82,7 @@ public sealed class SubstitutedMethodSymbol : MethodSymbol {
     public override IReadOnlyList<TypeParameterSymbol> TypeParameters => OriginalDefinition.TypeParameters;
     public override ShaderStage Stage => OriginalDefinition.Stage;
     public override string? SemanticName => OriginalDefinition.SemanticName;
+    public override bool NoContraction => OriginalDefinition.NoContraction;
     public override bool IsStatic => OriginalDefinition.IsStatic;
     public override SyntaxNode? DeclaringSyntax => OriginalDefinition.DeclaringSyntax;
 
