@@ -104,8 +104,8 @@ out-of-tree plugin cannot obtain a generated descriptor, and there is no attribu
 path either. **There is no `[CustomEditor]` equivalent available to anyone outside this repository.**
 
 **F6 — Modes are added imperatively from application code.**
-`EditorParity.cs:1154` — `Shell.Modes.Add(new SelectMode())`.
-`EditorTerrainPanels.cs:451` — `Shell.Modes.Add(terrain)`.
+`EditorParity.cs:1225` — `Shell.Modes.Add(new SelectMode())`.
+`Editor/Vixen.Editor.Terrain/TerrainModulePanels.cs:475` — `Shell.Modes.Add(terrain)`. (It was the app's `EditorTerrainPanels.cs:451` when this was surveyed; `81f9e68ec` moved it into the terrain module, and it is still an imperative add.)
 The mode list is code in the app, not a registry the app reads.
 
 🟡 **F7 is answered and not closed.** [P4](#p4--vxml-becomes-the-authoring-path-) makes the path
@@ -1152,7 +1152,7 @@ Deliberately open, and named so the first project that needs one does not fork.
   the premise under this bullet is wrong.** It read "terrain's brushes and blockout's handles should
   be two implementations of the same thing; today they are two subsystems". Measured: they are
   already two implementations of one interface, and there are four —
-  `BlockoutMode` (`Editor/Vixen.Editor.Blockout/BlockoutMode.cs:42`), `TerrainMode`
+  `BlockoutMode` (`Editor/Vixen.Editor.Blockout/BlockoutMode.cs:43`), `TerrainMode`
   (`Editor/Vixen.Editor.Terrain/TerrainMode.cs:40`), `FoliageMode`
   (`…/FoliageMode.cs:37`) and `WaterMode` (`Editor/Vixen.Editor.Water/WaterMode.cs:50`) are each
   `IEditorMode, IViewportInput`.
@@ -1168,7 +1168,7 @@ Deliberately open, and named so the first project that needs one does not fork.
   proposed, already run.
 
   ⚠ **The two things terrain surfaced were answered by naming them, not by a context.**
-  `PluginContext.OnUpdate` (`Editor/Vixen.Editor.Plugin/PluginContext.cs:300`) and
+  `PluginContext.OnUpdate` (`Editor/Vixen.Editor.Plugin/PluginContext.cs:317`) and
   `EditorDocument.Saved` (`Editor/Vixen.Editor.Core/EditorDocument.cs:156`) both exist. A tool
   context would have been a third place to put them.
 

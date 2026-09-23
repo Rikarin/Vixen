@@ -113,8 +113,9 @@ That is the single fact that picks the model.
 ### (A) Implicit — no format at all
 
 Keep writing every value in full, as today, and compute "is this overridden" by comparing against the
-template whenever the prefab happens to be open. This is exactly what `PrefabSource.IsOverridden`
-(`Prefabs.cs:242`) does now.
+template whenever the prefab happens to be open. This is exactly what `PrefabSource.IsOverridden` did
+(`Prefabs.cs:242`) until `ff686af7d` (2026-08-27) made an override a name the instance claims,
+and § 7b below records why it had to go.
 
 **Rejected.** Two failures, and the second is fatal:
 
@@ -202,7 +203,7 @@ invisible to it. A scene whose prefab reference the index could not see is a sce
 offer to delete the prefab out from under.
 
 **⚠ Both keys on every node of an instance, not `prefab` on the root alone.** The root-only form is
-smaller and is wrong: `PrefabInstances.Forget` (`Prefabs.cs:70`) deliberately allows unpacking *one*
+smaller and is wrong: `PrefabInstances.Forget` (`PrefabInstances.cs:286`) deliberately allows unpacking *one*
 entity of an instance, so an author can unpack the root and keep the children linked — which under
 the root-only form leaves `source` keys with nothing above them to interpret against. Making each
 entity's record complete on its own means unpacking, reparenting and hand-merging are all local

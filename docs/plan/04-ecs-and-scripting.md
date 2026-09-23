@@ -535,9 +535,9 @@ need throughput. Both are first-class and documented as such.
 > - ⚠ **And a third blocker the list above did not have, which is the one that decides the order.**
 >   `Behavior.Get<T>()` and `Read<T>()` are the *only* way a behaviour reaches a component, and on a
 >   **managed** component both of them mutate world-wide state. `World.Read<T>` reaches
->   `World.Managed<T>` (`World.cs:947`) exactly as `Get<T>` does; that method calls `StoreFor<T>()`,
+>   `World.Managed<T>` (`World.cs:969`) exactly as `Get<T>` does; that method calls `StoreFor<T>()`,
 >   which can `Array.Resize(ref managedStores, …)` and `managedStores[id] ??= new …`
->   (`World.cs:978-986`), and then `store.Allocate(default!)` when the row's handle is still zero,
+>   (`World.cs:1100-1107`), and then `store.Allocate(default!)` when the row's handle is still zero,
 >   which pops an unsynchronised `Stack<int>` or appends to a `ChunkedArray<T>`
 >   (`ManagedComponentStore.cs:78-84`). ⚠ **So a behaviour that only *reads* a managed component it
 >   has never written races two other behaviours doing the same**, and nothing about the call site
