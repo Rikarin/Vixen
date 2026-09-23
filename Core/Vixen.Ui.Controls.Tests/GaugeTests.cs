@@ -137,6 +137,58 @@ public class GaugeTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>A threshold or a direction changed under a steady reading reaches the theme</b>, as a
+    ///     change of <see cref="Gauge.Value" /> does.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="Gauge.Level" /> is computed on every read, so it is right whether or not the
+    ///         element was told; the class is what the theme colours, and only a change hook rewrites
+    ///         it. The test above sets every threshold before the reading, so the reading's own hook
+    ///         applied the class each time and a gauge whose threshold and direction hooks did nothing
+    ///         passed it. Markup is where this order is ordinary: <c>&lt;Gauge Value="0.9"
+    ///         Critical="0.15" Direction="Falling" /&gt;</c> assigns the reading first.
+    ///     </para>
+    ///     <para>
+    ///         So each step here changes one property and holds the reading, and asserts the class
+    ///         after a frame — the lone falling line of #1353 last, since it is the case the direction
+    ///         exists for.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_threshold_or_a_direction_changed_under_a_steady_reading_reaches_the_theme() {
+        using var ui = Opened();
+        var gauge = ui.Add<Gauge>("gauge");
+
+        gauge.Value = 0.9f;
+        ui.Frame();
+        Assert.False(gauge.HasClass("warning"));
+        Assert.False(gauge.HasClass("critical"));
+
+        gauge.Warning = 0.6f;
+        ui.Frame();
+        Assert.True(gauge.HasClass("warning"), "a warning line was drawn under the reading and the theme was never told");
+
+        gauge.Critical = 0.85f;
+        ui.Frame();
+        Assert.False(gauge.HasClass("warning"));
+        Assert.True(gauge.HasClass("critical"), "a critical line was drawn under the reading and the theme was never told");
+
+        // The lone line: inferred, it is a ceiling and a full-ish tank is critical; stated falling,
+        // it is a floor and the same reading is ordinary.
+        gauge.Warning = float.NaN;
+        gauge.Critical = 0.15f;
+        ui.Frame();
+        Assert.Equal(LevelReading.Critical, gauge.Level);
+        Assert.True(gauge.HasClass("critical"));
+
+        gauge.Direction = LevelDirection.Falling;
+        ui.Frame();
+        Assert.Equal(LevelReading.Ordinary, gauge.Level);
+        Assert.False(gauge.HasClass("critical"), "the direction changed and the theme was never told");
+    }
+
+    /// <summary>
     ///     ⚠ <b>A full dial is fill and background with no track showing round its rim</b>, because
     ///     the track is not drawn under the fill.
     /// </summary>
