@@ -50,10 +50,15 @@
 <prefab-body ref="@Body">
     <Tabs ref="@Panes" class="document-tabs">
         <!--
-            No content: a `SceneHierarchyView` is a model over a panel rather than an element, so it
-            has no tag to write and `Show` builds it against `HierarchyTab.Panel`.
+            ⚠ This comment used to say "no content: a `SceneHierarchyView` is a model over a panel
+            rather than an element, so it has no tag to write". Since #1322 it is one, and the tree
+            joins the strip, the panels and the compiled view as structure built once — which is
+            this file's own argument about the tabs, arriving a second time. `Show` no longer empties
+            a panel and constructs a tree; it hands the control a different document.
         -->
-        <TabItem ref="@HierarchyTab" Label="Hierarchy" />
+        <TabItem Label="Hierarchy">
+            <SceneHierarchyView ref="@Hierarchy" />
+        </TabItem>
 
         <TabItem Label="Compiled">
             <CompiledSceneView ref="@Compiled" />
@@ -66,7 +71,6 @@
     readonly Signal<PrefabBanner> banner = new(PrefabBanner.Empty);
 
     SceneDocument? document;
-    SceneHierarchyView? hierarchy;
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
@@ -81,13 +85,10 @@
     public Tabs Panes { get; private set; } = null!;
 
     /// <summary>The tree over the prefab's entities.</summary>
-    public SceneHierarchyView? Hierarchy => hierarchy;
+    public SceneHierarchyView Hierarchy { get; private set; } = null!;
 
     /// <summary>What a build makes of this prefab, the one-root rule included.</summary>
     public CompiledSceneView? Compiled { get; private set; }
-
-    /// <summary>The tab the hierarchy is behind, so <see cref="Show" /> can reach its panel.</summary>
-    TabItem HierarchyTab { get; set; } = null!;
 
     string BannerMessage => banner.Value.Message;
 
@@ -100,19 +101,16 @@
 
         if (document is { } previous) {
             previous.StructureChanged -= Restate;
-            hierarchy?.Detach();
         }
 
         document = prefab;
 
-        // ⚠ Only the hierarchy panel is emptied, where the C# emptied the whole body. A
-        // `SceneHierarchyView` adds a `TreeView` to the panel it is given, so a second `Show` over a
-        // panel that still held the first one's tree would show two. Everything else here — the
-        // strip, the panels, the compiled view — is markup and belongs to the control rather than to
-        // the document.
-        HierarchyTab.Panel.Empty();
-        hierarchy = new(prefab, HierarchyTab.Panel);
-
+        // ⚠ Nothing is emptied any more, and that is #1322's doing. This used to clear the hierarchy
+        // tab and construct a fresh `SceneHierarchyView` into it, because the old one was a model
+        // that had added a `TreeView` to the panel and a second `Show` would have shown two trees.
+        // The tree is a control now, so showing a different prefab is the same kind of operation the
+        // line below it has always been.
+        Hierarchy.Show(prefab);
         Compiled!.Show(prefab);
 
         prefab.StructureChanged += Restate;

@@ -87,6 +87,17 @@ tabs.document-tabs { flex-grow: 1; min-height: 0; }
 tabs.document-tabs > tab-panels { flex-grow: 1; min-height: 0; }
 tabs.document-tabs > tab-panels > tab-panel { flex-grow: 1; min-height: 0; padding: 6px 0px; }
 
+/* ⚠ The rule the port of `SceneHierarchyView` could not do without, and the reason it is written
+   beside the tab rules above rather than with the tree's own. The hand-written binding put the
+   `TreeView` straight into the tab panel, so the panel's `flex-grow` reached the tree directly;
+   markup puts the component's own host between them, and an element no rule names lays its
+   children out in a row and grows to nothing. The tree would still hold every row, still answer
+   every count, and be zero pixels tall — which reads on screen as an empty hierarchy and in the
+   suite as success. `min-height: 0` for the reason the three rules above carry it: a flex item's
+   default minimum is its content, and a thousand-row tree's content is not a height anything can
+   fit in. */
+scene-hierarchy { flex-direction: column; flex-grow: 1; min-height: 0; overflow: hidden; }
+
 compiled-scene { flex-direction: column; flex-grow: 1; gap: 8px; padding: 6px; overflow: hidden; }
 compiled-scene-bar { flex-direction: row; align-items: center; gap: 8px; flex-shrink: 0; }
 compiled-scene-label { color: var(--text-muted); }

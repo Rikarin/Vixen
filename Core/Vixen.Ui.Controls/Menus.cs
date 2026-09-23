@@ -102,10 +102,59 @@ public sealed partial class MenuItem : ButtonBase {
     /// </remarks>
     public KeyboardShortcut ShowShortcut(InputKey key, ModifierKeys modifiers = ModifierKeys.None) {
         Shortcut ??= Part<KeyboardShortcut>();
+        Shortcut.SetStyle("display", "flex");
         Shortcut.Modifiers = modifiers;
         Shortcut.Key = key;
 
         return Shortcut;
+    }
+
+    /// <summary>Shows the chord a keymap holds for a command, the way this machine writes it.</summary>
+    /// <param name="keys">The table the keystroke will be resolved against.</param>
+    /// <param name="commandId">The command, which is what both the table and the item name.</param>
+    /// <returns>The label, or <see langword="null" /> where the command has no chord.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The overload that makes <a href="https://github.com/Rikarin/Vixen/issues/650">
+    ///         #650</a>'s opening sentence unwritable.</b> "Draws ⌘S and nothing dispatches it" is
+    ///         possible because the two halves come from different places: the chord above is
+    ///         whatever the caller passes and the keystroke is resolved against a
+    ///         <see cref="KeyMap" />. This one reads the map that will answer, so a row can only
+    ///         show a chord that table holds.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Three things every caller had to get right, and the fourth caller got two of
+    ///         them wrong.</b> <c>MenuPresenter</c>, <c>SceneMenus</c> and
+    ///         <c>Samples/02-HelloUi</c> each wrote the same three lines; the scene context menu
+    ///         omitted <see cref="KeyChord.ForPlatform()" /> and guarded with <c>is { }</c>, which
+    ///         matches every value of a struct — so it drew the literal word <c>Unknown</c> beside
+    ///         every command the keymap does not bind, and drew <c>Ctrl</c> on a Mac for the ones it
+    ///         does. Both are the same defect the issue is about, in the editor, four waves after it
+    ///         was filed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An unbound command hides a label it had rather than leaving the old chord up.</b>
+    ///         A menu whose items are rebuilt per open would not notice; the keybinding editor's
+    ///         Clear is the case that would, and a row still showing the key it no longer answers to
+    ///         is worse than one showing none.
+    ///     </para>
+    /// </remarks>
+    public KeyboardShortcut? ShowShortcut(KeyMap keys, string commandId) {
+        ArgumentNullException.ThrowIfNull(keys);
+        ArgumentNullException.ThrowIfNull(commandId);
+
+        if (keys.ChordFor(commandId) is not { IsBound: true } chord) {
+            Shortcut?.SetStyle("display", "none");
+
+            return null;
+        }
+
+        // ⚠ Swapped out of the table's vocabulary before it is drawn: the keymap holds Ctrl+S and a
+        // Mac has to read ⌘S, which is the key its user will actually press. `CommandDispatcher`
+        // swaps an arriving event the other way, so the two meet in the middle by construction.
+        var shown = chord.ForPlatform();
+
+        return ShowShortcut(shown.Key, shown.Modifiers);
     }
 
     /// <inheritdoc />

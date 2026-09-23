@@ -109,9 +109,13 @@ public sealed class SceneEditorFactory(Func<AssetEditorRequest, World> worlds) :
         // read as "selection is broken" rather than as a layout fault.
         tabs.AddClass("document-tabs");
 
-        // Constructed for its effect on the panel it is given, which is what the single-tab form did
-        // too — the tree it builds is the tab's content and nothing here needs a handle on it.
-        _ = new SceneHierarchyView(scene, tabs.AddTab("Hierarchy").Panel);
+        // ⚠ An element in the tab rather than a binding constructed for its effect on one. The
+        // difference is what happens when the tab goes: the control hears `OnRemoved` and stops
+        // listening to the document, where the old form exposed a `Detach()` this line had no handle
+        // to call — and a hierarchy left subscribed does not merely rebuild a tree nobody can see,
+        // it throws out of the next `SceneDocument.Add` when `Refresh` asks a removed panel for a
+        // row height.
+        tabs.AddTab("Hierarchy").Panel.Add<SceneHierarchyView>().Show(scene);
 
         tabs.AddTab("Compiled").Panel.Add<CompiledSceneView>().Show(scene);
 

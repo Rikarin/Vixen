@@ -482,15 +482,14 @@
 
     /// <summary>Puts the keymap's chord for a command on the item bound to it.</summary>
     /// <remarks>
-    ///     ⚠ In this machine's spelling rather than the table's — <c>ForPlatform</c> swaps Control
-    ///     for ⌘ on a Mac — so the row shows the keys the user will press. The editor's
-    ///     <c>MenuPresenter</c> does exactly this for every bound item; a shell with one menu bar
-    ///     does it twice, by hand, which is the honest amount of machinery for two rows.
+    ///     ⚠ <b>One call, and this used to be the three lines the editor's <c>MenuPresenter</c> also
+    ///     wrote out.</b> They read the map, refuse an unbound command, and swap out of the table's
+    ///     vocabulary so the row shows the keys this machine's user will press — three decisions that
+    ///     a sample should not be in a position to get wrong. <c>MenuItem.ShowShortcut(KeyMap,
+    ///     string)</c> is where they live now (#650), which is also why New and Open draw nothing
+    ///     without this file having to say so: they are bound to no command.
     /// </remarks>
-    void Draw(MenuItem item, string command) {
-        var shown = keys.ChordFor(command).ForPlatform();
-        item.ShowShortcut(shown.Key, shown.Modifiers);
-    }
+    void Draw(MenuItem item, string command) => item.ShowShortcut(keys, command);
 
     /// <summary>Lets the toasts count down.</summary>
     void Expire(UiDocument document, TimeSpan now) => toasts.Tick(now);
