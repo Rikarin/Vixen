@@ -44,7 +44,7 @@ open rows where there is one.
 | `UiElement.CommandScope` (`Commands.cs:699`) | the derived scope 45 § G2 was written to build | **0** | 2 — `Hierarchy.vxml:84`, `Inspector.vxml:63` |
 | `CommandRoute.ScopeOf` (`Commands.cs:418`) | reads it | **0** | 1 — `Shell.vxml:311` |
 | `UiDocument.CommandResponder` (`Commands.cs:537`) | `NSDocument`'s slot | **0** | 1 — `Shell.vxml:323` |
-| `UiElement.AccessKey` (`UiElement.cs:709`) | Alt-mnemonics | **0** | 1 — `Shell.vxml:591` |
+| `UiElement.AccessKey` (`UiElement.cs:710`) | Alt-mnemonics | **0** | 1 — `Shell.vxml:591` |
 | `UiDocument.MoveFocus(NavigationDirection)` (`Navigation.cs:48`) | arrow/D-pad navigation | **0** | 1 — `Shell.vxml:546` |
 
 ⚠ **Two halves of the "now" column are gated and a third is not, and the difference matters to a
@@ -104,9 +104,9 @@ Vixen has three, and they do not meet.
 
 | | **A — routed events** | **B — commands** | **C — the editor's keymap** |
 |---|---|---|---|
-| Entry | `UiDocument.Dispatch(KeyEvent)` `Keyboard.cs:191` | `CommandRoute.Resolve` `Commands.cs:394` | `CommandDispatcher.Pressed` `Editor/Vixen.Editor.Ui/Commands/CommandDispatcher.cs:76` |
-| Origin | `Focused` `Focus.cs:36` | `CommandFocus` `Focus.cs:54` | one handler on `Root`, bubble leg (`:57`) |
-| Walk | `Parent`, capture → target → bubble (`EventRouter.cs:39-59`) | `Parent`, then two document slots (`Commands.cs:398-414`) | **none** — a flat `KeyMap` → `CommandRegistry` lookup |
+| Entry | `UiDocument.Dispatch(KeyEvent)` `Keyboard.cs:191` | `CommandRoute.Resolve` `Commands.cs:441` | `CommandDispatcher.Pressed` `Core/Vixen.Ui.Controls/CommandDispatcher.cs:75` |
+| Origin | `Focused` `Focus.cs:107` | `CommandFocus` `Focus.cs:151` | one handler on `Root`, bubble leg (`:67`) |
+| Walk | `Parent`, capture → target → bubble (`EventRouter.cs:39-59`) | `Parent`, then two document slots (`Commands.cs:445-477`) | **none** — a flat `KeyMap` → `CommandRegistry` lookup |
 | Non-element links | **structurally impossible** — the route is `List<UiElement>` | 2, hard-coded | n/a |
 | Honours `IsCommandTransparent` | **no** | yes | no |
 | Reaches `IResponder`-like objects | no | yes (`ICommandResponder`, one method) | no |
@@ -115,20 +115,24 @@ Four consequences, each independently a defect:
 
 **1.1 — A non-element responder can never see a key.** `EventRouter.Raise` is `UiElement`-typed end
 to end (`EventRouter.cs:35-60`); `ICommandResponder` has exactly one member,
-`TryGetCommandHandler` (`Commands.cs:38-49`). A document object that owns `edit.copy` cannot also
+`TryGetCommandHandler` (`Commands.cs:58`). (✅ Since `528d1fb60` it is `IResponder`, which § 3.1
+proposes, and `OnKey` stands beside it — so this finding is closed; the rest of the paragraph is
+what it was when written.) A document object that owns `edit.copy` cannot also
 own ⌘C's *raw* handling, an editing gesture, or a first-responder-only key. In AppKit these are the
 same object by construction.
 
 **1.2 — The chain cannot be extended anywhere but its two ends.** The complete extensibility surface
 is `UiDocument.CommandResponder` and `UiDocument.ApplicationCommandResponder`. `UiElement`'s virtual
 surface is `TagName`, `ContentHost`, `NamedHost`, `OnCreated`, `OnChildAdded`, `OnRemoved`,
-`OnPropertyChanged`, `OnDraw` (`UiElement.cs:97,115,143,1639,1686,1718,1730,1775`) — there is no
+`OnPropertyChanged`, `OnDraw` (`UiElement.cs:123,141,169,2079,2126,2158,2170,2215`) — there is no
 `OnKeyDown`, no `AcceptsFirstResponder`, no `ValidateCommand`. A view controller, a window
 controller, or a document cannot sit *in the middle* of the walk, which is exactly where AppKit puts
 all three.
 
 **1.3 — The keyboard bypasses the chain entirely.** `CommandDispatcher.Pressed` resolves a chord
-against the flat registry and never calls `CommandRoute` (`CommandDispatcher.cs:85-107`).
+against the flat registry and never calls `CommandRoute` (`CommandDispatcher.cs:85-107`). (✅ No longer:
+since `ecfb0f3ed` `CommandDispatcher.Focused` asks `CommandRoute.Resolve` first
+(`CommandDispatcher.cs:143-144`), which is § 3.6's second condition.)
 `EditorShell.cs:212` admits it in a comment: *nothing in the editor resolved through `CommandRoute`
 before*. Combined with Part 0 this means an element-level handler, if anyone ever wrote one, would
 be reachable by **clicking a button** and unreachable by **pressing its shortcut** — the two things a
@@ -347,8 +351,10 @@ entirely. `EditingCommands` maps a chord to a semantic id (`text.move-word-left`
 handlers for the ids rather than for the keys.
 
 ⚠ **`CodeEditor` needs the semantic ids anyway** for an unrelated reason: `CodeBuffer.WordStart` /
-`WordEnd` (`CodeBuffer.cs:233-245`) are `char.IsWhiteSpace`-based, so ⌃← in Japanese or Thai jumps a
-whole clause, while `TextField` gets it right through `WordBreaker` (UAX #29, `TextField.cs:351`).
+`WordEnd` (`CodeBuffer.cs:252-310`) are `char.IsWhiteSpace`-based, so ⌃← in Japanese or Thai jumps a
+whole clause, while `TextField` gets it right through `WordBreaker` (UAX #29, `TextField.cs:1866`).
+(✅ That half is closed: since `53bde2fe9` a run of the word class is subdivided by `WordBreaker`
+(`CodeBuffer.cs:241`). The semantic ids are still owed for the other reason.)
 One table, one word-breaker.
 
 ### 4.3 The clipboard, which exists and is untouched
@@ -446,7 +452,7 @@ system provides that the markup cannot express — and the answer is concentrate
 Checked hard. The framework has exactly three ancestor-walking mechanisms and none is general:
 `[UiProperty(Inherits = true)]` (`UiProperty.cs:35`), whose only producers in the whole tree are in
 `Core/Vixen.Ui.Tests/SampleElements.cs`; `EffectiveCommandScope` (`Commands.cs:758`), whose value is
-one `string?`; and `UiDocument.Mounted` (`UiDocument.cs:279`), which records a component for an
+one `string?`; and `UiDocument.Mounted` (`UiDocument.cs:390`), which records a component for an
 element and offers no "nearest ancestor of type T" query.
 
 So every cross-cutting value is threaded through props by hand. `Samples/02-HelloUi/Shell.vxml:69-83`
@@ -490,12 +496,16 @@ public property used as a parameter. The second is cheaper and catches the case 
 
 ### 6.3 ⚠ On a lowercase tag, every non-directive attribute is inert
 
-`EmitAttribute` (`ComponentEmitter.cs:657-670`) splits on the tag's case: a capitalised tag gets a
+`EmitAttribute` (`ComponentEmitter.cs:649`) splits on the tag's case: a capitalised tag gets a
 real, Roslyn-typechecked property assignment; a lowercase tag gets
-`Styles.Tree.SetAttribute(...)` (`BuildContext.cs:711`) — data a selector can match and nothing
+`Styles.Tree.SetAttribute(...)` (`BuildContext.cs:864`) — data a selector can match and nothing
 reads. So `<div AccessibleName="Save" Focusable="true">` compiles, matches `[AccessibleName]`, and
-does nothing. No diagnostic. This is the same defect class the language already fixed twice, for
-`style=` and for `slot=` (`VXML2016`).
+does nothing. ~~No diagnostic.~~ ⚠ **Refuted since 168fe675b (2026-09-05):** `VXML2020`
+(`MarkupDiagnostics.cs:463`, reported at `Binder.cs:936`) warns on a capitalised attribute name on a
+lowercase tag. The mechanism is unchanged — the lowercase half of the split is still
+`ctx.Bind` or `ctx.Attribute` (`ComponentEmitter.cs:811-824`), so the attribute is still inert — but it is no longer
+silent. This is the same defect class the language already fixed twice, for `style=` and for `slot=`
+(`VXML2016`).
 
 ### 6.4 The modifier table
 
@@ -611,7 +621,7 @@ caller.
 
 ### 6.5 Lists
 
-`BuildContext.For` (`BuildContext.cs:1359`) builds a region per item over the whole sequence.
+`BuildContext.For` (`BuildContext.cs:1822`) builds a region per item over the whole sequence.
 `VirtualizingPanel`/`VirtualizingGrid` are C# controls fed by delegates, reachable from markup only
 through `use=`. `BoundFor` is `(Variable, Sequence, Key, Body)` — **no index, no sections, no
 grouping** (`BoundNodes.cs:262`). `Region.Clear()` removes synchronously (`Region.cs:143`), so there
@@ -763,7 +773,7 @@ Measured against `PublicAPI.Unshipped.txt` in both control assemblies (87 and 86
 
 **Absent entirely**, in the order an application hits them: **Toolbar** (the editor's is a bare
 `UiElement` with a tag name, `ToolbarPresenter.cs:147`); **SegmentedControl**; **SplitView** — a
-draggable two-pane divider exists only welded inside `DockingHost` (`DockingHost.cs:767`), so a
+draggable two-pane divider exists only welded inside `DockingHost` as `DockSplitterView` (`DockingHost.cs:767`), so a
 two-pane application must adopt the whole docking model; **Sidebar/source list**; **StatusBar**
 (`EditorShell.cs:138`);
 **DatePicker**; **secure text field** — zero hits for `secure|password` in the controls assembly, so
@@ -837,7 +847,7 @@ gaps below as a criticism of that layer; they are all in the controls above it.
 - No spell check, substitution, dictation or system font/colour panels; no drag-select autoscroll; no
   undo in `TextField` (§ 4.1).
 
-Two performance notes found in passing: `TextField.Step` (`TextField.cs:1198-1204`) allocates a list
+Two performance notes found in passing: `TextField.Step` (`TextField.cs:1789-1817`) allocates a list
 and re-runs the grapheme breaker over the **entire value** on every arrow keypress, and
 `CodeEditor.RowOf` (`:1070`) is a linear `IndexOf` called per caret move and per draw.
 

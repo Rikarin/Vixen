@@ -22,7 +22,7 @@ judgement it says so.
 
 | # | What an application needs | Where it is | Lines | What `Vixen.Ui` has instead |
 |---|---|---|---|---|
-| 1 | Commands: an id, a handler, enablement, a keymap, a palette | `Editor/Vixen.Editor.Ui/Commands/` | **1 629** | `MenuItem : ButtonBase`, and a `Disabled` bool declared on `Control` (`Control.cs:78`) that nothing in the control set ever sets on one |
+| 1 | Commands: an id, a handler, enablement, a keymap, a palette | `Editor/Vixen.Editor.Ui/Commands/` | **1 629** | `MenuItem : ButtonBase`, and a `Control.Disabled` bool (`Control.cs:78`) that nothing in the control set ever sets on one |
 | 2 | A string catalogue | `Editor/Vixen.Editor.Ui/Localisation/` | **783** | Nothing — plus ~~twelve~~ **thirteen** English literals baked into the controls (§ A3 counts them). ✅ **Promoted** — `Core/Vixen.Ui/Strings.cs`, `StringCatalog.cs`, and `Vixen.Ui.Controls.ControlStrings`. See A3 |
 | 3 | A modal question that returns an answer | `Editor/Vixen.Editor.Ui/Dialogs/DialogService.cs` | **376** | `Dialog` (`Vixen.Ui.Controls/Dialogs.cs`) — an overlay with a body, a footer and no answer |
 | 4 | An undo history | `Editor/Vixen.Editor.Core/CommandStack.cs` | **372** | Nothing, and `CodeBuffer.cs:49` says so in as many words |
@@ -103,8 +103,8 @@ was written in, because it is the finding rather than the state.
 ### The fourth, one assembly further out
 
 `CommandStack` is not in `Vixen.Editor.Ui` — it is in `Vixen.Editor.Core`, which is one more assembly
-an application cannot reference. `CodeBuffer` (`Vixen.Ui.Controls.Advanced/CodeBuffer.cs:49`) states
-the division correctly:
+an application cannot reference. `CodeBuffer`'s remarks state the division correctly
+(`Vixen.Ui.Controls.Advanced/CodeBuffer.cs:49`):
 
 > ⚠ **No undo stack.** Undo belongs to the application, because it has to be interleaved […] and an
 > undo stack inside the text control can only ever undo typing.
@@ -573,15 +573,18 @@ request rather than a project:
 > question about the button), `Navigation.cs:300`'s `"…"` and `CodeEditor.cs:417`'s `"0"` (a
 > measurement probe, never drawn).
 
+Where each one was until `ca239c357` (2026-08-25) moved all of them into `ControlStrings` — the line
+numbers are that commit's parent's, and the literals are no longer at them.
+
 | String | Where |
 |---|---|
 | `"Clear"` | `Vixen.Ui.Controls/TextInputs.cs:69` |
-| `"Close"` | `Vixen.Ui.Controls/Dialogs.cs:91`, `Controls.Advanced/DockingHost.cs:472` |
+| `"Close"` | `Vixen.Ui.Controls/Dialogs.cs:91`, `Vixen.Ui.Controls.Advanced/DockingHost.cs:472` |
 | `"Dismiss"` | `Vixen.Ui.Controls/Toasts.cs:66` |
 | `"Show suggestions"` | `Vixen.Ui.Controls/Selects.cs:621` |
-| `"Previous tab"` · `"Next tab"` | `Controls.Advanced/DockingHost.cs:548`, `:557` |
-| `"Reset"` · `"Search"` | `Controls.Advanced/PropertyGrid.cs:53`, `:117` |
-| `"Intensity"` · `"Pick a colour from the screen"` | `Controls.Advanced/ColorPicker.cs:486`, `:478` |
+| `"Previous tab"` · `"Next tab"` | `Vixen.Ui.Controls.Advanced/DockingHost.cs:548`, `:557` |
+| `"Reset"` · `"Search"` | `Vixen.Ui.Controls.Advanced/PropertyGrid.cs:53`, `:117` |
+| `"Intensity"` · `"Pick a colour from the screen"` | `Vixen.Ui.Controls.Advanced/ColorPicker.cs:486`, `:478` |
 
 **`Strings.Resource`, checked as asked: planned, not built.** [11](11-editor.md) § asks for it at line
 87; the *As built* box at line 104 records that it is not generated; [`../overview.md`](../overview.md)
