@@ -683,6 +683,50 @@ public class ContainerWiringTests {
         Assert.Contains("0×60", warning.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>A <c>style()</c> query follows its parent's value through the incremental restyle.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The half the styling project's tests cannot see.</b> They resolve every element by
+    ///         hand, parent first; a live document resolves only what a change could reach and stops
+    ///         where a style did not move. A style query is sound under that rule only if the element
+    ///         asking re-resolves whenever its parent's value changes — which it does, because the
+    ///         value is on the parent's computed style and a moved style is exactly what descends.
+    ///         So the assertion is a class toggled on the card, twice, with the label's <i>width</i>
+    ///         read back — a box, so a green run means the answer reached the layout.
+    ///     </para>
+    ///     <para>
+    ///         The label sits one level below the element that declares the value, under an
+    ///         <c>.inner</c> that declares nothing: the parent it asks is <c>.inner</c>, whose value is
+    ///         inherited, so the toggle has to travel two levels to reach it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_style_query_follows_its_parents_value_through_an_incremental_restyle() {
+        using var document = Document("""
+            root { width: 1000px; height: 600px; flex-direction: column; }
+            .card { height: 100px; }
+            .primary { --variant: primary; }
+            .label { width: 10px; height: 10px; }
+            @container style(--variant: primary) { .label { width: 300px; } }
+            """);
+
+        var card = document.Root.Add("div", classNames: ["card", "primary"]);
+        var label = card.Add("div", classNames: "inner").Add("div", classNames: "label");
+        document.Update();
+
+        Assert.Equal(300f, label.Width, 0.001f);
+
+        card.RemoveClass("primary");
+        document.Update();
+
+        Assert.Equal(10f, label.Width, 0.001f);
+
+        card.AddClass("primary");
+        document.Update();
+
+        Assert.Equal(300f, label.Width, 0.001f);
+    }
+
     /// <summary>And a document that settles says nothing, so the channel stays worth reading.</summary>
     /// <remarks>
     ///     ⚠ <b>The other half of the sabotage.</b> Every container in a fresh document moves on its

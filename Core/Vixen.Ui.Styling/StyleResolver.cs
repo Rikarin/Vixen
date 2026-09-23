@@ -180,6 +180,11 @@ public sealed class StyleResolver {
         // surface and answers a different table. One lookup per element for the same reason.
         var contained = containers.VerdictsOf(tree.ContainerAt(slot));
 
+        // ⚠ And the `style()` half, which no chain can answer because it asks the parent's computed
+        // value rather than a box — the `parent` this method was handed for inheritance. False for
+        // every sheet without a style query, so the common case never walks a group.
+        var styleQueries = containers.Conditions.HasStyleQueries;
+
         foreach (var rule in candidates) {
             var candidate = rules[rule];
 
@@ -196,6 +201,12 @@ public sealed class StyleResolver {
             // ships carries, so a document with no `@container` in it pays one comparison against
             // zero per candidate and never walks a chain.
             if (!contained.Holds(candidate.Containers)) {
+                continue;
+            }
+
+            if (styleQueries
+                && candidate.Containers != ContainerConditions.Unconditional
+                && !containers.Conditions.StyleHolds(candidate.Containers, parent, rules.Properties, rules.Values)) {
                 continue;
             }
 

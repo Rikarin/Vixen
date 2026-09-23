@@ -51,7 +51,11 @@ and all of them used to vanish.
 > twice over. ExCSS knows `@container` and hands it back as a parsed rule rather than an unknown one,
 > so it never took this path and never produced a warning — it was dropped in silence. `@container`
 > is implemented now; an unreadable *condition* inside one (`@container (prefers-color-scheme: dark)`)
-> is refused at load with a diagnostic that does reach here.
+> is refused at load with a diagnostic that does reach here. So are the two `style()` forms the
+> cascade cannot keep current — a named one (`@container card style(--x: 1)`) and one mixed with a
+> size feature — while the unnamed `@container style(--x: 1)`, which asks the parent, is answered.
+> ⚠ Every `style()` query used to be refused as "'not all' is not a container feature": ExCSS does
+> not parse the function and hands its prelude over as `not all`, so the loader reads the raw text.
 
 ## Using it
 
