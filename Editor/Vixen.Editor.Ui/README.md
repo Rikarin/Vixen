@@ -980,7 +980,7 @@ matched byte-for-byte across six states, because every state had rows.
 went stale the same way.** It is a claim about the tree written in a document, which is the same
 failure the sentence above it describes — and the second one lasted a single wave: wave 9's own
 `ComponentsViewDumpTests` was missing from the table below while the file's remarks called themselves
-"a committed dump rather than a wave note". There are **nine**.
+"a committed dump rather than a wave note". There are **ten**.
 
 ⚠ **The table is derived now, and that is the only part of this section a reader should trust
 without checking.** `DumpLedgerTests` scans every `Editor/**/*.Tests` source for a call to
@@ -999,8 +999,15 @@ prose is still prose; the list is a measurement.
 | `Vixen.Editor.App.Tests/AddComponentMenuDumpTests` | `AddComponentMenu` (wave 8) |
 | `Vixen.Editor.AssetEditors.Tests/InputActionsViewDumpTests` | `InputActionsView` (wave 9) |
 | `Vixen.Editor.App.Tests/ComponentsViewDumpTests` | `ComponentsView`'s header, in four states reached through the interface (wave 9) |
+| `Vixen.Editor.Ui.Tests/MessageLogViewDumpTests` | `MessageLogView`, in six states reached through the interface, recorded from the hand-written control *before* its port (#89) |
 
-⚠ **There is still no overlap between those nine and the nine claims.** Every panel with a committed
+⚠ **`MessageLogViewDumpTests` is the first dump committed before the port it judges rather than
+after it.** Its reference strings are what the hand-written C# control drew, so the port is held to
+them rather than to itself — the one arrangement in which "byte-identical" is a test and not a wave
+note. It overlaps none of the nine claims below either; it is simply the shape the next port should
+copy.
+
+⚠ **There is still no overlap between the first nine and the nine claims.** Every panel with a committed
 dump is one whose row makes *no* byte-identical claim, and every panel that makes one has no dump —
 `ComponentsViewDumpTests` is the evidence for the panel ledger's own last row and not for any of the
 nine adjudicated below. So the count going from three to nine closed none of this, and reading the two

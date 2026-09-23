@@ -206,11 +206,22 @@ public sealed partial class MessageLogView : Control {
         row.Add<UiElement>("message-text");
         row.Add<UiElement>("message-detail-text");
 
-        row.AddHandler<ClickEvent>(
-            (element, _) => {
+        // ⚠ `TapEvent` and not `ClickEvent`, for `ConsoleView.Row`'s reason, which this panel was
+        // written beside and did not take: a click is an *activation* and only a `Control` raises
+        // one, so a handler on a bare row waited for ever and the detail pane under the list could
+        // not be reached by a pointer at all. A tap bubbles from whichever column was under it.
+        row.AddHandler<TapEvent>(
+            (element, args) => {
                 if (indices.TryGetValue(element, out var index) && index < shown.Count) {
                     selected = index;
+
+                    // ⚠ No `List.Realise()` here, although `ConsoleView.Row` makes one for the
+                    // same `:checked` bit: the panel realises itself on `LayoutFinished`, and a
+                    // choice rewrites the detail pane, which is a layout. Deleting the call from
+                    // this handler left every dump in `MessageLogViewDumpTests` byte-identical.
                     ShowDetail();
+
+                    args.Handled = true;
                 }
             }
         );
