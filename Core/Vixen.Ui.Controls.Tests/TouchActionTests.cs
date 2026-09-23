@@ -181,6 +181,234 @@ public class TouchActionTests {
         Assert.True(view.ScrollTop > 0f);
     }
 
+    // ── What the theme itself declares ──────────────────────────────────────────────────────
+
+    /// <summary>A view whose entire content is one element, so a swipe in its middle lands on that element.</summary>
+    /// <param name="create">Makes the element under the finger; nothing here writes a <c>touch-action</c>.</param>
+    /// <remarks>
+    ///     ⚠ <b>No <c>touch-action</c> in the fixture's own CSS, deliberately.</b> Every other case
+    ///     in this file declares the property in the test and proves the reader; these prove that
+    ///     <c>ControlTheme.vcss</c> declares it, so the only sheet that may say it is the theme —
+    ///     and the theme arrives through <see cref="ControlFixture" />'s
+    ///     <c>ControlTheme.Install</c> exactly as it does in an application.
+    /// </remarks>
+    static (ControlFixture Fixture, ScrollView View, UiElement Control) Themed(Func<UiDocument, UiElement, UiElement> create) {
+        var fixture = new ControlFixture(css: """
+            root  { width: 400px; height: 300px; }
+            #view { width: 100px; height: 100px; }
+            #body { width: 600px; height: 600px; display: flex; flex-direction: column; }
+            #knob { position: relative; width: 80px; height: 60px; }
+            """);
+
+        var view = fixture.Document.Create<ScrollView>(null, fixture.Document.Root, "view");
+        var body = fixture.Document.Create("div", view.Content, "body");
+        var control = create(fixture.Document, body);
+
+        fixture.Update();
+        fixture.Advance(Frame);
+
+        return (fixture, view, control);
+    }
+
+    /// <summary>Drags from the view's middle and reports how far the offset moved <i>during the drag</i>.</summary>
+    /// <returns>The change in the two offsets between the press settling and the last move of the drag.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A difference between two points inside the gesture, and nothing else measures
+    ///         what this file is about.</b> A focus arriving anywhere inside a scroll view makes it
+    ///         <see cref="ScrollView.ScrollIntoView" /> the focused element, and the controls below
+    ///         take the focus at both ends of the drag — a slider on the press, a numeric field on a
+    ///         release it decided was a click rather than a scrub. An absolute reading counts that
+    ///         reveal as a scroll: the first draft of these tests was red for it on the press, and
+    ///         green for it on the release, which put the view back where it started after a drag
+    ///         that had moved it 40 pixels.
+    ///     </para>
+    ///     <para>
+    ///         The release is still sent, so every gesture here is a whole one and the recogniser
+    ///         is left with nothing in flight — it is only read before rather than after.
+    ///     </para>
+    /// </remarks>
+    static (float Top, float Left) DragAcross(ControlFixture fixture, ScrollView view, float dx, float dy, int steps = 3) {
+        var bounds = view.Bounds;
+        var x = bounds.X + (bounds.Width * 0.5f);
+        var y = bounds.Y + (bounds.Height * 0.5f);
+
+        fixture.Press(x, y, type: PointerType.Touch);
+        fixture.Advance(Frame);
+
+        var top = view.ScrollTop;
+        var left = view.ScrollLeft;
+
+        for (var step = 1; step <= steps; step++) {
+            fixture.MovePointer(x + (dx * step), y + (dy * step), type: PointerType.Touch);
+            fixture.Advance(Frame);
+        }
+
+        var moved = (view.ScrollTop - top, view.ScrollLeft - left);
+
+        fixture.Release(x + (dx * steps), y + (dy * steps), type: PointerType.Touch);
+
+        return moved;
+    }
+
+    /// <summary>The paired baseline: the same gesture in the same shape on a control the theme says nothing about.</summary>
+    /// <remarks>
+    ///     Without this the two refusals below are satisfied by a fixture whose view never scrolled
+    ///     at all — a 600×600 control in a 100×100 viewport that failed to overflow, a swipe that
+    ///     missed. It is the fixture remark's rule applied to the theme's own rows.
+    /// </remarks>
+    [Fact]
+    public void A_finger_on_a_control_the_theme_leaves_undeclared_scrolls_the_view() {
+        var (fixture, view, control) = Themed(static (document, parent) => document.Create("div", parent, "knob"));
+        using var _ = fixture;
+
+        Assert.True(DragAcross(fixture, view, 0f, -Step).Top > 0f);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The property's own worked example, and it was never written down.</b> A
+    ///     <see cref="Slider" /> captures the pointer on the press and moves its thumb — but a
+    ///     capture redirects the raw pointer events only, and the <see cref="DragEvent" /> the
+    ///     recogniser reads out of them is raised on the slider and bubbles to the view above it.
+    ///     So a finger dragging a slider inside a list moved the thumb <i>and</i> scrolled the list,
+    ///     and the one declaration that fixes it — <c>touch-action: none</c> — existed, parsed and
+    ///     resolved with nothing in the tree writing it.
+    /// </summary>
+    [Fact]
+    public void A_finger_dragging_a_slider_never_reaches_the_view_around_it() {
+        var (fixture, view, control) = Themed(static (document, parent) => document.Create<Slider>(null, parent, "knob"));
+        using var _ = fixture;
+
+        Assert.Equal(0f, DragAcross(fixture, view, 0f, -Step).Top);
+    }
+
+    /// <summary>The same for a scrollbar, where the double movement is the same gesture counted twice.</summary>
+    /// <remarks>
+    ///     ⚠ A <see cref="ScrollBar" /> is a <i>child of the view it drives</i>, so a finger on its
+    ///     thumb is a chain of two elements ending at the view — the bar moves the offset from the
+    ///     drag it handles and the view moves the same offset again from the drag that bubbled.
+    /// </remarks>
+    [Fact]
+    public void A_finger_dragging_a_scrollbar_never_reaches_the_view_around_it() {
+        var (fixture, view, control) = Themed(static (document, parent) => document.Create<ScrollBar>(null, parent, "knob"));
+        using var _ = fixture;
+
+        Assert.Equal(0f, DragAcross(fixture, view, 0f, -Step).Top);
+    }
+
+    /// <summary>
+    ///     ⚠ <b><c>pan-y</c> on a numeric input, which is the axis split the keyword exists for.</b>
+    ///     <c>NumericInput</c>'s scrub reads <c>args.X</c> and nothing else, so the horizontal half
+    ///     of a finger's travel is the field's and the vertical half is still the list's. A blanket
+    ///     <c>none</c> here would be the commonest way the property is written wrong: it would make
+    ///     a list of numeric fields unscrollable from anywhere a finger naturally lands.
+    /// </summary>
+    [Theory]
+    [InlineData(0f, -1f, true)]
+    [InlineData(-1f, 0f, false)]
+    public void A_numeric_input_keeps_the_horizontal_finger_and_gives_back_the_vertical(float dx, float dy, bool scrolls) {
+        var (fixture, view, control) = Themed(static (document, parent) => document.Create<NumericInput>(null, parent, "knob"));
+        using var _ = fixture;
+
+        var (top, left) = DragAcross(fixture, view, dx * Step, dy * Step);
+
+        Assert.True(scrolls == (top != 0f || left != 0f), $"top {top}, left {left}");
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A refusal is only half the property: the control still has to get the finger.</b> The
+    ///     two theories above assert that the <i>view</i> stayed put, which a change that made
+    ///     <c>touch-action: none</c> disarm the control's own drag would also satisfy — and the pair
+    ///     that closes it is one gesture: the thumb moved <b>and</b> the list did not.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Horizontal, because a horizontal slider's value cannot answer a vertical drag.</b>
+    ///     The vertical cases above are the right axis for the view's own scroll; the knob only
+    ///     reports having been dragged along its own track, so the closed-form version of the pair
+    ///     has to run along it. The view overflows both ways, so <c>ScrollLeft</c> is the offset that
+    ///     would have moved had the declaration not been read.
+    /// </remarks>
+    [Fact]
+    public void A_slider_that_takes_the_finger_still_moves_its_own_thumb() {
+        var (fixture, view, control) = Themed(static (document, parent) => document.Create<Slider>(null, parent, "knob"));
+        using var _ = fixture;
+
+        var slider = (Slider)control;
+        var bounds = view.Bounds;
+        var x = bounds.X + (bounds.Width * 0.5f);
+        var y = bounds.Y + (bounds.Height * 0.5f);
+
+        fixture.Press(x, y, type: PointerType.Touch);
+        fixture.Advance(Frame);
+
+        var pressed = slider.Value;
+        var top = view.ScrollTop;
+        var left = view.ScrollLeft;
+
+        for (var step = 1; step <= 3; step++) {
+            fixture.MovePointer(x - (Step * step), y, type: PointerType.Touch);
+            fixture.Advance(Frame);
+        }
+
+        Assert.True(slider.Value < pressed, $"the thumb did not move: {pressed} -> {slider.Value}");
+        Assert.Equal(top, view.ScrollTop);
+        Assert.Equal(left, view.ScrollLeft);
+
+        fixture.Release(x - (Step * 3), y, type: PointerType.Touch);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The family the theme leaves undeclared, measured rather than assumed — and it has the
+    ///     defect the rules above fix.</b> <see cref="TextField" /> captures the pointer at
+    ///     <c>TextField.cs:1284</c> to keep a selection drag alive past its own border, which is the
+    ///     sixth <c>CapturePointer</c> call site in <c>Vixen.Ui.Controls</c> and the one no rule
+    ///     names. So a finger dragging inside a <c>textbox</c> or a <c>textarea</c> in a list moves
+    ///     the caret <i>and</i> scrolls the list by the whole travel, exactly as a slider did.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This asserts the defect, deliberately, because the remedy is a behaviour decision
+    ///         and not a missing line.</b> A blanket <c>none</c> on <c>textbox</c> would make a form
+    ///         of text fields unscrollable from anywhere a finger naturally lands — the trap the
+    ///         <c>numeric-input</c> comment in <c>ControlTheme.vcss</c> warns about — and <c>pan-y</c>
+    ///         would not help, because the drag measured here <i>is</i> the vertical one and the
+    ///         field takes it anyway. What browsers do instead is not begin a text selection from a
+    ///         plain finger drag at all, which is a change in <c>TextField.Pointed</c> rather than in
+    ///         a stylesheet, and is the same change <c>docs/InertProperties.txt</c> records as the
+    ///         one that would expire <c>user-select</c>'s refusal (#225).
+    ///     </para>
+    ///     <para>
+    ///         So the number is recorded where it can go red: the day somebody makes that decision,
+    ///         this theory fails and says to write the outcome into the guide and the theme. A
+    ///         sentence in a review comment would not have.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("textbox")]
+    [InlineData("textarea")]
+    public void A_finger_dragging_a_text_field_still_reaches_the_view_and_that_is_not_yet_decided(string tag) {
+        var (fixture, view, control) = Themed((document, parent) => tag == "textarea"
+            ? document.Create<TextArea>(null, parent, "knob")
+            : (UiElement)document.Create<TextBox>(null, parent, "knob"));
+
+        using var _ = fixture;
+
+        var moved = DragAcross(fixture, view, 0f, -Step);
+
+        Assert.True(
+            moved.Top > 0f,
+            $"""
+             a finger dragging a `{tag}` no longer scrolls the view around it (top {moved.Top}).
+
+             Something now declares `touch-action` for the `TextField` family, or the field stopped
+             taking a finger's drag as a selection. Either is the decision this theory was waiting
+             for: say which in `docs/guide/ui/touch-action.md` beside the paragraph naming this
+             family as undeclared, add the row to `ControlTheme.vcss` if that is what was done, and
+             turn this into the refusal its siblings above are.
+             """
+        );
+    }
+
     /// <summary>A pen is a finger for this purpose, as it is for <see cref="ScrollView.DragToScroll" />.</summary>
     [Fact]
     public void A_pen_is_governed_like_a_finger() {
@@ -312,10 +540,14 @@ public class TouchActionTests {
 
         var document = fixture.Document;
 
-        Assert.Equal(TouchAction.PanX | TouchAction.PanY, document.TouchActionOf(target));
+        // ⚠ A chain of one is the element's own declaration, which is why there is no second
+        // method for it: `touch-action` does not inherit, so intersecting a chain that starts and
+        // ends at the same element is exactly what the cascade resolved there. `TouchActionOf` was
+        // that special case spelt twice and had no caller outside this file.
+        Assert.Equal(TouchAction.PanX | TouchAction.PanY, document.TouchActionBetween(target, target));
         Assert.Equal(TouchAction.PanDown, document.TouchActionBetween(target, view));
         Assert.Equal(TouchAction.PanY, document.TouchActionBetween(target, target.Parent!));
-        Assert.Equal(TouchAction.Auto, document.TouchActionOf(document.Root));
+        Assert.Equal(TouchAction.Auto, document.TouchActionBetween(document.Root, document.Root));
     }
 
     /// <summary>
@@ -340,7 +572,7 @@ public class TouchActionTests {
         var probe = fixture.Document.Create("div", fixture.Document.Root, "probe");
         fixture.Update();
 
-        Assert.Equal(expected, fixture.Document.TouchActionOf(probe));
+        Assert.Equal(expected, fixture.Document.TouchActionBetween(probe, probe));
     }
 
     /// <summary>The admission rule in isolation, so a failure names the case rather than the frame.</summary>

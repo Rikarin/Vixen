@@ -1682,7 +1682,6 @@ Vixen.Ui.UiDocument.TextAlignShift(Vixen.Ui.UiElement element, float slack) -> f
 Vixen.Ui.UiDocument.Tick(System.TimeSpan now) -> void
 Vixen.Ui.UiDocument.Ticked -> System.Action<Vixen.Ui.UiDocument, System.TimeSpan>?
 Vixen.Ui.UiDocument.TouchActionBetween(Vixen.Ui.UiElement target, Vixen.Ui.UiElement ancestor) -> Vixen.Ui.TouchAction
-Vixen.Ui.UiDocument.TouchActionOf(Vixen.Ui.UiElement element) -> Vixen.Ui.TouchAction
 Vixen.Ui.UiDocument.TryInject<T>(out T? value) -> bool
 Vixen.Ui.UiDocument.UiDocument(float width, float height, float rootFontSize = 16, Microsoft.Extensions.Logging.ILogger? logger = null) -> void
 Vixen.Ui.UiDocument.UndoManager.get -> Vixen.Ui.IUndoManager?

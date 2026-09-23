@@ -940,6 +940,33 @@ scrollbar { position: absolute; }
 scrollbar.vertical { top: 0px; right: 0px; bottom: 0px; width: 10px; }
 scrollbar.horizontal { left: 0px; right: 0px; bottom: 0px; height: 10px; }
 
+/* ⚠ The controls that own a finger, and this is the first sheet in the tree to say so.
+   Capturing the pointer does NOT keep a scroll view out of the gesture: a capture redirects
+   the raw pointer events, and the `DragEvent` the recogniser reads out of them is raised on
+   the pressed control and bubbles past it — so a finger dragging a slider inside a list moved
+   the thumb and scrolled the list, and a finger on a scrollbar moved the same offset twice.
+   `touch-action` is the declaration that settles it, and until now nothing authored wrote it:
+   the family parsed, resolved and governed nothing. See `TouchAction` and doc `ui/touch-action`. */
+slider, range-slider, scrollbar, split-bar { touch-action: none; }
+
+/* ⚠ `pan-y` and not `none`, because the scrub is one axis. `NumericInput.Scrub` reads
+   `args.X` alone, so the horizontal half of a finger's travel is the field's and the vertical
+   half is still the list's — and a blanket `none` here is the commonest way this property is
+   written wrong: it makes a form of numeric fields unscrollable from anywhere a finger lands. */
+numeric-input { touch-action: pan-y; }
+
+/* ⚠ THE LIST ABOVE IS NOT EVERY CONTROL THAT OWNS A FINGER, and the omission is deliberate
+   rather than an oversight. `TextField` captures the pointer too (`TextField.cs`, the selection
+   drag), so `textbox`, `secure-textbox`, `textarea` and `search-box` have exactly the defect the
+   rows above fix: measured on this theme, a finger dragging inside a textbox or a textarea in a
+   100x100 scroll view moves the caret AND scrolls the view by the whole travel — 40px of a 60px
+   drag. It is left undeclared because neither keyword is right: `none` makes a form of text
+   fields unscrollable from anywhere a finger lands, and `pan-y` does not help, because the drag
+   measured is the vertical one and the field takes it anyway. What a browser does instead is not
+   begin a selection from a plain finger drag at all, which is a change in `TextField.Pointed` and
+   a behaviour decision nobody here has made. `TouchActionTests` holds the 40 so the day it is
+   made, something goes red. */
+
 /* ── Overlays ───────────────────────────────────────────────────────── */
 popover-content { flex-direction: column; }
 
