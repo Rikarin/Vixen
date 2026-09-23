@@ -115,6 +115,7 @@ split-view > split-bar	Core/Vixen.Ui.Controls/ControlTheme.vcss
 sprite-canvas > image	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 sprite-field-row > numeric-input	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 sprite-field-row > textbox	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+sprite-list > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 sprite-rect > sprite-rect-label	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 sprite-toolbar > numeric-input	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 sprite-toolbar > select	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss

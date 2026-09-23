@@ -187,6 +187,67 @@ public sealed class ScrollingPanelPictureTests {
         Check(fixture, Scroller(fixture, "settings-pane"), "settings-pane");
     }
 
+    /// <summary>The sprite editor's list, over a sheet cut into more sprites than the column holds.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A column, which is the case the ledger held back for a picture.</b> The list sits
+    ///     under a bar and above the fields in <c>sprite-side</c>, and a <c>ScrollView</c> that grows
+    ///     in a column from a content basis grows to its content: the bar never appears and the
+    ///     fields are pushed off the bottom. What this proves is the other outcome.
+    /// </remarks>
+    [Fact]
+    public void The_sprite_list_scrolls_inside_its_box_and_nowhere_else() {
+        using var fixture = Start();
+
+        var relative = "Assets/sheet.png";
+        var absolute = fixture.Project.Paths.Absolute(relative);
+
+        Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
+        var opaque = new byte[128 * 128 * 4];
+        Array.Fill(opaque, (byte) 255);
+
+        File.WriteAllBytes(absolute, Vixen.Editor.Assets.Tests.MinimalPng.Write(128, 128, opaque));
+        fixture.Project.Assets.Scan();
+
+        Assert.True(fixture.Project.Assets.TryGetByPath(relative, out var entry));
+
+        fixture.Editor.OpenAsset(entry.Guid);
+        fixture.Frames(2);
+
+        // The texture opens on its Texture tab; the sprite editor is the second.
+        fixture.Click(
+            Descendants(fixture.Document.Root).FirstOrDefault(element => element.Text == "Sprites")
+            ?? throw fixture.Fail("the texture document has no Sprites tab")
+        );
+
+        fixture.Frames(2);
+
+        var sprites =Find<Vixen.Editor.AssetEditors.Importing.SpriteSheetView>(fixture.Document.Root)
+            ?? throw fixture.Fail("opening a texture opened no sprite editor");
+
+        sprites.CellWidth.Number = 16;
+        sprites.CellHeight.Number = 16;
+
+        Assert.Equal(64, sprites.Slice());
+        fixture.Frames(2);
+
+        var list = Scroller(fixture, "sprite-list");
+
+        // ⚠ And it reaches the bottom of its tab. Scrolling is not the whole claim: with the texture
+        // document's tab set sized to its content, the list scrolled perfectly inside a 94 px box
+        // above four hundred pixels of nothing, because nothing between the document and the list
+        // was height-bound. Thirty-two pixels is three paddings with room to spare, against the
+        // two hundred and more that the unbound chain leaves.
+        var document = Ancestors(list).First(ancestor => ancestor.Tag == "texture-editor");
+        var slack = (document.AbsoluteTop + document.Height) - (list.AbsoluteTop + list.Height);
+
+        Assert.True(
+            slack <= 32f,
+            $"the sprite list stops {slack:0} px short of the bottom of its document, so the tab set is not filling it."
+        );
+
+        Check(fixture, list, "sprite-list");
+    }
+
     static EditorSession Start(int width = Width, int height = Height) =>
         EditorSession.Start(new EditorSessionOptions { Width = width, Height = height });
 

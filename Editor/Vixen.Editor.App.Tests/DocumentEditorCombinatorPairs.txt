@@ -111,6 +111,7 @@ shape-stage > viewport
 sprite-canvas > image
 sprite-field-row > numeric-input
 sprite-field-row > textbox
+sprite-list > scroll-content
 sprite-toolbar > numeric-input
 sprite-toolbar > select
 status-bar > status-trailing

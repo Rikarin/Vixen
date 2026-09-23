@@ -220,6 +220,7 @@ shape-stage > viewport	Documents
 sprite-canvas > image	Documents
 sprite-field-row > numeric-input	Documents
 sprite-field-row > textbox	Documents
+sprite-list > scroll-content	Documents
 sprite-toolbar > numeric-input	Documents
 sprite-toolbar > select	Documents
 statistic-row progress-bar	Panels

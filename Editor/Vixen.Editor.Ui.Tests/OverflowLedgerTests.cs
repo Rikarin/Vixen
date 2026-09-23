@@ -18,7 +18,7 @@ namespace Vixen.Editor.Ui.Tests;
 ///         kinds (#1275), and the issue counted six more. ⚠ <b>The count was twenty-four</b>: the
 ///         issue grepped the shorthand, and <c>overflow-y: auto</c> is the same defect spelt for one
 ///         axis — sixteen more rules across the two editor themes, every one on a side panel or a
-///         list. Nineteen of the twenty-four are converted; the five below say why they are not.
+///         list. Twenty of the twenty-four are converted; the four below say why they are not.
 ///     </para>
 ///     <para>
 ///         <b>This is the build-time half of the report; <c>UiDocument</c>'s 7009 is the run-time
@@ -71,7 +71,15 @@ public class OverflowLedgerTests {
     ///         highlight shrank to its label. <c>ScrollingPanelPictureTests</c> holds the page.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The five that are left are each left for a reason, not for want of time.</b>
+    ///         ⚠ <b><c>sprite-list</c> was the first of the column ones, and the column was not the
+    ///         hard part.</b> The list got its <c>flex-basis: 0px</c>, and still could not scroll,
+    ///         because nothing above it was height-bound: the texture document's tab set was not a
+    ///         <c>document-tabs</c> set, so the sprite editor grew to 1 512 px in a 555 px tab and
+    ///         the dock panel did the clipping. It is one now, and the picture test opens a real
+    ///         texture on its Sprites tab and holds the list to the bottom of its document.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The four that are left are each left for a reason, not for want of time.</b>
     ///         <c>override-body</c> carries a <b>child-combinator</b> rule
     ///         (<c>override-body &gt; override-row</c>) and scrolls sideways. <c>input-debug</c> is a
     ///         <i>component's own host tag</i> (<c>@tag</c> in <c>InputDebugView.vxml</c>), and a
@@ -79,8 +87,8 @@ public class OverflowLedgerTests {
     ///         a control's type from the sheet's side at all, so that one wants a scroller inside
     ///         the view. <c>mixer-strips</c> and <c>override-body</c> scroll <i>sideways</i>, which
     ///         is the one axis none of the twelve conversions so far has exercised.
-    ///         <c>compiled-scene-blocks</c>, <c>compiled-scene-diagnostics</c> and
-    ///         <c>sprite-list</c> sit in a <b>column</b>, where <c>ScrollView</c>'s own remarks warn
+    ///         <c>compiled-scene-blocks</c> and <c>compiled-scene-diagnostics</c> sit in a
+    ///         <b>column</b>, where <c>ScrollView</c>'s own remarks warn
     ///         that a <c>flex-grow</c> without a <c>flex-basis: 0px</c> grows the viewport to its
     ///         content and the bar never appears — so each needs a picture rather than a pattern.
     ///     </para>
@@ -88,7 +96,6 @@ public class OverflowLedgerTests {
     static readonly string[] Remaining = [
         "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:compiled-scene-blocks, compiled-scene-diagnostics",
         "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:override-body",
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:sprite-list",
         "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:mixer-strips",
         "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:input-debug"
     ];

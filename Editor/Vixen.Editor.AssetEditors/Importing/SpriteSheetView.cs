@@ -70,8 +70,11 @@ public sealed class SpriteSheetView : Control {
     /// <summary>The boxes, one per sprite, in the document's order.</summary>
     public IReadOnlyList<UiElement> Rects => rects;
 
-    /// <summary>The sprite names, one row each.</summary>
+    /// <summary>The sprite names, one row each: the content of <see cref="ListView" />.</summary>
     public UiElement List { get; private set; } = null!;
+
+    /// <summary>The scroller the rows are in.</summary>
+    public ScrollView ListView { get; private set; } = null!;
 
     /// <summary>The selected sprite's numbers.</summary>
     public UiElement Fields { get; private set; } = null!;
@@ -216,7 +219,11 @@ public sealed class SpriteSheetView : Control {
         RemoveButton.Size = ControlSize.Small;
         RemoveButton.Variant = ControlVariant.Subtle;
 
-        List = side.Add("sprite-list");
+        // ⚠ A `ScrollView` under the sheet's tag, and the rows go in its content (#1275). It was a
+        // plain element with `overflow-y: auto`, which in this UI clips and does not scroll: a sheet
+        // cut into more sprites than the column holds lost the rest of its names off the bottom.
+        ListView = side.Add<ScrollView>("sprite-list");
+        List = ListView.Content;
         Fields = side.Add("sprite-fields");
 
         BuildFields();

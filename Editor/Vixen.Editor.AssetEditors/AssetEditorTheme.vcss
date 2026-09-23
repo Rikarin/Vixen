@@ -285,7 +285,23 @@ sprite-guide.horizontal { left: 0; right: 0; height: 1px; }
 
 sprite-side { flex-direction: column; gap: 6px; width: 260px; flex-shrink: 0; min-height: 0; }
 sprite-list-bar { flex-direction: row; gap: 4px; flex-shrink: 0; }
-sprite-list { flex-direction: column; flex-grow: 1; min-height: 0; overflow-y: auto; }
+/* ⚠ A `ScrollView` under this tag (#1275), in a column — the case the overflow ledger held back
+   for a picture. `flex-basis: 0px` because a scroll view that grows from a content basis grows
+   to its content and the bar never appears; the clip, anchor and direction because a control
+   under a tag of its own gets none of the `scroll-view` user-agent rule (#1327). */
+sprite-list {
+    flex-direction: column;
+    flex-grow: 1;
+    flex-basis: 0px;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+}
+
+/* ⚠ A gutter the width of the bar. The bars are drawn over the port rather than beside it, and a
+   row's size column is right-aligned — so without this the thumb sat on the last two digits of
+   every "16×16" the list showed, which the picture made plain and no count could. */
+sprite-list > scroll-content { padding-right: 10px; }
 
 sprite-row {
     flex-direction: row;
