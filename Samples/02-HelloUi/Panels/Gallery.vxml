@@ -210,6 +210,9 @@
             -->
             <LevelIndicator Value="@Model.Progress.Value" Critical="0.15" Direction="Falling" />
 
+            <!-- The same reading and the same two lines as the first indicator, on a dial. -->
+            <Gauge Value="@Model.Progress.Value" Warning="0.6" Critical="0.85" />
+
             <Alert Variant="Danger"
                    Title="Shader failed to compile"
                    Message="Ui/Msdf.rvn(42): expected ';'" />

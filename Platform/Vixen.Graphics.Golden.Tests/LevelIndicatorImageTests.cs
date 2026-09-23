@@ -15,7 +15,7 @@ using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
 
-/// <summary><c>LevelIndicator</c>, drawn by the device with the shipped theme and the shipped shaders.</summary>
+/// <summary><c>LevelIndicator</c> and <c>Gauge</c>, drawn by the device with the shipped theme and the shipped shaders.</summary>
 /// <remarks>
 ///     <para>
 ///         ⚠ <b>The first picture of this control anywhere.</b> #666 rank 6 landed it with a
@@ -82,27 +82,7 @@ public sealed class LevelIndicatorImageTests {
         using var ui = Document(dark);
 
         var name = dark ? "ui-level-indicator-dark" : "ui-level-indicator";
-        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
-        var geometry = new UiGeometryBuilder().Build(ui.Document.Drawing, cache, Viewport);
-
-        // Something has to have drawn: a device and a rasterizer that were both handed nothing agree.
-        Assert.NotEmpty(geometry.Draws);
-
-        var shaders = UiShaderLibrary.Load(owned.Device);
-        owned.Owns(() => Destroy(owned, shaders));
-
-        var renderer = new UiRenderer(owned.Device, shaders, new Rendering.RenderOutput([PixelFormat.Rgba8UNorm]));
-        owned.Owns(renderer.Dispose);
-
-        var colour = owned.ColourTarget(name);
-
-        owned.Graph.AddPass(name, pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, Background);
-            pass.SideEffect();
-            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
-        });
-
-        var image = owned.Render(colour, commands => renderer.Upload(commands, geometry, cache.Atlas));
+        var image = Draw(owned, ui, name);
 
         var track = Pixel(image, Left + Rail - 5, Middle("ordinary"));
         var ordinary = Pixel(image, Left + 4, Middle("ordinary"));
@@ -145,18 +125,106 @@ public sealed class LevelIndicatorImageTests {
         // And the segmented rail is blocks: three separated runs of lit columns, not one.
         Assert.Equal(3, Runs(image, Middle("segments"), Pixel(image, Left + 4, Middle("segments")), track));
 
-        // The device and the software rasterizer draw the same control. A reference image is made by
-        // one renderer and cannot say that.
-        var software = SoftwareUiRasterizer.Render(geometry, cache.Atlas, Side, Side, Background);
-        var agreement = ImageComparer.Compare(image, software, ImageTolerance.Slight);
+        GoldenImage.Verify(name, image, Tolerance.Edges);
+    }
 
-        Assert.True(agreement.Matches, $"the device and the software rasterizer disagree about a level indicator: {agreement}");
+    /// <summary>
+    ///     <c>Gauge</c>, the dial half of rank 6: the pair's three levels and the lone falling line,
+    ///     four dials at the theme's own size and arc width.
+    /// </summary>
+    /// <param name="dark">Whether the root carries <c>dark</c>, the theme's second palette.</param>
+    /// <remarks>
+    ///     The share-of-area oracle is the unit suite's (<c>GaugeTests</c>), where the arc can be made
+    ///     thick enough for the count to mean something; at five pixels round a 48-pixel dial the rim
+    ///     is too large a share. What this adds is the device: its picture agrees with the software
+    ///     rasterizer's, the levels are three fills, and each dial's fill is where the reading puts it
+    ///     — the left-hand point of every ring is lit, the right-hand one only past two-thirds.
+    /// </remarks>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EveryLevelIsDrawnOnADial(bool dark) {
+        if (!TryOpen(out var opened, out _)) {
+            return;
+        }
+
+        using var owned = opened!;
+        using var ui = Dials(dark);
+
+        var name = dark ? "ui-gauge-dark" : "ui-gauge";
+        var image = Draw(owned, ui, name);
+
+        // Each dial is 48 pixels at (x, y); its ring is five pixels wide, so two and a half in from
+        // the rim is the middle of the ring. Left-hand point: 45° into a 270° sweep, lit at every
+        // reading here past a sixth. Right-hand point: 225° in, lit only past five-sixths.
+        (int R, int G, int B) West(int x, int y) => Pixel(image, x + 2, y + 24);
+        (int R, int G, int B) East(int x, int y) => Pixel(image, x + 45, y + 24);
+
+        var ordinary = West(8, 8);
+        var warning = West(72, 8);
+        var critical = West(8, 72);
+        var track = East(8, 8);
+
+        Assert.True(Distance(ordinary, track) > Apart, $"the ordinary fill {ordinary} is not told apart from the track {track}");
+        Assert.True(Distance(ordinary, warning) > Apart, $"a warning {warning} is drawn in the ordinary fill {ordinary}");
+        Assert.True(Distance(ordinary, critical) > Apart, $"a critical reading {critical} is drawn in the ordinary fill {ordinary}");
+        Assert.True(Distance(warning, critical) > Apart, $"warning {warning} and critical {critical} are one colour");
+
+        // Half and three-quarters stop short of the right-hand point; 0.95 reaches past it.
+        Assert.True(Distance(East(72, 8), track) <= 3, "a reading of three-quarters lit the right-hand point of its dial");
+        Assert.True(Distance(East(8, 72), critical) <= 3, "a reading of 0.95 did not reach the right-hand point of its dial");
+
+        // The tank at a tenth with one falling line is critical, and lit only near its start: its
+        // left-hand point, a sixth of the way round, is still track.
+        Assert.True(Distance(West(72, 72), track) <= 3, "a reading of a tenth lit a sixth of its dial");
+        // (5, 35) from the dial's corner is the middle of the ring at 148°, thirteen degrees into a
+        // fill that ends at 162°.
+        Assert.True(Distance(Pixel(image, 72 + 5, 72 + 35), critical) <= 3, "the flat tank is not drawn critical near its start");
 
         GoldenImage.Verify(name, image, Tolerance.Edges);
     }
 
-    /// <summary>The seven rails, laid out absolutely so that every row is where <see cref="Rows" /> says.</summary>
-    static UiTest Document(bool dark) {
+    /// <summary>
+    ///     Draws the document on the device through the shipped modules, and requires the software
+    ///     rasterizer to agree with the picture before anybody looks at it.
+    /// </summary>
+    /// <remarks>
+    ///     The agreement is the one claim a reference image cannot make, because a reference is made
+    ///     by one renderer.
+    /// </remarks>
+    static Bitmap Draw(Fixture owned, UiTest ui, string name) {
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var geometry = new UiGeometryBuilder().Build(ui.Document.Drawing, cache, Viewport);
+
+        // Something has to have drawn: a device and a rasterizer that were both handed nothing agree.
+        Assert.NotEmpty(geometry.Draws);
+
+        var shaders = UiShaderLibrary.Load(owned.Device);
+        owned.Owns(() => Destroy(owned, shaders));
+
+        var renderer = new UiRenderer(owned.Device, shaders, new Rendering.RenderOutput([PixelFormat.Rgba8UNorm]));
+        owned.Owns(renderer.Dispose);
+
+        var colour = owned.ColourTarget(name);
+
+        owned.Graph.AddPass(name, pass => {
+            pass.ColourAttachment(colour, LoadAction.Clear, Background);
+            pass.SideEffect();
+            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+        });
+
+        var image = owned.Render(colour, commands => renderer.Upload(commands, geometry, cache.Atlas));
+
+        var software = SoftwareUiRasterizer.Render(geometry, cache.Atlas, Side, Side, Background);
+        var agreement = ImageComparer.Compare(image, software, ImageTolerance.Slight);
+
+        Assert.True(agreement.Matches, $"the device and the software rasterizer disagree about '{name}': {agreement}");
+
+        return image;
+    }
+
+    /// <summary>A themed document of the fixture's size, in one palette, with the root painted.</summary>
+    static UiTest Themed(bool dark, string css) {
         var ui = UiTest.Create(Side, Side);
 
         ControlTheme.Install(ui.Document);
@@ -165,15 +233,47 @@ public sealed class LevelIndicatorImageTests {
             ui.Document.Root.AddClass("dark");
         }
 
-        // The root painted the way a window's is, so the picture is the rail on the surface it sits on.
-        var css = $"root {{ width: {Side}px; height: {Side}px; background-color: var(--surface); }} "
-            + $"level-indicator {{ position: absolute; left: {Left}px; width: {Rail}px; }} ";
+        // The root painted the way a window's is, so the picture is the control on the surface it sits on.
+        ui.Load($"root {{ width: {Side}px; height: {Side}px; background-color: var(--surface); }} " + css);
+        return ui;
+    }
+
+    /// <summary>Four dials in a square: ordinary, warning, critical, and a flat tank with one falling line.</summary>
+    static UiTest Dials(bool dark) {
+        var ui = Themed(
+            dark,
+            "gauge { position: absolute; } "
+            + "#ordinary { left: 8px; top: 8px; } #warning { left: 72px; top: 8px; } "
+            + "#critical { left: 8px; top: 72px; } #tank { left: 72px; top: 72px; }"
+        );
+
+        foreach (var (id, value) in new[] { ("ordinary", 0.5f), ("warning", 0.75f), ("critical", 0.95f) }) {
+            var dial = ui.Document.Create<Gauge>(null, ui.Document.Root, id);
+
+            dial.Warning = 0.6f;
+            dial.Critical = 0.85f;
+            dial.Value = value;
+        }
+
+        var tank = ui.Document.Create<Gauge>(null, ui.Document.Root, "tank");
+
+        tank.Critical = 0.15f;
+        tank.Direction = LevelDirection.Falling;
+        tank.Value = 0.1f;
+
+        ui.Frame();
+        return ui;
+    }
+
+    /// <summary>The seven rails, laid out absolutely so that every row is where <see cref="Rows" /> says.</summary>
+    static UiTest Document(bool dark) {
+        var css = $"level-indicator {{ position: absolute; left: {Left}px; width: {Rail}px; }} ";
 
         foreach (var (id, top, _) in Rows) {
             css += $"#{id} {{ top: {top}px; }} ";
         }
 
-        ui.Load(css);
+        var ui = Themed(dark, css);
 
         // A disk's pair of lines, at three readings: one under both, one past the warning, one past
         // the critical.

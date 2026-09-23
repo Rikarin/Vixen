@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.Controls.LevelIndicator, T:Vixen.Ui.Controls.LevelReading, T:Vi
 tags: [ui, controls, readout, accessibility, vxml]
 since: 0.2
 status: preview
-related: [ui/accessibility, ui/key-value-list, ui/markup-panels]
+related: [ui/accessibility, ui/key-value-list, ui/markup-panels, ui/gauge]
 ---
 
 ## What it is
@@ -176,3 +176,4 @@ other control that belongs in that half of a row.
   `meter` is not a `progressbar`.
 - [Key-value list](key-value-list) — where a reading usually sits, beside the word for what it is.
 - [Labeled content](labeled-content) — the same, for a form row rather than a table of facts.
+- [Gauge](gauge) — the same reading, thresholds and levels, drawn as a dial.
