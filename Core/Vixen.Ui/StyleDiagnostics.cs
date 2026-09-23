@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using Vixen.Ui.Layout;
 using Vixen.Ui.Styling;
@@ -252,7 +253,17 @@ public sealed partial class UiDocument {
     /// <summary>Notes a control under a tag that is not its own, if that cost it anything.</summary>
     /// <param name="element">The control.</param>
     /// <param name="style">Its computed style.</param>
+    /// <remarks>
+    ///     ⚠ <b>An element already reported is passed over before anything is formatted.</b> This
+    ///     runs on every style pass for every renamed control, and a warned control restyled each
+    ///     frame — hovered, animated — would otherwise build its property list and its description
+    ///     every frame only for the dedup to throw both away.
+    /// </remarks>
     void NoteRetaggedControl(UiElement element, ComputedStyle style) {
+        if (retagReported.TryGetValue(element, out _)) {
+            return;
+        }
+
         var own = element.TagName;
         string? lost = null;
 
@@ -271,6 +282,8 @@ public sealed partial class UiDocument {
 
         var text = DescribeForDiagnostic(element);
 
+        retagReported.AddOrUpdate(element, text);
+
         foreach (var existing in retagDiagnostics) {
             if (existing.Element == text) {
                 return;
@@ -279,6 +292,14 @@ public sealed partial class UiDocument {
 
         retagDiagnostics.Add((text, own, lost));
     }
+
+    /// <summary>The controls <see cref="retagDiagnostics" /> already speaks for, held weakly.</summary>
+    /// <remarks>
+    ///     Weakly because a closed panel's controls are otherwise kept alive by a warning about them.
+    ///     The text-keyed dedup stays: a reopened panel builds new controls with the same description,
+    ///     and that is the same box reported once.
+    /// </remarks>
+    readonly ConditionalWeakTable<UiElement, string> retagReported = new();
 
     /// <summary>What a bare element under <paramref name="tag" /> resolves, as property ids.</summary>
     /// <remarks>
@@ -416,6 +437,7 @@ public sealed partial class UiDocument {
         textDiagnostics.Clear();
         overflowDiagnostics.Clear();
         retagDiagnostics.Clear();
+        retagReported.Clear();
         drawings.ClearDiagnostics();
 
         drainedBuilderCount = 0;

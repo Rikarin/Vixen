@@ -861,6 +861,35 @@ public class StyleDiagnosticDrainTests {
         Assert.Empty(Warnings(sink));
     }
 
+    /// <summary>A control already reported is passed over, however often it is restyled.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Keyed on the element and not only on its description</b>, because the check runs on
+    ///     every style pass and a hovered or animated control is restyled every frame: formatting a
+    ///     property list and a description each time only for the dedup to discard them is two strings
+    ///     a frame for the document's life. A new class a frame is the observable form of that — the
+    ///     description changes, so a text-only dedup reported the same box once per class. ⚠ Each
+    ///     class has a rule of its own: the check sits behind the walk's "did the style change" test,
+    ///     and a class no rule names leaves the computed style the same instance and the check unrun.
+    /// </remarks>
+    [Fact]
+    public void A_reported_control_restyled_under_new_classes_is_reported_once() {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        document.Load(RetagSheet + " .frame-0 { gap: 1px } .frame-1 { gap: 2px } .frame-2 { gap: 3px }");
+        var list = document.Root.Add<Scroller>("copied-list");
+        document.Update();
+
+        Assert.Single(Warnings(sink));
+
+        for (var frame = 0; frame < 3; frame++) {
+            list.AddClass($"frame-{frame}");
+            document.Update();
+        }
+
+        Assert.Single(Warnings(sink));
+    }
+
     /// <summary>A rule loaded later that restates what was lost is heard, and a sheet that drops it is heard again.</summary>
     /// <remarks>
     ///     ⚠ <b>The own tag's answer is cached, and a cache that outlived a sheet change would report
