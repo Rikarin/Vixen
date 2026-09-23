@@ -686,9 +686,8 @@ settled by what the pool is:
 `@rows[0]` is an ordinary interpolation; `@empty` makes the same bargain with the brace. And the index
 is a `Signal<int>` holding `-1` in a slot the pool has made and not yet bound.
 
-What is left of #758 is not language: `MessageLogView` and `ConsoleView` are still hand-written C#
-controls setting `CreateRow`/`BindRow`, and porting either to a `.vxml` is what gives `@rows` a
-production caller.
+`MessageLogView.vxml` is its first production caller. `ConsoleView` is the one virtualised list left
+setting `CreateRow`/`BindRow` in C#.
 
 ## `help`, and where an attach-shaped directive's runtime has to live
 

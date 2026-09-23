@@ -147,22 +147,16 @@ public sealed class ScrollingPanelPictureTests {
         fixture.Click(row);
         fixture.Frames(2);
 
-        // ⚠ A click on a message row selects nothing, and that is a defect of its own rather than of
-        // this test: the row listens for `ClickEvent`, which only a `Control` raises, so a person
-        // pressing a bare row gets a `TapEvent` nobody hears — `ConsoleView`'s rows had exactly this
-        // until they switched to `TapEvent`. So the detail pane this test exists to picture can be
-        // reached from code and from nowhere else. What the row *listens for* is raised here, and
-        // only when the real click did nothing: the day the row hears taps, the click above selects
-        // it and this line is skipped, rather than a green test standing on a workaround.
-        if (log.Selected is null) {
-            row.Raise(new ClickEvent { Device = ActivationDevice.Code });
-            fixture.Frames(2);
-        }
-
+        // ⚠ A real click, and until the log's rows were markup it selected nothing: the hand-built row
+        // listened for `ClickEvent`, which only a `Control` raises, so a person pressing a bare row
+        // produced a `TapEvent` nobody heard and the detail pane this test pictures could be filled
+        // from code and from nowhere else. The first version of this test raised the `ClickEvent`
+        // itself to get past it. The `@rows` row's `on:click` is a tap, which is what a plain element
+        // hears (#758).
         Assert.True(
             log.Selected is { Severity: NotificationSeverity.Error },
-            $"the row selected {log.Selected?.Message ?? "nothing"}, so the detail pane is empty and there is "
-            + "nothing in it to scroll."
+            $"clicking the row selected {log.Selected?.Message ?? "nothing"}, so the detail pane is empty and "
+            + "there is nothing in it to scroll."
         );
 
         Check(fixture, Scroller(fixture, "message-log-detail"), "message-log-detail");

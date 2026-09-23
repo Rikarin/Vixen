@@ -54,4 +54,3 @@ Editor/Vixen.Editor.Texturing/Painting/PaintMeshView.cs canvas — paints onto a
 Editor/Vixen.Editor.Texturing/Painting/PaintUvView.cs canvas
 Editor/Vixen.Editor.Texturing/TextureGraphView.cs canvas
 Editor/Vixen.Editor.Ui/Console/ConsoleView.cs pending — a filtered virtualised log; #758 is the markup spelling it waits on
-Editor/Vixen.Editor.Ui/Notifications/MessageLogView.cs pending — a filtered list with a level picker
