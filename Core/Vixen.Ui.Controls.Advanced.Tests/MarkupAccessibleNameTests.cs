@@ -71,10 +71,12 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         said by anything.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Markup only, which is a slice and not the whole of #1338.</b>
-///         <c>button.Label = "Add"</c> written in C# is the same defect and is not scanned here —
-///         the <c>.vxml</c> half is self-contained, is where the editor's interface actually lives,
-///         and is the shape the issue names.
+///         ⚠ <b>Markup only, and the C# half is <see cref="CodeAccessibleNameTests" />.</b>
+///         <c>button.Label = "Add"</c> written in C# is the same defect, and it needs a different
+///         instrument: in C# the property name alone is a census of log messages and window titles,
+///         so that file resolves each receiver's type and asks a probe whether it speaks. It reads
+///         the <c>@code</c> bodies this file skips, and the <c>.cs</c> files with them, so neither
+///         census has a hole the other assumes is covered.
 ///     </para>
 /// </remarks>
 public partial class MarkupAccessibleNameTests {
@@ -92,7 +94,7 @@ public partial class MarkupAccessibleNameTests {
     ///     no literal instance today; they are watched so that the first one is a row rather than a
     ///     silence.
     /// </remarks>
-    static readonly string[] Watched = [
+    internal static readonly string[] Watched = [
         "AccessibleDescription",
         "AccessibleName",
         "Description",
@@ -161,11 +163,11 @@ public partial class MarkupAccessibleNameTests {
     ///         rather than written a second time.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The C# is skipped rather than scanned, which is the honest answer and not the
-    ///         complete one.</b> <c>button.Label = "Add"</c> is the same defect whether it is in a
-    ///         <c>@code</c> body or a <c>.cs</c> file. Reading it here would cover the <c>@code</c>
-    ///         bodies and none of the <c>.cs</c> files — a census whose domain is an accident of
-    ///         where somebody happened to put a line.
+    ///         ⚠ <b>The C# is skipped here and scanned in <see cref="CodeAccessibleNameTests" />.</b>
+    ///         <c>button.Label = "Add"</c> is the same defect whether it is in a <c>@code</c> body or
+    ///         a <c>.cs</c> file. Reading it here would cover the <c>@code</c> bodies and none of the
+    ///         <c>.cs</c> files — a census whose domain is an accident of where somebody happened to
+    ///         put a line — so the C# census reads both.
     ///     </para>
     /// </remarks>
     internal static Markup ScanFile(string name, IEnumerable<string> lines) {
@@ -289,7 +291,7 @@ public partial class MarkupAccessibleNameTests {
     ///     Requiring the word to come back out of a tree walk asks the question the census needs
     ///     answered — is this attribute a word somebody hears — for all seven on the same footing.
     /// </remarks>
-    static List<string> Announced(UiElement root) {
+    internal static List<string> Announced(UiElement root) {
         var words = new List<string>();
         Hear(root, words);
 
@@ -483,11 +485,13 @@ public partial class MarkupAccessibleNameTests {
                 break;
             }
 
-            text.AppendLine(line);
+            // '\n', not AppendLine: the census is committed under `eol=lf`, and Environment.NewLine
+            // made every regeneration on Windows a whole-file CRLF diff.
+            text.Append(line).Append('\n');
         }
 
         foreach (var row in rows) {
-            text.AppendLine(row);
+            text.Append(row).Append('\n');
         }
 
         File.WriteAllText(path, text.ToString());

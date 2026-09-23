@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.RegularExpressions;
+using Vixen.Ui.Markup.Testing;
 using Xunit;
 
 namespace Vixen.Ui.Styling.Tests;
@@ -224,6 +225,38 @@ public partial class ClassSelectorReachTests {
         );
     }
 
+    /// <summary>A class named only in a <c>.vxml</c>'s prose is not a class the file writes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Synthetic, because the repository cannot show it.</b> Of the 84 names today's
+    ///     <c>.vxml</c> prose writes and nothing else does, none is a class a sheet declares — so a
+    ///     test reading the tree is green against a sweep with no comment guard at all, which is what
+    ///     this sweep was. The header below demonstrates its element the way the shared parts do, and
+    ///     the <c>///</c> block quotes a name the way a <c>cref</c> does. The control is the real
+    ///     attribute beside a trailing comment, and the <c>@code</c> string: a sweep that dropped the
+    ///     whole of any line holding a comment would lose <c>real-row</c> and accuse it of being dead.
+    ///     <c>Rikarin/Vixen#1341</c>.
+    /// </remarks>
+    [Fact]
+    public void A_class_named_only_in_prose_is_not_written() {
+        var names = MarkupNames([
+            "<!--",
+            "    Used as <Demo class=\"from-a-header\" /> the day a panel is ported.",
+            "-->",
+            "<Demo class=\"real-row\" /> <!-- note: not \"from-a-trailer\" -->",
+            "@code {",
+            "    /// <summary>Styled by <see cref=\"from-a-doc-comment\" />.</summary>",
+            "    void Build() => AddClass(\"from-code\");",
+            "}"
+        ]).Select(static found => found.Name).ToHashSet(StringComparer.Ordinal);
+
+        Assert.DoesNotContain("from-a-header", names);
+        Assert.DoesNotContain("from-a-trailer", names);
+        Assert.DoesNotContain("from-a-doc-comment", names);
+
+        Assert.Contains("real-row", names);
+        Assert.Contains("from-code", names);
+    }
+
     /// <summary>Whether the sources write a class, outright or as a prefix a run-time name is built from.</summary>
     static bool Reached(Sources written, string name) =>
         written.Names.ContainsKey(name)
@@ -312,27 +345,42 @@ public partial class ClassSelectorReachTests {
         }
 
         foreach (var path in RepositoryScan.Files("*.vxml")) {
-            var line = 0;
-
-            foreach (var text in File.ReadLines(path)) {
-                line++;
-
-                foreach (Match match in Quoted.Matches(text)) {
-                    Note(names, match.Groups["name"].Value, path, line);
-                }
-
-                foreach (Match match in MarkupClasses.Matches(text)) {
-                    foreach (var name in match.Groups["names"].Value.Split(
-                                 ' ',
-                                 StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
-                             )) {
-                        Note(names, name, path, line);
-                    }
-                }
+            foreach (var (name, line) in MarkupNames(File.ReadAllLines(path))) {
+                Note(names, name, path, line);
             }
         }
 
         return new Sources(names, prefixes);
+    }
+
+    /// <summary>Every name a <c>.vxml</c> writes where a class could be, with the line it is on.</summary>
+    /// <param name="lines">The file — handed in so a test can give it lines no committed file holds.</param>
+    /// <returns>Each quoted name and each word of a <c>class</c> attribute, in file order.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Through <see cref="VxmlLines" />, and before #1341 it read every line raw.</b> The
+    ///     <c>.cs</c> half of this sweep has always skipped <c>//</c> and <c>*</c> lines because a
+    ///     class name in a doc comment is prose; the <c>.vxml</c> half had no guard at all, so both
+    ///     a <c>&lt;!-- … --&gt;</c> header demonstrating its element and the <c>///</c> blocks of a
+    ///     <c>@code</c> body counted as writing a name. Measured when the reader moved: 84 quoted
+    ///     names across the <c>.vxml</c> tree were written nowhere but in that prose — none of them
+    ///     one a sheet declares as a class today, so the census did not move, and this is the guard
+    ///     for the day one is.
+    /// </remarks>
+    static IEnumerable<(string Name, int Line)> MarkupNames(IReadOnlyList<string> lines) {
+        foreach (var (line, text, _) in VxmlLines.Read(lines)) {
+            foreach (Match match in Quoted.Matches(text)) {
+                yield return (match.Groups["name"].Value, line);
+            }
+
+            foreach (Match match in MarkupClasses.Matches(text)) {
+                foreach (var name in match.Groups["names"].Value.Split(
+                             ' ',
+                             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+                         )) {
+                    yield return (name, line);
+                }
+            }
+        }
     }
 
     /// <summary>Whether a source file is one of the repository-wide censuses, which write every name

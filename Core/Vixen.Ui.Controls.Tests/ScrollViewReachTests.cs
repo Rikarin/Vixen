@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui.Markup.Testing;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Tests;
@@ -120,6 +121,36 @@ public class ScrollViewReachTests {
         Assert.Contains(code, path => path.EndsWith("ScrollRubberBandTests.cs", StringComparison.Ordinal));
     }
 
+    /// <summary>A <c>.vxml</c> header that demonstrates a subscription is not a subscriber.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Synthetic, because no committed <c>.vxml</c> writes this line today</b> — measured
+    ///     across all 96 — so a test reading the repository would be green against a sweep that read
+    ///     every comment as code. The control is the same statement in a <c>@code</c> body, beside a
+    ///     comment on the markup line above it, which must still be found: a sweep that refused every
+    ///     <c>.vxml</c> would pass the first half alone. <c>Rikarin/Vixen#1341</c>.
+    /// </remarks>
+    [Fact]
+    public void A_markup_comment_is_not_a_subscriber() {
+        string[] prose = [
+            "<!--",
+            "    A panel that wants the gesture writes it the obvious way:",
+            "        view.PulledToRefresh += Reload;",
+            "-->",
+            "<scroll-view />"
+        ];
+
+        Assert.False(Occurs("Demo.vxml", prose, "PulledToRefresh +="));
+
+        string[] code = [
+            "<scroll-view /> <!-- the list -->",
+            "@code {",
+            "    void Wire(ScrollView view) => view.PulledToRefresh += Reload;",
+            "}"
+        ];
+
+        Assert.True(Occurs("Demo.vxml", code, "PulledToRefresh +="));
+    }
+
     /// <summary>The production files with at least one live occurrence of something.</summary>
     /// <remarks>
     ///     ⚠ <b>Line by line and past the comments.</b> A whole-file <c>Contains</c> counts the
@@ -142,7 +173,6 @@ public class ScrollViewReachTests {
     /// <param name="call">The needle, compared with the spaces removed from both sides.</param>
     /// <param name="productionOnly">Whether to drop the test assemblies, which is what both zeros ask.</param>
     static List<string> Callers(string call, bool productionOnly) {
-        var needle = Squeezed(call);
         List<string> found = [];
 
         foreach (var path in SourceFiles("*.cs").Concat(SourceFiles("*.vxml"))) {
@@ -150,28 +180,50 @@ public class ScrollViewReachTests {
                 continue;
             }
 
-            foreach (var line in File.ReadLines(path)) {
-                var code = line.TrimStart();
-
-                if (code.StartsWith("//", StringComparison.Ordinal)
-                    || code.StartsWith('*')
-                    || code.StartsWith("/*", StringComparison.Ordinal)
-                    || !Squeezed(code).Contains(needle, StringComparison.Ordinal)) {
-                    continue;
-                }
-
-                // A declaration is not a use: `ScrollView.cs` owns both of these members and cannot
-                // stop naming them, so counting it would make either theory unfalsifiable.
-                if (code.StartsWith("public ", StringComparison.Ordinal)) {
-                    continue;
-                }
-
+            if (Occurs(path, File.ReadAllLines(path), call)) {
                 found.Add(path);
-                break;
             }
         }
 
         return found;
+    }
+
+    /// <summary>Whether one file has a live occurrence of the needle.</summary>
+    /// <param name="path">The file's path, which decides whether it is markup.</param>
+    /// <param name="lines">Its lines — handed in so a test can give it lines no committed file holds.</param>
+    /// <param name="call">The needle, compared with the spaces removed from both sides.</param>
+    /// <remarks>
+    ///     ⚠ <b>A <c>.vxml</c> goes through <see cref="VxmlLines" /> first, because the three
+    ///     line-start tests below are the C# comment forms and a <c>.vxml</c>'s prose is
+    ///     <c>&lt;!-- … --&gt;</c>.</b> The shared parts' header comments demonstrate their own
+    ///     element as indented markup, so a header saying how a panel would subscribe
+    ///     <i>is</i> a subscriber to a line-start test — and on the day this theory is about, it would
+    ///     go on saying "still zero" about the prose rather than "now one" about the code, or the other
+    ///     way about. <c>Rikarin/Vixen#1341</c>.
+    /// </remarks>
+    static bool Occurs(string path, IReadOnlyList<string> lines, string call) {
+        var needle = Squeezed(call);
+
+        foreach (var line in VxmlLines.Source(path, lines)) {
+            var code = line.TrimStart();
+
+            if (code.StartsWith("//", StringComparison.Ordinal)
+                || code.StartsWith('*')
+                || code.StartsWith("/*", StringComparison.Ordinal)
+                || !Squeezed(code).Contains(needle, StringComparison.Ordinal)) {
+                continue;
+            }
+
+            // A declaration is not a use: `ScrollView.cs` owns both of these members and cannot
+            // stop naming them, so counting it would make either theory unfalsifiable.
+            if (code.StartsWith("public ", StringComparison.Ordinal)) {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>A line with its whitespace removed, so a needle's spaces are not part of the question.</summary>

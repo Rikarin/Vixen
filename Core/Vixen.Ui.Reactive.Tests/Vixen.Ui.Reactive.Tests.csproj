@@ -23,6 +23,17 @@
         <ProjectReference Include="..\Vixen.Ui.Reactive\Vixen.Ui.Reactive.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+        <!--
+            What a `.vxml` line is allowed to say, its XML comments being prose rather than markup,
+            compiled in beside its tests rather than referenced, as `Vixen.Ui.Controls.Advanced.Tests`
+            does. `SchedulerReachTests` reads `.vxml` files, and the shared parts' header comments
+            demonstrate their own element, so prose read as markup is a call nothing makes (#1341).
+        -->
+        <Compile Include="..\Vixen.Ui.Styling.Tests\Shared\VxmlLines.cs" Link="Shared\VxmlLines.cs" />
+        <Compile Include="..\Vixen.Ui.Styling.Tests\Shared\VxmlLinesTests.cs" Link="Shared\VxmlLinesTests.cs" />
+    </ItemGroup>
+
     <!-- Measured, the guarded allocation measurement. See Testing/Vixen.Testing.props. -->
     <Import Project="..\..\Testing\Vixen.Testing.props" />
 </Project>

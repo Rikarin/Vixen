@@ -3,6 +3,7 @@
 
 using System.Text.RegularExpressions;
 using Vixen.Ui;
+using Vixen.Ui.Markup.Testing;
 using Vixen.Ui.Styling;
 using Vixen.Ui.Styling.Utilities;
 using Vixen.Ui.Testing;
@@ -51,6 +52,40 @@ public partial class StylesheetTests {
     [GeneratedRegex("class=\"([^\"]*)\"")]
     private static partial Regex ClassAttribute { get; }
 
+    /// <summary>Every <c>class</c> attribute a <c>.vxml</c> really writes, its prose left out.</summary>
+    /// <param name="lines">The file — handed in so a test can give it lines no committed file holds.</param>
+    /// <returns>The attribute matches, in file order.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Through <see cref="VxmlLines" />, and before #1341 this was a regex over the raw
+    ///     file.</b> The shared parts' header comments demonstrate their own element, so a header
+    ///     showing a <c>class="…"</c> was checked as a utility the markup uses — a typo in prose would
+    ///     have failed this gate, and a correct name in prose would have stood in for one nothing
+    ///     writes. The lines are joined back with their newlines, because an attribute's value can
+    ///     span lines and the reader keeps every line in its place.
+    /// </remarks>
+    static MatchCollection ClassAttributes(IReadOnlyList<string> lines) =>
+        ClassAttribute.Matches(string.Join("\n", VxmlLines.Masked(lines)));
+
+    /// <summary>A <c>class</c> attribute in a <c>.vxml</c>'s prose is not one the markup writes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Synthetic, because the fixture tree cannot show it</b>: measured when this moved, no
+    ///     <c>Vixen.Editor.Ui</c> <c>.vxml</c> quotes a class in a comment that its markup does not also
+    ///     write, so a test over the fixtures is green against a scan with no comment guard. The
+    ///     control is the real attribute beside a trailing comment, which a scan dropping every
+    ///     commented line would lose. <c>Rikarin/Vixen#1341</c>.
+    /// </remarks>
+    [Fact]
+    public void A_class_in_a_markup_comment_is_not_written() {
+        var names = ClassAttributes([
+            "<!--",
+            "    Used as <FactRow class=\"from-a-header\" /> the day a panel is ported.",
+            "-->",
+            "<fact-row class=\"flex gap-2\" /> <!-- not class=\"from-a-trailer\" -->"
+        ]).Select(static match => match.Groups[1].Value).ToList();
+
+        Assert.Equal(["flex gap-2"], names);
+    }
+
     /// <summary>Every literal class name written in the editor's markup, with the bindings dropped.</summary>
     public static TheoryData<string> Written {
         get {
@@ -58,7 +93,7 @@ public partial class StylesheetTests {
             var seen = new HashSet<string>(StringComparer.Ordinal);
 
             foreach (var markup in Directory.EnumerateFiles(Fixtures("markup"), "*.vxml", SearchOption.AllDirectories)) {
-                foreach (Match match in ClassAttribute.Matches(File.ReadAllText(markup))) {
+                foreach (Match match in ClassAttributes(File.ReadAllLines(markup))) {
                     foreach (var name in match.Groups[1].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries)) {
                         // `@Mark(entry.Slot)` is a whole class name at run time and nothing at compile
                         // time. Those go through the `VixenStyleSafelist` item instead.

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using Vixen.Ui.Markup.Testing;
 using Xunit;
 
 namespace Vixen.Ui.Tests;
@@ -500,30 +501,80 @@ public class ResponderReachTests {
                 continue;
             }
 
-            foreach (var line in File.ReadLines(path)) {
-                var code = line.TrimStart();
-
-                if (code.StartsWith("//", StringComparison.Ordinal)
-                    || code.StartsWith('*')
-                    || code.StartsWith("/*", StringComparison.Ordinal)
-                    || !code.Contains(call, StringComparison.Ordinal)) {
-                    continue;
-                }
-
-                // ⚠ A definition is not a caller. Counting the file that owns the API would make the
-                // theory unfalsifiable, because the API cannot be deleted without deleting its own
-                // declaration — and `Commands.cs` would then satisfy, by itself, a gate that exists
-                // to say something else uses it.
-                if (code.StartsWith("public ", StringComparison.Ordinal)) {
-                    continue;
-                }
-
+            if (Calls(path, File.ReadAllLines(path), call)) {
                 found.Add(path);
-                break;
             }
         }
 
         return found;
+    }
+
+    /// <summary>Whether one file makes a live call to something.</summary>
+    /// <param name="path">The file's path, which decides whether it is markup.</param>
+    /// <param name="lines">Its lines — handed in so a test can give it lines no committed file holds.</param>
+    /// <param name="call">The needle, matched inside a line that is not a comment or a declaration.</param>
+    /// <remarks>
+    ///     ⚠ <b>A <c>.vxml</c> goes through <see cref="VxmlLines" /> first, because the line-start
+    ///     tests below are the C# comment forms and a <c>.vxml</c>'s prose is
+    ///     <c>&lt;!-- … --&gt;</c>.</b> This is the sweep whose first version counted a commented-out
+    ///     registration as a caller; it then taught itself <c>//</c>, <c>*</c> and <c>/*</c> and not
+    ///     the fourth form, which is the one the shared parts use to demonstrate their own element
+    ///     — so a header showing how a panel would register a handler was a registration.
+    ///     <c>Rikarin/Vixen#1341</c>.
+    /// </remarks>
+    static bool Calls(string path, IReadOnlyList<string> lines, string call) {
+        foreach (var line in VxmlLines.Source(path, lines)) {
+            var code = line.TrimStart();
+
+            if (code.StartsWith("//", StringComparison.Ordinal)
+                || code.StartsWith('*')
+                || code.StartsWith("/*", StringComparison.Ordinal)
+                || !code.Contains(call, StringComparison.Ordinal)) {
+                continue;
+            }
+
+            // ⚠ A definition is not a caller. Counting the file that owns the API would make the
+            // theory unfalsifiable, because the API cannot be deleted without deleting its own
+            // declaration — and `Commands.cs` would then satisfy, by itself, a gate that exists
+            // to say something else uses it.
+            if (code.StartsWith("public ", StringComparison.Ordinal)) {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>A <c>.vxml</c> header that demonstrates a registration is not a caller.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Synthetic, because no committed <c>.vxml</c> writes this line today</b> — measured —
+    ///     so a test reading the repository would be green against a sweep that read every comment as
+    ///     code. The control is the same call in a <c>@code</c> body under a markup line that carries
+    ///     a comment of its own, which must still be found: a sweep that refused every <c>.vxml</c>
+    ///     would pass the first half alone. <c>Rikarin/Vixen#1341</c>.
+    /// </remarks>
+    [Fact]
+    public void A_markup_comment_is_not_a_caller() {
+        string[] prose = [
+            "<!--",
+            "    Register it on the panel, the way the inspector does:",
+            "        panel.AddCommandHandler(Commands.Copy, Copy);",
+            "-->",
+            "<Panel />"
+        ];
+
+        Assert.False(Calls("Demo.vxml", prose, "AddCommandHandler("));
+
+        string[] code = [
+            "<Panel /> <!-- the body -->",
+            "@code {",
+            "    void Wire(UiElement panel) => panel.AddCommandHandler(Commands.Copy, Copy);",
+            "}"
+        ];
+
+        Assert.True(Calls("Demo.vxml", code, "AddCommandHandler("));
     }
 
     /// <summary>Whether a path belongs to a test assembly.</summary>

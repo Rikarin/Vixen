@@ -62,7 +62,7 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///     </para>
 /// </remarks>
 [Collection(SharedCatalogue.Name)]
-public class LiveCombinatorPairTests {
+public partial class LiveCombinatorPairTests {
     /// <summary>The domain: every pairing a committed sheet declares.</summary>
     const string DomainFile = "Core/Vixen.Ui.Styling.Tests/CombinatorPairs.txt";
 
@@ -308,6 +308,10 @@ public class LiveCombinatorPairTests {
             ui.Update();
             count++;
             Walk(element, pairs);
+
+            // The whole-selector question, over the same tree before its fixture goes. See the
+            // partial beside this file.
+            Scope(ui.Document);
         }
 
         built = count;
@@ -383,6 +387,13 @@ public class LiveCombinatorPairTests {
         return rows;
     }
 
+    /// <summary>Writes a census back under its own header, with the repository's line ending.</summary>
+    /// <remarks>
+    ///     ⚠ <c>'\n'</c> and not <c>AppendLine</c>, which is <c>Environment.NewLine</c>: every census
+    ///     here is a committed file under <c>* text=auto eol=lf</c>, and a regeneration on Windows
+    ///     otherwise rewrote the three this writes and the one <see cref="WriteSuspects" /> writes
+    ///     with CRLF — a whole-file diff for a one-row change. Measured both ways.
+    /// </remarks>
     static void Write(string path, IEnumerable<string> rows) {
         var text = new StringBuilder();
 
@@ -391,11 +402,11 @@ public class LiveCombinatorPairTests {
                 break;
             }
 
-            text.AppendLine(line);
+            text.Append(line).Append('\n');
         }
 
         foreach (var row in rows) {
-            text.AppendLine(row);
+            text.Append(row).Append('\n');
         }
 
         File.WriteAllText(path, text.ToString());
@@ -410,11 +421,11 @@ public class LiveCombinatorPairTests {
                 break;
             }
 
-            text.AppendLine(line);
+            text.Append(line).Append('\n');
         }
 
         foreach (var (pair, reason) in rows) {
-            text.Append(pair).Append('\t').AppendLine(reason);
+            text.Append(pair).Append('\t').Append(reason).Append('\n');
         }
 
         File.WriteAllText(path, text.ToString());
