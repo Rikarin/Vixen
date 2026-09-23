@@ -694,6 +694,15 @@ public class EditorShellBudgetTests {
     ///         collection at all, which is why the discard below cannot be the whole guard.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>And this repository had worked that out already, in a helper this file never
+    ///         used.</b> <c>Testing/Measured.cs</c> collects before its window for exactly this
+    ///         reason, in as many words — "it hands the loop an <i>empty</i> allocation context, and
+    ///         work that allocates nothing never asks for another one" — and a dozen test projects
+    ///         opt into it by naming the file. This one measures its own frames because it needs a
+    ///         per-frame breakdown, the settled flag and the JIT column rather than one total, and
+    ///         re-derived the artefact from a red the helper would have prevented.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>Nothing is asserted in here</b>, for the reason the budget above records: a
     ///         failing <c>Assert</c> allocates its message and a passing one is still a call the
     ///         window cannot afford to be wrong about. Everything is counted and read afterwards.
