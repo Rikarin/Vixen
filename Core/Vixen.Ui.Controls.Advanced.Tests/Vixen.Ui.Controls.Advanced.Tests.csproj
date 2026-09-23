@@ -16,6 +16,15 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>
         </PackageReference>
+
+        <!--
+            The syntax tree `CodeAccessibleNameTests` resolves a receiver from. A literal assigned to
+            `Label` is a spoken name only when the receiver is a control that speaks it, and the
+            receiver's type is a local's initializer, a member's declaration or a `new` three lines
+            away — which a line-based pattern cannot follow and a parser can. Syntax only: no
+            compilation is built, so no reference set has to be kept in step with the tree.
+        -->
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     </ItemGroup>
 
     <ItemGroup>
