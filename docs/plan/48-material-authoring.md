@@ -136,7 +136,7 @@ Six. Two are ⛔ and both are smaller than they look.
 
 ### B1. A layer stack cannot ship as a live layered material ⛔ *for the runtime path only*
 
-`MaterialLayersFeature` (`MaterialFeatures.cs:511`) blends N metal-roughness layers — and
+`MaterialLayersFeature` (`MaterialFeatures.cs:867`) blends N metal-roughness layers — and
 `MaterialLayerValue` (`:487`) carries `Weight` as a **`float` constant**. Its own remarks say where the
 weight comes from is the caller's business; no caller supplies one from a texture, and there is no
 `TexturedMaterialLayersFeature`. `BlendFeature` (`:553`) has the same shape one level up.
@@ -208,7 +208,7 @@ them and every one needs a golden, a sabotage and a scale-invariance check.
 
 ### B3. `MapBaker` bakes two of the ten mesh maps 🟡
 
-`MapBaker.Bake` (`MapBaker.cs:142`) fills a normal map and a signed displacement map. The seven the
+`MapBaker.Bake` (`MapBaker.cs:312`) fills a normal map and a signed displacement map. The seven the
 generators actually read — ambient occlusion, curvature, thickness, position, world-space normal, bent
 normal, ID — are **not there**, and neither is the hierarchy that would make them fast.
 
@@ -528,7 +528,7 @@ is where that check lives, rather than growing its own.
 
 A **texture set** is a material slot on the mesh. A **channel** is one output map; the default set is
 base colour, normal, ORM (occlusion·roughness·metalness packed, which is what
-`TexturedOrmFeature.cs:288` reads), height and emissive, and the set is editable.
+`TexturedOrmFeature` (`MaterialFeatures.cs:404`) reads), height and emissive, and the set is editable.
 
 The bake writes, per texture set: one file per channel, one `.vxmat` naming them, and the provenance
 block. ⚠ **It writes through the asset database's scan-then-read-back-the-GUID sequence rather than
@@ -1324,7 +1324,7 @@ divided by a 2 m tile*, which is what
 0..1 repeats once per two metres across the surface it is meant to place layers on — thirty-two times
 for that wall — and the wrap is not a bug there, because the tiling *is* the uv.
 ⚠ **And a second uv set is not the way out**:
-`SurfaceVertex` (`Core/Vixen.Rendering/SurfaceVertex.cs:48`) carries exactly one `TexCoord`, so
+`SurfaceVertex` (`Core/Vixen.Rendering/SurfaceVertex.cs:49`) carries exactly one `TexCoord`, so
 "splat on uv0, detail on uv1" is a vertex-format change and out of this document's scope. Re-exporting
 an arena mesh at its own extent would give it a 0..1 unwrap and change every other material already on
 it, which breaks the one-changed-thing rule the arena's own A/B rests on. So: **a purpose-built ground

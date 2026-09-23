@@ -49,7 +49,7 @@ document decides is *who registers* a command and *what it calls*.
 | Piece | Where | State |
 |---|---|---|
 | Plugin discovery, isolation, lifecycle, API versioning | `Editor/Vixen.Editor.Plugin` | **Real**, and the only editor project with a `PublicAPI` baseline |
-| In-process modules through the same door | `PluginHost.Activate(id, name, module)` — `PluginHost.cs:522` | **Real.** Seven built-ins go through it: `EditorModules.Standard()`, `Editor/Vixen.Editor.Host/EditorModules.cs:42-66` |
+| In-process modules through the same door | `PluginHost.Activate(id, name, module)` — `PluginHost.cs:522` | **Real.** Seven built-ins go through it: `EditorModules.Standard()`, `Editor/Vixen.Editor.Host/EditorModules.cs:42-50` |
 | Typed contribution registry | `IEditorRegistry` / `EditorRegistry` in `Vixen.Editor.Core` | **Real.** Twelve contribution records, each in the assembly that owns it |
 | The eight declaration attributes | `EditorMenuAttribute` (Plugin), `CreateAssetMenuAttribute` (Core), `[CustomInspector]`/`[CustomDrawer]` (Inspector), `[EditorTool]`/`[Overlay]`/`[DrawGizmo]` (SceneView), `[Importer]` (Assets) | **Declared and read** — `DeclaredContributions : IContributionScanner`, `Editor/Vixen.Editor.App/DeclaredContributions.cs:47` |
 | The architecture rule | `build/ApplicationReferenceRule.cs` | **Real**, with `Allowed` (6) and a shrink-only `NotYetMoved` (5) |
@@ -129,8 +129,8 @@ after commands, because the undo depth is pushed into stacks that exist by then"
 holds, the reason does not: `ApplyPreferences` writes `project.GlobalStack.Capacity` and
 `scene.Stack.Capacity` (`EditorSettingsPanels.cs:545-548`), which exist from line 633, before any
 command. *"Disabled list before activation"* — true for disk plugins, **false for the built-in
-modules**: they are activated inside `Commands()` → `RegisterModes()` (`EditorParity.cs:1226-1228`,
-called from `EditorApplication.cs:3658`), before `LoadDisabledPlugins` at `:994`, and
+modules**: they are activated inside `Commands()` → `RegisterModes()` (`EditorParity.cs:1240-1242`,
+called from `EditorApplication.cs:3683`), before `LoadDisabledPlugins` at `:994`, and
 `PluginHost.Activate` (`PluginHost.cs:522`) never consults `suppressed`. **A built-in module cannot
 be disabled**, which the plugin manager's Disable button does not say.
 
@@ -247,7 +247,7 @@ The feature-name audit (`.cs` and `.vxml`, code only, comments excluded):
 
 | Shell assembly | Rows | The largest |
 |---|---|---|
-| `Vixen.Editor.App` | 48 | `BuiltInAssetKinds`, 24 rows with 21 literal extensions (`EditorWorlds.cs:748-783`); `BuiltInSubsystems` naming `TerrainComponent`, `WaterZoneComponent`, `BuoyancyBody` (`EditorApplication.cs:5131-5148`); the *Profiling* layout preset naming five diagnostics panel ids (`:3510`); `StandardIcons` keyed by importer name and extension (`:89-114`); `case Vixen.Editor.AssetEditors.Vfx.VfxGraphView` (`EditorWorlds.cs:1169,1173`); `is StandardFrameDocument`, `is ShaderGraphDocument`, `is MaterialView`, `is TextureImportView` (`EditorApplication.cs:779-819, 2761-2769`); `ITerrainScene`/`IVegetationScene`/`IWaterScene` — one property per feature (`:1063-1081`) |
+| `Vixen.Editor.App` | 48 | `BuiltInAssetKinds`, 24 rows with 21 literal extensions (`EditorWorlds.cs:748-783`); `BuiltInSubsystems` naming `TerrainComponent`, `WaterZoneComponent`, `BuoyancyBody` (`EditorApplication.cs:5156-5174`); the *Profiling* layout preset naming five diagnostics panel ids (`:3510`); `StandardIcons` keyed by importer name and extension (`:89-114`); `case Vixen.Editor.AssetEditors.Vfx.VfxGraphView` (`EditorWorlds.cs:1169,1173`); `is StandardFrameDocument`, `is ShaderGraphDocument`, `is MaterialView`, `is TextureImportView` (`EditorApplication.cs:779-819, 2761-2769`); `ITerrainScene`/`IVegetationScene`/`IWaterScene` — one property per feature (`:1063-1081`) |
 | `Vixen.Editor.Ui` | 38 | **35 string ids in `EditorStrings.cs` that belong to a feature which already has its own `*Strings` class** (Terrain 9, Blockout 10, Water 4, Texturing 4, Diagnostics 8); `ModeArt` has a static icon per mode; `EditorIcons["profiler"]` |
 | `Vixen.Editor.Assets` | 14 | `BuiltInImporters.cs:57-99` is a hand list of **34** importers naming Vfx, ShaderGraph, Terrain ×2, Water, Ai ×4, Animation ×7, Gameplay, Net; `VfxImporter` and `ShaderGraphSources` construct the two graph compilers, which is the `ShaderGraph`/`VfxGraph` reference |
 | `Vixen.Editor.Host` | 8 | builds `ShaderGraphPreviewRenderer` itself (`EditorHost.cs:557`), loads the terrain stages' SPIR-V (`:1009-1023`), a stale `using Vixen.Editor.Profiler` (`:8`) |

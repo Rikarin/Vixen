@@ -1476,8 +1476,19 @@ does mirror that one.
    `translate-z-lh` and `translate-z-1/2` each resolved to an argument `TransformReader.Depth`
    declines, and one declined function drops the WHOLE list: `translate-z-full rotate-z-90` did not
    rotate — strictly worse than the unrecognised class it replaced. ⚠ **This is shape 3 arriving
-   through a value the family itself emits**, and the measurement is blind to it by construction: a
-   class counts as resolvable when it EMITS a declaration, never when a consumer reads one. It is
+   through a value the family itself emits**, and the measurement was blind to it by construction: a
+   class counted as resolvable when it EMITTED a declaration, never when a consumer read one. ✅ **Not
+   for this shape any more (#1348):** `AssembledReaderProbe` hands every named value a `transform`,
+   `filter` or `backdrop-filter` slot family answers — the scale vocabulary, both signs, 659 classes,
+   where the surface held one value per family — to a real document, and a class the reader throws
+   away is declined: not `Resolvable`, and its root cannot read `works`. A transform slot is judged
+   beside a witness in another slot (the reader says nothing and returns null for identity and
+   refusal alike); a filter slot by the executor's own refusal. Putting `ValueKind.Size` back reddens
+   `translate-z-*` to `partial` in the ledger. ⚠ **Its first run found the shape a third time, in
+   fourteen families at once**: every negative filter proportion — `-brightness-50`, `-blur-2`,
+   `-backdrop-sepia-100` — resolved, because `TryNegate` flips any value that starts with a number,
+   and `brightness(-0.5)` is a function the executor cannot run, so each dropped the whole `filter`.
+   Those families are `Unsigned` now; `-hue-rotate-*`, an angle, keeps its negative. It is
    `ValueKind.Depth` now — the spacing scale without `auto` — which is also v4's own surface for
    this root. ⚠ **And the new kind then vanished the family a second time, from the other end**:
    `UtilityFamilies.ValuesFor` had no arm for it and fell through a `default: break;`, so the root
@@ -1486,7 +1497,8 @@ does mirror that one.
    default behaviour and a new root would have been invisible to every suite at once.
 3. ⚠ *The property is **read** and the **value** is refused, so a registration keeps the gate green
    over a class that paints nothing.* The dangerous shape, and no per-property measurement can catch
-   it. ⚠ **Two of this shape's three examples closed on 2026-09-06, and neither closed by being
+   it — though a per-*value* one can where a reader drops a whole list, and the `transform` slots have
+   one now (#1348, above). ⚠ **Two of this shape's three examples closed on 2026-09-06, and neither closed by being
    registered — each closed by the value becoming one the engine reads.** `inset-shadow-*` and
    `inset-ring-*` emit `box-shadow`, which has always been read, and `box-shadow: inset 0 2px 4px
    #000` moved no channel where the outer form moved paint — so registering either would have scored
@@ -2218,7 +2230,7 @@ them is an assertion that is already true. **For the editor's actual containers 
 nothing to enforce.**
 
 The cycle is real for everything that escapes that branch: anything reaching
-`DetermineBlockContentWidth` (`LayoutTree.Block.cs:746`), a flex item sized by its basis, a grid item
+`DetermineBlockContentWidth` (`LayoutTree.Block.cs:1105`), a flex item sized by its basis, a grid item
 in an intrinsic track, `width: max-content` / `fit-content`. For those, `container-type` must either
 coerce the axis to `StretchFit` or be refused. **Coercion cannot be expressed from outside
 `Vixen.Ui.Layout`**: `LayoutUnit.Stretch` looks like the way to say it and is an *unimplemented enum

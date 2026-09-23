@@ -1,0 +1,20 @@
+# Citations in docs/plan that record what a file said when the passage was written (#1356).
+#
+# `Vixen.DocGen.Tests.RealPlanCitationTests` requires every backticked `File.ext:NNN` in docs/plan to
+# name a file that exists and a line it has, and a citation bound to a symbol — `Symbol` (`File.cs:NNN`)
+# or `File.cs:NNN` — `code` — to point at a line the symbol is on. A citation here is skipped, and
+# ⚠ this list can only shrink: an entry whose citation now passes, or is no longer in the document,
+# fails the same test.
+#
+# An entry is for a passage that is history on purpose — a dated finding about code a later commit
+# removed or rewrote. It is not for a number that drifted: re-point that by reading it. The reason
+# names the commit that changed the code, so a reader can check out its parent and see the line.
+#
+# One line per citation: the document's path from the repository root, whitespace, the citation as
+# written without backticks, whitespace, and the reason.
+
+docs/plan/36-an-extensible-editor.md EditorTerrainPanels.cs:451 F6 as surveyed; 81f9e68ec moved the app's terrain partial into Vixen.Editor.Terrain, and the same line now cites where it went
+docs/plan/45-commands-and-focus-scope.md EditorApplication.cs:1774 G2's 2026-08-25 amendment; 9c32e744f replaced EditorApplication.Contextual with DockPanel.WhenPressedIn
+docs/plan/45-commands-and-focus-scope.md TerrainModule.cs:181 G2's 2026-08-25 amendment; 9c32e744f deleted the terrain copy of Contextual and the file is 178 lines now
+docs/plan/47-prefab-overrides-and-nested-prefabs.md Prefabs.cs:242 model (A)'s example; ff686af7d removed PrefabSource.IsOverridden, and at its parent the method is at Prefabs.cs:245 — the 242 was three lines early even then
+docs/plan/49-responder-chain-and-appkit-parity.md CommandDispatcher.cs:85-107 finding 1.3 as measured, a negative claim ("never calls CommandRoute") about the pre-ecfb0f3ed dispatcher; the paragraph now says it is closed

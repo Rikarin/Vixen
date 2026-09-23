@@ -50,7 +50,9 @@ pushed. The pull is one level too shallow, and every new panel is a new chance t
 > `DockPanel` — `EditorApplication.Contextual` (`EditorApplication.cs:1774`) and
 > `ContextualViewport` (`:1801`), plus four verbatim copies of the same eight lines in
 > `BlockoutModulePanels.cs:93`, `TerrainModule.cs:181`, `WaterModule.cs:231` and
-> `DiagnosticsModule.cs:439`.
+> `DiagnosticsModule.cs:439`. (⚠ The six line numbers are as of this amendment: `9c32e744f` (2026-09-02)
+> replaced all six copies with `DockPanel.WhenPressedIn`, and `docs/PlanCitationExempt.txt`
+> records the ones that no longer hold.)
 >
 > **And it is press-based on purpose.** `Contextual`'s own remarks say so:
 >
@@ -92,7 +94,7 @@ pushed. The pull is one level too shallow, and every new panel is a new chance t
 >
 > **Four of the nine contexts are not places at all.** `blockout`, `terrain`, `water` and `foliage`
 > are *modes* — "a statement about what the viewport's input means right now" — claimed by
-> `Shell.Modes.Changed` (`EditorParity.cs:1199`) without any pointer or focus event. There is no
+> `Shell.Modes.Changed` (`EditorParity.cs:1253`) without any pointer or focus event. There is no
 > element the focus could be on that would derive them. Hanging a `CommandScope` on the viewport and
 > rewriting it on mode change is a push wearing the new API's clothes, which is not what G2 asked
 > for.
@@ -212,7 +214,7 @@ Each step is independently shippable and leaves the editor working.
    > it.
 
    > ⚠️ **A second, larger finding: the route could not see past the surfaces that display it.**
-   > `Menu.OnOpened` (`Menus.cs:364`) focuses its first item so the arrow keys work, and
+   > `Menu.OnOpened` (`Menus.cs:454`) focuses its first item so the arrow keys work, and
    > `MenuBarItem` is a `ButtonBase` that takes the focus when pressed. So a menu item resolving
    > `edit.copy` from `UiDocument.Focused` resolved it **from inside the menu**, found nothing, and
    > greyed every line — the criterion below would have been met by a menu in which every command
@@ -256,10 +258,10 @@ Each step is independently shippable and leaves the editor working.
    > rebuilt.** `UiElement.Focusable` + `TabIndex = -1` is already `acceptsFirstResponder` plus
    > exclusion from the key view loop (`Focus.cs:206`, *"Negative is focusable but not a stop"*),
    > so **focus acceptance needed no new API**. `CommandDispatcher`'s single root handler on the
-   > **bubble** leg (`CommandDispatcher.cs:57`, `RoutingStrategy.Bubble` by default) gives the inner
+   > **bubble** leg (`CommandDispatcher.cs:67`, `RoutingStrategy.Bubble` by default) gives the inner
    > control the same priority AppKit's downward `performKeyEquivalent:` does — different mechanism,
-   > same outcome. `IsCommandTransparent` on `Menu` (`Menus.cs:198`), `MenuBar` (`:609`) and bound
-   > controls (`ButtonBase.cs:82`) is already "a menu is not in the responder chain".
+   > same outcome. `Menu.IsCommandTransparent` (`Menus.cs:282`), `MenuBar.IsCommandTransparent` (`:715`) and
+   > a bound control's (`ButtonBase.cs:82`) are already "a menu is not in the responder chain".
 
    > ⚠️ **One claim in the brief for this step was refuted: the editor's `CommandRegistry` does not
    > outlive its shell.** `EditorShell.cs:102` is the only place one is constructed and the shell
