@@ -498,10 +498,14 @@ public property used as a parameter. The second is cheaper and catches the case 
 
 `EmitAttribute` (`ComponentEmitter.cs:649`) splits on the tag's case: a capitalised tag gets a
 real, Roslyn-typechecked property assignment; a lowercase tag gets
-`Styles.Tree.SetAttribute(...)` (`BuildContext.cs:711`) — data a selector can match and nothing
+`Styles.Tree.SetAttribute(...)` (`BuildContext.cs:864`) — data a selector can match and nothing
 reads. So `<div AccessibleName="Save" Focusable="true">` compiles, matches `[AccessibleName]`, and
-does nothing. No diagnostic. This is the same defect class the language already fixed twice, for
-`style=` and for `slot=` (`VXML2016`).
+does nothing. ~~No diagnostic.~~ ⚠ **Refuted since 168fe675b (2026-09-05):** `VXML2020`
+(`MarkupDiagnostics.cs:463`, reported at `Binder.cs:936`) warns on a capitalised attribute name on a
+lowercase tag. The mechanism is unchanged — the lowercase half of the split is still
+`ctx.Bind` or `ctx.Attribute` (`ComponentEmitter.cs:811-824`), so the attribute is still inert — but it is no longer
+silent. This is the same defect class the language already fixed twice, for `style=` and for `slot=`
+(`VXML2016`).
 
 ### 6.4 The modifier table
 

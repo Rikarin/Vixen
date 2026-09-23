@@ -103,8 +103,8 @@ was written in, because it is the finding rather than the state.
 ### The fourth, one assembly further out
 
 `CommandStack` is not in `Vixen.Editor.Ui` — it is in `Vixen.Editor.Core`, which is one more assembly
-an application cannot reference. `CodeBuffer` (`Vixen.Ui.Controls.Advanced/CodeBuffer.cs:59`) states
-the division correctly:
+an application cannot reference. `CodeBuffer`'s remarks state the division correctly
+(`Vixen.Ui.Controls.Advanced/CodeBuffer.cs:49`):
 
 > ⚠ **No undo stack.** Undo belongs to the application, because it has to be interleaved […] and an
 > undo stack inside the text control can only ever undo typing.

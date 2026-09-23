@@ -39,6 +39,23 @@ namespace Vixen.DocGen.Tests;
 ///         it, and that list can only shrink: an entry whose citation now passes, or is gone, fails.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Placement binds a symbol to a line, and a citation of what the code <i>says about</i>
+///         the symbol is the shape it gets wrong.</b> Doc 46 wrote <c>`CodeBuffer` (`CodeBuffer.cs:49`)</c>
+///         for the "No undo stack" remark, and line 49 is that remark — the evidence, correctly cited —
+///         while the rule wanted the class declaration ten lines down. Moving the number to 59 would
+///         have satisfied it and cited the wrong thing. The fix for that shape is the prose: say it is
+///         the remarks being cited, so the parenthesis no longer follows the bare symbol.
+///     </para>
+///     <para>
+///         ⚠ <b>Exact line, not a window, and the cost lands outside the edit's own closure.</b> The
+///         exact rule is what catches <c>709</c> for <c>710</c>; a window of even two lines passes it.
+///         The price is that one line inserted above a bound citation in a hot file — <c>UiElement.cs</c>,
+///         <c>Commands.cs</c>, <c>Menus.cs</c>, <c>EditorParity.cs</c> — turns this project red, and
+///         this project is not in those files' <c>ProjectReference</c> closure, so
+///         <c>AffectedTests --since</c> never runs it. The whole-tree gate does, and the failure names the
+///         document, the line and what is on it.
+///     </para>
+///     <para>
 ///         ⚠ <b>Both source languages.</b> Five of doc 49's six closed rows are closed by
 ///         <c>.vxml</c> citations alone, so a walker that indexed only <c>.cs</c> would call them
 ///         unresolvable and be wrong.
