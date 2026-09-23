@@ -180,9 +180,10 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     ///         nothing.</b> A consumer that ignores this composites the group source-over, which is
     ///         the same bargain <see cref="Blur" /> and <see cref="Filter" /> make: the picture the
     ///         frame would have had without the declaration rather than a wrong one. ⚠ <c>UiRenderer</c>
-    ///         is such a consumer today — the device has no read of the destination in the UI pass —
-    ///         so a blended group is a divergence between the two executors rather than a shared
-    ///         picture, and <c>docs/guide/ui/compositing.md</c> prices closing it.
+    ///         was such a consumer until #783; it now composites a blended group through
+    ///         <c>UiBlend</c> against a replayed capture of what the composite lands on, and remains
+    ///         one only for the arrangements <c>UiRenderer.Unblended</c> counts — see
+    ///         <c>docs/guide/ui/compositing.md</c>.
     ///     </para>
     /// </remarks>
     public UiBlendMode Blend { get; init; }
@@ -619,6 +620,34 @@ public readonly record struct UiGeometry(
     ///     </para>
     /// </remarks>
     public float WhiteLevel { get; init; } = 1f;
+
+    /// <summary>The <see cref="UiGeometryBuilder.Tolerance" /> the curves in this frame were flattened to, or zero when nothing says.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Carried for <see cref="WhiteLevel" />'s reason: the number is spent inside the
+    ///         triangles and nothing downstream can recover it</b> (#1343). A chord error is in
+    ///         document pixels and the projection magnifies it, so geometry flattened for scale one
+    ///         and drawn at <c>UiInterface.Scale</c> two is twice as far off every curve — a softness
+    ///         and not a fault, which no counter and no exception would otherwise report.
+    ///         <c>UiRenderFeature.Soft</c> is its reader, and it compares this against
+    ///         <see cref="UiGeometryBuilder.ToleranceFor" /> of the scale the frame is drawn at.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Zero is "not stated", not a tolerance</b> — <c>PathFlattener.Flatten</c> refuses
+    ///         one — so geometry built by hand, which never went through a flattener, keeps its
+    ///         four-argument constructor and is never reported.
+    ///     </para>
+    /// </remarks>
+    public float Tolerance { get; init; }
+
+    /// <summary>The <see cref="UiGeometryBuilder.Fringe" /> this frame's paths were feathered by, or zero for none.</summary>
+    /// <remarks>
+    ///     Carried for <see cref="Tolerance" />'s reason: a half-pixel band authored in document
+    ///     pixels is a whole device pixel each side at twice the scale. Zero is the builder's own
+    ///     "off" — the value for a multisampled pass — and doubles as "not stated" for geometry built
+    ///     by hand; neither is ever too coarse for any scale, which is the right answer for both.
+    /// </remarks>
+    public float Fringe { get; init; }
 
     /// <summary>Which build of a <see cref="UiGeometryBuilder" /> this is, or zero when none stamped it.</summary>
     /// <remarks>

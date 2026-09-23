@@ -560,7 +560,7 @@ public sealed class WorldRenderer : IDisposable {
     ///         two scenes in must not have to rebuild the renderer to get one.
     ///     </para>
     ///     <para>
-    ///         Five things are the host's, in this order. <see cref="UiRenderFeature.Renderer" />,
+    ///         Three things are the host's, in this order. <see cref="UiRenderFeature.Renderer" />,
     ///         because building a <c>UiRenderer</c> needs the shader modules and the formats of the
     ///         pass the interface is drawn in, and neither is knowable here — see that assembly's
     ///         README on why the shaders are handed over rather than compiled. Then
@@ -572,20 +572,29 @@ public sealed class WorldRenderer : IDisposable {
     ///         more than one pixel per layout unit</b>: it defaults to one, and one is right only
     ///         for a document laid out in physical pixels. A HUD in points on a 2× display drawn at
     ///         a scale of one clips to the top-left quarter of the window and takes the pointer with
-    ///         it, because hit testing is done against a layout that is right. And then
-    ///         <see cref="UiRenderFeature.Upload" /> and <see cref="UiRenderFeature.Compose" />,
-    ///         every frame, on a list that is not inside a render pass.
+    ///         it, because hit testing is done against a layout that is right. ⚠ The builder that
+    ///         made the geometry wants the same number in its <c>Tolerance</c> and <c>Fringe</c>
+    ///         (<c>UiGeometryBuilder.ToleranceFor</c>/<c>FringeFor</c>), and
+    ///         <see cref="UiRenderFeature.Soft" /> counts a frame where it did not get it (#1343).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Neither of the last two is optional, and they fail differently.</b> The feature's
-    ///         own <c>Draw</c> runs inside the pass, where a texture copy is forbidden and a second
-    ///         pass cannot be opened, so it can only record. Skipping <c>Upload</c> draws the
-    ///         interface out of whatever was in the buffer, because the vertices and the glyph atlas
-    ///         have to be written before the frame's passes begin. Skipping <c>Compose</c> draws
-    ///         every faded group at full strength — ⚠ <b>not an approximation of the fade but the
-    ///         absence of it</b>, since <c>UiGeometryBuilder</c> emits a group's contents at alpha
-    ///         one exactly so that the group's own surface can carry it. A half-transparent panel
-    ///         comes out solid and nothing says so.
+    ///         ⚠ <b><see cref="UiRenderFeature.Upload" /> and <see cref="UiRenderFeature.Compose" />
+    ///         are no longer the host's</b> (#627): <see cref="Draw" /> makes both, before the
+    ///         frame's passes and outside any of them. They were steps four and five of a five-step
+    ///         contract, neither optional and each failing differently. ⚠ Skipping <c>Upload</c> was
+    ///         described here as drawing the interface out of a buffer nothing wrote; on a real device
+    ///         it is harsher than that — the ring is created by the first upload, so the first
+    ///         <c>Record</c> binds a vertex buffer handle that names nothing and Vulkan throws
+    ///         <c>ArgumentException</c> out of the middle of the frame's graph (measured on an RTX
+    ///         4060 Ti by <c>InterfaceOverASceneDeviceTests</c> with the two calls removed). Skipping
+    ///         <c>Compose</c> draws every faded group at full strength, since
+    ///         <c>UiGeometryBuilder</c> emits a group's contents at alpha one exactly so that the
+    ///         group's own surface can carry the fade — measured the same way, a half-opaque white
+    ///         panel comes out solid white, 111 codes from what it should be. Both hosts
+    ///         already call <see cref="Draw" />, so neither can now forget them. A host that still
+    ///         calls them itself does not upload a builder's geometry twice — a renderer skips one
+    ///         whose <c>Generation</c> it already holds — but it does compose twice, which is wasted
+    ///         passes and nothing worse.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The stage has to sort <c>ByGroup</c>.</b> Every other mode puts depth in the key
@@ -594,8 +603,8 @@ public sealed class WorldRenderer : IDisposable {
     ///         belongs to as often as over it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>No host in this repository performs those five steps, and the first of them is
-    ///         why</b> (#627). <c>Vixen.App.Hosting.AppGraphics</c> is the one thing that builds a
+    ///         ⚠ <b>No game head in this repository performs those three steps, and the first of them
+    ///         is why</b> (#627). <c>Vixen.App.Hosting.AppGraphics</c> is the one thing that builds a
     ///         game's renderer from data — it resolves the camera's stage, the caster stages and the
     ///         particle stage by name out of the frame document — and it names no interface stage,
     ///         assigns no <see cref="UiRenderFeature.Renderer" /> and mounts nothing. It cannot: a
@@ -1117,6 +1126,18 @@ public sealed class WorldRenderer : IDisposable {
         // binds whole or not at all, so it is one frame in which nothing draws, and a refused draw
         // is a fault rather than a dark pixel on some backends.
         Environment?.Upload(commands);
+
+        // ⚠ The interfaces' two outside-the-pass halves, here and not in the host (#627). `Ui.Draw`
+        // runs inside the pass and can only record; the vertices and the glyph atlas have to be
+        // written, and every faded group rendered into a surface of its own, before the frame's
+        // passes begin — which is this point, for the reason the environment upload above is here.
+        // They were steps four and five of a host contract that no host in the tree performed, and a
+        // host that forgets `Upload` draws out of a buffer nothing wrote while one that forgets
+        // `Compose` draws every faded panel solid. Here, both hosts get them from the one call they
+        // already make: `AppGraphics.Begin` and `EditorWorldRenderer` both reach this method. With
+        // nothing mounted both are a walk over an empty dictionary.
+        Ui.Upload(commands);
+        Ui.Compose(commands);
 
         AdoptViewLayout();
 

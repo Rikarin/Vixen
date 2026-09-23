@@ -5,19 +5,28 @@ SPDX-License-Identifier: Apache-2.0
 
 # Shaders
 
-The interface's eight modules, from one Raven source.
+The interface's nine modules, from one Raven source.
 
 | Source | Shaders | Modules |
 |---|---|---|
-| `Ui.rvn` | `UiVertex`, `UiBox`, `UiText`, `UiSolid`, `UiImage`, `UiBlur`, `UiColour`, `UiMask` | one `.vert.spv`, seven `.frag.spv` |
+| `Ui.rvn` | `UiVertex`, `UiBox`, `UiText`, `UiSolid`, `UiImage`, `UiBlur`, `UiColour`, `UiMask`, `UiBlend` | one `.vert.spv`, eight `.frag.spv` |
 
-## Why one vertex stage and seven fragment stages
+## Why one vertex stage and eight fragment stages
 
-`UiRenderer` takes one vertex module and a fragment module per pipeline, because the seven pipelines
+`UiRenderer` takes one vertex module and a fragment module per pipeline, because the eight pipelines
 read one vertex layout — two layouts would mean two buffers and two uploads to save sixteen bytes on
 a vertex count in the thousands. A Raven shader carrying both stages would emit the vertex module
-seven times over, and seven copies of one stage is seven chances for six of them to be wrong. So
-`UiVertex` has only a vertex entry point and the other seven have only a fragment one.
+eight times over, and eight copies of one stage is eight chances for seven of them to be wrong. So
+`UiVertex` has only a vertex entry point and the other eight have only a fragment one.
+
+⚠ **`UiBlend` is the one stage with a second descriptor set** (#783): the group's surface in set 0
+like every composite, the backdrop capture it mixes with in set 1. `BindingPlan.Of` numbers a set by
+kind, so a second texture in set 0 would have renumbered the layout every pipeline shares; in set 1 it
+is texture 0 and sampler 1, a prefix of that same layout, and `UiRenderer` binds an ordinary image set
+there through a pipeline layout that repeats set 0 and the push range verbatim.
+`ShaderReflectionTests.TheBlendStageReadsItsBackdropFromSetOne` pins it. ⚠ It has **no GLSL twin** in
+the golden suite, unlike the other eight: the machine it landed on had no `glslc`, so the golden
+tests draw it through `UiShaderLibrary.Load` directly.
 
 **The stream declarations are the contract between them, and their order is the whole of it.** A
 stream's location is its index in the shader's declaration list, so `UiVertex` writing

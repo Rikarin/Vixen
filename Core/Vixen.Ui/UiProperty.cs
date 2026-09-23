@@ -210,7 +210,11 @@ public static class UiPropertyRegistry {
     ///         from a reflective API, and it is charged only where such a call exists — every
     ///         binding in the tree goes through <see cref="TryFindFor" /> on an element that exists,
     ///         which forces nothing because constructing an element already runs every base's
-    ///         constructor.
+    ///         constructor. ⚠ Since #1359 the requirement is a line of its own in
+    ///         <c>PublicAPI.Unshipped.txt</c>, so widening or narrowing it is a reviewed diff; before
+    ///         that, the move from <c>NonPublicConstructors</c> to <c>All</c> passed
+    ///         <c>CheckApi</c> unseen. Whether a public reflective entry point should carry
+    ///         <c>All</c> at all — the only callers are tests — is #1359's open decision.
     ///     </para>
     ///     <para>
     ///         The generated chain stays as it is. It is redundant for this method on both runtimes

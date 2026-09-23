@@ -137,13 +137,20 @@ The shaders stay the host's. Building a `UiRenderer` needs the modules and the f
 the interface is drawn in, and this assembly knows neither; see `Vixen.Ui.Renderer`'s README on why
 that assembly must not grow a compiler. The stage the interface is drawn in has to sort `ByGroup`.
 
-⚠ **Two of the five host steps are outside the pass, and both were added after the registration
-was.** `UiRenderFeature.Draw` runs inside the frame's pass, where a texture copy is forbidden and a
+⚠ **The two outside-the-pass steps are `WorldRenderer.Draw`'s, not the host's** (#627). They were
+steps four and five of a five-step host contract that no host in the tree performed.
+`UiRenderFeature.Draw` runs inside the frame's pass, where a texture copy is forbidden and a
 second pass cannot be opened — so it can only `Record`. `Upload` writes this frame's vertices and
 copies the glyph atlas; `Compose` renders each composited group into a surface of its own. Skipping
-the first draws a HUD out of memory nothing has written. Skipping the second draws every faded
-group **opaque** rather than approximately faded, because `UiGeometryBuilder` emits a group's
-contents at alpha one so the surface can carry the fade. Neither failure raises anything.
+the first was written down here as drawing a HUD out of memory nothing has written; ⚠ on Vulkan it
+throws instead — the ring is created by the first upload, so `Record` binds a vertex buffer handle
+that names nothing. Skipping the second draws every faded group **opaque** rather than approximately
+faded, because `UiGeometryBuilder` emits a group's contents at alpha one so the surface can carry
+the fade, and that one raises nothing at all. Both were measured on a real device by removing the
+two calls under `InterfaceOverASceneDeviceTests` — and both are now made by the prologue below, which both hosts already call, and what is left to a host is
+`Renderer`, `Mount` and a per-frame `Set`. `DrawingTheWorldUploadsAndComposesAMountedInterface`
+asserts it by calling nothing else, and `InterfaceOverASceneDeviceTests` in the golden suite draws a
+`UiDocument` over a standard frame on a real device through exactly that path.
 
 ⚠ **The surface carries the display's density, and both of those calls read it.** `UiInterface.Scale`
 is how many framebuffer pixels one of the geometry's units is; it defaults to one, which is right
@@ -176,7 +183,7 @@ application's business.
 
 ## What `WorldRenderer.Draw` puts on the list before the frame
 
-Three things go on the caller's command list before `Host.Draw`, and every one of them is there because
+Four things go on the caller's command list before `Host.Draw`, and every one of them is there because
 of *when* rather than *what*:
 
 | | |
@@ -184,6 +191,7 @@ of *when* rather than *what*:
 | `Residency.Flush` | The vertices and indices themselves. Without it every draw reads whatever the allocator left, which is not a missing mesh but a wrong one. |
 | `Environment.Upload` | Set 0's buffers. A set binds whole or not at all, so a frame short one binding draws nothing rather than drawing dimly. |
 | `Morphing.Record` | The blend-shape pre-pass. |
+| `Ui.Upload`, `Ui.Compose` | Every mounted interface's vertices and glyph atlas, and its faded groups' own surfaces. A walk over an empty dictionary when nothing is mounted. |
 
 ⚠ **The morph pass goes after the flush and before every draw, and both halves matter.** It copies each
 changed instance's rest pose out of the geometry buffer — so a pass recorded before the flush would

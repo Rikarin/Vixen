@@ -464,6 +464,49 @@ public sealed class InterfaceInAWorldTests : IDisposable {
         Assert.Equal(1, ui.Composited);
     }
 
+    /// <summary>Drawing the world is what uploads and composes a mounted interface — the host calls neither.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>#627: steps four and five of the host contract had no host.</b> Nothing in the tree
+    ///         performed them, and both fail as a picture rather than an error — a HUD drawn out of a
+    ///         buffer nothing wrote, and every faded panel drawn solid. <c>WorldRenderer.Draw</c> is the
+    ///         one call both hosts already make before the frame's passes, so it makes both, and this
+    ///         asserts the arrangement by calling nothing else.
+    ///     </para>
+    ///     <para>
+    ///         The zeros first, because a renderer whose counters started at one would satisfy the
+    ///         ones after. No compositor is loaded, so <c>Host.Draw</c> returns before any pass and
+    ///         the only work that can move either counter is the prologue under test.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void DrawingTheWorldUploadsAndComposesAMountedInterface() {
+        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var ui = UiRendererFor(device);
+
+        var stage = renderer.Host.System.AddStage(new("Ui", RenderSortMode.ByGroup));
+
+        renderer.Ui.Renderer = ui;
+
+        var id = renderer.Ui.Mount(stage.Mask);
+        var atlas = new GlyphAtlas(64, 64);
+        var geometry = Grouped(atlas);
+
+        Assert.Single(geometry.Layers);
+
+        renderer.Ui.Set(id, new(geometry, atlas, new Int2(400, 300), 0));
+
+        Assert.Equal(0, ui.AtlasUploads);
+        Assert.Equal(0, ui.Composited);
+
+        using var commands = device.BeginCommandList(QueueKind.Graphics, "frame");
+
+        renderer.Draw(commands);
+
+        Assert.Equal(1, ui.AtlasUploads);
+        Assert.Equal(1, ui.Composited);
+    }
+
     /// <summary>A feature with nothing mounted composes nothing, and one with no renderer says nothing.</summary>
     /// <remarks>
     ///     <c>NothingMountedUploadsNothing</c>'s pair, and for its reason: the constructor registers
@@ -593,6 +636,108 @@ public sealed class InterfaceInAWorldTests : IDisposable {
         Assert.Equal(1, DimAfterUploading(PixelFormat.Rgba16Float, white: 1f));
         Assert.Equal(0, DimAfterUploading(PixelFormat.Bgra8UNorm, white: 1f));
         Assert.Equal(0, DimAfterUploading(PixelFormat.Rgba16Float, white: UiRenderer.ReferenceWhite));
+    }
+
+    /// <summary>A HUD whose builder was left at scale one, drawn at a scale of two, is counted as soft.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>#1343: <see cref="UiInterface.Scale" /> is the projection's density and not the
+    ///         geometry's.</b> A host that set it right and left its own builder at the defaults
+    ///         drew a correctly placed HUD flattened to 0.4 device pixels of chord error with a whole
+    ///         device pixel of fringe each side — a softness nothing reported. <c>Soft</c> reads the
+    ///         two numbers the geometry now records against what the scale asks for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Six cases, because a counter that said "scale is not one" would pass the first
+    ///         two.</b> The builder set from the same scale is not soft; a builder correct for its
+    ///         tolerance and wrong for its fringe is — so neither number alone can stand for both;
+    ///         a fringe of zero is the multisampled pass's legitimate "off"; scale one at the
+    ///         defaults is the ordinary desktop frame; and geometry built by hand states no
+    ///         tolerance at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AHudBuiltForScaleOneIsSoftWhenDrawnAtTwo() {
+        var atTwo = new UiGeometryBuilder {
+            Tolerance = UiGeometryBuilder.ToleranceFor(2f),
+            Fringe = UiGeometryBuilder.FringeFor(2f)
+        };
+
+        Assert.Equal(1, SoftAfterUploading(new UiGeometryBuilder(), scale: 2f));
+        Assert.Equal(0, SoftAfterUploading(atTwo, scale: 2f));
+
+        Assert.Equal(
+            1,
+            SoftAfterUploading(new UiGeometryBuilder { Tolerance = UiGeometryBuilder.ToleranceFor(2f) }, scale: 2f)
+        );
+
+        Assert.Equal(
+            1,
+            SoftAfterUploading(new UiGeometryBuilder { Fringe = UiGeometryBuilder.FringeFor(2f) }, scale: 2f)
+        );
+
+        Assert.Equal(
+            0,
+            SoftAfterUploading(
+                new UiGeometryBuilder { Tolerance = UiGeometryBuilder.ToleranceFor(2f), Fringe = 0f },
+                scale: 2f
+            )
+        );
+
+        Assert.Equal(0, SoftAfterUploading(new UiGeometryBuilder(), scale: 1f));
+
+        // Built by hand: four positional arguments and nothing stated about a flattening.
+        var atlas = new GlyphAtlas(64, 64);
+        var built = Geometry(atlas);
+        var byHand = new UiGeometry(built.Vertices, built.Indices, built.Draws, built.Shapes);
+
+        Assert.Equal(0, SoftAfterUploading(byHand, atlas, scale: 2f));
+    }
+
+    /// <summary>Uploads one interface built by <paramref name="builder" /> at <paramref name="scale" />.</summary>
+    /// <param name="builder">The host's own builder, set however the case under test sets it.</param>
+    /// <param name="scale">What the interface says one of its units is worth in framebuffer pixels.</param>
+    int SoftAfterUploading(UiGeometryBuilder builder, float scale) {
+        var atlas = new GlyphAtlas(64, 64);
+        var list = new DrawList();
+
+        list.BeginFrame();
+        list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.Rectangle, 8f, 8f, 120f, 40f, Color4.White, 0f, 0f));
+        list.EndFrame();
+
+        var geometry = builder.Build(list, new GlyphFieldCache(atlas), new Rectangle(0, 0, 400, 300));
+
+        // The recording is the builder's, not a default that happens to agree with it.
+        Assert.Equal(builder.Tolerance, geometry.Tolerance);
+        Assert.Equal(builder.Fringe, geometry.Fringe);
+
+        return SoftAfterUploading(geometry, atlas, scale);
+    }
+
+    /// <summary>Uploads one already-built interface at <paramref name="scale" /> and returns <c>Soft</c>.</summary>
+    /// <param name="geometry">The frame.</param>
+    /// <param name="atlas">The atlas it was built against.</param>
+    /// <param name="scale">What the interface says one of its units is worth in framebuffer pixels.</param>
+    int SoftAfterUploading(UiGeometry geometry, GlyphAtlas atlas, float scale) {
+        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var ui = UiRendererFor(device);
+
+        var stage = renderer.Host.System.AddStage(new("Ui", RenderSortMode.ByGroup));
+
+        renderer.Ui.Renderer = ui;
+
+        var id = renderer.Ui.Mount(stage.Mask);
+
+        renderer.Ui.Set(id, new(geometry, atlas, new Int2(400, 300), 0) { Scale = scale });
+
+        using var commands = device.BeginCommandList(QueueKind.Graphics, "ui");
+
+        renderer.Ui.Upload(commands);
+
+        // Uploaded for real, so a zero is a verdict rather than a loop that visited nothing.
+        Assert.Equal(1, ui.AtlasUploads);
+
+        return renderer.Ui.Soft;
     }
 
     /// <summary>Uploads one interface into a pass of the given format and returns what it counted.</summary>

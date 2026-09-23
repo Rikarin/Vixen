@@ -755,42 +755,33 @@ public sealed class UiCompositingTests {
     static UiColorMatrix InnerFilter => UiColorMatrix.Grayscale(1f);
 
     /// <summary>
-    ///     A declared <c>mix-blend-mode</c>: the software renderer applies it, the device submits the
-    ///     composite source-over, and this is the only thing in the repository that says so.
+    ///     A declared <c>mix-blend-mode</c> is the same picture on both executors — the fixture that
+    ///     said the opposite, inverted as its own remarks asked (#783).
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="UiRenderer.Unblended" /> had no readers at all before this.</b> Its own
-    ///         remarks call it "the one counter on this class that counts something the renderer failed
-    ///         to do" and the only observer the divergence has — and nothing anywhere asked it
-    ///         anything, which is this repository's commonest defect wearing the costume of a
-    ///         diagnostic. A counter nobody reads cannot report a regression, and it cannot notice the
-    ///         day the divergence is closed either.
+    ///         ⚠ <b>This asserted <c>Unblended == 1</c> and two pixels apart until #783, and was written
+    ///         to be turned round the day the device path landed.</b> Yellow over magenta:
+    ///         <c>multiply</c> takes <c>(1,1,0)</c> into <c>(1,0,1)</c> and lands on <c>(1,0,0)</c>, so
+    ///         the <i>green</i> channel alone separates a blend that ran from one that did not — 0 now
+    ///         on both executors, where the device used to store 255.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This asserts the gap rather than hiding it, and the failure is to be read the
-    ///         right way round.</b> If it goes red because the two pictures now agree, somebody has
-    ///         implemented the device path — #783 — and the right response is to rewrite this test
-    ///         into its opposite: <c>Unblended</c> zero, and the two frames compared with
-    ///         <see cref="Agreement" /> like every other case in this file.
+    ///         ⚠ <b>The Raven table and not the golden suite's GLSL copy</b>, because the blend stage
+    ///         exists only in <c>Ui.rvn</c>: the GLSL twin every other stage has could not be compiled on
+    ///         the machine this landed on (no <c>glslc</c>), and a twin nobody compiled is a file and not
+    ///         a module. <see cref="Vixen.Ui.Desktop.UiShaderLibrary.Load" /> is also what every shipping host draws with.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Yellow over magenta, and the fixture the issue warns against is green over
-    ///         red.</b> <c>multiply</c> takes <c>(1,1,0)</c> into <c>(1,0,1)</c> and lands on
-    ///         <c>(1,0,0)</c>, so the <i>green</i> channel alone separates a blend that ran from one
-    ///         that did not — 0 on the software frame, 255 on the device's. Green multiplied into red
-    ///         lands on black, which is also what a group that never drew produces, so that fixture
-    ///         would pass against a feature that does nothing.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>And the comparison of the two executors is exactly what cannot see this</b>, which
-    ///         is why the assertion is on two named pixels and a counter rather than on
-    ///         <c>ImageComparer</c>. Every other case in this file is "the two agree"; here they must
-    ///         not, and a tolerance is no way to say so.
+    ///         ⚠ <b>Both counters, both halves.</b> <see cref="UiRenderer.Blended" /> one says the
+    ///         composite went through <c>UiBlend</c>; <see cref="UiRenderer.Unblended" /> zero says
+    ///         nothing fell back. A pixel alone could be satisfied by a group that stopped being
+    ///         blended — the layer assertion guards that — or by a composite that was never drawn,
+    ///         which the magenta around it and the comparison guard.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void ADeclaredBlendRunsOnTheSoftwarePathAndGoesOutSourceOverOnTheDevice() {
+    public void ADeclaredBlendIsTheSamePictureOnBothExecutors() {
         if (!TryOpen(out var fixture, out _)) {
             return;
         }
@@ -807,17 +798,7 @@ public sealed class UiCompositingTests {
 
         var renderer = new UiRenderer(
             owned.Device,
-            new(
-                owned.Shader("ui.vert.spv", ShaderStage.Vertex),
-                owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
-                owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
-                owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
-            ) {
-                Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment),
-                Blur = owned.Shader("ui-blur.frag.spv", ShaderStage.Fragment),
-                Colour = owned.Shader("ui-colour.frag.spv", ShaderStage.Fragment),
-                Mask = owned.Shader("ui-mask.frag.spv", ShaderStage.Fragment)
-            },
+            Vixen.Ui.Desktop.UiShaderLibrary.Load(owned.Device),
             new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
         );
 
@@ -838,19 +819,18 @@ public sealed class UiCompositingTests {
         );
 
         Assert.Equal(1, renderer.Composited);
-
-        // ⚠ The claim, counted rather than inferred: the geometry asked for a blend and the composite
-        // went out without one. Zero here means either that the device path landed — see the remarks —
-        // or that the group stopped being blended, and the layer assertion above separates those.
-        Assert.Equal(1, renderer.Unblended);
+        Assert.Equal(1, renderer.Blended);
+        Assert.Equal(0, renderer.Unblended);
 
         var software = SoftwareUiRasterizer.Render(geometry, cache.Atlas, Side, Side, Background);
 
-        // Yellow, because the composite was source-over: the panel simply covers the field.
-        Assert.Equal((255, 255, 0), Middle(rendered));
-
-        // Red, because the software renderer read the destination and multiplied into it.
+        // Red on both, because both read what the composite lands on and multiplied into it.
         Assert.Equal((255, 0, 0), Middle(software));
+        Assert.Equal((255, 0, 0), Middle(rendered));
+
+        var comparison = ImageComparer.Compare(rendered, software, Agreement);
+
+        Assert.True(comparison.Matches, $"the device and the software renderer disagree about a blended group: {comparison}");
     }
 
     /// <summary>

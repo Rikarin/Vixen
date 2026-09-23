@@ -88,7 +88,10 @@ public class FlatteningScaleTests {
     ///     <c>PathTessellator.Feather</c> — and the reach is what the picture has, not what was asked
     ///     for.
     /// </remarks>
-    static float FringeReach(float fringe) {
+    static float FringeReach(float fringe) => BuiltWith(fringe).Reach;
+
+    /// <summary>Builds the circle with this fringe and measures how far past it the geometry reaches.</summary>
+    static (UiGeometry Geometry, float Reach) BuiltWith(float fringe) {
         var path = Circle();
         var list = new DrawList();
 
@@ -116,7 +119,40 @@ public class FlatteningScaleTests {
             reach = MathF.Max(reach, (vertex.Position - Centre).Length() - Radius);
         }
 
-        return reach;
+        return (geometry, reach);
+    }
+
+    /// <summary>
+    ///     The numbers a frame records about its own density are the ones its vertices were built
+    ///     with — so a host's scale checked against them is checked against the triangles.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>#1343's closed form.</b> A game HUD drives its own builder, and
+    ///         <c>UiRenderFeature.Soft</c> compares <see cref="UiGeometry.Tolerance" /> and
+    ///         <see cref="UiGeometry.Fringe" /> against the scale the interface is drawn at. That is
+    ///         only worth anything if those two are the numbers spent inside the triangles rather
+    ///         than a default beside them — so the band is measured off the vertices, at the two
+    ///         fringes a host at 1× and at 2× would set, and has to equal what the geometry says.
+    ///     </para>
+    ///     <para>
+    ///         Shown at the scale each was built for, both bands are half a device pixel; the 1×
+    ///         build shown at 2× — the arrangement <c>Soft</c> exists to report — is a whole one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_frame_records_the_density_its_vertices_were_built_at() {
+        var (atOne, reachAtOne) = BuiltWith(UiGeometryBuilder.FringeFor(1f));
+        var (atTwo, reachAtTwo) = BuiltWith(UiGeometryBuilder.FringeFor(2f));
+        var outline = FringeReach(0f);
+
+        Assert.Equal(reachAtOne - outline, atOne.Fringe, 1e-3f);
+        Assert.Equal(reachAtTwo - outline, atTwo.Fringe, 1e-3f);
+        Assert.Equal(UiGeometryBuilder.ToleranceFor(1f), atOne.Tolerance);
+
+        Assert.Equal(0.5f, atOne.Fringe * 1f, 1e-3f);
+        Assert.Equal(0.5f, atTwo.Fringe * 2f, 1e-3f);
+        Assert.Equal(1f, atOne.Fringe * 2f, 1e-3f);
     }
 
     /// <summary>A curve built for a 2× surface is no further off, in the pixels it is shown in.</summary>

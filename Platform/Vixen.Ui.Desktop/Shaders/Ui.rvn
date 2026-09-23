@@ -3,16 +3,16 @@
 
 package Vixen.Ui.Desktop.Shaders
 
-// The interface pipelines: one vertex stage and seven fragment stages over one vertex layout. Two
+// The interface pipelines: one vertex stage and eight fragment stages over one vertex layout. Two
 // layouts would mean two buffers and two uploads to save sixteen bytes on a vertex count in the
 // thousands; an interface is not a mesh.
 //
-// Eight shaders rather than seven pairs, and that is the shape the host already has: `UiRenderer`
+// Nine shaders rather than eight pairs, and that is the shape the host already has: `UiRenderer`
 // takes one vertex module and a fragment module per pipeline. A Raven shader carrying both stages
-// would emit the vertex module seven times over, and seven copies of one stage is seven chances for
-// six of them to be wrong.
+// would emit the vertex module eight times over, and eight copies of one stage is eight chances for
+// seven of them to be wrong.
 //
-// ⚠ **The stream declarations are the contract between all eight, and their order is the whole of
+// ⚠ **The stream declarations are the contract between all nine, and their order is the whole of
 // it.** A stream's location is its index in the shader's declaration list, so `UiVertex` writing
 // `uv, colour, shape` and `UiBox` reading `uv, colour, shape` agree without either naming a number —
 // exactly as the GLSL these replace agreed by both spelling `layout(location = 2)`. Adding a stream
@@ -1261,5 +1261,285 @@ shader UiMask {
         }
 
         return source + backdrop * (1f - source)
+    }
+}
+
+/// A composited group's surface, mixed with the picture already under it by the group's
+/// `mix-blend-mode` on the way into the frame — CSS Compositing 1 § 5.1 and § 5.3.
+///
+/// ⚠ **A change of source colour followed by the ordinary source-over, and no read of the attachment
+/// being written.** § 5.1 defines every mode that way, so the pipeline keeps the premultiplied
+/// blend state every other UI pipeline has and only the fragment's arithmetic differs. What the
+/// arithmetic needs that no other stage has is the backdrop, and it arrives as a *texture*:
+/// `UiRenderer` replays the parent's draws up to this group's composite into a capture surface of
+/// its own — the same replay a `backdrop-filter` capture is — and binds it here.
+///
+/// ⚠ **The backdrop is in set 1 (`[PerView]`) and not a second texture in set 0, and that is forced
+/// rather than chosen** (#783). `BindingPlan.Of` numbers a set's bindings by kind — textures, then
+/// samplers, then storage buffers — so a second `Texture2D` in set 0 would take binding 1 and push
+/// this stage's own sampler to 2: the shared `ui atlas` layout, renumbered by one shader. In set 1
+/// it is texture 0 and sampler 1, which is a prefix of that same layout, so the host binds the
+/// capture's ordinary image set there and every other pipeline, declaring no set 1, is untouched.
+///
+/// ⚠ **The white level rides with the mode, and a transcription that dropped it would be a device
+/// path that disagrees with the software one on exactly the frames a HUD is drawn in** (#1209). Both
+/// operands are normalised by it before § 5.1's function and the answer is re-lit after, which is
+/// `UiBlend.Apply` line for line; the clamp to `[0, 1]` is a statement about the frame's white and
+/// not about the number one.
+///
+/// ⚠ **The backdrop is read at the composite quad's own texture coordinate**, which is the target
+/// texel for an untransformed group because every layer surface is the viewport's size — the same
+/// fact `UiMask` and `UiColour` rely on. It is *not* for a group under `rotate`/`scale`/`perspective`,
+/// whose quad has left the surface's space; Raven has no fragment-position input to read instead, so
+/// the host does not route a transformed group here and counts it in `Unblended`.
+shader UiBlend {
+    [PerFrame] var source: Texture2D
+    [PerFrame] var sourceSampler: Sampler
+
+    /// What the group composites into, captured before its composite draw — premultiplied, in the
+    /// frame's units.
+    [PerView] var backdrop: Texture2D
+    [PerView] var backdropSampler: Sampler
+
+    /// The vertex stage's projection. See `UiComposite`.
+    [PushConstant] var reserved: float4 = float4(0f, 0f, 0f, 0f)
+
+    /// `x` the mode as `UiBlendMode` numbers it, `y` the frame's white level — `UiGeometry.WhiteLevel`.
+    ///
+    /// ⚠ **A white of one is the default and is right for every display-referred target**; zero or
+    /// less is not a white, and is read as one, which is the host's own fallback.
+    [PushConstant] var operation: float4 = float4(0f, 1f, 0f, 0f)
+
+    stream var uv: float2
+    stream var colour: float4
+    stream var shape: float4
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        // ⚠ `UiImage`'s premultiplied path verbatim, before anything is mixed: the group's opacity is
+        // the composite quad's vertex alpha, and § 5.1 blends the group *as it will be composited*.
+        val sampled = source.Sample(sourceSampler, uv)
+        val group = float4(sampled.rgb * colour.rgb * colour.a, sampled.a * colour.a)
+        val under = backdrop.Sample(backdropSampler, uv)
+
+        return Apply(int(operation.x + 0.5f), group, under, operation.y)
+    }
+
+    /// `UiBlend.Apply`, transcribed: § 5.1's weighting of the mixed colour, on un-premultiplied
+    /// operands normalised by the frame's white, re-premultiplied and re-lit.
+    func Apply(mode: int, group: float4, under: float4, white: float): float4 {
+        if (mode == 0 || under.a <= 0f || group.a <= 0f) {
+            return group
+        }
+
+        val scale = white > 0f ? white : 1f
+        val cs = clamp(group.rgb / (group.a * scale), float3(0f), float3(1f))
+        val cb = clamp(under.rgb / (under.a * scale), float3(0f), float3(1f))
+        val mixed = (1f - under.a) * cs + under.a * Mix(mode, cb, cs)
+
+        return float4(mixed * (group.a * scale), group.a)
+    }
+
+    /// § 5.1's `B(Cb, Cs)` for the sixteen modes, numbered as `UiBlendMode` numbers them.
+    func Mix(mode: int, cb: float3, cs: float3): float3 {
+        if (mode == 1) {
+            return cb * cs
+        }
+
+        if (mode == 2) {
+            return cb + cs - cb * cs
+        }
+
+        if (mode == 3) {
+            return float3(Hard(cs.x, cb.x), Hard(cs.y, cb.y), Hard(cs.z, cb.z))
+        }
+
+        if (mode == 4) {
+            return min(cb, cs)
+        }
+
+        if (mode == 5) {
+            return max(cb, cs)
+        }
+
+        if (mode == 6) {
+            return float3(Dodge(cb.x, cs.x), Dodge(cb.y, cs.y), Dodge(cb.z, cs.z))
+        }
+
+        if (mode == 7) {
+            return float3(Burn(cb.x, cs.x), Burn(cb.y, cs.y), Burn(cb.z, cs.z))
+        }
+
+        if (mode == 8) {
+            return float3(Hard(cb.x, cs.x), Hard(cb.y, cs.y), Hard(cb.z, cs.z))
+        }
+
+        if (mode == 9) {
+            return float3(Soft(cb.x, cs.x), Soft(cb.y, cs.y), Soft(cb.z, cs.z))
+        }
+
+        if (mode == 10) {
+            return abs(cb - cs)
+        }
+
+        if (mode == 11) {
+            return cb + cs - 2f * cb * cs
+        }
+
+        if (mode == 12) {
+            return SetLum(SetSat(cs, Sat(cb)), Lum(cb))
+        }
+
+        if (mode == 13) {
+            return SetLum(SetSat(cb, Sat(cs)), Lum(cb))
+        }
+
+        if (mode == 14) {
+            return SetLum(cs, Lum(cb))
+        }
+
+        if (mode == 15) {
+            return SetLum(cb, Lum(cs))
+        }
+
+        return cs
+    }
+
+    /// `hard-light`, and `overlay` with its operands swapped.
+    func Hard(cb: float, cs: float): float {
+        if (cs <= 0.5f) {
+            return cb * (2f * cs)
+        }
+
+        val screen = 2f * cs - 1f
+
+        return cb + screen - cb * screen
+    }
+
+    /// ⚠ The order of the three cases is the specification's: a backdrop of zero stays zero even
+    /// under a source of one, which is what makes `color-dodge` leave black alone.
+    func Dodge(cb: float, cs: float): float {
+        if (cb <= 0f) {
+            return 0f
+        }
+
+        if (cs >= 1f) {
+            return 1f
+        }
+
+        return min(1f, cb / (1f - cs))
+    }
+
+    func Burn(cb: float, cs: float): float {
+        if (cb >= 1f) {
+            return 1f
+        }
+
+        if (cs <= 0f) {
+            return 0f
+        }
+
+        return 1f - min(1f, (1f - cb) / cs)
+    }
+
+    /// ⚠ `D(Cb)` is a cubic up to a quarter and a square root above it — the two halves meet there
+    /// with matching value and slope, and neither alone is the specification.
+    func Soft(cb: float, cs: float): float {
+        val d = cb <= 0.25f ? ((16f * cb - 12f) * cb + 4f) * cb : sqrt(cb)
+
+        if (cs <= 0.5f) {
+            return cb - (1f - 2f * cs) * cb * (1f - cb)
+        }
+
+        return cb + (2f * cs - 1f) * (d - cb)
+    }
+
+    /// § 5.3's luminosity, with its three weights.
+    func Lum(c: float3): float => 0.3f * c.x + 0.59f * c.y + 0.11f * c.z
+
+    func SetLum(c: float3, lum: float): float3 => ClipColor(c + float3(lum - Lum(c)))
+
+    /// ⚠ The luma and both extremes are taken once, before either adjustment — which is what the
+    /// host's transcription does, and the second test reads the first's numbers on purpose.
+    func ClipColor(colour: float3): float3 {
+        var c = colour
+        val l = Lum(colour)
+        val low = min(colour.x, min(colour.y, colour.z))
+        val high = max(colour.x, max(colour.y, colour.z))
+
+        if (low < 0f && l - low > 0.000001f) {
+            c = float3(l) + (c - float3(l)) * (l / (l - low))
+        }
+
+        if (high > 1f && high - l > 0.000001f) {
+            c = float3(l) + (c - float3(l)) * ((1f - l) / (high - l))
+        }
+
+        return c
+    }
+
+    func Sat(c: float3): float => max(c.x, max(c.y, c.z)) - min(c.x, min(c.y, c.z))
+
+    /// ⚠ **Indices, not a sort**, because the result is written back to the channel each value came
+    /// from. The smallest is the first strictly smallest and the largest the first strictly largest,
+    /// which is how the host's loop resolves a tie; a grey has no saturation to stretch and § 5.3
+    /// would divide by zero on it, so it comes back black.
+    func SetSat(c: float3, sat: float): float3 {
+        var low = 0
+        var high = 0
+
+        if (c.y < c.x) {
+            low = 1
+        }
+
+        if (c.z < Channel(c, low)) {
+            low = 2
+        }
+
+        if (c.y > c.x) {
+            high = 1
+        }
+
+        if (c.z > Channel(c, high)) {
+            high = 2
+        }
+
+        if (low == high) {
+            return float3(0f)
+        }
+
+        val middle = 3 - low - high
+        val span = Channel(c, high) - Channel(c, low)
+        val stretched = (Channel(c, middle) - Channel(c, low)) * sat / span
+
+        return float3(Place(0, low, middle, stretched, sat), Place(1, low, middle, stretched, sat), Place(2, low, middle, stretched, sat))
+    }
+
+    /// One channel of a vector by index.
+    func Channel(c: float3, index: int): float {
+        if (index == 1) {
+            return c.y
+        }
+
+        if (index == 2) {
+            return c.z
+        }
+
+        return c.x
+    }
+
+    /// What `SetSat` writes to channel `index`: nothing to the smallest, the stretched middle to the
+    /// middle, and the saturation itself to the largest.
+    func Place(index: int, low: int, middle: int, stretched: float, sat: float): float {
+        if (index == low) {
+            return 0f
+        }
+
+        if (index == middle) {
+            return stretched
+        }
+
+        return sat
     }
 }
