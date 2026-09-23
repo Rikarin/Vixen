@@ -139,6 +139,7 @@ inspector-header > search-box	Started
 inspector-row > icon-button	Panels
 key-value-row progress-bar	-
 key-value-value combo-box	-
+key-value-value level-indicator	-
 key-value-value multi-select	-
 key-value-value numeric-input	-
 key-value-value progress-bar	-
