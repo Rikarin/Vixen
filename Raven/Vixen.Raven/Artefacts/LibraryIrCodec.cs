@@ -138,6 +138,7 @@ internal sealed class LibraryIrEncoder {
             Locals = [.. function.Locals.Select(EncodeVariable)],
             Values = [.. values.Select(entry => new LibraryIrValue(entry.Key, entry.Value))],
             ValueCount = function.ValueCount,
+            NoContraction = function.NoContraction,
             Body = EncodeBlock(function.Body, roots)
         };
     }
@@ -422,7 +423,9 @@ internal sealed class LibraryIrDecoder {
                 // Identified by key, named by name: the key is what a caller resolves, while the
                 // name is only a request — `nameFor` moves it aside if the module already holds it.
                 if (!functions.ContainsKey(function.Key)) {
-                    functions[function.Key] = new(nameFor(function.Name), DecodeType(function.ReturnType));
+                    functions[function.Key] = new(nameFor(function.Name), DecodeType(function.ReturnType)) {
+                        NoContraction = function.NoContraction
+                    };
                 }
             }
         }

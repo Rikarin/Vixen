@@ -711,6 +711,11 @@ sealed partial class SpirvEmitter {
         opaqueParameters.Clear();
         loops.Clear();
 
+        // Assigned rather than or-ed, so it goes off again at the next function: this is the only
+        // place a body's own declaration is in scope, and every other function the module emits is
+        // entitled to be fused.
+        noContraction = function.NoContraction;
+
         var returnType = types.Type(function.ReturnType);
 
         // A by-reference parameter takes a pointer into function storage. Function storage rather

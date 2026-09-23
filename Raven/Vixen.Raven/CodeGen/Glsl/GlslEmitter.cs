@@ -804,6 +804,22 @@ sealed class GlslEmitter {
         values.Clear();
         currentFunction = function;
 
+        // ⚠ Said out loud rather than dropped in silence, which is what RVN4003 is for. GLSL's
+        // answer is `precise`, and it is not this flag's answer: `precise` propagates backwards from
+        // a marked output through everything that contributed to it, where `[NoContraction]` is one
+        // body's arithmetic and nothing else — so emitting the keyword here would be a different
+        // request wearing the same name, on a target this compiler cannot run a validator against.
+        // Until that is settled, a shader that asked for bit-stable arithmetic and was compiled to
+        // GLSL has to be told it did not get it. See #1190.
+        if (function.NoContraction) {
+            Report(
+                BackendDiagnostics.Dropped,
+                $"'{function.Name}' is [NoContraction], which the GLSL backend does not emit: GLSL "
+                + "expresses it as 'precise' on the values an expression contributes to, which is a "
+                + "different rule, so this body's arithmetic may be fused on this target"
+            );
+        }
+
         writer.Line(Signature(function) + " {");
         writer.Indent();
 

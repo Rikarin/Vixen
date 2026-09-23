@@ -49,6 +49,15 @@ public abstract class MethodSymbol : Symbol {
     /// <summary>The semantic its return value carries, from <c>[Semantic("…")]</c>.</summary>
     public virtual string? SemanticName => null;
 
+    /// <summary>Whether <c>[NoContraction]</c> forbids fusing this body's arithmetic.</summary>
+    /// <remarks>
+    ///     A property of the method rather than of its declaration syntax, because a method reached
+    ///     through inheritance, monomorphisation or a <c>compose</c> slot is lowered from a symbol
+    ///     and not from the file it was written in — and the fusing is decided where the body is
+    ///     emitted. See <c>DeclarationFacts.IsNoContraction</c> for what it buys.
+    /// </remarks>
+    public virtual bool NoContraction => false;
+
     /// <summary>Lowest parameter count a call may supply, honouring defaults.</summary>
     public int MinimumArgumentCount {
         get {

@@ -22,6 +22,25 @@ public sealed class IrFunction(string name, IrType returnType) {
     /// <summary>The function body. Empty for a declaration with no body.</summary>
     public IrBlock Body { get; } = new();
 
+    /// <summary>Whether this body's floating-point arithmetic may not be fused.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one property of a function that changes no result a specification can
+    ///         name.</b> A target is free to fold a multiply and an add into one instruction that
+    ///         rounds once instead of twice, and free not to — so two backends that agree on every
+    ///         operand, every constant and every opcode can still land a last-place bit apart. That
+    ///         is what a 1/255 difference on an antialiased edge is made of, and it is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1190">#1190</a>.
+    ///     </para>
+    ///     <para>
+    ///         Per function and not propagated into a callee, which is the rule a reader can check
+    ///         from one declaration. On the function rather than on the instruction because the
+    ///         decision is an author's about a body — SPIR-V's <c>NoContraction</c> is per result
+    ///         id, and turning one flag into the right set of decorations is the backend's job.
+    ///     </para>
+    /// </remarks>
+    public bool NoContraction { get; internal set; }
+
     /// <summary>How many values this function defines; also the next free id.</summary>
     public int ValueCount { get; private set; }
 

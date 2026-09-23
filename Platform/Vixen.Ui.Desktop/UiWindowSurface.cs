@@ -145,9 +145,29 @@ public sealed class UiWindowSurface : IDisposable {
     ///     method at all. Two copies in the two hosts is exactly the arrangement where a fix reaches
     ///     one renderer and not the other, and it was also what made the saving unmeasurable: neither
     ///     copy can be reached from a test without a window, while the builder's can.
+    ///     <para>
+    ///         ⚠ <b>This is also where the window's DPI scale reaches the two numbers that are spent
+    ///         <i>inside</i> the triangles</b>, and until #1329 nothing anywhere did it. The extent is
+    ///         in document pixels and does not move when a window is carried onto a 2× display, so the
+    ///         flattening error and the antialiasing fringe — both authored in document pixels, both
+    ///         magnified by the projection along with everything else — came out at twice their
+    ///         intended device size: curves flattened to 0.4 device pixels of chord error and a
+    ///         two-device-pixel fringe band where the design is one. Set here rather than in
+    ///         <c>Ensure</c>/<c>Adopt</c> beside the gamut, because a DPI change needs no swapchain
+    ///         renegotiation to happen — dragging a window between two displays of one size changes
+    ///         <c>DpiScale</c> and nothing else — and the setters are idempotent, so a frame at an
+    ///         unchanged scale assigns the same floats and skips its tessellation exactly as before.
+    ///     </para>
     /// </remarks>
     public bool Tessellate(GlyphFieldCache glyphs) {
         ArgumentNullException.ThrowIfNull(glyphs);
+
+        // ⚠ Both, and from the window rather than from the geometry's own state: `Scale` is the
+        // surface's fact and the builder is deliberately not told how to guess one. Assigning is what
+        // marks the flattening moved, which is the fifth part of `TryBuild`'s key — so this is also
+        // what makes a display change rebuild geometry whose draw list and extent are unchanged.
+        Geometry.Tolerance = UiGeometryBuilder.ToleranceFor(Scale);
+        Geometry.Fringe = UiGeometryBuilder.FringeFor(Scale);
 
         var frame = Frame;
         var built = Geometry.TryBuild(Surface.Drawing, glyphs, Extent, ref frame);

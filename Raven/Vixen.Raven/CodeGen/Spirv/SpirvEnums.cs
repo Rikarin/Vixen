@@ -252,6 +252,19 @@ internal enum SpirvDecoration {
     Offset = 35,
 
     /// <summary>
+    ///     This arithmetic result may not be folded into a neighbouring one — <c>[NoContraction]</c>,
+    ///     and GLSL's <c>precise</c>.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Per result id, not per function</b>, which is why the flag an author writes on a
+    ///     declaration becomes one decoration per arithmetic instruction the body emits. A driver
+    ///     that fuses a multiply and an add rounds once where two compilations of one source rounded
+    ///     twice, and the two then disagree in the last place with every opcode and every constant
+    ///     identical — see <c>SpirvEmitter.Contractible</c>.
+    /// </remarks>
+    NoContraction = 42,
+
+    /// <summary>
     ///     This value may differ across a subgroup — put on the index into a descriptor array and on
     ///     what the access chain produced from it.
     /// </summary>
