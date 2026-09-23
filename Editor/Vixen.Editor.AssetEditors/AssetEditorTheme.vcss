@@ -102,11 +102,16 @@ compiled-scene { flex-direction: column; flex-grow: 1; gap: 8px; padding: 6px; o
 compiled-scene-bar { flex-direction: row; align-items: center; gap: 8px; flex-shrink: 0; }
 compiled-scene-label { color: var(--text-muted); }
 
+/* ⚠ No scroll container, because the panel already is one (#1275). These two used to say
+   `overflow-y: auto; min-height: 0`, which in this UI clips and does not scroll — and here it did
+   neither: the scene document's dock panel scrolls as a whole (`dock-panel.scrolls`, whose
+   `> * { flex-shrink: 0 }` keeps the tab set from ever being squeezed), so the tables were always
+   as tall as their rows and a level of 35 archetypes was reached by the panel's own bar. The
+   declaration's only effect was a 7009 line on every open. A `ScrollView` here was tried and its
+   bar never appeared, for the same reason; the panel is the scroller, and these are its rows. */
 compiled-scene-blocks, compiled-scene-diagnostics {
     flex-direction: column;
     gap: 2px;
-    overflow-y: auto;
-    min-height: 0;
 }
 
 compiled-scene-block {

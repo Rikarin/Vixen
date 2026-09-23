@@ -248,6 +248,89 @@ public sealed class ScrollingPanelPictureTests {
         Check(fixture, list, "sprite-list");
     }
 
+    /// <summary>The scene document's Compiled tab, over more archetypes than the tab holds.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not a <c>ScrollView</c>, and the ledger's premise for this site is refuted.</b>
+    ///         <c>compiled-scene-blocks</c> said <c>overflow-y: auto</c>, which in this UI clips and does
+    ///         not scroll — but it never clipped here either. The scene document's dock panel scrolls
+    ///         as a whole, and <c>dock-panel.scrolls &gt; *</c> keeps the tab set from shrinking, so the
+    ///         table was always as tall as its rows and the last block was reached by the panel's
+    ///         bar. A <c>ScrollView</c> was tried first and its bar never appeared, for that reason.
+    ///         What this pins is the claim that matters to a person: every block is inside its table,
+    ///         and the panel scrolls far enough to show the last one.
+    ///     </para>
+    ///     <para>
+    ///         Thirty-one archetypes, from every non-empty combination of five components, is the
+    ///         shape a real level has and a stock project does not: its four entities make three
+    ///         blocks and fit.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_compiled_scene_blocks_are_all_reached_by_the_panel_s_own_scroll() {
+        using var fixture = Start();
+
+        PictureA.Register();
+
+        var asset = fixture.Project.Assets.Entries.First(entry => entry.Path.EndsWith(".vxscene", StringComparison.Ordinal));
+
+        fixture.Editor.OpenAsset(asset.Guid);
+        fixture.Frames(2);
+
+        fixture.Click(
+            Descendants(fixture.Document.Root).FirstOrDefault(element => element.Text == "Compiled")
+            ?? throw fixture.Fail("the scene document has no Compiled tab")
+        );
+
+        fixture.Frames(2);
+
+        var view = Find<Vixen.Editor.AssetEditors.Scenes.CompiledSceneView>(fixture.Document.Root)
+            ?? throw fixture.Fail("the scene document built no compiled view");
+
+        // Into the document the tab is showing. The pane keeps it private, and the editor's current
+        // scene is not it: a first cut wrote into `EditorSession.Scene` and compiled four blocks.
+        var scene = (Vixen.Editor.SceneView.SceneDocument) typeof(Vixen.Editor.AssetEditors.Scenes.CompiledSceneView)
+            .GetField("document", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .GetValue(view)!;
+
+        for (var mask = 1; mask < 32; mask++) {
+            var entity = scene.Create($"Combination {mask}", Vixen.Engine.Transforms.LocalTransform.Identity);
+
+            PictureA.Add(scene.World, entity, mask);
+        }
+
+        Assert.True(view.Refresh(), "the scene did not compile");
+        fixture.Frames(2);
+
+        Assert.True(view.Content!.Blocks.Length >= 31, $"only {view.Content.Blocks.Length} blocks, so nothing is below the fold");
+
+        var blocks = Descendants(view).First(element => element.Tag == "compiled-scene-blocks");
+        var last = blocks.Children[^1];
+
+        // Every row inside its table: a table that clipped would hold its last rows below its own edge.
+        Assert.True(
+            last.AbsoluteTop + last.Height <= blocks.AbsoluteTop + blocks.Height + 0.5f,
+            "the last block is below the bottom of its own table, so the table cuts its rows off."
+        );
+
+        // And the panel scrolls far enough to show it.
+        var panel = Ancestors(view).OfType<Vixen.Ui.Controls.Advanced.DockPanel>().First();
+
+        Draw(fixture, null, "compiled-scene-top");
+
+        panel.ScrollTo(float.MaxValue);
+        fixture.Frames(2);
+
+        Draw(fixture, null, "compiled-scene-bottom");
+
+        Assert.True(panel.ScrollTop > 0f, "the scene document's panel did not scroll, so nothing reaches the last blocks.");
+
+        Assert.True(
+            last.AbsoluteTop + last.Height <= panel.AbsoluteTop + panel.Height + 0.5f,
+            $"at the bottom of the panel's scroll the last block still ends {last.AbsoluteTop + last.Height - (panel.AbsoluteTop + panel.Height):0} px below it."
+        );
+    }
+
     static EditorSession Start(int width = Width, int height = Height) =>
         EditorSession.Start(new EditorSessionOptions { Width = width, Height = height });
 
@@ -545,4 +628,78 @@ public sealed class ScrollingPanelPictureTests {
 
         public void Dispose() => renderer.Dispose();
     }
+}
+
+/// <summary>Five components whose combinations make a scene of thirty-one archetypes.</summary>
+static class PictureA {
+    public static void Register() {
+        Vixen.Engine.Scenes.SceneComponentRegistry.Register<PictureA1>();
+        Vixen.Engine.Scenes.SceneComponentRegistry.Register<PictureA2>();
+        Vixen.Engine.Scenes.SceneComponentRegistry.Register<PictureA3>();
+        Vixen.Engine.Scenes.SceneComponentRegistry.Register<PictureA4>();
+        Vixen.Engine.Scenes.SceneComponentRegistry.Register<PictureA5>();
+    }
+
+    /// <summary>Gives an entity the components whose bits are set in <paramref name="mask" />.</summary>
+    public static void Add(Vixen.Ecs.World world, Vixen.Core.Entity entity, int mask) {
+        if ((mask & 1) != 0) {
+            world.Add(entity, new PictureA1 { Value = mask });
+        }
+
+        if ((mask & 2) != 0) {
+            world.Add(entity, new PictureA2 { Value = mask });
+        }
+
+        if ((mask & 4) != 0) {
+            world.Add(entity, new PictureA3 { Value = mask });
+        }
+
+        if ((mask & 8) != 0) {
+            world.Add(entity, new PictureA4 { Value = mask });
+        }
+
+        if ((mask & 16) != 0) {
+            world.Add(entity, new PictureA5 { Value = mask });
+        }
+    }
+}
+
+/// <summary>One of <see cref="PictureA" />'s five.</summary>
+[Vixen.Core.Component]
+[Vixen.Core.DataContract("ScrollingPanelPictureA1")]
+public struct PictureA1 {
+    /// <summary>Something to store.</summary>
+    public int Value { get; set; }
+}
+
+/// <summary>One of <see cref="PictureA" />'s five.</summary>
+[Vixen.Core.Component]
+[Vixen.Core.DataContract("ScrollingPanelPictureA2")]
+public struct PictureA2 {
+    /// <summary>Something to store.</summary>
+    public int Value { get; set; }
+}
+
+/// <summary>One of <see cref="PictureA" />'s five.</summary>
+[Vixen.Core.Component]
+[Vixen.Core.DataContract("ScrollingPanelPictureA3")]
+public struct PictureA3 {
+    /// <summary>Something to store.</summary>
+    public int Value { get; set; }
+}
+
+/// <summary>One of <see cref="PictureA" />'s five.</summary>
+[Vixen.Core.Component]
+[Vixen.Core.DataContract("ScrollingPanelPictureA4")]
+public struct PictureA4 {
+    /// <summary>Something to store.</summary>
+    public int Value { get; set; }
+}
+
+/// <summary>One of <see cref="PictureA" />'s five.</summary>
+[Vixen.Core.Component]
+[Vixen.Core.DataContract("ScrollingPanelPictureA5")]
+public struct PictureA5 {
+    /// <summary>Something to store.</summary>
+    public int Value { get; set; }
 }
