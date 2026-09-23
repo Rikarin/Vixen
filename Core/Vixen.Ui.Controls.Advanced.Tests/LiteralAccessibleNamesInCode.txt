@@ -1,0 +1,87 @@
+# Every English word production C# hands a control to SAY: a string literal assigned to a watched
+# property (`Label`, `Title`, `Message`, `Description`, `Name`, `AccessibleName`,
+# `AccessibleDescription`) whose receiver is a control the probe heard speak that property.
+#
+#     <path><TAB><ReceiverType>.<Property><TAB><value>
+#
+# Held against the C# by
+# `CodeAccessibleNameTests.Every_literal_spoken_name_in_code_is_in_the_committed_census`, EXACTLY
+# and in both directions. Derived: re-run that test with VIXEN_REGENERATE=1 to write this back, and
+# read the diff. `LiteralAccessibleNames.txt` beside it is the markup half (`Rikarin/Vixen#1338`).
+#
+# ⚠ A row is a word no translator can reach. The localisation gate compares an announced word
+# against the DECLARATION table, and a word no class declares is not in it — so nothing but this
+# file sees one.
+#
+# ⚠ The receiver decides, not the property name. `Message = "…"` is every `[LoggerMessage]` in the
+# tree and `Title = "…"` every sample's window; neither is a row, because neither receiver is a
+# control that speaks it. A receiver the syntax does not type, or a control this assembly cannot
+# load — every control the editor declares for itself — is UNJUDGED rather than clean, and
+# `The_code_scan_actually_ran` says how many.
+#
+# ⚠ This file can only shrink. A row leaving means a word moved into a `*Strings` class; a row
+# ARRIVING is a new untranslatable name and is the loud direction.
+Core/Vixen.Ui.Controls.Advanced/Timeline.cs	ToggleButton.Label	M
+Core/Vixen.Ui.Controls/Navigation.cs	PageButton.Label	…
+Editor/Vixen.Editor.App/EditorWorlds.cs	Button.Label	Bake navigation mesh
+Editor/Vixen.Editor.App/EditorWorlds.cs	Button.Label	Close
+Editor/Vixen.Editor.App/EditorWorlds.cs	Button.Label	Recompute budgets
+Editor/Vixen.Editor.App/EditorWorlds.cs	CheckBox.Label	Draw the navigation mesh
+Editor/Vixen.Editor.App/ProjectBrowser.cs	Button.Label	Filters
+Editor/Vixen.Editor.App/ProjectBrowser.cs	ToggleButton.Label	Grid
+Editor/Vixen.Editor.AssetEditors/Ai/BehaviorTreeView.cs	Button.Label	Compile
+Editor/Vixen.Editor.AssetEditors/Ai/BehaviorTreeView.cs	Button.Label	Lay out
+Editor/Vixen.Editor.AssetEditors/Animation/AnimationClipView.cs	Button.Label	Add
+Editor/Vixen.Editor.AssetEditors/Animation/AnimationClipView.cs	Button.Label	Add Constraint
+Editor/Vixen.Editor.AssetEditors/Animation/AnimationClipView.cs	Button.Label	Add Event
+Editor/Vixen.Editor.AssetEditors/Animation/AnimationClipView.cs	Button.Label	Add Key
+Editor/Vixen.Editor.AssetEditors/Animation/AnimationClipView.cs	Button.Label	Delete
+Editor/Vixen.Editor.AssetEditors/Animation/AnimationClipView.cs	Button.Label	Propose Contacts
+Editor/Vixen.Editor.AssetEditors/Animation/AnimationClipView.cs	ToggleButton.Label	Curves
+Editor/Vixen.Editor.AssetEditors/Animation/AnimationGraphView.cs	Button.Label	Add condition
+Editor/Vixen.Editor.AssetEditors/Animation/AnimationGraphView.cs	Button.Label	Remove transition
+Editor/Vixen.Editor.AssetEditors/Animation/AnimationGraphView.cs	ToggleButton.Label	Transition
+Editor/Vixen.Editor.AssetEditors/Animation/MoveSetView.cs	Button.Label	Add Move
+Editor/Vixen.Editor.AssetEditors/Animation/MoveSetView.cs	Button.Label	Remove
+Editor/Vixen.Editor.AssetEditors/Animation/MoveSetView.cs	ToggleButton.Label	Coverage
+Editor/Vixen.Editor.AssetEditors/Animation/ProxyShapeView.cs	Button.Label	Add Shape
+Editor/Vixen.Editor.AssetEditors/Animation/ProxyShapeView.cs	Button.Label	Check
+Editor/Vixen.Editor.AssetEditors/Animation/ProxyShapeView.cs	Button.Label	Generate Coarse
+Editor/Vixen.Editor.AssetEditors/Animation/ProxyShapeView.cs	Button.Label	Mirror
+Editor/Vixen.Editor.AssetEditors/Animation/ProxyShapeView.cs	Button.Label	Remove
+Editor/Vixen.Editor.AssetEditors/Code/PreviewCodeEditorView.vxml	Button.Label	Button
+Editor/Vixen.Editor.AssetEditors/Content/AddressableGroupsView.cs	Button.Label	Analyse build
+Editor/Vixen.Editor.AssetEditors/Content/AddressableGroupsView.cs	EmptyState.Description	A .vxgroup is a policy: how its assets are packed, compressed and shipped.
+Editor/Vixen.Editor.AssetEditors/Content/AddressableGroupsView.cs	EmptyState.Title	No group selected
+Editor/Vixen.Editor.AssetEditors/Importing/SpriteSheetView.cs	Alert.Title	No pixels
+Editor/Vixen.Editor.AssetEditors/Importing/SpriteSheetView.cs	Button.Label	Add
+Editor/Vixen.Editor.AssetEditors/Importing/SpriteSheetView.cs	Button.Label	Clear
+Editor/Vixen.Editor.AssetEditors/Importing/SpriteSheetView.cs	Button.Label	Remove
+Editor/Vixen.Editor.AssetEditors/Importing/SpriteSheetView.cs	Button.Label	Slice
+Editor/Vixen.Editor.AssetEditors/Importing/SpriteSheetView.cs	Image.Description	The sprite sheet
+Editor/Vixen.Editor.AssetEditors/Importing/SpriteSheetView.cs	ToggleButton.Label	Keep empty
+Editor/Vixen.Editor.AssetEditors/Importing/SpriteSheetView.cs	ToggleButton.Label	Trim
+Editor/Vixen.Editor.AssetEditors/Importing/TargetOverrideMatrix.cs	Button.Label	Add target
+Editor/Vixen.Editor.AssetEditors/Importing/TargetOverrideMatrix.cs	EmptyState.Description	This importer's settings type declares nothing an override could change.
+Editor/Vixen.Editor.AssetEditors/Importing/TargetOverrideMatrix.cs	EmptyState.Title	No per-target settings
+Editor/Vixen.Editor.AssetEditors/Materials/MaterialView.vxml	Button.Label	Remove
+Editor/Vixen.Editor.AssetEditors/Sequencing/SequenceView.cs	ToggleButton.Label	Play
+Editor/Vixen.Editor.Blockout/BlockoutModulePanels.cs	Button.Label	Capture / Clear Overlays
+Editor/Vixen.Editor.Blockout/BlockoutModulePanels.cs	Button.Label	Retopologize
+Editor/Vixen.Editor.Inspector/Drawers/AssetDrawers.cs	IconButton.Label	Clear
+Editor/Vixen.Editor.Inspector/Drawers/AssetDrawers.cs	IconButton.Label	Pick
+Editor/Vixen.Editor.Inspector/Drawers/ListDrawer.cs	Button.Label	Add Element
+Editor/Vixen.Editor.Inspector/InspectorView.cs	IconButton.Label	Reset
+Editor/Vixen.Editor.Inspector/InspectorView.cs	ToggleButton.Label	Lock
+Editor/Vixen.Editor.Profiler/ProfilerView.cs	Button.Label	Export Trace
+Editor/Vixen.Editor.Profiler/ProfilerView.cs	Button.Label	Record
+Editor/Vixen.Editor.Profiler/ProfilerView.cs	Button.Label	Set Baseline
+Editor/Vixen.Editor.Terrain/TerrainModulePanels.cs	Button.Label	Add selected asset
+Editor/Vixen.Editor.Terrain/TerrainModulePanels.cs	Button.Label	Create terrain
+Editor/Vixen.Editor.Terrain/TerrainModulePanels.cs	Button.Label	Grow
+Editor/Vixen.Editor.Terrain/TerrainModulePanels.cs	Button.Label	Regenerate roads
+Editor/Vixen.Editor.Texturing/LayerStackView.cs	Button.Label	Add effect
+Editor/Vixen.Editor.Texturing/LayerStackView.cs	Button.Label	Add mask entry
+Editor/Vixen.Editor.Texturing/LayerStackView.cs	Button.Label	Delete
+Editor/Vixen.Editor.Texturing/LayerStackView.cs	CheckBox.Label	Enabled
+Editor/Vixen.Editor.Water/WaterModulePanels.cs	Button.Label	Create zone

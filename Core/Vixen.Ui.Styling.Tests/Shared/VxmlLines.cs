@@ -44,6 +44,16 @@ readonly record struct VxmlLine(int Number, string Text, VxmlRegion Region);
 ///         is linked into a second geometry suite the same way.
 ///     </para>
 ///     <para>
+///         ⚠ <b>And then into four more, because two was not every reader.</b> Five further sweeps
+///         read a <c>.vxml</c> with the C# comment forms as their only guard, or none —
+///         <c>ScrollViewReachTests</c>, <c>ResponderReachTests</c>, <c>ClassSelectorReachTests</c>,
+///         <c>SchedulerReachTests</c> and <c>StylesheetTests</c> — and four of them are reach
+///         censuses, whose job is to say a finished thing has a caller. Prose about an API is not a
+///         caller, and <c>FactRow.vxml</c>'s header is the proof that the prose here is written as
+///         markup: its <c>Name="…"</c> example was a committed census row for a word nothing said
+///         (<c>Rikarin/Vixen#1341</c>).
+///     </para>
+///     <para>
 ///         ⚠ <b>A comment is cut out of its line rather than taking the line with it, and that is the
 ///         direction that matters.</b> The first spelling of this dropped any line containing
 ///         <c>&lt;!--</c>, which loses the <c>foo</c> in <c>&lt;foo /&gt; &lt;!-- note --&gt;</c> and
@@ -106,7 +116,13 @@ static class VxmlLines {
             if (code) {
                 var csharp = raw.TrimStart();
 
-                if (csharp.StartsWith("//", StringComparison.Ordinal) || csharp.StartsWith('*')) {
+                // ⚠ `/*` as well, which the first spelling of this left out: it starts with neither a
+                // `//` nor a `*`, so a block comment opening a line of a `@code` body was read as C#.
+                // Every `.cs` sweep that moved onto this reader already refused that line itself, and
+                // would have started accepting it in a `.vxml` the day it trusted this instead.
+                if (csharp.StartsWith("//", StringComparison.Ordinal)
+                    || csharp.StartsWith("/*", StringComparison.Ordinal)
+                    || csharp.StartsWith('*')) {
                     continue;
                 }
 
@@ -124,6 +140,49 @@ static class VxmlLines {
         }
 
         return read;
+    }
+
+    /// <summary>The file line for line, with everything <see cref="Read" /> would not yield blanked.</summary>
+    /// <param name="lines">The file, in order.</param>
+    /// <returns>
+    ///     As many lines as <paramref name="lines" />, so an index into it is still the file's line
+    ///     number less one and a sweep that counts newlines still reports the right line.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>For the sweeps that read a whole file as one string or number lines themselves</b> —
+    ///     a paren walk over a call's arguments, a regex over the file's text. They cannot take
+    ///     <see cref="Read" />'s list without renumbering every line after the first comment, which is
+    ///     the failure <c>The_numbers_are_the_files_own</c> is written against.
+    /// </remarks>
+    public static string[] Masked(IReadOnlyList<string> lines) {
+        ArgumentNullException.ThrowIfNull(lines);
+
+        var masked = new string[lines.Count];
+        Array.Fill(masked, string.Empty);
+
+        foreach (var line in Read(lines)) {
+            masked[line.Number - 1] = line.Text;
+        }
+
+        return masked;
+    }
+
+    /// <summary>What a source sweep may read of a file: a <c>.vxml</c> masked, anything else as it is.</summary>
+    /// <param name="path">The file's path, which is all that decides whether it is markup.</param>
+    /// <param name="lines">Its lines, in order — passed in so a test can hand a sweep lines no file holds.</param>
+    /// <returns>As many lines as <paramref name="lines" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Only the <c>.vxml</c> half is this reader's.</b> A <c>.cs</c> file comes back untouched,
+    ///     because every sweep that calls this already has its own answer to <c>//</c>, <c>*</c> and
+    ///     <c>/*</c> and those answers differ on purpose — one refuses a declaration line, another reads
+    ///     the prose of a census file. What none of them had was an answer to <c>&lt;!--</c>, which a
+    ///     line-start test can never give: the shared parts' header comments demonstrate their own
+    ///     element, so the prose is indented markup (<c>Rikarin/Vixen#1341</c>).
+    /// </remarks>
+    public static IReadOnlyList<string> Source(string path, IReadOnlyList<string> lines) {
+        ArgumentNullException.ThrowIfNull(path);
+
+        return path.EndsWith(".vxml", StringComparison.OrdinalIgnoreCase) ? Masked(lines) : lines;
     }
 
     /// <summary>One line with its commented spans taken out, carrying the open-comment state.</summary>

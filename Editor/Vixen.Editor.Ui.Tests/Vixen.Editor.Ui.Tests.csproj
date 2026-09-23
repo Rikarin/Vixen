@@ -65,4 +65,15 @@
         -->
         <ProjectReference Include="..\..\Core\Vixen.Ui.Testing\Vixen.Ui.Testing.csproj" />
     </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            What a `.vxml` line is allowed to say, its XML comments being prose rather than markup,
+            compiled in beside its tests rather than referenced, as `Vixen.Ui.Controls.Advanced.Tests`
+            does. `StylesheetTests` reads the markup's `class` attributes, and a header comment that
+            demonstrates its own element writes one nothing puts on an element (#1341).
+        -->
+        <Compile Include="..\..\Core\Vixen.Ui.Styling.Tests\Shared\VxmlLines.cs" Link="Shared\VxmlLines.cs" />
+        <Compile Include="..\..\Core\Vixen.Ui.Styling.Tests\Shared\VxmlLinesTests.cs" Link="Shared\VxmlLinesTests.cs" />
+    </ItemGroup>
 </Project>

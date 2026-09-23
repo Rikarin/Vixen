@@ -37,6 +37,14 @@
         <Compile Include="..\Vixen.Editor.Plugin.Tests\PluginFolder.cs" Link="PluginFolder.cs" />
 
         <!--
+            Which whole selectors the sheets spell entirely in tags, linked for the same reason. The
+            scoped census here and `CombinatorCensusDriftTests` in `Vixen.Ui.Styling.Tests` both hold
+            `ScopedSelectors.txt` against it, and two readers of the question would be two chances to
+            disagree about a file the other suite then calls current (#1349).
+        -->
+        <Compile Include="..\..\Core\Vixen.Ui.Styling.Tests\Shared\TypeOnlySelectors.cs" Link="Shared\TypeOnlySelectors.cs" />
+
+        <!--
             And the throwaway file system the headless platform is pointed at, linked for the reason
             above: `EditorHostTests` runs a real `EditorHost`, which writes a layout, a keymap and a
             window placement on the way down — into the developer's home directory unless something

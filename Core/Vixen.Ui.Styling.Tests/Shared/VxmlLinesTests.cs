@@ -8,7 +8,7 @@ namespace Vixen.Ui.Markup.Testing;
 /// <summary>What <see cref="VxmlLines" /> lets a sweep believe a line says.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Linked into both suites beside the reader itself, so each assembly proves its own
+///         ⚠ <b>Linked into every suite beside the reader itself, so each assembly proves its own
 ///         copy.</b> The reader exists because two sweeps in two assemblies had drifted about what a
 ///         markup line is; a single copy of its tests, compiled into one of them, would leave the
 ///         other trusting a file nothing there had run.
@@ -96,6 +96,59 @@ public class VxmlLinesTests {
         Assert.Equal(2, read.Count);
         Assert.Equal(3, read[0].Number);
         Assert.Equal(4, read[1].Number);
+    }
+
+    /// <summary>A block comment opening a line of a <c>@code</c> body is prose, as it is in a <c>.cs</c>.</summary>
+    [Fact]
+    public void A_block_comment_in_a_code_body_is_not_code() {
+        var read = VxmlLines.Read([
+            "@code {",
+            "    /* Fields.Add(\"from-a-comment\"); */",
+            "    void Build() => Fields.Add(\"from-code\");",
+            "}"
+        ]);
+
+        Assert.DoesNotContain(read, static line => line.Text.Contains("from-a-comment", StringComparison.Ordinal));
+        Assert.Contains(read, static line => line.Text.Contains("from-code", StringComparison.Ordinal));
+    }
+
+    /// <summary>The masked file is the file, line for line, with only the prose gone.</summary>
+    /// <remarks>
+    ///     A sweep that counts newlines to report a line — <c>SchedulerReachTests</c> does — needs a
+    ///     blank where a comment was rather than no line at all, or every line after the header is
+    ///     reported one too high per line it had.
+    /// </remarks>
+    [Fact]
+    public void The_masked_file_keeps_every_line_in_its_place() {
+        string[] file = [
+            "<!-- <Demo Name=\"prose\" />",
+            "     still prose -->",
+            "<Panel Name=\"markup\" /> <!-- note -->",
+            "@code {",
+            "    // Name = \"a comment\"",
+            "    void Build() => Name = \"code\";",
+            "}"
+        ];
+
+        var masked = VxmlLines.Masked(file);
+
+        Assert.Equal(file.Length, masked.Length);
+        Assert.Equal(string.Empty, masked[0]);
+        Assert.Equal(string.Empty, masked[1]);
+        Assert.Contains("\"markup\"", masked[2], StringComparison.Ordinal);
+        Assert.DoesNotContain("note", masked[2], StringComparison.Ordinal);
+        Assert.Equal(string.Empty, masked[4]);
+        Assert.Contains("\"code\"", masked[5], StringComparison.Ordinal);
+    }
+
+    /// <summary>Only a <c>.vxml</c> is masked; a <c>.cs</c> comes back exactly as it was handed in.</summary>
+    [Fact]
+    public void Only_markup_is_masked() {
+        string[] file = ["<!-- <Demo Name=\"prose\" /> -->", "// a comment"];
+
+        Assert.Same(file, VxmlLines.Source("A.cs", file));
+        Assert.Equal([string.Empty, "// a comment"], VxmlLines.Source("A.vxml", file));
+        Assert.Equal([string.Empty, "// a comment"], VxmlLines.Source("A.VXML", file));
     }
 
     /// <summary>The <c>@code</c> directive is recognised, and a longer word starting the same is not.</summary>

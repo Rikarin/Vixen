@@ -1,0 +1,77 @@
+# Every WHOLE selector the two control sheets (`ControlTheme.vcss`, `AdvancedTheme.vcss`) spell
+# entirely in tags and combinators, and whether any bare control's tree matched it.
+#
+#     <selector><TAB><Bare|->
+#
+# Held against the sheets and against the bare sweep by
+# `LiveCombinatorPairTests.Every_type_only_control_selector_is_in_the_scoped_census_with_its_verdict`,
+# EXACTLY and in both directions, verdict for verdict. Derived: re-run that test with
+# VIXEN_REGENERATE=1 to write this back, and read the diff. `CombinatorCensusDriftTests` in
+# `Vixen.Ui.Styling.Tests` holds the selector column against the sheets as well, without building
+# anything, so a control-sheet edit is red in the suite its author runs.
+#
+# This is the controls' half of the scoped question in `Rikarin/Vixen#531`. The editor's
+# `ScopedSelectors.txt` asks the same question of a running editor and reads `-` for most control
+# rules, because the editor never builds those controls bare. The two files answer one question
+# from two sets of trees, through the same matcher.
+#
+# ⚠ The loud direction is `Bare` becoming `-`: the sheet still declares the rule and no control
+# builds anything under the scope it names any more. A `-` row is UNJUDGED, never dead — a part a
+# control builds only with content, or a control that only exists inside another, is unreached by a
+# bare sweep. Bare controls only: a seeded tree can match a whole selector THROUGH an element the
+# seed introduced, and nothing here can refuse that.
+checkbox box	Bare
+checkbox box icon	Bare
+code-editor scroll-view	Bare
+code-gutter-row icon	Bare
+color-input > color-swatch	Bare
+color-row text	Bare
+combo-box icon	Bare
+data-grid scroll-view	Bare
+data-header-cell icon	Bare
+dock-tab icon	-
+dock-tabstrip > icon-button	Bare
+empty-state icon	-
+expander-header icon	Bare
+gradient-editor color-picker	Bare
+icon-button label	Bare
+key-value-value combo-box	-
+key-value-value level-indicator	-
+key-value-value multi-select	-
+key-value-value numeric-input	-
+key-value-value progress-bar	-
+key-value-value search-box	-
+key-value-value secure-textbox	-
+key-value-value select	-
+key-value-value slider	-
+key-value-value stepper	-
+key-value-value textarea	-
+key-value-value textbox	-
+menu-item icon	-
+menu-item kbd	-
+multi-select icon	Bare
+node-port-editor checkbox	-
+node-port-editor numeric-input	-
+option icon	-
+property-editor numeric-input	-
+property-editor select	-
+property-editor slider	-
+property-editor textbox	-
+property-grid search-box	Bare
+radial-item > icon	-
+radio box	Bare
+radio box dot	Bare
+search-box field-placeholder	Bare
+search-box icon	Bare
+select icon	Bare
+stepper icon	Bare
+stepper icon-button	Bare
+switch track	Bare
+switch track knob	Bare
+textarea field-text	Bare
+tree-row icon	Bare
+tree-view scroll-content	Bare
+tree-view scroll-view	Bare
+tree-view virtualizing-panel	Bare
+virtualizing-grid scroll-view	Bare
+virtualizing-panel scroll-view	Bare

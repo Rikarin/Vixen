@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Text.RegularExpressions;
 using Vixen.Editor.Testing;
+using Vixen.Ui.Styling.Testing;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -57,18 +57,6 @@ public partial class EditorCombinatorPairTests {
     /// <summary>What a row's verdict says when no sweep matched it.</summary>
     const string Unmatched = "-";
 
-    /// <summary>A tag as a sheet spells it: lower case, digits and hyphens.</summary>
-    const string Tag = "[a-z][a-z0-9-]*";
-
-    /// <summary>
-    ///     A selector made of tags joined by child or descendant combinators and nothing else.
-    /// </summary>
-    /// <remarks>
-    ///     Sibling combinators are out on purpose: <c>a + b</c> is about order among siblings, which
-    ///     the sweeps do not claim to fix, and no sheet in the tree spells one between two bare tags.
-    /// </remarks>
-    static readonly Regex TypeOnly = new($"^{Tag}(?:\\s*>\\s*{Tag}|\\s+{Tag})+$", RegexOptions.Compiled);
-
     /// <summary>The order the verdicts are decided in: a selector is credited to the first depth that matched it.</summary>
     /// <remarks>
     ///     ⚠ <b>Derived from the enum rather than listed.</b> <see cref="Depth" /> is ordered by
@@ -119,7 +107,13 @@ public partial class EditorCombinatorPairTests {
     static readonly HashSet<string> MirrorSightings = new(StringComparer.Ordinal);
 
     /// <summary>The domain: every type-only selector a committed sheet declares, with the first sheet declaring it.</summary>
-    static IReadOnlyDictionary<string, string> ScopedDomain => scopedDomain ??= ReadScopedDomain();
+    /// <remarks>
+    ///     Read by <see cref="TypeOnlySelectors" />, which <c>Vixen.Ui.Styling.Tests</c> compiles too:
+    ///     that suite holds <c>ScopedSelectors.txt</c>'s selector column against the sheets without
+    ///     starting an editor, so a sheet edit that adds or removes a type-only rule goes red where
+    ///     the sheet's author is already looking (<c>Rikarin/Vixen#1349</c>).
+    /// </remarks>
+    static IReadOnlyDictionary<string, string> ScopedDomain => scopedDomain ??= TypeOnlySelectors.Read(Root());
 
     static IReadOnlyDictionary<string, string>? scopedDomain;
 
@@ -335,80 +329,6 @@ public partial class EditorCombinatorPairTests {
         }
 
         return null;
-    }
-
-    /// <summary>Every type-only selector in every committed sheet, with the first sheet that declares it.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Off the sheet's text, and the reason that is safe here and was not for the pair
-    ///         domain.</b> Four hand-rolled parsers gave that domain four sizes because a compound
-    ///         carrying a class beside its tag, or a tag inside <c>:is()</c>, is a judgement a regular
-    ///         expression makes differently each time. This domain admits a selector only when the
-    ///         whole of it is tags and combinators, which one pattern decides without judgement — and
-    ///         every selector it admits is then handed to the real compiler by <see cref="Scope" />,
-    ///         which throws on anything that is not a selector. The set is committed regardless.
-    ///     </para>
-    ///     <para>
-    ///         Comments are stripped first because a sheet's prose spells selectors too, and the text
-    ///         before each <c>{</c> is read whatever block it is nested in, so a rule inside
-    ///         <c>@layer components { … }</c> is found without knowing what a layer is.
-    ///     </para>
-    /// </remarks>
-    static Dictionary<string, string> ReadScopedDomain() {
-        var root = Root();
-        var found = new Dictionary<string, string>(StringComparer.Ordinal);
-
-        foreach (var path in Sheets(root)) {
-            var text = Regex.Replace(File.ReadAllText(path), @"/\*.*?\*/", string.Empty, RegexOptions.Singleline);
-            var sheet = Path.GetRelativePath(root, path).Replace('\\', '/');
-
-            foreach (Match block in Regex.Matches(text, @"([^{};]+)\{")) {
-                var prelude = block.Groups[1].Value.Trim();
-
-                if (prelude.StartsWith('@')) {
-                    continue;
-                }
-
-                foreach (var part in prelude.Split(',')) {
-                    var selector = string.Join(' ', part.Split((char[])[' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries));
-
-                    // One spelling per selector, so `a>b` and `a > b` are the same row.
-                    selector = Regex.Replace(selector, @"\s*>\s*", " > ");
-
-                    if (TypeOnly.IsMatch(selector)) {
-                        found.TryAdd(selector, sheet);
-                    }
-                }
-            }
-        }
-
-        return found;
-    }
-
-    /// <summary>Every committed stylesheet, walked the way the styling tests walk them.</summary>
-    /// <remarks>
-    ///     Pruned by directory name during the walk rather than filtered afterwards, for
-    ///     <c>RepositoryScan</c>'s reason: <c>.claude/worktrees</c> holds whole checkouts of this
-    ///     repository, and a sweep that descended into them would be measuring other people's work.
-    /// </remarks>
-    static List<string> Sheets(string root) {
-        string[] unwalked = [".git", ".claude", "bin", "obj", "artifacts", "node_modules"];
-        var found = new List<string>();
-
-        void Walk(string directory) {
-            found.AddRange(Directory.EnumerateFiles(directory, "*.vcss"));
-
-            foreach (var child in Directory.EnumerateDirectories(directory)) {
-                if (!unwalked.Contains(Path.GetFileName(child), StringComparer.Ordinal)) {
-                    Walk(child);
-                }
-            }
-        }
-
-        Walk(root);
-        found.Sort(StringComparer.Ordinal);
-
-        return found;
     }
 
     /// <summary>The committed scoped census: selector to verdict.</summary>
