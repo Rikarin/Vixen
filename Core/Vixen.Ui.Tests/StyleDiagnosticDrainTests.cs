@@ -826,7 +826,11 @@ public class StyleDiagnosticDrainTests {
         // reader to fix a declaration that is already there.
         Assert.DoesNotContain("flex-direction", warning.Message, StringComparison.Ordinal);
 
-        Assert.Contains(document.Refusals(), line => line.Contains("copied-list.tall", StringComparison.Ordinal));
+        // ⚠ And NOT in the refusals ledger, unlike 7009. `HotReloadHost` rolls back a saved sheet
+        // that adds to that list, and deleting the rule that restated a control's declarations is a
+        // legitimate edit that adds exactly this — so filing it there made the editor refuse its own
+        // theme being emptied.
+        Assert.DoesNotContain(document.Refusals(), line => line.Contains("copied-list", StringComparison.Ordinal));
     }
 
     /// <summary>The same control restated, under its own tag, or a plain element under any tag says nothing.</summary>

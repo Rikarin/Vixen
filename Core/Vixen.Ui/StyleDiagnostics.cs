@@ -226,6 +226,14 @@ public sealed partial class UiDocument {
     ///         that restates <c>overflow</c> as anything at all has decided about it, and an
     ///         inherited property the element receives from its parent counts as present.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Logged, and deliberately not in <see cref="Refusals" /></b>, which was the first
+    ///         draft and turned a hot reload into a trap. <c>HotReloadHost</c> rolls back any saved
+    ///         sheet that adds an entry to that list — and deleting the rule that restated a control's
+    ///         declarations is exactly the edit that adds one here. The editor refused its own theme
+    ///         being emptied (<c>HotReloadModeTests.A_rule_deleted_from_the_editor_s_own_theme_stops_applying</c>
+    ///         went red) because a warning had been filed where only refusals belong.
+    ///     </para>
     /// </remarks>
     readonly List<(string Element, string Own, string Lost)> retagDiagnostics = [];
 
@@ -339,7 +347,7 @@ public sealed partial class UiDocument {
         return declared ?? "overflow: auto";
     }
 
-    /// <summary>Everything the document's seven diagnostic producers are holding, as text.</summary>
+    /// <summary>Everything the document's six diagnostic producers are holding, as text.</summary>
     /// <returns>One entry per distinct refusal, in producer order.</returns>
     /// <remarks>
     ///     <para>
@@ -366,7 +374,6 @@ public sealed partial class UiDocument {
         .. Builder.Diagnostics.Select(diagnostic => diagnostic.ToString()),
         .. textDiagnostics.Select(diagnostic => diagnostic.ToString()),
         .. overflowDiagnostics.Select(diagnostic => diagnostic.ToString()),
-        .. retagDiagnostics.Select(diagnostic => $"{diagnostic.Element} is a <{diagnostic.Own}> under another tag and has none of {diagnostic.Lost}"),
         .. drawings.Diagnostics.Select(diagnostic => diagnostic.ToString())
     ];
 
