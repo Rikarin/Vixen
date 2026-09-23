@@ -74,9 +74,17 @@ level-indicator.warning { --fill-color: var(--warning); }
 level-indicator.critical { --fill-color: var(--danger); }
 ```
 
-`ControlTheme.vcss` writes exactly those two rules, and `--warning` is a palette token added with this
-control: warning and danger are not the same word. Danger says something has gone wrong or is about to
-be destroyed; warning says a reading is heading somewhere and there is still time.
+`ControlTheme.vcss` writes exactly those two rules. Warning and danger are not the same word: danger
+says something has gone wrong or is about to be destroyed; warning says a reading is heading somewhere
+and there is still time.
+
+⚠ **`--warning` is new to the control set's palette and not new to the tree.** The editor has declared
+its own `--warning` for as long as it has had a console — `#9a6200` dark, `#d99a3c` light — and the
+editor's declaration wins wherever the editor is running, because `ControlTheme`'s palette sits in the
+`base` layer and `EditorTheme` is wholly in `components`. Layer beats load order, so this holds
+whichever sheet is installed first. What the control set adds is the default underneath: `#a26507`, for
+an application that installs only the control set. Write a warning-coloured rule against the token
+rather than against either literal.
 
 Set `Segments` above zero to draw blocks instead of a bar — signal strength, a rating, a battery with
 cells:

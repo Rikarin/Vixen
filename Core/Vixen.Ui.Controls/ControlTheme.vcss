@@ -27,7 +27,15 @@
    ⚠ **A layer cannot settle an argument across origins**, because `CascadePrecedence` compares
    `OriginRank` before `LayerRank`. Everything here and every sheet that layers over it is
    `UserAgent`, which is what makes the ladder mean anything; a game's own sheet is `Author` and
-   beats the whole of it regardless of what either says about layers. See `docs/guide/ui/cascade-layers.md`. */
+   beats the whole of it regardless of what either says about layers. See `docs/guide/ui/cascade-layers.md`.
+
+   ⚠ **An `A > B` rule added or removed here is gated from `Editor/Vixen.Editor.App.Tests`, which no
+   `Vixen.Ui.*` test run reaches.** The domain is `Core/Vixen.Ui.Styling.Tests/CombinatorPairs.txt`
+   and the proofs are five censuses in that editor project, so a child-combinator edit in this file
+   is green in every suite its author would think to start and red only in a ten-minute one they
+   have no reason to. That has already left master red for three weeks once. Run
+   `dotnet test Editor/Vixen.Editor.App.Tests` before calling such an edit done;
+   `EditorCombinatorPairTests`' own remarks carry the history. */
 
 @layer base, components, utilities;
 
@@ -84,12 +92,21 @@ root {
        without saying the first, and a theme that spelt them the same would make a disk at seventy
        per cent look like a failure.
 
-       ⚠ **New here and not new in the tree**: `EditorTheme.vcss` has declared `--warning` for as
-       long as the editor has had a console, and a dozen editor sheets read it — several with a
-       `var(--warning, #e2b341)` fallback, which is what a token with no declaration underneath it
-       looks like from the consumer's side. Being the third sheet loaded, the editor's value still
-       wins wherever the editor is running; what this adds is the default beneath it, so that an
-       application which installs only the control set has the token at all.
+       ⚠ **New here and not new in the tree**: `EditorTheme.vcss` has declared `--warning` (:94 and
+       :143) for as long as the editor has had a console, and six editor sheets read it — five of
+       the read sites, all of them in `AssetEditorTheme.vcss`, as `var(--warning, #e2b341)`, which
+       is what a token with no declaration underneath it looks like from the consumer's side. ⚠
+       Those five fallbacks were *already* dead before this rule existed, because the editor loads
+       `EditorTheme` and that declares the token; they are a signal that the same `var(--x, …)`
+       written over and over means `--x` has no declaration in the sheet that should own it, not
+       that this rule made them redundant.
+
+       ⚠ The editor's value wins by **layer** and not by load order: this palette is in `base`
+       (see the paragraph above) and `EditorTheme` is wholly in `components`, so the editor's
+       `--warning` would beat this one whichever sheet were installed first. Reasoning from
+       installation order here is reasoning from exactly the accident the `base` placement was
+       chosen to remove. What this rule adds is the default beneath both, so that an application
+       which installs only the control set has the token at all.
 
        ⚠ Darker than the amber a dark palette can use: #a26507 is 4.7:1 against `--surface`, so the
        same token carries text as well as a fill — an amber picked for the bar alone is one that
