@@ -58,6 +58,27 @@ namespace Vixen.Editor.App.Tests;
 ///         holds the corrected form. The census cannot call a row dead; it can put six of them in
 ///         front of somebody, which is what it did.
 ///     </para>
+///     <para>
+///         ⚠ <b>Nothing a <c>Vixen.Ui.*</c> test run can do will notice a rule this census owes a
+///         row to, and that gap has already cost three weeks of red.</b> The domain is
+///         <c>Core/Vixen.Ui.Styling.Tests/CombinatorPairs.txt</c> and it is fed by
+///         <c>Core/Vixen.Ui.Controls/ControlTheme.vcss</c> and the editor sheets; the proofs live
+///         here, in a project that takes about ten minutes to build and run. So a sheet edit is
+///         green everywhere its author would think to look and red only in a suite they have no
+///         reason to start. Twice now: <c>console-detail &gt; scroll-content</c> and
+///         <c>message-log-detail &gt; scroll-content</c> were declared in <c>EditorTheme.vcss</c>
+///         (:1246 and :1320) and taught to the domain file, while all four scoped censuses here
+///         kept only <c>scroll-view &gt; scroll-content</c> — this suite was red on master from
+///         then until a later sweep regenerated the censuses as a by-product and did not notice
+///         either. And again, in the same sweep, with <c>key-value-value level-indicator</c>.
+///     </para>
+///     <para>
+///         ⚠ <b>Regenerating fixes the symptom and leaves the gap</b>, so the standing instruction
+///         is the one thing that closes it: <b>an edit to any committed <c>.vcss</c> that adds,
+///         removes or renames a <c>A &gt; B</c> rule with a bare type on both sides owes a run of
+///         this project before it is called done</b>, whichever assembly the sheet lives in. It is
+///         the slow suite, and it is the only one that can answer.
+///     </para>
 /// </remarks>
 public partial class EditorCombinatorPairTests {
     /// <summary>The domain: every pairing a committed sheet declares, with a bare type on both sides.</summary>
