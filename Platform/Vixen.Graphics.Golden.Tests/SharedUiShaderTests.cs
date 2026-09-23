@@ -1400,8 +1400,18 @@ public partial class SharedUiShaderTests {
     ///         erases before the first fragment is not a difference in the picture.
     ///     </para>
     /// </remarks>
-    static Dictionary<string, int> ArithmeticIn(string module) {
+    static Dictionary<string, int> ArithmeticIn(string module) => ArithmeticIn(module, out _);
+
+    /// <summary>The same walk, also saying how many instructions it skipped as constant-only.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The skipped count is the normalisation's own instrument</b>, and
+    ///     <see cref="TheFlavourColumnDoesNotDecideWhatIsFolded" /> is what reads it: the paragraph
+    ///     above justifies skipping by "<c>glslc</c> folds both and Raven does not", and that is a
+    ///     claim about two compilers which nothing could measure until this was handed back.
+    /// </remarks>
+    static Dictionary<string, int> ArithmeticIn(string module, out int folded) {
         var words = WordsOf(module);
+        var skipped = 0;
 
         // Type id to how many scalar lanes a value of it has, and every id that names a constant.
         var lanes = new Dictionary<uint, int>();
@@ -1477,12 +1487,15 @@ public partial class SharedUiShaderTests {
                 }
 
                 if (!live) {
+                    skipped++;
                     return;
                 }
 
                 census[name] = census.GetValueOrDefault(name) + Math.Max(lanes.GetValueOrDefault(words[start + 1], 1), 1);
             }
         }
+
+        folded = skipped;
 
         return census;
     }
@@ -1738,6 +1751,82 @@ public partial class SharedUiShaderTests {
             $"`Reconciled` still excuses {string.Join(", ", stale)}, and the two modules no longer "
             + "differ there. An exemption list can only shrink: delete the line."
         );
+    }
+
+    /// <summary>
+    ///     Which flavour a module was built with does not decide what its constants are folded into.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The cost <a href="https://github.com/Rikarin/Vixen/issues/1257">#1257</a> puts on
+    ///         normalising the eight is not there, and this is the measurement that says so.</b> That
+    ///         issue declines to build all eight the same way because "normalising would refold
+    ///         constants in five modules and move the census under my own feet" — the census skipping
+    ///         constant-only expressions being calibrated, it argues, against a build flavour the
+    ///         ledger did not record. It is not: <b>every one of the eight committed GLSL modules
+    ///         holds zero constant-only arithmetic, the five <c>-O0</c> ones exactly like the three
+    ///         <c>-O</c> ones</b>. Folding a literal expression is glslang's front end and not
+    ///         <c>-O</c>, so rebuilding the five at <c>-O</c> cannot change what this walk skips, and
+    ///         what remains of #1257 is a toolchain step rather than a decision about the census.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the skipping is entirely about the Raven side</b>, which is the half the
+    ///         census's own remark states and nothing measured. All three instructions it skips in
+    ///         all sixteen modules are in <c>UiBox.frag.spv</c>: two <c>OpFNegate</c> of a positive
+    ///         literal and the <c>1f / 2.4f</c> whose quotient is bit-for-bit the constant the GLSL
+    ///         copy carries folded.
+    ///     </para>
+    ///     <para>
+    ///         <b>Both halves, because a walk that found nothing would satisfy the first on its own.</b>
+    ///         The instrument is shown able to find a constant-only expression — it finds exactly
+    ///         three — before it is believed about finding none.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheFlavourColumnDoesNotDecideWhatIsFolded() {
+        var root = RepositoryRoot();
+        var raven = Path.Combine(root, "Platform", "Vixen.Ui.Desktop", "Shaders");
+        var flavours = Recorded();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var (glsl, module) in Pairs) {
+            var copy = Path.Combine(root, Shaders, glsl + ".spv");
+
+            // The census itself, so this reads the predicate the normalisation is made of rather
+            // than a second opinion about what a constant is.
+            var census = ArithmeticIn(copy, out var folded);
+
+            Assert.NotEmpty(census);
+
+            Assert.True(
+                flavours.TryGetValue(glsl, out var recorded) && recorded.Flavour is { } flavour,
+                $"Shaders/modules.sha256 records no flavour for {glsl}, so this fixture cannot say "
+                + "what it was built with."
+            );
+
+            seen.Add(recorded.Flavour!);
+
+            Assert.True(
+                folded == 0,
+                $"Shaders/{glsl}.spv was built `glslc {recorded.Flavour}` and holds {folded} arithmetic "
+                + "instructions on nothing but constants. The census skips those on the argument that "
+                + "glslc folds them whatever the flavour, and #1257's cost for normalising the eight "
+                + "rests on that argument -- so read both before rebuilding anything."
+            );
+
+            ArithmeticIn(Path.Combine(raven, module), out var ravenFolded);
+
+            Assert.True(
+                ravenFolded == (module == "UiBox.frag.spv" ? 3 : 0),
+                $"{module} holds {ravenFolded} constant-only arithmetic instructions, and the census's "
+                + "remark records three in UiBox.frag.spv and none anywhere else. If Raven has started "
+                + "folding, or stopped, the skipping is measuring something different from what it says."
+            );
+        }
+
+        // ⚠ The half that makes the loop above an answer about the flavour rather than about eight
+        // modules that happen to agree: both flavours have to be in the set that was walked.
+        Assert.Equal(2, seen.Count);
     }
 
     /// <summary>The opcodes whose shape is a front end's choice rather than a difference in the picture.</summary>
