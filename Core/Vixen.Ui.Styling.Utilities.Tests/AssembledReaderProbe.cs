@@ -188,7 +188,7 @@ static class AssembledReaderProbe {
             }
 
             foreach (var value in values) {
-                foreach (var candidate in (string[]) [$"{root}-{value}", $"-{root}-{value}"]) {
+                foreach (var candidate in (string[])[$"{root}-{value}", $"-{root}-{value}"]) {
                     if (FillsASlot(candidate, Tokens)) {
                         candidates.Add(candidate);
                     }
