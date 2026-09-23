@@ -52,6 +52,13 @@
         -->
         <Compile Include="..\Vixen.Ui.Styling.Tests\Shared\VxmlLines.cs" Link="Shared\VxmlLines.cs" />
         <Compile Include="..\Vixen.Ui.Styling.Tests\Shared\VxmlLinesTests.cs" Link="Shared\VxmlLinesTests.cs" />
+
+        <!--
+            Which whole selectors the sheets spell entirely in tags — the same reader the editor's
+            scoped census and `CombinatorCensusDriftTests` use, so `LiveCombinatorPairTests`' scoped
+            half cannot disagree with either about which selectors are in the question (#531, #1349).
+        -->
+        <Compile Include="..\Vixen.Ui.Styling.Tests\Shared\TypeOnlySelectors.cs" Link="Shared\TypeOnlySelectors.cs" />
     </ItemGroup>
 
     <ItemGroup>

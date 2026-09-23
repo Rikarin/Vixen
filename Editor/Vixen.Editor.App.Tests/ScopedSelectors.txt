@@ -39,7 +39,11 @@
 #   - The `key-value-value *`, `property-editor *`, `stepper`, `switch`, `radio`, `textarea` and
 #     `combo-box` rows are control-theme rules for parts the editor builds only with content, or
 #     controls it never builds bare; the controls' own live sweep (`LiveCombinatorPairTests`) is
-#     where those are provable, and it does not ask this question yet.
+#     where those are provable, and it now asks this question of every bare control: its answers
+#     are `Core/Vixen.Ui.Controls.Advanced.Tests/ControlScopedSelectors.txt`, which credits ten of
+#     this file's `-` rows (`radio box dot`, `switch track knob`, `stepper icon-button` and seven
+#     more). The `key-value-value *` and `property-editor *` rows stay `-` in both — those controls
+#     build their editors only for content.
 #
 # ⚠ The negative half — a hand-kept file naming, for every `-` row, the producer and why the ladder
 # does not reach it, held exactly the way `UnprovedCombinatorPairs.txt` is — is NOT made here. This

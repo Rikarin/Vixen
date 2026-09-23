@@ -60,6 +60,15 @@ public class CombinatorCensusDriftTests {
     /// <summary>The editor's scoped census: every type-only selector, and the shallowest depth that matched it.</summary>
     const string ScopedFile = "Editor/Vixen.Editor.App.Tests/ScopedSelectors.txt";
 
+    /// <summary>The controls' scoped census: every type-only selector the two control sheets declare, and whether a bare control matched it.</summary>
+    const string ControlScopedFile = "Core/Vixen.Ui.Controls.Advanced.Tests/ControlScopedSelectors.txt";
+
+    /// <summary>The two sheets whose selectors that census answers for, as <c>LiveCombinatorPairTests</c> names them.</summary>
+    static readonly string[] ControlSheets = [
+        "Core/Vixen.Ui.Controls/ControlTheme.vcss",
+        "Core/Vixen.Ui.Controls.Advanced/AdvancedTheme.vcss"
+    ];
+
     /// <summary>Where to send somebody whose sheet edit this suite has just refused.</summary>
     const string Remedy = """
         Run the suite that owns the census rather than editing it by hand:
@@ -183,6 +192,55 @@ public class CombinatorCensusDriftTests {
              Only a running editor can say which depth matches a selector, so regenerate it there:
 
                dotnet test Editor/Vixen.Editor.App.Tests --filter "FullyQualifiedName~EditorCombinatorPairTests"
+
+             with VIXEN_REGENERATE=1, and read the verdicts it writes before committing them.
+             """
+        );
+    }
+
+    /// <summary>
+    ///     The controls' scoped census names exactly the type-only selectors the two control sheets
+    ///     declare.
+    /// </summary>
+    /// <remarks>
+    ///     The same question as the editor's scoped census above, for the file
+    ///     <c>LiveCombinatorPairTests</c> keeps in <c>Vixen.Ui.Controls.Advanced.Tests</c>: its
+    ///     verdicts need the controls built, and its selector column needs only the sheets — which is
+    ///     the half a <c>ControlTheme.vcss</c> author reaches from here.
+    /// </remarks>
+    [Fact]
+    public void The_control_scoped_census_names_exactly_the_type_only_selectors_the_control_sheets_declare() {
+        var root = RepositoryScan.Root();
+
+        var declared = TypeOnlySelectors.Read(root)
+            .Where(static row => ControlSheets.Contains(row.Value, StringComparer.Ordinal))
+            .ToDictionary(static row => row.Key, static row => row.Value, StringComparer.Ordinal);
+
+        Assert.True(declared.Count >= 30, $"the control sheets declare only {declared.Count} type-only selectors, against 55 measured.");
+
+        var census = Rows(root, ControlScopedFile).Select(static row => row.Split('\t')[0].Trim()).ToHashSet(StringComparer.Ordinal);
+
+        var arrived = declared.Keys.Where(selector => !census.Contains(selector))
+            .Order(StringComparer.Ordinal)
+            .Select(selector => $"{selector}  — in {declared[selector]}")
+            .ToList();
+
+        var departed = census.Where(selector => !declared.ContainsKey(selector)).Order(StringComparer.Ordinal).ToList();
+
+        Assert.True(
+            arrived.Count == 0 && departed.Count == 0,
+            $"""
+             {ControlScopedFile} is out of step with the control sheets.
+
+             Declared by a control sheet and not in the census:
+             {Lines(arrived)}
+
+             In the census and declared by no control sheet any more:
+             {Lines(departed)}
+
+             Only the built controls can say whether a selector matches, so regenerate it there:
+
+               dotnet test Core/Vixen.Ui.Controls.Advanced.Tests --filter "FullyQualifiedName~LiveCombinatorPairTests"
 
              with VIXEN_REGENERATE=1, and read the verdicts it writes before committing them.
              """

@@ -62,7 +62,7 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///     </para>
 /// </remarks>
 [Collection(SharedCatalogue.Name)]
-public class LiveCombinatorPairTests {
+public partial class LiveCombinatorPairTests {
     /// <summary>The domain: every pairing a committed sheet declares.</summary>
     const string DomainFile = "Core/Vixen.Ui.Styling.Tests/CombinatorPairs.txt";
 
@@ -308,6 +308,10 @@ public class LiveCombinatorPairTests {
             ui.Update();
             count++;
             Walk(element, pairs);
+
+            // The whole-selector question, over the same tree before its fixture goes. See the
+            // partial beside this file.
+            Scope(ui.Document);
         }
 
         built = count;
