@@ -190,6 +190,55 @@ public sealed partial class RetaggedControlTests {
         Assert.DoesNotContain(sites, site => site is { Type: "Button", Tag: "go" });
     }
 
+    /// <summary>An element written inside a markup comment is prose, and the line count survives it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half that matters is the second assertion.</b> Dropping a comment outright makes
+    ///     the first one pass and quietly moves every site after it up by however many lines the
+    ///     comment had, so the census would go on reporting real defects against the wrong
+    ///     <c>file:line</c> — a failure that reads as a stale ledger rather than as a broken
+    ///     instrument. The sheets this census guards now explain each conversion in a multi-line
+    ///     comment directly above the converted element, so that offset would be one comment wide
+    ///     at exactly the sites people are editing.
+    ///     <para>
+    ///         ⚠ <b>The commented element has to be written out in full, angle brackets and all</b>,
+    ///         which the first draft of this fixture was not: <c>MarkupElement</c> anchors on
+    ///         <c>&lt;</c> followed by a capital, so prose merely <i>naming</i>
+    ///         <c>ScrollView tag="…"</c> was never a match and the no-op sabotage passed. A green
+    ///         sabotage proves nothing, and what it was hiding here was that the fixture did not
+    ///         contain the defect.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_commented_out_element_is_not_a_site_and_does_not_move_the_ones_below_it() {
+        var markup = Uncommented(
+            """
+            <Panel>
+                <!-- What this pane used to be, kept because the reason is worth reading:
+                     <ScrollView tag="explained-in-prose" /> lost its own rule, so the
+                     three declarations are restated on the tag below. -->
+                <ScrollView tag="really-here" />
+            </Panel>
+            """
+        );
+
+        var tagged = MarkupElement.Matches(markup)
+            .Where(match => MarkupTagAttribute.IsMatch(match.Groups["attributes"].Value))
+            .ToList();
+
+        Assert.DoesNotContain(
+            tagged,
+            match => MarkupTagAttribute.Match(match.Groups["attributes"].Value).Groups["tag"].Value
+                == "explained-in-prose"
+        );
+
+        var real = Assert.Single(tagged);
+
+        Assert.Equal("really-here", MarkupTagAttribute.Match(real.Groups["attributes"].Value).Groups["tag"].Value);
+
+        // And it is still on line 5, counted exactly as `Sites` counts it.
+        Assert.Equal(5, markup.Take(real.Index).Count(character => character == '\n') + 1);
+    }
+
     /// <summary>Every production site that creates a control under a tag, as type, tag and where.</summary>
     static List<(string Type, string Tag, string Site)> Sites() {
         var root = RepositoryScan.Root();
@@ -230,7 +279,7 @@ public sealed partial class RetaggedControlTests {
                 continue;
             }
 
-            var markup = File.ReadAllText(path);
+            var markup = Uncommented(File.ReadAllText(path));
 
             foreach (Match match in MarkupElement.Matches(markup)) {
                 if (MarkupTagAttribute.Match(match.Groups["attributes"].Value) is { Success: true } attribute) {
@@ -246,6 +295,31 @@ public sealed partial class RetaggedControlTests {
 
         return found;
     }
+
+    /// <summary>The same markup with every <c>&lt;!-- … --&gt;</c> blanked and every newline kept.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The line loop above skips a comment and the markup sweep did not</b>, so a
+    ///         <c>&lt;ScrollView tag="…"&gt;</c> written inside a comment was reported as a
+    ///         production retag, with a line number and a property list, and the only answer would
+    ///         have been to add a ledger entry for a control that does not exist. Nothing in the
+    ///         tree did it — but the sheets this census was written for now carry a
+    ///         <c>&lt;!-- … --&gt;</c> block explaining the conversion directly above nearly every
+    ///         converted element, so the next person to write out the shape they are explaining
+    ///         lands on it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Blanked rather than removed</b>: the line a match reports is counted by
+    ///         newlines in the text before it, so deleting a multi-line comment would shift every
+    ///         site after it in the file and the census would name the wrong element. Only the
+    ///         non-newline characters go.
+    ///     </para>
+    /// </remarks>
+    static string Uncommented(string markup) =>
+        MarkupComment.Replace(
+            markup,
+            match => new string(match.Value.Select(character => character == '\n' ? '\n' : ' ').ToArray())
+        );
 
     /// <summary>What tag each type carries when nobody renames it.</summary>
     /// <remarks>
@@ -331,6 +405,15 @@ public sealed partial class RetaggedControlTests {
     /// </remarks>
     [GeneratedRegex("""<(?<type>[A-Z]\w*)(?<attributes>(?:[^<>"]|"[^"]*")*)>""")]
     private static partial Regex MarkupElement { get; }
+
+    /// <summary>A markup comment, including the newlines inside it.</summary>
+    /// <remarks>
+    ///     Lazy and <c>Singleline</c>, so it ends at the first <c>--&gt;</c> and spans lines — the
+    ///     blocks this census has to survive are several lines of prose about the very construct it
+    ///     is looking for.
+    /// </remarks>
+    [GeneratedRegex("<!--.*?-->", RegexOptions.Singleline)]
+    private static partial Regex MarkupComment { get; }
 
     /// <summary>The <c>tag="…"</c> attribute, which renames what a capitalised tag creates.</summary>
     /// <remarks>⚠ Preceded by whitespace rather than <c>\b</c>, so <c>data-tag="…"</c> is not one.</remarks>

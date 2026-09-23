@@ -113,11 +113,19 @@ static class RepositoryScan {
     ///         second one has is exactly what the spelling cost.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It answers in longhands, which is what makes it usable for a shorthand.</b>
-    ///         <c>overflow: hidden</c> is expanded at load, so a rule writing the shorthand and a
-    ///         rule writing both axes are the same answer here — a comparison over declaration
-    ///         <i>text</i> would call one of them a loss and send somebody to rewrite a correct
-    ///         sheet.
+    ///         ⚠ <b>A shorthand is a resolved property of its own, so it does not answer in
+    ///         longhands.</b> <c>overflow</c> survives the cascade under its own name rather than
+    ///         being expanded away, so a rule writing <c>overflow-x</c> and <c>overflow-y</c> in
+    ///         place of it is reported here as losing <c>overflow</c> — even though
+    ///         <c>LayoutStyleBuilder</c> reads the shorthand and then lets the longhands override
+    ///         it, so the two describe the same box. That is the one false accusation this
+    ///         comparison can make; it is cheap to answer by writing the shorthand, and it is
+    ///         pinned by
+    ///         <c>RetaggedControlTests.The_comparison_is_over_resolved_properties_and_a_shorthand_is_one_of_them</c>
+    ///         so that the day the cascade starts expanding shorthands, that test says so rather
+    ///         than this paragraph quietly becoming true. ⚠ It is worth naming because the rules
+    ///         most likely to be written per-axis are the sideways-scrolling ones, which is exactly
+    ///         where the next caller will arrive.
     ///     </para>
     /// </remarks>
     public static List<string> Missing(StyleEngine engine, string written, string declared) {
