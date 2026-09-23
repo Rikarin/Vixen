@@ -111,6 +111,24 @@ public readonly record struct UiShaders(
     /// </remarks>
     public ShaderHandle Mask { get; init; }
 
+    /// <summary>The composite of a group whose <c>mix-blend-mode</c> is not <c>normal</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Optional on <see cref="Colour" />'s terms, and its absence is the divergence #783
+    ///         was filed about.</b> A host without this stage composites a blended group source-over —
+    ///         a picture rather than a fault, the one the frame would have had without the
+    ///         declaration — and <c>UiRenderer.Unblended</c> counts every such draw.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It samples two textures and the second is in descriptor set 1.</b> The group's
+    ///         surface is in set 0 like every composite's; the backdrop it mixes with is a capture
+    ///         <c>UiRenderer.Compose</c> renders before the composite, bound at set 1 through a second
+    ///         pipeline layout that repeats set 0 and the push-constant range verbatim — which is what
+    ///         keeps set 0 bound across the switch. See <c>Ui.rvn</c>'s <c>UiBlend</c>.
+    ///     </para>
+    /// </remarks>
+    public ShaderHandle Blend { get; init; }
+
     /// <summary>
     ///     Where the vertex stage reads <c>UiVertex</c>'s five attributes: position, texture,
     ///     colour, shape, then <c>w</c>.
@@ -398,19 +416,80 @@ public sealed class UiRenderer : IDisposable {
     /// </remarks>
     readonly Dictionary<ulong, (int First, int Count)> layerMasks = [];
 
-    /// <summary>Each blended group's surface number, so <see cref="Unblended" /> can count it.</summary>
+    /// <summary>Each blended group's mode, keyed by its surface number the way the filters are.</summary>
     /// <remarks>
-    ///     ⚠ <b>A record of what this renderer is <i>not</i> doing, which is the only kind of entry a
-    ///     set like this should ever be.</b> <c>mix-blend-mode</c> reaches the frame as
-    ///     <see cref="UiLayer.Blend" /> and the software rasteriser applies it; the device does not,
-    ///     for want of a composite pipeline variant that samples the group's surface and a backdrop
-    ///     together — <i>not</i>, as this said until 2026-09-06, for want of a read of the attachment
-    ///     it is writing, which § 5.1 never asks for. See <see cref="Unblended" />. Keeping the numbers anyway is what lets
-    ///     <see cref="SubmitDraw" /> say out loud that a composite went out source-over — the same job
-    ///     <see cref="Backdropped" /> does for a capture that never ran, and needed here for the same
-    ///     reason: a blend over a flat backdrop is often the identity, so a screenshot cannot tell.
+    ///     ⚠ <b>It gates a pipeline now, and until #783 it was a record of what this renderer was
+    ///     <i>not</i> doing.</b> <c>mix-blend-mode</c> reaches the frame as <see cref="UiLayer.Blend" />;
+    ///     a group in this map whose capture exists in <see cref="blendCaptures" /> is composited
+    ///     through <see cref="blendPipeline" />, and one whose capture does not — no blend stage, a
+    ///     transformed group, a group whose composite also needs a matrix or a mask — still goes out
+    ///     source-over and <see cref="SubmitDraw" /> says so in <see cref="Unblended" />. ⚠ A blended
+    ///     group's drop-shadow quad is in it too, under <see cref="UiLayer.ShadowImage" />: it is never
+    ///     blendable, and the entry is what makes its source-over composite a counted decline rather
+    ///     than a silent one. Rebuilt by <see cref="Compose" /> each frame for
+    ///     <see cref="layerFilters" />' reason.
     /// </remarks>
-    readonly HashSet<ulong> layerBlends = [];
+    readonly Dictionary<ulong, UiBlendMode> layerBlends = [];
+
+    /// <summary>The white level the last <see cref="Compose" />'s geometry was built at, for the blend.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Pushed with every blended composite, because § 5.1's functions are not scale-free</b>
+    ///     (#1209): both operands are normalised by it and the answer re-lit, so a <c>multiply</c> in a
+    ///     frame built at 203 that forgot it would come out at one candela. Read from the geometry
+    ///     rather than from <see cref="WhiteLevel" />, because the geometry is what the colours
+    ///     actually hold — the two disagreeing is what <c>UiRenderFeature.Dim</c> counts, and the
+    ///     blend has to be right for the frame it was given.
+    /// </remarks>
+    float blendWhite = 1f;
+
+    /// <summary>A blended group's backdrop, captured before its composite, and the set that names it.</summary>
+    /// <param name="Surface">What the parent's prefix is replayed into. Never registered as an image.</param>
+    /// <param name="Set">
+    ///     A set in <see cref="atlasLayout" /> pointing at it, bound at set 1 by the blend draw — one
+    ///     rather than a ring, on <see cref="scratchSet" />'s argument: nothing updates it, and the only
+    ///     thing that can replace the view behind it destroys the set in the same breath.
+    /// </param>
+    sealed record BlendCapture(LayerSurface Surface, DescriptorSetHandle Set);
+
+    /// <summary>Each blended group's capture, keyed by the group's own surface number.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Keyed by <see cref="UiLayer.Image" /> and outside that number space, like
+    ///     <see cref="scratch" /></b> — a capture is never named by a draw, only bound at set 1 by the
+    ///     composite of the group it belongs to, so it needs a set and not a number. Kept between
+    ///     frames and destroyed with the layer surfaces on a resize, for <see cref="layerSurfaces" />'
+    ///     reason.
+    /// </remarks>
+    readonly Dictionary<ulong, BlendCapture> blendCaptures = [];
+
+    /// <summary>Which of this frame's groups <see cref="EnsureSurfaces" /> found blendable.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Per frame, and not "has a capture", because a capture outlives the group that made
+    ///     it.</b> <see cref="blendCaptures" /> is keyed by a surface number and numbers are reused by
+    ///     position from frame to frame, so a capture made for last frame's plain blended group is still
+    ///     there when this frame's group at that number is rotated or filtered. Reading the dictionary
+    ///     alone would put that group through <c>UiBlend</c> against the wrong texels. Cleared by
+    ///     <see cref="Compose" /> with the other per-frame maps.
+    /// </remarks>
+    readonly HashSet<ulong> blendable = [];
+
+    /// <summary>The composite pipeline a blended group uses: <c>UiBlend</c>, through <see cref="blendLayout" />.</summary>
+    readonly PipelineHandle blendPipeline;
+
+    /// <summary>
+    ///     <see cref="layout" /> with a second set: set 0 and the <c>[0, 128]</c> range repeated
+    ///     verbatim, and <see cref="atlasLayout" /> again at set 1 for the backdrop.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Verbatim, because Vulkan's compatibility rule is what keeps the atlas bound.</b> Two
+    ///     layouts are compatible for set N only when set layouts 0..N and the push-constant ranges are
+    ///     all identical, so switching to the blend pipeline and back leaves set 0 and the projection
+    ///     exactly where they were. A blend layout that re-staged the range would un-bind the atlas for
+    ///     every UI draw after the first blend — see the remark on <see cref="layout" />'s creation.
+    ///     ⚠ <b>The set 1 layout is <see cref="atlasLayout" /> itself</b>, which <c>UiBlend</c>'s
+    ///     texture-0/sampler-1 declaration is a prefix of, so the capture's set is an ordinary image
+    ///     set and needed no layout of its own.
+    /// </remarks>
+    readonly PipelineLayoutHandle blendLayout;
 
     /// <summary>Each rounded group's backdrop box and radius, keyed by its backdrop surface number.</summary>
     /// <remarks>
@@ -645,6 +724,7 @@ public sealed class UiRenderer : IDisposable {
     /// </remarks>
     int filtered;
     int unblended;
+    int blended;
 
     int squareBackdrops;
 
@@ -817,6 +897,18 @@ public sealed class UiRenderer : IDisposable {
             maskPipeline = Pipeline(shaders.Mask, output, "ui mask");
         }
 
+        // And the blend — see `UiShaders.Blend` and `blendLayout`. A host without it composites a
+        // blended group source-over, and `Unblended` counts every such draw. ⚠ The layout repeats
+        // set 0 and the range exactly; that sameness is the whole of what keeps the atlas bound
+        // across a switch to this pipeline and back.
+        if (shaders.Blend.IsValid) {
+            blendLayout = device.CreatePipelineLayout(
+                new([atlasLayout, atlasLayout], [new(PushStages, 0, 128)], "ui blend")
+            );
+
+            blendPipeline = Pipeline(shaders.Blend, output, "ui blend", blendLayout);
+        }
+
         // ⚠ Once, at full size, and never again — see the field. Every image descriptor set in the
         // ring points here for the whole life of the renderer, so a replacement would be a set
         // pointing at freed memory on a frame nothing marked stale.
@@ -987,118 +1079,79 @@ public sealed class UiRenderer : IDisposable {
     /// <summary>How many composite draws went out source-over despite carrying a blend mode.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The one counter on this class that counts something the renderer failed to do, and
-    ///         it is not a bug report — it is the honest shape of a feature that is implemented on one
-    ///         executor and not the other.</b> <c>mix-blend-mode</c> reaches the frame as
-    ///         <see cref="UiLayer.Blend" />; <c>SoftwareUiRasterizer</c> applies it, because it owns
-    ///         the destination buffer and can read it. This renderer does not — and ⚠ <b>the reason
-    ///         written here until 2026-09-06 was one this class's own remarks refute two paragraphs
-    ///         further down</b>: "the UI pass has no subpass input, no framebuffer fetch and no copy of
-    ///         the attachment it is writing" is perfectly true and is not the blocker, because CSS
-    ///         Compositing 1 § 5.1 asks for no read of the destination at all. It is a change of
-    ///         <i>source</i> colour followed by an ordinary source-over, and the backdrop can arrive as
-    ///         a texture. What is missing is the composite pipeline variant that samples two of them.
+    ///         ⚠ <b>Zero on a blended frame since #783, and what it counts now is the cases the device
+    ///         path declines.</b> <c>mix-blend-mode</c> reaches the frame as <see cref="UiLayer.Blend" />;
+    ///         <c>SoftwareUiRasterizer</c> applies it by reading the buffer it owns, and this renderer
+    ///         applies it with <c>UiBlend</c> — the group's surface and a capture of what its composite
+    ///         lands on, mixed by § 5.1's arithmetic and composited source-over. See
+    ///         <see cref="Blended" />, which counts the draws that did.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the cost recorded under that in four places until 2026-09-06 — "a fourth
-    ///         binding on the deliberately shared <c>ui atlas</c> layout, which declares exactly one
-    ///         sampled texture" — is not reachable, because Raven cannot spell it.</b>
-    ///         <c>BindingPlan.Of</c> numbers a set's bindings <i>by kind</i>: every texture in
-    ///         declaration order, then every sampler, then every storage buffer. So a module declaring
-    ///         a second <c>Texture2D</c> gets the backdrop at binding 1 and its <i>sampler</i> moves to
-    ///         2 — the shared layout's sampler slot and its shape buffer's, both renumbered by a
-    ///         declaration in one shader. Every shipped reflection agrees: <c>UiMask</c> is
-    ///         texture/sampler/storage at 0/1/2, and the library's <c>Underwater</c> is
-    ///         block/texture/texture/texture/sampler/sampler at 0–5.
+    ///         ⚠ <b>Four ways a blended composite still goes out source-over, each counted here:</b> a
+    ///         host that handed over no <see cref="UiShaders.Blend" />; a group under
+    ///         <c>rotate</c>/<c>scale</c>/<c>perspective</c>, whose quad has left the space the backdrop
+    ///         is sampled in and whose fragment stage has no position input to recover it; a group whose
+    ///         composite also needs a colour matrix or a mask, which the module that applies those
+    ///         cannot combine with a second texture; and the drop-shadow quad of a blended group, which
+    ///         the software path blends separately and this one composites plainly (#783's second
+    ///         question, still to be settled rather than reproduced). The shadow is counted as its own
+    ///         draw, so a blended shadowed group reads <see cref="Blended" /> for its composite and this
+    ///         for its shadow — twice, because the group's own capture replays the shadow quad it lands
+    ///         on.
     ///     </para>
     ///     <para>
-    ///         So the backdrop belongs in a <i>second</i> descriptor set rather than a fourth binding
-    ///         on this one, and that is the cheaper shape besides: a module that does not declare set 1
-    ///         does not statically use it, so leaving it unbound for every other pipeline is valid and
-    ///         no pipeline change disturbs set 0 — which is the property the shared layout exists to
-    ///         guarantee. The alternative is to renumber the shared layout to
-    ///         texture/texture/sampler/storage and recompile all eight modules, which buys nothing.
+    ///         ⚠ <b>What this does <i>not</i> count: a top-level blended group in a world renderer.</b>
+    ///         <c>UiRenderFeature.Compose</c> passes no <c>beneath</c>, because the scene is not drawn
+    ///         when these passes are recorded, so such a group blends through <c>UiBlend</c> — and
+    ///         reads <see cref="Blended" /> — against the interface's own prefix over transparent
+    ///         black. Where the interface has painted under it that is the right answer; where only
+    ///         the scene has, a backdrop of alpha zero weights the blend to nothing and the composite
+    ///         lands source-over on the world. It is not counted here because nothing this renderer is
+    ///         handed tells the two apart: a default <see cref="UiBackdropSource" /> is also what a
+    ///         host that genuinely painted nothing would pass, and there the picture is right. And it
+    ///         is not declined, because declining would lose the blend in the case that works — a
+    ///         top-level badge over a plain HUD panel, which is not a group and so is in the prefix.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it is a shader change at all, which six audits of <c>Rikarin/Vixen#783</c>
-    ///         never said out loud.</b> Vulkan's <c>VK_EXT_blend_operation_advanced</c> is the CSS
-    ///         blend set as <i>fixed-function</i> blend operations — the separable twelve and the
-    ///         non-separable four, named after the same PDF modes — so on a device exposing it this
-    ///         divergence would close with a different <c>BlendState</c> on the draw already being
-    ///         made, and no texture, capture, descriptor set or fragment arithmetic at all. It is
-    ///         rejected on two checkable grounds rather than on taste:
-    ///         <see cref="Vixen.Graphics.BlendOperation" /> has five members and they are core
-    ///         Vulkan's, so the abstraction cannot spell one; and the extension is optional and
-    ///         MoltenVK does not expose it, so the machine the reference images come from could not
-    ///         run the path and a fragment implementation would have to exist beside it anyway. ⚠
-    ///         <see cref="Vixen.Graphics.BlendOperation.Min" /> and
-    ///         <see cref="Vixen.Graphics.BlendOperation.Max" /> are the trap in that sentence: they
-    ///         look like <c>darken</c> and <c>lighten</c> and are not, because § 5.1's <c>B</c> is
-    ///         defined on un-premultiplied colour and a composite surface holds premultiplied.
+    ///         ⚠ <b>History worth keeping, because two refusals were written here as blockers and both
+    ///         were false.</b> "The UI pass has no subpass input, no framebuffer fetch and no copy of the
+    ///         attachment it is writing" was true and was never the blocker — § 5.1 is a change of
+    ///         <i>source</i> colour followed by an ordinary source-over, and the backdrop arrives as a
+    ///         texture. And "a fourth binding on the shared <c>ui atlas</c> layout" is unreachable,
+    ///         because <c>BindingPlan.Of</c> numbers a set by kind and a second <c>Texture2D</c> in set
+    ///         0 would renumber that layout's sampler — so the backdrop is in set 1, through
+    ///         <see cref="blendLayout" />. <c>VK_EXT_blend_operation_advanced</c> was rejected on
+    ///         checkable grounds: <see cref="Vixen.Graphics.BlendOperation" /> has only core Vulkan's
+    ///         five members, MoltenVK does not expose the extension, and
+    ///         <see cref="Vixen.Graphics.BlendOperation.Min" />/<see cref="Vixen.Graphics.BlendOperation.Max" />
+    ///         look like <c>darken</c>/<c>lighten</c> and are not, because § 5.1's <c>B</c> is on
+    ///         un-premultiplied colour.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which needs saying out loud for <see cref="Backdropped" />'s reason and a sharper
-    ///         version of it.</b> A blend over a flat backdrop is frequently the identity —
-    ///         <c>multiply</c> against white, <c>screen</c> against black — so a fixture cannot tell a
-    ///         blend that ran from one that did not, and here a comparison of the two executors will
-    ///         <i>not</i> agree either. This is the number that says which of the two happened.
-    ///     </para>
-    ///     <para>
-    ///         Non-zero is therefore a claim about the device path rather than about the frame: the
-    ///         geometry asked for a blend and the picture on screen does not have one. Closing it
-    ///         needs the backdrop as an input to the composite fragment — the capture
-    ///         <see cref="Backdropped" /> already performs is exactly that picture, so the shape is
-    ///         there and the shader is not. <c>docs/guide/ui/compositing.md</c> prices it.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Read by <c>UiCompositingTests.ADeclaredBlendRunsOnTheSoftwarePathAndGoesOutSourceOverOnTheDevice</c>,
-    ///         and by nothing at all before that.</b> A counter that says what a renderer failed to do
-    ///         is worth exactly what asks it: nobody did, so the divergence was a paragraph rather
-    ///         than a measurement, and neither a regression in it nor the day it is closed would have
-    ///         been noticed. That fixture asserts this is <i>one</i> on a blended frame and reads the
-    ///         two executors' pixels apart — yellow over magenta, where the green channel alone
-    ///         separates a blend that ran from one that did not. ⚠ It is written to be inverted: when
-    ///         #783 lands, this becomes zero and the two frames are compared like every other case in
-    ///         that file.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The blocker nine audits of #783 ended on — "its only proof is a device-recorded
-    ///         picture and I do not have one" — is refuted, measured 2026-09-09.</b>
-    ///         <c>dotnet test Platform/Vixen.Graphics.Golden.Tests --filter UiCompositingTests</c>
-    ///         with <c>VIXEN_REQUIRE_VULKAN=1</c> is four tests in four seconds on a MoltenVK laptop,
-    ///         and that fixture asserts counters rather than a reference image, so there is no golden
-    ///         to re-record either. The bytes were refuted before that (compiling <c>Ui.rvn</c>
-    ///         unedited reproduces every committed artefact) — what is left is the feature.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>And #229's rounded backdrop, which landed the same day, is the worked template for
-    ///         everything about this <i>except</i> the one part that is genuinely hard.</b> What
-    ///         transfers: the pipeline choice in <see cref="SubmitDraw" />, the push-constant block,
-    ///         regenerating the two committed <c>.spv</c> and their GLSL twins, and the pair of
-    ///         agreement tests — device against <c>SoftwareUiRasterizer</c>, and <c>Ui.rvn</c> against
-    ///         the golden suite's GLSL, the second of which is the one nobody would think to write.
-    ///         What does not: a rounded box is 32 bytes of push constant, and a backdrop is a second
-    ///         <i>sampled texture</i>. <see cref="Capture" /> already registers it as an image with a
-    ///         descriptor set of its own, so a blend draw would need two sets bound at once —
-    ///         set 0 holds one — and <c>BindingPlan.Of</c> numbers a set by kind, so a second
-    ///         <c>Texture2D</c> declared in set 0 moves that shader's own sampler and disturbs the
-    ///         layout every UI pipeline shares. That is the whole of the remaining cost, and it is
-    ///         real.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>One thing the fragment must carry that the arithmetic alone does not say, settled
-    ///         2026-09-10 so it is not settled twice in two shader languages (#1209).</b>
-    ///         <see cref="UiBlend.Apply" /> normalises both operands by
-    ///         <see cref="UiGeometry.WhiteLevel" /> before § 5.1's function and re-lights the answer
-    ///         after it. Without that divisor a <c>multiply</c> panel in a frame built at 203 comes
-    ///         out at <i>one candela</i> — the clamp to <c>[0, 1]</c> is a statement about the frame's
-    ///         white and not about the number one. So the composite variant needs the white level as
-    ///         well as the backdrop texture, and a fragment that transcribes the sixteen modes and
-    ///         forgets it is a device path that disagrees with the software one on exactly the frames
-    ///         a HUD is drawn in.
+    ///         ⚠ <b>Per draw, across both halves of the frame, like <see cref="Filtered" /></b> — reset
+    ///         by <see cref="Compose" /> and accumulated through its capture replays as well as through
+    ///         <see cref="Record" />.
     ///     </para>
     /// </remarks>
     public int Unblended => unblended;
+
+    /// <summary>How many composite draws were mixed with their backdrop by a blend mode.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The observer a blend has that a picture does not</b>, for <see cref="Backdropped" />'s
+    ///         reason made sharper: a blend over a flat backdrop is frequently the identity —
+    ///         <c>multiply</c> against white, <c>screen</c> against black — so a fixture cannot tell a
+    ///         blend that ran from one that did not unless its operands are chosen so no mode is the
+    ///         identity on them. This can.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Per draw, like <see cref="Filtered" /></b>, and so it counts a blended composite
+    ///         every time it is submitted — by <see cref="Record" />, and again inside any later
+    ///         capture replay that passes over it. A frame with two blended siblings reads three: the
+    ///         second one's backdrop replays the first's composite.
+    ///     </para>
+    /// </remarks>
+    public int Blended => blended;
 
     /// <summary>How many rounded backdrops went out square for want of a colour stage.</summary>
     /// <remarks>
@@ -1388,7 +1441,9 @@ public sealed class UiRenderer : IDisposable {
         filtered = 0;
         masked = 0;
         unblended = 0;
+        blended = 0;
         squareBackdrops = 0;
+        blendWhite = geometry.WhiteLevel > 0f && float.IsFinite(geometry.WhiteLevel) ? geometry.WhiteLevel : 1f;
 
         // ⚠ Cleared here and not where it is filled, so that every early return below leaves the map
         // empty rather than holding the *previous* frame's answers keyed by numbers this frame's
@@ -1397,6 +1452,7 @@ public sealed class UiRenderer : IDisposable {
         layerFilters.Clear();
         layerMasks.Clear();
         layerBlends.Clear();
+        blendable.Clear();
         layerBoxes.Clear();
 
         if (geometry.Layers.Count == 0 || geometry.Indices.Count == 0) {
@@ -1486,13 +1542,26 @@ public sealed class UiRenderer : IDisposable {
         // needs `maskPipeline`, which is the only module that does both. The identity is dropped one
         // level up, in `DrawListBuilder`, rather than here: an opaque mask never becomes a
         // `UiLayer.Mask` at all, because unlike a `grayscale(0)` it is not worth a group.
-        // ⚠ <b>Filled unconditionally, because unlike the three maps around it this one gates
-        // nothing.</b> `layerFilters` and `layerMasks` choose a pipeline; a group in this set is
-        // composited by exactly the same draw it would have been without it. What the entry buys is
-        // that <see cref="SubmitDraw" /> can count the divergence rather than leave it silent.
+        // ⚠ <b>Filled unconditionally, and whether the entry buys a blend is decided at the draw</b>
+        // (#783). A group here whose capture `EnsureSurfaces` made is composited through
+        // `blendPipeline`; one whose capture it declined still goes out source-over, and the entry is
+        // what lets <see cref="SubmitDraw" /> count that rather than leave it silent.
         foreach (var layer in geometry.Layers) {
             if (layer.Blend != UiBlendMode.Normal) {
-                layerBlends.Add(layer.Image);
+                layerBlends[layer.Image] = layer.Blend;
+
+                // ⚠ <b>And on the shadow's quad, keyed by the shadow's own number, so that the
+                // decline is counted rather than silent.</b> `SoftwareUiRasterizer` records the mode
+                // on both quads and blends the silhouette separately; this renderer composites the
+                // shadow through `colourPipeline` — the tint is what makes it a shadow — which never
+                // samples a backdrop, so the shadow goes out source-over. Until this entry existed
+                // the draw carried no mode as far as `SubmitDraw` could see, and a blended shadowed
+                // group read `Unblended` 0 while the two executors disagreed about its shadow.
+                // Conditional on the surface existing, for the tint's reason above: a shadow that is
+                // never drawn has no composite to decline.
+                if (layer.Shadow is not null && layerSurfaces.ContainsKey(layer.ShadowImage)) {
+                    layerBlends[layer.ShadowImage] = layer.Blend;
+                }
             }
 
             // ⚠ Keyed by the BACKDROP's surface and not the group's, because the curve is on the
@@ -1750,6 +1819,93 @@ public sealed class UiRenderer : IDisposable {
         );
 
         target.State = ResourceState.ShaderRead;
+
+        // ⚠ <b>Last, after this group's own surface, backdrop and shadow are all finished, and that
+        // is forced by what a blend's backdrop is</b> (#783). It is what the composite lands on: the
+        // parent's draws up to the composite itself — which includes this group's own filtered
+        // backdrop quad and its drop-shadow quad, both painted before the composite and both
+        // sampling surfaces made above. `SoftwareUiRasterizer` reads its destination at exactly that
+        // moment, so this is the same picture reached by replay instead of by read.
+        if (blendable.Contains(layer.Image) && blendCaptures.TryGetValue(layer.Image, out var blend)) {
+            CaptureBlend(commands, geometry, layer, blend.Surface, index, parent, surface, scale, beneath);
+        }
+    }
+
+    /// <summary>Renders what a blended group's composite lands on into a surface of its own.</summary>
+    /// <param name="commands">A list that is not inside a pass. This opens one.</param>
+    /// <param name="geometry">The frame's geometry, for the prefix to replay.</param>
+    /// <param name="layer">The group.</param>
+    /// <param name="captured">The capture surface.</param>
+    /// <param name="index">The group's position in <see cref="UiGeometry.Layers" />, for the pass name.</param>
+    /// <param name="parent">The layer this group is nested in, or -1 — <b>whose</b> prefix is replayed.</param>
+    /// <param name="surface">The target size in geometry units.</param>
+    /// <param name="scale">Framebuffer pixels per geometry unit.</param>
+    /// <param name="beneath">What the host had already painted. Drawn only at the top level.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="Capture" />'s replay with a later stop and no filter, and the stop is
+    ///         the difference that matters.</b> A <c>backdrop-filter</c> reads what is painted behind
+    ///         the element, so its replay stops at <see cref="UiLayer.First" />; a blend reads what the
+    ///         <i>composite</i> lands on, so this one stops at <see cref="UiLayer.Composite" /> — past
+    ///         the group's own range, which <see cref="Submit" /> skips in favour of nothing because
+    ///         the composite is not reached, and through its backdrop and shadow quads.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The region is the group's ink</b>, <see cref="UiLayer.Bounds" />, because that is
+    ///         what the composite quad covers and so every texel <c>UiBlend</c> will sample. The rest of
+    ///         the surface is cleared and never read.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>At the top level, the backdrop is <paramref name="beneath" /> and the interface's
+    ///         own prefix — and inside a world renderer that is less than the frame.</b>
+    ///         <c>UiRenderFeature.Compose</c> passes no <paramref name="beneath" />, because the scene
+    ///         has not been drawn when these passes are recorded, so a top-level blended HUD panel
+    ///         blends with the interface under it and composites source-over onto the world. That is
+    ///         the limitation <c>backdrop-filter</c> already has there, for the same reason.
+    ///     </para>
+    /// </remarks>
+    void CaptureBlend(
+        ICommandList commands,
+        in UiGeometry geometry,
+        in UiLayer layer,
+        LayerSurface captured,
+        int index,
+        int parent,
+        Int2 surface,
+        float scale,
+        UiBackdropSource beneath
+    ) {
+        var region = Confine(layer.Bounds, surface, scale, 0);
+
+        commands.Barrier(new([], [new(captured.Texture, captured.State, ResourceState.ColourTarget)]));
+
+        // The host's ground at the top level and transparent black inside a group — `Capture`'s rule,
+        // for Filter Effects 2 § 2's reason and CSS Compositing 1 § 3's: a group is a backdrop root.
+        var ground = parent < 0 ? beneath.Colour : new Color4(0f, 0f, 0f, 0f);
+
+        commands.BeginRenderPass(
+            new(
+                [new(captured.View, LoadAction.Clear, StoreAction.Store, ground)],
+                name: "ui blend backdrop " + index.ToString(CultureInfo.InvariantCulture),
+                renderArea: region
+            )
+        );
+
+        var bound = default(Bindings);
+
+        if (parent < 0 && beneath.Image.IsValid) {
+            Fullscreen(commands, surface, region);
+        }
+
+        Submit(commands, geometry, parent, surface, scale, ref bound, stop: layer.Composite);
+
+        commands.EndRenderPass();
+
+        commands.Barrier(
+            new([], [new(captured.Texture, ResourceState.ColourTarget, ResourceState.ShaderRead)])
+        );
+
+        captured.State = ResourceState.ShaderRead;
     }
 
     /// <summary>Renders the picture behind one group into a surface of its own, and filters it.</summary>
@@ -2604,11 +2760,32 @@ public sealed class UiRenderer : IDisposable {
         // silently — the picture would be a correctly filtered, entirely unmasked group, which looks
         // like the mask never parsed. That precedence is also what makes the matrix unconditional in
         // the push below: it goes out as the identity when there is no filter.
+        // ⚠ <b>A blend is the fourth, and it takes the draw only when none of the other three
+        // does</b> (#783). `UiBlend` samples the group and its backdrop and does nothing else, so a
+        // blended group that also carries a matrix or a mask keeps the module that applies those and
+        // goes out source-over — `EnsureSurfaces` makes no capture for it, and `Unblended` counts it.
+        var blend = layerBlends.Count > 0
+            && draw.Kind == BatchKind.Image
+            && layerBlends.TryGetValue(draw.Image, out var declared)
+                ? declared
+                : default(UiBlendMode?);
+
+        var capture = blend is not null
+            && mask is null
+            && matrix is null
+            && box is null
+            && blendable.Contains(draw.Image)
+            && blendCaptures.TryGetValue(draw.Image, out var captured)
+                ? captured
+                : null;
+
         var pipeline = mask is not null
             ? maskPipeline
-            : matrix is null && box is null
-                ? PipelineFor(draw.Kind)
-                : colourPipeline;
+            : capture is not null
+                ? blendPipeline
+                : matrix is null && box is null
+                    ? PipelineFor(draw.Kind)
+                    : colourPipeline;
 
         // ⚠ <b>A host that handed over no colour stage still gets its backdrop, square.</b> That is
         // the one remaining way a rounded backdrop loses its curve, and it is what
@@ -2713,6 +2890,16 @@ public sealed class UiRenderer : IDisposable {
             ];
 
             commands.PushConstants(PushStages, 16, MemoryMarshal.AsBytes(rows));
+        } else if (capture is not null) {
+            // ⚠ Every time, for the colour branch's reason one up: two blended groups in one pass
+            // carry two modes. The white level is the geometry's, which is what the colours hold.
+            Span<float> operation = [(float) blend!.Value, blendWhite, 0f, 0f];
+
+            commands.PushConstants(PushStages, 16, MemoryMarshal.AsBytes(operation));
+
+            // ⚠ Set 1, through the blend layout, and not tracked in `Bindings`: it is bound only
+            // while this pipeline is, and no other pipeline declares a set 1 for it to disturb.
+            commands.BindDescriptorSet(DescriptorSetSlot.PerView, capture.Set);
         }
 
         // ⚠ Per draw rather than once, now that a draw can carry its own texture. The set is the
@@ -2762,7 +2949,9 @@ public sealed class UiRenderer : IDisposable {
 
         // ⚠ After the draw for `filtered`'s reason, and counting a *failure* rather than a success —
         // which is what makes it worth having. See `Unblended`.
-        if (layerBlends.Count > 0 && draw.Kind == BatchKind.Image && layerBlends.Contains(draw.Image)) {
+        if (capture is not null) {
+            blended++;
+        } else if (blend is not null) {
             unblended++;
         }
 
@@ -2883,6 +3072,40 @@ public sealed class UiRenderer : IDisposable {
             if (layer.Backdrop is { } behind && (behind.Blur <= 0f || blurPipeline.IsValid)) {
                 Ensure(layer.BackdropImage);
             }
+
+            // ⚠ <b>A blend's backdrop, on the terms the draw can actually use it (#783).</b> The
+            // composite reaches `blendPipeline` only when nothing else claims it — a colour matrix or
+            // a mask goes through the module that applies them, and neither of those samples a second
+            // texture — and only when the group is untransformed, because `UiBlend` reads the backdrop
+            // at the quad's texture coordinate and a rotated quad has left the surface's space. Every
+            // other blended group keeps the source-over composite it had, and `Unblended` counts it;
+            // allocating a capture for one would be a viewport-sized target and a pass nobody reads.
+            if (layer.Blend != UiBlendMode.Normal
+                && blendPipeline.IsValid
+                && layer.Transform is null
+                && layer.Filter is not { IsIdentity: false }
+                && layer.MaskCount == 0) {
+                EnsureCapture(layer.Image);
+                blendable.Add(layer.Image);
+            }
+        }
+
+        void EnsureCapture(ulong image) {
+            if (blendCaptures.ContainsKey(image)) {
+                return;
+            }
+
+            var name = "ui blend backdrop " + blendCaptures.Count.ToString(CultureInfo.InvariantCulture);
+
+            var texture = device.CreateTexture(
+                new(layerFormat, width, height, TextureUsage.ColourTarget | TextureUsage.Sampled, Name: name)
+            );
+
+            var surface = new LayerSurface(texture, device.CreateTextureView(texture), Image: 0);
+            var set = device.CreateDescriptorSet(atlasLayout, name);
+
+            Write(set, surface.View);
+            blendCaptures[image] = new(surface, set);
         }
 
         // ⚠ <b>Which module the shadow's quad will actually reach, and the two answers are not
@@ -2952,6 +3175,16 @@ public sealed class UiRenderer : IDisposable {
         }
 
         layerSurfaces.Clear();
+
+        // ⚠ The blend captures and their sets together, on the scratch's argument below: the set is
+        // written once and never rewritten, so it must not outlive the view it names.
+        foreach (var capture in blendCaptures.Values) {
+            device.Destroy(capture.Set);
+            device.Destroy(capture.Surface.View);
+            device.Destroy(capture.Surface.Texture);
+        }
+
+        blendCaptures.Clear();
 
         if (scratch is null) {
             return;
@@ -3154,6 +3387,16 @@ public sealed class UiRenderer : IDisposable {
             device.Destroy(maskPipeline);
         }
 
+        // ⚠ The pipeline before its layout, and both only where the stage was handed over — the
+        // `colourPipeline` discipline above, which is the lesson of an optional stage leaking.
+        if (blendPipeline.IsValid) {
+            device.Destroy(blendPipeline);
+        }
+
+        if (blendLayout.IsValid) {
+            device.Destroy(blendLayout);
+        }
+
         device.Destroy(boxPipeline);
         device.Destroy(textPipeline);
         device.Destroy(solidPipeline);
@@ -3213,12 +3456,17 @@ public sealed class UiRenderer : IDisposable {
             _ => boxPipeline
         };
 
-    PipelineHandle Pipeline(ShaderHandle fragment, RenderOutput output, string name) =>
+    PipelineHandle Pipeline(
+        ShaderHandle fragment,
+        RenderOutput output,
+        string name,
+        PipelineLayoutHandle through = default
+    ) =>
         device.CreateGraphicsPipeline(
             new(
                 shaders.Vertex,
                 fragment,
-                layout,
+                through.IsValid ? through : layout,
                 [new(output.ColourCount > 0 ? output.ColourFormats[0] : PixelFormat.Rgba8UNorm, BlendState.PremultipliedAlpha)],
                 [
                     new(

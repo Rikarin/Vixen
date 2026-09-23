@@ -68,7 +68,10 @@ public readonly record struct UiInterface(UiGeometry Geometry, GlyphAtlas Atlas,
     ///         host that drives its own builder for a HUD has to set
     ///         <c>UiGeometryBuilder.ToleranceFor(scale)</c> and <c>FringeFor(scale)</c> itself. The
     ///         symptom is a softness rather than a fault, so nothing fails and everything looks
-    ///         slightly woolly.
+    ///         slightly woolly — ⚠ which is why the geometry now records the two numbers it was built
+    ///         with and <see cref="UiRenderFeature.Soft" /> counts every uploaded interface whose
+    ///         build is coarser than this scale wants (#1343). The two remain independent numbers
+    ///         that must agree; what changed is that their disagreeing is no longer silent.
     ///     </para>
     /// </remarks>
     public float Scale { get; init; } = 1f;
@@ -158,6 +161,54 @@ public sealed class UiRenderFeature : RootRenderFeature {
     ///     </para>
     /// </remarks>
     public int Dim { get; private set; }
+
+    /// <summary>How many of the last <see cref="Upload" />'s interfaces were flattened or feathered
+    /// for a lower density than their <see cref="UiInterface.Scale" />.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The half of a HUD's density that <see cref="UiInterface.Scale" /> cannot carry</b>
+    ///         (#1343). <c>Scale</c> places the interface in the framebuffer; the chord error and the
+    ///         antialiasing fringe were spent inside the triangles when the host's own
+    ///         <see cref="UiGeometryBuilder" /> built them, in document pixels, and the projection
+    ///         magnifies both. A builder left at its defaults and drawn at a scale of two comes out
+    ///         correctly placed, 0.4 device pixels off every curve and with a two-pixel band where the
+    ///         design is half of one. <c>UiWindowSurface.Tessellate</c> sets both from its window's
+    ///         scale; a game HUD drives its builder itself, and nothing else in the tree could see
+    ///         the two numbers disagree — so they are compared here, the first place both are known:
+    ///         <see cref="UiGeometry.Tolerance" /> and <see cref="UiGeometry.Fringe" /> against
+    ///         <see cref="UiGeometryBuilder.ToleranceFor" /> and <see cref="UiGeometryBuilder.FringeFor" />
+    ///         of this frame's <c>Scale</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Counted rather than refused, and one-sided, for <see cref="Dim" />'s reasons.</b>
+    ///         It cannot be repaired here — the geometry is built — and a coarser build is not
+    ///         necessarily a mistake worth a frame. Only <i>coarser</i> counts: a finer tolerance
+    ///         costs vertices and is never soft, and a fringe of zero is the builder's own switch for
+    ///         a multisampled pass. Geometry that states no tolerance, which is geometry built by
+    ///         hand, is never counted.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not fixed by deriving a scale inside the builder</b>: it is handed a viewport and
+    ///         not a scale, and two windows of one application can be on two displays. The scale is
+    ///         the host's number, and a host sets <see cref="UiGeometryBuilder.Tolerance" /> and
+    ///         <see cref="UiGeometryBuilder.Fringe" /> from the same number it puts in
+    ///         <see cref="UiInterface.Scale" />. Reset by every <see cref="Upload" />.
+    ///     </para>
+    /// </remarks>
+    public int Soft { get; private set; }
+
+    /// <summary>Whether a frame's flattening or fringe is coarser than drawing it at this scale wants.</summary>
+    /// <param name="geometry">What was built.</param>
+    /// <param name="scale">Framebuffer pixels per unit of the geometry — <see cref="UiInterface.Scale" />.</param>
+    /// <returns>Whether either number, magnified by the scale, exceeds what the builder's derivations ask for.</returns>
+    /// <remarks>
+    ///     A thousandth of slack, because a host that did the right thing computed the same division
+    ///     this does and a float compared for equality is a false report waiting for one rounding.
+    ///     The defect is a factor of the scale, not a rounding.
+    /// </remarks>
+    internal static bool IsSofterThan(in UiGeometry geometry, float scale) =>
+        geometry.Tolerance > UiGeometryBuilder.ToleranceFor(scale) * 1.001f
+        || geometry.Fringe > UiGeometryBuilder.FringeFor(scale) * 1.001f;
 
     /// <summary>Adds the render object one interface is drawn as, and returns its id.</summary>
     /// <param name="stages">Which stages draw it — see the remarks on sorting.</param>
@@ -314,6 +365,7 @@ public sealed class UiRenderFeature : RootRenderFeature {
 
         serving.Clear();
         Dim = 0;
+        Soft = 0;
 
         foreach (var (index, surface) in surfaces) {
             if (Serve(index) is not { } renderer) {
@@ -324,6 +376,11 @@ public sealed class UiRenderFeature : RootRenderFeature {
             // the geometry builder, so a frame that arrives too dark is already too dark.
             if (surface.Geometry.WhiteLevel < renderer.WhiteLevel) {
                 Dim++;
+            }
+
+            // See `Soft` — the same shape one number over: the density was spent in the builder too.
+            if (IsSofterThan(surface.Geometry, surface.Scale)) {
+                Soft++;
             }
 
             renderer.Upload(commands, surface.Geometry, surface.Atlas);
@@ -429,9 +486,9 @@ public sealed class UiRenderFeature : RootRenderFeature {
             }
 
             // ⚠ Checked here as well as in `Upload`, and not because the two can disagree. A host
-            // that never uploaded reaches this method having drawn from a buffer nothing wrote —
-            // which is the failure the upload half exists to stop — and it must not be the path on
-            // which a shared renderer is quietly tolerated.
+            // that never uploaded reaches this method with no vertex ring to draw from — on Vulkan
+            // the bind throws, which is the failure the upload half exists to stop — and it must not
+            // be the path on which a shared renderer is quietly tolerated.
             if (Serve(node.Object.Index) is not { } renderer) {
                 continue;
             }

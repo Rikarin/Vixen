@@ -1971,9 +1971,11 @@ registered nowhere, which is this repository's commonest defect wearing a diagno
 honest homes are the editor's panel system, which already has somewhere to put a view, and a game
 host that mounts a document through `UiRenderFeature`. ⚠ **That second home used to be a claim about
 a path nothing took, and is not any more**: `WorldRenderer.Ui` is a registered `UiRenderFeature`, and
-`Mount`/`Set`/`Upload`/`Compose` are the host contract for putting a document in a scene's frame.
-What is still true is that no *sample* takes it, so the arrangement is proved by tests rather than
-by a picture.
+`Renderer`/`Mount`/`Set` are the host contract for putting a document in a scene's frame —
+`WorldRenderer.Draw` makes the `Upload` and `Compose` halves itself since #627. The arrangement has a
+picture now: `InterfaceOverASceneDeviceTests` in the golden suite draws a document over a
+`!StandardFrame` on a real device through exactly that path, against a closed-form oracle. What is
+still true is that no *sample* takes it.
 
 Three constraints decide the shape, and each of them rules something out.
 

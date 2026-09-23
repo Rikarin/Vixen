@@ -1585,7 +1585,7 @@ all twelve scenes and at every value the family could emit, rather than argued f
 | --- | --- | --- |
 | `space-x/y-*` | **written** | `margin-inline-end` and `margin-bottom` are read; the family needed a compound selector, not a reader |
 | `divide-x/y-*`, `divide-<color>` | **written** | `border-inline-end-width`, `border-bottom-width` and the four `border-color` longhands are read |
-| `mix-blend-*` | **written** ✅ | ⚠ Refused here as moving no channel, and every part of that refusal has now been retired — including the correction that replaced it. `UiLayer.Blend` carries all sixteen of CSS Compositing 1 § 5.1's modes, `DrawListBuilder` opens a group for one, and `SoftwareUiRasterizer` applies it. `isolation` came with it. The one thing still owed is the device composite, which is a shader variant rather than a channel. See Part 9, Bucket 2 |
+| `mix-blend-*` | **written** ✅ | ⚠ Refused here as moving no channel, and every part of that refusal has now been retired — including the correction that replaced it. `UiLayer.Blend` carries all sixteen of CSS Compositing 1 § 5.1's modes, `DrawListBuilder` opens a group for one, and `SoftwareUiRasterizer` applies it. `isolation` came with it. The device composite landed with #783 — a shader variant and a backdrop capture, not a channel — and what it still declines is in the row's `value_gap`. See Part 9, Bucket 2 |
 | `origin-*` | **written** ✅ | ⚠ Refused here as *unobservable*, and the last clause of that refusal — "`scale` and `rotate` are refused under **#23**" — was its expiry condition. Both are implemented now, `TransformReader` reads `transform-origin` into the point they turn about, and the family is registered. The refusal also needed a *scene*: the property is invisible without a transform whose fixed point matters, so `translated` could never have seen it and the new `turned` scene is what does — the seventh entry on `UtilityConsumptionProbe`'s list of arrangements that were missing |
 | `scroll-*` | **22 of 32 written** ✅ | Part 8 § 3, discharged by **A18**. `ScrollView` reads `scroll-margin-*`, `scroll-padding-*`, `scroll-behavior` and `overscroll-behavior*` now, so the roots are registered against real readers rather than as properties on a box. The four block roots stay absent (`space-y`'s reason); `snap-*` is registered now against the snapping behaviour A18 could not have used, and of `scrollbar-*` only `scrollbar` is written — see Part 8 § 3 |
 
@@ -3636,6 +3636,18 @@ the GPU path is the one the frame would have had without the declaration. That i
 identity (`multiply` against white, `screen` against black), so neither a screenshot nor a comparison
 of the two executors can tell. `UiRenderer.Unblended` counts it. The `mix-blend` row stays `partial`
 until that number can be zero on a frame that asks for a blend.
+
+✅ **The device half landed (#783), and `Unblended` is zero on a frame that asks for a blend.**
+`UiBlend` in `Ui.rvn` samples the group's surface in set 0 and a capture of what its composite lands
+on in set 1 — the parent's draws replayed up to the composite, which is `backdrop-filter`'s replay with
+a later stop — and applies `UiBlend.Apply`'s arithmetic, white level included. `UiBlendDeviceTests`
+holds all fifteen non-normal modes to the closed form and to `SoftwareUiRasterizer` on a device. The
+row stays `partial` on four arrangements the device still composites source-over — a transformed
+group, a blended group that also carries a colour matrix or a mask, a blended group's drop-shadow quad,
+and a top-level HUD panel in a world renderer, whose capture cannot contain a scene not yet drawn —
+which its `value_gap` names. `Unblended` counts the first three. ⚠ The fourth it cannot: that panel
+does go through `UiBlend`, against the interface's own prefix over transparent black, and reads
+`Blended`; the renderer has nothing that tells a scene beneath from a host that painted nothing.
 
 ⚠ **`background-blend-mode` is not this and stays refused.** It blends an element's background
 *layers* with each other, and there is one background layer for them to blend.

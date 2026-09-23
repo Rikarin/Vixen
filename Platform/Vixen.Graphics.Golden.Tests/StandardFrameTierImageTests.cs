@@ -96,7 +96,7 @@ public sealed class StandardFrameTierImageTests {
     ///     the README: the tiers' GI knobs are not under a picture here, only their shadow, fog and
     ///     post ones.
     /// </remarks>
-    static StandardFrameAsset Frame => new() {
+    internal static StandardFrameAsset Frame => new() {
         Name = "Frame",
         Shadows = ShadowMode.Cascades,
         Gi = GiMode.Off,
@@ -769,7 +769,7 @@ public sealed class StandardFrameTierImageTests {
     ///         is what stands guard over that now, and it stands over the inference too.
     ///     </para>
     /// </remarks>
-    static TierScene Stage(Fixture fixture, QualityTier tier, GraphicsCompositorAsset document) {
+    internal static TierScene Stage(Fixture fixture, QualityTier tier, GraphicsCompositorAsset document) {
         var effects = new EffectSystem();
 
         effects.AddProvider(new Compiling(new(fixture.Device), Compiler));

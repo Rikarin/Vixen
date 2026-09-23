@@ -648,6 +648,12 @@ public sealed class UiGeometryBuilder {
             Masks = masks,
             WhiteLevel = WhiteLevel,
 
+            // ⚠ Recorded for the white level's reason (#1343): both are spent inside the triangles
+            // above, in document pixels, and the scale a host later draws them at is a number this
+            // builder is never told. `UiRenderFeature.Soft` is the reader that holds the two together.
+            Tolerance = Tolerance,
+            Fringe = Fringe,
+
             // ⚠ Stamped here, once per build, and never on a skipped frame — `TryBuild` hands back
             // the geometry it already has, stamp included, which is what lets a renderer see that
             // the bytes it holds are still the bytes to draw. See `UiGeometry.Generation`.

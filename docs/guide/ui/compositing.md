@@ -3,7 +3,7 @@ title: Compositing groups
 slug: ui/compositing
 kind: guide
 area: Core
-summary: How a translucent subtree is rendered into a surface of its own and blended back once — the offscreen pass behind `opacity`, `filter: blur()`, the seven colour functions, `drop-shadow()` and `mask-image`, why a group is not the same as fading each element, why a colour matrix and a mask cost neither a surface nor a pass where a blur and a drop shadow cost both, why a mask's seam is fixed on both executors where a matrix's is free, why a drop shadow's seam is fixed by arithmetic that does not commute, how a colour matrix with zero coefficients turns a surface into a tinted silhouette, how a list of mask layers is folded into one coverage and what `mask-composite` means for each, when the pass is skipped as an exact identity, what the surfaces cost, how a backdrop filter is a replay of the draw-list prefix rather than a read-back and what that cost the compositor's walk, what gradient text would still need on top of it, how `rotate` and `scale` ride the composite quad's four vertices for the price of no shader at all, and why `mix-blend-mode` is the one group-wide effect that has to read its destination — free on the software rasteriser, and still owed on the device.
+summary: How a translucent subtree is rendered into a surface of its own and blended back once — the offscreen pass behind `opacity`, `filter: blur()`, the seven colour functions, `drop-shadow()` and `mask-image`, why a group is not the same as fading each element, why a colour matrix and a mask cost neither a surface nor a pass where a blur and a drop shadow cost both, why a mask's seam is fixed on both executors where a matrix's is free, why a drop shadow's seam is fixed by arithmetic that does not commute, how a colour matrix with zero coefficients turns a surface into a tinted silhouette, how a list of mask layers is folded into one coverage and what `mask-composite` means for each, when the pass is skipped as an exact identity, what the surfaces cost, how a backdrop filter is a replay of the draw-list prefix rather than a read-back and what that cost the compositor's walk, what gradient text would still need on top of it, how `rotate` and `scale` ride the composite quad's four vertices for the price of no shader at all, and why `mix-blend-mode` is the one group-wide effect that has to read its destination — free on the software rasteriser, and a replayed capture in a second descriptor set on the device.
 api: [T:Vixen.Ui.Rendering.UiLayer, T:Vixen.Ui.Rendering.UiBlend, T:Vixen.Ui.Rendering.UiBlendMode, T:Vixen.Ui.Rendering.UiColorMatrix, T:Vixen.Ui.Rendering.UiDropShadow, T:Vixen.Ui.Rendering.UiBackdrop, T:Vixen.Ui.Renderer.UiBackdropSource, T:Vixen.Ui.Rendering.UiMask, T:Vixen.Ui.Rendering.MaskComposite, T:Vixen.Ui.Rendering.UiTransform]
 tags: [ui, rendering, opacity, blur, filter, compositing, offscreen, mix-blend-mode, blend, isolation, filters, grayscale, colour-matrix, drop-shadow, backdrop-filter, mask, mask-image, mask-composite, transform, rotate, scale]
 since: 0.2
@@ -818,16 +818,41 @@ nothing before it**: with `soft-light` transcribed as the square root everywhere
 against those numbers and not against the C# the transcription was read from, which is the parity
 trap this repository already names.
 
-⚠ **`UiRenderer` does not implement it, and says so — and the reason it used to give was refuted by
-the paragraph below it.** "The device has no read of the attachment the UI pass is writing" is true
-and is not why: § 5.1 asks for no such read. What is actually missing is a composite pipeline variant
-that samples two textures, so a blended group is submitted source-over and the picture is the one the
-frame would have had without the declaration.
-`UiRenderer.Unblended` counts exactly that, and it needs to: a blend over a flat backdrop is often
-the identity (`multiply` against white, `screen` against black), so neither a screenshot nor a
-comparison of the two executors can tell. **Closing it is a shader change and not a pass change** —
-the capture `UiRenderer.Capture` already performs for `backdrop-filter` is precisely the backdrop
-picture the formula wants, so the missing piece is a composite variant that samples two textures.
+✅ **`UiRenderer` implements it (#783), and the design is the one the paragraphs below argued for.**
+`UiBlend` in `Ui.rvn` samples the group's surface in descriptor set 0 like every composite, and the
+backdrop in **set 1**; `UiRenderer.Compose` fills that backdrop by replaying the parent's draws up to
+the group's composite into a capture surface — `backdrop-filter`'s replay with a later stop, so it
+includes the group's own filtered-backdrop and drop-shadow quads, which are painted before the
+composite — and the fragment applies `UiBlend.Apply`'s arithmetic, white level included, before an
+ordinary source-over. The blend pipeline's layout repeats set 0 and the `[0, 128]` push range
+verbatim, which is what keeps the atlas bound across a switch to it and back. `UiRenderer.Blended`
+counts the draws that blended; `UiBlendDeviceTests` holds all fifteen non-normal modes to the closed
+form and to `SoftwareUiRasterizer` on a device, plus overlapping siblings (the second one's backdrop
+replays the first one's *blended* composite) and a blend nested in a translucent group.
+
+⚠ **Four arrangements still composite source-over on the device, and `UiRenderer.Unblended` counts
+the first three** — it needs to, because a blend over a flat backdrop is often the identity
+(`multiply` against white, `screen` against black), so neither a screenshot nor a comparison of the
+two executors can tell. The fourth has no counter, for the reason given against it:
+
+- a group under `rotate`, `scale` or `perspective` — the backdrop is read at the composite quad's
+  texture coordinate, which is the target texel only while the quad is where the surface is, and
+  Raven has no fragment-position input to recover it from;
+- a blended group that also carries a `filter` colour matrix or a `mask-image`, whose composite
+  belongs to the module that applies those and samples one texture;
+- a blended group's `drop-shadow()` quad, which the software path blends separately from the group
+  (its own word-for-word approximation) and the device composites plainly — which of the two is
+  right is still to be settled rather than reproduced. It is counted as a draw of its own, so a
+  blended shadowed group reads `Blended` for its composite and `Unblended` for its shadow;
+- a top-level panel of a HUD drawn inside a world renderer: `UiRenderFeature.Compose` has no
+  backdrop to hand over because the scene is not drawn when these passes are recorded, so the panel
+  blends with the interface beneath it and composites source-over onto the world — the same limit
+  `backdrop-filter` has there, for the same reason. ⚠ **This one is counted in `Blended`, not
+  `Unblended`**: the panel *does* go through `UiBlend`, against the interface's own prefix over
+  transparent black, which is right wherever the interface painted under it and is source-over
+  wherever only the scene did. The renderer cannot tell those apart — a default `UiBackdropSource` is
+  also what a host that painted nothing would pass — and declining the blend would lose it in the
+  case that works, a badge over a plain HUD panel.
 
 ⚠ **The price written here until 2026-09-06 — "a fourth binding on the shared `ui atlas` layout" —
 was not a price, it was an impossibility.** Raven's `BindingPlan.Of` numbers a descriptor set by

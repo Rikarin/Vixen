@@ -79,6 +79,27 @@ a `ref struct`, narrowing an enum's underlying type and dropping an interface ar
 changes that add and remove no member at all, and a baseline that cannot see them is one somebody
 has to remember to think past.
 
+A **trim contract** gets a line of its own, after the line of what it is attached to:
+
+```
+static Vixen.Ui.UiPropertyRegistry.Of(System.Type ownerType) [param ownerType: DynamicallyAccessedMembers(All)]
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.RegisterFrom(System.Type type) [method: RequiresUnreferencedCode()]
+```
+
+`[DynamicallyAccessedMembers]` on a parameter, a return value, a type parameter, a property, a field
+or a type, and `[RequiresUnreferencedCode]`, `[RequiresDynamicCode]` and `[RequiresAssemblyFiles]` on
+a member, an accessor or a type — an event's `add`/`remove` included, since neither attribute can
+target an event itself, and an indexer's parameters through its getter. ⚠ **These are signature and the reading used to be blind to them**
+(#1359): an annotation changes no character of the display string a member's line is made from, so
+`UiPropertyRegistry.Of`'s requirement was widened from `NonPublicConstructors` to `All` — which roots
+every member of whatever a trimmed caller passes — and the gate reported no difference, and a
+*narrowing*, which silently withdraws what a caller was relying on, would have read the same way.
+A separate line rather than a suffix keeps the member's line in the analyzer's format and makes an
+annotation change one line out and one in. The line never carries ` -> ` and always carries a
+parenthesis — hence `RequiresUnreferencedCode()` with an empty argument list — which is what keeps
+`PublicApiTypeNames.DocumentationId` and DocGen's `BaselineAgreement` from reading it as a type that
+wants a guide page. A `Requires*` message is prose and is not recorded.
+
 ## What is read, and what is not
 
 The surface is read from the **assembly**, not from source. Source would mean reproducing what the

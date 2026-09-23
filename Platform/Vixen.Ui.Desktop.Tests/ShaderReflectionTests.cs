@@ -83,6 +83,8 @@ public class ShaderReflectionTests {
     [InlineData("UiMask", "green", 32)]
     [InlineData("UiMask", "blue", 48)]
     [InlineData("UiMask", "list", 64)]
+    // `UiRenderer.SubmitDraw` pushes the mode and the white level at 16 for a blended composite.
+    [InlineData("UiBlend", "operation", 16)]
     public void ThePushConstantsAreWhereTheHostWritesThem(string shader, string member, int offset) {
         foreach (var block in Reflection(shader).GetProperty("PushConstants").EnumerateArray()) {
             foreach (var declared in block.GetProperty("Members").EnumerateArray()) {
@@ -121,6 +123,7 @@ public class ShaderReflectionTests {
     [InlineData("UiBlur")]
     [InlineData("UiColour")]
     [InlineData("UiMask")]
+    [InlineData("UiBlend")]
     public void ThePushConstantBlockFitsTheGuaranteedSize(string shader) {
         foreach (var block in Reflection(shader).GetProperty("PushConstants").EnumerateArray()) {
             var size = block.GetProperty("Offset").GetInt32() + block.GetProperty("Size").GetInt32();
@@ -204,6 +207,7 @@ public class ShaderReflectionTests {
     [InlineData("UiBlur.frag.spv")]
     [InlineData("UiColour.frag.spv")]
     [InlineData("UiMask.frag.spv")]
+    [InlineData("UiBlend.frag.spv")]
     public void EveryStageTheHostLoadsIsEmbedded(string module) {
         var assembly = typeof(UiShaderLibrary).Assembly;
 
@@ -211,6 +215,42 @@ public class ShaderReflectionTests {
             assembly.GetManifestResourceNames(),
             entry => entry.EndsWith(module, StringComparison.Ordinal)
         );
+    }
+
+    /// <summary>The blend stage reads its backdrop from set 1 at the bindings the host's set there provides.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Set 1, texture 0 and sampler 1 — a prefix of the shared <c>ui atlas</c> layout —
+    ///         and that is the whole design of #783's device half.</b> <c>UiRenderer</c> builds the
+    ///         blend pipeline's layout as that same set layout twice and binds a capture's ordinary
+    ///         image set at 1. A backdrop declared in set 0 instead would renumber the layout every UI
+    ///         pipeline shares, because <c>BindingPlan.Of</c> numbers a set by kind: a second
+    ///         <c>Texture2D</c> takes binding 1 and pushes the stage's own sampler to 2.
+    ///     </para>
+    ///     <para>
+    ///         Set 0 is asserted too, because it is the half a careless edit would move: the group's
+    ///         surface has to be where every other composite's is, or the image set bound for it is
+    ///         read at the wrong bindings.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheBlendStageReadsItsBackdropFromSetOne() {
+        var sets = Reflection("UiBlend").GetProperty("Sets").EnumerateArray()
+            .ToDictionary(
+                set => set.GetProperty("Set").GetInt32(),
+                set => set.GetProperty("Bindings").EnumerateArray()
+                    .ToDictionary(binding => binding.GetProperty("Name").GetString()!, binding => (
+                        Binding: binding.GetProperty("Binding").GetInt32(),
+                        Type: binding.GetProperty("Type").GetString()
+                    ))
+            );
+
+        Assert.Equal([0, 1], sets.Keys.Order());
+
+        Assert.Equal((0, "SampledTexture"), sets[0]["source"]);
+        Assert.Equal((1, "Sampler"), sets[0]["sourceSampler"]);
+        Assert.Equal((0, "SampledTexture"), sets[1]["backdrop"]);
+        Assert.Equal((1, "Sampler"), sets[1]["backdropSampler"]);
     }
 
     static JsonElement Reflection(string shader) {

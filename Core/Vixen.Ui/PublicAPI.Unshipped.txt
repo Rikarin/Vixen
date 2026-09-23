@@ -1097,6 +1097,8 @@ Vixen.Ui.Rendering.UiGeometry -> readonly struct
 Vixen.Ui.Rendering.UiGeometry : System.IEquatable<Vixen.Ui.Rendering.UiGeometry>
 Vixen.Ui.Rendering.UiGeometry.Draws.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiDraw>
 Vixen.Ui.Rendering.UiGeometry.Draws.init -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiDraw>
+Vixen.Ui.Rendering.UiGeometry.Fringe.get -> float
+Vixen.Ui.Rendering.UiGeometry.Fringe.init -> float
 Vixen.Ui.Rendering.UiGeometry.Generation.get -> int
 Vixen.Ui.Rendering.UiGeometry.Generation.init -> int
 Vixen.Ui.Rendering.UiGeometry.Indices.get -> System.Collections.Generic.IReadOnlyList<uint>
@@ -1107,6 +1109,8 @@ Vixen.Ui.Rendering.UiGeometry.Masks.get -> System.Collections.Generic.IReadOnlyL
 Vixen.Ui.Rendering.UiGeometry.Masks.init -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiMask>
 Vixen.Ui.Rendering.UiGeometry.Shapes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiShape>
 Vixen.Ui.Rendering.UiGeometry.Shapes.init -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiShape>
+Vixen.Ui.Rendering.UiGeometry.Tolerance.get -> float
+Vixen.Ui.Rendering.UiGeometry.Tolerance.init -> float
 Vixen.Ui.Rendering.UiGeometry.UiGeometry() -> void
 Vixen.Ui.Rendering.UiGeometry.UiGeometry(System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiVertex> Vertices, System.Collections.Generic.IReadOnlyList<uint> Indices, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiDraw> Draws, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiShape> Shapes) -> void
 Vixen.Ui.Rendering.UiGeometry.Vertices.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiVertex>
@@ -2064,8 +2068,10 @@ static Vixen.Ui.TextLayout.Measure(in Vixen.Ui.Layout.MeasureRequest request) ->
 static Vixen.Ui.TextRun.Under(Vixen.Ui.TextDecorationLine line) -> bool
 static Vixen.Ui.UiDocument.TabOrder(Vixen.Ui.UiElement scope) -> System.Collections.Generic.List<Vixen.Ui.UiElement>
 static Vixen.Ui.UiPropertyRegistry.Of(System.Type ownerType) -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiPropertyKey>
+static Vixen.Ui.UiPropertyRegistry.Of(System.Type ownerType) [param ownerType: DynamicallyAccessedMembers(All)]
 static Vixen.Ui.UiPropertyRegistry.Register(string name, System.Type ownerType, System.Type valueType, bool inherits, System.Func<Vixen.Ui.UiElement, object?> get, System.Action<Vixen.Ui.UiElement, object?> set) -> Vixen.Ui.UiPropertyKey
 static Vixen.Ui.UiPropertyRegistry.TryFind(System.Type ownerType, string name, out Vixen.Ui.UiPropertyKey? key) -> bool
+static Vixen.Ui.UiPropertyRegistry.TryFind(System.Type ownerType, string name, out Vixen.Ui.UiPropertyKey? key) [param ownerType: DynamicallyAccessedMembers(All)]
 static Vixen.Ui.UiPropertyRegistry.TryFindFor(Vixen.Ui.UiElement element, string name, out Vixen.Ui.UiPropertyKey? key) -> bool
 static Vixen.Ui.UiWindowTitle.Bind(Vixen.Ui.IUiWindow window, Vixen.Ui.IEditableDocument document, Vixen.Ui.Reactive.EffectScheduler? scheduler = null, string dirtyMarker = "• ") -> System.IDisposable
 static Vixen.Ui.UndoCommands.Install(Vixen.Ui.UiElement element) -> void
