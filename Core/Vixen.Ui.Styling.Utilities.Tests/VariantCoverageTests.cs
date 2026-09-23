@@ -1111,6 +1111,24 @@ public class VariantCoverageTests {
     }
 
     [Fact]
+    public void An_arbitrary_range_in_rem_styles_nothing_and_the_loader_says_why() {
+        // ⚠ v4 writes its own breakpoints in rem, so `min-[40rem]:` is the spelling a ported class
+        // list carries. `MediaQuery` reads px and not rem, which the comment in `Variants.TryScreen`
+        // used to call "a diagnostic rather than a guess" as though the diagnostic were somewhere the
+        // author would see it. This pins where it is: on the loader, naming the width, with the class
+        // styling nothing even far above the threshold.
+        var fixture = new UtilityFixture("");
+
+        Assert.Null(fixture.Computed(["min-[40rem]:p-4"], "padding-left", media: new MediaContext(1600f, 800f)));
+        Assert.Null(fixture.Computed(["max-[40rem]:p-4"], "padding-left", media: new MediaContext(100f, 800f)));
+
+        var engine = new StyleEngine();
+        engine.Load(fixture.Generate("min-[40rem]:p-4"), StyleOrigin.Author, new MediaContext(1600f, 800f));
+
+        Assert.Contains(engine.Loader.Diagnostics, diagnostic => diagnostic.Reason.Contains("'40rem'", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void A_breakpoint_range_stacks_with_a_breakpoint_into_a_band() {
         // `md:max-lg:` is v4's way of saying "tablets only", and the reason `BuildSelector` nests.
         var fixture = new UtilityFixture("");

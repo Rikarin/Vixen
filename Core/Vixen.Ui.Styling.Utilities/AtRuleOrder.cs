@@ -31,10 +31,14 @@ namespace Vixen.Ui.Styling.Utilities;
 ///         Only a class pairing one of those with a breakpoint on the same property can tell.
 ///     </para>
 ///     <para>
-///         Widths are compared in pixels, with <c>rem</c> and <c>em</c> at the 16px a media query
-///         measures them in. A width in any other unit — an arbitrary <c>min-[calc(…)]</c> — sorts
-///         after the ones this can read in its band, and ties fall back to the ordinal order, so the
-///         comparison is total and the file stays byte-stable.
+///         Widths are compared in pixels, with <c>rem</c> and <c>em</c> placed at 16px apiece. That is
+///         an <i>ordering</i> convention and not an evaluation: ⚠ <see cref="MediaQuery" /> and
+///         <see cref="ContainerQuery" /> read neither unit, so a group written in one — an arbitrary
+///         <c>min-[40rem]:</c> — fails to load with a diagnostic whatever position it sorts to here.
+///         The 16 only keeps such a group in a stable place for the day the evaluators learn the
+///         unit. A width in any other unit — an arbitrary <c>min-[calc(…)]</c> — sorts after the ones
+///         this can read in its band, and ties fall back to the ordinal order, so the comparison is
+///         total and the file stays byte-stable.
 ///     </para>
 /// </remarks>
 sealed class AtRuleOrder : IComparer<string> {

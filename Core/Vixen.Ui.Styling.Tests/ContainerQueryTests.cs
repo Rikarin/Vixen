@@ -401,6 +401,11 @@ public class ContainerQueryTests {
     [InlineData("(400px < width > 600px)")]
     [InlineData("(min-width: 400px < 600px)")]
     [InlineData("(orientation > landscape)")]
+    // ⚠ A font-relative width, refused because a container query's `em` is the container's computed
+    // font and `ContainerBox` does not carry one. `MediaQuery.TryLength`'s remark claimed `20rem` read
+    // here, and it never did; a fixed sixteen would be a guess that is right only by accident.
+    [InlineData("(min-width: 30rem)")]
+    [InlineData("(width < 20em)")]
     public void Features_a_box_does_not_have_are_refused(string condition) {
         var box = new ContainerBox(500f, 500f, ContainerKind.Size);
 

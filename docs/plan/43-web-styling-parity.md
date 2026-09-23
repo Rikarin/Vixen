@@ -2414,9 +2414,13 @@ three reasons this section used to give was actually worth:
 ✅ **The divergence this section used to state is closed** (#609). `@max-*` emitted `max-width`,
 which is `<=`, where v4's `(width < 24rem)` is `<` — an off-by-one pixel on every `max-` threshold in
 the engine, silent because it reads as an author mis-picking a breakpoint. Both evaluators read Media
-Queries 4 § 2.4's range syntax now — `(width < 24rem)`, `(width >= 600px)`,
+Queries 4 § 2.4's range syntax now — `(width < 384px)`, `(width >= 600px)`,
 `(400px <= width < 600px)` and the reversed one-sided form — out of one shared `FeatureRange`, and
-`@max-*` emits the exclusive form. ⚠ **The assertions that prove it are all *at* the threshold**:
+`@max-*` emits the exclusive form. ⚠ **The syntax, and not v4's unit**: neither evaluator reads `rem`
+or `em` (`MediaQuery.TryLength` reads `px`), so `(width < 24rem)` itself is a load diagnostic and an
+arbitrary `min-[40rem]:` or `@min-[30rem]:` generates a block the loader drops. The theme's scales
+are converted to `px` when they are read, so no named variant reaches it; the arbitrary forms do.
+⚠ **The assertions that prove it are all *at* the threshold**:
 every other width answers identically under both readings, which is why the existing bracketing rows
 could not see it. Sabotage: reading `Below` as `AtMost` takes eight rows red across the two suites,
 and putting `max-width` back under `@max-*` takes only the new variant test red. `@min-*` stays

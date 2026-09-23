@@ -42,7 +42,7 @@ public readonly record struct VariantEffect(string SelectorSuffix, string Select
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A fourth shape is an at-rule that is not a media query</b>: <c>@sm:</c>,
-///         <c>@max-lg:</c>, <c>@min-[30rem]:</c> and their <c>/name</c> forms wrap the rule in a
+///         <c>@max-lg:</c>, <c>@min-[480px]:</c> and their <c>/name</c> forms wrap the rule in a
 ///         <c>@container</c> instead. Nothing about the mechanism had to change for it —
 ///         <see cref="VariantEffect.AtRule" /> is already a string and
 ///         <c>UtilityGenerator</c> already nests a chain of them — which is why the blocker was
@@ -657,7 +657,9 @@ public static class Variants {
 
         if (rest.Length > 2 && rest[0] == '[' && rest[^1] == ']') {
             // Verbatim, as `@min-[…]` is: the author wrote a length, and which units compare is
-            // `MediaQuery`'s question, answered with a diagnostic rather than a guess.
+            // `MediaQuery`'s question. ⚠ It reads `px` and not `rem` or `em`, so `min-[40rem]:` —
+            // v4's own unit — generates a block the loader drops with a diagnostic naming `40rem`,
+            // and the class styles nothing at any width. See `MediaQuery.TryLength`.
             width = rest[1..^1].ToString().Replace('_', ' ');
         } else if (tokens.Screens.TryGetValue(rest.ToString(), out var scale)) {
             width = Pixels(scale);
@@ -673,7 +675,7 @@ public static class Variants {
         static string Pixels(float value) => value.ToString("0.####", CultureInfo.InvariantCulture) + "px";
     }
 
-    /// <summary>Reads <c>@sm</c>, <c>@max-lg</c>, <c>@min-[30rem]</c> and their <c>/name</c> forms.</summary>
+    /// <summary>Reads <c>@sm</c>, <c>@max-lg</c>, <c>@min-[480px]</c> and their <c>/name</c> forms.</summary>
     /// <param name="rest">The variant with its <c>@</c> already taken off.</param>
     /// <param name="tokens">The theme, for the <c>--container-*</c> scale.</param>
     /// <param name="effect">Receives the <c>@container</c> wrapper.</param>
