@@ -140,6 +140,15 @@ public class ShortcutDispatchTests {
     ///         <c>Ctrl+S</c> would satisfy a test about the return value and be the bug — so the
     ///         row is laid out and the label is required to occupy no width.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it goes back, which nothing asserted until it did.</b> Hiding is
+    ///         <c>display: none</c> on a part that outlives the hiding, so the only thing that can
+    ///         ever show it again is the <c>display: flex</c>
+    ///         <see cref="MenuItem.ShowShortcut(Vixen.Input.InputKey, Vixen.Ui.ModifierKeys)" />
+    ///         writes — and a suite that stopped at Clear was green with that line deleted. Clear
+    ///         then re-bind is the keybinding editor's own round trip and the one path where a row
+    ///         can stay blank for the rest of the session.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_command_the_keymap_does_not_bind_draws_no_chord() {
@@ -169,6 +178,17 @@ public class ShortcutDispatchTests {
         document.Update();
 
         Assert.Equal(0f, item.Shortcut!.Width);
+
+        // ⚠ And back: Clear is undoable, so the label the hide left in place has to be shown again
+        // by the chord-drawing overload rather than by anything the hiding remembers. Without the
+        // `display: flex` that overload writes, the row stays blank for the rest of the session and
+        // every assertion above still passes.
+        keys.Bind(DocumentCommands.Save, new KeyChord(InputKey.S, ModifierKeys.Control), replace: true);
+
+        Assert.NotNull(item.ShowShortcut(keys, DocumentCommands.Save));
+        document.Update();
+
+        Assert.True(item.Shortcut!.Width > 0f, "the re-bound chord stayed hidden");
     }
 
     static KeyEvent Press(KeyChord chord, bool repeat = false) =>
