@@ -36,7 +36,14 @@ public class TouchActionCensusTests {
     const string Needle = "CapturePointer(";
 
     /// <summary>The areas a production capture can live in.</summary>
-    static readonly string[] Swept = ["Core", "Editor", "Samples"];
+    /// <remarks>
+    ///     ⚠ Every top-level area that ships code, not only the three that capture today.
+    ///     <c>Platform</c> holds <c>Vixen.Ui.Desktop</c> and <c>Vixen.Platform.Ui</c>, which are UI
+    ///     code, and a first version that swept only <c>Core</c>, <c>Editor</c> and <c>Samples</c>
+    ///     would have been green for a capture added there. <c>Testing</c>, <c>Benchmarks</c> and
+    ///     <c>build</c> are left out: none of them is a control a finger lands on.
+    /// </remarks>
+    static readonly string[] Swept = ["Core", "Editor", "Samples", "Platform", "Tools", "Gameplay", "Live"];
 
     /// <summary>Directories a source sweep must not descend into, matched by name at any depth.</summary>
     /// <remarks>

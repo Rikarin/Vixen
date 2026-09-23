@@ -123,13 +123,17 @@ because `PaintMeshView` and `PaintUvView` capture on the `ImageView` they own.
 and the view a finger drags is the editor's *own* scroller — which a row on `code-editor` could not
 even reach, because the editor is above that view rather than between it and the finger. A finger's
 drag scrolls the code and selects nothing; the caret arrives on the tap and a word on a double tap or
-a long press.
+a long press. A fold arrow answers a finger's tap rather than its press, so a scroll that starts in
+the gutter folds nothing, and a fold leaves the caret where it was, as a mouse's does.
 
-⚠ **Every production `CapturePointer` call is accounted for, and a new one fails the build.**
+⚠ **Every production `CapturePointer` call is accounted for, and a new one fails a test.**
 `Core/Vixen.Ui.Controls.Advanced.Tests/TouchActionCensus.txt` lists each file that captures, how many
 times, and the row that answers it; `TouchActionCensusTests` holds the list to the tree (`.cs` and
 `.vxml`, outside test projects) and each answer to what the two themes actually resolve. A control
 that starts capturing a finger adds a row to the theme and a line to the census in the same change.
+⚠ The test lives in `Vixen.Ui.Controls.Advanced.Tests` because it resolves both themes, and it
+polices `Vixen.Ui.Controls` as well — so a new capture in `TextField` is green in that project's own
+suite and red only in the advanced one. Run both.
 
 `touch-pinch-zoom` is deliberately not a utility. The keyword parses (`TouchAction.PinchZoom`), but
 nothing here performs a pinch as a user-agent default, so the class would resolve and configure
