@@ -35,4 +35,6 @@
 #
 # See `Rikarin/Vixen#531`.
 radial-item > icon	`RadialItem` is a `ButtonBase`, and `ButtonBase.LeadingIcon` builds the `icon` part on first access (ButtonBase.cs:260) — a wedge nobody gave an icon has none. The rule styles the wedges of a menu whose items carry one.
+scroll-content > button	`scroll-content` is `ScrollView`'s content host (ScrollView.cs:438), which the control builds empty and its owner fills. The one rule naming this child is `settings-rail > scroll-content > button.settings-tab` (EditorTheme.vcss:1393-1404), for the category tabs `SettingsView.vxml` puts in its rail's `ScrollView` since #1275 — an editor view this sweep does not build.
+scroll-content > override-row	`scroll-content` is `ScrollView`'s content host (ScrollView.cs:438), which the control builds empty and its owner fills. The one rule naming this child is `override-body > scroll-content > override-row` (AssetEditorTheme.vcss:157), for the rows `TargetOverrideMatrix` adds to its `override-body` `ScrollView` since #1275 — an asset-editor part this sweep does not build.
 segment > icon	`Segment` is a `ToggleBase` and so a `ButtonBase`, same lazy `LeadingIcon` — and the one sheet that writes this rule writes it for the mode bar's first segmented control (EditorTheme.vcss:253), whose segments are given icons by `ToolbarPresenter` (ToolbarPresenter.cs:316).

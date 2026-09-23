@@ -30,6 +30,7 @@ dock-guide > dock-hint
 dock-tabstrip > icon-button
 expander > expander-header
 expander-header > label
+keybindings-status > text
 scroll-view > scroll-content
 segmented-control > segment
 split-view > split-bar
