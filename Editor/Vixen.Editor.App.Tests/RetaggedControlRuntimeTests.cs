@@ -3,7 +3,10 @@
 
 using System.Reflection;
 using Vixen.Core.Diagnostics;
+using Vixen.Core.Mathematics;
 using Vixen.Editor.Testing;
+using Vixen.Ui;
+using Vixen.Ui.Controls;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -27,8 +30,16 @@ namespace Vixen.Editor.App.Tests;
 ///     <para>
 ///         ⚠ <b>Red before the viewport's two readouts restated <c>display</c></b>:
 ///         <c>viewport-stats</c> and <c>viewport-readout</c> are <c>TextBlock</c>s under tags of their
-///         own, so <c>text { display: inline }</c> never reached them and each start of the editor
-///         logged a 7010 for both.
+///         own, so <c>text { display: inline }</c> never reached them. Every start of the editor logged
+///         a 7010 for <c>viewport-stats</c>; <c>viewport-readout</c> logged one the first time it was
+///         shown.
+///     </para>
+///     <para>
+///         ⚠ <b>So a measurement is taken before the sweep reads the ring.</b> The readout is built
+///         with class <c>hidden</c>, and <c>viewport-readout.hidden { display: none }</c> supplies
+///         the one property the rename lost — so an idle editor never reports it, and a sweep that
+///         only opened panels stayed green with the readout's restated <c>display</c> deleted. What
+///         matters is the element people see, which is the one in the middle of a pane mid-gesture.
 ///     </para>
 /// </remarks>
 public class RetaggedControlRuntimeTests {
@@ -48,6 +59,10 @@ public class RetaggedControlRuntimeTests {
         // The instrument: a sweep that opened nothing reports nothing.
         Assert.True(opened >= 10, $"only {opened} panels were registered, so this saw almost none of the editor.");
 
+        // Shows the middle-of-the-pane readout, which is hidden on an idle editor and therefore
+        // styled by `.hidden` rather than by its own rule until somebody measures or drags.
+        ShowReadout(fixture);
+
         var renamed = Sink(fixture)
             .Snapshot()
             .Where(record => record.EventId.Id == 7010)
@@ -60,6 +75,37 @@ public class RetaggedControlRuntimeTests {
             + "declare. Restate the declarations on the new tag's rule (Rikarin/Vixen#1327):\n  "
             + string.Join("\n  ", renamed)
         );
+    }
+
+    /// <summary>Takes a two-point measurement in the scene pane so its readout is on screen.</summary>
+    /// <param name="fixture">The editor.</param>
+    static void ShowReadout(EditorSession fixture) {
+        fixture.Open("scene");
+        fixture.Run("scene.measure");
+
+        var pane = fixture.Viewport ?? throw fixture.Fail("the scene panel has no viewport");
+
+        pane.Measure.Add(Vector3.Zero);
+        pane.Measure.Add(new Vector3(0f, 0f, 6f));
+        fixture.Frames(2);
+
+        // The instrument: a readout still hidden is one whose own rule was never asked about.
+        var readouts = Descendants(fixture.Document.Root)
+            .OfType<TextBlock>()
+            .Where(element => element.Tag == "viewport-readout")
+            .ToList();
+
+        Assert.Contains(readouts, readout => !readout.HasClass("hidden") && !string.IsNullOrEmpty(readout.Text));
+    }
+
+    static IEnumerable<UiElement> Descendants(UiElement element) {
+        foreach (var child in element.Children) {
+            yield return child;
+
+            foreach (var found in Descendants(child)) {
+                yield return found;
+            }
+        }
     }
 
     /// <summary>The editor's log ring, which the console reads and the shell's document logs into.</summary>
