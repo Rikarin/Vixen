@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>Vixen.TailwindParity</RootNamespace>
+        <AssemblyName>Vixen.TailwindParity</AssemblyName>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+
+        <!--
+            Not shipped and not referenced by anything that ships. This reads two files in `docs/`
+            and prints what disagrees; the thing that makes it a gate rather than a script somebody
+            remembers to run is `Vixen.TailwindParity.Tests`, which calls `ParityAudit` against the
+            committed snapshot on every test run.
+        -->
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.TailwindParity.Tests" />
+    </ItemGroup>
+
+    <!--
+        ⚠ The snapshot generator's `node_modules` sits beside this csproj and MSBuild would otherwise
+        glob the `.cs` files inside a published npm package into the compilation. `tailwindcss` ships
+        none today; the next dependency added to it might.
+    -->
+    <ItemGroup>
+        <Compile Remove="node_modules/**" />
+        <None Remove="node_modules/**" />
+    </ItemGroup>
+</Project>

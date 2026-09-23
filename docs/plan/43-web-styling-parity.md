@@ -38,7 +38,7 @@ in this repository was an impression.
 
 | Axis | Source | How it was taken |
 |---|---|---|
-| **What Tailwind is** | `tailwindcss@4.3.3`, the package | `__unstable__loadDesignSystem().utilities.keys()` and `.variants.keys()`, cross-checked against the v4 docs |
+| **What Tailwind is** | `tailwindcss@4.3.3`, the package | `__unstable__loadDesignSystem().utilities.keys()` and `.variants.keys()`, cross-checked against the v4 docs — and committed since, as `docs/plan/tailwind-registry.json`, so `Tools/Vixen.TailwindParity` can re-ask it |
 | **What Vixen emits** | `UtilityFamilies.cs`, `Variants.cs`, `UtilityGenerator.cs` | parsed from the registration table, plus the shorthands ExCSS expands while parsing |
 | **What Vixen reads** | every `Properties.Intern` / `PropertyId` call site in `Core/` and `Editor/` | transcribed per consumer: `LayoutStyleBuilder`, `DrawListBuilder`, `UiDocument`, `Cursor`, `Animator`, `InheritedProperties`, `TransitionSpec` |
 
@@ -932,11 +932,30 @@ otherwise, and two things can: a listed class that does not resolve, which is me
 read-ness and a declared fidelity. The alternative was to drop fidelity from the state entirely and
 call `w-*` "works", which is how the file came to overstate the sizing category in the first place.
 
-⚠ **What still needs `tailwindcss` installed, and therefore is not generated.** The Tailwind side of
-the cross product — which roots exist, which classes each covers — is transcribed from
-`__unstable__loadDesignSystem()` and is a measurement with a date on it: **`tailwindcss@4.3.3`,
-2026-08-07**. `Tools/Vixen.TailwindParity`, reading a committed snapshot of the v4 registry, would
-close that half too and is the remainder of exit criterion 1. The engine side no longer waits on it.
+⚠ **The Tailwind side is a measurement taken by hand, and it is now checked.** Which roots exist and
+which classes each covers cannot be computed here — `tailwindcss` is an npm package and this is not a
+JavaScript repository — so it is taken by hand into `docs/plan/tailwind-registry.json`
+(`Tools/Vixen.TailwindParity/snapshot.mjs`, against **`tailwindcss@4.3.3`**) and everything
+downstream of that file is a test over it. `Tools/Vixen.TailwindParity` compares the ledger's `root`,
+`kind`, `example` and `classes` columns with the snapshot; `Vixen.TailwindParity.Tests` runs the same
+comparison on every test run. That closes the remainder of exit criterion 1.
+
+⚠ **What it found on its first run is the failure mode this column was built to have.** The
+`backdrop-blur-*` row's `classes` cell held `backdrop-blur-2` and `backdrop-blur-4`, which are real
+classes *in Vixen* — `UtilityFamilies` answers a blur with a named step **or** a spacing count, and
+the count is this engine's own extension — and are not Tailwind classes at all. So a Vixen-only
+spelling had got into the column that describes Tailwind, and `Derive` demotes a row on any listed
+class that does not resolve and never promotes one for a class nobody listed. The cell now holds v4's
+eight named steps. ⚠ The row's own `state` did not move, because its `value_gap` already pinned it to
+`partial` — which is the reason this went unnoticed and is not a reason it was harmless: the same
+error under a row with an empty `value_gap` is a silent, permanent `partial` on a finished root.
+
+⚠ **And the survey's shortfall against v4 is enumerated rather than described.** The `classes` column
+was known to be short — the `display` row's note counts 7 of 21 keywords — and nobody could say by
+how much. Measured: **163 of v4's 890 static utilities are named by no row**, listed one per line in
+`docs/plan/43-web-styling-unlisted.txt`. It is `CheckWhitespace`'s exemption shape, so a static
+utility in neither file fails, and a line there that a row has since listed fails too — the list can
+only shrink. Every line in it is a question the ledger has not asked the engine.
 
 ⚠ **And the join between the two vocabularies is declared, because they collide.** `vixen_family` is
 the column a person maintains, and four names still mean different things on either side of it:
@@ -3229,7 +3248,7 @@ mixed-content paragraph sit behind it.
 | C2 ✅ | Re-peg the `shadow`/`blur`/`rounded` scales to v4's names (D5). ⚠ **Refuted and closed**: C3's transcription brought v4's names with its values, the editor's `--radius-*` are a semantic namespace that collides with none of them, and no picture moved. The real gap was a `--blur-*` namespace that had never shipped, so `blur-md` produced no rule — additive, and it ships now | 0.1 |
 | C3 ✅ | `@theme` replaces `vixen.ui.yaml`; `ThemeTokens` reads a stylesheet, and v4.3.3's palette ships as the engine default in oklch (D1, D4) | 0.5 |
 | C4 ✅ | Cross-assembly token sharing, shape C (Part 3) — `VixenStyleTokens` names another project's `@theme`; `Vixen.Editor.Ui.Styling.targets` makes joining the editor's theme one `Import`; guarded by `SharedThemeTests`, which is cross-assembly because no per-project suite can be | 0.3 |
-| C5 🟡 | The gate: a family emitting a property no consumer **acts on** fails the build (#11) — ✅ landed as `UtilityConsumptionGateTests` with its expiring allow-list. ⛔ Still owed: `Tools/Vixen.TailwindParity` regenerating the TSV from a committed registry snapshot, which is the half that needs the Tailwind registry and cannot be a test | 0.2 |
+| C5 ✅ | The gate: a family emitting a property no consumer **acts on** fails the build (#11) — landed as `UtilityConsumptionGateTests` with its expiring allow-list. The other half landed as `Tools/Vixen.TailwindParity`: the registry snapshot is taken by hand (it needs npm) and committed, and the comparison against it *is* a test after all — `Vixen.TailwindParity.Tests` runs it every time. ⚠ Its first run found a Vixen-only class spelling sitting in the column that describes Tailwind | 0.2 |
 | C6 ✅ | Doc 09's five missing families — `space` and `divide` written (a new `Family.Scope`, so the generator can emit `& > :not(:last-child)`); `mix-blend` and `origin` refused as measured-inert and struck from doc 09's list; `scroll` deferred to A18 per Part 8 § 3. ⚠ All three refusals have since expired and all five families are registered — `origin` in F9, `scroll` under A18, `mix-blend` (with `isolation`) in Part 9 Bucket 2. See F9 | 0.25 |
 | C7 🟢 | The ~120 families that are a table line each, once A and B land | 0.75 |
 | C8 🟡 | The families that are their own small feature: `mask-*`, gradients, `animate-*` | 0.75 |
@@ -3272,7 +3291,8 @@ stay.
 
 **Wave 0 — the survey's own consequences.** C0 (prefix fallback), C5 (the gate and its expiring
 allow-list) and the README correction — A5 landed while this was written, and ✅ C5's gate half has
-landed since, taking F10 with it. What is left of wave 0 is C0 and `Tools/Vixen.TailwindParity`.
+landed since, taking F10 with it, and ✅ `Tools/Vixen.TailwindParity` with it. What is left of wave 0
+is C0.
 Nothing depends on these and everything is cheaper after them. **0.2 EM.**
 
 **Wave 1 — the token model, before #6 and #7 build the old one.** C3, then C4, then A9 and A10. This
@@ -4072,6 +4092,11 @@ ask is not "where is this read" but "what else reads the number it changes".**
 
 1. **Every one of the table's roots is `works`, or carries an open task number, or is one of the four
    exclusions in Part 8.** Checked by regenerating the TSV; the states are computed, not asserted.
+   ✅ **And the roots themselves are checked now**, against `docs/plan/tailwind-registry.json` by
+   `Tools/Vixen.TailwindParity`: 245 functional roots surveyed and 245 registered, with no row on
+   either side that the other lacks. The static half is compared through the class names a row lists,
+   and the 163 v4 static utilities no row names are enumerated in
+   `docs/plan/43-web-styling-unlisted.txt` rather than assumed away.
 2. ✅ **No family emits a property no consumer *acts on***, except entries on the allow-list, each of
    which names a task this document contains. `UtilityConsumptionGateTests` fails otherwise — a test
    rather than `CheckArchitecture`, for the reason Part 5 gives, and "acts on" rather than "interns"

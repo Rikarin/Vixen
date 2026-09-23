@@ -605,6 +605,8 @@
     <Project Path="Tools/Vixen.StyleGen/Vixen.StyleGen.csproj" />
     <Project Path="Tools/Vixen.StyleGen.Tests/Vixen.StyleGen.Tests.csproj" />
     <Project Path="Tools/Vixen.TaffyTestGen/Vixen.TaffyTestGen.csproj" />
+    <Project Path="Tools/Vixen.TailwindParity/Vixen.TailwindParity.csproj" />
+    <Project Path="Tools/Vixen.TailwindParity.Tests/Vixen.TailwindParity.Tests.csproj" />
     <Project Path="Tools/Vixen.Templates/Vixen.Templates.csproj" />
     <Project Path="Tools/Vixen.Templates.Tests/Vixen.Templates.Tests.csproj" />
     <Project Path="Tools/Vixen.TextRenderingTestGen/Vixen.TextRenderingTestGen.csproj" />
