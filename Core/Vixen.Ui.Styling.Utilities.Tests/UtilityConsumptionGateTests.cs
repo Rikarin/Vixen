@@ -640,7 +640,48 @@ public class UtilityConsumptionGateTests {
         Assert.Empty(UtilityConsumptionProbe.Channels([scene], "border-inline-start-color", "#ff0000"));
     }
 
-    /// <summary>The scene reverted in #973, kept verbatim as the subject of the two tests above.</summary>
+    /// <summary>
+    ///     ⚠ The <c>flipped</c> scene observes a hidden back face in both walks, and nothing that
+    ///     nothing reads.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The positive half is why the scene exists.</b> <c>backface-visibility: hidden</c> on a
+    ///         probe facing the viewer is a no-op, correctly, so without a turned probe the
+    ///         <c>backface-*</c> root measures inert with both consumers finished. Both channels, since
+    ///         a back face that is not drawn and is still clicked is the failure the property invites.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The negative half is a refuted claim kept as a measurement.</b> #550's second pass
+    ///         held the root back because a scene like this "also flipped <c>select</c> and the two
+    ///         <c>border-s</c>/<c>border-e</c> colours to <c>read</c>" — the #973 poison's signature, on
+    ///         the same two allow-list lines. It does not reproduce, on this tree or on the UI sources
+    ///         of the commit that recorded it. If this ever goes red the finding is valuable, for the
+    ///         reason <see cref="The_scene_from_973_no_longer_reacts_to_a_property_nothing_reads" />
+    ///         gives: the poison is reproducible again, and it is the first time anybody could look at
+    ///         it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_flipped_scene_sees_a_hidden_back_face_and_nothing_nothing_reads() {
+        var scene = Assert.Single(UtilityConsumptionProbe.Scenes, candidate => candidate.Name == "flipped");
+
+        var hidden = UtilityConsumptionProbe.Channels([scene], "backface-visibility", "hidden");
+
+        Assert.Contains("paint", hidden);
+        Assert.Contains("hit", hidden);
+
+        Assert.Empty(UtilityConsumptionProbe.Channels([scene], "mask-type", "luminance"));
+
+        foreach (var keyword in (string[])["none", "text", "all", "auto"]) {
+            Assert.Empty(UtilityConsumptionProbe.Channels([scene], "user-select", keyword));
+        }
+
+        Assert.Empty(UtilityConsumptionProbe.Channels([scene], "border-inline-start-color", "#ff0000"));
+        Assert.Empty(UtilityConsumptionProbe.Channels([scene], "border-inline-end-color", "#ff0000"));
+    }
+
+    /// <summary>The scene reverted in #973, kept verbatim as the subject of the two #973 tests above.</summary>
     const string PoisonCss = """
         #host  { display: flex; flex-direction: row; width: 120px; height: 46px; align-items: stretch; }
         #probe { display: flex; flex-direction: row; flex-wrap: wrap; width: 44px;
