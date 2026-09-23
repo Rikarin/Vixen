@@ -18,7 +18,7 @@ namespace Vixen.Editor.Ui.Tests;
 ///         kinds (#1275), and the issue counted six more. ⚠ <b>The count was twenty-four</b>: the
 ///         issue grepped the shorthand, and <c>overflow-y: auto</c> is the same defect spelt for one
 ///         axis — sixteen more rules across the two editor themes, every one on a side panel or a
-///         list. Twenty-one of the twenty-four are closed; the three below say why they are not.
+///         list. Twenty-two of the twenty-four are closed; the two below say why they are not.
 ///     </para>
 ///     <para>
 ///         <b>This is the build-time half of the report; <c>UiDocument</c>'s 7009 is the run-time
@@ -88,19 +88,23 @@ public class OverflowLedgerTests {
     ///         pixel-identical without the declaration; what changed is the 7009 line on every open.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The three that are left are each left for a reason, not for want of time.</b>
+    ///         ⚠ <b><c>mixer-strips</c> was the first sideways one.</b> The view keeps its column and
+    ///         the strips run in a row in its content, with <c>min-height: 100%</c> there — a scroll
+    ///         content is only as tall as what it holds, so without it every fader shrank to its
+    ///         120 px floor (142 px measured, in a 521 px mixer).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two that are left are each left for a reason, not for want of time.</b>
     ///         <c>override-body</c> carries a <b>child-combinator</b> rule
     ///         (<c>override-body &gt; override-row</c>) and scrolls sideways. <c>input-debug</c> is a
     ///         <i>component's own host tag</i> (<c>@tag</c> in <c>InputDebugView.vxml</c>), and a
     ///         host element is built by the runtime as a plain <c>UiElement</c>: it cannot be given
     ///         a control's type from the sheet's side at all, so that one wants a scroller inside
-    ///         the view. <c>mixer-strips</c> and <c>override-body</c> scroll <i>sideways</i>, which
-    ///         is the one axis none of the conversions so far has exercised.
+    ///         the view.
     ///     </para>
     /// </remarks>
     static readonly string[] Remaining = [
         "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:override-body",
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:mixer-strips",
         "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:input-debug"
     ];
 

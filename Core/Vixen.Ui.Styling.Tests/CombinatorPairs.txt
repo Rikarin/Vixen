@@ -79,6 +79,7 @@ message-log-detail > scroll-content	Editor/Vixen.Editor.Ui/Theming/EditorTheme.v
 mixer-body > mixer-strips	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 mixer-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 mixer-strip > slider	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+mixer-strips > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 mode-bar > toolbar	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 model-editor > tree-view	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 moveset-bar > textbox	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss

@@ -168,6 +168,7 @@ message-log-toolbar search-box	Panels
 message-log-toolbar select	Panels
 mixer-body > mixer-strips	Documents
 mixer-side > scroll-content	Documents
+mixer-strips > scroll-content	Documents
 mode-bar > toolbar	Started
 model-editor > tree-view	Documents
 moveset-bar > textbox	Documents

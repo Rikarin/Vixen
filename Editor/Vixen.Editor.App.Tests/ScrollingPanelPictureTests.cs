@@ -331,17 +331,64 @@ public sealed class ScrollingPanelPictureTests {
         );
     }
 
+    /// <summary>The mixer's strips, sideways, over more buses than the body is wide.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The first conversion on the other axis.</b> Strips sit side by side and a fader's
+    ///     travel is the strip's height, so the content has to stretch to the view's height as well as
+    ///     run past its width — a scroll content that was only as tall as its tallest strip's minimum
+    ///     would shrink every fader to its 120 px floor. Hence the fader-height assertion beside the
+    ///     scroll one.
+    /// </remarks>
+    [Fact]
+    public void The_mixer_strips_scroll_sideways_inside_their_box_and_nowhere_else() {
+        using var fixture = Start();
+
+        var absolute = fixture.Project.Paths.Absolute("Assets/Game.vxmixer");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
+        File.WriteAllText(absolute, string.Empty);
+        fixture.Project.Assets.Scan();
+
+        Assert.True(fixture.Project.Assets.TryGetByPath("Assets/Game.vxmixer", out var entry));
+
+        fixture.Editor.OpenAsset(entry.Guid);
+        fixture.Frames(2);
+
+        var mixer = Find<Vixen.Editor.AssetEditors.Audio.AudioMixerView>(fixture.Document.Root)
+            ?? throw fixture.Fail("opening a mixer opened no mixer view");
+
+        for (var bus = 0; bus < 16; bus++) {
+            fixture.Click(mixer.AddBus);
+        }
+
+        fixture.Frames(2);
+
+        var strips = Scroller(fixture, "mixer-strips");
+
+        // The faders take the strips' height, as they did before the strips were in a scroller.
+        var fader = Descendants(strips).OfType<Slider>().First();
+
+        Assert.True(
+            fader.Height > 160f,
+            $"a fader is {fader.Height:0} px tall in a {strips.Height:0} px mixer, so the strips no longer stretch to the view."
+        );
+
+        Check(fixture, strips, "mixer-strips", sideways: true);
+    }
+
     static EditorSession Start(int width = Width, int height = Height) =>
         EditorSession.Start(new EditorSessionOptions { Width = width, Height = height });
 
     /// <summary>Draws the editor at the top of the scroll and at the bottom, and holds the difference to the view.</summary>
-    static void Check(EditorSession fixture, ScrollView view, string name) {
+    static void Check(EditorSession fixture, ScrollView view, string name, bool sideways = false) {
         fixture.Frames(2);
 
+        var reach = sideways ? view.MaximumLeft : view.MaximumTop;
+
         Assert.True(
-            view.MaximumTop > 0f,
-            $"<{view.Tag}> has nothing below its fold ({view.Content.Height} px of content in {view.Height} px), "
-            + "so a scroll moves nothing and the comparison below proves nothing."
+            reach > 0f,
+            $"<{view.Tag}> has nothing beyond its fold ({view.Content.Width}×{view.Content.Height} px of content in "
+            + $"{view.Width}×{view.Height} px), so a scroll moves nothing and the comparison below proves nothing."
         );
 
         var box = Box(view);
@@ -399,10 +446,13 @@ public sealed class ScrollingPanelPictureTests {
 
         var top = Draw(fixture, gpu, $"{name}-top");
 
-        view.ScrollTo(view.MaximumTop, 0f);
+        view.ScrollTo(sideways ? 0f : reach, sideways ? reach : 0f);
         fixture.Frames(2);
 
-        Assert.True(view.ScrollTop > 0f, $"<{view.Tag}> did not move when it was scrolled to {view.MaximumTop}.");
+        Assert.True(
+            (sideways ? view.ScrollLeft : view.ScrollTop) > 0f,
+            $"<{view.Tag}> did not move when it was scrolled to {reach}."
+        );
 
         var bottom = Draw(fixture, gpu, $"{name}-bottom");
 

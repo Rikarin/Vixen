@@ -79,6 +79,7 @@ message-log-detail > scroll-content
 mixer-body > mixer-strips
 mixer-side > scroll-content
 mixer-strip > slider
+mixer-strips > scroll-content
 mode-bar > toolbar
 model-editor > tree-view
 moveset-bar > textbox

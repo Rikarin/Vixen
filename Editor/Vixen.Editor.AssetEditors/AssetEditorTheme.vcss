@@ -862,11 +862,22 @@ state-box-motion { color: var(--text-muted); font-size: 11px; }
 /* ── The mixer ──────────────────────────────────────────────────────
    Strips side by side, which is the layout every mixer has had since the hardware ones: a
    fader is a thing you compare against its neighbours. */
+/* ⚠ A `ScrollView` under this tag, scrolling sideways (#1275) — `overflow-x: auto` clipped every
+   strip past the body's edge and scrolled nothing. The view keeps the column the user-agent rule
+   gives it, and the strips run in a row in its content: `min-height: 100%` there is what keeps a
+   fader's travel the body's height rather than its 120 px floor, since a scroll content is only as
+   tall as what it holds. The clip and the anchor are restated for #1327's reason. */
 mixer-strips {
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+mixer-strips > scroll-content {
     flex-direction: row;
     align-items: stretch;
     gap: 4px;
-    overflow-x: auto;
+    min-height: 100%;
 }
 
 mixer-strip {
