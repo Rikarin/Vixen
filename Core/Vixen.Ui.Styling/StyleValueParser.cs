@@ -827,6 +827,23 @@ public sealed class StyleValueParser {
             _ when suffix.Equals("lh", StringComparison.OrdinalIgnoreCase) =>
                 StyleValue.FromLength(number, StyleUnit.LineHeight),
 
+            // CSS Containment 3 § 5.3. ⚠ `cqmin` and `cqmax` are tested before `cqi` and `cqb` only
+            // in the reading: this is exact equality on the whole suffix, so no order here is
+            // load-bearing — unlike `rem` before `em` twenty lines up, which is. Written in the
+            // specification's order instead.
+            _ when suffix.Equals("cqw", StringComparison.OrdinalIgnoreCase) =>
+                StyleValue.FromLength(number, StyleUnit.ContainerWidth),
+            _ when suffix.Equals("cqh", StringComparison.OrdinalIgnoreCase) =>
+                StyleValue.FromLength(number, StyleUnit.ContainerHeight),
+            _ when suffix.Equals("cqi", StringComparison.OrdinalIgnoreCase) =>
+                StyleValue.FromLength(number, StyleUnit.ContainerInline),
+            _ when suffix.Equals("cqb", StringComparison.OrdinalIgnoreCase) =>
+                StyleValue.FromLength(number, StyleUnit.ContainerBlock),
+            _ when suffix.Equals("cqmin", StringComparison.OrdinalIgnoreCase) =>
+                StyleValue.FromLength(number, StyleUnit.ContainerMin),
+            _ when suffix.Equals("cqmax", StringComparison.OrdinalIgnoreCase) =>
+                StyleValue.FromLength(number, StyleUnit.ContainerMax),
+
             _ => StyleValue.Unknown
         };
     }

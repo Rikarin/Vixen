@@ -77,6 +77,12 @@ BenchmarkDotNet.Artifacts/
 # The documentation site's install and build outputs.
 www/node_modules/
 
+# The tailwindcss install the parity snapshot is taken against. ⚠ The package is deliberately not
+# vendored: the snapshot in docs/plan/ is the committed artefact, and it is taken by hand when the
+# pinned version moves rather than on every build.
+Tools/Vixen.TailwindParity/node_modules/
+Tools/Vixen.TailwindParity/package-lock.json
+
 # The VS Code extension: its dependencies and its packaged output.
 Tools/Vixen.VSCode/node_modules/
 Tools/Vixen.VSCode/*.vsix

@@ -276,6 +276,75 @@ public sealed partial class UiDocument {
         return moved;
     }
 
+    /// <summary>The length context an element's children resolve <c>cq*</c> units in.</summary>
+    /// <param name="element">The element, which may or may not declare a containment.</param>
+    /// <param name="style">Its computed style, as the caller already has it.</param>
+    /// <param name="metrics">The context the element itself resolved in.</param>
+    /// <returns>The same context, with this element's box in it if it is a query container.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Read off the style walk and not off <see cref="ContainerScopes" />, which is the
+    ///         one design decision in this method.</b> The scope chain exists to answer
+    ///         <c>@container</c> rules, and <see cref="Recontain()" /> gives up before entering a
+    ///         single scope when no sheet declares a container group — the branch that keeps the
+    ///         feature free for documents that do not use it. But a <c>cqw</c> needs no
+    ///         <c>@container</c> rule at all: <c>container-type: inline-size</c> on a panel and
+    ///         <c>width: 50cqi</c> on its child is a complete, legal stylesheet, and reading the
+    ///         chain would have resolved it against the viewport with nothing said.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The block axis keeps whatever ancestor answered it, and that is not tidiness.</b>
+    ///         An <c>inline-size</c> container leaves its height to its content, so it cannot answer
+    ///         <c>cqb</c> — the nearest <c>size</c> container above it still does, and may be several
+    ///         levels further out or absent. Collapsing the two into one box would have an
+    ///         <c>inline-size</c> container shadow an outer <c>size</c> one on an axis it never
+    ///         claimed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The box is the previous layout pass's, exactly as <see cref="Recontain()" />'s
+    ///         is.</b> Styles are resolved before layout runs, so a <c>cqw</c> is one pass stale on
+    ///         the frame a container resizes, and the settle loop is what closes it — the same
+    ///         staleness, from the same cause, as every <c>@container</c> verdict in this file.
+    ///     </para>
+    /// </remarks>
+    LengthContext WithContainerOf(UiElement element, ComputedStyle style, in LengthContext metrics) {
+        var kind = KindOf(style, out _);
+
+        if (kind == ContainerKind.Normal) {
+            return metrics;
+        }
+
+        var box = BoxOf(element, kind);
+
+        // ⚠ <b>The settle pass a container unit needs, asked for here and ONLY when nothing else
+        // will ask for it.</b> Styles are built before layout runs, so the first pass resolves every
+        // `cqw` against a container nobody has measured — a box of nothing — and a second pass
+        // happens only because something invalidated the document. `Recontain` is that something
+        // whenever a sheet declares a container group: a container's box is part of the key its
+        // scope is interned under, so a box that moves is a scope that moved and it invalidates
+        // already. What it cannot cover is the document that uses no `@container` rule at all,
+        // because it gives up before walking — and a container unit needs no rule.
+        //
+        // ⚠ So the condition is `Recontain`'s own early-out, spelled the same way on purpose. An
+        // unconditional invalidate here costs every document with a query container one extra settle
+        // pass it did not need, which `ContainerWiringTests` measures to the pass and is right to:
+        // "two would mean the container's own size moved in response to its descendants' styles".
+        var moved = element.AppliedContainerBox != box;
+        element.AppliedContainerBox = box;
+
+        if (moved && Styles.Containers.Count <= 1) {
+            Invalidate();
+        }
+
+        return kind == ContainerKind.Size
+            ? metrics.WithContainer(box.Width, box.Height, ContainerKind.Size)
+            : metrics.WithContainer(
+                box.Width,
+                metrics.ContainerBlockSize,
+                metrics.ContainerAxes == ContainerKind.Size ? ContainerKind.Size : ContainerKind.InlineSize
+            );
+    }
+
     /// <summary>Reads <c>container-type</c>, <c>container-name</c> and the <c>container</c> shorthand.</summary>
     /// <param name="style">The element's computed style.</param>
     /// <param name="name">Receives its container name, or empty.</param>

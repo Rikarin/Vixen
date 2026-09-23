@@ -602,6 +602,12 @@ Vixen.Ui.Styling.StyleTree.SetScope(Vixen.Ui.Styling.StyleNodeId element, int sc
 Vixen.Ui.Styling.StyleTree.SetState(Vixen.Ui.Styling.StyleNodeId element, Vixen.Ui.Styling.ElementState state) -> void
 Vixen.Ui.Styling.StyleTree.StyleTree(Vixen.Ui.Styling.NameTable names) -> void
 Vixen.Ui.Styling.StyleUnit -> enum : byte
+Vixen.Ui.Styling.StyleUnit.ContainerBlock = 15 -> Vixen.Ui.Styling.StyleUnit
+Vixen.Ui.Styling.StyleUnit.ContainerHeight = 13 -> Vixen.Ui.Styling.StyleUnit
+Vixen.Ui.Styling.StyleUnit.ContainerInline = 14 -> Vixen.Ui.Styling.StyleUnit
+Vixen.Ui.Styling.StyleUnit.ContainerMax = 17 -> Vixen.Ui.Styling.StyleUnit
+Vixen.Ui.Styling.StyleUnit.ContainerMin = 16 -> Vixen.Ui.Styling.StyleUnit
+Vixen.Ui.Styling.StyleUnit.ContainerWidth = 12 -> Vixen.Ui.Styling.StyleUnit
 Vixen.Ui.Styling.StyleUnit.Degrees = 4 -> Vixen.Ui.Styling.StyleUnit
 Vixen.Ui.Styling.StyleUnit.Em = 5 -> Vixen.Ui.Styling.StyleUnit
 Vixen.Ui.Styling.StyleUnit.LineHeight = 11 -> Vixen.Ui.Styling.StyleUnit
