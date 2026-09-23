@@ -46,7 +46,8 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///     <para>
 ///         ⚠ <b>What this cannot judge, stated as a number rather than hidden.</b> A receiver the
 ///         syntax does not type — <c>row.Cells[0].Label</c>, a method's return value, an element
-///         bound by <c>ref="@X"</c> in markup — and a type this assembly cannot load, which is every
+///         bound by <c>ref="@X"</c> in markup, a bare <c>Label = "…"</c> in a partial type whose base
+///         is declared in another part — and a type this assembly cannot load, which is every
 ///         control the editor declares for itself, are <i>unjudged</i>. They are counted, and the
 ///         instrument check below names the count, but they are neither rows nor passes. A literal
 ///         spoken by <c>PaletteRow</c> is invisible here for the same reason it is invisible to a
@@ -251,8 +252,16 @@ public class CodeAccessibleNameTests {
             var (property, receiver) = assignment.Left switch {
                 IdentifierNameSyntax bare when assignment.Parent is InitializerExpressionSyntax initializer
                     => (bare.Identifier.ValueText, Created(initializer)),
+                // ⚠ A bare name outside an initializer is the enclosing type's own member —
+                // `class CloseButton : Button { … Label = "Close"; }` — which is the likeliest shape
+                // for a control to hard-code what it says about itself. It once fell through to the
+                // discard arm below, ahead of the site count, so it was neither a row, nor
+                // unjudged, nor counted: the one hole the remark above says this file does not have.
+                // A local or parameter of that name is a variable being assigned, not a property.
+                IdentifierNameSyntax bare when Binding(bare.Identifier.ValueText, assignment) is null
+                    => (bare.Identifier.ValueText, Self(bare.Identifier.ValueText, assignment, spoken, inherited: false)),
                 MemberAccessExpressionSyntax access
-                    => (access.Name.Identifier.ValueText, TypeOf(access.Expression, assignment)),
+                    => (access.Name.Identifier.ValueText, TypeOf(access.Expression, assignment, spoken)),
                 _ => (null, null)
             };
 
@@ -312,13 +321,62 @@ public class CodeAccessibleNameTests {
     /// <summary>The type the syntax gives a receiver, or nothing when it does not say.</summary>
     /// <param name="receiver">What is left of the dot.</param>
     /// <param name="at">The assignment, which bounds which declarations are visible.</param>
-    static string? TypeOf(ExpressionSyntax receiver, SyntaxNode at) =>
+    /// <param name="spoken">Which element types speak which properties, for a receiver that is <c>this</c>.</param>
+    static string? TypeOf(ExpressionSyntax receiver, SyntaxNode at, IReadOnlyDictionary<string, IReadOnlySet<string>> spoken) =>
         receiver switch {
             IdentifierNameSyntax identifier => Declared(identifier.Identifier.ValueText, at),
             MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } member => Member(member.Name.Identifier.ValueText, at),
-            ParenthesizedExpressionSyntax parenthesized => TypeOf(parenthesized.Expression, at),
+            ThisExpressionSyntax when at is AssignmentExpressionSyntax { Left: MemberAccessExpressionSyntax access }
+                => Self(access.Name.Identifier.ValueText, at, spoken, inherited: false),
+            BaseExpressionSyntax when at is AssignmentExpressionSyntax { Left: MemberAccessExpressionSyntax access }
+                => Self(access.Name.Identifier.ValueText, at, spoken, inherited: true),
+            ParenthesizedExpressionSyntax parenthesized => TypeOf(parenthesized.Expression, at, spoken),
             _ => Produced(receiver)
         };
+
+    /// <summary>
+    ///     The type a member of <c>this</c> is looked up on: the enclosing type when the probe built it
+    ///     or it declares the member itself, its first base type otherwise.
+    /// </summary>
+    /// <param name="name">The member assigned.</param>
+    /// <param name="at">The assignment.</param>
+    /// <param name="spoken">Which element types speak which properties.</param>
+    /// <param name="inherited">Whether the receiver was <c>base</c>, which skips the enclosing type.</param>
+    /// <returns>A type name, or nothing when a partial declaration's base is somewhere this file is not.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The enclosing type first, when it is one the probe built</b>, because the probe measured
+    ///     that exact type — an override of <c>NativeAccessibleName</c> in the control itself is what it
+    ///     heard. A type the probe did not build (an editor subclass of <c>Button</c>) inherits the
+    ///     property, so its base answers — and a base the probe did not build either is
+    ///     <see cref="Code.Foreign" />, counted, the same as any other control this assembly cannot load.
+    /// </remarks>
+    static string? Self(string name, SyntaxNode at, IReadOnlyDictionary<string, IReadOnlySet<string>> spoken, bool inherited) {
+        if (at.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault() is not { } type) {
+            return null;
+        }
+
+        var own = type.TypeParameterList is { Parameters.Count: > 0 } parameters
+            ? $"{type.Identifier.ValueText}`{parameters.Parameters.Count}"
+            : type.Identifier.ValueText;
+
+        if (!inherited) {
+            if (spoken.ContainsKey(own)) {
+                return own;
+            }
+
+            var declares = type.Members.Any(member => member switch {
+                PropertyDeclarationSyntax property => property.Identifier.ValueText == name,
+                FieldDeclarationSyntax field => field.Declaration.Variables.Any(variable => variable.Identifier.ValueText == name),
+                _ => false
+            });
+
+            if (declares) {
+                return own;
+            }
+        }
+
+        return type.BaseList?.Types.FirstOrDefault()?.Type is { } baseType ? Simple(baseType) : null;
+    }
 
     /// <summary>The type an expression evidently produces, from its own shape.</summary>
     /// <remarks>
@@ -343,35 +401,40 @@ public class CodeAccessibleNameTests {
         };
 
     /// <summary>A name's type: the nearest local or parameter declared before the use, then a member.</summary>
-    static string? Declared(string name, SyntaxNode at) {
+    static string? Declared(string name, SyntaxNode at) =>
+        Binding(name, at) switch {
+            VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax declaration } local => declaration.Type.IsVar
+                ? local.Initializer is { } initializer ? Produced(initializer.Value) : null
+                : Simple(declaration.Type),
+            ParameterSyntax { Type: { } type } => Simple(type),
+            _ => Member(name, at)
+        };
+
+    /// <summary>The nearest local declared before the use, or the parameter, that a name refers to.</summary>
+    /// <returns>A <see cref="VariableDeclaratorSyntax" /> or a <see cref="ParameterSyntax" />, or nothing for a member.</returns>
+    static SyntaxNode? Binding(string name, SyntaxNode at) {
         var scope = at.Ancestors().FirstOrDefault(static node =>
             node is BaseMethodDeclarationSyntax or AccessorDeclarationSyntax or LocalFunctionStatementSyntax
                 or PropertyDeclarationSyntax or CompilationUnitSyntax
         );
 
-        if (scope is not null) {
-            var local = scope.DescendantNodes()
-                .OfType<VariableDeclaratorSyntax>()
-                .Where(declarator => declarator.Identifier.ValueText == name && declarator.SpanStart < at.SpanStart)
-                .MaxBy(static declarator => declarator.SpanStart);
-
-            if (local is { Parent: VariableDeclarationSyntax declaration }) {
-                return declaration.Type.IsVar
-                    ? local.Initializer is { } initializer ? Produced(initializer.Value) : null
-                    : Simple(declaration.Type);
-            }
-
-            var parameter = at.Ancestors()
-                .SelectMany(static node => node.ChildNodes().OfType<ParameterListSyntax>())
-                .SelectMany(static list => list.Parameters)
-                .FirstOrDefault(parameter => parameter.Identifier.ValueText == name);
-
-            if (parameter?.Type is { } type) {
-                return Simple(type);
-            }
+        if (scope is null) {
+            return null;
         }
 
-        return Member(name, at);
+        var local = scope.DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Where(declarator => declarator.Identifier.ValueText == name && declarator.SpanStart < at.SpanStart)
+            .MaxBy(static declarator => declarator.SpanStart);
+
+        if (local is { Parent: VariableDeclarationSyntax }) {
+            return local;
+        }
+
+        return at.Ancestors()
+            .SelectMany(static node => node.ChildNodes().OfType<ParameterListSyntax>())
+            .SelectMany(static list => list.Parameters)
+            .FirstOrDefault(parameter => parameter.Identifier.ValueText == name);
     }
 
     /// <summary>A field's or property's declared type, in the type that encloses the use.</summary>
@@ -516,6 +579,33 @@ public class CodeAccessibleNameTests {
                     var flag = new Option<bool>("--verbose") { Description = "A Flag, Not An Option" };
                 }
             }
+
+            class CloseButton : Button {
+                void Build() {
+                    Label = "From Its Own Class";
+                    this.Label = "From This";
+                    base.Label = "From Base";
+                    var Title = "";
+                    Title = "A Local, Not A Property";
+                }
+            }
+
+            partial class Alert {
+                void Set() => Title = "From The Control Itself";
+            }
+
+            partial class Elsewhere {
+                void Set() => Label = "Its Base Is In Another Part";
+            }
+
+            class Settings {
+                public string Title { get; set; } = "";
+                void Set() => Title = "Its Own Property";
+            }
+
+            class OverlayRenderer : RenderFeature {
+                void Set() => Name = "Not A Control Either";
+            }
             """;
 
         var table = new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal) {
@@ -530,21 +620,29 @@ public class CodeAccessibleNameTests {
         Assert.Equal(
             [
                 "Synthetic.cs\tAlert.Title\tFrom A Parameter",
+                "Synthetic.cs\tAlert.Title\tFrom The Control Itself",
                 "Synthetic.cs\tButton.Label\tFrom A Local",
                 "Synthetic.cs\tButton.Label\tFrom A Typed New",
                 "Synthetic.cs\tButton.Label\tFrom An Initializer",
+                "Synthetic.cs\tButton.Label\tFrom Base",
+                "Synthetic.cs\tButton.Label\tFrom Its Own Class",
+                "Synthetic.cs\tButton.Label\tFrom This",
                 "Synthetic.cs\tIconButton.Label\tFrom A Property"
             ],
             found.Literal
         );
 
-        // Ten literals assigned to a watched name — the attribute argument is not an assignment.
-        // Two have a receiver the syntax does not type, and three are a type that is no element
-        // here: a window's options twice, and a generic `Option<bool>` that shares its simple name
-        // with the select control's item and must not be read as one.
-        Assert.Equal(10, found.Sites);
-        Assert.Equal(["Synthetic.cs:26", "Synthetic.cs:27"], found.Untyped);
-        Assert.Equal(new Dictionary<string, int> { ["Option`1"] = 1, ["WindowOptions"] = 2 }, found.Foreign);
+        // Seventeen literals assigned to a watched name — the attribute argument is not an
+        // assignment, and neither is a local that happens to be called `Title`. Three have a
+        // receiver the syntax does not type: two expressions, and a partial class whose base is in
+        // a part this file does not hold. Five are a type that is no element here: a window's
+        // options twice, a generic `Option<bool>` that shares its simple name with the select
+        // control's item and must not be read as one, a class's own property, and a renderer's
+        // inherited `Name`. ⚠ The bare `Label = …` in a control's own class was once dropped ahead
+        // of this count, so it was not even unjudged.
+        Assert.Equal(17, found.Sites);
+        Assert.Equal(["Synthetic.cs:26", "Synthetic.cs:27", "Synthetic.cs:47"], found.Untyped);
+        Assert.Equal(new Dictionary<string, int> { ["Option`1"] = 1, ["RenderFeature"] = 1, ["Settings"] = 1, ["WindowOptions"] = 2 }, found.Foreign);
     }
 
     /// <summary>A <c>@code</c> body is read, and the markup and prose around it are not.</summary>
@@ -581,7 +679,7 @@ public class CodeAccessibleNameTests {
     public void The_code_scan_actually_ran() {
         var code = Scanned;
 
-        Assert.True(code.Files >= 3000, $"only {code.Files} source files were found, against 6 000 measured.");
+        Assert.True(code.Files >= 3000, $"only {code.Files} source files were found, against 3 351 measured.");
         Assert.True(code.Sites >= 50, $"only {code.Sites} literals were assigned to a watched name, which is not this repository.");
 
         // `ListDrawer.cs` builds the list's add button with `editor.Fold.Content.Add<Button>()` and
