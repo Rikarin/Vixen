@@ -48,6 +48,20 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         <see cref="CensusFile" />, exactly and in both directions, so a type leaving the file is
 ///         as loud as one arriving.
 ///     </para>
+///     <para>
+///         ⚠ <b>Two shapes fell through both the sweep and the census, and a gap the census cannot
+///         see is the one kind of gap this design is not allowed to have.</b> A public element type
+///         <i>nested</i> in a class answers <c>false</c> to <see cref="Type.IsPublic" /> —
+///         <see cref="Type.IsNestedPublic" /> is the property for those — and a self-naming abstract
+///         base whose subclasses all declare no override of their own was judged by nothing, because
+///         the base is filtered out as abstract and the subclasses do not declare. So the visibility
+///         test is <see cref="Element" />, the naming set includes abstract types, and coverage is
+///         asked of the declaring type and answered by whichever subclass the sweep builds —
+///         <c>ButtonBase</c> through <c>Button</c>. Both holes were empty when they were found, so
+///         no verdict moved; <see cref="The_domain_sees_a_nested_control_and_a_self_naming_base" />
+///         is where they are shown, on local types, because neither shape exists in the assemblies
+///         to show them with.
+///     </para>
 /// </remarks>
 [Collection(SharedCatalogue.Name)]
 public class AccessibleNameDomainTests {
@@ -86,11 +100,41 @@ public class AccessibleNameDomainTests {
         Elementary().Where(static type => type.GetConstructor(Type.EmptyTypes) is not null);
 
     /// <summary>Every public, concrete element type in the two control assemblies.</summary>
-    static IEnumerable<Type> Elementary() =>
+    static IEnumerable<Type> Elementary() => Visible().Where(static type => !type.IsAbstract);
+
+    /// <summary>Every public element type in the two control assemblies, abstract ones included.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The abstract ones are here because <see cref="Naming" /> needs them, and it needs
+    ///     them because a base class is where a self-naming control usually declares itself.</b>
+    ///     <c>ButtonBase</c> answers <c>Label</c> for twelve concrete controls and declares the
+    ///     override once; the sweep judges those twelve, so nothing is blind today. The hole is the
+    ///     shape where none of a self-naming base's subclasses can be built — then the base is
+    ///     abstract and outside the sweep, every subclass declares no override of its own and is
+    ///     outside the naming set, and the census that exists to make that visible cannot see it
+    ///     either. So coverage is asked of the declaring type and answered by its subclasses.
+    ///     ⚠ Measured: the naming set is 21 types with the abstract ones in, against 19 without —
+    ///     <c>ButtonBase</c> and <c>TextField</c> are the two, and 21 is exactly the number of
+    ///     <c>NativeAccessibleName</c> declarations in the two assemblies' source.
+    /// </remarks>
+    static IEnumerable<Type> Visible() =>
         new[] { typeof(Button).Assembly, typeof(DataGrid).Assembly }
             .SelectMany(static assembly => assembly.GetTypes())
-            .Where(static type => type.IsPublic && !type.IsAbstract && typeof(UiElement).IsAssignableFrom(type))
+            .Where(Element)
             .OrderBy(static type => type.FullName, StringComparer.Ordinal);
+
+    /// <summary>Whether a type is one a caller outside these assemblies can name and place.</summary>
+    /// <param name="type">The candidate.</param>
+    /// <returns><c>true</c> when it is a publicly visible <see cref="UiElement" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Type.IsPublic" /> is <c>false</c> for a public type nested in another
+    ///     class</b> — <see cref="Type.IsNestedPublic" /> is the property for those, and the two do
+    ///     not overlap. A domain filtered on <c>IsPublic</c> alone drops a nested public control out
+    ///     of the sweep <i>and</i> out of the census, which is the one combination this file exists
+    ///     to make impossible. No such type exists in either assembly today; it is one declaration
+    ///     away, and nothing would have said so.
+    /// </remarks>
+    static bool Element(Type type) =>
+        (type.IsPublic || type.IsNestedPublic) && typeof(UiElement).IsAssignableFrom(type);
 
     /// <summary>
     ///     The derived domain: every element type that declares words of its own.
@@ -104,13 +148,34 @@ public class AccessibleNameDomainTests {
     ///     field to a <c>ControlStrings</c> id, <c>TextField</c> to <c>null</c> on purpose — and that
     ///     is exactly the population where a literal can hide.
     /// </remarks>
-    static IEnumerable<Type> Naming() =>
-        Elementary().Where(
-            static type => type.GetProperty(
-                "NativeAccessibleName",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly
-            ) is not null
-        );
+    static IEnumerable<Type> Naming() => Visible().Where(Names);
+
+    /// <summary>Whether a type declares <c>NativeAccessibleName</c> itself.</summary>
+    /// <param name="type">The candidate.</param>
+    /// <returns><c>true</c> when the override is this type's own.</returns>
+    static bool Names(Type type) =>
+        type.GetProperty(
+            "NativeAccessibleName",
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly
+        ) is not null;
+
+    /// <summary>The self-naming types no built control stands for.</summary>
+    /// <param name="naming">Every type that declares the override.</param>
+    /// <param name="buildable">Every type the sweep constructs.</param>
+    /// <returns>The names of those the sweep's trees cannot exercise, in order.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Covered by a subclass and not only by itself, which is the difference between this
+    ///     and a filter on the constructor.</b> An abstract base declaring the override is exercised
+    ///     whenever any concrete subclass is built — <c>ButtonBase</c> through <c>Button</c> — and
+    ///     reporting it as unreachable would be a row nobody could ever delete. A base <i>none</i> of
+    ///     whose subclasses can be built is genuinely covered by nothing, and is what this reports.
+    /// </remarks>
+    static List<string> Unswept(IEnumerable<Type> naming, IReadOnlyCollection<Type> buildable) =>
+        naming
+            .Where(type => !buildable.Any(type.IsAssignableFrom))
+            .Select(static type => type.Name)
+            .Order(StringComparer.Ordinal)
+            .ToList();
 
     /// <summary>What the sweep found: the offenders, and how much it heard while finding none.</summary>
     /// <param name="Offenders">Each stale announcement, prefixed with the type that grew it.</param>
@@ -274,12 +339,7 @@ public class AccessibleNameDomainTests {
             + "this census compares nothing against nothing."
         );
 
-        var unswept = naming
-            .Where(static type => type.GetConstructor(Type.EmptyTypes) is null)
-            .Select(static type => type.Name)
-            .Order(StringComparer.Ordinal)
-            .ToList();
-
+        var unswept = Unswept(naming, Buildable().ToList());
         var census = Census();
 
         var arrived = unswept.Where(name => !census.ContainsKey(name)).ToList();
@@ -301,6 +361,56 @@ public class AccessibleNameDomainTests {
              constructor, or add a row saying who does cover it and why it cannot be built bare.
              """
         );
+    }
+
+    /// <summary>A public element type nested in another class, which <c>IsPublic</c> answers no for.</summary>
+    public class NestedElement : UiElement;
+
+    /// <summary>A base that names itself, which is the shape <c>ButtonBase</c> has.</summary>
+    public abstract class NamingBase : UiElement {
+        /// <inheritdoc />
+        protected override string? NativeAccessibleName => "a word of its own";
+    }
+
+    /// <summary>Its concrete subclass, which declares no override and inherits the words.</summary>
+    public sealed class NamingHeir : NamingBase;
+
+    /// <summary>An element that names itself nothing, standing for a control that covers no base.</summary>
+    public sealed class Unrelated : UiElement;
+
+    /// <summary>The two shapes the derived domain fell straight through, asked of the filters.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Local types rather than the assemblies, because neither shape exists in them —
+    ///         and that is the reason a test reading the assemblies could not show either.</b> Both
+    ///         holes were empty on the day they were found: no nested public element type is declared
+    ///         in either control assembly, and every concrete <c>ButtonBase</c> subclass is
+    ///         constructible, so the sweep covers the base through them. No verdict moves. What moves
+    ///         is what happens the day one is declared — and a type falling into either hole is in
+    ///         neither <see cref="Buildable" /> nor the census, which is precisely the silence
+    ///         deriving the domain exists to end.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <c>Type.IsPublic</c> and <c>Type.IsNestedPublic</c> do not overlap: the first is
+    ///         <c>false</c> for every nested type, whatever its accessibility. That is the whole
+    ///         defect, and it reads as correct.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_domain_sees_a_nested_control_and_a_self_naming_base() {
+        Assert.False(typeof(NestedElement).IsPublic, "the premise: a nested public type is not `IsPublic`.");
+        Assert.True(Element(typeof(NestedElement)), "a public element nested in a class is outside the sweep.");
+        Assert.False(Element(typeof(AccessibleNameDomainTests)), "a type that is not an element is out.");
+
+        // The declaring type is the one that names itself; its heir declares nothing of its own.
+        Assert.True(Names(typeof(NamingBase)));
+        Assert.False(Names(typeof(NamingHeir)));
+
+        // Built through its heir, the base is covered and must not be a census row nobody can delete.
+        Assert.Empty(Unswept([typeof(NamingBase)], [typeof(NamingHeir)]));
+
+        // With nothing built that stands for it, it is covered by nothing and has to say so.
+        Assert.Equal(["NamingBase"], Unswept([typeof(NamingBase)], [typeof(Unrelated)]));
     }
 
     /// <summary>The committed census: a type, the issue that will close it, and the reason.</summary>
