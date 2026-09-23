@@ -45,6 +45,15 @@ wrong.** § 3.2 says the box is sized as if it were empty. It goes on laying its
 painting them, hit-testing them and scrolling them — it only refuses to let them decide its own box.
 The difference is invisible in any fixture where the children happen to fit, which is most of them.
 
+⚠ **Except that this engine does not paint the contents of a box that comes out zero wide or zero
+tall**, and that is a divergence from CSS rather than something containment asks for. The draw list
+skips the whole subtree of a zero-sized element (`DrawListBuilder.Emit`) — the shortcut that keeps
+`display: none` out of the list — while the layout still places the children and the hit test still
+reaches them, so they are invisible and clickable. Size containment is the easy way to get such a
+box: `contain: size` with no stated size, and above all a content-sized query container with no
+padding or border, such as a flex item carrying `container-type: inline-size` and no width. Give a
+contained box a size, or padding, until the paint walk stops pruning on size alone.
+
 ## What it is for
 
 **Stopping a subtree's size from escaping.** A panel whose contents change every frame makes its

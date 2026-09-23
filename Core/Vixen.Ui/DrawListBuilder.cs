@@ -704,6 +704,15 @@ public sealed class DrawListBuilder {
         // A zero-sized element draws nothing and clips nothing, and skipping it early keeps
         // `display: none` — which flexbox reports as a zero box — out of the list entirely rather
         // than in it as a stack of invisible commands.
+        //
+        // ⚠ <b>"Clips nothing" is the half that is not true of what this return does.</b> It takes the
+        // subtree with it, so a child overflowing a zero-sized box is never painted — CSS paints it —
+        // while `UiDocument.HitTest`, which prunes on no size, still reaches it: invisible and
+        // clickable. Measured on a flex item carrying `container-type: inline-size` and no width,
+        // which is 0 wide by containment: its 120×30 child is laid out and hit, and draws no
+        // rectangle. A `height: 0` wrapper and `contain: size` reach it the same way. Not narrowed
+        // here, because telling `display: none` apart needs the layout's display at this point and
+        // the change reaches every zero-sized box in every view; see docs/guide/ui/containment.md.
         if (width <= 0f || height <= 0f) {
             return;
         }

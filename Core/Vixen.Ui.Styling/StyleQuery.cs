@@ -15,9 +15,18 @@ readonly record struct StyleFeature(string Property, string? Value);
 ///         because its subject is a computed value and not a box.</b> CSS Conditional 5 makes every
 ///         element a style container, so the unnamed query is about the <i>parent</i> — and the
 ///         cascade already holds the parent's resolved style when it resolves the child, which is
-///         where inheritance reads it too. <see cref="StyleUpdater" /> stops descending only where a
-///         style did not move, so a parent whose value changed always re-resolves the children that
-///         ask about it: the invalidation is the one inheritance already has.
+///         where inheritance reads it too. <see cref="StyleUpdater" /> stops descending where the
+///         <i>inherited portion</i> of a style did not move — <c>InheritedPortionDiffers</c> — and
+///         every custom property inherits here (<c>InheritedProperties.Inherits</c> answers yes for
+///         any <c>--*</c>), so a parent whose queried value changed always re-resolves the children
+///         that ask about it: the invalidation is the one inheritance already has.
+///     </para>
+///     <para>
+///         ⚠ <b>That argument rests on the second clause, and it is the one to re-check if
+///         <c>@property</c> ever lands.</b> A registered property with <c>inherits: false</c> can
+///         change on the parent without the inherited portion moving, so the walk would stop there
+///         and a child's <c>style(--x: …)</c> would answer stale. Querying such a property would
+///         then need its own edge from the parent to the children that ask.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>That is exactly why the named and the mixed forms are refused rather than

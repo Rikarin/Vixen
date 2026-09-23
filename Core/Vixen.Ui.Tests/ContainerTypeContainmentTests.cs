@@ -115,6 +115,40 @@ public class ContainerTypeContainmentTests {
         Assert.Equal(20f, box.Children[0].AbsoluteTop, Tolerance);
     }
 
+    /// <summary>The containment and the query agree about a keyword however it is cased.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two readers of one property that compare differently, and they agree anyway.</b>
+    ///     <c>ContainmentReader</c> compares the word ignoring case and <c>UiDocument.KindOf</c>
+    ///     compares the longhand's interned id, which looked like <c>container-type: Inline-Size</c>
+    ///     making a box contained — 0 wide — for a query that could never ask it. Measured, it does
+    ///     not: the keyword reaches both already folded, so a case-sensitive
+    ///     <c>ParseContainerType</c> leaves every row here green, and the <c>Inline-Size</c> row
+    ///     matches <c>KindOf</c>'s id exactly as the lowercase one does. The rows stay as the guard
+    ///     for the day that folding moves: both halves are asserted, the box taking no width from its
+    ///     contents <i>and</i> a child's query seeing it.
+    /// </remarks>
+    [Theory]
+    [InlineData("inline-size")]
+    [InlineData("Inline-Size")]
+    [InlineData("SIZE")]
+    public void A_container_type_keyword_is_read_the_same_by_the_containment_and_the_query(string keyword) {
+        using var contained = ContentSized($"container-type: {keyword}");
+
+        Assert.Equal(0f, contained.Root.Children[0].Width, Tolerance);
+
+        using var asked = Laid(
+            $$"""
+            root { display: block; width: 400px; height: 300px; }
+            .box { display: block; width: 200px; height: 100px; container-type: {{keyword}}; }
+            .child { display: block; width: 60px; height: 40px; }
+            @container (min-width: 100px) { .child { width: 30px; } }
+            """,
+            document => document.Root.Add("div", classNames: "box").Add("div", classNames: "child")
+        );
+
+        Assert.Equal(30f, asked.Root.Children[0].Children[0].Width, Tolerance);
+    }
+
     /// <summary>But not the containing block of an absolutely positioned descendant.</summary>
     /// <remarks>
     ///     ⚠ <b>The row that tells the formatting context from layout containment.</b> CSS Containment
