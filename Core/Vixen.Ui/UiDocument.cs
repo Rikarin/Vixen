@@ -58,6 +58,7 @@ public sealed partial class UiDocument : IDisposable {
     readonly int nowrap;
     readonly int preserved;
     readonly int breakSpaces;
+    readonly int preLine;
     readonly int balance;
     readonly int pretty;
     readonly int anywhere;
@@ -181,6 +182,7 @@ public sealed partial class UiDocument : IDisposable {
         nowrap = Styles.Values.Intern("nowrap");
         preserved = Styles.Values.Intern("pre");
         breakSpaces = Styles.Values.Intern("break-spaces");
+        preLine = Styles.Values.Intern("pre-line");
         anywhere = Styles.Values.Intern("anywhere");
         breakWord = Styles.Values.Intern("break-word");
         breakAll = Styles.Values.Intern("break-all");
@@ -2305,6 +2307,34 @@ public sealed partial class UiDocument : IDisposable {
     /// </remarks>
     internal bool BreakSpacesOf(ComputedStyle style) =>
         style.TryGet(whiteSpace, out var value) && value == breakSpaces;
+
+    /// <summary>What happens to runs of white space before shaping. <c>white-space-collapse</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The fourth <c>white-space</c> question this document asks, and the first that is
+    ///         about the <i>string</i> rather than about where a line may end.</b> The other three —
+    ///         <see cref="WrapsOf" />, <see cref="BreakSpacesOf" /> and the <c>pre</c> half of the
+    ///         first — are all answered inside <c>LineWrapper</c>, which is why <c>pre-line</c> was
+    ///         the one value left owed after <c>break-spaces</c> landed: nothing in this engine had
+    ///         ever <i>removed</i> a character between what an author wrote and what was shaped.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>normal</c> and <c>nowrap</c> deliberately answer <c>Preserve</c>, and that is
+    ///         a false answer this method is not the place to fix.</b> CSS collapses under both, and
+    ///         under both it also turns a segment break into a space — so honouring them here would
+    ///         change what every undeclared paragraph in every interface built on this engine draws,
+    ///         while leaving the second half (the break that becomes a space) to
+    ///         <c>LineWrapper</c>'s mandatory-break path, which still takes it. Half of
+    ///         <c>normal</c> is worse than none of it. <c>pre-line</c> is opt-in, is the value whose
+    ///         whole content is the collapsing, and is what #249 names.
+    ///     </para>
+    /// </remarks>
+    /// <param name="style">The computed style.</param>
+    /// <returns>Which collapsing the value asks for.</returns>
+    internal WhiteSpaceCollapse WhiteSpaceCollapseOf(ComputedStyle style) =>
+        style.TryGet(whiteSpace, out var value) && value == preLine
+            ? WhiteSpaceCollapse.PreserveBreaks
+            : WhiteSpaceCollapse.Preserve;
 
     /// <summary>Which of a paragraph's legal breaks it prefers. CSS Text 4's <c>text-wrap-style</c>.</summary>
     /// <remarks>

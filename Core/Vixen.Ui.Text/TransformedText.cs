@@ -32,8 +32,57 @@ public enum TextTransform : byte {
     Capitalize
 }
 
-/// <summary>An element's text after <c>text-transform</c>, and the map back to what was written.</summary>
+/// <summary>What happens to white space before it is shaped. CSS Text 4 § 3's <c>white-space-collapse</c>.</summary>
 /// <remarks>
+///     <para>
+///         ⚠ <b>Two members where CSS has five, and the three that are missing are missing because
+///         nothing here can produce them.</b> <c>collapse</c> and <c>preserve-spaces</c> both turn a
+///         segment break into a space — which is a decision about <i>line breaking</i> and not about
+///         the string, since this engine takes every mandatory break — and <c>break-spaces</c> is a
+///         preserving value that differs from <c>preserve</c> in two line-breaking rules that
+///         <c>LineWrapper</c> already answers behind its own flag. Offering a member that resolved,
+///         computed a value and did nothing is the state this repository's gates exist to keep out.
+///     </para>
+///     <para>
+///         ⚠ <b>This is phase I only.</b> § 4.1.1 is a transformation of the string and is what this
+///         type does; § 4.1.3's phase II — a collapsible space at the <i>start</i> of a line is
+///         removed — is a question about a line, which does not exist yet at the moment a string is
+///         transformed. So <c>pre-line</c> here collapses a run of spaces to one and drops the ones
+///         around a newline, and still draws a leading space that a browser would eat. That half is
+///         owed for every value rather than for this one: an undeclared paragraph in this engine
+///         preserves everything, so the leading space is what it has always drawn.
+///     </para>
+/// </remarks>
+public enum WhiteSpaceCollapse : byte {
+    /// <summary>Every space, tab and segment break survives into the shaped text.</summary>
+    /// <remarks>
+    ///     The initial value here and the only answer this engine had before <c>pre-line</c> — which
+    ///     is why an element with no <c>white-space</c> declaration renders as CSS's <c>pre-wrap</c>
+    ///     rather than as its <c>normal</c>.
+    /// </remarks>
+    Preserve,
+
+    /// <summary>Runs of spaces and tabs collapse; segment breaks survive. CSS's <c>preserve-breaks</c>.</summary>
+    /// <remarks>
+    ///     The longhand <c>white-space: pre-line</c> expands to. A run of collapsible white space
+    ///     becomes one space, a tab is one of those, and a run touching a segment break on either
+    ///     side is removed outright rather than becoming a space.
+    /// </remarks>
+    PreserveBreaks
+}
+
+/// <summary>An element's text after <c>text-transform</c> and white-space collapsing, and the map back.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Two transformations share this type because they share the map, not because they are
+///         one idea.</b> CSS Text 4 § 3's collapsing runs first and § 2.1's casing second, in one
+///         walk. What made it worth one type rather than two is that a second stage would need the
+///         first stage's map composed with its own at every index — and there is exactly one
+///         consumer shape here, <c>UiElement</c> handing out an index into the drawn string, which
+///         must land on a source index the author's own text has. ⚠ Collapsing is the first
+///         transformation in this engine that makes the drawn text <i>shorter</i>: <c>Record</c> was
+///         already general enough to take a drawn length of zero, which is what a removed run is.
+///     </para>
 ///     <para>
 ///         <b>The map is the point, and the four keywords are the easy part.</b> A full Unicode case
 ///         mapping changes the UTF-16 <i>length</i> — <c>straße</c> uppercases to <c>STRASSE</c>, one
@@ -101,6 +150,13 @@ public sealed class TransformedText {
     ///     The content language as a BCP-47 tag — <c>UiElement.ResolvedLanguage</c>. Empty is
     ///     undetermined and takes the language-independent mapping.
     /// </param>
+    /// <param name="collapse">
+    ///     What to do to the white space first — <c>UiDocument.WhiteSpaceCollapseOf</c>. ⚠ It runs
+    ///     <i>before</i> the case mapping in the same walk, and the order is unobservable rather than
+    ///     chosen: no case mapping in Unicode produces or consumes a space or a tab, and a run of
+    ///     spaces collapsing never moves a word boundary, so <c>capitalize</c> titlecases the same
+    ///     letters either way.
+    /// </param>
     /// <returns>The drawn text and the map between the two.</returns>
     /// <remarks>
     ///     <para>
@@ -146,10 +202,15 @@ public sealed class TransformedText {
     ///         routed through .NET's culture casing could not be shown to work.
     ///     </para>
     /// </remarks>
-    public static TransformedText Of(string? source, TextTransform transform, string? language = null) {
+    public static TransformedText Of(
+        string? source,
+        TextTransform transform,
+        string? language = null,
+        WhiteSpaceCollapse collapse = WhiteSpaceCollapse.Preserve
+    ) {
         source ??= string.Empty;
 
-        if (transform == TextTransform.None || source.Length == 0) {
+        if ((transform == TextTransform.None && collapse == WhiteSpaceCollapse.Preserve) || source.Length == 0) {
             return new TransformedText(source, source, null, null);
         }
 
@@ -173,6 +234,40 @@ public sealed class TransformedText {
         var at = 0;
 
         while (at < source.Length) {
+            // ⚠ § 4.1.1's three steps, taken over a whole RUN rather than a character at a time,
+            // because two of the three are questions about the run's neighbours: a run is removed
+            // when a segment break touches either end, and survives as ONE space otherwise. Doing it
+            // per character would need the previous character's verdict to decide this one's, which
+            // is the same information read twice.
+            //
+            // A tab inside a run needs no step of its own — it is in the run, and what the run
+            // becomes is a space. That is step 3 for free, and it is why `tab-size` stops applying
+            // under this value, exactly as CSS says.
+            if (collapse == WhiteSpaceCollapse.PreserveBreaks && IsCollapsible(source[at])) {
+                var end = at;
+
+                while (end < source.Length && IsCollapsible(source[end])) {
+                    end++;
+                }
+
+                // ⚠ `LineWrapper.IsSegmentBreak`'s seven characters and not U+000A alone. A run
+                // before U+2029 is as adjacent to a break as one before a newline, and asking a
+                // narrower question here would leave a space the wrapper then ends a line on —
+                // which is the defect § 4.1.1's first step exists to prevent.
+                var touching = (end < source.Length && LineWrapper.IsSegmentBreak(source[end]))
+                    || (at > 0 && LineWrapper.IsSegmentBreak(source[at - 1]));
+
+                Record(sourceOf, drawnOf, at, end - at, text.Length, touching ? 0 : 1);
+                moved |= touching || end - at != 1;
+
+                if (!touching) {
+                    text.Append(' ');
+                }
+
+                at = end;
+                continue;
+            }
+
             // ⚠ A lone surrogate is not a scalar and `Rune` refuses it, but a string can hold one —
             // an editable field mid-keystroke does, between the two halves of an astral character
             // being typed. Copied through untouched rather than replaced, because replacing it
@@ -185,6 +280,18 @@ public sealed class TransformedText {
             }
 
             var length = rune.Utf16SequenceLength;
+
+            // ⚠ The collapse can run on its own, and then every other branch below is a case
+            // mapping that must not happen. Appended as a span rather than through `rune.ToString()`
+            // — which is what the switch at the end of this walk would do — because a paragraph
+            // under `pre-line` and no `text-transform` would otherwise allocate a string per
+            // character to copy it unchanged.
+            if (transform == TextTransform.None) {
+                Record(sourceOf, drawnOf, at, length, text.Length, length);
+                text.Append(source.AsSpan(at, length));
+                at += length;
+                continue;
+            }
 
             // ⚠ SpecialCasing.txt's one Turkic row that consumes two characters, and it is here
             // rather than in `Lower` because it is the only mapping in this walk whose *input* is
@@ -275,6 +382,18 @@ public sealed class TransformedText {
             sourceOf.Add(source);
         }
     }
+
+    /// <summary>Whether a character is collapsible white space. CSS Text 4 \u00a7 3's definition.</summary>
+    /// <param name="value">The character.</param>
+    /// <returns>Whether a collapsing value folds it into the run beside it.</returns>
+    /// <remarks>
+    ///     \u26a0 <b>A space and a tab, and deliberately not <c>char.IsWhiteSpace</c>.</b> That predicate
+    ///     answers true for the seven segment breaks as well, so a collapse written on it would eat
+    ///     the newlines <c>preserve-breaks</c> exists to keep \u2014 the one thing that separates this
+    ///     value from <c>collapse</c>. It is also true of U+00A0, which is a no-break space and is
+    ///     not collapsible in any value.
+    /// </remarks>
+    static bool IsCollapsible(char value) => value is ' ' or '\t';
 
     /// <summary>COMBINING DOT ABOVE, U+0307.</summary>
     const char CombiningDotAbove = '\u0307';

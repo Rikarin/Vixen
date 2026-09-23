@@ -3,8 +3,8 @@ title: Text wrapping
 slug: ui/text-wrapping
 kind: guide
 area: Core
-summary: Where a paragraph's lines end — the three questions CSS's text-wrap shorthand asks at once, why balance is a search rather than an algorithm, and why pretty is only one clause of what the specification licenses.
-api: [T:Vixen.Ui.Text.TextWrapStyle, T:Vixen.Ui.Text.TextWrapMode]
+summary: Where a paragraph's lines end — the three questions CSS's text-wrap shorthand asks at once, why balance is a search rather than an algorithm, why pretty is only one clause of what the specification licenses, and the one white-space value that changes the string rather than the breaks.
+api: [T:Vixen.Ui.Text.TextWrapStyle, T:Vixen.Ui.Text.TextWrapMode, T:Vixen.Ui.Text.WhiteSpaceCollapse]
 tags: [ui, text, typography, vcss, utilities, line-breaking]
 since: 0.2
 status: preview
@@ -97,6 +97,42 @@ line; if the pair does not fit, taking it anyway trades an orphan for a line han
 which is worse. It refuses equally where the penultimate line has no earlier break of its own, and
 where the break between the two lines is one the *text* required — pulling a word across an authored
 newline would change what the paragraph says.
+
+### `white-space` asks a fourth question, and one value of it changes the string
+
+`text-wrap` decides where the lines end. `white-space` decides that too — `nowrap` and `pre` both
+answer it — but it asks one more thing first: **what the shaped text even is**.
+
+⚠ **An element with no `white-space` declaration in Vixen renders as CSS's `pre-wrap`, not as its
+`normal`.** Nothing collapses a run of spaces, and every newline in the string ends a line. That is
+worth knowing before writing a stylesheet against this engine, and it is measured rather than
+believed — `WhiteSpacePreTests` asserts both halves.
+
+`white-space: pre-line` is the one value whose whole content is the part that was missing. It expands
+to `white-space-collapse: preserve-breaks`, which is `WhiteSpaceCollapse.PreserveBreaks`:
+
+```vcss
+.stanza { white-space: pre-line; }
+```
+
+```
+    the source string          what is shaped
+    "alpha    beta"       →    "alpha beta"        a run of spaces and tabs is one space
+    "alpha  \n  beta"     →    "alpha\nbeta"       a run touching a newline is gone
+    "alpha\nbeta"         →    "alpha\nbeta"       the newline itself is kept
+```
+
+It happens in `TransformedText`, beside `text-transform` and for the same reason: before anything is
+shaped, so the paragraph is measured and wrapped at the width it will draw at. ⚠ It is the first
+thing in this engine that makes the drawn text **shorter** than what the author wrote, which is why
+`TransformedText` hands out a map in both directions — a caret index, a selection and a line's start
+all have to come back as a position in the string the author actually typed.
+
+⚠ **Phase II is not implemented.** CSS Text § 4.1.3 also removes a collapsible space at the *start of
+a line*, which is a question about a line rather than about a string — and at the moment the string
+is transformed there is no line yet. So `"   ab"` under `pre-line` still draws one leading space
+where a browser draws none. `WhiteSpacePreLineTests` pins that, so a change towards the browser comes
+through the test rather than past it.
 
 ## Examples
 
