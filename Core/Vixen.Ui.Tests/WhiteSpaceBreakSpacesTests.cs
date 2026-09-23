@@ -317,4 +317,50 @@ public class WhiteSpaceBreakSpacesTests {
         Assert.Equal(3, kept[0].Length);
         Assert.Equal(Measure("a "), kept[0].Width, 0.05f);
     }
+
+    /// <summary>Toggling the declaration on a settled element rebuilds the block rather than reusing it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The entry in <c>UiElement.Block</c>'s cache key, which every other test in this
+    ///         file leaves unproved.</b> They each build one element under one declaration, so all of
+    ///         them stay green with <c>lineKeepSpaces</c> deleted from the key — a review deleted it
+    ///         and the whole assembly passed three runs running. What the entry stops is a paragraph
+    ///         that keeps the line breaks of a declaration no longer on it: nothing else in the key
+    ///         can see the change, because the value alters neither the string, nor the width, nor
+    ///         the font, nor whether the paragraph wraps.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>flex-direction: column</c> is what makes the key reachable</b>, for the reason
+    ///         <c>WhiteSpacePreLineTests</c>' row of this shape records: the width is an entry in the
+    ///         same key and layout asks a row-flex item for its block at two different widths per
+    ///         pass, which rebuilds the block on the width alone before any other entry is consulted.
+    ///         A column item is asked at one width, the same one on both passes.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Toggling_the_declaration_on_a_settled_element_rebuilds_the_block() {
+        var document = new UiDocument(900f, 300f);
+        document.Fonts.Register("Test", Font);
+
+        document.Load(
+            """
+            root        { width: 44px; height: 300px; flex-direction: column; }
+            label       { font-family: Test; font-size: 16px; }
+            label.kept  { white-space: break-spaces; }
+            """
+        );
+
+        var element = document.Root.Add("label");
+        element.Text = Spaced;
+        document.Update();
+
+        // The control: the block really was settled under `pre-wrap`'s answer, which is the one the
+        // hang pair above measures at this width.
+        Assert.Equal(7, element.Block()!.Lines[0].Length);
+
+        element.AddClass("kept");
+        document.Update();
+
+        Assert.Equal(3, element.Block()!.Lines[0].Length);
+    }
 }

@@ -941,8 +941,12 @@ public static class LineWrapper {
     ///     The characters <see cref="LineBreaker.IsMandatory" /> answers for, spelled out because
     ///     <see cref="Width" /> asks about one character at the end of a range rather than about an
     ///     index into a paragraph. <c>Vixen.Ui</c>'s <c>TextLine.IsSegmentBreak</c> is the same seven.
+    ///     ⚠ <c>internal</c> rather than private because <see cref="TransformedText" /> asks the same
+    ///     question one stage earlier — § 4.1.1 removes a collapsible space <i>adjacent to</i> a
+    ///     segment break — and two answers to "what ends a line" would collapse a space beside a
+    ///     character this wrapper does not break at.
     /// </remarks>
-    static bool IsSegmentBreak(char value) =>
+    internal static bool IsSegmentBreak(char value) =>
         value is '\n' or '\u000b' or '\u000c' or '\r' or '\u0085' or '\u2028' or '\u2029';
 
     /// <summary>The end of the first grapheme of a run.</summary>

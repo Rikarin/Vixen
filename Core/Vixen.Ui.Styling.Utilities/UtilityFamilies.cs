@@ -1173,14 +1173,28 @@ public static class UtilityFamilies {
         //
         // ⚠ <b>And `break-spaces` has a second reader now</b>: `UiDocument.BreakSpacesOf`, which
         // is what turns off the hang and adds the break between two spaces in `LineWrapper`. It
-        // never needed the collapsing — it preserves exactly as `pre-wrap` does — so of the six only
-        // `pre-line` is still answered as `pre-wrap` at the engine level.
+        // never needed the collapsing — it preserves exactly as `pre-wrap` does.
+        //
+        // ⚠ <b>And `pre-line` has one too, which is the last of the six to get an engine answer of
+        // its own.</b> `UiDocument.WhiteSpaceCollapseOf` reads it and `TransformedText` performs CSS
+        // Text § 4.1.1 — a run of spaces and tabs becomes one space, a run touching a segment break
+        // is removed — so the value no longer resolves to `pre-wrap`'s behaviour. It is the first
+        // thing here that changes the shaped STRING rather than where the lines end, and the reason
+        // it waited: `TransformedText` had to exist first, because an index into the drawn text and
+        // an index into the author's text stop being the same number. ⚠ `normal` still does NOT
+        // collapse, deliberately: CSS collapses under it too, and honouring that here would change
+        // what every undeclared paragraph in every interface on this engine draws. § 4.1.3's phase
+        // II — a collapsible space at the START of a line — is owed for all six values, not for this
+        // one. #249.
         //
         // ⚠ <b>This paragraph used to say `pre` was registered while being answered wrongly, and
         // that stopped being true.</b> `WrapsOf` honours it now: because this engine collapses
-        // nothing and already breaks at every mandatory opportunity, an element with no declaration
-        // is already `pre-wrap`, so wrapping is the ONLY third `pre` was missing. See
-        // `WhiteSpacePreTests`, which measures both halves of that premise.
+        // nothing under a declaration that does not ask for it and already breaks at every mandatory
+        // opportunity, an element with no declaration is already `pre-wrap`, so wrapping is the ONLY
+        // third `pre` was missing. See `WhiteSpacePreTests`, which measures both halves of that
+        // premise. ⚠ The qualifier is what the paragraph above added: the engine does collapse now,
+        // under `pre-line` and only there, so the tree-wide claim this sentence used to make is
+        // false while the conclusion it supports is untouched.
         Keywords("whitespace", "white-space", new() {
             ["normal"] = "normal", ["nowrap"] = "nowrap", ["pre"] = "pre", ["pre-wrap"] = "pre-wrap",
             ["pre-line"] = "pre-line", ["break-spaces"] = "break-spaces"

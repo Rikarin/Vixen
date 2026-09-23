@@ -264,6 +264,14 @@ public class RefusalExpiryTests {
     }
 
     /// <summary>Every clause that opened parsed, so a mistyped one is a failure and not an exemption.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Quotations are on the right-hand side, and leaving them off would have exempted the
+    ///     half of the grammar that has no other guard at all.</b> A quotation resolves no anchor and
+    ///     expires on no condition — there is nothing else in this file that ever looks at one — so
+    ///     being counted here is the whole of what holds it to a shape. <c>[~expires-</c> does not
+    ///     contain <c>[expires-</c>, so this is not automatic: <see cref="RefusalExpiry.Opened" />'s
+    ///     pattern had to be widened to see the form at all.
+    /// </remarks>
     [Fact]
     public void A_clause_that_does_not_parse_is_a_failure_rather_than_a_row_the_sweep_skips() {
         var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
@@ -271,8 +279,148 @@ public class RefusalExpiryTests {
 
         Assert.Equal(
             RefusalExpiry.Opened(rows) + RefusalExpiry.OpenedInProse(root),
-            RefusalExpiry.All(rows, root).Count
+            RefusalExpiry.All(rows, root).Count + RefusalExpiry.AllQuoted(rows, root).Count
         );
+    }
+
+    /// <summary>A note that talks about a clause does not thereby declare a second one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The defect this pair is written against, which was found in the tree rather than
+    ///         imagined</b> (#1325). The <c>select</c> row's note narrates the commit that gave it its
+    ///         <c>expires-on</c> clause and the merge that took it away seventy-seven minutes later —
+    ///         the ordinary way this repository records why a refusal is worded as it is, and the thing
+    ///         the census header asks for when it says clauses live "next to the prose they formalise".
+    ///         Written in the only spelling the grammar had, that sentence <i>declared a second real
+    ///         clause</i>, off the same cell as the live one, and the census recorded the same line
+    ///         twice.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The cell below is the real one, not a reduction of it</b>, so the assertion is
+    ///         about the shape the tree actually contains: a live pair of clauses at the end of the
+    ///         note and a quotation of one of them in the middle of the prose.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_quotation_is_counted_as_clause_shaped_and_declares_nothing() {
+        var rows = new[] {
+            Row(
+                "select",
+                "`5103da9b3` added the `[~expires-on Vixen.Ui.UiDocument.Selection]` clause now at the "
+                + "end of this cell, and `295ffa867` took the side of the note without it. "
+                + "[expires-when-read user-select] [expires-on Vixen.Ui.UiDocument.Selection]"
+            )
+        };
+
+        Assert.Equal(
+            ["select\texpires-on\tVixen.Ui.UiDocument.Selection", "select\texpires-when-read\tuser-select"],
+            RefusalExpiry.Declared(rows).Select(static clause => clause.Line)
+        );
+
+        Assert.Equal(
+            ["select\texpires-on\tVixen.Ui.UiDocument.Selection"],
+            RefusalExpiry.Quoted(rows).Select(static clause => clause.Line)
+        );
+
+        // ⚠ Three, not two. The quotation is clause-shaped and is counted with the other two, which is
+        // what makes a mistyped one red rather than prose — see the balance test above.
+        Assert.Equal(3, RefusalExpiry.Opened(rows));
+    }
+
+    /// <summary>A mistyped quotation is a failure and not a line the sweep reads as prose.</summary>
+    /// <remarks>
+    ///     The instrument's own check, one level over from the clause it was written for. A quotation
+    ///     is held to nothing else, so a sweep that could not see this one would read
+    ///     <c>[~expires-witth user-select]</c> as an English sentence — and a quotation that has
+    ///     silently stopped being one is a tilde away from being a live declaration again.
+    /// </remarks>
+    [Fact]
+    public void A_quotation_that_does_not_parse_unbalances_the_count_rather_than_vanishing() {
+        var rows = new[] { Row("select", "narrating `[~expires-witth user-select]`, which is misspelt") };
+
+        Assert.Equal(1, RefusalExpiry.Opened(rows));
+        Assert.Empty(RefusalExpiry.Declared(rows));
+        Assert.Empty(RefusalExpiry.Quoted(rows));
+    }
+
+    /// <summary>No root declares the same condition twice.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The question no other test in this file can ask, and the reason the duplicate
+    ///         #1325 found sat green.</b>
+    ///         <see cref="The_census_is_exactly_the_clauses_the_ledger_and_the_prose_declare" /> is a
+    ///         list equality against a list the same sweep produced, so a repeated line is consistent
+    ///         with itself; <see cref="No_refusal_outlives_the_condition_it_names" /> evaluates the
+    ///         repeat twice and agrees with itself both times; and
+    ///         <see cref="A_clause_that_does_not_parse_is_a_failure_rather_than_a_row_the_sweep_skips" />
+    ///         balances, because two openings parse to two clauses. Every guard here is of the shape
+    ///         "derive a set and hold it against a committed copy", and no guard of that shape can see
+    ///         a set holding one member twice.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Why a duplicate is worth failing on rather than de-duplicating.</b> It is not a
+    ///         tidiness rule: the two rows are one condition, so the census overstates how many
+    ///         refusals this repository has written down and understates how much rests on the one
+    ///         anchor — which is the exact reading <c>RefusalExpiry.txt</c>'s header tells the next
+    ///         person to take from it. Collapsing them silently would make the count right and leave
+    ///         the note that produced it unread; failing sends the reader to the cell, where either a
+    ///         quotation was meant or one of the two clauses is redundant.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void No_root_declares_the_same_condition_twice() {
+        var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
+        var duplicates = RefusalExpiry.Duplicates(RefusalExpiry.All(rows, RefusalExpiry.Root()));
+
+        Assert.True(
+            duplicates.Count == 0,
+            $"""
+             {duplicates.Count} expiry condition(s) are declared twice by the same root:
+
+               {string.Join("\n  ", duplicates)}
+
+             One condition declared twice is one condition, and the census counts it as two. If the
+             second is a note TALKING ABOUT the clause rather than declaring it — which is what the
+             `note` column is for — write it `[~expires-… …]`, the quotation form: it is read, held to
+             being well formed, and declares nothing. Otherwise one of the two wants deleting.
+             """
+        );
+    }
+
+    /// <summary>The duplicate rule sees the shape #1325 found, in the cell it found it in.</summary>
+    /// <remarks>
+    ///     The rule above is a whole-tree sweep and today it has nothing to report, which is the state
+    ///     an anti-vacuity assertion cannot be written for — there is no non-empty set to insist on.
+    ///     So the predicate is exercised directly, on the cell that produced the pair.
+    /// </remarks>
+    [Fact]
+    public void The_duplicate_rule_reports_the_pair_a_quoted_clause_used_to_produce() {
+        var rows = new[] {
+            Row(
+                "select",
+                "`5103da9b3` added [expires-on Vixen.Ui.UiDocument.Selection] because … "
+                + "[expires-when-read user-select] [expires-on Vixen.Ui.UiDocument.Selection]"
+            )
+        };
+
+        Assert.Equal(
+            ["select\texpires-on\tVixen.Ui.UiDocument.Selection"],
+            RefusalExpiry.Duplicates(RefusalExpiry.Declared(rows))
+        );
+    }
+
+    /// <summary>A ledger row carrying nothing but the note under test.</summary>
+    /// <param name="root">The root name.</param>
+    /// <param name="note">The <c>note</c> cell.</param>
+    /// <returns>The row.</returns>
+    static ParityRow Row(string root, string note) {
+        var cells = new string[ParityLedger.Columns];
+
+        Array.Fill(cells, string.Empty);
+        cells[1] = root;
+        cells[12] = note;
+
+        return new ParityRow { Cells = cells };
     }
 
     /// <summary>An anchor names a root the ledger has, or a type an assembly has.</summary>

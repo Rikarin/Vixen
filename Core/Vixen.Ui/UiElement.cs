@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Globalization;
 using Vixen.Core.Mathematics;
 using Vixen.Input;
@@ -869,6 +870,7 @@ public partial class UiElement : Composition.IComposable {
         var tabSize = Document.TabSizeOf(Style);
         var hyphens = Document.HyphensOf(Style);
         var keepSpaces = Document.BreakSpacesOf(Style);
+        var collapse = Document.WhiteSpaceCollapseOf(Style);
         var language = ResolvedLanguage;
 
         if (!Document.WrapsOf(Style)) {
@@ -948,6 +950,13 @@ public partial class UiElement : Composition.IComposable {
             // so a block built under `pre-wrap` and reused under it is a paragraph wrapped a word
             // late with a right-aligned edge in the wrong place.
             && lineKeepSpaces == keepSpaces
+
+            // ⚠ In the key for `text-transform`'s reason and one step further: a collapse changes
+            // the shaped STRING and not only its width, so a block built under `pre-line` and reused
+            // without it draws the collapsed text — a paragraph missing characters the author wrote,
+            // which no other entry in this key can notice because the element's own string is the
+            // same instance the reference test above compares.
+            && lineCollapse == collapse
             && lineWidth.Equals(width)
             && lineSize.Equals(FontSize)
             && lineTracking.Equals(LetterSpacing)
@@ -985,7 +994,7 @@ public partial class UiElement : Composition.IComposable {
         // ⚠ The language goes in because casing is language-dependent, and it is already in the
         // cache key above for the shaper's sake — so a block built in one language is not reused in
         // another, which is what makes passing it here safe rather than merely correct.
-        var drawn = TransformedText.Of(Text, transform, language);
+        var drawn = TransformedText.Of(Text, transform, language, collapse);
         var text = drawn.Text;
 
         var lines = ImmutableArray.CreateBuilder<TextLine>();
@@ -1081,6 +1090,7 @@ public partial class UiElement : Composition.IComposable {
         lineTabSize = tabSize;
         lineHyphens = hyphens;
         lineKeepSpaces = keepSpaces;
+        lineCollapse = collapse;
         lineTabStop = tabStop;
         lineTransformed = drawn;
         lineFamily = family;
@@ -1171,6 +1181,17 @@ public partial class UiElement : Composition.IComposable {
         // The block that is being truncated was built from this, so it is the string the line's
         // runs index — and the one the kept prefix has to be cut out of. `Block()` above is what
         // guarantees it is not stale.
+        //
+        // ⚠ The fallback is unreachable and the assertion is what says so rather than the sentence
+        // above. It reconstructs the map with none of the three things the block was built with —
+        // the transform, the language and the collapse — so if it ever did fire under a case mapping
+        // or under `pre-line` the ellipsis would be cut out of a string of a different length from
+        // the one the line's runs index, and the kept prefix would be wrong by that difference at
+        // every index after the first changed run. A `??` that silently produces a wrong answer is
+        // worse than the null it is avoiding, so the guarantee is checked in Debug rather than
+        // argued in prose.
+        Debug.Assert(lineTransformed is not null, "the block above did not leave its transformed text behind");
+
         var drawn = lineTransformed ?? TransformedText.Of(Text, TextTransform.None);
 
         for (var i = 0; i < source.Lines.Length; i++) {
@@ -1925,6 +1946,7 @@ public partial class UiElement : Composition.IComposable {
     float lineTabSize;
     HyphenMode lineHyphens;
     bool lineKeepSpaces;
+    WhiteSpaceCollapse lineCollapse;
 
     // ⚠ The stop the current `block` was measured with, in pixels, kept for the same reason
     // `lineTransformed` is: `Ellipsized` measures the line it is cutting, and measuring it with a
