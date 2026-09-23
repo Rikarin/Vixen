@@ -63,6 +63,9 @@ public sealed class ContainerScopes {
     /// <summary>How many distinct chains have been interned, the root included.</summary>
     public int Count => scopes.Count;
 
+    /// <summary>The groups these chains are asked about, for the <c>style()</c> half the cascade answers.</summary>
+    internal ContainerConditions Conditions => conditions;
+
     /// <summary>The scope inside a container, given the scope that container is itself in.</summary>
     /// <param name="parent">The scope the container element is in, or <see cref="Root" />.</param>
     /// <param name="name">The container's <c>container-name</c>, or empty.</param>

@@ -682,6 +682,15 @@ public sealed class StyleSheetLoader {
         var name = rule.Name ?? string.Empty;
         var label = name.Length == 0 ? "@container" : $"@container {name}";
 
+        // ⚠ Read off the source text, because ExCSS 4.3.2 does not know `style()` and hands its
+        // prelude over as `ConditionText` "not all" — the text is gone by the time the rule object
+        // exists, and "'not all' is not a container feature" was the diagnostic every style query
+        // produced. The raw span still has it.
+        if (PreludeOf(rule) is { } prelude && StyleQuery.Mentions(prelude)) {
+            LoadStyleContainer(rule, prelude, origin, media, layer, conditions, containers);
+            return;
+        }
+
         if (!ContainerQuery.TryEvaluate(rule.ConditionText, default, out _, out var reason)) {
             diagnostics.Add(new SelectorDiagnostic($"{label} {rule.ConditionText}", reason!));
             return;
@@ -695,6 +704,64 @@ public sealed class StyleSheetLoader {
             conditions,
             Containers.Register(containers, name, rule.ConditionText)
         );
+    }
+
+    /// <summary>Loads a <c>@container</c> block whose condition is <c>style()</c> features.</summary>
+    /// <remarks>
+    ///     Only the unnamed, style-only form: see <see cref="StyleQuery" /> for why the named and
+    ///     the mixed forms would answer stale under this engine's incremental restyle, which makes
+    ///     them a diagnostic here rather than a rule that is sometimes wrong.
+    /// </remarks>
+    void LoadStyleContainer(
+        IContainerRule rule,
+        string prelude,
+        StyleOrigin origin,
+        MediaContext? media,
+        int layer,
+        int conditions,
+        int containers
+    ) {
+        var label = $"@container {prelude}";
+        var first = prelude.AsSpan().TrimStart();
+
+        // Anything that opens with neither a feature nor `not` opens with a container name.
+        if (!first.StartsWith("style(", StringComparison.OrdinalIgnoreCase)
+            && !first.StartsWith("(", StringComparison.Ordinal)
+            && !first.StartsWith("not ", StringComparison.OrdinalIgnoreCase)) {
+            diagnostics.Add(
+                new SelectorDiagnostic(
+                    label,
+                    "a named style query asks an ancestor that may be above the parent, which this cascade cannot keep current"
+                )
+            );
+
+            return;
+        }
+
+        if (!StyleQuery.TryRead(prelude, out var features, out var reason)) {
+            diagnostics.Add(new SelectorDiagnostic(label, reason!));
+            return;
+        }
+
+        LoadInto(rule, origin, media, layer, conditions, Containers.RegisterStyle(containers, prelude, features));
+    }
+
+    /// <summary>The text between <c>@container</c> and its block, as the author wrote it.</summary>
+    static string? PreludeOf(IContainerRule rule) {
+        var text = rule.StylesheetText?.Text;
+
+        if (string.IsNullOrEmpty(text)) {
+            return null;
+        }
+
+        var at = text.IndexOf("@container", StringComparison.OrdinalIgnoreCase);
+        var block = text.IndexOf('{', StringComparison.Ordinal);
+
+        if (at < 0 || block < at) {
+            return null;
+        }
+
+        return text[(at + "@container".Length)..block].Trim();
     }
 
     void LoadUnknown(

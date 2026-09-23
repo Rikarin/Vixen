@@ -384,7 +384,10 @@ fails it too. ⚠ The parts table is separate from the states table for a reason
 `not-`, `has-`, `group-` and `peer-` compose over `States`, and a child-combinator suffix such as
 `placeholder:`'s `> field-placeholder` read through any of them is either not a selector or a valid
 one meaning something else — so a part must be *not a class* under those four, which the coverage
-file asserts by name.
+file asserts by name. `Variants.RewriteVariants` — `selection:`, which moves a utility's
+`background-color` onto the `--selection-color` the text controls paint from — is a tripwire rather
+than an enumeration, because what proves an entry is a control reading its property, and no generic
+scene can: a second entry fails until it has a row like `selection:`'s, which draws a real `TextBox`.
 
 ## What it found
 
@@ -421,6 +424,14 @@ as `--breakpoint-2xl` has been in it. Nothing caught it because the only escapin
 `hover:w-1/2`, `w-[37px]` and `p-4`, and the only breakpoint tested end to end was `md:`. The lesson is
 narrower than "test more": *a table with five entries tested at one entry is tested at none of the
 interesting ones, and the interesting one is always the entry whose shape differs.*
+
+**Breakpoints that matched and still lost.** `sm:p-2 lg:p-4` drew `p-2` on a 1200px window. Both
+rules are one class, so where both queries hold the one written later wins — and the generator wrote
+its `@media` groups in a `SortedDictionary` keyed ordinally on their text, which puts
+`(min-width: 1024px)` before `(min-width: 640px)`. Every breakpoint test asserted one breakpoint at a
+time, and one breakpoint has nothing to lose to. `AtRuleOrder` writes them in v4's order now, and the
+coverage tests enumerate every *pair*. *When the cascade decides by order, a sort key is semantics —
+and a test of one rule cannot see an order.*
 
 **A range expression that became a stylesheet rule.** `text[1..]` in `EditorIconAttribute` parsed as the
 utility `text` with the arbitrary value `1..`, and `font-size: 1..` went into the editor's sheet on every

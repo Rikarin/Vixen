@@ -193,6 +193,22 @@ public class StyleSheetLoadingTests {
         Assert.NotNull(reason);
     }
 
+    [Theory]
+    // ⚠ A font-relative width is refused rather than read at a fixed sixteen pixels. The remark on
+    // `MediaQuery.TryLength` claimed for a long time that both at-rules read `20rem`; neither did,
+    // and the reference a media query's `em` needs — the initial font size, the text-scale
+    // preference — does not reach `MediaContext`. These rows pin the honest half: a diagnostic, never
+    // a silent false. They go red the day the unit is read, which is when they should be rewritten.
+    [InlineData("(min-width: 40rem)")]
+    [InlineData("(width < 40rem)")]
+    [InlineData("(max-width: 30em)")]
+    [InlineData("(400px <= width < 40rem)")]
+    public void A_font_relative_width_is_a_diagnostic_rather_than_a_guess(string condition) {
+        Assert.False(MediaQuery.TryEvaluate(condition, new MediaContext(800, 600), out _, out var reason));
+        Assert.NotNull(reason);
+        Assert.Contains("em'", reason, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_media_feature_Vixen_cannot_evaluate_drops_the_block_with_a_diagnostic() {
         // Not "assume true" and not "assume false". One silently applies phone styles on a desktop

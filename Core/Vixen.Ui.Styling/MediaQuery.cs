@@ -578,9 +578,22 @@ public static class MediaQuery {
 
     /// <summary>Reads a length, shared with <see cref="ContainerQuery" />.</summary>
     /// <remarks>
-    ///     Internal rather than duplicated, because <c>@container (min-width: 20rem)</c> and
-    ///     <c>@media (min-width: 20rem)</c> mean the same length and a second copy is a second unit
-    ///     table to forget to extend.
+    ///     <para>
+    ///         Internal rather than duplicated, because <c>@container (min-width: 480px)</c> and
+    ///         <c>@media (min-width: 480px)</c> mean the same length and a second copy is a second unit
+    ///         table to forget to extend.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No <c>rem</c> and no <c>em</c>, so <c>(min-width: 40rem)</c> is a load
+    ///         diagnostic in both at-rules and the block is dropped.</b> This remark used to say both
+    ///         read <c>20rem</c>, and neither ever did. They are not simply missing: the two at-rules
+    ///         answer the font question differently. Media Queries 4 § 1.3 measures a media query's
+    ///         <c>em</c> against the <i>initial</i> font size, which here is the document's
+    ///         <c>RootFontSize</c> — the text-scale preference — and not any declared value, while
+    ///         Containment 3 measures a container query's against the <i>container's</i> computed
+    ///         font. Neither number reaches <see cref="MediaContext" /> or <see cref="ContainerBox" />
+    ///         today, and a fixed 16 would be the guess this class exists to refuse.
+    ///     </para>
     /// </remarks>
     internal static bool TryLength(ReadOnlySpan<char> text, out float value) {
         var scale = 1f;
