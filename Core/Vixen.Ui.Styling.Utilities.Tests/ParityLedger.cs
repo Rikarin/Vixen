@@ -162,11 +162,24 @@ static class ParityLedger {
     }
 
     /// <summary>What the engine does with everything the families can emit.</summary>
+    /// <param name="ByFamily">The properties each family's surface puts on an element.</param>
+    /// <param name="Verdicts">Whether each emitted property is read, composed or inert.</param>
+    /// <param name="Registered">Every family the registry knows.</param>
+    /// <param name="Resolvable">
+    ///     The listed classes that resolve AND, where they fill a slot of an assembled list, that the
+    ///     reader accepts — see <paramref name="Declined" />.
+    /// </param>
+    /// <param name="Declined">
+    ///     Per family, the classes the resolver answers and the reader throws away: a slot value of the
+    ///     shared <c>transform</c> that <c>TransformReader</c> declines, taking every slot beside it
+    ///     down too (#1348). Empty on a healthy tree, and a family with any is not <c>works</c>.
+    /// </param>
     public sealed record Measurement(
         IReadOnlyDictionary<string, IReadOnlyList<string>> ByFamily,
         IReadOnlyDictionary<string, string> Verdicts,
         IReadOnlySet<string> Registered,
-        IReadOnlySet<string> Resolvable
+        IReadOnlySet<string> Resolvable,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> Declined
     );
 
     /// <summary>The family a surface entry belongs to, modifier and all.</summary>
@@ -228,14 +241,41 @@ static class ParityLedger {
                 : "inert";
         }
 
+        // ⚠ Emission was the whole test until #1348, and emission is not acceptance. A class that fills
+        // a slot of the shared `transform` resolves to a declaration whether or not the reader takes
+        // the value, and a value it declines drops the ENTIRE list — every other slot on the element
+        // with it. So for those classes the reader is asked too — over every named value a slot family
+        // answers (`AssembledReaderProbe.Candidates`; the surface alone is one value per family, and
+        // one value is what hid #1328) and over the listed classes, which may be spelled outside it.
+        var declined = new SortedDictionary<string, SortedSet<string>>(StringComparer.Ordinal);
+        var refused = new HashSet<string>(StringComparer.Ordinal);
+        var listedNames = listed as IReadOnlyCollection<string> ?? [.. listed];
+
+        foreach (var name in AssembledReaderProbe.Candidates(surface).Concat(listedNames).Distinct(StringComparer.Ordinal)) {
+            if (!AssembledReaderProbe.FillsASlot(name, tokens, out _) || !AssembledReaderProbe.Declines(name)) {
+                continue;
+            }
+
+            refused.Add(name);
+
+            var root = RootOf(name);
+
+            if (!declined.TryGetValue(root, out var classes)) {
+                declined[root] = classes = new SortedSet<string>(StringComparer.Ordinal);
+            }
+
+            classes.Add(name);
+        }
+
         var resolvable = new HashSet<string>(StringComparer.Ordinal);
         var declarations = new List<UtilityDeclaration>();
 
-        foreach (var name in listed) {
+        foreach (var name in listedNames) {
             declarations.Clear();
 
             if (UtilityParser.TryParse(name, out var parsed)
-                && UtilityFamilies.TryResolve(parsed, tokens, declarations)) {
+                && UtilityFamilies.TryResolve(parsed, tokens, declarations)
+                && !refused.Contains(name)) {
                 resolvable.Add(name);
             }
         }
@@ -244,7 +284,8 @@ static class ParityLedger {
             byFamily.ToDictionary(p => p.Key, p => (IReadOnlyList<string>)[.. p.Value], StringComparer.Ordinal),
             verdicts,
             registered,
-            resolvable
+            resolvable,
+            declined.ToDictionary(p => p.Key, p => (IReadOnlyList<string>)[.. p.Value], StringComparer.Ordinal)
         );
     }
 
@@ -278,7 +319,8 @@ static class ParityLedger {
             var listed = Split(row.Classes, ' ');
 
             if ((listed.Count > 0 && listed.Exists(c => !measured.Resolvable.Contains(c)))
-                || row.ValueGap.Trim().Length > 0) {
+                || row.ValueGap.Trim().Length > 0
+                || families.Exists(measured.Declined.ContainsKey)) {
                 state = "partial";
             }
         }

@@ -1476,8 +1476,13 @@ does mirror that one.
    `translate-z-lh` and `translate-z-1/2` each resolved to an argument `TransformReader.Depth`
    declines, and one declined function drops the WHOLE list: `translate-z-full rotate-z-90` did not
    rotate — strictly worse than the unrecognised class it replaced. ⚠ **This is shape 3 arriving
-   through a value the family itself emits**, and the measurement is blind to it by construction: a
-   class counts as resolvable when it EMITS a declaration, never when a consumer reads one. It is
+   through a value the family itself emits**, and the measurement was blind to it by construction: a
+   class counted as resolvable when it EMITTED a declaration, never when a consumer read one. ✅ **Not
+   for this shape any more (#1348):** `AssembledReaderProbe` hands every named value a `transform`
+   slot family answers — the scale vocabulary, both signs, 242 classes, where the surface held one
+   value per family — to a real document beside a witness in another slot, and a class whose element
+   ends up with no transform is declined: not `Resolvable`, and its root cannot read `works`. Putting
+   `ValueKind.Size` back reddens `translate-z-*` to `partial` in the ledger. It is
    `ValueKind.Depth` now — the spacing scale without `auto` — which is also v4's own surface for
    this root. ⚠ **And the new kind then vanished the family a second time, from the other end**:
    `UtilityFamilies.ValuesFor` had no arm for it and fell through a `default: break;`, so the root
@@ -1486,7 +1491,8 @@ does mirror that one.
    default behaviour and a new root would have been invisible to every suite at once.
 3. ⚠ *The property is **read** and the **value** is refused, so a registration keeps the gate green
    over a class that paints nothing.* The dangerous shape, and no per-property measurement can catch
-   it. ⚠ **Two of this shape's three examples closed on 2026-09-06, and neither closed by being
+   it — though a per-*value* one can where a reader drops a whole list, and the `transform` slots have
+   one now (#1348, above). ⚠ **Two of this shape's three examples closed on 2026-09-06, and neither closed by being
    registered — each closed by the value becoming one the engine reads.** `inset-shadow-*` and
    `inset-ring-*` emit `box-shadow`, which has always been read, and `box-shadow: inset 0 2px 4px
    #000` moved no channel where the outer form moved paint — so registering either would have scored
