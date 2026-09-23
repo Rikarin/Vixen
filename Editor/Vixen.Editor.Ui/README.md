@@ -109,6 +109,15 @@ global reset, and import/export raised as events for whoever has a file picker. 
 rather than a modal**, so the harness can drive it; the consequence is that Escape is the one chord it
 will not bind.
 
+⚠ **It is not this assembly's any more (#650).** `KeyBindingsView` and `KeyMapYaml` are
+`Vixen.Ui.Controls.Advanced`'s, so an application that can dispatch a chord can now also list,
+rebind and keep one; what stays here is the editor's data — `KeyMapPresets`, supplied to the panel
+through `KeyBindingsView.PresetNames` exactly as another host would supply its own. The move was held
+to `KeyBindingsViewDumpTests`, recorded before it, and every tree, flags dump and software-rasterised
+capture in five states came out byte-identical. It also found a defect nothing here could: the panel
+is a tab stop and had no accessibility role, which the Advanced suite's two sweeps refused the first
+time they built it.
+
 `KeyBindingsView.vxml` since doc 36 § F7 wave 1b, and two things about that port are worth keeping.
 
 ⚠ **`KeyMap` and `CommandRegistry` needed no signals.** The wave's brief was that every panel ported
@@ -980,7 +989,7 @@ matched byte-for-byte across six states, because every state had rows.
 went stale the same way.** It is a claim about the tree written in a document, which is the same
 failure the sentence above it describes — and the second one lasted a single wave: wave 9's own
 `ComponentsViewDumpTests` was missing from the table below while the file's remarks called themselves
-"a committed dump rather than a wave note". There are **ten**.
+"a committed dump rather than a wave note". There are **eleven**.
 
 ⚠ **The table is derived now, and that is the only part of this section a reader should trust
 without checking.** `DumpLedgerTests` scans every `Editor/**/*.Tests` source for a call to
@@ -1000,6 +1009,7 @@ prose is still prose; the list is a measurement.
 | `Vixen.Editor.AssetEditors.Tests/InputActionsViewDumpTests` | `InputActionsView` (wave 9) |
 | `Vixen.Editor.App.Tests/ComponentsViewDumpTests` | `ComponentsView`'s header, in four states reached through the interface (wave 9) |
 | `Vixen.Editor.Ui.Tests/MessageLogViewDumpTests` | `MessageLogView`, in six states reached through the interface, recorded from the hand-written control *before* its port (#89) |
+| `Vixen.Editor.Ui.Tests/KeyBindingsViewDumpTests` | `KeyBindingsView` as the editor hosts it, in five states, recorded while it was still the editor's and held to that after it moved to `Vixen.Ui.Controls.Advanced` (#650) |
 
 ⚠ **`MessageLogViewDumpTests` is the first dump committed before the port it judges rather than
 after it.** Its reference strings are what the hand-written C# control drew, so the port is held to

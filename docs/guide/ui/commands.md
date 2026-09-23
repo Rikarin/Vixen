@@ -4,7 +4,7 @@ slug: ui/commands
 kind: guide
 area: Core
 summary: A menu declares what, and the focus decides who — a command id resolved by walking outwards from the focused element and on past the root to the document and the application, so two views can answer the same verb without knowing each other exists and an item nothing handles greys itself out.
-api: [T:Vixen.Ui.CommandRoute, T:Vixen.Ui.CommandHandler, T:Vixen.Ui.IResponder, T:Vixen.Ui.CommandResponder, T:Vixen.Ui.ShortcutFormat, T:Vixen.Ui.Controls.EditorCommand, T:Vixen.Ui.Controls.CommandRegistry, T:Vixen.Ui.Controls.KeyMap, T:Vixen.Ui.Controls.Advanced.KeyMapYaml]
+api: [T:Vixen.Ui.CommandRoute, T:Vixen.Ui.CommandHandler, T:Vixen.Ui.IResponder, T:Vixen.Ui.CommandResponder, T:Vixen.Ui.ShortcutFormat, T:Vixen.Ui.Controls.EditorCommand, T:Vixen.Ui.Controls.CommandRegistry, T:Vixen.Ui.Controls.KeyMap, T:Vixen.Ui.Controls.Advanced.KeyMapYaml, T:Vixen.Ui.Controls.Advanced.KeyBindingsView, T:Vixen.Ui.Controls.Advanced.KeyBindingRow]
 tags: [ui, commands, focus, input, menus]
 since: 0.2
 status: preview
@@ -240,6 +240,33 @@ public static class KeymapFile {
 ⚠ It was the editor's until #650, on the argument above — which is true of `Vixen.Ui.Controls` and
 was never true of the assembly it now lives in. A game that keeps its settings in JSON still writes
 the other half of `Overrides` and `Restore` itself, and owes `KeyMapYaml` nothing.
+
+`KeyBindingsView` is the panel over all three — every command as a `KeyBindingRow`, its chord, and
+which layer the chord came from, with a filter, a preset picker, a "press a key" capture and inline
+conflict reporting. It is a control, so an application adds one wherever it wants the list:
+
+```csharp compile
+using Vixen.Ui;
+using Vixen.Ui.Controls;
+using Vixen.Ui.Controls.Advanced;
+
+public static class ShortcutsPanel {
+    public static KeyBindingsView Open(UiElement host, CommandRegistry commands, KeyMap keys) {
+        var view = host.Add<KeyBindingsView>();
+
+        // The application's presets, by name; `keys.PresetSource` is how each is looked up.
+        view.PresetNames = [KeyMap.NoPreset, "Studio"];
+        view.Show(commands, keys);
+
+        return view;
+    }
+}
+```
+
+⚠ **Import and Export are events, not file calls** — a control has no file picker, so the panel
+raises `ImportRequested` and `ExportRequested` and the application answers them. ⚠ **Capture is a
+mode rather than a modal**: while it is on every key the panel sees is a candidate binding, which
+makes Escape the one chord it will not bind.
 
 ⚠ **The dispatcher listens on the bubble leg, at the root.** A key event is routed from the focus
 outwards, so by the time it arrives every control that might have wanted it has had its turn — which

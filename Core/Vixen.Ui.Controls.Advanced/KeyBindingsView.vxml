@@ -51,23 +51,29 @@
     pointer gestures plus the `click`/`dblclick` that `Vixen.Ui.Controls` registers, so `on:change`
     binds and then throws when the element is built. `Select` also has to be filled with
     `AddOption`, which no attribute carries.
+
+    ⚠ **In `Vixen.Ui.Controls.Advanced` since #650, and the first `.vxml` any shipped `Core/` library
+    compiles.** It was the editor's, and the only three things tying it there were not the editor's
+    business: nineteen strings (now `ControlStrings.Keys…`), the editor's three preset names (now
+    `PresetNames`, which the application supplies — the same arrangement `KeyMap.PresetSource` makes
+    for looking a preset up), and seven stylesheet rules (now `AdvancedTheme.vcss`). Advanced is the
+    lowest assembly that can hold it: the grid is a `DataGrid`.
 -->
 @component KeyBindingsView
-@namespace Vixen.Editor.Ui
+@namespace Vixen.Ui.Controls.Advanced
 @inherits Vixen.Ui.Controls.Control
 @tag keybindings-view
 @using System.Globalization
 @using Vixen.Input
 @using Vixen.Ui
 @using Vixen.Ui.Controls
-@using Vixen.Ui.Controls.Advanced
 @using Vixen.Ui.Reactive
 @using Vixen.Ui.Styling
 
 <self on:keydown.capture.handled="@((KeyEvent e) => Keyed(e))" />
 
 <keybindings-toolbar ref="@Toolbar">
-    <SearchBox ref="@Search" Placeholder="@EditorStrings.KeysFilter.Text" />
+    <SearchBox ref="@Search" Placeholder="@ControlStrings.KeysFilter.Text" />
 
     <!--
         ⚠ First on the strip on purpose. Doc 20's own note is that "presets matter more than they
@@ -80,24 +86,24 @@
     <Button ref="@Record"
             Size="Small"
             Variant="Subtle"
-            Label="@(IsCapturing ? EditorStrings.KeysRecording.Text : EditorStrings.KeysRecord.Text)"
+            Label="@(IsCapturing ? ControlStrings.KeysRecording.Text : ControlStrings.KeysRecord.Text)"
             Disabled="@(Selected is null)"
             on:click="@Toggle" />
 
-    <Button Size="Small" Variant="Subtle" Label="@EditorStrings.KeysClear.Text" on:click="@Unbind" />
-    <Button Size="Small" Variant="Subtle" Label="@EditorStrings.KeysResetRow.Text" on:click="@ResetRow" />
-    <Button Size="Small" Variant="Subtle" Label="@EditorStrings.KeysResetAll.Text" on:click="@ResetAll" />
+    <Button Size="Small" Variant="Subtle" Label="@ControlStrings.KeysClear.Text" on:click="@Unbind" />
+    <Button Size="Small" Variant="Subtle" Label="@ControlStrings.KeysResetRow.Text" on:click="@ResetRow" />
+    <Button Size="Small" Variant="Subtle" Label="@ControlStrings.KeysResetAll.Text" on:click="@ResetAll" />
 
     <Button ref="@Import"
             Size="Small"
             Variant="Subtle"
-            Label="@EditorStrings.KeysImport.Text"
+            Label="@ControlStrings.KeysImport.Text"
             on:click="@AskToImport" />
 
     <Button ref="@Export"
             Size="Small"
             Variant="Subtle"
-            Label="@EditorStrings.KeysExport.Text"
+            Label="@ControlStrings.KeysExport.Text"
             on:click="@AskToExport" />
 </keybindings-toolbar>
 
@@ -138,10 +144,31 @@
     CommandRegistry? commands;
     KeyMap? keys;
 
+    IReadOnlyList<string> presetNames = [KeyMap.NoPreset];
+
     string? filter;
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => true;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Found by the move, not by anybody reading the panel.</b> It is a tab stop — capture
+    ///         puts the focus on the host so the chord arrives here whatever it is bound to — and for
+    ///         the whole of its life in the editor it had no role, so a screen reader landing on it
+    ///         heard nothing. <c>Vixen.Editor.Ui</c> has no accessibility sweep; this assembly has two,
+    ///         and both refused the type the first time they built it.
+    ///     </para>
+    ///     <para>
+    ///         ARIA <c>group</c> rather than <c>application</c>, which is what <c>CurveEditor</c>
+    ///         answers for a focusable surface with a keyboard model of its own. That role tells
+    ///         assistive technology to stop intercepting keys, and this panel is a filter box, a
+    ///         picker, six buttons and a grid for as long as capture is off — ordinary widgets whose
+    ///         ordinary keyboard handling is the point.
+    ///     </para>
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Group;
 
     /// <summary>The strip along the top.</summary>
     public UiElement Toolbar { get; private set; } = null!;
@@ -151,6 +178,33 @@
 
     /// <summary>Which keymap preset is in force.</summary>
     public Select Presets { get; private set; } = null!;
+
+    /// <summary>The presets the picker offers, by name, in the order it offers them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The application's, like the presets themselves.</b> This panel was the editor's
+    ///         and read the editor's three names straight out of <c>KeyMapPresets</c>; a control
+    ///         library that knew one application's presets would be exactly what #650 moved it here
+    ///         to stop. <see cref="KeyMap.PresetSource" /> is how a name is looked up and this is how
+    ///         the names are listed — the two halves of the same seam, both answered by the host.
+    ///     </para>
+    ///     <para>
+    ///         Just <see cref="KeyMap.NoPreset" /> until somebody says otherwise, which is an
+    ///         application with no presets: the picker shows the one choice that is always true.
+    ///         Setting it refills the picker at once, so it may be set before or after
+    ///         <see cref="Show" />.
+    ///     </para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">The value is <see langword="null" />.</exception>
+    public IReadOnlyList<string> PresetNames {
+        get => presetNames;
+        set {
+            ArgumentNullException.ThrowIfNull(value);
+
+            presetNames = value;
+            FillPresets();
+        }
+    }
 
     /// <summary>The button that puts the panel into capture mode.</summary>
     public Button Record { get; private set; } = null!;
@@ -191,7 +245,7 @@
     public event Action<KeyBindingsView>? ExportRequested;
 
     /// <summary>Points the panel at a registry and the map that binds it.</summary>
-    /// <param name="registry">Every command the editor knows.</param>
+    /// <param name="registry">Every command the application knows.</param>
     /// <param name="map">What binds them.</param>
     public void Show(CommandRegistry registry, KeyMap map) {
         ArgumentNullException.ThrowIfNull(registry);
@@ -252,7 +306,7 @@
 
     /// <summary>Reads every cell again without rebuilding the list.</summary>
     public void Refresh() {
-        Presets.Value = keys?.PresetName ?? KeyMapPresets.Vixen;
+        Presets.Value = keys?.PresetName ?? KeyMap.NoPreset;
 
         Grid.Refresh();
         Sync();
@@ -330,7 +384,7 @@
         if (!map.UsePreset(name)) {
             complaint.Value = string.Format(
                 CultureInfo.CurrentCulture,
-                EditorStrings.KeysUnknownPreset.Text,
+                ControlStrings.KeysUnknownPreset.Text,
                 name
             );
         }
@@ -361,7 +415,7 @@
 
         // ⚠ Back into the portable vocabulary before it is stored. `KeyChord.ForPlatform` is an
         // involution — see its own remarks — so a ⌘S pressed on a Mac becomes the Ctrl+S every
-        // keymap file, menu model and preset in this editor is written in.
+        // keymap file, menu model and preset is written in.
         chord = chord.ForPlatform();
 
         var replace = chord == Pending;
@@ -377,9 +431,9 @@
 
     string SourceOf(string id) =>
         keys?.SourceOf(id) switch {
-            BindingSource.User => EditorStrings.KeysSourceUser.Text,
+            BindingSource.User => ControlStrings.KeysSourceUser.Text,
             BindingSource.Preset => keys.PresetName,
-            _ => EditorStrings.KeysSourceDefault.Text
+            _ => ControlStrings.KeysSourceDefault.Text
         };
 
     string? ContextOf(string id) => commands is { } registry && registry.TryGet(id, out var command)
@@ -406,17 +460,17 @@
         if (Conflict is { } holder) {
             return string.Format(
                 CultureInfo.CurrentCulture,
-                EditorStrings.KeysConflict.Text,
+                ControlStrings.KeysConflict.Text,
                 Pending.Describe(),
                 commands is { } registry && registry.TryGet(holder, out var command) ? command.Title.Text : holder
             );
         }
 
         return IsCapturing
-            ? EditorStrings.KeysWaiting.Text
+            ? ControlStrings.KeysWaiting.Text
             : Selected is null
-                ? EditorStrings.KeysPickRow.Text
-                : EditorStrings.KeysReady.Text;
+                ? ControlStrings.KeysPickRow.Text
+                : ControlStrings.KeysReady.Text;
     }
 
     /// <summary>The grid's columns and the two boxes' subscriptions, once the <c>ref</c>s exist.</summary>
@@ -434,18 +488,14 @@
     partial void OnComposed() {
         Search.ValueChanged += Filtered;
 
-        Presets.ClearOptions();
-
-        foreach (var name in KeyMapPresets.Names) {
-            Presets.AddOption(name, name);
-        }
+        FillPresets();
 
         Presets.SelectionChanged += Choose;
 
-        Column(EditorStrings.KeysColumnCommand.Text, 240f, row => row.Title);
-        Column(EditorStrings.KeysColumnCategory.Text, 120f, row => row.Category);
-        Column(EditorStrings.KeysColumnBinding.Text, 150f, row => Describe(row.Id));
-        Column(EditorStrings.KeysColumnSource.Text, 90f, row => SourceOf(row.Id));
+        Column(ControlStrings.KeysColumnCommand.Text, 240f, row => row.Title);
+        Column(ControlStrings.KeysColumnCategory.Text, 120f, row => row.Category);
+        Column(ControlStrings.KeysColumnBinding.Text, 150f, row => Describe(row.Id));
+        Column(ControlStrings.KeysColumnSource.Text, 90f, row => SourceOf(row.Id));
 
         Grid.SelectionChanged += Chose;
 
@@ -454,9 +504,29 @@
         Grid.Activated += Activated;
 
         if (commands is not null) {
-            Presets.Value = keys?.PresetName ?? KeyMapPresets.Vixen;
+            Presets.Value = keys?.PresetName ?? KeyMap.NoPreset;
             Rebuild();
         }
+    }
+
+    /// <summary>Puts <see cref="PresetNames" /> in the picker, with the map's own choice showing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Safe to run under the <c>Choose</c> subscription, and that was checked rather than
+    ///     assumed.</b> <c>Select.ClearOptions</c> removes options and leaves
+    ///     <see cref="Select.Value" /> alone, so emptying the picker raises nothing; and the value
+    ///     written back is the map's own preset, which <c>Choose</c> recognises and ignores. A host
+    ///     that sets the names after <c>Show</c> therefore does not reset anybody's keymap —
+    ///     <c>KeyBindingsViewTests.Naming_the_presets_after_Show_keeps_the_one_in_force</c> is the
+    ///     assertion.
+    /// </remarks>
+    void FillPresets() {
+        Presets.ClearOptions();
+
+        foreach (var name in presetNames) {
+            Presets.AddOption(name, name);
+        }
+
+        Presets.Value = keys?.PresetName ?? KeyMap.NoPreset;
     }
 
     partial void OnUnmounted() {
@@ -493,7 +563,12 @@
         column.Width = width;
     }
 
-    /// <inheritdoc cref="MessageLogView.Detach" />
+    /// <summary>Stops listening to whatever it was showing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Method groups rather than fields holding lambdas.</b> Two delegates over the same
+    ///     method and target compare equal, so <c>-=</c> finds these without a field kept alive to
+    ///     unsubscribe with.
+    /// </remarks>
     void Detach() {
         if (keys is not null) {
             keys.Changed -= KeysChanged;

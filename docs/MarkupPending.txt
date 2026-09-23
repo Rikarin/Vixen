@@ -27,6 +27,8 @@
 # candidates: SceneHierarchyView was the tenth of the ten and is ported (#1322), and MessageLogView
 # the ninth (#89) — its toolbar and detail pane are markup, its rows stay a VirtualizingPanel row
 # template, and MessageLogViewDumpTests holds it to what the hand-written control drew.
+# Then 38 have a `.vxml`, not 39, and not because anything was unported: KeyBindingsView left the
+# editor for Vixen.Ui.Controls.Advanced (#650) and took its markup with it.
 # The audit on the issue counted 34/23 on 2026-09-04 and listed InputDebugPanel and
 # AgentDebuggerPanel among the unported; ⚠ both are partials of AssetEditorsModule that REGISTER a
 # view, and InputDebugView.vxml and AgentDebuggerView.vxml exist — a name-shaped count that does not

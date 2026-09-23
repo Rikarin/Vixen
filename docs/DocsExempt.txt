@@ -1607,8 +1607,6 @@ T:Vixen.Editor.Ui.EditorTheme sweep-pending
 T:Vixen.Editor.Ui.EditorUserStore sweep-pending
 T:Vixen.Editor.Ui.FuzzyMatcher sweep-pending
 T:Vixen.Editor.Ui.IPaletteSource sweep-pending
-T:Vixen.Editor.Ui.KeyBindingRow sweep-pending
-T:Vixen.Editor.Ui.KeyBindingsView sweep-pending
 T:Vixen.Editor.Ui.KeyMapPresets sweep-pending
 T:Vixen.Editor.Ui.LayoutPresets sweep-pending
 T:Vixen.Editor.Ui.MenuCommand sweep-pending

@@ -588,5 +588,4 @@ public sealed class MessageLogViewDumpTests {
         <scrollbar .size-md .variant-default .vertical> Value=0
         <scrollbar .horizontal .size-md .variant-default> Value=0
         """;
-
 }
