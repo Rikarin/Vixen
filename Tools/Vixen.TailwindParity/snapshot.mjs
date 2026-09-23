@@ -70,13 +70,42 @@ const checked = [...asked].sort(ordinal);
 const compiled = ds.candidatesToCss(checked);
 const refused = checked.filter((_, index) => compiled[index] === null);
 
+// ⚠ A variant is a prefix and not a class, so "does Vixen support `before`?" cannot be asked of the
+// name — it has to be asked of a class the name appears in. The probe is found by trying forms in
+// order and keeping the first v4 itself compiles, which is why none of this file claims to know what
+// `supports-[…]` takes: v4 is asked, and a variant it refuses every form of is recorded with a null
+// probe rather than with a guess.
+// ⚠ The arbitrary forms are LAST and that ordering is load-bearing. `group-[3]` compiles in v4 and
+// Vixen refuses every arbitrary `group-`, so a probe that reached for the arbitrary form first would
+// record `group` as a variant Vixen does not have — while `group-hover:` works. The bare form, then
+// every value v4 lists, then arbitrary: the first form v4 accepts wins, so the probe is the most
+// ordinary spelling of the variant that exists rather than the most exotic.
+const bodies = ['-[3]', '-[a=b]', '-[display:grid]', '-[&_p]'];
+const variants = [];
+
+for (const variant of ds.getVariants()) {
+    const dash = variant.hasDash ? '-' : '';
+    const forms = [
+        ...(variant.hasDash ? [variant.name] : []),
+        ...(variant.values ?? []).map((value) => variant.name + dash + value),
+        ...bodies.map((body) => variant.name + (variant.hasDash ? body : body.slice(1))),
+    ];
+
+    const css = ds.candidatesToCss(forms.map((form) => `${form}:p-4`));
+    const index = css.findIndex((rule) => rule !== null);
+
+    variants.push({ name: variant.name, probe: index < 0 ? null : forms[index] });
+}
+
+variants.sort((a, b) => ordinal(a.name, b.name));
+
 const snapshot = {
     package: 'tailwindcss',
     version,
     taken: new Date().toISOString().slice(0, 10),
     staticRoots: Array.from(ds.utilities.keys('static')).sort(ordinal),
     functionalRoots: Array.from(ds.utilities.keys('functional')).sort(ordinal),
-    variants: Array.from(ds.variants.keys()).sort(ordinal),
+    variants,
     checked,
     refused,
 };
@@ -86,6 +115,7 @@ await fs.writeFile(out, JSON.stringify(snapshot, null, 4) + '\n');
 
 console.log(
     `tailwindcss@${version}: ${snapshot.staticRoots.length} static roots, `
-        + `${snapshot.functionalRoots.length} functional roots, ${snapshot.variants.length} variants, `
+        + `${snapshot.functionalRoots.length} functional roots, ${variants.length} variants `
+        + `(${variants.filter((v) => v.probe === null).length} with no probe), `
         + `${checked.length} ledger classes checked, ${refused.length} refused -> ${out}`,
 );

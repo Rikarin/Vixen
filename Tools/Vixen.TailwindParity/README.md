@@ -16,6 +16,7 @@ test run, which is what makes this a gate rather than a script somebody remember
 | `docs/plan/43-web-styling-parity.tsv` | The ledger. Only its `root`, `kind`, `example` and `classes` columns are read here. |
 | `docs/plan/tailwind-registry.json` | The snapshot: v4's static roots, functional roots, variants, and the verdict on every class the ledger names. |
 | `docs/plan/43-web-styling-unlisted.txt` | Static utilities v4 ships that no row names. A shrinking list, not a waiver. |
+| `docs/plan/43-web-styling-variants-unsupported.txt` | Variants v4 has that `Variants.TryResolve` refuses. Also shrinking. |
 
 ## Why the snapshot is committed rather than measured
 
@@ -64,6 +65,10 @@ Bumping the pinned version is a deliberate act: it will move `staticRoots`, `fun
 | `TWP005` | A static utility v4 ships that neither the ledger nor the unlisted file names. |
 | `TWP006` | An unlisted-file entry a row now lists, so the file must shrink. |
 | `TWP007` | An unlisted-file entry v4 does not register at all. |
+| `TWP008` | A variant v4 has that Vixen refuses and the unsupported file does not name. |
+| `TWP009` | An unsupported-file entry Vixen resolves now, so the file must shrink. |
+| `TWP010` | A variant v4 compiles no class from, so nothing here can ask about it. |
+| `TWP011` | An unsupported-file entry v4 does not register at all. |
 
 ⚠ **`TWP003` is the one that costs something.** `ParityLedger.Derive` demotes a row from `works` to
 `partial` when any class in its `classes` column fails to resolve, and never promotes a row on the
@@ -76,6 +81,29 @@ The first run of this tool found two: the `backdrop-blur-*` row listed `backdrop
 step **or** a spacing count, and the count is this engine's own extension, written down in its
 remarks — and they are not Tailwind classes at all. A Vixen-only spelling had got into the column
 that describes Tailwind.
+
+## The variants, which the ledger has no row for
+
+A variant emits no property, so `UtilityConsumptionGateTests` never sees one and doc 43's `.tsv` —
+one row per utility root — has nowhere to put it. What stood in for a measurement was prose: A12's
+row saying seven pseudo-element variants "wait behind the generated box", carried through six audits
+of issue #233 and never checked.
+
+It is **21 of v4's 88**, and they are in `docs/plan/43-web-styling-variants-unsupported.txt` with the
+reason grouped above each block. ⚠ The answer comes from `Variants.TryResolve` — the call the
+generator itself makes — over a **probe class** rather than over a name, because a variant is a
+prefix: "does Vixen have `before`?" is only answerable as "does `before:p-4` resolve?". The probe is
+chosen by the snapshot generator from forms **v4 accepts**, bare first and arbitrary last, so nothing
+here claims to know what any variant takes.
+
+⚠ **That ordering is load-bearing and the first draft had it wrong.** `group-[3]` compiles in v4 and
+Vixen refuses every arbitrary `group-`, so an arbitrary-first probe recorded `group` as a variant
+Vixen does not have — while `group-hover:` works. Two variants were libelled that way before the
+forms were ordered.
+
+⚠ This is doc 43's `expires-on` mechanism in the one form that cannot be walked past. A refusal in a
+comment expires unobserved; a refusal here stops the build the moment it stops being true, because
+deleting the line is what makes it green again.
 
 ## What it deliberately does not check
 

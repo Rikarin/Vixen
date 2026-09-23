@@ -18,6 +18,17 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <!--
+            ⚠ The one half of this tool that is not a comparison of two files. A utility root is a
+            name and can be checked against the ledger's own text; a *variant* is a prefix, so "does
+            Vixen support `before:`?" can only be asked by handing a class to the thing that resolves
+            one. Referenced rather than re-implemented, for the reason doc 43's Part 5 gives about a
+            parity test that checked a C# re-implementation rather than the shader.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Styling.Utilities\Vixen.Ui.Styling.Utilities.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
         <InternalsVisibleTo Include="Vixen.TailwindParity.Tests" />
     </ItemGroup>
 

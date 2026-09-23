@@ -6,6 +6,23 @@ using System.Text.Json.Serialization;
 
 namespace Vixen.TailwindParity;
 
+/// <summary>One variant v4 registers, with a class prefix that exercises it.</summary>
+/// <remarks>
+///     ⚠ <b>The probe is what makes a variant answerable at all.</b> A variant is a prefix rather
+///     than a class, so "does Vixen support <c>before</c>?" cannot be asked of the name — it has to
+///     be asked of a class the name appears in, and the form differs per variant (<c>before</c> bare,
+///     <c>aria-busy</c> with a value, <c>data-[3]</c> arbitrary). The snapshot generator finds it by
+///     trying forms and keeping the first <b>v4 itself</b> compiles, so nothing here claims to know
+///     what any variant takes. A variant v4 refuses every form of is recorded with no probe and
+///     reported as unprobeable rather than as unsupported.
+/// </remarks>
+/// <param name="Name">The variant as v4 names it.</param>
+/// <param name="Probe">A prefix that compiles in v4, or <c>null</c>.</param>
+sealed record TailwindVariant(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("probe")] string? Probe
+);
+
 /// <summary>A committed snapshot of tailwindcss's <c>__unstable__loadDesignSystem()</c> registry.</summary>
 /// <remarks>
 ///     <para>
@@ -49,7 +66,7 @@ sealed record TailwindRegistry {
 
     /// <summary>Every variant v4 registers, which is the other half of the vocabulary.</summary>
     [JsonPropertyName("variants")]
-    public string[] Variants { get; init; } = [];
+    public TailwindVariant[] Variants { get; init; } = [];
 
     /// <summary>Every class name the snapshot asked the v4 compiler about.</summary>
     [JsonPropertyName("checked")]

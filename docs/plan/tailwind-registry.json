@@ -1212,94 +1212,358 @@
         "zoom"
     ],
     "variants": [
-        "*",
-        "**",
-        "2xl",
-        "@",
-        "@max",
-        "@min",
-        "active",
-        "after",
-        "any-pointer-coarse",
-        "any-pointer-fine",
-        "any-pointer-none",
-        "aria",
-        "autofill",
-        "backdrop",
-        "before",
-        "checked",
-        "contrast-less",
-        "contrast-more",
-        "dark",
-        "data",
-        "default",
-        "details-content",
-        "disabled",
-        "empty",
-        "enabled",
-        "even",
-        "file",
-        "first",
-        "first-letter",
-        "first-line",
-        "first-of-type",
-        "focus",
-        "focus-visible",
-        "focus-within",
-        "forced-colors",
-        "group",
-        "has",
-        "hover",
-        "in",
-        "in-range",
-        "indeterminate",
-        "inert",
-        "invalid",
-        "inverted-colors",
-        "landscape",
-        "last",
-        "last-of-type",
-        "lg",
-        "ltr",
-        "marker",
-        "max",
-        "md",
-        "min",
-        "motion-reduce",
-        "motion-safe",
-        "noscript",
-        "not",
-        "nth",
-        "nth-last",
-        "nth-last-of-type",
-        "nth-of-type",
-        "odd",
-        "only",
-        "only-of-type",
-        "open",
-        "optional",
-        "out-of-range",
-        "peer",
-        "placeholder",
-        "placeholder-shown",
-        "pointer-coarse",
-        "pointer-fine",
-        "pointer-none",
-        "portrait",
-        "print",
-        "read-only",
-        "required",
-        "rtl",
-        "selection",
-        "sm",
-        "starting",
-        "supports",
-        "target",
-        "user-invalid",
-        "user-valid",
-        "valid",
-        "visited",
-        "xl"
+        {
+            "name": "*",
+            "probe": "*"
+        },
+        {
+            "name": "**",
+            "probe": "**"
+        },
+        {
+            "name": "2xl",
+            "probe": "2xl"
+        },
+        {
+            "name": "@",
+            "probe": "@3xs"
+        },
+        {
+            "name": "@max",
+            "probe": "@max-3xs"
+        },
+        {
+            "name": "@min",
+            "probe": "@min-3xs"
+        },
+        {
+            "name": "active",
+            "probe": "active"
+        },
+        {
+            "name": "after",
+            "probe": "after"
+        },
+        {
+            "name": "any-pointer-coarse",
+            "probe": "any-pointer-coarse"
+        },
+        {
+            "name": "any-pointer-fine",
+            "probe": "any-pointer-fine"
+        },
+        {
+            "name": "any-pointer-none",
+            "probe": "any-pointer-none"
+        },
+        {
+            "name": "aria",
+            "probe": "aria-busy"
+        },
+        {
+            "name": "autofill",
+            "probe": "autofill"
+        },
+        {
+            "name": "backdrop",
+            "probe": "backdrop"
+        },
+        {
+            "name": "before",
+            "probe": "before"
+        },
+        {
+            "name": "checked",
+            "probe": "checked"
+        },
+        {
+            "name": "contrast-less",
+            "probe": "contrast-less"
+        },
+        {
+            "name": "contrast-more",
+            "probe": "contrast-more"
+        },
+        {
+            "name": "dark",
+            "probe": "dark"
+        },
+        {
+            "name": "data",
+            "probe": "data-[3]"
+        },
+        {
+            "name": "default",
+            "probe": "default"
+        },
+        {
+            "name": "details-content",
+            "probe": "details-content"
+        },
+        {
+            "name": "disabled",
+            "probe": "disabled"
+        },
+        {
+            "name": "empty",
+            "probe": "empty"
+        },
+        {
+            "name": "enabled",
+            "probe": "enabled"
+        },
+        {
+            "name": "even",
+            "probe": "even"
+        },
+        {
+            "name": "file",
+            "probe": "file"
+        },
+        {
+            "name": "first",
+            "probe": "first"
+        },
+        {
+            "name": "first-letter",
+            "probe": "first-letter"
+        },
+        {
+            "name": "first-line",
+            "probe": "first-line"
+        },
+        {
+            "name": "first-of-type",
+            "probe": "first-of-type"
+        },
+        {
+            "name": "focus",
+            "probe": "focus"
+        },
+        {
+            "name": "focus-visible",
+            "probe": "focus-visible"
+        },
+        {
+            "name": "focus-within",
+            "probe": "focus-within"
+        },
+        {
+            "name": "forced-colors",
+            "probe": "forced-colors"
+        },
+        {
+            "name": "group",
+            "probe": "group-first"
+        },
+        {
+            "name": "has",
+            "probe": "has-first"
+        },
+        {
+            "name": "hover",
+            "probe": "hover"
+        },
+        {
+            "name": "in",
+            "probe": "in-first"
+        },
+        {
+            "name": "in-range",
+            "probe": "in-range"
+        },
+        {
+            "name": "indeterminate",
+            "probe": "indeterminate"
+        },
+        {
+            "name": "inert",
+            "probe": "inert"
+        },
+        {
+            "name": "invalid",
+            "probe": "invalid"
+        },
+        {
+            "name": "inverted-colors",
+            "probe": "inverted-colors"
+        },
+        {
+            "name": "landscape",
+            "probe": "landscape"
+        },
+        {
+            "name": "last",
+            "probe": "last"
+        },
+        {
+            "name": "last-of-type",
+            "probe": "last-of-type"
+        },
+        {
+            "name": "lg",
+            "probe": "lg"
+        },
+        {
+            "name": "ltr",
+            "probe": "ltr"
+        },
+        {
+            "name": "marker",
+            "probe": "marker"
+        },
+        {
+            "name": "max",
+            "probe": "max-sm"
+        },
+        {
+            "name": "md",
+            "probe": "md"
+        },
+        {
+            "name": "min",
+            "probe": "min-sm"
+        },
+        {
+            "name": "motion-reduce",
+            "probe": "motion-reduce"
+        },
+        {
+            "name": "motion-safe",
+            "probe": "motion-safe"
+        },
+        {
+            "name": "noscript",
+            "probe": "noscript"
+        },
+        {
+            "name": "not",
+            "probe": "not-first"
+        },
+        {
+            "name": "nth",
+            "probe": "nth-[3]"
+        },
+        {
+            "name": "nth-last",
+            "probe": "nth-last-[3]"
+        },
+        {
+            "name": "nth-last-of-type",
+            "probe": "nth-last-of-type-[3]"
+        },
+        {
+            "name": "nth-of-type",
+            "probe": "nth-of-type-[3]"
+        },
+        {
+            "name": "odd",
+            "probe": "odd"
+        },
+        {
+            "name": "only",
+            "probe": "only"
+        },
+        {
+            "name": "only-of-type",
+            "probe": "only-of-type"
+        },
+        {
+            "name": "open",
+            "probe": "open"
+        },
+        {
+            "name": "optional",
+            "probe": "optional"
+        },
+        {
+            "name": "out-of-range",
+            "probe": "out-of-range"
+        },
+        {
+            "name": "peer",
+            "probe": "peer-first"
+        },
+        {
+            "name": "placeholder",
+            "probe": "placeholder"
+        },
+        {
+            "name": "placeholder-shown",
+            "probe": "placeholder-shown"
+        },
+        {
+            "name": "pointer-coarse",
+            "probe": "pointer-coarse"
+        },
+        {
+            "name": "pointer-fine",
+            "probe": "pointer-fine"
+        },
+        {
+            "name": "pointer-none",
+            "probe": "pointer-none"
+        },
+        {
+            "name": "portrait",
+            "probe": "portrait"
+        },
+        {
+            "name": "print",
+            "probe": "print"
+        },
+        {
+            "name": "read-only",
+            "probe": "read-only"
+        },
+        {
+            "name": "required",
+            "probe": "required"
+        },
+        {
+            "name": "rtl",
+            "probe": "rtl"
+        },
+        {
+            "name": "selection",
+            "probe": "selection"
+        },
+        {
+            "name": "sm",
+            "probe": "sm"
+        },
+        {
+            "name": "starting",
+            "probe": "starting"
+        },
+        {
+            "name": "supports",
+            "probe": "supports-[3]"
+        },
+        {
+            "name": "target",
+            "probe": "target"
+        },
+        {
+            "name": "user-invalid",
+            "probe": "user-invalid"
+        },
+        {
+            "name": "user-valid",
+            "probe": "user-valid"
+        },
+        {
+            "name": "valid",
+            "probe": "valid"
+        },
+        {
+            "name": "visited",
+            "probe": "visited"
+        },
+        {
+            "name": "xl",
+            "probe": "xl"
+        }
     ],
     "checked": [
         "@container",

@@ -10,7 +10,7 @@ namespace Vixen.TailwindParity;
 ///     beside a test assembly and no <c>AppContext</c> path points at it. The walk anchors on the
 ///     ledger itself, so a run from a worktree finds that worktree's ledger.
 /// </remarks>
-sealed record RepositoryFiles(string Ledger, string Registry, string Unlisted) {
+sealed record RepositoryFiles(string Ledger, string Registry, string Unlisted, string VariantsUnsupported) {
     /// <summary>The ledger's path relative to the repository root.</summary>
     public const string LedgerName = "docs/plan/43-web-styling-parity.tsv";
 
@@ -19,6 +19,9 @@ sealed record RepositoryFiles(string Ledger, string Registry, string Unlisted) {
 
     /// <summary>The shrinking unlisted-statics list's path relative to the repository root.</summary>
     public const string UnlistedName = "docs/plan/43-web-styling-unlisted.txt";
+
+    /// <summary>The shrinking unsupported-variants list's path relative to the repository root.</summary>
+    public const string VariantsUnsupportedName = "docs/plan/43-web-styling-variants-unsupported.txt";
 
     /// <summary>Walks up from a directory until the ledger is beneath it.</summary>
     /// <param name="start">Where to start; the running binary by default.</param>
@@ -33,7 +36,11 @@ sealed record RepositoryFiles(string Ledger, string Registry, string Unlisted) {
                 return new RepositoryFiles(
                     ledger,
                     Path.Combine(directory.FullName, RegistryName.Replace('/', Path.DirectorySeparatorChar)),
-                    Path.Combine(directory.FullName, UnlistedName.Replace('/', Path.DirectorySeparatorChar))
+                    Path.Combine(directory.FullName, UnlistedName.Replace('/', Path.DirectorySeparatorChar)),
+                    Path.Combine(
+                        directory.FullName,
+                        VariantsUnsupportedName.Replace('/', Path.DirectorySeparatorChar)
+                    )
                 );
             }
 

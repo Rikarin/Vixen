@@ -31,7 +31,7 @@ public sealed class ParityAuditTests {
         Taken = "2026-09-23",
         StaticRoots = ["sr-only", "static"],
         FunctionalRoots = ["left", "top"],
-        Variants = ["hover"],
+        Variants = [new TailwindVariant("hover", "hover"), new TailwindVariant("before", "before")],
         Checked = ["refused-class", "sr-only", "static", "top-0"],
         Refused = ["refused-class"],
     };
@@ -186,5 +186,9 @@ public sealed class ParityAuditTests {
 
         Assert.True(registry.Checked.Length >= named.Count, $"{named.Count} named, {registry.Checked.Length} checked");
         Assert.True(registry.Variants.Length > 80, $"only {registry.Variants.Length} variants were recorded");
+
+        // ⚠ A variant with no probe can only be reported as unprobeable, so a snapshot full of them
+        // would pass every membership test the unsupported list can express while measuring nothing.
+        Assert.All(registry.Variants, variant => Assert.NotNull(variant.Probe));
     }
 }
