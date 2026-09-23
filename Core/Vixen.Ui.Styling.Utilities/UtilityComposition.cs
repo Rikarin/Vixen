@@ -322,20 +322,29 @@ public static class UtilityComposition {
     //
     // ── The transform list's fragments ──────────────────────────────────────────────────────
     //
-    // ⚠ <b>Three fragments and one assembler, and the arrangement is the reason a second family
-    // could join without touching the first</b> — the argument <see cref="Blur" /> makes one
-    // property over. CSS's `transform` is an ordered list, so `rotate-z-45 skew-x-6` has to come out
-    // as one declaration holding both functions; two families each writing a whole `transform` would
-    // let the cascade pick one and drop the other, silently, which is the failure `translate-x`/
+    // ⚠ <b>Fragments and one assembler, and the arrangement is the reason a second family could join
+    // without touching the first</b> — the argument <see cref="Blur" /> makes one property over.
+    // CSS's `transform` is an ordered list, so `rotate-z-45 skew-x-6` has to come out as one
+    // declaration holding both functions; two families each writing a whole `transform` would let
+    // the cascade pick one and drop the other, silently, which is the failure `translate-x`/
     // `translate-y` had.
     //
-    // ⚠ <b>And it is a list this engine can only partly spell, which is why the assembler names
-    // three slots rather than v4's five.</b> `TransformReader.Functions` refuses a list outright if
-    // any one function in it is unreadable — deliberately, because a card flip read as the two flat
-    // halves of a `rotateX rotateY` pair is a picture, and a wrong one. So writing v4's whole
-    // `rotateX(…) rotateY(…) rotateZ(…) skewX(…) skewY(…)` today would make `rotate-z-45` emit a
-    // declaration the engine drops *whole*: the family would resolve, cascade and do nothing. A slot
-    // joins this assembler when its function parses, and not before.
+    // ⚠ <b>The slot count is not a shortfall against v4 and reading it as one is how this comment
+    // kept going stale.</b> It said "three slots rather than v4's five" while the assembler named
+    // five, and it named seven the moment `translateZ` and `scaleZ` joined — two slots v4 does not
+    // have in its `transform` at all, because v4 spells them on the separate `translate` and `scale`
+    // properties and this engine cannot (see `Transform`'s own remark). Count the fragments in
+    // `Transform()` rather than trusting a number written here.
+    //
+    // ⚠ <b>What IS a condition on joining: the function has to parse.</b>
+    // `TransformReader.Functions` refuses a list outright if any one function in it is unreadable —
+    // deliberately, because a card flip read as the two flat halves of a `rotateX rotateY` pair is a
+    // picture, and a wrong one. So a slot written before its function parsed would make every class
+    // in the list emit a declaration the engine drops *whole*: the families would resolve, cascade
+    // and do nothing. ⚠ <b>And the same rule binds a slot's VALUES, which #1328 got wrong once</b> —
+    // `translate-z-*` shipped over `ValueKind.Size`, whose `full`/`auto`/fraction arms are values
+    // `Depth` refuses, so `translate-z-full rotate-z-90` dropped the rotation too. A slot joins when
+    // its function parses *and* its family cannot resolve to an argument that function declines.
     //
     // ⚠ <b>Which is a condition and not a verdict, and the two skews are the case that proves it —
     // for the second time on this feature.</b> `skewX` and `skewY` have parsed since
@@ -413,6 +422,43 @@ public static class UtilityComposition {
 
     /// <summary>And along y.</summary>
     public const string SkewY = Prefix + "skew-y";
+
+    /// <summary>How far a <c>transform</c> moves the box towards the viewer.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A slot in <see cref="Transform" /> and not a third component on the
+    ///         <c>translate</c> property, which is where v4 puts it — and the two compose to the
+    ///         same matrix.</b> Transforms 2 § 3 applies <c>transform</c> to a point before
+    ///         <c>scale</c>, <c>rotate</c> and <c>translate</c>, so a <c>translateZ</c> written
+    ///         FIRST in the list is applied LAST — after every rotation in it, which is v4's order
+    ///         exactly. What remains between the two spellings is a translation along z against a
+    ///         scale and a rotation that touch only x and y, and those commute.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Its reason for being outside was refuted rather than resolved.</b> The note that
+    ///         kept it out said a <c>translate-z-4</c> resolves to <c>calc(var(--spacing) * 4)</c>
+    ///         and that <c>TransformReader.Functions</c> refuses a nested parenthesis. The second
+    ///         half was true and is fixed (#1328); the first is not true of this engine at all —
+    ///         <c>TrySpacing</c> multiplies the step count by the theme's spacing base and emits a
+    ///         literal, so what arrives here is <c>16px</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Invisible without a <c>perspective-*</c> on the parent, and that is the right
+    ///         picture.</b> Every point of an element is at z = 0 until something moves it, and
+    ///         <c>w = 1 − z/d</c> is one until something supplies the <c>d</c> — so
+    ///         <c>translate-z-12</c> alone genuinely does nothing, exactly as in a browser.
+    ///     </para>
+    /// </remarks>
+    public const string TranslateZ = Prefix + "translate-z";
+
+    /// <summary>How much a <c>transform</c> scales the box along z.</summary>
+    /// <remarks>
+    ///     <see cref="TranslateZ" />'s arrangement and its argument. ⚠ Its initial is <b>one</b> and
+    ///     not zero, for <see cref="ScaleX" />'s reason with a worse consequence: a
+    ///     <c>scaleZ(0)</c> substituted into every element that carries any transform slot at all
+    ///     would flatten the z axis of every card flip in the document to nothing.
+    /// </remarks>
+    public const string ScaleZ = Prefix + "scale-z";
 
     // ── The numeric figures ─────────────────────────────────────────────────────────────────
     //
@@ -804,6 +850,16 @@ public static class UtilityComposition {
         [ScaleX] = "1",
         [ScaleY] = "1",
 
+        // ⚠ <b>The two z slots, and each takes its own axis's identity rather than the other's.</b>
+        // They are substituted into <see cref="Transform" /> on every element that fills any slot at
+        // all, so the pair below is what a lone `rotate-z-45` now also spells — `translateZ(0px)`
+        // and `scaleZ(1)`. A zero in the second would flatten the z axis of every transformed
+        // element in the document, which is the identity confusion `ScaleX`'s note above describes
+        // one axis over and is harder to see here: nothing looks wrong until a `perspective-*`
+        // arrives and there is no depth left for it to divide by.
+        [TranslateZ] = "0px",
+        [ScaleZ] = "1",
+
         // ⚠ <b>Zero, so that a colour on its own paints nothing — which is what v4 does too.</b>
         // `ring-accent` with no width emits only `--tw-ring-color` in Tailwind and therefore no
         // shadow at all; here it emits the assembly with a zero spread, and `EmitShadow` produces a
@@ -1123,26 +1179,37 @@ public static class UtilityComposition {
     ///         the reader composes the list in four dimensions and reduces once.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The two that are still outside are <c>translateZ</c> and <c>scaleZ</c>, and the
-    ///         reason is neither the parser nor the renderer.</b> v4 spells them on the
-    ///         <c>translate</c> and <c>scale</c> <i>properties</i>, which this engine reads as a pair
-    ///         of numbers and a pair of factors rather than as a matrix — and moving them into this
-    ///         assembler instead is not free, because a <c>translate-z-4</c> resolves to a
-    ///         <c>calc(var(--spacing) * 4)</c> and <c>TransformReader.Functions</c> refuses any
-    ///         argument holding a nested parenthesis. A slot that refused its own value would take
-    ///         the whole list down with it, which is the failure this block exists to name.
-    ///         <c>Rikarin/Vixen#1328</c> is where the three ways out are written down.
+    ///         ⚠ <b>Seven now, and the two that joined last are written FIRST — which is the whole of
+    ///         why they can live here at all.</b> v4 spells <c>translateZ</c> and <c>scaleZ</c> on
+    ///         the <c>translate</c> and <c>scale</c> <i>properties</i>, and Transforms 2 § 3 applies
+    ///         <c>transform</c> to a point BEFORE those two. A list is applied right to left, so a
+    ///         function written first is applied last — after every rotation beside it, which is
+    ///         where v4's properties put it. What is left between the two spellings is a z
+    ///         translation and a z scale against a property <c>scale</c> and <c>rotate</c> that touch
+    ///         only x and y, and those commute. Written at the END of this list instead, a
+    ///         <c>translate-z-12 rotate-x-45</c> would rotate the depth offset into y and the card
+    ///         would swing rather than lift.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The premise that kept them out was refuted rather than resolved
+    ///         (<c>Rikarin/Vixen#1328</c>).</b> The note here said a <c>translate-z-4</c> resolves to
+    ///         <c>calc(var(--spacing) * 4)</c> and that <c>TransformReader.Functions</c> refuses a
+    ///         nested parenthesis. The refusal was real and is gone; the <c>calc()</c> is not this
+    ///         engine's output at all — <c>TrySpacing</c> folds the spacing scale at resolution time
+    ///         and emits <c>16px</c>, which the reader has always read.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Every slot is substituted on every element that fills any of them</b>, so the
-    ///         initials in <see cref="Initials" /> are load-bearing three times over rather than
-    ///         once: a lone <c>skew-x-6</c> emits a <c>rotateZ</c> and a <c>skewY</c> as well, and
-    ///         either of them spelled without its unit would make <c>TransformReader</c> refuse the
-    ///         list and the class do nothing.
+    ///         initials in <see cref="Initials" /> are load-bearing seven times over rather than
+    ///         once: a lone <c>skew-x-6</c> emits a <c>rotateZ</c>, a <c>skewY</c>, a
+    ///         <c>translateZ</c> and a <c>scaleZ</c> as well, and any of them spelled without its
+    ///         unit — or a <c>scaleZ(0)</c> — would make <c>TransformReader</c> refuse the list, or
+    ///         flatten it, and the class do nothing.
     ///     </para>
     /// </remarks>
     public static string Transform() =>
-        $"rotateX({Reference(RotateX)}) rotateY({Reference(RotateY)}) rotateZ({Reference(RotateZ)}) "
+        $"translateZ({Reference(TranslateZ)}) scaleZ({Reference(ScaleZ)}) "
+        + $"rotateX({Reference(RotateX)}) rotateY({Reference(RotateY)}) rotateZ({Reference(RotateZ)}) "
         + $"skewX({Reference(SkewX)}) skewY({Reference(SkewY)})";
 
     /// <summary>The <c>box-shadow</c> a ring is.</summary>

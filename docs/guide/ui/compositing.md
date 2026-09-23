@@ -725,11 +725,25 @@ and scaled down to fit shows only the part that was already visible. An *ancesto
 have this problem — the clip is pulled back through the transform before it narrows the group's
 bounds, so a rotated panel near a clipped edge keeps the corner the rotation swings into view.
 
-**Not implemented:** `transform` itself, and `skew-*` with it. There is no `<transform-function>`
-parser — no `matrix()`, `rotate()`, `scale()` or `skew()`, and no list-of-functions in `StyleValue` —
-so those are a parser away rather than a renderer away. The 3D family (`perspective`,
-`transform-style`, `backface-visibility`, the `-z` axes) needs a third axis and a projective
-composite as well.
+**`transform` itself is read, and so is the 3D family.** `TransformReader.Functions` parses the list
+— `matrix()`, `matrix3d()`, `translate()`/`translateX`/`translateY`/`translateZ`/`translate3d`,
+`scale()`/`scaleX`/`scaleY`/`scaleZ`/`scale3d`, `rotate()`/`rotateX`/`rotateY`/`rotateZ`/`rotate3d`,
+`skew()`/`skewX`/`skewY` and `perspective()` — composing the whole of it in four dimensions and
+reducing once at the end, which is what lets a `perspective()` be observed through a `rotateX()`
+beside it. A `calc()` argument folds through `StyleValueParser`; `min()`, `max()` and `clamp()` do
+not, and an argument that cannot be read drops the **whole** declaration, deliberately, because a
+card flip drawn as the two flat halves of a `rotateX rotateY` pair is a wrong picture rather than a
+missing one. The `perspective` and `perspective-origin` properties are read on the **parent**, per
+Transforms 2 § 6, and `backface-visibility: hidden` removes a turned-away element from both the paint
+walk and the hit test — decided from the 4×4 before the reduction, because the reduced homography
+cannot tell a `rotateY(180deg)` from a `scale3d(-1, 1, 1)`.
+
+**Not implemented:** `transform-style: preserve-3d`, which would need the descendants to share this
+element's 3D space rather than be composited into its plane; and a **transition** on any of these.
+`StyleValueKind` has no function form, so a `<transform-list>` computes as `Unknown` and `Animator`
+drops a transition whose either end is one — the transform does not jump at the end, it never starts.
+Closing that needs an externally-interpolated property on `Animator`, because `Vixen.Ui.Styling`
+cannot reference `Vixen.Ui` and so cannot compose a `UiTransform` itself. See `Rikarin/Vixen#174`.
 
 ### Blending a group with what is under it
 
