@@ -738,12 +738,26 @@ Transforms 2 § 6, and `backface-visibility: hidden` removes a turned-away eleme
 walk and the hit test — decided from the 4×4 before the reduction, because the reduced homography
 cannot tell a `rotateY(180deg)` from a `scale3d(-1, 1, 1)`.
 
+**`transform` transitions and animates.** `transition: transform 300ms` and a `@keyframes` block
+over `transform` both run, interpolated the way CSS Transforms 2 § 12 says: two lists are padded
+with identity functions to the same length (`none` counting as empty), a pair of functions sharing a
+primitive interpolates its **arguments** — so `rotate(0deg)` → `rotate(360deg)` is a whole turn,
+not the standing still an interpolation of two identical matrices would give — and from the first
+pair that does not, the rest of each list is composed into one matrix, decomposed into translation,
+scale, shear, perspective and a quaternion, and interpolated part by part. Arguments are resolved
+against the element's box and font first, so `translateX(50%)` → `translateX(2em)` interpolates
+too. `backface-visibility` is re-decided at every step, so a card turning under `backface-hidden`
+disappears at 90° rather than at either end. A transition reversed part way comes back over the
+fraction of the duration it had travelled.
+
+The animator times it and writes the value in flight as CSS Values 5's
+`transform-mix(<progress>, <from>, <to>)` — which is also accepted from a stylesheet — and
+`TransformReader` resolves the mix, because only it holds the box, the font and the matrices. So a
+value read off the computed style mid-transition is a `transform-mix(…)`, and nothing that consumes a
+transform had to learn that time passes.
+
 **Not implemented:** `transform-style: preserve-3d`, which would need the descendants to share this
-element's 3D space rather than be composited into its plane; and a **transition** on any of these.
-`StyleValueKind` has no function form, so a `<transform-list>` computes as `Unknown` and `Animator`
-drops a transition whose either end is one — the transform does not jump at the end, it never starts.
-Closing that needs an externally-interpolated property on `Animator`, because `Vixen.Ui.Styling`
-cannot reference `Vixen.Ui` and so cannot compose a `UiTransform` itself. See `Rikarin/Vixen#174`.
+element's 3D space rather than be composited into its plane.
 
 ### Blending a group with what is under it
 

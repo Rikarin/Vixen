@@ -3015,9 +3015,15 @@ public sealed partial class UiDocument : IDisposable {
         // the font size and line height, `WithAppliedContainer` the container box — and either one
         // applied to the surface's context alone leaves the other half measuring the wrong thing.
         // The comment that stood here said the font size was deliberately left at the ROOT's; #1339
-        // is what made that no longer true, and `DrawListBuilder.TryShadow` composes the identical
-        // pair for the identical reason.
+        // is what made that no longer true, and `DrawListBuilder`'s shadow and filter readers read
+        // this very value back rather than composing the pair a second time.
         var lengths = element.WithAppliedContainer(own);
+
+        // ⚠ <b>Kept, because the draw list is the fourth reader of this context and has no surface
+        // to build its own from.</b> See `UiElement.AppliedLengths` and #1345: it used to rebuild
+        // this pair off `Viewport`, which is the primary window, so a shadow in a torn-off one
+        // measured the wrong window's `vw`.
+        element.AppliedLengths = lengths;
 
         translation.Of(element, lengths, out var dx, out var dy);
 

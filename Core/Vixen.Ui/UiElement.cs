@@ -2377,6 +2377,33 @@ public partial class UiElement : Composition.IComposable {
     /// </remarks>
     internal bool BackfaceHidden { get; set; }
 
+    /// <summary>The lengths this element's own declarations resolve against after layout.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Written by <c>UiDocument.Accumulate</c> — the position walk, which is one walk <i>per
+    ///         surface</i> seeded with that surface's <see cref="UiSurface.Metrics" /> — as the same
+    ///         context it hands <c>translate</c>, <c>position: sticky</c> and <c>transform</c>: this
+    ///         element's own font size and line height (#1339) and the query container the style walk
+    ///         found above it (<see cref="WithAppliedContainer" />).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Stored because the draw list has no surface to seed one from, and until #1345 it
+    ///         seeded one from the wrong window.</b> <c>DrawListBuilder</c> is handed a surface's
+    ///         <i>root</i> and never the <see cref="UiSurface" />, so its shadow and filter readers
+    ///         rebuilt the context from <c>UiDocument.Viewport</c> — the <i>primary</i> window's — and
+    ///         a <c>box-shadow: 0 5vw</c> in a torn-off window measured the main one. Reading the
+    ///         position walk's answer instead is one composition in one place rather than a second
+    ///         copy of it one assembly-internal seam away, and it is right on every surface by
+    ///         construction because the walk that writes it already is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Default until the first layout</b>, which is a font size of zero and a viewport of
+    ///         nothing. That is not reachable from a reader: the draw list skips any element with no
+    ///         box, and an element acquires a box on the same pass that writes this.
+    ///     </para>
+    /// </remarks>
+    internal LengthContext AppliedLengths { get; set; }
+
     /// <summary>
     ///     Whether a pointer can land on it. <c>pointer-events: none</c> and
     ///     <c>visibility: hidden</c> each make it false.

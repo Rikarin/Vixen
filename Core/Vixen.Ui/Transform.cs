@@ -35,7 +35,7 @@ namespace Vixen.Ui;
 ///         that avoids re-shaping glyphs — which is what the refusal this replaced was protecting.
 ///     </para>
 /// </remarks>
-sealed class TransformReader {
+sealed partial class TransformReader {
     readonly int rotate;
     readonly int scale;
     readonly int list;
@@ -87,7 +87,13 @@ sealed class TransformReader {
     // together here is the plausible arrangement and it makes every `perspective()` silently the
     // identity, because every point of an element sits at z = 0 until something has moved it. So the
     // list composes in four dimensions and `Reduce` runs once, at the end.
-    readonly List<Matrix4x4> functions = [];
+    //
+    // ⚠ <b>Steps rather than matrices since #174, and the list is still composed exactly as it
+    // was.</b> A transition interpolates the ARGUMENTS of paired functions — `rotate(0deg)` to
+    // `rotate(360deg)` is a whole turn between two identical matrices — so a function is held as its
+    // resolved numbers until the list is composed, and `CellsOf` builds each matrix with the same
+    // arithmetic `Function` used to, cell for cell.
+    readonly List<TransformStep> steps = [];
 
     /// <summary>Interns the four property names, the keyword that means "do not", and the origins.</summary>
     /// <param name="properties">The table property names are interned in.</param>
@@ -341,7 +347,7 @@ sealed class TransformReader {
     ) {
         result = Matrix4x4.Identity;
         spatial = false;
-        functions.Clear();
+        steps.Clear();
 
         var span = text.AsSpan().Trim();
 
@@ -349,71 +355,116 @@ sealed class TransformReader {
             return false;
         }
 
-        var at = 0;
-
-        while (at < span.Length) {
-            if (char.IsWhiteSpace(span[at]) || span[at] == ',') {
-                at++;
-                continue;
-            }
-
-            var open = span[at..].IndexOf('(');
-
-            if (open <= 0) {
-                return false;
-            }
-
-            var name = span.Slice(at, open).Trim();
-            at += open + 1;
-
-            // ⚠ <b>The MATCHING close bracket and not the first one, and the difference only became
-            // reachable when a nested parenthesis stopped being a refusal.</b> `translate-z-4`
-            // resolves to `translateZ(calc(var(--spacing) * 4))`; a scan for the first `)` stops
-            // inside the `calc(`, which leaves `calc(var(--spacing) * 4` as the argument and a stray
-            // `)` where the next function's name should be — so the list is refused for the wrong
-            // reason and the diagnosis points at the fold rather than at the scan.
-            var depth = 1;
-            var close = at;
-
-            while (close < span.Length && depth > 0) {
-                depth += span[close] switch {
-                    '(' => 1,
-                    ')' => -1,
-                    _ => 0
-                };
-
-                close++;
-            }
-
-            if (depth != 0) {
-                return false;
-            }
-
-            var arguments = span[at..(close - 1)];
-            at = close;
-
-            if (!Function(name, arguments, element, metrics, out var matrix, out var third)) {
-                return false;
-            }
-
-            spatial |= third;
-            functions.Add(matrix);
-        }
-
-        if (functions.Count == 0) {
+        // A plain list, or a `transform-mix()` a transition wrote — see `Steps`, which is where the
+        // two part and where the second is interpolated down to the first.
+        if (!Steps(span, element, metrics, steps, 0)) {
             return false;
         }
+
+        if (steps.Count == 0) {
+            return false;
+        }
+
+        spatial = Compose(steps, 0, out result);
+        return true;
+    }
+
+    /// <summary>The product of a run of steps, and whether any of them was three-dimensional.</summary>
+    /// <param name="list">The steps.</param>
+    /// <param name="from">The first one to include; the run goes to the end.</param>
+    /// <param name="result">The product.</param>
+    /// <returns>Whether any step in the run is spatial.</returns>
+    static bool Compose(List<TransformStep> list, int from, out Matrix4x4 result) {
+        result = Matrix4x4.Identity;
+        var spatial = false;
 
         // ⚠ <b>Right to left, which is the same order the reduced version had and for the same
         // reason.</b> `transform: A B` is the product `A · B`, so the LAST function is applied to a
         // point first — `rotate(90deg) translate(40px)` moves the element along its own turned axis
         // rather than across the screen. `Matrix4x4.Multiply` composes "apply the left one, then the
         // right one", exactly as `UiTransform.Then` does, so the loop is unchanged.
-        for (var index = functions.Count - 1; index >= 0; index--) {
-            result = Matrix4x4.Multiply(result, functions[index]);
+        for (var index = list.Count - 1; index >= from; index--) {
+            result = Matrix4x4.Multiply(result, CellsOf(list[index]));
+            spatial |= list[index].Spatial;
         }
 
-        return true;
+        return spatial;
+    }
+
+    /// <summary>One step as the 4×4 the list composes in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Each arm is the arithmetic <see cref="Function" /> performed inline before #174, moved
+    ///     and not rewritten</b> — the flat forms through <see cref="Flat" />, the spatial ones through
+    ///     their own constructors — because every committed screenshot was rendered through it and a
+    ///     reordered product is a different last bit.
+    /// </remarks>
+    static Matrix4x4 CellsOf(in TransformStep step) {
+        switch (step.Kind) {
+            case TransformStepKind.Translate:
+                return step.Spatial ? Translation(step.X, step.Y, step.Z) : Flat(1f, 0f, 0f, 1f, step.X, step.Y);
+
+            case TransformStepKind.Scale:
+                return step.Spatial
+                    ? new Matrix4x4(
+                        step.X, 0f, 0f, 0f,
+                        0f, step.Y, 0f, 0f,
+                        0f, 0f, step.Z, 0f,
+                        0f, 0f, 0f, 1f
+                    )
+                    : Flat(step.X, 0f, 0f, step.Y, 0f, 0f);
+
+            case TransformStepKind.Rotate: {
+                var (cos, sin) = Turn(step.Angle);
+
+                return Flat(cos, sin, -sin, cos, 0f, 0f);
+            }
+
+            case TransformStepKind.RotateX: {
+                var (cos, sin) = Turn(step.Angle);
+
+                return new Matrix4x4(
+                    1f, 0f, 0f, 0f,
+                    0f, cos, sin, 0f,
+                    0f, -sin, cos, 0f,
+                    0f, 0f, 0f, 1f
+                );
+            }
+
+            case TransformStepKind.RotateY: {
+                var (cos, sin) = Turn(step.Angle);
+
+                return new Matrix4x4(
+                    cos, 0f, -sin, 0f,
+                    0f, 1f, 0f, 0f,
+                    sin, 0f, cos, 0f,
+                    0f, 0f, 0f, 1f
+                );
+            }
+
+            case TransformStepKind.Rotate3d: {
+                var (x, y, z) = (step.X, step.Y, step.Z);
+                var (cos, sin) = Turn(step.Angle);
+                var t = 1f - cos;
+
+                // Rodrigues, transposed into this type's row-vector layout: the off-diagonal sines
+                // carry the opposite sign to the column-vector matrix CSS prints.
+                return new Matrix4x4(
+                    (t * x * x) + cos, (t * x * y) + (sin * z), (t * x * z) - (sin * y), 0f,
+                    (t * x * y) - (sin * z), (t * y * y) + cos, (t * y * z) + (sin * x), 0f,
+                    (t * x * z) + (sin * y), (t * y * z) - (sin * x), (t * z * z) + cos, 0f,
+                    0f, 0f, 0f, 1f
+                );
+            }
+
+            case TransformStepKind.Skew:
+                return Flat(1f, Tangent(step.Y), Tangent(step.X), 1f, 0f, 0f);
+
+            case TransformStepKind.Perspective:
+                return Projection(step.X);
+
+            default:
+                return step.Cells;
+        }
     }
 
     /// <summary>The 4×4 a planar element's homography is the reduction of.</summary>
@@ -560,12 +611,17 @@ sealed class TransformReader {
     ///         length and which this has to agree with to the bit.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><paramref name="spatial" /> is what selects the four-dimensional path, and it is
-    ///         set by the function rather than inferred from the matrix.</b> <c>rotateX(0deg)</c>,
-    ///         <c>translateZ(0)</c> and <c>scaleZ(1)</c> are the identity in every cell, so a test on
-    ///         the numbers would send them down the flat branch — which is the right picture and the
-    ///         wrong rounding, since the two branches fold the origin differently. Naming the
-    ///         function makes the choice the author's.
+    ///         ⚠ <b><see cref="TransformStep.Spatial" /> is what selects the four-dimensional path,
+    ///         and it is set by the function rather than inferred from the matrix.</b>
+    ///         <c>rotateX(0deg)</c>, <c>translateZ(0)</c> and <c>scaleZ(1)</c> are the identity in
+    ///         every cell, so a test on the numbers would send them down the flat branch — which is
+    ///         the right picture and the wrong rounding, since the two branches fold the origin
+    ///         differently. Naming the function makes the choice the author's.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A step and not a matrix since #174</b> — see <see cref="TransformStep" /> for why
+    ///         a transition needs the arguments, and <see cref="CellsOf" /> for the matrices, which
+    ///         are the ones this method used to build inline.
     ///     </para>
     /// </remarks>
     bool Function(
@@ -573,11 +629,9 @@ sealed class TransformReader {
         ReadOnlySpan<char> arguments,
         UiElement element,
         LengthContext metrics,
-        out Matrix4x4 result,
-        out bool spatial
+        out TransformStep step
     ) {
-        result = Matrix4x4.Identity;
-        spatial = false;
+        step = default;
 
         Span<Range> parts = stackalloc Range[17];
         var count = Split(arguments, parts);
@@ -599,7 +653,10 @@ sealed class TransformReader {
                 }
             }
 
-            result = Flat(cells[0], cells[1], cells[2], cells[3], cells[4], cells[5]);
+            step = new TransformStep(TransformStepKind.Matrix, 0f, 0f, 0f, 0f, false) {
+                Cells = Flat(cells[0], cells[1], cells[2], cells[3], cells[4], cells[5])
+            };
+
             return true;
         }
 
@@ -621,14 +678,15 @@ sealed class TransformReader {
                 }
             }
 
-            result = new Matrix4x4(
-                cells[0], cells[1], cells[2], cells[3],
-                cells[4], cells[5], cells[6], cells[7],
-                cells[8], cells[9], cells[10], cells[11],
-                cells[12], cells[13], cells[14], cells[15]
-            );
+            step = new TransformStep(TransformStepKind.Matrix, 0f, 0f, 0f, 0f, true) {
+                Cells = new Matrix4x4(
+                    cells[0], cells[1], cells[2], cells[3],
+                    cells[4], cells[5], cells[6], cells[7],
+                    cells[8], cells[9], cells[10], cells[11],
+                    cells[12], cells[13], cells[14], cells[15]
+                )
+            };
 
-            spatial = true;
             return true;
         }
 
@@ -653,7 +711,7 @@ sealed class TransformReader {
                 }
             }
 
-            result = Flat(1f, 0f, 0f, 1f, x, y);
+            step = new TransformStep(TransformStepKind.Translate, x, y, 0f, 0f, false);
             return true;
         }
 
@@ -686,8 +744,7 @@ sealed class TransformReader {
                 return false;
             }
 
-            result = Translation(x, y, z);
-            spatial = true;
+            step = new TransformStep(TransformStepKind.Translate, x, y, z, 0f, true);
             return true;
         }
 
@@ -710,7 +767,7 @@ sealed class TransformReader {
                 return false;
             }
 
-            result = Flat(x, 0f, 0f, y, 0f, 0f);
+            step = new TransformStep(TransformStepKind.Scale, x, y, 1f, 0f, false);
             return true;
         }
 
@@ -734,13 +791,7 @@ sealed class TransformReader {
                 return false;
             }
 
-            result = new Matrix4x4(
-                x, 0f, 0f, 0f,
-                0f, y, 0f, 0f,
-                0f, 0f, z, 0f,
-                0f, 0f, 0f, 1f
-            );
-            spatial = true;
+            step = new TransformStep(TransformStepKind.Scale, x, y, z, 0f, true);
             return true;
         }
 
@@ -749,9 +800,7 @@ sealed class TransformReader {
                 return false;
             }
 
-            var (cos, sin) = Turn(degrees);
-
-            result = Flat(cos, sin, -sin, cos, 0f, 0f);
+            step = new TransformStep(TransformStepKind.Rotate, 0f, 0f, 1f, degrees, false);
             return true;
         }
 
@@ -763,23 +812,10 @@ sealed class TransformReader {
                 return false;
             }
 
-            var (cos, sin) = Turn(degrees);
+            step = Is(name, "rotateX")
+                ? new TransformStep(TransformStepKind.RotateX, 1f, 0f, 0f, degrees, true)
+                : new TransformStep(TransformStepKind.RotateY, 0f, 1f, 0f, degrees, true);
 
-            result = Is(name, "rotateX")
-                ? new Matrix4x4(
-                    1f, 0f, 0f, 0f,
-                    0f, cos, sin, 0f,
-                    0f, -sin, cos, 0f,
-                    0f, 0f, 0f, 1f
-                )
-                : new Matrix4x4(
-                    cos, 0f, -sin, 0f,
-                    0f, 1f, 0f, 0f,
-                    sin, 0f, cos, 0f,
-                    0f, 0f, 0f, 1f
-                );
-
-            spatial = true;
             return true;
         }
 
@@ -805,20 +841,15 @@ sealed class TransformReader {
                 return false;
             }
 
-            var (x, y, z) = (axis[0] / length, axis[1] / length, axis[2] / length);
-            var (cos, sin) = Turn(degrees);
-            var t = 1f - cos;
-
-            // Rodrigues, transposed into this type's row-vector layout: the off-diagonal sines carry
-            // the opposite sign to the column-vector matrix CSS prints.
-            result = new Matrix4x4(
-                (t * x * x) + cos, (t * x * y) + (sin * z), (t * x * z) - (sin * y), 0f,
-                (t * x * y) - (sin * z), (t * y * y) + cos, (t * y * z) + (sin * x), 0f,
-                (t * x * z) + (sin * y), (t * y * z) - (sin * x), (t * z * z) + cos, 0f,
-                0f, 0f, 0f, 1f
+            step = new TransformStep(
+                TransformStepKind.Rotate3d,
+                axis[0] / length,
+                axis[1] / length,
+                axis[2] / length,
+                degrees,
+                true
             );
 
-            spatial = true;
             return true;
         }
 
@@ -837,8 +868,7 @@ sealed class TransformReader {
                 return false;
             }
 
-            result = Projection(distance);
-            spatial = true;
+            step = new TransformStep(TransformStepKind.Perspective, distance, 0f, 0f, 0f, true);
             return true;
         }
 
@@ -860,7 +890,7 @@ sealed class TransformReader {
             var horizontal = Is(name, "skewY") ? 0f : first;
             var vertical = Is(name, "skewY") ? first : second;
 
-            result = Flat(1f, Tangent(vertical), Tangent(horizontal), 1f, 0f, 0f);
+            step = new TransformStep(TransformStepKind.Skew, horizontal, vertical, 0f, 0f, false);
             return true;
         }
 
