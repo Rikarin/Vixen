@@ -127,7 +127,7 @@ compiled-scene-severity { width: 88px; flex-shrink: 0; }
 compiled-scene-message { flex-grow: 1; min-width: 0; }
 
 compiled-scene-diagnostic.error > compiled-scene-severity { color: var(--danger, #f2696e); }
-compiled-scene-diagnostic.warning > compiled-scene-severity { color: var(--warning, #e2b341); }
+compiled-scene-diagnostic.warning > compiled-scene-severity { color: var(--warning); }
 compiled-scene-diagnostic.information > compiled-scene-severity { color: var(--text-muted); }
 
 /* ── The override matrix ─────────────────────────────────────────────
@@ -365,7 +365,7 @@ analysis-row {
 }
 
 analysis-row.error { color: var(--danger, #f2696e); }
-analysis-row.warning { color: var(--warning, #e2b341); }
+analysis-row.warning { color: var(--warning); }
 analysis-stage { width: 72px; flex-shrink: 0; color: var(--text-muted); }
 analysis-message { flex-grow: 1; min-width: 0; }
 
@@ -682,7 +682,7 @@ harness-cell.failed { background-color: var(--danger, #f2696e); color: #ffffff; 
 /* ⚠ A different colour and not a redder one. "Never resolved" is a different kind of fact
    from "off by four centimetres", and grading it on the same scale is how an author ends up
    tuning a goal that is not running at all. */
-harness-cell.missing { background-color: var(--warning, #e2b341); color: #1a1a1a; }
+harness-cell.missing { background-color: var(--warning); color: #1a1a1a; }
 harness-cell.selected { border-width: 1px; border-color: var(--accent); }
 
 /* ── The move set table ───────────────────────────────────────────────
@@ -766,7 +766,7 @@ vocab-fields, vocab-report { flex-direction: column; gap: 2px; }
 vocab-title { font-weight: 600; margin-top: 4px; }
 vocab-error { color: var(--danger, #f2696e); margin-top: 6px; }
 
-vocab-note { color: var(--warning, #e2b341); margin-top: 4px; }
+vocab-note { color: var(--warning); margin-top: 4px; }
 vocab-note.fatal { color: var(--danger, #f2696e); }
 
 vocab-row { flex-direction: row; align-items: center; gap: 6px; padding: 1px 4px; min-height: 20px; }
@@ -780,7 +780,7 @@ vocab-detail { flex-grow: 1; min-width: 0px; color: var(--text-muted); }
 shape-fields fact-value > numeric-input { flex-grow: 1; flex-basis: 0px; min-width: 0; }
 
 fact-row.error { color: var(--danger, #f2696e); }
-fact-row.warning { color: var(--warning, #e2b341); }
+fact-row.warning { color: var(--warning); }
 fact-row.selected { background-color: var(--accent-deep, var(--surface-raised)); border-radius: 3px; }
 
 /* ⚠ **A column holding a bar and a row, never one row that wraps.** The bar has to span the
