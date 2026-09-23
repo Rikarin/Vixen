@@ -234,6 +234,15 @@ sealed class TransformReader {
     ///         declaration it cannot parse.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>A <c>calc()</c> argument folds rather than refusing, and that reach is what used
+    ///         to cost.</b> Until #1328 any argument holding a nested parenthesis dropped the whole
+    ///         declaration — so <c>translateZ(calc(var(--spacing) * 4))</c>, which is what every
+    ///         Tailwind <c>translate-z-*</c> resolves to, would have taken the <c>rotateZ</c> beside
+    ///         it down as well. See <see cref="Folded" />. What cannot fold is still refused whole, and
+    ///         that is deliberate: <c>min()</c>, <c>max()</c> and <c>clamp()</c> all reach
+    ///         <see cref="Folded" /> and all come back nothing.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>Percentages are of the element's own border box</b>, per Transforms 1 §8 — x
     ///         against its width, y against its height. That is the same rule <c>translate</c> the
     ///         property follows and the opposite of every percentage in the box model, which resolve
@@ -297,21 +306,31 @@ sealed class TransformReader {
             var name = span.Slice(at, open).Trim();
             at += open + 1;
 
-            var close = span[at..].IndexOf(')');
+            // ⚠ <b>The MATCHING close bracket and not the first one, and the difference only became
+            // reachable when a nested parenthesis stopped being a refusal.</b> `translate-z-4`
+            // resolves to `translateZ(calc(var(--spacing) * 4))`; a scan for the first `)` stops
+            // inside the `calc(`, which leaves `calc(var(--spacing) * 4` as the argument and a stray
+            // `)` where the next function's name should be — so the list is refused for the wrong
+            // reason and the diagnosis points at the fold rather than at the scan.
+            var depth = 1;
+            var close = at;
 
-            if (close < 0) {
+            while (close < span.Length && depth > 0) {
+                depth += span[close] switch {
+                    '(' => 1,
+                    ')' => -1,
+                    _ => 0
+                };
+
+                close++;
+            }
+
+            if (depth != 0) {
                 return false;
             }
 
-            var arguments = span.Slice(at, close);
-            at += close + 1;
-
-            // ⚠ A nested parenthesis is `calc()`, `min()` or `var()`, none of which this reads. Caught
-            // by looking for one inside the arguments rather than by matching depth, because the
-            // answer either way is a refusal and a depth counter would only reach it later.
-            if (arguments.Contains('(')) {
-                return false;
-            }
+            var arguments = span[at..(close - 1)];
+            at = close;
 
             if (!Function(name, arguments, element, metrics, out var matrix, out var third)) {
                 return false;
@@ -479,7 +498,7 @@ sealed class TransformReader {
     ///         function makes the choice the author's.
     ///     </para>
     /// </remarks>
-    static bool Function(
+    bool Function(
         ReadOnlySpan<char> name,
         ReadOnlySpan<char> arguments,
         UiElement element,
@@ -835,8 +854,28 @@ sealed class TransformReader {
     ///     the one CSS asks for. The element's box is passed nothing, which is what makes that
     ///     impossible rather than merely avoided.
     /// </remarks>
-    static bool Depth(ReadOnlySpan<char> text, LengthContext metrics, out float points) {
+    bool Depth(ReadOnlySpan<char> text, LengthContext metrics, out float points) {
         points = 0f;
+
+        if (text.Contains('(')) {
+            var folded = Folded(text);
+
+            // ⚠ A percentage that arrived through a `calc()` is refused for the same reason a written
+            // one is, and it has to be checked before `ToLength`, which carries a percentage through
+            // as `LayoutUnit.Percent` rather than rejecting it.
+            if (folded.Kind == StyleValueKind.Length && folded.Unit == StyleUnit.Percent) {
+                return false;
+            }
+
+            var resolved = metrics.ToLength(folded);
+
+            if (resolved.Unit != LayoutUnit.Point) {
+                return false;
+            }
+
+            points = resolved.Value;
+            return true;
+        }
 
         if (text.EndsWith("%", StringComparison.Ordinal)) {
             return false;
@@ -881,6 +920,37 @@ sealed class TransformReader {
         return true;
     }
 
+    /// <summary>One argument that is itself a function, folded to a number or a length.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the whole of #1328, and what it replaced was a refusal of the entire
+    ///         list.</b> Every argument holding a nested parenthesis used to drop the declaration, and
+    ///         a <c>translate-z-4</c> resolves to <c>calc(var(--spacing) * 4)</c> — so the two Tailwind
+    ///         roots that spell a z could not join <c>UtilityComposition.Transform()</c> without
+    ///         silently unrotating every box that also carried a <c>rotate-z-*</c>, because a slot
+    ///         whose value is refused takes every other slot down with it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>var()</c> never arrives here at all</b> — <c>StyleResolver.Substitute</c> runs
+    ///         on the declaration's text long before this reader sees it, so what reaches this point
+    ///         is ordinary arithmetic over literals. What does arrive is <c>calc()</c>, which
+    ///         <see cref="StyleValueParser" /> already folds to one number or one length; <c>min()</c>,
+    ///         <c>max()</c> and <c>clamp()</c> fold to nothing, come back
+    ///         <see cref="StyleValueKind.Unknown" />, and the list is refused whole exactly as before.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Reached only for an argument that actually holds a bracket</b>, because
+    ///         <see cref="StyleValueParser.Parse(ReadOnlySpan{char})" /> allocates a list of ranges
+    ///         per call and this runs once per function per element per pass. A <c>rotateZ(45deg)</c>
+    ///         still goes nowhere near it.
+    ///     </para>
+    /// </remarks>
+    StyleValue Folded(ReadOnlySpan<char> text) {
+        var folded = parser.Parse(text);
+
+        return folded.Kind is StyleValueKind.Number or StyleValueKind.Length ? folded : StyleValue.Unknown;
+    }
+
     static float Tangent(float degrees) => MathF.Tan(degrees * (MathF.PI / 180f));
 
     static bool Is(ReadOnlySpan<char> name, string expected) =>
@@ -888,8 +958,18 @@ sealed class TransformReader {
 
     /// <summary>Cuts an argument list on its commas, or on whitespace where it has none.</summary>
     /// <remarks>
-    ///     ⚠ Returns −1 for more arguments than the caller has room for, so that <c>matrix(…)</c> with
-    ///     seven cells is refused rather than silently read as six.
+    ///     <para>
+    ///         ⚠ Returns −1 for more arguments than the caller has room for, so that <c>matrix(…)</c>
+    ///         with seven cells is refused rather than silently read as six.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Top level only, and that is not a nicety: a <c>calc()</c> is mostly spaces.</b>
+    ///         <c>translateZ(calc(0.25rem * 4))</c> has one argument and five whitespace-separated
+    ///         runs inside it, so a splitter that did not count brackets would hand <c>translateZ</c>
+    ///         five arguments, fail its arity check, and refuse the list — a refusal that looks
+    ///         exactly like the fold having failed. An unbalanced bracket is −1 for the same reason
+    ///         an overlong list is: the caller's arity check is where a refusal is legible.
+    ///     </para>
     /// </remarks>
     static int Split(ReadOnlySpan<char> arguments, Span<Range> parts) {
         var count = 0;
@@ -902,9 +982,28 @@ sealed class TransformReader {
             }
 
             var start = at;
+            var depth = 0;
 
-            while (at < arguments.Length && !char.IsWhiteSpace(arguments[at]) && arguments[at] != ',') {
+            while (at < arguments.Length) {
+                var character = arguments[at];
+
+                if (character == '(') {
+                    depth++;
+                } else if (character == ')') {
+                    depth--;
+
+                    if (depth < 0) {
+                        return -1;
+                    }
+                } else if (depth == 0 && (char.IsWhiteSpace(character) || character == ',')) {
+                    break;
+                }
+
                 at++;
+            }
+
+            if (depth != 0) {
+                return -1;
             }
 
             if (count == parts.Length) {
@@ -918,7 +1017,26 @@ sealed class TransformReader {
     }
 
     /// <summary>A bare number, or a percentage read as a fraction.</summary>
-    static bool Number(ReadOnlySpan<char> text, out float value) {
+    bool Number(ReadOnlySpan<char> text, out float value) {
+        if (text.Contains('(')) {
+            var folded = Folded(text);
+
+            if (folded.Kind == StyleValueKind.Number) {
+                value = folded.Number;
+                return true;
+            }
+
+            // A folded percentage is a ratio here exactly as a written one is — `scale(150%)` is one
+            // and a half — and no other unit is a number at all.
+            if (folded.Kind == StyleValueKind.Length && folded.Unit == StyleUnit.Percent) {
+                value = folded.Number / 100f;
+                return true;
+            }
+
+            value = 0f;
+            return false;
+        }
+
         if (text.EndsWith("%", StringComparison.Ordinal)) {
             if (!float.TryParse(text[..^1], NumberStyles.Float, CultureInfo.InvariantCulture, out value)) {
                 return false;
@@ -932,8 +1050,22 @@ sealed class TransformReader {
     }
 
     /// <summary>An angle, in degrees, in any of the four units CSS spells one with.</summary>
-    static bool Angle(ReadOnlySpan<char> text, out float degrees) {
+    bool Angle(ReadOnlySpan<char> text, out float degrees) {
         degrees = 0f;
+
+        if (text.Contains('(')) {
+            var folded = Folded(text);
+
+            // ⚠ `StyleValueParser` converts `grad`, `rad` and `turn` into degrees while it folds, so
+            // there is one unit to test for rather than four — and a folded bare number is refused
+            // here for the reason `Suffix` refuses a written one: `rotate(calc(45))` is not an angle.
+            if (folded.Kind != StyleValueKind.Length || folded.Unit != StyleUnit.Degrees) {
+                return false;
+            }
+
+            degrees = folded.Number;
+            return true;
+        }
 
         var (suffix, per) = Suffix(text);
 
@@ -973,7 +1105,7 @@ sealed class TransformReader {
     }
 
     /// <summary>A length or a percentage of the element's own border box, in points.</summary>
-    static bool Distance(
+    bool Distance(
         ReadOnlySpan<char> text,
         UiElement element,
         LengthContext metrics,
@@ -981,6 +1113,24 @@ sealed class TransformReader {
         out float points
     ) {
         points = 0f;
+
+        if (text.Contains('(')) {
+            var folded = Folded(text);
+
+            if (folded.Kind == StyleValueKind.Length && folded.Unit == StyleUnit.Percent) {
+                points = folded.Number / 100f * (vertical ? element.Height : element.Width);
+                return true;
+            }
+
+            var resolved = metrics.ToLength(folded);
+
+            if (resolved.Unit != LayoutUnit.Point) {
+                return false;
+            }
+
+            points = resolved.Value;
+            return true;
+        }
 
         if (text.EndsWith("%", StringComparison.Ordinal)) {
             if (!float.TryParse(text[..^1], NumberStyles.Float, CultureInfo.InvariantCulture, out var percent)) {
@@ -1064,7 +1214,8 @@ sealed class TransformReader {
     ///     which is what makes a second copy of the keyword-by-axis rule below the wrong answer.
     ///     They differ only in whose box: a transform origin is the element's own, and a perspective
     ///     origin is the PARENT's, because it is the parent that establishes the vanishing point.
-    ///     The z component <c>transform-origin</c> may carry is not read; see <see cref="Fold" />.
+    ///     The z component <c>transform-origin</c> may carry is not read; see
+    ///     <see cref="Fold(in Matrix4x4, Vector2)" />.
     /// </remarks>
     Vector2 Origin(UiElement element, LengthContext metrics, int property) {
         var x = element.Width / 2f;

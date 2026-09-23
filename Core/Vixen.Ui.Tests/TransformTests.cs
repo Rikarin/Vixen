@@ -803,8 +803,19 @@ public class TransformTests {
     [InlineData("translate(10)")]
     [InlineData("matrix(1, 0, 0, 1, 0)")]
     [InlineData("matrix(1, 0, 0, 1, 0, 0, 0)")]
-    [InlineData("scale(calc(1 + 1))")]
     [InlineData("nonsense")]
+
+    // ⚠ <b>A `calc()` folds now (#1328), so what is pinned here is the three ways a folded value is
+    // still the wrong KIND</b> — and each of them used to be refused by the blanket nested-bracket
+    // rule rather than by a reading, which is why none of them could tell whether the fold was even
+    // reached. `min()` does not fold at all; `calc(45)` folds to a bare number where an angle is
+    // required, exactly as a written `rotate(45)` is refused; `calc(50%)` folds to a percentage,
+    // which Transforms 2 § 12 makes invalid along z because there is no box dimension to resolve it
+    // against.
+    [InlineData("scale(min(1, 2))")]
+    [InlineData("rotate(calc(45))")]
+    [InlineData("translateZ(calc(50%))")]
+    [InlineData("translateX(calc(10px + 2))")]
 
     // ⚠ <b>A percentage along z is invalid rather than zero</b>, per Transforms 2 § 12 — there is no
     // box dimension for it to resolve against, and the two-dimensional reader beside it would
@@ -838,6 +849,96 @@ public class TransformTests {
         // The scale survives: 40x40 about (120, 120) doubled paints x in [80, 160].
         Assert.Same(still, document.HitTest(150f, 120f));
         Assert.Same(document.Root, document.HitTest(170f, 120f));
+    }
+
+    /// <summary>A <c>calc()</c> argument folds, and the function beside it survives.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The neighbour is the assertion and not the <c>calc()</c>.</b> Until #1328 any
+    ///         argument holding a nested bracket refused the <i>whole</i> list, so the failure this
+    ///         pins is not "the translation is wrong" but "the rotation beside it silently stopped
+    ///         happening" — which is exactly what would have made <c>translate-z-*</c> unsafe to add
+    ///         to <c>UtilityComposition.Transform()</c>, where every slot is emitted on every element
+    ///         that fills any of them.
+    ///     </para>
+    ///     <para>
+    ///         <b>Closed form.</b> A 40-square box at (100, 100) turns about its own centre (120, 120).
+    ///         The list is <c>rotateZ(90deg) translateX(calc(10px * 4))</c>, so the translation applies
+    ///         to a point first: corners at x ∈ [−20, 20] become x ∈ [20, 60], and a 90° turn on a
+    ///         y-down screen sends (x, y) to (−y, x) — so the box lands at x ∈ [100, 140],
+    ///         y ∈ [140, 180].
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both probes are needed and neither alone is a predicate.</b> (120, 175) is inside
+    ///         only if the fold produced 40 — at 10 the box stops at y = 150 — and (120, 120), the
+    ///         element's own untransformed centre, is inside only if the list was dropped. So a
+    ///         refusal fails the first, a mis-folded number fails the first, and a list that read the
+    ///         <c>calc()</c> but lost the <c>rotateZ</c> fails the second.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_calc_argument_folds_and_the_function_beside_it_survives() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .turned { position: absolute; left: 100px; top: 100px; width: 40px; height: 40px;
+                      background-color: #111; transform: rotateZ(90deg) translateX(calc(10px * 4)); }
+            """,
+            document => document.Root.Add("div", classNames: "turned")
+        );
+
+        var turned = document.Root.Children[0];
+
+        Assert.Same(turned, document.HitTest(120f, 175f));
+        Assert.Same(document.Root, document.HitTest(120f, 120f));
+    }
+
+    /// <summary>A <c>calc()</c> along z is folded and then projected by the parent's perspective.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the declaration a Tailwind <c>translate-z-*</c> actually resolves to</b> —
+    ///         v4 spells its spacing scale as <c>calc(var(--spacing) * n)</c>, substitution turns the
+    ///         <c>var()</c> into a literal long before this reader sees anything, and what arrives is
+    ///         a <c>calc()</c> over two numbers. It is also the one argument position where a fold
+    ///         cannot be checked against a flat picture: a <c>translateZ</c> is the identity until
+    ///         something projects it, so the parent establishes a perspective and the projection is
+    ///         the assertion.
+    ///     </para>
+    ///     <para>
+    ///         <b>Closed form.</b> <c>calc(3.125rem * 2)</c> is 100 points towards the viewer at the
+    ///         initial 16-point root font size. The stage's <c>perspective: 200px</c> divides by
+    ///         <c>w = 1 − 100/200 = 0.5</c> about the stage's centre (200, 150), and the card's own
+    ///         centre is that same point — so the 100-square card doubles about it, to x ∈ [100, 300],
+    ///         y ∈ [50, 250].
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A refused list is a card that has not moved</b>, x ∈ [150, 250] and y ∈ [100, 200],
+    ///         which both corner probes are outside — and the third probe is what stops a card that
+    ///         merely grew without bound from passing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_calc_along_z_is_folded_and_then_projected_by_the_parents_perspective() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .stage { position: absolute; left: 0px; top: 0px; width: 400px; height: 300px;
+                     perspective: 200px; }
+            .card { position: absolute; left: 150px; top: 100px; width: 100px; height: 100px;
+                    background-color: #111; transform: translateZ(calc(3.125rem * 2)); }
+            """,
+            document => document.Root.Add("div", classNames: "stage").Add("div", classNames: "card")
+        );
+
+        var card = document.Root.Children[0].Children[0];
+
+        // Doubled about the vanishing point: the near corner reaches (110, 60), well outside the
+        // untransformed box and outside a card that merely moved.
+        Assert.Same(card, document.HitTest(110f, 60f));
+        Assert.Same(card, document.HitTest(290f, 240f));
+
+        // And it stops there rather than filling the stage.
+        Assert.NotSame(card, document.HitTest(90f, 60f));
     }
 
     /// <summary>
