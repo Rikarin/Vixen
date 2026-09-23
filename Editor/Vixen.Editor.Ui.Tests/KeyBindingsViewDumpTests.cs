@@ -66,13 +66,27 @@ public sealed class KeyBindingsViewDumpTests {
     }
 
     /// <summary>A chord another command holds: refused, named, and the line reddened.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asked of the glyphs, not of the line.</b> This test used to compare the computed
+    ///     <c>color</c> of <c>keybindings-status</c> before and after, and passed — while every
+    ///     picture of the conflict state showed a grey sentence. The line never draws a glyph: the
+    ///     <c>@Sentence()</c> interpolation makes a child <c>text</c> element, and
+    ///     <c>ControlTheme.vcss</c>'s <c>text { color: var(--text); }</c> overrides whatever that child
+    ///     would have inherited. So the parent turned red, the pixels stayed <c>--text</c>, and a test
+    ///     reading the parent certified a colour nothing painted. It now counts red pixels inside the
+    ///     line in a real capture — none while calm, some once refused — and requires the drawn
+    ///     child's colour to be the line's own in both states.
+    /// </remarks>
     [Fact]
     public void A_refused_chord_reddens_the_line() {
         using var harness = new Harness();
 
         harness.ClickRow(1);
 
-        var calm = harness.Ui.ColorOf(harness.View.Status, "color");
+        var sentence = Assert.Single(harness.View.Status.Children);
+        Assert.Equal("text", sentence.Tag);
+        Assert.Equal(harness.Ui.ColorOf(harness.View.Status, "color"), harness.Ui.ColorOf(sentence, "color"));
+        Assert.Equal(0, RedPixels(harness));
 
         var taken = harness.Shell.Keys.ChordFor(harness.Shell.Commands.Commands
             .Select(command => command.Id)
@@ -84,12 +98,59 @@ public sealed class KeyBindingsViewDumpTests {
 
         Assert.True(harness.View.Status.HasClass("conflict"));
 
-        // ⚠ The class is not the colour. The rule that reddens the line moved from the editor's
-        // sheet to `AdvancedTheme.vcss`, which the cascade reads earlier, and a class nothing styles
-        // passes every assertion above while the line stays grey.
-        Assert.NotEqual(calm, harness.Ui.ColorOf(harness.View.Status, "color"));
+        sentence = Assert.Single(harness.View.Status.Children);
+        Assert.Equal(harness.Ui.ColorOf(harness.View.Status, "color"), harness.Ui.ColorOf(sentence, "color"));
+
+        // The floor is a guard, not a measurement: a sentence of some forty glyphs drawn in
+        // `--danger` covers hundreds of pixels, and a grey one covers none that pass the test.
+        var red = RedPixels(harness);
+        Assert.True(red > 50, $"{red} red pixels in the status line: the refusal was not drawn red");
 
         Check(harness, "conflict", ConflictTree, ConflictFlags);
+    }
+
+    /// <summary>Pixels inside the status line whose red clearly dominates, in a software capture.</summary>
+    /// <remarks>
+    ///     The line's ground is <c>--surface-sunken</c>, a near-neutral grey, and the calm sentence is
+    ///     <c>--text-muted</c>, another; only <c>--danger</c> (and its antialiased edges) has a red
+    ///     channel sixty levels above both others.
+    /// </remarks>
+    static int RedPixels(Harness harness) {
+        var image = harness.Ui.Capture();
+        var bounds = harness.View.Status.Bounds;
+        var red = 0;
+
+        for (var y = (int)bounds.Top; y < (int)bounds.Bottom && y < image.Height; y++) {
+            for (var x = (int)bounds.Left; x < (int)bounds.Right && x < image.Width; x++) {
+                var offset = image.Offset(x, y);
+                var r = image.Pixels[offset];
+                var g = image.Pixels[offset + 1];
+                var b = image.Pixels[offset + 2];
+
+                if (r > g + 60 && r > b + 60) {
+                    red++;
+                }
+            }
+        }
+
+        return red;
+    }
+
+    /// <summary>The picker offers the editor's three presets, which only the shell can tell it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>No dump above can see this.</b> Since #650 the panel knows nobody's preset names, and
+    ///     one line in <c>EditorShell</c> hands it <see cref="KeyMapPresets.Names" />. With that line
+    ///     gone every dump stays byte-identical, because the options live in a root-level popover and
+    ///     the closed picker shows the value it was given. <c>Select.Value</c> also accepts a value
+    ///     that no option carries, so a test that sets <c>Presets.Value = "Unreal"</c> passes too.
+    ///     Unity and Unreal would silently leave the editor's picker, and this is the only test that
+    ///     would notice.
+    /// </remarks>
+    [Fact]
+    public void The_picker_offers_the_editors_presets() {
+        using var harness = new Harness();
+
+        Assert.Equal(KeyMapPresets.Names, harness.View.Presets.Options.Select(option => option.Value));
     }
 
     [Fact]

@@ -118,6 +118,14 @@ capture in five states came out byte-identical. It also found a defect nothing h
 is a tab stop and had no accessibility role, which the Advanced suite's two sweeps refused the first
 time they built it.
 
+⚠ **Byte-identical was not the same as right.** The status line was never red. Its sentence is an
+interpolation, so it is drawn by a child `text` element, and `ControlTheme`'s
+`text { color: var(--text); }` beats anything that child inherits. `keybindings-status.conflict`
+turned the *line's* computed colour red, and no pixel changed, in every capture since the wave-1b
+port. The dump test first read the line's colour and passed. It now counts red pixels inside the
+line in a capture, and `AdvancedTheme.vcss` sets the colour on `keybindings-status > text`, where the
+glyphs are. The captures stopped being identical at that commit, and that change was the fix.
+
 `KeyBindingsView.vxml` since doc 36 § F7 wave 1b, and two things about that port are worth keeping.
 
 ⚠ **`KeyMap` and `CommandRegistry` needed no signals.** The wave's brief was that every panel ported
@@ -726,9 +734,9 @@ was selected first.
 
 ⚠ **It is worse than the `@for` version in one specific way: nothing warns you.** A `ref` in a loop
 is `VXML2010` and a `refs` outside one is `VXML2013`, so the loop shape has two diagnostics pointing
-at it. A pattern variable in an `@if` arm is ordinary, legal C# that compiles, runs, and is correct
-for the first value it ever sees. `VariationHarnessView` was written with one and the whole existing
-suite passed: **every test in `HarnessViewTests` selected exactly one cell.**
+at it. A pattern variable in an `@if` arm was ordinary, legal C# that compiled, ran, and was
+correct for the first value it ever saw. `VariationHarnessView` was written with one and the whole
+existing suite passed: **every test in `HarnessViewTests` selected exactly one cell.**
 
 **So the rule generalises to: a binding may close over a region's *identity* and never over its
 content.** For a `@for` row that identity is the key; for an `@if` arm it is the *predicate* — and a
@@ -737,6 +745,12 @@ sharper edge of the two. Every readout in that arm goes back through the signal
 (`ChosenCase`, `ChosenResidual`, …) and the arm's condition is the only thing allowed to be a shape.
 `ChoosingASecondCellMovesTheSidePanelOffTheFirst` is the test, and it was confirmed to fail against a
 deliberately reintroduced stale readout while the other six passed.
+
+⚠ **The pattern-variable spelling no longer compiles.** The arm is a separate lambda from its
+predicate, so a readout in the arm that names `shown` is `CS0103` (re-measured 2026-09-23 on
+`MessageLogView.vxml`; see "A binding over a plain field is a build failure in one shape" below).
+The trap is the same without it. `use="@(e => e.Text ??= Chosen?.Label)"` reads the signal once and
+keeps the answer. It compiles, and it is stale in the same way.
 
 ⚠ **And `refs` has a second use, which the mixer's write-up did not have a case for.** There it was
 "a handler must reach a sibling control it cannot read off the model". Here nothing is edited at all

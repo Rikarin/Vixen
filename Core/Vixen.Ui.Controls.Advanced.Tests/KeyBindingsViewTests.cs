@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
 using Vixen.Input;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -108,11 +109,20 @@ public class KeyBindingsViewTests : IDisposable {
 
     /// <summary>
     ///     ⚠ A conflict is the one thing on this panel that is red, and the class is what makes it
-    ///     so — <c>keybindings-status.conflict</c> in <c>AdvancedTheme.vcss</c>.
+    ///     so — <c>keybindings-status.conflict</c> in <c>AdvancedTheme.vcss</c>, said twice: once on
+    ///     the line and once on the <c>text</c> child that actually draws the sentence.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ The colour is read off the drawn child and not the line. The line's own computed
+    ///     <c>color</c> went red from the day the panel was ported while every glyph stayed
+    ///     <c>--text</c>, because <c>ControlTheme</c>'s <c>text</c> rule outranks inheritance —
+    ///     and a test reading the parent certified it.
+    /// </remarks>
     [Fact]
     public void A_refused_chord_says_who_has_it_and_reddens_the_line() {
         Choose("scene.frame-all");
+
+        var calm = Drawn(view.Status);
 
         Assert.Equal(BindResult.Conflict, view.Rebind(new KeyChord(InputKey.S, ModifierKeys.Control)));
 
@@ -122,13 +132,27 @@ public class KeyBindingsViewTests : IDisposable {
         Assert.True(view.Status.HasClass("conflict"));
         Assert.Contains("Save Scene", Shown(view.Status), StringComparison.Ordinal);
 
-        // The second press takes it, and the line goes back to black.
+        var refused = Drawn(view.Status);
+        Assert.NotEqual(calm, refused);
+        Assert.True(refused.R > refused.G + 0.3f && refused.R > refused.B + 0.3f, $"the refusal is drawn in {refused}, which is not red");
+
+        // The second press takes it, and the line goes back to its calm colour.
         Assert.NotEqual(BindResult.Conflict, view.Rebind(new KeyChord(InputKey.S, ModifierKeys.Control), replace: true));
 
         Settle();
 
         Assert.Null(view.Conflict);
         Assert.False(view.Status.HasClass("conflict"));
+        Assert.Equal(calm, Drawn(view.Status));
+    }
+
+    /// <summary>The colour the line's sentence is drawn in: its one <c>text</c> child's, never its own.</summary>
+    Color4 Drawn(UiElement line) {
+        var sentence = Assert.Single(line.Children);
+        Assert.Equal("text", sentence.Tag);
+
+        return document.ColorOf(sentence.Style, document.PropertyId("color"))
+            ?? throw new InvalidOperationException("the sentence resolved no colour");
     }
 
     /// <summary>
