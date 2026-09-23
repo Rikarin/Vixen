@@ -512,7 +512,22 @@ public enum Containment : byte {
     ///     through the draw list, and paint containment is a second reason to push it rather than a
     ///     second mechanism.
     /// </remarks>
-    Paint = 8
+    Paint = 8,
+
+    /// <summary>
+    ///     An independent formatting context and nothing else — no <c>contain</c> keyword spells it;
+    ///     it is what <c>container-type: inline-size</c> and <c>size</c> apply beside their size
+    ///     containment.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <see cref="Layout" />, and the difference is the containing block.</b> CSS
+    ///     Containment 3 § 3.1 once gave a query container layout containment and now gives it only
+    ///     "an independent formatting context", so a <c>position: absolute</c> descendant of a panel
+    ///     that declares <c>container-type</c> still positions against the nearest positioned
+    ///     ancestor. Folding the query container into <see cref="Layout" /> would re-parent every
+    ///     such descendant silently; this flag answers the formatting-context question alone.
+    /// </remarks>
+    FormattingContext = 16
 }
 
 /// <summary>Which formatting context a node establishes for its children.</summary>

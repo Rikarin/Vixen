@@ -35,21 +35,24 @@ static partial class StyleLog {
 
     /// <summary>A query container whose own box was still moving when the budget ran out.</summary>
     /// <remarks>
-    ///     ⚠ <b>The failure doc 43 § D3 predicted, given a name.</b> A <c>container-type</c> makes an
-    ///     element answerable about its own measured box, so a container whose inline size is decided
-    ///     by its <i>contents</i> closes a loop: the verdict widens the content, the content widens
-    ///     the container, and the container's next verdict is different. The settle loop bounds that
-    ///     rather than hanging, and until the containment coercion lands this is what an author gets
-    ///     instead of a silently stale panel. The cure is a definite inline size — or a
-    ///     <c>width: auto</c> in normal flow, which is sized by the parent and cannot depend on what
-    ///     is inside it.
+    ///     ⚠ <b>The failure doc 43 § D3 predicted, given a name — and narrowed since.</b> A
+    ///     <c>container-type</c> makes an element answerable about its own measured box. It used to
+    ///     close a loop through the container's own contents — the verdict widens the content, the
+    ///     content widens the container — and that loop is gone: a query container is a contained box
+    ///     (<c>ContainmentReader</c>), so its contents cannot size it on the axis it answers. What is
+    ///     left is a loop through its <i>surroundings</i>: the verdict changes the container's block
+    ///     size, the block size moves it onto another flex line or into another track, and the line
+    ///     or track gives it a different width. The settle loop bounds that rather than hanging, and
+    ///     this is what an author gets instead of a silently stale panel. The cure is a definite
+    ///     inline size.
     /// </remarks>
     [LoggerMessage(
         EventId = 7007,
         Level = LogLevel.Warning,
         Message = "The query container '{Container}' never settled: it measured {Width}×{Height} on the last "
             + "of {Passes} layout passes and its box was still moving. Its own @container verdicts are one "
-            + "pass stale, because a container sized by its contents can change the contents that size it. "
+            + "pass stale: its contents cannot size it, so what moved it is its surroundings answering what "
+            + "the verdict did to its height — a flex line it wrapped onto, a track it resized. "
             + "Give it a definite inline size."
     )]
     public static partial void ContainerNeverSettled(

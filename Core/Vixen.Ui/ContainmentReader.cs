@@ -33,10 +33,17 @@ namespace Vixen.Ui;
 /// </remarks>
 sealed class ContainmentReader {
     readonly int contain;
+    readonly int containerType;
+    readonly int containerShorthand;
     readonly NameTable values;
     readonly Dictionary<int, Containment> cache = [];
 
-    /// <summary>Interns the property name and keeps the table its values are interned in.</summary>
+    // Separate from `cache` because one interned value means two things: `contain: size` is size
+    // containment and `container-type: size` is that and a formatting context.
+    readonly Dictionary<int, Containment> containerCache = [];
+    readonly Dictionary<int, Containment> shorthandCache = [];
+
+    /// <summary>Interns the property names and keeps the table their values are interned in.</summary>
     /// <param name="properties">The table property names are interned in.</param>
     /// <param name="values">The table declaration values are interned in.</param>
     public ContainmentReader(NameTable properties, NameTable values) {
@@ -44,25 +51,72 @@ sealed class ContainmentReader {
         ArgumentNullException.ThrowIfNull(values);
 
         contain = properties.Intern("contain");
+        containerType = properties.Intern("container-type");
+        containerShorthand = properties.Intern("container");
         this.values = values;
     }
 
-    /// <summary>What a style contains.</summary>
+    /// <summary>What a style contains, from <c>contain</c> and from being a query container.</summary>
     /// <param name="style">The element's computed style.</param>
     /// <returns>The flags, or <see cref="Containment.None" /> when nothing is declared.</returns>
+    /// <remarks>
+    ///     ⚠ <b><c>container-type</c> is read here and not only by <c>UiDocument.KindOf</c>, which is
+    ///     the whole of doc 43 § D3's owed "coercion".</b> A query container is a contained box — CSS
+    ///     Containment 3 § 3.1 — so its answer to a query cannot move the box the query measured.
+    ///     While only the query half read the declaration, a container sized by its contents could
+    ///     flip on every settle pass and exhaust <c>UiDocument.SettlePasses</c>; the store already
+    ///     pinned a contained axis before any algorithm ran, for <c>contain</c>, and was never told.
+    ///     The longhand wins over the shorthand in the same order <c>KindOf</c> reads them, so the two
+    ///     readers cannot disagree about whether a box is a container.
+    /// </remarks>
     public Containment Of(ComputedStyle style) {
-        if (!style.TryGet(contain, out var id)) {
-            return Containment.None;
+        var result = Containment.None;
+
+        if (style.TryGet(contain, out var id)) {
+            if (!cache.TryGetValue(id, out var parsed)) {
+                parsed = Parse(values.NameOf(id));
+                cache[id] = parsed;
+            }
+
+            result = parsed;
         }
 
-        if (cache.TryGetValue(id, out var cached)) {
-            return cached;
+        if (style.TryGet(containerType, out var type)) {
+            if (!containerCache.TryGetValue(type, out var parsed)) {
+                parsed = ParseContainerType(values.NameOf(type));
+                containerCache[type] = parsed;
+            }
+
+            result |= parsed;
+        } else if (style.TryGet(containerShorthand, out var shorthand)) {
+            if (!shorthandCache.TryGetValue(shorthand, out var parsed)) {
+                // `container: <name> / <type>`; with no slash the type is `normal`, which is what
+                // makes `container: card` a name nothing contains.
+                var text = values.NameOf(shorthand) ?? string.Empty;
+                var slash = text.IndexOf('/', StringComparison.Ordinal);
+                parsed = slash < 0 ? Containment.None : ParseContainerType(text[(slash + 1)..]);
+                shorthandCache[shorthand] = parsed;
+            }
+
+            result |= parsed;
         }
 
-        var parsed = Parse(values.NameOf(id));
-        cache[id] = parsed;
+        return result;
+    }
 
-        return parsed;
+    /// <summary>What a <c>container-type</c> value applies to the box, apart from making it askable.</summary>
+    /// <param name="text">The value.</param>
+    /// <returns>Size or inline-size containment with a formatting context, or nothing for <c>normal</c>.</returns>
+    /// <remarks>
+    ///     Style containment is the third thing § 3.1 applies, and it is inert here for the reason the
+    ///     type's remarks give for <c>contain: style</c>.
+    /// </remarks>
+    internal static Containment ParseContainerType(string? text) {
+        var word = text.AsSpan().Trim();
+
+        return word.Equals("inline-size", StringComparison.OrdinalIgnoreCase) ? Containment.InlineSize | Containment.FormattingContext
+            : word.Equals("size", StringComparison.OrdinalIgnoreCase) ? Containment.Size | Containment.FormattingContext
+            : Containment.None;
     }
 
     /// <summary>The keywords of one declaration, folded together.</summary>

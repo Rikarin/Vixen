@@ -25,11 +25,20 @@ useful spellings are combinations:
 | `size` | The box sizes as if it had no contents, on both axes | `CalculateLayoutImpl` |
 | `inline-size` | The same, across the inline axis only | `CalculateLayoutImpl` |
 | `layout` | An independent formatting context, and a containing block for out-of-flow descendants | `LayoutTree.Absolute`, `EstablishesBlockFormattingContext` |
+| *(from `container-type`)* | An independent formatting context and nothing else — `Containment.FormattingContext` | `EstablishesBlockFormattingContext` |
 | `paint` | Descendants are clipped to the box, plus everything `layout` promises | `OverflowReader`, and so the draw list and the hit test |
 | `style` | Counters and quotes are scoped to the subtree | ⛔ nowhere — see below |
 
 `contain: content` is `layout paint style` and `contain: strict` is that plus `size`. Both are
 accepted as whole values; CSS forbids either beside another keyword and so does this reader.
+
+⚠ **A query container is contained too, without writing `contain`.** CSS Containment 3 § 3.1 makes
+`container-type: inline-size` apply inline-size containment and `size` apply size containment, each
+with an independent formatting context — `Containment.FormattingContext`, which no `contain` keyword
+spells. It is **not** `layout`: the specification once said layout containment here and was changed,
+so a query container is not the containing block of an absolutely positioned descendant. The reason
+this matters more than it looks is that an `@container` rule answers about the container's own box,
+and a box its contents could size would let the answer move the box it answered about.
 
 ⚠ **Size containment is not "skip the children", and reading it that way is how it gets built
 wrong.** § 3.2 says the box is sized as if it were empty. It goes on laying its contents out,

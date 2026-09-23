@@ -129,33 +129,37 @@ write both, or the scrolled-off rows draw over whatever is above the view.
 
 ⚠ **`7007` reports a rule that applied and answered *late*, which is the opposite failure and needs
 saying separately.** A `container-type` makes an element answerable about its own measured box, so
-the cascade depends on the layout and the layout depends on the cascade. That closes cleanly for a
-container whose inline size comes from its parent — `width: auto` on a normal-flow block is sized by
-the containing block and not by its contents — and it does not close for one whose inline size is
-decided by what is *inside* it: a flex item on its content basis, a floated or absolutely positioned
-box, a `width: max-content`. There the query widens the content, the wider content widens the
-container, and the container's next verdict is different.
+the cascade depends on the layout and the layout depends on the cascade. The loop through the
+container's own contents is closed for you: `container-type: inline-size` applies inline-size
+containment, as CSS Containment 3 § 3.1 says, so a flex item on its content basis, a float or a
+`width: max-content` that declares it is sized as if it were empty on the axis it answers. ⚠ **That
+is CSS's answer and it surprises people**: such a container is as narrow as its own padding and
+border unless something outside it — a width, a stretch, a `flex-grow` — gives it room.
+
+What is left is a loop through the container's *surroundings*. A verdict that changes its height can
+move it onto another flex line or into another grid track, and that line or track can give it a
+different width, so the next verdict differs:
+
+```vcss
+root    { height: 100px; flex-direction: column; flex-wrap: wrap; align-content: flex-start; }
+.wide   { width: 500px; height: 60px; }
+.seesaw { container-type: inline-size; container-name: seesaw; }  /* stretched to its column */
+.body   { height: 10px; }
+@container seesaw (min-width: 400px) { .body { height: 60px; } }
+```
 
 `UiDocument` bounds that with `SettlePasses` rather than spinning, and `UiDocument.Settled` has
 reported the result since the wiring landed — as a boolean about the whole document. `7007` names the
 container instead, by its `container-name` where it has one, with the box it measured on the last
 pass:
 
-```vcss
-.seesaw { container-type: inline-size; container-name: seesaw; }  /* a flex item with no width */
-.body   { width: 10px; }
-@container seesaw (max-width: 100px) { .body { width: 900px; } }
-```
+> `The query container 'seesaw' never settled: it measured 0×60 on the last of 3 layout passes and its
+> box was still moving. Its own @container verdicts are one pass stale: its contents cannot size it,
+> so what moved it is its surroundings answering what the verdict did to its height — a flex line it
+> wrapped onto, a track it resized. Give it a definite inline size.`
 
-> `The query container 'seesaw' never settled: it measured 900×100 on the last of 3 layout passes and
-> its box was still moving. Its own @container verdicts are one pass stale, because a container sized
-> by its contents can change the contents that size it. Give it a definite inline size.`
-
-The cure is a definite inline size on the container, or a `width: auto` in normal flow. ⚠ **The
-engine does not yet impose that for you**: CSS's `container-type` carries `contain: inline-size`,
-which makes a container's own inline size independent of its contents by fiat, and that coercion is
-owed under doc 43 § A16. Until it lands the frame is drawn one pass stale and this is the report of
-it.
+The cure is a definite inline size on the container, or a `width: auto` in normal flow, which the
+containing block sizes. The frame is drawn one pass stale until then, and this is the report of it.
 
 ## Examples
 

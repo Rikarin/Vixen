@@ -38,9 +38,13 @@ namespace Vixen.Ui;
 ///         <c>SizingMode.StretchFit</c> and is sized with no child consulted — pass two measures the
 ///         <i>same</i> box, so <see cref="ContainerScopes.Enter" /> interns to the same ids, nothing
 ///         moves and the loop converges with <see cref="Settled" /> true and
-///         <see cref="SettlingPasses" /> equal to one. A container sized by its contents can flip on
-///         every pass instead; that does not hang, it exhausts the budget and reports
-///         <see cref="Settled" /> false, which is the visible failure doc 43 § D3 said it would be.
+///         <see cref="SettlingPasses" /> equal to one. ⚠ A query container can no longer be sized
+///         by its own contents on the axis it answers — <c>container-type</c> applies size
+///         containment through <c>ContainmentReader</c> — so the loop that remains runs through its
+///         surroundings: a verdict that changes its height can move it onto another flex line or into
+///         another track. That can flip on every pass; it does not hang, it exhausts the budget and
+///         reports <see cref="Settled" /> false, which is the visible failure doc 43 § D3 said it
+///         would be.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Which is why <see cref="Settle" /> no longer returns early when nothing is listening
@@ -116,13 +120,14 @@ public sealed partial class UiDocument {
     /// <summary>The containers whose own box moved during the last <see cref="Arrange" />.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>What <see cref="Settled" /> could not say.</b> A container whose inline size is
-    ///         decided by its contents can flip on every pass — the query widens the content, the
-    ///         wider content widens the container, the container's own verdict changes — and the
-    ///         settle loop answers that by exhausting its budget and reporting <c>false</c>. That is
-    ///         a document-level boolean about a document-level symptom, and the thing an author has
-    ///         to change is one element. Both halves of doc 43 § D3's owed coercion are still owed;
-    ///         this is the half that says <i>which box</i> to go and give a definite width to.
+    ///         ⚠ <b>What <see cref="Settled" /> could not say.</b> A container its surroundings keep
+    ///         moving can flip on every pass — the verdict changes its height, the height moves it
+    ///         onto another flex line, the line gives it another width — and the settle loop answers
+    ///         that by exhausting its budget and reporting <c>false</c>. That is a document-level
+    ///         boolean about a document-level symptom, and the thing an author has to change is one
+    ///         element; this says <i>which box</i> to go and give a definite width to. (The other
+    ///         loop, a container sized by its own contents, is closed by containment rather than
+    ///         reported — see <c>ContainmentReader</c>.)
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Rewritten on every walk and read only when the loop gives up</b>, which is what
