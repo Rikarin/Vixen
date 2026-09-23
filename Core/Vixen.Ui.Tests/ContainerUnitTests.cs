@@ -216,6 +216,41 @@ public class ContainerUnitTests {
         Assert.Equal(500f, panel.Width, Tolerance);
     }
 
+    /// <summary>⚠ And a unit still converges in a document whose sheet DOES declare a query group.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The branch every other fixture here avoids, and it was untested until this was
+    ///     written.</b> Resolving a container unit takes a second settle pass, because styles are
+    ///     built before layout runs. <c>WithContainerOf</c> asks for that pass only when
+    ///     <c>Recontain</c> will not — an unconditional invalidate costs every document with a query
+    ///     container a pass it does not need, which <see cref="ContainerWiringTests" /> measures — so
+    ///     with a <c>@container</c> rule in the sheet the unit is relying on somebody else's
+    ///     invalidation entirely. Every other fixture in this file declares no group and therefore
+    ///     exercises the opposite branch.
+    ///     <para>
+    ///         The two assertions are the two mechanisms in one document: the query sets the body's
+    ///         height and the unit sets its width, from the same box on the same pass.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_container_unit_converges_in_a_document_that_also_declares_a_query() {
+        using var document = Document(
+            """
+            root { width: 1000px; height: 600px; flex-direction: column; }
+            .panel { container-type: inline-size; width: 500px; height: 100px; }
+            .body { width: 50cqi; height: 10px; }
+            @container (min-width: 400px) { .body { height: 33px; } }
+            """
+        );
+
+        var body = document.Root.Add("div", classNames: "panel").Add("div", classNames: "body");
+
+        document.Update();
+
+        Assert.Equal(250f, body.Width, Tolerance);
+        Assert.Equal(33f, body.Height, Tolerance);
+        Assert.True(document.Settled, "the document did not reach a fixed point");
+    }
+
     /// <summary>⚠ The content box, not the border box — the same padding away as every query.</summary>
     /// <remarks>
     ///     <c>BoxOf</c> already subtracts padding and border for <c>@container</c>, and CSS
