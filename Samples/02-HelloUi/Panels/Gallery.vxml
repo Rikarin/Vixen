@@ -204,6 +204,12 @@
             <LevelIndicator Value="@Model.Progress.Value" Warning="0.6" Critical="0.85" />
             <LevelIndicator Value="@Model.Progress.Value" Segments="8" />
 
+            <!--
+                A battery with one line. One line has no order to read a direction from, and left
+                inferred it would be a ceiling — critical at a full charge — so it says it falls.
+            -->
+            <LevelIndicator Value="@Model.Progress.Value" Critical="0.15" Direction="Falling" />
+
             <Alert Variant="Danger"
                    Title="Shader failed to compile"
                    Message="Ui/Msdf.rvn(42): expected ';'" />

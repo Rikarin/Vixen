@@ -472,14 +472,22 @@ Vixen.Ui.Controls.LabeledContent.Label.get -> string?
 Vixen.Ui.Controls.LabeledContent.Label.set -> string?
 Vixen.Ui.Controls.LabeledContent.LabeledContent() -> void
 Vixen.Ui.Controls.LabeledContent.Message.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.LevelDirection -> enum : int
+Vixen.Ui.Controls.LevelDirection.Falling = 2 -> Vixen.Ui.Controls.LevelDirection
+Vixen.Ui.Controls.LevelDirection.Inferred = 0 -> Vixen.Ui.Controls.LevelDirection
+Vixen.Ui.Controls.LevelDirection.LevelDirection() -> void
+Vixen.Ui.Controls.LevelDirection.Rising = 1 -> Vixen.Ui.Controls.LevelDirection
 Vixen.Ui.Controls.LevelIndicator -> sealed class
 Vixen.Ui.Controls.LevelIndicator : Vixen.Ui.Controls.RangeBase
 Vixen.Ui.Controls.LevelIndicator.ClearCritical() -> void
+Vixen.Ui.Controls.LevelIndicator.ClearDirection() -> void
 Vixen.Ui.Controls.LevelIndicator.ClearSegments() -> void
 Vixen.Ui.Controls.LevelIndicator.ClearValue() -> void
 Vixen.Ui.Controls.LevelIndicator.ClearWarning() -> void
 Vixen.Ui.Controls.LevelIndicator.Critical.get -> float
 Vixen.Ui.Controls.LevelIndicator.Critical.set -> float
+Vixen.Ui.Controls.LevelIndicator.Direction.get -> Vixen.Ui.Controls.LevelDirection
+Vixen.Ui.Controls.LevelIndicator.Direction.set -> Vixen.Ui.Controls.LevelDirection
 Vixen.Ui.Controls.LevelIndicator.Level.get -> Vixen.Ui.Controls.LevelReading
 Vixen.Ui.Controls.LevelIndicator.LevelIndicator() -> void
 Vixen.Ui.Controls.LevelIndicator.Segments.get -> int
@@ -1542,6 +1550,7 @@ static readonly Vixen.Ui.Controls.KeyboardShortcut.ModifiersProperty -> Vixen.Ui
 static readonly Vixen.Ui.Controls.LabeledContent.DescriptionProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.LabeledContent.LabelProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.LevelIndicator.CriticalProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.LevelIndicator.DirectionProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.LevelIndicator.SegmentsProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.LevelIndicator.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.LevelIndicator.WarningProperty -> Vixen.Ui.UiPropertyKey
