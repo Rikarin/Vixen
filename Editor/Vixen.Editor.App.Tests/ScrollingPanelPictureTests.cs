@@ -1,0 +1,461 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Reflection;
+using Microsoft.Extensions.Logging;
+using Vixen.Core.Imaging;
+using Vixen.Core.Mathematics;
+using Vixen.Editor.Testing;
+using Vixen.Editor.Ui;
+using Vixen.Graphics;
+using Vixen.Graphics.Vulkan;
+using Vixen.Rendering;
+using Vixen.Ui;
+using Vixen.Ui.Controls;
+using Vixen.Ui.Desktop;
+using Vixen.Ui.Renderer;
+using Vixen.Ui.Rendering;
+using Vixen.Ui.Testing.Visual;
+using Vixen.Ui.Text.Rasterizing;
+using Xunit;
+
+namespace Vixen.Editor.App.Tests;
+
+/// <summary>
+///     The three panels #1275 converted from <c>overflow: auto</c> to a <c>ScrollView</c>, drawn before
+///     and after a scroll, with the difference between the two pictures held to the view's own box.
+/// </summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The conversions were landed, reviewed and merged on counters alone.</b> Every test
+///         beside this one says the element is a <c>ScrollView</c>, that its <c>MaximumTop</c> is
+///         positive and that a scroll brings the last row's box inside the port — all of which stays
+///         true of a view that scrolls its content <i>and draws it over the dialog above</i>, because
+///         the clip is not the scroller's: under a tag of its own the control loses the
+///         <c>overflow: hidden</c> its user-agent rule would have given it (#1327), and nothing in a
+///         layout rectangle says whether a draw was cut.
+///     </para>
+///     <para>
+///         ⚠ <b>So the oracle is closed-form and about pixels: scrolling changes the picture, and
+///         changes it nowhere outside the view.</b> Two frames of the same editor, identical but for
+///         the scroll offset. A view that does not scroll leaves them equal and fails the first half;
+///         a view that scrolls but does not clip moves the rows it lets hang out, over whatever is
+///         beside it, and fails the second. Neither half needs a committed picture, and the frame is
+///         the application's own — <see cref="EditorSession" /> builds the editor as the host does.
+///     </para>
+///     <para>
+///         ⚠ <b>Drawn twice, and the two renderers answer the same question.</b> The software
+///         rasterizer always, because it needs no device and is what the suite can run everywhere;
+///         the Vulkan <see cref="UiRenderer" /> when a device opens, because the clip is a scissor on
+///         the GPU and a software picture is a claim about the draw list rather than about what ships.
+///         <c>VIXEN_REQUIRE_VULKAN=1</c> makes a missing device a failure. The pictures are written
+///         only when <c>VIXEN_PANEL_CAPTURE=&lt;directory&gt;</c> names somewhere to put them.
+///     </para>
+///     <para>
+///         ⚠ <b>Each of the three oracles was seen to fail on the picture it describes before it was
+///         trusted.</b> With <c>overflow: hidden</c> taken off <c>choice-scroller</c>, "Move Set"
+///         draws over the dialog's "What kind of asset?" title and 987 pixels outside the view change;
+///         off <c>message-log-detail</c>, sixteen thousand. With <c>position: relative</c> taken off
+///         <c>console-detail</c> the pixel oracle stays <i>green</i> — the view's clip hides where the
+///         thumb went — and the picture shows the thumb gone from the top of the scroll, because the
+///         bar now spans the whole console; that is why the bars are checked as boxes as well.
+///     </para>
+///     <para>
+///         ⚠ <b>Drawn at the session's own 1600×1000, and the size is not arbitrary.</b> At 1280×800
+///         the console's detail pane — 132 px and <c>flex-shrink: 0</c> — is taller than what the
+///         docked console has left under its toolbar: the list goes to zero rows and the pane's
+///         bottom 28 px, with the end of the stack and the thumb, sit behind the dock panel's edge.
+///         That is a layout defect of its own and not the conversion's, and the ancestor check below
+///         is what reports it at that size.
+///     </para>
+/// </remarks>
+public sealed class ScrollingPanelPictureTests {
+    const int Width = 1600;
+    const int Height = 1000;
+
+    static readonly Color4 Background = new(0.05f, 0.05f, 0.05f, 1f);
+
+    /// <summary>Where the pictures go, or null when nobody asked for any.</summary>
+    static string? Destination => Environment.GetEnvironmentVariable("VIXEN_PANEL_CAPTURE");
+
+    /// <summary>The New Asset… picker: the list that started #1275, and the one with a dialog above and below it.</summary>
+    [Fact]
+    public void The_new_asset_picker_scrolls_inside_its_box_and_nowhere_else() {
+        using var fixture = Start();
+
+        fixture.Run("assets.create").Settle();
+        Assert.True(fixture.IsAsking);
+
+        var view = Scroller(fixture, "choice-scroller");
+
+        Check(fixture, view, "new-asset-picker");
+    }
+
+    /// <summary>The console's detail pane, over a stack forty frames deep.</summary>
+    [Fact]
+    public void The_console_detail_scrolls_inside_its_box_and_nowhere_else() {
+        using var fixture = Start();
+
+        fixture.Open("console");
+
+        Sink(fixture)
+            .CreateLogger("Vixen.Editor.Pictures")
+            .Log(LogLevel.Error, default, "it went wrong", Deep(40), static (state, _) => state);
+        fixture.Frames(2);
+
+        var console = Find<Vixen.Editor.Ui.ConsoleView>(fixture.Document.Root)
+            ?? throw fixture.Fail("the console is not open");
+
+        var row = console.List.Rows.FirstOrDefault(candidate => !candidate.HasClass("parked"))
+            ?? throw fixture.Fail("the console realised no row for the error");
+
+        fixture.Click(row);
+        fixture.Frames(2);
+
+        Check(fixture, Scroller(fixture, "console-detail"), "console-detail");
+    }
+
+    /// <summary>The message log's detail pane, over a detail forty lines long.</summary>
+    [Fact]
+    public void The_message_log_detail_scrolls_inside_its_box_and_nowhere_else() {
+        using var fixture = Start();
+
+        fixture.Open(EditorShell.MessageLogPanel);
+
+        var detail = string.Join(
+            "\n",
+            Enumerable.Range(1, 40).Select(line => $"line {line} of a detail far longer than the pane")
+        );
+
+        // ⚠ An error's toast stays twelve seconds and sits over the log's first row, and a toast is
+        // not what is being pictured: expire it at once, so the click reaches the row and the two
+        // frames are of the panel alone.
+        fixture.Shell.Notifications.ErrorDuration = TimeSpan.FromMilliseconds(1);
+        fixture.Shell.Notifications.Error("Could not import the texture", detail);
+        fixture.Frames(4);
+
+        var log = fixture.Shell.Messages ?? throw fixture.Fail("the message log is not open");
+
+        var row = log.List.Rows.FirstOrDefault(candidate => !candidate.HasClass("parked"))
+            ?? throw fixture.Fail("the message log realised no row for the error");
+
+        fixture.Click(row);
+        fixture.Frames(2);
+
+        // ⚠ A click on a message row selects nothing, and that is a defect of its own rather than of
+        // this test: the row listens for `ClickEvent`, which only a `Control` raises, so a person
+        // pressing a bare row gets a `TapEvent` nobody hears — `ConsoleView`'s rows had exactly this
+        // until they switched to `TapEvent`. So the detail pane this test exists to picture can be
+        // reached from code and from nowhere else. What the row *listens for* is raised here, and
+        // only when the real click did nothing: the day the row hears taps, the click above selects
+        // it and this line is skipped, rather than a green test standing on a workaround.
+        if (log.Selected is null) {
+            row.Raise(new ClickEvent { Device = ActivationDevice.Code });
+            fixture.Frames(2);
+        }
+
+        Assert.True(
+            log.Selected is { Severity: NotificationSeverity.Error },
+            $"the row selected {log.Selected?.Message ?? "nothing"}, so the detail pane is empty and there is "
+            + "nothing in it to scroll."
+        );
+
+        Check(fixture, Scroller(fixture, "message-log-detail"), "message-log-detail");
+    }
+
+    static EditorSession Start() => EditorSession.Start(new EditorSessionOptions { Width = Width, Height = Height });
+
+    /// <summary>Draws the editor at the top of the scroll and at the bottom, and holds the difference to the view.</summary>
+    static void Check(EditorSession fixture, ScrollView view, string name) {
+        fixture.Frames(2);
+
+        Assert.True(
+            view.MaximumTop > 0f,
+            $"<{view.Tag}> has nothing below its fold ({view.Content.Height} px of content in {view.Height} px), "
+            + "so a scroll moves nothing and the comparison below proves nothing."
+        );
+
+        var box = Box(view);
+
+        // ⚠ And the whole of the view is on screen. A view that scrolls and clips perfectly but is
+        // itself cut by the panel it sits in hides the bottom of its own scroll — the last lines and
+        // the thumb that says there are any — behind the panel's edge, and the difference oracle
+        // cannot see that: the rows it hides are the same in both frames.
+        foreach (var ancestor in Ancestors(view)) {
+            if (!Clips(fixture, ancestor)) {
+                continue;
+            }
+
+            var cut = Box(ancestor);
+
+            Assert.True(
+                box.Left >= cut.Left && box.Top >= cut.Top && box.Right <= cut.Right && box.Bottom <= cut.Bottom,
+                $"<{view.Tag}> {box} is cut by <{ancestor.Tag}> {cut}, so the far end of its scroll is behind "
+                + $"that element's edge at {Width}×{Height}."
+            );
+        }
+
+        // ⚠ And the bars are the view's. They are absolutely positioned, so their containing block is
+        // the nearest *positioned* ancestor: a view under a tag of its own that lost the user-agent
+        // rule's `position: relative` hangs its bars off whatever is positioned above it — the
+        // console's bar then spans the whole console, its thumb sits under the toolbar at the top of
+        // the scroll and is cut away, and the pixel oracle below is blind to it because the view's
+        // own clip hides the difference. Seen, not supposed: that is exactly the picture with the
+        // declaration removed.
+        foreach (var bar in view.Children.OfType<ScrollBar>()) {
+            // One pixel of slack, and it is the layout's rounding rather than tolerance for the defect:
+            // a view 927.4 px wide rounds to 927 while its `right: 0` bar rounds to 918 + 10, so every
+            // bar in the editor overhangs its view's right edge by a pixel the view's clip then cuts.
+            // The anchoring this looks for is off by the height of a toolbar, not by one.
+            const float Slack = 1f;
+
+            var inside = bar.AbsoluteLeft >= view.AbsoluteLeft - Slack
+                && bar.AbsoluteTop >= view.AbsoluteTop - Slack
+                && bar.AbsoluteLeft + bar.Width <= view.AbsoluteLeft + view.Width + Slack
+                && bar.AbsoluteTop + bar.Height <= view.AbsoluteTop + view.Height + Slack;
+
+            Assert.True(
+                inside,
+                $"<{view.Tag}>'s {bar.Orientation} bar {Exact(bar)} is not inside the view {Exact(view)}, so it is anchored to "
+                + "an ancestor rather than to the view: the view has lost the user-agent rule's `position: "
+                + "relative` (Rikarin/Vixen#1327)."
+            );
+        }
+
+        using var device = OpenDevice();
+        using var gpu = device is null ? null : new GpuPicture(device);
+
+        view.ScrollTo(0f, 0f);
+        fixture.Frames(2);
+
+        var top = Draw(fixture, gpu, $"{name}-top");
+
+        view.ScrollTo(view.MaximumTop, 0f);
+        fixture.Frames(2);
+
+        Assert.True(view.ScrollTop > 0f, $"<{view.Tag}> did not move when it was scrolled to {view.MaximumTop}.");
+
+        var bottom = Draw(fixture, gpu, $"{name}-bottom");
+
+        Assert.Multiple(
+            () => Oracle("software", view, box, top.Software, bottom.Software),
+            () => {
+                if (top.Gpu is { } before && bottom.Gpu is { } after) {
+                    Oracle("Vulkan", view, box, before, after);
+                }
+            }
+        );
+    }
+
+    static void Oracle(string renderer, ScrollView view, (int Left, int Top, int Right, int Bottom) box, Bitmap before, Bitmap after) {
+        var inside = 0;
+        var outside = 0;
+        (int X, int Y)? first = null;
+
+        for (var y = 0; y < before.Height; y++) {
+            for (var x = 0; x < before.Width; x++) {
+                var at = ((y * before.Width) + x) * 4;
+
+                if (before.Pixels.AsSpan(at, 4).SequenceEqual(after.Pixels.AsSpan(at, 4))) {
+                    continue;
+                }
+
+                if (x >= box.Left && x < box.Right && y >= box.Top && y < box.Bottom) {
+                    inside++;
+                } else {
+                    outside++;
+                    first ??= (x, y);
+                }
+            }
+        }
+
+        Assert.True(
+            inside > 0,
+            $"[{renderer}] scrolling <{view.Tag}> changed no pixel inside it, so what the reader sees did not move."
+        );
+
+        Assert.True(
+            outside == 0,
+            $"[{renderer}] scrolling <{view.Tag}> changed {outside} pixels outside its box {box} — the first at "
+            + $"{first} — so its content draws over whatever is beside it. A ScrollView under a tag of its own "
+            + "has lost the user-agent rule's `overflow: hidden` (Rikarin/Vixen#1327)."
+        );
+    }
+
+    /// <summary>The view's border box in whole pixels, rounded outwards.</summary>
+    static (int Left, int Top, int Right, int Bottom) Box(UiElement view) =>
+        (
+            (int)MathF.Floor(view.AbsoluteLeft),
+            (int)MathF.Floor(view.AbsoluteTop),
+            (int)MathF.Ceiling(view.AbsoluteLeft + view.Width),
+            (int)MathF.Ceiling(view.AbsoluteTop + view.Height)
+        );
+
+    static (Bitmap Software, Bitmap? Gpu) Draw(EditorSession fixture, GpuPicture? gpu, string name) {
+        var glyphs = new GlyphFieldCache(new GlyphAtlas(1024, 1024));
+        var geometry = new UiGeometryBuilder().Build(fixture.Document.Drawing, glyphs, new Rectangle(0, 0, Width, Height));
+
+        var software = SoftwareUiRasterizer.Render(geometry, glyphs.Atlas, Width, Height, Background);
+        var hardware = gpu?.Render(geometry, glyphs.Atlas);
+
+        if (Destination is { Length: > 0 } directory) {
+            Directory.CreateDirectory(directory);
+            PngCodec.Save(Path.Combine(directory, $"{name}-software.png"), software);
+
+            if (hardware is { } picture) {
+                PngCodec.Save(Path.Combine(directory, $"{name}-vulkan.png"), picture);
+            }
+        }
+
+        return (software, hardware);
+    }
+
+    static VulkanDevice? OpenDevice() {
+        if (VulkanDevice.TryCreate(new(), out var device, out var reason)) {
+            return device!;
+        }
+
+        if (Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN") is "1" or "true" or "TRUE") {
+            Assert.Fail($"VIXEN_REQUIRE_VULKAN is set and no device could be opened: {reason}");
+        }
+
+        return null;
+    }
+
+    /// <summary>The editor's log ring, which the console reads and nothing public writes an exception into.</summary>
+    static Vixen.Core.Diagnostics.RingBufferSink Sink(EditorSession fixture) {
+        var field = typeof(EditorApplication).GetField("log", BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw fixture.Fail("EditorApplication has no `log` field for the console to read");
+
+        return ((EditorLog)field.GetValue(fixture.Editor)!).Sink;
+    }
+
+    static string Exact(UiElement element) =>
+        FormattableString.Invariant(
+            $"({element.AbsoluteLeft:0.##}, {element.AbsoluteTop:0.##}, {element.AbsoluteLeft + element.Width:0.##}, {element.AbsoluteTop + element.Height:0.##})"
+        );
+
+    static IEnumerable<UiElement> Ancestors(UiElement element) {
+        for (var parent = element.Parent; parent is not null; parent = parent.Parent) {
+            yield return parent;
+        }
+    }
+
+    /// <summary>Whether an element cuts what hangs outside it, on either axis.</summary>
+    static bool Clips(EditorSession fixture, UiElement element) {
+        foreach (var property in (ReadOnlySpan<string>)["overflow", "overflow-x", "overflow-y"]) {
+            if (fixture.Ui.StyleOf(element, property) is "hidden" or "clip" or "auto" or "scroll") {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    static ScrollView Scroller(EditorSession fixture, string tag) =>
+        Descendants(fixture.Document.Root).OfType<ScrollView>().SingleOrDefault(view => view.Tag == tag)
+        ?? throw fixture.Fail($"no ScrollView under <{tag}> is on screen");
+
+    static T? Find<T>(UiElement element) where T : UiElement =>
+        Descendants(element).OfType<T>().FirstOrDefault();
+
+    static IEnumerable<UiElement> Descendants(UiElement element) {
+        yield return element;
+
+        foreach (var child in element.Children) {
+            foreach (var descendant in Descendants(child)) {
+                yield return descendant;
+            }
+        }
+    }
+
+    static Exception Deep(int frames) {
+        try {
+            Recurse(frames);
+        } catch (InvalidOperationException caught) {
+            return caught;
+        }
+
+        throw new InvalidOperationException("the recursion did not throw");
+
+        static void Recurse(int remaining) {
+            if (remaining == 0) {
+                throw new InvalidOperationException("because of this");
+            }
+
+            Recurse(remaining - 1);
+        }
+    }
+
+    /// <summary>One device, one renderer, one target, drawn into and read back once per picture.</summary>
+    sealed class GpuPicture(VulkanDevice device) : IDisposable {
+        readonly UiRenderer renderer = new(device, UiShaderLibrary.Load(device), new RenderOutput([PixelFormat.Rgba8UNorm]));
+
+        public Bitmap Render(in UiGeometry geometry, GlyphAtlas atlas) {
+            VulkanDiagnostics.Reset();
+
+            var target = device.CreateTexture(
+                new(
+                    PixelFormat.Rgba8UNorm,
+                    Width,
+                    Height,
+                    TextureUsage.ColourTarget | TextureUsage.Sampled | TextureUsage.CopySource,
+                    Name: "scrolling panel picture"
+                )
+            );
+
+            var view = device.CreateTextureView(target);
+            var bytes = Width * Height * 4;
+            var readback = device.CreateBuffer(new(bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "readback"));
+
+            device.BeginFrame();
+
+            using (var commands = device.BeginCommandList(QueueKind.Graphics, "scrolling panel picture")) {
+                renderer.Upload(commands, geometry, atlas);
+                renderer.Compose(commands, geometry, new Int2(Width, Height), beneath: new UiBackdropSource(Background));
+
+                commands.Barrier(
+                    new BarrierGroup([], [new TextureBarrier(target, ResourceState.Undefined, ResourceState.ColourTarget)])
+                );
+
+                commands.BeginRenderPass(
+                    new([new ColourAttachment(view, LoadAction.Clear, StoreAction.Store, Background)], name: "scrolling panel picture")
+                );
+
+                renderer.Record(commands, geometry, new Int2(Width, Height));
+
+                commands.EndRenderPass();
+
+                commands.Barrier(
+                    new BarrierGroup([], [new TextureBarrier(target, ResourceState.ColourTarget, ResourceState.CopySource)])
+                );
+
+                commands.CopyTextureToBuffer(new TextureRegion(target), new(Width, Height, 1), readback, 0);
+
+                commands.Finish();
+                device.GraphicsQueue.Submit([commands]);
+            }
+
+            device.EndFrame();
+            device.WaitIdle();
+
+            var pixels = new byte[bytes];
+
+            device.Read(readback, 0, pixels);
+
+            device.Destroy(readback);
+            device.Destroy(view);
+            device.Destroy(target);
+
+            Assert.True(
+                VulkanDiagnostics.ErrorCount == 0,
+                "the frame produced validation errors, so its pixels mean nothing: "
+                + string.Join(Environment.NewLine, VulkanDiagnostics.Messages)
+            );
+
+            return new Bitmap(Width, Height, pixels);
+        }
+
+        public void Dispose() => renderer.Dispose();
+    }
+}
