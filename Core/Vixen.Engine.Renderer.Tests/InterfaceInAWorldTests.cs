@@ -464,6 +464,49 @@ public sealed class InterfaceInAWorldTests : IDisposable {
         Assert.Equal(1, ui.Composited);
     }
 
+    /// <summary>Drawing the world is what uploads and composes a mounted interface — the host calls neither.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>#627: steps four and five of the host contract had no host.</b> Nothing in the tree
+    ///         performed them, and both fail as a picture rather than an error — a HUD drawn out of a
+    ///         buffer nothing wrote, and every faded panel drawn solid. <c>WorldRenderer.Draw</c> is the
+    ///         one call both hosts already make before the frame's passes, so it makes both, and this
+    ///         asserts the arrangement by calling nothing else.
+    ///     </para>
+    ///     <para>
+    ///         The zeros first, because a renderer whose counters started at one would satisfy the
+    ///         ones after. No compositor is loaded, so <c>Host.Draw</c> returns before any pass and
+    ///         the only work that can move either counter is the prologue under test.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void DrawingTheWorldUploadsAndComposesAMountedInterface() {
+        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var ui = UiRendererFor(device);
+
+        var stage = renderer.Host.System.AddStage(new("Ui", RenderSortMode.ByGroup));
+
+        renderer.Ui.Renderer = ui;
+
+        var id = renderer.Ui.Mount(stage.Mask);
+        var atlas = new GlyphAtlas(64, 64);
+        var geometry = Grouped(atlas);
+
+        Assert.Single(geometry.Layers);
+
+        renderer.Ui.Set(id, new(geometry, atlas, new Int2(400, 300), 0));
+
+        Assert.Equal(0, ui.AtlasUploads);
+        Assert.Equal(0, ui.Composited);
+
+        using var commands = device.BeginCommandList(QueueKind.Graphics, "frame");
+
+        renderer.Draw(commands);
+
+        Assert.Equal(1, ui.AtlasUploads);
+        Assert.Equal(1, ui.Composited);
+    }
+
     /// <summary>A feature with nothing mounted composes nothing, and one with no renderer says nothing.</summary>
     /// <remarks>
     ///     <c>NothingMountedUploadsNothing</c>'s pair, and for its reason: the constructor registers
