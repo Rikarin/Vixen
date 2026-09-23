@@ -107,10 +107,16 @@ public class ScrollViewReachTests {
         Assert.True(markup.Count > 10, $"the sweep found only {markup.Count} .vxml files");
 
         Assert.Contains(code, path => path.Contains(".Tests", StringComparison.Ordinal));
-        Assert.DoesNotContain(ProductionCallers("PulledToRefresh +="), IsTest);
 
-        // The suites that do subscribe are real, so the exclusion is doing work rather than being
-        // satisfied by an empty set on both sides.
+        // ⚠ The exclusion is asserted against the UNFILTERED sweep, because the obvious spelling of
+        // it cannot fail: `DoesNotContain(ProductionCallers(…), IsTest)` examines a list `IsTest`
+        // has already emptied of test paths, so it is green against any filter at all — including
+        // one that dropped the repository. What has weight is that the same needle finds test
+        // subscribers when the filter is off: `ScrollRubberBandTests` is the one that subscribes,
+        // so the exclusion is removing something that is really there.
+        Assert.Contains(Callers("PulledToRefresh +=", productionOnly: false), IsTest);
+        Assert.DoesNotContain(Callers("PulledToRefresh +=", productionOnly: true), IsTest);
+
         Assert.Contains(code, path => path.EndsWith("ScrollRubberBandTests.cs", StringComparison.Ordinal));
     }
 
@@ -120,12 +126,27 @@ public class ScrollViewReachTests {
     ///     prose explaining why nothing calls an API as a caller, which is the instrument failure
     ///     <c>ResponderReachTests</c> records having made — and this file is mostly prose about an
     ///     API nothing calls, so it would count itself.
+    ///     <para>
+    ///         ⚠ <b>And past the whitespace, which matters here more than in a theory that asserts a
+    ///         floor.</b> Both needles below carry spaces — <c>PulledToRefresh +=</c>,
+    ///         <c>DragToScroll = </c> — and an exact match answers "still zero" for
+    ///         <c>DragToScroll=true</c>, which is a subscriber this file would then have missed
+    ///         rather than found. <c>CheckFormat</c> makes the spaced form overwhelmingly likely, so
+    ///         this is belt and braces on the one kind of theory that passes when its instrument
+    ///         misses.
+    ///     </para>
     /// </remarks>
-    static List<string> ProductionCallers(string call) {
+    static List<string> ProductionCallers(string call) => Callers(call, productionOnly: true);
+
+    /// <summary>The files with at least one live occurrence of something, test projects or not.</summary>
+    /// <param name="call">The needle, compared with the spaces removed from both sides.</param>
+    /// <param name="productionOnly">Whether to drop the test assemblies, which is what both zeros ask.</param>
+    static List<string> Callers(string call, bool productionOnly) {
+        var needle = Squeezed(call);
         List<string> found = [];
 
         foreach (var path in SourceFiles("*.cs").Concat(SourceFiles("*.vxml"))) {
-            if (IsTest(path)) {
+            if (productionOnly && IsTest(path)) {
                 continue;
             }
 
@@ -135,7 +156,7 @@ public class ScrollViewReachTests {
                 if (code.StartsWith("//", StringComparison.Ordinal)
                     || code.StartsWith('*')
                     || code.StartsWith("/*", StringComparison.Ordinal)
-                    || !code.Contains(call, StringComparison.Ordinal)) {
+                    || !Squeezed(code).Contains(needle, StringComparison.Ordinal)) {
                     continue;
                 }
 
@@ -152,6 +173,10 @@ public class ScrollViewReachTests {
 
         return found;
     }
+
+    /// <summary>A line with its whitespace removed, so a needle's spaces are not part of the question.</summary>
+    static string Squeezed(string line) =>
+        string.Concat(line.Where(character => !char.IsWhiteSpace(character)));
 
     /// <summary>Whether a path belongs to a test assembly.</summary>
     /// <remarks>
