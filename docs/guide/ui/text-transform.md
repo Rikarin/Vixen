@@ -116,11 +116,24 @@ one word and gets one capital.
 
 ### What is deliberately not implemented
 
-**The conditional case mappings.** `SpecialCasing.txt`'s remaining rows depend on surrounding context
-or on a language — final sigma, the Turkish dotless *i*, the Lithuanian retained dot. `TextShaper`
-leaves HarfBuzz's language unset on purpose so that shaping does not depend on the machine's locale,
-and the same reasoning applies here: a case mapping that changed with the operating system's region
-would make a golden image machine-dependent.
+**The conditional case mappings that need data no generated table here carries.**
+`SpecialCasing.txt`'s rows split three ways and only the third is absent. Unconditional rows are a
+lookup. Rows carrying a language and no condition are a lookup too, and the three Lithuanian
+precomposed ones — U+00CC, U+00CD, U+0128 — are implemented that way. What is left are the rows whose
+condition is a question about the neighbouring *marks*: `More_Above` on Lithuanian `I`, `J` and
+U+012E, `After_Soft_Dotted` on U+0307, and `tr`/`az`'s `Not_Before_Dot`. Each needs canonical
+combining class 230 or the `Soft_Dotted` property, and no table in `Vixen.Ui.Text` carries either, so
+they are owed rather than approximated — `More_Above` guessed without the classes is wrong for every
+mark that is not above.
+
+⚠ **What this section used to say was absent and is not.** Final sigma, the Turkish dotless *i* and
+the Lithuanian retained dot are all implemented: `ΟΔΟΣ` lowercases to `οδος`, and `ISPARTA` under a
+Turkish language tag lowercases to `ısparta`. The argument given for their absence — that
+`TextShaper` leaves HarfBuzz's language unset so that shaping cannot depend on the machine's locale —
+is still the reason nothing here reads `CultureInfo`, but it was never an argument against
+language-dependent casing: the language comes from the element's own `lang`, which is data in the
+document rather than state in the process, and `TransformedText.Of` takes it as a parameter for
+exactly that reason.
 
 **`full-width` and `full-size-kana`.** Compatibility mappings for Japanese input methods, with no
 utility class in any framework this project follows.

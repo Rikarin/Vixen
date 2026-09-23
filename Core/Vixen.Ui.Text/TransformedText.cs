@@ -393,13 +393,13 @@ public sealed class TransformedText {
         }
     }
 
-    /// <summary>Whether a character is collapsible white space. CSS Text 4 \u00a7 3's definition.</summary>
+    /// <summary>Whether a character is collapsible white space. CSS Text 4 § 3's definition.</summary>
     /// <param name="value">The character.</param>
     /// <returns>Whether a collapsing value folds it into the run beside it.</returns>
     /// <remarks>
-    ///     \u26a0 <b>A space and a tab, and deliberately not <c>char.IsWhiteSpace</c>.</b> That predicate
+    ///     ⚠ <b>A space and a tab, and deliberately not <c>char.IsWhiteSpace</c>.</b> That predicate
     ///     answers true for the seven segment breaks as well, so a collapse written on it would eat
-    ///     the newlines <c>preserve-breaks</c> exists to keep \u2014 the one thing that separates this
+    ///     the newlines <c>preserve-breaks</c> exists to keep — the one thing that separates this
     ///     value from <c>collapse</c>. It is also true of U+00A0, which is a no-break space and is
     ///     not collapsible in any value.
     /// </remarks>

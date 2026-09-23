@@ -1189,9 +1189,12 @@ public static class UtilityFamilies {
         //
         // ⚠ <b>This paragraph used to say `pre` was registered while being answered wrongly, and
         // that stopped being true.</b> `WrapsOf` honours it now: because this engine collapses
-        // nothing and already breaks at every mandatory opportunity, an element with no declaration
-        // is already `pre-wrap`, so wrapping is the ONLY third `pre` was missing. See
-        // `WhiteSpacePreTests`, which measures both halves of that premise.
+        // nothing under a declaration that does not ask for it and already breaks at every mandatory
+        // opportunity, an element with no declaration is already `pre-wrap`, so wrapping is the ONLY
+        // third `pre` was missing. See `WhiteSpacePreTests`, which measures both halves of that
+        // premise. ⚠ The qualifier is what the paragraph above added: the engine does collapse now,
+        // under `pre-line` and only there, so the tree-wide claim this sentence used to make is
+        // false while the conclusion it supports is untouched.
         Keywords("whitespace", "white-space", new() {
             ["normal"] = "normal", ["nowrap"] = "nowrap", ["pre"] = "pre", ["pre-wrap"] = "pre-wrap",
             ["pre-line"] = "pre-line", ["break-spaces"] = "break-spaces"

@@ -166,6 +166,70 @@ public class WhiteSpacePreLineTests {
         Assert.True(two > one, "the second no-break space has to widen the line");
     }
 
+    /// <summary>Toggling the declaration on a settled element rebuilds the block rather than reusing it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one line of this work nothing else in the tree could see, and it is a cache
+    ///         key entry rather than a measurement.</b> <c>UiElement.Block</c> keeps the paragraph it
+    ///         built and compares a key before reusing it; <c>white-space</c>'s collapsing half is an
+    ///         entry in that key. Every other test in this file builds one element under one
+    ///         declaration, so all of them pass with the entry deleted — a review deleted it and the
+    ///         whole of this assembly stayed green.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing else in the key can stand in for it.</b> <c>normal</c> and
+    ///         <c>pre-line</c> both wrap and both preserve their segment breaks, so the width, the
+    ///         wrapping flag and the <c>break-spaces</c> entry are identical across the toggle; the
+    ///         transform is <c>none</c> on both sides; and the element's own string never changed, so
+    ///         the reference test on <c>Text</c> says reuse. What a stale block draws is a paragraph
+    ///         missing the characters the author wrote — or, in this direction, keeping the ones the
+    ///         declaration just removed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>flex-direction: column</c> is load-bearing and the first two attempts at this
+    ///         test were green under sabotage without it.</b> The width is an entry in the same key,
+    ///         and layout asks a paragraph for its block more than once per pass — a row measures at
+    ///         0 and then at the used width, an <c>align-items: flex-start</c> item at infinity and
+    ///         then at 0. Any pass whose widths differ from the last pass's rebuilds the block on the
+    ///         width alone, whatever every other entry says, so the collapse entry never gets to
+    ///         decide and deleting it changes nothing. A column item is measured at one width, the
+    ///         same one both passes, which is the only arrangement where this key entry is reachable
+    ///         at all. Widening this to the <c>break-spaces</c> neighbour is
+    ///         <c>WhiteSpaceBreakSpacesTests</c>' row of the same shape.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Toggling_the_declaration_on_a_settled_element_rebuilds_the_block() {
+        var document = new UiDocument(900f, 300f);
+        document.Fonts.Register("Test", Font);
+
+        document.Load(
+            """
+            root         { width: 800px; height: 300px; flex-direction: column; }
+            label        { font-family: Test; font-size: 16px; white-space: normal; }
+            label.folded { white-space: pre-line; }
+            """
+        );
+
+        var element = document.Root.Add("label");
+        element.Text = "a    b";
+        document.Update();
+
+        var preserved = element.Block()!.Lines[0].Width;
+
+        // The control: the block really was settled under the other value, so the toggle below is
+        // the only thing that can change the answer.
+        Assert.Equal(Width("a    b", Normal), preserved, Tolerance);
+
+        element.AddClass("folded");
+        document.Update();
+
+        var collapsed = element.Block()!.Lines[0].Width;
+
+        Assert.True(collapsed < preserved, "the block was reused under the declaration that replaced it");
+        Assert.Equal(Width("a b", PreLine), collapsed, Tolerance);
+    }
+
     /// <summary>A collapsible run is still drawn at the start of a line, which is phase II and is owed.</summary>
     /// <remarks>
     ///     ⚠ <b>Named so that a change towards Chrome comes through this test rather than past it</b>,
