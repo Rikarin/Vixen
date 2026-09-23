@@ -396,7 +396,7 @@ public class TouchActionTests {
         var (fixture, view, control) = Themed((document, parent) => Field(document, parent, tag));
         using var _ = fixture;
 
-        var field = (TextField) control;
+        var field = (TextField)control;
         var moved = DragAcross(fixture, view, -Step, -Step);
 
         Assert.True(moved.Top > 0f, $"a finger dragging a `{tag}` no longer scrolls the view around it (top {moved.Top})");
@@ -414,7 +414,7 @@ public class TouchActionTests {
         var (fixture, view, control) = Themed((document, parent) => Field(document, parent, tag));
         using var _ = fixture;
 
-        var field = (TextField) control;
+        var field = (TextField)control;
         var (x, y) = (view.Bounds.X + (view.Bounds.Width * 0.5f), view.Bounds.Y + (view.Bounds.Height * 0.5f));
 
         fixture.Press(x, y, type: PointerType.Mouse);
@@ -435,7 +435,7 @@ public class TouchActionTests {
         var (fixture, view, control) = Themed(static (document, parent) => Field(document, parent, "textbox"));
         using var _ = fixture;
 
-        var field = (TextField) control;
+        var field = (TextField)control;
         var (x, y) = (field.Bounds.X + (field.Bounds.Width * 0.5f), field.Bounds.Y + (field.Bounds.Height * 0.5f));
 
         fixture.Press(x, y, type: PointerType.Touch);
@@ -456,7 +456,7 @@ public class TouchActionTests {
         var (fixture, view, control) = Themed(static (document, parent) => Field(document, parent, "textbox"));
         using var _ = fixture;
 
-        var field = (TextField) control;
+        var field = (TextField)control;
         var (x, y) = (field.Bounds.X + (field.Bounds.Width * 0.5f), field.Bounds.Y + (field.Bounds.Height * 0.5f));
 
         if (hold) {

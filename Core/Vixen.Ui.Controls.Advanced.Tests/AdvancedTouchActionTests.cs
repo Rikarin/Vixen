@@ -136,7 +136,7 @@ public class AdvancedTouchActionTests {
         var (fixture, view, control) = Themed(static (document, parent) => document.Create<Timeline>(null, parent, "knob"));
         using var _ = fixture;
 
-        var timeline = (Timeline) control;
+        var timeline = (Timeline)control;
         var (rulerX, rulerY) = AdvancedFixture.Centre(timeline.Ruler);
         var (lanesX, lanesY) = AdvancedFixture.Centre(timeline.Lanes);
 
