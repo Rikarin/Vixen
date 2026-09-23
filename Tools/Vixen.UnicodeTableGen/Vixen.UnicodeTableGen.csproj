@@ -12,4 +12,8 @@
             no copy of the database to generate from.
         </Description>
     </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.UnicodeTableGen.Tests" />
+    </ItemGroup>
 </Project>

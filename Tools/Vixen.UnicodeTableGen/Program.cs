@@ -23,7 +23,17 @@ namespace Vixen.UnicodeTableGen;
 ///     </para>
 /// </remarks>
 static class Program {
-    static int Main(string[] args) {
+    /// <summary>The entry point, and the seam <c>Vixen.UnicodeTableGen.Tests</c> drives.</summary>
+    /// <param name="args">The UCD directory, the two output directories, and optionally one artefact name.</param>
+    /// <returns>Zero when everything asked for was written.</returns>
+    /// <remarks>
+    ///     ⚠ <b><c>internal</c> rather than private, which an entry point is free to be and which
+    ///     nothing else here needs.</b> The arms below dispatch on a name, and a table written by
+    ///     the wrong arm — or a partial database silently producing a table of nothing — is a
+    ///     failure only a caller can see. A test that spawned the process instead would have to read
+    ///     it out of stdout.
+    /// </remarks>
+    internal static int Main(string[] args) {
         if (args.Length is < 3 or > 4) {
             Console.Error.WriteLine(
                 "usage: Vixen.UnicodeTableGen <ucd-directory> <table-output-directory> <test-output-directory> [only]"
