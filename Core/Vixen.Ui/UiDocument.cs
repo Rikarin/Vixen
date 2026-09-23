@@ -2858,6 +2858,29 @@ public sealed partial class UiDocument : IDisposable {
         return false;
     }
 
+    /// <summary>The surface's lengths, re-based on one element's own font.</summary>
+    /// <param name="element">The element.</param>
+    /// <param name="surface">The surface's context — its viewport and its root font size.</param>
+    /// <returns>The context that element's relative units resolve against.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Both fields, and <see cref="LengthContext.LineHeight" /> is the one that would be
+    ///         missed.</b> Deriving only the font size leaves <c>lh</c> reading an ancestor's line
+    ///         box, which is the same defect one unit over and is harder to see because <c>lh</c> is
+    ///         rare. The line height is written as <c>NaN</c> for <c>line-height: normal</c> and the
+    ///         context answers a stand-in for it, so the two are always set together.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Unconditional rather than guarded on a change, and that is the cheaper of the
+    ///         two.</b> A guard is two float comparisons against a property whose "unset" spelling is
+    ///         <c>NaN</c> — which compares equal to nothing, including itself — so the guard would
+    ///         have to special-case exactly the common value. What it would save is a copy of five
+    ///         floats on the stack, next to the three style lookups this is derived for.
+    ///     </para>
+    /// </remarks>
+    static LengthContext Measured(UiElement element, LengthContext surface) =>
+        surface.WithFontSize(element.FontSize).WithLineHeight(element.LineHeight);
+
     /// <summary>Turns the parent-relative layout results into document-space rectangles.</summary>
     /// <remarks>
     ///     Accumulated once per pass rather than walked per query. Hit testing asks for absolute
@@ -2867,7 +2890,10 @@ public sealed partial class UiDocument : IDisposable {
     /// <param name="element">The element to place, and its subtree.</param>
     /// <param name="x">Its parent's accumulated left, in document coordinates.</param>
     /// <param name="y">Its parent's accumulated top.</param>
-    /// <param name="metrics">The lengths this surface's relative units resolve against.</param>
+    /// <param name="metrics">
+    ///     The surface's lengths — its viewport and its root font size. What an element's <c>em</c>
+    ///     and <c>lh</c> resolve against is derived from it per element; see <see cref="Measured" />.
+    /// </param>
     /// <param name="port">
     ///     The nearest scrolling ancestor's box in document coordinates, or
     ///     <see cref="Scrollport.None" /> at a surface root. Carried down rather than searched
@@ -2876,6 +2902,21 @@ public sealed partial class UiDocument : IDisposable {
     ///     order.
     /// </param>
     void Accumulate(UiElement element, float x, float y, LengthContext metrics, in Scrollport port) {
+        // ⚠ <b>The element's own font, and until #1339 all three readers below measured every `em`
+        // against the ROOT's.</b> One `LengthContext` was built per surface and threaded through the
+        // whole tree unchanged, so a `translate: 2em` inside a `text-lg` subtree moved by twice the
+        // root font size rather than twice its own — wrong by the ratio of the two, silently,
+        // because the value still resolved to a plausible number and the box still drew. CSS
+        // resolves `em` in a transform against the element's own computed font size.
+        //
+        // ⚠ <b>Derived here rather than carried down, which is what keeps it one line.</b> Every
+        // element already knows its own resolved `FontSize` and `LineHeight` — `Apply` writes both
+        // on the style walk that ran before this one — so the correction is a local read and not a
+        // second inherited value to keep in step. `metrics` therefore stays the SURFACE's the whole
+        // way down and nothing accumulates: `rem`, `vw` and `vh` mean the same thing at every depth,
+        // which is exactly what they are for.
+        var own = Measured(element, metrics);
+
         // ⚠ The offset lands here and nowhere else, which is what makes it free. Every consumer of a
         // position — hit testing, the draw list, arrow navigation — reads the accumulated value, so
         // a shifted element is drawn, clicked and navigated to in its shifted place without any of
@@ -2896,7 +2937,7 @@ public sealed partial class UiDocument : IDisposable {
         // their content with, and survives a restyle; a translation is declarative and is whatever the
         // cascade last computed. Folding the second into the first would make a stylesheet silently
         // erase a scroll position, which reads as the panel jumping home on an unrelated theme change.
-        translation.Of(element, metrics, out var dx, out var dy);
+        translation.Of(element, own, out var dx, out var dy);
 
         element.AbsoluteLeft = x + element.Left + element.OffsetX + dx;
         element.AbsoluteTop = y + element.Top + element.OffsetY + dy;
@@ -2914,7 +2955,7 @@ public sealed partial class UiDocument : IDisposable {
         // gives for nothing because it passes this element's accumulated position on. See
         // `Sticky.cs`.
         if (sticky.Is(element)) {
-            sticky.Of(element, metrics, in port, out var sx, out var sy);
+            sticky.Of(element, own, in port, out var sx, out var sy);
 
             element.AbsoluteLeft += sx;
             element.AbsoluteTop += sy;
@@ -2940,7 +2981,7 @@ public sealed partial class UiDocument : IDisposable {
         // transforms compose for nothing — the inner group's composite quad is transformed by the
         // inner matrix and then rasterised into the outer group's surface, which the outer matrix
         // transforms in turn — and it is what stops a transform leaking into layout.
-        element.Transform = transform.Of(element, metrics);
+        element.Transform = transform.Of(element, own);
 
         // ⚠ <b>A scrolling box is the scrollport its descendants stick to, and the rectangle is the
         // one the clip uses.</b> `Cut` clips against this element's border box, so a sticky header

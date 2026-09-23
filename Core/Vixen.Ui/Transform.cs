@@ -436,11 +436,13 @@ sealed class TransformReader {
     ///         box — belongs to a different element. A stage at <c>font-size: 32px</c> declaring
     ///         <c>perspective: 10em</c> means 320 points however small the card inside it is, and
     ///         resolving it in the caller's context gives a plausible number rather than an error.
-    ///         ⚠ The caller's context is <i>not</i> the child's own, either: <c>UiDocument.Accumulate</c>
-    ///         threads one surface-wide <see cref="LengthContext" /> through the whole tree, so every
-    ///         <c>em</c> in every <c>transform</c> resolves against the ROOT font size. That is a
-    ///         wider gap than this one and is not fixed here; what is fixed is the one declaration
-    ///         whose owner is known to differ from the element being measured.
+    ///         ⚠ The caller's context <i>is</i> the child's own now (#1339) — <c>UiDocument.Accumulate</c>
+    ///         re-bases it on each element's resolved font before calling this reader — so what this
+    ///         method still has to do is re-base it a second time, onto the element that actually
+    ///         wrote the declaration. Until that fix the caller's context was the SURFACE's, and
+    ///         every <c>em</c> in every <c>transform</c> resolved against the root font size; this
+    ///         override was written against that and is unchanged by it, because it names the parent
+    ///         outright rather than trusting what it was handed.
     ///     </para>
     /// </remarks>
     Matrix4x4 Established(UiElement element, LengthContext metrics) {
@@ -885,11 +887,7 @@ sealed class TransformReader {
             return bare == 0f;
         }
 
-        var digits = 0;
-
-        while (digits < text.Length && (char.IsAsciiDigit(text[digits]) || text[digits] is '.' or '-' or '+' or 'e' or 'E')) {
-            digits++;
-        }
+        var digits = Mantissa(text);
 
         if (!float.TryParse(text[..digits], NumberStyles.Float, CultureInfo.InvariantCulture, out var number)) {
             return false;
@@ -949,6 +947,59 @@ sealed class TransformReader {
         var folded = parser.Parse(text);
 
         return folded.Kind is StyleValueKind.Number or StyleValueKind.Length ? folded : StyleValue.Unknown;
+    }
+
+    /// <summary>How many characters of a dimension are its number, before its unit begins.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>e</c> belongs to the number only when a digit follows it, and scanning it
+    ///         unconditionally made <c>2em</c> scan as the number <c>2e</c> — which does not parse,
+    ///         so the argument was refused and, because a refused argument drops the whole list,
+    ///         every <c>em</c> written inside a <c>translate()</c>, a <c>translateZ()</c> or a
+    ///         <c>perspective()</c> silently did nothing at all.</b> CSS has exactly one unit that
+    ///         begins with the exponent character and it is the commonest relative unit there is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Neither <c>Distance</c> nor <c>Depth</c> had a test with an <c>em</c> in it</b>,
+    ///         and the reason the gap survived the 3D work is that the one <c>em</c> assertion in
+    ///         <c>TransformTests</c> is on the <c>perspective</c> PROPERTY — which is read through
+    ///         <see cref="StyleValueParser" />, whose own scanner has carried this guard since it was
+    ///         written and says so in as many words. Two readers of the same grammar, one of them
+    ///         correct, and no fixture crossing from one to the other.
+    ///     </para>
+    ///     <para>
+    ///         <c>1e2px</c> still reads as a hundred pixels, which is the point of keeping the
+    ///         exponent rather than dropping it.
+    ///     </para>
+    /// </remarks>
+    static int Mantissa(ReadOnlySpan<char> text) {
+        var digits = 0;
+
+        while (digits < text.Length) {
+            var character = text[digits];
+
+            if (char.IsAsciiDigit(character) || character is '.' or '-' or '+') {
+                digits++;
+                continue;
+            }
+
+            if (character is 'e' or 'E' && Exponent(text[(digits + 1)..])) {
+                digits++;
+                continue;
+            }
+
+            break;
+        }
+
+        return digits;
+
+        static bool Exponent(ReadOnlySpan<char> rest) {
+            if (rest.Length > 0 && rest[0] is '-' or '+') {
+                rest = rest[1..];
+            }
+
+            return rest.Length > 0 && char.IsAsciiDigit(rest[0]);
+        }
     }
 
     static float Tangent(float degrees) => MathF.Tan(degrees * (MathF.PI / 180f));
@@ -1147,11 +1198,7 @@ sealed class TransformReader {
             return bare == 0f;
         }
 
-        var digits = 0;
-
-        while (digits < text.Length && (char.IsAsciiDigit(text[digits]) || text[digits] is '.' or '-' or '+' or 'e' or 'E')) {
-            digits++;
-        }
+        var digits = Mantissa(text);
 
         if (!float.TryParse(text[..digits], NumberStyles.Float, CultureInfo.InvariantCulture, out var number)) {
             return false;

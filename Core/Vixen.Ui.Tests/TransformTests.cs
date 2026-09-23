@@ -893,6 +893,70 @@ public class TransformTests {
         Assert.Same(document.Root, document.HitTest(120f, 120f));
     }
 
+    /// <summary>An <c>em</c> in a transform is the element's own font size and not the root's.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The zero-is-off trap does not apply here and nothing looks broken</b>, which is
+    ///         why this went unseen: <c>UiDocument.Accumulate</c> built one <see cref="LengthContext" />
+    ///         per surface and threaded it through the whole tree, so every <c>em</c> resolved
+    ///         against the ROOT font size — a plausible number, a box that still draws, and a
+    ///         translation wrong by exactly the ratio of the two fonts (#1339).
+    ///     </para>
+    ///     <para>
+    ///         <b>The oracle is a ratio and not a coordinate.</b> Both cards are 20 square and both
+    ///         write the same literal; the only difference between them is a font size of 32 against
+    ///         the root's 16, so the second must move exactly twice as far. Under the old reading the
+    ///         two moved by the same 32 points, which is what the second probe on each card refuses.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The small card is the instrument and has to be there.</b> It is the case where
+    ///         both readings agree, so a change that broke <c>em</c> altogether — rather than
+    ///         resolving it in the wrong context — would fail it rather than passing the pair below.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both readers, because they are two methods and only one of them was cited.</b>
+    ///         <c>TransformReader</c> resolves the <c>transform</c> list and
+    ///         <c>TranslationReader</c> resolves the <c>translate</c> property into the accumulated
+    ///         position, and they were handed the same wrong context from the same call site.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_em_in_a_transform_is_the_elements_own_font_size() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; font-size: 16px; }
+            .small { position: absolute; left: 0px; top: 0px; width: 20px; height: 20px;
+                     font-size: 16px; background-color: #111; transform: translateX(2em); }
+            .large { position: absolute; left: 0px; top: 100px; width: 20px; height: 20px;
+                     font-size: 32px; background-color: #222; transform: translateX(2em); }
+            .shifted { position: absolute; left: 0px; top: 200px; width: 20px; height: 20px;
+                       font-size: 32px; background-color: #333; translate: 2em; }
+            """,
+            document => {
+                document.Root.Add("div", classNames: "small");
+                document.Root.Add("div", classNames: "large");
+                document.Root.Add("div", classNames: "shifted");
+            }
+        );
+
+        var small = document.Root.Children[0];
+        var large = document.Root.Children[1];
+        var shifted = document.Root.Children[2];
+
+        // The instrument: at the root's own font size both readings say 32, so this is the case that
+        // cannot distinguish them and therefore the case that catches an `em` that stopped resolving.
+        Assert.Same(small, document.HitTest(40f, 10f));
+        Assert.NotSame(small, document.HitTest(20f, 10f));
+
+        // Twice the font is twice the distance: x in [64, 84], not the root reading's [32, 52].
+        Assert.Same(large, document.HitTest(70f, 110f));
+        Assert.NotSame(large, document.HitTest(40f, 110f));
+
+        // And the `translate` property is the same defect through the other reader.
+        Assert.Same(shifted, document.HitTest(70f, 210f));
+        Assert.NotSame(shifted, document.HitTest(40f, 210f));
+    }
+
     /// <summary>A <c>calc()</c> along z is folded and then projected by the parent's perspective.</summary>
     /// <remarks>
     ///     <para>
