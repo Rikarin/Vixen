@@ -44,13 +44,30 @@ public enum TextTransform : byte {
 ///         computed a value and did nothing is the state this repository's gates exist to keep out.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is phase I only.</b> § 4.1.1 is a transformation of the string and is what this
-///         type does; § 4.1.3's phase II — a collapsible space at the <i>start</i> of a line is
-///         removed — is a question about a line, which does not exist yet at the moment a string is
-///         transformed. So <c>pre-line</c> here collapses a run of spaces to one and drops the ones
-///         around a newline, and still draws a leading space that a browser would eat. That half is
-///         owed for every value rather than for this one: an undeclared paragraph in this engine
-///         preserves everything, so the leading space is what it has always drawn.
+///         <b>Phase I, and the part of phase II that is a question about the string.</b> § 4.1.1 is a
+///         transformation of the string. § 4.1.3's phase II — a collapsible space at the start or the
+///         end of a <i>line</i> is removed — reads like a question about lines, which do not exist
+///         yet when a string is transformed. ⚠ <b>But after phase I there are only two places a line
+///         can begin or end on a collapsible space the wrapper does not already handle, and both are
+///         string positions.</b> Every run in the middle has become one space with a break
+///         opportunity <i>after</i> it (UAX #14 breaks after spaces and never before them), so a soft
+///         wrap leaves the space at the end of the earlier line, where <c>LineWrapper</c>'s trailing
+///         trim already takes it out of the measure; every run touching a segment break is gone.
+///         What is left is a run at the very start of the text and one at the very end — and for a
+///         paragraph whose first line starts a line box and whose last line ends one, those are line
+///         edges. <c>TransformedText.Of</c>'s <c>ownsLines</c> is that condition, and its remarks
+///         name the one element it is false for.
+///     </para>
+///     <para>
+///         ⚠ <b>So phase II was owed for one value, not six.</b> Under <c>pre</c>, <c>pre-wrap</c>
+///         and <c>break-spaces</c> a space is preserved rather than collapsible and phase II does not
+///         apply to it — Chrome draws a <c>pre-wrap</c> paragraph's leading space. Under
+///         <c>normal</c> and <c>nowrap</c> it applies, but so does phase I, and this engine performs
+///         neither there deliberately: an undeclared paragraph renders as CSS's <c>pre-wrap</c>, and
+///         collapsing it would move every label in every interface. ⚠ One corner is still a
+///         question about a line: a break that falls <i>before</i> a space — <c>line-break:
+///         anywhere</c>, which offers every grapheme boundary, or an emergency break inside a word
+///         too long for its line — can begin a wrapped line on one, and nothing here removes it.
 ///     </para>
 /// </remarks>
 public enum WhiteSpaceCollapse : byte {
@@ -157,6 +174,14 @@ public sealed class TransformedText {
     ///     spaces collapsing never moves a word boundary, so <c>capitalize</c> titlecases the same
     ///     letters either way.
     /// </param>
+    /// <param name="ownsLines">
+    ///     Whether the text's start begins a line box and its end finishes one, which makes a
+    ///     collapsible run at either end § 4.1.3's phase II and removes it. True for a paragraph that
+    ///     is its own block; ⚠ false for a <c>display: inline</c> element in an inline formatting
+    ///     context, whose text may begin in the middle of a line a sibling started — there the answer
+    ///     depends on the neighbour, which is collapsing across an element boundary and is not done.
+    ///     Ignored unless <paramref name="collapse" /> collapses.
+    /// </param>
     /// <returns>The drawn text and the map between the two.</returns>
     /// <remarks>
     ///     <para>
@@ -216,7 +241,8 @@ public sealed class TransformedText {
         string? source,
         TextTransform transform,
         string? language = null,
-        WhiteSpaceCollapse collapse = WhiteSpaceCollapse.Preserve
+        WhiteSpaceCollapse collapse = WhiteSpaceCollapse.Preserve,
+        bool ownsLines = false
     ) {
         source ??= string.Empty;
 
@@ -264,8 +290,14 @@ public sealed class TransformedText {
                 // before U+2029 is as adjacent to a break as one before a newline, and asking a
                 // narrower question here would leave a space the wrapper then ends a line on —
                 // which is the defect § 4.1.1's first step exists to prevent.
+                //
+                // ⚠ And the paragraph's two edges are treated as if a break touched them, which is
+                // § 4.1.3's phase II: a collapsible run at the start or end of a line is removed. For
+                // a paragraph that owns its lines those are the only line edges a run can still sit on
+                // — see the remarks on `WhiteSpaceCollapse` for why every other one is already gone.
                 var touching = (end < source.Length && LineWrapper.IsSegmentBreak(source[end]))
-                    || (at > 0 && LineWrapper.IsSegmentBreak(source[at - 1]));
+                    || (at > 0 && LineWrapper.IsSegmentBreak(source[at - 1]))
+                    || (ownsLines && (at == 0 || end == source.Length));
 
                 Record(sourceOf, drawnOf, at, end - at, text.Length, touching ? 0 : 1);
                 moved |= touching || end - at != 1;
