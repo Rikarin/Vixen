@@ -140,7 +140,7 @@ static class StyleQuery {
     ///     <c>style(--x: a b)</c> agree.
     /// </remarks>
     static string Normalise(string? value) =>
-        string.Join(' ', (value ?? string.Empty).Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries));
+        string.Join(' ', (value ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     static bool TryFeature(ReadOnlySpan<char> text, out StyleFeature feature, out string? reason) {
         feature = default;
