@@ -431,8 +431,8 @@ public sealed class KeyMap {
     ///     <para>
     ///         ⚠ <b>Exposed rather than written out here, because the format is not this
     ///         assembly's.</b> See <see cref="KeyMapPreset" />: persisting a keymap is a choice about
-    ///         where an application keeps preferences, and the editor makes it in
-    ///         <c>Vixen.Editor.Ui.KeyMapYaml</c>. This property and <see cref="Restore" /> are the
+    ///         where an application keeps preferences, and <c>Vixen.Ui.Controls.Advanced.KeyMapYaml</c>
+    ///         is one answer, above this assembly. This property and <see cref="Restore" /> are the
     ///         two halves of the round trip, and nothing between them names a file format.
     ///     </para>
     /// </remarks>

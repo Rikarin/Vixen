@@ -756,6 +756,7 @@ Vixen.Ui.Controls.Advanced.ImageViewRequest.ColorSpace.get -> Vixen.Ui.Controls.
 Vixen.Ui.Controls.Advanced.ImageViewRequest.ColorSpace.init -> Vixen.Ui.Controls.Advanced.ImageColorSpace
 Vixen.Ui.Controls.Advanced.ImageViewRequest.ImageViewRequest() -> void
 Vixen.Ui.Controls.Advanced.ImageViewRequest.ImageViewRequest(Vixen.Ui.Controls.Advanced.ImageChannels Channels, Vixen.Ui.Controls.Advanced.ImageColorSpace ColorSpace) -> void
+Vixen.Ui.Controls.Advanced.KeyMapYaml -> static class
 Vixen.Ui.Controls.Advanced.NodeCanvas -> sealed class
 Vixen.Ui.Controls.Advanced.NodeCanvas : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.Advanced.NodeCanvas.Activated -> System.Action<Vixen.Ui.Controls.Advanced.NodeCanvas, Vixen.Ui.Controls.Advanced.GraphNode>?
@@ -1458,6 +1459,10 @@ static Vixen.Ui.Controls.Advanced.DockLayout.Load(string yaml) -> Vixen.Ui.Contr
 static Vixen.Ui.Controls.Advanced.DockNode.FromYaml(Vixen.Core.Yaml.YamlNode? node) -> Vixen.Ui.Controls.Advanced.DockNode?
 static Vixen.Ui.Controls.Advanced.DockPanel.Fills(Vixen.Ui.UiElement element) -> bool
 static Vixen.Ui.Controls.Advanced.Hsv.FromRgb(Vixen.Core.Mathematics.Color4 color) -> Vixen.Ui.Controls.Advanced.Hsv
+static Vixen.Ui.Controls.Advanced.KeyMapYaml.Read(Vixen.Ui.Controls.KeyMap keys, string yaml) -> void
+static Vixen.Ui.Controls.Advanced.KeyMapYaml.ReadPreset(string name, string yaml) -> Vixen.Ui.Controls.KeyMapPreset
+static Vixen.Ui.Controls.Advanced.KeyMapYaml.Write(Vixen.Ui.Controls.KeyMap keys) -> string
+static Vixen.Ui.Controls.Advanced.KeyMapYaml.Write(Vixen.Ui.Controls.KeyMapPreset preset) -> string
 static Vixen.Ui.Controls.Advanced.NodeCanvas.Handles(Vixen.Ui.Controls.Advanced.NodeCanvas canvas, Vixen.Core.Mathematics.Vector2 from, Vixen.Core.Mathematics.Vector2 to) -> (Vixen.Core.Mathematics.Vector2 First, Vixen.Core.Mathematics.Vector2 Second)
 static Vixen.Ui.Controls.Advanced.OkLch.FromSrgb(Vixen.Core.Mathematics.Color4 color) -> Vixen.Ui.Controls.Advanced.OkLch
 static Vixen.Ui.Controls.Advanced.PlainTokenizer.Instance.get -> Vixen.Ui.Controls.Advanced.PlainTokenizer

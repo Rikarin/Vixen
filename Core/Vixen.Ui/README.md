@@ -129,8 +129,9 @@ user's overrides, and `CommandDispatcher` attaches to any `UiDocument`, turns a 
 platform-adapted chord, resolves it in the focused context and executes — falling through rather than
 refusing when the chord belongs somewhere the user is not. ⚠ **What is *not* up there is the file.**
 Persisting a keymap is a choice about where an application keeps preferences, so `KeyMap` exposes
-`Overrides` and `Restore` and names no format; `Vixen.Editor.Ui.KeyMapYaml` is the editor's answer,
-and a YAML parser is nothing a control library should drag behind a button.
+`Overrides` and `Restore` and names no format; `Vixen.Ui.Controls.Advanced.KeyMapYaml` is one
+answer, one assembly further up where a docking layout already made YAML a dependency — a YAML
+parser is nothing `Vixen.Ui.Controls` should drag behind a button.
 
 ### Past the root: responders that are not elements
 

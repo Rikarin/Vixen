@@ -33,7 +33,7 @@ namespace Vixen.Ui.Controls;
 ///         editor.</b> A preset is a named table of chords; writing one as YAML is a choice about
 ///         where an application keeps its preferences, and a control library that made it would put
 ///         a YAML parser in the dependency closure of every application that has a button.
-///         <c>Vixen.Editor.Ui.KeyMapYaml</c> is the editor's answer, and a game with a settings
+///         <c>Vixen.Ui.Controls.Advanced.KeyMapYaml</c> is one answer, and a game with a settings
 ///         screen of its own can give a different one over the same <see cref="Of" />.
 ///     </para>
 /// </remarks>

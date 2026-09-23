@@ -1610,7 +1610,6 @@ T:Vixen.Editor.Ui.IPaletteSource sweep-pending
 T:Vixen.Editor.Ui.KeyBindingRow sweep-pending
 T:Vixen.Editor.Ui.KeyBindingsView sweep-pending
 T:Vixen.Editor.Ui.KeyMapPresets sweep-pending
-T:Vixen.Editor.Ui.KeyMapYaml sweep-pending
 T:Vixen.Editor.Ui.LayoutPresets sweep-pending
 T:Vixen.Editor.Ui.MenuCommand sweep-pending
 T:Vixen.Editor.Ui.MenuDynamic sweep-pending

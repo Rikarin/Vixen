@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Yaml;
-using Vixen.Ui;
-using Vixen.Ui.Controls;
 
-namespace Vixen.Editor.Ui;
+namespace Vixen.Ui.Controls.Advanced;
 
 /// <summary>The YAML a keymap and a preset are both written in.</summary>
 /// <remarks>
@@ -16,15 +14,23 @@ namespace Vixen.Editor.Ui;
 ///         be a second thing to keep in step with a format whose whole point is that there is one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is where <see cref="KeyMap" /> stopped, and the stopping place is the layering
-///         (#650).</b> The keymap's mechanism — three layers, conflicts, contexts, reservation — is
-///         what any application with an accelerator has, and it is <c>Vixen.Ui.Controls</c>'s now.
-///         Where the bindings are kept between runs is not: this file reaches
-///         <c>Vixen.Core.Yaml</c>, which reaches YamlDotNet, and a control library that did the same
-///         would put a YAML parser in the dependency closure of every application that has a button.
-///         A game that keeps its settings in JSON writes the other half of
-///         <see cref="KeyMap.Overrides" /> and <see cref="KeyMap.Restore" /> and owes this assembly
-///         nothing.
+///         ⚠ <b>In this assembly and not in <c>Vixen.Ui.Controls</c> beside <see cref="KeyMap" />,
+///         and the layering is the whole reason (#650).</b> The keymap's mechanism — three layers,
+///         conflicts, contexts, reservation — is what any application with an accelerator has.
+///         Where the bindings are kept between runs reaches <c>Vixen.Core.Yaml</c>, which reaches
+///         YamlDotNet, and <c>Vixen.Ui.Controls</c> doing the same would put a YAML parser in the
+///         dependency closure of every application that has a button. This library already carries
+///         it — a <see cref="DockLayout" /> is YAML for the same reason a keymap is, something a
+///         person edits, diffs and checks in — so the format costs an application that has a docking
+///         host or a data grid nothing it was not already paying.
+///     </para>
+///     <para>
+///         ⚠ <b>It used to be the editor's, and the reason recorded for that was half right.</b>
+///         "A control library would put YAML in every application's closure" is true of
+///         <c>Vixen.Ui.Controls</c> and was never true of this assembly, whose project file references
+///         <c>Vixen.Core.Yaml</c> by name. A game that keeps its settings in JSON still writes the
+///         other half of <see cref="KeyMap.Overrides" /> and <see cref="KeyMap.Restore" /> and owes
+///         this file nothing.
 ///     </para>
 ///     <para>
 ///         Only what the user did is written: the preset's name, and the bindings they moved
@@ -54,7 +60,7 @@ public static class KeyMapYaml {
     /// <param name="yaml">What <see cref="Write(KeyMap)" /> wrote.</param>
     /// <remarks>
     ///     ⚠ <b>Never throws on a keymap that has gone stale.</b> A chord that will not parse is
-    ///     dropped — the alternative is an editor that will not start because somebody mistyped a
+    ///     dropped — the alternative is an application that will not start because somebody mistyped a
     ///     line in a preferences file, and the binding they lose is the one they can see is missing.
     ///     A <c>preset:</c> naming something <see cref="KeyMap.PresetSource" /> does not know is
     ///     dropped on the same terms, which is what happens to a team preset on a machine that has
@@ -91,9 +97,9 @@ public static class KeyMapYaml {
     /// <returns>The preset, which is empty if the text names nothing.</returns>
     /// <remarks>
     ///     ⚠ <b>Never throws on a preset that has gone stale</b>, for <see cref="Read" />'s reason: a
-    ///     chord that will not parse is dropped rather than taking the editor down. A preset shipped
-    ///     in this assembly is asserted to be clean by a test, so a bad line here is a third party's
-    ///     file rather than one of ours.
+    ///     chord that will not parse is dropped rather than taking the application down. The editor's
+    ///     three shipped presets are asserted to be clean by a test, so there a bad line is a third
+    ///     party's file rather than one of ours.
     /// </remarks>
     public static KeyMapPreset ReadPreset(string name, string yaml) {
         ArgumentException.ThrowIfNullOrEmpty(name);

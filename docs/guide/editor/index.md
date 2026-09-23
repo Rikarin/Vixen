@@ -58,10 +58,10 @@ runs often and has to be cheap.
 command is the application's. The map is three layers — the defaults the application ships, a chosen
 preset, and the user's own overrides — and only the last is saved, so a default moved in a release
 reaches everyone who had not deliberately rebound it. ⚠ `KeyMap`, `KeyMapPreset` and
-`CommandDispatcher` are `Vixen.Ui.Controls` types and are described in
-[commands and the focus route](/docs/guide/ui/commands); what stays here is the editor's own data —
-`KeyMapPresets`, its three shipped presets, and `KeyMapYaml`, the file they and a user's keymap are
-both written in.
+`CommandDispatcher` are `Vixen.Ui.Controls` types, and `KeyMapYaml` — the file the presets and a
+user's keymap are both written in — is `Vixen.Ui.Controls.Advanced`'s; all four are described in
+[commands and the focus route](/docs/guide/ui/commands). What stays here is the editor's own data:
+`KeyMapPresets`, its three shipped presets.
 
 **A command may declare a context.** Delete in the outliner and Delete in the content browser are two
 commands and one key. `EditorCommand.Context` names the place a verb belongs, `EditorShell.Context`
