@@ -961,6 +961,92 @@ public class VariantCoverageTests {
     }
 
     [Fact]
+    public void The_themes_breakpoints_have_no_untested_range_entry() {
+        // #1346: `max-*` and `min-*` over every shipped breakpoint, enumerated for the reason the bare
+        // form is — a sixth breakpoint must not join the untested. ⚠ Each probe sits AT the threshold
+        // or one pixel under it, because those are the only two widths that can tell v4's exclusive
+        // `max-sm` — `(width < 40rem)` — from an inclusive `max-width`; any other width answers the
+        // same under both, which is how `@max-*` stayed wrong on containers until #609.
+        var fixture = new UtilityFixture("");
+
+        foreach (var (name, width) in fixture.Tokens.Screens) {
+            var at = new MediaContext(width, 800f);
+            var under = new MediaContext(width - 1f, 800f);
+
+            Assert.Null(fixture.Computed([$"max-{name}:p-4"], "padding-left", media: at));
+            Assert.Equal("16px", fixture.Computed([$"max-{name}:p-4"], "padding-left", media: under));
+
+            Assert.Equal("16px", fixture.Computed([$"min-{name}:p-4"], "padding-left", media: at));
+            Assert.Null(fixture.Computed([$"min-{name}:p-4"], "padding-left", media: under));
+        }
+    }
+
+    [Fact]
+    public void The_breakpoint_range_forms_meet_at_the_threshold_without_overlapping_on_it() {
+        // The same contract `@max-sm`/`@sm` keep on containers, on the window: at exactly the
+        // threshold the width belongs to `sm:` and `min-sm:` and never to `max-sm:`, and one pixel
+        // narrower they swap — so a class list `max-sm:p-2 sm:p-4` has exactly one answer at
+        // every width, including 640.
+        var fixture = new UtilityFixture("");
+        var sm = fixture.Tokens.Screens["sm"];
+
+        Assert.Equal("16px", fixture.Computed(["max-sm:p-2", "sm:p-4"], "padding-left", media: new MediaContext(sm, 800f)));
+        Assert.Equal("8px", fixture.Computed(["max-sm:p-2", "sm:p-4"], "padding-left", media: new MediaContext(sm - 1f, 800f)));
+
+        // `min-sm:` and `sm:` are one condition, so they share one group rather than opening two.
+        Assert.Single(fixture.Generate("min-sm:p-4", "sm:m-2").Split("@media")[1..]);
+    }
+
+    [Fact]
+    public void The_arbitrary_breakpoint_ranges_take_the_width_written_in_them() {
+        // The only spelling that can name a width the theme has no breakpoint for.
+        var fixture = new UtilityFixture("");
+
+        Assert.Equal("16px", fixture.Computed(["max-[600px]:p-4"], "padding-left", media: new MediaContext(599f, 800f)));
+        Assert.Null(fixture.Computed(["max-[600px]:p-4"], "padding-left", media: new MediaContext(600f, 800f)));
+
+        Assert.Equal("16px", fixture.Computed(["min-[600px]:p-4"], "padding-left", media: new MediaContext(600f, 800f)));
+        Assert.Null(fixture.Computed(["min-[600px]:p-4"], "padding-left", media: new MediaContext(599f, 800f)));
+    }
+
+    [Fact]
+    public void A_breakpoint_range_stacks_with_a_breakpoint_into_a_band() {
+        // `md:max-lg:` is v4's way of saying "tablets only", and the reason `BuildSelector` nests.
+        var fixture = new UtilityFixture("");
+
+        Assert.Equal("16px", fixture.Computed(["md:max-lg:p-4"], "padding-left", media: new MediaContext(900f, 800f)));
+        Assert.Null(fixture.Computed(["md:max-lg:p-4"], "padding-left", media: new MediaContext(700f, 800f)));
+        Assert.Null(fixture.Computed(["md:max-lg:p-4"], "padding-left", media: new MediaContext(1100f, 800f)));
+    }
+
+    [Fact]
+    public void Where_a_max_range_and_a_breakpoint_overlap_the_breakpoint_wins_and_the_tighter_max_wins() {
+        // ⚠ v4's order, which is the half of #1346 an at-rule's text cannot say: `max-*` is written
+        // widest-first and before every `min-*`, so in the 768–1023 overlap `md:` refines
+        // `max-lg:`, and at 500px `max-sm:` — the tighter condition — refines `max-lg:`. An ordinal
+        // sort puts `(width < …)` after `(min-width: …)` and gets the first one backwards.
+        var fixture = new UtilityFixture("");
+
+        Assert.Equal("16px", fixture.Computed(["max-lg:p-2", "md:p-4"], "padding-left", media: new MediaContext(900f, 800f)));
+        Assert.Equal("4px", fixture.Computed(["max-sm:p-1", "max-lg:p-2"], "padding-left", media: new MediaContext(500f, 800f)));
+    }
+
+    [Theory]
+    // Nothing after the prefix, an empty arbitrary, and a name the theme does not declare.
+    [InlineData("max-:p-4")]
+    [InlineData("min-[]:p-4")]
+    [InlineData("max-nothing:p-4")]
+    // ⚠ And the two wrappers that refuse every at-rule: `not-max-sm:` is `@media not …` in v4, a
+    // different production, so it is not a class here rather than a class meaning something else.
+    [InlineData("not-max-sm:p-4")]
+    [InlineData("has-min-sm:p-4")]
+    public void A_breakpoint_range_that_names_nothing_is_not_a_class(string candidate) {
+        var fixture = new UtilityFixture("");
+
+        Assert.DoesNotContain("padding", fixture.Generate(candidate), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Every_wider_container_size_overrides_every_narrower_one_where_both_apply() {
         // The same order on the container scale, which the same string sort broke from `@5xl` up:
         // `(min-width: 1024px)` sorts before `(min-width: 384px)`.

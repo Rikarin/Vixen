@@ -348,15 +348,7 @@ public static class Variants {
             return true;
         }
 
-        if (tokens.Screens.TryGetValue(variant, out var width)) {
-            // Min-width, so the breakpoints stack the way everybody expects: a `md:` rule applies at
-            // `lg:` too unless something overrides it.
-            effect = new VariantEffect(
-                string.Empty,
-                string.Empty,
-                string.Create(CultureInfo.InvariantCulture, $"@media (min-width: {width.ToString("0.####", CultureInfo.InvariantCulture)}px)")
-            );
-
+        if (TryScreen(variant, tokens, out effect)) {
             return true;
         }
 
@@ -563,6 +555,68 @@ public static class Variants {
     public static bool IsArbitrary(VariantEffect effect) =>
         effect.SelectorSuffix.Contains('&', StringComparison.Ordinal);
 
+    /// <summary>Reads <c>sm</c>, <c>max-sm</c>, <c>min-sm</c> and the arbitrary <c>max-[600px]</c>/<c>min-[600px]</c>.</summary>
+    /// <param name="variant">The variant, without its colon.</param>
+    /// <param name="tokens">The theme, for the <c>--breakpoint-*</c> scale.</param>
+    /// <param name="effect">Receives the <c>@media</c> wrapper.</param>
+    /// <returns>Whether it is a viewport-width variant.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The bare breakpoint and <c>min-*</c> are one condition — <c>min-width</c>, inclusive,
+    ///         so the breakpoints stack the way everybody expects: an <c>md:</c> rule applies at
+    ///         <c>lg:</c> too unless something overrides it — and they emit the same text, so
+    ///         <c>sm:</c> and <c>min-sm:</c> share one group. Which of two overlapping ones wins is
+    ///         the generator's order and not anything here; see <see cref="AtRuleOrder" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>max-*</c> emits <c>(width &lt; …)</c>, exclusive, for the reason
+    ///         <see cref="TryContainer" />'s <c>@max-*</c> does:</b> v4's <c>max-sm</c> is
+    ///         <c>(width &lt; 40rem)</c>, and the only width at which that and a <c>max-width</c>
+    ///         disagree is the threshold itself. <see cref="MediaQuery" /> reads the range syntax
+    ///         through the same <c>FeatureRange</c> the container evaluator does. This half of #609
+    ///         never landed while the container half did, and #1346 is the record of it.
+    ///     </para>
+    /// </remarks>
+    static bool TryScreen(string variant, ThemeTokens tokens, out VariantEffect effect) {
+        effect = default;
+
+        var exclusive = false;
+        var rest = variant.AsSpan();
+
+        if (tokens.Screens.TryGetValue(variant, out var named)) {
+            effect = new VariantEffect(string.Empty, string.Empty, $"@media (min-width: {Pixels(named)})");
+            return true;
+        }
+
+        if (rest.StartsWith("min-", StringComparison.Ordinal)) {
+            rest = rest[4..];
+        } else if (rest.StartsWith("max-", StringComparison.Ordinal)) {
+            exclusive = true;
+            rest = rest[4..];
+        } else {
+            return false;
+        }
+
+        string width;
+
+        if (rest.Length > 2 && rest[0] == '[' && rest[^1] == ']') {
+            // Verbatim, as `@min-[…]` is: the author wrote a length, and which units compare is
+            // `MediaQuery`'s question, answered with a diagnostic rather than a guess.
+            width = rest[1..^1].ToString().Replace('_', ' ');
+        } else if (tokens.Screens.TryGetValue(rest.ToString(), out var scale)) {
+            width = Pixels(scale);
+        } else {
+            return false;
+        }
+
+        var condition = exclusive ? $"(width < {width})" : $"(min-width: {width})";
+        effect = new VariantEffect(string.Empty, string.Empty, $"@media {condition}");
+
+        return true;
+
+        static string Pixels(float value) => value.ToString("0.####", CultureInfo.InvariantCulture) + "px";
+    }
+
     /// <summary>Reads <c>@sm</c>, <c>@max-lg</c>, <c>@min-[30rem]</c> and their <c>/name</c> forms.</summary>
     /// <param name="rest">The variant with its <c>@</c> already taken off.</param>
     /// <param name="tokens">The theme, for the <c>--container-*</c> scale.</param>
@@ -586,7 +640,9 @@ public static class Variants {
     ///         nothing about a one-pixel disagreement reads as a bug: it reads as an author
     ///         mis-picking their breakpoint. <see cref="ContainerQuery" /> learned the range operators
     ///         for this. <c>@min-*</c> stays inclusive, which is what v4 does too and what
-    ///         <c>Screens</c> above gives every breakpoint.
+    ///         <see cref="TryScreen" /> gives every breakpoint and <c>min-*</c>. ⚠ The viewport
+    ///         family's <c>max-*</c> did not exist at all until #1346, although #609 — which this
+    ///         remark was written for — was closed as if both halves had landed.
     ///     </para>
     ///     <para>
     ///         The name goes after the last <c>/</c>, which is where v4 puts it and is unambiguous

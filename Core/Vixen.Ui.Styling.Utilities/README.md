@@ -422,6 +422,14 @@ as `--breakpoint-2xl` has been in it. Nothing caught it because the only escapin
 narrower than "test more": *a table with five entries tested at one entry is tested at none of the
 interesting ones, and the interesting one is always the entry whose shape differs.*
 
+**Breakpoints that matched and still lost.** `sm:p-2 lg:p-4` drew `p-2` on a 1200px window. Both
+rules are one class, so where both queries hold the one written later wins — and the generator wrote
+its `@media` groups in a `SortedDictionary` keyed ordinally on their text, which puts
+`(min-width: 1024px)` before `(min-width: 640px)`. Every breakpoint test asserted one breakpoint at a
+time, and one breakpoint has nothing to lose to. `AtRuleOrder` writes them in v4's order now, and the
+coverage tests enumerate every *pair*. *When the cascade decides by order, a sort key is semantics —
+and a test of one rule cannot see an order.*
+
 **A range expression that became a stylesheet rule.** `text[1..]` in `EditorIconAttribute` parsed as the
 utility `text` with the arbitrary value `1..`, and `font-size: 1..` went into the editor's sheet on every
 build. Nothing caught it because the arbitrary path was written as "goes straight through" and meant it
