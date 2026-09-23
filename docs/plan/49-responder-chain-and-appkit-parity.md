@@ -22,27 +22,44 @@ document or code comment turned out to be wrong it is named in § Part 9 rather 
 > **The responder chain is well designed, better than AppKit in six specific ways, and has never
 > decided anything at runtime, because nothing has ever registered a responder.**
 
-That is the whole document in miniature, and it is a sharper defect than "the architecture is bad".
-`Core/Vixen.Ui/Commands.cs` is 834 lines of carefully-reasoned routing whose defining rule — *the
-nearest responder that answers wins, all the way out* (`Commands.cs:387-392`) — is unfalsifiable in
-production, because the element leg of the walk always finds nothing and falls through to a single
-flat table.
+That was the whole document in miniature, and it is a sharper defect than "the architecture is bad".
+`Core/Vixen.Ui/Commands.cs` is now a thousand lines of carefully-reasoned routing whose defining
+rule — *the nearest responder that answers wins, all the way out* (`Commands.cs:434-438`) — was
+unfalsifiable in production, because the element leg of the walk always found nothing and fell
+through to a single flat table.
 
-The measurement:
+⚠ **The sentence above is history rather than the state, and the table below says which half.** The
+element leg now finds something: four framework controls and one sample panel register handlers, and
+`CommandRoute.Resolve` decides between them. What has not changed is the editor — see the paragraph
+under the table.
 
-| API | Purpose | Production callers |
-|---|---|---|
-| `UiElement.AddCommandHandler` (`Commands.cs:721`) | how an element *becomes* a responder | **0** |
-| `UiElement.RemoveCommandHandler` (`Commands.cs:749`) | — | **0** |
-| `UiElement.CommandScope` (`Commands.cs:636`) | the derived scope 45 § G2 was written to build | **0** |
-| `CommandRoute.ScopeOf` (`Commands.cs:371`) | reads it | **0** |
-| `UiDocument.CommandResponder` (`Commands.cs:474`) | `NSDocument`'s slot | **0** |
-| `UiElement.AccessKey` (`UiElement.cs:673`) | Alt-mnemonics | **0** |
-| `UiDocument.MoveFocus(NavigationDirection)` (`Navigation.cs:48`) | arrow/D-pad navigation | **0** |
+The measurement, as filed and as it stands. ⚠ **The second column is the one to read**: six of the
+seven rows are closed, and a reader sizing this work from the "filed" column alone would find seven
+open rows where there is one.
 
-Outside test projects, the **only** files in the repository that mention `AddCommandHandler`,
-`CommandScope` or `AccessKey` are their own definitions plus `Core/Vixen.Ui.Controls/ButtonBase.cs`.
-Not one sample, not one application, and — this is the load-bearing part — **not the editor either**.
+| API | Purpose | Filed | Now |
+|---|---|---|---|
+| `UiElement.AddCommandHandler` (`Commands.cs:784`) | how an element *becomes* a responder | **0** | 6 — `Documents.cs:202`, `Undo.cs:217`, `TextField.cs:391`, `CodeEditor.cs:633`, `Hierarchy.vxml:96` |
+| `UiElement.RemoveCommandHandler` (`Commands.cs:848`) | — | **0** | **0**, and correctly so — see the remark on the method |
+| `UiElement.CommandScope` (`Commands.cs:699`) | the derived scope 45 § G2 was written to build | **0** | 2 — `Hierarchy.vxml:84`, `Inspector.vxml:63` |
+| `CommandRoute.ScopeOf` (`Commands.cs:418`) | reads it | **0** | 1 — `Shell.vxml:311` |
+| `UiDocument.CommandResponder` (`Commands.cs:537`) | `NSDocument`'s slot | **0** | 1 — `Shell.vxml:323` |
+| `UiElement.AccessKey` (`UiElement.cs:709`) | Alt-mnemonics | **0** | 1 — `Shell.vxml:591` |
+| `UiDocument.MoveFocus(NavigationDirection)` (`Navigation.cs:48`) | arrow/D-pad navigation | **0** | 1 — `Shell.vxml:546` |
+
+⚠ **The "now" column is not maintained by hand and must not be.** Every row of it is asserted by
+`Core/Vixen.Ui.Tests/ResponderReachTests.cs`, which sweeps `*.cs` **and** `*.vxml` outside `*.Tests`
+for each call and fails at zero — including the seventh, inverted, so the one recorded zero cannot
+quietly stop being one. Two of the closing callers are `.vxml` only, so a `--include="*.cs"` sweep
+still reports them at zero and is wrong.
+
+As filed, outside test projects the **only** files in the repository that mentioned
+`AddCommandHandler`, `CommandScope` or `AccessKey` were their own definitions plus
+`Core/Vixen.Ui.Controls/ButtonBase.cs`: not one sample, not one application, and — the load-bearing
+part — not the editor either. ⚠ **The sample half of that sentence is now false and the editor half
+is not.** `Samples/02-HelloUi` registers handlers, declares two scopes, reads one back, installs a
+document responder, gives three menu names access keys and steps the focus between panels; the
+editor still resolves chords against a flat `CommandRegistry` and still never enters `CommandRoute`.
 
 ⚠ **Six of the seven rows are retired, and the last one of them says why the whole table was
 possible.** `MoveFocus(NavigationDirection)` had no caller for an honest reason rather than an
@@ -60,9 +77,11 @@ user in a list loses their place the moment the list runs out. `RemoveCommandHan
 still at zero, and `EditorShell.Context` → `CommandScope` remains refused for the reason recorded on
 the field itself.
 
-So `CommandRoute.Resolve` (`Commands.cs:394-416`) in production is: a loop over parents that finds
+So `CommandRoute.Resolve` (`Commands.cs:441-480`) in production was: a loop over parents that found
 nothing, followed by one dictionary lookup in `ApplicationCommandResponder`. Every property the
-design is *about* is inert.
+design was *about* was inert. ⚠ **In the editor it still is** — the editor never enters
+`CommandRoute` at all — so the sentence is false for the framework and the sample and true for the
+one application this repository ships.
 
 This is [36](36-an-extensible-editor.md)'s thesis and this repository's standing warning —
 *the commonest defect here is a finished thing nothing calls* — applied to the one subsystem that
@@ -184,7 +203,7 @@ public interface IResponder {
 ```
 
 `ICommandResponder` becomes `IResponder` with two defaulted members, so every existing implementation
-compiles unchanged and `CommandResponder` (`Commands.cs:237`) keeps its table.
+compiles unchanged and `CommandResponder` (`Commands.cs:277`) keeps its table.
 
 ### 3.2 The walk is structural, and insertion is additive
 
@@ -205,7 +224,7 @@ The full walk becomes, from `CommandRoute.Origin(document)` outwards:
 > `UiDocument.CommandResponder` → `UiDocument.ApplicationCommandResponder`
 
 A view-model, a window controller and a document object all reach the chain by being appended to the
-element that owns them, and the invariant `Commands.cs:387-392` states — *nearer wins, all the way
+element that owns them, and the invariant `Commands.cs:434-438` states — *nearer wins, all the way
 out* — is unchanged and now has something to decide between. Nothing can rewrite the walk, so a
 responder can never orphan the root.
 
@@ -421,7 +440,7 @@ system provides that the markup cannot express — and the answer is concentrate
 
 Checked hard. The framework has exactly three ancestor-walking mechanisms and none is general:
 `[UiProperty(Inherits = true)]` (`UiProperty.cs:35`), whose only producers in the whole tree are in
-`Core/Vixen.Ui.Tests/SampleElements.cs`; `EffectiveCommandScope` (`Commands.cs:695`), whose value is
+`Core/Vixen.Ui.Tests/SampleElements.cs`; `EffectiveCommandScope` (`Commands.cs:758`), whose value is
 one `string?`; and `UiDocument.Mounted` (`UiDocument.cs:279`), which records a component for an
 element and offers no "nearest ancestor of type T" query.
 

@@ -272,22 +272,6 @@ sealed class TouchActionReader {
 public sealed partial class UiDocument {
     readonly TouchActionReader touchActions = null!;
 
-    /// <summary>What <c>touch-action</c> on one element allows a finger that lands on it to do.</summary>
-    /// <param name="element">The element.</param>
-    /// <returns>The flags, or <see cref="TouchAction.Auto" /> when it declares nothing.</returns>
-    /// <remarks>
-    ///     ⚠ <b>This element's own declaration only, and that is CSS's rule rather than a shortcut.</b>
-    ///     <c>touch-action</c> does not inherit; what makes an ancestor's <c>none</c> reach a
-    ///     descendant is that the user agent intersects every element between the touched one and
-    ///     the one that would scroll — which is <see cref="TouchActionBetween" />, and is the
-    ///     question a consumer actually has.
-    /// </remarks>
-    public TouchAction TouchActionOf(UiElement element) {
-        ArgumentNullException.ThrowIfNull(element);
-
-        return touchActions.Of(element.Style);
-    }
-
     /// <summary>What a touch that landed on one element may do to an ancestor that would scroll it.</summary>
     /// <param name="target">The element the finger landed on.</param>
     /// <param name="ancestor">The element asking — the one whose user-agent behaviour is at stake.</param>
@@ -310,6 +294,13 @@ public sealed partial class UiDocument {
     ///         capture that outlived its subtree — is walked to the root and the ancestor's own
     ///         declaration is intersected on top, so the answer is never more permissive than either
     ///         side alone.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One element's own declaration is this method with the same element twice</b>, and
+    ///         there is deliberately no second method that spells it. <c>touch-action</c> does not
+    ///         inherit, so a chain of one is exactly the value the cascade resolved on that element —
+    ///         which is why <c>TouchActionOf</c>, a public reader that did only that, was a strict
+    ///         special case of this one and went the way every finished thing with no caller should.
     ///     </para>
     /// </remarks>
     public TouchAction TouchActionBetween(UiElement target, UiElement ancestor) {
