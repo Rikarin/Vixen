@@ -22,9 +22,12 @@ dragging its content under any finger — is what the property withholds.
 .carousel { touch-action: pan-y; }   /* a vertical swipe scrolls the page, a horizontal one is ours */
 ```
 
-The cascade resolves it like any other declaration. `UiDocument.TouchActionOf` reads one element's
-value as a `TouchAction` set, and `UiDocument.TouchActionBetween` answers the question a scroll view
-actually has.
+The cascade resolves it like any other declaration, and `UiDocument.TouchActionBetween` is the one
+reader: it intersects the property over the chain from the element a finger landed on up to the one
+that would scroll. ⚠ **There is no separate single-element reader, deliberately.** The property does
+not inherit, so a chain that starts and ends at the same element — `TouchActionBetween(el, el)` — is
+exactly the value the cascade resolved on it, and a second method spelling that was a public API
+nothing called.
 
 ## What it is for
 
@@ -66,6 +69,27 @@ point — see [Pointer devices](pointer-devices.md).
 ⚠ **Declined is not handled.** A scroll view that declines a drag leaves the event unhandled, so it
 goes on bubbling to whatever is above; an outer scroll view walks the same chain and finds the same
 answer.
+
+### What the control theme already declares
+
+`ControlTheme.vcss` writes the property on the controls that own a finger, so a panel that puts one
+of these inside a `ScrollView` needs no rule of its own:
+
+```vcss
+slider, range-slider, scrollbar, split-bar { touch-action: none; }
+numeric-input { touch-action: pan-y; }
+```
+
+⚠ **Capturing the pointer is not enough, which is why these rules have to exist.** A capture
+redirects the raw pointer events; the `DragEvent` the recogniser reads out of them is raised on the
+pressed control and bubbles past it. Before these declarations a finger dragging a slider inside a
+list moved the thumb *and* scrolled the list, and a finger on a scrollbar moved the same offset
+twice.
+
+⚠ **`numeric-input` is `pan-y` rather than `none`, and the difference is the whole point of the axis
+keywords.** The scrub reads the horizontal travel and nothing else, so the vertical half of a finger's
+travel is still the list's. A blanket `none` there would make a form of numeric fields unscrollable
+from anywhere a finger naturally lands.
 
 `touch-pinch-zoom` is deliberately not a utility. The keyword parses (`TouchAction.PinchZoom`), but
 nothing here performs a pinch as a user-agent default, so the class would resolve and configure

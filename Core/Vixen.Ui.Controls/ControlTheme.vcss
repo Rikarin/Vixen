@@ -940,6 +940,22 @@ scrollbar { position: absolute; }
 scrollbar.vertical { top: 0px; right: 0px; bottom: 0px; width: 10px; }
 scrollbar.horizontal { left: 0px; right: 0px; bottom: 0px; height: 10px; }
 
+/* ⚠ The controls that own a finger, and this is the first sheet in the tree to say so.
+   Capturing the pointer does NOT keep a scroll view out of the gesture: a capture redirects
+   the raw pointer events, and the `DragEvent` the recogniser reads out of them is raised on
+   the pressed control and bubbles past it — so a finger dragging a slider inside a list moved
+   the thumb and scrolled the list, and a finger on a scrollbar moved the same offset twice.
+   `touch-action` is the declaration that settles it, and until now nothing authored wrote it:
+   the family parsed, resolved and governed nothing. See `TouchAction` and doc `ui/touch-action`. */
+slider, range-slider, scrollbar, split-bar { touch-action: none; }
+
+/* ⚠ `pan-y` and not `none`, because the scrub is one axis. `NumericInput.Scrub` reads
+   `args.X` alone, so the horizontal half of a finger's travel is the field's and the vertical
+   half is still the list's — and a blanket `none` here is the commonest way this property is
+   written wrong: it makes a form of numeric fields unscrollable from anywhere a finger lands.
+   A focused field selects text horizontally instead, which wants the same split. */
+numeric-input { touch-action: pan-y; }
+
 /* ── Overlays ───────────────────────────────────────────────────────── */
 popover-content { flex-direction: column; }
 
