@@ -198,7 +198,7 @@ public sealed class ScrollingPanelPictureTests {
 
         Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
         var opaque = new byte[128 * 128 * 4];
-        Array.Fill(opaque, (byte) 255);
+        Array.Fill(opaque, (byte)255);
 
         File.WriteAllBytes(absolute, Vixen.Editor.Assets.Tests.MinimalPng.Write(128, 128, opaque));
         fixture.Project.Assets.Scan();
@@ -216,7 +216,7 @@ public sealed class ScrollingPanelPictureTests {
 
         fixture.Frames(2);
 
-        var sprites =Find<Vixen.Editor.AssetEditors.Importing.SpriteSheetView>(fixture.Document.Root)
+        var sprites = Find<Vixen.Editor.AssetEditors.Importing.SpriteSheetView>(fixture.Document.Root)
             ?? throw fixture.Fail("opening a texture opened no sprite editor");
 
         sprites.CellWidth.Number = 16;
@@ -284,7 +284,7 @@ public sealed class ScrollingPanelPictureTests {
 
         // Into the document the tab is showing. The pane keeps it private, and the editor's current
         // scene is not it: a first cut wrote into `EditorSession.Scene` and compiled four blocks.
-        var scene = (Vixen.Editor.SceneView.SceneDocument) typeof(Vixen.Editor.AssetEditors.Scenes.CompiledSceneView)
+        var scene = (Vixen.Editor.SceneView.SceneDocument)typeof(Vixen.Editor.AssetEditors.Scenes.CompiledSceneView)
             .GetField("document", BindingFlags.NonPublic | BindingFlags.Instance)!
             .GetValue(view)!;
 

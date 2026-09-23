@@ -60,6 +60,6 @@ public class OverflowRuntimeTests {
         var field = typeof(EditorApplication).GetField("log", BindingFlags.NonPublic | BindingFlags.Instance)
             ?? throw fixture.Fail("EditorApplication has no `log` field for the console to read");
 
-        return ((EditorLog) field.GetValue(fixture.Editor)!).Sink;
+        return ((EditorLog)field.GetValue(fixture.Editor)!).Sink;
     }
 }
