@@ -2230,7 +2230,7 @@ them is an assertion that is already true. **For the editor's actual containers 
 nothing to enforce.**
 
 The cycle is real for everything that escapes that branch: anything reaching
-`DetermineBlockContentWidth` (`LayoutTree.Block.cs:1105`), a flex item sized by its basis, a grid item
+`DetermineBlockContentWidth` (`LayoutTree.Block.cs:1106`), a flex item sized by its basis, a grid item
 in an intrinsic track, `width: max-content` / `fit-content`. For those, `container-type` must either
 coerce the axis to `StretchFit` or be refused. **Coercion cannot be expressed from outside
 `Vixen.Ui.Layout`**: `LayoutUnit.Stretch` looks like the way to say it and is an *unimplemented enum
