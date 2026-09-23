@@ -87,7 +87,7 @@ node-graph > node-canvas	Editor/Vixen.Editor.NodeGraph/NodeGraphTheme.vcss
 outliner-filters > search-box	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 outliner-filters > select	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 override-bar > textbox	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
-override-body > override-row	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+override-body > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 override-cell > checkbox	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 override-cell > numeric-input	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 override-cell > select	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
@@ -100,6 +100,7 @@ radial-item > icon	Core/Vixen.Ui.Controls/ControlTheme.vcss
 remote-body > tree-view	Editor/Vixen.Editor.Debugger/DebuggerTheme.vcss
 remote-write > textbox	Editor/Vixen.Editor.Debugger/DebuggerTheme.vcss
 scroll-content > button	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+scroll-content > override-row	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 scroll-view > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 segment > icon	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 segmented-control > segment	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss

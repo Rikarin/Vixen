@@ -87,7 +87,7 @@ node-graph > node-canvas
 outliner-filters > search-box
 outliner-filters > select
 override-bar > textbox
-override-body > override-row
+override-body > scroll-content
 override-cell > checkbox
 override-cell > numeric-input
 override-cell > select
@@ -97,6 +97,7 @@ profiler-view > data-grid
 remote-body > tree-view
 remote-write > textbox
 scroll-content > button
+scroll-content > override-row
 scroll-view > scroll-content
 segment > icon
 segmented-control > segment

@@ -22,8 +22,9 @@ using Xunit;
 namespace Vixen.Editor.App.Tests;
 
 /// <summary>
-///     The three panels #1275 converted from <c>overflow: auto</c> to a <c>ScrollView</c>, drawn before
-///     and after a scroll, with the difference between the two pictures held to the view's own box.
+///     The panels #1275 converted from <c>overflow: auto</c> to a <c>ScrollView</c>, drawn before and
+///     after a scroll, with the difference between the two pictures held to the view's own box — and
+///     the two it closed by removing a declaration, held to the panel's own scroll.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -425,6 +426,54 @@ public sealed class ScrollingPanelPictureTests {
         );
     }
 
+    /// <summary>A model's platform-override grid, sideways, over more targets than the panel is wide.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The targets are added with the import settings scrolled to the top, and that is a
+    ///         workaround for a crash rather than a choice.</b> Adding a target rebuilds the grid's
+    ///         rows, and with the settings' <c>ScrollView</c> scrolled down its scroll anchor is one of
+    ///         those rows: the next settle asks the removed row for its position and
+    ///         <c>UiElement.Document</c> throws, because <c>ScrollView.Holds</c> walks <c>Parent</c>
+    ///         and a removed element keeps its parent pointer. That is a defect of its own, reported
+    ///         with this work.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_override_grid_scrolls_sideways_inside_its_box_and_nowhere_else() {
+        using var fixture = Start();
+
+        var absolute = fixture.Project.Paths.Absolute("Assets/Crate.gltf");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
+        File.WriteAllText(absolute, "{\"asset\":{\"version\":\"2.0\"}}");
+        fixture.Project.Assets.Scan();
+
+        Assert.True(fixture.Project.Assets.TryGetByPath("Assets/Crate.gltf", out var entry));
+
+        fixture.Editor.OpenAsset(entry.Guid);
+        fixture.Frames(2);
+
+        foreach (var target in (ReadOnlySpan<string>)["Android", "iOS", "Switch", "WebGPU", "Windows", "Linux"]) {
+            // Found again each time: adding a target rebuilds what is under the matrix.
+            var matrix = Find<Vixen.Editor.AssetEditors.Importing.TargetOverrideMatrix>(fixture.Document.Root)
+                ?? throw fixture.Fail("the model document has no platform-override grid");
+
+            matrix.TargetName.Value = target;
+            matrix.AddTarget.Activate();
+            fixture.Frames(1);
+        }
+
+        fixture.Frames(2);
+
+        var grid = Scroller(fixture, "override-body");
+
+        // Brought on screen by the settings' own scroller, the way a person would reach it.
+        Ancestors(grid).OfType<ScrollView>().First().ScrollIntoView(grid);
+        fixture.Frames(2);
+
+        Check(fixture, grid, "override-body", sideways: true);
+    }
+
     static EditorSession Start(int width = Width, int height = Height) =>
         EditorSession.Start(new EditorSessionOptions { Width = width, Height = height });
 
@@ -453,8 +502,14 @@ public sealed class ScrollingPanelPictureTests {
 
             var cut = Box(ancestor);
 
+            // ⚠ Along the scroll's own axis only when it runs sideways. A sideways scroller may be
+            // taller than a vertical one it sits in — the override grid is, inside the import
+            // settings' region — and that is the outer view's business, reached by the outer bar.
+            var across = box.Left >= cut.Left && box.Right <= cut.Right;
+            var down = box.Top >= cut.Top && box.Bottom <= cut.Bottom;
+
             Assert.True(
-                box.Left >= cut.Left && box.Top >= cut.Top && box.Right <= cut.Right && box.Bottom <= cut.Bottom,
+                sideways ? across : across && down,
                 $"<{view.Tag}> {box} is cut by <{ancestor.Tag}> {cut}, so the far end of its scroll is behind "
                 + $"that element's edge at {WidthOf(fixture)}×{HeightOf(fixture)}."
             );

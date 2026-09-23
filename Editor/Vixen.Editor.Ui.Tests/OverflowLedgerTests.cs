@@ -18,7 +18,7 @@ namespace Vixen.Editor.Ui.Tests;
 ///         kinds (#1275), and the issue counted six more. ⚠ <b>The count was twenty-four</b>: the
 ///         issue grepped the shorthand, and <c>overflow-y: auto</c> is the same defect spelt for one
 ///         axis — sixteen more rules across the two editor themes, every one on a side panel or a
-///         list. Twenty-three of the twenty-four are closed; the one below says why it is not.
+///         list. All twenty-four are closed now; the paragraphs below say how.
 ///     </para>
 ///     <para>
 ///         <b>This is the build-time half of the report; <c>UiDocument</c>'s 7009 is the run-time
@@ -101,17 +101,20 @@ public class OverflowLedgerTests {
     ///         every row. The declaration went; the panel is pixel-identical and the 7009 line is gone.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The one that is left is left for a reason, not for want of time.</b>
-    ///         <c>override-body</c> carries a <b>child-combinator</b> rule
-    ///         (<c>override-body &gt; override-row</c>), scrolls sideways, and lives in
-    ///         <c>ImportSettingsView</c> — which in the texture document's Texture tab sits below the
-    ///         mip ladder, past the tab's bottom edge at 1600×1000 with nothing to scroll the tab. So it
-    ///         wants a model document, or that tab fixed, before it can be pictured.
+    ///         ⚠ <b><c>override-body</c> was the last, and pictured in a model document</b> — in the
+    ///         texture document <c>ImportSettingsView</c> sits below the mip ladder, past the Texture
+    ///         tab's edge. Sideways inside a vertical scroller, which cost one thing more than the
+    ///         mixer did: the outer scroll's content is as wide as its widest child, so the grid had to
+    ///         <c>contain: inline-size</c> or it widened everything above it and had nothing to scroll.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the ledger is empty, and stays a test.</b> Two rules were closed by removing a
+    ///         declaration whose panel already scrolled (the compiled-scene pair and
+    ///         <c>input-debug</c>); every other one is a <c>ScrollView</c>. A new rule asking a plain box
+    ///         to scroll fails here from now on.
     ///     </para>
     /// </remarks>
-    static readonly string[] Remaining = [
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss:override-body"
-    ];
+    static readonly string[] Remaining = [];
 
     [Fact]
     public void Every_rule_asking_a_plain_box_to_scroll_is_named_here_and_nowhere_else() {

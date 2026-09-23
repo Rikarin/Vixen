@@ -182,7 +182,8 @@ option icon	Panels
 outliner-filters > search-box	Started
 outliner-filters > select	Started
 override-bar > textbox	Documents
-override-body > override-row	Documents
+override-body > scroll-content	Documents
+override-body > scroll-content > override-row	Documents
 override-cell > checkbox	Documents
 override-cell > numeric-input	Documents
 override-cell > select	Documents
