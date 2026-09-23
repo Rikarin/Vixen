@@ -756,6 +756,40 @@ Vixen.Ui.Controls.Advanced.ImageViewRequest.ColorSpace.get -> Vixen.Ui.Controls.
 Vixen.Ui.Controls.Advanced.ImageViewRequest.ColorSpace.init -> Vixen.Ui.Controls.Advanced.ImageColorSpace
 Vixen.Ui.Controls.Advanced.ImageViewRequest.ImageViewRequest() -> void
 Vixen.Ui.Controls.Advanced.ImageViewRequest.ImageViewRequest(Vixen.Ui.Controls.Advanced.ImageChannels Channels, Vixen.Ui.Controls.Advanced.ImageColorSpace ColorSpace) -> void
+Vixen.Ui.Controls.Advanced.KeyBindingRow -> sealed record
+Vixen.Ui.Controls.Advanced.KeyBindingRow : System.IEquatable<Vixen.Ui.Controls.Advanced.KeyBindingRow>
+Vixen.Ui.Controls.Advanced.KeyBindingRow.Category.get -> string
+Vixen.Ui.Controls.Advanced.KeyBindingRow.Category.init -> string
+Vixen.Ui.Controls.Advanced.KeyBindingRow.Id.get -> string
+Vixen.Ui.Controls.Advanced.KeyBindingRow.Id.init -> string
+Vixen.Ui.Controls.Advanced.KeyBindingRow.KeyBindingRow(string Id, string Title, string Category) -> void
+Vixen.Ui.Controls.Advanced.KeyBindingRow.Title.get -> string
+Vixen.Ui.Controls.Advanced.KeyBindingRow.Title.init -> string
+Vixen.Ui.Controls.Advanced.KeyBindingsView -> sealed class
+Vixen.Ui.Controls.Advanced.KeyBindingsView : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.KeyBindingsView.Capture(bool on) -> void
+Vixen.Ui.Controls.Advanced.KeyBindingsView.Conflict.get -> string?
+Vixen.Ui.Controls.Advanced.KeyBindingsView.Export.get -> Vixen.Ui.Controls.Button
+Vixen.Ui.Controls.Advanced.KeyBindingsView.ExportRequested -> System.Action<Vixen.Ui.Controls.Advanced.KeyBindingsView>?
+Vixen.Ui.Controls.Advanced.KeyBindingsView.Grid.get -> Vixen.Ui.Controls.Advanced.DataGrid
+Vixen.Ui.Controls.Advanced.KeyBindingsView.Import.get -> Vixen.Ui.Controls.Button
+Vixen.Ui.Controls.Advanced.KeyBindingsView.ImportRequested -> System.Action<Vixen.Ui.Controls.Advanced.KeyBindingsView>?
+Vixen.Ui.Controls.Advanced.KeyBindingsView.IsCapturing.get -> bool
+Vixen.Ui.Controls.Advanced.KeyBindingsView.KeyBindingsView() -> void
+Vixen.Ui.Controls.Advanced.KeyBindingsView.Pending.get -> Vixen.Ui.KeyChord
+Vixen.Ui.Controls.Advanced.KeyBindingsView.PresetNames.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Ui.Controls.Advanced.KeyBindingsView.PresetNames.set -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Ui.Controls.Advanced.KeyBindingsView.Presets.get -> Vixen.Ui.Controls.Select
+Vixen.Ui.Controls.Advanced.KeyBindingsView.Rebind(Vixen.Ui.KeyChord chord, bool replace = false) -> Vixen.Ui.Controls.BindResult
+Vixen.Ui.Controls.Advanced.KeyBindingsView.Rebuild() -> void
+Vixen.Ui.Controls.Advanced.KeyBindingsView.Record.get -> Vixen.Ui.Controls.Button
+Vixen.Ui.Controls.Advanced.KeyBindingsView.Refresh() -> void
+Vixen.Ui.Controls.Advanced.KeyBindingsView.Search.get -> Vixen.Ui.Controls.SearchBox
+Vixen.Ui.Controls.Advanced.KeyBindingsView.Selected.get -> string?
+Vixen.Ui.Controls.Advanced.KeyBindingsView.Show(Vixen.Ui.Controls.CommandRegistry registry, Vixen.Ui.Controls.KeyMap map) -> void
+Vixen.Ui.Controls.Advanced.KeyBindingsView.Status.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.KeyBindingsView.Toolbar.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.KeyMapYaml -> static class
 Vixen.Ui.Controls.Advanced.NodeCanvas -> sealed class
 Vixen.Ui.Controls.Advanced.NodeCanvas : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.Advanced.NodeCanvas.Activated -> System.Action<Vixen.Ui.Controls.Advanced.NodeCanvas, Vixen.Ui.Controls.Advanced.GraphNode>?
@@ -1378,6 +1412,11 @@ override Vixen.Ui.Controls.Advanced.ImageViewBar.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.ImageViewBar.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.ImageViewBar.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.ImageViewBar.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.KeyBindingsView.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.KeyBindingsView.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.Advanced.KeyBindingsView.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.KeyBindingsView.OnRemoved() -> void
+override Vixen.Ui.Controls.Advanced.KeyBindingsView.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.NodeCanvas.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.NodeCanvas.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.NodeCanvas.OnCreated() -> void
@@ -1458,6 +1497,10 @@ static Vixen.Ui.Controls.Advanced.DockLayout.Load(string yaml) -> Vixen.Ui.Contr
 static Vixen.Ui.Controls.Advanced.DockNode.FromYaml(Vixen.Core.Yaml.YamlNode? node) -> Vixen.Ui.Controls.Advanced.DockNode?
 static Vixen.Ui.Controls.Advanced.DockPanel.Fills(Vixen.Ui.UiElement element) -> bool
 static Vixen.Ui.Controls.Advanced.Hsv.FromRgb(Vixen.Core.Mathematics.Color4 color) -> Vixen.Ui.Controls.Advanced.Hsv
+static Vixen.Ui.Controls.Advanced.KeyMapYaml.Read(Vixen.Ui.Controls.KeyMap keys, string yaml) -> void
+static Vixen.Ui.Controls.Advanced.KeyMapYaml.ReadPreset(string name, string yaml) -> Vixen.Ui.Controls.KeyMapPreset
+static Vixen.Ui.Controls.Advanced.KeyMapYaml.Write(Vixen.Ui.Controls.KeyMap keys) -> string
+static Vixen.Ui.Controls.Advanced.KeyMapYaml.Write(Vixen.Ui.Controls.KeyMapPreset preset) -> string
 static Vixen.Ui.Controls.Advanced.NodeCanvas.Handles(Vixen.Ui.Controls.Advanced.NodeCanvas canvas, Vixen.Core.Mathematics.Vector2 from, Vixen.Core.Mathematics.Vector2 to) -> (Vixen.Core.Mathematics.Vector2 First, Vixen.Core.Mathematics.Vector2 Second)
 static Vixen.Ui.Controls.Advanced.OkLch.FromSrgb(Vixen.Core.Mathematics.Color4 color) -> Vixen.Ui.Controls.Advanced.OkLch
 static Vixen.Ui.Controls.Advanced.PlainTokenizer.Instance.get -> Vixen.Ui.Controls.Advanced.PlainTokenizer

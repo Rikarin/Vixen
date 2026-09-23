@@ -109,6 +109,15 @@ global reset, and import/export raised as events for whoever has a file picker. 
 rather than a modal**, so the harness can drive it; the consequence is that Escape is the one chord it
 will not bind.
 
+⚠ **It is not this assembly's any more (#650).** `KeyBindingsView` and `KeyMapYaml` are
+`Vixen.Ui.Controls.Advanced`'s, so an application that can dispatch a chord can now also list,
+rebind and keep one; what stays here is the editor's data — `KeyMapPresets`, supplied to the panel
+through `KeyBindingsView.PresetNames` exactly as another host would supply its own. The move was held
+to `KeyBindingsViewDumpTests`, recorded before it, and every tree, flags dump and software-rasterised
+capture in five states came out byte-identical. It also found a defect nothing here could: the panel
+is a tab stop and had no accessibility role, which the Advanced suite's two sweeps refused the first
+time they built it.
+
 `KeyBindingsView.vxml` since doc 36 § F7 wave 1b, and two things about that port are worth keeping.
 
 ⚠ **`KeyMap` and `CommandRegistry` needed no signals.** The wave's brief was that every panel ported
@@ -980,7 +989,7 @@ matched byte-for-byte across six states, because every state had rows.
 went stale the same way.** It is a claim about the tree written in a document, which is the same
 failure the sentence above it describes — and the second one lasted a single wave: wave 9's own
 `ComponentsViewDumpTests` was missing from the table below while the file's remarks called themselves
-"a committed dump rather than a wave note". There are **nine**.
+"a committed dump rather than a wave note". There are **eleven**.
 
 ⚠ **The table is derived now, and that is the only part of this section a reader should trust
 without checking.** `DumpLedgerTests` scans every `Editor/**/*.Tests` source for a call to
@@ -999,8 +1008,16 @@ prose is still prose; the list is a measurement.
 | `Vixen.Editor.App.Tests/AddComponentMenuDumpTests` | `AddComponentMenu` (wave 8) |
 | `Vixen.Editor.AssetEditors.Tests/InputActionsViewDumpTests` | `InputActionsView` (wave 9) |
 | `Vixen.Editor.App.Tests/ComponentsViewDumpTests` | `ComponentsView`'s header, in four states reached through the interface (wave 9) |
+| `Vixen.Editor.Ui.Tests/MessageLogViewDumpTests` | `MessageLogView`, in six states reached through the interface, recorded from the hand-written control *before* its port (#89) |
+| `Vixen.Editor.Ui.Tests/KeyBindingsViewDumpTests` | `KeyBindingsView` as the editor hosts it, in five states, recorded while it was still the editor's and held to that after it moved to `Vixen.Ui.Controls.Advanced` (#650) |
 
-⚠ **There is still no overlap between those nine and the nine claims.** Every panel with a committed
+⚠ **`MessageLogViewDumpTests` is the first dump committed before the port it judges rather than
+after it.** Its reference strings are what the hand-written C# control drew, so the port is held to
+them rather than to itself — the one arrangement in which "byte-identical" is a test and not a wave
+note. It overlaps none of the nine claims below either; it is simply the shape the next port should
+copy.
+
+⚠ **There is still no overlap between the first nine and the nine claims.** Every panel with a committed
 dump is one whose row makes *no* byte-identical claim, and every panel that makes one has no dump —
 `ComponentsViewDumpTests` is the evidence for the panel ledger's own last row and not for any of the
 nine adjudicated below. So the count going from three to nine closed none of this, and reading the two
@@ -1071,7 +1088,8 @@ record, an additive signal-backing, and shapes 1–3 above saying leave it alone
 | `AudioMixerView` | snapshot | no | ~~**no**~~ ~~**port**~~ **done, wave 3 (2026-08-23).** 541 lines of C# → a 250-line `.vxml`, a 60-line `.cs` of records and captions, and a whole-tree rectangle dump in three states that is byte-identical to what it replaced | ~~XL~~ M |
 | `AnimationClipView` | snapshot | no | **no** — `Timeline.AddTrack`/`AddSpan` + `CurveEditor` is the whole panel | L |
 | `NodeGraphView` | live | no | **no** — `Canvas.Graph = built` and four `OnDraw` layers; nodes, ports and wires are not elements | XL |
-| `ConsoleView` · `MessageLogView` · `AssetGrid` | live | no | **no** — `VirtualizingPanel`/`Grid` row templates | — |
+| `ConsoleView` · `AssetGrid` | live | no | **no** — `VirtualizingPanel`/`Grid` row templates | — |
+| `MessageLogView` | live | the selection, yes; the history, deliberately no | ~~**no** — `VirtualizingPanel` row template~~ **done (#89, 2026-09-23), and the "no" was about the rows only.** The toolbar and the detail pane are markup; `Row`/`Bind` are the hand-written methods, handed to the panel in `OnComposed`, exactly as the "two earlier exclusions" section below predicted. The model decision is one `Signal<int>` — the chosen row's index, not the `Notification`, because the record struct makes two same-second duplicates equal — and the pane and its `empty` class are bindings over it, where the C# cleared and refilled the pane from four call sites. ⚠ **Recording the reference found the pane unreachable**: rows waited for a `ClickEvent`, which only a `Control` raises, so no pointer could choose a message — `ConsoleView`'s fix of July, never applied to the panel beside it. Fixed before the reference was taken (`7d5ba5692`). `MessageLogViewDumpTests` is the first dump **committed before the port it judges**, recorded from the C# control in six states reached through the interface; the port matches every tree and flags dump byte for byte, and the six software-rasterised captures are byte-identical PNGs. Sabotage: a heading binding that stops reading the signal after its first run (`??=`) reddens only the second-choice test; `Selected` read with `Peek()` reddens the three that choose a row | S |
 | `InspectorView` + the four drawers · `TargetOverrideMatrix` | — | — | **no** — a drawer *is* a factory, and markup cannot be one | — |
 | `ProjectBrowser` · `ViewportLayout` · `ToolbarPresenter` · `MenuPresenter` · `AssetPicker` · `ViewportChrome` · `EditorSettingsPanels` · `EditorDiagnostics` · `DeclaredContributions` | — | — | **not panels** — shape 4 | — |
 | `SceneHierarchyView` | dump | yes | ~~**not a panel** — shape 4~~ **done, `dc6851a7a` (2026-09-23).** ⚠ **This row was wrong for four waves and nothing could catch it**, which is the first thing to record: "not a panel" was read off the *binding* (`new SceneHierarchyView(scene, panel)` building into a caller's element) rather than off the tree, and the tree was contiguous and rooted at that panel all along — the port is a `Control` subclass and a 177-line `.vxml`, and the `.cs` is `public sealed partial class SceneHierarchyView;`. The rows stay `TreeNode` data painted by `Refresh()` rather than a `@for`, because the `VirtualizingPanel` exists so that element count follows the viewport; `Renamed` stays a row-text move so an expansion deeper than the roots survives; selection still travels **out** only, deliberately, since closing that loop means a second author on `SelectedNodes`. `SelectionChanged` became `change:SelectedNodes`, which is strictly quieter — the old form answered a reselect of the already-selected row with a clear-and-re-add. ⚠ **The port closed a live defect rather than being cosmetic**: the old class exposed `Detach()` and the one production site kept no handle, so a reopened panel left a view subscribed and the next `scene.Add` threw `InvalidOperationException` out of `SceneDocument.Add` when `TreeView.Refresh` asked a removed `VirtualizingPanel` for a row height. `OnUnmounted` answers it — not an `OnRemoved` override, which the generator writes. ⚠ **A new component host needs its own `.vcss` rule or the child lays out at zero**: deleting the `scene-hierarchy` rule takes the A/B from `1200x773` to `1200x0` with every row present, answerable and invisible, and that sabotage is what makes the A/B evidence rather than a number | S |
@@ -1154,6 +1172,13 @@ that virtualises through `use=` and a pair of lambdas in `@code`, counted by `Vi
 So the exclusion is exactly and only the two delegates: everything else about a virtualised list is
 already sayable, and a port would move the tag, the `ref`, the toolbar and the detail pane and leave
 `CreateRow`/`BindRow` in the code-behind — which is the shape #758's `@rows` block would finish.
+
+✅ **Ported exactly that way (#89, 2026-09-23)**, and the prediction held to the letter: the tag, the
+three `ref`s, the toolbar and the detail pane moved; `Row` and `Bind` are the hand-written methods in
+`@code`, assigned in `OnComposed` rather than through `use=` because nothing about them is reactive.
+See the panel ledger's `MessageLogView` row. `ConsoleView` stays — its detail pane is the same shape,
+but its rows carry five columns and a double-tap that opens a source file, and it has no reference
+dump yet to be held to.
 
 **`SettingsView` — no longer excluded.** `SettingsCategory.Build` is still an `Action<UiElement>`,
 invoked at one site (`Reload()`), from seven callers in `EditorSettingsPanels`. But the factory never

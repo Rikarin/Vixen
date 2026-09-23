@@ -255,66 +255,6 @@ public static class EditorStrings {
     /// </remarks>
     public static StringId PanelRevisions { get; } = new("editor.panel.revisions", "Revisions");
 
-    /// <summary>What the keybinding editor's filter box says when it is empty.</summary>
-    public static StringId KeysFilter { get; } = new("editor.keys.filter", "Filter commands…");
-
-    /// <summary>Puts the panel into capture mode.</summary>
-    public static StringId KeysRecord { get; } = new("editor.keys.record", "Press a Key…");
-
-    /// <summary>What that button says while it is waiting.</summary>
-    public static StringId KeysRecording { get; } = new("editor.keys.recording", "Waiting…");
-
-    /// <summary>Unbinds the selected command.</summary>
-    public static StringId KeysClear { get; } = new("editor.keys.clear", "Unbind");
-
-    /// <summary>Puts one row back to the layer underneath.</summary>
-    public static StringId KeysResetRow { get; } = new("editor.keys.reset-row", "Reset");
-
-    /// <summary>Puts every row back.</summary>
-    public static StringId KeysResetAll { get; } = new("editor.keys.reset-all", "Reset All");
-
-    /// <summary>Reads a keymap file in.</summary>
-    public static StringId KeysImport { get; } = new("editor.keys.import", "Import…");
-
-    /// <summary>Writes one out.</summary>
-    public static StringId KeysExport { get; } = new("editor.keys.export", "Export…");
-
-    /// <summary>The command column.</summary>
-    public static StringId KeysColumnCommand { get; } = new("editor.keys.column.command", "Command");
-
-    /// <summary>The category column.</summary>
-    public static StringId KeysColumnCategory { get; } = new("editor.keys.column.category", "Category");
-
-    /// <summary>The shortcut column.</summary>
-    public static StringId KeysColumnBinding { get; } = new("editor.keys.column.binding", "Shortcut");
-
-    /// <summary>The column saying which layer a binding came from.</summary>
-    public static StringId KeysColumnSource { get; } = new("editor.keys.column.source", "Source");
-
-    /// <summary>What that column says for a binding the application shipped.</summary>
-    public static StringId KeysSourceDefault { get; } = new("editor.keys.source.default", "Default");
-
-    /// <summary>And for one the user made.</summary>
-    public static StringId KeysSourceUser { get; } = new("editor.keys.source.user", "Yours");
-
-    /// <summary>What the status line says with no row chosen.</summary>
-    public static StringId KeysPickRow { get; } = new("editor.keys.pick-row", "Choose a command to rebind it.");
-
-    /// <summary>And with one chosen.</summary>
-    public static StringId KeysReady { get; } = new("editor.keys.ready", "Press a Key, or double-click the row.");
-
-    /// <summary>And while it is waiting for one.</summary>
-    public static StringId KeysWaiting { get; } =
-        new("editor.keys.waiting", "Press the shortcut you want. Escape cancels.");
-
-    /// <summary>What it says when the chord is taken.</summary>
-    public static StringId KeysConflict { get; } =
-        new("editor.keys.conflict", "{0} is already {1}. Press it again to take it.");
-
-    /// <summary>What it says when a keymap file names a preset this editor has not got.</summary>
-    public static StringId KeysUnknownPreset { get; } =
-        new("editor.keys.unknown-preset", "There is no keymap preset called '{0}'.");
-
     /// <summary>The message log's "no filter" choice.</summary>
     public static StringId MessagesAllLevels { get; } = new("editor.messages.all-levels", "All Messages");
 
@@ -1198,25 +1138,6 @@ public static class EditorStrings {
         PanelPlugins,
         PanelHistory,
         PanelRevisions,
-        KeysFilter,
-        KeysRecord,
-        KeysRecording,
-        KeysClear,
-        KeysResetRow,
-        KeysResetAll,
-        KeysImport,
-        KeysExport,
-        KeysColumnCommand,
-        KeysColumnCategory,
-        KeysColumnBinding,
-        KeysColumnSource,
-        KeysSourceDefault,
-        KeysSourceUser,
-        KeysPickRow,
-        KeysReady,
-        KeysWaiting,
-        KeysConflict,
-        KeysUnknownPreset,
         MessagesAllLevels,
         MessagesErrors,
         MessagesWarnings,
