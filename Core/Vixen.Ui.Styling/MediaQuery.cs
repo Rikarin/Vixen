@@ -176,7 +176,26 @@ public readonly record struct MediaContext(
     ColorSchemePreference ColorScheme = ColorSchemePreference.NoPreference,
     ColorGamut Gamut = ColorGamut.Srgb,
     MediaPreferences Preferences = default
-);
+) {
+    /// <summary>The initial font size, in logical pixels: what <c>rem</c> and <c>em</c> measure in a media query.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The <i>initial</i> font size, and not any font an element declared.</b> Media
+    ///         Queries 4 § 1.3 measures both units against it because a media query has no element to
+    ///         take a font from. Here it is the document's <c>UiDocument.RootFontSize</c>, the
+    ///         text-scale preference, so <c>(min-width: 40rem)</c> is 640 pixels at 100 % and 960 at
+    ///         150 %. That is the reason v4 writes its breakpoints in <c>rem</c>: a user who asked for
+    ///         larger text gets the narrower layout sooner. <c>UiSurface.Media</c> fills it, and the
+    ///         setter re-asks every surface when it moves, the same way a resize does.
+    ///     </para>
+    ///     <para>
+    ///         Sixteen when a context is built without saying, which is CSS's own <c>medium</c>. It
+    ///         is not a positional parameter, so the existing constructor calls keep their meaning.
+    ///         ⚠ <c>default(MediaContext)</c> holds zero, as it holds a nought-by-nought surface.
+    ///     </para>
+    /// </remarks>
+    public float FontSize { get; init; } = 16f;
+}
 
 /// <summary>Evaluates the <c>@media</c> conditions doc 09 lists as supported.</summary>
 /// <remarks>
@@ -471,7 +490,11 @@ public static class MediaQuery {
             return true;
         }
 
-        if (!TryLength(value, out var wanted)) {
+        // ⚠ A resolution has no font to be relative to, so `(min-resolution: 2rem)` is refused rather
+        // than read as thirty-two dots per pixel.
+        var font = name.Equals("resolution", StringComparison.OrdinalIgnoreCase) ? float.NaN : context.FontSize;
+
+        if (!TryLength(value, font, font, out var wanted)) {
             reason = $"'{value}' is not a length Vixen can compare";
             return false;
         }
@@ -482,7 +505,7 @@ public static class MediaQuery {
             return true;
         }
 
-        if (!TryLength(terms.SecondValue, out var second)) {
+        if (!TryLength(terms.SecondValue, font, font, out var second)) {
             reason = $"'{terms.SecondValue}' is not a length Vixen can compare";
             return false;
         }
@@ -584,18 +607,29 @@ public static class MediaQuery {
     ///         table to forget to extend.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>No <c>rem</c> and no <c>em</c>, so <c>(min-width: 40rem)</c> is a load
-    ///         diagnostic in both at-rules and the block is dropped.</b> This remark used to say both
-    ///         read <c>20rem</c>, and neither ever did. They are not simply missing: the two at-rules
-    ///         answer the font question differently. Media Queries 4 § 1.3 measures a media query's
-    ///         <c>em</c> against the <i>initial</i> font size, which here is the document's
-    ///         <c>RootFontSize</c> — the text-scale preference — and not any declared value, while
-    ///         Containment 3 measures a container query's against the <i>container's</i> computed
-    ///         font. Neither number reaches <see cref="MediaContext" /> or <see cref="ContainerBox" />
-    ///         today, and a fixed 16 would be the guess this class exists to refuse.
+    ///         ⚠ <b><c>rem</c> and <c>em</c> are read, and the caller says what each one is, because
+    ///         the two at-rules answer that question differently (#1373).</b> Media Queries 4 § 1.3
+    ///         measures both of a media query's units against the <i>initial</i> font size, which is
+    ///         <see cref="MediaContext.FontSize" />, the text-scale preference. CSS Containment 3
+    ///         measures a container query's <c>em</c> against the <i>container's</i> computed font
+    ///         and its <c>rem</c> against the root's, which are <see cref="ContainerBox.FontSize" /> and
+    ///         <see cref="ContainerBox.RootFontSize" />. Until then neither unit was read, and the
+    ///         remark here claimed for a long time that both were. A fixed 16 in the table would have
+    ///         been right only at 100 % text size.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Whether a length reads is still a property of the text alone.</b> The font sizes
+    ///         are multipliers applied after the parse, so the loader's once-only readability check
+    ///         against a <c>default</c> context says the same thing it will say on every surface. The
+    ///         one exception is deliberate: a <see cref="float.NaN" /> font refuses the unit, which is
+    ///         how <c>resolution</c> says it has no font to be relative to.
     ///     </para>
     /// </remarks>
-    internal static bool TryLength(ReadOnlySpan<char> text, out float value) {
+    /// <param name="text">The value as written.</param>
+    /// <param name="em">What one <c>em</c> is, in pixels, or <see cref="float.NaN" /> to refuse the unit.</param>
+    /// <param name="rem">What one <c>rem</c> is, in pixels, or <see cref="float.NaN" /> to refuse the unit.</param>
+    /// <param name="value">Receives the length in pixels.</param>
+    internal static bool TryLength(ReadOnlySpan<char> text, float em, float rem, out float value) {
         var scale = 1f;
 
         foreach (var (unit, factor) in Units) {
@@ -604,11 +638,17 @@ public static class MediaQuery {
             }
 
             text = text[..^unit.Length];
-            scale = factor;
+            scale = factor switch {
+                FontRelative.Em => em,
+                FontRelative.Rem => rem,
+                _ => factor
+            };
+
             break;
         }
 
-        if (!float.TryParse(text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out value)) {
+        if (float.IsNaN(scale) || !float.TryParse(text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out value)) {
+            value = 0f;
             return false;
         }
 
@@ -616,9 +656,16 @@ public static class MediaQuery {
         return true;
     }
 
+    /// <summary>Sentinel factors in <see cref="Units" /> for the two units whose size the caller supplies.</summary>
+    static class FontRelative {
+        public const float Em = -1f;
+        public const float Rem = -2f;
+    }
+
     // Longest suffix first, or `2dppx` reads as a length in pixels ending in "d" and `2x` never
-    // gets the chance to be a resolution at all.
+    // gets the chance to be a resolution at all. ⚠ And `rem` before `em`, which it ends with — the
+    // other order reads `40rem` as the number `40r` in ems and refuses it.
     static readonly (string Unit, float Factor)[] Units = [
-        ("dppx", 1f), ("dpcm", 2.54f / 96f), ("dpi", 1f / 96f), ("px", 1f), ("x", 1f)
+        ("dppx", 1f), ("dpcm", 2.54f / 96f), ("dpi", 1f / 96f), ("rem", FontRelative.Rem), ("em", FontRelative.Em), ("px", 1f), ("x", 1f)
     ];
 }

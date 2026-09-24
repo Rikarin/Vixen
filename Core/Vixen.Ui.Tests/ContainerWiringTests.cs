@@ -747,4 +747,47 @@ public class ContainerWiringTests {
         Assert.True(document.Settled);
         Assert.DoesNotContain(sink.Snapshot(), record => record.EventId.Id == 7007);
     }
+
+    /// <summary>
+    ///     ⚠ A container query's <c>em</c> is the container's own font and its <c>rem</c> is the
+    ///     root's, and a font change at one size re-asks the query (#1373).
+    /// </summary>
+    /// <remarks>
+    ///     The panel's content box is 450 wide and its font is 20, over a root of 16. <c>24em</c> is
+    ///     therefore 480, and the panel is below it; read at the root's font it would be 384, and
+    ///     the panel would be above it. <c>24rem</c> is 384 either way, so the second rule holds, and
+    ///     the pair is what tells the two units apart. Setting the panel's font back to 16 at the same
+    ///     size moves <c>24em</c> to 384. Only the font is in the box's key, so the scope moves and the
+    ///     rule applies; nothing else was resized.
+    /// </remarks>
+    [Fact]
+    public void A_container_queries_em_against_its_own_font_and_rem_against_the_roots() {
+        using var document = Document("""
+            root { width: 1000px; height: 600px; flex-direction: column; }
+            .panel { container-type: inline-size; width: 450px; height: 100px; font-size: 20px; flex-direction: column; }
+            .panel.plain { font-size: 16px; }
+            .em { width: 10px; height: 10px; }
+            .rem { width: 10px; height: 10px; }
+            @container (min-width: 24em) { .em { width: 300px; } }
+            @container (min-width: 24rem) { .rem { width: 200px; } }
+            """);
+
+        var panel = document.Root.Add("div", classNames: "panel");
+        var em = panel.Add("div", classNames: "em");
+        var rem = panel.Add("div", classNames: "rem");
+
+        document.Update();
+
+        Assert.Equal(20f, panel.FontSize, 0.001f);
+        Assert.Equal(10f, em.Width, 0.001f);
+        Assert.Equal(200f, rem.Width, 0.001f);
+
+        panel.AddClass("plain");
+        document.Update();
+
+        Assert.Equal(16f, panel.FontSize, 0.001f);
+        Assert.Equal(450f, panel.Width, 0.001f);
+        Assert.Equal(300f, em.Width, 0.001f);
+        Assert.Equal(200f, rem.Width, 0.001f);
+    }
 }

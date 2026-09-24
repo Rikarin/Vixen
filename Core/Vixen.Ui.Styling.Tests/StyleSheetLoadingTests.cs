@@ -194,19 +194,50 @@ public class StyleSheetLoadingTests {
     }
 
     [Theory]
-    // ⚠ A font-relative width is refused rather than read at a fixed sixteen pixels. The remark on
-    // `MediaQuery.TryLength` claimed for a long time that both at-rules read `20rem`; neither did,
-    // and the reference a media query's `em` needs — the initial font size, the text-scale
-    // preference — does not reach `MediaContext`. These rows pin the honest half: a diagnostic, never
-    // a silent false. They go red the day the unit is read, which is when they should be rewritten.
-    [InlineData("(min-width: 40rem)")]
-    [InlineData("(width < 40rem)")]
-    [InlineData("(max-width: 30em)")]
-    [InlineData("(400px <= width < 40rem)")]
-    public void A_font_relative_width_is_a_diagnostic_rather_than_a_guess(string condition) {
+    // ⚠ A font-relative width is measured against the context's initial font size (#1373), Media
+    // Queries 4 § 1.3, and each row is asked on both sides of its threshold at two text sizes. These
+    // rows were the refusal's until the unit was read — a diagnostic, never a silent false. A reader
+    // that took a fixed sixteen passes the 16 rows and fails every 20 row. One that took the unit as
+    // pixels fails all of them.
+    [InlineData("(min-width: 40rem)", 16f, 640f, true)]
+    [InlineData("(min-width: 40rem)", 16f, 639f, false)]
+    [InlineData("(min-width: 40rem)", 20f, 800f, true)]
+    [InlineData("(min-width: 40rem)", 20f, 799f, false)]
+    [InlineData("(width < 40rem)", 16f, 639f, true)]
+    [InlineData("(width < 40rem)", 16f, 640f, false)]
+    [InlineData("(width < 40rem)", 20f, 799f, true)]
+    [InlineData("(width < 40rem)", 20f, 800f, false)]
+    [InlineData("(max-width: 30em)", 16f, 480f, true)]
+    [InlineData("(max-width: 30em)", 16f, 481f, false)]
+    [InlineData("(max-width: 30em)", 20f, 600f, true)]
+    [InlineData("(max-width: 30em)", 20f, 601f, false)]
+    [InlineData("(400px <= width < 40rem)", 20f, 799f, true)]
+    [InlineData("(400px <= width < 40rem)", 20f, 800f, false)]
+    [InlineData("(400px <= width < 40rem)", 20f, 399f, false)]
+    public void A_font_relative_width_is_measured_against_the_initial_font_size(string condition, float font, float width, bool expected) {
+        Assert.True(MediaQuery.TryEvaluate(condition, new MediaContext(width, 600) { FontSize = font }, out var matches, out var reason), reason);
+        Assert.Equal(expected, matches);
+    }
+
+    [Fact]
+    public void A_context_built_without_a_font_measures_rem_at_css_medium() {
+        // Sixteen is CSS's `medium`. It is what a context nobody gave a text size answers, and not
+        // what a document answers: `UiSurface.Media` states the document's own.
+        Assert.Equal(16f, new MediaContext(800, 600).FontSize);
+        Assert.True(MediaQuery.TryEvaluate("(min-width: 40rem)", new MediaContext(640, 600), out var matches, out _));
+        Assert.True(matches);
+    }
+
+    [Theory]
+    // A resolution has no font to be relative to, so the unit is refused there rather than read as
+    // sixteen-odd dots per pixel. Readability stays a question about the text: the refusal is the
+    // same against a context that states no font at all.
+    [InlineData("(min-resolution: 2rem)")]
+    [InlineData("(max-resolution: 1em)")]
+    public void A_font_relative_resolution_is_a_diagnostic(string condition) {
         Assert.False(MediaQuery.TryEvaluate(condition, new MediaContext(800, 600), out _, out var reason));
         Assert.NotNull(reason);
-        Assert.Contains("em'", reason, StringComparison.Ordinal);
+        Assert.False(MediaQuery.TryEvaluate(condition, default, out _, out _));
     }
 
     [Fact]

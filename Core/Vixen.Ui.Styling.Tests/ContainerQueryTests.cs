@@ -273,6 +273,31 @@ public class ContainerQueryTests {
         Assert.Null(refused.Value(refused.Tree.CreateElement("div", refusedBox, classNames: ["leaf"])));
     }
 
+    /// <summary>
+    ///     ⚠ An unreadable <i>length</i> is a load diagnostic too, and it was not: the row above
+    ///     refuses a feature name, which is read before the box is consulted, and a value was read
+    ///     after.
+    /// </summary>
+    [Fact]
+    public void A_container_block_with_an_unreadable_length_is_a_diagnostic_at_load() {
+        var refused = new CascadeFixture();
+        refused.Load("@container (min-width: 30furlongs) { .leaf { color: nope } }");
+
+        var diagnostic = Assert.Single(refused.Engine.Loader.Diagnostics);
+        Assert.Contains("30furlongs", diagnostic.Reason, StringComparison.Ordinal);
+
+        // And a font-relative one is not refused: it loads, and it answers.
+        var loaded = new CascadeFixture();
+        loaded.Load("@container (min-width: 30rem) { .leaf { color: kept } }");
+
+        Assert.Empty(loaded.Engine.Loader.Diagnostics);
+
+        var box = loaded.Tree.CreateElement("div");
+        loaded.Contain(box, width: 900f);
+
+        Assert.Equal("kept", loaded.Value(loaded.Tree.CreateElement("div", box, classNames: ["leaf"])));
+    }
+
     [Fact]
     public void Two_containers_of_the_same_size_intern_to_one_scope_and_two_sizes_do_not() {
         // ⚠ Why interning is a correctness question and not a memory one: `StyleSharingKey` carries
@@ -401,17 +426,65 @@ public class ContainerQueryTests {
     [InlineData("(400px < width > 600px)")]
     [InlineData("(min-width: 400px < 600px)")]
     [InlineData("(orientation > landscape)")]
-    // ⚠ A font-relative width, refused because a container query's `em` is the container's computed
-    // font and `ContainerBox` does not carry one. `MediaQuery.TryLength`'s remark claimed `20rem` read
-    // here, and it never did; a fixed sixteen would be a guess that is right only by accident.
-    [InlineData("(min-width: 30rem)")]
-    [InlineData("(width < 20em)")]
+    [InlineData("(aspect-ratio: banana)")]
+    [InlineData("(orientation: sideways)")]
     public void Features_a_box_does_not_have_are_refused(string condition) {
         var box = new ContainerBox(500f, 500f, ContainerKind.Size);
 
         Assert.False(ContainerQuery.TryEvaluate(condition, box, out _, out var reason));
 
         Assert.NotNull(reason);
+    }
+
+    /// <summary>
+    ///     ⚠ An unreadable value is refused by a box that answers nothing, too, which is the box the
+    ///     loader asks.
+    /// </summary>
+    /// <remarks>
+    ///     <c>StyleSheetLoader.LoadContainer</c> decides readability once, against <c>default</c>, whose
+    ///     <c>Kind</c> is <c>Normal</c>. The containment test used to run before the value was parsed,
+    ///     so that box returned "readable, no match" for any length at all. <c>(min-width: banana)</c>
+    ///     loaded with no diagnostic and then failed per element per frame, where
+    ///     <c>ContainerConditions</c> reads a refusal as "no". That is the silent never-match the
+    ///     loader's remark says cannot happen.
+    /// </remarks>
+    [Theory]
+    [InlineData("(min-width: banana)")]
+    [InlineData("(width < 30furlongs)")]
+    [InlineData("(400px <= width < banana)")]
+    [InlineData("(min-height: 2fr)")]
+    [InlineData("(aspect-ratio: banana)")]
+    [InlineData("(orientation: sideways)")]
+    public void An_unreadable_value_is_refused_by_a_box_that_answers_nothing(string condition) {
+        Assert.False(ContainerQuery.TryEvaluate(condition, default, out _, out var reason));
+        Assert.NotNull(reason);
+
+        Assert.False(ContainerQuery.TryEvaluate(condition, new ContainerBox(500f, 500f, ContainerKind.InlineSize), out _, out _));
+    }
+
+    /// <summary>
+    ///     A container query's <c>em</c> is the container's own font and its <c>rem</c> is the root's
+    ///     (#1373), and each row is asked on both sides of its threshold.
+    /// </summary>
+    /// <remarks>
+    ///     The box's font is 20 and the root's is 10, so the two units disagree by a factor of two
+    ///     and a reader that swapped them, or that took either one at sixteen, fails a row. These rows
+    ///     were refusals until the unit was read.
+    /// </remarks>
+    [Theory]
+    [InlineData("(min-width: 20em)", 400f, true)]
+    [InlineData("(min-width: 20em)", 399f, false)]
+    [InlineData("(width < 20em)", 399f, true)]
+    [InlineData("(width < 20em)", 400f, false)]
+    [InlineData("(min-width: 30rem)", 300f, true)]
+    [InlineData("(min-width: 30rem)", 299f, false)]
+    [InlineData("(200px <= width < 30rem)", 299f, true)]
+    [InlineData("(200px <= width < 30rem)", 300f, false)]
+    public void A_font_relative_width_is_measured_against_the_containers_font_and_the_roots(string condition, float width, bool expected) {
+        var box = new ContainerBox(width, 100f, ContainerKind.InlineSize) { FontSize = 20f, RootFontSize = 10f };
+
+        Assert.True(ContainerQuery.TryEvaluate(condition, box, out var matches, out var reason), reason);
+        Assert.Equal(expected, matches);
     }
 
     [Theory]

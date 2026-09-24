@@ -1111,21 +1111,26 @@ public class VariantCoverageTests {
     }
 
     [Fact]
-    public void An_arbitrary_range_in_rem_styles_nothing_and_the_loader_says_why() {
+    public void An_arbitrary_range_in_rem_takes_the_width_at_the_text_size() {
         // ⚠ v4 writes its own breakpoints in rem, so `min-[40rem]:` is the spelling a ported class
-        // list carries. `MediaQuery` reads px and not rem, which the comment in `Variants.TryScreen`
-        // used to call "a diagnostic rather than a guess" as though the diagnostic were somewhere the
-        // author would see it. This pins where it is: on the loader, naming the width, with the class
-        // styling nothing even far above the threshold.
+        // list carries. Until #1373 `MediaQuery` read px and not rem, and this test pinned the
+        // diagnostic the loader gave instead. Now the class takes its width at the context's text
+        // size, and the threshold moves with it: 640 at sixteen, 800 at twenty.
         var fixture = new UtilityFixture("");
+        var large = new MediaContext(799f, 800f) { FontSize = 20f };
 
-        Assert.Null(fixture.Computed(["min-[40rem]:p-4"], "padding-left", media: new MediaContext(1600f, 800f)));
-        Assert.Null(fixture.Computed(["max-[40rem]:p-4"], "padding-left", media: new MediaContext(100f, 800f)));
+        Assert.Equal("16px", fixture.Computed(["min-[40rem]:p-4"], "padding-left", media: new MediaContext(640f, 800f)));
+        Assert.Null(fixture.Computed(["min-[40rem]:p-4"], "padding-left", media: new MediaContext(639f, 800f)));
+        Assert.Null(fixture.Computed(["min-[40rem]:p-4"], "padding-left", media: large));
+        Assert.Equal("16px", fixture.Computed(["min-[40rem]:p-4"], "padding-left", media: large with { Width = 800f }));
+
+        Assert.Equal("16px", fixture.Computed(["max-[40rem]:p-4"], "padding-left", media: large));
+        Assert.Null(fixture.Computed(["max-[40rem]:p-4"], "padding-left", media: large with { Width = 800f }));
 
         var engine = new StyleEngine();
-        engine.Load(fixture.Generate("min-[40rem]:p-4"), StyleOrigin.Author, new MediaContext(1600f, 800f));
+        engine.Load(fixture.Generate("min-[40rem]:p-4", "@min-[30rem]:p-2"), StyleOrigin.Author, new MediaContext(1600f, 800f));
 
-        Assert.Contains(engine.Loader.Diagnostics, diagnostic => diagnostic.Reason.Contains("'40rem'", StringComparison.Ordinal));
+        Assert.Empty(engine.Loader.Diagnostics);
     }
 
     [Fact]

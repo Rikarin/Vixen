@@ -657,9 +657,11 @@ public static class Variants {
 
         if (rest.Length > 2 && rest[0] == '[' && rest[^1] == ']') {
             // Verbatim, as `@min-[…]` is: the author wrote a length, and which units compare is
-            // `MediaQuery`'s question. ⚠ It reads `px` and not `rem` or `em`, so `min-[40rem]:` —
-            // v4's own unit — generates a block the loader drops with a diagnostic naming `40rem`,
-            // and the class styles nothing at any width. See `MediaQuery.TryLength`.
+            // `MediaQuery`'s question. ⚠ It reads `rem` and `em` since #1373, against the document's
+            // text size, so `min-[40rem]:` — v4's own unit — is 640 pixels at 100 % and moves with a
+            // user's text-size preference. Until then it was a block the loader dropped. ⚠ The theme's
+            // named breakpoints are still converted to pixels when the theme is read, so `sm:` does
+            // NOT move with the preference; see `MediaQuery.TryLength`.
             width = rest[1..^1].ToString().Replace('_', ' ');
         } else if (tokens.Screens.TryGetValue(rest.ToString(), out var scale)) {
             width = Pixels(scale);

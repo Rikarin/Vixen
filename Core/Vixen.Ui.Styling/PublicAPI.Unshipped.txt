@@ -118,10 +118,14 @@ Vixen.Ui.Styling.ContainerBox -> readonly struct
 Vixen.Ui.Styling.ContainerBox : System.IEquatable<Vixen.Ui.Styling.ContainerBox>
 Vixen.Ui.Styling.ContainerBox.ContainerBox() -> void
 Vixen.Ui.Styling.ContainerBox.ContainerBox(float Width, float Height, Vixen.Ui.Styling.ContainerKind Kind) -> void
+Vixen.Ui.Styling.ContainerBox.FontSize.get -> float
+Vixen.Ui.Styling.ContainerBox.FontSize.init -> float
 Vixen.Ui.Styling.ContainerBox.Height.get -> float
 Vixen.Ui.Styling.ContainerBox.Height.init -> float
 Vixen.Ui.Styling.ContainerBox.Kind.get -> Vixen.Ui.Styling.ContainerKind
 Vixen.Ui.Styling.ContainerBox.Kind.init -> Vixen.Ui.Styling.ContainerKind
+Vixen.Ui.Styling.ContainerBox.RootFontSize.get -> float
+Vixen.Ui.Styling.ContainerBox.RootFontSize.init -> float
 Vixen.Ui.Styling.ContainerBox.Width.get -> float
 Vixen.Ui.Styling.ContainerBox.Width.init -> float
 Vixen.Ui.Styling.ContainerConditions -> sealed class
@@ -269,6 +273,8 @@ Vixen.Ui.Styling.MediaContext -> readonly struct
 Vixen.Ui.Styling.MediaContext : System.IEquatable<Vixen.Ui.Styling.MediaContext>
 Vixen.Ui.Styling.MediaContext.ColorScheme.get -> Vixen.Ui.Styling.ColorSchemePreference
 Vixen.Ui.Styling.MediaContext.ColorScheme.init -> Vixen.Ui.Styling.ColorSchemePreference
+Vixen.Ui.Styling.MediaContext.FontSize.get -> float
+Vixen.Ui.Styling.MediaContext.FontSize.init -> float
 Vixen.Ui.Styling.MediaContext.Gamut.get -> Vixen.Core.Mathematics.ColorGamut
 Vixen.Ui.Styling.MediaContext.Gamut.init -> Vixen.Core.Mathematics.ColorGamut
 Vixen.Ui.Styling.MediaContext.Height.get -> float
