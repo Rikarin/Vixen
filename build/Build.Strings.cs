@@ -9,6 +9,7 @@ using Nuke.Common;
 using Nuke.Common.IO;
 using Serilog;
 using Vixen.Build;
+using Vixen.Testing;
 
 /// <summary>
 ///     The half of doc 11's `Strings.Resource` property that no single compilation can see.
@@ -91,42 +92,22 @@ partial class Build {
     static IEnumerable<(string Id, int Index)> LooseIds(string contents, IReadOnlySet<string> members) =>
         StringIdCensus.LiteralIds(contents, members);
 
-    /// <summary>
-    ///     This checkout's own <c>.claude/</c>, with a separator, so a prefix test cannot match a
-    ///     sibling directory whose name merely starts the same way.
-    /// </summary>
-    string ClaudeDirectory => Slashed(RootDirectory / ".claude") + "/";
-
     Target CheckStrings => definition => definition
         .Description("Fails if a declared string id is used nowhere, if a call site repeats an id a declaration class already declares, if a shipping call site builds one no class declares, or if it builds one out of a run-time value")
         .Executes(() => {
-                var sources = RootDirectory
-                    .GlobFiles("**/*.cs", "**/*.vxml")
-                    .Where(path => !Slashed(path).Contains("/bin/", StringComparison.Ordinal))
-                    .Where(path => !Slashed(path).Contains("/obj/", StringComparison.Ordinal))
-                    .Where(path => !Slashed(path).Contains("/artifacts/", StringComparison.Ordinal))
-
-                    // ⚠ Other checkouts of this same repository, and ONLY the other ones. A git
-                    // worktree lives under .claude/worktrees/ and holds a full copy of the tree at
-                    // whatever commit it was made at, so without this the gate reports every
-                    // violation once per worktree and — worse — reports declarations that were
-                    // deleted on master but survive in a checkout from before the deletion. Found
-                    // exactly that way: four ids this gate's own change had already removed came
-                    // back three times each, out of three stale copies.
-                    //
-                    // ⚠ Anchored at the root, never matched as a substring, and that is the whole
-                    // difference between a gate that skips the sibling checkouts and one that cannot
-                    // run inside a worktree at all. A worktree's own RootDirectory *is*
-                    // …/.claude/worktrees/<name>, so every path under it contains "/.claude/": a
-                    // substring test excludes the entire tree, and the assertion below then fires
-                    // with "the glob is wrong". Which it was not — the exclusion was.
-                    //
-                    // Both halves of that were got wrong once each, a day apart, and two agents
-                    // working in worktrees found the second half independently. The assertion below
-                    // is what made it a broken gate rather than a silent one: with no sources the
-                    // census finds no declarations and no call sites, and CheckStrings would report
-                    // Succeeded having read nothing.
-                    .Where(path => !Slashed(path).StartsWith(ClaudeDirectory, StringComparison.Ordinal))
+                // ⚠ What git calls the tree, not what the disk holds (#1424). This was a glob of the
+                // whole disk below the root with bin/, obj/ and artifacts/ filtered out by substring
+                // and this checkout's own .claude/ by an anchored prefix — the other checkouts of
+                // this repository, which reported every violation once per worktree and resurrected
+                // declarations master had deleted. The anchoring was got wrong once too: a worktree's
+                // own RootDirectory *is* …/.claude/worktrees/<name>, so a substring test excluded the
+                // entire tree. `git ls-files` is relative to the checkout by construction, lists a
+                // sibling worktree as one nested-repository entry it never descends, and knows about
+                // the ignored references/ clones and .nuke/temp/, which none of those filters did.
+                // The assertion below is still what makes an empty read a broken gate rather than a
+                // silent one.
+                var sources = RepositoryFiles.Files(RootDirectory, "*.cs", "*.vxml")
+                    .Select(AbsolutePath.Create)
 
                     // ⚠ The analyzer's own tests, whose C# is *data*: every fixture is a declaration
                     // class inside a raw string literal, written to be reported on. Reading them as

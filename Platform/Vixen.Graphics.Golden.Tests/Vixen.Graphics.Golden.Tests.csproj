@@ -173,4 +173,7 @@
         <None Include="..\..\Samples\13-ThirdPersonShooter\Assets\Textures\plaza-splat.png"
               Link="Authored\plaza-splat.png" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
+
+    <!-- What git calls the tree, for the repository sweeps here, instead of a directory walk (#1424). -->
+    <Import Project="..\..\Testing\Vixen.Testing.RepositoryFiles.props" />
 </Project>

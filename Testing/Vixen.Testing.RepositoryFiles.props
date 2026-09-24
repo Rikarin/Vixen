@@ -1,0 +1,20 @@
+<Project>
+
+  <!--
+    Vixen — "the files of this repository", as git defines them, for every test that sweeps the
+    tree (#1424). Linked rather than referenced, on the same argument as Vixen.Testing.props beside
+    it, and its own file for the reason GoldenFile's is: only the sweeps need it.
+
+    ⚠ A sweep that walks the disk and skips a hand-kept list of directory names answers a different
+    question from the one it means, and eighteen copies of that list disagreed about `.nuke`,
+    `references/` and everything else a working machine accumulates under .gitignore. Use
+    `RepositoryFiles.Files(root, "*.cs")` instead of a walk.
+
+    Consumers need a `using Vixen.Testing;`. It names only the BCL, so a tool links it too.
+  -->
+
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)RepositoryFiles.cs" Link="Testing\RepositoryFiles.cs" />
+  </ItemGroup>
+
+</Project>

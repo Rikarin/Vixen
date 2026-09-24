@@ -4,6 +4,7 @@
 using System.Text.RegularExpressions;
 using Vixen.Platform;
 using Vixen.Platform.Headless;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.App.Tests;
@@ -51,8 +52,9 @@ public sealed class HeadlessFlagTests {
     ///     the documentation of the very thing it is checking has gone.
     /// </remarks>
     static IEnumerable<(string Path, string Code)> SampleSources() {
-        foreach (var file in Directory.EnumerateFiles(
-            Path.Combine(Root, "Samples"), "*.cs", SearchOption.AllDirectories)) {
+        // What git calls Samples/, not what the disk holds (#1424): a sample's obj/ carries the
+        // generators' output, and its ignored Build/ and Library/ whatever the last run left there.
+        foreach (var file in RepositoryFiles.Files(Path.Combine(Root, "Samples"), "*.cs")) {
             var code = string.Join(
                 '\n',
                 File.ReadLines(file).Where(line => !line.TrimStart().StartsWith("//", StringComparison.Ordinal))

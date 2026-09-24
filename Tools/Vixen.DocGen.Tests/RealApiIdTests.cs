@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.DocGen.Guide;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.DocGen.Tests;
@@ -45,14 +46,6 @@ namespace Vixen.DocGen.Tests;
 ///     </para>
 /// </remarks>
 public class RealApiIdTests {
-    /// <summary>Directories a walk of the checkout must not descend into.</summary>
-    /// <remarks>
-    ///     ⚠ <c>.claude/worktrees/</c> holds a whole checkout per parallel agent, so a walk that kept
-    ///     going would read another branch's baselines and answer about a tree this run cannot
-    ///     change — the false positive that stopped <c>SharedUiShaderTests</c> reaching its own tree.
-    /// </remarks>
-    static readonly string[] Skipped = [".git", ".claude", ".nuke", "bin", "obj", "artifacts", "node_modules"];
-
     /// <summary>
     ///     The ids whose namespace a baseline covers and whose own project keeps no baseline.
     /// </summary>
@@ -107,27 +100,19 @@ public class RealApiIdTests {
         .. Pages().SelectMany(page => page.Front.Api.Select(id => (Id: id, page.Path)))
     ];
 
-    /// <summary>Every <c>PublicAPI</c> baseline in this checkout.</summary>
+    /// <summary>Every <c>PublicAPI</c> baseline in this checkout, as git defines it.</summary>
+    /// <remarks>
+    ///     ⚠ Not a directory walk (#1424): <c>.claude/worktrees/</c> holds a whole checkout per
+    ///     parallel agent, so a walk that kept going would read another branch's baselines and answer
+    ///     about a tree this run cannot change — the false positive that stopped
+    ///     <c>SharedUiShaderTests</c> reaching its own tree — and the hand-kept list that stopped it
+    ///     did not know about <c>references/</c>.
+    /// </remarks>
     static List<string> Baselines() {
-        var found = new List<string>();
-
-        Walk(Root, found);
+        var found = RepositoryFiles.Files(Root, "PublicAPI.Shipped.txt", "PublicAPI.Unshipped.txt");
         found.Sort(StringComparer.Ordinal);
+
         return found;
-
-        static void Walk(string directory, List<string> into) {
-            foreach (var file in Directory.GetFiles(directory)) {
-                if (Path.GetFileName(file) is "PublicAPI.Shipped.txt" or "PublicAPI.Unshipped.txt") {
-                    into.Add(file);
-                }
-            }
-
-            foreach (var child in Directory.GetDirectories(directory)) {
-                if (!Skipped.Contains(Path.GetFileName(child), StringComparer.Ordinal)) {
-                    Walk(child, into);
-                }
-            }
-        }
     }
 
     /// <summary>The type ids the baselines declare, with the <c>T:</c> a page writes.</summary>

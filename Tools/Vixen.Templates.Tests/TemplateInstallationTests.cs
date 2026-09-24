@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text;
 using Vixen.Cli;
 using Vixen.Editor.Core;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.Templates.Tests;
@@ -297,10 +298,13 @@ public sealed class TemplateInstallationTests(TemplateHive hive) : IClassFixture
     static HashSet<string> Packable() {
         var ids = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var project in Directory.EnumerateFiles(RepositoryRoot, "*.csproj", SearchOption.AllDirectories)) {
-            // Somebody's bin/ or obj/ holding a copy, and — more to the point — the templates' own
-            // project files, which are a third party's and are not this repository's to publish.
-            if (Segment(project, "obj") || Segment(project, "bin") || Segment(project, "templates")) {
+        // What git calls the tree (#1424): a disk walk read every agent worktree's projects, and a
+        // bin/ or obj/ copy, and the clones under the ignored references/ — none of them this
+        // repository's to publish.
+        foreach (var project in RepositoryFiles.Files(RepositoryRoot, "*.csproj")) {
+            // The templates' own project files, which are a third party's and are not this
+            // repository's to publish.
+            if (Segment(project, "templates")) {
                 continue;
             }
 

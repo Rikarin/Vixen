@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.RegularExpressions;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.DocGen.Tests;
@@ -120,32 +121,6 @@ public class RealPlanCitationTests {
     ///     pass it with room to spare. 75 of the 425 were outside when the sweep was widened.
     /// </remarks>
     const int OutsidePlanFloor = 60;
-
-    /// <summary>Directories a source sweep must not descend into, matched by name at any depth.</summary>
-    /// <remarks>
-    ///     ⚠ <c>.claude/worktrees/</c> holds a full checkout per agent: an index that walked it would
-    ///     resolve a citation against somebody else's tree.
-    ///     ⚠ <c>.nuke/</c> tracks only <c>parameters.json</c>, and its gitignored <c>temp/</c> is where the
-    ///     build unpacks <c>Vixen.Sdk</c>'s package — README included. A checkout that has run
-    ///     <c>./build.sh</c> therefore swept a stale copy of <c>Tools/Vixen.Sdk/README.md</c> as a
-    ///     document of its own and went red on a line the real README had already re-pointed; a fresh
-    ///     worktree never has it, so the branch was green and master was not.
-    /// </remarks>
-    static readonly string[] Unwalked = [".git", ".claude", ".nuke", "bin", "obj", "artifacts", "node_modules"];
-
-    /// <summary>
-    ///     Directories, relative to the checkout root, whose own files are walked and whose
-    ///     subdirectories are not.
-    /// </summary>
-    /// <remarks>
-    ///     ⚠ <c>references/</c> holds gitignored clones of other engines beside its one tracked file,
-    ///     the README that carries the clone commands (<c>.gitignore</c>, doc 02). A walk that entered a
-    ///     clone would sweep third-party READMEs as documents and resolve citations against
-    ///     third-party sources, so the test would go red, or pass a citation, on the one machine that
-    ///     has the clones and never on CI. Rooted rather than matched by name, because
-    ///     <c>Vixen.Graphics.Golden.Tests/References</c> is tracked and is ours.
-    /// </remarks>
-    static readonly string[] Shallow = ["references"];
 
     /// <summary>A backticked file citation: a path or file name, a colon, and lines.</summary>
     /// <remarks>
@@ -331,44 +306,93 @@ public class RealPlanCitationTests {
     }
 
     /// <summary>
-    ///     The walk reads <c>references/README.md</c> and nothing a reference clone brings with it, and
-    ///     still enters a directory that is only <i>named</i> like it.
+    ///     The walk reads <c>references/README.md</c> and nothing a reference clone brings with it, nor
+    ///     the Sdk README <c>./build.sh</c> unpacks under <c>.nuke/temp/</c>, and still enters a
+    ///     directory that is only <i>named</i> like either.
     /// </summary>
     /// <remarks>
-    ///     A scratch tree rather than the checkout, because the clones are gitignored and neither CI
-    ///     nor most machines have one: asked of the real tree, "no clone is swept" is a predicate that
-    ///     cannot be false there.
+    ///     <para>
+    ///         A scratch repository rather than the checkout, because the clones and the unpacked Sdk
+    ///         are gitignored and neither CI nor a fresh worktree has one: asked of the real tree, "no
+    ///         clone is swept" is a predicate that cannot be false there. ⚠ And it carries this
+    ///         checkout's own <c>.gitignore</c>, copied, so the file under test is the rule and not a
+    ///         restatement of it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The <c>.nuke/temp/</c> row is the one that went red on master (9200ae53a): the stale
+    ///         README cited a line the real one had re-pointed. It is planted with a citation that
+    ///         cannot resolve, so a walk that read it would fail the sweep and not only this list.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void The_walk_stops_at_the_reference_clones() {
         var root = Directory.CreateTempSubdirectory("vixen-citation-walk-").FullName;
 
         try {
+            File.Copy(Path.Combine(Root, ".gitignore"), Path.Combine(root, ".gitignore"));
+            Git(root, "init", "--quiet");
+
             string[] tree = [
                 "references/README.md",
                 "references/godot/README.md",
                 "references/godot/core/Node.cs",
+                ".nuke/temp/vixen-sdk-tools/README.md",
+                "Samples/03-Demo/Build/README.md",
+                "Core/Vixen.Demo/obj/README.md",
                 "docs/plan/01.md",
-                "Platform/Golden.Tests/References/README.md"
+                "Platform/Golden.Tests/References/README.md",
+                "Tools/Nuke.Temp/README.md"
             ];
 
             foreach (var relative in tree) {
                 var path = Path.Combine(root, relative);
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                File.WriteAllText(path, "");
+                File.WriteAllText(path, "`BuiltInImporters.cs:174`");
             }
 
             Dictionary<string, List<string>> index = new(StringComparer.Ordinal);
-            Walk(root, root, index);
+            Walk(root, index);
             var walked = index.Values.SelectMany(paths => paths).Order(StringComparer.Ordinal).ToArray();
 
-            string[] expected = ["Platform/Golden.Tests/References/README.md", "docs/plan/01.md", "references/README.md"];
+            string[] expected = [
+                ".gitignore",
+                "Platform/Golden.Tests/References/README.md",
+                "Tools/Nuke.Temp/README.md",
+                "docs/plan/01.md",
+                "references/README.md"
+            ];
 
             Assert.Equal(expected, walked);
-            Assert.Equal(expected, Documents(index));
+            Assert.Equal(expected.Where(path => path.EndsWith(".md", StringComparison.Ordinal)), Documents(index));
         } finally {
+            // git marks its object files read-only, which Directory.Delete refuses on Windows.
+            foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)) {
+                File.SetAttributes(file, FileAttributes.Normal);
+            }
+
             Directory.Delete(root, recursive: true);
         }
+    }
+
+    /// <summary>Runs git in a scratch repository and fails the test on a non-zero exit.</summary>
+    static void Git(string directory, params string[] arguments) {
+        var start = new System.Diagnostics.ProcessStartInfo("git") {
+            WorkingDirectory = directory,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+
+        foreach (var argument in arguments) {
+            start.ArgumentList.Add(argument);
+        }
+
+        using var git = System.Diagnostics.Process.Start(start)!;
+        var error = git.StandardError.ReadToEndAsync();
+        git.StandardOutput.ReadToEnd();
+        git.WaitForExit();
+
+        Assert.True(git.ExitCode == 0, $"git {string.Join(' ', arguments)} exited {git.ExitCode}: {error.Result}");
     }
 
     /// <summary>Why a citation does not resolve, or <see langword="null" /> when it does.</summary>
@@ -446,7 +470,7 @@ public class RealPlanCitationTests {
 
     static (List<Cited> Citations, Dictionary<string, List<string>> Index, Dictionary<(string, string), string> Exempt) Sweep() {
         Dictionary<string, List<string>> index = new(StringComparer.Ordinal);
-        Walk(Root, Root, index);
+        Walk(Root, index);
 
         List<Cited> citations = [];
 
@@ -540,25 +564,26 @@ public class RealPlanCitationTests {
                            && (path.StartsWith("docs/", StringComparison.Ordinal) || Path.GetFileName(path) == "README.md"))
             .Order(StringComparer.Ordinal);
 
-    static void Walk(string root, string directory, Dictionary<string, List<string>> index) {
-        foreach (var file in Directory.EnumerateFiles(directory)) {
-            var name = Path.GetFileName(file);
+    /// <summary>Every file of the checkout at <paramref name="root" />, indexed by file name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What git calls the tree, not what the disk holds</b> (#1424). This was a walk pruned by
+    ///     a hand-kept list of names plus a second list of directories entered one level deep, and
+    ///     both were answers to a question <c>.gitignore</c> already answers: <c>.claude/worktrees/</c>
+    ///     is a checkout per agent, <c>.nuke/temp/</c> is where <c>./build.sh</c> unpacks
+    ///     <c>Vixen.Sdk</c> — a stale copy of its README went red on master and not on the branch
+    ///     (9200ae53a) — and <c>references/*</c> holds clones of other engines beside the one tracked
+    ///     README. The lists were grown one incident at a time, which is how <c>.nuke</c> reached
+    ///     three of eighteen copies.
+    /// </remarks>
+    static void Walk(string root, Dictionary<string, List<string>> index) {
+        foreach (var relative in RepositoryFiles.Listed(root)) {
+            var name = relative[(relative.LastIndexOf('/') + 1)..];
 
             if (!index.TryGetValue(name, out var paths)) {
                 index[name] = paths = [];
             }
 
-            paths.Add(Path.GetRelativePath(root, file).Replace('\\', '/'));
-        }
-
-        if (Array.IndexOf(Shallow, Path.GetRelativePath(root, directory).Replace('\\', '/')) >= 0) {
-            return;
-        }
-
-        foreach (var child in Directory.EnumerateDirectories(directory)) {
-            if (Array.IndexOf(Unwalked, Path.GetFileName(child)) < 0) {
-                Walk(root, child, index);
-            }
+            paths.Add(relative);
         }
     }
 

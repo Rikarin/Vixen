@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Vixen.Testing;
 using Vixen.Ui.Markup.Testing;
 using Xunit;
 
@@ -485,8 +486,8 @@ public class CodeAccessibleNameTests {
     ///     </para>
     /// </remarks>
     static List<string> Sources(string root) {
-        var found = new List<string>();
-        Walk(root, found);
+        // What git calls the tree, not what the disk holds (#1424).
+        var found = RepositoryFiles.Files(root, "*.cs", "*.vxml");
 
         found.RemoveAll(static path =>
             path.Contains(".Tests" + Path.DirectorySeparatorChar, StringComparison.Ordinal)
@@ -496,19 +497,6 @@ public class CodeAccessibleNameTests {
         found.Sort(StringComparer.Ordinal);
 
         return found;
-    }
-
-    static readonly string[] Unwalked = [".git", ".claude", "bin", "obj", "artifacts", "node_modules"];
-
-    static void Walk(string directory, List<string> into) {
-        into.AddRange(Directory.EnumerateFiles(directory, "*.cs"));
-        into.AddRange(Directory.EnumerateFiles(directory, "*.vxml"));
-
-        foreach (var child in Directory.EnumerateDirectories(directory)) {
-            if (!Unwalked.Contains(Path.GetFileName(child), StringComparer.Ordinal)) {
-                Walk(child, into);
-            }
-        }
     }
 
     /// <summary>

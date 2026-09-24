@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Testing;
 using Vixen.Ui.Markup.Testing;
 using Xunit;
 
@@ -43,16 +44,6 @@ namespace Vixen.Ui.Reactive.Tests;
 ///     </para>
 /// </remarks>
 public class SchedulerReachTests {
-    /// <summary>Directories a source sweep must not descend into, matched by name at any depth.</summary>
-    /// <remarks>
-    ///     ⚠ <c>.claude/worktrees/</c> holds a whole checkout of this repository per parallel agent,
-    ///     so a walk that descends into it compares old copies of these same files with each other
-    ///     and reports a defect somebody else has already fixed — or misses this tree's entirely.
-    ///     Pruned during the walk rather than filtered after it, because the filter still visits
-    ///     every file in every copy.
-    /// </remarks>
-    static readonly string[] Unwalked = [".git", ".claude", "bin", "obj", "artifacts", "node_modules"];
-
     /// <summary>The calls whose scheduler is optional, and how many arguments naming one takes.</summary>
     static readonly (string Token, int Least, string What)[] Doors = [
         ("new Effect", 2, "Effect(action, scheduler)"),
@@ -181,23 +172,10 @@ public class SchedulerReachTests {
     ///     </para>
     /// </remarks>
     static IEnumerable<string> Production() {
-        List<string> found = [];
-
-        Walk(Root(), found);
+        var found = RepositoryFiles.Files(Root(), "*.cs", "*.vxml");
         found.Sort(StringComparer.Ordinal);
 
         return found.Where(file => !file.Contains(".Tests" + Path.DirectorySeparatorChar, StringComparison.Ordinal));
-    }
-
-    static void Walk(string directory, List<string> into) {
-        into.AddRange(Directory.EnumerateFiles(directory, "*.cs"));
-        into.AddRange(Directory.EnumerateFiles(directory, "*.vxml"));
-
-        foreach (var child in Directory.EnumerateDirectories(directory)) {
-            if (!Unwalked.Contains(Path.GetFileName(child), StringComparer.Ordinal)) {
-                Walk(child, into);
-            }
-        }
     }
 
     /// <summary>The working tree's root, found by a directory only it has.</summary>

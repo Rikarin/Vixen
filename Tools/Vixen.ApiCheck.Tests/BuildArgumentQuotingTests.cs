@@ -4,6 +4,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.ApiCheck.Tests;
@@ -155,11 +156,8 @@ public sealed class BuildArgumentQuotingTests {
     static int Line(SyntaxNode node) => node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
 
     static List<(string File, SyntaxNode Root)> BuildSources() =>
-        Directory.EnumerateFiles(Path.Combine(RepositoryRoot(), "build"), "*.cs", SearchOption.AllDirectories)
-            .Where(file => !Path.GetRelativePath(RepositoryRoot(), file)
-                .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                .Any(segment => segment is "bin" or "obj")
-            )
+        // What git calls build/, not what the disk holds (#1424): its bin/ and obj/ carry generated C#.
+        RepositoryFiles.Files(Path.Combine(RepositoryRoot(), "build"), "*.cs")
             .Order(StringComparer.Ordinal)
             .Select(file => (
                 File: Path.GetFileName(file),

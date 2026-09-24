@@ -4,6 +4,7 @@
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Vixen.Shaders.Generators;
+using Vixen.Testing;
 using Xunit;
 
 namespace Tests;
@@ -89,23 +90,19 @@ public class ExemptedGeneratedTypeTests {
         }
     }
 
-    /// <summary>Source, rather than a copy of it: another agent's checkout, or a build output.</summary>
+    /// <summary>Every reflection this checkout owns: not another agent's checkout, not a build output.</summary>
     /// <remarks>
-    ///     ⚠ <b>The path is relative to the root and this is not a tidiness point.</b> An agent's
-    ///     own checkout <em>is</em> <c>…/.claude/worktrees/&lt;name&gt;/</c>, so a filter applied to
-    ///     the absolute path rejects every file in the very tree it was meant to keep — silently,
-    ///     because "nothing matched" and "nothing to check" look identical from outside. That is
-    ///     what <see cref="The_walk_reaches_the_shaders_and_the_exemptions" /> is for, and it caught
-    ///     exactly this while the filter was being written.
+    ///     ⚠ <b>As git defines the tree</b> (#1424). This was a walk of the whole disk below the root —
+    ///     every agent worktree included — filtered by a hand-kept list of directory names, and the
+    ///     filter had to be applied to the path <em>relative</em> to the root, because an agent's own
+    ///     checkout <em>is</em> <c>…/.claude/worktrees/&lt;name&gt;/</c> and an absolute filter
+    ///     rejected the very tree it was meant to keep. <c>git ls-files</c> answers relative to the
+    ///     checkout by construction, and knows about the ignored <c>references/</c>, which the list
+    ///     did not. <see cref="The_walk_reaches_the_shaders_and_the_exemptions" /> still asks whether
+    ///     it read anything.
     /// </remarks>
-    internal static bool IsSource(string relativePath) =>
-        !relativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-            .Any(segment =>
-                segment is ".claude" or "bin" or "obj" or "artifacts" or "node_modules");
-
     static List<string> ReflectionFiles() =>
-        Directory.EnumerateFiles(Root, "*.reflect.json", SearchOption.AllDirectories)
-            .Where(path => IsSource(Path.GetRelativePath(Root, path)))
+        RepositoryFiles.Files(Root, "*.reflect.json")
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToList();
 
@@ -164,18 +161,6 @@ public class ExemptedGeneratedTypeTests {
             .Select(line => line[Prefix.Length..].Split(' ', '\t')[0])
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToList();
-
-    /// <summary>
-    ///     The filter is relative, so the checkout's own path cannot exclude the checkout.
-    /// </summary>
-    [Theory]
-    [InlineData("Platform/Vixen.Ui.Desktop/Shaders/UiBox.reflect.json", true)]
-    [InlineData("Raven/Library/PostFx/Tonemap.reflect.json", true)]
-    [InlineData(".claude/worktrees/other/Raven/Library/PostFx/Tonemap.reflect.json", false)]
-    [InlineData("Core/Vixen.Shaders.Tests/bin/Debug/net10.0/Fixtures/Lighting.reflect.json", false)]
-    [InlineData("Core/Vixen.Shaders/obj/Release/Lighting.reflect.json", false)]
-    public void Only_this_checkouts_own_shaders_are_read(string path, bool expected) =>
-        Assert.Equal(expected, IsSource(path.Replace('/', Path.DirectorySeparatorChar)));
 
     /// <summary>The walk found both halves, so a green run below is not a run over nothing.</summary>
     /// <remarks>

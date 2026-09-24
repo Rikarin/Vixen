@@ -22,4 +22,7 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Ui.Styling\Vixen.Ui.Styling.csproj" />
     </ItemGroup>
+
+    <!-- What git calls the tree, for the repository sweeps here, instead of a directory walk (#1424). -->
+    <Import Project="..\..\Testing\Vixen.Testing.RepositoryFiles.props" />
 </Project>

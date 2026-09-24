@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Testing;
+
 namespace Vixen.Ui.Styling.Tests;
 
 /// <summary>How a reach census reads the repository: which files it walks, and which names it pulls
@@ -23,15 +25,19 @@ namespace Vixen.Ui.Styling.Tests;
 ///     </para>
 /// </remarks>
 static class RepositoryScan {
-    /// <summary>Directories a source sweep must not descend into, matched by name at any depth.</summary>
+    /// <summary>Every file in the working tree matching a pattern, in a stable order.</summary>
+    /// <param name="pattern">A search pattern, such as <c>*.vcss</c>.</param>
+    /// <returns>Absolute paths, sorted ordinally.</returns>
     /// <remarks>
-    ///     ⚠ <b>Pruned during the walk rather than filtered after it, and the difference is eleven
-    ///     minutes.</b> The obvious spelling — <c>EnumerateFiles(root, pattern, AllDirectories)</c>
-    ///     followed by a <c>Where</c> on the path — still visits every file it then discards, and
-    ///     <c>.claude/worktrees/</c> held <b>56 full checkouts of this repository</b> on the machine
-    ///     where that was measured. Three patterns over fifty-seven copies of the tree is not a
-    ///     filter problem, it is a traversal problem, and a gate that costs eleven minutes is one
-    ///     somebody eventually deletes.
+    ///     <para>
+    ///         ⚠ <b>As git defines the tree, not as the disk holds it</b> (#1424). This used to be a
+    ///         walk pruned by a hand-kept list of directory names, and pruned rather than filtered
+    ///         for a measured reason — <c>.claude/worktrees/</c> held <b>56 full checkouts</b> on the
+    ///         machine where a filtered walk took eleven minutes. <c>git ls-files</c> keeps that
+    ///         (a worktree is one nested-repository entry, never descended) and answers the question
+    ///         the list only approximated: the list skipped <c>.claude</c> and <c>obj</c> and not
+    ///         the ignored <c>references/</c> or <c>.nuke/temp/</c>.
+    ///     </para>
     ///     <para>
     ///         ⚠ <c>.claude</c> is also the difference between a test about this repository and a
     ///         test about whatever else is on the disk: a worktree is a full checkout of arbitrary
@@ -40,27 +46,11 @@ static class RepositoryScan {
     ///         a tree nobody was asking about.
     ///     </para>
     /// </remarks>
-    static readonly string[] Unwalked = [".git", ".claude", "bin", "obj", "artifacts", "node_modules"];
-
-    /// <summary>Every file in the working tree matching a pattern, in a stable order.</summary>
-    /// <param name="pattern">A search pattern, such as <c>*.vcss</c>.</param>
-    /// <returns>Absolute paths, sorted ordinally.</returns>
     public static List<string> Files(string pattern) {
-        List<string> found = [];
-        Walk(Root(), pattern, found);
+        var found = RepositoryFiles.Files(Root(), pattern);
         found.Sort(StringComparer.Ordinal);
 
         return found;
-    }
-
-    static void Walk(string directory, string pattern, List<string> into) {
-        into.AddRange(Directory.EnumerateFiles(directory, pattern));
-
-        foreach (var child in Directory.EnumerateDirectories(directory)) {
-            if (!Unwalked.Contains(Path.GetFileName(child), StringComparer.Ordinal)) {
-                Walk(child, pattern, into);
-            }
-        }
     }
 
     /// <summary>The working tree's root, found by a directory only it has.</summary>

@@ -39,4 +39,7 @@
 
     <!-- Measured, the guarded allocation measurement. See Testing/Vixen.Testing.props. -->
     <Import Project="..\..\Testing\Vixen.Testing.props" />
+
+    <!-- What git calls the tree, for the repository sweeps here, instead of a directory walk (#1424). -->
+    <Import Project="..\..\Testing\Vixen.Testing.RepositoryFiles.props" />
 </Project>

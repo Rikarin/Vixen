@@ -30,4 +30,8 @@
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     </ItemGroup>
 
+    <!-- What git calls the tree, for ShaderSourceInventory's walk (#1424): the same source every
+         repository sweep in the tests reads, so the gate and the tests cannot disagree about it. -->
+    <Import Project="..\Testing\Vixen.Testing.RepositoryFiles.props" />
+
 </Project>

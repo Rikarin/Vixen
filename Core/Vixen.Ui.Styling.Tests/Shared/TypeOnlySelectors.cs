@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.RegularExpressions;
+using Vixen.Testing;
 
 namespace Vixen.Ui.Styling.Testing;
 
@@ -79,27 +80,16 @@ static class TypeOnlySelectors {
         return found;
     }
 
-    /// <summary>Every committed stylesheet, walked the way the styling tests walk them.</summary>
+    /// <summary>Every committed stylesheet, read the way the styling tests read them.</summary>
     /// <remarks>
-    ///     Pruned by directory name during the walk rather than filtered afterwards, for
+    ///     As git defines the tree rather than as the disk holds it (#1424), for
     ///     <c>RepositoryScan</c>'s reason: <c>.claude/worktrees</c> holds whole checkouts of this
     ///     repository, and a sweep that descended into them would be measuring other people's work.
+    ///     ⚠ It links into three assemblies, so each of them imports
+    ///     <c>Testing/Vixen.Testing.RepositoryFiles.props</c>.
     /// </remarks>
     static List<string> Sheets(string root) {
-        string[] unwalked = [".git", ".claude", "bin", "obj", "artifacts", "node_modules"];
-        var found = new List<string>();
-
-        void Walk(string directory) {
-            found.AddRange(Directory.EnumerateFiles(directory, "*.vcss"));
-
-            foreach (var child in Directory.EnumerateDirectories(directory)) {
-                if (!unwalked.Contains(Path.GetFileName(child), StringComparer.Ordinal)) {
-                    Walk(child);
-                }
-            }
-        }
-
-        Walk(root);
+        var found = RepositoryFiles.Files(root, "*.vcss");
         found.Sort(StringComparer.Ordinal);
 
         return found;
