@@ -691,8 +691,9 @@ settled by what the pool is:
 `@rows[0]` is an ordinary interpolation; `@empty` makes the same bargain with the brace. And the index
 is a `Signal<int>` holding `-1` in a slot the pool has made and not yet bound.
 
-`MessageLogView.vxml` is its first production caller. `ConsoleView` is the one virtualised list left
-setting `CreateRow`/`BindRow` in C#.
+`MessageLogView.vxml` is its first production caller and `ConsoleView.vxml` its second; no
+`VirtualizingPanel` in the editor is filled from C# any more. `AssetGrid` still fills its
+`VirtualizingGrid` through `CreateTile`/`BindTile`.
 
 ## `help`, and where an attach-shaped directive's runtime has to live
 

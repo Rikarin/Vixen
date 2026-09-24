@@ -37,10 +37,12 @@ namespace Vixen.Ui.Composition;
 ///         and one <c>BuildContext.Pool</c> fills either, which is the whole of what the seam buys.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Shipped ahead of its callers, and it has one now.</b> <c>MessageLogView.vxml</c>
-///         fills its <c>VirtualizingPanel</c> through this seam with an <c>@rows</c> block, which the
-///         markup compiler turns into <c>BuildContext.Pool</c> (#758). <c>ConsoleView</c> is the one
-///         production list left that sets <c>CreateRow</c> and <c>BindRow</c> in C#. Recorded here
+///         ⚠ <b>Shipped ahead of its callers, and it has two now.</b> <c>MessageLogView.vxml</c> and
+///         <c>ConsoleView.vxml</c> fill their <c>VirtualizingPanel</c>s through this seam with an
+///         <c>@rows</c> block, which the markup compiler turns into <c>BuildContext.Pool</c> (#758).
+///         No production <c>VirtualizingPanel</c> is filled from C# any more; the
+///         <c>VirtualizingGrid</c> half has no production caller yet — <c>AssetGrid</c> fills its
+///         grid through <c>CreateTile</c>/<c>BindTile</c>. Recorded here
 ///         rather than left to a grep, because "a finished thing nothing calls" is this repository's
 ///         commonest defect and a reader is owed the callers before concluding anything about the
 ///         seam.

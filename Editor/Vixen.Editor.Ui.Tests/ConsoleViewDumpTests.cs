@@ -34,6 +34,18 @@ namespace Vixen.Editor.Ui.Tests;
 ///         the exception is never thrown, so its text has no stack and no path; and the detail pane's
 ///         <c>thread N</c> is the one field no test can fix, so both dumps have it normalised.
 ///     </para>
+///     <para>
+///         ⚠ <b>Four of the references moved once, at the port, and only in the parked rows</b> —
+///         the message log's port found the same. The hand-written <c>Bind</c> returned early for a
+///         slot past the end of the list, so a slot parked by a search, a collapse, a level toggle
+///         or a clear kept the last line it showed: its text, its <c>level-*</c> class and, after
+///         Clear under a selection, its <c>Checked</c> bit. An <c>@rows</c> slot re-reads its index,
+///         finds no row and goes blank. The searched, collapsed, levels and cleared dumps differ from
+///         the recording in <c>.parked</c> 0×0 rows and nowhere else; five of the seven
+///         software-rasterised captures are byte-identical PNGs before and after, and the other two
+///         differ in 190 pixels at x 329–390, y 297–306 — the digits of <c>thread N</c>, which is a
+///         different managed thread in each run.
+///     </para>
 /// </remarks>
 [SuppressMessage("Trimming", "IL2026", Justification = "UiTest.Flags reads nine properties by name; tests are not trimmed.")]
 public sealed partial class ConsoleViewDumpTests {
@@ -565,23 +577,23 @@ public sealed partial class ConsoleViewDumpTests {
                   <console-message> 221,1 453×20 "Texture cache is 90% full"
                   <console-repeats> 682,11 20×0
                 <console-row .parked> 0,0 0×0
-                  <console-level-mark .level-warning> 0,0 0×0
-                  <console-time> 0,0 0×0 "01:02:05.500"
-                  <console-category> 0,0 0×0 "Cache"
-                  <console-message> 0,0 0×0 "Texture cache is 90% full"
+                  <console-level-mark> 0,0 0×0
+                  <console-time> 0,0 0×0
+                  <console-category> 0,0 0×0
+                  <console-message> 0,0 0×0
                   <console-repeats> 0,0 0×0
                 <console-row .parked> 0,0 0×0
-                  <console-level-mark .level-info> 0,0 0×0
-                  <console-time> 0,0 0×0 "01:03:10.000"
-                  <console-category> 0,0 0×0 "Import"
-                  <console-message> 0,0 0×0 "Imported 12 assets …"
+                  <console-level-mark> 0,0 0×0
+                  <console-time> 0,0 0×0
+                  <console-category> 0,0 0×0
+                  <console-message> 0,0 0×0
                   <console-repeats> 0,0 0×0
               <scrollbar .size-md .variant-default .vertical> 700,0 10×142
               <scrollbar .horizontal .size-md .variant-default> 0,132 8×10
           <console-detail .size-md .variant-default> 0,187 710×132
             <scroll-content> 0,1 710×80
               <console-detail-heading> 9,7 692×22 "Could not import wood.png"
-              <console-detail-meta> 9,32 692×19 "Error · Vixen.Editor.Import · 01:01:01.250 · thread 12 · #2001"
+              <console-detail-meta> 9,32 692×19 "Error · Vixen.Editor.Import · 01:01:01.250 · thread 5 · #2001"
               <console-detail-stack> 9,54 692×19 "System.InvalidOperationException: The file is not a PNG."
             <scrollbar .size-md .variant-default .vertical> 700,1 10×131
             <scrollbar .horizontal .size-md .variant-default> 0,122 710×10
@@ -659,16 +671,16 @@ public sealed partial class ConsoleViewDumpTests {
                   <console-message> 221,1 453×20 "Imported 12 assets …"
                   <console-repeats> 682,11 20×0
                 <console-row .parked> 0,0 0×0
-                  <console-level-mark .level-warning> 0,0 0×0
-                  <console-time> 0,0 0×0 "01:04:00.000"
-                  <console-category> 0,0 0×0 "Cache"
-                  <console-message> 0,0 0×0 "Texture cache is 90% full"
+                  <console-level-mark> 0,0 0×0
+                  <console-time> 0,0 0×0
+                  <console-category> 0,0 0×0
+                  <console-message> 0,0 0×0
                   <console-repeats> 0,0 0×0
                 <console-row .parked> 0,0 0×0
-                  <console-level-mark .level-warning> 0,0 0×0
-                  <console-time> 0,0 0×0 "01:05:00.000"
-                  <console-category> 0,0 0×0 "Cache"
-                  <console-message> 0,0 0×0 "Texture cache is 90% full"
+                  <console-level-mark> 0,0 0×0
+                  <console-time> 0,0 0×0
+                  <console-category> 0,0 0×0
+                  <console-message> 0,0 0×0
                   <console-repeats> 0,0 0×0
               <scrollbar .size-md .variant-default .vertical> 700,0 10×245
               <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
@@ -742,10 +754,10 @@ public sealed partial class ConsoleViewDumpTests {
                   <console-message> 221,1 453×20 "Imported 12 assets …"
                   <console-repeats> 682,11 20×0
                 <console-row .parked> 0,0 0×0
-                  <console-level-mark .level-info> 0,0 0×0
-                  <console-time> 0,0 0×0 "01:03:10.000"
-                  <console-category> 0,0 0×0 "Import"
-                  <console-message> 0,0 0×0 "Imported 12 assets …"
+                  <console-level-mark> 0,0 0×0
+                  <console-time> 0,0 0×0
+                  <console-category> 0,0 0×0
+                  <console-message> 0,0 0×0
                   <console-repeats> 0,0 0×0
               <scrollbar .size-md .variant-default .vertical> 700,0 10×245
               <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
@@ -807,22 +819,22 @@ public sealed partial class ConsoleViewDumpTests {
             <scroll-view .size-md .variant-default> 0,0 710×245
               <scroll-content .virtual-content> 0,0 710×0
                 <console-row .parked> 0,0 0×0
-                  <console-level-mark .level-error> 0,0 0×0
-                  <console-time> 0,0 0×0 "01:01:01.250"
-                  <console-category> 0,0 0×0 "Import"
-                  <console-message> 0,0 0×0 "Could not import wood.png"
+                  <console-level-mark> 0,0 0×0
+                  <console-time> 0,0 0×0
+                  <console-category> 0,0 0×0
+                  <console-message> 0,0 0×0
                   <console-repeats> 0,0 0×0
                 <console-row .parked> 0,0 0×0
-                  <console-level-mark .level-warning> 0,0 0×0
-                  <console-time> 0,0 0×0 "01:02:05.500"
-                  <console-category> 0,0 0×0 "Cache"
-                  <console-message> 0,0 0×0 "Texture cache is 90% full"
+                  <console-level-mark> 0,0 0×0
+                  <console-time> 0,0 0×0
+                  <console-category> 0,0 0×0
+                  <console-message> 0,0 0×0
                   <console-repeats> 0,0 0×0
                 <console-row .parked> 0,0 0×0
-                  <console-level-mark .level-info> 0,0 0×0
-                  <console-time> 0,0 0×0 "01:03:10.000"
-                  <console-category> 0,0 0×0 "Import"
-                  <console-message> 0,0 0×0 "Imported 12 assets …"
+                  <console-level-mark> 0,0 0×0
+                  <console-time> 0,0 0×0
+                  <console-category> 0,0 0×0
+                  <console-message> 0,0 0×0
                   <console-repeats> 0,0 0×0
               <scrollbar .size-md .variant-default .vertical> 700,0 10×245
               <scrollbar .horizontal .size-md .variant-default> 0,235 8×10
@@ -847,7 +859,6 @@ public sealed partial class ConsoleViewDumpTests {
         <toggle-button .console-level .level-warning .size-sm .variant-default> State=Checked IsChecked=True Label="0"
         <toggle-button .console-level .level-info .size-sm .variant-default> State=Checked IsChecked=True Label="0"
         <toggle-button .console-level .level-verbose .size-sm .variant-default> Label="0"
-        <console-row .parked> State=Checked
         <scrollbar .size-md .variant-default .vertical> Value=0
         <scrollbar .horizontal .size-md .variant-default> Value=0
         <scrollbar .size-md .variant-default .vertical> Value=0
