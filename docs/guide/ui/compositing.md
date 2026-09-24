@@ -962,7 +962,7 @@ What each backend reports:
 
 | Backend | `ISwapChain.Usage` | `!UiCompose` over the window |
 |---|---|---|
-| Vulkan, windowed | colour target, copy destination, and sampled where the surface's `supportedUsageFlags` list it — every desktop driver's do | builds |
+| Vulkan, windowed | colour target, copy destination, and sampled where the surface's `supportedUsageFlags` list it — ⚠ untested: the windowed chain cannot be created on the machine the tests ran on, and the request is not also checked against the format's own image properties | builds where the surface lists sampled |
 | Vulkan, offscreen (`--vixen-offscreen`, `--vixen-capture`) | colour target, copy source, copy destination, sampled | builds |
 | OpenGL | colour target, sampled, copy source | builds |
 | WebGPU | colour target, copy source | refused — the surface would have to be asked for `TextureBinding` |

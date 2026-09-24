@@ -114,11 +114,13 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     A colour target and a copy destination always, and sampled where the surface allows it —
-    ///     which every desktop driver's does — so a frame can hand the window's own picture to
-    ///     <c>!UiCompose</c> as a HUD's backdrop (#1419). Decided per build, off the surface's
-    ///     <c>supportedUsageFlags</c>, because asking for a usage the surface does not list is a
-    ///     validation error rather than a quiet no.
+    ///     A colour target and a copy destination always, and sampled where the surface and the chosen
+    ///     format both allow it, so a frame can hand the window's own picture to <c>!UiCompose</c> as
+    ///     a HUD's backdrop (#1419). Decided per build, off the surface's <c>supportedUsageFlags</c>
+    ///     and <c>vkGetPhysicalDeviceImageFormatProperties</c> for the format, because asking for a
+    ///     usage either does not list is a validation error rather than a quiet no. ⚠ Unmeasured on
+    ///     a windowed chain: the machine the tests ran on has no <c>VK_EXT_headless_surface</c>, so
+    ///     no test creates this chain there.
     /// </remarks>
     public TextureUsage Usage { get; private set; } = TextureUsage.ColourTarget;
 
@@ -529,6 +531,20 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
         );
     }
 
+    static bool SamplesAs(Vk api, PhysicalDevice physical, VkFormat format) {
+        ImageFormatProperties properties;
+
+        return api.GetPhysicalDeviceImageFormatProperties(
+            physical,
+            format,
+            ImageType.Type2D,
+            ImageTiling.Optimal,
+            ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.TransferDstBit | ImageUsageFlags.SampledBit,
+            0,
+            &properties
+        ) == Result.Success;
+    }
+
     void Build(Int2 size, PixelFormat preferredFormat, PresentMode preferredMode, int preferredCount) {
         var api = device.Api;
         var surfaces = device.Surfaces
@@ -564,7 +580,12 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
         var extent = ChooseExtent(capabilities, size);
         var count = ChooseImageCount(capabilities, preferredCount);
         var previous = handle;
-        var sampled = (capabilities.SupportedUsageFlags & ImageUsageFlags.SampledBit) != 0;
+        // The surface listing SAMPLED is half the condition: the chain's images are also created in
+        // the chosen format, and VUID-VkSwapchainCreateInfoKHR-imageFormat-01778 wants that format
+        // to take the usage as an optimally tiled 2-D image. Ask both, and go without rather than
+        // hand the driver a chain it never promised.
+        var sampled = (capabilities.SupportedUsageFlags & ImageUsageFlags.SampledBit) != 0
+            && SamplesAs(api, physical, chosen.Format);
         var usage = ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.TransferDstBit
             | (sampled ? ImageUsageFlags.SampledBit : 0);
 
