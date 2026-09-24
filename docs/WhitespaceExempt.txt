@@ -396,7 +396,6 @@ Editor/Vixen.Editor.AssetEditors/Code/CodeEditorView.cs
 Editor/Vixen.Editor.AssetEditors/Compositor/CompositorNode.cs
 Editor/Vixen.Editor.AssetEditors/Compositor/CompositorView.cs
 Editor/Vixen.Editor.AssetEditors/Content/AddressableGroupDocument.cs
-Editor/Vixen.Editor.AssetEditors/Content/AddressableGroupsView.cs
 Editor/Vixen.Editor.AssetEditors/Fonts/FontDocument.cs
 Editor/Vixen.Editor.AssetEditors/Fonts/FontView.cs
 Editor/Vixen.Editor.AssetEditors/Frame/StandardFrameView.cs
