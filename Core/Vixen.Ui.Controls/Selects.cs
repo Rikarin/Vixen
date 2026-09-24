@@ -446,7 +446,7 @@ public abstract partial class SelectBase : Control {
 }
 
 /// <summary>A field showing one choice, with a list behind it.</summary>
-public sealed partial class Select : SelectBase {
+public sealed partial class Select : SelectBase, IValidated {
     /// <inheritdoc />
     protected override string TagName => "select";
 
@@ -622,7 +622,7 @@ public sealed partial class Select : SelectBase {
 ///     would make choosing three things three separate journeys — which is what a single select is
 ///     for. It closes on Escape, on a click outside, and on Enter.
 /// </remarks>
-public sealed partial class MultiSelect : SelectBase {
+public sealed partial class MultiSelect : SelectBase, IValidated {
     readonly HashSet<string> selected = new(StringComparer.Ordinal);
 
     /// <inheritdoc />
@@ -792,7 +792,7 @@ public sealed partial class MultiSelect : SelectBase {
 ///     choice among a fixed set. Conflating them gives either a select that accepts nonsense or a
 ///     combo box that discards what was typed.
 /// </remarks>
-public sealed partial class ComboBox : Control {
+public sealed partial class ComboBox : Control, IValidated {
     /// <inheritdoc />
     protected override string TagName => "combo-box";
 

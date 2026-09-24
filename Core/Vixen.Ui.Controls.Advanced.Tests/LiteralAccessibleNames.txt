@@ -149,6 +149,7 @@ Editor/Vixen.Editor.Texturing/LayerRowView.vxml	Label	Enabled
 Editor/Vixen.Editor.Texturing/LayerRowView.vxml	Label	Move down
 Editor/Vixen.Editor.Texturing/LayerRowView.vxml	Label	Move up
 Editor/Vixen.Editor.Texturing/LayerStackChrome.vxml	Label	Add layer
+Samples/02-HelloUi/Panels/Gallery.vxml	AccessibleName	Sign in
 Samples/02-HelloUi/Panels/Gallery.vxml	Description	At least eight characters.
 Samples/02-HelloUi/Panels/Gallery.vxml	Label	Advanced
 Samples/02-HelloUi/Panels/Gallery.vxml	Label	Assets
@@ -174,6 +175,7 @@ Samples/02-HelloUi/Panels/Gallery.vxml	Label	Standard
 Samples/02-HelloUi/Panels/Gallery.vxml	Label	Subsurface
 Samples/02-HelloUi/Panels/Gallery.vxml	Label	Surface
 Samples/02-HelloUi/Panels/Gallery.vxml	Label	Unlit
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	User name
 Samples/02-HelloUi/Panels/Gallery.vxml	Label	Wireframe
 Samples/02-HelloUi/Panels/Gallery.vxml	Label	vixenengine.org/docs/ui
 Samples/02-HelloUi/Panels/Gallery.vxml	Message	Ui/Msdf.rvn(42): expected ';'

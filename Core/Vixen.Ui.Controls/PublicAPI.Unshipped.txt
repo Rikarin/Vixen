@@ -316,6 +316,12 @@ Vixen.Ui.Controls.ExpanderHeader -> sealed class
 Vixen.Ui.Controls.ExpanderHeader : Vixen.Ui.Controls.ButtonBase
 Vixen.Ui.Controls.ExpanderHeader.Chevron.get -> Vixen.Ui.Controls.Icon
 Vixen.Ui.Controls.ExpanderHeader.ExpanderHeader() -> void
+Vixen.Ui.Controls.Form -> sealed class
+Vixen.Ui.Controls.Form : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Form.Fields.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Control>
+Vixen.Ui.Controls.Form.Form() -> void
+Vixen.Ui.Controls.Form.Submit() -> bool
+Vixen.Ui.Controls.Form.Submitted -> System.Action<Vixen.Ui.Controls.Form>?
 Vixen.Ui.Controls.Gauge -> sealed class
 Vixen.Ui.Controls.Gauge : Vixen.Ui.Controls.RangeBase
 Vixen.Ui.Controls.Gauge.ClearCritical() -> void
@@ -1231,6 +1237,10 @@ override Vixen.Ui.Controls.Expander.TagName.get -> string
 override Vixen.Ui.Controls.ExpanderHeader.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
 override Vixen.Ui.Controls.ExpanderHeader.OnCreated() -> void
 override Vixen.Ui.Controls.ExpanderHeader.TagName.get -> string
+override Vixen.Ui.Controls.Form.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Form.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.Form.OnCreated() -> void
+override Vixen.Ui.Controls.Form.TagName.get -> string
 override Vixen.Ui.Controls.Gauge.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Gauge.NativeAccessibleValue.get -> string?
 override Vixen.Ui.Controls.Gauge.NativeRole.get -> Vixen.Ui.AccessibleRole

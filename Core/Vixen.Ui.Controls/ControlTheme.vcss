@@ -764,6 +764,13 @@ group-legend { color: var(--text); font-weight: 600; flex-shrink: 0; }
 
 group-content { flex-direction: column; align-items: stretch; gap: 8px; }
 
+/* ⚠ A form draws nothing of its own — no border, no caption. It is a submission
+   and a `form` landmark, not a box; what a form looks like is its rows and its
+   groups. The one thing it has to say is the direction: an element nothing
+   styles lays its children out in a row, which would put every field of a form
+   beside the one before it. */
+form { flex-direction: column; align-items: stretch; gap: 12px; }
+
 /* ── Segmented control ──────────────────────────────────────────────── */
 
 segmented-control {
