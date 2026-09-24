@@ -172,6 +172,123 @@ public sealed class AffectedOwnershipTests {
     }
 
     /// <summary>
+    ///     ⚠ The shared <c>Testing/</c> helpers are owned by the projects that import them, through
+    ///     the props file's <c>$(MSBuildThisFileDirectory)</c>.
+    /// </summary>
+    /// <remarks>
+    ///     No project contains <c>Testing/GoldenFile.cs</c>; four import
+    ///     <c>Vixen.Testing.GoldenFile.props</c>, which compiles it into each. Reading only the
+    ///     project file owned the props and left the source it links an orphan.
+    /// </remarks>
+    [Fact]
+    public void ASharedTestingHelperIsOwnedByItsImporters() {
+        var patterns = RepositoryPatterns(RepositoryRoot());
+        var readers = AffectedOwnership.ReadersOf("Testing/GoldenFile.cs", patterns);
+
+        Assert.Contains(RavenTests, readers);
+        Assert.True(readers.Count >= 2, $"Testing/GoldenFile.cs is read by {readers.Count} project(s): {string.Join(", ", readers)}.");
+    }
+
+    /// <summary>
+    ///     ⚠ A nested <c>Directory.Build.props</c> is owned by every project beneath it.
+    /// </summary>
+    [Fact]
+    public void ANestedDirectoryBuildPropsIsOwnedByTheProjectsBeneathIt() {
+        var patterns = RepositoryPatterns(RepositoryRoot());
+        var readers = AffectedOwnership.ReadersOf("Raven/Directory.Build.props", patterns);
+
+        Assert.Contains(RavenTests, readers);
+        Assert.Contains("Raven/Vixen.Raven/Vixen.Raven.csproj", readers);
+        Assert.All(readers, reader => Assert.StartsWith("Raven/", reader, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     ⚠ Every committed file on this tree has an owner, or is one of the orphans named here —
+    ///     exactly, in both directions.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The orphan assertion in <c>ProjectsOwning</c> only fires on the day somebody changes
+    ///         the file, which is how <c>Raven/Library/</c> went unnoticed until two merge agents
+    ///         hit it in one sweep. This asks the same question of every committed file ahead of
+    ///         time.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The list is what <c>--since</c> still refuses</b>, and each group is a decision
+    ///         nobody has taken, not a verdict: <c>Testing/ContentDeterminism/</c> is read by the
+    ///         <c>CheckContentBytes</c> target rather than by a project, <c>Tools/Vixen.BcnOracle/</c>
+    ///         is C built by a script, and the rest is prose. It can only shrink; a new file in a
+    ///         place nothing owns reds this before it reds somebody's narrowed run.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void EveryCommittedFileHasAnOwnerOrIsANamedOrphan() {
+        string[] named = [
+            ".claude/skills/vixen/SKILL.md",
+            ".claude/skills/vixen/mcp.md",
+            "Core/Vixen.Generators.Shared/README.md",
+            "Samples/14-Mmo/Assets/Default.vxgroup",
+            "Samples/14-Mmo/Mmo.vxproj",
+            "Samples/14-Mmo/README.md",
+            "Testing/ContentDeterminism/Assets/Ui.meta",
+            "Testing/ContentDeterminism/Assets/Ui/hero.txt",
+            "Testing/ContentDeterminism/Assets/Ui/hero.txt.meta",
+            "Testing/ContentDeterminism/Assets/Ui/sidekick.txt",
+            "Testing/ContentDeterminism/Assets/Ui/sidekick.txt.meta",
+            "Testing/ContentDeterminism/Assets/Ui/villain.txt",
+            "Testing/ContentDeterminism/Assets/Ui/villain.txt.meta",
+            "Testing/ContentDeterminism/Assets/UiCore.vxgroup",
+            "Testing/ContentDeterminism/Assets/UiCore.vxgroup.meta",
+            "Testing/ContentDeterminism/README.md",
+            "Tools/Vixen.BcnOracle/README.md",
+            "Tools/Vixen.BcnOracle/bcn-oracle.c",
+            "Tools/Vixen.BcnOracle/build.sh"
+        ];
+
+        var root = RepositoryRoot();
+        var committed = CommittedPaths(root);
+        var containers = new Dictionary<string, string?>(StringComparer.Ordinal);
+        var ownership = AffectedOwnership.Classify(committed, path => Containing(root, path, containers), RepositoryPatterns(root));
+
+        Assert.True(committed.Count > 3000, $"`git ls-files` returned {committed.Count} paths, which is not this tree.");
+
+        Assert.Equal(
+            string.Empty,
+            string.Join('\n', ownership.Orphans.Except(named).Select(path => $"{path} is owned by no project and read by none."))
+        );
+
+        Assert.Equal(
+            string.Empty,
+            string.Join('\n', named.Except(ownership.Orphans).Select(path => $"{path} is named as an orphan and is not one — delete its line."))
+        );
+    }
+
+    /// <summary>The nearest project at or above a committed file, memoised by directory.</summary>
+    static string? Containing(string root, string relative, Dictionary<string, string?> byDirectory) {
+        var slash = relative.LastIndexOf('/');
+
+        return slash < 0 ? null : Nearest(relative[..slash]);
+
+        string? Nearest(string directory) {
+            if (byDirectory.TryGetValue(directory, out var known)) {
+                return known;
+            }
+
+            var absolute = Path.Combine(root, directory.Replace('/', Path.DirectorySeparatorChar));
+            var project = System.IO.Directory.Exists(absolute) ? System.IO.Directory.GetFiles(absolute, "*.csproj").FirstOrDefault() : null;
+            var parent = directory.LastIndexOf('/');
+
+            var answer = project is not null
+                ? Path.GetRelativePath(root, project).Replace('\\', '/')
+                : parent < 0 ? null : Nearest(directory[..parent]);
+
+            byDirectory[directory] = answer;
+
+            return answer;
+        }
+    }
+
+    /// <summary>
     ///     A declared reader still exists and still spells the directory it is declared to read.
     /// </summary>
     /// <remarks>
@@ -200,7 +317,11 @@ public sealed class AffectedOwnershipTests {
         var patterns = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
 
         foreach (var project in CommittedPaths(root).Where(path => path.EndsWith(".csproj", StringComparison.Ordinal))) {
-            patterns[project] = AffectedOwnership.ItemPatterns(project, File.ReadAllText(Path.Combine(root, project)));
+            patterns[project] = AffectedOwnership.ItemPatterns(
+                project,
+                File.ReadAllText(Path.Combine(root, project)),
+                imported => File.Exists(Path.Combine(root, imported)) ? File.ReadAllText(Path.Combine(root, imported)) : null
+            );
         }
 
         Assert.True(patterns.Count > 150, $"Read {patterns.Count} project files, which is not this tree.");

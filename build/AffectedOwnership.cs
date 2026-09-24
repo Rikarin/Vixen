@@ -122,61 +122,87 @@ public static class AffectedOwnership {
         || (relative.EndsWith("/README.md", StringComparison.Ordinal)
             && relative.Count(character => character == '/') == 1);
 
+
     /// <summary>
     ///     The repository-relative patterns a project's items name <em>outside</em> its own
     ///     directory — the files it reads that directory containment cannot attribute to it.
     /// </summary>
     /// <param name="project">The project file, repository-relative and <c>/</c>-separated.</param>
     /// <param name="text">The project file's XML.</param>
+    /// <param name="read">
+    ///     Reads a repository-relative file, or returns <see langword="null" /> for one that does not
+    ///     exist, so that an <c>&lt;Import&gt;</c>ed file's own items are followed; <see langword="null" />
+    ///     to follow none.
+    /// </param>
     /// <returns>Glob patterns, repository-relative, <c>/</c>-separated.</returns>
     /// <remarks>
     ///     <para>
     ///         Read from the XML rather than evaluated, for the reason
     ///         <c>ReverseReferenceGraph</c> gives: one file per project against minutes of MSBuild.
-    ///         What that costs is stated rather than hidden — an include spelled through a property
-    ///         (<c>$(…)</c>) is not resolved and contributes nothing, and <c>Exclude</c> is ignored,
-    ///         which can only make a project own <em>more</em> than it reads. Over-inclusion runs a
-    ///         test too many; under-inclusion is the silent skip this whole selector exists to
-    ///         refuse.
+    ///         What that costs is stated rather than hidden — an include spelled through any property
+    ///         but <c>$(MSBuildThisFileDirectory)</c> and <c>$(MSBuildProjectDirectory)</c> is not
+    ///         resolved and contributes nothing, and <c>Exclude</c> is ignored, which can only make a
+    ///         project own <em>more</em> than it reads. Over-inclusion runs a test too many;
+    ///         under-inclusion is the silent skip this whole selector exists to refuse.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An import is followed</b>, because that is how <c>Testing/</c> is shared: a test
+    ///         project imports <c>Testing/Vixen.Testing.GoldenFile.props</c>, and the props file
+    ///         compiles <c>$(MSBuildThisFileDirectory)GoldenFile.cs</c> into it. Reading only the
+    ///         project file owned the props and not the source it links, so an edit to any of the
+    ///         five <c>Testing/*.cs</c> helpers made <c>--since</c> refuse.
     ///     </para>
     ///     <para>
     ///         Patterns inside the project's own directory are dropped, because the directory walk
     ///         already owns every file there, and so is a pattern that climbs above the repository.
     ///     </para>
     /// </remarks>
-    public static IReadOnlyList<string> ItemPatterns(string project, string text) {
+    public static IReadOnlyList<string> ItemPatterns(string project, string text, Func<string, string?>? read = null) {
         var directory = Directory(project);
         var patterns = new List<string>();
+        var followed = new HashSet<string>(StringComparer.Ordinal) { project };
 
-        foreach (var element in XDocument.Parse(text).Descendants()) {
-            if (NotFileItems.Contains(element.Name.LocalName)) {
-                continue;
-            }
+        Collect(project, text);
 
-            // An item's Include, and an <Import Project="…">, are the two ways a project file
-            // names another file it reads.
-            var value = element.Name.LocalName == "Import"
-                ? element.Attribute("Project")?.Value
-                : element.Parent?.Name.LocalName == "ItemGroup" ? element.Attribute("Include")?.Value : null;
+        return patterns;
 
-            if (string.IsNullOrWhiteSpace(value)) {
-                continue;
-            }
-
-            foreach (var include in value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) {
-                if (include.Contains("$(", StringComparison.Ordinal) || include.Contains("@(", StringComparison.Ordinal)) {
+        // `file` is the project or a file it imports: items resolve against the project's directory
+        // wherever they are written, and `$(MSBuildThisFileDirectory)` against the file's own.
+        void Collect(string file, string xml) {
+            foreach (var element in XDocument.Parse(xml).Descendants()) {
+                if (NotFileItems.Contains(element.Name.LocalName)) {
                     continue;
                 }
 
-                var resolved = Resolve(directory, include.Replace('\\', '/'));
+                // An item's Include, and an <Import Project="…">, are the two ways a project file
+                // names another file it reads.
+                var isImport = element.Name.LocalName == "Import";
+                var value = isImport
+                    ? element.Attribute("Project")?.Value
+                    : element.Parent?.Name.LocalName == "ItemGroup" ? element.Attribute("Include")?.Value : null;
 
-                if (resolved is not null && (directory.Length == 0 || !resolved.StartsWith(directory + "/", StringComparison.Ordinal))) {
-                    patterns.Add(resolved);
+                if (string.IsNullOrWhiteSpace(value)) {
+                    continue;
+                }
+
+                foreach (var include in value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) {
+                    var resolved = ResolveInclude(directory, Directory(file), include);
+
+                    if (resolved is null) {
+                        continue;
+                    }
+
+                    if (directory.Length == 0 || !resolved.StartsWith(directory + "/", StringComparison.Ordinal)) {
+                        patterns.Add(resolved);
+                    }
+
+                    if (isImport && read is not null && !resolved.Contains('*', StringComparison.Ordinal)
+                        && followed.Add(resolved) && read(resolved) is { } imported) {
+                        Collect(resolved, imported);
+                    }
                 }
             }
         }
-
-        return patterns;
     }
 
     /// <summary>Whether a repository-relative path matches an MSBuild-style glob.</summary>
@@ -188,22 +214,44 @@ public static class AffectedOwnership {
     ///     because the direction of a wrong answer here is running one test project too many.
     /// </remarks>
     public static bool Matches(string pattern, string relative) {
-        var regex = "^" + Regex.Escape(pattern)
-            .Replace(@"\*\*/", "(?:.*/)?", StringComparison.Ordinal)
-            .Replace(@"\*\*", ".*", StringComparison.Ordinal)
-            .Replace(@"\*", "[^/]*", StringComparison.Ordinal)
-            .Replace(@"\?", "[^/]", StringComparison.Ordinal) + "$";
+        // A literal pattern is by far the commonest (a linked file, one reflect.json) and needs no
+        // regex; the static Regex cache holds fifteen, against a few hundred patterns here.
+        if (!pattern.Contains('*', StringComparison.Ordinal) && !pattern.Contains('?', StringComparison.Ordinal)) {
+            return string.Equals(pattern, relative, StringComparison.OrdinalIgnoreCase);
+        }
 
-        return Regex.IsMatch(relative, regex, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var regex = Globs.GetOrAdd(
+            pattern,
+            glob => new Regex(
+                "^" + Regex.Escape(glob)
+                    .Replace(@"\*\*/", "(?:.*/)?", StringComparison.Ordinal)
+                    .Replace(@"\*\*", ".*", StringComparison.Ordinal)
+                    .Replace(@"\*", "[^/]*", StringComparison.Ordinal)
+                    .Replace(@"\?", "[^/]", StringComparison.Ordinal) + "$",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant
+            )
+        );
+
+        return regex.IsMatch(relative);
     }
+
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Regex> Globs = new(StringComparer.Ordinal);
 
     /// <summary>
     ///     Every project that reads <paramref name="relative" /> without containing it: through an
-    ///     item or an import that names it, or as a <see cref="DeclaredReaders" /> entry.
+    ///     item or an import that names it, through MSBuild's implicit <c>Directory.Build.*</c>
+    ///     import, or as a <see cref="DeclaredReaders" /> entry.
     /// </summary>
     /// <param name="relative">The changed file, repository-relative and <c>/</c>-separated.</param>
     /// <param name="patternsByProject">Each project's <see cref="ItemPatterns" />, keyed by project.</param>
     /// <returns>The reading projects, ordered.</returns>
+    /// <remarks>
+    ///     ⚠ A <c>Directory.Build.props</c> or <c>.targets</c> is imported by every project beneath
+    ///     it without a line in any of them. <c>Raven/Directory.Build.props</c> has no project beside
+    ///     it to be walked up to, so an edit to it refused; it is read by every Raven project. The
+    ///     repository-root pair stays with the projectless root files, as it always has, because
+    ///     "every project" is the unnarrowed run.
+    /// </remarks>
     public static IReadOnlyList<string> ReadersOf(string relative, IReadOnlyDictionary<string, IReadOnlyList<string>> patternsByProject) {
         var readers = new SortedSet<string>(StringComparer.Ordinal);
 
@@ -211,14 +259,22 @@ public static class AffectedOwnership {
             readers.Add(reader.Project);
         }
 
+        var name = relative[(relative.LastIndexOf('/') + 1)..];
+        var beneath = Directory(relative) is { Length: > 0 } above
+            && (name == "Directory.Build.props" || name == "Directory.Build.targets")
+                ? above + "/"
+                : null;
+
         foreach (var (project, patterns) in patternsByProject) {
-            if (patterns.Any(pattern => Matches(pattern, relative))) {
+            if ((beneath is not null && project.StartsWith(beneath, StringComparison.Ordinal))
+                || patterns.Any(pattern => Matches(pattern, relative))) {
                 readers.Add(project);
             }
         }
 
         return [.. readers];
     }
+
 
     /// <summary>The owners of a set of changed files, and the files nothing owns.</summary>
     /// <param name="Projects">Every owning project, ordered.</param>
@@ -271,6 +327,31 @@ public static class AffectedOwnership {
         var slash = relative.LastIndexOf('/');
 
         return slash < 0 ? string.Empty : relative[..slash];
+    }
+
+    /// <summary>
+    ///     An <c>Include</c> or <c>Project</c> value written in <paramref name="fileDirectory" />
+    ///     for a project in <paramref name="projectDirectory" />, repository-relative, or
+    ///     <see langword="null" /> when it names a property this reader does not evaluate.
+    /// </summary>
+    static string? ResolveInclude(string projectDirectory, string fileDirectory, string include) {
+        const string thisFile = "$(MSBuildThisFileDirectory)";
+        const string thisProject = "$(MSBuildProjectDirectory)";
+
+        var from = projectDirectory;
+
+        if (include.StartsWith(thisFile, StringComparison.Ordinal)) {
+            from = fileDirectory;
+            include = include[thisFile.Length..];
+        } else if (include.StartsWith(thisProject, StringComparison.Ordinal)) {
+            include = include[thisProject.Length..];
+        }
+
+        return include.Contains("$(", StringComparison.Ordinal)
+            || include.Contains("@(", StringComparison.Ordinal)
+            || include.Contains("%(", StringComparison.Ordinal)
+                ? null
+                : Resolve(from, include.Replace('\\', '/'));
     }
 
     /// <summary>

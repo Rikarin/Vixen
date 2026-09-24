@@ -131,7 +131,11 @@ partial class Build {
         foreach (var project in SolutionProjects().Where(project => project.FileExists())) {
             var relative = RootDirectory.GetRelativePathTo(project).ToUnixRelativePath().ToString();
 
-            patterns[relative] = AffectedOwnership.ItemPatterns(relative, project.ReadAllText());
+            patterns[relative] = AffectedOwnership.ItemPatterns(
+                relative,
+                project.ReadAllText(),
+                imported => (RootDirectory / imported).FileExists() ? (RootDirectory / imported).ReadAllText() : null
+            );
         }
 
         return patterns;
