@@ -519,7 +519,7 @@ reads. So `<div AccessibleName="Save" Focusable="true">` compiles, matches `[Acc
 does nothing. ~~No diagnostic.~~ ⚠ **Refuted since 168fe675b (2026-09-05):** `VXML2020` warns on a
 capitalised attribute name on a lowercase tag. It is declared as
 `MarkupDiagnostics.InertElementAttribute` (`MarkupDiagnostics.cs:463`), and the binder passes
-`MarkupDiagnostics.InertElementAttribute` (`Binder.cs:1015`) to `Report`. The mechanism is unchanged — the lowercase half of the split is still
+`MarkupDiagnostics.InertElementAttribute` (`Binder.cs:1063`) to `Report`. The mechanism is unchanged — the lowercase half of the split is still
 `ctx.Bind` or `ctx.Attribute` (`ComponentEmitter.cs:884-897`), so the attribute is still inert — but it is no longer
 silent. This is the same defect class the language already fixed twice, for `style=` and for `slot=`
 (`VXML2016`).
