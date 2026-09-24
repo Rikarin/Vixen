@@ -31,7 +31,6 @@ data-grid scroll-view	Bare
 data-header-cell icon	Bare
 dock-tab icon	-
 dock-tabstrip > icon-button	Bare
-empty-state icon	-
 expander-header icon	Bare
 gradient-editor color-picker	Bare
 icon-button label	Bare

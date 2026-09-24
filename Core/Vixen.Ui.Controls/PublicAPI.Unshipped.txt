@@ -298,7 +298,6 @@ Vixen.Ui.Controls.EmptyState.Description.get -> string?
 Vixen.Ui.Controls.EmptyState.Description.set -> string?
 Vixen.Ui.Controls.EmptyState.DescriptionPart.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.EmptyState.EmptyState() -> void
-Vixen.Ui.Controls.EmptyState.Illustration.get -> Vixen.Ui.Controls.Icon
 Vixen.Ui.Controls.EmptyState.Title.get -> string?
 Vixen.Ui.Controls.EmptyState.Title.set -> string?
 Vixen.Ui.Controls.EmptyState.TitlePart.get -> Vixen.Ui.UiElement

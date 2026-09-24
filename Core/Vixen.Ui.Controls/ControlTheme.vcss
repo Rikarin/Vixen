@@ -948,7 +948,6 @@ key-value-value level-indicator {
 }
 
 empty-state { flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 32px; }
-empty-state icon { width: 40px; height: 40px; color: var(--text-muted); }
 empty-title { color: var(--text); }
 empty-description { color: var(--text-muted); }
 empty-actions { flex-direction: row; gap: 8px; }
