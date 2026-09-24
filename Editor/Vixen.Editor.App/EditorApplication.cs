@@ -2719,14 +2719,21 @@ sealed partial class EditorApplication : IDisposable {
             var title = document.Title.Peek();
 
             Shell.RegisterPanel(
-                id,
-                new StringId("editor.panel." + id, title),
-                panel => {
-                    if ((TryGetOpenScene(asset, out var open) || project.TryGetDocument(asset, out open))
-                        && editors.TryGetForFile(project.Assets.TryGetByGuid(asset, out var entry) ? entry.Path : title, out var editor)) {
-                        tabDocuments[id] = open;
-                        Joined(editor.CreateView(open, panel), open);
+                new PanelDescriptor(
+                    id,
+                    new StringId("editor.panel." + id, title),
+                    panel => {
+                        if ((TryGetOpenScene(asset, out var open) || project.TryGetDocument(asset, out open))
+                            && editors.TryGetForFile(project.Assets.TryGetByGuid(asset, out var entry) ? entry.Path : title, out var editor)) {
+                            tabDocuments[id] = open;
+                            Joined(editor.CreateView(open, panel), open);
+                        }
                     }
+                ) {
+                    // The other half of the builder: a closed tab shows nothing, so nothing may go on
+                    // saying what it showed — `CloseTabsTheSceneLeft` and `EditedElsewhere` both read
+                    // this map as "what the user can see".
+                    Closed = () => tabDocuments.Remove(id)
                 }
             );
         }
@@ -2795,10 +2802,22 @@ sealed partial class EditorApplication : IDisposable {
     /// <param name="scene">The scene asking, which does not count; <see langword="null" /> for none.</param>
     /// <returns>The document, or <see langword="null" /> when no other one edits it.</returns>
     /// <remarks>
-    ///     Both kinds: the editor's own scenes, found by the file their writer names, and a document an
-    ///     asset tab opened, found by its asset's file. Pointing a second one at a file either of them
-    ///     holds is the arrangement #1395 removed — two undo histories and two writers over one set of
-    ///     bytes, whichever saved last winning.
+    ///     <para>
+    ///         Both kinds: the editor's own scenes, found by the file their writer names, and a
+    ///         document an asset tab opened, found by its asset's file. Pointing a second one at a
+    ///         file either of them holds is the arrangement #1395 removed — two undo histories and two
+    ///         writers over one set of bytes, whichever saved last winning.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A clean document no tab shows is closed here rather than counted.</b> Closing an
+    ///         asset tab does not close its document — the project keeps it, so reopening the tab
+    ///         finds the same undo history — so counting every entry in
+    ///         <see cref="EditorProject.Documents" /> refused a file for the rest of the session once
+    ///         it had been opened in a tab at all, with a message telling the user to close something
+    ///         they could no longer see. A clean one that nothing shows has nothing to lose, and is
+    ///         released; one with unsaved changes is still the holder, and
+    ///         <see cref="RefuseSecondDocument" /> says how to clear it.
+    ///     </para>
     /// </remarks>
     EditorDocument? EditedElsewhere(string path, SceneDocument? scene) {
         foreach (var open in openScenes) {
@@ -2807,29 +2826,49 @@ sealed partial class EditorApplication : IDisposable {
             }
         }
 
-        foreach (var document in project.Documents) {
+        foreach (var document in project.Documents.ToArray()) {
             if (ReferenceEquals(document, scene)
                 || document.Asset.IsEmpty
                 || !project.Assets.TryGetByGuid(document.Asset, out var entry)
-                || entry.IsFolder) {
+                || entry.IsFolder
+                || !SameFile(project.Paths.Absolute(entry.Path), path)) {
                 continue;
             }
 
-            if (SameFile(project.Paths.Absolute(entry.Path), path)) {
-                return document;
+            if (!InATab(document) && !document.IsDirty.Peek()) {
+                document.Close();
+
+                continue;
             }
+
+            return document;
         }
 
         return null;
     }
 
+    /// <summary>Whether an asset tab the user can see is showing a document.</summary>
+    bool InATab(EditorDocument document) =>
+        !document.Asset.IsEmpty && Shell.Workspace.IsOpen(AssetPanel(document.Asset));
+
     /// <summary>Says why a scene was not pointed at a file another document already edits.</summary>
-    void RefuseSecondDocument(string path, EditorDocument holder, string title) =>
+    /// <remarks>
+    ///     Each answer names something the user can do from where they are: a tab to close, or unsaved
+    ///     changes to save — a document with changes and no tab is invisible, and "close that first"
+    ///     named nothing that could be closed.
+    /// </remarks>
+    void RefuseSecondDocument(string path, EditorDocument holder, string title) {
+        var file = Path.GetFileName(path);
+        var name = holder.Title.Peek();
+
         Shell.Notifications.Show(
             title,
             NotificationSeverity.Warning,
-            $"{Path.GetFileName(path)} is already open as '{holder.Title.Peek()}'. Close that first, so that one document writes the file."
+            InATab(holder) || openScenes.Exists(open => ReferenceEquals(open.Document, holder))
+                ? $"{file} is already open as '{name}'. Close that first, so that one document writes the file."
+                : $"{file} has unsaved changes in '{name}', whose tab is closed. Save them, or reopen it and revert, so that one document writes the file."
         );
+    }
 
     /// <summary>Closes every asset tab showing an editor scene that no longer writes that asset's file.</summary>
     /// <remarks>

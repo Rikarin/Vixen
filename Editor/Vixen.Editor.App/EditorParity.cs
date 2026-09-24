@@ -1504,10 +1504,11 @@ sealed partial class EditorApplication {
 
     /// <summary>Writes the scene to a file of the user's choosing, and writes it there from now on.</summary>
     /// <param name="path">The chosen file.</param>
-    /// <remarks>What the dialog's answer does, named so a test can give the answer without a dialog.</remarks>
     /// <remarks>
-    ///     ⚠ <b>Refused onto a file another document edits</b>, and it closes any tab named after the
-    ///     file the scene leaves (#1416) — see <see cref="CloseTabsTheSceneLeft" />.
+    ///     What the dialog's answer does, named so a test can give the answer without a dialog. ⚠
+    ///     <b>Refused onto a file another document edits</b> — see <see cref="EditedElsewhere" /> for
+    ///     which ones count — and it closes any tab named after the file the scene leaves (#1416), see
+    ///     <see cref="CloseTabsTheSceneLeft" />.
     /// </remarks>
     internal void SaveSceneAs(string path) {
         if (EditedElsewhere(path, scene) is { } holder) {
