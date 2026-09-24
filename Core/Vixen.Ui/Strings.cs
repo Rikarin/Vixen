@@ -67,28 +67,69 @@ public readonly record struct StringId(string Id, string Source) {
 public static class Strings {
     static readonly SortedSet<string> MissingIds = new(StringComparer.Ordinal);
 
+    /// <summary>The catalog in use, for the whole process.</summary>
+    /// <remarks>
+    ///     A field and not a signal, because a field is what every thread can read safely. What makes
+    ///     a language change re-label a running interface is <see cref="announced" />.
+    /// </remarks>
+    static volatile StringCatalog inUse = StringCatalog.Source;
+
     /// <summary>
-    ///     ⚠ <b>Static, and a <see cref="Signal{T}" /> rather than a field.</b> Static for the reason
-    ///     in the type's own remarks; a signal because the alternative is a field, and a field is
-    ///     read once by whoever happens to be looking. The cost of the difference is one allocation
-    ///     for the process, and the difference itself is whether twenty applications need a restart
-    ///     to change language.
+    ///     ⚠ <b>A <see cref="Signal{T}" /> per thread, and it was one for the process until
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1413">#1413</a>.</b> The language is a
+    ///     property of the person and stays process-wide in <see cref="inUse" />; this is only the
+    ///     graph node that <em>announces</em> a change, and a graph node belongs to one graph.
     /// </summary>
     /// <remarks>
-    ///     The comparer is the type's own, which for a class is reference equality — so
-    ///     <c>Use(null)</c> twice writes <see cref="StringCatalog.Source" /> twice and propagates
-    ///     once. A catalog mutated in place after it is in use is invisible here, deliberately:
-    ///     <see cref="Use" /> is the seam, and a translation that changes under a running frame is
-    ///     not a case worth a comparer that reports nothing equal.
+    ///     <para>
+    ///         ⚠ <b>One static node was the one thing two independent graphs still shared.</b>
+    ///         <c>ReactiveGraph.OwningThread</c> is off by default so that a test host — or an editor
+    ///         with more than one graph — can run single-threaded graphs on several threads, and
+    ///         #1030 made the epoch safe for that. But every <c>@expr</c> that shows a word is an
+    ///         effect over this node, so every UI test class, each on its own xunit thread, added and
+    ///         removed live consumers on one node's arrays at the same time — and a removal writes the
+    ///         moved twin's index into the <em>consumer's</em> producer array, which is another
+    ///         thread's graph. Eight threads making and dropping one effect each over a shared node
+    ///         threw <c>IndexOutOfRangeException</c> in 159 825 of 160 000 iterations; one node per
+    ///         thread threw none. Short of throwing, a torn edge array is how a live computed in a
+    ///         private graph misses the push that should dirty it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So a <see cref="Use" /> re-labels what its own thread's graph shows</b>, which in
+    ///         the editor and in <c>UiApplication</c> is the only graph there is — both set
+    ///         <c>OwningThread</c>, and a read of any signal off that thread throws anyway. A graph on
+    ///         another thread reads the new language the next time it evaluates and is not told to.
+    ///     </para>
+    ///     <para>
+    ///         The comparer is the type's own, which for a class is reference equality — so
+    ///         <c>Use(null)</c> twice writes <see cref="StringCatalog.Source" /> twice and propagates
+    ///         once. A catalog mutated in place after it is in use is invisible here, deliberately:
+    ///         <see cref="Use" /> is the seam, and a translation that changes under a running frame is
+    ///         not a case worth a comparer that reports nothing equal.
+    ///     </para>
     /// </remarks>
-    static readonly Signal<StringCatalog> Current = new(StringCatalog.Source);
+    [ThreadStatic] static Signal<StringCatalog>? announced;
+
+    /// <summary>This thread's node, made the first time this thread asks.</summary>
+    static Signal<StringCatalog> Announced => announced ??= new(inUse);
 
     /// <summary>The catalog in use.</summary>
     /// <remarks>
     ///     Reading this inside an effect or a computed records a dependency on the language, which
     ///     is what re-labels a bound expression when <see cref="Use" /> is called.
     /// </remarks>
-    public static StringCatalog Catalog => Current.Value;
+    public static StringCatalog Catalog => Read();
+
+    /// <summary>The process's catalog, read through this thread's node so the read is a dependency.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The node's value is not what is returned.</b> A thread whose node has not been told
+    ///     about a <see cref="Use" /> made on another one still says the language the process is in.
+    /// </remarks>
+    static StringCatalog Read() {
+        _ = Announced.Value;
+
+        return inUse;
+    }
 
     /// <summary>Raised after <see cref="Use" /> changes it.</summary>
     /// <remarks>
@@ -118,8 +159,20 @@ public static class Strings {
     /// </remarks>
     public static void Use(StringCatalog? catalog) {
         var chosen = catalog ?? StringCatalog.Source;
+        var previous = inUse;
+        var node = Announced;
 
-        Current.Value = chosen;
+        inUse = chosen;
+
+        if (!ReferenceEquals(node.Peek(), chosen)) {
+            node.Value = chosen;
+        } else if (!ReferenceEquals(previous, chosen)) {
+            // ⚠ This thread's node already holds it — a `Use` elsewhere moved the process away and
+            // this one moves it back — so the write would compare equal and tell nobody, while
+            // everything this thread drew in between says the other language.
+            node.Invalidate();
+        }
+
         MissingIds.Clear();
 
         Changed?.Invoke(chosen);
@@ -133,9 +186,9 @@ public static class Strings {
             return id.Source ?? string.Empty;
         }
 
-        // ⚠ Through `Current.Value`, which is what records the dependency. Reading a cached field
-        // here would be one line shorter and would silently unbind every expression in the tree.
-        var catalog = Current.Value;
+        // ⚠ Through `Read`, which is what records the dependency. Reading `inUse` directly here
+        // would be one line shorter and would silently unbind every expression in the tree.
+        var catalog = Read();
 
         if (catalog.Find(id.Id) is { } translated) {
             return translated;

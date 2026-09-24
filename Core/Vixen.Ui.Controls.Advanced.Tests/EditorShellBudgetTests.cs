@@ -281,15 +281,33 @@ public class EditorShellBudgetTests {
     ///         16 344 is two of them.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So the old name was a claim this body cannot make, twice over.</b> Its measuring
-    ///         thread "allocates nothing by construction" — which means it is holding no
-    ///         partly-consumed context for a GC to retire, so the failure mode is absent by
-    ///         construction rather than by evidence. And the window closes after eight collections,
-    ///         against an artifact seen roughly once in twenty thousand. A gate that cannot go red is
-    ///         worse than the flake it replaced, and this one is kept only for the half it really
-    ///         does prove: <b>allocations</b> do not cross threads. The collection half is handled
-    ///         where it has to be — <see cref="A_settled_frame_allocates_nothing" /> now discards any
-    ///         frame a collection landed in and measures another.
+    ///         ⚠ <b>So the old name was a claim this body cannot make</b>, and this is kept only for
+    ///         the half it really does prove: <b>allocations</b> do not cross threads. The collection
+    ///         half is handled where it has to be — <see cref="A_settled_frame_allocates_nothing" />
+    ///         discards any frame a collection landed in and measures another.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And this paragraph used to say the measuring thread "allocates nothing by
+    ///         construction", so it holds no partly-consumed context for a collection to retire. That
+    ///         was false.</b> The <em>windows</em> allocate nothing; the thread does not — it builds
+    ///         the two reading arrays, the neighbour's closure and its <c>Thread</c>, after whatever
+    ///         xunit allocated on it — so it entered the first window holding a live context, which
+    ///         is the control arm's condition broken. A forced, blocking gen-0 now runs after
+    ///         everything is built and the neighbour has started, and before the first window:
+    ///         <c>Testing/Measured.cs</c>'s defence, which leaves the thread an empty context.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That is not shown to be why this failed once on Windows</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1428">#1428</a>: "1 of 83 windows
+    ///         saw this thread's allocation counter move", Debug, a loaded laptop). Measured on that
+    ///         laptop — Windows x64, .NET 10, Debug — a forced blocking gen-0 run while this thread
+    ///         held a freshly taken context moved its counter in <b>0 of 1 000</b> trials, and this
+    ///         test's own body with the collection removed moved <b>0 of 26 383</b> windows, and 0 of
+    ///         24 682 with thirty-two allocating threads in the process beside it. So the retire
+    ///         artefact the paragraph above measured on macOS arm64 does not appear there at all, and
+    ///         the Windows failure has a cause nobody has identified. That is why the failure message
+    ///         now names each moved window's bytes and whether a collection landed in it — the two
+    ///         facts "1 of 83" left out.
     ///     </para>
     ///     <para>
     ///         <b>Ordered by work, never by time.</b> The window closes when a fixed number of gen-0
@@ -335,6 +353,15 @@ public class EditorShellBudgetTests {
         _ = GC.CollectionCount(0);
 
         neighbour.Start();
+
+        // ⚠ Last, after every allocation this thread makes for the test — the arrays, the closure,
+        // the `Thread`, and `Start` itself — and before the first window. A collection retires every
+        // allocation context, so this one hands this thread an empty context while nothing is being
+        // read, and the windows below, which allocate nothing, never take another. Without it the
+        // thread carries a partly-used context into the loop, which on macOS arm64 is what a
+        // neighbour's collection can move (#1428; on Windows x64 it measured as harmless — see the
+        // remarks). Blocking, so the retirement has happened when the call returns.
+        GC.Collect(0, GCCollectionMode.Forced, blocking: true);
 
         try {
             // ⚠ Counted from the windows themselves rather than from `GC.CollectionCount(0)` at the
@@ -394,8 +421,30 @@ public class EditorShellBudgetTests {
             + $"allocated nothing and a neighbour forced {collected} collections. "
             + "GC.GetAllocatedBytesForCurrentThread does not even confine a neighbour's *allocations* "
             + "to that neighbour, which is a stronger fault than the one #992 found and is not what "
-            + $"{nameof(A_settled_frame_allocates_nothing)}'s retry can work round."
+            + $"{nameof(A_settled_frame_allocates_nothing)}'s retry can work round. "
+            + Moved(readings, observed, windows)
         );
+    }
+
+    /// <summary>Which windows moved, by how much, and whether a collection landed in each.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Because the one failure this test has had could not be explained from its message</b>
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1428">#1428</a>): "1 of 83 windows" says
+    ///     neither the size — one allocation context, or megabytes of a neighbour's churn? — nor
+    ///     whether a collection was inside the window, which is the difference between the retired
+    ///     context this file describes and something else entirely. Built after the measurement, so
+    ///     nothing it allocates is counted.
+    /// </remarks>
+    static string Moved(long[] readings, int[] observed, int windows) {
+        List<string> moved = [];
+
+        for (var i = 0; i < windows && moved.Count < 8; i++) {
+            if (readings[i] != 0) {
+                moved.Add($"window {i}: {readings[i]:+#,0;-#,0} B with {observed[i]} collection(s) in it");
+            }
+        }
+
+        return "Moved: " + string.Join("; ", moved) + ".";
     }
 
     /// <summary>A settled frame allocates nothing at all — the advanced set included.</summary>
