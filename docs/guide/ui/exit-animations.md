@@ -107,13 +107,17 @@ written the same way and read when the file is compiled:
 | `exit="200"` | **VXML2025** — a bare number is refused, on CSS's rule |
 | `exit="@Duration"` | **VXML2025** — there is nothing per-row for an expression to read |
 
-One more refusal, which would otherwise be silence:
+Two more refusals, each of which would otherwise be silence or the wrong advice:
 
 - **`VXML2024` — `exit` outside an `@for`.** The interval is the reconciler's, and an `@if` arm that
   is swapped out is cleared rather than reconciled. Left as an ordinary attribute the word `exit`
   would have gone into the style tree as selector data and the build would have called that success.
   It stands after a second look: what an `@if` lacks is not the deferral but an identity for an arm,
   so that a branch which comes back mid-exit has an answer the way a returning key does.
+- **`VXML2032` — `exit` in an `@rows` row.** A pool slot is parked and rebound, never removed, so
+  nothing reads the interval. It is decided by the *nearest* iteration: an `@for` nested inside a row
+  removes its own items and reads an `exit` on its row as usual, and an `@rows` inside an `@for` body
+  no longer lets an `exit` in its row through on the outer loop's account.
 
 ⚠ **`VXML2026` is gone, and its premise was wrong rather than merely inconvenient.** It refused an
 `exit` in a loop that also declares an index, on the grounds that what a leaving row's index signal

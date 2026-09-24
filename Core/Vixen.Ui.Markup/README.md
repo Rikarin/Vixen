@@ -685,15 +685,23 @@ settled by what the pool is:
   its own (#1398): no `key` on the row (`VXML2029`), no `ref` or `refs` anywhere in its subtree
   (`VXML2030`, tracked by a depth of its own and checked *before* the loop rules — outside an `@for`
   the `refs` rule used to answer "write 'ref' instead", the same trap, and inside one it let `refs`
-  through), and one `@rows` per control (`VXML2031`, on the second block).
+  through), and one `@rows` per control (`VXML2031`, on the second block). ⚠ A fourth (#1405): no
+  `exit` where the nearest iteration is the row (`VXML2032`), because the pool never removes a slot.
+  That one is keyed on the *nearest* iteration rather than on the row depth — an `@for` nested inside
+  a row has a reconciler that does remove items — so `BindFor` clears the flag for its body and the
+  row sets it for its own. Before it, `VXML2024` sent a row's author to an `@for`, and with the
+  `@rows` inside an `@for` body the exit bound silently.
 
 ⚠ **`@rows` is a keyword only with a `(var` header after it.** `rows` is a legal C# identifier and
 `@rows[0]` is an ordinary interpolation; `@empty` makes the same bargain with the brace. And the index
 is a `Signal<int>` holding `-1` in a slot the pool has made and not yet bound.
 
-`MessageLogView.vxml` is its first production caller and `ConsoleView.vxml` its second; no
-`VirtualizingPanel` in the editor is filled from C# any more. `AssetGrid` still fills its
-`VirtualizingGrid` through `CreateTile`/`BindTile`.
+`MessageLogView.vxml` is its first production caller, `ConsoleView.vxml` its second and
+`AssetGrid.vxml` — over a `VirtualizingGrid` — its third (#1406); no virtualised list in the editor is
+filled from C# any more. ⚠ The grid is where a row's content stops being a function of `index` alone:
+walking into a folder rebinds every slot at the index it already had, and a thumbnail arrives for a
+tile already drawn, so its template also reads a `version` signal that `Show` and `Refresh` move. A
+template whose model can change under an unchanged index needs the same.
 
 ## `help`, and where an attach-shaped directive's runtime has to live
 

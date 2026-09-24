@@ -44,7 +44,7 @@ open rows where there is one.
 | `UiElement.CommandScope` (`Commands.cs:699`) | the derived scope 45 § G2 was written to build | **0** | 2 — `Hierarchy.vxml:84`, `Inspector.vxml:63` |
 | `CommandRoute.ScopeOf` (`Commands.cs:418`) | reads it | **0** | 1 — `Shell.vxml:311` |
 | `UiDocument.CommandResponder` (`Commands.cs:537`) | `NSDocument`'s slot | **0** | 1 — `Shell.vxml:323` |
-| `UiElement.AccessKey` (`UiElement.cs:710`) | Alt-mnemonics | **0** | 1 — `Shell.vxml:591` |
+| `UiElement.AccessKey` (`UiElement.cs:739`) | Alt-mnemonics | **0** | 1 — `Shell.vxml:591` |
 | `UiDocument.MoveFocus(NavigationDirection)` (`Navigation.cs:48`) | arrow/D-pad navigation | **0** | 1 — `Shell.vxml:546` |
 
 ⚠ **Two halves of the "now" column are gated and a third is not, and the difference matters to a
@@ -124,7 +124,7 @@ same object by construction.
 **1.2 — The chain cannot be extended anywhere but its two ends.** The complete extensibility surface
 is `UiDocument.CommandResponder` and `UiDocument.ApplicationCommandResponder`. `UiElement`'s virtual
 surface is `TagName`, `ContentHost`, `NamedHost`, `OnCreated`, `OnChildAdded`, `OnRemoved`,
-`OnPropertyChanged`, `OnDraw` (`UiElement.cs:123,141,169,2366,2413,2445,2457,2502`) — there is no
+`OnPropertyChanged`, `OnDraw` (`UiElement.cs:123,145,173,2395,2444,2476,2488,2533`) — there is no
 `OnKeyDown`, no `AcceptsFirstResponder`, no `ValidateCommand`. A view controller, a window
 controller, or a document cannot sit *in the middle* of the walk, which is exactly where AppKit puts
 all three.
@@ -519,7 +519,7 @@ reads. So `<div AccessibleName="Save" Focusable="true">` compiles, matches `[Acc
 does nothing. ~~No diagnostic.~~ ⚠ **Refuted since 168fe675b (2026-09-05):** `VXML2020` warns on a
 capitalised attribute name on a lowercase tag. It is declared as
 `MarkupDiagnostics.InertElementAttribute` (`MarkupDiagnostics.cs:463`), and the binder passes
-`MarkupDiagnostics.InertElementAttribute` (`Binder.cs:1063`) to `Report`. The mechanism is unchanged — the lowercase half of the split is still
+`MarkupDiagnostics.InertElementAttribute` (`Binder.cs:1088`) to `Report`. The mechanism is unchanged — the lowercase half of the split is still
 `ctx.Bind` or `ctx.Attribute` (`ComponentEmitter.cs:884-897`), so the attribute is still inert — but it is no longer
 silent. This is the same defect class the language already fixed twice, for `style=` and for `slot=`
 (`VXML2016`).

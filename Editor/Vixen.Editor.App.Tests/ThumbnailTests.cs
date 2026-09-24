@@ -472,8 +472,19 @@ public class ThumbnailTests {
         // lands, which is what the dialog's subscription to `Changed` is for.
         Assert.All(grid.Tiles, tile => Assert.Equal(0UL, tile.Picture.Texture));
 
+        // ⚠ The effects are drained on every look, because since #1406 the tile template is markup:
+        // the decode's `Changed` makes the dialog `Refresh` the grid, which moves a signal the tile's
+        // bindings read, and a binding runs when the document next flushes — at the top of the next
+        // frame, before anything is drawn. The hand-written grid rebound inside `Refresh` itself, and
+        // this loop, which pumps the cache and never draws, was relying on that.
         Assert.True(
-            Settle(cache, () => grid.Tiles.Any(tile => tile.Node?.Guid == crate && tile.Picture.Texture != 0)),
+            Settle(
+                cache,
+                () => {
+                    editor.Document.Effects.Flush();
+                    return grid.Tiles.Any(tile => tile.Node?.Guid == crate && tile.Picture.Texture != 0);
+                }
+            ),
             "the picker never showed a picture"
         );
 
@@ -545,10 +556,7 @@ public class ThumbnailTests {
         Descendants(editor.Panel("project")).OfType<ButtonBase>().First(button => button.Label == "Grid").Activate();
         editor.Settle();
 
-        var tiles = Descendants(editor.Panel("project"))
-            .OfType<AssetTile>()
-            .Where(tile => !tile.HasClass("parked"))
-            .ToList();
+        var tiles = Descendants(editor.Panel("project")).OfType<AssetGrid>().Single().Tiles;
 
         Assert.NotEmpty(tiles);
         Assert.All(tiles, tile => Assert.True(tile.Picture.HasClass("hidden")));

@@ -21,10 +21,9 @@ public class LabeledContentTests {
 
         row.Label = label;
 
-        // ⚠ `Content`, not the row. `UiElement.Add<T>` is `Document.Create` and does not go near
-        // `ContentHost`, which routes a *nested tag* in markup — so this is what a C# caller writes
-        // and `<LabeledContent><TextBox /></LabeledContent>` is what a markup one writes, and both
-        // land in the same place.
+        // `Content` written out; `row.Add<TextBox>()` is the same call since #1425, because
+        // `UiElement.Add<T>` parents on `ContentHost` — where `<LabeledContent><TextBox /></LabeledContent>`
+        // puts it too.
         var field = row.Content.Add<TextBox>();
 
         fixture.Update();

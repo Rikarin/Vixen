@@ -1,0 +1,10 @@
+<asset-grid .size-md .variant-default> State=Hover
+<button .asset-crumb .size-sm .variant-subtle> Label="Assets"
+<button .asset-crumb .size-sm .variant-subtle> Label="Scenes"
+<virtualizing-grid .asset-tiles .size-md .variant-default> State=Hover
+<scroll-view .size-md .variant-default> State=Hover
+<scroll-content .virtual-grid> State=Hover
+<asset-tile .size-md .variant-default> State=Hover, Checked
+<icon .size-md .variant-default> State=Hover
+<scrollbar .size-md .variant-default .vertical> Value=0
+<scrollbar .horizontal .size-md .variant-default> Value=0

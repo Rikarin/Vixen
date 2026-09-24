@@ -680,4 +680,35 @@ public static class MarkupDiagnostics {
         BindingCategory,
         DiagnosticSeverity.Error
     );
+
+    /// <summary>An <c>exit</c> on an element whose nearest enclosing iteration is an <c>@rows</c> row.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A pool slot is never removed, so there is nothing for an exit to delay.</b> A slot
+    ///         the list scrolls past is parked and rebound to another index, and the pool only ever
+    ///         grows — so an <c>exit</c> anywhere in the row, on it or three elements down, is an
+    ///         interval no reconciler will ever read.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="ExitOutsideLoop" /> gave a row both wrong answers</b>, the shape
+    ///         <see cref="RefInRow" /> fixed for <c>refs</c>: outside an <c>@for</c> it refused the
+    ///         exit with advice pointing the author at a loop, and with the <c>@rows</c> itself in an
+    ///         <c>@for</c> body the loop depth was positive and the exit was accepted silently. See
+    ///         <c>Rikarin/Vixen#1405</c>.
+    ///     </para>
+    ///     <para>
+    ///         Only where the <i>nearest</i> iteration is the row: an <c>@for</c> nested inside a row
+    ///         has a reconciler of its own, which does remove items, and reads an exit on its row as
+    ///         every <c>@for</c> does.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor ExitInRow = new(
+        "VXML2032",
+        "'exit' in an @rows row",
+        "'exit' inside an @rows row: a pool slot is never removed — the control parks it and rebinds it to "
+        + "another index as the list scrolls — so there is nothing for an exit to delay. Remove it; an exit "
+        + "belongs on the row of an @for, whose reconciler does remove items.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
 }

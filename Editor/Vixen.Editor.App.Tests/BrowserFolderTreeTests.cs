@@ -203,9 +203,7 @@ public class BrowserFolderTreeTests {
     }
 
     static void DoubleClick(EditorSession editor, string name) {
-        var tile = Descendants(Grid(editor))
-                .OfType<AssetTile>()
-                .FirstOrDefault(candidate => candidate.Node?.Name == name)
+        var tile = Grid(editor).Tiles.FirstOrDefault(candidate => candidate.Node?.Name == name)?.Element
             ?? throw editor.Fail($"no tile for '{name}'");
 
         editor.Ui

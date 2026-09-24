@@ -359,11 +359,13 @@ public class SelectionTests {
     ///     under the field.</b>
     /// </summary>
     /// <remarks>
-    ///     <c>UiElement.Add</c> parents on the element and not on its content host, so
+    ///     <c>UiElement.Add</c> parented on the element and not on its content host, so
     ///     <c>select.Add&lt;Option&gt;()</c> used to leave the option beside the field: drawn inline,
     ///     absent from <c>Options</c>, and unchoosable, because the click is heard on the popover. The
     ///     sprite editor shipped that way (#1394). Markup was never affected, since a nested tag goes to
-    ///     the content host.
+    ///     the content host — and since #1425 neither is C#, because <c>Add</c> goes there too. The
+    ///     option arrives in the list by creation, so <c>Popover.ContentAdded</c> enlists it and no
+    ///     reparent is involved.
     /// </remarks>
     [Fact]
     public void An_option_added_to_the_select_itself_lands_in_its_list() {

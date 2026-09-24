@@ -232,7 +232,7 @@ public class BrowserCollectionTests {
 
         // ⚠ The press selects, and what a drag carries is the selection — so the gesture has to start
         // on the tile rather than anywhere in the grid.
-        editor.Ui.Drag(Middle(tile).X, Middle(tile).Y, Middle(row).X, Middle(row).Y);
+        editor.Ui.Drag(Middle(tile.Element).X, Middle(tile.Element).Y, Middle(row).X, Middle(row).Y);
         editor.Settle();
 
         var collected = Assert.Single(editor.AssetCollections);
