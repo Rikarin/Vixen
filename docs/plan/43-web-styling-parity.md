@@ -3693,6 +3693,10 @@ a colour matrix was declined beside the masked one until `UiBlend` applied the m
 does go through `UiBlend`, against the interface's own prefix over transparent black, and reads
 `Blended`; the renderer has nothing that tells a scene beneath from a host that painted nothing.
 `UiRenderFeature.Sceneless` counts it instead, because the feature is what passed nothing (#1378).
+A frame document can now remove it: a `!UiCompose` node ahead of the interface pass composes the
+HUD after the scene with the scene as its backdrop, and `InterfaceOverASceneDeviceTests` holds a
+multiplied panel to `grey · scene` and an inverting glass panel to `1 − scene` on a device. It stays
+an exception for a frame without the node, whose output is a swapchain image the node cannot sample.
 
 ⚠ **`background-blend-mode` is not this and stays refused.** It blends an element's background
 *layers* with each other, and there is one background layer for them to blend.

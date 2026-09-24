@@ -363,6 +363,14 @@ public sealed class WorldRenderer : IDisposable {
         // drift from this one.
         Host.System.AddFeature(Ui);
 
+        // ⚠ And the node that composes it after the scene, on this renderer's own builder and bound
+        // to this renderer's own feature (#1378). A document that names `!UiCompose` gets a HUD whose
+        // top-level blends and backdrop filters read the world; one that does not keeps the
+        // prologue's compose in `Draw`, which cannot. A factory rather than a built-in because the
+        // node kind is `Vixen.Ui.Renderer`'s, and `CompositorBuilder` must not know what an
+        // interface is.
+        Host.Builder.Factories.Add(new UiComposeFactory(Ui));
+
         if (device.Features.HasBindless) {
             // ⚠ The capacity is stated rather than left to the device, and it is stated as the same
             // constant `EffectLoader.BindlessCapacity` defaults to. The set this table allocates is
@@ -578,7 +586,7 @@ public sealed class WorldRenderer : IDisposable {
     ///         <see cref="UiRenderFeature.Soft" /> counts a frame where it did not get it (#1343).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="UiRenderFeature.Upload" /> and <see cref="UiRenderFeature.Compose" />
+    ///         ⚠ <b><see cref="UiRenderFeature.Upload" /> and <see cref="UiRenderFeature.Compose(ICommandList)" />
     ///         are no longer the host's</b> (#627): <see cref="Draw" /> makes both, before the
     ///         frame's passes and outside any of them. They were steps four and five of a five-step
     ///         contract, neither optional and each failing differently. ⚠ Skipping <c>Upload</c> was
@@ -1139,8 +1147,16 @@ public sealed class WorldRenderer : IDisposable {
         // `Compose` draws every faded panel solid. Here, both hosts get them from the one call they
         // already make: `AppGraphics.Begin` and `EditorWorldRenderer` both reach this method. With
         // nothing mounted both are a walk over an empty dictionary.
+        //
+        // ⚠ The compose is skipped for a frame whose document composes the interface itself, after
+        // the scene (#1378) — see `ComposesInFrame`. Here, before any pass, the scene has not been
+        // drawn, so a top-level blended or glass panel composed here reads transparent black for the
+        // world; composed there, it reads the world.
         Ui.Upload(commands);
-        Ui.Compose(commands);
+
+        if (!ComposesInFrame()) {
+            Ui.Compose(commands);
+        }
 
         AdoptViewLayout();
 
@@ -1152,6 +1168,50 @@ public sealed class WorldRenderer : IDisposable {
         }
 
         Host.Draw(commands);
+    }
+
+    /// <summary>The root <see cref="composerPath" /> was walked from.</summary>
+    SceneRenderer? composerRoot;
+
+    /// <summary>The nodes down to the frame's <c>!UiCompose</c>, or empty — see <see cref="ComposesInFrame" />.</summary>
+    SceneRenderer[] composerPath = [];
+
+    /// <summary>Whether this frame's document composes <see cref="Ui" /> itself, after the scene.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Walked once per built frame and its flags read every frame</b>, because the tree only
+    ///     changes on a <c>Load</c> and a node's <c>Enabled</c> can change at any time — and a node
+    ///     under a disabled sequence does not run, so every node on the path has to be enabled or the
+    ///     prologue composes as it always did. Keyed by the root and not the compositor, because
+    ///     <c>SceneRenderHost</c> may wrap a root in a sequence of its own after the build.
+    ///     <para>
+    ///         ⚠ <b>Only <c>Host.Compositor</c> is looked at, and the editor does not use it.</b>
+    ///         <c>EditorWorldRenderer</c> builds its panes' trees with <c>Builder.Build</c> into the
+    ///         window's graph, so here the answer is always no and the prologue composes. A
+    ///         <c>!UiCompose</c> in an editor document would still compose, a second time and after
+    ///         the scene, and the interface pass would draw its surfaces — the right picture, for the
+    ///         prologue's passes wasted. Nothing mounts an interface on the editor's <see cref="Ui" />
+    ///         today.
+    ///     </para>
+    /// </remarks>
+    bool ComposesInFrame() {
+        var root = Host.Compositor?.Game;
+
+        if (!ReferenceEquals(root, composerRoot)) {
+            composerRoot = root;
+            composerPath = UiComposeRenderer.PathTo(root, Ui);
+        }
+
+        if (composerPath.Length == 0) {
+            return false;
+        }
+
+        foreach (var node in composerPath) {
+            if (!node.Enabled) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Gives the view block the set-1 layout only a resolved shader knows.</summary>

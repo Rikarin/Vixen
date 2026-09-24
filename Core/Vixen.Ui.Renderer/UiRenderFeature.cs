@@ -39,7 +39,7 @@ public readonly record struct UiInterface(UiGeometry Geometry, GlyphAtlas Atlas,
     ///         describe exactly this arrangement.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It has to reach <see cref="UiRenderFeature.Compose" /> and
+    ///         ⚠ <b>It has to reach <see cref="UiRenderFeature.Compose(ICommandList)" /> and
     ///         <c>UiRenderFeature.Draw</c> together, which is why it lives on the surface
     ///         rather than being passed to one of them.</b> A group's surface is allocated at
     ///         <c>Compose</c>'s scale and sampled at <c>Record</c>'s, so a density supplied to one
@@ -197,14 +197,14 @@ public sealed class UiRenderFeature : RootRenderFeature {
     /// </remarks>
     public int Soft { get; private set; }
 
-    /// <summary>How many of the last <see cref="Compose" />'s top-level groups read a backdrop that has
-    /// no scene in it.</summary>
+    /// <summary>How many of the last compose's top-level groups read a backdrop that has no scene in it.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The only observer #1378's picture has, and it lives here because this is the only
     ///         place that knows.</b> A top-level group with <c>mix-blend-mode</c> or a
     ///         <c>backdrop-filter</c> reads what lies beneath it, and inside a world renderer that is
-    ///         the scene — which has not been drawn when <see cref="Compose" /> records its passes, so
+    ///         the scene — which has not been drawn when <see cref="Compose(ICommandList)" /> records
+    ///         its passes from <c>WorldRenderer.Draw</c>'s prologue, so
     ///         <see cref="UiRenderer.Compose" /> is handed no backdrop. The group then blends or blurs
     ///         against the interface's own prefix over transparent black: right wherever the interface
     ///         painted under it, and source-over the world wherever only the scene did. It reads
@@ -223,9 +223,14 @@ public sealed class UiRenderFeature : RootRenderFeature {
     ///     <para>
     ///         Counted per group and not per pixel: it cannot know whether the interface painted under
     ///         the group, so a badge over a plain HUD panel — which is right — is counted as well. A
-    ///         count of zero is the claim worth having, and it is exact. Reset by every
-    ///         <see cref="Compose" />. Giving such a group the real scene is a decision about where the
-    ///         interface composes and not a missing call; see <c>Core/Vixen.Ui.Renderer/README.md</c>.
+    ///         count of zero is the claim worth having, and it is exact. Reset by every compose.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Zero in a frame that names a <see cref="UiComposeRenderer" /></b>, because that node
+    ///         composes after the scene and hands it over as <see cref="UiBackdropSource.Image" />, and a
+    ///         group with an image beneath it read the world. A frame without one — whose output is a
+    ///         swapchain image the node cannot sample, say — keeps the prologue's compose and this
+    ///         count. See <c>Core/Vixen.Ui.Renderer/README.md</c>.
     ///     </para>
     /// </remarks>
     public int Sceneless { get; private set; }
@@ -495,12 +500,14 @@ public sealed class UiRenderFeature : RootRenderFeature {
     ///         the scene — which at this point in the frame <em>has not been drawn</em>, because
     ///         these passes are recorded ahead of the caller's own. So a <c>backdrop-filter</c> over
     ///         a HUD blurs the interface above it and reads a transparent field for the world behind
-    ///         it. Every other group composites correctly. Supplying it needs either the scene's colour
-    ///         target from the frame before, which is a decision about latency, or these passes
-    ///         recorded after the scene, which is a decision about where the interface composes —
-    ///         neither is a missing call, and neither is made here. ⚠ What <i>is</i> here is the count:
-    ///         <see cref="Sceneless" /> says how many groups of this frame read that degraded
-    ///         backdrop (#1378), because nothing else can.
+    ///         it. Every other group composites correctly. <see cref="Sceneless" /> says how many groups
+    ///         of this frame read that degraded backdrop (#1378), because nothing else can.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A frame that names <c>!UiCompose</c> does not come here.</b> Its
+    ///         <see cref="UiComposeRenderer" /> composes after the scene, from inside the frame's render
+    ///         graph, with the scene's target as the backdrop, and <c>WorldRenderer.Draw</c> skips this
+    ///         call for it. This overload stays the one a host that declares nothing gets.
     ///     </para>
     ///     <para>
     ///         The scale is <see cref="UiInterface.Scale" />, and so is <see cref="Draw" />'s. ⚠ The
@@ -512,7 +519,21 @@ public sealed class UiRenderFeature : RootRenderFeature {
     ///         carry it.
     ///     </para>
     /// </remarks>
-    public void Compose(ICommandList commands) {
+    public void Compose(ICommandList commands) => Compose(commands, default);
+
+    /// <summary>Composes every mounted interface over <paramref name="beneath" />.</summary>
+    /// <param name="commands">A list that is not inside a render pass.</param>
+    /// <param name="beneath">
+    ///     What lies under the interfaces — the scene, when a <see cref="UiComposeRenderer" /> calls
+    ///     this after it was drawn, and nothing when <c>WorldRenderer.Draw</c>'s prologue calls
+    ///     <see cref="Compose(ICommandList)" /> before it was.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Sceneless" /> counts only when there is no image beneath</b> (#1378). With
+    ///     the scene handed over, a top-level blend or backdrop reads it, which is the whole of what
+    ///     the counter exists to say did not happen.
+    /// </remarks>
+    internal void Compose(ICommandList commands, UiBackdropSource beneath) {
         ArgumentNullException.ThrowIfNull(commands);
 
         // ⚠ Through `Serve`, exactly as `Upload` and `Draw` are, and this is not a tidy-up. A
@@ -528,11 +549,36 @@ public sealed class UiRenderFeature : RootRenderFeature {
                 continue;
             }
 
-            renderer.Compose(commands, surface.Geometry, surface.Surface, surface.Scale);
+            renderer.Compose(commands, surface.Geometry, surface.Surface, surface.Scale, beneath);
 
             // After the call, so an interface that was not composed — no renderer — is not counted.
-            Sceneless += ScenelessIn(surface.Geometry);
+            if (!beneath.Image.IsValid) {
+                Sceneless += ScenelessIn(surface.Geometry);
+            }
         }
+    }
+
+    /// <summary>Why a scene target of <paramref name="target" /> pixels is not every interface's size, or null.</summary>
+    /// <param name="target">The scene target's size in framebuffer pixels.</param>
+    /// <returns>A sentence naming the first interface that disagrees, or null when all agree.</returns>
+    /// <remarks>
+    ///     <see cref="UiBackdropSource.Image" /> is drawn over the whole of an interface's surface, so a
+    ///     target of another size is resampled into it — a backdrop stretched under the panels rather
+    ///     than the one they sit on. Said rather than refused, because the frame still draws; a
+    ///     <see cref="UiComposeRenderer" /> reports it as its degrade.
+    /// </remarks>
+    internal string? Mismatched(Int2 target) {
+        foreach (var (_, surface) in surfaces) {
+            var width = (int) MathF.Ceiling(surface.Surface.X * surface.Scale);
+            var height = (int) MathF.Ceiling(surface.Surface.Y * surface.Scale);
+
+            if (width != target.X || height != target.Y) {
+                return $"an interface is {width}×{height} pixels and the scene beneath it is {target.X}×{target.Y}, "
+                    + "so its top-level backdrop is the scene resampled rather than the pixels under it";
+            }
+        }
+
+        return null;
     }
 
     /// <inheritdoc />

@@ -83,21 +83,26 @@ also decides the bounds, which are `float.MaxValue` and not a mistake — an int
 space and has no place in the world, so anything finite there is a HUD that appears and disappears as
 the player turns around.
 
-⚠ **A HUD's top-level `mix-blend-mode` and `backdrop-filter` cannot see the scene, and
-`UiRenderFeature.Sceneless` is what says so** ([#1378](https://github.com/Rikarin/Vixen/issues/1378)).
-`WorldRenderer.Draw` composes before the scene is drawn, so `UiRenderer.Compose` gets no backdrop and
-such a group reads the interface over transparent black — a multiplied panel lands as its own flat
-colour on the world (`InterfaceOverASceneDeviceTests` pins exactly that on a device). The renderer's
-own counters read `Blended`, because a default `UiBackdropSource` is also what a host that painted
-nothing passes; the feature is the one party that knows it passed nothing, so the count is its.
-Giving the group the real scene is a decision, not a missing call, and the mechanism for the cheaper
-of the two is already in the tree: a render-graph pass with no attachments runs its body *outside* a
-render pass (`RenderGraph.RunSegment`, the `pass.HasAttachments` branch), so a compositor node at
-the `BeforeUi` seam — ahead of the host's interface pass, reading the frame's output — could call
-`Compose` with the output as `UiBackdropSource.Image`. What that costs is a node kind (an `ISceneRendererFactory` the
-world renderer registers) and moving `Compose` out of `WorldRenderer.Draw`'s prologue for a host that
-declares one. The alternative, last frame's scene, is a latency decision and still needs a copy at
-the same seam, before the interface draws, or it would hand the HUD its own previous frame.
+⚠ **A HUD's top-level `mix-blend-mode` and `backdrop-filter` see the scene only in a frame that
+names `!UiCompose`, and `UiRenderFeature.Sceneless` says when they did not**
+([#1378](https://github.com/Rikarin/Vixen/issues/1378)). `WorldRenderer.Draw`'s prologue composes
+before the scene is drawn, so there `UiRenderer.Compose` gets no backdrop and such a group reads the
+interface over transparent black — a multiplied panel lands as its own flat colour on the world
+(`InterfaceOverASceneDeviceTests` pins exactly that on a device). The renderer's own counters read
+`Blended`, because a default `UiBackdropSource` is also what a host that painted nothing passes; the
+feature is the one party that knows it passed nothing, so the count is its.
+
+`UiComposeRenderer` is the other place to compose: a compositor node, placed at the `BeforeUi` seam
+ahead of the host's interface pass, whose render-graph pass has no attachments — so the graph runs
+its body *outside* a render pass (`RenderGraph.RunSegment`, the `pass.HasAttachments` branch) — and
+reads the frame's target as a shader resource, which places it after whatever wrote the scene. It
+calls `Compose` with that target as `UiBackdropSource.Image`, and `WorldRenderer.Draw` skips its own
+compose for a frame in which the node, and every node above it, is enabled. `WorldRenderer`'s
+constructor registers `UiComposeFactory` on its own builder with its own feature, so a document names
+the node and never the feature. ⚠ The target must be `Sampled`, which a swapchain image never is, so
+a frame that wants this renders into a target of its own and copies it out; the node refuses the
+target at build time otherwise. The alternative, last frame's scene, lags every blended panel by a
+frame and would still need a copy at the same seam.
 
 ### Three pipelines, one vertex layout
 

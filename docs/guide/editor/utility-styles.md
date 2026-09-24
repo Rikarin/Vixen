@@ -173,7 +173,9 @@ box: sizing a replaced element from its content is a separate thing this framewo
 device.** A blended group that also carries a `mask-*`, a blended group's `drop-shadow` quad, and a
 top-level HUD panel in a world renderer still composite source-over on the GPU.
 `UiRenderer.Unblended` says so for the first two; the HUD panel does go through the blend, against an
-interface-only backdrop, so it is `UiRenderFeature.Sceneless` that counts it (#1378). A
+interface-only backdrop, so it is `UiRenderFeature.Sceneless` that counts it (#1378) — and a frame
+document that names `!UiCompose` ahead of its interface pass composes the HUD after the scene, over
+it, which removes that third exception for the frame. A
 `rotate-*`/`scale-*` group blends since #1379, which found the reason it was declined — no
 fragment-position input in Raven — to be false, and a `filter` group since #783's `UiBlend` learnt to
 apply the colour matrix itself. See

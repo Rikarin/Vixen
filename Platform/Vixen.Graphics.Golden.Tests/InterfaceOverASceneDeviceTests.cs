@@ -231,8 +231,14 @@ public sealed class InterfaceOverASceneDeviceTests {
     ///         ⚠ <b>And no counter the renderer has can see it</b>: the panel reads
     ///         <c>UiRenderer.Blended</c> one and <c>Unblended</c> zero, exactly as a correct blend
     ///         would. <c>UiRenderFeature.Sceneless</c> is the one that does, and this is the frame it
-    ///         is one on. A fix that gives the group the scene inverts the pixel half to the multiply
-    ///         and the counter to zero.
+    ///         is one on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Still true of this document after #1378, on purpose.</b> The fix is a node a frame
+    ///         names — <c>!UiCompose</c> — and this frame does not name it, so it is what a host that
+    ///         declares nothing still gets. <see cref="ANamedComposeMultipliesATopLevelHudPanelIntoTheScene" />
+    ///         is the same panel through <see cref="Composed" />, where the pixel half is the multiply
+    ///         and the counter is zero.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -329,6 +335,298 @@ public sealed class InterfaceOverASceneDeviceTests {
         Assert.True(blended > 0, "the panel never went through UiBlend, so this is not the arrangement #1378 describes");
         Assert.Equal(0, unblended);
         Assert.Equal(1, sceneless);
+    }
+
+    /// <summary>
+    ///     <see cref="Document" /> with a <c>!UiCompose</c> ahead of the interface pass, so the
+    ///     interface is composed after the scene and over it (#1378).
+    /// </summary>
+    static GraphicsCompositorAsset Composed {
+        get {
+            var frame = StandardFrameTierImageTests.Frame;
+
+            return new() {
+                Stages = [new RenderStageAsset { Name = "Ui", SortMode = RenderSortMode.ByGroup }],
+                Game = frame with {
+                    Extensions = new() {
+                        BeforeUi = [
+                            new UiComposeAsset { Name = "Compose", Source = frame.Output },
+                            new RenderPassAsset {
+                                Name = "Interface",
+                                ColourTargets = [frame.Output],
+                                Loaded = [frame.Output],
+                                Children = [new SingleStageAsset { Name = "Hud", View = "Camera", Stage = "Ui" }]
+                            }
+                        ]
+                    }
+                }
+            };
+        }
+    }
+
+    /// <summary>What one run of a HUD over the scene produced.</summary>
+    sealed record HudFrame(Bitmap Picture, int Sceneless, int Blended, int Unblended, int Backdropped);
+
+    /// <summary>Draws the scene through <paramref name="document" /> with <paramref name="hud" /> mounted.</summary>
+    static HudFrame Draw(Fixture owned, GraphicsCompositorAsset document, (UiGeometry Geometry, GlyphAtlas Atlas) hud) {
+        using var scene = StandardFrameTierImageTests.Stage(owned, QualityTier.High, document);
+        using var ui = new UiRenderer(
+            owned.Device,
+            UiShaderLibrary.Load(owned.Device),
+            new RenderOutput([PixelFormat.Rgba8UNormSrgb])
+        );
+
+        var stage = scene.Stages["Ui"];
+
+        scene.View.Stages |= stage.Mask;
+        scene.Renderer.Ui.Renderer = ui;
+
+        var id = scene.Renderer.Ui.Mount(stage.Mask);
+
+        scene.Renderer.Ui.Set(id, new(hud.Geometry, hud.Atlas, new Int2(Side, Side), 0));
+
+        var picture = scene.Frames(Frames);
+
+        return new(picture, scene.Renderer.Ui.Sceneless, ui.Blended, ui.Unblended, ui.Backdropped);
+    }
+
+    /// <summary>The scene alone, through <paramref name="document" />.</summary>
+    static Bitmap Backdrop(Fixture owned, GraphicsCompositorAsset document) {
+        using var scene = StandardFrameTierImageTests.Stage(owned, QualityTier.High, document);
+
+        return scene.Frames(Frames);
+    }
+
+    /// <summary>
+    ///     The same multiplied panel through a frame that names <c>!UiCompose</c>: <c>grey · scene</c>
+    ///     at every pixel, and no group counted as having seen no scene (#1378).
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The inversion <see cref="ATopLevelBlendedHudPanelLandsSourceOverTheSceneAndIsCountedAsSeeingNone" />
+    ///         was written to become, run beside it rather than in place of it.</b> The node is a
+    ///         document's choice — a frame whose output is the swapchain cannot sample it — so the
+    ///         prologue's scene-blind compose is still what a frame without one gets, and that test
+    ///         still pins it. This one is the fix: the capture holds the scene, § 5.1 weights the
+    ///         blend by an opaque backdrop, and every panel pixel is the grey multiplied into what the
+    ///         scene put there, in linear light.
+    ///     </para>
+    ///     <para>
+    ///         The instrument is the pin test's: on this scene the right answer is ten or more codes
+    ///         from the grey at most panel pixels, so a frame that still laid the grey down
+    ///         source-over fails the pixel assertion rather than passing it by coincidence.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ANamedComposeMultipliesATopLevelHudPanelIntoTheScene() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var backdrop = Backdrop(owned, Composed);
+        var hud = Multiplied();
+
+        Assert.Equal(UiBlendMode.Multiply, Assert.Single(hud.Geometry.Layers).Blend);
+
+        var frame = Draw(owned, Composed, hud);
+
+        Keep("hud-blend-composed.backdrop", backdrop);
+        Keep("hud-blend-composed", frame.Picture);
+
+        var worst = 0;
+        var measured = 0;
+        var distinguishable = 0;
+
+        foreach (var (x, y) in Inside(Blended)) {
+            if (Near(BlendedInner, x, y)) {
+                continue;
+            }
+
+            var under = At(backdrop, x, y);
+            var over = At(frame.Picture, x, y);
+
+            var right = (
+                R: Encode(Decode(Grey) * Decode(under.R)),
+                G: Encode(Decode(Grey) * Decode(under.G)),
+                B: Encode(Decode(Grey) * Decode(under.B))
+            );
+
+            if (Math.Max(Math.Abs(right.R - Grey), Math.Max(Math.Abs(right.G - Grey), Math.Abs(right.B - Grey))) >= 10) {
+                distinguishable++;
+            }
+
+            worst = Math.Max(worst, Math.Abs(over.R - right.R));
+            worst = Math.Max(worst, Math.Abs(over.G - right.G));
+            worst = Math.Max(worst, Math.Abs(over.B - right.B));
+            measured++;
+        }
+
+        Assert.True(measured > 400, $"only {measured} pixels of the panel were measured");
+        Assert.True(
+            distinguishable > measured / 2,
+            $"multiply over this scene is within 10 codes of the grey at {measured - distinguishable} of {measured} pixels"
+        );
+
+        Assert.True(worst <= 3, $"the panel is {worst} codes from the grey multiplied into the scene");
+
+        // Everything clear of the panel is the scene, untouched — the compose read the output and
+        // must have written nothing into it.
+        Assert.Equal(0, ChangedOutside(backdrop, frame.Picture, Blended));
+
+        Assert.True(frame.Blended > 0, "the panel never went through UiBlend");
+        Assert.Equal(0, frame.Unblended);
+        Assert.Equal(0, frame.Sceneless);
+    }
+
+    /// <summary>
+    ///     A top-level HUD glass panel with <c>backdrop-filter: invert(1)</c>: through a frame that
+    ///     names <c>!UiCompose</c> it inverts the scene under it, and without one it inverts nothing
+    ///     (#1378).
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Both halves on the device, in one test, because the "before" is the defect's own
+    ///         picture.</b> Composed in the prologue, the panel's capture is the interface over
+    ///         transparent black; inverting premultiplied transparent black is transparent black, so
+    ///         the glass lays nothing on the world and every panel pixel is the scene's own — exact,
+    ///         and a closed form of its own. Composed by the node, the capture is the scene, and the
+    ///         panel is <c>1 − scene</c> in linear light at every pixel.
+    ///     </para>
+    ///     <para>
+    ///         An invert rather than a blur because it has a per-pixel closed form: a blur's answer
+    ///         depends on the kernel's reach into neighbours, and this asks only whether the scene
+    ///         reached the capture at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ATopLevelHudBackdropFilterInvertsTheSceneOnlyWhenComposedAfterIt() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var backdrop = Backdrop(owned, Composed);
+        var hud = Glass();
+
+        Assert.NotNull(Assert.Single(hud.Geometry.Layers).Backdrop);
+
+        var composed = Draw(owned, Composed, hud);
+        var blind = Draw(owned, Document, hud);
+
+        Keep("hud-glass.backdrop", backdrop);
+        Keep("hud-glass-composed", composed.Picture);
+        Keep("hud-glass-prologue", blind.Picture);
+
+        var worstComposed = 0;
+        var worstBlind = 0;
+        var measured = 0;
+        var distinguishable = 0;
+
+        foreach (var (x, y) in Inside(Blended)) {
+            if (Near(BlendedInner, x, y)) {
+                continue;
+            }
+
+            var under = At(backdrop, x, y);
+            var inverted = (
+                R: Encode(1f - Decode(under.R)),
+                G: Encode(1f - Decode(under.G)),
+                B: Encode(1f - Decode(under.B))
+            );
+
+            if (Math.Max(Math.Abs(inverted.R - under.R), Math.Max(Math.Abs(inverted.G - under.G), Math.Abs(inverted.B - under.B))) >= 10) {
+                distinguishable++;
+            }
+
+            var over = At(composed.Picture, x, y);
+
+            worstComposed = Math.Max(worstComposed, Math.Abs(over.R - inverted.R));
+            worstComposed = Math.Max(worstComposed, Math.Abs(over.G - inverted.G));
+            worstComposed = Math.Max(worstComposed, Math.Abs(over.B - inverted.B));
+
+            var seen = At(blind.Picture, x, y);
+
+            worstBlind = Math.Max(worstBlind, Math.Abs(seen.R - under.R));
+            worstBlind = Math.Max(worstBlind, Math.Abs(seen.G - under.G));
+            worstBlind = Math.Max(worstBlind, Math.Abs(seen.B - under.B));
+            measured++;
+        }
+
+        Assert.True(measured > 400, $"only {measured} pixels of the panel were measured");
+        Assert.True(
+            distinguishable > measured / 2,
+            $"the scene's inverse is within 10 codes of the scene at {measured - distinguishable} of {measured} pixels"
+        );
+
+        // Before: the glass saw no scene, so it inverted nothing and the world shows through as it was.
+        Assert.True(worstBlind <= 2, $"composed in the prologue, the glass panel is {worstBlind} codes from the scene");
+        Assert.True(blind.Backdropped > 0, "the prologue frame's panel never captured a backdrop");
+        Assert.Equal(1, blind.Sceneless);
+
+        // After: the scene, inverted.
+        Assert.True(worstComposed <= 3, $"composed after the scene, the glass panel is {worstComposed} codes from its inverse");
+        Assert.Equal(0, ChangedOutside(backdrop, composed.Picture, Blended));
+        Assert.True(composed.Backdropped > 0, "the composed frame's panel never captured a backdrop");
+        Assert.Equal(0, composed.Sceneless);
+    }
+
+    /// <summary>How many pixels away from <paramref name="box" /> differ from the backdrop by more than two codes.</summary>
+    static int ChangedOutside(in Bitmap backdrop, in Bitmap picture, (int X, int Y, int Width, int Height) box) {
+        var changed = 0;
+
+        for (var y = 0; y < Side; y++) {
+            for (var x = 0; x < Side; x++) {
+                if (Near(box, x, y)) {
+                    continue;
+                }
+
+                var a = At(backdrop, x, y);
+                var b = At(picture, x, y);
+
+                if (Math.Abs(a.R - b.R) > 2 || Math.Abs(a.G - b.G) > 2 || Math.Abs(a.B - b.B) > 2) {
+                    changed++;
+                }
+            }
+        }
+
+        return changed;
+    }
+
+    /// <summary>A HUD whose only panel is clear glass inverting whatever lies behind it.</summary>
+    static (UiGeometry Geometry, GlyphAtlas Atlas) Glass() {
+        var document = new UiDocument(Side, Side);
+
+        document.Load(
+            $$"""
+            root { width: {{Side}}px; height: {{Side}}px; }
+            .glass {
+                position: absolute; left: {{Blended.X}}px; top: {{Blended.Y}}px;
+                width: {{Blended.Width}}px; height: {{Blended.Height}}px;
+                backdrop-filter: invert(1);
+            }
+            .inner {
+                position: absolute; left: {{BlendedInner.X - Blended.X}}px; top: {{BlendedInner.Y - Blended.Y}}px;
+                width: {{BlendedInner.Width}}px; height: {{BlendedInner.Height}}px; background-color: #ff0000;
+            }
+            """
+        );
+
+        document.Root.Add("div", classNames: "glass").Add("div", classNames: "inner");
+        document.Update();
+        document.Draw();
+
+        var atlas = new GlyphAtlas(256, 256);
+
+        var geometry = new UiGeometryBuilder().Build(
+            document.Drawing,
+            new GlyphFieldCache(atlas),
+            new Rectangle(0, 0, Side, Side)
+        );
+
+        return (geometry, atlas);
     }
 
     /// <summary>The multiplied panel, in document pixels, which are framebuffer pixels here.</summary>

@@ -166,7 +166,8 @@ public readonly record struct UiShaders(
 ///         and the golden fixture each begin the interface's pass with a <c>LoadAction.Clear</c>; what
 ///         they have "already painted" is that colour. <see cref="Image" /> is for the host that has
 ///         genuinely rendered something — a scene, a video, a previous frame — into a texture of the
-///         interface's own size.
+///         interface's own size. ⚠ <see cref="UiComposeRenderer" /> is the one caller that hands one
+///         over: the frame's scene target, the same frame, from inside the render graph (#1378).
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Only a <i>top-level</i> group's backdrop reads this, and that is Filter Effects 2's
@@ -1118,9 +1119,11 @@ public sealed class UiRenderer : IDisposable {
     ///         any more: <c>UiBlend</c> applies the matrix itself before it mixes (#783).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What this does <i>not</i> count: a top-level blended group in a world renderer.</b>
-    ///         <c>UiRenderFeature.Compose</c> passes no <c>beneath</c>, because the scene is not drawn
-    ///         when these passes are recorded, so such a group blends through <c>UiBlend</c> — and
+    ///         ⚠ <b>What this does <i>not</i> count: a top-level blended group in a world renderer
+    ///         composed by <c>WorldRenderer.Draw</c>'s prologue.</b> That compose passes no
+    ///         <c>beneath</c>, because the scene is not drawn when its passes are recorded — a frame
+    ///         that names <c>!UiCompose</c> composes after the scene instead and passes it (#1378) — so
+    ///         such a group blends through <c>UiBlend</c> — and
     ///         reads <see cref="Blended" /> — against the interface's own prefix over transparent
     ///         black. Where the interface has painted under it that is the right answer; where only
     ///         the scene has, a backdrop of alpha zero weights the blend to nothing and the composite
@@ -1925,11 +1928,13 @@ public sealed class UiRenderer : IDisposable {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>At the top level, the backdrop is <paramref name="beneath" /> and the interface's
-    ///         own prefix — and inside a world renderer that is less than the frame.</b>
-    ///         <c>UiRenderFeature.Compose</c> passes no <paramref name="beneath" />, because the scene
-    ///         has not been drawn when these passes are recorded, so a top-level blended HUD panel
-    ///         blends with the interface under it and composites source-over onto the world. That is
-    ///         the limitation <c>backdrop-filter</c> already has there, for the same reason.
+    ///         own prefix — and inside a world renderer that is less than the frame unless the frame
+    ///         names <c>!UiCompose</c>.</b> <c>WorldRenderer.Draw</c>'s prologue passes no
+    ///         <paramref name="beneath" />, because the scene has not been drawn when these passes are
+    ///         recorded, so a top-level blended HUD panel blends with the interface under it and
+    ///         composites source-over onto the world — the limitation <c>backdrop-filter</c> has there,
+    ///         for the same reason. <see cref="UiComposeRenderer" /> records them after the scene and
+    ///         passes it, and then <see cref="Fullscreen" /> puts the world under the prefix (#1378).
     ///     </para>
     /// </remarks>
     void CaptureBlend(

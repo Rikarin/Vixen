@@ -7,6 +7,24 @@ Vixen.Ui.Renderer.UiBackdropSource.Image.get -> Vixen.Graphics.TextureViewHandle
 Vixen.Ui.Renderer.UiBackdropSource.Image.init -> Vixen.Graphics.TextureViewHandle
 Vixen.Ui.Renderer.UiBackdropSource.UiBackdropSource() -> void
 Vixen.Ui.Renderer.UiBackdropSource.UiBackdropSource(Vixen.Core.Mathematics.Color4 Colour) -> void
+Vixen.Ui.Renderer.UiComposeAsset -> sealed record
+Vixen.Ui.Renderer.UiComposeAsset : System.IEquatable<Vixen.Ui.Renderer.UiComposeAsset>
+Vixen.Ui.Renderer.UiComposeAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Ui.Renderer.UiComposeAsset.Enabled.get -> bool
+Vixen.Ui.Renderer.UiComposeAsset.Enabled.init -> bool
+Vixen.Ui.Renderer.UiComposeAsset.Name.get -> string
+Vixen.Ui.Renderer.UiComposeAsset.Name.init -> string
+Vixen.Ui.Renderer.UiComposeAsset.Source.get -> string
+Vixen.Ui.Renderer.UiComposeAsset.Source.init -> string
+Vixen.Ui.Renderer.UiComposeAsset.UiComposeAsset() -> void
+Vixen.Ui.Renderer.UiComposeFactory -> sealed class
+Vixen.Ui.Renderer.UiComposeFactory : Vixen.Rendering.Compositor.ISceneRendererFactory
+Vixen.Ui.Renderer.UiComposeFactory.Create(Vixen.Rendering.Compositor.ISceneRendererAsset declared, Vixen.Rendering.Compositor.CompositorBuilder builder) -> Vixen.Rendering.Compositor.SceneRenderer?
+Vixen.Ui.Renderer.UiComposeFactory.UiComposeFactory(Vixen.Ui.Renderer.UiRenderFeature feature) -> void
+Vixen.Ui.Renderer.UiComposeRenderer -> sealed class
+Vixen.Ui.Renderer.UiComposeRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Ui.Renderer.UiComposeRenderer.ComposeCount.get -> int
+Vixen.Ui.Renderer.UiComposeRenderer.UiComposeRenderer() -> void
 Vixen.Ui.Renderer.UiInterface -> readonly struct
 Vixen.Ui.Renderer.UiInterface : System.IEquatable<Vixen.Ui.Renderer.UiInterface>
 Vixen.Ui.Renderer.UiInterface.Atlas.get -> Vixen.Ui.Text.Rasterizing.GlyphAtlas
@@ -87,7 +105,14 @@ Vixen.Ui.Renderer.UiShaders.UiShaders(Vixen.Graphics.ShaderHandle Vertex, Vixen.
 Vixen.Ui.Renderer.UiShaders.Vertex.get -> Vixen.Graphics.ShaderHandle
 Vixen.Ui.Renderer.UiShaders.Vertex.init -> Vixen.Graphics.ShaderHandle
 const Vixen.Ui.Renderer.UiRenderer.ReferenceWhite = 203 -> float
+override Vixen.Ui.Renderer.UiComposeRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
+override Vixen.Ui.Renderer.UiComposeRenderer.ToString() -> string
 override Vixen.Ui.Renderer.UiRenderFeature.Draw(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderDrawContext context, System.ReadOnlySpan<Vixen.Rendering.RenderNode> nodes) -> void
 override Vixen.Ui.Renderer.UiRenderFeature.Name.get -> string
 override Vixen.Ui.Renderer.UiRenderFeature.SortGroupOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, Vixen.Rendering.RenderStage stage) -> uint
+required Vixen.Ui.Renderer.UiComposeRenderer.Feature.get -> Vixen.Ui.Renderer.UiRenderFeature
+required Vixen.Ui.Renderer.UiComposeRenderer.Feature.init -> Vixen.Ui.Renderer.UiRenderFeature
+required Vixen.Ui.Renderer.UiComposeRenderer.Source.get -> string
+required Vixen.Ui.Renderer.UiComposeRenderer.Source.init -> string
+static Vixen.Ui.Renderer.UiComposeRenderer.PathTo(Vixen.Rendering.Compositor.SceneRenderer? root, Vixen.Ui.Renderer.UiRenderFeature feature) -> Vixen.Rendering.Compositor.SceneRenderer[]
 static Vixen.Ui.Renderer.UiRenderer.WhiteLevelFor(Vixen.Graphics.PixelFormat format) -> float

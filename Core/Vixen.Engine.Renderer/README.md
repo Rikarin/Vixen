@@ -152,6 +152,17 @@ two calls under `InterfaceOverASceneDeviceTests` — and both are now made by th
 asserts it by calling nothing else, and `InterfaceOverASceneDeviceTests` in the golden suite draws a
 `UiDocument` over a standard frame on a real device through exactly that path.
 
+⚠ **The prologue's compose runs before the scene, so a frame can move it after** (#1378). Composed
+there, a HUD's top-level `mix-blend-mode` and `backdrop-filter` read transparent black for the world,
+which `UiRenderFeature.Sceneless` counts. The constructor also registers `UiComposeFactory` on
+`Host.Builder`, bound to `Ui`, so a document may name a `!UiCompose` node ahead of its interface pass:
+the node composes from inside the render graph, after whatever wrote its `source`, with that target
+as the backdrop, and `Draw` skips its own compose whenever the node and every node above it are
+enabled (`ComposesInFrame`, which walks the built tree once per load and reads the flags per frame).
+`InterfaceComposedAfterTheSceneTests` holds the order on the null recorder; the golden
+`InterfaceOverASceneDeviceTests` holds the pictures. The editor gets both through the `WorldRenderer`
+it owns.
+
 ⚠ **The surface carries the display's density, and both of those calls read it.** `UiInterface.Scale`
 is how many framebuffer pixels one of the geometry's units is; it defaults to one, which is right
 only for a document laid out in physical pixels. A projection is a pure mapping from geometry units
