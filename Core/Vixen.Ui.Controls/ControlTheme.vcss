@@ -1155,6 +1155,7 @@ select icon, multi-select icon, combo-box icon {
 }
 
 popover.select-list { flex-direction: column; padding: 4px; min-width: 120px; }
+combo-box .combo-editor { border-width: 0px; padding: 0px; flex-grow: 1; background-color: transparent; }
 
 /* ── Dates ──────────────────────────────────────────────────────────────
    ⚠ Every rule here is a tag, a class or a compound of the two, and none is a
@@ -1203,7 +1204,6 @@ calendar-day:hover:not(:disabled) { background-color: var(--surface-sunken); }
 calendar-day.outside { color: var(--text-muted); }
 calendar-day.today { border-color: var(--border); }
 calendar-day:checked { background-color: var(--accent); color: var(--accent-text); }
-combo-box .combo-editor { border-width: 0px; padding: 0px; flex-grow: 1; background-color: transparent; }
 
 /* ── Dialogs ────────────────────────────────────────────────────────── */
 dialog, drawer {
