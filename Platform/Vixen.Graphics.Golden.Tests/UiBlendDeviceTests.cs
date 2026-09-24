@@ -532,6 +532,141 @@ public sealed class UiBlendDeviceTests {
             Via: false
         );
 
+    /// <summary>A masked blend's coverage is taken where each pixel sits, at a density of two (#783).</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="AMaskedBlendAppliesTheMaskAndThenTheBlend" /> cannot see where the mask is
+    ///         read</b>, because its mask is flat: every point of the box has coverage one half, so a
+    ///         fragment that looked the mask up in the wrong place drew the right answer. That is the
+    ///         half of <c>UiBlend</c>'s mask path that is arithmetic on position — the texel it recovers
+    ///         from the composite's coordinate, divided down by the density the host pushes beside the
+    ///         list — and it went unproved: the reviewer multiplied that pushed density by seven and the
+    ///         suite stayed green.
+    ///     </para>
+    ///     <para>
+    ///         So this mask is a left-to-right ramp from nothing to everything across the group's box,
+    ///         and the frame is laid out in half as many units and drawn at a density of two — the #1200
+    ///         class, where a texel and a document pixel are different numbers. Six pixels along the
+    ///         middle row each have their own closed form, § 5.1 at the group's opacity times the ramp
+    ///         at that pixel's centre in document units. There is no software executor at a density
+    ///         other than one, so the closed form is the whole oracle, and the instrument checks that it
+    ///         is one: the oracle's coverage is the ramp's own arithmetic, the six answers span more than
+    ///         a flat mask could, and a fragment that forgot the density — reading the ramp at the texel
+    ///         rather than the document pixel — would be off by more than the tolerance.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AGradientMaskedBlendAtDensityTwoIsMaskedWhereEachPixelSits() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        const int units = Side / 2;
+        const float density = 2f;
+
+        // The group's box, in document units: 12..52 on each axis, painted over 20..44.
+        const float left = 12f;
+        const float width = 40f;
+
+        var ramp = new UiMask(
+            new Vector2(left + (width / 2f), left + (width / 2f)),
+            new Vector2(width / 2f, width / 2f),
+            Vector2.UnitX,
+            new Vector3(0f, 0.5f, 1f),
+            GradientStops.Default,
+            GradientShape.Linear,
+            Via: false
+        );
+
+        const int row = Side / 2;
+        int[] columns = [44, 52, 60, 68, 76, 84];
+
+        var expected = new (int Red, int Green, int Blue)[columns.Length];
+        var forgotten = 0;
+
+        for (var i = 0; i < columns.Length; i++) {
+            var point = new Vector2((columns[i] + 0.5f) / density, (row + 0.5f) / density);
+            var coverage = ramp.Coverage(point);
+
+            // The instrument, first: the oracle's coverage is the ramp — zero at the box's left edge,
+            // one at its right, linear between.
+            Assert.True(
+                MathF.Abs(coverage - ((point.X - left) / width)) <= 0.01f,
+                $"at {point} the oracle's coverage is {coverage}; the ramp is {(point.X - left) / width}"
+            );
+
+            expected[i] = ExpectedOver(UiBlendMode.Multiply, Paint, Field, opacity: Opacity * coverage);
+
+            // And the reading a fragment makes when it forgets the density: the texel taken as the
+            // document pixel, twice as far along the ramp.
+            var texel = new Vector2(columns[i] + 0.5f, row + 0.5f);
+            var wrong = ExpectedOver(UiBlendMode.Multiply, Paint, Field, opacity: Opacity * ramp.Coverage(texel));
+
+            forgotten = Math.Max(forgotten, Distance(expected[i], wrong));
+        }
+
+        Assert.True(Distance(expected[0], expected[^1]) >= 20, $"the ramp's ends {expected[0]} and {expected[^1]} are too close to tell a gradient from a flat mask");
+        Assert.True(forgotten >= 10, $"a fragment that ignored the density would be at most {forgotten} codes off, which the tolerance could hide");
+
+        var list = new DrawList();
+        list.BeginFrame();
+        list.Add(new(DrawCommandKind.Rectangle, 0, 0, units, units, Field, 0, 0));
+        list.Add(
+            new DrawCommand(DrawCommandKind.LayerPush, left, left, width, width, new Color4(1f, 1f, 1f, Opacity), 0, 0) {
+                Blend = UiBlendMode.Multiply,
+                Offset = list.AddMasks([ramp]),
+                Length = 1
+            }
+        );
+        list.Add(new(DrawCommandKind.Rectangle, left, left, width, width, Grey, 0, 0));
+        list.Add(new(DrawCommandKind.Rectangle, 20, 20, 24, 24, Paint, 0, 0));
+        list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+        list.EndFrame();
+
+        var colour = owned.ColourTarget("ui-blend-mask-density");
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var geometry = new UiGeometryBuilder().Build(list, cache, new Rectangle(0, 0, units, units));
+
+        var renderer = new UiRenderer(
+            owned.Device,
+            UiShaderLibrary.Load(owned.Device),
+            new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
+        );
+
+        owned.Owns(renderer.Dispose);
+
+        owned.Graph.AddPass("ui-blend-mask-density", pass => {
+            pass.ColourAttachment(colour, LoadAction.Clear, Background);
+            pass.SideEffect();
+            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(units, units), density));
+        });
+
+        var rendered = owned.Render(
+            colour,
+            commands => {
+                renderer.Upload(commands, geometry, cache.Atlas);
+                renderer.Compose(commands, geometry, new Int2(units, units), density, new UiBackdropSource(Background));
+            }
+        );
+
+        Keep(rendered, "blend-masked-ramp-density-2.device");
+
+        Assert.Equal(1, renderer.Blended);
+        Assert.Equal(0, renderer.Unblended);
+        Assert.Equal(1, renderer.Masked);
+
+        for (var i = 0; i < columns.Length; i++) {
+            var at = At(rendered, columns[i], row);
+
+            Assert.True(
+                Distance(at, expected[i]) <= 3,
+                $"({columns[i]}, {row}) is {at}; the ramp there, then the blend, is {expected[i]}"
+            );
+        }
+    }
+
     /// <summary>
     ///     The field, a stripe down its left quarter, and a multiplied group over the middle half scaled
     ///     1.5× about its centre — in <paramref name="units" /> document pixels across.
