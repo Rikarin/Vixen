@@ -67,6 +67,18 @@ import-settings > scroll-view > scroll-content { gap: 8px; }
 fact-row { flex-direction: row; align-items: center; gap: 8px; min-height: 20px; }
 fact-name { width: 40%; min-width: 72px; flex-shrink: 0; color: var(--text-muted); }
 fact-value { flex-grow: 1; min-width: 0; }
+/* ⚠ Growing the cell did not grow the field in it (#1404). The cell is a row, so a field
+   sits at its content width, and an empty text box has none — the placeholder is absolute —
+   so the mixer's empty Parent and Sidechain boxes were 18 px in a 172 px cell. The cell also
+   holds check boxes, toggles and buttons, which keep their own size, so this is the list
+   `key-value-value` and `field-content` use rather than `> *`. `FactValueFillTests`. */
+fact-value textbox, fact-value textarea, fact-value numeric-input, fact-value stepper,
+fact-value secure-textbox, fact-value search-box, fact-value select, fact-value multi-select,
+fact-value combo-box, fact-value slider, fact-value progress-bar,
+fact-value level-indicator {
+    flex-grow: 1;
+    min-width: 0px;
+}
 /* ⚠ `model-facts` and `material-facts` stood in this list and are gone. `model-editor` and
    `material-editor` were built with no facts region at all — nothing anywhere creates either
    tag — so the two names matched nothing while the rule around them went on doing its job for
