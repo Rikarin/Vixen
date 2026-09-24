@@ -139,14 +139,97 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
         AssertScaled(arrangement, "the software renderer", one, ToPixels(software));
     }
 
+    public static TheoryData<UiBlendMode> Modes() {
+        var data = new TheoryData<UiBlendMode>();
+
+        foreach (var mode in Enum.GetValues<UiBlendMode>()) {
+            if (mode != UiBlendMode.Normal) {
+                data.Add(mode);
+            }
+        }
+
+        return data;
+    }
+
+    /// <summary>Every <c>mix-blend-mode</c> at a white of 203 is the same blend at one, times 203 — on the device and in software.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>#783's white-level half, which #1418 was blocking.</b> <c>UiBlend</c> normalises both
+    ///         operands by the white it is pushed and re-lights the answer — <see cref="UiBlend.Apply" />
+    ///         transcribed — and <c>UiBlendDeviceTests</c> held all fifteen modes to § 5.1 only at a
+    ///         white of one, where the normalisation is the identity and a stage that dropped it, or
+    ///         read the white from the wrong lane, draws the same picture. At 203 it does not: a
+    ///         <c>multiply</c> that forgot the white squares the units, and one handed a white of one
+    ///         clamps both operands to a candela.
+    ///     </para>
+    ///     <para>
+    ///         The instrument: on these operands each mode is not source-over at a white of one, so a
+    ///         frame that stopped blending — rather than blending at the wrong white — is not what
+    ///         passes the scaling.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Modes))]
+    public void EveryBlendModeAtAWhiteAboveOneIsLitOnce(UiBlendMode mode) {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var list = Group($"blend-{mode}");
+
+        var (plain, _) = Frame(owned, Group("opacity"), 1f, $"white-1-plain-{mode}");
+        var (one, _) = Frame(owned, list, 1f, $"white-1-{mode}");
+        var (lit, renderer) = Frame(owned, list, DiffuseWhite, $"white-203-{mode}");
+
+        Assert.Equal(1, renderer.Blended);
+        Assert.Equal(0, renderer.Unblended);
+
+        var blended = At(one, Side / 2, Side / 2);
+        var over = At(plain, Side / 2, Side / 2);
+
+        Assert.True(
+            MathF.Max(MathF.Abs(blended.X - over.X), MathF.Max(MathF.Abs(blended.Y - over.Y), MathF.Abs(blended.Z - over.Z))) > 0.02f,
+            $"{mode} is source-over on these operands at a white of one ({blended} against {over}), so the scaling cannot tell it ran"
+        );
+
+        // ⚠ Away from the rectangles' edges, and the software executor against its own frame at one
+        // rather than the device's. `hue` is discontinuous at a grey source: § 5.3's `SetSat` gives any
+        // colour with non-zero saturation the backdrop's whole saturation, so a grey texel beside the
+        // paint that picks up a rounding's worth of it — the device's bilinear tap a hair off a texel
+        // centre on a float surface, or the software's own at a different white — comes out in the
+        // paint's hue at full strength. That is a one-pixel fringe at every white, and neither a unit
+        // error nor this test's to hold; it is filed on its own. Measured on the RTX 4060 Ti: column 88
+        // at (0.293, 0.593, 0.360) on the device against (0.542, 0.442, 0.492) in software, at a white
+        // of one and at 203 alike.
+        AssertScaled(mode.ToString(), "the device", one, lit, Edge);
+
+        var geometry = Build(list, DiffuseWhite, out var atlas);
+        var softOne = ToPixels(SoftwareUiRasterizer.RenderLinear(Build(list, 1f, out var atlasOne), atlasOne, Side, Side, Clear));
+
+        AssertScaled(mode.ToString(), "the software renderer", softOne, ToPixels(SoftwareUiRasterizer.RenderLinear(geometry, atlas, Side, Side, Clear)), Edge);
+    }
+
+    /// <summary>Whether a pixel is within two of an edge of <see cref="Group" />'s rectangles, where <c>hue</c> is ill-conditioned.</summary>
+    static bool Edge(int x, int y) {
+        static bool Near(int value) => Math.Abs(value - 24) <= 2 || Math.Abs(value - 40) <= 2 || Math.Abs(value - 88) <= 2 || Math.Abs(value - 104) <= 2;
+
+        return Near(x) || Near(y);
+    }
+
     /// <summary>Asserts every pixel of <paramref name="lit" /> is <paramref name="one" /> times the white, alpha unchanged.</summary>
-    static void AssertScaled(string arrangement, string executor, Vector4[] one, Vector4[] lit) {
+    static void AssertScaled(string arrangement, string executor, Vector4[] one, Vector4[] lit, Func<int, int, bool>? skip = null) {
         var worst = 0f;
         var worstAt = (0, 0);
         var worstPair = (default(Vector4), default(Vector4));
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
+                if (skip is not null && skip(x, y)) {
+                    continue;
+                }
+
                 var a = one[(y * Side) + x];
                 var b = lit[(y * Side) + x];
 
@@ -184,6 +267,8 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
         var push = new DrawCommand(DrawCommandKind.LayerPush, 24, 24, 80, 80, new Color4(1f, 1f, 1f, Opacity), 0, 0);
 
         push = arrangement switch {
+            _ when arrangement.StartsWith("blend-", StringComparison.Ordinal) =>
+                push with { Blend = Enum.Parse<UiBlendMode>(arrangement["blend-".Length..]) },
             "opacity" => push,
             "blend" => push with { Blend = UiBlendMode.Multiply },
             "filter" => push with { Filter = UiColorMatrix.Invert(1f) },
