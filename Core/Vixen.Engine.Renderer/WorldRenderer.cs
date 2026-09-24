@@ -592,9 +592,12 @@ public sealed class WorldRenderer : IDisposable {
     ///         contract, neither optional and each failing differently. ⚠ Skipping <c>Upload</c> was
     ///         described here as drawing the interface out of a buffer nothing wrote; on a real device
     ///         it is harsher than that — the ring is created by the first upload, so the first
-    ///         <c>Record</c> binds a vertex buffer handle that names nothing and Vulkan throws
+    ///         <c>Record</c> had a vertex buffer handle that named nothing, and Vulkan threw
     ///         <c>ArgumentException</c> out of the middle of the frame's graph (measured on an RTX
-    ///         4060 Ti by <c>InterfaceOverASceneDeviceTests</c> with the two calls removed). Skipping
+    ///         4060 Ti by <c>InterfaceOverASceneDeviceTests</c> with the two calls removed). Since
+    ///         #1377 <c>Record</c> and <c>Compose</c> refuse such a frame by name, with an
+    ///         <c>InvalidOperationException</c> that says to call <c>Upload</c>, before a command is
+    ///         recorded. Skipping
     ///         <c>Compose</c> draws every faded group at full strength, since
     ///         <c>UiGeometryBuilder</c> emits a group's contents at alpha one exactly so that the
     ///         group's own surface can carry the fade — measured the same way, a half-opaque white

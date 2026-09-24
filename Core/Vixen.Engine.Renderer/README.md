@@ -143,8 +143,9 @@ steps four and five of a five-step host contract that no host in the tree perfor
 second pass cannot be opened — so it can only `Record`. `Upload` writes this frame's vertices and
 copies the glyph atlas; `Compose` renders each composited group into a surface of its own. Skipping
 the first was written down here as drawing a HUD out of memory nothing has written; ⚠ on Vulkan it
-throws instead — the ring is created by the first upload, so `Record` binds a vertex buffer handle
-that names nothing. Skipping the second draws every faded group **opaque** rather than approximately
+threw instead — the ring is created by the first upload, so `Record` bound a vertex buffer handle
+that named nothing and `BindVertexBuffer` raised `ArgumentException` mid-graph — and since #1377
+`Record` and `Compose` refuse such a frame by name before recording anything. Skipping the second draws every faded group **opaque** rather than approximately
 faded, because `UiGeometryBuilder` emits a group's contents at alpha one so the surface can carry
 the fade, and that one raises nothing at all. Both were measured on a real device by removing the
 two calls under `InterfaceOverASceneDeviceTests` — and both are now made by the prologue below, which both hosts already call, and what is left to a host is
