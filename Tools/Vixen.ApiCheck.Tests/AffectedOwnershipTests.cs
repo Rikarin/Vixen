@@ -292,8 +292,19 @@ public sealed class AffectedOwnershipTests {
     ///     A declared reader still exists and still spells the directory it is declared to read.
     /// </summary>
     /// <remarks>
-    ///     The only hand-kept part of the rule, so the part that can go stale: a reader that stopped
-    ///     reading would keep owning the library, and a narrowed run would test the wrong thing.
+    ///     <para>
+    ///         The only hand-kept part of the rule, so the part that can go stale: a reader that
+    ///         stopped reading would keep owning the library, and a narrowed run would test the wrong
+    ///         thing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The walk is resolved, not the name found.</b> This used to pass whenever the
+    ///         evidence file held the literal <c>"Library"</c> anywhere, and
+    ///         <c>LibraryReflectionTests.cs</c> spells it twice more for other reasons, so a reader
+    ///         that stopped walking to <c>Raven/Library</c> stayed declared. Now some
+    ///         <c>Path.Combine(AppContext.BaseDirectory, …)</c> in the evidence has to land on the
+    ///         declared prefix when started from the project's own <c>bin/&lt;config&gt;/&lt;tfm&gt;/</c>.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void EveryDeclaredReaderStillReadsWhatItIsDeclaredToRead() {
@@ -303,20 +314,69 @@ public sealed class AffectedOwnershipTests {
 
         foreach (var reader in AffectedOwnership.DeclaredReaders) {
             Assert.True(File.Exists(Path.Combine(root, reader.Project)), $"{reader.Project} does not exist.");
-            Assert.StartsWith(Path.GetDirectoryName(reader.Project)!.Replace('\\', '/') + "/", reader.Evidence, StringComparison.Ordinal);
 
-            var directory = reader.Prefix.TrimEnd('/').Split('/')[^1];
-            var evidence = File.ReadAllText(Path.Combine(root, reader.Evidence));
+            var projectDirectory = Path.GetDirectoryName(reader.Project)!.Replace('\\', '/');
+            Assert.StartsWith(projectDirectory + "/", reader.Evidence, StringComparison.Ordinal);
 
-            Assert.Contains($"\"{directory}\"", evidence, StringComparison.Ordinal);
+            var walks = BaseDirectoryWalk.Matches(File.ReadAllText(Path.Combine(root, reader.Evidence)))
+                .Select(walk => Resolve(projectDirectory + "/bin/Debug/net10.0", walk.Groups["segments"].Value))
+                .ToList();
+
+            Assert.True(
+                walks.Contains(reader.Prefix.TrimEnd('/')),
+                $"{reader.Evidence} walks from its binary to [{string.Join(", ", walks)}], not to {reader.Prefix} — "
+                + $"so {reader.Project} is declared to read a directory it no longer reads."
+            );
         }
     }
 
-    /// <summary>Every project file git tracks, with its out-of-directory item patterns.</summary>
+    /// <summary>
+    ///     ⚠ The check above cannot pass by finding a word: a walk one level short, or to a sibling
+    ///     directory, resolves elsewhere.
+    /// </summary>
+    [Theory]
+    [InlineData("""Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Library")""", "Raven/Library")]
+    [InlineData("""Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Library")""", "Raven/Vixen.Raven.Tests/Library")]
+    [InlineData("""Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Library2")""", "Raven/Library2")]
+    public void A_declared_readers_walk_resolves_from_its_binary(string source, string expected) {
+        var walk = Assert.Single(BaseDirectoryWalk.Matches(source));
+
+        Assert.Equal(expected, Resolve("Raven/Vixen.Raven.Tests/bin/Debug/net10.0", walk.Groups["segments"].Value));
+    }
+
+    /// <summary>A path built from the test binary's directory out of string literals.</summary>
+    static readonly System.Text.RegularExpressions.Regex BaseDirectoryWalk = new(
+        """Path\.Combine\(\s*AppContext\.BaseDirectory(?<segments>(?:\s*,\s*"[^"]*")+)\s*\)""",
+        System.Text.RegularExpressions.RegexOptions.CultureInvariant
+    );
+
+    /// <summary>Applies a walk's literal segments to a repository-relative start.</summary>
+    static string Resolve(string start, string segments) {
+        var path = start.Split('/').ToList();
+
+        foreach (var segment in segments.Split(',').Select(part => part.Trim().Trim('"')).Where(part => part.Length > 0)) {
+            if (segment == "..") {
+                path.RemoveAt(path.Count - 1);
+            } else {
+                path.Add(segment);
+            }
+        }
+
+        return string.Join('/', path);
+    }
+
+    /// <summary>Every project in <c>Vixen.slnx</c>, with its out-of-directory item patterns.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The solution's projects, because that is the build's universe</b>
+    ///     (<c>Build.Affected.cs</c>, <c>ItemPatternsBySolutionProject</c>). Read from every tracked
+    ///     <c>.csproj</c> instead — 429 against the solution's 407 — a file read only by a mobile or
+    ///     web head, a template, or <c>_build.csproj</c> itself would pass the census here and still
+    ///     make <c>--since</c> refuse it as belonging to no project.
+    /// </remarks>
     static Dictionary<string, IReadOnlyList<string>> RepositoryPatterns(string root) {
         var patterns = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
 
-        foreach (var project in CommittedPaths(root).Where(path => path.EndsWith(".csproj", StringComparison.Ordinal))) {
+        foreach (var project in SolutionProjects(root)) {
             patterns[project] = AffectedOwnership.ItemPatterns(
                 project,
                 File.ReadAllText(Path.Combine(root, project)),
@@ -327,6 +387,23 @@ public sealed class AffectedOwnershipTests {
         Assert.True(patterns.Count > 150, $"Read {patterns.Count} project files, which is not this tree.");
 
         return patterns;
+    }
+
+    /// <summary>The <c>.csproj</c> paths <c>Vixen.slnx</c> lists, repository-relative and <c>/</c>-separated.</summary>
+    static List<string> SolutionProjects(string root) {
+        var solution = System.Xml.Linq.XDocument.Load(Path.Combine(root, "Vixen.slnx"));
+
+        List<string> projects = [
+            .. solution.Descendants("Project")
+                .Select(project => ((string?)project.Attribute("Path"))?.Replace('\\', '/'))
+                .OfType<string>()
+                .Where(path => path.EndsWith(".csproj", StringComparison.Ordinal) && File.Exists(Path.Combine(root, path)))
+                .Distinct(StringComparer.Ordinal)
+        ];
+
+        Assert.True(projects.Count > 150, $"Read {projects.Count} projects out of Vixen.slnx, which is not this solution.");
+
+        return projects;
     }
 
     /// <summary>Every path git tracks in this checkout, relative to its root.</summary>
