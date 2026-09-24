@@ -336,9 +336,10 @@ public class LayerStackThemeTests {
     ///         element more than the C# it replaced. ⚠ <b>The already-landed
     ///         <c>LayerStackChrome.vxml</c> changed its three binding labels this way and nothing
     ///         noticed</b>, because <c>Said</c> walks children and every reader in this assembly goes
-    ///         through it. It is a difference rather than a defect, and the difference favours the
-    ///         markup: <c>ControlTheme.vcss</c> has <c>text { color: var(--text) }</c> and no rule
-    ///         any label element matches, so the word is themed now and was not before.
+    ///         through it. It is a difference rather than a defect. ⚠ It no longer changes the
+    ///         word's colour either way: the reason given here was <c>ControlTheme.vcss</c>'s
+    ///         <c>text { color: var(--text) }</c>, and #1372 removed it, so the child inherits from
+    ///         the label exactly as the label's own words did.
     ///     </para>
     /// </remarks>
     [Fact]

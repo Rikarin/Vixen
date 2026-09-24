@@ -208,7 +208,13 @@ ui-surface {
 }
 
 /* ── Text ───────────────────────────────────────────────────────────── */
-text { color: var(--text); }
+/* ⚠ No colour on a bare `text`, and there used to be one: `text { color: var(--text); }`. Markup
+   puts an element's words — a literal or an `@` interpolation alike — in a child `text` element, so
+   a `color:` written on the element reaches the glyphs only by inheritance, and a rule matching the
+   child beats an inherited value every time. `statistic-warning`'s orange, `keybindings-status.conflict`'s
+   red and some thirty other declarations coloured their parent's computed style and drew `--text`
+   (#1372). `root` declares `color: var(--text)`, so a leaf with nothing coloured above it inherits
+   exactly what the rule gave it. The variants below are the leaf's own and still win. */
 text.variant-subtle { color: var(--text-muted); }
 text.variant-danger { color: var(--danger); }
 

@@ -1191,11 +1191,14 @@ keybindings-status {
 keybindings-status.conflict { color: var(--danger); }
 
 /* ⚠ The line draws no glyph itself: its sentence is a child `text`, which
-   ControlTheme's `text { color: var(--text); }` colours over anything it
-   would have inherited. With only the two rules above, the line was muted
+   ControlTheme's `text { color: var(--text); }` used to colour over anything
+   it would have inherited. With only the two rules above, the line was muted
    and reddened in its computed style and neither ever reached a pixel — the
    refusal was drawn in plain `--text`, from the day the panel was ported.
-   So the colour is said again where it is drawn. */
+   So the colour was said again where it is drawn. ⚠ Since #1372 that theme
+   rule is gone and the child inherits the two above, so these two are
+   redundant rather than load-bearing; they are kept because they say the
+   same colours and the pair censuses record them. */
 keybindings-status > text { color: var(--text-muted); }
 keybindings-status.conflict > text { color: var(--danger); }
 
