@@ -908,4 +908,42 @@ public class ContainerWiringTests {
         Assert.Equal(300f, em.Width, 0.001f);
         Assert.Equal(200f, rem.Width, 0.001f);
     }
+
+    /// <summary>A container query's <c>rem</c> follows the document's text size, live, with nothing resized.</summary>
+    /// <remarks>
+    ///     ⚠ The test above keeps the root at 16, so a box whose root font is pinned to 16 passes it:
+    ///     nothing else gives a container query's <c>rem</c> the document's <see cref="UiDocument.RootFontSize" />
+    ///     (#1373). Here the panel's own font is fixed at 16px while the root moves, so neither an
+    ///     <c>em</c> read nor a constant can stand in: 25rem is 400 at 16 and 500 at 20, and the panel
+    ///     is 450 throughout.
+    /// </remarks>
+    [Fact]
+    public void A_container_rem_query_follows_the_root_font_size_without_a_resize() {
+        using var document = Document("""
+            root { width: 1000px; height: 600px; flex-direction: column; }
+            .panel { container-type: inline-size; width: 450px; height: 100px; font-size: 16px; flex-direction: column; }
+            .rem { width: 10px; height: 10px; }
+            @container (min-width: 25rem) { .rem { width: 200px; } }
+            """);
+
+        var panel = document.Root.Add("div", classNames: "panel");
+        var rem = panel.Add("div", classNames: "rem");
+
+        document.Update();
+
+        Assert.Equal(16f, panel.FontSize, 0.001f);
+        Assert.Equal(200f, rem.Width, 0.001f);
+
+        document.RootFontSize = 20f;
+        document.Update();
+
+        Assert.Equal(16f, panel.FontSize, 0.001f);
+        Assert.Equal(450f, panel.Width, 0.001f);
+        Assert.Equal(10f, rem.Width, 0.001f);
+
+        document.RootFontSize = 16f;
+        document.Update();
+
+        Assert.Equal(200f, rem.Width, 0.001f);
+    }
 }
