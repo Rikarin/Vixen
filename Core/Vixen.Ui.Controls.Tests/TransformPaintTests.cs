@@ -346,4 +346,46 @@ public class TransformPaintTests {
         Assert.Empty(gone.Geometry.Layers);
         Assert.False(Inked(gone, Middle, Middle));
     }
+
+    /// <summary>
+    ///     ⚠ <b>A quarter of the way through <c>to { rotate: 90deg }</c> the arm has turned 22.5°, in
+    ///     the pixels</b> — where it used to be drawn at 90° from the first frame (#1410).
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         An 80×6 arm pivoting on its left end at (20, 60), animated linearly over a second and
+    ///         drawn a quarter of the way in. Three probes 60 px out along three angles, and only the
+    ///         right one inks: 22.5° is (75, 83); the held stop, 90°, is (20, 120) and so is probed at
+    ///         50 px, (20, 110); the arm at rest, 0°, is (80, 60), 25 px off the turned arm's centre line.
+    ///     </para>
+    ///     <para>
+    ///         The document-level tests in <c>UnderlyingValueAnimationTests</c> say the same about
+    ///         <c>UiElement.Transform</c>; this says the rasteriser draws what that transform says.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_to_only_rotate_is_drawn_a_quarter_turned_a_quarter_of_the_way_through() {
+        using var ui = UiTest.Create(120f, 120f, new UiTestOptions { FrameDelta = TimeSpan.FromMilliseconds(250) });
+        ui.Document.Compositing = true;
+
+        ui.Load(
+            """
+            root { width: 120px; height: 120px; background-color: #000000; }
+            @keyframes turn { to { rotate: 90deg; } }
+            .arm { position: absolute; left: 20px; top: 57px; width: 80px; height: 6px;
+                   background-color: #ffffff; transform-origin: 0px 3px;
+                   animation-name: turn; animation-duration: 1s; animation-timing-function: linear; }
+            """
+        );
+
+        ui.Create("div", null, "arm", "arm");
+
+        // The first frame starts the animation; the second is a quarter of a second into it.
+        ui.Frame();
+        ui.Frame();
+
+        Assert.True(Inked(ui, 75, 83));
+        Assert.False(Inked(ui, 20, 110));
+        Assert.False(Inked(ui, 80, 60));
+    }
 }
