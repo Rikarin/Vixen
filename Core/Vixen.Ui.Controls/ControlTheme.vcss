@@ -854,10 +854,18 @@ alert.variant-danger alert-title { color: var(--danger); }
    ⚠ `white-space: nowrap` on both halves, and it is about height rather
    than about width. A key with spaces in it wraps, and a wrapped key in a
    50%-wide column is seven lines tall — one row of a uniform list
-   suddenly 196px high. Clipped is the defined behaviour here: this
-   renderer has no `text-overflow`, so `overflow: hidden` cuts the glyphs
-   at the column edge and there is no ellipsis to be had. Said out loud
-   because a reader will look for one.
+   suddenly 196px high. What does not fit is cut at the column edge by
+   `overflow: hidden`, and the KEY says so with `text-overflow: ellipsis`.
+
+   ⚠ The value half does not, and it is a choice rather than a gap. This
+   comment used to say the renderer had no `text-overflow`; it has had one
+   since doc 43's F5, and `console-message` uses it (#1402). But here the
+   property INHERITS, which CSS's does not (`UiDocument.EllipsisOf` says
+   why), and the value half is where an editor goes — so an ellipsis on it
+   would reach the text of whatever text field, select or combo box is
+   dropped there, a picture it was not written for. A long plain value is
+   clipped. A caller that wants it ellipsised writes the property on the
+   one row it knows holds text.
 
    ⚠ The stripe is `:nth-child`, not a class the builder applies. The
    cascade re-resolves it when a row is inserted or removed in the middle;
@@ -942,6 +950,7 @@ key-value-key {
     min-width: 0px;
     overflow: hidden;
     white-space: nowrap;
+    text-overflow: ellipsis;
     color: var(--text-muted);
 }
 
