@@ -686,13 +686,34 @@ public sealed class StyleSheetLoader {
         // prelude over as `ConditionText` "not all" — the text is gone by the time the rule object
         // exists, and "'not all' is not a container feature" was the diagnostic every style query
         // produced. The raw span still has it.
-        if (PreludeOf(rule) is { } prelude && StyleQuery.Mentions(prelude)) {
+        var prelude = PreludeOf(rule);
+
+        if (prelude is not null && StyleQuery.Mentions(prelude)) {
             LoadStyleContainer(rule, prelude, origin, media, layer, conditions, containers);
             return;
         }
 
-        if (!ContainerQuery.TryEvaluate(rule.ConditionText, default, out _, out var reason)) {
-            diagnostics.Add(new SelectorDiagnostic($"{label} {rule.ConditionText}", reason!));
+        var condition = rule.ConditionText;
+
+        // ⚠ ExCSS's split is taken only where it can be trusted (#273). It does not know `or`, so
+        // `(a) or (b)` arrives as "not all", the text gone. And it reads the first word of
+        // `@container not (a)` as a NAME, handing over a query for a container called `not` — which
+        // CSS forbids as a name and no box can carry, so the rule loaded with no diagnostic and never
+        // applied. Either shape is re-read from the source text.
+        if (prelude is not null && (condition == "not all" || IsReservedContainerName(name))) {
+            if (!TrySplitContainerPrelude(prelude, out name, out condition, out var refusal)) {
+                diagnostics.Add(new SelectorDiagnostic($"@container {prelude}", refusal!));
+                return;
+            }
+
+            label = name.Length == 0 ? "@container" : $"@container {name}";
+        } else if (IsReservedContainerName(name)) {
+            diagnostics.Add(new SelectorDiagnostic($"{label} {condition}", $"'{name}' cannot be a container name"));
+            return;
+        }
+
+        if (!ContainerQuery.TryEvaluate(condition, default, out _, out var reason)) {
+            diagnostics.Add(new SelectorDiagnostic($"{label} {condition}", reason!));
             return;
         }
 
@@ -702,8 +723,50 @@ public sealed class StyleSheetLoader {
             media,
             layer,
             conditions,
-            Containers.Register(containers, name, rule.ConditionText)
+            Containers.Register(containers, name, condition)
         );
+    }
+
+    /// <summary>The words CSS Containment 3 § 3.1 forbids as a container name, because a prelude could not tell them from its condition.</summary>
+    static bool IsReservedContainerName(string name) =>
+        name.Equals("none", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("not", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("and", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("or", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Splits a size query's prelude into its optional container name and its condition.</summary>
+    /// <param name="prelude">The text between <c>@container</c> and the block.</param>
+    /// <param name="name">Receives the name, or empty.</param>
+    /// <param name="condition">Receives the condition, or empty for a bare name.</param>
+    /// <param name="reason">Why it could not be split, when it could not.</param>
+    /// <returns>Whether the prelude names a usable container, or none.</returns>
+    /// <remarks>
+    ///     A prelude that opens with a parenthesis or with <c>not</c> has no name; anything else opens
+    ///     with one, which ends at the first space or parenthesis. The reserved words are refused
+    ///     rather than read as a name, which is the reading that made <c>not (a)</c> a query for a box
+    ///     called <c>not</c>.
+    /// </remarks>
+    static bool TrySplitContainerPrelude(string prelude, out string name, out string condition, out string? reason) {
+        var text = prelude.AsSpan().Trim();
+        name = string.Empty;
+        condition = text.ToString();
+        reason = null;
+
+        if (text.IsEmpty || text[0] == '(' || (text.Length > 3 && text.StartsWith("not", StringComparison.OrdinalIgnoreCase) && char.IsWhiteSpace(text[3]))) {
+            return true;
+        }
+
+        var end = text.IndexOfAny(" \t\r\n(");
+        var word = end < 0 ? text : text[..end];
+
+        if (IsReservedContainerName(word.ToString())) {
+            reason = $"'{word.ToString()}' cannot be a container name";
+            return false;
+        }
+
+        name = word.ToString();
+        condition = end < 0 ? string.Empty : text[end..].Trim().ToString();
+        return true;
     }
 
     /// <summary>Loads a <c>@container</c> block whose condition is <c>style()</c> features.</summary>

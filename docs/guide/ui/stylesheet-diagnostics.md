@@ -59,6 +59,11 @@ and all of them used to vanish.
 > nearest size container.
 > ⚠ Every `style()` query used to be refused as "'not all' is not a container feature": ExCSS does
 > not parse the function and hands its prelude over as `not all`, so the loader reads the raw text.
+> Size features are read the same way where ExCSS loses them: `@container (min-width: 400px) or
+> (min-height: 400px)` is answered, and so is `@container not (min-width: 400px)`. ⚠ The second used
+> to load with no diagnostic as a query for a container *named* `not`, which never matched. Mixing
+> `and` with `or`, a negated list and a parenthesised group are refused, and so are the names CSS
+> reserves (`none`, `not`, `and`, `or`).
 
 ## Using it
 

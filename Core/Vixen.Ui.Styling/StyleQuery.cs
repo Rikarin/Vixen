@@ -397,7 +397,7 @@ static class StyleQuery {
         return true;
     }
 
-    static int Closing(ReadOnlySpan<char> text, int open) {
+    internal static int Closing(ReadOnlySpan<char> text, int open) {
         var depth = 0;
 
         for (var i = open; i < text.Length; i++) {

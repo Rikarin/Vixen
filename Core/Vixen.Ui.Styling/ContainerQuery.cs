@@ -93,32 +93,8 @@ public static class ContainerQuery {
     ///     <c>normal</c> box is not a size query container. A term that cannot be read counts as
     ///     inline: the loader refuses such a prelude before it becomes a group, so no walk asks it.
     /// </remarks>
-    internal static ContainerKind Requires(string? condition) {
-        if (string.IsNullOrWhiteSpace(condition)) {
-            return ContainerKind.InlineSize;
-        }
-
-        foreach (var range in condition.AsSpan().Split(" and ")) {
-            var term = condition.AsSpan()[range].Trim();
-
-            if (term.Length < 2 || term[0] != '(' || term[^1] != ')') {
-                continue;
-            }
-
-            if (FeatureRange.TryRead(term[1..^1].Trim(), out var terms, out _) && ReadsBlockAxis(terms.Name)) {
-                return ContainerKind.Size;
-            }
-        }
-
-        return ContainerKind.InlineSize;
-    }
-
-    /// <summary>Whether a feature reads the block axis, so only a <c>size</c> container can answer it.</summary>
-    static bool ReadsBlockAxis(ReadOnlySpan<char> name) =>
-        name.Equals("height", StringComparison.OrdinalIgnoreCase)
-        || name.Equals("block-size", StringComparison.OrdinalIgnoreCase)
-        || name.Equals("aspect-ratio", StringComparison.OrdinalIgnoreCase)
-        || name.Equals("orientation", StringComparison.OrdinalIgnoreCase);
+    internal static ContainerKind Requires(string? condition) =>
+        TryWalk(condition, default, out _, out var requires, out _) ? requires : ContainerKind.InlineSize;
 
     /// <summary>Evaluates a container condition against a box.</summary>
     /// <param name="condition">The text between the container's name and the block.</param>
@@ -127,45 +103,153 @@ public static class ContainerQuery {
     /// <param name="reason">Why it could not be read, when it could not.</param>
     /// <returns>Whether it could be read at all.</returns>
     /// <remarks>
-    ///     Readability is a property of the <i>text</i> and never of the box, which is what lets the
-    ///     loader decide it once — the same split <see cref="MediaQuery.TryEvaluate" /> makes, and for
-    ///     the same reason: a refusal produced per container per frame arrives in a list nothing
-    ///     drains.
+    ///     <para>
+    ///         Readability is a property of the <i>text</i> and never of the box, which is what lets the
+    ///         loader decide it once — the same split <see cref="MediaQuery.TryEvaluate" /> makes, and
+    ///         for the same reason: a refusal produced per container per frame arrives in a list
+    ///         nothing drains.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The grammar is CSS Containment 3's, less the parenthesised group (#273):</b>
+    ///         <c>not (f)</c>, or features joined by <c>and</c>, or features joined by <c>or</c>.
+    ///         Only <c>and</c> used to be read — split on the literal <c>" and "</c> — so an
+    ///         <c>or</c> left one term that was not a feature and every <c>or</c> query was refused.
+    ///         Mixing <c>and</c> with <c>or</c> needs parentheses in CSS, because neither binds tighter,
+    ///         and a parenthesised group is refused rather than read one way.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A feature the box cannot answer makes the whole condition false, under <c>not</c>
+    ///         and <c>or</c> too.</b> The query is <i>unknown</i> there, and unknown does not apply.
+    ///         Negating the <c>false</c> a single feature answers would match every <c>inline-size</c>
+    ///         box with <c>not (min-height: …)</c>. No walk reaches that branch, since
+    ///         <see cref="Requires" /> skips such a box (#1429); a direct caller can.
+    ///     </para>
     /// </remarks>
-    public static bool TryEvaluate(string? condition, ContainerBox box, out bool matches, out string? reason) {
+    public static bool TryEvaluate(string? condition, ContainerBox box, out bool matches, out string? reason) =>
+        TryWalk(condition, box, out matches, out _, out reason);
+
+    /// <summary>Reads a condition's shape and asks each feature of a box, in one pass.</summary>
+    /// <param name="condition">The condition text.</param>
+    /// <param name="box">The box to ask, <c>default</c> when only readability and axes are wanted.</param>
+    /// <param name="matches">Whether it holds of the box.</param>
+    /// <param name="requires">The least containment that can answer every feature.</param>
+    /// <param name="reason">Why it could not be read, when it could not.</param>
+    /// <returns>Whether it could be read.</returns>
+    /// <remarks>
+    ///     One walk for both questions, so that what <see cref="Requires" /> says a query reads and
+    ///     what <see cref="TryEvaluate" /> asks cannot drift apart: a second parser that saw fewer
+    ///     features would pick a container the evaluator then found unable to answer.
+    /// </remarks>
+    static bool TryWalk(
+        string? condition,
+        ContainerBox box,
+        out bool matches,
+        out ContainerKind requires,
+        out string? reason
+    ) {
         matches = true;
+        requires = ContainerKind.InlineSize;
         reason = null;
 
-        if (string.IsNullOrWhiteSpace(condition)) {
+        var text = condition.AsSpan().Trim();
+
+        if (text.IsEmpty) {
             // `@container name { … }` — a named container with no condition, which is legal and asks
             // only that such a container exists.
             return true;
         }
 
-        foreach (var range in condition.AsSpan().Split(" and ")) {
-            var term = condition.AsSpan()[range].Trim();
+        var negated = StartsWithWord(text, "not");
 
-            if (term.IsEmpty) {
-                continue;
-            }
-
-            if (term[0] != '(' || term[^1] != ')') {
-                reason = $"'{term}' is not a container feature Vixen understands";
-                return false;
-            }
-
-            if (!TryFeature(term[1..^1].Trim(), box, out var held, out reason)) {
-                return false;
-            }
-
-            matches &= held;
+        if (negated) {
+            text = text["not".Length..].TrimStart();
         }
 
+        bool? any = null;
+        var count = 0;
+        var result = false;
+        var unknown = false;
+
+        while (true) {
+            if (text.IsEmpty || text[0] != '(') {
+                reason = $"'{text.ToString()}' is not a container feature Vixen understands";
+                return false;
+            }
+
+            var close = StyleQuery.Closing(text, 0);
+
+            if (close < 0) {
+                reason = $"'{text.ToString()}' has no closing parenthesis";
+                return false;
+            }
+
+            var feature = text[1..close].Trim();
+
+            if (feature.StartsWith('(') || StartsWithWord(feature, "not")) {
+                reason = "a parenthesised group of container features is not supported";
+                return false;
+            }
+
+            if (!TryFeature(feature, box, out var held, out var answerable, out var block, out reason)) {
+                return false;
+            }
+
+            if (block) {
+                requires = ContainerKind.Size;
+            }
+
+            unknown |= !answerable;
+            result = count++ == 0 ? held : any == true ? result || held : result && held;
+            text = text[(close + 1)..].TrimStart();
+
+            if (text.IsEmpty) {
+                break;
+            }
+
+            var joinedByOr = StartsWithWord(text, "or");
+
+            if (!joinedByOr && !StartsWithWord(text, "and")) {
+                reason = $"'{text.ToString()}' does not join two features with 'and' or 'or'";
+                return false;
+            }
+
+            if (any is { } previous && previous != joinedByOr) {
+                reason = "'and' and 'or' cannot be mixed without parentheses";
+                return false;
+            }
+
+            any = joinedByOr;
+            text = text[(joinedByOr ? "or".Length : "and".Length)..].TrimStart();
+        }
+
+        // `not` takes one query in parentheses and not a list, so `not (a) and (b)` is invalid CSS
+        // rather than a negation of either reading.
+        if (negated && count > 1) {
+            reason = "'not' applies to one feature; a negated group needs parentheses, which are not supported";
+            return false;
+        }
+
+        matches = !unknown && (negated ? !result : result);
         return true;
     }
 
-    static bool TryFeature(ReadOnlySpan<char> feature, ContainerBox box, out bool matches, out string? reason) {
+    /// <summary>Whether a text opens with a keyword followed by whitespace, which is how CSS separates one.</summary>
+    static bool StartsWithWord(ReadOnlySpan<char> text, string word) =>
+        text.Length > word.Length
+        && text.StartsWith(word, StringComparison.OrdinalIgnoreCase)
+        && char.IsWhiteSpace(text[word.Length]);
+
+    static bool TryFeature(
+        ReadOnlySpan<char> feature,
+        ContainerBox box,
+        out bool matches,
+        out bool answerable,
+        out bool block,
+        out string? reason
+    ) {
         matches = false;
+        answerable = false;
+        block = false;
         reason = null;
 
         if (!FeatureRange.TryRead(feature, out var terms, out reason)) {
@@ -181,11 +265,13 @@ public static class ContainerQuery {
         var inline = name.Equals("width", StringComparison.OrdinalIgnoreCase)
             || name.Equals("inline-size", StringComparison.OrdinalIgnoreCase);
 
-        var block = name.Equals("height", StringComparison.OrdinalIgnoreCase)
+        block = name.Equals("height", StringComparison.OrdinalIgnoreCase)
             || name.Equals("block-size", StringComparison.OrdinalIgnoreCase);
 
         if (name.Equals("orientation", StringComparison.OrdinalIgnoreCase)
             || name.Equals("aspect-ratio", StringComparison.OrdinalIgnoreCase)) {
+            // Both axes, so the block axis among them.
+            block = true;
             bool readable;
 
             if (name.Equals("orientation", StringComparison.OrdinalIgnoreCase)) {
@@ -203,7 +289,9 @@ public static class ContainerQuery {
             // is still its content's, and a ratio computed from it would move as the content moved.
             // ⚠ Asked after the text is read rather than before, for the reason the lengths below
             // give: the loader's `default` box is not a `size` container either.
-            if (box.Kind != ContainerKind.Size) {
+            answerable = box.Kind == ContainerKind.Size;
+
+            if (!answerable) {
                 matches = false;
             }
 
@@ -242,7 +330,7 @@ public static class ContainerQuery {
         // number to compare. `ContainerConditions` never hands this a box `Requires` rules out — it
         // walks past it to one that can answer (#1429) — so this is a guard for a direct caller, and
         // `false` is what a query resolves to only when no eligible container exists.
-        var answerable = inline
+        answerable = inline
             ? box.Kind is ContainerKind.InlineSize or ContainerKind.Size
             : box.Kind == ContainerKind.Size;
 
