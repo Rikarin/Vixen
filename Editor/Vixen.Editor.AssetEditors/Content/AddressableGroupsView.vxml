@@ -1,0 +1,259 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    #89. The addressable groups a project defines, one group's policy, and what a build would say.
+    `AddressableGroupsViewDumpTests` was recorded from the hand-written control before this file
+    existed, in five states, and holds this one to it byte for byte.
+
+    ⚠ **The model decision the ledger named, and which half of it moved.** The ledger line said the
+    view "holds `List<AssetEntry> groups` and a `Rebuild()`; a `@for` over that list without making it
+    reactive first is the revision-counter shape". That list does not feed a `@for` and still does
+    not: it feeds a `TreeView`, which is a control fed by `Root.Add` calls rather than a list of
+    elements — `TreeView` is `ref` + imperative filling in every panel that has one, `InputActionsView`
+    and `BehaviorTreeView` included. So `groups` stays a snapshot taken by `Rebuild`, which is what it
+    always was, and is not made a signal nothing would read.
+
+    ⚠ **What *is* a list of elements is the analysis, and that is the half that became markup.** `Run`
+    built `analysis-row` / `analysis-stage` / `analysis-message` by hand, the lines nine panels in this
+    assembly wrote and `AnalysisRow` was hoisted out of. It is now a `@for` over a `Signal` of
+    snapshots: a run replaces the whole list, which is the one thing a run does, and a second run with
+    different rows is what the dump test uses to show the rows follow the signal rather than the first
+    run.
+
+    ⚠ **`AnalysisRows` counts the model, not the elements**, and the difference is a flush. A `@for`
+    redraws at the next flush and never on the write, so `Run(); AnalysisRows` would read the previous
+    run's rows until a frame had passed; "how many rows the analysis produced" is the list, and the
+    elements follow it one flush later.
+
+    ⚠ **Each note carries its index, and the key needs it.** Two diagnostics can say the same thing —
+    one message about two sidecars that happen to render alike — and a key that compared equal twice
+    in one list would fold two rows into one.
+
+    ⚠ **The Analyse button keeps a `ClickEvent` handler on the host rather than `on:click`**, for
+    `InputActionsView`'s reason: `on:click` would bring a `TapEvent` subscription this panel never had,
+    and the hand-written control marked the click handled at the host.
+
+    ⚠ **The `warning` class on the summary and on the no-planner sentence is kept, and is a defect.**
+    Every non-error line has been painted in `--warning` since this panel was written — the summary of
+    a clean plan included. A port that changed it would be a port that moved pixels; it is recorded
+    beside this change for its own fix.
+-->
+@component AddressableGroupsView
+@namespace Vixen.Editor.AssetEditors.Content
+@inherits Vixen.Ui.Controls.Control
+@tag group-editor
+@using System.Collections.Immutable
+@using System.Globalization
+@using Vixen.Editor.Assets
+@using Vixen.Editor.Assets.Content
+@using Vixen.Editor.Core
+@using Vixen.Editor.Inspector
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Controls.Advanced
+@using Vixen.Ui.Reactive
+
+<TreeView ref="@Groups" />
+
+<EmptyState ref="@Empty"
+            Title="No group selected"
+            Description="A .vxgroup is a policy: how its assets are packed, compressed and shipped." />
+
+<InspectorView ref="@Policy" class="hidden" />
+
+<Button ref="@Analyse" Label="Analyse build" />
+
+<analysis-list ref="@Analysis">
+    @for (var note in reported.Value) {
+        <AnalysisRow key="@note" Stage="@note.Stage" Message="@note.Message" class="@note.Class" />
+    }
+</analysis-list>
+
+@code {
+    /// <summary>One line of the analysis, keyed on everything it shows and where it stands.</summary>
+    /// <param name="Index">Its place in the run, so two lines saying the same thing are two rows.</param>
+    /// <param name="Stage">What the stage cell shows.</param>
+    /// <param name="Message">What the message cell shows.</param>
+    /// <param name="Class">The severity class the row carries.</param>
+    readonly record struct Note(int Index, string Stage, string Message, string Class);
+
+    /// <summary>What the last run said, in the order it said it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A <see cref="Signal{T}" /> because the <c>@for</c> above reads it.</b> A plain field
+    ///     would be read once while the region was built and never again, so every later run would
+    ///     leave the first one's rows on screen.
+    /// </remarks>
+    readonly Signal<ImmutableArray<Note>> reported = new([]);
+
+    /// <summary>The groups the tree shows, as <see cref="Rebuild" /> last found them.</summary>
+    readonly List<AssetEntry> groups = [];
+
+    EditorProject? project;
+    Func<BuildPlan>? analyser;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>The groups the project defines.</summary>
+    public TreeView Groups { get; private set; } = null!;
+
+    /// <summary>The selected group's policy.</summary>
+    public InspectorView Policy { get; private set; } = null!;
+
+    /// <summary>The button that runs the analysis.</summary>
+    public Button Analyse { get; private set; } = null!;
+
+    /// <summary>What the analysis said, worst first.</summary>
+    public UiElement Analysis { get; private set; } = null!;
+
+    /// <summary>Shown when no group is selected.</summary>
+    public EmptyState Empty { get; private set; } = null!;
+
+    /// <summary>The document for the group being shown, or <see langword="null" />.</summary>
+    public AddressableGroupDocument? Selected { get; private set; }
+
+    /// <summary>Raised when a different group is selected.</summary>
+    public event Action<AddressableGroupsView, AddressableGroupDocument>? GroupOpened;
+
+    /// <summary>How many groups the project defines.</summary>
+    public int Count => groups.Count;
+
+    /// <summary>How many rows the analysis produced.</summary>
+    /// <remarks>The model's count; the elements follow it at the next flush. See the file header.</remarks>
+    public int AnalysisRows => reported.Peek().Length;
+
+    /// <summary>The selection, the policy's hidden search and the Analyse click, once the <c>ref</c>s exist.</summary>
+    partial void OnComposed() {
+        Groups.SelectionChanged += tree => {
+            // One at a time: a policy editor over two groups would be a multi-object edit across two
+            // files, which is a document-per-file model this does not have.
+            if (tree.Selection.Count == 1 && tree.Selection.First().Tag is AssetEntry entry) {
+                Open(entry);
+            }
+        };
+
+        Policy.Search.SetStyle("display", "none");
+
+        AddHandler<ClickEvent>(static (element, args) => ((AddressableGroupsView) element).Chosen(args));
+    }
+
+    /// <summary>Shows a project's groups.</summary>
+    /// <param name="opened">The project.</param>
+    /// <param name="analysis">What produces a plan, or <see langword="null" /> if nothing can.</param>
+    public void Show(EditorProject opened, Func<BuildPlan>? analysis = null) {
+        ArgumentNullException.ThrowIfNull(opened);
+
+        project = opened;
+        analyser = analysis;
+
+        Analyse.Disabled = analysis is null;
+        Rebuild();
+    }
+
+    /// <summary>Rebuilds the group list from the asset database as it stands.</summary>
+    public void Rebuild() {
+        while (Groups.Root.Children.Count > 0) {
+            Groups.Root.Remove(Groups.Root.Children[^1]);
+        }
+
+        groups.Clear();
+
+        if (project is not { } opened) {
+            Groups.Refresh();
+            return;
+        }
+
+        // Ordered by path so that two machines scanning one checkout show the same list — the same
+        // rule the asset database applies to its own insertion order, and for the same reason.
+        foreach (var entry in opened.Assets.Entries
+                     .Where(asset => !asset.IsFolder
+                         && string.Equals(
+                             Path.GetExtension(asset.Path),
+                             AddressableGroupDocument.Extension,
+                             StringComparison.OrdinalIgnoreCase
+                         ))
+                     .OrderBy(asset => asset.Path, StringComparer.Ordinal)) {
+            groups.Add(entry);
+            Groups.Root.Add(Path.GetFileNameWithoutExtension(entry.Path), entry);
+        }
+
+        Groups.Refresh();
+    }
+
+    /// <summary>Opens one group's policy.</summary>
+    /// <param name="entry">Which group.</param>
+    /// <returns>The document editing it.</returns>
+    public AddressableGroupDocument Open(AssetEntry entry) {
+        var opened = project ?? throw new InvalidOperationException("No project is being shown.");
+
+        // Through the project's own document list, so opening the same group twice is one document
+        // with one undo history rather than two views racing to save the same file.
+        if (!opened.TryGetDocument(entry.Guid, out var existing)
+            || existing is not AddressableGroupDocument document) {
+            document = new(opened, entry.Guid, opened.Paths.Absolute(entry.Path));
+        }
+
+        Selected = document;
+
+        Policy.RemoveClass("hidden");
+        Empty.AddClass("hidden");
+
+        Policy.EditedDocument = document;
+        Policy.Inspect(document.Policy);
+
+        GroupOpened?.Invoke(this, document);
+        return document;
+    }
+
+    /// <summary>Runs the analysis and lists what it said.</summary>
+    /// <returns>How many errors it found, or -1 when nothing can analyse.</returns>
+    public int Run() {
+        if (analyser is not { } produce) {
+            reported.Value = [new Note(0, "build", "Nothing here can run an analysis: the host has not supplied a planner.", "warning")];
+            return -1;
+        }
+
+        var plan = produce();
+        var errors = 0;
+        var notes = ImmutableArray.CreateBuilder<Note>(plan.Diagnostics.Length + 1);
+
+        foreach (var diagnostic in plan.Diagnostics) {
+            var isError = diagnostic.Severity == ImportSeverity.Error;
+
+            if (isError) {
+                errors++;
+            }
+
+            notes.Add(new Note(notes.Count, diagnostic.Severity.ToString().ToLowerInvariant(), diagnostic.Message, isError ? "error" : "warning"));
+        }
+
+        // Said even when there is nothing wrong, because a panel that emptied itself on success is
+        // one nobody can tell apart from a panel that did not run.
+        notes.Add(
+            new Note(
+                notes.Count,
+                "plan",
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{plan.Assets.Length} addressable assets across {plan.Groups.Length} groups."
+                ),
+                "warning"
+            )
+        );
+
+        reported.Value = notes.MoveToImmutable();
+        return errors;
+    }
+
+    void Chosen(ClickEvent args) {
+        for (var element = args.Source; element is not null; element = element.Parent) {
+            if (ReferenceEquals(element, Analyse)) {
+                Run();
+                args.Handled = true;
+
+                return;
+            }
+        }
+    }
+}

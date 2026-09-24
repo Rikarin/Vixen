@@ -31,9 +31,12 @@
 # open row, canvas/machinery/not-a-view is a "no"/"not a panel" row — and no row to decline or leave
 # open a view that has a `.vxml`. A port or a decline owes both files in the same commit.
 #
-# Measured 2026-09-24: 40 view-shaped editor types have a `.vxml`, 22 do not, and 6 of those 22
-# are candidates. ConsoleView (#758) and BehaviorSearchPopup (#89) are the latest ports, landed on
-# the same day: the console's rows an `@rows` block like the message log's, held to
+# Measured 2026-09-24: 41 view-shaped editor types have a `.vxml`, 21 do not, and 5 of those 21
+# are candidates. AddressableGroupsView (#89) is the latest port: its analysis rows a keyed `@for`
+# of AnalysisRow over one signal, its group list still a TreeView filled by Rebuild, held to
+# AddressableGroupsViewDumpTests, which was recorded from the hand-written control first.
+# ConsoleView (#758) and BehaviorSearchPopup (#89) landed the day before it, on the same day as
+# each other: the console's rows an `@rows` block like the message log's, held to
 # ConsoleViewDumpTests, and the search popup held to BehaviorSearchPopupDumpTests, reached through
 # the gestures #1370 wired; both dumps were recorded from the hand-written control first.
 # SceneHierarchyView was the tenth of the ten and is ported (#1322). MessageLogView was the ninth
@@ -53,7 +56,6 @@ Editor/Vixen.Editor.AssetEditors/Animation/AnimationClipView.cs canvas — a tim
 Editor/Vixen.Editor.AssetEditors/Animation/AnimationGraphView.cs canvas
 Editor/Vixen.Editor.AssetEditors/Animation/MoveSetView.cs pending — a form over a document; live model
 Editor/Vixen.Editor.AssetEditors/Animation/ProxyShapeView.cs pending — a form over a document; live model
-Editor/Vixen.Editor.AssetEditors/Content/AddressableGroupsView.cs pending — holds `List<AssetEntry> groups` and a `Rebuild()`; a `@for` over that list without making it reactive first is the revision-counter shape
 Editor/Vixen.Editor.AssetEditors/Importing/SpriteSheetView.cs canvas — slices are hit-tested in image pixels
 Editor/Vixen.Editor.AssetEditors/Sequencing/SequenceView.cs canvas — a timeline
 Editor/Vixen.Editor.AssetEditors/Vfx/VfxPreviewView.cs canvas — OnDraw projects every particle through a fixed orbit camera
