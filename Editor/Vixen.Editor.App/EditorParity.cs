@@ -1435,7 +1435,20 @@ sealed partial class EditorApplication {
         );
     }
 
-    void LoadScene(string path) {
+    /// <summary>Loads a scene file over the open scene, which then writes there.</summary>
+    /// <param name="path">The chosen file.</param>
+    /// <remarks>
+    ///     What Open Scene's answer does, named so a test can give the answer without a dialog. Refused,
+    ///     like <see cref="SaveSceneAs(string)" />, onto a file another document edits, and it closes the
+    ///     tab named after the file the scene leaves.
+    /// </remarks>
+    internal void LoadScene(string path) {
+        if (EditedElsewhere(path, scene) is { } holder) {
+            RefuseSecondDocument(path, holder, "Could not open the scene");
+
+            return;
+        }
+
         try {
             scene.Selection.Clear();
             scene.Delete([.. scene.Roots]);
@@ -1456,6 +1469,7 @@ sealed partial class EditorApplication {
             scene.Stack.MarkClean();
 
             hierarchyStale = true;
+            CloseTabsTheSceneLeft();
             Shell.Notifications.Success(Path.GetFileName(path));
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             Shell.Notifications.Show("Could not open the scene", NotificationSeverity.Error, exception.Message);
@@ -1482,15 +1496,33 @@ sealed partial class EditorApplication {
                     return;
                 }
 
-                scenePath = path;
-                scene.Writer = new SceneFileWriter(path);
-                scene.SetTitle(Path.GetFileNameWithoutExtension(path));
-
-                SaveScene();
-                project.Assets.Scan();
+                SaveSceneAs(path);
             },
             failure => Shell.Notifications.Show("Could not save the scene", NotificationSeverity.Error, failure.Message)
         );
+    }
+
+    /// <summary>Writes the scene to a file of the user's choosing, and writes it there from now on.</summary>
+    /// <param name="path">The chosen file.</param>
+    /// <remarks>What the dialog's answer does, named so a test can give the answer without a dialog.</remarks>
+    /// <remarks>
+    ///     ⚠ <b>Refused onto a file another document edits</b>, and it closes any tab named after the
+    ///     file the scene leaves (#1416) — see <see cref="CloseTabsTheSceneLeft" />.
+    /// </remarks>
+    internal void SaveSceneAs(string path) {
+        if (EditedElsewhere(path, scene) is { } holder) {
+            RefuseSecondDocument(path, holder, "Could not save the scene");
+
+            return;
+        }
+
+        scenePath = path;
+        scene.Writer = new SceneFileWriter(path);
+        scene.SetTitle(Path.GetFileNameWithoutExtension(path));
+
+        SaveScene();
+        project.Assets.Scan();
+        CloseTabsTheSceneLeft();
     }
 
     /// <summary>Writes every open document that has changes.</summary>

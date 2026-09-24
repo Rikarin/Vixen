@@ -87,6 +87,13 @@ sealed partial class EditorApplication {
     ///     that a test can write into memory. The editor is what knows about files.
     /// </remarks>
     internal sealed record EditorScene(SceneDocument Document, string Path) {
+        /// <summary>The file the scene writes now, which is not always <see cref="Path" />.</summary>
+        /// <remarks>
+        ///     ⚠ <b>Save As and Open Scene move the writer and leave <see cref="Path" /> where it
+        ///     was</b>, so anything asking "is this file open" asks this and not that (#1416).
+        /// </remarks>
+        public string Writes => Document.Writer is SceneFileWriter writer ? writer.Path : Path;
+
         /// <summary>Its world settings.</summary>
         public WorldSettings Settings { get; set; } = new();
 
@@ -437,10 +444,19 @@ sealed partial class EditorApplication {
     internal SceneDocument? OpenSceneAdditively(string path) {
         ArgumentException.ThrowIfNullOrEmpty(path);
 
-        if (openScenes.FindIndex(open => string.Equals(open.Path, path, StringComparison.Ordinal)) is var found and >= 0) {
+        // ⚠ By the file each scene writes now, not the one it was opened from — after Save As the
+        // main scene's recorded path names a file it no longer writes, so adding that file activated
+        // the main scene and adding the one it moved to loaded a second document over it (#1416).
+        if (openScenes.FindIndex(open => SameFile(open.Writes, path)) is var found and >= 0) {
             Activate(found);
 
             return openScenes[found].Document;
+        }
+
+        if (EditedElsewhere(path, scene: null) is { } holder) {
+            RefuseSecondDocument(path, holder, "Could not open the scene");
+
+            return null;
         }
 
         var name = Path.GetFileNameWithoutExtension(path);
