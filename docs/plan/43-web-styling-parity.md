@@ -2213,7 +2213,8 @@ worse than feared for the general one.
 **The independence already exists and is already the default.** Vixen's layout is Yoga-derived, and
 the sizing mode it resolves per axis is `SizingMode` (`Core/Vixen.Ui.Layout/FlexAxis.cs:109`):
 `StretchFit`, `MaxContent`, `FitContent`. For a normal-flow block, `CalculateBlockLayoutImpl` takes
-this branch (`Core/Vixen.Ui.Layout/LayoutTree.Block.cs:144-161`):
+this branch, which opens at `Core/Vixen.Ui.Layout/LayoutTree.Block.cs:218` — `if (widthSizingMode == SizingMode.StretchFit) {`
+and closes at `:248`:
 
 ```csharp
 if (widthSizingMode == SizingMode.StretchFit) {
@@ -2223,7 +2224,8 @@ if (widthSizingMode == SizingMode.StretchFit) {
 }
 ```
 
-`width: auto` on a normal-flow block is **not** shrink-to-fit — the code says so in a comment at 138.
+`width: auto` on a normal-flow block is **not** shrink-to-fit — the code says so under its CSS 2.1
+§10.3.3 banner, `LayoutTree.Block.cs:209` — `on a block box in normal flow is *not* shrink-to-fit`.
 So a panel in a dock, a block filling its parent, a grid item in a fixed track: their inline size is
 *already* a pure function of the parent's available size, and `container-type: inline-size` on one of
 them is an assertion that is already true. **For the editor's actual containers there is no cycle and
