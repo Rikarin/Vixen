@@ -48,9 +48,10 @@
     tagged `text` and puts the word on that, so this label has a child and its own `Text` is null.
     `LayerStackChrome.vxml`'s three binding labels changed the same way when they were ported and
     nothing said so, because every reader in the tests goes through `LayerStackPanelTests.Said`,
-    which walks children. Kept rather than written back with `use=`, because the difference favours
-    the markup: `ControlTheme.vcss` carries `text { color: var(--text) }` and no rule any label
-    element matches, so the word is themed here and was not before.
+    which walks children. Kept rather than written back with `use=`. ⚠ The reason once given was
+    that `ControlTheme.vcss`'s `text { color: var(--text) }` themed the word where the label had not
+    been; #1372 removed that rule, so the child now inherits from the label exactly as the label's
+    own words did, and the two forms draw the same.
 
     ⚠ **What it must not be is this row's own `Text`.** `LayoutTree.SetMeasureFunction` throws for an
     element that has element children, and inside an `Effect` that throw suspends the effect

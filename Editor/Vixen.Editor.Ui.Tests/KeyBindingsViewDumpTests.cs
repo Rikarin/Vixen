@@ -71,8 +71,8 @@ public sealed class KeyBindingsViewDumpTests {
     ///     <c>color</c> of <c>keybindings-status</c> before and after, and passed — while every
     ///     picture of the conflict state showed a grey sentence. The line never draws a glyph: the
     ///     <c>@Sentence()</c> interpolation makes a child <c>text</c> element, and
-    ///     <c>ControlTheme.vcss</c>'s <c>text { color: var(--text); }</c> overrides whatever that child
-    ///     would have inherited. So the parent turned red, the pixels stayed <c>--text</c>, and a test
+    ///     <c>ControlTheme.vcss</c>'s <c>text { color: var(--text); }</c> overrode whatever that child
+    ///     would have inherited (removed in #1372). So the parent turned red, the pixels stayed <c>--text</c>, and a test
     ///     reading the parent certified a colour nothing painted. It now counts red pixels inside the
     ///     line in a real capture — none while calm, some once refused — and requires the drawn
     ///     child's colour to be the line's own in both states.

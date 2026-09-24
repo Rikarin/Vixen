@@ -344,7 +344,8 @@ public sealed class CodeBuffer {
         return line[index..position.Column];
     }
 
-    static bool IsWord(char value) => char.IsLetterOrDigit(value) || value == '_';
+    /// <summary>Whether a character belongs to the word class, which is what the moves and a double click agree on.</summary>
+    internal static bool IsWord(char value) => char.IsLetterOrDigit(value) || value == '_';
 
     /// <summary>The last UAX #29 word boundary strictly inside a run, walking back.</summary>
     /// <param name="line">The line.</param>

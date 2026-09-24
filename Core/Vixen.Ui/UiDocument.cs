@@ -1290,6 +1290,9 @@ public sealed partial class UiDocument : IDisposable {
         }
     }
 
+    /// <summary>The <c>display: inline</c> elements with text the current style walk has met, for <see cref="Arrange" />.</summary>
+    readonly List<UiElement> inlineLeaves = [];
+
     /// <summary>Resolves every element's style and lays out every surface.</summary>
     /// <remarks>
     ///     ⚠ <b>One style walk and one layout call <i>per surface</i>, and the order matters.</b> The
@@ -1300,6 +1303,32 @@ public sealed partial class UiDocument : IDisposable {
     /// </remarks>
     void Arrange() {
         Apply(Root, Viewport.RootFontSize, ComputedText.Initial, Viewport, null, null);
+
+        // ⚠ After the whole walk and not inside it: an inline leaf's collapsing edges read its
+        // neighbours' text and `white-space` (#1363), and a neighbour later in the document has not
+        // had its style applied when the walk reaches the earlier one. A neighbour's TEXT changing
+        // arrives here too — a string-for-string change is `InvalidatePositions`, which is a pass —
+        // so this one check covers both, and the layout tree, which re-measures a node only when
+        // that node changed, needs telling.
+        //
+        // ⚠ The list is NOT rare. `ControlTheme.vcss` makes `text` `display: inline`, markup puts
+        // every word in a `text` element (`BuildContext.Text`), and blockification happens in the
+        // layout and not in the style this enrols by — so every markup text leaf in a themed
+        // document is checked on every pass. What keeps that cheap is `InlineFormattingRoot`: a
+        // leaf in a flex or grid parent is not flattened and answers after two style lookups. It
+        // is kept wide rather than narrowed to leaves whose parent lays out lines because the
+        // narrowing buys a lookup pair per leaf and is a second place to get the flattening rule
+        // wrong — not because a parent's flip needs it: with the enrolment so narrowed, and with
+        // this check made inert, the block-to-flex-and-back case
+        // (`Turning_the_container_into_a_flex_box_…`) stays green, the layout re-measuring the leaf
+        // without being told.
+        foreach (var leaf in inlineLeaves) {
+            if (leaf.InlineEdgesMoved()) {
+                Layout.MarkDirty(leaf.LayoutNode);
+            }
+        }
+
+        inlineLeaves.Clear();
 
         foreach (var surface in surfaces) {
             // ⚠ Written before each call rather than once, because two windows on two displays have
@@ -1738,6 +1767,11 @@ public sealed partial class UiDocument : IDisposable {
             if (!string.IsNullOrEmpty(element.Text)) {
                 Layout.MarkDirty(element.LayoutNode);
             }
+        }
+
+        // Read by `Arrange` once every style is in — see there.
+        if (!string.IsNullOrEmpty(element.Text) && Layout.GetStyle(element.LayoutNode).Display == Display.Inline) {
+            inlineLeaves.Add(element);
         }
 
         // ⚠ <b>After this element's own style is built and before its children's.</b> A query

@@ -55,8 +55,9 @@ public enum TextTransform : byte {
 ///         trim already takes it out of the measure; every run touching a segment break is gone.
 ///         What is left is a run at the very start of the text and one at the very end — and for a
 ///         paragraph whose first line starts a line box and whose last line ends one, those are line
-///         edges. <c>TransformedText.Of</c>'s <c>ownsLines</c> is that condition, and its remarks
-///         name the one element it is false for.
+///         edges. <c>TransformedText.Of</c>'s <c>trimStart</c> and <c>trimEnd</c> are that
+///         condition, one per end, because for a <c>display: inline</c> element the two ends can
+///         have different answers — its remarks say which.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>So phase II was owed for one value, not six.</b> Under <c>pre</c>, <c>pre-wrap</c>
@@ -174,12 +175,22 @@ public sealed class TransformedText {
     ///     spaces collapsing never moves a word boundary, so <c>capitalize</c> titlecases the same
     ///     letters either way.
     /// </param>
-    /// <param name="ownsLines">
-    ///     Whether the text's start begins a line box and its end finishes one, which makes a
-    ///     collapsible run at either end § 4.1.3's phase II and removes it. True for a paragraph that
-    ///     is its own block; ⚠ false for a <c>display: inline</c> element in an inline formatting
-    ///     context, whose text may begin in the middle of a line a sibling started — there the answer
-    ///     depends on the neighbour, which is collapsing across an element boundary and is not done.
+    /// <param name="trimStart">
+    ///     Whether a collapsible run at the start of the text is removed. True where the start
+    ///     begins a line box — § 4.1.3's phase II — which is every paragraph that is its own block.
+    ///     ⚠ For a <c>display: inline</c> element in an inline formatting context the start can
+    ///     instead fall in the middle of a line a sibling began, and it is then true only where the
+    ///     inline content before it ended in a collapsible space or a segment break — § 4.1.1
+    ///     collapsing <i>across an element boundary</i>, which removes the second of two spaces
+    ///     whichever element each is in (#1363). The caller answers that from the tree; this walk
+    ///     cannot see a neighbour. Ignored unless <paramref name="collapse" /> collapses.
+    /// </param>
+    /// <param name="trimEnd">
+    ///     Whether a collapsible run at the end of the text is removed: true where the end finishes
+    ///     a line box, which for an inline element means nothing that draws follows it in its
+    ///     formatting context, or what follows begins with a segment break. ⚠ Never merely because
+    ///     the next element starts with a space — § 4.1.1 removes the <i>following</i> space and keeps
+    ///     this one, which is the half <paramref name="trimStart" /> answers on the neighbour.
     ///     Ignored unless <paramref name="collapse" /> collapses.
     /// </param>
     /// <returns>The drawn text and the map between the two.</returns>
@@ -242,7 +253,8 @@ public sealed class TransformedText {
         TextTransform transform,
         string? language = null,
         WhiteSpaceCollapse collapse = WhiteSpaceCollapse.Preserve,
-        bool ownsLines = false
+        bool trimStart = false,
+        bool trimEnd = false
     ) {
         source ??= string.Empty;
 
@@ -291,13 +303,16 @@ public sealed class TransformedText {
                 // narrower question here would leave a space the wrapper then ends a line on —
                 // which is the defect § 4.1.1's first step exists to prevent.
                 //
-                // ⚠ And the paragraph's two edges are treated as if a break touched them, which is
-                // § 4.1.3's phase II: a collapsible run at the start or end of a line is removed. For
-                // a paragraph that owns its lines those are the only line edges a run can still sit on
-                // — see the remarks on `WhiteSpaceCollapse` for why every other one is already gone.
+                // ⚠ And the paragraph's two edges are treated as if a break touched them where the
+                // caller says one does, which is § 4.1.3's phase II: a collapsible run at the start or
+                // end of a line is removed. For a paragraph that owns its lines those are the only line
+                // edges a run can still sit on — see the remarks on `WhiteSpaceCollapse` for why every
+                // other one is already gone. For an inline element the start is also removed where
+                // the element before it ended in a collapsible space: § 4.1.1 across the boundary.
                 var touching = (end < source.Length && LineWrapper.IsSegmentBreak(source[end]))
                     || (at > 0 && LineWrapper.IsSegmentBreak(source[at - 1]))
-                    || (ownsLines && (at == 0 || end == source.Length));
+                    || (trimStart && at == 0)
+                    || (trimEnd && end == source.Length);
 
                 Record(sourceOf, drawnOf, at, end - at, text.Length, touching ? 0 : 1);
                 moved |= touching || end - at != 1;
@@ -435,7 +450,7 @@ public sealed class TransformedText {
     ///     value from <c>collapse</c>. It is also true of U+00A0, which is a no-break space and is
     ///     not collapsible in any value.
     /// </remarks>
-    static bool IsCollapsible(char value) => value is ' ' or '\t';
+    internal static bool IsCollapsible(char value) => value is ' ' or '\t';
 
     /// <summary>COMBINING DOT ABOVE, U+0307.</summary>
     const char CombiningDotAbove = '\u0307';

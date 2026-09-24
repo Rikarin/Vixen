@@ -36,6 +36,9 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Ui.Text.Tests" />
+        <!-- `UiElement` asks the same two questions about a NEIGHBOUR's text that `TransformedText` asks about its own
+             (what is a collapsible space, what is a segment break), so the answers are shared rather than copied. #1363. -->
+        <InternalsVisibleTo Include="Vixen.Ui" />
     </ItemGroup>
 
 </Project>

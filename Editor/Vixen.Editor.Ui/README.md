@@ -125,6 +125,11 @@ turned the *line's* computed colour red, and no pixel changed, in every capture 
 port. The dump test first read the line's colour and passed. It now counts red pixels inside the
 line in a capture, and `AdvancedTheme.vcss` sets the colour on `keybindings-status > text`, where the
 glyphs are. The captures stopped being identical at that commit, and that change was the fix.
+⚠ It was one instance of a class, and the class is closed at its cause (#1372): the theme's bare
+`text` rule is gone, so every markup sentence inherits the colour its element is given. A census of
+every panel an editor session opens had found nineteen lines — `statistic-warning`, `gpu-status`,
+`debugger-status`, `network-status` among them — coloured in their computed style and drawn in
+`--text`; `TextColourPictureTests` reads two of them off the software and Vulkan pictures.
 
 `KeyBindingsView.vxml` since doc 36 § F7 wave 1b, and two things about that port are worth keeping.
 

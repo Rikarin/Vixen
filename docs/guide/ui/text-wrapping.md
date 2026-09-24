@@ -139,10 +139,36 @@ a label that is its own paragraph they are removed with the rest:
     "   "                 →    (no line at all)    as tall as a label with no text
 ```
 
-⚠ **One element keeps its leading space**: a `display: inline` label inside a block container, whose
-text can start in the middle of a line a sibling began. Whether the space survives there depends on
-the text before it, which is collapsing across an element boundary, and this engine does not do it.
-A line that a `line-break: anywhere` break starts on a space keeps that space too.
+**Across an element boundary too.** A `display: inline` label inside a block container can start in
+the middle of a line a sibling began, so its two ends are answered from its neighbours rather than
+assumed (#1363). Its leading run goes where nothing comes before it in the container, where a block
+or a segment break does, and where the inline content before it ends in a collapsible space — § 4.1.1
+removes the second of two collapsible spaces whichever element each is in. Its trailing run goes where
+nothing that draws comes after it. Chrome 153 measures every one of these the same as this engine
+(`Core/Vixen.Ui.Tests/Oracle/inline-collapse.html`):
+
+```
+    <label>foo </label><label> bar</label>      →    "foo bar"     one space, as in one label
+    <label>foo</label><label> bar</label>       →    "foo bar"     a space on one side is the space
+    <div>x</div><label>   ab</label>            →    "ab"          it begins a line after a block
+```
+
+⚠ **And a label's trailing space is not hung when a word follows it.** White space at the end of a
+line box hangs — it leaves the measure — and every paragraph here used to hang its last line's,
+which is right for a label that owns its lines and wrong for one with a neighbour after it on the
+same line: `<label>foo </label><label>bar</label>` drew `foobar`, under `normal` as much as under
+`pre-line`.
+
+⚠ **Still owed: a line the wrapper begins or ends between two labels.** The first label's trailing
+space should then hang and the second's leading run, where it did not follow a collapsible space,
+should go; both are break positions, which a label does not know when it is measured. A line that a
+`line-break: anywhere` break starts on a space keeps that space too.
+
+⚠ **Also owed: an inline box the layout treats as atomic.** A `display: inline` element with a
+measure function and no text, one whose children take no part in the line, or one holding a float is
+laid out as a single box, but the edge walk steps into it, finds no text and looks past it. So a
+label ending in a space, followed by such a box, hangs that space and the box is drawn against the
+last word. Nothing inline in the shipped theme is like that today.
 
 ## Examples
 

@@ -30,7 +30,19 @@ public sealed class TextLayout {
 
     /// <summary>Builds a block from its lines, in order.</summary>
     /// <param name="lines">The lines. At least one.</param>
-    public TextLayout(ImmutableArray<TextLine> lines) {
+    public TextLayout(ImmutableArray<TextLine> lines) : this(lines, lastLineHangs: true) { }
+
+    /// <summary>Builds a block whose last line may end in the middle of a line box rather than at its end.</summary>
+    /// <param name="lines">The lines. At least one.</param>
+    /// <param name="lastLineHangs">
+    ///     Whether white space at the end of the last line hangs — leaves the measure — as it does
+    ///     wherever that line is the end of a line box. ⚠ False for a <c>display: inline</c> element
+    ///     that something is laid out after on the same line (#1363): its trailing space is then
+    ///     <i>between</i> two words, and hanging it put the next element's first glyph against this
+    ///     one's last, so <c>foo␠</c> beside <c>bar</c> drew <c>foobar</c> under every
+    ///     <c>white-space</c> value.
+    /// </param>
+    internal TextLayout(ImmutableArray<TextLine> lines, bool lastLineHangs) {
         if (lines.IsDefaultOrEmpty) {
             throw new ArgumentException("a block has at least one line", nameof(lines));
         }
@@ -57,7 +69,7 @@ public sealed class TextLayout {
             // that the same two spaces do *not* leave the line box for `text-align`. Reading `Width`
             // here made every label ending in a space that much too wide, with a gap on the end that
             // reads as a padding mistake.
-            widest = MathF.Max(widest, lines[i].Offset + lines[i].Trimmed);
+            widest = MathF.Max(widest, lines[i].Offset + (lastLineHangs || i < lines.Length - 1 ? lines[i].Trimmed : lines[i].Width));
         }
 
         Height = y;

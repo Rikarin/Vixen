@@ -569,6 +569,108 @@ public class CodeEditorTests {
         Assert.Equal("cdefgh\nijk", editor.SelectedText);
     }
 
+    /// <summary>A mouse double click at a point, through the document, the way a user makes one.</summary>
+    static void DoubleClick(AdvancedFixture fixture, float x, float y) {
+        fixture.Press(x, y);
+        fixture.Release(x, y);
+        fixture.Press(x, y);
+        fixture.Release(x, y);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A double click past the end of a line selects the word before it and never the line
+    ///     break (#1364).</b> <c>SelectWord</c> used to take <c>WordStart(Forward(at))</c> and
+    ///     <c>WordEnd(at)</c>, and at the end of a line <c>Forward</c> steps onto the next line and
+    ///     both of those step back across the break — so the selection was exactly the newline, and
+    ///     typing over it joined two lines. A long press is the same call, and since #1357 it is the
+    ///     only way a finger selects a word, so both devices are asserted.
+    /// </summary>
+    [Fact]
+    public void A_double_click_past_the_end_of_a_line_selects_the_word_before_it() {
+        using var fixture = new AdvancedFixture();
+        var editor = Editor(fixture, "alpha beta\n\ngamma");
+
+        var end = editor.ToScreen(new TextPosition(0, 10));
+        var x = end.X + (editor.CharacterWidth * 3f);
+        var y = end.Y + (editor.RowHeight * 0.5f);
+
+        Assert.Equal(new TextPosition(0, 10), editor.ToPosition(x, y));
+
+        DoubleClick(fixture, x, y);
+        Assert.Equal("beta", editor.SelectedText);
+
+        fixture.Rest();
+        fixture.Touch(PointerAction.Pressed, x, y);
+        fixture.Advance(TimeSpan.FromSeconds(2));
+        fixture.Touch(PointerAction.Released, x, y);
+
+        Assert.Equal("beta", editor.SelectedText);
+        Assert.Equal("alpha beta\n\ngamma", editor.Source);
+    }
+
+    /// <summary>The empty-line half: there is no word on it, so nothing is selected — and above all not the break below it.</summary>
+    [Fact]
+    public void A_double_click_on_an_empty_line_selects_nothing() {
+        using var fixture = new AdvancedFixture();
+        var editor = Editor(fixture, "alpha beta\n\ngamma");
+
+        var start = editor.ToScreen(new TextPosition(1, 0));
+        var x = start.X + (editor.CharacterWidth * 2f);
+        var y = start.Y + (editor.RowHeight * 0.5f);
+
+        DoubleClick(fixture, x, y);
+
+        Assert.False(editor.HasSelection, $"an empty line's double click selected \"{editor.SelectedText}\"");
+        Assert.Equal(new TextPosition(1, 0), editor.Caret);
+
+        // Typing proves it rather than a flag: over a selected break it would join the lines.
+        fixture.TypeText("x");
+        Assert.Equal("alpha beta\nx\ngamma", editor.Source);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The same function's other case: a position between a word and a space is on the
+    ///     word.</b> The old pair ran <c>WordStart</c> back from the character after the position and
+    ///     <c>WordEnd</c> forward from the position, and each skips whitespace before its run — so a
+    ///     double click on the right half of <c>foo</c>'s last letter, which the hit test rounds to
+    ///     the boundary before the space, selected <c>foo bar</c>: both words and the space.
+    /// </summary>
+    [Fact]
+    public void A_double_click_at_the_end_of_a_word_selects_that_word_alone() {
+        using var fixture = new AdvancedFixture();
+        var editor = Editor(fixture, "foo bar");
+
+        var boundary = editor.ToScreen(new TextPosition(0, 3));
+        var x = boundary.X - (editor.CharacterWidth * 0.2f);
+        var y = boundary.Y + (editor.RowHeight * 0.5f);
+
+        Assert.Equal(new TextPosition(0, 3), editor.ToPosition(x, y));
+
+        DoubleClick(fixture, x, y);
+        Assert.Equal("foo", editor.SelectedText);
+    }
+
+    /// <summary>
+    ///     The third run a double click can land in: a gap between two words selects the gap, as a
+    ///     word selects the word. The moves only ever skip whitespace, so the old pair ran out of
+    ///     the gap in both directions and selected <c>foo   bar</c> whole; and a rewrite that sent
+    ///     every non-word character down the word branch would select one space of the three.
+    /// </summary>
+    [Fact]
+    public void A_double_click_between_two_words_selects_the_whitespace_between_them() {
+        using var fixture = new AdvancedFixture();
+        var editor = Editor(fixture, "foo   bar");
+
+        var middle = editor.ToScreen(new TextPosition(0, 4));
+        var x = middle.X + (editor.CharacterWidth * 0.2f);
+        var y = middle.Y + (editor.RowHeight * 0.5f);
+
+        Assert.Equal(new TextPosition(0, 4), editor.ToPosition(x, y));
+
+        DoubleClick(fixture, x, y);
+        Assert.Equal("   ", editor.SelectedText);
+    }
+
     [Fact]
     public void A_buffer_edited_from_outside_is_taken_as_a_new_file() {
         using var fixture = new AdvancedFixture();
