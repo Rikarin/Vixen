@@ -472,16 +472,18 @@ public class ThumbnailTests {
         // lands, which is what the dialog's subscription to `Changed` is for.
         Assert.All(grid.Tiles, tile => Assert.Equal(0UL, tile.Picture.Texture));
 
-        // ⚠ The effects are drained on every look, because since #1406 the tile template is markup:
-        // the decode's `Changed` makes the dialog `Refresh` the grid, which moves a signal the tile's
-        // bindings read, and a binding runs when the document next flushes — at the top of the next
-        // frame, before anything is drawn. The hand-written grid rebound inside `Refresh` itself, and
-        // this loop, which pumps the cache and never draws, was relying on that.
+        // ⚠ A frame on every look, because since #1406 the tile template is markup: the decode's
+        // `Changed` makes the dialog `Refresh` the grid, which moves a signal the tile's bindings
+        // read, and a binding runs at the document's next flush — the top of the next frame, before
+        // anything is drawn. The hand-written grid rebound inside `Refresh` itself, and this loop,
+        // which pumped the cache and never ran a frame, was relying on that. A frame rather than a
+        // bare `Effects.Flush()`, which the first fix used: what is asserted is what the picker
+        // draws, and a drain by hand could pass for a template the frame never reached.
         Assert.True(
             Settle(
                 cache,
                 () => {
-                    editor.Document.Effects.Flush();
+                    editor.Frame();
                     return grid.Tiles.Any(tile => tile.Node?.Guid == crate && tile.Picture.Texture != 0);
                 }
             ),

@@ -3,7 +3,7 @@
     SPDX-License-Identifier: Apache-2.0
 
     A folder's contents as a wrapping grid of tiles: the Project panel's other view, and the asset
-    picker's only one. The last production virtualised template to be set by hand — `CreateTile` and
+    picker's only one. The last editor panel's virtualised template to be set by hand — `CreateTile` and
     `BindTile` in C# — ported to `@rows` over the `VirtualizingGrid` (#1406), so the grid half of
     `IRowPool` has the production caller `MessageLogView` and `ConsoleView` gave the panel half (#758).
 
@@ -21,10 +21,15 @@
     every column reads it. The selection has a signal of its own (`marks`), so marking a tile repaints
     one bit of state rather than re-asking every tile for its picture.
 
-    ⚠ **`:checked`, the node map and the status letter are `use=` rather than bindings**: the first is
-    one bit of `ElementState` and a binding may only assign a property; the second is the grid's own
-    bookkeeping for `TileAt`; the third is `Letter`, shared with the list view's column and kept one
-    function so the two cannot spell a status differently.
+    ⚠ **`:checked` and the status letter are `use=` rather than bindings**: the first is one bit of
+    `ElementState` and a binding may only assign a property; the second is `Letter`, shared with the
+    list view's column and kept one function so the two cannot spell a status differently.
+
+    ⚠ **Which node a slot holds is never read back from the template.** A binding runs at the next
+    effect flush, so anything it records trails the grid's own window by up to a frame; `Tiles`,
+    `TileOf` and `TileAt` ask the grid (`FirstItem` plus the slot's place in the pool), which every
+    realise moves synchronously. The port first kept a map written by `use=`, and a press straight
+    after `Show` chose the previous folder's asset from it.
 
     `AssetGridDumpTests` was recorded from the hand-written control before this port and holds it to
     that panel.
@@ -62,9 +67,6 @@
     /// <summary>Moved by <see cref="Mark" />, which changes one bit of each tile and nothing else.</summary>
     readonly Signal<int> marks = new(0);
 
-    /// <summary>Which node each realised slot is showing, written as the slot is rebound.</summary>
-    readonly Dictionary<UiElement, AssetTreeNode> showing = new(ReferenceEqualityComparer.Instance);
-
     readonly HashSet<AssetId> marked = [];
 
     /// <inheritdoc />
@@ -89,8 +91,19 @@
     public IReadOnlyList<AssetTreeNode> Items => items;
 
     /// <summary>The tiles that exist as elements and are showing something, in pool order.</summary>
-    public IReadOnlyList<AssetTile> Tiles =>
-        [.. Body.Tiles.Where(tile => !tile.HasClass("parked")).Select(tile => View(tile, showing.GetValueOrDefault(tile)))];
+    public IReadOnlyList<AssetTile> Tiles {
+        get {
+            List<AssetTile> realised = [];
+
+            for (var slot = 0; slot < Body.Tiles.Count; slot++) {
+                if (!Body.Tiles[slot].HasClass("parked")) {
+                    realised.Add(View(Body.Tiles[slot], NodeAt(Body.FirstItem + slot)));
+                }
+            }
+
+            return realised;
+        }
+    }
 
     /// <summary>The tile showing an item, if it is realised.</summary>
     /// <param name="item">Its index in <see cref="Items" />.</param>
@@ -99,8 +112,7 @@
     ///     The node is the item's rather than the slot's last bind, so a caller that scrolls and asks
     ///     before the next frame gets the tile it asked for rather than whatever the slot showed.
     /// </remarks>
-    public AssetTile? TileOf(int item) =>
-        Body.TileOf(item) is { } tile ? View(tile, item >= 0 && item < items.Count ? items[item] : null) : null;
+    public AssetTile? TileOf(int item) => Body.TileOf(item) is { } tile ? View(tile, NodeAt(item)) : null;
 
     /// <summary>Scrolls until an item is on screen, so that it can be clicked.</summary>
     /// <param name="item">Its index in <see cref="Items" />.</param>
@@ -338,8 +350,17 @@
     public Func<AssetTreeNode, AssetTreeNode?> Containing { get; set; } = static _ => null;
 
     /// <summary>The tile under a point, if any.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The node is the grid's answer for the slot — <c>FirstItem</c> plus its place in the
+    ///     pool — and not whatever a tile binding last recorded.</b> The #1406 port kept a slot-to-node
+    ///     map written by the tile's <c>use=</c>, which is an effect, so between a rebind and the next
+    ///     flush it named the item the slot used to show: a press straight after <c>Show</c> chose the
+    ///     previous folder's asset. The window is moved synchronously by every realise.
+    /// </remarks>
     public AssetTile? TileAt(float x, float y) {
-        foreach (var tile in Body.Tiles) {
+        for (var slot = 0; slot < Body.Tiles.Count; slot++) {
+            var tile = Body.Tiles[slot];
+
             if (tile.HasClass("parked")) {
                 continue;
             }
@@ -347,7 +368,7 @@
             var bounds = tile.Bounds;
 
             if (x >= bounds.X && x < bounds.X + bounds.Width && y >= bounds.Y && y < bounds.Y + bounds.Height) {
-                return View(tile, showing.GetValueOrDefault(tile));
+                return View(tile, NodeAt(Body.FirstItem + slot));
             }
         }
 
@@ -434,11 +455,14 @@
         }
     }
 
-    /// <summary>The node a slot is showing, or null for a slot showing nothing.</summary>
+    /// <summary>The node a slot is showing, or null for a slot showing nothing — for a binding, which must re-run on <see cref="version" />.</summary>
     AssetTreeNode? At(int index) {
         _ = version.Value;
-        return index >= 0 && index < items.Count ? items[index] : null;
+        return NodeAt(index);
     }
+
+    /// <summary>The item at an index, or null past either end — for a caller, which must not subscribe to anything.</summary>
+    AssetTreeNode? NodeAt(int index) => index >= 0 && index < items.Count ? items[index] : null;
 
     string? FolderClass(int index) => At(index) is { IsFolder: true } ? "folder" : null;
 
@@ -459,7 +483,7 @@
 
     SourceControlStatus StatusAt(int index) => At(index) is { } node ? Status(node) : SourceControlStatus.Unknown;
 
-    /// <summary>What <c>use=</c> keeps up to date on a slot: its node, its focusability and its <c>:checked</c>.</summary>
+    /// <summary>What <c>use=</c> keeps up to date on a slot: its focusability and its <c>:checked</c>.</summary>
     /// <remarks>
     ///     ⚠ <b>Focusable written here because the tile is not a control any more</b>, and
     ///     <c>Control.OnCreated</c> was what made an <c>AssetTile</c> one a click could focus.
@@ -468,12 +492,6 @@
         _ = marks.Value;
 
         tile.Focusable = true;
-
-        if (At(index) is { } node) {
-            showing[tile] = node;
-        } else {
-            showing.Remove(tile);
-        }
 
         if (At(index) is { IsIndexed: true } asset && marked.Contains(asset.Guid)) {
             tile.State |= ElementState.Checked;

@@ -3,6 +3,7 @@
 
 using System.Diagnostics.CodeAnalysis;
 using Vixen.Core.Imaging;
+using Vixen.Editor.Core;
 using Vixen.Editor.Testing;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -188,6 +189,121 @@ public sealed class AssetGridDumpTests {
         Assert.Equal(7UL, scene.Picture.Texture);
         Assert.False(scene.Picture.HasClass("hidden"));
         Assert.True(scene.Glyph.HasClass("hidden"));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The frame a wheel turn runs draws the tiles it scrolled to, and a press on it picks
+    ///     what it drew.</b> Found by the #1406 review: after the port every realised tile showed the
+    ///     item it had before the scroll for exactly one frame — 252 of 252 checked tiles wrong — and
+    ///     a press in that frame chose the previous asset, because the grid realises from
+    ///     <c>LayoutFinished</c> and the tile's bindings waited for the next frame's flush. The
+    ///     hand-written grid bound inside <c>Realise</c>, so it never did either.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>One frame per turn and never a settle.</b> Every other test in this file settles, and
+    ///     a settled grid is right whatever the lag — which is how the dumps, the pictures and both
+    ///     settle-then-change tests passed with it.
+    /// </remarks>
+    [Fact]
+    public void A_wheel_turn_draws_each_tile_s_own_item_on_its_frame_and_a_press_picks_it() {
+        using var editor = Started();
+
+        var many = Path.Combine(editor.ProjectRoot, "Assets", "Many");
+
+        Directory.CreateDirectory(many);
+
+        for (var index = 0; index < 400; index++) {
+            File.WriteAllText(Path.Combine(many, $"file{index:000}.png"), "x");
+        }
+
+        editor.Run("assets.refresh");
+        DoubleClick(editor, "Many");
+
+        var grid = Grid(editor);
+        var body = Descendants(grid).OfType<VirtualizingGrid>().Single();
+        var viewport = body.Bounds;
+
+        Assert.Equal(400, grid.Items.Count);
+        Assert.Equal(0, body.FirstItem);
+
+        AssetTreeNode? chosen = null;
+
+        grid.Selected += node => chosen = node;
+
+        var checkedTiles = 0;
+
+        for (var turn = 0; turn < 4; turn++) {
+            var first = body.FirstItem;
+
+            editor.Ui.At(viewport.X + (viewport.Width * 0.5f), viewport.Y + (viewport.Height * 0.5f)).Scroll(0, 400);
+
+            // The wheel moved the pool, so a slot showing its old item is showing the wrong one.
+            Assert.NotEqual(first, body.FirstItem);
+
+            for (var slot = 0; slot < body.Tiles.Count; slot++) {
+                if (body.Tiles[slot].HasClass("parked")) {
+                    continue;
+                }
+
+                var item = body.FirstItem + slot;
+
+                checkedTiles++;
+                Assert.Equal(grid.Items[item].Name, Descendants(body.Tiles[slot]).Single(child => child.Tag == "asset-caption").Text);
+            }
+
+            // A press in the same frame, on a tile whose centre is inside the viewport, reports the
+            // item that tile is drawn showing.
+            var target = Enumerable.Range(body.FirstItem, body.Tiles.Count)
+                .First(item => body.TileOf(item) is { } tile
+                    && tile.Bounds.Y + (tile.Bounds.Height * 0.5f) > viewport.Y + 4f
+                    && tile.Bounds.Y + (tile.Bounds.Height * 0.5f) < viewport.Y + viewport.Height - 4f);
+            var hit = body.TileOf(target)!.Bounds;
+
+            chosen = null;
+            editor.Ui.MovePointer(hit.X + (hit.Width * 0.5f), hit.Y + (hit.Height * 0.5f));
+            editor.Ui.PressPointer();
+            editor.Ui.ReleasePointer();
+
+            Assert.Same(grid.Items[target], chosen);
+
+            // Presses a frame apart on the same spot are a double click, which would open the asset.
+            editor.Document.Gestures.EndTapRun();
+        }
+
+        Assert.True(checkedTiles > 50, $"only {checkedTiles} tiles were checked");
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A press between <c>Show</c> and the next frame picks the new folder's item.</b> A slot
+    ///     keeps its index across a folder change, so it keeps its place on screen too — and a map
+    ///     from slot to node written by a tile binding still held the old folder's node until the
+    ///     next flush. <c>TileAt</c> resolves the slot's item from the grid's own window instead,
+    ///     which <c>Show</c> has already moved.
+    /// </summary>
+    [Fact]
+    public void A_press_straight_after_showing_a_folder_picks_that_folder_s_item() {
+        using var editor = Started();
+
+        var grid = Grid(editor);
+        var root = grid.Folder!;
+        var scenes = Assert.Single(root.Children, node => node.Name == "Scenes");
+
+        var tile = TileElement(editor, grid.Items[0].Name);
+        var hit = tile.Bounds;
+
+        // Settled at the root: a press on the first tile picks the root's first item.
+        Assert.NotSame(scenes.Children[0], grid.Items[0]);
+
+        grid.Show(scenes);
+
+        AssetTreeNode? chosen = null;
+
+        grid.Selected += node => chosen = node;
+        editor.Ui.MovePointer(hit.X + (hit.Width * 0.5f), hit.Y + (hit.Height * 0.5f));
+        editor.Ui.PressPointer();
+        editor.Ui.ReleasePointer();
+
+        Assert.Same(scenes.Children[0], chosen);
     }
 
     static AssetTile TileView(AssetGrid grid, string name) =>
