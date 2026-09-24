@@ -692,9 +692,15 @@ Whether the capitalised tag *can* pool — whether it is a `VirtualizingPanel` o
 or anything else implementing `IRowPool` — is a type question this compiler leaves to the C# one,
 which reports it on the `@rows` keyword.
 
-⚠ **No `key`, and no `refs`.** A slot is not an identity, so there is nothing for a key to say; and a
-`refs` in the row would file every slot under whichever the pool made last. The syntax types are
-`RowsSyntax` and `BoundRows`.
+⚠ **No `key` on the row, no `ref` or `refs` anywhere in it, and one `@rows` per control.** A slot is
+not an identity, so there is nothing for a key to say (`VXML2029`). The row's whole subtree is made
+once per slot, so a `ref` in it would hold whichever slot the pool made last and a `refs` has no
+identity to file the slots under (`VXML2030`) — put the `ref` on the control and reach its rows from
+there, or read what the row shows through `index`. And a control has one pool: a second `@rows` in
+it would replace the first's delegates, and every row the first had made would stop updating
+(`VXML2031`). A nested `@for` inside a row keys its own roots as every `@for` does
+([#1398](https://github.com/Rikarin/Vixen/issues/1398)). The syntax types are `RowsSyntax` and
+`BoundRows`.
 
 ### `help`, for a sentence a screen reader can reach
 

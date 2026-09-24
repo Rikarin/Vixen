@@ -681,6 +681,11 @@ settled by what the pool is:
   *can* pool is a type question, and this compiler resolves no types — the host argument is emitted
   under a `#line` mapped to the `@rows` keyword, so a tag that is not an `IRowPool` is Roslyn's
   `CS1503` on the keyword the author wrote. That is the no-`VXML3xxx` bargain kept, not broken.
+- ⚠ **A row is not a loop body, so the loop's rules give it the wrong answers** and it has three of
+  its own (#1398): no `key` on the row (`VXML2029`), no `ref` or `refs` anywhere in its subtree
+  (`VXML2030`, tracked by a depth of its own and checked *before* the loop rules — outside an `@for`
+  the `refs` rule used to answer "write 'ref' instead", the same trap, and inside one it let `refs`
+  through), and one `@rows` per control (`VXML2031`, on the second block).
 
 ⚠ **`@rows` is a keyword only with a `(var` header after it.** `rows` is a legal C# identifier and
 `@rows[0]` is an ordinary interpolation; `@empty` makes the same bargain with the brace. And the index

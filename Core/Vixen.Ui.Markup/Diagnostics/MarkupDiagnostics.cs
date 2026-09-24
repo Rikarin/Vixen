@@ -611,4 +611,73 @@ public static class MarkupDiagnostics {
         BindingCategory,
         DiagnosticSeverity.Error
     );
+
+    /// <summary>A <c>key</c> on an <c>@rows</c> row.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A slot is not an identity, so a key has nothing to say.</b> The pool makes a
+    ///         handful of rows and rebinds each one to a different index as the list scrolls; it only
+    ///         ever grows, and <c>VirtualizingPanel.Rows</c> is pool order, not item order. Every
+    ///         rule an <c>@for</c> key carries — a surviving key keeps its region, its body is not
+    ///         re-run — is false of a slot, and a key written on one reads as though it were true.
+    ///     </para>
+    ///     <para>
+    ///         Only on the row element: a nested <c>@for</c> inside the row keys its own roots as
+    ///         every <c>@for</c> does. Accepted silently until <c>Rikarin/Vixen#1398</c>.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor KeyOnRow = new(
+        "VXML2029",
+        "'key' on an @rows row",
+        "An @rows row is a pool slot, not an item: the control makes a few and rebinds each to a different "
+        + "index as the list scrolls, so there is no identity for 'key' to name. Remove it, and read the "
+        + "item through the index signal.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>A <c>ref</c> or <c>refs</c> anywhere in an <c>@rows</c> row.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The row's whole subtree is made once per pool slot</b>, so a <c>ref</c> anywhere
+    ///         in it is assigned once per slot and holds whichever the pool made last — and the pool
+    ///         makes slots from a layout callback, when it discovers it needs more, so "last" changes
+    ///         with the window's height. A <c>refs</c> has no identity to file the slots under: the
+    ///         reason <see cref="KeyOnRow" /> exists.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Neither loop rule is the right answer here</b>, which is why this is its own id.
+    ///         Outside an <c>@for</c>, <c>refs</c> met <see cref="RefsOutsideLoop" />, whose message
+    ///         says "write 'ref' instead" — the same trap in the other spelling — and inside an
+    ///         <c>@for</c> body <c>refs</c> was not refused at all. See <c>Rikarin/Vixen#1398</c>.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor RefInRow = new(
+        "VXML2030",
+        "'ref' in an @rows row",
+        "'{0}' inside an @rows row: the row is made once per pool slot, so a 'ref' would hold whichever slot "
+        + "the pool made last and a 'refs' has no identity to file the slots under. Put the 'ref' on the "
+        + "control and reach its rows from there, or read what the row shows through the index signal.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>A second <c>@rows</c> directly inside the same control.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One control has one pool.</b> Each block compiles to a <c>BuildContext.Pool</c> over
+    ///     the tag it is written in, and a second call over the same host replaces both delegates and
+    ///     starts a fresh slot table, so every slot the first had made stops being rebound: the list
+    ///     goes on scrolling and stops changing. Reported on the second block, because the first is
+    ///     the one that would have worked. Each block was bound independently until
+    ///     <c>Rikarin/Vixen#1398</c>.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor SecondRowsInControl = new(
+        "VXML2031",
+        "Second @rows in one control",
+        "This control already has an @rows, and a control has one pool: a second block would replace the "
+        + "first's row delegates and every row it had made would stop updating. Merge them into one row "
+        + "template, or give each list a control of its own.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
 }
