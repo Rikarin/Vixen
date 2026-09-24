@@ -155,6 +155,39 @@ public class ZeroSizedBoxPaintTests {
         Assert.Same(Child(document), document.HitTest(50f, 15f));
     }
 
+    /// <summary>A zero box with a mask paints nothing of its subtree, because the mask is clipped to its border box.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The guard for this was dead when it landed.</b> <c>Emit</c> refused a zero box when
+    ///         <c>MasksFor</c> returned a layer, and <c>MasksFor</c> returns none for a zero box: its
+    ///         first line refuses a zero width or height. So the masked box painted its child unmasked,
+    ///         the one case the guide said paints nothing. Measured: one red rectangle, where CSS's
+    ///         <c>mask-clip: border-box</c> leaves none.
+    ///     </para>
+    ///     <para>
+    ///         The pointer is not asked here. <c>UiDocument.HitTest</c> reads no mask for any box, zero
+    ///         or not, so a masked-out child is reachable wherever it lies. That is a question about
+    ///         masks and not about zero boxes.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_zero_tall_masked_box_paints_nothing_of_its_subtree() {
+        using var document = Laid(
+            ".box { display: block; width: 200px; height: 0px; mask-image: linear-gradient(to right, #000000, #000000); }"
+        );
+
+        Assert.Equal(0f, Box(document).Height);
+        Assert.Equal(0, ChildRectangles(document));
+    }
+
+    /// <summary>The same box with no mask paints its child, so the test above is about the mask.</summary>
+    [Fact]
+    public void The_same_zero_tall_box_without_a_mask_paints_its_child() {
+        using var document = Laid(".box { display: block; width: 200px; height: 0px; mask-image: none; }");
+
+        Assert.Equal(1, ChildRectangles(document));
+    }
+
     /// <summary>The zero box itself draws no background: it has no area to draw it in.</summary>
     [Fact]
     public void The_zero_box_paints_no_background_of_its_own() {

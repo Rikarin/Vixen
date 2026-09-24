@@ -61,7 +61,8 @@ Three zero-sized boxes still paint nothing, because in CSS they paint nothing:
 
 * `display: none`, whose subtree the layout zeroes with it.
 * A zero axis that the box's own `overflow` clips, such as `height: 0; overflow: hidden`.
-* A box with a `mask`, because a mask is clipped to the border box.
+* A box with a `mask-image`, because a mask is clipped to the border box. ⚠ The pointer can still
+  reach those children: the hit test reads no mask, for a zero box or any other.
 
 ## What it is for
 

@@ -827,9 +827,13 @@ public sealed class DrawListBuilder {
         var masks = MasksFor(element, width, height, list);
 
         // A mask is clipped to the border box (`mask-clip: border-box`), so a zero border box leaves
-        // nothing of the subtree. Refused here, before a group is opened for it, rather than handing
-        // the mask a zero extent to divide by.
-        if (empty && masks > 0) {
+        // nothing of the subtree.
+        //
+        // ⚠ <b>Asked of the style and not of `masks`.</b> `MasksFor` returns no layer for a zero box,
+        // because its first line refuses a zero extent, so the guard that first stood here
+        // (`empty && masks > 0`) could never be true: a zero masked box painted its children with no
+        // mask at all. See `ZeroSizedBoxPaintTests`.
+        if (empty && HasMask(element)) {
             return;
         }
 
@@ -3559,6 +3563,33 @@ public sealed class DrawListBuilder {
     /// </remarks>
     static DrawCommand Styled(DrawCommand command, DrawList into, BoxStyle style) =>
         command with { Offset = into.AddBox(style), Length = 1 };
+
+    /// <summary>Whether the element has a <c>mask-image</c> that <see cref="MasksFor" /> would apply at any size.</summary>
+    /// <remarks>
+    ///     The same refusals as <see cref="MasksFor" /> short of the extent: no layers (<c>none</c>) and
+    ///     a layer that cannot be painted both mean no mask, there and here. Only a zero box asks,
+    ///     because only for a zero box does <see cref="MasksFor" /> say nothing about the style.
+    /// </remarks>
+    bool HasMask(UiElement element) {
+        if (!element.Style.TryGet(maskImage, out var id)) {
+            return false;
+        }
+
+        var layers = gradients.ReadLayers(id);
+
+        if (layers.Count == 0) {
+            return false;
+        }
+
+        // Indexed, because `foreach` over the interface boxes an enumerator on a per-frame path.
+        for (var layer = 0; layer < layers.Count; layer++) {
+            if (!layers[layer].IsPaintable) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     /// <summary>The mask list this element's <c>mask-image</c> asks for, into a caller's span.</summary>
     /// <param name="element">The element.</param>
