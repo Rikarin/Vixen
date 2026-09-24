@@ -422,7 +422,7 @@ public sealed class StyleEngine {
         // ancestor-first order. The updater's reader is put back afterwards, because the two share
         // one resolver.
         var previous = Resolver.ResolvedAncestor;
-        Resolver.ResolvedAncestor = (tree, index) => tree == Tree && (uint) index < (uint) styles.Length ? styles[index] : null;
+        Resolver.ResolvedAncestor = (tree, index) => tree == Tree && (uint)index < (uint)styles.Length ? styles[index] : null;
 
         try {
             ResolveInto(styles);
