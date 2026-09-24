@@ -1168,10 +1168,14 @@ console-toolbar toggle-button.console-level:checked.level-warning { color: var(-
 console-toolbar toggle-button.console-level:checked.level-info { color: var(--text); }
 console-toolbar toggle-button.console-level:checked.level-verbose { color: var(--text-muted); }
 
-/* ⚠ Two rows is the floor, and the detail pane is what gives way to it
+/* ⚠ One row is the floor, and the detail pane is what gives way to it
    (#1390). A floor of zero let a selected record's pane take the whole of
-   a short console and leave no list to select from. */
-console-view virtualizing-panel { flex-grow: 1; flex-basis: 0px; min-height: 44px; }
+   a short console and leave no list to select from.
+
+   ⚠ One and not two, and that was measured: the empty pane's line does not
+   shrink, and at 1600×640 — the Preferences pictures' size — a two-row
+   floor pushed it through the dock panel's bottom edge. */
+console-view virtualizing-panel { flex-grow: 1; flex-basis: 0px; min-height: 22px; }
 
 /* Doc 36 § P5's errors panel. A column of monospaced lines, because every one of them is
    `File.cs(12,5): CS0103: …` and the columns only line up in a fixed pitch — which is what
@@ -1266,7 +1270,7 @@ console-row:checked console-repeats { color: var(--accent-text); }
    thumb at the bottom of the scroll — sat behind the dock panel's edge,
    which is what "the thumb vanishes at the end of the scroll" was (#1327).
    Now the pane shrinks, down to a floor that still shows a line of the
-   record, and the list keeps the two rows its own rule reserves. */
+   record, and the list keeps the row its own rule reserves. */
 console-detail {
     flex-direction: column;
     flex-shrink: 1;

@@ -121,9 +121,10 @@ public sealed class ScrollingPanelPictureTests {
     ///         this view showed the vertical thumb present at the top of the scroll and gone at the
     ///         end, on the Vulkan device and the software rasteriser alike, and a reviewer looking at
     ///         the picture had missed it. The end of the track was in those hidden 28 px and a
-    ///         24 px thumb fits inside them — so the question is asked of pixels: the thumb's own
-    ///         colour, sampled at the top of the track in the first frame, has to be found in the
-    ///         last thumb-length of the track in the second.
+    ///         24 px thumb fits inside them — so the question is asked of pixels, by
+    ///         <see cref="ThumbAtTheEnd" /> from inside <see cref="Check" />: the thumb's own colour,
+    ///         sampled where the thumb is in the first frame, has to be found in the last
+    ///         thumb-length of the track in the second. Every vertical view here is held to it.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -138,54 +139,65 @@ public sealed class ScrollingPanelPictureTests {
             + $"{console.List.RowHeight} px row left to select from at {WidthOf(fixture)}×{HeightOf(fixture)}."
         );
 
+        // The thumb half is in `Check`, which every vertical view in this class goes through.
         Check(fixture, view, "console-detail-short");
+    }
 
-        var bar = view.VerticalBar;
+    /// <summary>With nothing selected, the pane's one line and the list's row both fit a console 640 px tall.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A floor for the list is a floor something else pays for.</b> The empty pane is one line
+    ///     and does not shrink, and the first cut of #1390's floor — two rows — pushed that line
+    ///     through the dock panel's bottom edge in the Preferences pictures' 1600×640 editor. Seen in
+    ///     a picture taken for a different panel, which is why it is a fact of its own now: the
+    ///     pane inside every clip above it, and the list at least a row.
+    /// </remarks>
+    [Fact]
+    public void The_empty_console_detail_and_a_row_of_the_list_fit_a_short_console() {
+        using var fixture = Start(Width, 640);
 
-        using var device = OpenDevice();
-        using var gpu = device is null ? null : new GpuPicture(device, WidthOf(fixture), HeightOf(fixture));
-
-        view.ScrollTo(0f, 0f);
+        fixture.Open("console");
         fixture.Frames(2);
 
-        var top = Draw(fixture, gpu, "console-detail-short-thumb-top");
+        var console = Find<Vixen.Editor.Ui.ConsoleView>(fixture.Document.Root)
+            ?? throw fixture.Fail("the console is not open");
 
-        view.ScrollTo(view.MaximumTop, 0f);
-        fixture.Frames(2);
+        var view = Scroller(fixture, "console-detail");
 
-        Assert.Equal(view.MaximumTop, view.ScrollTop, 3);
+        Assert.True(view.HasClass("empty"), "a record is selected, so this is not the empty pane");
+        Assert.True(console.List.Height >= console.List.RowHeight, $"the list is {console.List.Height} px tall.");
 
-        var bottom = Draw(fixture, gpu, "console-detail-short-thumb-bottom");
-
-        Assert.Multiple(
-            () => ThumbAtTheEnd("software", bar, top.Software, bottom.Software),
-            () => {
-                if (top.Gpu is { } before && bottom.Gpu is { } after) {
-                    ThumbAtTheEnd("Vulkan", bar, before, after);
-                }
-            }
-        );
+        Uncut(fixture, view);
     }
 
     /// <summary>Whether the vertical thumb is drawn at the far end of its track once the view is scrolled there.</summary>
     /// <remarks>
-    ///     The colour is sampled rather than assumed, in the same renderer's picture: the middle of
-    ///     the first thumb-length of the track at the top of the scroll, which is thumb and nothing
-    ///     else. The thumb's length is <c>ScrollBar</c>'s own rule — a 24 px floor over a
-    ///     proportional length — so where it must be at the end is closed form. The horizontal bar
-    ///     overlays the bottom of the vertical one when both are shown, so what is required at the
-    ///     end is some of the thumb, all of it inside the last thumb-length, not all of it.
+    ///     <para>
+    ///         The colour is sampled rather than assumed, in the same renderer's picture, at a point
+    ///         of the track the thumb covers at the top of the scroll and has left at the end: half
+    ///         its travel down, and never deeper than half its length. The thumb's length is
+    ///         <c>ScrollBar</c>'s own rule — a 24 px floor over a proportional length — so where it
+    ///         must be at the end is closed form.
+    ///     </para>
+    ///     <para>
+    ///         The horizontal bar overlays the bottom of the vertical one when both are shown, so what
+    ///         is required at the end is some of the thumb, all of it inside the last thumb-length,
+    ///         not all of it (<c>ScrollBarThumbPictureTests</c> measures that overlay on a plain view).
+    ///     </para>
     /// </remarks>
     static void ThumbAtTheEnd(string renderer, ScrollBar bar, Bitmap top, Bitmap bottom) {
         var length = (int)MathF.Floor(MathF.Max(MathF.Min(bar.Height, 24f), bar.Height * bar.ViewportSize / bar.ContentSize));
         var x = (int)MathF.Floor(bar.AbsoluteLeft + bar.Width / 2f);
         var start = (int)MathF.Ceiling(bar.AbsoluteTop);
         var end = (int)MathF.Floor(bar.AbsoluteTop + bar.Height);
+        var travel = end - start - length;
 
-        var thumb = Pixel(top, x, start + length / 2);
+        Assert.True(travel >= 4, $"[{renderer}] a thumb that travels {travel} px cannot be told from one that did not move.");
+
+        var sample = start + Math.Clamp(travel / 2, 2, length / 2);
+        var thumb = Pixel(top, x, sample);
 
         Assert.False(
-            thumb.SequenceEqual(Pixel(bottom, x, start + length / 2)),
+            thumb.SequenceEqual(Pixel(bottom, x, sample)),
             $"[{renderer}] the top of the track looks the same at both ends of the scroll, so the colour sampled "
             + "there is not the thumb's and the count below would measure nothing."
         );
@@ -623,29 +635,7 @@ public sealed class ScrollingPanelPictureTests {
 
         var box = Box(view);
 
-        // ⚠ And the whole of the view is on screen. A view that scrolls and clips perfectly but is
-        // itself cut by the panel it sits in hides the bottom of its own scroll — the last lines and
-        // the thumb that says there are any — behind the panel's edge, and the difference oracle
-        // cannot see that: the rows it hides are the same in both frames.
-        foreach (var ancestor in Ancestors(view)) {
-            if (!Clips(fixture, ancestor)) {
-                continue;
-            }
-
-            var cut = Box(ancestor);
-
-            // ⚠ Along the scroll's own axis only when it runs sideways. A sideways scroller may be
-            // taller than a vertical one it sits in — the override grid is, inside the import
-            // settings' region — and that is the outer view's business, reached by the outer bar.
-            var across = box.Left >= cut.Left && box.Right <= cut.Right;
-            var down = box.Top >= cut.Top && box.Bottom <= cut.Bottom;
-
-            Assert.True(
-                sideways ? across : across && down,
-                $"<{view.Tag}> {box} is cut by <{ancestor.Tag}> {cut}, so the far end of its scroll is behind "
-                + $"that element's edge at {WidthOf(fixture)}×{HeightOf(fixture)}."
-            );
-        }
+        Uncut(fixture, view, sideways);
 
         // ⚠ And the bars are the view's. They are absolutely positioned, so their containing block is
         // the nearest *positioned* ancestor: a view under a tag of its own that lost the user-agent
@@ -698,8 +688,49 @@ public sealed class ScrollingPanelPictureTests {
                 if (top.Gpu is { } before && bottom.Gpu is { } after) {
                     Oracle("Vulkan", view, box, before, after);
                 }
+            },
+            () => {
+                if (!sideways) {
+                    ThumbAtTheEnd("software", view.VerticalBar, top.Software, bottom.Software);
+                }
+            },
+            () => {
+                if (!sideways && top.Gpu is { } before && bottom.Gpu is { } after) {
+                    ThumbAtTheEnd("Vulkan", view.VerticalBar, before, after);
+                }
             }
         );
+    }
+
+    /// <summary>Whether the whole of an element is inside every ancestor that clips it.</summary>
+    /// <remarks>
+    ///     ⚠ A view that scrolls and clips perfectly but is itself cut by the panel it sits in hides
+    ///     the bottom of its own scroll — the last lines and the thumb that says there are any —
+    ///     behind the panel's edge, and the difference oracle cannot see that: the rows it hides are
+    ///     the same in both frames.
+    /// </remarks>
+    static void Uncut(EditorSession fixture, UiElement view, bool sideways = false) {
+        var box = Box(view);
+
+        foreach (var ancestor in Ancestors(view)) {
+            if (!Clips(fixture, ancestor)) {
+                continue;
+            }
+
+            var cut = Box(ancestor);
+
+            // ⚠ Along the scroll's own axis only when it runs sideways. A sideways scroller may be
+            // taller than a vertical one it sits in — the override grid is, inside the import
+            // settings' region — and that is the outer view's business, reached by the outer bar.
+            var across = box.Left >= cut.Left && box.Right <= cut.Right;
+            var down = box.Top >= cut.Top && box.Bottom <= cut.Bottom;
+
+            Assert.True(
+                sideways ? across : across && down,
+                $"<{view.Tag}> {box} is cut by <{ancestor.Tag}> {cut}, so the far end of its scroll is behind "
+                + $"that element's edge at {WidthOf(fixture)}×{HeightOf(fixture)}."
+            );
+        }
     }
 
     static void Oracle(string renderer, ScrollView view, (int Left, int Top, int Right, int Bottom) box, Bitmap before, Bitmap after) {
