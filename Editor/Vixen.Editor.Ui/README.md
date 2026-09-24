@@ -1008,8 +1008,9 @@ matched byte-for-byte across six states, because every state had rows.
 went stale the same way.** It is a claim about the tree written in a document, which is the same
 failure the sentence above it describes — and the second one lasted a single wave: wave 9's own
 `ComponentsViewDumpTests` was missing from the table below while the file's remarks called themselves
-"a committed dump rather than a wave note". There are **thirteen** (`ConsoleViewDumpTests`, #758,
-and `BehaviorSearchPopupDumpTests`, #89, landed on the same day as the twelfth and thirteenth).
+"a committed dump rather than a wave note". There are **fourteen** (`ConsoleViewDumpTests`, #758,
+and `BehaviorSearchPopupDumpTests`, #89, landed on the same day as the twelfth and thirteenth;
+`AddressableGroupsViewDumpTests`, #89, is the fourteenth).
 
 ⚠ **The table is derived now, and that is the only part of this section a reader should trust
 without checking.** `DumpLedgerTests` scans every `Editor/**/*.Tests` source for a call to
@@ -1032,6 +1033,7 @@ prose is still prose; the list is a measurement.
 | `Vixen.Editor.Ui.Tests/KeyBindingsViewDumpTests` | `KeyBindingsView` as the editor hosts it, in five states, recorded while it was still the editor's and held to that after it moved to `Vixen.Ui.Controls.Advanced` (#650) |
 | `Vixen.Editor.Ui.Tests/ConsoleViewDumpTests` | `ConsoleView`, in seven states reached through the interface, recorded from the hand-written control *before* its `@rows` port (#758); four references moved at the port, in parked 0×0 rows only |
 | `Vixen.Editor.AssetEditors.Tests/BehaviorSearchPopupDumpTests` | `BehaviorSearchPopup`, in five states reached through the tree view's own gestures, recorded from the hand-written control before its port (#89, #1370) |
+| `Vixen.Editor.AssetEditors.Tests/AddressableGroupsViewDumpTests` | `AddressableGroupsView`, in five states — four reached by clicking a row or Analyse build, one through a host's `Run` — recorded from the hand-written control before its port (#89) |
 
 ⚠ **`MessageLogViewDumpTests` is the first dump committed before the port it judges rather than
 after it.** Its reference strings are what the hand-written C# control drew, so the port is held to
