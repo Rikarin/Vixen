@@ -100,9 +100,15 @@ public class ZeroSizedBoxPaintTests {
 
     /// <summary><c>display: none</c> is a zero box too, and nothing in its subtree is emitted.</summary>
     /// <remarks>
-    ///     ⚠ The case the old early return existed for. The layout zeroes the whole subtree, so a walk
-    ///     into it would emit children at 0×0. The draw list is compared with a document that has no
-    ///     box at all, so an invisible command left behind fails as surely as a visible one.
+    ///     ⚠ The case the old early return existed for. The layout zeroes the whole subtree, and the
+    ///     draw list is compared with a document that has no box at all, so an invisible command left
+    ///     behind fails as surely as a visible one. The marker draws whatever its size is, which is
+    ///     what a zero box's own content would emit if the walk ever painted it.
+    ///     <para>
+    ///         ⚠ This guards the outcome and not the display check in <c>PaintsOverflow</c>. A zero box
+    ///         emits nothing of its own, so a walk into a zeroed subtree emits nothing either, and
+    ///         removing that check leaves this green. The check is a cost saving, measured nowhere.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void Display_none_emits_nothing_for_its_subtree() {

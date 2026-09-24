@@ -48,10 +48,14 @@ The difference is invisible in any fixture where the children happen to fit, whi
 ⚠ **A box that comes out zero wide or zero tall still paints its contents.** Size containment is the
 easy way to get such a box: `contain: size` with no stated size, or a content-sized query container
 with no padding or border, such as a flex item carrying `container-type: inline-size` and no width.
-The box itself has no area, so it paints no background, border, shadow or outline. Its children, its
-text and anything its control draws overflow it and are painted, as in CSS, and the hit test reaches
-them. Until #1375 the draw list skipped the whole subtree of any zero-sized element, so those children
-were invisible and still clickable.
+The box itself has no area, so it paints no background, border, shadow or outline. Its children
+overflow it and are painted, as in CSS, and the hit test reaches them. Until #1375 the draw list
+skipped the whole subtree of any zero-sized element, so those children were invisible and still
+clickable.
+
+⚠ **The box's own text is still not painted**, and that is a divergence from CSS. Text that overflows
+a zero-wide box, or anything a control draws in `OnDraw` when its box is zero, is skipped. Put the
+text in a child element if it has to show.
 
 Three zero-sized boxes still paint nothing, because in CSS they paint nothing:
 

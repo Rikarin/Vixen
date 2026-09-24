@@ -718,9 +718,18 @@ public sealed class DrawListBuilder {
         // The three zero boxes that still skip the subtree are the three that paint nothing in CSS:
         // `display: none`, a zero axis that `overflow` clips, and a mask. A mask is clipped to the
         // border box, so a zero border box masks everything away.
+        //
+        // ⚠ <b>Children only, and a zero box with none is skipped as it always was.</b> The box's
+        // own text and `OnDraw` are still not emitted. CSS would paint text that overflows a zero
+        // box, and that is a divergence this leaves in place deliberately: the first version of this
+        // fix emitted them, and `EditorShellBudgetTests` measured 2 688 bytes a settled frame, 32
+        // for each text element that the font-less test scene lays out zero tall. No view of the
+        // editor has a zero-sized element with text or a drawn control in it — the A/B over 42 of
+        // them emitted the same number of commands before and after — so emitting them would buy
+        // a CSS corner at the cost of a per-frame walk of every empty leaf.
         var empty = width <= 0f || height <= 0f;
 
-        if (empty && !PaintsOverflow(document, element, width, height)) {
+        if (empty && (element.PaintOrder.Count == 0 || !PaintsOverflow(document, element, width, height))) {
             return;
         }
 
@@ -1047,8 +1056,11 @@ public sealed class DrawListBuilder {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b><c>display: none</c> is a zero box too, and its whole subtree is zeroed with it.</b>
-    ///         <c>ZeroOutLayoutRecursively</c> gives every descendant a 0×0 box. Walking into it would
-    ///         emit their text and <c>OnDraw</c> output, which nothing laid out.
+    ///         <c>ZeroOutLayoutRecursively</c> gives every descendant a 0×0 box, and a zero box emits
+    ///         nothing of its own, so a walk into the subtree would emit nothing either. The check is
+    ///         what stops that walk: a hidden panel with a thousand elements in it would otherwise be
+    ///         visited, every frame, to draw nothing. It is a cost and not a picture, so no draw-list
+    ///         test can see it.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A clipped zero axis is refused here rather than pushed as a zero-width clip.</b>
@@ -1074,9 +1086,9 @@ public sealed class DrawListBuilder {
     ///     know: every early return in here would otherwise have to remember to close a layer, which
     ///     is precisely the pairing failure the clip stack's own remark warns about.
     /// </remarks>
-    // `decorate` is whether the element's own box is painted: its shadows, background, border and
-    // outline. It is false for a zero-sized box, which has no area to paint. Its text, its `OnDraw`
-    // and its children are still emitted, because in CSS those overflow it (#1375).
+    // `decorate` is whether the element paints anything of its own: its shadows, background,
+    // border, outline, text and `OnDraw`. It is false for a zero-sized box, whose children are the
+    // only thing emitted for it (#1375). See `Emit` for why its own text is not.
     void EmitBody(
         UiDocument document,
         UiElement element,
@@ -1169,7 +1181,7 @@ public sealed class DrawListBuilder {
             into.Add(new DrawCommand(DrawCommandKind.ClipPush, left, top, across, down, default, radius, 0f));
         }
 
-        if (shown) {
+        if (shown && decorate) {
             // Between the border and the children, which is where CSS puts an element's own content:
             // a child overlaps its parent's text, and its parent's text overlaps its parent's border.
             //
