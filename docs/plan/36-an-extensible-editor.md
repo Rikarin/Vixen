@@ -902,7 +902,7 @@ whole of it was `AssetEditorRegistry` moving somewhere both ends could see:
 
 | File | Names |
 |---|---|
-| `EditorApplication.cs:316` | `AssetEditorRegistry` |
+| `EditorApplication.cs:317` | `AssetEditorRegistry` |
 | `EditorApplication.cs:1099` | `AssetEditorsModule` |
 | `EditorApplication.cs:12,13,46,47` | the `Vixen.Editor.AssetEditors` and `.Content` namespaces, and the `Prefab` / `PrefabSource` aliases |
 | `ComponentsView.cs:21` | `PrefabSource` |

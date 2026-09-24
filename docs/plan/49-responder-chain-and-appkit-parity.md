@@ -39,7 +39,7 @@ open rows where there is one.
 
 | API | Purpose | Filed | Now |
 |---|---|---|---|
-| `UiElement.AddCommandHandler` (`Commands.cs:784`) | how an element *becomes* a responder | **0** | 5 — `Documents.cs:202`, `Undo.cs:217`, `TextField.cs:391`, `CodeEditor.cs:633`, `Hierarchy.vxml:96` |
+| `UiElement.AddCommandHandler` (`Commands.cs:784`) | how an element *becomes* a responder | **0** | 5 — `Documents.cs:202`, `Undo.cs:217`, `TextField.cs:391`, `CodeEditor.cs:639`, `Hierarchy.vxml:96` |
 | `UiElement.RemoveCommandHandler` (`Commands.cs:848`) | — | **0** | **0**, and correctly so — see the remark on the method |
 | `UiElement.CommandScope` (`Commands.cs:699`) | the derived scope 45 § G2 was written to build | **0** | 2 — `Hierarchy.vxml:84`, `Inspector.vxml:63` |
 | `CommandRoute.ScopeOf` (`Commands.cs:418`) | reads it | **0** | 1 — `Shell.vxml:311` |
@@ -124,7 +124,7 @@ same object by construction.
 **1.2 — The chain cannot be extended anywhere but its two ends.** The complete extensibility surface
 is `UiDocument.CommandResponder` and `UiDocument.ApplicationCommandResponder`. `UiElement`'s virtual
 surface is `TagName`, `ContentHost`, `NamedHost`, `OnCreated`, `OnChildAdded`, `OnRemoved`,
-`OnPropertyChanged`, `OnDraw` (`UiElement.cs:123,141,169,2079,2126,2158,2170,2215`) — there is no
+`OnPropertyChanged`, `OnDraw` (`UiElement.cs:123,141,169,2366,2413,2445,2457,2502`) — there is no
 `OnKeyDown`, no `AcceptsFirstResponder`, no `ValidateCommand`. A view controller, a window
 controller, or a document cannot sit *in the middle* of the walk, which is exactly where AppKit puts
 all three.
@@ -140,7 +140,7 @@ command system exists to make identical.
 
 **1.4 — There is no window level, and no seam for one.** `UiDocument.Focused` is a single
 document-global field (`Focus.cs:35`). `Dispatch(KeyEvent)` takes no surface (`Keyboard.cs:191`),
-unlike `Dispatch(UiSurface, PointerEvent)` (`UiDocument.cs:2099`) and
+unlike `Dispatch(UiSurface, PointerEvent)` (`UiDocument.cs:2139`) and
 `Dispatch(UiSurface, WheelEvent)` (`Hover.cs:103`); `Platform/Vixen.Platform.Ui/PlatformInput.cs:173`
 says so outright. With nothing focused, keys land on the **primary** surface's root
 (`Keyboard.cs:196` + `Surfaces.cs:27`) — so a keystroke aimed at a torn-off inspector executes
@@ -282,7 +282,7 @@ exists today, now stated once.
   ```
 
   ⚠ **The veto is asked on a user-initiated move only** — never on removal (`UiDocument.Release`,
-  `UiDocument.cs:757`), never on document teardown, never on `Defocus` from a press that captured the
+  `UiDocument.cs:896`), never on document teardown, never on `Defocus` from a press that captured the
   pointer. A refusal that could survive its own element being deleted is how an application becomes
   permanently unfocusable, which is the failure mode this feature has in every framework that ships
   it. `UiDocument.Focus(element, force: true)` is the escape hatch the shutdown paths use.
@@ -519,7 +519,7 @@ reads. So `<div AccessibleName="Save" Focusable="true">` compiles, matches `[Acc
 does nothing. ~~No diagnostic.~~ ⚠ **Refuted since 168fe675b (2026-09-05):** `VXML2020` warns on a
 capitalised attribute name on a lowercase tag. It is declared as
 `MarkupDiagnostics.InertElementAttribute` (`MarkupDiagnostics.cs:463`), and the binder passes
-`MarkupDiagnostics.InertElementAttribute` (`Binder.cs:1015`) to `Report`. The mechanism is unchanged — the lowercase half of the split is still
+`MarkupDiagnostics.InertElementAttribute` (`Binder.cs:1063`) to `Report`. The mechanism is unchanged — the lowercase half of the split is still
 `ctx.Bind` or `ctx.Attribute` (`ComponentEmitter.cs:884-897`), so the attribute is still inert — but it is no longer
 silent. This is the same defect class the language already fixed twice, for `style=` and for `slot=`
 (`VXML2016`).
