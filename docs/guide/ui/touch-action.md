@@ -126,6 +126,15 @@ drag scrolls the code and selects nothing; the caret arrives on the tap and a wo
 a long press. A fold arrow answers a finger's tap rather than its press, so a scroll that starts in
 the gutter folds nothing, and a fold leaves the caret where it was, as a mouse's does.
 
+⚠ **The gutter scrolls the code, not the view around the editor.** `code-gutter` is the scroller's
+*sibling*, because it must follow the vertical scroll and not the horizontal one, and a sibling's drag
+and wheel bubble past the scroller to whatever holds the editor — so until #1365 a finger on the line
+numbers scrolled the page and never the code. `ScrollView.ScrollFrom(region)` routes a region outside
+a view into that view's own wheel and drag handling, fling, rubber band and chaining included; a
+wheel the code cannot take still goes on to the view outside. For `touch-action` the region is treated
+as part of the view: the chain is read from the finger to the region and then on the view itself, and
+a declaration above both narrows the margin no more than it narrows the content.
+
 ⚠ **Every production `CapturePointer` call is accounted for, and a new one fails a test.**
 `Core/Vixen.Ui.Controls.Advanced.Tests/TouchActionCensus.txt` lists each file that captures, how many
 times, and the row that answers it; `TouchActionCensusTests` holds the list to the tree (`.cs` and

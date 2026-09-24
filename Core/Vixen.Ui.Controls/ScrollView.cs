@@ -466,6 +466,40 @@ public sealed partial class ScrollView : Control {
     Action<UiDocument>? settle;
     Action<UiDocument, TimeSpan>? step;
 
+    /// <summary>Makes a wheel turned, or a finger dragged, over an element outside this view scroll it as though it were inside.</summary>
+    /// <param name="region">The element. Its descendants count too, since the events bubble through it.</param>
+    /// <remarks>
+    ///     <para>
+    ///         For a margin that scrolls with the content on one axis and so cannot live inside it:
+    ///         <c>CodeEditor</c>'s gutter follows the code's vertical scroll and must not follow the
+    ///         horizontal one, which is why it is the scroller's sibling — and a sibling's events
+    ///         bubble past the scroller to whatever holds the editor, so a finger on the line numbers
+    ///         scrolled the page and never the code (#1365). A frozen table column or a ruler is the
+    ///         same shape.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The same two handlers, not a copy of them</b>, so everything the view does with a
+    ///         gesture from inside it — the fling, the rubber band, snapping, <c>scroll-behavior</c>
+    ///         and above all the chaining — it does from the region. A wheel this view cannot take is
+    ///         left unhandled and goes on bubbling from the region to the view's ancestors, as it
+    ///         would from the content.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>touch-action</c> is read along the region's own chain and then on this view</b>,
+    ///         because the finger's element is not this view's descendant.
+    ///         <see cref="UiDocument.TouchActionBetween" /> given the pair would walk from the finger
+    ///         all the way to the root when it does not meet the view, and intersect every ancestor
+    ///         on the way — so a <c>pan-y</c> on some container far above would narrow a gesture it
+    ///         does not govern for the content.
+    ///     </para>
+    /// </remarks>
+    public void ScrollFrom(UiElement region) {
+        ArgumentNullException.ThrowIfNull(region);
+
+        region.AddHandler<WheelEvent>((_, args) => Wheeled(args));
+        region.AddHandler<DragEvent>((_, args) => Dragged(args, region));
+    }
+
     /// <inheritdoc />
     protected override void OnRemoved() {
         if (settle is not null) {
@@ -715,7 +749,7 @@ public sealed partial class ScrollView : Control {
     ///     bars and the wheel both write the offset directly and do not invert; this is the one path
     ///     where the number the user is moving is not the number being stored.
     /// </remarks>
-    void Dragged(DragEvent args) {
+    void Dragged(DragEvent args, UiElement? region = null) {
         // ⚠ The device, not only the property. A finger — or a pen, which is a finger for this
         // purpose because neither has a cursor to select with — drags the content whatever the
         // application asked for; a mouse does it only when asked. See `DragToScroll`.
@@ -734,7 +768,11 @@ public sealed partial class ScrollView : Control {
                 // finger wandered off it. Declined means NOT handled, so the drag goes on bubbling to
                 // whatever wants it; an outer view walks the same chain and sees the same `none`.
                 if (touch) {
-                    var allowed = Document.TouchActionBetween(args.Source ?? this, this);
+                    // A region outside the view (see `ScrollFrom`) answers for its own chain, and the
+                    // view for itself, which is the same pair of halves a descendant's chain covers.
+                    var allowed = region is null
+                        ? Document.TouchActionBetween(args.Source ?? this, this)
+                        : Document.TouchActionBetween(args.Source ?? region, region) & Document.TouchActionBetween(this, this);
 
                     if (!Admits(allowed, args.TotalX, args.TotalY, out panning)) {
                         return;

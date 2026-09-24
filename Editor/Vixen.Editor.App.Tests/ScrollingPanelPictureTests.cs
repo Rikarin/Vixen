@@ -74,11 +74,11 @@ public sealed class ScrollingPanelPictureTests {
     const int Width = 1600;
     const int Height = 1000;
 
-    static int WidthOf(EditorSession fixture) => (int)MathF.Round(fixture.Document.Viewport.ViewportWidth);
+    internal static int WidthOf(EditorSession fixture) => (int)MathF.Round(fixture.Document.Viewport.ViewportWidth);
 
-    static int HeightOf(EditorSession fixture) => (int)MathF.Round(fixture.Document.Viewport.ViewportHeight);
+    internal static int HeightOf(EditorSession fixture) => (int)MathF.Round(fixture.Document.Viewport.ViewportHeight);
 
-    static readonly Color4 Background = new(0.05f, 0.05f, 0.05f, 1f);
+    internal static readonly Color4 Background = new(0.05f, 0.05f, 0.05f, 1f);
 
     /// <summary>Where the pictures go, or null when nobody asked for any.</summary>
     static string? Destination => Environment.GetEnvironmentVariable("VIXEN_PANEL_CAPTURE");
@@ -468,7 +468,7 @@ public sealed class ScrollingPanelPictureTests {
         Check(fixture, grid, "override-body", sideways: true);
     }
 
-    static EditorSession Start(int width = Width, int height = Height) =>
+    internal static EditorSession Start(int width = Width, int height = Height) =>
         EditorSession.Start(new EditorSessionOptions { Width = width, Height = height });
 
     /// <summary>Draws the editor at the top of the scroll and at the bottom, and holds the difference to the view.</summary>
@@ -608,7 +608,7 @@ public sealed class ScrollingPanelPictureTests {
             (int)MathF.Ceiling(view.AbsoluteTop + view.Height)
         );
 
-    static (Bitmap Software, Bitmap? Gpu) Draw(EditorSession fixture, GpuPicture? gpu, string name) {
+    internal static (Bitmap Software, Bitmap? Gpu) Draw(EditorSession fixture, GpuPicture? gpu, string name) {
         var glyphs = new GlyphFieldCache(new GlyphAtlas(1024, 1024));
         var (width, height) = (WidthOf(fixture), HeightOf(fixture));
         var geometry = new UiGeometryBuilder().Build(fixture.Document.Drawing, glyphs, new Rectangle(0, 0, width, height));
@@ -628,7 +628,7 @@ public sealed class ScrollingPanelPictureTests {
         return (software, hardware);
     }
 
-    static VulkanDevice? OpenDevice() {
+    internal static VulkanDevice? OpenDevice() {
         if (VulkanDevice.TryCreate(new(), out var device, out var reason)) {
             return device!;
         }
@@ -706,7 +706,7 @@ public sealed class ScrollingPanelPictureTests {
     }
 
     /// <summary>One device, one renderer, one target, drawn into and read back once per picture.</summary>
-    sealed class GpuPicture(VulkanDevice device, int width, int height) : IDisposable {
+    internal sealed class GpuPicture(VulkanDevice device, int width, int height) : IDisposable {
         readonly UiRenderer renderer = new(device, UiShaderLibrary.Load(device), new RenderOutput([PixelFormat.Rgba8UNorm]));
 
         public Bitmap Render(in UiGeometry geometry, GlyphAtlas atlas) {

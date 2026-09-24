@@ -1231,7 +1231,7 @@ public static class UtilityFamilies {
         // sentence here that said it was owed for all six was wrong twice: phase II removes a
         // COLLAPSIBLE space, so `pre`, `pre-wrap` and `break-spaces` never had it to owe, and it was
         // not a question about lines after all — after phase I the only runs a line can begin or end
-        // on are at the two ends of the text, which `TransformedText.Of`'s `ownsLines` removes. #249.
+        // on are at the two ends of the text, which `TransformedText.Of`'s `trimStart` and `trimEnd` remove. #249, #1363.
         //
         // ⚠ <b>This paragraph used to say `pre` was registered while being answered wrongly, and
         // that stopped being true.</b> `WrapsOf` honours it now: because this engine collapses

@@ -1,0 +1,72 @@
+<!doctype html>
+<!--
+SPDX-FileCopyrightText: Copyright (c) Rikarin
+SPDX-License-Identifier: Apache-2.0
+
+The fixture WhiteSpaceInlineCollapseTests was recorded against (#1363). Not run by any test: it is
+here so a reading can be re-taken rather than trusted.
+
+    cp ../../../Editor/Vixen.Editor.App/Fonts/OpenSans-Regular.ttf .
+    py -3 -m http.server 8765 --bind 127.0.0.1
+
+then open http://127.0.0.1:8765/inline-collapse.html and read `window.__result` or the page's own
+text, or run Chrome headless with `--dump-dom --virtual-time-budget=5000` against the same URL.
+
+Each case is a block container holding `display: inline` spans under `white-space: pre-line`, and
+what is read is the container's max-content width — the line's advance, which is what a collapsed
+space changes — beside the same text as ONE span, which is the control.
+-->
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: "OS"; src: url("OpenSans-Regular.ttf"); }
+body { margin: 0; }
+.c { font-family: "OS"; font-size: 16px; line-height: 20px; white-space: pre-line; width: max-content; }
+</style></head>
+<body>
+<pre id="out"></pre>
+<script>
+// A block container of spans, one per string, and its max-content width. A part written as
+// {block: 'x'} or {atomic: 'x'} is a display: block or display: inline-block box instead.
+function build(parts) {
+  const d = document.createElement('div'); d.className = 'c';
+  for (const p of parts) {
+    const s = document.createElement(typeof p === 'string' ? 'span' : p.block !== undefined ? 'div' : 'span');
+    if (typeof p === 'string') s.textContent = p;
+    else if (p.block !== undefined) s.textContent = p.block;
+    else { s.textContent = p.atomic; s.style.display = 'inline-block'; }
+    d.appendChild(s);
+  }
+  document.body.appendChild(d); return d;
+}
+function width(parts) { const d = build(parts); const w = +d.getBoundingClientRect().width.toFixed(3); d.remove(); return w; }
+
+// The last span's own width, which is its text as drawn.
+function last(parts) { const d = build(parts); const w = +d.lastChild.getBoundingClientRect().width.toFixed(3); d.remove(); return w; }
+
+const CASES = [
+  ['foo ', ' bar'], ['foo bar'],
+  ['foo', ' bar'],
+  ['foo ', 'bar'],
+  ['   ab'], ['ab'],
+  ['ab   '],
+  ['foo ', '   ', ' bar'],
+  ['foo\n', ' bar'], ['foo\nbar'],
+];
+
+// The width of the LAST span alone, after a block-level box and after an atomic inline.
+const LASTS = [
+  [{ block: 'x' }, '   ab'],
+  [{ atomic: 'x' }, '   ab'],
+  ['ab'], [' ab'],
+];
+
+document.fonts.load('16px OS').then(() => document.fonts.ready).then(() => {
+  const result = CASES.map(parts => ({ parts, width: width(parts) }));
+  const lasts = LASTS.map(parts => ({ parts, last: last(parts) }));
+  window.__result = { result, lasts };
+  document.getElementById('out').textContent =
+    navigator.userAgent + '\n' + result.map(r => JSON.stringify(r.parts) + ' ' + r.width).join('\n')
+    + '\nlast span:\n' + lasts.map(r => JSON.stringify(r.parts) + ' ' + r.last).join('\n');
+});
+</script>
+</body></html>
