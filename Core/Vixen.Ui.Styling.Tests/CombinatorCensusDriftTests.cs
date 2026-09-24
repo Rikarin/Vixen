@@ -71,7 +71,13 @@ public class CombinatorCensusDriftTests {
     static readonly string[] UnjudgedKinds = ["unreached", "api", "none"];
 
     /// <summary>A <c>file:line</c> in a residue reason: a file name or path, a colon, a line.</summary>
-    static readonly Regex Cited = new(@"(?<file>(?:[\w.-]+/)*[\w.-]+\.(?:cs|vxml|vcss)):(?<line>\d+)", RegexOptions.Compiled);
+    /// <remarks>
+    ///     A bare <c>:NNN</c> — one no word character or slash runs into — continues the file named
+    ///     last before it in the same reason, as in <c>ToolbarPresenter.cs:416, :427, :435</c>. ⚠ It
+    ///     was not read at all at first, so every continuation in the file was taken on trust while
+    ///     the rule claimed each cited line had to be there.
+    /// </remarks>
+    static readonly Regex Cited = new(@"(?:(?<file>(?:[\w.-]+/)*[\w.-]+\.(?:cs|vxml|vcss))|(?<![\w/])):(?<line>\d+)", RegexOptions.Compiled);
 
     /// <summary>The two sheets whose selectors that census answers for, as <c>LiveCombinatorPairTests</c> names them.</summary>
     static readonly string[] ControlSheets = [
@@ -325,8 +331,17 @@ public class CombinatorCensusDriftTests {
                 unfounded.Add($"{selector} — the reason cites no file:line");
             }
 
+            string? file = null;
+
             foreach (Match citation in citations) {
-                var file = citation.Groups["file"].Value;
+                if (citation.Groups["file"].Success) {
+                    file = citation.Groups["file"].Value;
+                } else if (file is null) {
+                    unfounded.Add($"{selector} — {citation.Value} continues no file named before it");
+
+                    continue;
+                }
+
                 var line = int.Parse(citation.Groups["line"].Value);
 
                 var resolves = index[Path.GetFileName(file)]
@@ -334,7 +349,7 @@ public class CombinatorCensusDriftTests {
                     .Any(path => File.ReadLines(Path.Combine(root, path)).Count() >= line);
 
                 if (!resolves) {
-                    unfounded.Add($"{selector} — {citation.Value} is not a line in the tree");
+                    unfounded.Add($"{selector} — {file}:{line} is not a line in the tree");
                 }
             }
         }
