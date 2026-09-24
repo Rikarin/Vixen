@@ -27,6 +27,7 @@ namespace Vixen.Ui.Controls;
 public sealed partial class ScrollBar : Control {
     int trackColor;
     int thumbColor;
+    int thumbBorderColor;
     bool dragging;
     float grabbed;
 
@@ -104,6 +105,7 @@ public sealed partial class ScrollBar : Control {
 
         trackColor = Document.PropertyId("--track-color");
         thumbColor = Document.PropertyId("--thumb-color");
+        thumbBorderColor = Document.PropertyId("--thumb-border-color");
 
         AddClass(Separator.ClassOf(Orientation));
         AddHandler<PointerEvent>(static (element, args) => ((ScrollBar) element).Pointed(args));
@@ -167,8 +169,23 @@ public sealed partial class ScrollBar : Control {
             ? new Rectangle(bounds.X, bounds.Y + offset, bounds.Width, length)
             : new Rectangle(bounds.X + offset, bounds.Y, length, bounds.Height);
 
-        context.FillRectangle(thumb, colour, MathF.Min(thumb.Width, thumb.Height) * 0.5f);
+        var radius = MathF.Min(thumb.Width, thumb.Height) * 0.5f;
+        context.FillRectangle(thumb, colour, radius);
+
+        // ⚠ The slider's ring, off the slider's token (#594), for the slider's reason: the light
+        // palette's `--thumb-color` and `--surface` are the same white, and a thumb covering most of
+        // its bar read as the surface while the stub of uncovered track read as a small grey thumb
+        // parked at the wrong end (#1414). Fill then ring, so the ring outlines the pill; a theme
+        // that set nothing, or `transparent`, costs no command.
+        var ring = Document.ColorOf(Style, thumbBorderColor) ?? default;
+
+        if (ring.A > 0f) {
+            context.StrokeRectangle(thumb, ring, ThumbBorderWidth, BoxStyle.Rounded(CornerRadii.Uniform(radius)));
+        }
     }
+
+    /// <summary>How wide the thumb's ring is. One pixel, as the slider's is.</summary>
+    const float ThumbBorderWidth = 1f;
 
     /// <summary>Where the thumb sits along the bar, and how long it is.</summary>
     /// <remarks>

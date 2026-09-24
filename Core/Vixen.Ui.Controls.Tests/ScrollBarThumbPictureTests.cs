@@ -36,6 +36,14 @@ namespace Vixen.Ui.Controls.Tests;
 ///     </para>
 /// </remarks>
 public class ScrollBarThumbPictureTests {
+    /// <summary>The pixels at the two ends of the thumb that are not its fill colour.</summary>
+    /// <remarks>
+    ///     A pixel of antialiasing at each end of the pill, and since #1414 the ring off
+    ///     <c>--thumb-border-color</c> inside each end as well. What the count below looks for is the
+    ///     fill; #1401's defect hid eleven pixels of it, which no allowance of four can excuse.
+    /// </remarks>
+    const int Ends = 4;
+
     const string Css = """
         #view  { width: 738px; height: 132px; }
         .block { flex-shrink: 0; height: 858px; }
@@ -49,7 +57,7 @@ public class ScrollBarThumbPictureTests {
     public void Scrolled_to_the_end_the_whole_thumb_is_at_the_end_of_the_track() {
         var (found, length, end) = ThumbAtTheEnd("narrow", vertical: true);
 
-        Assert.True(found.Count >= length - 2, $"{found.Count} of a {length} px thumb found at the end of the track.");
+        Assert.True(found.Count >= length - Ends, $"{found.Count} of a {length} px thumb found at the end of the track.");
         Assert.True(found[0] >= end - length - 1, $"the thumb starts at {found[0]}, above {end - length}.");
     }
 
@@ -59,7 +67,7 @@ public class ScrollBarThumbPictureTests {
         var (found, length, end) = ThumbAtTheEnd("wide", vertical: true);
 
         Assert.True(
-            found.Count >= length - 2,
+            found.Count >= length - Ends,
             $"{found.Count} of a {length} px thumb found at the end of the track, at {found[0]}–{found[^1]} over a "
             + $"horizontal bar that starts at {end}: the other bar covers the rest (#1401)."
         );
@@ -73,7 +81,7 @@ public class ScrollBarThumbPictureTests {
         var (found, length, end) = ThumbAtTheEnd("wide", vertical: false);
 
         Assert.True(
-            found.Count >= length - 2,
+            found.Count >= length - Ends,
             $"{found.Count} of a {length} px thumb found at the end of the track, at {found[0]}–{found[^1]} beside a "
             + $"vertical bar that starts at {end}."
         );
@@ -87,8 +95,8 @@ public class ScrollBarThumbPictureTests {
     public void Scrolled_to_the_right_with_only_a_horizontal_bar_the_thumb_reaches_the_edge() {
         var (found, length, end) = ThumbAtTheEnd("wide short", vertical: false);
 
-        Assert.True(found.Count >= length - 2, $"{found.Count} of a {length} px thumb found at the end of the track.");
-        Assert.True(found[^1] >= end - 2, $"the thumb stops at {found[^1]}, short of the view's edge at {end}.");
+        Assert.True(found.Count >= length - Ends, $"{found.Count} of a {length} px thumb found at the end of the track.");
+        Assert.True(found[^1] >= end - Ends, $"the thumb stops at {found[^1]}, short of the view's edge at {end}.");
     }
 
     /// <summary>On a port 34 px tall with both bars, the thumb still travels and is still whole at the end.</summary>
@@ -101,7 +109,7 @@ public class ScrollBarThumbPictureTests {
     public void On_a_short_port_with_both_bars_the_thumb_still_travels() {
         var (found, length, end) = ThumbAtTheEnd("wide", vertical: true, height: 34);
 
-        Assert.True(found.Count >= length - 2, $"{found.Count} of a {length} px thumb found at the end of the track.");
+        Assert.True(found.Count >= length - Ends, $"{found.Count} of a {length} px thumb found at the end of the track.");
         Assert.True(found[0] >= end - length - 1, $"the thumb starts at {found[0]}, above {end - length}.");
         Assert.True(found[^1] < end, $"the thumb runs to {found[^1]}, into the horizontal bar at {end}.");
     }

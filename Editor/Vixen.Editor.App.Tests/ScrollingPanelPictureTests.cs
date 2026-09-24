@@ -199,8 +199,8 @@ public sealed class ScrollingPanelPictureTests {
     ///         The colour is sampled rather than assumed, in the same renderer's picture, at a point
     ///         of the track the thumb covers at the top of the scroll and has left at the end: half
     ///         its travel down, and never deeper than half its length. The thumb's length is
-    ///         <c>ScrollBar</c>'s own rule — a floor of 24 px or half the track over a proportional length — so where it
-    ///         must be at the end is closed form.
+    ///         <c>ScrollBar</c>'s own rule — a floor of 24 px or half the track over a proportional
+    ///         length — so where it must be at the end is closed form.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>With both bars shown the thumb ends where the horizontal bar begins, and all of it
@@ -212,6 +212,11 @@ public sealed class ScrollingPanelPictureTests {
     ///     </para>
     /// </remarks>
     static void ThumbAtTheEnd(string renderer, ScrollView view, Bitmap top, Bitmap bottom) {
+        // The pixels at the two ends of the thumb that are not its fill colour: a pixel of
+        // antialiasing at each end of the pill, and since #1414 the ring off `--thumb-border-color`
+        // inside each end. #1401's defect hid eleven pixels of the fill, which four cannot excuse.
+        const int Ends = 4;
+
         var bar = view.VerticalBar;
         var x = (int)MathF.Floor(bar.AbsoluteLeft + bar.Width / 2f);
         var start = (int)MathF.Ceiling(bar.AbsoluteTop);
@@ -242,7 +247,7 @@ public sealed class ScrollingPanelPictureTests {
         }
 
         Assert.True(
-            found.Count >= length - 2,
+            found.Count >= length - Ends,
             $"[{renderer}] scrolled to the end, the vertical thumb has {found.Count} pixels in column {x} of its "
             + $"track ({start}–{end}); a {length} px thumb belongs at {end - length}–{end}. The rest of it is drawn "
             + "somewhere nothing shows it."
