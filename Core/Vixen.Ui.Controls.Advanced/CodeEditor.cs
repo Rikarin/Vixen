@@ -2015,11 +2015,58 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
         args.Handled = true;
     }
 
+    /// <summary>Selects the run of one character class under a point, which is what a double click and a long press mean.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A character, not a position, and never outside its line (#1364).</b> This used to
+    ///         be <c>WordStart(Forward(at))</c> to <c>WordEnd(at)</c> — Ctrl-Left and Ctrl-Right, which
+    ///         are moves between positions and are right to cross a line break and to skip whitespace
+    ///         before a run. Borrowed for a selection, both properties were wrong: at the end of a
+    ///         line <c>Forward</c> stepped onto the next one and each move stepped back across the
+    ///         break, so the selection was the newline itself; and at the boundary between a word and
+    ///         a space each skipped the space in its own direction, so it was both words.
+    ///     </para>
+    ///     <para>
+    ///         So a character is chosen first. A position sits between two, and the hit test rounds to
+    ///         the nearer boundary, so a click on the right half of a word's last letter lands after
+    ///         it: the word side wins, then the character after, then — past the end of the line — the
+    ///         one before. An empty line has none and selects nothing. A word is then the same run the
+    ///         two moves find from inside it, which keeps UAX #29's division of a CJK run; whitespace,
+    ///         which the moves only ever skip, is its own run.
+    ///     </para>
+    /// </remarks>
     void SelectWord(float x, float y) {
-        var at = ToPosition(x, y);
+        var at = buffer.Clamp(ToPosition(x, y));
+        var line = buffer[at.Line];
 
-        Anchor = buffer.WordStart(buffer.Forward(at));
-        Caret = buffer.WordEnd(at);
+        if (line.Length == 0) {
+            Anchor = at;
+            Caret = at;
+        } else {
+            var column = at.Column;
+            var index = column < line.Length && (column == 0 || CodeBuffer.IsWord(line[column]) || !CodeBuffer.IsWord(line[column - 1]))
+                ? column
+                : column - 1;
+
+            if (char.IsWhiteSpace(line[index])) {
+                var start = index;
+                var end = index + 1;
+
+                while (start > 0 && char.IsWhiteSpace(line[start - 1])) {
+                    start--;
+                }
+
+                while (end < line.Length && char.IsWhiteSpace(line[end])) {
+                    end++;
+                }
+
+                Anchor = at with { Column = start };
+                Caret = at with { Column = end };
+            } else {
+                Anchor = buffer.WordStart(at with { Column = index + 1 });
+                Caret = buffer.WordEnd(at with { Column = index });
+            }
+        }
 
         CaretMoved?.Invoke(this);
         Document.Invalidate();

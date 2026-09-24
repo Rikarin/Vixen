@@ -244,7 +244,8 @@ public class AdvancedTouchActionTests {
         fixture.Update();
 
         // Near the start of a line rather than the scroller's middle, which is past the end of every
-        // line here — a word selected there is the line break, for a mouse's double click as well.
+        // line here. That once selected the line break (#1364); it selects the line's last word now,
+        // and the end-of-line case is `CodeEditorTests`' to pin, so this one stays on a word's inside.
         var x = editor.Scroller.Bounds.X + 12f;
         var y = AdvancedFixture.Centre(editor.Scroller).Y;
 
