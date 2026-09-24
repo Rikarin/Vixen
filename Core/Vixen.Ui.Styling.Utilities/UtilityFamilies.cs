@@ -4263,6 +4263,14 @@ public static class UtilityFamilies {
     ///     shipped; `blur-8` is this engine's and is written in its own remarks. They cannot
     ///     collide — a theme key is not a number — so answering both costs one lookup and loses
     ///     nothing.
+    ///     <para>
+    ///         ⚠ <b>The fall-through is the spacing scale without <c>auto</c></b>, for the reason
+    ///         <see cref="TryDepth" /> gives: <see cref="TrySpacing" /> answers that one keyword, and
+    ///         <c>blur-auto</c> emitted <c>blur(auto)</c>, which <c>StyleValueParser</c> cannot read,
+    ///         so the whole <c>filter</c> — every slot beside it — was dropped. Tailwind has no
+    ///         <c>blur-auto</c> either. It went unseen because the draw list dropped an unreadable
+    ///         filter without saying so, and the reader probe hears only what it says (#1385).
+    ///     </para>
     /// </remarks>
     static bool TryBlur(string value, ThemeTokens tokens, out string result) {
         if (tokens.Blur.TryGetValue(value, out var blur)) {
@@ -4270,7 +4278,7 @@ public static class UtilityFamilies {
             return true;
         }
 
-        return TrySpacing(value, tokens, out result);
+        return TryDepth(value, tokens, out result);
     }
 
     static bool TryFontWeight(string value, ThemeTokens tokens, out string result) {
