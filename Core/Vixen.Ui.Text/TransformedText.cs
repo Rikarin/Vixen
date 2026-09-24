@@ -65,10 +65,13 @@ public enum TextTransform : byte {
 ///         apply to it — Chrome draws a <c>pre-wrap</c> paragraph's leading space. Under
 ///         <c>normal</c> and <c>nowrap</c> it applies, but so does phase I, and this engine performs
 ///         neither there deliberately: an undeclared paragraph renders as CSS's <c>pre-wrap</c>, and
-///         collapsing it would move every label in every interface. ⚠ One corner is still a
-///         question about a line: a break that falls <i>before</i> a space — <c>line-break:
-///         anywhere</c>, which offers every grapheme boundary, or an emergency break inside a word
-///         too long for its line — can begin a wrapped line on one, and nothing here removes it.
+///         collapsing it would move every label in every interface. ⚠ One corner was a question
+///         about a line, and it is answered in the wrapper rather than here: a break that falls
+///         <i>before</i> a space. It was narrower than it was written down as — only a room
+///         narrower than one letter can put a break there, under <c>line-break: anywhere</c> or
+///         <c>overflow-wrap: anywhere</c>, because a break after the space fits whenever one before
+///         it does — and where it happened the space became a line of its own.
+///         <c>LineWrapper.PastHangingSpaces</c> hangs it on the line before instead (#249).
 ///     </para>
 /// </remarks>
 public enum WhiteSpaceCollapse : byte {

@@ -838,6 +838,38 @@ public sealed partial class LayoutTree {
                         ownerWidth
                     )
                     - contentInsetAxisCross;
+
+                // ⚠ <b>A content-sized column whose minimum width outvotes its content lays its
+                // items out again at that width, because they were measured at the narrower one
+                // (#1412).</b> The width just bounded came from the items — each was offered this
+                // container's fit-content space and answered with its own content width — and only
+                // then did `min-width` raise it. STEP 7 stretches the items to the raised width, but
+                // it keeps the main size STEP 3 measured, and an item's main size here is its height,
+                // which for wrapping text is a function of the width it had. So `flex-basis: 0` text
+                // measured at zero width, one word a line, and its column kept that height around
+                // one two-line row: 140 px for 40 in `ZeroBasisWrapHeightTests`, 109 for 44 in the
+                // mixer. CSS decides a block-level box's width before laying out its contents —
+                // fit-content clamped by min and max — so the items there only ever see the final
+                // width, which is what re-entering with the width pinned reproduces. Only a column,
+                // where the cross axis is the width a height depends on; a row's minimum height
+                // changes no item's width, and the stretch in STEP 7 already answers it. The
+                // re-entry pins the width, so it cannot happen twice.
+                if (!isNodeFlexWrap && !isMainAxisRow && containerCrossAxis > line.CrossDim + 0.001f) {
+                    CalculateLayoutImpl(
+                        index,
+                        containerCrossAxis + contentInsetAxisCross + marginAxisRow,
+                        availableHeight,
+                        ownerDirection,
+                        SizingMode.StretchFit,
+                        heightSizingMode,
+                        ownerWidth,
+                        ownerHeight,
+                        performLayout,
+                        currentDepth
+                    );
+
+                    return;
+                }
             }
 
             if (!isNodeFlexWrap && sizingModeCrossDim == SizingMode.StretchFit) {

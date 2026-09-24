@@ -1,0 +1,49 @@
+<!doctype html>
+<!--
+SPDX-FileCopyrightText: Copyright (c) Rikarin
+SPDX-License-Identifier: Apache-2.0
+
+The fixture `AnywhereSpaceLineTests` was recorded against (#249). Not run by any test: it is here so
+a reading can be re-taken rather than trusted.
+
+    cp ../../../Editor/Vixen.Editor.App/Fonts/OpenSans-Regular.ttf .
+
+then run Chrome headless with `--allow-file-access-from-files --dump-dom --virtual-time-budget=5000`
+against this file, or serve the directory and open it.
+
+Each case is `ab cd` in a box narrower than any one letter, under one of the two keywords that may
+break inside a word, and what is read is how many 20px line boxes the box is tall — a line holding
+nothing but the space between the words would be one more than the four letters.
+-->
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: "OS"; src: url("OpenSans-Regular.ttf"); }
+body { margin: 0; }
+.c { font-family: "OS"; font-size: 16px; line-height: 20px; width: 1px; }
+</style></head>
+<body>
+<pre id="out"></pre>
+<script>
+const CASES = [
+  'overflow-wrap: anywhere; white-space: normal',
+  'overflow-wrap: anywhere; white-space: pre-line',
+  'overflow-wrap: anywhere; white-space: pre-wrap',
+  'line-break: anywhere; white-space: normal',
+  'line-break: anywhere; white-space: pre-line',
+  'line-break: anywhere; white-space: pre-wrap',
+];
+
+document.fonts.load('16px OS').then(() => document.fonts.ready).then(() => {
+  const result = CASES.map(style => {
+    const d = document.createElement('div'); d.className = 'c'; d.style.cssText = style; d.textContent = 'ab cd';
+    document.body.appendChild(d);
+    const lines = Math.round(d.getBoundingClientRect().height / 20);
+    d.remove();
+    return { style, lines };
+  });
+  window.__result = result;
+  document.getElementById('out').textContent =
+    navigator.userAgent + '\n' + result.map(r => r.style + ' -> ' + r.lines).join('\n');
+});
+</script>
+</body></html>

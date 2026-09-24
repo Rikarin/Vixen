@@ -739,6 +739,23 @@ field-label { color: var(--text); flex-shrink: 0; }
 /* A row, because a field is often a control and a unit, or two numbers. */
 field-content { flex-direction: row; align-items: center; gap: 6px; }
 
+/* ⚠ Which fields fill the row, and without it an EMPTY one was eighteen pixels
+   wide (#1404). The row puts the field on its main axis at its content width,
+   and an empty field has none: `field-text` is empty and the placeholder is
+   absolutely positioned precisely so that it does not size the box — so the
+   field was its padding and its borders, the prompt had nowhere to be drawn,
+   and a filled field grew as it was typed into. The same list as
+   `key-value-value` below, for its reason: a check box or a switch is the size
+   it is, and one stretched across a form row puts the tick a panel away from
+   its caption. `FieldFillTests` holds both halves. */
+field-content textbox, field-content textarea, field-content numeric-input, field-content stepper,
+field-content secure-textbox, field-content search-box, field-content select, field-content multi-select,
+field-content combo-box, field-content slider, field-content progress-bar,
+field-content level-indicator {
+    flex-grow: 1;
+    min-width: 0px;
+}
+
 /* ⚠ Muted rather than red, and the colour is the application's to add. The
    same element carries the hint that was there before the form was refused
    and the message that replaced it — see `LabeledContent.Description` for
