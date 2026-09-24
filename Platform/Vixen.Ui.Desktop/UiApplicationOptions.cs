@@ -221,4 +221,47 @@ public sealed class UiApplicationOptions {
     ///     because everything above the RHI runs whether or not a device was ever created.
     /// </remarks>
     public int Frames { get; set; }
+
+    /// <summary>Draws on a device with no surface and never shows the window.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>--vixen-offscreen</c>. The window still exists, because it is what gives the
+    ///         document a size, a DPI scale and an event stream. It is created hidden. Every surface
+    ///         renders into a texture of the window's framebuffer size, through the same
+    ///         <c>UiWindowSurface</c> path a presented frame takes, and nothing is presented.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It needs <see cref="Frames" />.</b> Nobody can close a window nobody can see, so
+    ///         an offscreen run with no frame count would never stop.
+    ///         <c>UiApplication.Run</c> refuses that combination instead of hanging.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It refuses to run without a real device.</b> A run that asks for offscreen
+    ///         rendering asks for a device that renders. If Vulkan cannot open one, the run throws
+    ///         with the reason. Without this, the loop would draw nothing and exit 0, which is what a
+    ///         healthy run also does. The adapter the device opened on is written to the console as
+    ///         <c>Vulkan device created on '…'</c>.
+    ///     </para>
+    /// </remarks>
+    public bool Offscreen { get; set; }
+
+    /// <summary>The directory the main window's last frame is written into, as <c>frame.png</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>--vixen-capture &lt;dir&gt;</c>. Implies <see cref="Offscreen" />, and so needs
+    ///         <see cref="Frames" />. The last of those frames is copied out of the texture the
+    ///         interface was drawn into, on the same command list, and written after the queue goes
+    ///         idle. The directory is created if it does not exist.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is the whole application, not a document drawn in isolation.</b> It uses
+    ///         the application's own stylesheets, its root classes, its fonts and its control theme,
+    ///         at the window's own DPI scale. It is the one way to picture a <c>Vixen.Ui</c>
+    ///         application the way its user sees it without a person taking a screenshot (#1367).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A run that was asked for a picture and wrote none exits 1</b>, not 0, and says why.
+    ///     </para>
+    /// </remarks>
+    public string? CapturePath { get; set; }
 }

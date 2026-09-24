@@ -58,6 +58,16 @@
         <ProjectReference Include="..\Vixen.Platform.Ui\Vixen.Platform.Ui.csproj" />
         <ProjectReference Include="..\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />
         <ProjectReference Include="..\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+
+        <!--
+            For the capture flag (#1367): `PngCodec` writes the frame, and `ConsoleSink` is what the
+            offscreen device logs its adapter line through. Both were already reachable transitively.
+            They are named here because a transitive reference is somebody else's decision, and that
+            somebody could stop needing it. `Vixen.App.Hosting` names `Vixen.Core.Imaging` for the
+            same reason.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Imaging\Vixen.Core.Imaging.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Diagnostics\Vixen.Core.Diagnostics.csproj" />
     </ItemGroup>
 
     <ItemGroup>

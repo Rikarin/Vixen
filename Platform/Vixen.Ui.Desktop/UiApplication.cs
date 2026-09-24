@@ -3,6 +3,9 @@
 
 using System.Diagnostics;
 using System.Globalization;
+using Vixen.Core;
+using Vixen.Core.Diagnostics;
+using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
@@ -121,6 +124,13 @@ public sealed class UiApplication : IDisposable {
     TransientResourcePool? pool;
     RenderGraph? graph;
     UiShaders shaders;
+
+    /// <summary>The console the offscreen device logs to, so that the adapter line is printed.</summary>
+    ConsoleSink? log;
+
+    BufferHandle captureBuffer;
+    Int2 captureSize;
+    PixelFormat captureFormat;
 
     bool running = true;
     bool lost;
@@ -473,6 +483,7 @@ public sealed class UiApplication : IDisposable {
     /// <returns>Zero.</returns>
     public static int Run(UiApplicationOptions options) {
         ArgumentNullException.ThrowIfNull(options);
+        Validate(options);
 
         // ⚠ The GPU surface has to be asked for when the window is made. SDL needs the Vulkan window
         // flag at creation time, and a window made without it has nothing to present to — which
@@ -492,7 +503,11 @@ public sealed class UiApplication : IDisposable {
             new WindowOptions {
                 Title = options.Title,
                 Size = options.Size,
-                IsVisible = true,
+
+                // ⚠ Hidden when offscreen. The window is still needed: it is what gives the
+                // document its size, its DPI scale and its event stream. What an offscreen run does
+                // not want is a window flashing up on somebody's desktop that nothing draws into.
+                IsVisible = !IsOffscreen(options),
                 IsResizable = options.IsResizable
             }
         );
@@ -507,21 +522,128 @@ public sealed class UiApplication : IDisposable {
     /// <param name="arguments">The process arguments.</param>
     /// <returns>A process exit code.</returns>
     /// <remarks>
-    ///     Exactly one argument today — <c>--frames N</c>, which runs N frames and exits — and it is
-    ///     here rather than in every <c>Main</c> because a CI job that cannot say "start, present and
-    ///     stop" about an application is a CI job that only builds it.
+    ///     <para>
+    ///         Four arguments, three of them with the spelling <c>Vixen.App</c> uses. Each takes its
+    ///         value as the next argument or after an <c>=</c>:
+    ///     </para>
+    ///     <list type="bullet">
+    ///         <item><c>--vixen-frames N</c> (or <c>--frames N</c>) runs N frames and exits.</item>
+    ///         <item>
+    ///             <c>--vixen-size WxH</c> replaces <see cref="UiApplicationOptions.Size" />. A capture
+    ///             can then show content that is below the fold at the application's own size.
+    ///         </item>
+    ///         <item><c>--vixen-offscreen</c> draws on a device with no surface and hides the window.</item>
+    ///         <item>
+    ///             <c>--vixen-capture &lt;dir&gt;</c> does the same and writes the last frame to
+    ///             <c>&lt;dir&gt;/frame.png</c>.
+    ///         </item>
+    ///     </list>
+    ///     <para>
+    ///         They are here rather than in every <c>Main</c> because a CI job that cannot say "start,
+    ///         present and stop" about an application is a CI job that only builds it. And a person who
+    ///         cannot get a picture of the application out of it has to take a screenshot by hand.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <c>--vixen-headless</c> is not read. A <c>Vixen.Ui</c> application with no window has
+    ///         no size and no DPI scale to lay out against, so the window is hidden instead. That
+    ///         still needs a display server, which a Linux CI runner without Xvfb does not have.
+    ///     </para>
     /// </remarks>
     public static int Run(UiApplicationOptions options, params ReadOnlySpan<string> arguments) {
         ArgumentNullException.ThrowIfNull(options);
 
-        for (var i = 0; i + 1 < arguments.Length; i++) {
-            if (arguments[i] is "--frames" or "--vixen-frames"
-                && int.TryParse(arguments[i + 1], CultureInfo.InvariantCulture, out var count)) {
-                options.Frames = Math.Max(0, count);
+        Apply(options, arguments);
+
+        return Run(options);
+    }
+
+    /// <summary>Reads the arguments a <c>Vixen.Ui</c> application understands into its options.</summary>
+    /// <param name="options">The options to change.</param>
+    /// <param name="arguments">The process arguments.</param>
+    /// <remarks>
+    ///     Anything else is left alone. The arguments belong to the application, and an argument this
+    ///     host does not know may be one the application does.
+    /// </remarks>
+    internal static void Apply(UiApplicationOptions options, ReadOnlySpan<string> arguments) {
+        for (var i = 0; i < arguments.Length; i++) {
+            var argument = arguments[i];
+            var separator = argument.IndexOf('=', StringComparison.Ordinal);
+            var name = separator < 0 ? argument : argument[..separator];
+            var inline = separator < 0 ? null : argument[(separator + 1)..];
+
+            switch (name) {
+                case "--frames" or "--vixen-frames"
+                    when Value(arguments, ref i, inline) is { } total
+                    && int.TryParse(total, CultureInfo.InvariantCulture, out var count):
+                    options.Frames = Math.Max(0, count);
+                    break;
+
+                case "--vixen-offscreen":
+                    options.Offscreen = true;
+                    break;
+
+                case "--vixen-capture" when Value(arguments, ref i, inline) is { Length: > 0 } directory:
+                    options.CapturePath = directory;
+                    break;
+
+                // `WxH` in device-independent pixels. For a capture this is how content below the
+                // fold of the application's own size gets into the picture, and how two machines
+                // with different defaults capture the same layout.
+                case "--vixen-size" when Value(arguments, ref i, inline) is { } size && TrySize(size, out var parsed):
+                    options.Size = parsed;
+                    break;
+
+                default:
+                    break;
             }
         }
 
-        return Run(options);
+        // ⚠ The value is the next argument only when it is not itself a flag. Otherwise
+        // `--vixen-capture --vixen-frames 3` would capture into a directory called `--vixen-frames`
+        // and silently run until closed.
+        static string? Value(ReadOnlySpan<string> arguments, ref int index, string? inline) {
+            if (inline is not null) {
+                return inline;
+            }
+
+            if (index + 1 < arguments.Length && !arguments[index + 1].StartsWith("--", StringComparison.Ordinal)) {
+                return arguments[++index];
+            }
+
+            return null;
+        }
+
+        static bool TrySize(string text, out Int2 size) {
+            var parts = text.Split('x', 'X');
+
+            if (parts.Length == 2
+                && int.TryParse(parts[0], CultureInfo.InvariantCulture, out var width)
+                && int.TryParse(parts[1], CultureInfo.InvariantCulture, out var height)
+                && width > 0
+                && height > 0) {
+                size = new Int2(width, height);
+                return true;
+            }
+
+            size = default;
+            return false;
+        }
+    }
+
+    /// <summary>Whether the options ask for a device with no surface.</summary>
+    static bool IsOffscreen(UiApplicationOptions options) => options.Offscreen || options.CapturePath is not null;
+
+    /// <summary>Refuses options that describe a run that would never stop.</summary>
+    /// <param name="options">The options.</param>
+    /// <exception cref="InvalidOperationException">An offscreen run was given no frame count.</exception>
+    static void Validate(UiApplicationOptions options) {
+        if (IsOffscreen(options) && options.Frames <= 0) {
+            throw new InvalidOperationException(
+                "--vixen-offscreen and --vixen-capture hide the window, and nobody can close a window nobody "
+                + "can see. Give --vixen-frames N as well (UiApplicationOptions.Frames), or the run would "
+                + "never stop."
+            );
+        }
     }
 
     /// <summary>Asks the loop to stop at the end of this frame.</summary>
@@ -582,6 +704,8 @@ public sealed class UiApplication : IDisposable {
     ///     </para>
     /// </remarks>
     internal int Run() {
+        Validate(options);
+
         var previousOwner = ReactiveGraph.OwningThread;
         ReactiveGraph.OwningThread = Thread.CurrentThread;
 
@@ -686,6 +810,11 @@ public sealed class UiApplication : IDisposable {
 
         device?.WaitIdle();
 
+        // After the wait. The copy was recorded on the last frame's own command list and runs when
+        // that list does, so reading the buffer before the queue is idle would read a frame that
+        // has not finished and write it without an error.
+        var captured = WriteCapture();
+
         // ⚠ Text input is process state, not window state: SDL leaves it running after the window
         // that asked for it has gone, and a second application started in the same process would
         // find the keyboard already handed to an input method.
@@ -693,7 +822,94 @@ public sealed class UiApplication : IDisposable {
 
         Stopping?.Invoke(this);
 
+        // ⚠ A run that was asked for a picture and has none exits 1. Exiting 0 would look the same
+        // as a run that worked, and the missing file would be found by whoever next opened the
+        // directory.
+        if (options.CapturePath is { } directory && captured is null) {
+            Console.Error.WriteLine(
+                $"--vixen-capture was given and nothing was written to {directory}: the main window never "
+                + "drew a frame on the device. The run stopped after "
+                + FrameCount.ToString(CultureInfo.InvariantCulture)
+                + " frame(s)."
+            );
+
+            return 1;
+        }
+
         return 0;
+    }
+
+    /// <summary>Where the last picture was written, or <see langword="null" /> if none was.</summary>
+    internal string? LastCapturePath { get; private set; }
+
+    /// <summary>Whether this frame is the one <see cref="UiApplicationOptions.CapturePath" /> writes.</summary>
+    bool CapturingThisFrame => options.CapturePath is not null && FrameCount == options.Frames - 1;
+
+    /// <summary>Records the copy out of the main window's texture onto the frame's own list.</summary>
+    /// <param name="commands">The list the frame was recorded on, before it is finished.</param>
+    /// <param name="surface">The window being drawn.</param>
+    /// <remarks>
+    ///     No barrier, because the graph already put one there. An offscreen frame imports its target
+    ///     with <see cref="ResourceState.CopySource" /> as the state it leaves in, so the graph moves
+    ///     it there at the end of the pass.
+    /// </remarks>
+    void RecordCapture(ICommandList commands, UiWindowSurface surface) {
+        var chain = surface.SwapChain!;
+        var size = chain.Size;
+
+        if (captureBuffer.IsValid) {
+            device!.Destroy(captureBuffer);
+        }
+
+        captureSize = size;
+        captureFormat = chain.Format;
+        captureBuffer = device!.CreateBuffer(
+            new(size.X * size.Y * 4, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "ui capture")
+        );
+
+        commands.CopyTextureToBuffer(new(chain.CurrentTexture), new(size.X, size.Y, 1), captureBuffer, 0);
+    }
+
+    /// <summary>Reads the recorded copy back and writes it as a PNG.</summary>
+    /// <returns>The file, or <see langword="null" /> if nothing was recorded.</returns>
+    string? WriteCapture() {
+        if (options.CapturePath is not { } directory || !captureBuffer.IsValid || device is null) {
+            return null;
+        }
+
+        try {
+            var pixels = new byte[captureSize.X * captureSize.Y * 4];
+            device.Read(captureBuffer, 0, pixels);
+
+            // ⚠ Swapped here rather than by drawing into an RGBA target. The window draws into
+            // BGRA, and the capture is of the format the window uses. A capture that changed the
+            // format would be a picture of a frame the application never draws.
+            if (captureFormat is PixelFormat.Bgra8UNorm or PixelFormat.Bgra8UNormSrgb) {
+                for (var offset = 0; offset < pixels.Length; offset += 4) {
+                    (pixels[offset], pixels[offset + 2]) = (pixels[offset + 2], pixels[offset]);
+                }
+            }
+
+            // Opaque. The ground is cleared at alpha one, but a translucent element blended over it
+            // can leave any alpha behind, and a viewer that honours the channel shows its own
+            // checkerboard through the interface.
+            for (var offset = 3; offset < pixels.Length; offset += 4) {
+                pixels[offset] = 255;
+            }
+
+            Directory.CreateDirectory(directory);
+
+            var path = Path.Combine(directory, "frame.png");
+            PngCodec.Save(path, new(captureSize.X, captureSize.Y, pixels));
+
+            LastCapturePath = path;
+            Console.WriteLine($"Captured the frame to {path}.");
+
+            return path;
+        } finally {
+            device.Destroy(captureBuffer);
+            captureBuffer = BufferHandle.Null;
+        }
     }
 
     void Pump() {
@@ -812,7 +1028,7 @@ public sealed class UiApplication : IDisposable {
                 continue;
             }
 
-            surfaces.Add(new UiWindowSurface(surface, opened));
+            surfaces.Add(new UiWindowSurface(surface, opened) { Offscreen = IsOffscreen(options) });
         }
     }
 
@@ -924,6 +1140,11 @@ public sealed class UiApplication : IDisposable {
 
         using var commands = device!.BeginCommandList(QueueKind.Graphics, "ui");
 
+        // ⚠ An offscreen target is never presented, so it leaves the frame ready to be copied from.
+        // The present layout is a swapchain image's layout, and the offscreen chain's image is an
+        // ordinary texture.
+        var offscreen = surface.Offscreen;
+
         var backbuffer = graph!.ImportTexture(
             surface.SwapChain!.CurrentTexture,
             surface.Acquired,
@@ -935,7 +1156,7 @@ public sealed class UiApplication : IDisposable {
                 Name: "backbuffer"
             ),
             ResourceState.Undefined,
-            ResourceState.Present
+            offscreen ? ResourceState.CopySource : ResourceState.Present
         );
 
         // ⚠ Before the pass, not inside it. The atlas upload is a transfer and a layout transition,
@@ -980,6 +1201,12 @@ public sealed class UiApplication : IDisposable {
         graph.Execute(commands);
         graph.Reset();
 
+        // On this list and before `Finish`: a copy recorded after the list is finished is on no
+        // list at all. Only the main window's, because that is the one the document's size is.
+        if (offscreen && surface.IsPrimary && CapturingThisFrame) {
+            RecordCapture(commands, surface);
+        }
+
         commands.Finish();
         device.GraphicsQueue.Submit([commands]);
     }
@@ -996,13 +1223,17 @@ public sealed class UiApplication : IDisposable {
             return true;
         }
 
-        if (!window.Surface.Handle.CanPresent) {
-            return false;
-        }
+        if (IsOffscreen(options)) {
+            device = OpenOffscreen();
+        } else {
+            if (!window.Surface.Handle.CanPresent) {
+                return false;
+            }
 
-        device = VulkanDevice.Create(
-            new() { Surface = window.Surface.Handle, PipelineCachePath = PipelineCacheFile(platform.FileSystem) }
-        );
+            device = VulkanDevice.Create(
+                new() { Surface = window.Surface.Handle, PipelineCachePath = PipelineCacheFile(platform.FileSystem) }
+            );
+        }
 
         pool = new TransientResourcePool(device);
         graph = new RenderGraph(device, pool);
@@ -1012,6 +1243,49 @@ public sealed class UiApplication : IDisposable {
         shaders = UiShaderLibrary.Load(device);
 
         return true;
+    }
+
+    /// <summary>Opens a device with no surface, or refuses the run.</summary>
+    /// <returns>The device.</returns>
+    /// <exception cref="PlatformNotSupportedException">No Vulkan device could be opened.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>No surface, whatever the window has.</b> A hidden desktop window still has a
+    ///         Vulkan surface. A device created for it would build a real swapchain on a window that
+    ///         is never shown, and what that presents is up to the compositor. The offscreen chain
+    ///         renders into a texture the size of the window's framebuffer. That is the same texture
+    ///         <c>Vixen.App</c>'s <c>--vixen-capture</c> reads, and it runs through the same passes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Refused, not skipped, when there is no device.</b> The windowed path draws nothing
+    ///         on a machine with no GPU, which is right for <c>--vixen-frames</c> on its own. A run
+    ///         that asked for offscreen rendering asked for a device that renders. Drawing nothing
+    ///         and exiting 0 would look exactly like a run that worked.
+    ///     </para>
+    /// </remarks>
+    VulkanDevice OpenOffscreen() {
+        // A console sink so that `VulkanLog.DeviceCreated` is printed. That line names the adapter,
+        // and it is the only evidence a reader of the output has that the picture came from a GPU.
+        log ??= new ConsoleSink();
+
+        if (!VulkanDevice.TryCreate(
+                new() {
+                    Surface = SurfaceHandle.None,
+                    Logger = log.CreateLogger("Vixen.Graphics.Vulkan"),
+                    PipelineCachePath = PipelineCacheFile(platform.FileSystem)
+                },
+                out var opened,
+                out var reason
+            )) {
+            throw new PlatformNotSupportedException(
+                "--vixen-offscreen or --vixen-capture asked for a device that renders, and no Vulkan device "
+                + $"could be opened: {reason} This host has no device that draws nothing to fall back to, "
+                + "and it would not use one here: a run that draws nothing and exits 0 looks like a run "
+                + "that worked."
+            );
+        }
+
+        return opened;
     }
 
     /// <summary>Where this head keeps the driver's pipeline cache between runs.</summary>
@@ -1054,6 +1328,11 @@ public sealed class UiApplication : IDisposable {
     void Release() {
         device?.WaitIdle();
 
+        if (captureBuffer.IsValid) {
+            device?.Destroy(captureBuffer);
+            captureBuffer = BufferHandle.Null;
+        }
+
         foreach (var surface in surfaces) {
             surface.Dispose();
         }
@@ -1083,6 +1362,10 @@ public sealed class UiApplication : IDisposable {
         windows.Dispose();
 
         Document.Dispose();
+
+        // Last: the device has gone, and it is the only thing that logs here.
+        log?.Dispose();
+        log = null;
     }
 }
 

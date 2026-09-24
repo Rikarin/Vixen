@@ -65,6 +65,15 @@ public sealed class UiWindowSurface : IDisposable {
     /// <summary>The part of the document it shows.</summary>
     public UiSurface Surface { get; }
 
+    /// <summary>Whether this surface renders into a texture rather than to the window.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Internal, and set only by <c>UiApplication</c> for <c>--vixen-offscreen</c> and
+    ///     <c>--vixen-capture</c>.</b> The swapchain is built on <c>SurfaceHandle.None</c>, which a
+    ///     Vulkan device answers with a chain of one ordinary texture, at the window's framebuffer
+    ///     size. Everything else about the frame is the windowed one.
+    /// </remarks>
+    internal bool Offscreen { get; init; }
+
     /// <summary>The window it presents to.</summary>
     public IWindow Window { get; }
 
@@ -115,12 +124,16 @@ public sealed class UiWindowSurface : IDisposable {
             return true;
         }
 
-        if (!Window.Surface.Handle.CanPresent) {
+        // An offscreen surface does not need the window to have a surface at all. A headless window
+        // has none, and it still has a size to render at.
+        var handle = Offscreen ? Vixen.Core.SurfaceHandle.None : Window.Surface.Handle;
+
+        if (!Offscreen && !handle.CanPresent) {
             return false;
         }
 
         built = new Int2(Window.FramebufferSize.X, Window.FramebufferSize.Y);
-        SwapChain = device.CreateSwapChain(new(Window.Surface.Handle, built, PixelFormat.Bgra8UNormSrgb));
+        SwapChain = device.CreateSwapChain(new(handle, built, PixelFormat.Bgra8UNormSrgb));
 
         Renderer = new UiRenderer(device, shaders, new Vixen.Rendering.RenderOutput([SwapChain.Format]));
 
