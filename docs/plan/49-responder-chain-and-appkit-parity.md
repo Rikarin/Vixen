@@ -187,14 +187,19 @@ place where Vixen is **ahead of AppKit**, and each survives Part 3 unchanged.
    (`ButtonBase.cs:82`) — and AppKit has no answer at all for the toolbar case.
 3. **A real capture phase over a snapshotted route** (`EventRouter.cs:39-42`). AppKit has no capture
    phase, and walks `nextResponder` live.
-4. **Pointer fall-through is free.** Hit test → target → bubble (`UiDocument.cs:1784,1791`). In
-   AppKit every `mouseDown:` that wants to pass the event on must remember to call `super`.
+4. **Pointer fall-through is free.** Hit test → target → bubble:
+   `UiDocument.Dispatch(UiSurface, PointerEvent)` (`UiDocument.cs:2139`) takes its target from
+   `HitTest` (`UiDocument.cs:2152`) and bubbles through `Raise` (`UiDocument.cs:2162`). In AppKit
+   every `mouseDown:` that wants to pass the event on must remember to call `super`.
 5. **`Defocus`** (`Focus.cs:139-180`): a press that lands on nothing focusable clears the focus, on
    the whole ancestor chain, with a pointer-capture exemption. AppKit has no rule for this and every
    AppKit application writes it by hand or ships without it.
-6. **Coalesced command invalidation** (`Commands.cs:593,603-611`, raised from `UiDocument.cs:1204`,
-   consumed by `ButtonBase.cs:100-108`). AppKit's answer is polling `validateUserInterfaceItem:` per
-   item per menu-open plus an `NSToolbar` revalidation timer. Vixen's is strictly better.
+6. **Coalesced command invalidation.** `InvalidateCommands` (`Commands.cs:656`) sets a flag,
+   `RaiseCommandsInvalidated` (`Commands.cs:666-674`) raises the event at most once a frame,
+   `CommandsInvalidated` (`Commands.cs:640`), and `Tick` is what calls it,
+   `RaiseCommandsInvalidated()` (`UiDocument.cs:1414`); a button's `Watch` (`ButtonBase.cs:100-108`)
+   consumes it. AppKit's answer is polling `validateUserInterfaceItem:` per item per menu-open plus
+   an `NSToolbar` revalidation timer. Vixen's is strictly better.
 7. **`CommandFocus` surviving a menu close** (`Focus.cs:39-50`). AppKit gets this free from a nested
    event loop; Vixen gets it without one, which is the harder problem.
 8. **Key position and typed text as distinct events, with IME as a third** (`Keyboard.cs:49-61,117-152`).
