@@ -701,19 +701,26 @@ public sealed class DrawListBuilder {
         var width = element.Width;
         var height = element.Height;
 
-        // A zero-sized element draws nothing and clips nothing, and skipping it early keeps
-        // `display: none` — which flexbox reports as a zero box — out of the list entirely rather
-        // than in it as a stack of invisible commands.
+        // ⚠ <b>A zero-sized box paints nothing of its own, and its subtree is still painted, because
+        // CSS paints a child that overflows it (#1375).</b> This used to return here for every zero
+        // box, taking the subtree with it. `UiDocument.HitTest`, which prunes on no size, still
+        // reached those children, so they were invisible and clickable. A flex item with
+        // `container-type: inline-size` and no width is 0 wide by containment, and its 120×30 child
+        // was laid out and hit and drew nothing. A `height: 0` wrapper and `contain: size` reach it
+        // the same way.
         //
-        // ⚠ <b>"Clips nothing" is the half that is not true of what this return does.</b> It takes the
-        // subtree with it, so a child overflowing a zero-sized box is never painted — CSS paints it —
-        // while `UiDocument.HitTest`, which prunes on no size, still reaches it: invisible and
-        // clickable. Measured on a flex item carrying `container-type: inline-size` and no width,
-        // which is 0 wide by containment: its 120×30 child is laid out and hit, and draws no
-        // rectangle. A `height: 0` wrapper and `contain: size` reach it the same way. Not narrowed
-        // here, because telling `display: none` apart needs the layout's display at this point and
-        // the change reaches every zero-sized box in every view; see docs/guide/ui/containment.md.
-        if (width <= 0f || height <= 0f) {
+        // ⚠ <b>The display is readable here after all.</b> The note this replaces said that telling
+        // `display: none` apart from a laid-out zero box needed the layout's display, and that it was
+        // not available at this point. It is: `document.Layout.GetStyle` is public and this method
+        // already has the document. It is read only for a zero box, which is the only case where the
+        // two can be confused.
+        //
+        // The three zero boxes that still skip the subtree are the three that paint nothing in CSS:
+        // `display: none`, a zero axis that `overflow` clips, and a mask. A mask is clipped to the
+        // border box, so a zero border box masks everything away.
+        var empty = width <= 0f || height <= 0f;
+
+        if (empty && !PaintsOverflow(document, element, width, height)) {
             return;
         }
 
@@ -809,6 +816,13 @@ public sealed class DrawListBuilder {
         // where the entries live.
         Span<UiMask> list = stackalloc UiMask[GradientReader.MostLayers];
         var masks = MasksFor(element, width, height, list);
+
+        // A mask is clipped to the border box (`mask-clip: border-box`), so a zero border box leaves
+        // nothing of the subtree. Refused here, before a group is opened for it, rather than handing
+        // the mask a zero extent to divide by.
+        if (empty && masks > 0) {
+            return;
+        }
 
         // ⚠ <b>The fourth reason to open a group, and the only one whose surface holds something the
         // element did not draw.</b> A <c>backdrop-filter</c> transforms the picture <i>behind</i> the
@@ -917,7 +931,7 @@ public sealed class DrawListBuilder {
         // behaviour when <see cref="Compositing" /> is off.
         var alpha = group >= 0 ? 1f : inherited * own;
 
-        EmitBody(document, element, into, alpha, width, height);
+        EmitBody(document, element, into, alpha, width, height, decorate: !empty);
 
         if (group < 0) {
             return;
@@ -1024,13 +1038,54 @@ public sealed class DrawListBuilder {
         );
     }
 
+    /// <summary>Whether a zero-sized element has anything that could be seen outside its box.</summary>
+    /// <param name="document">The document, whose layout says what the element's display is.</param>
+    /// <param name="element">The element, which is zero wide or zero tall.</param>
+    /// <param name="width">Its width.</param>
+    /// <param name="height">Its height.</param>
+    /// <returns>False for <c>display: none</c> and for a zero axis its own <c>overflow</c> clips.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>display: none</c> is a zero box too, and its whole subtree is zeroed with it.</b>
+    ///         <c>ZeroOutLayoutRecursively</c> gives every descendant a 0×0 box. Walking into it would
+    ///         emit their text and <c>OnDraw</c> output, which nothing laid out.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A clipped zero axis is refused here rather than pushed as a zero-width clip.</b>
+    ///         The clip would cut every child, so the result is the same picture. Returning here
+    ///         also keeps the commonest collapsed shape, <c>height: 0; overflow: hidden</c>, out of
+    ///         the list as it always was. <c>UiDocument.HitTest</c> refuses the same points through
+    ///         <c>Cut</c>, so a child cut here is not clickable either.
+    ///     </para>
+    /// </remarks>
+    bool PaintsOverflow(UiDocument document, UiElement element, float width, float height) {
+        if (document.Layout.GetStyle(element.LayoutNode).Display == Display.None) {
+            return false;
+        }
+
+        var axes = overflow.Of(element.Style);
+
+        return !(width <= 0f && axes.Horizontal) && !(height <= 0f && axes.Vertical);
+    }
+
     /// <summary>Everything an element paints, once the question of a group has been settled.</summary>
     /// <remarks>
     ///     Split out of <see cref="Emit" /> so that the group brackets it without the body having to
     ///     know: every early return in here would otherwise have to remember to close a layer, which
     ///     is precisely the pairing failure the clip stack's own remark warns about.
     /// </remarks>
-    void EmitBody(UiDocument document, UiElement element, DrawList into, float alpha, float width, float height) {
+    // `decorate` is whether the element's own box is painted: its shadows, background, border and
+    // outline. It is false for a zero-sized box, which has no area to paint. Its text, its `OnDraw`
+    // and its children are still emitted, because in CSS those overflow it (#1375).
+    void EmitBody(
+        UiDocument document,
+        UiElement element,
+        DrawList into,
+        float alpha,
+        float width,
+        float height,
+        bool decorate = true
+    ) {
         var x = element.AbsoluteLeft;
         var y = element.AbsoluteTop;
 
@@ -1064,7 +1119,7 @@ public sealed class DrawListBuilder {
         // `docs/plan/43-web-styling-parity.md`.
         var shown = !element.Style.TryGet(visibility, out var mode) || (mode != hidden && mode != collapse);
 
-        if (shown) {
+        if (shown && decorate) {
             // ⚠ <b>One box per fragment, and for four algorithms out of five there is exactly one.</b>
             // `LayoutTree.GetFragmentCount` is one for every node that did not cross a line break, and
             // `GetFragment(node, 0)` is then `(0, 0, width, height, Both)` — so the loop below is the

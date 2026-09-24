@@ -110,6 +110,81 @@ public class UiApplicationCaptureTests {
     /// <summary>The last frame is written, and it is the frame the application drew.</summary>
     [Fact]
     public void TheLastFrameIsWrittenWithTheBoxWhereTheLayoutPutIt() {
+        if (Capture(Sheet, () => new Box(), "box") is not { } picture) {
+            return;
+        }
+
+        Assert.Equal(640, picture.Width);
+        Assert.Equal(400, picture.Height);
+
+        Covers(picture, Left, Top, BoxWidth, BoxHeight);
+    }
+
+    /// <summary>A zero-wide box whose child overflows it, drawn by the device (#1375).</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The picture of the fixture #1375 measured in a draw list.</b> A flex item with
+    ///         <c>container-type: inline-size</c> and no width is 0 wide by containment, and its
+    ///         120×30 child is laid out beside it. The child took the pointer and drew nothing,
+    ///         because the paint walk returned at the zero box and took the subtree with it.
+    ///     </para>
+    ///     <para>
+    ///         The same closed-form oracle as the box above: the child's colour exactly inside its
+    ///         rectangle, the ground everywhere else, and the summed coverage equal to its area. With
+    ///         the early return restored the child's rectangle is ground, so the first pixel read fails.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AChildOverflowingAZeroWideBoxIsDrawnByTheDevice() {
+        var zero = $$"""
+            capture-zero {
+                position: absolute;
+                left: {{Left}}px;
+                top: {{Top}}px;
+                display: flex;
+                flex-direction: row;
+                align-items: flex-start;
+            }
+
+            capture-zero-box { display: block; container-type: inline-size; }
+            capture-zero-child { display: block; width: 120px; height: 30px; background-color: #ff0000; }
+            """;
+
+        ZeroWide? built = null;
+        var widths = (Box: -1f, Child: -1f);
+
+        // Read in `Stopping`, while the document is still alive. The application disposes it.
+        if (Capture(zero, () => built = new ZeroWide(), "zero-wide", _ => widths = (built!.Box.Width, built.Child.Width))
+            is not { } picture) {
+            return;
+        }
+
+        // The fixture is the one the issue named, or the picture proves nothing about it.
+        Assert.Equal(0f, widths.Box);
+        Assert.Equal(120f, widths.Child);
+
+        Covers(picture, Left, Top, 120, 30);
+    }
+
+    /// <summary>A zero-wide query container holding a 120×30 child.</summary>
+    sealed class ZeroWide : Component {
+        public UiElement Box { get; private set; } = null!;
+
+        public UiElement Child { get; private set; } = null!;
+
+        protected override void Build(BuildContext ctx) {
+            var row = ctx.Element(Root, "capture-zero");
+            Box = ctx.Element(row, "capture-zero-box");
+            Child = ctx.Element(Box, "capture-zero-child");
+        }
+    }
+
+    /// <summary>Runs an application of 640×400 for three frames with a capture, and loads the picture.</summary>
+    /// <param name="sheet">The application's stylesheet.</param>
+    /// <param name="content">Its content.</param>
+    /// <param name="name">What to call a copy kept under <c>VIXEN_UI_CAPTURE</c>, when that names a directory.</param>
+    /// <returns>The picture, or <see langword="null" /> when there is no device and none is required.</returns>
+    static Bitmap? Capture(string sheet, Func<Component> content, string name, Action<UiApplication>? stopping = null) {
         var directory = Scratch();
 
         var options = new UiApplicationOptions {
@@ -119,12 +194,13 @@ public class UiApplicationCaptureTests {
             CapturePath = directory,
             InstallSystemFont = false,
 
-            // Pure blue, so that neither the box's red nor anything else can be mistaken for it.
+            // Pure blue, so that neither the red under test nor anything else can be mistaken for it.
             Ground = new Color4(0f, 0f, 1f, 1f),
-            Content = () => new Box()
+            Content = content,
+            Stopping = stopping
         };
 
-        options.Styles.Add(Sheet);
+        options.Styles.Add(sheet);
 
         var platform = new HeadlessPlatform();
         var window = platform.CreateWindow(new WindowOptions { Title = "capture", Size = new Int2(640, 400) });
@@ -143,7 +219,7 @@ public class UiApplicationCaptureTests {
                 }
 
                 Assert.Skip($"No Vulkan device: {missing.Message}");
-                return;
+                return null;
             }
 
             written = application.LastCapturePath;
@@ -156,46 +232,51 @@ public class UiApplicationCaptureTests {
             Assert.Equal(Path.Combine(directory, "frame.png"), written);
             Assert.True(File.Exists(written), "the run said it captured and no file is there.");
 
-            var picture = PngCodec.Load(written!);
-
-            Assert.Equal(640, picture.Width);
-            Assert.Equal(400, picture.Height);
-
-            // Inside the box, one pixel clear of each edge so that the antialiasing fringe is not
-            // what is measured: exactly the box's colour.
-            for (var y = Top + 1; y < Top + BoxHeight - 1; y++) {
-                for (var x = Left + 1; x < Left + BoxWidth - 1; x++) {
-                    Assert.Equal((255, 0, 0), Pixel(picture, x, y));
-                }
+            if (Environment.GetEnvironmentVariable("VIXEN_UI_CAPTURE") is { Length: > 0 } keep) {
+                Directory.CreateDirectory(keep);
+                File.Copy(written!, Path.Combine(keep, $"{name}.png"), overwrite: true);
             }
 
-            // Outside it, one pixel clear again: exactly the ground.
-            var red = 0L;
-
-            for (var y = 0; y < picture.Height; y++) {
-                for (var x = 0; x < picture.Width; x++) {
-                    var (r, _, _) = Pixel(picture, x, y);
-                    red += r;
-
-                    var outside = x < Left - 1 || x > Left + BoxWidth || y < Top - 1 || y > Top + BoxHeight;
-
-                    if (outside) {
-                        Assert.Equal((0, 0, 255), Pixel(picture, x, y));
-                    }
-                }
-            }
-
-            // The coverage summed over the whole picture is the box's area, to within one pixel of
-            // perimeter. It is a closed-form check that the fringe is a fringe and not a second box.
-            // Red is linear in coverage only to within the sRGB encode, so the bound is the perimeter
-            // and not zero.
-            var area = red / 255.0;
-            Assert.InRange(area, BoxWidth * BoxHeight - 2 * (BoxWidth + BoxHeight), BoxWidth * BoxHeight + 2 * (BoxWidth + BoxHeight));
+            return PngCodec.Load(written!);
         } finally {
             if (Directory.Exists(directory)) {
                 Directory.Delete(directory, recursive: true);
             }
         }
+    }
+
+    /// <summary>Asserts that red covers exactly one rectangle of the picture and blue the rest.</summary>
+    static void Covers(in Bitmap picture, int left, int top, int width, int height) {
+        // Inside, one pixel clear of each edge so that the antialiasing fringe is not what is
+        // measured: exactly red.
+        for (var y = top + 1; y < top + height - 1; y++) {
+            for (var x = left + 1; x < left + width - 1; x++) {
+                Assert.Equal((255, 0, 0), Pixel(picture, x, y));
+            }
+        }
+
+        // Outside, one pixel clear again: exactly the ground.
+        var red = 0L;
+
+        for (var y = 0; y < picture.Height; y++) {
+            for (var x = 0; x < picture.Width; x++) {
+                var (r, _, _) = Pixel(picture, x, y);
+                red += r;
+
+                var outside = x < left - 1 || x > left + width || y < top - 1 || y > top + height;
+
+                if (outside) {
+                    Assert.Equal((0, 0, 255), Pixel(picture, x, y));
+                }
+            }
+        }
+
+        // The coverage summed over the whole picture is the rectangle's area, to within one pixel of
+        // perimeter. It is a closed-form check that the fringe is a fringe and not a second shape.
+        // Red is linear in coverage only to within the sRGB encode, so the bound is the perimeter and
+        // not zero.
+        var area = red / 255.0;
+        Assert.InRange(area, (width * height) - (2 * (width + height)), (width * height) + (2 * (width + height)));
     }
 
     static (int R, int G, int B) Pixel(in Bitmap picture, int x, int y) {
