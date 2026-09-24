@@ -1334,14 +1334,29 @@ radial-item:checked {
 
 radial-item > icon { width: 14px; height: 14px; flex-shrink: 0; }
 
-/* ── Toasts ─────────────────────────────────────────────────────────── */
+/* ── Toasts ─────────────────────────────────────────────────────────────
+   ⚠ A long toast ran off the window's LEFT edge, one line 1528 px wide in a 400 px window with
+   its first words at x −1144 (#1400), and it took two declarations to stop it because the layout
+   has two Yoga rules where CSS has shrink-to-fit. An absolute box under a row parent — the root
+   is one — is measured at max-content and never capped at its containing block, so a host
+   anchored on one side is as wide as its longest toast; hence `left` AND `right`, which give it
+   a definite width. And a row flex item measured "at most" some width reports its content size
+   without shrinking its children, so even a bounded host did not bound a toast in it; hence
+   `max-width: 100%` on the toast, which is the one branch of that step that does shrink. Take
+   either away and the toast is 1528 px again (`ToastWidthTests`).
+   `flex-end` keeps a short toast in the corner at its own width. `pointer-events: none` because
+   the host is now a strip the width of the window, as tall as the stack, and a click beside a
+   short toast would otherwise land on it instead of on whatever is under it; it is not inherited,
+   so the toasts still take the pointer. */
 toast-host {
     position: absolute;
+    left: 16px;
     right: 16px;
     bottom: 16px;
     flex-direction: column;
     gap: 8px;
     align-items: flex-end;
+    pointer-events: none;
 }
 
 toast {
@@ -1349,6 +1364,7 @@ toast {
     align-items: center;
     gap: 10px;
     min-width: 220px;
+    max-width: 100%;
     padding: 10px 12px;
     border-width: 1px;
     border-color: var(--border);
