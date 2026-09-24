@@ -64,6 +64,7 @@ font-body > font-atlas
 font-side > scroll-content
 frame-editor > scroll-view
 group-editor > tree-view
+harness-side > scroll-content
 import-settings > scroll-view
 input-body > tree-view
 input-side > scroll-content
@@ -84,6 +85,7 @@ mixer-strips > scroll-content
 mode-bar > toolbar
 model-editor > tree-view
 moveset-bar > textbox
+moveset-side > scroll-content
 node-graph > node-canvas
 outliner-filters > search-box
 outliner-filters > select

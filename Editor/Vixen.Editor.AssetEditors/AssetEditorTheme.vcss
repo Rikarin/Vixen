@@ -885,8 +885,23 @@ mixer-body > mixer-strips {
    ⚠ Not `flex-basis: 0` on the message, which was tried: the row stops widening the content, but
    the list's height is measured while the message is 0 px wide, one word a line, and 65 px of
    empty list stays under the two real lines. The cost of the cap is at the 120 px floor, where a
-   field wider than the column is clipped rather than scrolled to. */
-mixer-side > scroll-content { max-width: 100%; }
+   field wider than the column is clipped rather than scrolled to.
+
+   ⚠ **Every fields column, not the mixer's alone (#1411)** — the other eleven were the same
+   `ScrollView` over the same max-content `scroll-content`, and three of them were already over on a
+   fresh asset: the shader graph's content 606 px in its 300 px column, the VFX graph's 584 and the
+   animation graph's 478, their fact rows cut at the column's edge. ⚠ And it is a ROW that widens a
+   column, not a line of text: a bare line wraps without the cap, measured, because a flex row
+   measured "at most" a width reports its content's size instead of shrinking its items. Every field
+   row here is a row. `SideColumnWidthTests` puts one in each column and holds it at
+   `MaximumLeft == 0`. The same cost at the 120 px floor applies to all twelve, and no column here
+   holds anything that has to be scrolled to sideways: a fields column is read top to bottom. */
+animation-side > scroll-content, animgraph-side > scroll-content, input-side > scroll-content,
+mixer-side > scroll-content, font-side > scroll-content, sequence-side > scroll-content,
+shadergraph-side > scroll-content, vfx-side > scroll-content, shape-side > scroll-content,
+vocab-side > scroll-content, harness-side > scroll-content, moveset-side > scroll-content {
+    max-width: 100%;
+}
 
 /* ── The clip editor ────────────────────────────────────────────────
    The sheet and the curve editor share one slot: two modes over one document, never two
