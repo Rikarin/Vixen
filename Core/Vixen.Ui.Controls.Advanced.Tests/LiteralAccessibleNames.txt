@@ -81,6 +81,9 @@ Editor/Vixen.Editor.AssetEditors/Audio/AudioMixerView.vxml	Label	Remove Bus
 Editor/Vixen.Editor.AssetEditors/Audio/AudioMixerView.vxml	Label	S
 Editor/Vixen.Editor.AssetEditors/Code/CodeEditorView.vxml	Label	Wrap
 Editor/Vixen.Editor.AssetEditors/Compositor/CompositorView.vxml	Label	Compile frame
+Editor/Vixen.Editor.AssetEditors/Content/AddressableGroupsView.vxml	Description	A .vxgroup is a policy: how its assets are packed, compressed and shipped.
+Editor/Vixen.Editor.AssetEditors/Content/AddressableGroupsView.vxml	Label	Analyse build
+Editor/Vixen.Editor.AssetEditors/Content/AddressableGroupsView.vxml	Title	No group selected
 Editor/Vixen.Editor.AssetEditors/Frame/LookInspector.vxml	Label	Bloom
 Editor/Vixen.Editor.AssetEditors/Frame/LookInspector.vxml	Label	Exposure
 Editor/Vixen.Editor.AssetEditors/Frame/LookInspector.vxml	Label	Fog
