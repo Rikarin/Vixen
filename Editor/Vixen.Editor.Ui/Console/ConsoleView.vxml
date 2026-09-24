@@ -1,0 +1,464 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    The console: doc 20's A7 — a virtualised list over the ring the diagnostics layer already keeps,
+    level toggles carrying counts, a category filter, a search box, collapse-duplicates, clear,
+    clear-on-play, and a detail pane showing the whole record and its stack. The last production list
+    to set `CreateRow`/`BindRow` by hand, ported to `@rows` (#758).
+
+    ⚠ **It does not allocate per line**, and the port keeps that. `ConsoleModel` pulls only what is new
+    out of the ring and keeps indices rather than text; the `VirtualizingPanel` keeps about thirty rows
+    whatever the list holds; and an `@rows` slot is one element subtree built once, whose five columns
+    are bindings re-reading the model through the slot's `index` when the panel rebinds it.
+
+    ⚠ **The model is signal-backed, and the view keeps no revision of its own.** `ConsoleModel`'s
+    visible set is a buffer rewritten in place — that is how it avoids the per-line allocation — so the
+    signal it can offer is its `Changed` event in signal form: every public reading of the visible set
+    and the badge counts reads the model's generation, and a binding that reads the model subscribes.
+    A snapshot a signal could compare would be a copy of ten thousand indices per logged frame.
+
+    ⚠ **Rows are brought up to date on `Tick`, not from an event**, as before: the sink is written from
+    every thread the editor runs work on, so `Tick` pulls on the thread that owns the document and the
+    generation moves there.
+
+    ⚠ **The row hears a tap and a double tap.** `on:click` on a plain element is `TapEvent`, whose
+    `Count` is what tells a double click from two singles; the second opens the source through
+    `Activated`. A `ClickEvent` handler here would wait forever — only a `Control` raises one — which is
+    how this panel once had selection styling nothing could put on screen.
+
+    ⚠ **`:checked` is written by `use=` rather than by a binding**, because it is one bit of
+    `ElementState`, and the effect reads the slot's index, the model and the selection — so the row just
+    chosen and the one that was are both repainted without anybody remembering to `Realise`.
+
+    ⚠ **The detail pane holds a record, not a row.** The list scrolls as records arrive and a filter can
+    hide the chosen line, and the pane keeps its stack on screen through both; the selection is a
+    signal compared by reference, because a `LogRecord` is a record and two identical lines in the same
+    millisecond would otherwise be one selection.
+
+    `ConsoleViewDumpTests` was recorded from the hand-written control before this port and holds it to
+    that panel.
+-->
+@component ConsoleView
+@namespace Vixen.Editor.Ui
+@inherits Vixen.Ui.Controls.Control
+@tag console-view
+@using System.Globalization
+@using Microsoft.Extensions.Logging
+@using Vixen.Core.Diagnostics
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+@using Vixen.Ui.Styling
+
+<console-toolbar ref="@Toolbar">
+    <Button Label="@ClearLabel" Variant="Subtle" Size="Small" on:click="@Clear" />
+    <ToggleButton ref="@CollapseToggle" Label="@CollapseLabel" Size="Small" />
+    <ToggleButton ref="@ClearOnPlayToggle" Label="@ClearOnPlayLabel" Size="Small" />
+    <SearchBox ref="@Search" Placeholder="@SearchPlaceholder" change:Value="@(value => Filter(value))" />
+    <Select ref="@Categories" Placeholder="@AllCategories" Size="Small" />
+
+    <!--
+        ⚠ The count is on the button rather than beside it, and it counts what *arrived* rather than
+        what is shown: a warning badge that read zero because warnings are hidden would answer the
+        opposite of the question somebody clicks it to ask.
+    -->
+    <ToggleButton ref="@ErrorBadge" class="console-level level-error" Size="Small" Label="@Arrived(ConsoleLevels.Error)" IsChecked="@Shows(ConsoleLevels.Error)" />
+    <ToggleButton ref="@WarningBadge" class="console-level level-warning" Size="Small" Label="@Arrived(ConsoleLevels.Warning)" IsChecked="@Shows(ConsoleLevels.Warning)" />
+    <ToggleButton ref="@InfoBadge" class="console-level level-info" Size="Small" Label="@Arrived(ConsoleLevels.Info)" IsChecked="@Shows(ConsoleLevels.Info)" />
+    <ToggleButton ref="@VerboseBadge" class="console-level level-verbose" Size="Small" Label="@Arrived(ConsoleLevels.Verbose)" IsChecked="@Shows(ConsoleLevels.Verbose)" />
+</console-toolbar>
+
+<VirtualizingPanel ref="@List">
+    @rows (var index in Rows) {
+        <console-row on:click="@((TapEvent args) => Tapped(index.Value, args))" use="@(row => Check(row, index.Value))">
+            <ConsoleLevelMark class="@MarkClass(index.Value)" />
+            <ConsoleTime Text="@TimeOf(index.Value)" />
+            <ConsoleCategory Text="@CategoryOf(index.Value)" />
+            <ConsoleMessage Text="@MessageOf(index.Value)" />
+            <ConsoleRepeats Text="@RepeatsOf(index.Value)" />
+        </console-row>
+    }
+</VirtualizingPanel>
+
+<!--
+    ⚠ Under the `console-detail` tag rather than `scroll-view`, so the theme's rules reach it unchanged —
+    which also means the user-agent `scroll-view` rule does not, so the theme's own rule carries the
+    `overflow: hidden; position: relative` the clip and the bars need (#1275, #1327). `Detail` is its
+    content, and the `empty` class goes on the scroller because it is the scroller's height it collapses.
+-->
+<ScrollView tag="console-detail" ref="@DetailView" class="@DetailClass">
+    @if (HasSelection) {
+        <ConsoleDetailHeading Text="@SelectedMessage" />
+        <ConsoleDetailMeta Text="@SelectedMeta" />
+
+        @if (SelectedSuppressed is not null) {
+            <ConsoleDetailMeta Text="@SelectedSuppressed" />
+        }
+
+        @if (SelectedStack is not null) {
+            <ConsoleDetailStack Text="@SelectedStack" />
+        }
+    } else {
+        <TextBlock Text="@NoSelection" />
+    }
+</ScrollView>
+
+@code {
+    /// <summary>How the timestamp column is formatted.</summary>
+    /// <remarks>
+    ///     Time of day and milliseconds, and no date. A console spanning midnight is not the case to
+    ///     optimise for, and the column that answers "how long between these two lines" is the one
+    ///     that earns its width.
+    /// </remarks>
+    const string TimeFormat = @"HH\:mm\:ss\.fff";
+
+    /// <summary>What it is showing, as a signal so the count and the rows follow a second <see cref="Show" />.</summary>
+    readonly Signal<ConsoleModel?> model = new(null);
+
+    /// <summary>Which record the detail pane is showing, compared by reference.</summary>
+    readonly Signal<LogRecord?> selected = new(null, (IEqualityComparer<LogRecord?>) SignalComparer.Reference<LogRecord>());
+
+    Action<ConsoleModel>? onChanged;
+    Action<UiDocument>? settle;
+    bool tail = true;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>What it is showing.</summary>
+    public ConsoleModel? Model => model.Value;
+
+    /// <summary>The strip along the top.</summary>
+    public UiElement Toolbar { get; private set; } = null!;
+
+    /// <summary>The list itself.</summary>
+    public VirtualizingPanel List { get; private set; } = null!;
+
+    /// <summary>The scroller the detail pane is.</summary>
+    ScrollView DetailView { get; set; } = null!;
+
+    /// <summary>The pane under the list showing the whole of the selected record.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The content of a <see cref="ScrollView" />, not the pane itself.</b> The pane is 132
+    ///     px tall by the theme and a deep exception's stack is forty lines, and for as long as the
+    ///     pane was a plain element with <c>overflow: auto</c> everything past the sixth line was cut
+    ///     off with no way to reach it — in this UI that property clips and does not scroll, and the
+    ///     stack is the reason somebody clicked the row. See <c>Rikarin/Vixen#1275</c>.
+    /// </remarks>
+    public UiElement Detail => DetailView.Content;
+
+    /// <summary>The search box.</summary>
+    public SearchBox Search { get; private set; } = null!;
+
+    /// <summary>The category picker.</summary>
+    public Select Categories { get; private set; } = null!;
+
+    ToggleButton CollapseToggle { get; set; } = null!;
+    ToggleButton ClearOnPlayToggle { get; set; } = null!;
+    ToggleButton ErrorBadge { get; set; } = null!;
+    ToggleButton WarningBadge { get; set; } = null!;
+    ToggleButton InfoBadge { get; set; } = null!;
+    ToggleButton VerboseBadge { get; set; } = null!;
+
+    /// <summary>Whether the console throws itself away when play mode is entered.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The console owns the preference and the application owns the moment.</b> This class
+    ///     has no idea what play mode is; what it can say is whether the user asked, which is what
+    ///     the toggle on the strip records. <c>EditorApplication</c> reads it when it enters play.
+    /// </remarks>
+    public bool ClearsOnPlay { get; set; }
+
+    /// <summary>Which record the detail pane is showing, or <see langword="null" />.</summary>
+    public LogRecord? Selected {
+        get => selected.Value;
+        set => selected.Value = value;
+    }
+
+    /// <summary>Raised when a row is activated, for a host that can open a source file.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An event rather than a call into an external-tool setting, because this assembly has
+    ///     neither.</b> Doc 20 asks for double-click-to-open-source "through the external-tool
+    ///     setting", which is a preference that does not exist yet and a process launch the shell is
+    ///     deliberately not allowed to make. The record carries the exception and its stack; deciding
+    ///     that a frame in it names a file worth opening is the application's.
+    /// </remarks>
+    public event Action<ConsoleView, LogRecord>? Activated;
+
+    /// <summary>Points the console at a sink's records.</summary>
+    /// <param name="shown">What to show.</param>
+    public void Show(ConsoleModel shown) {
+        ArgumentNullException.ThrowIfNull(shown);
+
+        if (model.Value is { } previous && onChanged is not null) {
+            previous.Changed -= onChanged;
+        }
+
+        model.Value = shown;
+        onChanged ??= _ => Grow();
+
+        shown.Changed += onChanged;
+
+        foreach (var category in shown.Categories) {
+            Categories.AddOption(category, category);
+        }
+
+        Grow();
+    }
+
+    /// <summary>Takes whatever has been logged, which is what brings the rows up to date.</summary>
+    /// <param name="now">Unused; taken so the shell can drive this like everything else it ticks.</param>
+    public void Tick(TimeSpan now = default) {
+        _ = now;
+        model.Value?.Pull();
+    }
+
+    /// <summary>Empties the console, which empties the ring behind it.</summary>
+    public void Clear() {
+        Selected = null;
+        model.Value?.Clear();
+    }
+
+    partial void OnComposed() {
+        CollapseToggle.CheckedChanged += (_, on) => {
+            if (model.Value is { } shown) {
+                shown.Collapse = on;
+            }
+        };
+
+        ClearOnPlayToggle.CheckedChanged += (_, on) => ClearsOnPlay = on;
+
+        Badge(ErrorBadge, ConsoleLevels.Error);
+        Badge(WarningBadge, ConsoleLevels.Warning);
+        Badge(InfoBadge, ConsoleLevels.Info);
+        Badge(VerboseBadge, ConsoleLevels.Verbose);
+
+        // The empty value is "all of them", which is a real choice and has to be reachable — a
+        // filter you can enter and not leave is the shape of complaint a category picker earns.
+        Categories.AddOption(string.Empty, EditorStrings.ConsoleAllCategories.Text);
+
+        Categories.SelectionChanged += (_, value) => {
+            if (model.Value is { } shown) {
+                shown.Category = string.IsNullOrEmpty(value) ? null : value;
+            }
+        };
+
+        // ⚠ Following the tail is a mode the user leaves by scrolling, not a checkbox. Every console
+        // worth using pins to the bottom while you are not looking and stops the moment you scroll
+        // up to read something — one that kept snapping back would be unreadable while anything was
+        // being logged.
+        List.Scroller.Scrolled += scroller =>
+            tail = scroller.ScrollTop >= scroller.Content.Height - scroller.Height - List.RowHeight;
+
+        // ⚠ The tail is followed from `LayoutFinished` and not when the model changes, because the
+        // change arrives during the tick — before the pass that measures anything. At that point the
+        // scroller's viewport is whatever it was last frame and the content height has just been
+        // invalidated by the new row count, so a scroll aimed at the bottom is clamped against the old
+        // extent and lands at the top. Here both are known.
+        settle = _ => Follow();
+        Document.LayoutFinished += settle;
+    }
+
+    partial void OnUnmounted() {
+        if (model.Value is { } shown && onChanged is not null) {
+            shown.Changed -= onChanged;
+        }
+
+        if (settle is not null) {
+            Document.LayoutFinished -= settle;
+            settle = null;
+        }
+    }
+
+    /// <summary>One of the four level buttons, which is a toggle and a count in one control.</summary>
+    void Badge(ToggleButton button, ConsoleLevels level) =>
+        button.CheckedChanged += (_, on) => {
+            if (model.Value is { } shown) {
+                shown.Levels = on ? shown.Levels | level : shown.Levels & ~level;
+            }
+        };
+
+    /// <summary>Keeps the newest line on screen while the user is not reading an older one.</summary>
+    void Follow() {
+        if (!tail || model.Peek() is not { Count: > 0 }) {
+            return;
+        }
+
+        var bottom = MathF.Max(0f, List.Scroller.Content.Height - List.Scroller.Height);
+
+        if (List.Scroller.ScrollTop < bottom) {
+            List.Scroller.ScrollTop = bottom;
+        }
+    }
+
+    /// <summary>Adds the categories that have appeared since the picker was last grown.</summary>
+    /// <remarks>
+    ///     A category appears the first time something logs under it, so the picker grows while the
+    ///     editor runs — which is why this is a comparison rather than a rebuild: replacing the
+    ///     options would drop the choice the user made. The options are the one thing here no binding
+    ///     can write, because a picker's list is an imperative API.
+    /// </remarks>
+    void Grow() {
+        if (model.Peek() is not { } shown) {
+            return;
+        }
+
+        for (var index = Categories.Options.Count - 1; index < shown.Categories.Count; index++) {
+            var category = shown.Categories[index];
+            Categories.AddOption(category, Short(category));
+        }
+    }
+
+    void Filter(string? value) {
+        if (model.Value is { } shown) {
+            shown.Search = value;
+        }
+    }
+
+    /// <summary>A tap on a row chooses its record, and a second tap in the window activates it.</summary>
+    void Tapped(int index, TapEvent args) {
+        if (At(index) is not { } row) {
+            return;
+        }
+
+        Selected = row.Record;
+        args.Handled = true;
+
+        // Double-click is what opens a source file everywhere else, and the record's exception is
+        // the only thing here that names one.
+        if (args.Count > 1) {
+            Activated?.Invoke(this, row.Record);
+        }
+    }
+
+    /// <summary>Puts the one bit of <c>ElementState</c> the selection owns on the row showing it.</summary>
+    void Check(UiElement row, int index) {
+        if (At(index) is { } shown && ReferenceEquals(shown.Record, selected.Value)) {
+            row.State |= ElementState.Checked;
+        } else {
+            row.State &= ~ElementState.Checked;
+        }
+    }
+
+    // ================================================================== What the markup reads
+
+    int Rows => model.Value?.Count ?? 0;
+
+    /// <summary>The row a slot is showing, or null for a slot showing nothing.</summary>
+    ConsoleRow? At(int index) =>
+        model.Value is { } shown && index >= 0 && index < shown.Count ? shown[index] : null;
+
+    string MarkClass(int index) => At(index) is { } row ? ClassOf(row.Record.Level) : string.Empty;
+
+    string? TimeOf(int index) =>
+        At(index)?.Record.Timestamp.ToString(TimeFormat, CultureInfo.InvariantCulture);
+
+    string? CategoryOf(int index) => At(index) is { } row ? Short(row.Record.Category) : null;
+
+    string? MessageOf(int index) => At(index) is { } row ? Line(row.Record.Message) : null;
+
+    /// <summary>Absent rather than "1", which is a column of ones down the side of every console that has collapsing turned on.</summary>
+    string? RepeatsOf(int index) =>
+        At(index) is { Repeats: > 1 } row ? row.Repeats.ToString(CultureInfo.InvariantCulture) : null;
+
+    string Arrived(ConsoleLevels level) =>
+        model.Value is { } shown ? Count(level, shown).ToString(CultureInfo.InvariantCulture) : "0";
+
+    bool Shows(ConsoleLevels level) => model.Value is { } shown && (shown.Levels & level) != 0;
+
+    bool HasSelection => selected.Value is not null;
+
+    string? DetailClass => HasSelection ? null : "empty";
+
+    string? SelectedMessage => selected.Value?.Message;
+
+    /// <remarks>
+    ///     ⚠ The event id is here and not in the row, because the row is the one place it would cost
+    ///     width on every line — and it is here at all because until #1196 the number ADR-008's
+    ///     register is keyed by reached no surface a person reads. Omitted when zero: that is what an
+    ///     <c>ILogger</c> extension call that is not a <c>[LoggerMessage]</c> produces, and it has no
+    ///     entry in the register to look up.
+    /// </remarks>
+    string? SelectedMeta {
+        get {
+            if (selected.Value is not { } record) {
+                return null;
+            }
+
+            var id = record.EventId.Id == 0
+                ? string.Empty
+                : string.Create(CultureInfo.InvariantCulture, $" · #{record.EventId.Id}");
+
+            return string.Create(
+                CultureInfo.InvariantCulture,
+                $"{record.Level} · {record.Category} · {record.Timestamp.ToString(TimeFormat, CultureInfo.InvariantCulture)} · thread {record.ThreadId}{id}"
+            );
+        }
+    }
+
+    string? SelectedSuppressed =>
+        selected.Value is { SuppressedCount: > 0 } record
+            ? string.Create(
+                CultureInfo.InvariantCulture,
+                $"and {record.SuppressedCount} identical line(s) the rate limiter dropped"
+            )
+            : null;
+
+    /// <remarks>
+    ///     ⚠ <c>ToString()</c> rather than the message, because the stack is the reason somebody
+    ///     clicked the row. A console detail pane that shows only what the list already showed is a
+    ///     pane with no reason to exist.
+    /// </remarks>
+    string? SelectedStack => selected.Value?.Exception?.ToString();
+
+    static string ClearLabel => EditorStrings.ConsoleClear.Text;
+
+    static string CollapseLabel => EditorStrings.ConsoleCollapse.Text;
+
+    static string ClearOnPlayLabel => EditorStrings.ConsoleClearOnPlay.Text;
+
+    static string SearchPlaceholder => EditorStrings.ConsoleSearch.Text;
+
+    static string AllCategories => EditorStrings.ConsoleAllCategories.Text;
+
+    static string NoSelection => EditorStrings.ConsoleNoSelection.Text;
+
+    static int Count(ConsoleLevels level, ConsoleModel shown) =>
+        level switch {
+            ConsoleLevels.Error => shown.Errors,
+            ConsoleLevels.Warning => shown.Warnings,
+            ConsoleLevels.Info => shown.Infos,
+            _ => shown.Verbose
+        };
+
+    static string ClassOf(LogLevel level) =>
+        ConsoleModel.BucketOf(level) switch {
+            ConsoleLevels.Error => "level-error",
+            ConsoleLevels.Warning => "level-warning",
+            ConsoleLevels.Info => "level-info",
+            _ => "level-verbose"
+        };
+
+    /// <summary>The last segment of a category, which is the type that logged.</summary>
+    /// <remarks>
+    ///     A category is a full type name, and a column showing
+    ///     <c>Vixen.Editor.Assets.Content.ContentPipeline</c> is one that pushes the message off the
+    ///     right of the panel. The whole of it is in the detail pane.
+    /// </remarks>
+    static string Short(string category) {
+        var dot = category.LastIndexOf('.');
+        return dot >= 0 && dot < category.Length - 1 ? category[(dot + 1)..] : category;
+    }
+
+    /// <summary>The first line of a message, which is all a row has space for.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A row is one line tall and virtualisation requires that.</b> A multi-line message
+    ///     rendered whole would make one row four times the height of the rest, and the panel's
+    ///     arithmetic — row 40 000 is at 40 000 × height — would put every row after it in the wrong
+    ///     place. The rest of the message is in the detail pane.
+    /// </remarks>
+    static string Line(string message) {
+        var breakAt = message.AsSpan().IndexOfAny('\r', '\n');
+        return breakAt < 0 ? message : string.Concat(message.AsSpan(0, breakAt), " …");
+    }
+}

@@ -46,8 +46,22 @@ public partial class StylesheetTests {
     ///         <c>AddClass</c>, which this gate does not read, so the first panel to write one in
     ///         markup is the first to be accused of a typo.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The console's level badges are the second such case, for the same reason</b>
+    ///         (#758): <c>console-toolbar toggle-button.console-level:checked.level-error</c> and its
+    ///         three siblings colour four of the toolbar's six toggle buttons, and a tag selector cannot
+    ///         tell those four from Collapse and Clear on Play. The hand-written control reached them
+    ///         with <c>AddClass</c>; the markup port writes them.
+    ///     </para>
     /// </remarks>
-    static readonly HashSet<string> Ours = new(StringComparer.Ordinal) { "settings-tab" };
+    static readonly HashSet<string> Ours = new(StringComparer.Ordinal) {
+        "settings-tab",
+        "console-level",
+        "level-error",
+        "level-warning",
+        "level-info",
+        "level-verbose"
+    };
 
     [GeneratedRegex("class=\"([^\"]*)\"")]
     private static partial Regex ClassAttribute { get; }

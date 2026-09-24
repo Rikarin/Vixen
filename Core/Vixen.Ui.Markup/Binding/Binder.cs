@@ -134,6 +134,17 @@ public sealed class Binder {
     /// </remarks>
     bool rowsHosted;
 
+    /// <summary>How many <c>@rows</c> rows the walk is inside, for the rules that hold all the way down.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A depth of its own rather than <see cref="loops" />, because a row is not a loop
+    ///     body and the loop's rules give it the wrong answers.</b> A row's whole subtree is made
+    ///     once per pool slot, so a <c>ref</c> anywhere in it is assigned once per slot and a
+    ///     <c>refs</c> has no identity to file slots under — but outside an <c>@for</c> the loop
+    ///     rule reported <c>refs</c> as <c>VXML2013</c> with the advice "write 'ref' instead", and
+    ///     inside one it let <c>refs</c> through. <c>VXML2030</c>, #1398.
+    /// </remarks>
+    int rowDepth;
+
     Binder(SourceText text, string filePath, DiagnosticBag diagnostics) {
         this.text = text;
         this.filePath = filePath;
@@ -335,6 +346,9 @@ public sealed class Binder {
         var hosted = rowsHosted;
         rowsHosted = false;
 
+        // Whether an `@rows` at this level has already claimed the control.
+        var pooled = false;
+
         foreach (var node in content) {
             switch (node) {
                 case TextSyntax text:
@@ -361,6 +375,15 @@ public sealed class Binder {
                     break;
 
                 case RowsSyntax rows:
+                    // ⚠ One pool per control: a second `Pool` over the same host replaces the first's
+                    // delegates, and every slot it made stops being rebound. Counted only where the
+                    // block is hosted, because anywhere else `VXML2028` has already said the more
+                    // useful thing. See `MarkupDiagnostics.SecondRowsInControl`.
+                    if (hosted && pooled) {
+                        Report(MarkupDiagnostics.SecondRowsInControl, rows.RowsKeyword.Span);
+                    }
+
+                    pooled |= hosted;
                     bound.Add(BindRows(rows, hosted));
                     break;
 
@@ -682,6 +705,13 @@ public sealed class Binder {
     ///         as ordinary content leaves <c>VXML2004</c> quiet about the key it must not have.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>And quiet is not the same as refused</b>, which is what #1398 was: the binder said
+    ///         nothing about a <c>key</c> on the row, a plain <c>ref</c> in it, or a second block in
+    ///         the same control. <c>VXML2029</c> refuses the key here, <see cref="rowDepth" /> carries
+    ///         <c>VXML2030</c> through the row's subtree, and the caller counts blocks for
+    ///         <c>VXML2031</c>.
+    ///     </para>
+    ///     <para>
     ///         Whitespace between the braces and the row is not a second child; anything else is.
     ///     </para>
     /// </remarks>
@@ -716,9 +746,19 @@ public sealed class Binder {
             || row.StartTag.Name.Text is "slot" or "provide" or BoundElement.SelfTag) {
             Report(MarkupDiagnostics.RowsBodyNotOneElement, rows.RowsKeyword.Span);
         } else {
+            // ⚠ On the row itself, and only there: a key further down is on a nested `@for`'s root,
+            // where `VXML2004` requires one. See `MarkupDiagnostics.KeyOnRow`.
+            foreach (var attribute in row.StartTag.Attributes) {
+                if (string.Equals(attribute.Name.Text, "key", StringComparison.Ordinal)) {
+                    Report(MarkupDiagnostics.KeyOnRow, attribute.Name.Span);
+                }
+            }
+
             var outer = inLoop;
             inLoop = false;
+            rowDepth++;
             bound = BindElement(row) as BoundElement;
+            rowDepth--;
             inLoop = outer;
         }
 
@@ -946,6 +986,14 @@ public sealed class Binder {
         // there is none. See `MarkupDiagnostics.DynamicSlotName`.
         if (kind == BoundAttributeKind.Slot && value is not ([] or [BoundLiteralPart])) {
             Report(MarkupDiagnostics.DynamicSlotName, attribute.Name.Span, written);
+            return null;
+        }
+
+        // ⚠ Before the two loop rules, because a row is not a loop body and they give it the wrong
+        // answer: outside an `@for` the `refs` rule says "write 'ref' instead", which is the same trap,
+        // and inside one it lets `refs` through. See `MarkupDiagnostics.RefInRow`.
+        if (kind is BoundAttributeKind.Ref or BoundAttributeKind.Refs && rowDepth > 0) {
+            Report(MarkupDiagnostics.RefInRow, attribute.Name.Span, written);
             return null;
         }
 
