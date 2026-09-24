@@ -135,36 +135,65 @@ public class StringsThreadingTests {
     ///     thread drew in between.
     /// </summary>
     /// <remarks>
-    ///     The one order a per-thread node could get wrong. This thread's node was never told about the
-    ///     other thread's <c>Use</c>, so it still holds the source catalog while this thread's effect
-    ///     reads — and shows — the other language; changing back to the source catalog here is then a
-    ///     write the node's comparer calls equal, and without the explicit invalidation nothing
-    ///     re-runs and the label keeps the language the process has just left.
+    ///     <para>
+    ///         The one order a per-thread node could get wrong. This thread's node was never told about
+    ///         the other thread's <c>Use</c>, so it still holds the source catalog while this thread's
+    ///         effect reads — and shows — the other language; changing back to the source catalog here
+    ///         is then a write the node's comparer calls equal, and without the explicit invalidation
+    ///         nothing re-runs and the label keeps the language the process has just left.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This passed without the invalidation it exists for until its precondition was
+    ///         made explicit.</b> A thread's node is made lazily and seeded with the process's catalog
+    ///         at that moment, so a thread that first touched <c>Strings</c> <em>after</em> the other
+    ///         thread's <c>Use</c> made a node already holding the other language, <c>Use(null)</c>
+    ///         took the ordinary write, and the branch under test never ran. Whether it ran depended
+    ///         on whether an earlier test on the same xunit worker had happened to make the node. So
+    ///         the body runs on a thread of its own whose first act is to make its node while the
+    ///         process is still in the source language.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void Changing_back_on_this_thread_re_labels_what_another_threads_change_drew() {
-        var scheduler = new EffectScheduler();
-        string? seen = null;
+        Exception? failure = null;
+        string? drawn = null;
+        string? relabelled = null;
 
-        try {
-            var elsewhere = new Thread(() => Strings.Use(new StringCatalog("cs").Set(Probe.Id, "Sonda")));
+        var here = new Thread(() => {
+            var scheduler = new EffectScheduler();
+            string? seen = null;
 
-            elsewhere.Start();
-            elsewhere.Join();
+            try {
+                // ⚠ The line whose absence made this vacuous: this thread's node exists, and holds
+                // the source catalog, before the other thread moves the process away from it.
+                Assert.Same(StringCatalog.Source, Strings.Catalog);
 
-            using var bound = new Effect(() => seen = Probe.Text, scheduler);
+                var elsewhere = new Thread(() => Strings.Use(new StringCatalog("cs").Set(Probe.Id, "Sonda")));
 
-            scheduler.Flush();
+                elsewhere.Start();
+                elsewhere.Join();
 
-            Assert.Equal("Sonda", seen);
+                using var bound = new Effect(() => seen = Probe.Text, scheduler);
 
-            Strings.Use(null);
-            scheduler.Flush();
+                scheduler.Flush();
+                drawn = seen;
 
-            Assert.Equal("Probe", seen);
-        } finally {
-            Strings.Use(null);
-        }
+                Strings.Use(null);
+                scheduler.Flush();
+                relabelled = seen;
+            } catch (Exception thrown) {
+                failure = thrown;
+            } finally {
+                Strings.Use(null);
+            }
+        });
+
+        here.Start();
+        here.Join();
+
+        Assert.True(failure is null, failure?.ToString());
+        Assert.Equal("Sonda", drawn);
+        Assert.Equal("Probe", relabelled);
     }
 
     /// <summary>
