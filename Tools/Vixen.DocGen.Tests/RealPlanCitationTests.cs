@@ -59,12 +59,16 @@ namespace Vixen.DocGen.Tests;
 ///         document, the line and what is on it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Unbound is most of it, and most of the drift.</b> Of 425 citations 75 bind. Read
-///         against the history — the line each cited when its sentence was last written, beside the
-///         same line now — 158 pointed at a line whose text had changed since, 142 of them in plans,
-///         when the sweep was widened. A bound one fails here the day it moves and an unbound one only
-///         when it lands on a blank or a brace (<see cref="Every_cited_line_has_something_on_it" />),
-///         so a citation that should hold is worth writing so it binds. ⚠ And a bare <c>`:108`</c>
+///         ⚠ <b>Unbound is most of it, and most of the drift.</b> Of 425 citations 75 bind. A
+///         one-off measurement taken when the sweep was widened, by a scratch script that is not in
+///         the tree — <c>git blame</c> for the commit that last wrote each citing line, then the
+///         cited line at that commit beside the same line at HEAD — found 158 whose text had changed
+///         since, 142 of them in plans. Nothing re-derives that number, and this class cannot: a
+///         shallow CI clone has no history to blame. Read it as the size of the problem on the day
+///         it was taken, not as a count anything keeps. A bound one fails here the day it moves and
+///         an unbound one only when it lands on a blank or a brace
+///         (<see cref="Every_cited_line_has_something_on_it" />), so a citation that should hold is
+///         worth writing so it binds. ⚠ And a bare <c>`:108`</c>
 ///         continues the file named last on its line, which is a guess: doc 50 wrote
 ///         <c>`EditorProject.cs:56`</c> and then <c>`EditorApplication.scene` (`:108` …)</c>, meaning
 ///         <c>EditorApplication.cs</c>, and the sweep read it as <c>EditorProject.cs:108</c> — a line
@@ -123,6 +127,20 @@ public class RealPlanCitationTests {
     ///     resolve a citation against somebody else's tree.
     /// </remarks>
     static readonly string[] Unwalked = [".git", ".claude", "bin", "obj", "artifacts", "node_modules"];
+
+    /// <summary>
+    ///     Directories, relative to the checkout root, whose own files are walked and whose
+    ///     subdirectories are not.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <c>references/</c> holds gitignored clones of other engines beside its one tracked file,
+    ///     the README that carries the clone commands (<c>.gitignore</c>, doc 02). A walk that entered a
+    ///     clone would sweep third-party READMEs as documents and resolve citations against
+    ///     third-party sources, so the test would go red, or pass a citation, on the one machine that
+    ///     has the clones and never on CI. Rooted rather than matched by name, because
+    ///     <c>Vixen.Graphics.Golden.Tests/References</c> is tracked and is ours.
+    /// </remarks>
+    static readonly string[] Shallow = ["references"];
 
     /// <summary>A backticked file citation: a path or file name, a colon, and lines.</summary>
     /// <remarks>
@@ -307,6 +325,47 @@ public class RealPlanCitationTests {
         Assert.DoesNotContain(citations, cited => cited.Symbol == "Cancel");
     }
 
+    /// <summary>
+    ///     The walk reads <c>references/README.md</c> and nothing a reference clone brings with it, and
+    ///     still enters a directory that is only <i>named</i> like it.
+    /// </summary>
+    /// <remarks>
+    ///     A scratch tree rather than the checkout, because the clones are gitignored and neither CI
+    ///     nor most machines have one: asked of the real tree, "no clone is swept" is a predicate that
+    ///     cannot be false there.
+    /// </remarks>
+    [Fact]
+    public void The_walk_stops_at_the_reference_clones() {
+        var root = Directory.CreateTempSubdirectory("vixen-citation-walk-").FullName;
+
+        try {
+            string[] tree = [
+                "references/README.md",
+                "references/godot/README.md",
+                "references/godot/core/Node.cs",
+                "docs/plan/01.md",
+                "Platform/Golden.Tests/References/README.md"
+            ];
+
+            foreach (var relative in tree) {
+                var path = Path.Combine(root, relative);
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllText(path, "");
+            }
+
+            Dictionary<string, List<string>> index = new(StringComparer.Ordinal);
+            Walk(root, root, index);
+            var walked = index.Values.SelectMany(paths => paths).Order(StringComparer.Ordinal).ToArray();
+
+            string[] expected = ["Platform/Golden.Tests/References/README.md", "docs/plan/01.md", "references/README.md"];
+
+            Assert.Equal(expected, walked);
+            Assert.Equal(expected, Documents(index));
+        } finally {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     /// <summary>Why a citation does not resolve, or <see langword="null" /> when it does.</summary>
     static string? Resolve(Cited cited, Dictionary<string, List<string>> index) {
         var candidates = Candidates(cited, index);
@@ -382,7 +441,7 @@ public class RealPlanCitationTests {
 
     static (List<Cited> Citations, Dictionary<string, List<string>> Index, Dictionary<(string, string), string> Exempt) Sweep() {
         Dictionary<string, List<string>> index = new(StringComparer.Ordinal);
-        Walk(Root, index);
+        Walk(Root, Root, index);
 
         List<Cited> citations = [];
 
@@ -476,7 +535,7 @@ public class RealPlanCitationTests {
                            && (path.StartsWith("docs/", StringComparison.Ordinal) || Path.GetFileName(path) == "README.md"))
             .Order(StringComparer.Ordinal);
 
-    static void Walk(string directory, Dictionary<string, List<string>> index) {
+    static void Walk(string root, string directory, Dictionary<string, List<string>> index) {
         foreach (var file in Directory.EnumerateFiles(directory)) {
             var name = Path.GetFileName(file);
 
@@ -484,12 +543,16 @@ public class RealPlanCitationTests {
                 index[name] = paths = [];
             }
 
-            paths.Add(Path.GetRelativePath(Root, file).Replace('\\', '/'));
+            paths.Add(Path.GetRelativePath(root, file).Replace('\\', '/'));
+        }
+
+        if (Array.IndexOf(Shallow, Path.GetRelativePath(root, directory).Replace('\\', '/')) >= 0) {
+            return;
         }
 
         foreach (var child in Directory.EnumerateDirectories(directory)) {
             if (Array.IndexOf(Unwalked, Path.GetFileName(child)) < 0) {
-                Walk(child, index);
+                Walk(root, child, index);
             }
         }
     }

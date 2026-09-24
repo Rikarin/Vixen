@@ -412,9 +412,9 @@ SwiftUI's `App`/`Scene`/`WindowGroup`/`DocumentGroup` all start one level above 
 
 | Capability | Vixen today | Verdict |
 |---|---|---|
-| Second top-level window | `UiDocument.CreateSurface` `Surfaces.cs:70`; `IUiWindowHost.Open` `UiWindows.cs:106` | **present** |
+| Second top-level window | `UiDocument.CreateSurface` (`Surfaces.cs:168`); `IUiWindowHost.Open` (`UiWindows.cs:141`) | **present** |
 | One document across windows (shared style, focus, cross-window drag) | `UiSurface.cs:9-46`, `Reparent.cs:42` | **present, ahead of AppKit** |
-| Key window | — | **absent** (§ 1.4) |
+| Key window | `UiDocument.KeySurface` (`Surfaces.cs:66`); the focus is the surface's, `UiDocument.Focused` (`Focus.cs:107`); `PlatformEventKind.WindowFocusGained` (`PlatformInput.cs:592`) has an arm | **present** since `92c554e54` ([#644](https://github.com/Rikarin/Vixen/issues/644)); **absent** as audited (§ 1.4) |
 | Native menu bar | `MenuBar : Control` `Menus.cs:633`, drawn; **no seam interface exists** | **absent** |
 | System menu items (About, Services, Hide, Quit, Window, Help) | — | **absent** |
 | Toolbar | no type in either controls assembly; the editor's is a drawn strip (`Menus/ToolbarPresenter.cs:51`) | **absent** |
@@ -999,7 +999,7 @@ only where the signal is specific.
 
 | Wave | Issues |
 |---|---|
-| **W1 — the chain, made real** | [#642](https://github.com/Rikarin/Vixen/issues/642) the chain has no responders · [#643](https://github.com/Rikarin/Vixen/issues/643) `IResponder`, one chain · [#644](https://github.com/Rikarin/Vixen/issues/644) no key window · [#645](https://github.com/Rikarin/Vixen/issues/645) no focus veto · [#646](https://github.com/Rikarin/Vixen/issues/646) `TabOrder` visits hidden elements |
+| **W1 — the chain, made real** | [#642](https://github.com/Rikarin/Vixen/issues/642) the chain has no responders · [#643](https://github.com/Rikarin/Vixen/issues/643) `IResponder`, one chain · [#644](https://github.com/Rikarin/Vixen/issues/644) no key window (closed 2026-09-05 by `92c554e54`, `UiDocument.KeySurface`) · [#645](https://github.com/Rikarin/Vixen/issues/645) no focus veto · [#646](https://github.com/Rikarin/Vixen/issues/646) `TabOrder` visits hidden elements |
 | **W2 — what the chain carries** | [#647](https://github.com/Rikarin/Vixen/issues/647) `IUndoManager` · [#648](https://github.com/Rikarin/Vixen/issues/648) the editing-command table · [#649](https://github.com/Rikarin/Vixen/issues/649) `IClipboard` has no consumer · [#650](https://github.com/Rikarin/Vixen/issues/650) accelerators live in the editor · [#651](https://github.com/Rikarin/Vixen/issues/651) `UiApplication` hides `IPlatform` |
 | **W3 — the application layer** | [#652](https://github.com/Rikarin/Vixen/issues/652) native menu bar (decision) · [#653](https://github.com/Rikarin/Vixen/issues/653) no quit veto · [#654](https://github.com/Rikarin/Vixen/issues/654) drag-in dropped, no drop model · [#655](https://github.com/Rikarin/Vixen/issues/655) `INativeDialogs` unreachable · [#656](https://github.com/Rikarin/Vixen/issues/656) no document model · [#657](https://github.com/Rikarin/Vixen/issues/657) Toolbar/StatusBar/SplitView/Segmented |
 | **W4 — markup parity** | [#658](https://github.com/Rikarin/Vixen/issues/658) no ambient value · [#659](https://github.com/Rikarin/Vixen/issues/659) props assigned after `Build` · [#660](https://github.com/Rikarin/Vixen/issues/660) inert attributes on lowercase tags · [#661](https://github.com/Rikarin/Vixen/issues/661) six modifiers with no spelling · [#662](https://github.com/Rikarin/Vixen/issues/662) `@for` gaps · [#663](https://github.com/Rikarin/Vixen/issues/663) `bind:` too narrow |
