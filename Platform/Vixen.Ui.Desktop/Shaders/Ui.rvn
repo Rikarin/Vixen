@@ -1094,6 +1094,14 @@ shader UiColour {
     /// `x` the corner radius in target texels, uniform across the four corners or zero —
     /// `UiLayer.BackdropRadius` times the frame's scale. `y` the frame's white level,
     /// `UiGeometry.WhiteLevel`, which `UiComposite.Filter` normalises by (#1418); zero is read as one.
+    /// `z` one when the draw carries a colour matrix — the three rows above — and zero when it does
+    /// not, which is `UiBlend`'s `filter.x` for `UiBlend`'s reason.
+    ///
+    /// ⚠ **A flag and not an identity matrix, because `UiComposite.Filter` is not the identity on an
+    /// identity matrix.** It clamps to `[0, a·w]`, and a rounded glass panel with no matrix — which
+    /// is here for its box and nothing else — was clamped by it: a `backdrop-filter: blur()` panel
+    /// with a radius over an HDR world capped every highlight behind it at the frame's white, where
+    /// the square panel beside it, on `UiImage`, passed them through.
     ///
     /// ⚠ **Zero is the whole of the "this draw is not a rounded backdrop" test, and it has to be a
     /// number rather than an absent push.** This pipeline also serves every filtered group, and one
@@ -1115,7 +1123,7 @@ shader UiColour {
         // filter or a rounded backdrop. A straight-alpha texture can never arrive here, so the flag
         // would be a branch on a constant.
         val sampled = source.Sample(sourceSampler, uv)
-        val filtered = UiComposite.Filter(sampled, red, green, blue, corner.y)
+        val filtered = corner.z > 0.5f ? UiComposite.Filter(sampled, red, green, blue, corner.y) : sampled.rgb
 
         // ⚠ **The point comes from the texture coordinate times the surface size, which is a
         // *target texel*** — `UiMask` argues it at length and this is the same expression for the
@@ -1200,6 +1208,11 @@ shader UiMask {
     /// deliberately arrive in two different spaces. See `Fragment`, which evaluates one in each.
     [PushConstant] var box: float4 = float4(0f, 0f, 0f, 0f)
 
+    /// `x` the radius, and `z` one when the draw carries a colour matrix and zero when it does not —
+    /// `UiColour`'s `corner` lane for lane but for `y`, since the white rides `list.w` here. ⚠ A mask
+    /// alone is the commoner case by far, and without the flag it ran the identity through
+    /// `UiComposite.Filter`'s clamp: a masked glass panel over an HDR world capped the world at the
+    /// frame's white. See `UiColour.corner`.
     [PushConstant] var corner: float4 = float4(0f, 0f, 0f, 0f)
 
     stream var uv: float2
@@ -1213,7 +1226,7 @@ shader UiMask {
         // for word. This pipeline is bound for a composite quad and nothing else, so a straight-alpha
         // texture can never arrive and the flag would be a branch on a constant.
         val sampled = source.Sample(sourceSampler, uv)
-        val filtered = UiComposite.Filter(sampled, red, green, blue, list.w)
+        val filtered = corner.z > 0.5f ? UiComposite.Filter(sampled, red, green, blue, list.w) : sampled.rgb
 
         // ⚠ **The texture coordinate times the surface size is a *target texel*, and the sentence
         // that used to stand here said it was a document pixel.** The two claims were in one

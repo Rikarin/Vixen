@@ -211,6 +211,135 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
         AssertScaled(mode.ToString(), "the software renderer", softOne, ToPixels(SoftwareUiRasterizer.RenderLinear(geometry, atlas, Side, Side, Clear)), Edge);
     }
 
+    public static TheoryData<string> GlassArrangements() => ["rounded", "masked"];
+
+    /// <summary>
+    ///     A scene above the white, in cd/m² and premultiplied: what a HUD's glass reads through
+    ///     <c>!UiCompose</c> over an HDR world, handed over here as the host's clear.
+    /// </summary>
+    static readonly Color4 Scene = new(650f, 244f, 447f, 1f);
+
+    /// <summary>A glass panel with no matrix passes a scene above the frame's white through, whichever module draws it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Found reviewing #1418, which narrowed it rather than caused it.</b> A glass panel
+    ///         with no <c>backdrop-filter</c> matrix — <c>blur()</c> and nothing else — reaches the image
+    ///         pipeline when it is square, <c>UiColour</c> when it is rounded (for its box) and
+    ///         <c>UiMask</c> when it is masked (for its ramp). The last two ran the identity through
+    ///         <c>UiComposite.Filter</c>, whose clamp to the alpha times the white is not the identity
+    ///         on a colour above the white: a rounded glass panel over an HDR world capped every
+    ///         highlight behind it at 203 cd/m², where the square one next to it did not. Before #1418
+    ///         the ceiling was one candela, re-lit by the double-lit tint.
+    ///         <c>SoftwareUiRasterizer</c> skips an identity matrix and never clamped.
+    ///     </para>
+    ///     <para>
+    ///         The oracle is a closed form for the rounded panel's middle — the translucent grey over
+    ///         the scene, <c>0.125·w + 0.75·scene</c> — which the square panel on the image pipeline is
+    ///         held to first, so the fixture is shown able to carry a colour above the white at all;
+    ///         and the software executor for both, across the panel's middle.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(GlassArrangements))]
+    public void AGlassPanelWithNoMatrixPassesASceneAboveTheWhite(string arrangement) {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var (square, squared) = Frame(owned, Glass("square"), DiffuseWhite, "glass-square", Scene);
+        var (glass, renderer) = Frame(owned, Glass(arrangement), DiffuseWhite, $"glass-{arrangement}", Scene);
+
+        // The instrument: every panel is a backdrop with no matrix, the square one took the image
+        // pipeline and the other the module its arrangement names.
+        foreach (var counted in new[] { squared, renderer }) {
+            Assert.Equal(1, counted.Backdropped);
+            Assert.Equal(0, counted.Filtered);
+            Assert.Equal(0, counted.SquareBackdrops);
+        }
+
+        Assert.Equal(0, squared.Masked);
+        // Two for the masked panel: the backdrop quad and the group's own composite both take the ramp.
+        Assert.Equal(arrangement == "masked" ? 2 : 0, renderer.Masked);
+
+        var expected = new Vector3(
+            (0.125f * DiffuseWhite) + (0.75f * Scene.R),
+            (0.125f * DiffuseWhite) + (0.75f * Scene.G),
+            (0.125f * DiffuseWhite) + (0.75f * Scene.B)
+        );
+
+        Assert.True(expected.X > DiffuseWhite * 2f, "the closed form is not above the white, so no ceiling there could show");
+        AssertNear("the square panel on the image pipeline", At(square, Side / 2, Side / 2), expected);
+
+        var geometry = Build(Glass(arrangement), DiffuseWhite, out var atlas);
+        var software = ToPixels(SoftwareUiRasterizer.RenderLinear(geometry, atlas, Side, Side, Scene));
+
+        if (arrangement == "rounded") {
+            AssertNear("the rounded panel", At(glass, Side / 2, Side / 2), expected);
+        } else {
+            Assert.True(
+                At(software, Side / 2, Side / 2).X > DiffuseWhite * 1.5f,
+                $"the software executor's masked middle {At(software, Side / 2, Side / 2)} is not above the white"
+            );
+        }
+
+        // Both against the independent executor across the panel's middle, away from the corners and
+        // the rectangle's edge.
+        for (var y = 44; y < 84; y++) {
+            for (var x = 44; x < 84; x++) {
+                var reference = At(software, x, y);
+
+                AssertNear($"{arrangement} against the software executor at ({x}, {y})", At(glass, x, y), new(reference.X, reference.Y, reference.Z));
+            }
+        }
+
+        static void AssertNear(string what, Vector4 actual, Vector3 expected) {
+            var error = MathF.Max(
+                MathF.Abs(actual.X - expected.X) / expected.X,
+                MathF.Max(MathF.Abs(actual.Y - expected.Y) / expected.Y, MathF.Abs(actual.Z - expected.Z) / expected.Z)
+            );
+
+            Assert.True(error <= 0.02f, $"{what}: {actual} where {expected} was expected (relative error {error:0.###})");
+        }
+    }
+
+    /// <summary>A glass panel — <c>backdrop-filter: blur(2px)</c>, no matrix — square, rounded by sixteen, or square with a mask.</summary>
+    static DrawList Glass(string arrangement) {
+        var radius = arrangement == "rounded" ? 16 : 0;
+
+        var list = new DrawList();
+        list.BeginFrame();
+
+        var push = new DrawCommand(DrawCommandKind.LayerPush, 24, 24, 80, 80, Color4.White, radius, 0) {
+            Backdrop = new UiBackdrop(2f, 1f)
+        };
+
+        if (arrangement == "masked") {
+            push = push with {
+                Offset = list.AddMasks([
+                    new UiMask(
+                        new Vector2(Side / 2f, Side / 2f),
+                        new Vector2(40f, 40f),
+                        Vector2.UnitX,
+                        new Vector3(0.5f, 0.5f, 0.5f),
+                        GradientStops.Default,
+                        GradientShape.Linear,
+                        Via: false
+                    )
+                ]),
+                Length = 1
+            };
+        }
+
+        list.Add(push);
+        list.Add(new(DrawCommandKind.Rectangle, 24, 24, 80, 80, new Color4(0.5f, 0.5f, 0.5f, 0.25f), radius, 0));
+        list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+        list.EndFrame();
+
+        return list;
+    }
+
     /// <summary>Whether a pixel is within two of an edge of <see cref="Group" />'s rectangles, where <c>hue</c> is ill-conditioned.</summary>
     static bool Edge(int x, int y) {
         static bool Near(int value) => Math.Abs(value - 24) <= 2 || Math.Abs(value - 40) <= 2 || Math.Abs(value - 88) <= 2 || Math.Abs(value - 104) <= 2;
@@ -313,7 +442,9 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
     }
 
     /// <summary>One frame at one white level, through the Raven table into a float target.</summary>
-    static (Vector4[] Pixels, UiRenderer Renderer) Frame(Fixture fixture, DrawList list, float white, string name) {
+    static (Vector4[] Pixels, UiRenderer Renderer) Frame(Fixture fixture, DrawList list, float white, string name, Color4? ground = null) {
+        var under = ground ?? Clear;
+
         var device = fixture.Device;
 
         fixture.Graph.Reset();
@@ -342,7 +473,7 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
         fixture.Owns(renderer.Dispose);
 
         fixture.Graph.AddPass(name, pass => {
-            pass.ColourAttachment(colour, LoadAction.Clear, Clear);
+            pass.ColourAttachment(colour, LoadAction.Clear, under);
             pass.SideEffect();
             pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
         });
@@ -355,7 +486,7 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "white")) {
             renderer.Upload(commands, geometry, atlas);
-            renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Clear));
+            renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(under));
             fixture.Graph.Execute(commands);
             commands.CopyTextureToBuffer(new(fixture.Graph.TextureOf(colour)), new(Side, Side, 1), readback, 0);
             commands.Finish();

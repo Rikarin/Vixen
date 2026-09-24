@@ -2838,8 +2838,11 @@ public sealed class UiRenderer : IDisposable {
         // pipeline, and it is the only one of the three that is not a property of the group's own
         // paint.</b> `ui-image.frag` has no push block on purpose — it draws every viewport,
         // thumbnail and video frame in the interface — so the box has to reach a module that does,
-        // and `colourPipeline` with an identity matrix is that module for the same price the file's
-        // own remark already accepts: a pipeline switch for the one draw that has one.
+        // and `colourPipeline` with its matrix flagged off is that module for the same price the
+        // file's own remark already accepts: a pipeline switch for the one draw that has one. ⚠ Off,
+        // and not the identity: `UiComposite.Filter` clamps to the alpha times the white, so the
+        // identity was a ceiling at the white on a scene behind the glass, and a rounded panel
+        // capped an HDR world that the square one beside it passed through.
         var box = layerBoxes.Count > 0
             && draw.Kind == BatchKind.Image
             && layerBoxes.TryGetValue(draw.Image, out var rounded)
@@ -2991,7 +2994,12 @@ public sealed class UiRenderer : IDisposable {
                 identity.Blue.X, identity.Blue.Y, identity.Blue.Z, identity.Blue.W,
                 (slot * MaskCapacity) + list.First, list.Count, scale, blendWhite,
                 corner.CentreX, corner.CentreY, corner.HalfX, corner.HalfY,
-                corner.Radius, 0f, 0f, 0f
+
+                // ⚠ And whether there is a matrix at all, in the third lane: `UiMask` skips
+                // `UiComposite.Filter` on a zero, because its clamp to the alpha times the white is
+                // not the identity on a backdrop above the white — a masked glass panel over an HDR
+                // world capped the world at 203 cd/m² with the identity matrix pushed above.
+                corner.Radius, 0f, matrix is null ? 0f : 1f, 0f
             ];
 
             commands.PushConstants(PushStages, 16, MemoryMarshal.AsBytes(block));
@@ -3018,8 +3026,11 @@ public sealed class UiRenderer : IDisposable {
 
                 // ⚠ The white level rides the corner's second lane (#1418): `UiComposite.Filter`
                 // clamps to the alpha times it, and a filter handed a one in a frame at 203 capped
-                // every pixel at one candela.
-                corner.Radius, blendWhite, 0f, 0f
+                // every pixel at one candela. ⚠ The third lane says whether there is a matrix at all:
+                // a rounded backdrop with none is here for its box, and the identity through that
+                // clamp capped an HDR world behind a rounded glass panel at the white, where the
+                // square panel on `imagePipeline` passed it through. `UiBlend`'s `filter.x`, again.
+                corner.Radius, blendWhite, matrix is null ? 0f : 1f, 0f
             ];
 
             commands.PushConstants(PushStages, 16, MemoryMarshal.AsBytes(rows));
