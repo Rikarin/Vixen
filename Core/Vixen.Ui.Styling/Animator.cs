@@ -815,15 +815,25 @@ public sealed class Animator {
         return true;
     }
 
-    /// <summary>Adds a mix still running for a property the cascade no longer gives the element.</summary>
+    /// <summary>Adds a transition still running for a property the cascade no longer gives the element.</summary>
     /// <remarks>
-    ///     ⚠ <b>The commonest transform transition there is, and without this it would run and never
-    ///     be seen.</b> <c>hover:rotate-z-45</c> puts a <c>transform</c> on an element that has none
-    ///     at rest, so the moment the pointer leaves, the cascade stops holding the property at all
-    ///     and <see cref="Apply" />'s loop — which walks the properties the style has — never reaches
-    ///     the transition <see cref="Observe" /> started back to <c>none</c>. The card snapped home.
-    ///     Mixes only: whether a numeric fade back to an initial value has the same gap is a question
-    ///     about that path, recorded rather than changed here.
+    ///     <para>
+    ///         ⚠ <b>The commonest transition there is, and without this it would run and never be
+    ///         seen.</b> <c>hover:rotate-z-45</c> puts a <c>transform</c> on an element that has none at
+    ///         rest, and <c>hover:ml-10</c> a <c>margin-left</c>, so the moment the pointer leaves the
+    ///         cascade stops holding the property at all and <see cref="Apply" />'s loop — which walks
+    ///         the properties the style has — never reaches the transition <see cref="Observe" />
+    ///         started back to <c>none</c> or to the initial value. The card snapped home.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Numbers as well as mixes, which this used to say it had left open (#1382).</b> It was
+    ///         written for the transform half under #174 and filtered on <c>IsMix</c>, so a
+    ///         <c>margin-left</c> fading back to its initial <c>0px</c> ran in the table for its whole
+    ///         duration while the box sat at zero from the first frame — and every fixture that asked
+    ///         the animator (<see cref="TryGetCurrent" />) rather than the document saw it running. The
+    ///         value is the transition's own, heading for the initial value <see cref="Computed" />
+    ///         filled in; a property with no initial value never started a transition to reach here.
+    ///     </para>
     /// </remarks>
     List<KeyValuePair<int, int>>? Withdrawing(
         StyleNodeId element,
@@ -838,7 +848,7 @@ public sealed class Animator {
         foreach (var (property, transition) in entries) {
             WithdrawingVisits++;
 
-            if (!transition.IsMix || style.TryGet(property, out _)) {
+            if (style.TryGet(property, out _)) {
                 continue;
             }
 
@@ -846,13 +856,12 @@ public sealed class Animator {
                 continue;
             }
 
+            var value = transition.IsMix
+                ? values.Intern(MixText(mixes[property], transition.MixAt(now), transition.MixFrom, transition.MixTo))
+                : values.Intern(transition.ValueAt(now).ToCss(values));
+
             overlaid ??= Copy(style);
-            overlaid.Add(
-                new KeyValuePair<int, int>(
-                    property,
-                    values.Intern(MixText(mixes[property], transition.MixAt(now), transition.MixFrom, transition.MixTo))
-                )
-            );
+            overlaid.Add(new KeyValuePair<int, int>(property, value));
         }
 
         return overlaid;
