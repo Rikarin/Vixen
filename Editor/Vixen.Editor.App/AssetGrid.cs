@@ -100,7 +100,8 @@ internal sealed class AssetStatus : UiElement {
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The tile template is markup, in <c>AssetGrid.vxml</c>, and has been since #1406</b> —
-///         the last production virtualised list whose rows were made and bound by hand in C#.
+///         the last editor panel whose virtualised rows were made and bound by hand in C#
+///         (<c>TreeView</c> still does so inside itself, as a control rather than a panel).
 ///     </para>
 /// </remarks>
 sealed partial class AssetGrid;

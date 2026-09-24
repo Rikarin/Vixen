@@ -41,8 +41,12 @@ namespace Vixen.Ui.Composition;
 ///         <c>MessageLogView.vxml</c> and <c>ConsoleView.vxml</c> fill their <c>VirtualizingPanel</c>s
 ///         through this seam with an <c>@rows</c> block, which the markup compiler turns into
 ///         <c>BuildContext.Pool</c> (#758), and <c>AssetGrid.vxml</c> fills the editor's one
-///         <c>VirtualizingGrid</c> the same way (#1406). No production virtualised list is filled
-///         from C# any more. Recorded here rather than left to a grep, because "a finished thing
+///         <c>VirtualizingGrid</c> the same way (#1406). No editor panel fills a virtualised list
+///         from C# any more — but ⚠ <b>one control still does</b>: <c>TreeView</c> sets its own
+///         <c>VirtualizingPanel</c>'s <c>CreateRow</c>/<c>BindRow</c> in <c>OnCreated</c>, over a
+///         typed <c>TreeRow</c> part, and the editor's Hierarchy and Project trees are built on it.
+///         That is a control's implementation rather than a panel's template, so it is outside
+///         #758's reach, not an oversight in it. Recorded here rather than left to a grep, because "a finished thing
 ///         nothing calls" is this repository's commonest defect and a reader is owed the callers
 ///         before concluding anything about the seam.
 ///     </para>

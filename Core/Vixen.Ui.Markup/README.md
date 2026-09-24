@@ -697,8 +697,10 @@ settled by what the pool is:
 is a `Signal<int>` holding `-1` in a slot the pool has made and not yet bound.
 
 `MessageLogView.vxml` is its first production caller, `ConsoleView.vxml` its second and
-`AssetGrid.vxml` — over a `VirtualizingGrid` — its third (#1406); no virtualised list in the editor is
-filled from C# any more. ⚠ The grid is where a row's content stops being a function of `index` alone:
+`AssetGrid.vxml` — over a `VirtualizingGrid` — its third (#1406); no editor *panel* fills a virtualised
+list from C# any more. ⚠ One *control* still does: `TreeView` sets its own panel's `CreateRow`/`BindRow`
+in `OnCreated` over a typed `TreeRow` part, and the Hierarchy and Project trees are built on it — a
+control's implementation, not a panel template, so outside `@rows`' job. ⚠ The grid is where a row's content stops being a function of `index` alone:
 walking into a folder rebinds every slot at the index it already had, and a thumbnail arrives for a
 tile already drawn, so its template also reads a `version` signal that `Show` and `Refresh` move. A
 template whose model can change under an unchanged index needs the same.
