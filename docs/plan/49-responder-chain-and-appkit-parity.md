@@ -452,7 +452,7 @@ system provides that the markup cannot express — and the answer is concentrate
 Checked hard. The framework has exactly three ancestor-walking mechanisms and none is general:
 `[UiProperty(Inherits = true)]` (`UiProperty.cs:35`), whose only producers in the whole tree are in
 `Core/Vixen.Ui.Tests/SampleElements.cs`; `EffectiveCommandScope` (`Commands.cs:758`), whose value is
-one `string?`; and `UiDocument.Mounted` (`UiDocument.cs:390`), which records a component for an
+one `string?`; and `UiDocument.Mounted` (`UiDocument.cs:396`), which records a component for an
 element and offers no "nearest ancestor of type T" query.
 
 So every cross-cutting value is threaded through props by hand. `Samples/02-HelloUi/Shell.vxml:69-83`
