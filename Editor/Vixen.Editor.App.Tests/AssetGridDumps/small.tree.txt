@@ -1,0 +1,14 @@
+<asset-grid .size-md .variant-default> 170,0 757×156
+  <asset-path> 0,0 757×28
+    <button .asset-crumb .size-sm .variant-subtle> 0,0 63×28
+      <label> 10,4 43×20 "Assets"
+  <virtualizing-grid .asset-tiles .size-md .variant-default> 0,32 757×124
+    <scroll-view .size-md .variant-default> 0,0 757×124
+      <scroll-content .virtual-grid> 0,0 757×68
+        <asset-tile .folder .size-md .variant-default> 0,0 64×68
+          <icon .size-md .variant-default> 18,8 28×28
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,42 56×19 "Scenes"
+          <asset-status .hidden> 0,0 0×0
+      <scrollbar .size-md .variant-default .vertical> 748,0 10×124
+      <scrollbar .horizontal .size-md .variant-default> 0,114 757×10
