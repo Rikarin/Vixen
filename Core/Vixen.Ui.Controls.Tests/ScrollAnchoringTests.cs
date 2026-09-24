@@ -193,4 +193,43 @@ public class ScrollAnchoringTests {
 
         Assert.Equal(200f, view.ScrollTop, 3);
     }
+
+    /// <summary>An anchor a rebuild removed is dropped, and the next one is chosen and honoured.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Removal leaves an element's parent pointer where it was</b>, so a walk up
+    ///         <c>Parent</c> said the view still held a row that had been thrown away, and the next
+    ///         frame read that row's bounds through <c>UiElement.Document</c> — which throws for a
+    ///         removed element. Any scrolled view whose rows were rebuilt under it crashed on the
+    ///         following frame; the import settings' override grid was where it was found (#1392).
+    ///     </para>
+    ///     <para>
+    ///         The second half is the one a bare "does not throw" would miss: anchoring must still
+    ///         <i>work</i> afterwards. A fix that dropped the anchor and never chose another would
+    ///         pass the first assertion and leave every later growth above the reader uncorrected.
+    ///         Row 4 is the anchor at 160; with it gone row 5 slides up to 160 and becomes the new
+    ///         one, and eighty pixels of growth above it move the offset to 240 exactly.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_removed_anchor_is_dropped_and_anchoring_carries_on() {
+        var (fixture, view, row) = Rows();
+
+        view.ScrollTop = 160f;
+        fixture.Update();
+        fixture.Update();
+
+        row[4].Remove();
+        fixture.Update();
+
+        // Nothing corrected for the anchor that left: the reader stays where they were.
+        Assert.Equal(160f, view.ScrollTop, 3);
+
+        fixture.Update();
+
+        row[0].AddClass("grown");
+        fixture.Update();
+
+        Assert.Equal(240f, view.ScrollTop, 3);
+    }
 }
