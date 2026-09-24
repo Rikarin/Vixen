@@ -216,7 +216,12 @@
             </ComboBox>
 
             <Slider bind:Value="@Model.Detail.Value" />
-            <RangeSlider Low="0.2" High="0.8" />
+
+            <!--
+                Five ticks mark the quarters. `SnapsToTicks` makes them the only values a drag or an
+                arrow key can reach; without it they are a ruler under a continuous slider.
+            -->
+            <RangeSlider Low="0.25" High="0.75" TickCount="5" SnapsToTicks="true" />
 
             <field-readout class="text-xs text-slate-400">
                 @Model.Name.Value · @Model.Blend.Value · detail @Detail
