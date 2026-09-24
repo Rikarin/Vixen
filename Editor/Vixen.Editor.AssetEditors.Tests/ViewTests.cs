@@ -771,4 +771,67 @@ public class AudioMixerViewTests {
 
         Assert.Equal(string.Empty, view.Selected);
     }
+
+    /// <summary>The mixer at a stated width, with the side column and the strips it lays out beside.</summary>
+    static (UiElement Body, UiElement Side, UiElement Strips) Measure(ViewHarness harness, AudioMixerView view) {
+        harness.Ui.Frame();
+
+        return (view.StripsView.Parent!, view.Side.Parent!, view.StripsView);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The side column is 300 px however many buses there are (#1397).</b> The strips had no
+    ///     <c>flex-basis</c>, so their basis was their content: every strip is 76 px and refuses to
+    ///     shrink, so sixteen buses made a basis of about 1 500 px. Flex shrinking is weighted by basis,
+    ///     so the side column's 300 px gave up a share of the whole overflow, and every bus added took
+    ///     more from it. At sixteen buses in the editor it was 143 px, and its analysis line read
+    ///     "19 bus(e". The strips scroll, so they are the pane that should give way.
+    /// </summary>
+    [Fact]
+    public void TheSideColumnDoesNotShrinkAsBusesAreAdded() {
+        using var harness = new ViewHarness();
+        harness.Ui.Load("mixer-editor { width: 1000px; max-width: 1000px; height: 600px; flex-grow: 0; }");
+
+        var view = Open(harness, out var document);
+        var before = Measure(harness, view).Side.Width;
+
+        for (var bus = 0; bus < 16; bus++) {
+            document.AddBus($"Bus {bus}", "Master");
+        }
+
+        var (body, side, strips) = Measure(harness, view);
+
+        // Wider than the column, a gap and one strip, which is the case the column must hold in.
+        Assert.True(body.Width > 300f + 6f + 76f, $"the body is only {body.Width:0} px, so this proves nothing");
+        Assert.Equal(300f, before, 0.5f);
+        Assert.Equal(300f, side.Width, 0.5f);
+
+        // And the strips have the rest, rather than the rest being left empty.
+        Assert.Equal(body.Width - 300f - 6f, strips.Width, 0.5f);
+    }
+
+    /// <summary>In a dock too narrow for both, the side column gives way first and the strips keep one strip.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half the obvious fix breaks.</b> <c>flex-basis: 0</c> on the strips alone makes them
+    ///     take only what is left after the side column's 300 px. In a 330 px dock that is 24 px: not
+    ///     one strip, and the side column shrinking was put there so that the pane beside it is not
+    ///     left with nothing (the comment on <c>mixer-side</c>). A floor of one strip keeps both.
+    /// </remarks>
+    [Fact]
+    public void InANarrowDockTheStripsKeepOneStrip() {
+        using var harness = new ViewHarness();
+        harness.Ui.Load("mixer-editor { width: 330px; max-width: 330px; height: 600px; flex-grow: 0; }");
+
+        var view = Open(harness, out var document);
+
+        for (var bus = 0; bus < 16; bus++) {
+            document.AddBus($"Bus {bus}", "Master");
+        }
+
+        var (body, side, strips) = Measure(harness, view);
+
+        Assert.True(strips.Width >= 76f, $"the strips are {strips.Width:0} px, narrower than one strip");
+        Assert.True(side.Width >= 120f, $"the side column is {side.Width:0} px, under its floor");
+        Assert.True(side.Width < 300f, $"the side column is {side.Width:0} px and did not give way");
+    }
 }
