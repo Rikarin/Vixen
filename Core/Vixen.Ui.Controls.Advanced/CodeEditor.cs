@@ -592,6 +592,12 @@ public sealed partial class CodeEditor : Control, ITextInputTarget {
         Gutter = Part("code-gutter");
         Scroller = Part<ScrollView>();
 
+        // ⚠ The gutter is the scroller's sibling so that it follows the vertical scroll and not the
+        // horizontal one (see `Realise`), and a sibling's wheel and finger bubble past the scroller
+        // to whatever holds the editor. Routed here, the margin scrolls the code as every editor's
+        // does, and a gesture the code cannot take still chains outward (#1365).
+        Scroller.ScrollFrom(Gutter);
+
         // ⚠ Three siblings in this order, and the order is the whole design: painting order is
         // document order, so the selection is under the text and the caret is over it. An editor
         // that drew both from one place would have to put both on the same side of the glyphs.

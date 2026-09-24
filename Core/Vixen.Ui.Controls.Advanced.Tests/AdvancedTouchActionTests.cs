@@ -312,18 +312,9 @@ public class AdvancedTouchActionTests {
         Assert.Equal(caret, editor.Caret);
     }
 
-    /// <summary>The other half: a finger that starts a scroll on the gutter scrolls, and folds nothing.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Inside an outer view, because the gutter is not inside the editor's own.</b>
-    ///     <c>code-gutter</c> is a sibling of <see cref="CodeEditor.Scroller" />, so a finger dragged
-    ///     on it scrolls whatever view holds the editor and never the code — a first draft that
-    ///     measured the editor's scroller went red on its "the drag scrolled" precondition for exactly
-    ///     that reason. The outer view moving is what says the gesture was a scroll and not a tap.
-    /// </remarks>
-    [Fact]
-    public void A_finger_scroll_that_starts_on_the_gutter_folds_nothing() {
+    /// <summary>A folding editor inside the 200×200 outer view, so a gesture that escapes the code has somewhere visible to go.</summary>
+    static (AdvancedFixture Fixture, ScrollView View, CodeEditor Editor) NestedFolding() {
         var (fixture, view, control) = Themed(static (document, parent) => document.Create<CodeEditor>(null, parent, "knob"));
-        using var _ = fixture;
 
         var editor = (CodeEditor)control;
         editor.Source = string.Join('\n', Enumerable.Range(0, 150).Select(static block => $"block{block}\n    alpha\n    bravo"));
@@ -332,13 +323,77 @@ public class AdvancedTouchActionTests {
         editor.Refresh();
         fixture.Update();
 
+        return (fixture, view, editor);
+    }
+
+    /// <summary>The other half: a finger that starts a scroll on the gutter scrolls the code, and folds nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The code, and not the view that holds the editor (#1365).</b> <c>code-gutter</c> is a
+    ///     sibling of <see cref="CodeEditor.Scroller" /> rather than inside it — it must follow the
+    ///     vertical scroll and not the horizontal one — so a drag on it used to bubble past the code's
+    ///     scroller to whatever view held the editor. This test was first written, under #1357, to
+    ///     assert exactly that, because a draft that measured the editor's own scroller went red on
+    ///     its "the drag scrolled" precondition. The gutter now scrolls the code through
+    ///     <see cref="ScrollView.ScrollFrom" />, so the outer view is the one that must not move, and
+    ///     the code moving is what says the gesture was a scroll rather than a tap.
+    /// </remarks>
+    [Fact]
+    public void A_finger_scroll_that_starts_on_the_gutter_scrolls_the_code_and_folds_nothing() {
+        var (fixture, view, editor) = NestedFolding();
+        using var _ = fixture;
+
         var arrow = Arrow(editor);
         var line = arrow.Index;
         var (x, y) = AdvancedFixture.Centre(arrow);
+        var code = editor.Scroller.ScrollTop;
 
-        Assert.True(Drag(fixture, view, x, y, 0f, -Step).Top > 0f, "the drag from the gutter never scrolled, so it folding nothing proves nothing");
+        var outer = Drag(fixture, view, x, y, 0f, -Step);
+
+        Assert.True(editor.Scroller.ScrollTop > code, $"a drag from the gutter left the code at {editor.Scroller.ScrollTop}");
+        Assert.Equal((0f, 0f), outer);
         Assert.False(editor.IsCollapsed(line), $"a scroll that started on line {line}'s arrow folded it");
         Assert.DoesNotContain(editor.Folds, fold => editor.IsCollapsed(fold.Start));
+    }
+
+    /// <summary>
+    ///     A mouse wheel over the margin scrolls the code, which is what every desktop editor does
+    ///     with it — and it was the same defect as the drag, since <see cref="CodeEditor" /> has no
+    ///     wheel handling of its own and the gutter is outside the scroller the wheel reaches.
+    /// </summary>
+    [Fact]
+    public void A_wheel_over_the_gutter_scrolls_the_code_and_not_the_view_around_it() {
+        var (fixture, view, editor) = NestedFolding();
+        using var _ = fixture;
+
+        var (x, y) = AdvancedFixture.Centre(Arrow(editor));
+
+        fixture.WheelAt(x, y, 60f);
+
+        Assert.True(editor.Scroller.ScrollTop > 0f, "a wheel over the gutter left the code where it was");
+        Assert.Equal(0f, view.ScrollTop);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And chaining is unchanged.</b> A wheel the code cannot take — it is already at the
+    ///     bottom — still goes on to the view that holds the editor, as it does from the code itself.
+    ///     A gutter that swallowed every wheel would make a page with an editor in it unscrollable
+    ///     wherever the margin sits.
+    /// </summary>
+    [Fact]
+    public void A_wheel_the_code_cannot_take_still_reaches_the_view_around_it() {
+        var (fixture, view, editor) = NestedFolding();
+        using var _ = fixture;
+
+        var (x, y) = AdvancedFixture.Centre(Arrow(editor));
+        editor.Scroller.ScrollTop = editor.Scroller.MaximumTop;
+        fixture.Update();
+
+        Assert.True(editor.Scroller.MaximumTop > 0f);
+
+        fixture.WheelAt(x, y, 60f);
+
+        Assert.Equal(editor.Scroller.MaximumTop, editor.Scroller.ScrollTop);
+        Assert.True(view.ScrollTop > 0f, "a wheel the code could not take never reached the outer view");
     }
 
     static UiElement Create(UiDocument document, UiElement parent, string tag) => tag switch {
