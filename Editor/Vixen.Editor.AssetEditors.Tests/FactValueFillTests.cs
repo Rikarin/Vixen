@@ -21,8 +21,10 @@ namespace Vixen.Editor.AssetEditors.Tests;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The cell holds more than fields</b> — a check box, a toggle, a button, a plain
-///         <c>text</c> — so the rule is the same list <c>key-value-value</c> and <c>field-content</c>
-///         use, and a check box in a cell is the control that must keep its own width.
+///         <c>text</c> — so the rule names fields rather than <c>&gt; *</c>, and a check box in a cell
+///         is the control that must keep its own width. It names the three the editor builds in a
+///         cell, not <c>key-value-value</c>'s twelve: this is an editor sheet, and the other nine
+///         matched nothing the tree can build.
 ///     </para>
 /// </remarks>
 public class FactValueFillTests {
