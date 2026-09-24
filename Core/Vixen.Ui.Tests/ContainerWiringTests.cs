@@ -728,6 +728,33 @@ public class ContainerWiringTests {
     }
 
     /// <summary>
+    ///     ⚠ A size query finds a container by any one of the names in its <c>container-name</c> list,
+    ///     written as the longhand or in the shorthand (#273).
+    /// </summary>
+    /// <remarks>
+    ///     Both panels are 450 wide and the rules ask for 400, so each label has to be 300 wide. Before
+    ///     the fix both stayed 10: the chain carried the whole written list, <c>card side</c>, and the
+    ///     name asked for was compared with it whole.
+    /// </remarks>
+    [Fact]
+    public void A_size_query_finds_a_container_by_one_of_its_names() {
+        using var document = Document("""
+            root { width: 1000px; height: 600px; flex-direction: column; }
+            .longhand { container-type: inline-size; container-name: card side; width: 450px; height: 100px; flex-direction: column; }
+            .shorthand { container: card side / inline-size; width: 450px; height: 100px; flex-direction: column; }
+            .label { width: 10px; height: 10px; }
+            @container side (min-width: 400px) { .label { width: 300px; } }
+            """);
+
+        var longhand = document.Root.Add("div", classNames: "longhand").Add("div", classNames: "label");
+        var shorthand = document.Root.Add("div", classNames: "shorthand").Add("div", classNames: "label");
+        document.Update();
+
+        Assert.Equal(300f, longhand.Width, 0.001f);
+        Assert.Equal(300f, shorthand.Width, 0.001f);
+    }
+
+    /// <summary>
     ///     ⚠ A named style query follows the named card through a live document, past an element that
     ///     declares the same property itself (#273).
     /// </summary>

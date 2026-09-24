@@ -255,17 +255,8 @@ static class StyleQuery {
             return false;
         }
 
-        if (name is null) {
-            return true;
-        }
-
-        foreach (var range in written.SplitAny(' ', '\t', '\n')) {
-            if (written[range].Equals(name, StringComparison.Ordinal)) {
-                return true;
-            }
-        }
-
-        return false;
+        // One definition of a name list for both halves, since a mixed query asks both of one box.
+        return name is null || ContainerConditions.Carries(written, name);
     }
 
     static ReadOnlySpan<char> ReadNames(ComputedStyle style, NameTable properties, NameTable values) {

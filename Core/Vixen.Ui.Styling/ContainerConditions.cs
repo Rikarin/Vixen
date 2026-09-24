@@ -257,7 +257,7 @@ public sealed class ContainerConditions {
                 continue;
             }
 
-            if (name.Length != 0 && !string.Equals(candidate.Name, name, StringComparison.Ordinal)) {
+            if (name.Length != 0 && !Carries(candidate.Name, name)) {
                 continue;
             }
 
@@ -269,11 +269,32 @@ public sealed class ContainerConditions {
         return false;
     }
 
+    /// <summary>Whether a written <c>container-name</c> list includes one name.</summary>
+    /// <param name="names">The list as the container wrote it, <c>card side</c>.</param>
+    /// <param name="name">The one name a query asks for.</param>
+    /// <returns>Whether any entry is that name, compared whole and case-sensitively.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A list, CSS Containment 3 § 3.1, and this used to compare it whole (#273).</b> A box
+    ///     named <c>card side</c> was found by neither <c>@container card</c> nor <c>@container
+    ///     side</c>, while a <c>style()</c> query found it by either — <c>StyleQuery.Names</c> splits
+    ///     the list. A mixed query asks both halves of one box, so the two have to agree on what a
+    ///     name is.
+    /// </remarks>
+    internal static bool Carries(ReadOnlySpan<char> names, string name) {
+        foreach (var range in names.SplitAny(' ', '\t', '\n')) {
+            if (names[range].Equals(name, StringComparison.Ordinal)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     readonly record struct Group(int Within, string Name, string Condition);
 }
 
 /// <summary>One container in an element's ancestry.</summary>
-/// <param name="Name">Its <c>container-name</c>, or empty.</param>
+/// <param name="Name">Its <c>container-name</c> list as written, <c>card side</c>, or empty. A query asks for one entry.</param>
 /// <param name="Box">Its measured box and which axes it may be asked about.</param>
 public readonly record struct ContainerScope(string Name, ContainerBox Box);
 

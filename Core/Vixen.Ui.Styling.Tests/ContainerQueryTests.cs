@@ -114,6 +114,33 @@ public class ContainerQueryTests {
         Assert.Equal("named", fixture.Value(fixture.Tree.CreateElement("div", named, classNames: ["leaf"])));
     }
 
+    /// <summary>
+    ///     ⚠ <c>container-name</c> is a list, and a size query asks for any one name in it (#273).
+    /// </summary>
+    /// <remarks>
+    ///     CSS Containment 3 § 3.1: <c>container-name: card side</c> gives the box both names. The
+    ///     style query already read it that way (<c>StyleQuery.Names</c>). The size query compared the
+    ///     whole written list with the one name asked for, so <c>@container side (…)</c> never found a
+    ///     box named <c>card side</c>, silently. The two halves of a mixed query have to pick the same
+    ///     box, so they have to agree on what a name is. <c>card-like</c> is the negative: a name
+    ///     matches whole, never as a prefix or a substring.
+    /// </remarks>
+    [Theory]
+    [InlineData("card side", "side", true)]
+    [InlineData("card side", "card", true)]
+    [InlineData("card  side", "side", true)]
+    [InlineData("card-like side", "card", false)]
+    [InlineData("cardside", "side", false)]
+    public void A_size_query_finds_a_container_by_any_name_in_its_list(string names, string asked, bool matches) {
+        var fixture = new CascadeFixture();
+        fixture.Load($"@container {asked} (min-width: 400px) {{ .leaf {{ color: named }} }}");
+
+        var container = fixture.Tree.CreateElement("div");
+        fixture.Contain(container, width: 900f, name: names);
+
+        Assert.Equal(matches ? "named" : null, fixture.Value(fixture.Tree.CreateElement("div", container, classNames: ["leaf"])));
+    }
+
     [Fact]
     public void An_unnamed_query_asks_the_nearest_container_whatever_its_name() {
         // ⚠ A name is a label a box carries, not a category it joins. Skipping named containers for an
