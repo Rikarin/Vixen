@@ -7,6 +7,7 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Ai;
 using Vixen.Editor.Core;
+using Vixen.Input;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -47,6 +48,7 @@ public sealed class BehaviorTreeView : Control {
     BehaviorAttachmentContent? selectedAttachment;
     BehaviorAttachmentSlot selectedSlot;
     bool listening;
+    Vector2 pointer;
 
     /// <inheritdoc />
     protected override string TagName => "behaviortree-editor";
@@ -78,7 +80,21 @@ public sealed class BehaviorTreeView : Control {
     /// <summary>The button that lays it out.</summary>
     public Button Arrange { get; private set; } = null!;
 
+    /// <summary>The button that searches for a node to add under the selection, or beside it.</summary>
+    public Button AddNode { get; private set; } = null!;
+
+    /// <summary>The button that searches for a decorator to put on the selected node.</summary>
+    public Button AddDecorator { get; private set; } = null!;
+
+    /// <summary>The button that searches for a service to put on the selected composite.</summary>
+    public Button AddService { get; private set; } = null!;
+
     /// <summary>The search-to-create popup, filtered by what may go where.</summary>
+    /// <remarks>
+    ///     Opened three ways, and until #1370 by none: Space over the tree (a node, at the pointer,
+    ///     as the shader graph does), <see cref="AddNode" />, and the two buttons over the attachment
+    ///     list. It is a root child, so it goes when this view does — see <see cref="OnRemoved" />.
+    /// </remarks>
     public BehaviorSearchPopup Search { get; private set; } = null!;
 
     /// <summary>The node that is selected, or null.</summary>
@@ -110,11 +126,21 @@ public sealed class BehaviorTreeView : Control {
         Build.Label = "Compile";
         Arrange = toolbar.Add<Button>();
         Arrange.Label = "Lay out";
+        AddNode = toolbar.Add<Button>();
+        AddNode.Label = "Add node";
 
         Side.Add("panel-title").Text = "Blackboard";
         Keys = Side.Add("behaviortree-keys");
 
         Side.Add("panel-title").Text = "Attachments";
+
+        var adding = Side.Add("behaviortree-toolbar");
+
+        AddDecorator = adding.Add<Button>();
+        AddDecorator.Label = "Add decorator";
+        AddService = adding.Add<Button>();
+        AddService.Label = "Add service";
+
         Attachments = Side.Add("behaviortree-attachments");
 
         Side.Add("panel-title").Text = "Settings";
@@ -123,10 +149,34 @@ public sealed class BehaviorTreeView : Control {
         Side.Add("panel-title").Text = "Diagnostics";
         Diagnostics = Side.Add("behaviortree-diagnostics");
 
-        Search = Add<BehaviorSearchPopup>();
+        // A root child, as the shader graph's is: an overlay has to hang outside whatever clips this
+        // panel, which for a tree docked in a corner is most of the window.
+        Search = Document.Root.Add<BehaviorSearchPopup>();
         Search.Chosen += Created;
 
         AddHandler<ClickEvent>(static (element, args) => ((BehaviorTreeView) element).Chosen(args));
+
+        // Capture, so Space is taken before the canvas reads it as "activate the node the arrows
+        // are on" — the trade `NodeGraphView` makes for the same key, and Enter still does that.
+        AddHandler<KeyEvent>(static (element, args) => ((BehaviorTreeView) element).Keyed(args), RoutingStrategy.Capture);
+        AddHandler<PointerEvent>(
+            static (element, args) => ((BehaviorTreeView) element).pointer = new(args.X, args.Y),
+            RoutingStrategy.Capture,
+            handledEventsToo: true
+        );
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The popup is a root child, so it does not go when this does</b> — <c>NodeGraphView</c>'s
+    ///     debt, paid the same way.
+    /// </remarks>
+    protected override void OnRemoved() {
+        if (Search is { IsRemoved: false } popup) {
+            Document.Remove(popup);
+        }
+
+        base.OnRemoved();
     }
 
     /// <summary>Shows a document.</summary>
@@ -260,14 +310,104 @@ public sealed class BehaviorTreeView : Control {
 
     /// <summary>Opens the search popup for what may go in a slot.</summary>
     /// <param name="slot">Which slot.</param>
-    /// <param name="x">Where to put the popup.</param>
+    /// <param name="x">Where to put the popup, in document space.</param>
     /// <param name="y">Ditto.</param>
-    public void OpenSearch(BehaviorSlot slot, float x, float y) {
+    /// <returns>Whether it opened: a decorator needs a selected node, and a service a selected composite.</returns>
+    public bool OpenSearch(BehaviorSlot slot, float x, float y) {
         if (document is null) {
-            return;
+            return false;
+        }
+
+        switch (slot) {
+            case BehaviorSlot.Decorator when selected is null:
+            case BehaviorSlot.Service when !IsComposite(selected):
+                return false;
+
+            case BehaviorSlot.Composite or BehaviorSlot.Task:
+                return OpenNodeSearch(x, y);
         }
 
         Search.Show(document.Model.Schema, slot, x, y);
+
+        return true;
+    }
+
+    /// <summary>Opens the search popup for a node to add under the selection, or beside it.</summary>
+    /// <param name="x">Where to put the popup, in document space.</param>
+    /// <param name="y">Ditto.</param>
+    /// <returns>Whether there was anywhere to put one.</returns>
+    /// <remarks>
+    ///     A composite's child row takes a composite or a task, so both are offered. What the new node
+    ///     goes under is decided when it is chosen — <see cref="PlaceFor" />.
+    /// </remarks>
+    public bool OpenNodeSearch(float x, float y) {
+        if (document is null || PlaceFor(document.Model) is null) {
+            return false;
+        }
+
+        Search.Show(document.Model.Schema, [BehaviorSlot.Composite, BehaviorSlot.Task], x, y);
+
+        return true;
+    }
+
+    /// <summary>Where a node created now would go: under the selection, or beside it.</summary>
+    /// <returns>
+    ///     The parent (null for "becomes the root") and the index among its children, or null when
+    ///     there is nowhere — a task is the root and cannot have a sibling.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>A task takes no children, so a node asked for "under" one goes after it.</b> Inserting
+    ///     under a leaf was what <see cref="Created" /> would have done had anything ever called it,
+    ///     and the compiler would then have refused the tree.
+    /// </remarks>
+    (BehaviorNodeContent? Parent, int At)? PlaceFor(BehaviorTreeModel model) {
+        if (model.Content.Root is null) {
+            return (null, -1);
+        }
+
+        if (selected is null) {
+            return null;
+        }
+
+        if (IsComposite(selected)) {
+            return (selected, -1);
+        }
+
+        return model.Parent(selected) is { } parent ? (parent, parent.Children.IndexOf(selected) + 1) : null;
+    }
+
+    bool IsComposite(BehaviorNodeContent? node) =>
+        node is not null && document is not null
+        && (node.Children.Count > 0 || document.Model.TypeOf(node) is { Slot: BehaviorSlot.Composite });
+
+    void Keyed(KeyEvent args) {
+        if (args.Action != KeyAction.Pressed || args.Key != InputKey.Space || args.Modifiers != ModifierKeys.None) {
+            return;
+        }
+
+        // Anything with a caret inside this view keeps its spaces. `ITextInputTarget` rather than
+        // `TextField`, for the reason #650 gave `CommandDispatcher`: a code editor wants them too.
+        if (Document.Focused is ITextInputTarget) {
+            return;
+        }
+
+        if (OpenNodeSearch(pointer.X, pointer.Y)) {
+            args.Handled = true;
+        }
+    }
+
+    /// <summary>Opens the search under a button, which is where somebody who clicked it is looking.</summary>
+    void OpenUnder(UiElement button, BehaviorSlot slot) {
+        var at = button.Bounds;
+
+        OpenSearch(slot, at.Left, at.Bottom + 4f);
+    }
+
+    /// <summary>Greys out the attachment buttons that have nothing to attach to.</summary>
+    void RefreshButtons() {
+        AddDecorator.Disabled = selected is null;
+        AddService.Disabled = !IsComposite(selected);
+        AddNode.Disabled = document is null || PlaceFor(document.Model) is null;
     }
 
     void RefreshKeys() {
@@ -287,6 +427,7 @@ public sealed class BehaviorTreeView : Control {
 
     void RefreshAttachments() {
         Empty(Attachments);
+        RefreshButtons();
 
         if (selected is null || document is null) {
             return;
@@ -458,11 +599,14 @@ public sealed class BehaviorTreeView : Control {
     }
 
     void Created(BehaviorNodeType type) {
-        if (document is null || selected is null) {
+        if (document is null) {
             return;
         }
 
         switch (type.Slot) {
+            case BehaviorSlot.Decorator or BehaviorSlot.Service when selected is null:
+                return;
+
             case BehaviorSlot.Decorator:
                 document.Edit(
                     "Add Decorator",
@@ -480,11 +624,23 @@ public sealed class BehaviorTreeView : Control {
                 break;
 
             default:
+                if (PlaceFor(document.Model) is not var (parent, at)) {
+                    return;
+                }
+
                 var added = BehaviorTreeModel.Make(type);
 
-                added.X = selected.X;
-                added.Y = selected.Y + 130f;
-                document.Edit("Add Node", model => model.Insert(selected, added));
+                // Under its parent, or beside the leaf it was asked for beside. The positions are a
+                // first guess the layout button corrects; what matters is that it is not on top of
+                // anything.
+                if (selected is not null) {
+                    var beside = !ReferenceEquals(parent, selected);
+
+                    added.X = selected.X + (beside ? 200f : 0f);
+                    added.Y = selected.Y + (beside ? 0f : 130f);
+                }
+
+                document.Edit("Add Node", model => model.Insert(parent, added, at));
 
                 break;
         }
@@ -513,6 +669,22 @@ public sealed class BehaviorTreeView : Control {
 
             if (ReferenceEquals(element, Arrange)) {
                 document?.Layout();
+                args.Handled = true;
+
+                return;
+            }
+
+            if (ReferenceEquals(element, AddNode)) {
+                var at = AddNode.Bounds;
+
+                OpenNodeSearch(at.Left, at.Bottom + 4f);
+                args.Handled = true;
+
+                return;
+            }
+
+            if (ReferenceEquals(element, AddDecorator) || ReferenceEquals(element, AddService)) {
+                OpenUnder(element, ReferenceEquals(element, AddDecorator) ? BehaviorSlot.Decorator : BehaviorSlot.Service);
                 args.Handled = true;
 
                 return;

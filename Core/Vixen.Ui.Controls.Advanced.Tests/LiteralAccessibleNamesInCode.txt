@@ -29,6 +29,9 @@ Editor/Vixen.Editor.App/EditorWorlds.cs	Button.Label	Recompute budgets
 Editor/Vixen.Editor.App/EditorWorlds.cs	CheckBox.Label	Draw the navigation mesh
 Editor/Vixen.Editor.App/ProjectBrowser.cs	Button.Label	Filters
 Editor/Vixen.Editor.App/ProjectBrowser.cs	ToggleButton.Label	Grid
+Editor/Vixen.Editor.AssetEditors/Ai/BehaviorTreeView.cs	Button.Label	Add decorator
+Editor/Vixen.Editor.AssetEditors/Ai/BehaviorTreeView.cs	Button.Label	Add node
+Editor/Vixen.Editor.AssetEditors/Ai/BehaviorTreeView.cs	Button.Label	Add service
 Editor/Vixen.Editor.AssetEditors/Ai/BehaviorTreeView.cs	Button.Label	Compile
 Editor/Vixen.Editor.AssetEditors/Ai/BehaviorTreeView.cs	Button.Label	Lay out
 Editor/Vixen.Editor.AssetEditors/Animation/AnimationClipView.cs	Button.Label	Add

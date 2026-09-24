@@ -3,6 +3,7 @@
 
 using Vixen.Ai;
 using Vixen.Editor.Core;
+using Vixen.Input;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -24,18 +25,24 @@ namespace Vixen.Editor.AssetEditors.Ai;
 ///         factory this library has neither of. Twenty lines of ranking against a reference to a
 ///         framework whose model was deliberately not taken is the wrong trade — doc 37 § D19.
 ///     </para>
+///     <para>
+///         ⚠ <b>An overlay and a root child, as <c>NodeSearchPopup</c> is, and it was neither.</b> It
+///         used to be a child of the tree view placed with <c>left</c>/<c>top</c> — which are
+///         relative to the view, while <see cref="Show(BehaviorNodeSchema, BehaviorSlot, float, float)" />
+///         was documented as taking document space, so every panel not docked at the window's origin
+///         would have put it off by the panel's offset. Nobody saw that because nothing ever opened it
+///         (#1370). As an overlay it is drawn over whatever clips the panel, closes on Escape and on a
+///         press outside it, and keeps the focus in its field so the next letter typed lands there.
+///     </para>
 /// </remarks>
-public sealed class BehaviorSearchPopup : Control {
+public sealed class BehaviorSearchPopup : Overlay {
     readonly List<BehaviorNodeType> matches = [];
 
     BehaviorNodeSchema? schema;
-    BehaviorSlot slot;
+    BehaviorSlot[] slots = [];
 
     /// <inheritdoc />
     protected override string TagName => "behavior-search";
-
-    /// <inheritdoc />
-    protected override bool AcceptsFocus => true;
 
     /// <summary>What was typed.</summary>
     public TextBox Query { get; private set; } = null!;
@@ -43,11 +50,11 @@ public sealed class BehaviorSearchPopup : Control {
     /// <summary>The rows.</summary>
     public UiElement Results { get; private set; } = null!;
 
-    /// <summary>Whether it is showing.</summary>
-    public bool IsOpen { get; private set; }
-
     /// <summary>What is offered, best first.</summary>
     public IReadOnlyList<BehaviorNodeType> Matches => matches;
+
+    /// <summary>Which slots it was opened for.</summary>
+    public IReadOnlyList<BehaviorSlot> Slots => slots;
 
     /// <summary>Raised when a row is picked.</summary>
     public event Action<BehaviorNodeType>? Chosen;
@@ -56,14 +63,21 @@ public sealed class BehaviorSearchPopup : Control {
     protected override void OnCreated() {
         base.OnCreated();
 
+        IsFocusScope = true;
+
         Query = Add<TextBox>();
         Query.Placeholder = "Search nodes…";
         Query.ValueChanged += (_, _) => Rank();
 
         Results = Add("behavior-search-results");
-        AddClass("hidden");
 
-        AddHandler<ClickEvent>(static (element, args) => ((BehaviorSearchPopup) element).Picked(args));
+        // ⚠ `TapEvent` and not `ClickEvent`: a click is an activation and only a `Control` raises one,
+        // so a handler waiting for it on a bare `behavior-search-row` waited for ever — the defect
+        // `ConsoleView.Row` and `MessageLogView` each fixed in their own rows (#89, 7d5ba5692).
+        AddHandler<TapEvent>(static (element, args) => ((BehaviorSearchPopup) element).Picked(args));
+
+        // Capture, so Enter is taken before the field treats it as a submit of its own.
+        AddHandler<KeyEvent>(static (element, args) => ((BehaviorSearchPopup) element).Keyed(args), RoutingStrategy.Capture);
     }
 
     /// <summary>Opens it over a slot.</summary>
@@ -72,25 +86,35 @@ public sealed class BehaviorSearchPopup : Control {
     /// <param name="x">Where to put the popup, in document space.</param>
     /// <param name="y">Ditto.</param>
     /// <exception cref="ArgumentNullException"><paramref name="library" /> is null.</exception>
-    public void Show(BehaviorNodeSchema library, BehaviorSlot wanted, float x, float y) {
+    public void Show(BehaviorNodeSchema library, BehaviorSlot wanted, float x, float y) => Show(library, [wanted], x, y);
+
+    /// <summary>Opens it for anything that fits one of several slots.</summary>
+    /// <param name="library">The node library.</param>
+    /// <param name="wanted">
+    ///     The slots the new thing may fill — a composite's child row takes a composite or a task, so
+    ///     that gesture asks for both.
+    /// </param>
+    /// <param name="x">Where to put the popup, in document space.</param>
+    /// <param name="y">Ditto.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="library" /> or <paramref name="wanted" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>The query is cleared every time</b>, for <c>NodeSearchPopup</c>'s reason: a popup that
+    ///     remembered the last word makes the common case start by deleting it.
+    /// </remarks>
+    public void Show(BehaviorNodeSchema library, IReadOnlyList<BehaviorSlot> wanted, float x, float y) {
         ArgumentNullException.ThrowIfNull(library);
+        ArgumentNullException.ThrowIfNull(wanted);
 
         schema = library;
-        slot = wanted;
-        IsOpen = true;
-
-        RemoveClass("hidden");
-        SetStyle("left", Pixels(x));
-        SetStyle("top", Pixels(y));
+        slots = [.. wanted];
 
         Query.Value = string.Empty;
         Rank();
-    }
 
-    /// <summary>Closes it.</summary>
-    public void Close() {
-        IsOpen = false;
-        AddClass("hidden");
+        Open();
+        MoveTo(x, y);
+
+        Document.Focus(Query);
     }
 
     /// <summary>Re-ranks the rows against what has been typed.</summary>
@@ -107,16 +131,19 @@ public sealed class BehaviorSearchPopup : Control {
 
         var query = (Query.Value ?? string.Empty).Trim();
 
-        foreach (var type in schema.For(slot)) {
-            if (Score(type, query) > 0) {
-                matches.Add(type);
-            }
-        }
-
         // Best first, and ties on the declaration order — which groups the composites together and
         // puts Selector above Sequence, because that is the order somebody reading the library
-        // learned them in.
-        matches.Sort((left, right) => Score(right, query).CompareTo(Score(left, query)));
+        // learned them in. ⚠ `OrderByDescending` because it is stable and `List.Sort` is not: the
+        // latter only kept the order because a single slot is under sixteen types, where it happens
+        // to use an insertion sort; a composite's child row asks for two slots and is not.
+        matches.AddRange(
+            schema.Types
+                .Where(type => Array.IndexOf(slots, type.Slot) >= 0)
+                .Select(type => (Type: type, Score: Score(type, query)))
+                .Where(entry => entry.Score > 0)
+                .OrderByDescending(entry => entry.Score)
+                .Select(entry => entry.Type)
+        );
 
         foreach (var type in matches) {
             var row = Results.Add("behavior-search-row");
@@ -171,8 +198,15 @@ public sealed class BehaviorSearchPopup : Control {
         return true;
     }
 
-    static string Pixels(float value) =>
-        value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "px";
+    void Keyed(KeyEvent args) {
+        if (args.Action != KeyAction.Pressed || args.Key is not (InputKey.Enter or InputKey.KeypadEnter)) {
+            return;
+        }
+
+        // The best match, which is the one at the top: type three letters, press Enter.
+        Pick(0);
+        args.Handled = true;
+    }
 
     static int IndexIn(UiElement list, UiElement child) {
         for (var index = 0; index < list.Children.Count; index++) {
@@ -184,7 +218,7 @@ public sealed class BehaviorSearchPopup : Control {
         return -1;
     }
 
-    void Picked(ClickEvent args) {
+    void Picked(TapEvent args) {
         // ⚠ Found by position rather than by a reference on the element: `UiElement.Tag` is the
         // element's *name* in this framework, not a slot for an object, so the row's index in the
         // ranked list is what ties it back to what it offers.

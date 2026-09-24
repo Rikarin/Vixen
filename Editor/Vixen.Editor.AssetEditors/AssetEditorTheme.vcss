@@ -514,7 +514,8 @@ inspector-value { flex-grow: 1; min-width: 0px; overflow: hidden; }
    without a hover — which is the half of a schema that a hand-written panel loses. */
 inspector-hint { display: none; }
 
-/* The search-to-create popup. Absolute over the canvas, hidden until it is asked for. */
+/* The search-to-create popup. An overlay and a root child, so absolute over the whole window
+   and hidden by the overlay's own `.closed` until it is asked for. */
 behavior-search {
     position: absolute;
     flex-direction: column;
@@ -528,7 +529,6 @@ behavior-search {
     overflow: hidden;
 }
 
-behavior-search.hidden { display: none; }
 behavior-search-results { flex-direction: column; gap: 1px; overflow: hidden; }
 
 behavior-search-row {

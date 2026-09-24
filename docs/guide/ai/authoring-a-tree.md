@@ -81,6 +81,14 @@ composite and no further, which makes the region it can interrupt a **subtree** 
 thing that can be drawn. Select a decorator with `Aborts` set to anything but `None` and the region
 is shaded on the canvas.
 
+### Adding nodes
+
+The search popup is filtered by what may go where. **Space** over the canvas, or **Add node** in the
+toolbar, offers composites and tasks: the new node goes under the selected composite, or after the
+selected task in its parent, since a task takes no children. **Add decorator** and **Add service**
+over the attachment list offer only those, and a service only on a composite. Type a few letters and
+press **Enter** for the best match, or click a row; **Escape** or a click elsewhere closes it.
+
 ### The inspector
 
 The selected node's settings are drawn from its declaration in `BehaviorNodeSchema` — label, type and
