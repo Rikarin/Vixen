@@ -33,6 +33,18 @@ data-header-cell icon	Bare
 dock-tab icon	-
 dock-tabstrip > icon-button	Bare
 expander-header icon	Bare
+field-content combo-box	-
+field-content level-indicator	-
+field-content multi-select	-
+field-content numeric-input	-
+field-content progress-bar	-
+field-content search-box	-
+field-content secure-textbox	-
+field-content select	-
+field-content slider	-
+field-content stepper	-
+field-content textarea	-
+field-content textbox	-
 gradient-editor color-picker	Bare
 icon-button label	Bare
 key-value-value combo-box	-
