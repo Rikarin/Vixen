@@ -459,7 +459,9 @@ public class VariantCoverageTests {
     [InlineData(typeof(Dialog), "dialog-backdrop", "dialog-surface")]
     [InlineData(typeof(Drawer), "drawer-backdrop", "drawer-surface")]
     public void The_backdrop_variant_reaches_the_sheet_a_real_modal_builds(Type overlay, string backdropTag, string surfaceTag) {
-        using var document = new UiDocument(200f, 100f);
+        const float width = 800f;
+        const float height = 600f;
+        using var document = new UiDocument(width, height);
         var fixture = new UtilityFixture();
 
         ControlTheme.Install(document);
@@ -493,7 +495,7 @@ public class VariantCoverageTests {
         );
 
         // ⚠ And it reaches the frame. The theme places the backdrop over the whole overlay, which
-        // covers the whole 200 × 100 document, so exactly one pure-magenta rectangle is drawn and it
+        // covers the whole 800 × 600 document, so exactly one pure-magenta rectangle is drawn and it
         // is that size at the origin. Magenta's channels survive the linear conversion exactly.
         document.Draw();
 
@@ -502,7 +504,18 @@ public class VariantCoverageTests {
             command => command is { Kind: DrawCommandKind.Rectangle, Color: { R: 1f, G: 0f, B: 1f } }
         );
 
-        Assert.Equal((0f, 0f, 200f, 100f), (painted.X, painted.Y, painted.Width, painted.Height));
+        Assert.Equal((0f, 0f, width, height), (painted.X, painted.Y, painted.Width, painted.Height));
+
+        // ⚠ And some of it is left to see. The surface is drawn over the backdrop, and at 200 × 100
+        // the dialog's 320-wide surface covered the whole document, so the rectangle above was
+        // emitted and then entirely overdrawn: a software capture there counted zero magenta texels.
+        // So the surface must fall strictly inside the document on at least one axis. At this size
+        // a capture of the dialog counts 445 496 magenta texels: 800 × 600 less its 320 × 108
+        // surface, plus the rounded corners' 56.
+        Assert.True(
+            surface.Width < width || surface.Height < height,
+            $"the {surface.Width} × {surface.Height} surface covers the whole {width} × {height} document, so the backdrop is drawn and never seen."
+        );
     }
 
     /// <summary>
