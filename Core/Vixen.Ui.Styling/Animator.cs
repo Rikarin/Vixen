@@ -101,7 +101,15 @@ readonly record struct RunningAnimation(AnimationSpec Spec, float StartedAt);
 ///     </para>
 /// </remarks>
 public sealed class Animator {
-    readonly Dictionary<(int Element, int Property), RunningTransition> running = [];
+    /// <summary>The running transitions, keyed by element and then by property.</summary>
+    /// <remarks>
+    ///     ⚠ <b>By element first, because every per-element question is asked once per element per
+    ///     restyle.</b> A flat <c>(element, property)</c> table answered "what is running on this
+    ///     element" only by walking all of it, which <see cref="Withdrawing" /> did for every element
+    ///     in the style walk the moment anything anywhere transitioned — O(elements × running
+    ///     transitions) per restyle (#1383). See <see cref="TransitionTable" />.
+    /// </remarks>
+    readonly TransitionTable running = new();
     readonly List<(int Element, int Property)> finished = [];
     readonly List<TransitionSpec> specs = [];
     readonly List<AnimationSpec> animationSpecs = [];
@@ -561,9 +569,11 @@ public sealed class Animator {
     public int Advance(float now) {
         finished.Clear();
 
-        foreach (var (key, transition) in running) {
-            if (transition.IsFinished(now)) {
-                finished.Add(key);
+        foreach (var (element, entries) in running.Elements) {
+            foreach (var (property, transition) in entries) {
+                if (transition.IsFinished(now)) {
+                    finished.Add((element, property));
+                }
             }
         }
 
@@ -750,7 +760,11 @@ public sealed class Animator {
     public ComputedStyle Apply(StyleNodeId element, ComputedStyle style, float now) {
         ArgumentNullException.ThrowIfNull(style);
 
-        if (running.Count == 0 && animations.Count == 0) {
+        // ⚠ <b>Per element, and not "is anything running anywhere".</b> `UiDocument.Accumulate`
+        // calls this for every element of every style walk, and the document-wide test let one
+        // spinner send every other element through the loop below and through `Withdrawing` (#1383).
+        // An element with nothing of its own has nothing to overlay.
+        if (!running.Holds(element.Index) && !animations.ContainsKey(element.Index)) {
             return style;
         }
 
@@ -817,16 +831,18 @@ public sealed class Animator {
         float now,
         List<KeyValuePair<int, int>>? overlaid
     ) {
-        if (running.Count == 0) {
+        if (running.Of(element.Index) is not { } entries) {
             return overlaid;
         }
 
-        foreach (var ((index, property), transition) in running) {
-            if (index != element.Index || !transition.IsMix || style.TryGet(property, out _)) {
+        foreach (var (property, transition) in entries) {
+            WithdrawingVisits++;
+
+            if (!transition.IsMix || style.TryGet(property, out _)) {
                 continue;
             }
 
-            if (overlaid is not null && overlaid.Exists(pair => pair.Key == property)) {
+            if (overlaid is not null && Holds(overlaid, property)) {
                 continue;
             }
 
@@ -840,6 +856,25 @@ public sealed class Animator {
         }
 
         return overlaid;
+    }
+
+    /// <summary>How many running transitions <see cref="Withdrawing" /> has looked at, over the animator's life.</summary>
+    /// <remarks>
+    ///     The instrument for #1383, which is a cost and so wants a count rather than a clock: it must
+    ///     not move with the number of <i>other</i> elements that are transitioning.
+    /// </remarks>
+    internal long WithdrawingVisits { get; private set; }
+
+    /// <summary>Whether an overlay under construction already holds a property.</summary>
+    /// <remarks>A loop rather than <c>List.Exists</c>, whose lambda captures and allocates on every call.</remarks>
+    static bool Holds(List<KeyValuePair<int, int>> overlaid, int property) {
+        foreach (var pair in overlaid) {
+            if (pair.Key == property) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Adds the properties this element's animations name and its cascade never gave it.</summary>
@@ -941,10 +976,14 @@ public sealed class Animator {
         // being walked and two slots can map onto one another's old keys.
         var movedTransitions = new List<(int Element, int Property, RunningTransition Value)>(running.Count);
 
-        foreach (var ((element, property), transition) in running) {
+        foreach (var (element, entries) in running.Elements) {
             var to = At(remap, element);
 
-            if (to >= 0) {
+            if (to < 0) {
+                continue;
+            }
+
+            foreach (var (property, transition) in entries) {
                 movedTransitions.Add((to, property, transition));
             }
         }
@@ -1217,5 +1256,89 @@ public sealed class Animator {
         }
 
         return found;
+    }
+}
+
+/// <summary>The animator's running transitions, indexed by element so a per-element question costs that element's entries.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The answer to #1383, and the shape <c>Animator.animations</c> already had.</b> A flat
+///         dictionary keyed <c>(element, property)</c> is O(1) for "this property of this element" and
+///         O(everything) for "every transition on this element" — and the second is the question the
+///         style walk asks of every element on every restyle while anything is transitioning.
+///     </para>
+///     <para>
+///         An element's inner table is recycled rather than dropped when its last transition ends: a
+///         pointer brushing across a list starts and finishes a transition per row, and a fresh
+///         dictionary per row per hover is garbage the flat table never made.
+///     </para>
+/// </remarks>
+sealed class TransitionTable {
+    readonly Dictionary<int, Dictionary<int, RunningTransition>> byElement = [];
+    readonly Stack<Dictionary<int, RunningTransition>> spare = [];
+
+    /// <summary>How many transitions are running, over every element.</summary>
+    public int Count { get; private set; }
+
+    /// <summary>Every element with a transition, and its transitions by property.</summary>
+    public Dictionary<int, Dictionary<int, RunningTransition>> Elements => byElement;
+
+    /// <summary>Whether an element has any transition running.</summary>
+    public bool Holds(int element) => byElement.ContainsKey(element);
+
+    /// <summary>An element's transitions by property, or null where it has none.</summary>
+    public Dictionary<int, RunningTransition>? Of(int element) =>
+        byElement.TryGetValue(element, out var entries) ? entries : null;
+
+    public bool TryGetValue((int Element, int Property) key, out RunningTransition value) {
+        if (byElement.TryGetValue(key.Element, out var entries)) {
+            return entries.TryGetValue(key.Property, out value);
+        }
+
+        value = default;
+        return false;
+    }
+
+    public bool ContainsKey((int Element, int Property) key) =>
+        byElement.TryGetValue(key.Element, out var entries) && entries.ContainsKey(key.Property);
+
+    public RunningTransition this[(int Element, int Property) key] {
+        set {
+            if (!byElement.TryGetValue(key.Element, out var entries)) {
+                entries = spare.Count > 0 ? spare.Pop() : [];
+                byElement[key.Element] = entries;
+            }
+
+            if (entries.TryAdd(key.Property, value)) {
+                Count++;
+            } else {
+                entries[key.Property] = value;
+            }
+        }
+    }
+
+    public bool Remove((int Element, int Property) key) {
+        if (!byElement.TryGetValue(key.Element, out var entries) || !entries.Remove(key.Property)) {
+            return false;
+        }
+
+        Count--;
+
+        if (entries.Count == 0) {
+            byElement.Remove(key.Element);
+            spare.Push(entries);
+        }
+
+        return true;
+    }
+
+    public void Clear() {
+        foreach (var entries in byElement.Values) {
+            entries.Clear();
+            spare.Push(entries);
+        }
+
+        byElement.Clear();
+        Count = 0;
     }
 }
