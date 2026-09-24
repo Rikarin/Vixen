@@ -1,6 +1,6 @@
 # tailwindcss variants that Vixen.Ui.Styling.Utilities does not resolve.
 #
-# 18 of tailwindcss@4.3.3's 88. Measured, not transcribed: Tools/Vixen.TailwindParity hands each
+# 17 of tailwindcss@4.3.3's 88. Measured, not transcribed: Tools/Vixen.TailwindParity hands each
 # variant's probe class to `Variants.TryResolve` — the same call the generator makes — and this file
 # is what it refused. A variant v4 has that Vixen refuses and this file does not name fails as
 # TWP008; a name here that Vixen has since learned fails as TWP009; a name here v4 does not have
@@ -24,8 +24,12 @@
 # child combinator. And it paints the highlight from a `--selection-color` read off its own style, so
 # `selection:` landed as a fourth variant shape — `VariantEffect.Rewrite`, which moves a utility's
 # `background-color` onto that property (#233) — rather than as a pseudo-element.
+#
+# ⚠ Nor is `backdrop`, which this file used to hold with the rest. `Dialog` and `Drawer` build the
+# sheet behind them as `Part("dialog-backdrop")` and `Part("drawer-backdrop")`, so `backdrop:` landed
+# as `placeholder:` did, a child combinator onto those two tags (#233). The claim that it named "a
+# control that does not exist" was false.
 after
-backdrop
 before
 details-content
 file

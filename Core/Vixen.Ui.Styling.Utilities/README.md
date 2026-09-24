@@ -384,7 +384,10 @@ fails it too. ⚠ The parts table is separate from the states table for a reason
 `not-`, `has-`, `group-` and `peer-` compose over `States`, and a child-combinator suffix such as
 `placeholder:`'s `> field-placeholder` read through any of them is either not a selector or a valid
 one meaning something else — so a part must be *not a class* under those four, which the coverage
-file asserts by name. `Variants.RewriteVariants` — `selection:`, which moves a utility's
+file asserts by name. The table has two entries: `placeholder:`, and `backdrop:`, which is
+`> :is(dialog-backdrop, drawer-backdrop)`, the sheet `Dialog` and `Drawer` build behind themselves
+(#233). A generic scene cannot prove that a real control builds the tag, so each entry also has a row
+over the real control, and `backdrop:`'s reads the draw list of an opened modal. `Variants.RewriteVariants` — `selection:`, which moves a utility's
 `background-color` onto the `--selection-color` the text controls paint from — is a tripwire rather
 than an enumeration, because what proves an entry is a control reading its property, and no generic
 scene can: a second entry fails until it has a row like `selection:`'s, which draws a real `TextBox`.

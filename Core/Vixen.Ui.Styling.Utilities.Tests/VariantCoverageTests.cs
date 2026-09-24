@@ -303,7 +303,15 @@ public class VariantCoverageTests {
         new("placeholder", "field-placeholder", 1, true),
         new("placeholder", "field-placeholder", 0, false),
         new("placeholder", "field-text", 1, false),
-        new("placeholder", "field-placeholder", 2, false)
+        new("placeholder", "field-placeholder", 2, false),
+
+        // Both modal overlays' backdrops, since an author means either. The wrong-tag row is the
+        // dialog's own surface, which is the sibling a `> *` would reach.
+        new("backdrop", "dialog-backdrop", 1, true),
+        new("backdrop", "drawer-backdrop", 1, true),
+        new("backdrop", "dialog-backdrop", 0, false),
+        new("backdrop", "dialog-surface", 1, false),
+        new("backdrop", "drawer-backdrop", 2, false)
     ];
 
     public static TheoryData<string, string, int, bool> PartRows {
@@ -377,7 +385,11 @@ public class VariantCoverageTests {
                      "not-placeholder:p-4",
                      "has-placeholder:p-4",
                      "group-placeholder:p-4",
-                     "peer-placeholder:p-4"
+                     "peer-placeholder:p-4",
+                     "not-backdrop:p-4",
+                     "has-backdrop:p-4",
+                     "group-backdrop:p-4",
+                     "peer-backdrop:p-4"
                  }) {
             Assert.DoesNotContain("padding", fixture.Generate(candidate), StringComparison.Ordinal);
         }
@@ -427,6 +439,80 @@ public class VariantCoverageTests {
         // And not the value box beside it, nor the field itself.
         Assert.False(text.Style.TryGet(padding, out _), "the text part was styled, so the tag is not what selected it.");
         Assert.False(field.Style.TryGet(padding, out _), "the field itself was styled, which is F6's own defect.");
+    }
+
+    /// <summary>
+    ///     ⚠ <c>backdrop:</c> reaches the sheet a real <c>Dialog</c> and a real <c>Drawer</c> build,
+    ///     over the control theme that already colours it (#233).
+    /// </summary>
+    /// <remarks>
+    ///     The writer's side, for the reason the placeholder test above gives. The theme is loaded as
+    ///     <c>ControlTheme.Install</c> loads it, because the backdrop is not unstyled: the theme paints
+    ///     it <c>#00000066</c>. So a variant that reached nothing still reads a background, and the
+    ///     assertion is that it reads the utility's. Neither the overlay itself nor its surface may
+    ///     take the colour.
+    /// </remarks>
+    [Theory]
+    [InlineData(typeof(Dialog), "dialog-backdrop", "dialog-surface")]
+    [InlineData(typeof(Drawer), "drawer-backdrop", "drawer-surface")]
+    public void The_backdrop_variant_reaches_the_sheet_a_real_modal_builds(Type overlay, string backdropTag, string surfaceTag) {
+        using var document = new UiDocument(200f, 100f);
+        var fixture = new UtilityFixture();
+
+        ControlTheme.Install(document);
+        document.Load(fixture.Generate("backdrop:bg-[#ff00ff]"), StyleOrigin.Author);
+
+        Overlay modal = overlay == typeof(Dialog)
+            ? document.Root.Add<Dialog>(null, null, "backdrop:bg-[#ff00ff]")
+            : document.Root.Add<Drawer>(null, null, "backdrop:bg-[#ff00ff]");
+
+        // Open, because a closed overlay draws nothing, and a variant that reached the backdrop of
+        // a modal nobody can see would still pass everything above the draw below.
+        modal.Open();
+        document.Update();
+
+        var backdrop = modal.Children.Single(child => child.Tag == backdropTag);
+        var surface = modal.Children.Single(child => child.Tag == surfaceTag);
+        var background = document.Styles.Properties.Lookup("background-color");
+        const string accent = "#ff00ff";
+
+        Assert.True(backdrop.Style.TryGet(background, out var value), "the backdrop has no background at all.");
+        Assert.Equal(Normalised(document, accent), document.Styles.Values.NameOf(value));
+
+        Assert.False(
+            modal.Style.TryGet(background, out var own) && document.Styles.Values.NameOf(own) == Normalised(document, accent),
+            "the overlay itself took the colour, which is F6's own defect."
+        );
+
+        Assert.False(
+            surface.Style.TryGet(background, out var raised) && document.Styles.Values.NameOf(raised) == Normalised(document, accent),
+            "the surface took the colour, so the tag is not what selected it."
+        );
+
+        // ⚠ And it reaches the frame. The theme places the backdrop over the whole overlay, which
+        // covers the whole 200 × 100 document, so exactly one pure-magenta rectangle is drawn and it
+        // is that size at the origin. Magenta's channels survive the linear conversion exactly.
+        document.Draw();
+
+        var painted = Assert.Single(
+            document.Drawing.Commands,
+            command => command is { Kind: DrawCommandKind.Rectangle, Color: { R: 1f, G: 0f, B: 1f } }
+        );
+
+        Assert.Equal((0f, 0f, 200f, 100f), (painted.X, painted.Y, painted.Width, painted.Height));
+    }
+
+    /// <summary>How a colour reads back once the loader has normalised it, by loading it on a probe.</summary>
+    static string Normalised(UiDocument document, string colour) {
+        using var probe = new UiDocument(10f, 10f);
+        probe.Load($"#probe {{ background-color: {colour}; }}", StyleOrigin.Author);
+
+        var element = probe.Create("div", probe.Root, "probe");
+        probe.Update();
+
+        element.Style.TryGet(probe.Styles.Properties.Lookup("background-color"), out var value);
+
+        return probe.Styles.Values.NameOf(value);
     }
 
     [Fact]

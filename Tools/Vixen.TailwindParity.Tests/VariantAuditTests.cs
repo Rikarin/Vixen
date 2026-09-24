@@ -54,7 +54,7 @@ public sealed class VariantAuditTests {
         Assert.Equal([], findings.Select(finding => finding.ToString()));
     }
 
-    /// <summary>⚠ The five pseudo-element variants #233 is about are in the file, by name.</summary>
+    /// <summary>⚠ The four pseudo-element variants #233 still owes are in the file, by name.</summary>
     /// <remarks>
     ///     ⚠ <b>Asserted as membership of the <i>file</i> and not as a refusal by the engine</b>, and
     ///     the difference is the whole point. "<c>before:</c> does not resolve" is already covered by
@@ -68,14 +68,18 @@ public sealed class VariantAuditTests {
         var unsupported = ParityAudit.ReadUnlisted(Files.VariantsUnsupported).ToHashSet(StringComparer.Ordinal);
 
         Assert.Equal(
-            ["after", "backdrop", "before", "file", "marker"],
-            unsupported.Intersect(["after", "backdrop", "before", "file", "marker"], StringComparer.Ordinal).Order()
+            ["after", "before", "file", "marker"],
+            unsupported.Intersect(["after", "before", "file", "marker"], StringComparer.Ordinal).Order()
         );
 
         // ⚠ And `placeholder` is NOT among them, which is the correction five audits of #233 needed:
         // `TextField` builds the prompt as a real child with its own tag, so the variant landed as a
         // child combinator with no pseudo-element in it.
         Assert.DoesNotContain("placeholder", unsupported);
+
+        // ⚠ Nor `backdrop`, for the same reason, although the variant table said it named "a control
+        // that does not exist": `Dialog` and `Drawer` build the sheet behind them as parts.
+        Assert.DoesNotContain("backdrop", unsupported);
     }
 
     /// <summary>A variant v4 has that Vixen refuses and nobody wrote down.</summary>
