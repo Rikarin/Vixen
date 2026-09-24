@@ -500,10 +500,12 @@ public class ThumbnailTests {
             })
         );
 
+        var crate = AssetId.Empty;
+
         try {
             // The rescan inside `assets.refresh` binds the file and asks for it, and the `Forget` after
             // it marks that ask stale — both before `Paint` returns.
-            Paint(editor, "Assets/crate.png", 8, 8, static (_, _) => 0);
+            crate = Paint(editor, "Assets/crate.png", 8, 8, static (_, _) => 0);
 
             Assert.True(editor.Editor.Thumbnails.IsBusy, "the refresh asked for no picture, so nothing below is about one");
             Assert.True(
@@ -514,7 +516,19 @@ public class ThumbnailTests {
             release.Set();
         }
 
-        Assert.True(Pumped(editor, () => surface.Uploads.Count > 0), "the dropped decode was never asked for again");
+        // ⚠ The tile and not only the upload: what the defect looked like was a type glyph where the
+        // picture belonged, so the assertion is the grid's own tile holding an image number.
+        var grid = editor.Control<AssetGrid>("project");
+
+        Assert.True(
+            Pumped(editor, () => grid.Tiles.Any(tile => tile.Node?.Guid == crate && tile.Picture.Texture != 0)),
+            "the dropped decode was never asked for again, so the tile kept its type glyph"
+        );
+
+        var tile = Assert.Single(grid.Tiles, candidate => candidate.Node?.Guid == crate);
+
+        Assert.False(tile.Picture.HasClass("hidden"));
+        Assert.True(tile.Glyph.HasClass("hidden"));
         Assert.Equal(0x60, Assert.Single(surface.Uploads).Pixels[0]);
         Assert.Equal(2, Volatile.Read(ref calls));
     }

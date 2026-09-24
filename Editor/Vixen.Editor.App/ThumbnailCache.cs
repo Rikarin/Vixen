@@ -207,9 +207,10 @@ sealed class ThumbnailCache : IDisposable {
     ///     </para>
     ///     <para>
     ///         A snapshot: a decode requested after this was read is not in it. The answers are
-    ///         queued, not uploaded — <see cref="Pump" /> is still what takes them — and a decode that
-    ///         threw faults this task rather than leaving it pending, so a waiter hears about it.
-    ///         Read on the frame thread.
+    ///         queued, not uploaded — <see cref="Pump" /> is still what takes them. <c>Decode</c>
+    ///         turns every failure into a refusal, so this faults only if that promise is ever
+    ///         broken — and then a waiter hears the exception rather than waiting on an asset that
+    ///         will sit in <c>pending</c> for good. Read on the frame thread.
     ///     </para>
     /// </remarks>
     internal Task Decoding => decoding.Count == 0 ? Task.CompletedTask : Task.WhenAll(decoding);
@@ -513,10 +514,13 @@ sealed class ThumbnailCache : IDisposable {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Both halves, because either alone leaves a window.</b> Shared for writing and
-    ///         deleting, so a save or a rename-over lands whenever it comes; and read whole and closed
-    ///         before the decode starts, so the handle lives for the length of a read rather than of a
-    ///         decode. What a writer racing the read can do is hand this torn bytes, which decode to a
-    ///         refusal — and the save is followed by a <c>Forget</c>, which is what clears a refusal.
+    ///         deleting, so a save or a rename-over that allows other readers — <c>File.WriteAllBytes</c>
+    ///         does — lands whenever it comes; and read whole and closed before the decode starts,
+    ///         because a program that opens for writing with <em>no</em> sharing is refused by any
+    ///         open handle whatever its share mode, and this way the handle lives for the length of a
+    ///         read rather than of a decode. What a writer racing the read can do is hand this torn
+    ///         bytes, which decode to a refusal — and the save is followed by a <c>Forget</c>, which
+    ///         is what clears a refusal.
     ///     </para>
     /// </remarks>
     static MemoryStream Read(string path, Action? reading) {
