@@ -8,8 +8,10 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 
 /// <summary>
 ///     Asks the engine's readers, rather than the resolver, whether a class that fills a slot of an
-///     assembled list — <c>transform</c>, <c>filter</c> or <c>backdrop-filter</c> — is one they accept
-///     (<a href="https://github.com/Rikarin/Vixen/issues/1348">#1348</a>).
+///     assembled list — <c>transform</c>, <c>filter</c>, <c>backdrop-filter</c>, <c>translate</c>,
+///     <c>scale</c> or <c>box-shadow</c> — is one they accept
+///     (<a href="https://github.com/Rikarin/Vixen/issues/1348">#1348</a>,
+///     <a href="https://github.com/Rikarin/Vixen/issues/1386">#1386</a>).
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -30,6 +32,26 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         shape measured by emission.
 ///     </para>
 ///     <para>
+///         ⚠ <b>And six, because the three it stopped at were not all of them either (#1386).</b>
+///         Each reader was asked rather than assumed, and every one of them drops the whole value on
+///         one component it cannot take — two of them by a door their own code does not show.
+///         <c>DrawListBuilder.TryShadowList</c> says so and files a refusal, so <c>box-shadow</c> is
+///         observed as <c>filter</c> is: <c>ring-[50%]</c> takes <c>shadow-lg</c> down with it, five
+///         families sharing one list. <c>TranslationReader.Of</c> and <c>TransformReader.Scaling</c>
+///         read like per-component readers, and for a component that <i>parses</i> they are — a
+///         keyword becomes no movement on its own axis and the other axis stands. But
+///         <c>StyleValueParser.Parse</c> answers <see cref="StyleValueKind.Unknown" /> for the whole
+///         list when any one item does not parse, so <c>translate-x-[calc(100%_-_1rem)]</c> took a
+///         <c>translate-y-4</c> beside it to zero, silently. Those two are observed with a witness in
+///         the other slot, see <see cref="KeepsWitness" />.
+///     </para>
+///     <para>
+///         ⚠ <b>What this does not measure is a class that quietly does nothing to its own axis.</b>
+///         <c>translate-x-auto</c> keeps the witness — the reader resolves <c>auto</c> to no movement
+///         and leaves <c>y</c> alone — so it is not declined here, though it moves nothing. That is
+///         the inert-class shape, a different question from #1348's, and not one a witness can ask.
+///     </para>
+///     <para>
 ///         <b>Two ways of observing a refusal, because the two readers report differently.</b>
 ///         <c>TransformReader.Of</c> returns null for a refused list and null for an identity and says
 ///         nothing, so <c>translate-z-0</c> accepted and <c>translate-z-full</c> refused are
@@ -47,7 +69,23 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 /// </remarks>
 static class AssembledReaderProbe {
     /// <summary>The assembled properties whose readers drop a whole list on one declined function.</summary>
-    public static readonly string[] Properties = ["transform", "filter", "backdrop-filter"];
+    public static readonly string[] Properties = ["transform", "filter", "backdrop-filter", "translate", "scale", "box-shadow"];
+
+    /// <summary>
+    ///     The two-slot lists and the slots each is assembled from, in the order
+    ///     <see cref="UtilityComposition.Translation" /> and <see cref="UtilityComposition.Scaling" />
+    ///     write them.
+    /// </summary>
+    static readonly Dictionary<string, string[]> Axes = new(StringComparer.Ordinal) {
+        ["translate"] = [UtilityComposition.TranslateX, UtilityComposition.TranslateY],
+        ["scale"] = [UtilityComposition.ScaleX, UtilityComposition.ScaleY]
+    };
+
+    /// <summary>What a slot witness writes into a <c>translate</c> slot: sixteen points, nothing a class spells.</summary>
+    public const float TranslationWitness = 16f;
+
+    /// <summary>What a slot witness writes into a <c>scale</c> slot: one and a half, which is not the identity.</summary>
+    public const string ScaleWitness = "150%";
 
     /// <summary>A class in the <c>rotate-z</c> slot, which alone leaves a non-identity transform.</summary>
     public const string Witness = "rotate-z-90";
@@ -117,9 +155,11 @@ static class AssembledReaderProbe {
 
             FillsASlot(utility, Tokens, out var property, out var slots);
 
-            var declined = property == "transform"
-                ? TransformOf(Tokens, utility, slots.Contains(UtilityComposition.RotateZ) ? OtherWitness : Witness) is null
-                : Refuses(RefusalsOf(Tokens, utility), property);
+            var declined = property switch {
+                "transform" => TransformOf(Tokens, utility, slots.Contains(UtilityComposition.RotateZ) ? OtherWitness : Witness) is null,
+                "translate" or "scale" => Axes[property].Any(slot => !KeepsWitness(Tokens, property, slot, utility)),
+                _ => Refuses(RefusalsOf(Tokens, utility), property)
+            };
 
             Cache[utility] = declined;
 
@@ -136,8 +176,8 @@ static class AssembledReaderProbe {
     ///     <c>1/2</c>, none of which the surface ever asks. So this is the scale arms' vocabulary,
     ///     written out: the spacing numbers and <c>px</c>, the angle and percentage steps, the size
     ///     keywords and the six viewport units, fractions — and, in <see cref="Candidates" />, every
-    ///     blur and drop-shadow token the theme names. Whatever of it a slot family resolves is probed;
-    ///     whatever it does not is not a class, and costs a parse.
+    ///     blur, drop-shadow, shadow and inset-shadow token the theme names. Whatever of it a slot
+    ///     family resolves is probed; whatever it does not is not a class, and costs a parse.
     /// </remarks>
     static readonly string[] Vocabulary = [
         "0", "px", "0.5", "1", "2", "3", "4", "6", "12", "45", "50", "75", "90", "100", "125", "150", "180", "200",
@@ -148,7 +188,7 @@ static class AssembledReaderProbe {
 
     /// <summary>
     ///     Every class, positive and negative, that a slot family answers from <see cref="Vocabulary" />,
-    ///     from the theme's blur and drop-shadow names, and from the values the surface already spells
+    ///     from the theme's blur and shadow names, and from the values the surface already spells
     ///     for any family.
     /// </summary>
     /// <param name="surface">The registry's surface, which names the slot families and adds its values.</param>
@@ -164,6 +204,8 @@ static class AssembledReaderProbe {
 
         values.UnionWith(Tokens.Blur.Keys);
         values.UnionWith(Tokens.DropShadow.Keys);
+        values.UnionWith(Tokens.Shadow.Keys);
+        values.UnionWith(Tokens.InsetShadow.Keys);
 
         foreach (var utility in surface) {
             if (!UtilityParser.TryParse(utility, out var parsed) || parsed.Arbitrary is not null || parsed.Variants.Count > 0) {
@@ -207,6 +249,65 @@ static class AssembledReaderProbe {
         document.Load(new UtilityGenerator(tokens).Generate(classes), StyleOrigin.Author);
 
         var probe = document.Create("div", document.Root, null, classes);
+        document.Update();
+
+        return probe.Transform;
+    }
+
+    /// <summary>
+    ///     Whether a <c>translate</c> or <c>scale</c> witness written into one slot survives the class
+    ///     beside it, which is the reader accepting whatever the class left in the other.
+    /// </summary>
+    /// <param name="tokens">The theme the class resolves against.</param>
+    /// <param name="property"><c>translate</c> or <c>scale</c>.</param>
+    /// <param name="slot">The slot the witness overrides.</param>
+    /// <param name="utility">The class under test.</param>
+    /// <remarks>
+    ///     ⚠ <b>The witness is a hand-written declaration of the slot and not a class, because
+    ///     <c>translate-4</c> and <c>scale-150</c> fill both slots and leave no class a slot of its
+    ///     own.</b> An id rule outranks the utility layer, so it replaces the class's value in the one
+    ///     slot and leaves the other slot the class's. Asked once per slot, that questions each of the
+    ///     class's components with a witness beside it.
+    /// </remarks>
+    public static bool KeepsWitness(ThemeTokens tokens, string property, string slot, string utility) {
+        if (property == "translate") {
+            var (x, y) = TranslationOf(tokens, $"{slot}: {TranslationWitness}px;", utility);
+
+            return (slot == UtilityComposition.TranslateX ? x : y) == TranslationWitness;
+        }
+
+        return ScaledOf(tokens, $"{slot}: {ScaleWitness};", utility) is not null;
+    }
+
+    /// <summary>How far an absolutely placed element carrying exactly these classes is moved.</summary>
+    /// <param name="tokens">The theme the classes resolve against.</param>
+    /// <param name="own">Declarations for the element's own id rule, written after the utilities.</param>
+    /// <param name="classes">The classes, all of which are generated into the sheet.</param>
+    /// <remarks>
+    ///     Pinned to the root's origin, so its absolute position <i>is</i> its translation, with
+    ///     nothing of the flow's to subtract.
+    /// </remarks>
+    public static (float X, float Y) TranslationOf(ThemeTokens tokens, string own, params string[] classes) {
+        using var document = new UiDocument(200f, 100f);
+        document.Load(new UtilityGenerator(tokens).Generate(classes), StyleOrigin.Author);
+        document.Load($"#probe {{ position: absolute; left: 0; top: 0; {own} }}", StyleOrigin.Author);
+
+        var probe = document.Create("div", document.Root, "probe", classes);
+        document.Update();
+
+        return (probe.AbsoluteLeft, probe.AbsoluteTop);
+    }
+
+    /// <summary><see cref="TransformOf" /> with an id rule of the element's own beside the utilities.</summary>
+    /// <param name="tokens">The theme the classes resolve against.</param>
+    /// <param name="own">Declarations for the element's own id rule, written after the utilities.</param>
+    /// <param name="classes">The classes, all of which are generated into the sheet.</param>
+    public static UiTransform? ScaledOf(ThemeTokens tokens, string own, params string[] classes) {
+        using var document = new UiDocument(200f, 100f);
+        document.Load(new UtilityGenerator(tokens).Generate(classes), StyleOrigin.Author);
+        document.Load($"#probe {{ {own} }}", StyleOrigin.Author);
+
+        var probe = document.Create("div", document.Root, "probe", classes);
         document.Update();
 
         return probe.Transform;

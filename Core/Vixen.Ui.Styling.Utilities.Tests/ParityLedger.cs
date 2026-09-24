@@ -243,9 +243,10 @@ static class ParityLedger {
         }
 
         // ⚠ Emission was the whole test until #1348, and emission is not acceptance. A class that fills
-        // a slot of a shared `transform`, `filter` or `backdrop-filter` resolves to a declaration
-        // whether or not the reader takes the value, and a value it declines drops the ENTIRE list —
-        // every other slot on the element with it. So for those classes the reader is asked too — over every named value a slot family
+        // a slot of a shared list — `transform`, `filter`, `backdrop-filter`, `translate`, `scale` or
+        // `box-shadow` (#1386) — resolves to a declaration whether or not the reader takes the value,
+        // and a value it declines drops the ENTIRE list — every other slot on the element with it. So
+        // for those classes the reader is asked too — over every named value a slot family
         // answers (`AssembledReaderProbe.Candidates`; the surface alone is one value per family, and
         // one value is what hid #1328) and over the listed classes, which may be spelled outside it.
         var declined = new SortedDictionary<string, SortedSet<string>>(StringComparer.Ordinal);

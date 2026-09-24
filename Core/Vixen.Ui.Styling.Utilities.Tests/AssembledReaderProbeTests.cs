@@ -8,9 +8,11 @@ using Xunit;
 namespace Vixen.Ui.Styling.Utilities.Tests;
 
 /// <summary>
-///     <a href="https://github.com/Rikarin/Vixen/issues/1348">#1348</a>: the parity ledger scores a
-///     slot of an assembled <c>transform</c>, <c>filter</c> or <c>backdrop-filter</c> by whether the
-///     reader accepts it, not by whether the family emits it.
+///     <a href="https://github.com/Rikarin/Vixen/issues/1348">#1348</a> and
+///     <a href="https://github.com/Rikarin/Vixen/issues/1386">#1386</a>: the parity ledger scores a
+///     slot of an assembled <c>transform</c>, <c>filter</c>, <c>backdrop-filter</c>, <c>translate</c>,
+///     <c>scale</c> or <c>box-shadow</c> by whether the reader accepts it, not by whether the family
+///     emits it.
 /// </summary>
 /// <remarks>
 ///     Each assertion here is shown to be falsifiable on the tree as it is, not only under a sabotage:
@@ -164,6 +166,104 @@ public class AssembledReaderProbeTests {
     }
 
     /// <summary>
+    ///     The <c>translate</c> and <c>scale</c> witnesses are seen only through a class's assembled
+    ///     declaration, and survive a class the reader takes — the two halves that keep
+    ///     <see cref="AssembledReaderProbe.KeepsWitness" /> from being true or false by construction.
+    /// </summary>
+    [Fact]
+    public void A_translate_or_scale_witness_is_seen_through_the_class_and_only_through_it() {
+        // Alone, the id rule writes a fragment nothing assembles, so nothing moves.
+        Assert.Equal((0f, 0f), AssembledReaderProbe.TranslationOf(Tokens, $"{UtilityComposition.TranslateY}: 16px;"));
+        Assert.Null(AssembledReaderProbe.ScaledOf(Tokens, $"{UtilityComposition.ScaleY}: 150%;"));
+
+        // Beside a class, it replaces that slot and leaves the class's own: the spacing unit is 4px here.
+        Assert.Equal((8f, 0f), AssembledReaderProbe.TranslationOf(Tokens, "", "translate-x-2"));
+        Assert.Equal((8f, 16f), AssembledReaderProbe.TranslationOf(Tokens, $"{UtilityComposition.TranslateY}: 16px;", "translate-x-2"));
+        Assert.Equal((16f, 8f), AssembledReaderProbe.TranslationOf(Tokens, $"{UtilityComposition.TranslateX}: 16px;", "translate-2"));
+        Assert.NotNull(AssembledReaderProbe.ScaledOf(Tokens, $"{UtilityComposition.ScaleY}: 150%;", "scale-x-100"));
+    }
+
+    /// <summary>
+    ///     ⚠ One <c>translate</c> or <c>scale</c> component the value parser cannot read takes the
+    ///     other axis to nothing — the readers look per-component and are not (#1386).
+    /// </summary>
+    /// <remarks>
+    ///     <c>calc(100% - 1rem)</c> mixes two units, which <c>StyleValueParser</c> does not fold, and
+    ///     one unparsed item makes the whole list <c>Unknown</c>. Arbitrary on purpose, as the transform
+    ///     case is: the class resolves, the reader says no, and the witness in the other slot is the
+    ///     neighbour it takes with it. <c>translate-[…]</c> fills both slots and has no class-shaped
+    ///     neighbour at all, which is why the witness is an id rule.
+    /// </remarks>
+    [Theory]
+    [InlineData("translate-x-[calc(100%_-_1rem)]", "translate")]
+    [InlineData("translate-y-[calc(100%_-_1rem)]", "translate")]
+    [InlineData("translate-[calc(100%_-_4px)]", "translate")]
+    [InlineData("scale-x-[calc(100%_-_1rem)]", "scale")]
+    [InlineData("scale-y-[foo(2)]", "scale")]
+    public void A_translate_or_scale_component_the_parser_cannot_read_takes_the_other_axis_with_it(string refused, string expected) {
+        Assert.True(AssembledReaderProbe.FillsASlot(refused, Tokens, out var property, out var slots), $"{refused} should resolve into a slot");
+        Assert.Equal(expected, property);
+        Assert.True(AssembledReaderProbe.Declines(refused));
+
+        if (property == "translate") {
+            // The witness goes in a slot the refused value is not in, and comes out as no movement.
+            var other = slots.Contains(UtilityComposition.TranslateX) ? UtilityComposition.TranslateY : UtilityComposition.TranslateX;
+            Assert.Equal((0f, 0f), AssembledReaderProbe.TranslationOf(Tokens, $"{other}: 16px;", refused));
+        }
+    }
+
+    /// <summary>
+    ///     One shadow slot the draw list cannot read refuses the whole <c>box-shadow</c>, so a ring with
+    ///     a percentage width takes the elevation shadow beside it off the frame.
+    /// </summary>
+    [Fact]
+    public void A_shadow_slot_the_draw_list_refuses_is_declined_and_takes_the_shadow_beside_it() {
+        const string refused = "ring-[50%]";
+
+        Assert.True(AssembledReaderProbe.FillsASlot(refused, Tokens, out var property, out _), $"{refused} should resolve into a slot");
+        Assert.Equal("box-shadow", property);
+        Assert.True(AssembledReaderProbe.Declines(refused));
+        Assert.True(AssembledReaderProbe.Refuses(AssembledReaderProbe.RefusalsOf(Tokens, refused), "box-shadow"));
+        Assert.False(AssembledReaderProbe.Refuses(AssembledReaderProbe.RefusalsOf(Tokens, refused), "filter"));
+
+        // The neighbour, counted on the draw list: one shadow alone, none beside the refused ring.
+        Assert.Equal(1, ShadowsDrawn("shadow-probe"));
+        Assert.Equal(0, ShadowsDrawn("shadow-probe", refused));
+    }
+
+    /// <summary>Named values of the three newly probed lists that their readers take are not declined.</summary>
+    [Theory]
+    [InlineData("translate-x-2", "translate")]
+    [InlineData("-translate-y-1/2", "translate")]
+    [InlineData("translate-full", "translate")]
+    [InlineData("translate-2", "translate")]
+    [InlineData("scale-x-50", "scale")]
+    [InlineData("-scale-y-100", "scale")]
+    [InlineData("ring-2", "box-shadow")]
+    [InlineData("ring-offset-2", "box-shadow")]
+    [InlineData("inset-ring-2", "box-shadow")]
+    [InlineData("shadow-probe", "box-shadow")]
+    [InlineData("inset-shadow-probe", "box-shadow")]
+    [InlineData("shadow-none", "box-shadow")]
+    public void A_translate_scale_or_shadow_value_the_reader_takes_is_not_declined(string utility, string expected) {
+        Assert.True(AssembledReaderProbe.FillsASlot(utility, Tokens, out var property, out _), $"{utility} should resolve into a slot");
+        Assert.Equal(expected, property);
+        Assert.False(AssembledReaderProbe.Declines(utility));
+    }
+
+    static int ShadowsDrawn(params string[] classes) {
+        using var document = new UiDocument(200f, 100f);
+        document.Load(new UtilityGenerator(Tokens).Generate(classes), StyleOrigin.Author);
+        document.Load("#probe { width: 20px; height: 20px; background-color: #4f7cff; }", StyleOrigin.Author);
+
+        document.Create("div", document.Root, "probe", classes);
+        document.Update();
+        document.Draw();
+
+        return document.Drawing.Commands.Count(c => c.Kind == DrawCommandKind.Shadow);
+    }
+
+    /// <summary>
     ///     Every slot value on the surface is one the reader takes — the gate, and the reason the
     ///     ledger's <c>works</c> for the transform roots now means the engine does it.
     /// </summary>
@@ -193,7 +293,7 @@ public class AssembledReaderProbeTests {
         Assert.True(
             measured.Declined.Count == 0,
             "Classes the resolver answers and the reader declines — each one drops every other slot of its "
-            + "transform or filter list on its element (#1348, #1328):\n  "
+            + "transform, filter, translate, scale or shadow list on its element (#1348, #1328, #1386):\n  "
             + string.Join("\n  ", measured.Declined.Select(p => $"{p.Key}: {string.Join(' ', p.Value)}"))
         );
 
