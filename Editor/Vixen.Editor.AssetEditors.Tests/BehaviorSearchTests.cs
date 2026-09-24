@@ -168,6 +168,38 @@ public class BehaviorSearchTests {
         Assert.Equal(search.Query.Height, crowded, 0.5f);
     }
 
+    /// <summary>
+    ///     ⚠ A type still offered after a keystroke keeps its row, even when the ranking moves it —
+    ///     the markup's keyed <c>@for</c>, where the hand-written popup removed every row and built
+    ///     them all again on each letter (#89).
+    /// </summary>
+    [Fact]
+    public void A_row_still_offered_after_a_keystroke_is_the_same_element_where_it_moved_to() {
+        using var harness = new ViewHarness();
+        var (view, _) = Open(harness);
+
+        Over(harness, view);
+        harness.Ui.PressKey(InputKey.Space);
+        harness.Ui.Frame();
+
+        var search = view.Search;
+        var before = Row(search, "Random selector");
+
+        Assert.Same(before, search.Results.Children[3]);
+
+        harness.Ui.TypeText("sel");
+        harness.Ui.Frame();
+
+        // Selector on the prefix, then Random selector on the substring: the row has moved up two.
+        Assert.Equal(["Selector", "Random selector"], search.Matches.Select(type => type.Label));
+        Assert.Same(before, search.Results.Children[1]);
+        Assert.Same(before, Row(search, "Random selector"));
+        Assert.False(before.IsRemoved);
+    }
+
+    static UiElement Row(BehaviorSearchPopup search, string label) =>
+        Assert.Single(search.Results.Children, row => row.Children.Count > 0 && row.Children[0].Text == label);
+
     [Fact]
     public void A_press_outside_closes_it_and_the_popup_goes_with_the_view() {
         using var harness = new ViewHarness();
