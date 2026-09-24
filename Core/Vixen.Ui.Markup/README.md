@@ -685,7 +685,12 @@ settled by what the pool is:
   its own (#1398): no `key` on the row (`VXML2029`), no `ref` or `refs` anywhere in its subtree
   (`VXML2030`, tracked by a depth of its own and checked *before* the loop rules — outside an `@for`
   the `refs` rule used to answer "write 'ref' instead", the same trap, and inside one it let `refs`
-  through), and one `@rows` per control (`VXML2031`, on the second block).
+  through), and one `@rows` per control (`VXML2031`, on the second block). ⚠ A fourth (#1405): no
+  `exit` where the nearest iteration is the row (`VXML2032`), because the pool never removes a slot.
+  That one is keyed on the *nearest* iteration rather than on the row depth — an `@for` nested inside
+  a row has a reconciler that does remove items — so `BindFor` clears the flag for its body and the
+  row sets it for its own. Before it, `VXML2024` sent a row's author to an `@for`, and with the
+  `@rows` inside an `@for` body the exit bound silently.
 
 ⚠ **`@rows` is a keyword only with a `(var` header after it.** `rows` is a legal C# identifier and
 `@rows[0]` is an ordinary interpolation; `@empty` makes the same bargain with the brace. And the index

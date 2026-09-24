@@ -145,6 +145,17 @@ public sealed class Binder {
     /// </remarks>
     int rowDepth;
 
+    /// <summary>Whether the nearest iteration enclosing the walk is an <c>@rows</c> row rather than an <c>@for</c> body.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <see cref="rowDepth" /> &gt; 0, because <c>exit</c> asks the nearer question.</b>
+    ///     A <c>ref</c> is wrong anywhere under a row, since the row's whole subtree is made once per
+    ///     slot; an <c>exit</c> is wrong only where the thing that would read it is the pool, which
+    ///     never removes a slot. An <c>@for</c> nested inside a row has a reconciler of its own that
+    ///     does remove items, so <see cref="BindFor" /> clears this for its body and the row sets it
+    ///     for its own. <c>VXML2032</c>, #1405.
+    /// </remarks>
+    bool inRow;
+
     Binder(SourceText text, string filePath, DiagnosticBag diagnostics) {
         this.text = text;
         this.filePath = filePath;
@@ -755,10 +766,13 @@ public sealed class Binder {
             }
 
             var outer = inLoop;
+            var outerRow = inRow;
             inLoop = false;
+            inRow = true;
             rowDepth++;
             bound = BindElement(row) as BoundElement;
             rowDepth--;
+            inRow = outerRow;
             inLoop = outer;
         }
 
@@ -774,14 +788,17 @@ public sealed class Binder {
 
         var outer = inLoop;
         var outerVariable = item;
+        var outerRow = inRow;
 
         inLoop = true;
+        inRow = false;
         item = variable;
         loops++;
         RefuseSlotAttributes(@for.Body.Content, "'@for'");
         var body = BindContent(@for.Body.Content);
         loops--;
         item = outerVariable;
+        inRow = outerRow;
         inLoop = outer;
 
         BoundExpression? key = null;
@@ -1009,6 +1026,14 @@ public sealed class Binder {
         // key to file the element under — see `MarkupDiagnostics.RefsOutsideLoop`.
         if (kind == BoundAttributeKind.Refs && loops == 0) {
             Report(MarkupDiagnostics.RefsOutsideLoop, attribute.Name.Span);
+            return null;
+        }
+
+        // ⚠ Before the loop rule, for `VXML2030`'s reason: that rule sends a row's author to an
+        // `@for`, and under an `@for` it said nothing at all. Keyed on the *nearest* iteration, not on
+        // `rowDepth`, because an `@for` inside the row does remove items. See `MarkupDiagnostics.ExitInRow`.
+        if (kind == BoundAttributeKind.Exit && inRow) {
+            Report(MarkupDiagnostics.ExitInRow, attribute.Name.Span);
             return null;
         }
 
