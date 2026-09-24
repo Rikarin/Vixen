@@ -214,6 +214,17 @@ sealed class ThumbnailCache : IDisposable {
     /// </remarks>
     internal Task Decoding => decoding.Count == 0 ? Task.CompletedTask : Task.WhenAll(decoding);
 
+    /// <summary>Run on the decode's own thread while it holds the file open, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>For a test to hold a decode at the one moment that matters.</b> Whether a save can
+    ///     land while a thumbnail is reading the file is an ordering question
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1326">#1326</a>), and a test that waited
+    ///     for the overlap to happen by itself met it once in several hundred runs. Read when the
+    ///     decode is requested, on the frame thread, so setting it cannot race a decode already
+    ///     started. Only the built-in decoders open the file here; a contributed preview opens its own.
+    /// </remarks>
+    internal Action? Reading { get; set; }
+
     /// <summary>The picture for an asset, asking for one if there is none yet.</summary>
     /// <param name="asset">Which asset.</param>
     /// <param name="image">The image number to draw.</param>
@@ -426,7 +437,9 @@ sealed class ThumbnailCache : IDisposable {
         // ⚠ Long-running is not asked for and would be wrong: these are short, there are many, and
         // the pool's own scheduling is what keeps a folder of two hundred from starting two hundred
         // threads.
-        decoding.Add(Task.Run(() => finished.Enqueue(Decode(asset, path, extension, preview))));
+        var reading = Reading;
+
+        decoding.Add(Task.Run(() => finished.Enqueue(Decode(asset, path, extension, preview, reading))));
     }
 
     /// <summary>Which contributed preview claims an extension, or <see langword="null" />.</summary>
@@ -448,7 +461,7 @@ sealed class ThumbnailCache : IDisposable {
     ///     them are ordinary, all of them arrive here, and a background task that threw would leave
     ///     its asset pending for good from a thread nobody was watching.
     /// </remarks>
-    static Decoded Decode(AssetId asset, string path, string extension, AssetPreview? preview) {
+    static Decoded Decode(AssetId asset, string path, string extension, AssetPreview? preview, Action? reading) {
         try {
             // ⚠ Before the built-in decoders, not after. A registry consulted only where
             // `ImageDecoders` gave up could never answer for an extension a decoder also claims,
@@ -461,8 +474,8 @@ sealed class ThumbnailCache : IDisposable {
                 return new Decoded(asset, 0, 0, null);
             }
 
-            using var stream = File.OpenRead(path);
-            var texture = decoder.Decode(stream, extension);
+            using var bytes = Read(path, reading);
+            var texture = decoder.Decode(bytes, extension);
 
             // ⚠ Only the eight-bit form. An HDR source decodes to `Rgba32Float`, which is four times
             // the bytes and needs a tone map to look like anything — and a thumbnail that showed a
@@ -483,6 +496,40 @@ sealed class ThumbnailCache : IDisposable {
             // delegate — `Contributed`'s argument, and `TexturePreview.Read`'s wide net.
             return new Decoded(asset, 0, 0, null);
         }
+    }
+
+    /// <summary>Reads a whole file into memory without standing in the way of anybody saving it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/1326">#1326</a>: on Windows a
+    ///         thumbnail being decoded made the file unsaveable.</b> The decode held
+    ///         <c>File.OpenRead</c>'s handle — which shares for reading only — for the whole of the
+    ///         decode, and on Windows a share mode is enforced by <c>CreateFile</c>, so a
+    ///         <c>File.WriteAllBytes</c> over the same path in that window failed with a sharing
+    ///         violation. A person saving over a texture whose thumbnail was being made got an
+    ///         <c>IOException</c> from their paint program; the test suite got one from its own
+    ///         repaint. The same overlap on Linux and macOS succeeds, because .NET's share modes are
+    ///         advisory there, which is why only the Windows leg ever saw it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, because either alone leaves a window.</b> Shared for writing and
+    ///         deleting, so a save or a rename-over lands whenever it comes; and read whole and closed
+    ///         before the decode starts, so the handle lives for the length of a read rather than of a
+    ///         decode. What a writer racing the read can do is hand this torn bytes, which decode to a
+    ///         refusal — and the save is followed by a <c>Forget</c>, which is what clears a refusal.
+    ///     </para>
+    /// </remarks>
+    static MemoryStream Read(string path, Action? reading) {
+        using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+
+        reading?.Invoke();
+
+        var bytes = new MemoryStream();
+
+        file.CopyTo(bytes);
+        bytes.Position = 0;
+
+        return bytes;
     }
 
     /// <summary>Asks a contributed preview for a picture, and survives it however it behaves.</summary>

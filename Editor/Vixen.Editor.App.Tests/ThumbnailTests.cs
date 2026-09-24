@@ -362,6 +362,59 @@ public class ThumbnailTests {
         Assert.Equal(200, Assert.Single(surface.Uploads).Pixels[0]);
     }
 
+    /// <summary>⚠ A file a thumbnail is being read from can still be saved over.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1326">#1326</a>, which
+    ///         <see cref="A_decode_in_flight_when_the_pictures_were_forgotten_is_dropped" /> met by
+    ///         accident on Windows</b>: its repaint landed while the decode it had left running still
+    ///         held <c>File.OpenRead</c>'s handle, and a write over a file open for reading-only-sharing
+    ///         is a sharing violation there. That was a test racing its own decode on a few hundredths
+    ///         of a second's window; the same window is a person's paint program failing to save.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The overlap is forced, not hoped for.</b> <c>Reading</c> runs on the decode's
+    ///         thread with the file open and does not return until the repaint is done, so the write
+    ///         meets the open handle every time. ⚠ It is a Windows property — .NET's share modes are
+    ///         advisory on Linux and macOS, so there this passes with or without the fix — which is
+    ///         why the Windows leg is the one that runs it for real.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_file_being_read_for_a_thumbnail_can_still_be_saved_over() {
+        using var editor = EditorSession.Start();
+        using var open = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+
+        var crate = Paint(editor, "Assets/Textures/crate.png", 16, 16, static (_, _) => 40);
+        var surface = new Recording();
+        var cache = new ThumbnailCache(editor.Project) {
+            Surface = surface,
+            Reading = () => {
+                open.Set();
+                release.Wait();
+            }
+        };
+
+        try {
+            Assert.False(cache.TryGet(crate, out _));
+            Assert.True(
+                open.Wait(Hung, TestContext.Current.CancellationToken),
+                "the decode never opened the file, which is a hang check and not a result"
+            );
+
+            // The decode has the file open now, and is waiting for this to finish. This is the line
+            // that threw.
+            Paint(editor, "Assets/Textures/crate.png", 16, 16, static (_, _) => 200);
+        } finally {
+            release.Set();
+        }
+
+        // And what it read is what is on disk now: the write was finished before the read began.
+        Assert.True(Settle(cache, () => surface.Uploads.Count > 0), "no thumbnail was uploaded");
+        Assert.Equal(200, Assert.Single(surface.Uploads).Pixels[0]);
+    }
+
     /// <summary>
     ///     ⚠ And the editor is what calls it: refreshing the project draws the repainted file.
     /// </summary>
