@@ -31,6 +31,11 @@ public sealed class StyleResolver {
     readonly List<int> candidates = [];
     readonly List<KeyValuePair<int, int>> pairs = [];
 
+    // `AncestorStyles`' working storage, kept across calls so that collecting a chain allocates
+    // nothing once the buffer has reached the tree's depth (#1421).
+    readonly List<int> ancestorIndices = [];
+    ComputedStyle[] ancestorBuffer = [];
+
     /// <summary>Creates a resolver.</summary>
     /// <param name="rules">The loaded rules.</param>
     /// <param name="inlineStyles">The declarations written on elements themselves.</param>
@@ -88,6 +93,13 @@ public sealed class StyleResolver {
     /// <summary>How many elements had to be cascaded.</summary>
     public int Cascades { get; private set; }
 
+    /// <summary>How many times an element's ancestor chain was collected for a named or mixed <c>style()</c> query.</summary>
+    /// <remarks>
+    ///     The deterministic measure of #1421: zero for a restyle in which no element has a candidate
+    ///     rule in such a query's group, however many of those queries the sheets declare.
+    /// </remarks>
+    internal int AncestorCollections { get; private set; }
+
     /// <summary>Which properties a child gets from its parent unasked.</summary>
     /// <remarks>
     ///     Exposed because a restyle pass has to ask whether a change can reach a child, and the
@@ -135,28 +147,73 @@ public sealed class StyleResolver {
     internal Func<StyleTree, int, ComputedStyle?>? ResolvedAncestor { get; set; }
 
     /// <summary>An element's ancestors' styles, nearest first, for a named <c>style()</c> query to search.</summary>
-    ComputedStyle[] AncestorStyles(StyleTree tree, StyleNodeId element) {
-        var chain = new List<int>();
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Into one buffer this resolver keeps, and handed out as a window on it (#1421).</b>
+    ///         Each call used to allocate a list and an array of the element's depth, and the fallback
+    ///         below copied the tail of that array once per ancestor, which is quadratic in the depth.
+    ///         The buffer grows to the deepest chain seen and is reused.
+    ///     </para>
+    ///     <para>
+    ///         Reusing it is sound because nothing collects twice at once. The only re-entry is the
+    ///         fallback's own <see cref="CascadeCore" />, which is handed its window and so never
+    ///         collects, and it reads only the part of the buffer above the slot being written.
+    ///     </para>
+    /// </remarks>
+    ArraySegment<ComputedStyle> AncestorStyles(StyleTree tree, StyleNodeId element) {
+        AncestorCollections++;
+
+        var chain = ancestorIndices;
+        chain.Clear();
 
         for (var at = tree.ParentOf(tree.Validate(element)); at >= 0; at = tree.ParentOf(at)) {
             chain.Add(at);
         }
 
-        var styles = new ComputedStyle[chain.Count];
+        var count = chain.Count;
 
-        // Root first, so that an ancestor this has to cascade itself is handed its parent's style.
-        for (var i = chain.Count - 1; i >= 0; i--) {
-            var index = chain[i];
-            var parent = i + 1 < chain.Count ? styles[i + 1] : null;
-
-            // ⚠ Handed the part of this same array above it, which is complete by now. A plain
-            // `Cascade` would collect that ancestor's own ancestors again, and each of those theirs:
-            // exponential in the depth, for a lookup that is linear.
-            styles[i] = ResolvedAncestor?.Invoke(tree, index)
-                ?? CascadeCore(tree, new StyleNodeId(index), parent, tree.InlineAt(index), styles[(i + 1)..]);
+        if (ancestorBuffer.Length < count) {
+            ancestorBuffer = new ComputedStyle[Math.Max(count, ancestorBuffer.Length * 2)];
         }
 
-        return styles;
+        var styles = ancestorBuffer;
+
+        // Root first, so that an ancestor this has to cascade itself is handed its parent's style.
+        for (var i = count - 1; i >= 0; i--) {
+            var index = chain[i];
+            var parent = i + 1 < count ? styles[i + 1] : null;
+
+            // ⚠ Handed the part of this same buffer above it, which is complete by now, as a window
+            // rather than a copy. A plain `Cascade` would collect that ancestor's own ancestors again,
+            // and each of those theirs: exponential in the depth, for a lookup that is linear.
+            styles[i] = ResolvedAncestor?.Invoke(tree, index)
+                ?? CascadeCore(
+                    tree,
+                    new StyleNodeId(index),
+                    parent,
+                    tree.InlineAt(index),
+                    new ArraySegment<ComputedStyle>(styles, i + 1, count - i - 1)
+                );
+        }
+
+        return new ArraySegment<ComputedStyle>(styles, 0, count);
+    }
+
+    /// <summary>Whether any candidate that can apply to this element sits in a group that asks above the parent.</summary>
+    bool CandidatesAskAncestors(MediaVerdicts verdicts, ContainerVerdicts contained) {
+        foreach (var rule in candidates) {
+            var candidate = rules[rule];
+
+            // The same two gates the cascade loop applies before it would call `StyleHolds`, so the
+            // chain is collected for exactly the candidates that could read it.
+            if (containers.Conditions.AsksAncestors(candidate.Containers)
+                && verdicts.Holds(candidate.Conditions)
+                && contained.Holds(candidate.Containers)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Resolves an element's style, using the sharing cache where it is sound.</summary>
@@ -211,29 +268,25 @@ public sealed class StyleResolver {
     ) {
         ArgumentNullException.ThrowIfNull(tree);
 
-        return CascadeCore(tree, element, parent, inline, null);
+        return CascadeCore(tree, element, parent, inline, default);
     }
 
     /// <summary><see cref="Cascade" />, with the ancestors' styles supplied when the caller already has them.</summary>
+    /// <param name="tree">The element store.</param>
+    /// <param name="element">The element.</param>
+    /// <param name="parent">The parent's already-resolved style, or null for a root.</param>
+    /// <param name="inline">A handle on declarations written on the element itself, if any.</param>
+    /// <param name="ancestors">
+    ///     The ancestors' styles, nearest first, or <c>default</c> — a segment with no array — to have
+    ///     them collected here if a candidate needs them.
+    /// </param>
     ComputedStyle CascadeCore(
         StyleTree tree,
         StyleNodeId element,
         ComputedStyle? parent,
         InlineStyleId? inline,
-        ComputedStyle[]? ancestors
+        ArraySegment<ComputedStyle> ancestors
     ) {
-        // ⚠ Collected FIRST, before `winners` and `candidates` are touched. Collecting may cascade an
-        // ancestor through this same resolver, which reuses both lists, and a cascade that has
-        // started iterating them cannot survive another one running inside it.
-        if (containers.Conditions.HasAncestorStyleQueries) {
-            ancestors ??= AncestorStyles(tree, element);
-        } else {
-            ancestors = [];
-        }
-
-        Cascades++;
-        winners.Clear();
-
         rules.Index.Collect(tree, element, candidates);
 
         // The surface this element is shown in, which is what its `@media` blocks are about. One
@@ -245,6 +298,23 @@ public sealed class StyleResolver {
         // ⚠ The container chain this element is inside, which is a different subject from the
         // surface and answers a different table. One lookup per element for the same reason.
         var contained = containers.VerdictsOf(tree.ContainerAt(slot));
+
+        // ⚠ The ancestors are collected only for an element with a candidate in a group that asks
+        // above the parent (#1421). Keyed on the document-wide flag alone, as this was, one named
+        // `style()` query anywhere made every element in every restyle collect its whole chain.
+        //
+        // ⚠ And collected before `winners` is touched and before the loop, with `candidates`
+        // collected AGAIN afterwards. Collecting may cascade an ancestor through this same resolver,
+        // which reuses both lists, so the candidates read to decide are not the ones left behind.
+        if (ancestors.Array is null
+            && containers.Conditions.HasAncestorStyleQueries
+            && CandidatesAskAncestors(verdicts, contained)) {
+            ancestors = AncestorStyles(tree, element);
+            rules.Index.Collect(tree, element, candidates);
+        }
+
+        Cascades++;
+        winners.Clear();
 
         // ⚠ And the `style()` half, which no chain can answer because it asks the parent's computed
         // value rather than a box — the `parent` this method was handed for inheritance. False for

@@ -350,6 +350,72 @@ public class ContainerStyleQueryTests {
         Assert.Equal("named", fixture.Value(leaf));
     }
 
+    /// <summary>A chain of <paramref name="depth" /> elements each with a sibling, under a sheet with one named <c>style()</c> rule.</summary>
+    /// <returns>The fixture, after one whole-document resolve, and the deepest element.</returns>
+    static (CascadeFixture Fixture, StyleNodeId Deepest) DeepTree(string sheet, int depth, string[] deepestClasses) {
+        var fixture = new CascadeFixture();
+        fixture.Load(sheet);
+
+        var at = fixture.Tree.CreateElement("div", classNames: ["card", "primary"]);
+
+        for (var i = 1; i < depth; i++) {
+            fixture.Tree.CreateElement("span", at, classNames: ["item"]);
+            at = fixture.Tree.CreateElement("div", at, classNames: i == depth - 1 ? deepestClasses : ["item"]);
+        }
+
+        return (fixture, at);
+    }
+
+    /// <summary>
+    ///     ⚠ A named <c>style()</c> query that no element's candidates include collects no ancestor
+    ///     chain, however deep the tree (#1421).
+    /// </summary>
+    /// <remarks>
+    ///     The resolver used to key the collection on the document-wide flag, so one named query in any
+    ///     sheet made every element of every restyle allocate its whole ancestor chain. That was
+    ///     <c>elements × depth</c> slots. The count is a deterministic counter, not a time. Every
+    ///     element here is cascaded, as <c>Cascades</c> shows, so the old code collected once per
+    ///     element and this one collects nothing, because no element is a <c>.never</c>.
+    /// </remarks>
+    [Fact]
+    public void A_named_style_query_no_candidate_reaches_collects_no_ancestor_chain() {
+        const string sheet = """
+            .card { container-name: card; }
+            .primary { --variant: primary; }
+            .item { color: plain; }
+            @container card style(--variant: primary) { .never { color: named; } }
+            """;
+
+        var (fixture, deepest) = DeepTree(sheet, 24, ["item"]);
+        var resolver = fixture.Engine.Resolver;
+        var before = resolver.Cascades;
+        var styles = fixture.Engine.ResolveAll();
+
+        Assert.True(resolver.Cascades - before >= 24, $"only {resolver.Cascades - before} cascades ran");
+        Assert.Equal("plain", fixture.Read(styles[deepest.Index], "color"));
+        Assert.Equal(0, resolver.AncestorCollections);
+    }
+
+    /// <summary>
+    ///     And an element whose candidates do include such a rule still collects its chain, once, and
+    ///     is answered from it: the laziness is per element, not a switch that turned the query off.
+    /// </summary>
+    [Fact]
+    public void Only_the_element_a_named_style_rule_can_reach_collects_its_chain() {
+        const string sheet = """
+            .card { container-name: card; }
+            .primary { --variant: primary; }
+            .item { color: plain; }
+            @container card style(--variant: primary) { .leaf { color: named; } }
+            """;
+
+        var (fixture, deepest) = DeepTree(sheet, 24, ["leaf"]);
+        var styles = fixture.Engine.ResolveAll();
+
+        Assert.Equal("named", fixture.Read(styles[deepest.Index], "color"));
+        Assert.Equal(1, fixture.Engine.Resolver.AncestorCollections);
+    }
+
     /// <summary>
     ///     The mixed form: a size feature and a <c>style()</c> feature joined by <c>and</c>, both asked
     ///     of one box, the nearest <i>size</i> container (#273).

@@ -52,6 +52,10 @@ public sealed class ContainerConditions {
     // style-only group asks no box, so it needs none and holds `Normal`.
     readonly List<ContainerKind> requires = [ContainerKind.Normal];
 
+    // Parallel to `groups`: whether this group or any group it is nested in is a style group that
+    // asks above the parent, so a rule carrying it needs the element's ancestors' styles (#1421).
+    readonly List<bool> asksAncestors = [false];
+
     /// <summary>Whether any registered group is a <c>style()</c> query.</summary>
     /// <remarks>
     ///     The cascade's fast path: every stylesheet this repository ships has none, and the resolver
@@ -67,7 +71,8 @@ public sealed class ContainerConditions {
     ///     What turns on the two costs those forms have and the unnamed style-only one does not. The
     ///     resolver collects an element's ancestors' styles, and <see cref="StyleUpdater" />
     ///     re-resolves the whole subtree of an element such a query can ask whose style moved. See
-    ///     <see cref="StyleQuery" />.
+    ///     <see cref="StyleQuery" />. ⚠ For the resolver this is only the fast path's gate: the
+    ///     collection itself waits for a candidate whose group <see cref="AsksAncestors" /> (#1421).
     /// </remarks>
     internal bool HasAncestorStyleQueries { get; private set; }
 
@@ -107,6 +112,7 @@ public sealed class ContainerConditions {
         groups.Add(key);
         styles.Add(null);
         requires.Add(ContainerQuery.Requires(key.Condition));
+        asksAncestors.Add(asksAncestors[within]);
         interned[key] = groups.Count - 1;
         Revision++;
 
@@ -142,6 +148,7 @@ public sealed class ContainerConditions {
         // A mixed group's style half asks the element its size half asks, so it needs what the size
         // half needs; a style-only group asks any element, `normal` included.
         requires.Add(condition.Size is { } size ? ContainerQuery.Requires(size) : ContainerKind.Normal);
+        asksAncestors.Add(condition.AsksAncestors || asksAncestors[within]);
         interned[key] = groups.Count - 1;
         HasStyleQueries = true;
         HasAncestorStyleQueries |= condition.AsksAncestors;
@@ -151,12 +158,25 @@ public sealed class ContainerConditions {
         return groups.Count - 1;
     }
 
+    /// <summary>Whether a rule carrying a group needs the element's ancestors' styles to be answered.</summary>
+    /// <param name="group">The group a rule carries.</param>
+    /// <returns>
+    ///     Whether the group, or any group it is nested in, is a named or mixed <c>style()</c> query:
+    ///     the per-rule form of <see cref="HasAncestorStyleQueries" />, which is per document.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>What makes the resolver's ancestor collection lazy (#1421).</b> The document-wide flag
+    ///     turned it on for every element once any sheet declared one such query, including the
+    ///     elements none of those rules could reach. The resolver asks this of each candidate instead.
+    /// </remarks>
+    internal bool AsksAncestors(int group) => asksAncestors[group];
+
     /// <summary>Whether every <c>style()</c> group in a group's stack holds for one element.</summary>
     /// <param name="group">The group a rule carries.</param>
     /// <param name="parent">The parent's resolved style, or null for a root.</param>
     /// <param name="ancestors">
-    ///     The element's ancestors' resolved styles, nearest first, which a named group searches. Empty
-    ///     unless <see cref="HasAncestorStyleQueries" />.
+    ///     The element's ancestors' resolved styles, nearest first, which a named group searches. Only
+    ///     collected when <see cref="AsksAncestors" /> is true of this group.
     /// </param>
     /// <param name="properties">The table property names are interned in.</param>
     /// <param name="values">The table values are interned in.</param>
@@ -222,6 +242,7 @@ public sealed class ContainerConditions {
         groups.RemoveRange(1, groups.Count - 1);
         styles.RemoveRange(1, styles.Count - 1);
         requires.RemoveRange(1, requires.Count - 1);
+        asksAncestors.RemoveRange(1, asksAncestors.Count - 1);
         interned.Clear();
         HasStyleQueries = false;
         HasAncestorStyleQueries = false;
