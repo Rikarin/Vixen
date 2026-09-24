@@ -431,18 +431,20 @@ SwiftUI's `App`/`Scene`/`WindowGroup`/`DocumentGroup` all start one level above 
 | Answerable modal | `DialogService.cs` (465 lines) — doc 46 § A4 landed and the editor's copy is gone | **present** |
 | Sheets (window-attached modals) | `runModal` on purpose (`MacOSDialogs.cs:20-23`) | **absent by decision** |
 | Document model (dirty, save, revert, proxy title) | `EditorDocument.cs:84,159,296` — one assembly no application can reference | **absent below the editor** |
-| Quit / close with unsaved changes | ⚠ `UiApplication.Pump` sets `running = false` outright (`UiApplication.cs:548-566`). `ILifecycle.CancelQuit` exists (`ILifecycle.cs:91`) and `EditorHost.cs:401-427` uses it correctly — the framework host is the copy that still has the bug | **absent** |
+| Quit / close with unsaved changes | `UiApplication.Quit` (`UiApplication.cs:676`) asks `Document.RequestClose` first and stops the loop only if nothing refuses; `Pump` asks it on a platform Quit and clears the latch with `CancelQuit` (`UiApplication.cs:925-927`) when refused, as `EditorHost.cs:477-482` does; `DocumentClosePrompt` (`DocumentClose.cs:49`) is the Save / Don't Save / Cancel, installed by `Samples/02-HelloUi/Shell.vxml:364`. ⚠ As audited `Pump` set `running = false` outright and the framework host was the copy that still had the bug | **present** since `a1935a308` ([#653](https://github.com/Rikarin/Vixen/issues/653)); **absent** as audited. Proxy icon, recent documents and external modification are still owed on [#656](https://github.com/Rikarin/Vixen/issues/656) |
 | Activation / deactivation into the UI | produced; consumed only by the game host (`Core/Vixen.App.Hosting/PlatformInput.cs:109`) | **present-but-unwired** |
 | Reopen, Settings/preferences scene, status item, services, printing | — | **absent** |
 | Window placement autosave | editor-only (`Docking/EditorUserStore.cs:131`) | **absent** |
-| Background tasks and progress | `BackgroundTask`/`BackgroundTaskManager` in Core, **pumped** by `UiApplication.cs:507` | **present** (no Core UI for it) |
+| Background tasks and progress | `BackgroundTask`/`BackgroundTaskManager` in Core, **pumped** by `Tasks.Pump()` (`UiApplication.cs:765`) | **present** (no Core UI for it) |
 | DPI, per-monitor rescale, colour gamut | `UiSurface.cs:101`, `Surfaces.cs:159`, `UiWindowSurface.cs:257` | **present and fed** |
 
 **The pattern has moved since doc 46, and it is worth naming precisely.** 46 found five things in the
 *wrong assembly*; four of the five are now fixed. What replaces that defect is a different one:
 `IClipboard`, `INativeDialogs`, `DropFile`/`DropText`, `MediaContext.ColorScheme`,
 `ILifecycle.CancelQuit` and `WindowFocusGained` are all **finished, tested, cross-platform
-implementations in `Core/Vixen.Platform` with no consumer above it** — and
+implementations in `Core/Vixen.Platform` with no consumer above it** (⚠ as audited: `CancelQuit`
+has had one in `UiApplication.Pump` since `a1935a308` and `WindowFocusGained` in `PlatformInput`
+since `92c554e54`, per the rows above) — and
 `Platform/Vixen.Platform.Ui/PlatformInput.cs` plus `Platform/Vixen.Ui.Desktop/UiApplication.cs` are
 the two files where every one of those wires would terminate.
 

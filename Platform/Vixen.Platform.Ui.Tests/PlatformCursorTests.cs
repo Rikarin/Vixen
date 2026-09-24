@@ -19,9 +19,9 @@ namespace Vixen.Platform.Ui.Tests;
 ///     <para>
 ///         ⚠ <b>ONE OF THE TWO HOSTS THAT CALL <see cref="PlatformCursor.Apply" /> IS TESTED AND THE
 ///         OTHER IS NOT, AND THE EXPOSURE IS BIGGER THAN THE CALL.</b> The call sites are
-///         <c>UiApplication.cs:497</c>, covered by
+///         <c>UiApplication.cs:793</c>, covered by
 ///         <c>UiApplicationTests.TheLoopTellsTheWindowWhatThePointerIsOver</c>, and
-///         <c>EditorHost.cs:296</c>, covered by nothing. They are textually identical, which is an
+///         <c>EditorHost.cs:388</c>, covered by nothing. They are textually identical, which is an
 ///         argument rather than a measurement.
 ///     </para>
 ///     <para>
