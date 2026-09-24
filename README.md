@@ -39,9 +39,10 @@ rather than a curiosity: a run where the file failed to be copied beside the ass
 identical in every other respect and would report ten. Doubling the pool to `1.0x` is worth **36
 seconds spread over six assemblies** and nothing at all to the other 172, because every large one is
 floored by its longest *collection* rather than by the pool. ⚠ And the long pole is not on that list
-whatever the arithmetic says: `Vixen.Editor.App.Tests` disables collection parallelism outright over
-a real data race on the process-wide `Strings` signal, so neither multiplier can touch the 382
-seconds it contributes.
+whatever the arithmetic says: `Vixen.Editor.App.Tests` disables collection parallelism outright, so
+neither multiplier can touch the 382 seconds it contributes. It was disabled over a real data race on
+the process-wide `Strings` signal (#365); since #1413 that node is per thread and the race is gone, but
+the language is still process-wide and one class there changes it, so re-enabling is its own change.
 
 ⚠ **A multiplier truncates, so `0.5x` is the wrong value for a small machine and CI runs on small
 machines.** xunit computes it as `(int)(m × ProcessorCount)`, a cast that rounds toward zero: ten

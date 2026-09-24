@@ -301,9 +301,9 @@ sealed class EditorHost : IDisposable {
     ///     too because the editor never runs that loop.</b> <c>ReactiveGraph.OwningThread</c> is
     ///     process-wide and was assigned by nothing in the tree, so every
     ///     <c>AssertOwningThread</c> in the reactive layer was inert in the editor as well —
-    ///     including on <c>Strings</c>, the one static reactive node every panel in the shell
-    ///     attaches an effect to. Restored on the way out because <c>Program</c> builds a second
-    ///     host over the same window when a project is swapped.
+    ///     including on <c>Strings</c>' node, which every panel in the shell attaches an effect to.
+    ///     Restored on the way out because <c>Program</c> builds a second host over the same window
+    ///     when a project is swapped.
     /// </remarks>
     public int Run(int frames) {
         var previousOwner = ReactiveGraph.OwningThread;

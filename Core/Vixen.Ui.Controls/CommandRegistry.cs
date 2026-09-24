@@ -188,8 +188,7 @@ public sealed class CommandRegistry : IResponder {
     ///         <see cref="EditorCommand.CurrentTitle" /> is a <c>StringId</c> and the route's title
     ///         is a string, "so resolving one here would need a catalogue this table does not have".
     ///         That is wrong: <c>StringId.Text</c> resolves through <c>Strings</c>, which is static
-    ///         and process-wide — the one static reactive node in <c>Vixen.Ui</c> — so every table
-    ///         has it. Without the title a bound toolbar button showed <i>Local Space</i> in both
+    ///         and whose language is process-wide, so every table has it. Without the title a bound toolbar button showed <i>Local Space</i> in both
     ///         states, which is the exact defect <see cref="EditorCommand.Caption" /> exists to fix.
     ///     </para>
     ///     <para>
