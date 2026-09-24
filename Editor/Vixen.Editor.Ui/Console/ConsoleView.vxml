@@ -199,10 +199,9 @@
 
         shown.Changed += onChanged;
 
-        foreach (var category in shown.Categories) {
-            Categories.AddOption(category, category);
-        }
-
+        // ⚠ The categories a reused model already holds go through `Grow` like every later one. A
+        // loop of its own here labelled them by their full type name, so a reopened console's picker
+        // read `Vixen.Editor.Assets.Content.ContentPipeline` beside `Other`.
         Grow();
     }
 
