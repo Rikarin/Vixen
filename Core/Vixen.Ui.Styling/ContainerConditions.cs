@@ -47,6 +47,11 @@ public sealed class ContainerConditions {
     // value the interning dictionary can compare — an array field would compare by reference.
     readonly List<StyleCondition?> styles = [null];
 
+    // Parallel to `groups`: the least containment a box needs to be asked the group's size features,
+    // `ContainerQuery.Requires` read once at registration rather than per element per walk. A
+    // style-only group asks no box, so it needs none and holds `Normal`.
+    readonly List<ContainerKind> requires = [ContainerKind.Normal];
+
     /// <summary>Whether any registered group is a <c>style()</c> query.</summary>
     /// <remarks>
     ///     The cascade's fast path: every stylesheet this repository ships has none, and the resolver
@@ -101,6 +106,7 @@ public sealed class ContainerConditions {
 
         groups.Add(key);
         styles.Add(null);
+        requires.Add(ContainerQuery.Requires(key.Condition));
         interned[key] = groups.Count - 1;
         Revision++;
 
@@ -132,6 +138,10 @@ public sealed class ContainerConditions {
 
         groups.Add(key);
         styles.Add(condition);
+
+        // A mixed group's style half asks the element its size half asks, so it needs what the size
+        // half needs; a style-only group asks any element, `normal` included.
+        requires.Add(condition.Size is { } size ? ContainerQuery.Requires(size) : ContainerKind.Normal);
         interned[key] = groups.Count - 1;
         HasStyleQueries = true;
         HasAncestorStyleQueries |= condition.AsksAncestors;
@@ -164,7 +174,7 @@ public sealed class ContainerConditions {
             }
 
             var container = condition.AsksAncestors
-                ? Nearest(ancestors, condition.Name, condition.Size is not null, properties, values)
+                ? Nearest(ancestors, condition.Name, requires[at], properties, values)
                 : parent;
 
             if (!StyleQuery.Holds(condition, container, properties, values)) {
@@ -178,22 +188,24 @@ public sealed class ContainerConditions {
     /// <summary>The nearest ancestor style a named or mixed condition asks, or null when none is eligible.</summary>
     /// <param name="ancestors">The ancestors' styles, nearest first.</param>
     /// <param name="name">The container name asked for, or empty for any.</param>
-    /// <param name="sized">
-    ///     Whether the condition has a size half, so only a size container is eligible. That is the
-    ///     rule <see cref="TryResolve" /> applies to the same query's size half, and it is what makes
-    ///     the two halves ask one element.
+    /// <param name="required">
+    ///     The least containment an eligible element has: <see cref="ContainerKind.Normal" /> for a
+    ///     style-only condition, which any element answers, and for a mixed one what its size half
+    ///     needs, <see cref="ContainerKind.Size" /> if that reads the block axis. That is the rule
+    ///     <see cref="TryResolve" /> applies to the same query's size half, and it is what makes the
+    ///     two halves ask one element.
     /// </param>
     /// <param name="properties">The table property names are interned in.</param>
     /// <param name="values">The table values are interned in.</param>
     static ComputedStyle? Nearest(
         ReadOnlySpan<ComputedStyle> ancestors,
         string name,
-        bool sized,
+        ContainerKind required,
         NameTable properties,
         NameTable values
     ) {
         foreach (var style in ancestors) {
-            if (sized && !StyleQuery.IsSizeContainer(style, properties, values)) {
+            if (required != ContainerKind.Normal && StyleQuery.KindOf(style, properties, values) < required) {
                 continue;
             }
 
@@ -209,6 +221,7 @@ public sealed class ContainerConditions {
     public void Reset() {
         groups.RemoveRange(1, groups.Count - 1);
         styles.RemoveRange(1, styles.Count - 1);
+        requires.RemoveRange(1, requires.Count - 1);
         interned.Clear();
         HasStyleQueries = false;
         HasAncestorStyleQueries = false;
@@ -261,7 +274,7 @@ public sealed class ContainerConditions {
                 continue;
             }
 
-            if (!TryResolve(chain, group.Name, out var box)) {
+            if (!TryResolve(chain, group.Name, requires[i], out var box)) {
                 // No eligible container above this element. CSS Containment 3 § 5.1: a query with no
                 // container to ask resolves to false rather than to an error.
                 continue;
@@ -276,19 +289,34 @@ public sealed class ContainerConditions {
     /// <summary>Finds the container a named query is about.</summary>
     /// <param name="chain">The containers above the element, nearest first.</param>
     /// <param name="name">The name asked for, or empty for the nearest of any name.</param>
+    /// <param name="required">
+    ///     The least containment that can answer every feature, <see cref="ContainerQuery.Requires" />.
+    /// </param>
     /// <param name="box">Receives its box.</param>
     /// <returns>Whether there is one.</returns>
     /// <remarks>
-    ///     ⚠ <b>Nearest wins, and an unnamed query does not skip a named container.</b> A name is a
-    ///     label a container carries, not a category it belongs to, so <c>@container (min-width: …)</c>
-    ///     asks whatever box is closest whether or not that box was given a name. Skipping named ones
-    ///     would make adding a name to a container silently retarget every unnamed query below it.
+    ///     <para>
+    ///         ⚠ <b>Nearest wins, and an unnamed query does not skip a named container.</b> A name is a
+    ///         label a container carries, not a category it belongs to, so <c>@container (min-width:
+    ///         …)</c> asks whatever box is closest whether or not that box was given a name. Skipping
+    ///         named ones would make adding a name to a container silently retarget every unnamed
+    ///         query below it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>But a container that cannot answer every feature is skipped, before the name is
+    ///         looked at (#1429).</b> CSS Containment 3 § 5.1: the container a query asks is the
+    ///         nearest ancestor that is a valid query container for <i>every</i> feature in it. This
+    ///         used to stop at the first non-<c>normal</c> box, so <c>(min-height: 200px)</c> under an
+    ///         <c>inline-size</c> container asked it, got no height and resolved <c>false</c> however
+    ///         tall a <c>size</c> container above it was. A name does not change that: a box named
+    ///         <c>card</c> that is only <c>inline-size</c> is not the <c>card</c> a height query asks.
+    ///     </para>
     /// </remarks>
-    static bool TryResolve(IReadOnlyList<ContainerScope> chain, string name, out ContainerBox box) {
+    static bool TryResolve(IReadOnlyList<ContainerScope> chain, string name, ContainerKind required, out ContainerBox box) {
         for (var i = 0; i < chain.Count; i++) {
             var candidate = chain[i];
 
-            if (candidate.Box.Kind == ContainerKind.Normal) {
+            if (candidate.Box.Kind == ContainerKind.Normal || candidate.Box.Kind < required) {
                 continue;
             }
 

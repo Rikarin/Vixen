@@ -254,6 +254,83 @@ public class ContainerQueryTests {
         Assert.Equal("tall", fixture.Value(fixture.Tree.CreateElement("div", both, classNames: ["leaf"])));
     }
 
+    /// <summary>
+    ///     ⚠ A container that cannot answer every feature is skipped, and the query asks the next one
+    ///     up that can (#1429).
+    /// </summary>
+    /// <remarks>
+    ///     CSS Containment 3 § 5.1: the container a query asks is the nearest ancestor that is a valid
+    ///     query container for every feature in it. The walk used to stop at the first non-<c>normal</c>
+    ///     box, so a block-axis query under an <c>inline-size</c> container resolved <c>false</c> however
+    ///     tall the <c>size</c> container above it was. Each row is the same two boxes — an outer
+    ///     <c>size</c> container and an inner <c>inline-size</c> one 100 wide and 50 tall — with only the
+    ///     outer box's size changed, so a row that flips can only have read the outer box. The width
+    ///     rows are the control: a width query is answerable by the inner box, so it must still stop
+    ///     there, and <c>(max-width: 400px)</c> holds off the inner 100 and not the outer 900.
+    /// </remarks>
+    [Theory]
+    [InlineData("(min-height: 200px)", 900f, 900f, true)]
+    [InlineData("(min-height: 200px)", 900f, 150f, false)]
+    [InlineData("(min-block-size: 200px)", 900f, 900f, true)]
+    [InlineData("(height >= 200px)", 900f, 900f, true)]
+    [InlineData("(orientation: portrait)", 300f, 900f, true)]
+    [InlineData("(orientation: portrait)", 900f, 300f, false)]
+    [InlineData("(min-aspect-ratio: 2/1)", 900f, 300f, true)]
+    [InlineData("(min-aspect-ratio: 2/1)", 300f, 900f, false)]
+    [InlineData("(min-width: 400px) and (min-height: 200px)", 900f, 900f, true)]
+    [InlineData("(max-width: 400px) and (min-height: 200px)", 900f, 900f, false)]
+    [InlineData("(max-width: 400px)", 900f, 900f, true)]
+    [InlineData("(min-width: 400px)", 900f, 900f, false)]
+    public void A_query_skips_a_container_that_cannot_answer_every_feature(
+        string condition,
+        float outerWidth,
+        float outerHeight,
+        bool matches
+    ) {
+        var fixture = new CascadeFixture();
+        fixture.Load($"@container {condition} {{ .leaf {{ color: asked }} }}");
+
+        Assert.Empty(fixture.Engine.Loader.Diagnostics);
+
+        var outer = fixture.Tree.CreateElement("div");
+        fixture.Contain(outer, width: outerWidth, height: outerHeight, kind: ContainerKind.Size);
+
+        var inner = fixture.Tree.CreateElement("div", outer);
+        fixture.Contain(inner, width: 100f, height: 50f, kind: ContainerKind.InlineSize);
+
+        var leaf = fixture.Tree.CreateElement("div", inner, classNames: ["leaf"]);
+
+        Assert.Equal(matches ? "asked" : null, fixture.Value(leaf));
+    }
+
+    /// <summary>
+    ///     The skip happens before the name is looked at: an <c>inline-size</c> box carrying the name is
+    ///     not the container a height query with that name asks (#1429).
+    /// </summary>
+    [Fact]
+    public void A_named_height_query_skips_a_named_inline_size_container() {
+        var fixture = new CascadeFixture();
+        fixture.Load("@container card (min-height: 200px) { .leaf { color: tall-card } }");
+
+        var outer = fixture.Tree.CreateElement("div");
+        fixture.Contain(outer, width: 900f, height: 900f, name: "card", kind: ContainerKind.Size);
+
+        var inner = fixture.Tree.CreateElement("div", outer);
+        fixture.Contain(inner, width: 900f, height: 50f, name: "card", kind: ContainerKind.InlineSize);
+
+        Assert.Equal("tall-card", fixture.Value(fixture.Tree.CreateElement("div", inner, classNames: ["leaf"])));
+
+        // With no `size` card above it, there is no eligible container and the query is false — the
+        // skip is not a fall-through to "true".
+        var alone = new CascadeFixture();
+        alone.Load("@container card (min-height: 200px) { .leaf { color: tall-card } }");
+
+        var only = alone.Tree.CreateElement("div");
+        alone.Contain(only, width: 900f, height: 900f, name: "card", kind: ContainerKind.InlineSize);
+
+        Assert.Null(alone.Value(alone.Tree.CreateElement("div", only, classNames: ["leaf"])));
+    }
+
     [Fact]
     public void A_query_with_no_eligible_container_above_it_matches_nothing() {
         // CSS Containment 3 § 5.1: no container to ask is false, not an error and not a match.

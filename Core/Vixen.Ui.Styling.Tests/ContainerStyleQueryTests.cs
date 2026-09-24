@@ -451,6 +451,48 @@ public class ContainerStyleQueryTests {
     }
 
     /// <summary>
+    ///     ⚠ A mixed query whose size half reads the block axis asks the nearest <c>size</c> container
+    ///     for both halves, past a nearer <c>inline-size</c> one (#1429).
+    /// </summary>
+    /// <remarks>
+    ///     The inner box is an <c>inline-size</c> container declaring the opposite value. It cannot
+    ///     answer <c>(min-height: …)</c>, so CSS Containment 3 § 5.1 skips it, and both halves have to
+    ///     skip it: a size half that stopped there resolved false, and a style half that stopped there
+    ///     read <c>secondary</c>. The second scene is the control, with the values swapped, so a style
+    ///     half that read the inner box would hold there and the rule would wrongly apply.
+    /// </remarks>
+    [Fact]
+    public void A_block_axis_mixed_query_asks_the_size_container_past_an_inline_size_one() {
+        const string sheet = """
+            .inline { container-type: inline-size; }
+            .both { container-type: size; }
+            .primary { --variant: primary; }
+            .secondary { --variant: secondary; }
+            @container (min-height: 200px) and style(--variant: primary) { .leaf { color: tall-primary; } }
+            """;
+
+        var asked = new CascadeFixture();
+        asked.Load(sheet);
+        Assert.Empty(asked.Engine.Loader.Diagnostics);
+        Assert.Equal("tall-primary", asked.Read(Leaf(asked, "primary", "secondary"), "color"));
+
+        var swapped = new CascadeFixture();
+        swapped.Load(sheet);
+        Assert.Null(swapped.Read(Leaf(swapped, "secondary", "primary"), "color"));
+
+        static ComputedStyle Leaf(CascadeFixture fixture, string outerVariant, string innerVariant) {
+            var outer = fixture.Tree.CreateElement("div", classNames: ["both", outerVariant]);
+            fixture.Contain(outer, 900f, 900f, kind: ContainerKind.Size);
+
+            var inner = fixture.Tree.CreateElement("div", outer, classNames: ["inline", innerVariant]);
+            fixture.Contain(inner, 900f, 50f, kind: ContainerKind.InlineSize);
+
+            var leaf = fixture.Tree.CreateElement("div", inner, classNames: ["leaf"]);
+            return fixture.Engine.ResolveAll()[leaf.Index];
+        }
+    }
+
+    /// <summary>
     ///     ⚠ The size container's own change reaches an asker below an element that overrides the
     ///     value, although the container carries no name.
     /// </summary>

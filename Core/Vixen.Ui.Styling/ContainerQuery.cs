@@ -67,14 +67,59 @@ public readonly record struct ContainerBox(float Width, float Height, ContainerK
 ///         <c>@media</c> gets.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An axis the container does not constrain is a refusal to match, not a false.</b>
-///         Asking <c>(min-height: 200px)</c> of an <c>inline-size</c> container is asking about a
-///         number the containment did not make well-defined — the box's height is still its content's
-///         — so the query cannot be answered here. It answers <c>false</c> rather than reading the
-///         height anyway, which is what a browser does when no eligible container is found.
+///         ⚠ <b>An axis the container does not constrain makes the container ineligible, and the query
+///         asks the next one up (#1429).</b> Asking <c>(min-height: 200px)</c> of an <c>inline-size</c>
+///         container is asking about a number the containment did not make well-defined — the box's
+///         height is still its content's. CSS Containment 3 § 5.1 does not answer that <c>false</c>:
+///         the container a query asks is the nearest ancestor that is a valid query container for
+///         <i>every</i> feature in it, so the <c>inline-size</c> box is skipped and a <c>size</c>
+///         container above it answers. <see cref="Requires" /> is what the walk in
+///         <see cref="ContainerConditions" /> reads to skip it. This evaluator still answers
+///         <c>false</c> for a box that cannot answer rather than reading the height anyway, but the
+///         walk never hands it one; <c>false</c> is only right when no eligible container exists at all.
 ///     </para>
 /// </remarks>
 public static class ContainerQuery {
+    /// <summary>The least containment a box needs to be asked every feature in a condition.</summary>
+    /// <param name="condition">The text between the container's name and the block.</param>
+    /// <returns>
+    ///     <see cref="ContainerKind.Size" /> when any feature reads the block axis — <c>height</c>,
+    ///     <c>block-size</c>, and <c>aspect-ratio</c> and <c>orientation</c>, which read both — and
+    ///     otherwise <see cref="ContainerKind.InlineSize" />, which every size query container satisfies.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>Never <see cref="ContainerKind.Normal" />, not even for an empty condition.</b>
+    ///     <c>@container card { … }</c> asks only that a query container of that name exists, and a
+    ///     <c>normal</c> box is not a size query container. A term that cannot be read counts as
+    ///     inline: the loader refuses such a prelude before it becomes a group, so no walk asks it.
+    /// </remarks>
+    internal static ContainerKind Requires(string? condition) {
+        if (string.IsNullOrWhiteSpace(condition)) {
+            return ContainerKind.InlineSize;
+        }
+
+        foreach (var range in condition.AsSpan().Split(" and ")) {
+            var term = condition.AsSpan()[range].Trim();
+
+            if (term.Length < 2 || term[0] != '(' || term[^1] != ')') {
+                continue;
+            }
+
+            if (FeatureRange.TryRead(term[1..^1].Trim(), out var terms, out _) && ReadsBlockAxis(terms.Name)) {
+                return ContainerKind.Size;
+            }
+        }
+
+        return ContainerKind.InlineSize;
+    }
+
+    /// <summary>Whether a feature reads the block axis, so only a <c>size</c> container can answer it.</summary>
+    static bool ReadsBlockAxis(ReadOnlySpan<char> name) =>
+        name.Equals("height", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("block-size", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("aspect-ratio", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("orientation", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Evaluates a container condition against a box.</summary>
     /// <param name="condition">The text between the container's name and the block.</param>
     /// <param name="box">The container's measured box.</param>
@@ -194,8 +239,9 @@ public static class ContainerQuery {
 
         // ⚠ The containment test, and it comes before the comparison rather than after it. An
         // `inline-size` container's height is not a fact this query may read at all, so there is no
-        // number to compare — `false` here is "no eligible container", which is what the specification
-        // says an unanswerable query resolves to.
+        // number to compare. `ContainerConditions` never hands this a box `Requires` rules out — it
+        // walks past it to one that can answer (#1429) — so this is a guard for a direct caller, and
+        // `false` is what a query resolves to only when no eligible container exists.
         var answerable = inline
             ? box.Kind is ContainerKind.InlineSize or ContainerKind.Size
             : box.Kind == ContainerKind.Size;

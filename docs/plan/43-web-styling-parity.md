@@ -2539,10 +2539,15 @@ refused.
 style(…)` asks the nearest *size* container, which `ContainerScopes` holds only as a box and the
 cascade holds only as a style. So the loader registers the size features as an ordinary size group,
 answered off the box, and the style features as a style group nested inside it, answered off the
-style of the nearest ancestor whose own `container-type` is `inline-size` or `size`
-(`ContainerConditions.Nearest`, `StyleQuery.IsSizeContainer`). Nesting is a conjunction, so `or`
+style of the nearest ancestor whose own `container-type` can answer every size feature
+(`ContainerConditions.Nearest`, `StyleQuery.KindOf`). Nesting is a conjunction, so `or`
 across the two halves stays refused. The two halves pick the same element because both apply one
-rule: nearest, not `normal`, carrying the name if one is asked. ⚠ **They did not agree on the name
+rule: nearest, contained on every axis the size half reads, carrying the name if one is asked.
+⚠ **"Every axis" landed after the rest (#1429).** Both walks used to stop at the first
+non-`normal` box, so `(min-height: 200px)` under an `inline-size` container asked a box with no
+answerable height and resolved false, however tall the `size` container above it was. CSS
+Containment 3 § 5.1 skips such a box; `ContainerQuery.Requires` reads which axes a condition needs,
+once per group. ⚠ **They did not agree on the name
 until this landed.** `ContainerConditions.TryResolve` compared the whole written `container-name`
 list with the one name asked for, so `@container side (…)` never found a box named `card side`,
 while `StyleQuery.Names` split the list. `ContainerConditions.Carries` is now the one definition.

@@ -65,7 +65,8 @@ sealed record StyleCondition(string Name, StyleFeature[] Features, bool Any, boo
 ///         size group, answered off the box, and the style features a style group nested inside it,
 ///         answered off the style of the nearest ancestor whose own <c>container-type</c> makes it
 ///         a size container. The two pick the same element because both apply one rule: nearest,
-///         not <c>normal</c>, carrying the name if one is asked. That is also why a name list has one
+///         contained on every axis the size half reads (#1429), carrying the name if one is asked.
+///         That is also why a name list has one
 ///         definition, <see cref="ContainerConditions.Carries" />. Nesting is a conjunction, so only
 ///         <c>and</c> joins the halves; <c>or</c> across them is refused. Standard properties are
 ///         refused because no engine here compares a standard property's computed value.
@@ -296,34 +297,45 @@ static class StyleQuery {
     /// <param name="properties">The table property names are interned in.</param>
     /// <param name="values">The table values are interned in.</param>
     /// <returns>Whether its <c>container-type</c> is <c>inline-size</c> or <c>size</c>.</returns>
+    public static bool IsSizeContainer(ComputedStyle style, NameTable properties, NameTable values) =>
+        KindOf(style, properties, values) != ContainerKind.Normal;
+
+    /// <summary>Which axes a style makes its element a size container on.</summary>
+    /// <param name="style">An element's computed style.</param>
+    /// <param name="properties">The table property names are interned in.</param>
+    /// <param name="values">The table values are interned in.</param>
+    /// <returns>What its <c>container-type</c> reads as, <see cref="ContainerKind.Normal" /> for none.</returns>
     /// <remarks>
     ///     ⚠ <b>The same reading as <c>UiDocument.KindOf</c>, which is what enters the element into
     ///     <see cref="ContainerScopes" />:</b> the shorthand's half after the slash, then the
     ///     longhand over it. A mixed query's size half is answered off that scope chain and its style
     ///     half off this, so the two agree on which element is the container only while the two
-    ///     readers agree. <c>container: card</c> with no slash is <c>normal</c>.
+    ///     readers agree — on the kind as well as on whether there is one, since a query that reads
+    ///     the block axis skips an <c>inline-size</c> box in both (#1429). <c>container: card</c> with
+    ///     no slash is <c>normal</c>.
     /// </remarks>
-    public static bool IsSizeContainer(ComputedStyle style, NameTable properties, NameTable values) {
+    public static ContainerKind KindOf(ComputedStyle style, NameTable properties, NameTable values) {
         var longhand = properties.Lookup("container-type");
 
         if (longhand != NameTable.None && style.TryGet(longhand, out var declared)) {
-            return IsSizeKeyword(values.NameOf(declared).AsSpan().Trim());
+            return Keyword(values.NameOf(declared).AsSpan().Trim());
         }
 
         var shorthand = properties.Lookup("container");
 
         if (shorthand == NameTable.None || !style.TryGet(shorthand, out var both)) {
-            return false;
+            return ContainerKind.Normal;
         }
 
         var text = values.NameOf(both).AsSpan();
         var slash = text.IndexOf('/');
 
-        return slash >= 0 && IsSizeKeyword(text[(slash + 1)..].Trim());
+        return slash >= 0 ? Keyword(text[(slash + 1)..].Trim()) : ContainerKind.Normal;
 
-        static bool IsSizeKeyword(ReadOnlySpan<char> keyword) =>
-            keyword.Equals("inline-size", StringComparison.OrdinalIgnoreCase)
-            || keyword.Equals("size", StringComparison.OrdinalIgnoreCase);
+        static ContainerKind Keyword(ReadOnlySpan<char> keyword) =>
+            keyword.Equals("inline-size", StringComparison.OrdinalIgnoreCase) ? ContainerKind.InlineSize
+            : keyword.Equals("size", StringComparison.OrdinalIgnoreCase) ? ContainerKind.Size
+            : ContainerKind.Normal;
     }
 
     static ReadOnlySpan<char> ReadNames(ComputedStyle style, NameTable properties, NameTable values) {
