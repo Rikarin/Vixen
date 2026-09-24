@@ -650,6 +650,27 @@ public class CodeEditorTests {
         Assert.Equal("foo", editor.SelectedText);
     }
 
+    /// <summary>
+    ///     The third run a double click can land in: a gap between two words selects the gap, as a
+    ///     word selects the word. The moves only ever skip whitespace, so the old pair ran out of
+    ///     the gap in both directions and selected <c>foo   bar</c> whole; and a rewrite that sent
+    ///     every non-word character down the word branch would select one space of the three.
+    /// </summary>
+    [Fact]
+    public void A_double_click_between_two_words_selects_the_whitespace_between_them() {
+        using var fixture = new AdvancedFixture();
+        var editor = Editor(fixture, "foo   bar");
+
+        var middle = editor.ToScreen(new TextPosition(0, 4));
+        var x = middle.X + (editor.CharacterWidth * 0.2f);
+        var y = middle.Y + (editor.RowHeight * 0.5f);
+
+        Assert.Equal(new TextPosition(0, 4), editor.ToPosition(x, y));
+
+        DoubleClick(fixture, x, y);
+        Assert.Equal("   ", editor.SelectedText);
+    }
+
     [Fact]
     public void A_buffer_edited_from_outside_is_taken_as_a_new_file() {
         using var fixture = new AdvancedFixture();
