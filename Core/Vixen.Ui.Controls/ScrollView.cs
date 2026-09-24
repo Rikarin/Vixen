@@ -112,6 +112,31 @@ public sealed partial class ScrollBar : Control {
     /// <summary>How far it can travel.</summary>
     public float Range => MathF.Max(0f, ContentSize - ViewportSize);
 
+    /// <summary>How much of the far end of the bar is the corner where the other bar ends.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Zero unless a <see cref="ScrollView" /> is showing both of its bars, and what the
+    ///         corner exists for is the thumb.</b> Both bars run to the view's edges, so with both
+    ///         shown the horizontal track, a later sibling, was painted over the last ten pixels of
+    ///         the vertical one — and the vertical thumb's travel was measured over the whole bar, so
+    ///         at the end of the scroll eleven of its twenty-four pixels were under the other track
+    ///         (#1401). The thumb now travels over what is left, and a press in the corner is neither
+    ///         bar's; the corner is still painted in the track colour, which is the square a browser
+    ///         leaves there.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Drawing and hit testing, not layout.</b> The bar's box keeps its full length: a
+    ///         corner written as an inset would be a style change made from inside
+    ///         <see cref="UiDocument.LayoutFinished" /> and would settle a frame late, on exactly the
+    ///         frame the content first overflowed on the second axis.
+    ///     </para>
+    /// </remarks>
+    internal float Corner { get; set; }
+
+    /// <summary>The length of the bar the thumb travels over: the whole bar, less the corner.</summary>
+    float Track(Rectangle bounds) =>
+        MathF.Max(0f, (Orientation == Orientation.Vertical ? bounds.Height : bounds.Width) - Corner);
+
     void OnOrientationChanged(Orientation previous, Orientation current) {
         RemoveClass(Separator.ClassOf(previous));
         AddClass(Separator.ClassOf(current));
@@ -126,9 +151,16 @@ public sealed partial class ScrollBar : Control {
             return;
         }
 
+        // The whole box, corner included: with both bars shown the corner is then track-coloured from
+        // either of them, which is the square a browser paints there, rather than a hole in the frame.
         context.FillRectangle(bounds, Document.ColorOf(Style, trackColor) ?? new Color4(0f, 0f, 0f, 0.08f));
 
-        var (offset, length) = Thumb(Orientation == Orientation.Vertical ? bounds.Height : bounds.Width);
+        var along = Track(bounds);
+        if (along <= 0f) {
+            return;
+        }
+
+        var (offset, length) = Thumb(along);
         var colour = Document.ColorOf(Style, thumbColor) ?? new Color4(0.5f, 0.5f, 0.5f, 0.8f);
 
         var thumb = Orientation == Orientation.Vertical
@@ -158,11 +190,12 @@ public sealed partial class ScrollBar : Control {
         var bounds = Bounds;
         var vertical = Orientation == Orientation.Vertical;
 
-        var bar = vertical ? bounds.Height : bounds.Width;
+        var bar = Track(bounds);
         var along = (vertical ? args.Y - bounds.Y : args.X - bounds.X);
 
         switch (args.Action) {
-            case PointerAction.Pressed when args.Button == PointerButton.Primary && Range > 0f:
+            // A press in the corner is not on the track, so it is left to go on bubbling.
+            case PointerAction.Pressed when args.Button == PointerButton.Primary && Range > 0f && along < bar:
                 var (offset, length) = Thumb(bar);
 
                 // A press on the thumb grabs it where it was touched; a press on the track jumps the
@@ -1931,6 +1964,8 @@ public sealed partial class ScrollView : Control {
         HorizontalBar.ContentSize = Content.Width;
         HorizontalBar.Value = ScrollLeft;
 
+        Corners();
+
         // The clamp has to run again here rather than only in the coercion, because the thing it
         // clamps against is the content's size — and that changes without anybody assigning to the
         // scroll offset at all.
@@ -1994,7 +2029,21 @@ public sealed partial class ScrollView : Control {
         HorizontalBar.ViewportSize = Width;
         HorizontalBar.ContentSize = Content.Width;
 
+        Corners();
+
         Scrolled?.Invoke(this);
+    }
+
+    /// <summary>Leaves each bar's far end to the other when both are shown. See <see cref="ScrollBar.Corner" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The other bar's laid-out thickness, not a constant</b>, so a sheet that narrows a bar
+    ///     (<c>virtualizing-panel scrollbar { width: 8px }</c>) or hides one gets a corner that fits it.
+    ///     And only while that bar is <i>shown</i> — it draws nothing without a range, and a corner
+    ///     kept for a bar that is not there is track the thumb can never reach.
+    /// </remarks>
+    void Corners() {
+        VerticalBar.Corner = HorizontalBar.Range > 0f ? HorizontalBar.Height : 0f;
+        HorizontalBar.Corner = VerticalBar.Range > 0f ? VerticalBar.Width : 0f;
     }
 
     /// <summary>Scrolls from a wheel notch or a trackpad scroll, smoothing the first kind only, with

@@ -203,16 +203,21 @@ public sealed class ScrollingPanelPictureTests {
     ///         must be at the end is closed form.
     ///     </para>
     ///     <para>
-    ///         The horizontal bar overlays the bottom of the vertical one when both are shown, so what
-    ///         is required at the end is some of the thumb, all of it inside the last thumb-length,
-    ///         not all of it (<c>ScrollBarThumbPictureTests</c> measures that overlay on a plain view).
+    ///         ⚠ <b>With both bars shown the thumb ends where the horizontal bar begins, and all of it
+    ///         is required.</b> Until #1401 the horizontal track was painted over the last 10 px of
+    ///         the vertical one, the thumb travelled into them, and this asked for a third of it — at
+    ///         1280×800 the console pane's end thumb was 748–760 over a track at 761–770. The end of
+    ///         the track is measured off the other bar's box, so the oracle is not the control's own
+    ///         arithmetic read back.
     ///     </para>
     /// </remarks>
-    static void ThumbAtTheEnd(string renderer, ScrollBar bar, Bitmap top, Bitmap bottom) {
-        var length = (int)MathF.Floor(MathF.Max(MathF.Min(bar.Height, 24f), bar.Height * bar.ViewportSize / bar.ContentSize));
+    static void ThumbAtTheEnd(string renderer, ScrollView view, Bitmap top, Bitmap bottom) {
+        var bar = view.VerticalBar;
         var x = (int)MathF.Floor(bar.AbsoluteLeft + bar.Width / 2f);
         var start = (int)MathF.Ceiling(bar.AbsoluteTop);
-        var end = (int)MathF.Floor(bar.AbsoluteTop + bar.Height);
+        var limit = (int)MathF.Floor(bar.AbsoluteTop + bar.Height);
+        var end = view.MaximumLeft > 0f ? (int)MathF.Floor(view.HorizontalBar.AbsoluteTop) : limit;
+        var length = (int)MathF.Floor(MathF.Max(MathF.Min(end - start, 24f), (end - start) * bar.ViewportSize / bar.ContentSize));
         var travel = end - start - length;
 
         Assert.True(travel >= 4, $"[{renderer}] a thumb that travels {travel} px cannot be told from one that did not move.");
@@ -230,23 +235,28 @@ public sealed class ScrollingPanelPictureTests {
 
         // ⚠ Clamped to the picture: a track that runs off the bottom of the window is the defect
         // this looks for at its worst, and a row nobody can see holds no thumb.
-        for (var y = start; y < Math.Min(end, bottom.Height); y++) {
+        for (var y = start; y < Math.Min(limit, bottom.Height); y++) {
             if (Pixel(bottom, x, y).SequenceEqual(thumb)) {
                 found.Add(y);
             }
         }
 
         Assert.True(
-            found.Count >= length / 3,
+            found.Count >= length - 2,
             $"[{renderer}] scrolled to the end, the vertical thumb has {found.Count} pixels in column {x} of its "
-            + $"track ({start}–{end}); a {length} px thumb belongs at {end - length}–{end}. It is drawn somewhere "
-            + "nothing shows it."
+            + $"track ({start}–{end}); a {length} px thumb belongs at {end - length}–{end}. The rest of it is drawn "
+            + "somewhere nothing shows it."
         );
 
         Assert.True(
             found[0] >= end - length - 1,
             $"[{renderer}] scrolled to the end, the vertical thumb starts at y {found[0]}, above the last {length} px "
             + $"of its track ({end - length}–{end})."
+        );
+
+        Assert.True(
+            found[^1] < end,
+            $"[{renderer}] scrolled to the end, the vertical thumb runs to y {found[^1]}, into the horizontal bar at {end}."
         );
     }
 
@@ -828,12 +838,12 @@ public sealed class ScrollingPanelPictureTests {
             },
             () => {
                 if (!sideways) {
-                    ThumbAtTheEnd("software", view.VerticalBar, top.Software, bottom.Software);
+                    ThumbAtTheEnd("software", view, top.Software, bottom.Software);
                 }
             },
             () => {
                 if (!sideways && top.Gpu is { } before && bottom.Gpu is { } after) {
-                    ThumbAtTheEnd("Vulkan", view.VerticalBar, before, after);
+                    ThumbAtTheEnd("Vulkan", view, before, after);
                 }
             }
         );
