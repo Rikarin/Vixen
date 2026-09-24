@@ -220,6 +220,16 @@ public class RealPlanCitationTests {
     static readonly Regex BoundCode = new(@"^\s*—\s*`(?<code>[^`]+)`", RegexOptions.Compiled);
 
     /// <summary>A backticked dotted symbol, and the type it names: <c>`EditorApplication.scene`</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Dotted only, and the undotted form was tried and refused.</b> Doc 49's
+    ///     <c>`TextField.cs:1067-1070`</c> … <c>`CodeEditor` tests `Control` only (`:1375`)</c> meant
+    ///     CodeEditor.cs and was read as TextField.cs, which a bare <c>`CodeEditor`</c> would have
+    ///     caught — but widened to every capitalised name, the rule found six more and every one was a
+    ///     member of the named file (<c>`Scoped`</c>, <c>`Root`</c>, <c>`Focused`</c>,
+    ///     <c>`LoadDisabledPlugins`</c>, <c>`StandardIcons`</c>, <c>`ITerrainScene`</c>), because a
+    ///     member is capitalised too. Six false refusals for one true one is a rule people learn to
+    ///     write around; that one is pinned and names its file now (#1388).
+    /// </remarks>
     static readonly Regex TypedSymbol = new(@"`(?<symbol>(?<type>[A-Z]\w*)(?:<[^`]*>)?\.[A-Za-z_][^`]*)`", RegexOptions.Compiled);
 
     /// <summary>
