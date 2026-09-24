@@ -34,11 +34,17 @@ namespace Vixen.Ui.Styling;
 ///         </item>
 ///         <item>
 ///             <b>Its initial value must be one <see cref="StyleValue.Lerp" /> can travel from.</b>
-///             A keyword initial — <c>left: auto</c>, <c>filter: none</c>, <c>rotate: none</c>,
-///             <c>box-shadow: none</c> — interpolates discretely in CSS as well, so an entry for it
-///             would buy a jump at the halfway mark in place of no transition at all. That is a
-///             different picture and not a better one, and it is the shape a hand-picked table would
-///             have taken.
+///             <c>left: auto</c> interpolates discretely in CSS as well, so an entry for it would buy
+///             a jump at the halfway mark in place of no transition at all — a different picture and
+///             not a better one.
+///             ⚠ <b>This used to name <c>filter: none</c>, <c>rotate: none</c> and
+///             <c>box-shadow: none</c> beside it, and CSS interpolates all three</b> (#1410): a
+///             <c>none</c> transform is the identity against the other end, a <c>none</c> filter the
+///             other list's functions at their initial values, a missing shadow a transparent
+///             zero-offset one. None of them is a fixed value either, because each is shaped by the
+///             other end, so none belongs in this table: <c>rotate</c>, <c>translate</c> and
+///             <c>scale</c> get their identity from <c>Animator.Travelling</c>, and <c>transform</c>
+///             from its mix.
 ///         </item>
 ///     </list>
 ///     <para>

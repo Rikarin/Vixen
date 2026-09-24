@@ -23,7 +23,7 @@ public class ThemeAndScannerTests {
         Assert.Equal("#8a8a99", tokens.Colors["muted"]);
         Assert.Equal("8px", tokens.Radius["lg"]);
         Assert.Equal(600f, tokens.FontWeight["semibold"]);
-        Assert.Equal(768f, tokens.Screens["md"]);
+        Assert.Equal(StyleValue.FromLength(768f, StyleUnit.Pixels), tokens.Screens["md"]);
         Assert.Equal(new FontSizeToken(17f, 24f), tokens.FontSize["lg"]);
     }
 
@@ -52,7 +52,11 @@ public class ThemeAndScannerTests {
         // against — the one documented divergence from v4's emission.
         Assert.Equal(4f, tokens.SpacingBase);
         Assert.Equal("8px", tokens.Radius["lg"]);
-        Assert.Equal(768f, tokens.Screens["md"]);
+
+        // ⚠ Except a breakpoint, which keeps its `rem` (#1417): the query evaluator does have a root
+        // font size to measure it against, and `sm:` follows the text size only if it gets there.
+        Assert.Equal(StyleValue.FromLength(48f, StyleUnit.Rem), tokens.Screens["md"]);
+        Assert.Equal(StyleValue.FromLength(24f, StyleUnit.Rem), tokens.Containers["sm"]);
 
         // `--text-sm: 0.875rem` with `--text-sm--line-height: calc(1.25 / 0.875)`: 14px, and a ratio
         // of 1.4286 multiplied out rather than carried.
@@ -73,7 +77,7 @@ public class ThemeAndScannerTests {
         Assert.Equal("#123456", Assert.Single(tokens.Colors).Value);
         Assert.False(tokens.Colors.ContainsKey("blue-500"));
         Assert.Equal("8px", tokens.Radius["lg"]);
-        Assert.Equal(768f, tokens.Screens["md"]);
+        Assert.Equal(StyleValue.FromLength(48f, StyleUnit.Rem), tokens.Screens["md"]);
     }
 
     /// <summary>One token can be cleared on its own, and the rest of its namespace stays.</summary>

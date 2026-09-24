@@ -94,6 +94,113 @@ public class UtilityGenerationTests {
         Assert.Equal(expected, fixture.Declarations(utility) is { } emitted ? string.Join("; ", emitted) : null);
     }
 
+    /// <summary>
+    ///     ⚠ <b>A root has a negative class only if Tailwind gives it one</b>, where <c>-p-2</c> used
+    ///     to be <c>padding: -8px</c> and <c>-font-bold</c> <c>font-weight: -700</c> (#1409).
+    /// </summary>
+    /// <remarks>
+    ///     The theory above names the roots #1384 fixed; these are a sample of the 146 spellings that
+    ///     were still negatable after it, because a family accepted a minus unless it opted out. The
+    ///     rows that resolve are the instrument that keeps a fix from refusing every minus.
+    /// </remarks>
+    /// <param name="utility">A negative spelling.</param>
+    /// <param name="expected">What it emits, or null where it should be no class.</param>
+    [Theory]
+    [InlineData("-p-2", null)]
+    [InlineData("-scroll-px-2", null)]
+    [InlineData("-w-2", null)]
+    [InlineData("-size-2", null)]
+    [InlineData("-gap-x-2", null)]
+    [InlineData("-border-2", null)]
+    [InlineData("-font-bold", null)]
+    [InlineData("-text-base", null)]
+    [InlineData("-leading-2", null)]
+    [InlineData("-duration-300", null)]
+    [InlineData("-delay-300", null)]
+    [InlineData("-rounded", null)]
+    [InlineData("-flex-1", null)]
+    [InlineData("-shadow-none", null)]
+    [InlineData("-from-40%", null)]
+    [InlineData("-order-none", null)]
+    [InlineData("-mt-4", "margin-top: -16px")]
+    [InlineData("-scroll-ms-2", "scroll-margin-inline-start: -8px")]
+    [InlineData("-inset-x-2", "left: -8px; right: -8px")]
+    [InlineData("-end-2", "inset-inline-end: -8px")]
+    [InlineData("-rotate-45", "rotate: -45deg")]
+    [InlineData("-scale-50", "scale: -50%")]
+    [InlineData("-indent-2", "text-indent: -8px")]
+    [InlineData("-tracking-2", "letter-spacing: -8px")]
+    [InlineData("-outline-offset-2", "outline-offset: -2px")]
+    [InlineData("-underline-offset-4", "text-underline-offset: -4px")]
+    [InlineData("-col-2", "grid-column: -2")]
+    public void Only_a_root_Tailwind_signs_has_a_negative_class(string utility, string? expected) {
+        var fixture = new UtilityFixture();
+
+        Assert.Equal(expected, fixture.Declarations(utility) is { } emitted ? string.Join("; ", emitted) : null);
+    }
+
+    /// <summary>Tailwind v4's negatable roots, written out here rather than read from the registry.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A copy on purpose</b>: the census below compares what the registry <i>does</i> with
+    ///     this, so reading the production list back would make it a tautology.
+    /// </remarks>
+    static readonly HashSet<string> TailwindSigned = new(StringComparer.Ordinal) {
+        "m", "mx", "my", "mt", "mr", "mb", "ml", "ms", "me", "mbs", "mbe",
+        "scroll-m", "scroll-mx", "scroll-my", "scroll-mt", "scroll-mr", "scroll-mb", "scroll-ml",
+        "scroll-ms", "scroll-me", "scroll-mbs", "scroll-mbe",
+        "inset", "inset-x", "inset-y", "inset-s", "inset-e", "inset-bs", "inset-be",
+        "top", "right", "bottom", "left", "start", "end",
+        "translate", "translate-x", "translate-y", "translate-z",
+        "rotate", "rotate-x", "rotate-y", "rotate-z",
+        "skew", "skew-x", "skew-y",
+        "scale", "scale-x", "scale-y", "scale-z",
+        "space-x", "space-y",
+        "order", "z", "col", "col-start", "col-end", "row", "row-start", "row-end",
+        "indent", "tracking", "underline-offset", "outline-offset",
+        "hue-rotate", "backdrop-hue-rotate", "mask-linear", "mask-conic"
+    };
+
+    /// <summary>
+    ///     ⚠ <b>Every negative spelling of the surface resolves exactly when its root is signed</b>
+    ///     (#1409).
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Computed over <see cref="UtilityFamilies.Surface" />, so a family registered tomorrow is
+    ///         in it without anybody adding a row. Red on master before #1409 with 146 spellings:
+    ///         every width, gap, padding, border, radius, duration, font size and weight.
+    ///     </para>
+    ///     <para>
+    ///         Both directions, because each alone is satisfiable by a wrong fix: "nothing unsigned
+    ///         resolves" is kept by refusing every minus, and "every signed root resolves" by refusing
+    ///         none. The second half asks that each root on the list reach at least one negative class,
+    ///         which every one of them does from its surface probe.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_negative_spelling_of_the_surface_resolves_exactly_when_its_root_is_signed() {
+        var tokens = ThemeTokens.Parse(UtilityConsumptionProbe.ProbeTheme);
+        var declarations = new List<UtilityDeclaration>();
+        var leaked = new List<string>();
+        var reached = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var utility in UtilityFamilies.Surface(tokens)) {
+            if (!UtilityParser.TryParse("-" + utility, out var negative)
+                || !UtilityFamilies.TryResolve(negative, tokens, declarations)) {
+                continue;
+            }
+
+            if (TailwindSigned.Contains(negative.Name)) {
+                reached.Add(negative.Name);
+            } else {
+                leaked.Add($"-{utility} → {string.Join("; ", declarations.Select(d => $"{d.Property}: {d.Value}"))}");
+            }
+        }
+
+        Assert.True(leaked.Count == 0, $"{leaked.Count} negative spellings of unsigned roots resolve:\n{string.Join('\n', leaked)}");
+        Assert.Empty(TailwindSigned.Except(reached).Order(StringComparer.Ordinal));
+    }
+
     [Fact]
     public void A_direction_variant_becomes_an_ancestor_attribute_selector() {
         // The same shape as `dark:` under the class strategy: an ancestor declares it and the utility

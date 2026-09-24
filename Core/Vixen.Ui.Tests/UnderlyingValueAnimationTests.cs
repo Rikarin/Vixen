@@ -205,4 +205,100 @@ public class UnderlyingValueAnimationTests {
 
         Assert.Equal(0f, box.AbsoluteLeft, Tolerance);
     }
+
+    /// <summary>
+    ///     ⚠ <b><c>to { rotate: 90deg }</c> alone turns from the identity</b>, where it used to hold
+    ///     90° from the first frame (#1410).
+    /// </summary>
+    /// <remarks>
+    ///     CSS Transforms 2 interpolates <c>rotate: none</c> against an angle as <c>0deg</c>, so a
+    ///     quarter of the way through a linear second the box has turned 22.5°. The individual
+    ///     property had no initial value and was not a mix, so the one stop was held and the tip read
+    ///     90° — which is what a spinner written this way looked like: a full turn, standing still.
+    /// </remarks>
+    [Fact]
+    public void A_to_only_rotate_turns_from_the_identity() {
+        using var document = new UiDocument(400f, 300f);
+        var box = Settled(
+            document,
+            """
+            @keyframes turn { to { rotate: 90deg; } }
+            #box { animation-name: turn; animation-duration: 1s; animation-timing-function: linear; }
+            """
+        );
+
+        Frame(document, 0.25);
+        Turned(box, 22.5f);
+
+        Frame(document, 0.5);
+        Turned(box, 45f);
+    }
+
+    /// <summary>A <c>from</c>-only <c>translate</c> travels to zero on each axis, not to a held stop.</summary>
+    /// <remarks>
+    ///     The identity is shaped after the other end: <c>40px 20px</c> travels to <c>0px 0px</c>, a
+    ///     pair <c>StyleValue.Lerp</c> can pair, so a quarter of the way it is at 30, 15. A single zero
+    ///     against the pair would not interpolate at all.
+    /// </remarks>
+    [Fact]
+    public void A_from_only_translate_travels_to_zero_on_each_axis() {
+        using var document = new UiDocument(400f, 300f);
+        var box = Settled(
+            document,
+            """
+            @keyframes slide { from { translate: 40px 20px; } }
+            #box { animation-name: slide; animation-duration: 1s; animation-timing-function: linear; }
+            """
+        );
+
+        Frame(document, 0.25);
+        Assert.Equal(30f, box.AbsoluteLeft, Tolerance);
+        Assert.Equal(15f, box.AbsoluteTop, Tolerance);
+    }
+
+    /// <summary>A <c>to</c>-only <c>scale</c> grows from one, not from zero and not from the stop.</summary>
+    /// <remarks>
+    ///     <c>scale: none</c> is one: from 1 to 3 a quarter of the way is 1.5, so the tip at (100, 0) is
+    ///     at 150. Starting from zero would read 75; holding the stop, 300.
+    /// </remarks>
+    [Fact]
+    public void A_to_only_scale_grows_from_one() {
+        using var document = new UiDocument(400f, 300f);
+        var box = Settled(
+            document,
+            """
+            @keyframes grow { to { scale: 3; } }
+            #box { animation-name: grow; animation-duration: 1s; animation-timing-function: linear; }
+            """
+        );
+
+        Frame(document, 0.25);
+        Assert.Equal(150f, Tip(box).X, Tolerance);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A rotation a class adds is transitioned into, not snapped to</b> (#1410).
+    /// </summary>
+    /// <remarks>
+    ///     The transition half of the same defect: <c>Animator.Observe</c> read the box's rotation
+    ///     before the class as <c>Unknown</c> — nothing declared it and it has no initial value — and
+    ///     refused to start. Half way through a linear second the box has turned 45° of 90°.
+    /// </remarks>
+    [Fact]
+    public void A_rotation_a_class_adds_is_transitioned_into_from_the_identity() {
+        using var document = new UiDocument(400f, 300f);
+        var box = Settled(
+            document,
+            """
+            #box { transition-property: rotate; transition-duration: 1s; transition-timing-function: linear; }
+            #box.turned { rotate: 90deg; }
+            """
+        );
+
+        box.AddClass("turned");
+        Frame(document, 0.0);
+        Frame(document, 0.5);
+
+        Turned(box, 45f);
+    }
 }

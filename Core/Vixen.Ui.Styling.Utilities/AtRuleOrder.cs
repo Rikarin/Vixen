@@ -41,10 +41,11 @@ namespace Vixen.Ui.Styling.Utilities;
 ///         the first means 960, both hold on a 1000-pixel window, and the 700 is still written last
 ///         and still wins, though the 960 is now the tighter condition. A browser has the same limit,
 ///         because a sheet's order does not move with the reader's font. It only shows on an element
-///         carrying one breakpoint in each unit for the same property. The named breakpoints are all pixels (<c>Variants.TryScreen</c>), so it never
-///         arises between them. A width in any other unit — an arbitrary <c>min-[calc(…)]</c> — sorts
-///         after the ones this can read in its band, and ties fall back to the ordinal order, so the
-///         comparison is total and the file stays byte-stable.
+///         carrying one breakpoint in each unit for the same property. The named breakpoints keep
+///         the theme's unit since #1417, so it arises between them only in a theme that mixes units;
+///         the shipped one writes all of them in <c>rem</c>. A width in any other unit — an arbitrary
+///         <c>min-[calc(…)]</c> — sorts after the ones this can read in its band, and ties fall back
+///         to the ordinal order, so the comparison is total and the file stays byte-stable.
 ///     </para>
 /// </remarks>
 sealed class AtRuleOrder : IComparer<string> {

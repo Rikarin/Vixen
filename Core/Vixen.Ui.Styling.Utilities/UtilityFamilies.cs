@@ -333,22 +333,6 @@ public static class UtilityFamilies {
     ///         drop into the block. <see cref="ApplyExpander" /> refuses it by name.
     ///     </para>
     /// </param>
-    /// <param name="Unsigned">
-    ///     Whether a leading <c>-</c> is refused rather than flipping the sign. ⚠ <b>For the filter
-    ///     slots, where a negative is not a smaller value but an invalid one</b> (#1348):
-    ///     <c>-brightness-50</c> resolved to <c>--tw-brightness: -0.5</c>, and <c>brightness(-0.5)</c>
-    ///     is a function the executor cannot run — so it dropped the whole assembled <c>filter</c>,
-    ///     and <c>-blur-2 hue-rotate-90</c> did not rotate the hue. <see cref="TryNegate" /> could not
-    ///     see it: the fragment is a bare number and flips as cleanly as <c>-mt-4</c>'s. Tailwind has
-    ///     no negative form of any of these; <c>hue-rotate</c>, an angle, keeps its own.
-    ///     <para>
-    ///         ⚠ <b>And for every other value with no negative, which #1348 did not reach</b> (#1384):
-    ///         <c>-opacity-50</c> was <c>opacity: -0.5</c>, <c>-aspect-video</c> was
-    ///         <c>aspect-ratio: -16 / 9</c>, and <c>-grow</c>, <c>-shrink</c>, <c>-line-clamp-2</c> and
-    ///         <c>-tab-2</c> were negative counts. Those are every <see cref="ValueKind.Fraction" /> and
-    ///         <see cref="ValueKind.Number" /> family that is not an order, a layer or a grid line.
-    ///     </para>
-    /// </param>
     sealed record Family(
         string Name,
         ValueKind Kind,
@@ -359,8 +343,7 @@ public static class UtilityFamilies {
         UtilityDeclaration[]? Alongside = null,
         Dictionary<string, UtilityDeclaration[]>? ValueAlongside = null,
         string? Template = null,
-        string? Scope = null,
-        bool Unsigned = false
+        string? Scope = null
     ) {
         /// <summary>Which reading of a top-level slash this family takes.</summary>
         /// <remarks>
@@ -725,8 +708,8 @@ public static class UtilityFamilies {
         ));
 
         // ── Flex and grid ───────────────────────────────────────────────────────────────────
-        UnsignedNumber("grow", "flex-grow");
-        UnsignedNumber("shrink", "flex-shrink");
+        Number("grow", "flex-grow");
+        Number("shrink", "flex-shrink");
         Number("order", "order");
 
         // ⚠ <b>`order-none` is `order: 0` and not a keyword CSS has</b>, which is why it belongs in a
@@ -1460,7 +1443,7 @@ public static class UtilityFamilies {
         // the first family under a name and merges a later one's keywords into it, so the numeric
         // kind has to be registered first for `line-clamp-none` to be a keyword rather than a value
         // that fails to parse — the same arrangement `decoration` uses for its three properties.
-        UnsignedNumber("line-clamp", "-webkit-line-clamp");
+        Number("line-clamp", "-webkit-line-clamp");
 
         Keywords("line-clamp", "-webkit-line-clamp", new() { ["none"] = "none" });
 
@@ -1499,7 +1482,7 @@ public static class UtilityFamilies {
         // that are facts about the character. `TextRun.IsTab` and `TextLine.WidthOf` are what
         // separate the two; before they existed a `tab-*` that resolved would have broken the
         // paragraph in one place, drawn it in another, and put the caret a stop out.
-        UnsignedNumber("tab", "tab-size");
+        Number("tab", "tab-size");
 
         // ── Hyphens ─────────────────────────────────────────────────────────────────────────
         // ⚠ <b>Two of Tailwind's three, and the third is left unregistered on purpose.</b>
@@ -1966,7 +1949,7 @@ public static class UtilityFamilies {
         // ── Effects ─────────────────────────────────────────────────────────────────────────
         // `opacity-50` is half, not fifty. CSS's `opacity` runs 0 to 1 and the utility scale runs
         // 0 to 100, because nobody writes `opacity-0.5`.
-        Register(new Family("opacity", ValueKind.Fraction, ["opacity"], Unsigned: true));
+        Register(new Family("opacity", ValueKind.Fraction, ["opacity"]));
         // ⚠ <b>Composed, not <c>Spacing("blur", "--blur")</c>, and the change is what closed #28's
         // half of A8.</b> `--blur` was a name of this engine's own invention that nothing assembled
         // and nothing could read; the fragment and the assembler put the length inside a real
@@ -1975,8 +1958,7 @@ public static class UtilityFamilies {
             "blur",
             ValueKind.Blur,
             [UtilityComposition.Blur],
-            Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())],
-            Unsigned: true
+            Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
         ));
 
         // ── The colour filters ──────────────────────────────────────────────────────────
@@ -2124,8 +2106,7 @@ public static class UtilityFamilies {
             "backdrop-blur",
             ValueKind.Blur,
             [UtilityComposition.BackdropBlur],
-            Alongside: BackdropAlongside,
-            Unsigned: true
+            Alongside: BackdropAlongside
         ));
 
         Backdrop("backdrop-brightness", UtilityComposition.BackdropBrightness);
@@ -2956,7 +2937,7 @@ public static class UtilityFamilies {
             ["square"] = "aspect-ratio:1 / 1",
             ["video"] = "aspect-ratio:16 / 9",
             ["auto"] = "aspect-ratio:auto"
-        }, Unsigned: true) { Slash = SlashMeaning.Ratio });
+        }) { Slash = SlashMeaning.Ratio });
 
         // ── The eighteen roots that are deliberately NOT here ───────────────────────────────
         //
@@ -3423,7 +3404,8 @@ public static class UtilityFamilies {
 
         // Negation is applied to the result rather than threaded through every branch below, because
         // `-mt-4` sets exactly what `mt-4` sets and the only difference is the sign of the number.
-        if ((candidate.Negative && family.Unsigned)
+        // ⚠ Only for a root on `Signed`: a leading minus is refused unless the family opts in (#1409).
+        if ((candidate.Negative && !Signed.Contains(family.Name))
             || !Resolve(family, candidate, tokens, declarations)
             || (candidate.Negative && !TryNegate(candidate, declarations))) {
             return false;
@@ -3673,10 +3655,82 @@ public static class UtilityFamilies {
     ///         have been "minus one line box tall" rather than a refusal. A value that stops being
     ///         unresolvable has to be looked at here as well as in <see cref="TrySize" />.
     ///     </para>
+    ///     <para>
+    ///         Since #1409 the sizing roots those three notes were written for are not on
+    ///         <see cref="Signed" /> at all, so <c>-w-full</c> is refused before this set is asked.
+    ///         What still reaches it is the signed <see cref="ValueKind.Size" /> roots — the inset
+    ///         family and <c>translate-*</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>none</c> is here because it is never a magnitude</b> (#1409): <c>order-none</c>
+    ///         resolves to <c>0</c>, which begins with a digit, so <c>-order-none</c> was
+    ///         <c>order: -0</c> — a class Tailwind does not have, spelling a value nobody meant.
+    ///     </para>
     /// </remarks>
     static readonly HashSet<string> NotNegatable = new(StringComparer.Ordinal) {
-        "auto", "full", "screen", "min", "max", "fit",
+        "auto", "full", "screen", "min", "max", "fit", "none",
         "svw", "lvw", "dvw", "svh", "lvh", "dvh", "lh"
+    };
+
+    /// <summary>The roots whose leading <c>-</c> flips the sign. Every other root refuses it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An allow-list, because the deny-list it replaced leaked everything it did not
+    ///         name</b> (#1409). A family used to accept a minus unless it was marked unsigned, and
+    ///         <see cref="TryNegate" /> flips any value that begins with a digit — so <c>-p-2</c> was
+    ///         <c>padding: -8px</c>, <c>-font-bold</c> was <c>font-weight: -700</c>,
+    ///         <c>-border-2</c> a negative width, <c>-duration-300</c> a negative duration and
+    ///         <c>-leading-normal</c> a negative line height. About 130 spellings on the surface
+    ///         resolved to a value neither CSS nor Tailwind has. #1348 had marked the filter slots
+    ///         (<c>brightness(-0.5)</c> is a function the executor cannot run, so it dropped the whole
+    ///         assembled <c>filter</c>) and #1384 six more roots (<c>opacity</c>, <c>aspect</c>, the
+    ///         counts), and each fix was a list that the next family added to the registry was not on.
+    ///         Inverted, a new family refuses a minus until somebody decides it has one.
+    ///     </para>
+    ///     <para>
+    ///         <b>The list is Tailwind v4's</b>: margins and scroll margins, the inset family, the
+    ///         individual transforms, <c>space-*</c>, <c>order</c>, <c>z</c>, the grid lines,
+    ///         <c>indent</c>, <c>tracking</c>, the two hue rotations, the two offsets and the mask
+    ///         angles. <c>bg-linear</c> and <c>bg-conic</c> are not on it because their value is a
+    ///         whole gradient that <see cref="TryNegate" /> cannot flip — see
+    ///         <see cref="ValueKind.Angle" />.
+    ///     </para>
+    ///     <para>
+    ///         Being on the list lets a value be negated; it does not make every value negatable.
+    ///         <see cref="TryNegate" /> still refuses a keyword in <see cref="NotNegatable" /> and a
+    ///         value that does not begin with a digit (<c>-translate-none</c>, <c>-z-auto</c>).
+    ///     </para>
+    /// </remarks>
+    static readonly HashSet<string> Signed = new(StringComparer.Ordinal) {
+        // Margins, including the flow-relative and block-logical ones, and their scroll twins.
+        "m", "mx", "my", "mt", "mr", "mb", "ml", "ms", "me", "mbs", "mbe",
+        "scroll-m", "scroll-mx", "scroll-my", "scroll-mt", "scroll-mr", "scroll-mb", "scroll-ml",
+        "scroll-ms", "scroll-me", "scroll-mbs", "scroll-mbe",
+
+        // Placement.
+        "inset", "inset-x", "inset-y", "inset-s", "inset-e", "inset-bs", "inset-be",
+        "top", "right", "bottom", "left", "start", "end",
+
+        // The individual transforms and the assembled 3D ones.
+        "translate", "translate-x", "translate-y", "translate-z",
+        "rotate", "rotate-x", "rotate-y", "rotate-z",
+        "skew", "skew-x", "skew-y",
+        "scale", "scale-x", "scale-y", "scale-z",
+
+        // Between children.
+        "space-x", "space-y",
+
+        // Order, layers and grid lines — the numbers CSS gives a sign.
+        "order", "z", "col", "col-start", "col-end", "row", "row-start", "row-end",
+
+        // Typography.
+        "indent", "tracking", "underline-offset",
+
+        // Outline.
+        "outline-offset",
+
+        // Angles.
+        "hue-rotate", "backdrop-hue-rotate", "mask-linear", "mask-conic"
     };
 
     /// <summary>Flips the sign of everything a utility resolved to.</summary>
@@ -4493,8 +4547,7 @@ public static class UtilityFamilies {
             bare is null
                 ? null
                 : new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = fragment + ":" + bare },
-            Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())],
-            Unsigned: true
+            Alongside: [new UtilityDeclaration("filter", UtilityComposition.Filter())]
         ));
 
     /// <summary>What every <c>backdrop-*</c> family emits beside its own fragment.</summary>
@@ -4530,8 +4583,7 @@ public static class UtilityFamilies {
             bare is null
                 ? null
                 : new Dictionary<string, string>(StringComparer.Ordinal) { [string.Empty] = fragment + ":" + bare },
-            Alongside: BackdropAlongside,
-            Unsigned: true
+            Alongside: BackdropAlongside
         ));
 
     /// <summary>Registers a family whose rule is about the element's children rather than the element.</summary>
@@ -4638,19 +4690,6 @@ public static class UtilityFamilies {
 
     static void Number(string name, params string[] properties) =>
         Register(new Family(name, ValueKind.Number, properties));
-
-    /// <summary>A bare-number family whose property has no negative value, so <c>-name-2</c> is no class.</summary>
-    /// <param name="name">The utility prefix.</param>
-    /// <param name="properties">The properties it sets.</param>
-    /// <remarks>
-    ///     ⚠ <b>Beside <see cref="Number" /> rather than a flag on it, because the two halves of
-    ///     <see cref="ValueKind.Number" /> disagree about the sign and the call site is where that is
-    ///     decided.</b> <c>order</c>, <c>z</c> and the grid lines have negatives in Tailwind and in CSS;
-    ///     <c>flex-grow</c>, <c>flex-shrink</c>, <c>-webkit-line-clamp</c> and <c>tab-size</c> do not,
-    ///     and <see cref="TryNegate" /> flipped them all alike (#1384).
-    /// </remarks>
-    static void UnsignedNumber(string name, params string[] properties) =>
-        Register(new Family(name, ValueKind.Number, properties, Unsigned: true));
 
     /// <summary>Registers a family whose count is substituted into a CSS template.</summary>
     /// <param name="name">The utility prefix.</param>

@@ -157,6 +157,16 @@ public sealed class Animator {
     /// <summary>The interned <c>none</c>, which is what a property the cascade stopped holding mixes to.</summary>
     readonly int noneValue;
 
+    /// <summary>The three individual transforms, whose <c>none</c> is an identity and not a keyword to jump from.</summary>
+    /// <remarks>See <see cref="Travelling" />.</remarks>
+    readonly int rotateProperty;
+
+    /// <inheritdoc cref="rotateProperty" />
+    readonly int translateProperty;
+
+    /// <inheritdoc cref="rotateProperty" />
+    readonly int scaleProperty;
+
     readonly int animationName;
     readonly int animationDuration;
     readonly int animationDelay;
@@ -206,6 +216,9 @@ public sealed class Animator {
 
         mixes[properties.Intern("transform")] = "transform-mix";
         noneValue = values.Intern("none");
+        rotateProperty = properties.Intern("rotate");
+        translateProperty = properties.Intern("translate");
+        scaleProperty = properties.Intern("scale");
     }
 
     /// <summary>Whether the user has asked for less movement, and everything therefore snaps.</summary>
@@ -328,6 +341,11 @@ public sealed class Animator {
                 : Computed(before, property);
 
             var destination = Computed(after, property);
+
+            // ⚠ Before the `Unknown` test, which is what an undeclared `rotate` is: `hover:rotate-45`
+            // on a box with no rotation of its own snapped rather than turning (#1410).
+            displayed = Travelling(property, displayed, destination);
+            destination = Travelling(property, destination, displayed);
 
             if (displayed.Kind == StyleValueKind.Unknown
                 || destination.Kind == StyleValueKind.Unknown
@@ -653,7 +671,15 @@ public sealed class Animator {
         }
 
         if (side == Synthesised.Neither) {
-            value = end == NameTable.None ? parser.Parse(start) : StyleValue.Lerp(parser.Parse(start), parser.Parse(end), t);
+            if (end == NameTable.None) {
+                value = parser.Parse(start);
+                return true;
+            }
+
+            var from = parser.Parse(start);
+            var to = Travelling(property, parser.Parse(end), from);
+
+            value = StyleValue.Lerp(Travelling(property, from, to), to, t);
             return true;
         }
 
@@ -661,13 +687,11 @@ public sealed class Animator {
         // travel from or to, and holds its one stop — which is what every single-stop animation did
         // before #1381. Lerping against `Unknown` would put nothing in its place. See `InitialValues`
         // for which properties that is; `width` is one, whose real underlying value is `auto`.
-        // ⚠ So are `rotate`, `translate` and `scale`: their initial is `none`, they have no entry,
-        // and they are not in `mixes`. `@keyframes spin { to { rotate: 360deg } }` on an element that
-        // does not declare `rotate` still draws a full turn from the first frame, and a linear
-        // `to { rotate: 90deg }` reads 90deg a quarter of the way through, where CSS reads 22.5deg
-        // (measured). Only `transform`, which the Tailwind spinner uses, travels from its `none`.
+        // ⚠ `rotate`, `translate` and `scale` used to be three more (#1410): their initial is `none`,
+        // so `to { rotate: 90deg }` read 90deg a quarter of the way through, where CSS reads 22.5deg.
+        // Their `none` is the identity now — see `Travelling`.
         var stop = parser.Parse(side == Synthesised.Start ? end : start);
-        var underlying = Underlying(style, property);
+        var underlying = Travelling(property, Underlying(style, property), stop);
 
         value = underlying.Kind == StyleValueKind.Unknown
             ? stop
@@ -676,6 +700,75 @@ public sealed class Animator {
                 : StyleValue.Lerp(stop, underlying, t);
 
         return true;
+    }
+
+    /// <summary>
+    ///     An individual transform's <c>none</c> as the identity shaped like the value it travels to,
+    ///     and every other value as it is.
+    /// </summary>
+    /// <param name="property">The property the two values belong to.</param>
+    /// <param name="value">The end that may be <c>none</c>: undeclared, which is <c>Unknown</c>, or the keyword.</param>
+    /// <param name="other">The other end, which decides the identity's shape.</param>
+    /// <returns><paramref name="value" />, or the identity in its place.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>CSS Transforms 2 interpolates <c>none</c> against a value as the identity, and
+    ///         treating it as a keyword held the other end for the whole run</b> (#1410).
+    ///         <c>rotate: none</c> against <c>90deg</c> is <c>0deg</c>, about the other value's axis;
+    ///         <c>translate: none</c> is a zero of each of the other's lengths; <c>scale: none</c> is
+    ///         one per axis, or <c>100%</c> against a percentage. <c>transform</c> gets the same
+    ///         answer through its mix, and these three are not mixes because their readers take a
+    ///         plain value.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An entry in <see cref="InitialValues" /> could not say it</b>, which is why this is
+    ///         not one: the identity's shape is the other end's — <c>0deg</c> against an angle,
+    ///         <c>0px 0px</c> against a pair — and a fixed initial would fail to pair with half of them.
+    ///     </para>
+    ///     <para>
+    ///         Both ends <c>none</c>, or the other end unreadable, is left alone: there is nothing to
+    ///         shape an identity after.
+    ///     </para>
+    /// </remarks>
+    StyleValue Travelling(int property, StyleValue value, StyleValue other) {
+        if (value.Kind is not (StyleValueKind.Unknown or StyleValueKind.Keyword)
+            || other.Kind is StyleValueKind.Unknown or StyleValueKind.Keyword) {
+            return value;
+        }
+
+        if (property == rotateProperty) {
+            return IdentityOf(other, static part => part.Kind == StyleValueKind.Length ? StyleValue.FromLength(0f, part.Unit) : part);
+        }
+
+        if (property == translateProperty) {
+            return IdentityOf(other, static part => part.Kind == StyleValueKind.Length ? StyleValue.FromLength(0f, part.Unit) : StyleValue.FromNumber(0f));
+        }
+
+        if (property == scaleProperty) {
+            return IdentityOf(
+                other,
+                static part => part.Kind == StyleValueKind.Length && part.Unit == StyleUnit.Percent
+                    ? StyleValue.FromLength(100f, StyleUnit.Percent)
+                    : StyleValue.FromNumber(1f)
+            );
+        }
+
+        return value;
+
+        // ⚠ Part by part, so a rotation keeps its axis — the numbers in `1 0 0 45deg` — and zeroes only
+        // the angle, and a pair of lengths becomes a pair of zeros `StyleValue.Lerp` can pair.
+        static StyleValue IdentityOf(StyleValue shape, Func<StyleValue, StyleValue> identity) {
+            if (shape.Kind != StyleValueKind.List) {
+                return identity(shape);
+            }
+
+            var parts = new StyleValue[shape.Items.Length];
+            for (var i = 0; i < parts.Length; i++) {
+                parts[i] = identity(shape.Items[i]);
+            }
+
+            return StyleValue.FromList(parts);
+        }
     }
 
     /// <summary>What a property is under the animation: its cascaded value, or its initial value where there is no style.</summary>
@@ -1046,11 +1139,10 @@ public sealed class Animator {
     ///         author to do.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Introduced is not the same as travelling.</b> This example is now overlaid, but
-    ///         <c>rotate</c> has no initial value this animator can travel from, so its one
-    ///         <c>to</c> stop is held and the turn is drawn complete from the first frame. See the
-    ///         partial #1381 records in <see cref="TryGetAnimated(StyleNodeId, int, float, out StyleValue)" />'s
-    ///         private overload. <c>transform: rotate(360deg)</c> does travel.
+    ///         ⚠ <b>Introduced is not the same as travelling.</b> This example was overlaid from #1381
+    ///         on and still drew the turn complete from the first frame, because <c>rotate</c> had no
+    ///         initial value to travel from and its one <c>to</c> stop was held. Its <c>none</c> is
+    ///         the identity since #1410 — see <see cref="Travelling" /> — so it now turns.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Every stop of every running animation, not the first.</b> A block may declare a

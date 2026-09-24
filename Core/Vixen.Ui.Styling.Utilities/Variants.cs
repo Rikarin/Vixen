@@ -674,7 +674,7 @@ public static class Variants {
         var rest = variant.AsSpan();
 
         if (tokens.Screens.TryGetValue(variant, out var named)) {
-            effect = new VariantEffect(string.Empty, string.Empty, $"@media (min-width: {Pixels(named)})");
+            effect = new VariantEffect(string.Empty, string.Empty, $"@media (min-width: {Css(named)})");
             return true;
         }
 
@@ -693,12 +693,11 @@ public static class Variants {
             // Verbatim, as `@min-[…]` is: the author wrote a length, and which units compare is
             // `MediaQuery`'s question. ⚠ It reads `rem` and `em` since #1373, against the document's
             // text size, so `min-[40rem]:` — v4's own unit — is 640 pixels at 100 % and moves with a
-            // user's text-size preference. Until then it was a block the loader dropped. ⚠ The theme's
-            // named breakpoints are still converted to pixels when the theme is read, so `sm:` does
-            // NOT move with the preference; see `MediaQuery.TryLength`.
+            // user's text-size preference. Until then it was a block the loader dropped. The theme's
+            // named breakpoints do the same since #1417, which kept their unit — see `Css`.
             width = rest[1..^1].ToString().Replace('_', ' ');
         } else if (tokens.Screens.TryGetValue(rest.ToString(), out var scale)) {
-            width = Pixels(scale);
+            width = Css(scale);
         } else {
             return false;
         }
@@ -707,9 +706,18 @@ public static class Variants {
         effect = new VariantEffect(string.Empty, string.Empty, $"@media {condition}");
 
         return true;
-
-        static string Pixels(float value) => value.ToString("0.####", CultureInfo.InvariantCulture) + "px";
     }
+
+    /// <summary>A theme width as the query text, in the unit the theme wrote it in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Verbatim, and the unit is the point</b> (#1417). This used to write every named
+    ///     breakpoint and container size in pixels, converted at 16 a rem when the theme was read, so
+    ///     <c>sm:</c> was <c>(min-width: 640px)</c> at every text size. As <c>40rem</c> it reaches
+    ///     <see cref="MediaQuery" /> and <see cref="ContainerQuery" />, which measure it against the
+    ///     document's live root font size — the arbitrary <c>min-[40rem]:</c> did already.
+    /// </remarks>
+    static string Css(StyleValue width) =>
+        width.Number.ToString("0.####", CultureInfo.InvariantCulture) + (width.Unit == StyleUnit.Rem ? "rem" : "px");
 
     /// <summary>Reads <c>@sm</c>, <c>@max-lg</c>, <c>@min-[480px]</c> and their <c>/name</c> forms.</summary>
     /// <param name="rest">The variant with its <c>@</c> already taken off.</param>
@@ -780,7 +788,7 @@ public static class Variants {
                 return false;
             }
         } else if (tokens.Containers.TryGetValue(rest.ToString(), out var scale)) {
-            width = scale.ToString("0.####", CultureInfo.InvariantCulture) + "px";
+            width = Css(scale);
         } else {
             return false;
         }
