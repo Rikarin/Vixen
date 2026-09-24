@@ -19,7 +19,8 @@
 # builds anything under the scope it names any more. A `-` row is UNJUDGED, never dead — a part a
 # control builds only with content, or a control that only exists inside another, is unreached by a
 # bare sweep. Bare controls only: a seeded tree can match a whole selector THROUGH an element the
-# seed introduced, and nothing here can refuse that.
+# seed introduced, and nothing here can refuse that. A `-` row the editor's census does not credit
+# either is named, with what builds it, in `Editor/Vixen.Editor.App.Tests/UnjudgedScopedSelectors.txt`.
 checkbox box	Bare
 checkbox box icon	Bare
 code-editor scroll-view	Bare

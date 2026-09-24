@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.RegularExpressions;
 using Vixen.Ui.Styling.Testing;
 using Xunit;
 
@@ -62,6 +63,15 @@ public class CombinatorCensusDriftTests {
 
     /// <summary>The controls' scoped census: every type-only selector the two control sheets declare, and whether a bare control matched it.</summary>
     const string ControlScopedFile = "Core/Vixen.Ui.Controls.Advanced.Tests/ControlScopedSelectors.txt";
+
+    /// <summary>The scoped residue: every type-only selector neither scoped census credits, its kind, and what builds it.</summary>
+    const string UnjudgedFile = "Editor/Vixen.Editor.App.Tests/UnjudgedScopedSelectors.txt";
+
+    /// <summary>The kinds a residue row may have; see the file's header for what each one means.</summary>
+    static readonly string[] UnjudgedKinds = ["unreached", "api", "none"];
+
+    /// <summary>A <c>file:line</c> in a residue reason: a file name or path, a colon, a line.</summary>
+    static readonly Regex Cited = new(@"(?<file>(?:[\w.-]+/)*[\w.-]+\.(?:cs|vxml|vcss)):(?<line>\d+)", RegexOptions.Compiled);
 
     /// <summary>The two sheets whose selectors that census answers for, as <c>LiveCombinatorPairTests</c> names them.</summary>
     static readonly string[] ControlSheets = [
@@ -247,6 +257,91 @@ public class CombinatorCensusDriftTests {
         );
     }
 
+    /// <summary>
+    ///     Every type-only selector that neither scoped census credits is named in the residue with
+    ///     its kind and what builds it, and the residue names nothing a census credits.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The negative half of the scoped question, which both scoped censuses' headers said
+    ///         nobody had made</b> (<c>Rikarin/Vixen#531</c>). A <c>-</c> in <c>ScopedSelectors.txt</c>
+    ///         meant "unjudged" and nothing more, and with no file saying why, a rule that had died
+    ///         read exactly like one waiting for content. The residue is the editor's <c>-</c> rows
+    ///         less those <c>ControlScopedSelectors.txt</c> reads <c>Bare</c> — the controls' sweep
+    ///         credits ten the editor cannot reach — and it is held exactly, as the pair residue is,
+    ///         so a row a sweep starts crediting expires and a new uncredited selector is refused.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every reason cites a line, and the line has to be there.</b> A reason is the whole
+    ///         value of a row and the one thing a regeneration could not write, so a row whose reason
+    ///         names no <c>file:line</c>, or one the tree does not have, is refused rather than taken
+    ///         on trust — the same resolution rule <c>RealPlanCitationTests</c> holds the documents to.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_selector_no_scoped_census_credits_is_named_here() {
+        var root = RepositoryScan.Root();
+
+        var editor = Verdicts(root, ScopedFile);
+        var control = Verdicts(root, ControlScopedFile);
+
+        var residue = editor.Where(row => row.Value == "-" && control.GetValueOrDefault(row.Key) != "Bare")
+            .Select(static row => row.Key)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var named = Unjudged(root);
+
+        var unexplained = residue.Where(selector => !named.ContainsKey(selector)).Order(StringComparer.Ordinal).ToList();
+        var expired = named.Keys.Where(selector => !residue.Contains(selector)).Order(StringComparer.Ordinal).ToList();
+
+        Assert.True(
+            unexplained.Count == 0 && expired.Count == 0,
+            $"""
+             A type-only selector that neither scoped census credits, and that {UnjudgedFile} does not name:
+             {Lines(unexplained)}
+
+             Named in {UnjudgedFile} and credited by a scoped census now, or declared by no sheet any more:
+             {Lines(expired)}
+
+             Chase each new one to what builds it and add a row with its kind and a file:line; delete an
+             expired one. A selector nothing can build is a `none` row and a finding, not a reason.
+             """
+        );
+
+        var index = RepositoryScan.Files("*.cs")
+            .Concat(RepositoryScan.Files("*.vxml"))
+            .Concat(RepositoryScan.Files("*.vcss"))
+            .Select(path => Path.GetRelativePath(root, path).Replace('\\', '/'))
+            .ToLookup(static path => Path.GetFileName(path), StringComparer.Ordinal);
+
+        List<string> unfounded = [];
+
+        foreach (var (selector, (kind, reason)) in named) {
+            var citations = Cited.Matches(reason);
+
+            if (!UnjudgedKinds.Contains(kind, StringComparer.Ordinal)) {
+                unfounded.Add($"{selector} — '{kind}' is not one of {string.Join(", ", UnjudgedKinds)}");
+            } else if (citations.Count == 0) {
+                unfounded.Add($"{selector} — the reason cites no file:line");
+            }
+
+            foreach (Match citation in citations) {
+                var file = citation.Groups["file"].Value;
+                var line = int.Parse(citation.Groups["line"].Value);
+
+                var resolves = index[Path.GetFileName(file)]
+                    .Where(path => path == file || path.EndsWith("/" + file, StringComparison.Ordinal))
+                    .Any(path => File.ReadLines(Path.Combine(root, path)).Count() >= line);
+
+                if (!resolves) {
+                    unfounded.Add($"{selector} — {citation.Value} is not a line in the tree");
+                }
+            }
+        }
+
+        Assert.True(unfounded.Count == 0, $"{UnjudgedFile} has rows whose reason is not evidence:\n{Lines(unfounded)}");
+    }
+
     /// <summary>The joins above are over the real files, and the measured pairs are the real table.</summary>
     /// <remarks>
     ///     ⚠ <b>Without this every test above passes loudest on the day it stops running.</b> Every set
@@ -264,6 +359,12 @@ public class CombinatorCensusDriftTests {
         Assert.Contains("split-view > split-bar", Rows(root, ControlCensusFiles[0]));
         Assert.Contains("tab-panels > tab-panel", Rows(root, ControlCensusFiles[1]));
         Assert.Contains("radial-item > icon", Reasons(root));
+
+        // The scoped residue: the editor's census has `-` rows, the controls' credits some of them,
+        // and the whole-selector row only this file can hold is named.
+        Assert.True(Verdicts(root, ScopedFile).Count(static row => row.Value == "-") >= 20, $"{ScopedFile} has too few `-` rows to be the real census.");
+        Assert.True(Verdicts(root, ControlScopedFile).Count(static row => row.Value == "Bare") >= 20, $"{ControlScopedFile} credits too few selectors to be the real census.");
+        Assert.Equal("unreached", Unjudged(root)["shape-fields fact-value > numeric-input"].Kind);
 
         foreach (var file in EditorCensusFiles) {
             Assert.True(Rows(root, file).Count >= 10, $"{file} holds fewer than ten proofs, so it was not read.");
@@ -290,6 +391,30 @@ public class CombinatorCensusDriftTests {
         }
 
         return pairs;
+    }
+
+    /// <summary>A scoped census's verdicts: selector to the depth, <c>Bare</c> or <c>-</c> beside it.</summary>
+    static Dictionary<string, string> Verdicts(string root, string file) =>
+        Rows(root, file)
+            .Select(static row => row.Split('\t'))
+            .ToDictionary(static columns => columns[0].Trim(), static columns => columns.Length > 1 ? columns[1].Trim() : "", StringComparer.Ordinal);
+
+    /// <summary>The scoped residue's rows: selector to its kind and its reason.</summary>
+    static Dictionary<string, (string Kind, string Reason)> Unjudged(string root) {
+        var rows = new Dictionary<string, (string Kind, string Reason)>(StringComparer.Ordinal);
+
+        foreach (var row in Rows(root, UnjudgedFile)) {
+            var columns = row.Split('\t');
+
+            Assert.True(
+                columns.Length == 3 && columns[2].Trim().Length > 0,
+                $"'{columns[0]}' in {UnjudgedFile} is not <selector><TAB><kind><TAB><reason>."
+            );
+
+            rows.Add(columns[0].Trim(), (columns[1].Trim(), columns[2].Trim()));
+        }
+
+        return rows;
     }
 
     /// <summary>A committed census's rows, refusing one that has lost its header.</summary>
