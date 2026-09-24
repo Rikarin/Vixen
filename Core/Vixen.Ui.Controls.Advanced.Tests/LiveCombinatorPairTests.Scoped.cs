@@ -24,11 +24,15 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         verdict here are answers to one question from two sets of trees.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Bare controls only, and the seeded sweep is deliberately not asked.</b> A pairing
-///         can refuse the elements a seed introduced, because a pairing names its child; a whole
-///         selector can match THROUGH a seeded element at any compound, so the same refusal would
-///         need a matcher that reports which element stood for each compound. What a bare control
-///         builds is the control's alone, which is the standing the pair census has too.
+///         ⚠ <b>The seeded sweep is asked too, and the reason it once was not turned out to be
+///         answerable in the selector language itself.</b> This remark used to say a whole selector
+///         can match THROUGH a seeded element at any compound, "so the same refusal would need a
+///         matcher that reports which element stood for each compound". It does not need one: the
+///         seed's elements are marked with a class and every compound but the leftmost is asked
+///         with <c>:not(.that-class)</c>, so the cascade's own matcher refuses them at every compound
+///         at once (<see cref="ScopeSeeded" />). A selector only a seeded control matches reads
+///         <c>Seeded</c>, which is weaker standing than <c>Bare</c> and credited as a proof all the
+///         same, exactly as <c>SeededCombinatorPairs.txt</c> is for the pairs.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The domain is the controls' sheets and nothing else.</b> Every editor selector would
@@ -133,6 +137,31 @@ public partial class LiveCombinatorPairTests {
         }
     }
 
+    /// <summary>The seeded premise: every seeded tree was asked all of it, and the refusal refused only the harness.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Four facts, and each is the control for another.</b> The refused anchor is matched when
+    ///     unrefused — so the refusal had something to refuse — and not when refused; the kept anchor
+    ///     is matched refused — so the refusal does not simply reject every seeded tree. A refusal
+    ///     dropped entirely fails the second; one that refused everything fails the third.
+    /// </remarks>
+    [Fact]
+    public void The_seeded_scoped_scan_actually_ran_and_refuses_only_the_harness() {
+        _ = SeededObserved;
+
+        Assert.Equal((ScopedDomain.Count + 2) * Seeds.Length, seededScopedAsked);
+
+        Assert.Contains(SeededAnchors.Refused, SeededUnrefusedMatched);
+        Assert.DoesNotContain(SeededAnchors.Refused, SeededScopedMatched);
+        Assert.Contains(SeededAnchors.Kept, SeededScopedMatched);
+
+        // The rewrite itself, on the two shapes a type-only selector has.
+        Assert.Equal($"tab-strip tab:not(.{IntroducedClass})", Refusing("tab-strip tab"));
+        Assert.Equal(
+            $"a > b:not(.{IntroducedClass}) c:not(.{IntroducedClass})",
+            Refusing("a > b c")
+        );
+    }
+
     /// <summary>The scoped census is exactly what is committed, verdict for verdict.</summary>
     /// <remarks>
     ///     Exact in both directions and regenerable, like the pair census beside it. ⚠ A verdict moving
@@ -142,6 +171,7 @@ public partial class LiveCombinatorPairTests {
     [Fact]
     public void Every_type_only_control_selector_is_in_the_scoped_census_with_its_verdict() {
         _ = Observed;
+        _ = SeededObserved;
 
         var path = Path.Combine(Root(), ScopedFile);
 
@@ -149,7 +179,9 @@ public partial class LiveCombinatorPairTests {
             .Order(StringComparer.Ordinal)
             .ToDictionary(
                 static selector => selector,
-                static selector => ScopedMatched.Contains(selector) ? BareVerdict : Unmatched,
+                static selector => ScopedMatched.Contains(selector) ? BareVerdict
+                    : SeededScopedMatched.Contains(selector) ? SeededVerdict
+                    : Unmatched,
                 StringComparer.Ordinal
             );
 
@@ -163,18 +195,22 @@ public partial class LiveCombinatorPairTests {
             var columns = row.Split('\t');
 
             Assert.True(
-                columns.Length == 2 && columns[1] is BareVerdict or Unmatched,
-                $"{ScopedFile} is malformed at '{row}'. Each row is `selector<TAB>Bare-or-dash`."
+                columns.Length == 2 && columns[1] is BareVerdict or SeededVerdict or Unmatched,
+                $"{ScopedFile} is malformed at '{row}'. Each row is `selector<TAB>Bare-Seeded-or-dash`."
             );
 
             Assert.True(census.TryAdd(columns[0].Trim(), columns[1].Trim()), $"'{columns[0]}' is listed twice in {ScopedFile}.");
         }
 
-        var lost = measured.Where(row => census.GetValueOrDefault(row.Key) == BareVerdict && row.Value == Unmatched)
+        // ⚠ Ranked, so that any move DOWN the ladder is the loud one: Bare to Seeded is a control
+        // that stopped building a part bare, Seeded to `-` a seed that stopped reaching it.
+        static int Rank(string verdict) => verdict switch { BareVerdict => 2, SeededVerdict => 1, _ => 0 };
+
+        var lost = measured.Where(row => census.TryGetValue(row.Key, out var was) && Rank(row.Value) < Rank(was))
             .Select(static row => row.Key)
             .ToList();
 
-        var gained = measured.Where(row => census.GetValueOrDefault(row.Key) == Unmatched && row.Value == BareVerdict)
+        var gained = measured.Where(row => census.TryGetValue(row.Key, out var was) && Rank(row.Value) > Rank(was))
             .Select(static row => row.Key)
             .ToList();
 
@@ -186,11 +222,11 @@ public partial class LiveCombinatorPairTests {
             $"""
              The controls' scoped census is out of date.
 
-             ⚠ Matched by a bare control before and by none now — the sheet still declares each of
-             these and no control builds anything under the scope it names any more:
+             ⚠ Down the ladder (Bare → Seeded → -) — the sheet still declares each of these, and the
+             control stopped building under the scope it names, or the seed stopped reaching it:
              {Lines(lost)}
 
-             Matched now and recorded as unmatched — regenerate once you have read them:
+             Up the ladder since the census was written — regenerate once you have read them:
              {Lines(gained)}
 
              Declared by a control sheet and not in {ScopedFile}:
@@ -202,5 +238,96 @@ public partial class LiveCombinatorPairTests {
              Re-run with VIXEN_REGENERATE=1 to write this back, after reading the first list.
              """
         );
+    }
+
+    // ── The seeded sweep, asked the same question ────────────────────────────────────────────────
+
+    /// <summary>The verdict for a selector no bare control matched and a seeded one did.</summary>
+    const string SeededVerdict = "Seeded";
+
+    /// <summary>
+    ///     The class the seeded sweep puts on every element a seed introduced, so the cascade's own
+    ///     matcher can be told to refuse one.
+    /// </summary>
+    const string IntroducedClass = "zz-introduced-by-the-seed";
+
+    /// <summary>
+    ///     A selector a seeded tree matches ONLY through the harness's own nesting, which the refusal
+    ///     must reject, and one it matches through the control's response, which the refusal must keep.
+    /// </summary>
+    /// <remarks>
+    ///     <c>tab-strip tab</c> is the harness: <c>AddTab</c> put the <c>tab</c> in the strip, exactly
+    ///     as <c>tab-strip &gt; tab</c> is refused by the pair walk. <c>tab-panels tab-panel</c> is
+    ///     <c>Tabs.Adopt</c> answering the tab with a panel (Tabs.cs:216), which no bare construction
+    ///     reaches. Neither is a sheet's rule — they are asked beside the domain, as the bare anchors'
+    ///     mirrors are.
+    /// </remarks>
+    static readonly (string Refused, string Kept) SeededAnchors = ("tab-strip tab", "tab-panels tab-panel");
+
+    /// <summary>Every selector some seeded control's tree matched with the harness's elements refused.</summary>
+    static readonly HashSet<string> SeededScopedMatched = new(StringComparer.Ordinal);
+
+    /// <summary>Each anchor a seeded tree matched with NO refusal — what says the refusal had something to refuse.</summary>
+    static readonly HashSet<string> SeededUnrefusedMatched = new(StringComparer.Ordinal);
+
+    /// <summary>How many refused questions the seeded sweep put to a matcher, counted where it answered.</summary>
+    static int seededScopedAsked;
+
+    /// <summary>
+    ///     Asks one seeded control's document about every selector in the domain, refusing a match in
+    ///     which an element the seed introduced stands for any compound but the leftmost.
+    /// </summary>
+    /// <param name="document">The seeded control's document.</param>
+    /// <param name="introduced">The elements the seed put there itself.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The refusal is written in the selector language and answered by the cascade's own
+    ///         matcher</b>, through <see cref="UiTest.Get" /> like the bare half — no second matcher
+    ///         is written, for the reason the bare half gives: one would agree on <c>a &gt; b</c> and
+    ///         disagree on <c>a b c</c>, silently.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every compound but the leftmost</b>, which is the pair walk's rule carried over
+    ///         whole: an introduced element is refused as a <i>child</i> and walked <i>through</i>, so
+    ///         it may be the scope a rule names — <c>menu-item icon</c> over an item <c>AddItem</c>
+    ///         made is the item's own part — and may lie between two compounds, but is never an element
+    ///         a rule reaches down to.
+    ///     </para>
+    /// </remarks>
+    static void ScopeSeeded(UiDocument document, IReadOnlyCollection<UiElement> introduced) {
+        foreach (var element in introduced) {
+            element.AddClass(IntroducedClass);
+        }
+
+        var test = UiTest.Adopt(document);
+
+        foreach (var selector in ScopedDomain.Keys.Append(SeededAnchors.Refused).Append(SeededAnchors.Kept)) {
+            if (test.Get(Refusing(selector)).Count > 0) {
+                SeededScopedMatched.Add(selector);
+            }
+
+            seededScopedAsked++;
+        }
+
+        foreach (var anchor in (string[])[SeededAnchors.Refused, SeededAnchors.Kept]) {
+            if (test.Get(anchor).Count > 0) {
+                SeededUnrefusedMatched.Add(anchor);
+            }
+        }
+    }
+
+    /// <summary>A type-only selector with every compound but the leftmost refusing an introduced element.</summary>
+    /// <param name="selector">Tags separated by single spaces and <c>&gt;</c>, as <see cref="TypeOnlySelectors" /> spells them.</param>
+    /// <returns>The same selector, refusing.</returns>
+    static string Refusing(string selector) {
+        var tokens = selector.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        for (var index = 1; index < tokens.Length; index++) {
+            if (tokens[index] != ">") {
+                tokens[index] += $":not(.{IntroducedClass})";
+            }
+        }
+
+        return string.Join(' ', tokens);
     }
 }
