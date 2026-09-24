@@ -176,6 +176,94 @@ public class ContainerStyleQueryPixelTests {
         Assert.Empty(ui.Document.Styles.Loader.Diagnostics);
     }
 
+    /// <summary>
+    ///     <c>(min-width: 80px) or style(--variant: primary)</c>, counted on three frames in which each
+    ///     half alone turns a label green (#273).
+    /// </summary>
+    /// <remarks>
+    ///     The same slots, boxes and <c>.inner</c> override as the <c>and</c> test above. Frame one:
+    ///     the left container is wide and says <c>secondary</c>, the right is narrow and says
+    ///     <c>primary</c>. Each passes one half only, so both labels are green: 1 000 texels in each
+    ///     half, no red. Frame two narrows the left and takes <c>primary</c> off the right, so neither
+    ///     half holds anywhere: 2 000 red. Frame three gives the narrow left <c>primary</c>: green on the
+    ///     left only. Before this landed the sheet was refused at load and every frame was 2 000 red.
+    /// </remarks>
+    [Fact]
+    public void An_or_mixed_query_colours_the_label_when_either_half_holds() {
+        using var ui = UiTest.Create(200, 100, new UiTestOptions { Background = new Color4(0f, 0f, 0f, 1f) });
+
+        ui.Load(
+            """
+            root     { width: 200px; height: 100px; flex-direction: row; align-items: flex-start; }
+            .slot    { width: 100px; height: 100px; align-items: flex-start; }
+            .box     { container-type: inline-size; width: 60px; height: 100px; align-items: flex-start; }
+            .box.wide { width: 90px; }
+            .inner   { width: 60px; height: 100px; align-items: flex-start; --variant: secondary; }
+            .primary { --variant: primary; }
+            .label   { width: 50px; height: 20px; background-color: #ff0000; }
+            @container (min-width: 80px) or style(--variant: primary) { .label { background-color: #00ff00; } }
+            """
+        );
+
+        var left = ui.Create("div", ui.Create("div", ui.Document.Root, null, "slot"), null, "box", "wide");
+        ui.Create("div", ui.Create("div", left, null, "inner"), null, "label");
+
+        var right = ui.Create("div", ui.Create("div", ui.Document.Root, null, "slot"), null, "box", "primary");
+        ui.Create("div", ui.Create("div", right, null, "inner"), null, "label");
+
+        ui.Frame();
+        var first = Count(ui.Capture(), "VIXEN_OR_STYLE_QUERY_FIRST");
+
+        left.RemoveClass("wide");
+        right.RemoveClass("primary");
+        ui.Frame();
+        var second = Count(ui.Capture(), "VIXEN_OR_STYLE_QUERY_SECOND");
+
+        left.AddClass("primary");
+        ui.Frame();
+        var third = Count(ui.Capture(), "VIXEN_OR_STYLE_QUERY_THIRD");
+
+        Assert.Equal((1000, 1000, 0), first);
+        Assert.Equal((0, 0, 2000), second);
+        Assert.Equal((1000, 0, 1000), third);
+        Assert.Empty(ui.Document.Styles.Loader.Diagnostics);
+    }
+
+    /// <summary>
+    ///     ⚠ A height query under an <c>inline-size</c> container asks the <c>size</c> container above
+    ///     it, counted on the frame (#1429).
+    /// </summary>
+    /// <remarks>
+    ///     Each slot is a <c>size</c> container, 100 tall on the left and 40 on the right, holding an
+    ///     <c>inline-size</c> container that holds the label. The rule asks <c>(min-height: 60px)</c>.
+    ///     The inner box cannot answer a height, so CSS Containment 3 § 5.1 skips it and the slot
+    ///     answers: green on the left, red on the right, 1 000 texels each. Before the fix the walk
+    ///     stopped at the inner box and both labels were red.
+    /// </remarks>
+    [Fact]
+    public void A_height_query_skips_an_inline_size_container_for_the_size_container_above() {
+        using var ui = UiTest.Create(200, 100, new UiTestOptions { Background = new Color4(0f, 0f, 0f, 1f) });
+
+        ui.Load(
+            """
+            root     { width: 200px; height: 100px; flex-direction: row; align-items: flex-start; }
+            .slot    { container-type: size; width: 100px; height: 100px; align-items: flex-start; }
+            .slot.short { height: 40px; }
+            .inline  { container-type: inline-size; width: 80px; align-items: flex-start; }
+            .label   { width: 50px; height: 20px; background-color: #ff0000; }
+            @container (min-height: 60px) { .label { background-color: #00ff00; } }
+            """
+        );
+
+        ui.Create("div", ui.Create("div", ui.Create("div", ui.Document.Root, null, "slot"), null, "inline"), null, "label");
+        ui.Create("div", ui.Create("div", ui.Create("div", ui.Document.Root, null, "slot", "short"), null, "inline"), null, "label");
+
+        ui.Frame();
+
+        Assert.Equal((1000, 0, 1000), Count(ui.Capture(), "VIXEN_AXIS_SKIP_QUERY"));
+        Assert.Empty(ui.Document.Styles.Loader.Diagnostics);
+    }
+
     /// <summary>Green texels in the left half, green in the right half, and red anywhere.</summary>
     static (int LeftGreen, int RightGreen, int Red) Count(Bitmap picture, string dumpVariable) {
         var dump = Environment.GetEnvironmentVariable(dumpVariable);

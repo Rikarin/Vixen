@@ -51,14 +51,19 @@ and all of them used to vanish.
 > twice over. ExCSS knows `@container` and hands it back as a parsed rule rather than an unknown one,
 > so it never took this path and never produced a warning — it was dropped in silence. `@container`
 > is implemented now; an unreadable *condition* inside one (`@container (prefers-color-scheme: dark)`)
-> is refused at load with a diagnostic that does reach here. So is a size feature joined to a
-> `style()` feature by `or`, which has no single place to be answered. The unnamed
+> is refused at load with a diagnostic that does reach here. The unnamed
 > `@container style(--x: 1)`, which asks the parent, and the named `@container card style(--x: 1)`,
 > which asks the nearest ancestor called `card`, are both answered, joined by `and` or `or` or under
-> one `not`. So is `@container (min-width: 400px) and style(--x: 1)`, which asks both halves of the
-> nearest size container.
+> one `not`. So are `@container (min-width: 400px) and style(--x: 1)` and the same joined by `or`,
+> which ask both halves of the nearest size container. ⚠ The `or` form used to be refused here as
+> having "no single place to be answered"; it has one, the same container the `and` form asks.
 > ⚠ Every `style()` query used to be refused as "'not all' is not a container feature": ExCSS does
 > not parse the function and hands its prelude over as `not all`, so the loader reads the raw text.
+> Size features are read the same way where ExCSS loses them: `@container (min-width: 400px) or
+> (min-height: 400px)` is answered, and so is `@container not (min-width: 400px)`. ⚠ The second used
+> to load with no diagnostic as a query for a container *named* `not`, which never matched. Mixing
+> `and` with `or`, a negated list and a parenthesised group are refused, and so are the names CSS
+> reserves (`none`, `not`, `and`, `or`).
 
 ## Using it
 
