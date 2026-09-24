@@ -1488,7 +1488,8 @@ does mirror that one.
    fourteen families at once**: every negative filter proportion — `-brightness-50`, `-blur-2`,
    `-backdrop-sepia-100` — resolved, because `TryNegate` flips any value that starts with a number,
    and `brightness(-0.5)` is a function the executor cannot run, so each dropped the whole `filter`.
-   Those families are `Unsigned` now; `-hue-rotate-*`, an angle, keeps its negative. It is
+   Those families refuse the minus now; `-hue-rotate-*`, an angle, keeps its negative. ⚠ Since
+   #1409 every family does unless its root is on `UtilityFamilies.Signed`, Tailwind's own list. It is
    `ValueKind.Depth` now — the spacing scale without `auto` — which is also v4's own surface for
    this root. ⚠ **And the new kind then vanished the family a second time, from the other end**:
    `UtilityFamilies.ValuesFor` had no arm for it and fell through a `default: break;`, so the root
