@@ -67,7 +67,11 @@ public sealed class TextColourPictureTests {
 
         var (software, hardware) = ScrollingPanelPictureTests.Draw(fixture, gpu, $"text-colour-{panel}");
 
-        Check(software, words, want, "software");
+        // ⚠ Both renderers are judged before either fails. Failing on the software picture first
+        // left the Vulkan one unread in every red run, so the GPU half of the claim rested on
+        // captures measured by hand rather than on this test.
+        List<string> failures = [];
+        Check(software, words, want, "software", failures);
 
         if (hardware is { } picture) {
             // Named, so a picture read from the capture directory says which device drew it.
@@ -77,17 +81,22 @@ public sealed class TextColourPictureTests {
                 File.WriteAllText(Path.Combine(directory, $"text-colour-{panel}-adapter.txt"), adapter);
             }
 
-            Check(picture, words, want, $"vulkan on '{adapter}'");
+            Check(picture, words, want, $"vulkan on '{adapter}'", failures);
         }
+
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
 
-    static void Check(Bitmap image, UiElement words, Color4 want, string renderer) {
+    static void Check(Bitmap image, UiElement words, Color4 want, string renderer, List<string> failures) {
         var left = (int)MathF.Ceiling(words.AbsoluteLeft);
         var top = (int)MathF.Ceiling(words.AbsoluteTop);
         var right = Math.Min(image.Width, (int)MathF.Floor(words.AbsoluteLeft + words.Width));
         var bottom = Math.Min(image.Height, (int)MathF.Floor(words.AbsoluteTop + words.Height));
 
-        Assert.True(right > left && bottom > top, $"[{renderer}] the words have no box on screen");
+        if (right <= left || bottom <= top) {
+            failures.Add($"[{renderer}] the words have no box on screen");
+            return;
+        }
 
         var counts = new Dictionary<(byte, byte, byte), int>();
 
@@ -113,7 +122,10 @@ public sealed class TextColourPictureTests {
             }
         }
 
-        Assert.True(furthest > 0.05f, $"[{renderer}] nothing was drawn in the words' box");
+        if (furthest <= 0.05f) {
+            failures.Add($"[{renderer}] nothing was drawn in the words' box");
+            return;
+        }
 
         // Where the most inked pixel sits on the line from the ground to the wanted colour, and how
         // far off that line it is.
@@ -125,10 +137,11 @@ public sealed class TextColourPictureTests {
             MathF.Pow(drawn.R - (along * toward.R), 2) + MathF.Pow(drawn.G - (along * toward.G), 2) + MathF.Pow(drawn.B - (along * toward.B), 2)
         );
 
-        Assert.True(
-            along is > 0.5f and < 1.1f && aside < 0.08f,
-            $"[{renderer}] the most inked pixel {inked} over the ground {ground} is {along:0.00} of the way to {want} and {aside:0.000} off it"
-        );
+        if (along is not (> 0.5f and < 1.1f) || aside >= 0.08f) {
+            failures.Add(
+                $"[{renderer}] the most inked pixel {inked} over the ground {ground} is {along:0.00} of the way to {want} and {aside:0.000} off it"
+            );
+        }
     }
 
     static (byte, byte, byte) Pixel(Bitmap image, int x, int y) {

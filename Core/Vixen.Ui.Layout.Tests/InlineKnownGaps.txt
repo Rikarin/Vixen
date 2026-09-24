@@ -703,7 +703,15 @@ white-space / nowrap              the container-level suppression of line breaki
                                   or ends between two leaves (the trailing space should then hang, the
                                   leading run go), which is a break position and this row's pass
                                   order; and a line begun on a space by a break that falls BEFORE one
-                                  (`line-break: anywhere`, or an emergency break). ⚠ AND `normal` STILL DOES NOT COLLAPSE,
+                                  (`line-break: anywhere`, or an emergency break). ALSO OWED: a
+                                  `display: inline` box the LAYOUT makes atomic (a measure function
+                                  and no text, a span of nothing that participates, or a span
+                                  holding a float — `IsNonAtomicInline`) is walked into by
+                                  `UiElement.First`/`Last`, found empty and looked past, so `foo␠`
+                                  before a text-less drawing box hangs its space and the box sits
+                                  against `foo` — the `foobar` class for a non-text neighbour. Not a
+                                  regression (every leaf hung before), and no sheet makes such a box
+                                  inline today. ⚠ AND `normal` STILL DOES NOT COLLAPSE,
                                   deliberately: CSS collapses under it and turns its segment breaks
                                   into spaces, and honouring half of that would change what every
                                   paragraph in every interface on this engine draws. `break-spaces`

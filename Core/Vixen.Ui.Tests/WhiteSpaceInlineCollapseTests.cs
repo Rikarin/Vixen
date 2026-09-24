@@ -65,6 +65,7 @@ public class WhiteSpaceInlineCollapseTests {
             $$"""
               root      { width: 800px; height: 300px; }
               container { display: block; width: 800px; }
+              container.row { display: flex; flex-direction: row; align-items: flex-start; }
               label     { font-family: Test; font-size: 16px; line-height: 20px; display: inline; {{label}} }
               label.pre { white-space: normal; }
               """
@@ -316,6 +317,44 @@ public class WhiteSpaceInlineCollapseTests {
         Assert.True(preserved > collapsed + 1f, $"the second label kept its collapsed width after the first stopped collapsing: {preserved}");
 
         labels[0].RemoveClass("pre");
+        document.Update();
+
+        Assert.Equal(54.016f, Advance(labels), Tolerance);
+    }
+
+    /// <summary>
+    ///     The parent's half of the dependency, with the box held to it: a container turned from
+    ///     <c>block</c> to <c>flex</c> makes <c>␠bar</c> a paragraph of its own, whose leading run
+    ///     goes, though nothing about <c>␠bar</c> changed — and back again.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Not carried by <c>UiDocument.Arrange</c>'s edge check, whatever that check's comment
+    ///     might lead one to expect.</b> This stays green with the check made inert, and with the
+    ///     enrolment narrowed to leaves whose parent is not a flex box: the flip changes how the
+    ///     layout sizes the leaf, and the layout re-measures it on its own. What turns it red is
+    ///     <c>UiElement.IsFlattenedInline</c> no longer seeing the flex parent (29.375 against
+    ///     25.219). <c>WhiteSpacePreLineTests.Turning_the_parent_to_block_rebuilds_an_inline_leafs_block</c>
+    ///     is the block-key half of the same flip; this is the box.
+    /// </remarks>
+    [Fact]
+    public void Turning_the_container_into_a_flex_box_moves_the_leading_run_of_the_text_in_it() {
+        var (document, labels) = Line(PreLine, "foo", " bar");
+        var container = labels[0].Parent!;
+        var word = Line(PreLine, "bar").Labels[0].Block()!.Width;
+
+        // Before: in the lines after `foo`, the space is kept (§ 4.1.1 collapses it to one, and
+        // there is only one).
+        Assert.Equal(54.016f, Advance(labels), Tolerance);
+        Assert.True(labels[1].Block()!.Width > word + 1f, $"the space after foo was not drawn in the block container: {labels[1].Block()!.Width} against {word}");
+
+        container.AddClass("row");
+        document.Update();
+
+        var alone = labels[1].Block()!.Width;
+        Assert.Equal(word, alone, Tolerance);
+        Assert.Equal(MathF.Ceiling(alone - 0.0001f), labels[1].Bounds.Width, 0.001f);
+
+        container.RemoveClass("row");
         document.Update();
 
         Assert.Equal(54.016f, Advance(labels), Tolerance);

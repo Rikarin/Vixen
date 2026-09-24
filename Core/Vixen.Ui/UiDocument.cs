@@ -1309,8 +1309,19 @@ public sealed partial class UiDocument : IDisposable {
         // had its style applied when the walk reaches the earlier one. A neighbour's TEXT changing
         // arrives here too — a string-for-string change is `InvalidatePositions`, which is a pass —
         // so this one check covers both, and the layout tree, which re-measures a node only when
-        // that node changed, needs telling. The list holds only `display: inline` elements with
-        // text, which this engine's flex-everywhere trees rarely have.
+        // that node changed, needs telling.
+        //
+        // ⚠ The list is NOT rare. `ControlTheme.vcss` makes `text` `display: inline`, markup puts
+        // every word in a `text` element (`BuildContext.Text`), and blockification happens in the
+        // layout and not in the style this enrols by — so every markup text leaf in a themed
+        // document is checked on every pass. What keeps that cheap is `InlineFormattingRoot`: a
+        // leaf in a flex or grid parent is not flattened and answers after two style lookups. It
+        // is kept wide rather than narrowed to leaves whose parent lays out lines because the
+        // narrowing buys a lookup pair per leaf and is a second place to get the flattening rule
+        // wrong — not because a parent's flip needs it: with the enrolment so narrowed, and with
+        // this check made inert, the block-to-flex-and-back case
+        // (`Turning_the_container_into_a_flex_box_…`) stays green, the layout re-measuring the leaf
+        // without being told.
         foreach (var leaf in inlineLeaves) {
             if (leaf.InlineEdgesMoved()) {
                 Layout.MarkDirty(leaf.LayoutNode);

@@ -164,6 +164,12 @@ space should then hang and the second's leading run, where it did not follow a c
 should go; both are break positions, which a label does not know when it is measured. A line that a
 `line-break: anywhere` break starts on a space keeps that space too.
 
+⚠ **Also owed: an inline box the layout treats as atomic.** A `display: inline` element with a
+measure function and no text, one whose children take no part in the line, or one holding a float is
+laid out as a single box, but the edge walk steps into it, finds no text and looks past it. So a
+label ending in a space, followed by such a box, hangs that space and the box is drawn against the
+last word. Nothing inline in the shipped theme is like that today.
+
 ## Examples
 
 Four two-letter words in a room of eight, one advance per character — the case
