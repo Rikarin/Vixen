@@ -171,9 +171,13 @@ public sealed class SpriteSheetView : Control {
 
         Method = bar.Add<Select>();
         Method.Value = "grid-size";
-        Option(Method, "grid-size", "Grid by cell size");
-        Option(Method, "grid-count", "Grid by cell count");
-        Option(Method, "automatic", "Automatic");
+
+        // ⚠ `AddOption`, which puts the choice in the select's popover — the only place an option is
+        // one. This was `Add<Option>()` on the select itself, which drew the three choices inline
+        // across the toolbar and left the control with none to open or choose (#1394).
+        Method.AddOption("grid-size", "Grid by cell size");
+        Method.AddOption("grid-count", "Grid by cell count");
+        Method.AddOption("automatic", "Automatic");
         Method.SelectionChanged += (_, _) => Relabel();
 
         CellWidth = Number(bar, "Cell", 32, minimum: 1);
@@ -705,13 +709,6 @@ public sealed class SpriteSheetView : Control {
         field.Size = ControlSize.Small;
 
         return field;
-    }
-
-    static void Option(Select select, string value, string label) {
-        var option = select.Add<Option>();
-
-        option.Value = value;
-        option.Label = label;
     }
 
     static SliceMethod MethodOf(string? value) => value switch {

@@ -30,5 +30,5 @@ choice-list > button	Built only by a modal dialog: EditorProjects.cs:236 adds th
 compiled-scene-diagnostic > compiled-scene-severity	CompiledSceneView.vxml:103 emits one row per diagnostic; the document sweep opens an EMPTY .vxscene, which compiles with none.
 override-cell > textbox	⚠ The rule is correct and has no producer today. TargetOverrideMatrix builds the member's own drawer under the cell, StringDrawer is the only one rooted on a textbox, and neither import-settings mirror in the tree (TextureImportEdits, ModelImportEdits) declares a string member. Its three siblings — checkbox, numeric-input, select — come from the bool, numeric and enum members importers do have.
 radial-item > icon	SceneMenus.cs:139 sets an entry's art on the wedge, and only for an open radial menu with a mode that has registered radial entries. Neither is a state any sweep puts the editor in.
-sprite-rect > sprite-rect-label	SpriteSheetView.cs:389 labels one box per sprite; the document sweep opens an empty .png, which has no rects.
+sprite-rect > sprite-rect-label	SpriteSheetView.cs:400 labels one box per sprite; the document sweep opens an empty .png, which has no rects.
 task-row > task-line	TaskCenter.vxml:16 emits one row per RUNNING task, and a fixture that started no background work has none.

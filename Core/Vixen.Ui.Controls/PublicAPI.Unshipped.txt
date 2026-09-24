@@ -76,6 +76,37 @@ Vixen.Ui.Controls.ButtonBase.HasIcon.get -> bool
 Vixen.Ui.Controls.ButtonBase.LabelPart.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.ButtonBase.LeadingIcon.get -> Vixen.Ui.Controls.Icon
 Vixen.Ui.Controls.ButtonBase.RefreshCommand() -> void
+Vixen.Ui.Controls.Calendar -> sealed class
+Vixen.Ui.Controls.Calendar : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Calendar.Calendar() -> void
+Vixen.Ui.Controls.Calendar.ClearMaximum() -> void
+Vixen.Ui.Controls.Calendar.ClearMinimum() -> void
+Vixen.Ui.Controls.Calendar.ClearValue() -> void
+Vixen.Ui.Controls.Calendar.Culture.get -> System.Globalization.CultureInfo?
+Vixen.Ui.Controls.Calendar.Culture.set -> System.Globalization.CultureInfo?
+Vixen.Ui.Controls.Calendar.DayOf(System.DateOnly date) -> Vixen.Ui.Controls.CalendarDay?
+Vixen.Ui.Controls.Calendar.Days.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.CalendarDay>
+Vixen.Ui.Controls.Calendar.Grid.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Calendar.Header.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Calendar.Maximum.get -> System.DateOnly?
+Vixen.Ui.Controls.Calendar.Maximum.set -> System.DateOnly?
+Vixen.Ui.Controls.Calendar.Minimum.get -> System.DateOnly?
+Vixen.Ui.Controls.Calendar.Minimum.set -> System.DateOnly?
+Vixen.Ui.Controls.Calendar.Month.get -> System.DateOnly
+Vixen.Ui.Controls.Calendar.Month.set -> System.DateOnly
+Vixen.Ui.Controls.Calendar.Next.get -> Vixen.Ui.Controls.IconButton
+Vixen.Ui.Controls.Calendar.Previous.get -> Vixen.Ui.Controls.IconButton
+Vixen.Ui.Controls.Calendar.Title.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Calendar.Today.get -> System.DateOnly
+Vixen.Ui.Controls.Calendar.Today.set -> System.DateOnly
+Vixen.Ui.Controls.Calendar.Value.get -> System.DateOnly?
+Vixen.Ui.Controls.Calendar.Value.set -> System.DateOnly?
+Vixen.Ui.Controls.Calendar.ValueChanged -> System.Action<Vixen.Ui.Controls.Calendar, System.DateOnly?>?
+Vixen.Ui.Controls.CalendarDay -> sealed class
+Vixen.Ui.Controls.CalendarDay : Vixen.Ui.Controls.ButtonBase
+Vixen.Ui.Controls.CalendarDay.CalendarDay() -> void
+Vixen.Ui.Controls.CalendarDay.Date.get -> System.DateOnly
+Vixen.Ui.Controls.CalendarDay.IsSelected.get -> bool
 Vixen.Ui.Controls.Card -> sealed class
 Vixen.Ui.Controls.Card : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.Card.Body.get -> Vixen.Ui.UiElement
@@ -185,6 +216,36 @@ Vixen.Ui.Controls.ControlVariant.Primary = 1 -> Vixen.Ui.Controls.ControlVariant
 Vixen.Ui.Controls.ControlVariant.Subtle = 2 -> Vixen.Ui.Controls.ControlVariant
 Vixen.Ui.Controls.ControlVariant.Success = 3 -> Vixen.Ui.Controls.ControlVariant
 Vixen.Ui.Controls.ControlVariant.Warning = 4 -> Vixen.Ui.Controls.ControlVariant
+Vixen.Ui.Controls.DatePicker -> sealed class
+Vixen.Ui.Controls.DatePicker : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.DatePicker.Calendar.get -> Vixen.Ui.Controls.Calendar
+Vixen.Ui.Controls.DatePicker.Chevron.get -> Vixen.Ui.Controls.Icon
+Vixen.Ui.Controls.DatePicker.ClearMaximum() -> void
+Vixen.Ui.Controls.DatePicker.ClearMinimum() -> void
+Vixen.Ui.Controls.DatePicker.ClearPlaceholder() -> void
+Vixen.Ui.Controls.DatePicker.ClearRequired() -> void
+Vixen.Ui.Controls.DatePicker.ClearValue() -> void
+Vixen.Ui.Controls.DatePicker.Close(Vixen.Ui.Controls.CloseReason reason = Vixen.Ui.Controls.CloseReason.Code) -> void
+Vixen.Ui.Controls.DatePicker.Culture.get -> System.Globalization.CultureInfo?
+Vixen.Ui.Controls.DatePicker.Culture.set -> System.Globalization.CultureInfo?
+Vixen.Ui.Controls.DatePicker.DatePicker() -> void
+Vixen.Ui.Controls.DatePicker.Field.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.DatePicker.IsOpen.get -> bool
+Vixen.Ui.Controls.DatePicker.IsValid.get -> bool
+Vixen.Ui.Controls.DatePicker.Maximum.get -> System.DateOnly?
+Vixen.Ui.Controls.DatePicker.Maximum.set -> System.DateOnly?
+Vixen.Ui.Controls.DatePicker.Minimum.get -> System.DateOnly?
+Vixen.Ui.Controls.DatePicker.Minimum.set -> System.DateOnly?
+Vixen.Ui.Controls.DatePicker.Open() -> void
+Vixen.Ui.Controls.DatePicker.Placeholder.get -> string?
+Vixen.Ui.Controls.DatePicker.Placeholder.set -> string?
+Vixen.Ui.Controls.DatePicker.Popup.get -> Vixen.Ui.Controls.Popover
+Vixen.Ui.Controls.DatePicker.Required.get -> bool
+Vixen.Ui.Controls.DatePicker.Required.set -> bool
+Vixen.Ui.Controls.DatePicker.Revalidate() -> void
+Vixen.Ui.Controls.DatePicker.Value.get -> System.DateOnly?
+Vixen.Ui.Controls.DatePicker.Value.set -> System.DateOnly?
+Vixen.Ui.Controls.DatePicker.ValueChanged -> System.Action<Vixen.Ui.Controls.DatePicker, System.DateOnly?>?
 Vixen.Ui.Controls.DiagnosticsOverlay -> sealed class
 Vixen.Ui.Controls.DiagnosticsOverlay : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.DiagnosticsOverlay.DiagnosticsOverlay() -> void
@@ -298,7 +359,6 @@ Vixen.Ui.Controls.EmptyState.Description.get -> string?
 Vixen.Ui.Controls.EmptyState.Description.set -> string?
 Vixen.Ui.Controls.EmptyState.DescriptionPart.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.EmptyState.EmptyState() -> void
-Vixen.Ui.Controls.EmptyState.Illustration.get -> Vixen.Ui.Controls.Icon
 Vixen.Ui.Controls.EmptyState.Title.get -> string?
 Vixen.Ui.Controls.EmptyState.Title.set -> string?
 Vixen.Ui.Controls.EmptyState.TitlePart.get -> Vixen.Ui.UiElement
@@ -317,6 +377,12 @@ Vixen.Ui.Controls.ExpanderHeader -> sealed class
 Vixen.Ui.Controls.ExpanderHeader : Vixen.Ui.Controls.ButtonBase
 Vixen.Ui.Controls.ExpanderHeader.Chevron.get -> Vixen.Ui.Controls.Icon
 Vixen.Ui.Controls.ExpanderHeader.ExpanderHeader() -> void
+Vixen.Ui.Controls.Form -> sealed class
+Vixen.Ui.Controls.Form : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Form.Fields.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Control>
+Vixen.Ui.Controls.Form.Form() -> void
+Vixen.Ui.Controls.Form.Submit() -> bool
+Vixen.Ui.Controls.Form.Submitted -> System.Action<Vixen.Ui.Controls.Form>?
 Vixen.Ui.Controls.Gauge -> sealed class
 Vixen.Ui.Controls.Gauge : Vixen.Ui.Controls.RangeBase
 Vixen.Ui.Controls.Gauge.ClearCritical() -> void
@@ -739,7 +805,7 @@ Vixen.Ui.Controls.RangeBase.ClearMinimum() -> void
 Vixen.Ui.Controls.RangeBase.ClearOrientation() -> void
 Vixen.Ui.Controls.RangeBase.ClearStep() -> void
 Vixen.Ui.Controls.RangeBase.DrawThumb(Vixen.Ui.DrawContext context, Vixen.Core.Mathematics.Rectangle rail, float fraction) -> void
-Vixen.Ui.Controls.RangeBase.DrawTrack(Vixen.Ui.DrawContext context, Vixen.Core.Mathematics.Rectangle rail) -> void
+Vixen.Ui.Controls.RangeBase.DrawTrack(Vixen.Ui.DrawContext context, Vixen.Core.Mathematics.Rectangle rail, float from, float to) -> void
 Vixen.Ui.Controls.RangeBase.Extent(Vixen.Core.Mathematics.Rectangle rail) -> float
 Vixen.Ui.Controls.RangeBase.FillColor.get -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.Controls.RangeBase.Fraction(float value) -> float
@@ -844,6 +910,14 @@ Vixen.Ui.Controls.SearchBox : Vixen.Ui.Controls.TextField
 Vixen.Ui.Controls.SearchBox.ClearButton.get -> Vixen.Ui.Controls.IconButton
 Vixen.Ui.Controls.SearchBox.SearchBox() -> void
 Vixen.Ui.Controls.SearchBox.SearchIcon.get -> Vixen.Ui.Controls.Icon
+Vixen.Ui.Controls.Section -> sealed class
+Vixen.Ui.Controls.Section : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Section.ClearTitle() -> void
+Vixen.Ui.Controls.Section.Content.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Section.Heading.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Section.Section() -> void
+Vixen.Ui.Controls.Section.Title.get -> string?
+Vixen.Ui.Controls.Section.Title.set -> string?
 Vixen.Ui.Controls.SecureTextBox -> sealed class
 Vixen.Ui.Controls.SecureTextBox : Vixen.Ui.Controls.TextField
 Vixen.Ui.Controls.SecureTextBox.SecureTextBox() -> void
@@ -1181,6 +1255,14 @@ override Vixen.Ui.Controls.ButtonBase.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.ButtonBase.OnCreated() -> void
 override Vixen.Ui.Controls.ButtonBase.OnRemoved() -> void
 override Vixen.Ui.Controls.ButtonBase.RaisesActivation.get -> bool
+override Vixen.Ui.Controls.Calendar.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Calendar.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.Calendar.OnCreated() -> void
+override Vixen.Ui.Controls.Calendar.TagName.get -> string
+override Vixen.Ui.Controls.CalendarDay.NativeAccessibleName.get -> string?
+override Vixen.Ui.Controls.CalendarDay.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
+override Vixen.Ui.Controls.CalendarDay.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.CalendarDay.TagName.get -> string
 override Vixen.Ui.Controls.Card.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Card.ContentHost.get -> Vixen.Ui.UiElement
 override Vixen.Ui.Controls.Card.OnCreated() -> void
@@ -1200,6 +1282,12 @@ override Vixen.Ui.Controls.ComboBox.TagName.get -> string
 override Vixen.Ui.Controls.ContextMenu.TagName.get -> string
 override Vixen.Ui.Controls.Control.OnCreated() -> void
 override Vixen.Ui.Controls.Control.OnRemoved() -> void
+override Vixen.Ui.Controls.DatePicker.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
+override Vixen.Ui.Controls.DatePicker.NativeAccessibleValue.get -> string?
+override Vixen.Ui.Controls.DatePicker.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.DatePicker.OnCreated() -> void
+override Vixen.Ui.Controls.DatePicker.OnRemoved() -> void
+override Vixen.Ui.Controls.DatePicker.TagName.get -> string
 override Vixen.Ui.Controls.DiagnosticsOverlay.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.DiagnosticsOverlay.OnCreated() -> void
 override Vixen.Ui.Controls.DiagnosticsOverlay.OnDraw(Vixen.Ui.DrawContext context) -> void
@@ -1233,6 +1321,10 @@ override Vixen.Ui.Controls.Expander.TagName.get -> string
 override Vixen.Ui.Controls.ExpanderHeader.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
 override Vixen.Ui.Controls.ExpanderHeader.OnCreated() -> void
 override Vixen.Ui.Controls.ExpanderHeader.TagName.get -> string
+override Vixen.Ui.Controls.Form.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Form.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.Form.OnCreated() -> void
+override Vixen.Ui.Controls.Form.TagName.get -> string
 override Vixen.Ui.Controls.Gauge.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Gauge.NativeAccessibleValue.get -> string?
 override Vixen.Ui.Controls.Gauge.NativeRole.get -> Vixen.Ui.AccessibleRole
@@ -1375,6 +1467,11 @@ override Vixen.Ui.Controls.ScrollView.TagName.get -> string
 override Vixen.Ui.Controls.SearchBox.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.SearchBox.OnCreated() -> void
 override Vixen.Ui.Controls.SearchBox.TagName.get -> string
+override Vixen.Ui.Controls.Section.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Section.ContentHost.get -> Vixen.Ui.UiElement
+override Vixen.Ui.Controls.Section.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.Section.OnCreated() -> void
+override Vixen.Ui.Controls.Section.TagName.get -> string
 override Vixen.Ui.Controls.SecureTextBox.NativeAccessibleValue.get -> string?
 override Vixen.Ui.Controls.SecureTextBox.Shown(string? value) -> string?
 override Vixen.Ui.Controls.SecureTextBox.TagName.get -> string
@@ -1395,6 +1492,7 @@ override Vixen.Ui.Controls.Select.OnOptionAdded(Vixen.Ui.Controls.Option option)
 override Vixen.Ui.Controls.Select.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
 override Vixen.Ui.Controls.Select.TagName.get -> string
 override Vixen.Ui.Controls.SelectBase.ContentHost.get -> Vixen.Ui.UiElement
+override Vixen.Ui.Controls.SelectBase.OnChildAdded(Vixen.Ui.UiElement child) -> void
 override Vixen.Ui.Controls.SelectBase.OnCreated() -> void
 override Vixen.Ui.Controls.SelectBase.OnRemoved() -> void
 override Vixen.Ui.Controls.Separator.AcceptsFocus.get -> bool
@@ -1501,6 +1599,8 @@ static Vixen.Ui.Controls.ControlIcons.Lock.get -> Vixen.Ui.PathBuilder
 static Vixen.Ui.Controls.ControlIcons.Search.get -> Vixen.Ui.PathBuilder
 static Vixen.Ui.Controls.ControlIcons.Unlock.get -> Vixen.Ui.PathBuilder
 static Vixen.Ui.Controls.ControlStrings.All.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.StringId>
+static Vixen.Ui.Controls.ControlStrings.CalendarNextMonth.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.CalendarPreviousMonth.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.ColorPickerAlpha.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.ColorPickerEyedropper.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.ColorPickerField.get -> Vixen.Ui.StringId
@@ -1508,6 +1608,7 @@ static Vixen.Ui.Controls.ControlStrings.ColorPickerHex.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.ColorPickerHue.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.ColorPickerIntensity.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.ColorPickerPalette.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.DatePickerDialog.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DialogCancel.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DialogClose.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.DialogConfirm.get -> Vixen.Ui.StringId
@@ -1543,6 +1644,7 @@ static Vixen.Ui.Controls.ControlStrings.KeysSourceUser.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.KeysUnknownPreset.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.KeysWaiting.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.NodeCanvasNodes.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.PaginationGap.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.PaginationNext.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.PaginationPrevious.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.PropertyGridReset.get -> Vixen.Ui.StringId
@@ -1554,6 +1656,8 @@ static Vixen.Ui.Controls.ControlStrings.SplitViewDivider.get -> Vixen.Ui.StringI
 static Vixen.Ui.Controls.ControlStrings.StepperDecrease.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.StepperIncrease.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.TextInputClear.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.TimelineMute.get -> Vixen.Ui.StringId
+static Vixen.Ui.Controls.ControlStrings.TimelineMuteMark.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlStrings.ToastDismiss.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlTheme.Css.get -> string
 static Vixen.Ui.Controls.ControlTheme.Install(Vixen.Ui.UiDocument document) -> int
@@ -1573,11 +1677,19 @@ static readonly Vixen.Ui.Controls.Avatar.NameProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.BreadcrumbItem.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Button.IsCancelProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Button.IsDefaultProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Calendar.MaximumProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Calendar.MinimumProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Calendar.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.CheckBox.IsIndeterminateProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.CheckBox.RequiredProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Control.DisabledProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Control.SizeProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Control.VariantProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.DatePicker.MaximumProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.DatePicker.MinimumProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.DatePicker.PlaceholderProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.DatePicker.RequiredProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.DatePicker.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Drawer.SideProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Expander.IsExpandedProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Gauge.CriticalProperty -> Vixen.Ui.UiPropertyKey
@@ -1640,6 +1752,7 @@ static readonly Vixen.Ui.Controls.ScrollBar.ViewportSizeProperty -> Vixen.Ui.UiP
 static readonly Vixen.Ui.Controls.ScrollView.DragToScrollProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.ScrollView.ScrollLeftProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.ScrollView.ScrollTopProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Section.TitleProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Segment.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.SegmentedControl.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Select.PlaceholderProperty -> Vixen.Ui.UiPropertyKey

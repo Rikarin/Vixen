@@ -99,7 +99,6 @@ device-manager > data-grid	Panels
 dock-tab icon	Started
 dock-tabstrip > icon-button	Started
 editor-shell > menu-bar	Started
-empty-state icon	-
 expander-header icon	Panels
 font-body > font-atlas	Documents
 font-side > scroll-content	Documents

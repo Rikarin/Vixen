@@ -120,6 +120,45 @@
                 <CheckBox Label="Contact hardening" />
             </GroupBox>
 
+            <!--
+                ⚠ **A form draws nothing; what it adds is the submission.** Enter in the field submits
+                it, and with the field empty the submission is refused and the keyboard goes back into
+                the field — which is also marked as having been through a submission, so a
+                `:user-invalid` rule matches it from then on, as a browser's does after the first press
+                of Submit. It is a `form` landmark named "Sign in", which is how a screen reader
+                jumps to it. ⚠ The button is deliberately not `IsDefault` here: a default button's
+                Return is a fallback for the whole window, and in a gallery it would answer every
+                Return pressed on any control in it that declined the key. In a sign-in sheet of its
+                own, it would be the default.
+            -->
+            <Form AccessibleName="Sign in">
+                <LabeledContent Label="User name">
+                    <TextBox Required="true" />
+                </LabeledContent>
+            </Form>
+
+            <!--
+                ⚠ **A titled part of the page, reachable two ways.** A `Section` is a `region` landmark
+                named by a `heading` of its own, so a screen-reader user finds it in the landmark list
+                and by jumping heading to heading, and both announce the one `Title`. It draws the
+                heading and nothing else — no border, unlike the `GroupBox` above, because a page of
+                sections framed like cards reads as a stack of cards.
+            -->
+            <Section Title="Output">
+                <CheckBox Label="Write mipmaps" />
+            </Section>
+
+            <!--
+                ⚠ **A select whose list is a calendar, and the keyboard goes into it.** Enter or a
+                click opens a six-week month laid out by the culture — invariant here, so Sunday
+                first — with the keyboard on today; the arrows walk the days, Page Up and Page Down
+                the months, and Enter chooses and hands the keyboard back. Each day is announced by
+                its whole date, not by the number drawn on it.
+            -->
+            <LabeledContent Label="Due">
+                <DatePicker Placeholder="No date" />
+            </LabeledContent>
+
             <SearchBox Placeholder="Filter assets" bind:Value="@Model.Filter.Value" />
             <NumericInput Minimum="0" Maximum="64" bind:Number="@Model.Samples.Value" />
 

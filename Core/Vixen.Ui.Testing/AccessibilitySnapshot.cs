@@ -60,6 +60,18 @@ public static class AccessibilitySnapshot {
         AccessibleRole.TreeItem
     ];
 
+    /// <summary>The roles that are not widgets and still mean nothing without a name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One, and it is the landmark whose role is its name.</b> WAI-ARIA 1.2 marks
+    ///     <c>region</c> "accessible name required", and a browser demotes an unnamed
+    ///     <c>&lt;section&gt;</c> to a plain generic — a region nobody named is a landmark a
+    ///     screen reader lists as "region" and nothing else, which is one entry in the landmark list
+    ///     per unnamed section and no way to tell them apart. <c>Section</c> keeps its role when it has
+    ///     no title precisely so that this list can report it; dropping the role instead would make the
+    ///     omission invisible to every gate here.
+    /// </remarks>
+    static readonly HashSet<AccessibleRole> NamedLandmarks = [AccessibleRole.Region];
+
     /// <summary>Renders the accessibility tree under an element.</summary>
     /// <param name="root">Where to start. Usually <c>document.Root</c> or the control under test.</param>
     /// <returns>One line per node, indented two spaces per level, newline-separated, no trailing newline.</returns>
@@ -108,7 +120,8 @@ public static class AccessibilitySnapshot {
     ///     <para>
     ///         <b>The half of an accessibility gate that cannot pass by accident.</b> A snapshot
     ///         asserts that the tree is what it was; this asserts that it is worth having. Every
-    ///         element whose role is one WAI-ARIA calls a widget must answer a non-empty
+    ///         element whose role is one WAI-ARIA calls a widget — or a <c>region</c>, the one
+    ///         landmark ARIA requires a name of — must answer a non-empty
     ///         <see cref="UiElement.AccessibleName" />, and the two ways a control set fails —
     ///         a control with no role at all, and a control with a role and nothing to call it — are
     ///         both this list being non-empty.
@@ -237,7 +250,7 @@ public static class AccessibilitySnapshot {
 
         if (element.Focusable && role == AccessibleRole.None) {
             offenders.Add($"<{element.Tag}> is focusable and has no role");
-        } else if (Widgets.Contains(role) && string.IsNullOrEmpty(element.AccessibleName)) {
+        } else if ((Widgets.Contains(role) || NamedLandmarks.Contains(role)) && string.IsNullOrEmpty(element.AccessibleName)) {
             offenders.Add($"<{element.Tag}> is a {Token(role)} and has no accessible name");
         }
 

@@ -347,7 +347,7 @@ numeric-input:focus-visible, stepper:focus-visible, select:focus-visible, multi-
 slider:focus-visible, range-slider:focus-visible, tab:focus-visible,
 menu-item:focus-visible, option:focus-visible, link:focus-visible,
 page-button:focus-visible, breadcrumb-item:focus-visible, expander-header:focus-visible,
-segment:focus-visible {
+segment:focus-visible, date-picker:focus-visible, calendar-day:focus-visible {
     border-color: var(--accent);
 }
 
@@ -770,6 +770,24 @@ group-legend { color: var(--text); font-weight: 600; flex-shrink: 0; }
 
 group-content { flex-direction: column; align-items: stretch; gap: 8px; }
 
+/* ⚠ A form draws nothing of its own — no border, no caption. It is a submission
+   and a `form` landmark, not a box; what a form looks like is its rows and its
+   groups. The one thing it has to say is the direction: an element nothing
+   styles lays its children out in a row, which would put every field of a form
+   beside the one before it. */
+form { flex-direction: column; align-items: stretch; gap: 12px; }
+
+/* ⚠ A section is a part of a page, not a box on one — no border, for the reason
+   `form` has none: a settings window framing every section reads as a stack of
+   cards. What says where one section ends is the next one's heading, so the
+   heading is the only thing here with weight. It is hidden by the control when
+   there is no title, and its role goes with it; see `Section`. */
+section { flex-direction: column; align-items: stretch; gap: 8px; }
+
+section-heading { color: var(--text); font-weight: 600; font-size: 1.15em; flex-shrink: 0; }
+
+section-content { flex-direction: column; align-items: stretch; gap: 8px; }
+
 /* ── Segmented control ──────────────────────────────────────────────── */
 
 segmented-control {
@@ -954,7 +972,6 @@ key-value-value level-indicator {
 }
 
 empty-state { flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 32px; }
-empty-state icon { width: 40px; height: 40px; color: var(--text-muted); }
 empty-title { color: var(--text); }
 empty-description { color: var(--text-muted); }
 empty-actions { flex-direction: row; gap: 8px; }
@@ -1145,6 +1162,54 @@ select icon, multi-select icon, combo-box icon {
 
 popover.select-list { flex-direction: column; padding: 4px; min-width: 120px; }
 combo-box .combo-editor { border-width: 0px; padding: 0px; flex-grow: 1; background-color: transparent; }
+
+/* ── Dates ──────────────────────────────────────────────────────────────
+   ⚠ Every rule here is a tag, a class or a compound of the two, and none is a
+   descendant: the parts carry their own tags so the theme never has to say
+   "the X inside a Y". The field is a select's field; the calendar is six rows
+   of seven 28 px cells, so it is the same size in February as in August. */
+date-picker {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 6px;
+    background-color: var(--surface);
+    color: var(--text);
+}
+
+date-picker-field { flex-grow: 1; min-height: 1.2em; }
+date-picker-field.empty { color: var(--text-muted); }
+.date-picker-chevron { width: 12px; height: 12px; flex-shrink: 0; color: var(--text-muted); }
+
+calendar { flex-direction: column; gap: 6px; }
+calendar-header { flex-direction: row; align-items: center; justify-content: space-between; gap: 4px; }
+calendar-title { color: var(--text); font-weight: 600; }
+calendar-grid { flex-direction: column; gap: 2px; }
+calendar-weekdays, calendar-week { flex-direction: row; gap: 2px; }
+calendar-weekday { width: 28px; flex-shrink: 0; flex-direction: row; justify-content: center; }
+calendar-weekday-name { color: var(--text-muted); font-size: 0.85em; }
+
+calendar-day {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    border-width: 1px;
+    border-color: transparent;
+    border-radius: 5px;
+    background-color: transparent;
+    color: var(--text);
+}
+
+calendar-day:hover:not(:disabled) { background-color: var(--surface-sunken); }
+calendar-day.outside { color: var(--text-muted); }
+calendar-day.today { border-color: var(--border); }
+calendar-day:checked { background-color: var(--accent); color: var(--accent-text); }
 
 /* ── Dialogs ────────────────────────────────────────────────────────── */
 dialog, drawer {

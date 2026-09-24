@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui.Styling;
+
 namespace Vixen.Ui.Controls;
 
 /// <summary>A caption, the control it names, and somewhere to say what went wrong.</summary>
@@ -254,9 +256,9 @@ public sealed partial class LabeledContent : Control {
 ///         <b>What it deliberately is not.</b> It does not collapse: that is
 ///         <see cref="Expander" />, whose header is a button that says what it opens, and a
 ///         container with both behaviours would offer two ways to hide the same content. It is also
-///         not the <c>Form</c> or the <c>Section</c> doc 49 ranks beside it — a form is a submission
-///         and a section is a document landmark, and neither of those is a bordered box with a
-///         caption. Both are still owed.
+///         not the <see cref="Form" /> or the <see cref="Section" /> doc 49 ranks beside it — a form
+///         is a submission and a section is a document landmark, and neither of those is a bordered
+///         box with a caption. Both are below.
 ///     </para>
 /// </remarks>
 public sealed partial class GroupBox : Control {
@@ -317,6 +319,310 @@ public sealed partial class GroupBox : Control {
         // The group's own name just moved. `AccessibleName` is computed on read, so this is for the
         // platform bridge rather than for the getter — it sets the flag the document clears once a
         // frame.
+        InvalidateAccessibility();
+    }
+}
+
+/// <summary>A set of fields that is submitted as one, and refuses to be while any of them is wrong.</summary>
+/// <remarks>
+///     <para>
+///         <b>The submission half of doc 49 § 7.1's rank 4.</b> <see cref="LabeledContent" /> is the
+///         row and <see cref="GroupBox" /> the box round a question; neither knows that the rows are
+///         <i>sent</i>. Every field here already validates itself — <see cref="TextField" />,
+///         <see cref="Select" />, <see cref="MultiSelect" />, <see cref="ComboBox" />,
+///         <see cref="CheckBox" />, <see cref="RadioGroup" /> and <see cref="DatePicker" /> each
+///         answer <c>IsValid</c> and <c>Revalidate()</c> — and nothing asked all of them at once, so
+///         an application's OK button had to know every field it sat under.
+///     </para>
+///     <para>
+///         ⚠ <b>HTML's three submission rules, and each is a place an application used to write the
+///         form by hand.</b> Enter in a field that does not want it for a line break submits
+///         (<i>implicit submission</i> — heard as the routed <see cref="SubmitEvent" /> a field raises,
+///         so the field decides what Enter means and a text area keeps its line breaks); a click on
+///         the form's default button submits; and a submission with a field that will not take its
+///         value is refused, the <i>first</i> such field in document order is focused, and every
+///         field is marked as having been through a submission — which is what lets a
+///         <c>:user-invalid</c> rule match the required field nobody reached, exactly as a browser's
+///         does after the first press of Submit.
+///     </para>
+///     <para>
+///         ⚠ <b>A field belongs to the nearest form above it</b>, which is HTML's <i>form owner</i>.
+///         A form inside a form — which HTML forbids and a composed panel can still produce — does not
+///         validate its inner form's fields, and a submission that started inside the inner one is
+///         the inner one's and not also the outer's. A disabled field, or one under a disabled
+///         control, is not validated: it is barred from constraint validation, as a disabled
+///         <c>&lt;input&gt;</c> is.
+///     </para>
+///     <para>
+///         ⚠ <b>The event is not marked handled.</b> A dialog that closes on its field's
+///         <see cref="TextField.Submitted" />, or an ancestor listening for the routed event, still
+///         hears the key; the form's answer is <see cref="Submitted" /> and <see cref="Submit" />'s
+///         return value, and whether the dialog should have closed on an invalid form is the
+///         dialog's question.
+///     </para>
+///     <para>
+///         <b>What it deliberately is not.</b> It draws nothing and has no title: a form's heading is
+///         the panel's, and its accessible name — which makes it a <c>form</c> landmark a screen
+///         reader can jump to — is <see cref="UiElement.AccessibleName" />, the property every element
+///         already has. It holds no values either; the fields do, bound to the application's model.
+///     </para>
+/// </remarks>
+public sealed partial class Form : Control {
+    /// <inheritdoc />
+    protected override string TagName => "form";
+
+    /// <inheritdoc />
+    /// <remarks>The fields are the stops. A form is a container, not a widget.</remarks>
+    protected override bool AcceptsFocus => false;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The first producer of <see cref="AccessibleRole.Form" /> in the tree.</b> The member
+    ///     has existed as long as the enumeration has, and nothing reported it — so a screen reader
+    ///     could not jump to the form in a settings window as it can to one on a web page. ARIA
+    ///     exposes an unnamed <c>form</c> as a plain group, so a caller who wants the landmark names
+    ///     it.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Form;
+
+    /// <summary>Raised when a submission is accepted: every field in the form took its value.</summary>
+    public event Action<Form>? Submitted;
+
+    /// <summary>The fields this form validates, in document order.</summary>
+    /// <remarks>
+    ///     A fresh walk each time, on <c>SelectBase.Options</c>' terms: a list kept here would be a
+    ///     second place the truth lived, and fields arrive by every route a panel can build them.
+    /// </remarks>
+    public IReadOnlyList<Control> Fields {
+        get {
+            var fields = new List<Control>();
+            Collect(this, fields);
+
+            return fields;
+        }
+    }
+
+    /// <summary>Validates every field and, if all of them take their values, raises <see cref="Submitted" />.</summary>
+    /// <returns>Whether the submission was accepted.</returns>
+    /// <remarks>
+    ///     Public because a submission is not always a key or a button — a toolbar command, a timer
+    ///     and a test all submit. Refusing moves the focus to the first field that said no, so the
+    ///     keyboard is where the correction is to be made.
+    /// </remarks>
+    public bool Submit() {
+        Control? refused = null;
+
+        foreach (var field in Fields) {
+            var validated = (IValidated)field;
+            validated.Revalidate();
+
+            // ⚠ The bit `:user-invalid` waits for, set on the field and on whatever in it takes the
+            // focus. A required field nobody reached has been answered by the submission — with
+            // nothing — and a browser shows it as wrong from here on; before this the only way the
+            // bit arrived was the user editing that very field.
+            field.State |= ElementState.UserInteracted;
+
+            if (Target(field) is { } target && !ReferenceEquals(target, field)) {
+                target.State |= ElementState.UserInteracted;
+            }
+
+            if (!validated.IsValid) {
+                refused ??= field;
+            }
+        }
+
+        if (refused is not null) {
+            if (Target(refused) is { } target) {
+                Document.Focus(target);
+            }
+
+            return false;
+        }
+
+        Submitted?.Invoke(this);
+
+        return true;
+    }
+
+    /// <inheritdoc />
+    protected override void OnCreated() {
+        base.OnCreated();
+
+        AddHandler<SubmitEvent>(static (element, args) => ((Form)element).Heard(args.Source));
+
+        AddHandler<ClickEvent>(static (element, args) => {
+            if (args.Source is Button { IsDefault: true } button) {
+                ((Form)element).Heard(button);
+            }
+        });
+    }
+
+    void Heard(UiElement? source) {
+        if (source is not null && ReferenceEquals(OwnerOf(source), this)) {
+            Submit();
+        }
+    }
+
+    /// <summary>The nearest form above an element, which is the one it belongs to.</summary>
+    static Form? OwnerOf(UiElement element) {
+        for (var walk = element.Parent; walk is not null; walk = walk.Parent) {
+            if (walk is Form form) {
+                return form;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Gathers the validating fields under one element, stopping at a nested form and at anything disabled.</summary>
+    static void Collect(UiElement parent, List<Control> fields) {
+        foreach (var child in parent.Children) {
+            if (child is Form || child is Control { Disabled: true }) {
+                continue;
+            }
+
+            if (child is IValidated and Control field) {
+                fields.Add(field);
+
+                // A validating field answers for what it is made of — a combo box's editor is the
+                // box's verdict, not a second one.
+                continue;
+            }
+
+            Collect(child, fields);
+        }
+    }
+
+    /// <summary>What to focus to put the keyboard in a field: the field, or the first stop inside it.</summary>
+    static UiElement? Target(UiElement field) {
+        if (field.Focusable) {
+            return field;
+        }
+
+        foreach (var child in field.Children) {
+            if (Target(child) is { } found) {
+                return found;
+            }
+        }
+
+        return null;
+    }
+}
+
+/// <summary>A titled part of a page that a screen reader can jump to: a heading, and what it heads.</summary>
+/// <remarks>
+///     <para>
+///         <b>The landmark half of doc 49 § 7.1's rank 4.</b> <see cref="GroupBox" /> says <i>these
+///         controls answer one question</i>; <see cref="Form" /> says <i>these fields are sent
+///         together</i>; this says <i>this is a part of the page, and here is its name</i>. It is
+///         HTML's <c>&lt;section aria-labelledby&gt;</c> with its <c>&lt;h2&gt;</c>, and it is what a
+///         settings window made of "Display", "Audio" and "Controls" is built from.
+///     </para>
+///     <para>
+///         ⚠ <b>Two nodes in the tree, deliberately, where <see cref="GroupBox" /> has one.</b> A
+///         screen-reader user moves through a long page in two ways — by landmark and by heading —
+///         and a section has to be reachable by both. So the heading is a real
+///         <see cref="AccessibleRole.Heading" /> node, and the section is a
+///         <see cref="AccessibleRole.Region" /> <i>named by it</i> through
+///         <see cref="AccessibleRelation.LabelledBy" />, which is ARIA's own pattern. A group box's
+///         legend is not a heading anybody navigates to, so there the name is written on the group
+///         and the legend stays a caption; here the relation is what keeps the one string in one
+///         place while two nodes read it.
+///     </para>
+///     <para>
+///         ⚠ <b>Unnamed, it is still a region — and an unnamed region is a defect the tree reports
+///         rather than hides.</b> ARIA exposes a <c>&lt;section&gt;</c> with no name as a plain
+///         generic, so a role that appeared only once a title was set would look correct and make
+///         the omission invisible: <c>AccessibilitySnapshot.Unnamed</c> cannot see a landmark that is
+///         not there. Kept a region, a titleless section is an unnamed node that gate reports, which
+///         is where <see cref="GroupBox" /> came out for the same reason. An application that wants
+///         the landmark without a visible heading sets <see cref="UiElement.AccessibleName" />, which
+///         wins over the relation.
+///     </para>
+///     <para>
+///         ⚠ <b>The heading's role does move with <see cref="Title" />, and that is the other answer
+///         on purpose.</b> The heading part is hidden when there is no title, and a hidden part is
+///         still walked by the accessibility tree — <c>display</c> is a picture, not a statement
+///         about the tree — so an empty heading would be announced as a heading with no name. No
+///         title means no heading; the section it belongs to is what stays put.
+///     </para>
+///     <para>
+///         <b>What it deliberately is not.</b> It draws no border: it is a part of a page rather than
+///         a box on one, and a settings window framing every section would read as a stack of cards.
+///         It does not collapse — that is <see cref="Expander" />. And there is no heading
+///         <i>level</i>: the accessibility model has no <c>aria-level</c> to carry one, so a section
+///         inside a section is announced as a heading exactly like its parent's. That is recorded
+///         here rather than implied by a smaller font.
+///     </para>
+///     <para>
+///         ⚠ <b>Nest in markup, or add to <see cref="Content" /> from C#.</b> A nested tag goes to
+///         <see cref="ContentHost" />; <c>section.Add&lt;T&gt;()</c> parents on the section itself,
+///         beside the heading, as it does for every container in this assembly.
+///     </para>
+/// </remarks>
+public sealed partial class Section : Control {
+    /// <inheritdoc />
+    protected override string TagName => "section";
+
+    /// <inheritdoc />
+    /// <remarks>The controls inside it are the stops. A section is a part of a page, not a widget.</remarks>
+    protected override bool AcceptsFocus => false;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The first producer of <see cref="AccessibleRole.Region" /> in the control set.</b> The
+    ///     member has existed as long as the enumeration has, and the only way to reach it was
+    ///     <c>panel.Role = AccessibleRole.Region</c> by hand, which is what <see cref="Panel" />'s own
+    ///     comment told an application to write.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Region;
+
+    /// <summary>Where the title is drawn, and the heading a screen reader navigates to.</summary>
+    public UiElement Heading { get; private set; } = null!;
+
+    /// <summary>Where the section's controls go.</summary>
+    public UiElement Content { get; private set; } = null!;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <see cref="Content" />, so that a nested tag means what it looks like. The null guard is
+    ///     <see cref="Card.ContentHost" />'s and is load-bearing for the same reason: this is read
+    ///     before <see cref="OnCreated" /> has run.
+    /// </remarks>
+    protected override UiElement ContentHost => Content ?? this;
+
+    /// <summary>What the heading says, which is also the section's name; <c>null</c> for no heading.</summary>
+    [UiProperty(Changed = nameof(OnTitleChanged))]
+    public partial string? Title { get; set; }
+
+    /// <inheritdoc />
+    protected override void OnCreated() {
+        base.OnCreated();
+
+        Heading = Part("section-heading");
+        Heading.Role = AccessibleRole.None;
+        Heading.SetStyle("display", "none");
+
+        Content = Part("section-content");
+
+        // The region's name is the heading's words, read through the relation on every ask — so
+        // there is one copy of the title, and it is the one on screen.
+        AddAccessibleRelation(AccessibleRelation.LabelledBy, Heading);
+    }
+
+    void OnTitleChanged(string? previous, string? current) {
+        var titled = !string.IsNullOrEmpty(current);
+
+        Heading.Text = current;
+
+        // ⚠ `display: none` for `LabeledContent.Message`'s reason — a hidden flex item takes no
+        // `gap` — and the role with it, for the reason in the class remarks: the tree walks hidden
+        // parts, so a heading with nothing to say would be announced as an unnamed heading.
+        Heading.SetStyle("display", titled ? "flex" : "none");
+        Heading.Role = titled ? AccessibleRole.Heading : AccessibleRole.None;
+
+        // The section's own name just moved too. `AccessibleName` is computed on read, so this is
+        // for the platform bridge rather than the getter.
         InvalidateAccessibility();
     }
 }

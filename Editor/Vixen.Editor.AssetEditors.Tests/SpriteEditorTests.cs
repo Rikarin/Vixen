@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.AssetEditors.Importing;
 using Vixen.Editor.Assets.Textures;
+using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Styling;
 using Xunit;
@@ -474,6 +475,55 @@ public class SpriteViewTests {
         Assert.True(view.CellWidth.Disabled);
         Assert.True(view.PaddingX.Disabled);
         Assert.True(view.KeepEmptyToggle.Disabled);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The slice method is chosen from the toolbar with the pointer, and each of the three
+    ///     reaches the slicer.</b>
+    /// </summary>
+    /// <remarks>
+    ///     The select's options were built as its own children rather than in its popover (#1394), so
+    ///     the control drew them inline across the toolbar, opened an empty list, and could not be
+    ///     changed by anybody — only code assigning <c>Method.Value</c>, which is what the test above
+    ///     does and why it never saw it. This one goes the way a user does: open, click, read.
+    /// </remarks>
+    [Fact]
+    public void TheSliceMethodIsChosenFromTheToolbarSelect() {
+        using var harness = new ViewHarness();
+        var (view, _) = Build(harness);
+
+        Assert.Equal(["grid-size", "grid-count", "automatic"], view.Method.Options.Select(static option => option.Value));
+        Assert.Equal("Grid by cell size", view.Method.Field.Text);
+
+        Click(harness, view.Method);
+        Assert.True(view.Method.IsOpen);
+
+        Click(harness, view.Method.Options[1]);
+
+        Assert.Equal("grid-count", view.Method.Value);
+        Assert.Equal(SliceMethod.GridByCount, view.Options.Method);
+        Assert.Equal("Grid by cell count", view.Method.Field.Text);
+
+        Click(harness, view.Method);
+        Click(harness, view.Method.Options[2]);
+
+        Assert.Equal(SliceMethod.Automatic, view.Options.Method);
+        Assert.True(view.CellWidth.Disabled);
+    }
+
+    static void Click(ViewHarness harness, UiElement element) {
+        var x = element.AbsoluteLeft + (element.Width / 2f);
+        var y = element.AbsoluteTop + (element.Height / 2f);
+
+        harness.Ui.Document.Dispatch(
+            new PointerEvent { X = x, Y = y, Action = PointerAction.Pressed, Button = PointerButton.Primary }
+        );
+
+        harness.Ui.Document.Dispatch(
+            new PointerEvent { X = x, Y = y, Action = PointerAction.Released, Button = PointerButton.Primary }
+        );
+
+        harness.Ui.Frame();
     }
 
     [Fact]

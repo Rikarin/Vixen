@@ -38,7 +38,7 @@ namespace Vixen.Ui.Controls;
 ///         than a loop here that would get the interesting scripts wrong.
 ///     </para>
 /// </remarks>
-public abstract partial class TextField : Control, ITextInputTarget {
+public abstract partial class TextField : Control, ITextInputTarget, IValidated {
     UiElement text = null!;
     UiElement placeholder = null!;
     int selectionColor;

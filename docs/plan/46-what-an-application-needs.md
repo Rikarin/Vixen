@@ -555,7 +555,7 @@ request rather than a project:
 >
 > | String | Where |
 > |---|---|
-> | `"Previous page"` · `"Next page"` | `Vixen.Ui.Controls/Navigation.cs:315`, `:336` |
+> | `"Previous page"` · `"Next page"` | `Vixen.Ui.Controls/Navigation.cs:315`, `:340` |
 >
 > They are `Pagination`'s arrow labels, passed to a private `Arrow(geometry, page, label)` helper
 > rather than assigned — which is why a sweep for `.Label = "` alone misses them, and why the count
@@ -569,9 +569,14 @@ request rather than a project:
 > names colour spaces — `"sRGB"`, `"Linear light"`, `"Perceptual (Oklab)"`. A colour-space name is a
 > term of art a translator should generally leave alone, `"sRGB"` is not translatable at all, and
 > putting a mixed set of three through the catalogue would be worse than leaving all three. Also
-> left: `Timeline.cs:277`'s `"M"` (a one-letter mute button, where a translation is a design
-> question about the button), `Navigation.cs:322`'s `"…"` and `CodeEditor.cs:610`'s `"0"` (a
-> measurement probe, never drawn).
+> left: `CodeEditor.cs:610`'s `"0"` (a measurement probe, never drawn).
+>
+> ⚠ **Two more stood in that list and did not belong there.** `Timeline`'s one-letter `"M"` and
+> `Pagination`'s `"…"` were left out as design questions about the glyph, but each was also the name
+> a screen reader announced: every track's mute toggle was "M" and every gap a disabled button
+> called "…". #1368 moved both into `ControlStrings` (`Timeline.cs:279`, `Navigation.cs:325`); the
+> toggle is announced by `TimelineMute` at `Timeline.cs:280`, and the gap is out of the
+> accessibility tree.
 
 Where each one was until `ca239c357` (2026-08-25) moved all of them into `ControlStrings` — the line
 numbers are that commit's parent's, and the literals are no longer at them.

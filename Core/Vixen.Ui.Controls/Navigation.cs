@@ -319,7 +319,11 @@ public sealed partial class Pagination : Control {
             button.Page = page;
 
             if (page < 0) {
-                button.Label = "…";
+                // ⚠ Out of the accessibility tree rather than named: a disabled mark that goes
+                // nowhere was announced as a button called "…" (#1368). The skip in the numbers
+                // either side of it is what a listener needs, and it is still there.
+                button.Label = ControlStrings.PaginationGap.Text;
+                button.Role = AccessibleRole.None;
                 button.Disabled = true;
                 button.AddClass("ellipsis");
             } else {

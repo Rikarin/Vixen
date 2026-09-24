@@ -1,0 +1,31 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component SectionSheet
+@namespace Vixen.Ui.Controls.Tests
+@using Vixen.Ui.Controls
+
+<section-sheet>
+    <!--
+        A section written the way a settings panel writes one: the nested tag has to reach the
+        section's content, which is `ContentHost`, and not sit beside the heading.
+    -->
+    <Section ref="@audio" Title="@Heading">
+        <Slider ref="@volume" />
+    </Section>
+</section-sheet>
+
+@code {
+    Section audio = null!;
+    Slider volume = null!;
+
+    /// <summary>What the section is called.</summary>
+    public string Heading { get; init; } = "";
+
+    /// <summary>The section.</summary>
+    public Section Audio => audio;
+
+    /// <summary>The control nested in it.</summary>
+    public Slider Slider => volume;
+}

@@ -28,7 +28,8 @@ public sealed partial class Panel : Control {
     // ⚠ No role, and that is the population's answer rather than a gap in it. A `Panel` is a box; a
     // tree that reported one would read a four-field form as a stack of nested groups, which is the
     // commonest way an accessibility tree comes to be technically complete and useless. An
-    // application that means a landmark says so: `panel.Role = AccessibleRole.Region` and a name.
+    // application that means a landmark says so: `panel.Role = AccessibleRole.Region` and a name —
+    // or a `Section`, which is exactly that region, named by a heading of its own.
 }
 
 /// <summary>A surface with an optional header and footer.</summary>
@@ -224,14 +225,24 @@ public sealed partial class Alert : Control {
 
 /// <summary>What a list shows when it has nothing to show.</summary>
 /// <remarks>
-///     ⚠ <b>Worth a control because the alternative is a blank rectangle</b>, which every user reads
-///     as a bug in the application rather than as an absence of data. The three parts below are what
-///     makes it not one: something to look at, a sentence saying what is missing, and somewhere to
-///     put the button that fixes it.
+///     <para>
+///         ⚠ <b>Worth a control because the alternative is a blank rectangle</b>, which every user
+///         reads as a bug in the application rather than as an absence of data. The three parts below
+///         are what makes it not one: a headline saying what is missing, a sentence saying why, and
+///         somewhere to put the button that fixes it.
+///     </para>
+///     <para>
+///         ⚠ <b>No picture, deliberately, and it used to have one.</b> An <c>Illustration</c> icon
+///         part existed, with a theme rule sizing it, and nothing in the tree ever asked for it:
+///         every empty state here — six in the editor — set a headline and a sentence and stopped,
+///         and the property was getter-only, so markup could not reach it either. The rule was
+///         unjudged in both scoped censuses for exactly that reason (#1369). A picture that nothing
+///         draws is not the thing that stops an empty list reading as a bug; the sentence is. An
+///         application that wants one adds an <see cref="Icon" /> to the control and styles it, and
+///         the day a caller here wants one is the day to design the part with it.
+///     </para>
 /// </remarks>
 public sealed partial class EmptyState : Control {
-    Icon? icon;
-
     /// <inheritdoc />
     protected override string TagName => "empty-state";
 
@@ -258,20 +269,6 @@ public sealed partial class EmptyState : Control {
 
     /// <summary>Where the button that resolves it goes.</summary>
     public UiElement Actions { get; private set; } = null!;
-
-    /// <summary>The picture, created the first time it is asked for.</summary>
-    public Icon Illustration {
-        get {
-            if (icon is not null) {
-                return icon;
-            }
-
-            icon = Part<Icon>();
-            Document.Move(icon, 0);
-
-            return icon;
-        }
-    }
 
     /// <inheritdoc />
     /// <remarks>
