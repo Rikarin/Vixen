@@ -358,6 +358,12 @@ public partial class NumericInput : TextField {
 
         AddHandler<KeyEvent>(static (element, args) => ((NumericInput) element).Stepped(args));
         AddHandler<FocusEvent>(static (element, args) => ((NumericInput) element).Blurred(args));
+
+        // ⚠ The text is otherwise written only when `Number` or `Decimals` *changes*, and both are
+        // born at nought — so a whole-number field handed a zero was two no-op assignments and an
+        // empty box that said nothing at all (#1415). Writing it once here makes "the text is a
+        // rendering of the number" true from birth rather than from the first change.
+        Reformat();
     }
 
     /// <summary>Adds a number of steps to the value.</summary>

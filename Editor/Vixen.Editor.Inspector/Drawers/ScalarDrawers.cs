@@ -146,6 +146,15 @@ public sealed class NumberDrawer : IPropertyDrawer {
                     numeric.Value = string.Empty;
                 } else {
                     numeric.Number = System.Convert.ToDouble(value ?? 0, CultureInfo.InvariantCulture);
+
+                    // ⚠ Leaving a mixed state, the number may not have moved — the dash blanked the
+                    // text and left `Number` where it was — and an assignment that is not a change
+                    // writes no text, so the dash went and an empty box replaced it (#1415). The
+                    // placeholder is the mark of the previous Show having been mixed; `Format`'s
+                    // setter is the field's documented "rewrite the text now".
+                    if (numeric.Placeholder is not null) {
+                        numeric.Format = numeric.Format;
+                    }
                 }
 
                 numeric.Placeholder = mixed ? "—" : null;
