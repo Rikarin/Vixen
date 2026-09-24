@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 using Vixen.Audio.Ecs;
 using Vixen.Core;
@@ -2703,7 +2704,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     </para>
     /// </remarks>
     void Open(AssetId asset) {
-        if (!editors.TryOpen(project, asset, out var document)) {
+        if (!TryGetOpenScene(asset, out var document) && !editors.TryOpen(project, asset, out document)) {
             Shell.Notifications.Show("No editor claims that file.");
 
             return;
@@ -2718,7 +2719,7 @@ sealed partial class EditorApplication : IDisposable {
                 id,
                 new StringId("editor.panel." + id, title),
                 panel => {
-                    if (project.TryGetDocument(asset, out var open)
+                    if ((TryGetOpenScene(asset, out var open) || project.TryGetDocument(asset, out open))
                         && editors.TryGetForFile(project.Assets.TryGetByGuid(asset, out var entry) ? entry.Path : title, out var editor)) {
                         Joined(editor.CreateView(open, panel), open);
                     }
@@ -2729,6 +2730,55 @@ sealed partial class EditorApplication : IDisposable {
         Place(id);
         Shell.Workspace.Open(id);
         project.Activate(document);
+    }
+
+    /// <summary>Finds the scene this editor already has open over an asset's file.</summary>
+    /// <param name="asset">Which asset.</param>
+    /// <param name="document">The scene editing that file.</param>
+    /// <returns>Whether one is open.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>By file, because these scenes have no asset id to be found by</b> (#1395). The
+    ///         main scene and every additively opened one are built as
+    ///         <c>new SceneDocument(project, world, AssetId.Empty, …)</c> — the path can change under
+    ///         them with Save As, so it is held by the writer rather than fixed as an identity — and
+    ///         <c>AssetEditorRegistry.TryOpen</c>'s guard against a second document over one file is
+    ///         keyed on the id. So double-clicking <c>Main.vxscene</c> in the browser built a second
+    ///         <c>SceneDocument</c> over the file the Scene view writes: its own world, its own undo
+    ///         history, and a writer of its own on the same path, whichever saved last winning.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The writer's path and not <see cref="EditorScene.Path" />.</b> Save As and Open
+    ///         Scene move the main scene's writer and leave the record's path where it was, so the
+    ///         record can name a file this document no longer writes.
+    ///     </para>
+    ///     <para>
+    ///         Found, the document tab is two tabs over the editor's own scene — the arrangement
+    ///         <c>SceneEditorFactory.CreateView</c> already describes as "two tabs over one document,
+    ///         not two documents" — so its Compiled pane compiles what the Scene view edits.
+    ///     </para>
+    /// </remarks>
+    bool TryGetOpenScene(AssetId asset, [NotNullWhen(true)] out EditorDocument? document) {
+        document = null;
+
+        if (!project.Assets.TryGetByGuid(asset, out var entry) || entry.IsFolder) {
+            return false;
+        }
+
+        var file = Path.GetFullPath(project.Paths.Absolute(entry.Path));
+        var comparison = OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+
+        foreach (var open in openScenes) {
+            var written = open.Document.Writer is SceneFileWriter writer ? writer.Path : open.Path;
+
+            if (open.Document.IsOpen && string.Equals(Path.GetFullPath(written), file, comparison)) {
+                document = open.Document;
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Puts a document panel where the documents are, before it is first opened.</summary>

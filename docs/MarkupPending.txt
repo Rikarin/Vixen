@@ -31,22 +31,23 @@
 # open row, canvas/machinery/not-a-view is a "no"/"not a panel" row — and no row to decline or leave
 # open a view that has a `.vxml`. A port or a decline owes both files in the same commit.
 #
-# Measured 2026-09-24: 39 view-shaped editor types have a `.vxml`, 23 do not, and 7 of those 23
-# are candidates. ConsoleView is the latest port (#758): its rows an `@rows` block like the message
-# log's, held to ConsoleViewDumpTests, which was recorded from the hand-written control first.
-# SceneHierarchyView was the tenth of the ten and is ported (#1322). MessageLogView
-# was the ninth (#89): its toolbar and detail pane are markup, its rows an `@rows` block over the
+# Measured 2026-09-24: 40 view-shaped editor types have a `.vxml`, 22 do not, and 6 of those 22
+# are candidates. ConsoleView (#758) and BehaviorSearchPopup (#89) are the latest ports, landed on
+# the same day: the console's rows an `@rows` block like the message log's, held to
+# ConsoleViewDumpTests, and the search popup held to BehaviorSearchPopupDumpTests, reached through
+# the gestures #1370 wired; both dumps were recorded from the hand-written control first.
+# SceneHierarchyView was the tenth of the ten and is ported (#1322). MessageLogView was the ninth
+# (#89): its toolbar and detail pane are markup, its rows an `@rows` block over the
 # VirtualizingPanel (#758), and MessageLogViewDumpTests holds it to what the hand-written control drew.
-# History, not a second figure: that port made the count 39, and KeyBindingsView then left the
-# editor for Vixen.Ui.Controls.Advanced (#650) with its markup, which made it 38. Nothing was
-# unported.
+# History, not a second figure: that port made the count 39, KeyBindingsView then left the editor
+# for Vixen.Ui.Controls.Advanced (#650) with its markup, which made it 38, and the two ports above
+# made it 40. Nothing was unported.
 # The audit on the issue counted 34/23 on 2026-09-04 and listed InputDebugPanel and
 # AgentDebuggerPanel among the unported; ⚠ both are partials of AssetEditorsModule that REGISTER a
 # view, and InputDebugView.vxml and AgentDebuggerView.vxml exist — a name-shaped count that does not
 # read the class declaration reports two ports that are already done.
 
 Editor/Vixen.Editor.App/EditorDiagnostics.cs not-a-view — ShownView is the IActiveView adapter the diagnostics report reads the viewport through; it draws nothing
-Editor/Vixen.Editor.AssetEditors/Ai/BehaviorSearchPopup.cs pending — a search box over a filtered list; the list is a snapshot of the node catalogue
 Editor/Vixen.Editor.AssetEditors/Ai/BehaviorTreeView.cs canvas
 Editor/Vixen.Editor.AssetEditors/Animation/AnimationClipView.cs canvas — a timeline
 Editor/Vixen.Editor.AssetEditors/Animation/AnimationGraphView.cs canvas

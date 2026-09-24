@@ -221,6 +221,16 @@ image.texture-preview {
     border-radius: var(--radius-control, 4px);
 }
 
+/* The Texture tab's scroller (#1393): the preview, the facts, the mip ladder and the import
+   settings under it, in a tab bound to the document's height. A plain `scroll-view` with a class
+   rather than a tag of its own, so the user-agent rule's clip and anchor stay (#1327).
+   ⚠ It needs no sizing rule, unlike `sprite-list`, and that was measured rather than assumed: with
+   `flex-grow`, `flex-basis: 0px` and `min-height: 0` each taken away, and then all three, the tab
+   still scrolled to the last setting. It is the tab panel's only child, not one of several sharing
+   a column, and a box that clips has no content-sized minimum to hold it open. The gutter is the
+   bar's width, since the bar is drawn over the port and the ladder's selected row runs to the edge. */
+scroll-view.texture-page > scroll-content { padding-right: 10px; }
+
 texture-channels { flex-direction: row; gap: 4px; }
 texture-ladder { flex-direction: column; }
 
@@ -514,7 +524,8 @@ inspector-value { flex-grow: 1; min-width: 0px; overflow: hidden; }
    without a hover — which is the half of a schema that a hand-written panel loses. */
 inspector-hint { display: none; }
 
-/* The search-to-create popup. Absolute over the canvas, hidden until it is asked for. */
+/* The search-to-create popup. An overlay and a root child, so absolute over the whole window
+   and hidden by the overlay's own `.closed` until it is asked for. */
 behavior-search {
     position: absolute;
     flex-direction: column;
@@ -528,8 +539,13 @@ behavior-search {
     overflow: hidden;
 }
 
-behavior-search.hidden { display: none; }
-behavior-search-results { flex-direction: column; gap: 1px; overflow: hidden; }
+/* ⚠ The field keeps its height and the list scrolls. It was a plain list with `overflow: hidden`
+   in a column capped at 320 px, so fourteen rows clipped the last two out of every pointer's reach
+   and the column took the rest of the difference out of the field. Classes rather than tags, so the
+   list is a real `scroll-view` with the user-agent rule's clip and anchor (#1327). The gutter is the
+   bar's width, since the bar is drawn over the port and a row's category is right-aligned. */
+textbox.behavior-search-query { flex-shrink: 0; }
+scroll-view.behavior-search-list > scroll-content { gap: 1px; padding-right: 10px; }
 
 behavior-search-row {
     flex-direction: row;
