@@ -1587,6 +1587,25 @@ public partial class SharedUiShaderTests {
             3,
             4,
             "the other half of that subscript. See the line above."
+        ),
+        new(
+            "ui-colour.frag",
+            "OpFMul",
+            17,
+            18,
+            "the frame's white in the colour matrix's ceiling, `sampled.a * white` (#1418). "
+            + "`UiComposite.Filter` clamps to the alpha times `corner.y`, which `UiRenderer` fills with "
+            + "the geometry's white level; the copy clamps to the bare alpha. Every fixture that draws "
+            + "through the copy is built at a white of one, where the extra factor is the identity -- and "
+            + "no `glslc` was on the machine that landed it, so the copy's `.spv` could not be regenerated."
+        ),
+        new(
+            "ui-mask.frag",
+            "OpFMul",
+            30,
+            31,
+            "the same white, in `UiMask`'s call to `UiComposite.Filter`, carried in `list.w` (#1418). "
+            + "See `ui-colour.frag`'s line."
         )
     ];
 

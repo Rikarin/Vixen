@@ -807,6 +807,22 @@ is the picture: white is `multiply`'s identity, so a white panel over a wall at 
 it at 100, and it read 1 before. **The device path inherits this convention rather than choosing its
 own** — it is the divisor the fragment stage transcribes.
 
+⚠ **A composited group was lit twice on the device above a white of one, and the colour matrix was
+clamped as if the white were one on both executors (#1418).** The three quads that draw a group's
+finished surface — the composite, the drop shadow and the filtered backdrop — carry a white tint whose
+only job is the group's alpha, and they used to send it through `UiGeometryBuilder.Show` like any
+colour, so it arrived as the white level in each channel and every stage multiplied an already-lit
+surface by 203 again. They are emitted unlit now. The colour matrix — `UiComposite.Filter` on the
+device, `UiColorMatrix.Apply(Color4, float)` in software — normalises by the white and re-lights,
+`clamp(M·c + o·a·w, 0, a·w)`, because clamped to the bare alpha it capped every filtered pixel at one
+candela and left `invert` and a drop shadow's colour, which are offsets, a factor of the white too dark.
+⚠ The drop shadow was the one composite the double lighting got right on the device, by accident, which
+is why fixing the tint alone would have been a regression. `UiCompositeWhiteLevelDeviceTests` holds an
+opacity, blended, filtered, shadowed, backdrop-filtered and masked group at 203 to the same frame at
+one times 203, on the device and in software. The golden suite's GLSL twins (`ui-colour.frag`,
+`ui-mask.frag`) do not read the white lane; every fixture that draws through them does so at one,
+where the two are the same arithmetic.
+
 ⚠ **The sixteen functions have an oracle now, and it is what the two transcriptions have to agree
 with.** `Core/Vixen.Ui.Tests/UiBlendTests.cs` holds `UiBlend.Blend` to § 5.1's and § 5.3's own
 arithmetic on two operand triples chosen so that no two modes agree on either — and to the four
@@ -837,8 +853,9 @@ executors can tell. The second is invisible to it, for the reason given against 
 by `UiRenderFeature.Sceneless` instead (#1378). ⚠ **A group's own `filter` and `mask-image` are
 not among them any more** (#783): `UiBlend` applies the colour matrix and then the mask list before it
 mixes — the order CSS gives and `SoftwareUiRasterizer` takes — the matrix behind a flag rather than
-an identity matrix because `UiComposite.Filter` clamps to the alpha and would dim a frame built
-above a white of one, and the mask through `UiMaskList`, the per-entry coverage `UiMask` now shares
+an identity matrix because `UiComposite.Filter` clamps — to the alpha times the frame's white since
+#1418, which is the identity on every colour an interface can author, and not on one authored above
+the white, and the mask through `UiMaskList`, the per-entry coverage `UiMask` now shares
 with it. `UiBlendDeviceTests` holds both to § 5.1 on the filtered or masked paint.
 
 - a blended group's `drop-shadow()` quad, which the software path blends separately from the group

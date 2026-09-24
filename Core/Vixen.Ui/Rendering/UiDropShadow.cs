@@ -82,7 +82,7 @@ public readonly record struct UiDropShadow(Vector2 Offset, float Blur, Color4 Co
     ///     <para>
     ///         ⚠ <b>Zero coefficients and the colour in the offsets, which is the one shape of
     ///         <see cref="UiColorMatrix" /> that reads alpha and writes colour.</b>
-    ///         <see cref="UiColorMatrix.Apply" /> evaluates <c>c' = M·c + o·a</c> on premultiplied
+    ///         <see cref="UiColorMatrix.Apply(Color4)" /> evaluates <c>c' = M·c + o·a</c> on premultiplied
     ///         colour, so <c>M = 0</c> leaves <c>c' = o·a</c> — the shadow's colour at exactly the
     ///         coverage the surface had, which <i>is</i> the tinted silhouette. Nothing new had to be
     ///         built for this and nothing about the seven colour functions had to change: the same
