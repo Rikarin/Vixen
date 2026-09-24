@@ -81,7 +81,9 @@ namespace Vixen.DocGen.Tests;
 ///         and doc 49's <c>MediaQuery.cs:146,151</c> cited a blank and a brace, doc 46's
 ///         <c>Strings.cs:56</c> the line above its field. Afterwards: 453 citations, 117 bound — the
 ///         bold and wrapped shapes below found five drifted citations on their first run — and 39
-///         pinned.
+///         pinned. The 294 still unbound are held to a count per document that can only fall
+///         (<see cref="Every_document_keeps_its_unbound_citations_to_the_recorded_count" />), so the
+///         set whose drift nothing sees stops growing even where nobody re-reads it.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A bare <c>`:108`</c> continues the file named last on its line, and where a symbol of
@@ -110,6 +112,9 @@ public class RealPlanCitationTests {
 
     /// <summary>Citations that record a file as it was, one per line: document, citation, reason.</summary>
     const string ExemptPath = "docs/PlanCitationExempt.txt";
+
+    /// <summary>How many unbound, unpinned citations each document holds, one per line: count, document.</summary>
+    const string UnboundPath = "docs/PlanCitationUnbound.txt";
 
     /// <summary>
     ///     How many citations the sweep has to find, and how many of those have to be bound to a
@@ -362,6 +367,65 @@ public class RealPlanCitationTests {
         }
 
         Assert.True(stale.Count == 0, $"{ExemptPath} has entries that no longer exempt anything:\n  " + string.Join("\n  ", stale));
+    }
+
+    /// <summary>
+    ///     Every document holds exactly as many unbound, unpinned citations as <see cref="UnboundPath" />
+    ///     records for it, so the set whose drift nothing can see only ever shrinks.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The class #1388 is about, made a ratchet rather than a census.</b> An unbound
+    ///         citation that drifts goes red only on a blank or a brace; a bound or pinned one goes red
+    ///         the day it is wrong. So a new citation has to bind or pin, or the document's count has
+    ///         to be raised in the same diff — where a reviewer sees it — and a citation that stops
+    ///         being unbound has to lower it, exactly as the exemption lists here fail on an entry that
+    ///         has become clean.
+    ///     </para>
+    ///     <para>
+    ///         A count per document rather than a line per citation, on purpose: re-pointing an
+    ///         unbound citation by reading it is the work this should encourage, and a list keyed by the
+    ///         citation's text would make every such fix an edit to a three-hundred-line file too.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_document_keeps_its_unbound_citations_to_the_recorded_count() {
+        var (citations, _, exempt) = Sweep();
+
+        var counted = citations
+            .Where(cited => cited.Symbol is null && cited.Code is null && cited.Commit is null)
+            .Where(cited => !exempt.ContainsKey((cited.Document, cited.Text)))
+            .GroupBy(cited => cited.Document)
+            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
+
+        Dictionary<string, int> recorded = new(StringComparer.Ordinal);
+
+        foreach (var line in File.ReadLines(Path.Combine(Root, UnboundPath))) {
+            if (line.Length == 0 || line.StartsWith('#')) {
+                continue;
+            }
+
+            var parts = line.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+
+            Assert.True(parts.Length == 2 && int.TryParse(parts[0], out _), $"{UnboundPath}: '{line}' is not 'count document'");
+
+            recorded[parts[1]] = int.Parse(parts[0]);
+        }
+
+        var wrong = counted.Keys.Union(recorded.Keys)
+            .Order(StringComparer.Ordinal)
+            .Select(document => (document, now: counted.GetValueOrDefault(document), was: recorded.GetValueOrDefault(document)))
+            .Where(entry => entry.now != entry.was)
+            .Select(entry => entry.now > entry.was
+                ? $"{entry.document} has {entry.now} unbound citation(s) and {UnboundPath} allows {entry.was} — bind the new one "
+                  + "(`Symbol` (`File.cs:N`), or `File.cs:N` — `code`), pin it to a commit (`File.cs:N@sha`), or raise the count"
+                : $"{entry.document} has {entry.now} unbound citation(s) and {UnboundPath} records {entry.was} — lower it to {entry.now}")
+            .ToList();
+
+        Assert.True(
+            wrong.Count == 0,
+            $"{wrong.Count} document(s) disagree with {UnboundPath}, whose counts can only fall (#1388):\n  " + string.Join("\n  ", wrong)
+        );
     }
 
     /// <summary>
