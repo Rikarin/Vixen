@@ -125,8 +125,13 @@ public class RealPlanCitationTests {
     /// <remarks>
     ///     ⚠ <c>.claude/worktrees/</c> holds a full checkout per agent: an index that walked it would
     ///     resolve a citation against somebody else's tree.
+    ///     ⚠ <c>.nuke/</c> tracks only <c>parameters.json</c>, and its gitignored <c>temp/</c> is where the
+    ///     build unpacks <c>Vixen.Sdk</c>'s package — README included. A checkout that has run
+    ///     <c>./build.sh</c> therefore swept a stale copy of <c>Tools/Vixen.Sdk/README.md</c> as a
+    ///     document of its own and went red on a line the real README had already re-pointed; a fresh
+    ///     worktree never has it, so the branch was green and master was not.
     /// </remarks>
-    static readonly string[] Unwalked = [".git", ".claude", "bin", "obj", "artifacts", "node_modules"];
+    static readonly string[] Unwalked = [".git", ".claude", ".nuke", "bin", "obj", "artifacts", "node_modules"];
 
     /// <summary>
     ///     Directories, relative to the checkout root, whose own files are walked and whose
