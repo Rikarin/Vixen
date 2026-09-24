@@ -297,8 +297,15 @@ public abstract partial class Control : UiElement {
     ///         <c>AddItem</c>, a <c>Content</c> panel — so that nobody has to guess whether their
     ///         child lands before or after the parts.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="UiDocument.Create{T}" /> under <c>this</c>, not <c>Add</c>.</b>
+    ///         <c>UiElement.Add</c> parents on <c>ContentHost</c>, so on a control whose content is a
+    ///         part, every part made after that one — a <c>ScrollView</c>'s bars, a <c>Card</c>'s
+    ///         lazily made footer — would have been made <i>inside</i> it (#1425).
+    ///     </para>
     /// </remarks>
-    protected UiElement Part(string tag, params string[] classNames) => Add<UiElement>(tag, null, classNames);
+    protected UiElement Part(string tag, params string[] classNames) =>
+        Document.Create<UiElement>(tag, this, null, classNames);
 
     /// <summary>Adds one of this control's own parts, of a particular type.</summary>
     /// <typeparam name="T">The part's element type.</typeparam>
@@ -306,7 +313,7 @@ public abstract partial class Control : UiElement {
     /// <param name="classNames">Any classes it starts with.</param>
     /// <returns>The part.</returns>
     protected T Part<T>(string? tag = null, params string[] classNames) where T : UiElement, new() =>
-        Add<T>(tag, null, classNames);
+        Document.Create<T>(tag, this, null, classNames);
 
     /// <summary>Raises a <see cref="ClickEvent" /> from this control and tells the direct subscribers.</summary>
     /// <param name="device">What activated it.</param>

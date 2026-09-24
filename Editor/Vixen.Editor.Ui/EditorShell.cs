@@ -154,11 +154,11 @@ public sealed class EditorShell : IDisposable {
         // bar is a claim about the editor, and a claim nobody can see is one that gets worse a panel
         // at a time until a benchmark notices six months later.
         //
-        // ⚠ **Into `Trailing`, and it has to be explicit.** `ContentHost` routes a *nested tag* in
-        // markup; `Add<T>` is `Document.Create` and puts the child exactly where it was told. So a
-        // port that only swapped the type would leave the four cells beside the message with an
-        // empty `status-trailing` after them — and an empty flex item still takes a gap, which is
-        // eight pixels of dead chrome at the right-hand end that nothing in the tree explains.
+        // ⚠ **Into `Trailing`, written out.** It had to be until #1425: `Add<T>` parented on the
+        // element it was called on, so a port that only swapped the type left the four cells beside
+        // the message with an empty `status-trailing` after them — and an empty flex item still takes
+        // a gap, eight pixels of dead chrome at the right-hand end that nothing in the tree explained.
+        // `Add` now parents on `ContentHost`, which is `Trailing` here, so the two spellings agree.
         var trailing = StatusBar.Trailing;
 
         statusSelection = trailing.Add<UiElement>("status-cell");

@@ -56,8 +56,10 @@ the page, and here is its name*. It is HTML's `<section aria-labelledby>` with i
 
 ## Using it
 
-Nest controls in markup, and they land in `Content`. From C#, add to `Content` — `section.Add<T>()`
-parents on the section itself, beside the heading, as it does for every container in the control set:
+Nest controls in markup, and they land in `Content`. From C#, `section.Add<T>()` and
+`section.Content.Add<T>()` are the same call: `Add` parents on the control's content host, which is
+where a nested tag goes ([#1425](https://github.com/Rikarin/Vixen/issues/1425)). Writing `Content`
+says so at the call site:
 
 ```csharp no-compile="a fragment; `panel` is the caller's own"
 var audio = panel.Add<Section>();

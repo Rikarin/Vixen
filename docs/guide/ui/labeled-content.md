@@ -49,8 +49,8 @@ var row = panel.Add<LabeledContent>();
 row.Label = "Project name";
 row.Description = "Letters, numbers and dashes.";
 
-// ⚠ `Content`, not `row`. `Add<T>` puts the child exactly where it is told; `ContentHost` is what
-// routes a nested tag in markup.
+// `row.Add<TextBox>()` lands in the same place: `Add` parents on the row's content host, which is
+// where a nested tag in markup goes. `Content` says so at the call site.
 var field = row.Content.Add<TextBox>();
 ```
 

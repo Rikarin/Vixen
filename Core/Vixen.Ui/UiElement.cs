@@ -133,9 +133,13 @@ public partial class UiElement : Composition.IComposable {
     ///         ⚠ <b>The control-side mirror of <c>Component.Content</c>, and markup is what needs
     ///         it.</b> <c>&lt;ScrollView&gt;&lt;row /&gt;&lt;/ScrollView&gt;</c> means the row is in
     ///         the scrolled area; hung off the control itself it would sit beside the viewport and
-    ///         the scrollbars, be laid out by neither, and never move when the view scrolled. Code
-    ///         that builds by hand writes <c>view.Content.Add(…)</c> and says the same thing;
-    ///         markup has no <c>.Content</c> to write, so the element answers for itself.
+    ///         the scrollbars, be laid out by neither, and never move when the view scrolled.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And <see cref="Add{T}" /> asks it too</b>, so <c>view.Add&lt;T&gt;()</c> and
+    ///         <c>view.Content.Add&lt;T&gt;()</c> are the same call. It did not until #1425: C# parented
+    ///         on the element and only markup was routed, which is how a select's options came to be
+    ///         drawn across a toolbar (#1394).
     ///     </para>
     /// </remarks>
     protected internal virtual UiElement ContentHost => this;
@@ -490,13 +494,17 @@ public partial class UiElement : Composition.IComposable {
     /// <summary>Its height.</summary>
     public float Height => Document.Layout.GetHeight(LayoutNode);
 
-    /// <summary>Adds a child element.</summary>
+    /// <summary>Adds a child element, where content written inside this element goes.</summary>
     /// <param name="tag">Its element name.</param>
     /// <param name="id">Its identifier, for an <c>#id</c> selector.</param>
     /// <param name="classNames">Its classes.</param>
     /// <returns>The new element.</returns>
+    /// <remarks>
+    ///     Under <see cref="ContentHost" />, as <see cref="Add{T}" /> explains; that is this element
+    ///     itself for everything that is only an element.
+    /// </remarks>
     public UiElement Add(string tag, string? id = null, params ReadOnlySpan<string> classNames) =>
-        Document.Create(tag, this, id, classNames);
+        Document.Create(tag, ContentHost, id, classNames);
 
     /// <summary>Adds a child of a particular element type.</summary>
     /// <typeparam name="T">The element type.</typeparam>
@@ -505,13 +513,34 @@ public partial class UiElement : Composition.IComposable {
     /// <param name="classNames">Its classes.</param>
     /// <returns>The new element.</returns>
     /// <remarks>
-    ///     The tag defaults so that <c>parent.Add&lt;Button&gt;()</c> is the whole of adding a
-    ///     control — see <see cref="TagName" /> for why a control naming itself is worth the
-    ///     defaulted parameter.
+    ///     <para>
+    ///         The tag defaults so that <c>parent.Add&lt;Button&gt;()</c> is the whole of adding a
+    ///         control — see <see cref="TagName" /> for why a control naming itself is worth the
+    ///         defaulted parameter.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The child goes under <see cref="ContentHost" />, which is where a nested markup tag
+    ///         goes, and until #1425 it did not.</b> This parented on the element it was called on,
+    ///         so on every control whose visible interior is a part — a <c>GroupBox</c>'s content, a
+    ///         <c>Card</c>'s body, a <c>Select</c>'s list — <c>groupBox.Add&lt;TextBox&gt;()</c>
+    ///         compiled, drew, and put the field beside the legend, outside the group, with nothing to
+    ///         report it. The sprite editor shipped exactly that as an inline row of unchoosable
+    ///         options (#1394), and the control suite's own reference picture of a <c>Card</c> had its
+    ///         text outside the card's padding. C# and markup now say the same thing by the same
+    ///         words.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So a control builds its own parts with <see cref="UiDocument.Create{T}" />, not
+    ///         with this</b> — <c>Control.Part</c> does — because once the content part exists every
+    ///         later <c>Add</c> on the control lands inside it, and a footer or a scrollbar made that
+    ///         way would be content. The same explicit spelling is what a caller writes for something
+    ///         that belongs beside the parts rather than among the content, such as a tooltip hung off
+    ///         the control it describes.
+    ///     </para>
     /// </remarks>
     public T Add<T>(string? tag = null, string? id = null, params ReadOnlySpan<string> classNames)
         where T : UiElement, new() =>
-        Document.Create<T>(tag, this, id, classNames);
+        Document.Create<T>(tag, ContentHost, id, classNames);
 
     /// <summary>Adds a class, and invalidates what that could have changed.</summary>
     /// <param name="className">The class.</param>
@@ -2399,9 +2428,11 @@ public partial class UiElement : Composition.IComposable {
     ///         the thing doing the moving.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The child is a child of <c>this</c>, not of <see cref="ContentHost" />.</b> Those
-    ///         differ for every control that has parts: a <c>&lt;Card&gt;</c>'s nested tag lands in
-    ///         its body, so it is the <i>body</i> that hears about it. A container that routes its
+    ///         ⚠ <b>Called on the element the child was created under, which is the
+    ///         <see cref="ContentHost" /> it was added to rather than the control.</b> Those differ for
+    ///         every control that has parts: a <c>&lt;Card&gt;</c>'s nested tag and a
+    ///         <c>card.Add&lt;T&gt;()</c> both land in its body, so it is the <i>body</i> that hears about
+    ///         it. A container that routes its
     ///         children elsewhere and registers them here has to override this on whatever it routed
     ///         them to — see <c>SelectBase</c>, whose options live in a popover at the root.
     ///     </para>
