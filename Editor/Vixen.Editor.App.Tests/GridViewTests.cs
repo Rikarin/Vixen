@@ -141,13 +141,13 @@ public class GridViewTests {
 
         var tile = Tile(editor, "Main.vxscene");
 
-        editor.Click(tile);
+        editor.Click(tile.Element);
 
         var chosen = Assert.Single(editor.Project.Selection);
 
         Assert.True(editor.Project.Assets.TryGetByGuid(chosen, out var entry));
         Assert.Equal("Main.vxscene", entry.Name);
-        Assert.True(tile.HasClass("checked") || tile.State.HasFlag(Vixen.Ui.Styling.ElementState.Checked));
+        Assert.True(tile.Element.HasClass("checked") || tile.Element.State.HasFlag(Vixen.Ui.Styling.ElementState.Checked));
     }
 
     /// <summary>
@@ -167,7 +167,7 @@ public class GridViewTests {
 
         var tile = Tile(editor, "Main.vxscene");
 
-        Assert.True(tile.State.HasFlag(Vixen.Ui.Styling.ElementState.Checked));
+        Assert.True(tile.Element.State.HasFlag(Vixen.Ui.Styling.ElementState.Checked));
     }
 
     [Fact]
@@ -345,7 +345,7 @@ public class GridViewTests {
 
         var tile = Tile(editor, "Main.vxscene");
 
-        editor.Ui.At(Centre(tile).X, Centre(tile).Y).RightClick();
+        editor.Ui.At(Centre(tile.Element).X, Centre(tile.Element).Y).RightClick();
         editor.Settle();
 
         var menu = Descendants(editor.Document.Root)
@@ -385,13 +385,13 @@ public class GridViewTests {
         var caption = tile.Caption;
 
         Assert.True(
-            caption.Width <= tile.Width,
-            $"the caption is {caption.Width} wide inside a {tile.Width} tile"
+            caption.Width <= tile.Element.Width,
+            $"the caption is {caption.Width} wide inside a {tile.Element.Width} tile"
         );
 
         Assert.True(
-            caption.AbsoluteLeft >= tile.AbsoluteLeft - 0.5f
-            && caption.AbsoluteLeft + caption.Width <= tile.AbsoluteLeft + tile.Width + 0.5f,
+            caption.AbsoluteLeft >= tile.Element.AbsoluteLeft - 0.5f
+            && caption.AbsoluteLeft + caption.Width <= tile.Element.AbsoluteLeft + tile.Element.Width + 0.5f,
             "the caption starts or ends outside the tile it belongs to"
         );
     }
@@ -414,20 +414,20 @@ public class GridViewTests {
             .FirstOrDefault(select => select.HasClass("browser-tile-size"))
             ?? throw editor.Fail("the browser has no tile-size picker");
 
-        var before = Tile(editor, "Main.vxscene").Width;
+        var before = Tile(editor, "Main.vxscene").Element.Width;
 
         picker.Value = "Huge";
         editor.Settle();
 
         Assert.True(
-            Tile(editor, "Main.vxscene").Width > before,
+            Tile(editor, "Main.vxscene").Element.Width > before,
             $"the tiles are still {before} wide after asking for the largest size"
         );
 
         picker.Value = "Small";
         editor.Settle();
 
-        Assert.True(Tile(editor, "Main.vxscene").Width < before);
+        Assert.True(Tile(editor, "Main.vxscene").Element.Width < before);
         Assert.Equal("Small", grid.TileSize);
     }
 
@@ -481,8 +481,8 @@ public class GridViewTests {
 
     static void DoubleClick(EditorSession editor, string name) {
         var tile = Tile(editor, name);
-        var x = tile.Bounds.X + (tile.Bounds.Width * 0.5f);
-        var y = tile.Bounds.Y + (tile.Bounds.Height * 0.5f);
+        var x = tile.Element.Bounds.X + (tile.Element.Bounds.Width * 0.5f);
+        var y = tile.Element.Bounds.Y + (tile.Element.Bounds.Height * 0.5f);
 
         editor.Ui.At(x, y).DoubleClick();
         editor.Settle();

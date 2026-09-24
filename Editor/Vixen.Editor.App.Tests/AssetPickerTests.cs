@@ -189,7 +189,7 @@ public class AssetPickerTests {
         grid.ScrollIntoView(index);
 
         var tile = grid.TileOf(index) ?? throw new InvalidOperationException($"'{name}' has no tile");
-        var bounds = tile.Bounds;
+        var bounds = tile.Element.Bounds;
 
         fixture.Ui.MovePointer(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
         fixture.Ui.PressPointer();

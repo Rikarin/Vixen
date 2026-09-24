@@ -104,6 +104,95 @@ public sealed class AssetGridDumpTests {
         Check(editor, "many");
     }
 
+    /// <summary>
+    ///     ⚠ <b>Settle, then show another folder, and every tile on screen follows.</b> Walking into a
+    ///     folder rewrites every slot with the index it already had — slot 0 shows item 0 in both
+    ///     folders — so a template that read only the slot's <c>index</c> would keep showing the
+    ///     previous folder's names.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The #758 review found that the dump harness was the only thing holding
+    ///     <c>ConsoleView</c>'s reactivity, because every other test acted before the first frame; this
+    ///     one and the next act after the grid has settled, and assert every realised tile rather than
+    ///     the one a dump happens to show.
+    /// </remarks>
+    [Fact]
+    public void Showing_another_folder_after_the_grid_settled_rebinds_every_tile_on_screen() {
+        using var editor = Started();
+
+        var many = Path.Combine(editor.ProjectRoot, "Assets", "Many");
+
+        Directory.CreateDirectory(many);
+
+        for (var index = 0; index < 30; index++) {
+            File.WriteAllText(Path.Combine(many, $"file{index:00}.png"), "x");
+        }
+
+        editor.Run("assets.refresh");
+        editor.Settle();
+
+        var grid = Grid(editor);
+
+        // Settled at the root, showing its folders: the predicate below is false here.
+        Assert.Equal(grid.Items.Select(item => item.Name), grid.Tiles.Select(tile => tile.Caption.Text));
+        Assert.DoesNotContain(grid.Tiles, tile => tile.Caption.Text == "file00.png");
+
+        DoubleClick(editor, "Many");
+
+        var tiles = Grid(editor).Tiles;
+
+        Assert.True(tiles.Count >= 2, $"only {tiles.Count} tiles are realised");
+
+        for (var item = 0; item < grid.Items.Count; item++) {
+            if (grid.TileOf(item) is { } tile) {
+                Assert.Equal(grid.Items[item].Name, tile.Caption.Text);
+                Assert.Same(grid.Items[item], tile.Node);
+            }
+        }
+
+        Assert.Equal(tiles.Count, tiles.Select(tile => tile.Caption.Text).Distinct().Count());
+        Assert.All(tiles, tile => Assert.StartsWith("file", tile.Caption.Text, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Settle, then a picture arrives, and <c>Refresh</c> puts it on the tile.</b> The grid asks
+    ///     for a picture on every bind rather than being told, so a tile already drawn only learns of
+    ///     one when it is rebound at the index it already shows — which is the case an index signal
+    ///     alone cannot see.
+    /// </summary>
+    [Fact]
+    public void A_picture_that_arrives_after_the_grid_settled_reaches_its_tile_on_refresh() {
+        using var editor = Started();
+
+        DoubleClick(editor, "Scenes");
+
+        var grid = Grid(editor);
+        var scene = TileView(grid, "Main.vxscene");
+
+        Assert.Equal(0UL, scene.Picture.Texture);
+        Assert.False(scene.Glyph.HasClass("hidden"));
+
+        var pictured = grid.Picture;
+
+        grid.Picture = node => node.Name == "Main.vxscene" ? 7UL : pictured(node);
+        editor.Settle();
+
+        // Not pushed: a grid that has not been told still shows the glyph.
+        Assert.Equal(0UL, TileView(grid, "Main.vxscene").Picture.Texture);
+
+        grid.Refresh();
+        editor.Settle();
+
+        scene = TileView(grid, "Main.vxscene");
+
+        Assert.Equal(7UL, scene.Picture.Texture);
+        Assert.False(scene.Picture.HasClass("hidden"));
+        Assert.True(scene.Glyph.HasClass("hidden"));
+    }
+
+    static AssetTile TileView(AssetGrid grid, string name) =>
+        grid.Tiles.FirstOrDefault(tile => tile.Node?.Name == name) ?? throw new InvalidOperationException($"no tile for '{name}'");
+
     static void Check(EditorSession editor, string state) {
         var grid = Grid(editor);
         var tree = editor.Ui.Tree(grid);

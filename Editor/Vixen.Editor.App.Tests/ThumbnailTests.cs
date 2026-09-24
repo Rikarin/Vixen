@@ -545,10 +545,7 @@ public class ThumbnailTests {
         Descendants(editor.Panel("project")).OfType<ButtonBase>().First(button => button.Label == "Grid").Activate();
         editor.Settle();
 
-        var tiles = Descendants(editor.Panel("project"))
-            .OfType<AssetTile>()
-            .Where(tile => !tile.HasClass("parked"))
-            .ToList();
+        var tiles = Descendants(editor.Panel("project")).OfType<AssetGrid>().Single().Tiles;
 
         Assert.NotEmpty(tiles);
         Assert.All(tiles, tile => Assert.True(tile.Picture.HasClass("hidden")));

@@ -1,0 +1,583 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    A folder's contents as a wrapping grid of tiles: the Project panel's other view, and the asset
+    picker's only one. The last production virtualised template to be set by hand — `CreateTile` and
+    `BindTile` in C# — ported to `@rows` over the `VirtualizingGrid` (#1406), so the grid half of
+    `IRowPool` has the production caller `MessageLogView` and `ConsoleView` gave the panel half (#758).
+
+    ⚠ **A tile is a pool slot, so it is an element and not a type.** It used to be an `AssetTile`
+    control with four typed parts; `@rows` makes every slot by tag name, and a capitalised tag cannot
+    be the row (VXML2027). So the row is `<asset-tile>` — the tag the theme already styles — carrying
+    the two classes the control used to write for itself, and `AssetTile` is now a view over one
+    realised slot (`AssetGrid.cs`), which is what `Tiles`, `TileOf` and `TileAt` hand out.
+
+    ⚠ **What a tile shows is read through `version`, not only through `index`.** A slot is rebound by
+    writing its index, and walking into another folder rewrites every slot with the index it already
+    had — slot 0 shows item 0 in both folders — so a binding that read only the index would go on
+    showing the last folder. The same is true of a picture that arrives after its tile was drawn,
+    which the grid is asked about on every bind (`Refresh`). `Show` and `Refresh` move `version`, and
+    every column reads it. The selection has a signal of its own (`marks`), so marking a tile repaints
+    one bit of state rather than re-asking every tile for its picture.
+
+    ⚠ **`:checked`, the node map and the status letter are `use=` rather than bindings**: the first is
+    one bit of `ElementState` and a binding may only assign a property; the second is the grid's own
+    bookkeeping for `TileAt`; the third is `Letter`, shared with the list view's column and kept one
+    function so the two cannot spell a status differently.
+
+    `AssetGridDumpTests` was recorded from the hand-written control before this port and holds it to
+    that panel.
+-->
+@component AssetGrid
+@namespace Vixen.Editor.App
+@inherits Vixen.Ui.Controls.Control
+@tag asset-grid
+@using Vixen.Core
+@using Vixen.Editor.Core
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+@using Vixen.Ui.Styling
+
+<asset-path ref="@PathBar" />
+
+<VirtualizingGrid ref="@Body" class="asset-tiles">
+    @rows (var index in ItemCount) {
+        <asset-tile class="variant-default size-md @FolderClass(index.Value)" use="@(tile => Track(tile, index.Value))">
+            <Icon class="@GlyphClass(index.Value)" Art="@GlyphOf(index.Value)" />
+            <Image class="@PictureClass(index.Value)" Texture="@PictureOf(index.Value)" />
+            <AssetCaption Text="@CaptionOf(index.Value)" />
+            <AssetStatus use="@(mark => Letter(mark, StatusAt(index.Value)))" />
+        </asset-tile>
+    }
+</VirtualizingGrid>
+
+@code {
+    readonly List<AssetTreeNode> items = [];
+
+    /// <summary>Moved by everything that changes what a slot at an unchanged index should show.</summary>
+    readonly Signal<int> version = new(0);
+
+    /// <summary>Moved by <see cref="Mark" />, which changes one bit of each tile and nothing else.</summary>
+    readonly Signal<int> marks = new(0);
+
+    /// <summary>Which node each realised slot is showing, written as the slot is rebound.</summary>
+    readonly Dictionary<UiElement, AssetTreeNode> showing = new(ReferenceEqualityComparer.Instance);
+
+    readonly HashSet<AssetId> marked = [];
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>The breadcrumb bar.</summary>
+    UiElement PathBar { get; set; } = null!;
+
+    /// <summary>The grid the tiles are pooled in.</summary>
+    VirtualizingGrid Body { get; set; } = null!;
+
+    /// <summary>The folder being shown, or <see langword="null" /> before the first fill.</summary>
+    public AssetTreeNode? Folder { get; private set; }
+
+    /// <summary>What the grid is showing, in order — the items, not the pooled elements.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The items rather than the tiles, and the difference is the point of virtualising.</b>
+    ///     A caller asking "what is in this folder" wants all of it; a caller asking "which element
+    ///     shows the third one" is asking about a pool that slides, and <see cref="TileOf" /> is that
+    ///     question.
+    /// </remarks>
+    public IReadOnlyList<AssetTreeNode> Items => items;
+
+    /// <summary>The tiles that exist as elements and are showing something, in pool order.</summary>
+    public IReadOnlyList<AssetTile> Tiles =>
+        [.. Body.Tiles.Where(tile => !tile.HasClass("parked")).Select(tile => View(tile, showing.GetValueOrDefault(tile)))];
+
+    /// <summary>The tile showing an item, if it is realised.</summary>
+    /// <param name="item">Its index in <see cref="Items" />.</param>
+    /// <returns>The tile, or <see langword="null" /> when it is scrolled away.</returns>
+    /// <remarks>
+    ///     The node is the item's rather than the slot's last bind, so a caller that scrolls and asks
+    ///     before the next frame gets the tile it asked for rather than whatever the slot showed.
+    /// </remarks>
+    public AssetTile? TileOf(int item) =>
+        Body.TileOf(item) is { } tile ? View(tile, item >= 0 && item < items.Count ? items[item] : null) : null;
+
+    /// <summary>Scrolls until an item is on screen, so that it can be clicked.</summary>
+    /// <param name="item">Its index in <see cref="Items" />.</param>
+    public void ScrollIntoView(int item) {
+        Body.ScrollIntoView(item);
+        Body.Realise();
+    }
+
+    /// <summary>Raised when a tile is chosen — a click.</summary>
+    public event Action<AssetTreeNode>? Selected;
+
+    /// <summary>Raised when a tile is opened — a double-click, or Enter.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A folder is not reported.</b> Opening one means walking into it, which is this
+    ///     control's own business; a browser that raised "activated" for a folder would make the
+    ///     application decide whether a double-click navigates or opens an editor, which is a
+    ///     question about the grid.
+    /// </remarks>
+    public event Action<AssetTreeNode>? Activated;
+
+    /// <summary>The picture for an asset, from whoever knows the registry.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A delegate rather than the importer tag it used to be, so that both of the Project
+    ///     panel's views resolve identically.</b> This asked for a tag and looked it up in a switch of
+    ///     its own, which is exactly how the tree ended up drawing a generic file for something the
+    ///     grid drew as a purple mesh — F12. One resolution, one caller, two views.
+    /// </remarks>
+    public Func<AssetTreeNode, IconArt> Art { get; set; } = static _ => StandardIcons.Unknown;
+
+    /// <summary>The picture for an asset, if one has been made.</summary>
+    /// <remarks>
+    ///     Asked on every bind rather than pushed, because a thumbnail arrives whenever its decode
+    ///     finishes — which is usually a few frames after the tile that wanted it was drawn. A caller
+    ///     that knows one has arrived says <see cref="Refresh" />.
+    /// </remarks>
+    public Func<AssetTreeNode, ulong> Picture { get; set; } = static _ => 0;
+
+    /// <summary>What source control says about an asset, for the corner mark.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asked on every bind, like the picture and for the same reason</b>: a status sweep
+    ///     lands whenever git answers, and a grid that took a snapshot at build time would show the
+    ///     answer to the question somebody asked before they made the change. The default says
+    ///     <see cref="SourceControlStatus.Unknown" />, which draws nothing — a project that is not
+    ///     under source control has no column rather than an empty one.
+    /// </remarks>
+    public Func<AssetTreeNode, SourceControlStatus> Status { get; set; } =
+        static _ => SourceControlStatus.Unknown;
+
+    /// <summary>Shows a folder's contents.</summary>
+    /// <param name="folder">The folder, which the caller has already filtered.</param>
+    public void Show(AssetTreeNode folder) {
+        ArgumentNullException.ThrowIfNull(folder);
+
+        Folder = folder;
+
+        items.Clear();
+        items.AddRange(folder.Children);
+
+        Breadcrumbs(folder);
+
+        // ⚠ Before the count, so the slots the count rebinds re-read this folder rather than the last:
+        // every slot keeps the index it had, and only `version` says the item at it is different.
+        version.Value++;
+
+        // ⚠ Written here as well as by the pool's own effect, which reads `ItemCount` and would only
+        // write it on the next flush. `Count` writes the content height and realises, and a caller
+        // that shows a folder and scrolls to an item in the same breath — the browser does — would
+        // otherwise scroll against the previous folder's height.
+        Body.Count = items.Count;
+        Body.Realise();
+    }
+
+    /// <summary>Rebinds the realised tiles, for a picture that arrived after they were drawn.</summary>
+    public void Refresh() {
+        version.Value++;
+        Body.Realise();
+    }
+
+    /// <summary>How big a tile is.</summary>
+    /// <param name="Name">What the dropdown calls it, and what a preferences file holds.</param>
+    /// <param name="Width">How wide, in pixels.</param>
+    /// <param name="Height">How tall. Taller than it is wide, because the caption is under the glyph.</param>
+    /// <param name="Glyph">How big the icon or the thumbnail inside it is.</param>
+    public readonly record struct TileScale(string Name, float Width, float Height, float Glyph);
+
+    /// <summary>The sizes on offer, smallest first.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Four steps rather than a slider, and each is a set of numbers that agree.</b> A
+    ///         tile is a width, a height and a glyph size, and a free number would let somebody ask
+    ///         for a 40-pixel tile holding a 40-pixel glyph and no room for a name. Four is what every
+    ///         file manager offers and is enough — the question people actually ask is "more at once"
+    ///         or "big enough to recognise", not "88 pixels".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The height leaves two lines for the caption at every step.</b> That is what makes
+    ///         the grid scannable at the small end: a tile whose name is clipped to one line is a
+    ///         column of <c>T_Crate_…</c>, which is a grid of identical rows.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlyList<TileScale> TileSizes { get; } = [
+        new("Small", 64f, 68f, 28f),
+        new("Medium", 82f, 84f, 40f),
+        new("Large", 112f, 116f, 60f),
+        new("Huge", 152f, 156f, 88f)
+    ];
+
+    /// <summary>What a grid shows when nothing has chosen.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A floor rather than a recommendation, which is why <c>EditorSettings</c> does not use
+    ///     it.</b> This is what a tile falls back to when the name it was given is one no version of
+    ///     <see cref="TileSizes" /> answers to; what a panel should <i>open</i> at is that panel's
+    ///     decision and a larger one.
+    /// </remarks>
+    public const string DefaultTileSize = "Medium";
+
+    /// <summary>The step a content browser opens at, by name.</summary>
+    /// <remarks>
+    ///     Named rather than spelled in the preferences type, so that renaming a step breaks the
+    ///     build instead of silently falling back to <see cref="DefaultTileSize" /> — which is what
+    ///     the setter does with a name it does not know, and it does it without a word.
+    /// </remarks>
+    public const string LargeTileSize = "Large";
+
+    /// <summary>Which of <see cref="TileSizes" /> the tiles are drawn at, by name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Written as custom properties on the grid rather than as a class.</b>
+    ///     <c>VirtualizingGrid</c> reads <c>--tile-width</c> and <c>--tile-height</c> to work out how
+    ///     many fit across and where item 40 000 is — see its remarks — so the size has to be a
+    ///     number it can read without measuring an element. The glyph size goes the same way so that
+    ///     the theme keeps deciding what a tile looks like.
+    /// </remarks>
+    public string TileSize {
+        get;
+
+        set {
+            var scale = TileSizes.FirstOrDefault(
+                candidate => string.Equals(candidate.Name, value, StringComparison.Ordinal)
+            );
+
+            // An unknown name — a preferences file from a version with different steps — falls back
+            // rather than leaving the grid with no size at all.
+            if (scale.Name is null) {
+                scale = TileSizes.First(candidate => candidate.Name == DefaultTileSize);
+            }
+
+            field = scale.Name;
+
+            Body.SetStyle("--tile-width", Px(scale.Width));
+            Body.SetStyle("--tile-height", Px(scale.Height));
+            Body.SetStyle("--tile-glyph", Px(scale.Glyph));
+
+            // ⚠ Realised rather than left to the next layout pass. `Realise` is what writes each
+            // tile's own width and height, and the pass that would run it is the one that has just
+            // been invalidated — so without this the grid keeps the old spacing until something else
+            // happens to scroll it.
+            Body.Realise();
+        }
+    } = DefaultTileSize;
+
+    static string Px(float value) =>
+        value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "px";
+
+    /// <summary>Marks the tiles for a set of assets as chosen and the rest as not.</summary>
+    /// <param name="chosen">What is selected.</param>
+    /// <remarks>
+    ///     <para>
+    ///         Pushed in rather than kept, for the reason the outliner's highlight is: the selection
+    ///         is the project's and this is a view of it, so a grid holding its own would be a second
+    ///         answer that drifts the moment anything else selects something.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Kept, because a pooled tile is rebound as it scrolls.</b> Marking the realised
+    ///         tiles alone would lose the highlight the moment a selected item scrolled off and back,
+    ///         so the set is held and read again on every bind — by <see cref="Track" />, which
+    ///         <see cref="marks" /> re-runs.
+    ///     </para>
+    /// </remarks>
+    public void Mark(IReadOnlyCollection<AssetId> chosen) {
+        ArgumentNullException.ThrowIfNull(chosen);
+
+        marked.Clear();
+
+        foreach (var asset in chosen) {
+            marked.Add(asset);
+        }
+
+        marks.Value++;
+    }
+
+    /// <summary>Walks into a folder.</summary>
+    public void Enter(AssetTreeNode folder) {
+        ArgumentNullException.ThrowIfNull(folder);
+
+        Navigated?.Invoke(folder);
+    }
+
+    /// <summary>Raised when a drag started on a tile is released outside the grid.</summary>
+    /// <inheritdoc cref="Activated" select="remarks" />
+    public event Action<float, float>? DroppedOutside;
+
+    /// <summary>Raised while a drag started on a tile is somewhere outside the grid.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The moves as well as the release, because a drop the user cannot aim is a drop they
+    ///     get wrong.</b> An inspector row is twenty pixels tall and the field within it narrower
+    ///     still; without something lighting up under the pointer, assigning to the right member is
+    ///     guesswork that is only found out about afterwards. Reported outside the grid only — a drag
+    ///     within it is the grid's own business.
+    /// </remarks>
+    public event Action<float, float>? DraggedOutside;
+
+    /// <summary>Raised when a drag ends, however it ends and wherever it ended.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Cancelled as well as completed, and that is the whole reason it is separate from the
+    ///     two above.</b> A window losing focus mid-drag produces no release, so a host holding "a
+    ///     gesture is in flight" off the pointer alone would hold it for the rest of the session —
+    ///     and what that suspends is the inspector following the selection.
+    /// </remarks>
+    public event Action? DragEnded;
+
+    /// <summary>Raised when the grid should show a different folder.</summary>
+    /// <remarks>
+    ///     Out rather than done here, because the folder the grid shows has to be the <i>filtered</i>
+    ///     one — the search box and the type dropdown decide what is in it — and the filtering is the
+    ///     browser's.
+    /// </remarks>
+    public event Action<AssetTreeNode>? Navigated;
+
+    /// <summary>What contains a node, for the breadcrumbs.</summary>
+    /// <remarks>
+    ///     Supplied rather than worked out here: a folder's place is the <i>tree's</i> answer, and a
+    ///     grid that recomputed it from the path string would disagree with the tree about a folder
+    ///     with a slash in its name.
+    /// </remarks>
+    public Func<AssetTreeNode, AssetTreeNode?> Containing { get; set; } = static _ => null;
+
+    /// <summary>The tile under a point, if any.</summary>
+    public AssetTile? TileAt(float x, float y) {
+        foreach (var tile in Body.Tiles) {
+            if (tile.HasClass("parked")) {
+                continue;
+            }
+
+            var bounds = tile.Bounds;
+
+            if (x >= bounds.X && x < bounds.X + bounds.Width && y >= bounds.Y && y < bounds.Y + bounds.Height) {
+                return View(tile, showing.GetValueOrDefault(tile));
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Writes a status onto whichever element is drawing it.</summary>
+    /// <param name="mark">The element — a tile's corner, or a list row's trailing mark.</param>
+    /// <param name="status">What source control says.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A letter as well as a colour.</b> The status of a file is exactly the kind of
+    ///         thing a colour alone cannot carry — modified and conflicted are both "a warm colour"
+    ///         to a good proportion of people — and the letters are git's own, which is what somebody
+    ///         reading them beside a terminal already knows.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Unknown and unmodified both draw nothing, and they are not the same.</b> Nothing
+    ///         is the right picture for a clean file; it is also the only honest picture for a
+    ///         question that has not been answered yet, because doc 20's second bar is that a status
+    ///         column which is sometimes right is worse than no column.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Shared with the list view rather than copied into it</b>: the two surfaces show
+    ///         the same column, and two switch statements over the same enum are how one of them ends
+    ///         up spelling "conflicted" with a different letter than the other.
+    ///         <c>ProjectBrowser.Mark</c> is the second caller; the tile's <c>&lt;AssetStatus&gt;</c>
+    ///         calls it from <c>use=</c>.
+    ///     </para>
+    /// </remarks>
+    internal static void Letter(UiElement mark, SourceControlStatus status) {
+        ArgumentNullException.ThrowIfNull(mark);
+
+        foreach (var name in StatusClasses) {
+            mark.RemoveClass(name);
+        }
+
+        var letter = status switch {
+            SourceControlStatus.Modified => "M",
+            SourceControlStatus.Added => "A",
+            SourceControlStatus.Deleted => "D",
+            SourceControlStatus.Conflicted => "!",
+            SourceControlStatus.Untracked => "?",
+            _ => null
+        };
+
+        if (letter is null) {
+            mark.AddClass("hidden");
+            return;
+        }
+
+        mark.Text = letter;
+        mark.RemoveClass("hidden");
+        mark.AddClass(Class(status));
+    }
+
+    static string Class(SourceControlStatus status) => status switch {
+        SourceControlStatus.Modified => "modified",
+        SourceControlStatus.Added => "added",
+        SourceControlStatus.Deleted => "deleted",
+        SourceControlStatus.Conflicted => "conflicted",
+        _ => "untracked"
+    };
+
+    static readonly string[] StatusClasses = ["modified", "added", "deleted", "conflicted", "untracked"];
+
+    partial void OnComposed() {
+        // ⚠ Pointer and tap, not `ClickEvent`. A bare `Control` never raises one — `RaiseClick` is
+        // `ButtonBase`'s — and a tile is not even a control now, so a tile is selected from the press
+        // and opened from the recogniser's tap count, which is exactly how `TreeView` does the same
+        // two gestures.
+        AddHandler<PointerEvent>(static (element, args) => ((AssetGrid) element).Pointed(args));
+        AddHandler<TapEvent>(static (element, args) => ((AssetGrid) element).Tapped(args));
+        AddHandler<DragEvent>(static (element, args) => ((AssetGrid) element).Dragged(args));
+    }
+
+    // ================================================================== What the tile template reads
+
+    /// <summary>How many there are, re-read whenever a folder is shown.</summary>
+    int ItemCount {
+        get {
+            _ = version.Value;
+            return items.Count;
+        }
+    }
+
+    /// <summary>The node a slot is showing, or null for a slot showing nothing.</summary>
+    AssetTreeNode? At(int index) {
+        _ = version.Value;
+        return index >= 0 && index < items.Count ? items[index] : null;
+    }
+
+    string? FolderClass(int index) => At(index) is { IsFolder: true } ? "folder" : null;
+
+    IconArt? GlyphOf(int index) => At(index) is { } node ? node.IsFolder ? StandardIcons.Folder : Art(node) : null;
+
+    /// <summary>The picture's texture, or zero for a folder, an asset with none, and an empty slot.</summary>
+    ulong PictureOf(int index) => At(index) is { IsFolder: false } node ? Picture(node) : 0;
+
+    /// <remarks>
+    ///     ⚠ The glyph stays until there is a picture, and goes the moment there is one. A tile that
+    ///     showed neither while a decode was in flight would flicker empty through every scroll.
+    /// </remarks>
+    string? GlyphClass(int index) => PictureOf(index) == 0 ? null : "hidden";
+
+    string? PictureClass(int index) => PictureOf(index) == 0 ? "hidden" : null;
+
+    string? CaptionOf(int index) => At(index)?.Name;
+
+    SourceControlStatus StatusAt(int index) => At(index) is { } node ? Status(node) : SourceControlStatus.Unknown;
+
+    /// <summary>What <c>use=</c> keeps up to date on a slot: its node, its focusability and its <c>:checked</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Focusable written here because the tile is not a control any more</b>, and
+    ///     <c>Control.OnCreated</c> was what made an <c>AssetTile</c> one a click could focus.
+    /// </remarks>
+    void Track(UiElement tile, int index) {
+        _ = marks.Value;
+
+        tile.Focusable = true;
+
+        if (At(index) is { } node) {
+            showing[tile] = node;
+        } else {
+            showing.Remove(tile);
+        }
+
+        if (At(index) is { IsIndexed: true } asset && marked.Contains(asset.Guid)) {
+            tile.State |= ElementState.Checked;
+        } else {
+            tile.State &= ~ElementState.Checked;
+        }
+    }
+
+    /// <summary>The trail of folders above this one, each of which can be gone back to.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Still built in C#</b>: a crumb is a <see cref="Button" /> whose click walks into a
+    ///     folder, the trail is rebuilt whole on every <see cref="Show" />, and #1406's subject is the
+    ///     tile template. An <c>@for</c> would say the same thing and is left for a change that is
+    ///     about the breadcrumbs.
+    /// </remarks>
+    void Breadcrumbs(AssetTreeNode folder) {
+        while (PathBar.Children.Count > 0) {
+            PathBar.Children[^1].Remove();
+        }
+
+        List<AssetTreeNode> trail = [];
+
+        // ⚠ Walked from the root down rather than by splitting the path string. A folder's name and
+        // its place in the tree are the tree's answers, and a browser that recomputed them from text
+        // would disagree with it about a folder with a slash in its name.
+        for (var current = Folder; current is not null; current = Containing(current)) {
+            trail.Insert(0, current);
+        }
+
+        foreach (var step in trail) {
+            var crumb = PathBar.Add<Button>();
+            var target = step;
+
+            crumb.Label = step.Name;
+            crumb.Variant = ControlVariant.Subtle;
+            crumb.Size = ControlSize.Small;
+            crumb.AddClass("asset-crumb");
+            crumb.Clicked += _ => Enter(target);
+        }
+    }
+
+    void Pointed(PointerEvent args) {
+        if (args.Action != PointerAction.Pressed || TileAt(args.X, args.Y) is not { Node: { } node }) {
+            return;
+        }
+
+        Selected?.Invoke(node);
+    }
+
+    void Tapped(TapEvent args) {
+        if (args.Count != 2 || TileAt(args.X, args.Y) is not { Node: { } node }) {
+            return;
+        }
+
+        if (node.IsFolder) {
+            Enter(node);
+        } else {
+            Activated?.Invoke(node);
+        }
+
+        // ⚠ The run ends here, and a grid needs this more than a list does. Walking into a folder
+        // puts a *different* tile under a pointer that has not moved, so without this the next
+        // double-click arrives as taps three and four and opens nothing.
+        Document.Gestures.EndTapRun();
+
+        args.Handled = true;
+    }
+
+    void Dragged(DragEvent args) {
+        var bounds = Bounds;
+
+        var inside = args.X >= bounds.X
+            && args.X < bounds.X + bounds.Width
+            && args.Y >= bounds.Y
+            && args.Y < bounds.Y + bounds.Height;
+
+        if (args.Stage is DragStage.Completed or DragStage.Cancelled) {
+            DragEnded?.Invoke();
+        }
+
+        switch (args.Stage) {
+            case DragStage.Completed when !inside:
+                DroppedOutside?.Invoke(args.X, args.Y);
+                break;
+
+            // ⚠ Started as well as Moved. A drag that crosses the panel edge in one motion — which is
+            // every drag that starts near it — has its first event outside already, and a hover that
+            // only began on the second would flicker on for the first field the pointer crossed.
+            case DragStage.Started or DragStage.Moved when !inside:
+                DraggedOutside?.Invoke(args.X, args.Y);
+                break;
+
+            // ⚠ Coming back inside, and being cancelled, both have to reach the host — otherwise
+            // whatever it lit up stays lit for the rest of the session. Both are reported as a move
+            // to nowhere, which is what they are.
+            case DragStage.Started or DragStage.Moved or DragStage.Cancelled:
+                DraggedOutside?.Invoke(float.NaN, float.NaN);
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    /// <summary>The view over one slot's element.</summary>
+    static AssetTile View(UiElement tile, AssetTreeNode? node) => new(tile, node);
+}

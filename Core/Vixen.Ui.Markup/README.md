@@ -696,9 +696,12 @@ settled by what the pool is:
 `@rows[0]` is an ordinary interpolation; `@empty` makes the same bargain with the brace. And the index
 is a `Signal<int>` holding `-1` in a slot the pool has made and not yet bound.
 
-`MessageLogView.vxml` is its first production caller and `ConsoleView.vxml` its second; no
-`VirtualizingPanel` in the editor is filled from C# any more. `AssetGrid` still fills its
-`VirtualizingGrid` through `CreateTile`/`BindTile`.
+`MessageLogView.vxml` is its first production caller, `ConsoleView.vxml` its second and
+`AssetGrid.vxml` — over a `VirtualizingGrid` — its third (#1406); no virtualised list in the editor is
+filled from C# any more. ⚠ The grid is where a row's content stops being a function of `index` alone:
+walking into a folder rebinds every slot at the index it already had, and a thumbnail arrives for a
+tile already drawn, so its template also reads a `version` signal that `Show` and `Refresh` move. A
+template whose model can change under an unchanged index needs the same.
 
 ## `help`, and where an attach-shaped directive's runtime has to live
 
