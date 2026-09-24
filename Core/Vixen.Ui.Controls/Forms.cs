@@ -330,9 +330,9 @@ public sealed partial class GroupBox : Control {
 ///         row and <see cref="GroupBox" /> the box round a question; neither knows that the rows are
 ///         <i>sent</i>. Every field here already validates itself — <see cref="TextField" />,
 ///         <see cref="Select" />, <see cref="MultiSelect" />, <see cref="ComboBox" />,
-///         <see cref="CheckBox" /> and <see cref="RadioGroup" /> each answer <c>IsValid</c> and
-///         <c>Revalidate()</c> — and nothing asked all of them at once, so an application's OK button
-///         had to know every field it sat under.
+///         <see cref="CheckBox" />, <see cref="RadioGroup" /> and <see cref="DatePicker" /> each
+///         answer <c>IsValid</c> and <c>Revalidate()</c> — and nothing asked all of them at once, so
+///         an application's OK button had to know every field it sat under.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>HTML's three submission rules, and each is a place an application used to write the

@@ -158,6 +158,7 @@ Samples/02-HelloUi/Panels/Gallery.vxml	Label	Cast shadows
 Samples/02-HelloUi/Panels/Gallery.vxml	Label	Contact hardening
 Samples/02-HelloUi/Panels/Gallery.vxml	Label	Cutout
 Samples/02-HelloUi/Panels/Gallery.vxml	Label	Debug
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Due
 Samples/02-HelloUi/Panels/Gallery.vxml	Label	High
 Samples/02-HelloUi/Panels/Gallery.vxml	Label	Layers
 Samples/02-HelloUi/Panels/Gallery.vxml	Label	Low

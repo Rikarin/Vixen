@@ -341,7 +341,7 @@ numeric-input:focus-visible, stepper:focus-visible, select:focus-visible, multi-
 slider:focus-visible, range-slider:focus-visible, tab:focus-visible,
 menu-item:focus-visible, option:focus-visible, link:focus-visible,
 page-button:focus-visible, breadcrumb-item:focus-visible, expander-header:focus-visible,
-segment:focus-visible {
+segment:focus-visible, date-picker:focus-visible, calendar-day:focus-visible {
     border-color: var(--accent);
 }
 
@@ -1155,6 +1155,54 @@ select icon, multi-select icon, combo-box icon {
 }
 
 popover.select-list { flex-direction: column; padding: 4px; min-width: 120px; }
+
+/* ── Dates ──────────────────────────────────────────────────────────────
+   ⚠ Every rule here is a tag, a class or a compound of the two, and none is a
+   descendant: the parts carry their own tags so the theme never has to say
+   "the X inside a Y". The field is a select's field; the calendar is six rows
+   of seven 28 px cells, so it is the same size in February as in August. */
+date-picker {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 6px;
+    background-color: var(--surface);
+    color: var(--text);
+}
+
+date-picker-field { flex-grow: 1; min-height: 1.2em; }
+date-picker-field.empty { color: var(--text-muted); }
+.date-picker-chevron { width: 12px; height: 12px; flex-shrink: 0; color: var(--text-muted); }
+
+calendar { flex-direction: column; gap: 6px; }
+calendar-header { flex-direction: row; align-items: center; justify-content: space-between; gap: 4px; }
+calendar-title { color: var(--text); font-weight: 600; }
+calendar-grid { flex-direction: column; gap: 2px; }
+calendar-weekdays, calendar-week { flex-direction: row; gap: 2px; }
+calendar-weekday { width: 28px; flex-shrink: 0; flex-direction: row; justify-content: center; }
+calendar-weekday-name { color: var(--text-muted); font-size: 0.85em; }
+
+calendar-day {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    border-width: 1px;
+    border-color: transparent;
+    border-radius: 5px;
+    background-color: transparent;
+    color: var(--text);
+}
+
+calendar-day:hover:not(:disabled) { background-color: var(--surface-sunken); }
+calendar-day.outside { color: var(--text-muted); }
+calendar-day.today { border-color: var(--border); }
+calendar-day:checked { background-color: var(--accent); color: var(--accent-text); }
 combo-box .combo-editor { border-width: 0px; padding: 0px; flex-grow: 1; background-color: transparent; }
 
 /* ── Dialogs ────────────────────────────────────────────────────────── */

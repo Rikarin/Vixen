@@ -148,6 +148,17 @@
                 <CheckBox Label="Write mipmaps" />
             </Section>
 
+            <!--
+                ⚠ **A select whose list is a calendar, and the keyboard goes into it.** Enter or a
+                click opens a six-week month laid out by the culture — invariant here, so Sunday
+                first — with the keyboard on today; the arrows walk the days, Page Up and Page Down
+                the months, and Enter chooses and hands the keyboard back. Each day is announced by
+                its whole date, not by the number drawn on it.
+            -->
+            <LabeledContent Label="Due">
+                <DatePicker Placeholder="No date" />
+            </LabeledContent>
+
             <SearchBox Placeholder="Filter assets" bind:Value="@Model.Filter.Value" />
             <NumericInput Minimum="0" Maximum="64" bind:Number="@Model.Samples.Value" />
 

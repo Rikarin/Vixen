@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.Controls.Form]
 tags: [ui, controls, forms, validation, accessibility, vxml]
 since: 0.2
 status: preview
-related: [ui/labeled-content, ui/group-box, ui/section, ui/text-input, ui/accessibility]
+related: [ui/labeled-content, ui/group-box, ui/section, ui/date-picker, ui/text-input, ui/accessibility]
 ---
 
 ## What it is
@@ -32,8 +32,8 @@ its children out in a row.
 
 The submission half of doc 49 § 7.1's fourth rank. Every field here already validates itself —
 `TextField` (and so `TextBox`, `NumericInput`, `SecureTextBox`, `TextArea`), `Select`, `MultiSelect`,
-`ComboBox`, `CheckBox` and `RadioGroup` each answer `IsValid` and `Revalidate()` — and nothing asked all
-of them at once. An application's OK button had to hold a reference to every field above it.
+`ComboBox`, `CheckBox`, `RadioGroup` and [`DatePicker`](date-picker) each answer `IsValid` and
+`Revalidate()` — and nothing asked all of them at once. An application's OK button had to hold a reference to every field above it.
 
 A form follows HTML's three rules:
 

@@ -148,6 +148,20 @@ public static class ControlStrings {
     /// </remarks>
     public static StringId TimelineMuteMark { get; } = new("ui.control.timeline.mute-mark", "M");
 
+    /// <summary>The arrow that shows a calendar's previous month.</summary>
+    public static StringId CalendarPreviousMonth { get; } =
+        new("ui.control.calendar.previous-month", "Previous month");
+
+    /// <summary>The arrow that shows a calendar's next month.</summary>
+    public static StringId CalendarNextMonth { get; } = new("ui.control.calendar.next-month", "Next month");
+
+    /// <summary>What a screen reader calls the calendar a date picker opens.</summary>
+    /// <remarks>
+    ///     The popup is a dialog in ARIA's date-picker pattern, and a dialog is named. The month on
+    ///     the calendar inside it names the calendar; this names the question.
+    /// </remarks>
+    public static StringId DatePickerDialog { get; } = new("ui.control.date-picker.dialog", "Choose a date");
+
     /// <summary>What a screen reader calls the bar down the side of a scrolling area.</summary>
     /// <remarks>
     ///     ⚠ <b>Three declarations that are not on screen anywhere, and that is the point of
@@ -364,6 +378,9 @@ public static class ControlStrings {
         PaginationGap,
         TimelineMute,
         TimelineMuteMark,
+        CalendarPreviousMonth,
+        CalendarNextMonth,
+        DatePickerDialog,
         ScrollBarVertical,
         ScrollBarHorizontal,
         ColorPickerHex,
