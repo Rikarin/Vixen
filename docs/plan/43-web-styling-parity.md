@@ -3683,12 +3683,20 @@ until that number can be zero on a frame that asks for a blend.
 on in set 1 — the parent's draws replayed up to the composite, which is `backdrop-filter`'s replay with
 a later stop — and applies `UiBlend.Apply`'s arithmetic, white level included. `UiBlendDeviceTests`
 holds all fifteen non-normal modes to the closed form and to `SoftwareUiRasterizer` on a device. The
-row stays `partial` on four arrangements the device still composites source-over — a transformed
-group, a blended group that also carries a colour matrix or a mask, a blended group's drop-shadow quad,
-and a top-level HUD panel in a world renderer, whose capture cannot contain a scene not yet drawn —
-which its `value_gap` names. `Unblended` counts the first three. ⚠ The fourth it cannot: that panel
+row stays `partial` on two arrangements the device still composites source-over — a blended group's
+drop-shadow quad, and a top-level HUD panel in a world renderer, whose capture cannot contain a scene
+not yet drawn — which its `value_gap` names. (A transformed group was another until #1379: it was
+declined because Raven was said to have no fragment-position input, which was false, and `UiBlend`
+now reads `SV_Position` for it. A group with a colour matrix and a group with a mask were declined
+too until `UiBlend` applied the matrix, and then the mask list through `UiMaskList`, itself.)
+`Unblended` counts the first. ⚠ The second it cannot: that panel
 does go through `UiBlend`, against the interface's own prefix over transparent black, and reads
 `Blended`; the renderer has nothing that tells a scene beneath from a host that painted nothing.
+`UiRenderFeature.Sceneless` counts it instead, because the feature is what passed nothing (#1378).
+A frame document can now remove it: a `!UiCompose` node ahead of the interface pass composes the
+HUD after the scene with the scene as its backdrop, and `InterfaceOverASceneDeviceTests` holds a
+multiplied panel to `grey · scene` and an inverting glass panel to `1 − scene` on a device. It stays
+an exception for a frame without the node, whose output is a swapchain image the node cannot sample.
 
 ⚠ **`background-blend-mode` is not this and stays refused.** It blends an element's background
 *layers* with each other, and there is one background layer for them to blend.

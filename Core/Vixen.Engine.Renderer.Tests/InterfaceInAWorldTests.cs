@@ -360,8 +360,9 @@ public sealed class InterfaceInAWorldTests : IDisposable {
         Assert.Contains("UiRenderer", refused.Message, StringComparison.Ordinal);
 
         // ⚠ And the same arrangement is refused when it is *recorded* rather than uploaded. A host
-        // that never uploaded has no vertex ring to draw from — on Vulkan the bind throws — and that
-        // path must not be the one on which a shared renderer is quietly tolerated.
+        // that never uploaded has no vertex ring to draw from — `UiRenderer.Record` refuses it by
+        // name (#1377) — and that path must not be the one on which a shared renderer is quietly
+        // tolerated.
         var camera = Camera(stage.Mask);
         system.SetViews([camera]);
         system.Draw();
@@ -469,8 +470,9 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     ///     <para>
     ///         ⚠ <b>#627: steps four and five of the host contract had no host.</b> Nothing in the tree
     ///         performed them, and neither fails the way it was long described. Without <c>Upload</c>
-    ///         the ring the vertices live in is never created, so on Vulkan the first <c>Record</c>
-    ///         throws from <c>BindVertexBuffer</c> rather than drawing a HUD out of unwritten memory;
+    ///         the ring the vertices live in is never created, so the first <c>Record</c> is refused
+    ///         by name (#1377) — on Vulkan it used to throw from <c>BindVertexBuffer</c> — rather than
+    ///         drawing a HUD out of unwritten memory;
     ///         without <c>Compose</c> every faded panel is drawn solid, which is a picture and not an
     ///         error. <c>WorldRenderer.Draw</c> is the
     ///         one call both hosts already make before the frame's passes, so it makes both, and this
@@ -943,6 +945,106 @@ public sealed class InterfaceInAWorldTests : IDisposable {
 
         return new UiGeometryBuilder().Build(list, new GlyphFieldCache(atlas), new Rectangle(0, 0, 400, 300));
     }
+    /// <summary>
+    ///     A HUD group that reads its backdrop at the top level is counted, because inside a world
+    ///     renderer that backdrop has no scene in it (#1378); a nested one, or one that reads nothing,
+    ///     is not.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The arrangement no counter saw.</b> <c>WorldRenderer.Draw</c> composes before the
+    ///         scene is drawn, so <c>UiRenderFeature.Compose</c> hands <c>UiRenderer.Compose</c> no
+    ///         backdrop, and a top-level <c>mix-blend-mode</c> or <c>backdrop-filter</c> reads the
+    ///         interface over transparent black. That group reads <c>Blended</c> — the renderer
+    ///         cannot tell a scene it was not given from a host that painted nothing — so the count
+    ///         has to be the feature's, which always passed nothing.
+    ///     </para>
+    ///     <para>
+    ///         The zero cases are the half that keeps the count honest: a blend nested inside another
+    ///         group has that group as its backdrop root and is right over any scene, and a merely
+    ///         faded group reads no backdrop at all. A counter that counted every layer would pass the
+    ///         first assertion and fail these.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AHudsTopLevelBackdropReadersAreCountedAsSeeingNoScene() {
+        var atlas = new GlyphAtlas(64, 64);
+
+        Assert.Equal(1, ScenelessAfterComposing(Layered(atlas, blend: UiBlendMode.Multiply), atlas));
+        Assert.Equal(1, ScenelessAfterComposing(Layered(atlas, backdrop: new UiBackdrop(0f, 1f, UiColorMatrix.Invert(1f))), atlas));
+        Assert.Equal(0, ScenelessAfterComposing(Layered(atlas, blend: UiBlendMode.Multiply, nested: true), atlas));
+        Assert.Equal(0, ScenelessAfterComposing(Layered(atlas), atlas));
+    }
+
+    /// <summary>Mounts one interface, uploads and composes it, and returns what <c>Sceneless</c> read.</summary>
+    int ScenelessAfterComposing(UiGeometry geometry, GlyphAtlas atlas) {
+        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var ui = UiRendererFor(device);
+
+        var stage = renderer.Host.System.AddStage(new("Ui", RenderSortMode.ByGroup));
+
+        renderer.Ui.Renderer = ui;
+
+        var id = renderer.Ui.Mount(stage.Mask);
+
+        renderer.Ui.Set(id, new(geometry, atlas, new Int2(400, 300), 0));
+
+        using var commands = device.BeginCommandList(QueueKind.Graphics, "ui");
+
+        renderer.Ui.Upload(commands);
+        renderer.Ui.Compose(commands);
+
+        // The groups really were composed, so a zero is a verdict rather than a loop that saw nothing.
+        Assert.Equal(geometry.Layers.Count, ui.Composited);
+
+        return renderer.Ui.Sceneless;
+    }
+
+    /// <summary>
+    ///     A group of two rectangles at the top level — blended or backdrop-filtered as asked — or, when
+    ///     <paramref name="nested" />, the same group inside a half-transparent one.
+    /// </summary>
+    static UiGeometry Layered(
+        GlyphAtlas atlas,
+        UiBlendMode blend = UiBlendMode.Normal,
+        UiBackdrop? backdrop = null,
+        bool nested = false
+    ) {
+        var list = new DrawList();
+
+        list.BeginFrame();
+
+        if (nested) {
+            list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.LayerPush, 8f, 8f, 200f, 120f, new Color4(1f, 1f, 1f, 0.5f), 0f, 0f));
+            list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.Rectangle, 8f, 8f, 200f, 120f, Color4.White, 0f, 0f));
+        }
+
+        // Faded as well, so the plain case is still a group and the zero is about the backdrop.
+        list.Add(
+            new Vixen.Ui.DrawCommand(DrawCommandKind.LayerPush, 16f, 16f, 120f, 60f, new Color4(1f, 1f, 1f, 0.8f), 0f, 0f) {
+                Blend = blend,
+                Backdrop = backdrop
+            }
+        );
+
+        list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.Rectangle, 16f, 16f, 120f, 60f, Color4.White, 0f, 0f));
+        list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.Rectangle, 24f, 24f, 40f, 20f, new Color4(1f, 0f, 0f, 1f), 0f, 0f));
+        list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.LayerPop, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f));
+
+        if (nested) {
+            list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.LayerPop, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f));
+        }
+
+        list.EndFrame();
+
+        var geometry = new UiGeometryBuilder().Build(list, new GlyphFieldCache(atlas), new Rectangle(0, 0, 400, 300));
+
+        // The instrument: every case is the number of groups it claims to be.
+        Assert.Equal(nested ? 2 : 1, geometry.Layers.Count);
+
+        return geometry;
+    }
+
     static RenderView Camera(RenderStageMask stages) {
         var view = Matrix4x4.LookAt(Vector3.Zero, new(0f, 0f, 1f), new(0f, 1f, 0f));
         var projection = Matrix4x4.PerspectiveFieldOfView(MathF.PI / 3f, 1f, 0.1f, 1000f);

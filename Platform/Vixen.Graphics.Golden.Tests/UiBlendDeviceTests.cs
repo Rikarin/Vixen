@@ -233,16 +233,117 @@ public sealed class UiBlendDeviceTests {
         Assert.True(comparison.Matches, $"a blend over its own filtered backdrop: the executors disagree: {comparison}");
     }
 
-    /// <summary>A transformed blended group is declined and counted, rather than blended against the wrong texels.</summary>
+    /// <summary>A second backdrop colour, for the stripe a transformed group's quad reaches and its surface does not.</summary>
+    static readonly Color4 Stripe = new(0.15f, 0.55f, 0.85f, 1f);
+
+    /// <summary>The grey the transformed fixtures' outer rectangle is painted, opaque.</summary>
+    static readonly Color4 Grey = new(0.5f, 0.5f, 0.5f, 1f);
+
+    /// <summary>A scaled blended group reads the backdrop under each pixel, not under its surface coordinate (#1379).</summary>
     /// <remarks>
-    ///     <c>UiBlend</c> reads the backdrop at the composite quad's texture coordinate, which is the
-    ///     target texel only while the quad is where the surface is; a rotated quad has moved and Raven
-    ///     has no fragment-position input to recover the texel from. So the renderer makes no capture
-    ///     for it, composites it source-over, and says so in <see cref="UiRenderer.Unblended" /> — which
-    ///     is the whole of what this asserts, because the picture is then a known divergence.
+    ///     <para>
+    ///         ⚠ <b>This replaces <c>ATransformedBlendIsDeclinedAndCounted</c>, whose reason was false.</b>
+    ///         A transformed group was declined because <c>UiBlend</c> read the backdrop at the
+    ///         composite quad's texture coordinate — which a transformed quad carries untransformed —
+    ///         and Raven was said to have no fragment-position input. It has had one since 289b50247,
+    ///         and <c>UiBlend</c> now reads <c>SV_Position</c> for such a group.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The backdrop is not uniform, and without that this could not fail.</b> A group
+    ///         scaled 1.5× about its centre reaches a stripe of <see cref="Stripe" /> that its
+    ///         untransformed surface does not; at the probed pixel the surface coordinate lands back
+    ///         over <see cref="Field" />. So reading the capture at the texture coordinate blends with
+    ///         the field, and reading it at the pixel blends with the stripe — and against a uniform
+    ///         field the two readings are the same picture. The pixel is also outside the group's
+    ///         untransformed <see cref="UiLayer.Bounds" />, so a capture confined to them leaves it
+    ///         holding the clear, which this catches too.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void ATransformedBlendIsDeclinedAndCounted() {
+    public void AScaledBlendReadsTheBackdropUnderEachPixel() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var list = Scaled(units: Side);
+        var (rendered, software, renderer) = Draw(owned, list, "blend-scaled");
+
+        Assert.Equal(1, renderer.Composited);
+        Assert.Equal(1, renderer.Blended);
+        Assert.Equal(0, renderer.Unblended);
+
+        AssertScaledPixels(rendered, "device");
+        AssertScaledPixels(software, "software");
+
+        var comparison = ImageComparer.Compare(rendered, software, new ImageTolerance(4, 0.001));
+
+        Assert.True(comparison.Matches, $"a scaled blend: the executors disagree: {comparison}");
+    }
+
+    /// <summary>The same scaled group, laid out in half as many units and drawn at a density of two.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The #1200 class of defect, asked of the fragment-position read.</b> <c>SV_Position</c>
+    ///     is in framebuffer texels and the capture is too, so the reciprocal the host pushes must be
+    ///     the capture's size in texels and not the surface's in document units — which are the same
+    ///     number at a density of one and differ by exactly the density here. There is no software
+    ///     executor at a density other than one, so this is the closed form alone.
+    /// </remarks>
+    [Fact]
+    public void AScaledBlendAtDensityTwoReadsTheBackdropUnderEachPixel() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        const int units = Side / 2;
+
+        var list = Scaled(units);
+        var colour = owned.ColourTarget("ui-blend-density");
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var geometry = new UiGeometryBuilder().Build(list, cache, new Rectangle(0, 0, units, units));
+
+        var renderer = new UiRenderer(
+            owned.Device,
+            UiShaderLibrary.Load(owned.Device),
+            new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
+        );
+
+        owned.Owns(renderer.Dispose);
+
+        owned.Graph.AddPass("ui-blend-density", pass => {
+            pass.ColourAttachment(colour, LoadAction.Clear, Background);
+            pass.SideEffect();
+            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(units, units), 2f));
+        });
+
+        var rendered = owned.Render(
+            colour,
+            commands => {
+                renderer.Upload(commands, geometry, cache.Atlas);
+                renderer.Compose(commands, geometry, new Int2(units, units), 2f, new UiBackdropSource(Background));
+            }
+        );
+
+        Keep(rendered, "blend-scaled-density-2.device");
+
+        Assert.Equal(1, renderer.Blended);
+        Assert.Equal(0, renderer.Unblended);
+
+        AssertScaledPixels(rendered, "device at density two");
+    }
+
+    /// <summary>A rotated blended group agrees with the software executor, which blends by reading its own destination.</summary>
+    /// <remarks>
+    ///     The general case beside the two closed forms: a rotation moves every pixel of the quad off
+    ///     its surface coordinate, over a backdrop that changes under it, so any disagreement between
+    ///     the window-position read and the software path's destination read shows up somewhere in the
+    ///     group rather than at one probed pixel.
+    /// </remarks>
+    [Fact]
+    public void ARotatedBlendAgreesWithTheSoftwarePath() {
         if (!TryOpen(out var fixture)) {
             return;
         }
@@ -252,23 +353,283 @@ public sealed class UiBlendDeviceTests {
         var list = new DrawList();
         list.BeginFrame();
         list.Add(new(DrawCommandKind.Rectangle, 0, 0, Side, Side, Field, 0, 0));
+        list.Add(new(DrawCommandKind.Rectangle, 0, 0, Side / 2f, Side, Stripe, 0, 0));
 
         list.Add(
             new DrawCommand(DrawCommandKind.LayerPush, 32, 32, 64, 64, new Color4(1f, 1f, 1f, Opacity), 0, 0) {
                 Blend = UiBlendMode.Multiply,
-                Transform = UiTransform.Rotation(15f, new Vector2(Side / 2f, Side / 2f))
+                Transform = UiTransform.Rotation(30f, new Vector2(Side / 2f, Side / 2f))
             }
         );
 
-        list.Add(new(DrawCommandKind.Rectangle, 32, 32, 64, 64, Paint, 0, 0));
+        list.Add(new(DrawCommandKind.Rectangle, 32, 32, 64, 64, Grey, 0, 0));
+        list.Add(new(DrawCommandKind.Rectangle, 40, 40, 48, 48, Paint, 0, 0));
         list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
         list.EndFrame();
 
-        var (_, _, renderer) = Draw(owned, list);
+        var (rendered, software, renderer) = Draw(owned, list, "blend-rotated");
 
-        Assert.Equal(1, renderer.Composited);
-        Assert.Equal(0, renderer.Blended);
-        Assert.Equal(1, renderer.Unblended);
+        Assert.Equal(1, renderer.Blended);
+        Assert.Equal(0, renderer.Unblended);
+
+        var comparison = ImageComparer.Compare(rendered, software, new ImageTolerance(4, 0.001));
+
+        Assert.True(comparison.Matches, $"a rotated blend: the executors disagree: {comparison}");
+    }
+
+    /// <summary>A group with a <c>filter</c> colour matrix and a blend mode has both: the matrix, then the blend (#783).</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This was a counted decline</b>: a colour matrix sent the composite to
+    ///         <c>UiColour</c>, which samples one texture, so the group was inverted and then laid
+    ///         source-over — the blend dropped and <c>Unblended</c> one. <c>UiBlend</c> now applies the
+    ///         matrix itself before it mixes, in the order Filter Effects 1 and CSS Compositing 1 give
+    ///         and <c>SoftwareUiRasterizer</c> takes.
+    ///     </para>
+    ///     <para>
+    ///         The closed form is § 5.1 on the <i>inverted</i> paint; the instrument checks it differs
+    ///         from both wrong pictures — the blend of the un-inverted paint, which is a matrix dropped,
+    ///         and the inverted paint source-over, which is the old decline.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AFilteredBlendAppliesTheMatrixAndThenTheBlend() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var invert = UiColorMatrix.Invert(1f);
+        var inverted = invert.Apply(Paint);
+
+        var expected = ExpectedOver(UiBlendMode.Multiply, inverted, Field);
+        var unfiltered = ExpectedOver(UiBlendMode.Multiply, Paint, Field);
+        var declined = ExpectedOver(UiBlendMode.Normal, inverted, Field);
+
+        Assert.True(Distance(expected, unfiltered) >= 20, $"{expected} and the unfiltered blend {unfiltered} are too close to tell apart");
+        Assert.True(Distance(expected, declined) >= 20, $"{expected} and the old source-over {declined} are too close to tell apart");
+
+        var list = new DrawList();
+        list.BeginFrame();
+        list.Add(new(DrawCommandKind.Rectangle, 0, 0, Side, Side, Field, 0, 0));
+
+        list.Add(
+            new DrawCommand(DrawCommandKind.LayerPush, 24, 24, 80, 80, new Color4(1f, 1f, 1f, Opacity), 0, 0) {
+                Blend = UiBlendMode.Multiply,
+                Filter = invert
+            }
+        );
+
+        list.Add(new(DrawCommandKind.Rectangle, 24, 24, 80, 80, Grey, 0, 0));
+        list.Add(new(DrawCommandKind.Rectangle, 40, 40, 48, 48, Paint, 0, 0));
+        list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+        list.EndFrame();
+
+        var (rendered, software, renderer) = Draw(owned, list, "blend-filtered");
+
+        Assert.Equal(1, renderer.Blended);
+        Assert.Equal(0, renderer.Unblended);
+        Assert.Equal(1, renderer.Filtered);
+
+        var middle = Middle(rendered);
+
+        Assert.True(
+            Distance(middle, expected) <= 3,
+            $"the device drew {middle}; the matrix then the blend is {expected} (the blend alone {unfiltered}, the matrix "
+            + $"then source-over {declined})"
+        );
+
+        Assert.True(Distance(Middle(software), expected) <= 3, $"the software path drew {Middle(software)}; it should be {expected}");
+
+        var comparison = ImageComparer.Compare(rendered, software, new ImageTolerance(4, 0.001));
+
+        Assert.True(comparison.Matches, $"a filtered blend: the executors disagree: {comparison}");
+    }
+
+    /// <summary>A group with a <c>mask-image</c> and a blend mode has both: the mask, then the blend (#783).</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This was the last counted decline of a group's own composite</b>: the mask took the
+    ///         draw for <c>UiMask</c>, which samples one texture, so the group was masked and then laid
+    ///         source-over — the blend dropped and <c>Unblended</c> one. <c>UiBlend</c> now reads the
+    ///         mask list through <c>UiMaskList</c> and masks the group before it mixes, which is CSS's
+    ///         order and the one <c>SoftwareUiRasterizer</c> takes.
+    ///     </para>
+    ///     <para>
+    ///         The mask is a flat half, so the closed form is § 5.1 at half the group's opacity. The
+    ///         instrument checks that answer is 20 or more codes from both wrong pictures: the masked
+    ///         group source-over, which is the old decline, and the unmasked blend, which is a mask the
+    ///         blend stage dropped.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AMaskedBlendAppliesTheMaskAndThenTheBlend() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        const float Coverage = 0.5f;
+
+        var expected = ExpectedOver(UiBlendMode.Multiply, Paint, Field, opacity: Opacity * Coverage);
+        var declined = ExpectedOver(UiBlendMode.Normal, Paint, Field, opacity: Opacity * Coverage);
+        var unmasked = ExpectedOver(UiBlendMode.Multiply, Paint, Field);
+
+        Assert.True(Distance(expected, declined) >= 20, $"{expected} and the old masked source-over {declined} are too close to tell apart");
+        Assert.True(Distance(expected, unmasked) >= 20, $"{expected} and the unmasked blend {unmasked} are too close to tell apart");
+
+        var list = new DrawList();
+        list.BeginFrame();
+        list.Add(new(DrawCommandKind.Rectangle, 0, 0, Side, Side, Field, 0, 0));
+        list.Add(
+            new DrawCommand(DrawCommandKind.LayerPush, 24, 24, 80, 80, new Color4(1f, 1f, 1f, Opacity), 0, 0) {
+                Blend = UiBlendMode.Multiply,
+                Offset = list.AddMasks([FlatHalf]),
+                Length = 1
+            }
+        );
+        list.Add(new(DrawCommandKind.Rectangle, 24, 24, 80, 80, Grey, 0, 0));
+        list.Add(new(DrawCommandKind.Rectangle, 40, 40, 48, 48, Paint, 0, 0));
+        list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+        list.EndFrame();
+
+        var (rendered, software, renderer) = Draw(owned, list, "blend-masked");
+
+        Assert.Equal(1, renderer.Blended);
+        Assert.Equal(0, renderer.Unblended);
+        Assert.Equal(1, renderer.Masked);
+
+        var middle = Middle(rendered);
+
+        Assert.True(
+            Distance(middle, expected) <= 3,
+            $"the device drew {middle}; the mask then the blend is {expected} (the old masked source-over {declined}, the "
+            + $"blend unmasked {unmasked})"
+        );
+
+        Assert.True(Distance(Middle(software), expected) <= 3, $"the software path drew {Middle(software)}; it should be {expected}");
+
+        var comparison = ImageComparer.Compare(rendered, software, new ImageTolerance(4, 0.001));
+
+        Assert.True(comparison.Matches, $"a masked blend: the executors disagree: {comparison}");
+    }
+
+    /// <summary>A mask entry of flat half coverage over the group's whole box.</summary>
+    /// <remarks>
+    ///     A ramp whose three stops are all one half: neither the identity the builder drops nor a
+    ///     hidden layer that erases the group, and a coverage with a closed form at every pixel.
+    /// </remarks>
+    static UiMask FlatHalf =>
+        new(
+            new Vector2(Side / 2f, Side / 2f),
+            new Vector2(40f, 40f),
+            Vector2.UnitX,
+            new Vector3(0.5f, 0.5f, 0.5f),
+            GradientStops.Default,
+            GradientShape.Linear,
+            Via: false
+        );
+
+    /// <summary>
+    ///     The field, a stripe down its left quarter, and a multiplied group over the middle half scaled
+    ///     1.5× about its centre — in <paramref name="units" /> document pixels across.
+    /// </summary>
+    static DrawList Scaled(int units) {
+        var k = units / (float)Side;
+        var list = new DrawList();
+
+        list.BeginFrame();
+        list.Add(new(DrawCommandKind.Rectangle, 0, 0, units, units, Field, 0, 0));
+        list.Add(new(DrawCommandKind.Rectangle, 0, 0, 32 * k, units, Stripe, 0, 0));
+
+        list.Add(
+            new DrawCommand(DrawCommandKind.LayerPush, 32 * k, 32 * k, 64 * k, 64 * k, new Color4(1f, 1f, 1f, Opacity), 0, 0) {
+                Blend = UiBlendMode.Multiply,
+                Transform = UiTransform.Scale(1.5f, 1.5f, new Vector2(64 * k, 64 * k))
+            }
+        );
+
+        list.Add(new(DrawCommandKind.Rectangle, 32 * k, 32 * k, 64 * k, 64 * k, Grey, 0, 0));
+        list.Add(new(DrawCommandKind.Rectangle, 40 * k, 40 * k, 48 * k, 48 * k, Paint, 0, 0));
+        list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+        list.EndFrame();
+
+        return list;
+    }
+
+    /// <summary>The two pixels of <see cref="Scaled" /> whose closed forms differ from every wrong reading.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>(20, 64)</b> is inside the scaled quad and over the stripe. Its surface coordinate is
+    ///         <c>64 + (20.5 − 64) / 1.5 = 35</c>, which is the grey rectangle's and lies over the
+    ///         field — so the right answer is the grey multiplied into the <i>stripe</i>; the
+    ///         texture-coordinate reading is the grey multiplied by the field and then laid source-over
+    ///         on the stripe it actually lands on (measured under sabotage: (89, 58, 99), exactly that).
+    ///         A capture confined to the untransformed bounds (32..96) would read whatever that texel
+    ///         last held, which is not a closed form, so it is named in the message and not asserted.
+    ///     </para>
+    ///     <para>
+    ///         <b>(64, 64)</b> is the middle: <see cref="Paint" /> over the field, the reading every
+    ///         untransformed fixture here already makes — the control that the group was composited at
+    ///         all.
+    ///     </para>
+    /// </remarks>
+    static void AssertScaledPixels(Bitmap picture, string executor) {
+        var edge = ExpectedOver(UiBlendMode.Multiply, Grey, Stripe);
+        var wrong = ExpectedOver(UiBlendMode.Multiply, Grey, Field, onto: Stripe);
+        var clear = ExpectedOver(UiBlendMode.Multiply, Grey, Background, onto: Stripe);
+
+        // The instrument: the right reading and the texture-coordinate one are far enough apart to tell.
+        Assert.True(Distance(edge, wrong) >= 20, $"stripe {edge} and field {wrong} readings are too close to tell apart");
+
+        var at = At(picture, 20, 64);
+
+        Assert.True(
+            Distance(at, edge) <= 3,
+            $"{executor}: (20, 64) is {at}; over the stripe it should be {edge} (the field reading is {wrong}, the clear's {clear})"
+        );
+
+        var middle = At(picture, 64, 64);
+        var expected = ExpectedOver(UiBlendMode.Multiply, Paint, Field);
+
+        Assert.True(Distance(middle, expected) <= 3, $"{executor}: the middle is {middle}; it should be {expected}");
+    }
+
+    /// <summary><paramref name="paint" /> at <paramref name="opacity" /> — <see cref="Opacity" /> unless given — blended by <paramref name="mode" /> onto an opaque <paramref name="under" />.</summary>
+    static (int Red, int Green, int Blue) ExpectedOver(
+        UiBlendMode mode,
+        Color4 paint,
+        Color4 under,
+        Color4? onto = null,
+        float opacity = Opacity
+    ) {
+        var destination = onto ?? under;
+        var source = new Color4(paint.R * opacity, paint.G * opacity, paint.B * opacity, opacity);
+        var mixed = UiBlend.Apply(mode, source, under);
+        var inverse = 1f - mixed.A;
+
+        return (
+            Code(mixed.R + (destination.R * inverse)),
+            Code(mixed.G + (destination.G * inverse)),
+            Code(mixed.B + (destination.B * inverse))
+        );
+
+        static int Code(float value) => (int)MathF.Round(Math.Clamp(value, 0f, 1f) * 255f);
+    }
+
+    static (int Red, int Green, int Blue) At(Bitmap bitmap, int x, int y) {
+        var offset = bitmap.Offset(x, y);
+
+        return (bitmap.Pixels[offset], bitmap.Pixels[offset + 1], bitmap.Pixels[offset + 2]);
+    }
+
+    /// <summary>Saves a picture under <c>VIXEN_KEEP_PICTURES</c>, for a person to look at.</summary>
+    static void Keep(Bitmap picture, string name) {
+        if (Environment.GetEnvironmentVariable("VIXEN_KEEP_PICTURES") is { Length: > 0 } directory) {
+            PngCodec.Save(Path.Combine(directory, $"{name}.png"), picture);
+        }
     }
 
     /// <summary>A blended group's drop-shadow quad goes out source-over, and is counted as a decline.</summary>
@@ -398,13 +759,24 @@ public sealed class UiBlendDeviceTests {
         static int Code(float value) => (int)MathF.Round(Math.Clamp(value, 0f, 1f) * 255f);
     }
 
-    /// <summary>A capture left over from last frame is not used for this frame's group at the same number.</summary>
+    /// <summary>A capture left over from last frame is not used for this frame's draw at the same number.</summary>
     /// <remarks>
     ///     ⚠ <b>Surface numbers are reused by position from frame to frame, and a capture outlives the
-    ///     group that made it.</b> Frame one blends a plain group and makes its capture; frame two puts
-    ///     a rotated group at the same number, which the device declines. A renderer that asked only
-    ///     "is there a capture for this number" would blend frame two against last frame's texels at
-    ///     the unrotated place — so what decides is this frame's own verdict, and this reads it.
+    ///     group that made it.</b> Frame one blends a group and makes its capture; frame two puts a
+    ///     draw the device declines at the same number. A renderer that asked only "is there a capture
+    ///     for this number" would blend frame two's draw against last frame's texels — so what decides
+    ///     is this frame's own verdict, and this reads it.
+    ///     <para>
+    ///         ⚠ <b>Frame two was a rotated group until #1379 made rotation blendable, a filtered one
+    ///         until #783 made a colour matrix blendable, and a masked one until #783 made a mask
+    ///         blendable too.</b> What is left is a blended group's <i>drop-shadow quad</i>: it
+    ///         carries the group's mode under <see cref="UiLayer.ShadowImage" /> and is never
+    ///         blendable. Frame one is a plain faded group then a multiplied one, so the capture is at
+    ///         the second surface number; frame two is one multiplied group with a shadow, whose
+    ///         shadow takes that same second number. Asked "is there a capture", the shadow would go
+    ///         through <c>UiBlend</c> against frame one's texels — measured under sabotage as
+    ///         <c>Blended</c> 3: the composite and both of the shadow's draws.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void AStaleCaptureIsNotUsedForTheNextFramesGroup() {
@@ -422,33 +794,53 @@ public sealed class UiBlendDeviceTests {
 
         owned.Owns(renderer.Dispose);
 
-        var plain = Group(UiBlendMode.Multiply);
-        Frame(plain, "ui-blend-first");
+        var first = new DrawList();
+        first.BeginFrame();
+        first.Add(new(DrawCommandKind.Rectangle, 0, 0, Side, Side, Field, 0, 0));
 
+        // Surface zero: faded and not blended, so it makes no capture.
+        first.Add(new DrawCommand(DrawCommandKind.LayerPush, 4, 4, 16, 16, new Color4(1f, 1f, 1f, 0.5f), 0, 0));
+        first.Add(new(DrawCommandKind.Rectangle, 4, 4, 16, 16, Grey, 0, 0));
+        first.Add(new(DrawCommandKind.Rectangle, 8, 8, 8, 8, Paint, 0, 0));
+        first.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+
+        // Surface one: multiplied, so its capture is made at that number.
+        first.Add(new DrawCommand(DrawCommandKind.LayerPush, 24, 24, 80, 80, new Color4(1f, 1f, 1f, Opacity), 0, 0) { Blend = UiBlendMode.Multiply });
+        first.Add(new(DrawCommandKind.Rectangle, 24, 24, 80, 80, Grey, 0, 0));
+        first.Add(new(DrawCommandKind.Rectangle, 40, 40, 48, 48, Paint, 0, 0));
+        first.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+        first.EndFrame();
+
+        var built = Frame(first, "ui-blend-first");
+
+        // The instrument: the capture really is at the number the shadow will take.
         Assert.Equal(1, renderer.Blended);
+        Assert.Equal(UiGeometryBuilder.LayerImage(1), built.Layers.Single(layer => layer.Blend != UiBlendMode.Normal).Image);
 
-        var rotated = new DrawList();
-        rotated.BeginFrame();
-        rotated.Add(new(DrawCommandKind.Rectangle, 0, 0, Side, Side, Field, 0, 0));
-
-        rotated.Add(
+        var second = new DrawList();
+        second.BeginFrame();
+        second.Add(new(DrawCommandKind.Rectangle, 0, 0, Side, Side, Field, 0, 0));
+        second.Add(
             new DrawCommand(DrawCommandKind.LayerPush, 24, 24, 80, 80, new Color4(1f, 1f, 1f, Opacity), 0, 0) {
                 Blend = UiBlendMode.Multiply,
-                Transform = UiTransform.Rotation(15f, new Vector2(Side / 2f, Side / 2f))
+                Shadow = new UiDropShadow(new Vector2(6f, 6f), 0f, new Color4(0.1f, 0.6f, 0.9f, 1f))
             }
         );
+        second.Add(new(DrawCommandKind.Rectangle, 24, 24, 80, 80, Grey, 0, 0));
+        second.Add(new(DrawCommandKind.Rectangle, 40, 40, 48, 48, Paint, 0, 0));
+        second.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+        second.EndFrame();
 
-        rotated.Add(new(DrawCommandKind.Rectangle, 24, 24, 80, 80, new Color4(0.5f, 0.5f, 0.5f, 1f), 0, 0));
-        rotated.Add(new(DrawCommandKind.Rectangle, 40, 40, 48, 48, Paint, 0, 0));
-        rotated.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
-        rotated.EndFrame();
+        built = Frame(second, "ui-blend-second");
 
-        Frame(rotated, "ui-blend-second");
+        Assert.Equal(UiGeometryBuilder.LayerImage(1), Assert.Single(built.Layers).ShadowImage);
 
-        Assert.Equal(0, renderer.Blended);
-        Assert.Equal(1, renderer.Unblended);
+        // The group's own composite blends; its shadow — at the stale capture's number — does not,
+        // and is counted twice, once in the frame and once in the group's own capture's replay.
+        Assert.Equal(1, renderer.Blended);
+        Assert.Equal(2, renderer.Unblended);
 
-        void Frame(DrawList list, string name) {
+        UiGeometry Frame(DrawList list, string name) {
             var colour = owned.ColourTarget(name);
             var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
             var geometry = new UiGeometryBuilder().Build(list, cache, Viewport);
@@ -468,6 +860,8 @@ public sealed class UiBlendDeviceTests {
             );
 
             owned.Graph.Reset();
+
+            return geometry;
         }
     }
 

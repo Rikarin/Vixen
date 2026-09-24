@@ -27,6 +27,21 @@
         -->
         <ProjectReference Include="..\Vixen.Ui\Vixen.Ui.csproj" />
         <ProjectReference Include="..\Vixen.Rendering\Vixen.Rendering.csproj" />
+
+        <!--
+            The descriptor and serialiser generators, for the one compositor node kind this assembly
+            defines. A document names !UiCompose (#1378), and the YAML binder resolves the tag through
+            the registration the first emits — Vixen.Rendering.Terrain's arrangement for !Terrain, and
+            for its reason: analyzers do not flow through a ProjectReference, so a contract name
+            generated in Vixen.Rendering is not generated here.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
 </Project>

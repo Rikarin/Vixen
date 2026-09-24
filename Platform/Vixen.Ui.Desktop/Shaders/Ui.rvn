@@ -748,6 +748,135 @@ struct MaskEntry {
     var area: float4
 }
 
+/// One `mask-image` entry's coverage, for the two stages that apply a mask list: `UiMask` and
+/// `UiBlend`.
+///
+/// ⚠ **Static functions on a struct, because the two stages cannot share a base.** A Raven base
+/// shader may contribute methods and no storage (RVN3002), and the walk over a list reads the
+/// stage's own `masks` binding — a buffer cannot be passed to a function either. So each stage keeps
+/// its own ten-line `List` and everything a walk calls per entry is here, once. These were `UiMask`'s
+/// own methods until a blended group learnt to be masked (#783), and they moved unchanged.
+struct UiMaskList {
+    /// Where a point sits inside the tile it lands in, as an offset from that tile's centre.
+    ///
+    /// ⚠ `floor` rather than a `frac`-based wrap, so a negative offset lands in the tile below rather
+    /// than mirroring into the one above — invisible on a tile centred in its box, obvious on one a
+    /// `mask-position` has moved.
+    static func Wrap(value: float, half: float): float {
+        val period = half * 2f
+        val shifted = value + half
+
+        return shifted - period * floor(shifted / period) - half
+    }
+
+    /// One entry's coverage at a point, in document pixels. The host's `UiMask.Coverage` is the
+    /// transcription.
+    static func Coverage(entry: MaskEntry, point: float2): float {
+        var local = point
+
+        if (entry.area.z != 0f || entry.area.w != 0f) {
+            val tile = float2(abs(entry.area.z), abs(entry.area.w))
+            val inside = point - entry.area.xy
+
+            // Outside a tile that does not repeat there is no layer, and no layer is zero coverage —
+            // not the ramp's end value clamped, which is what doing nothing here would give.
+            if (entry.area.z <= 0f && abs(inside.x) > tile.x) {
+                return 0f
+            }
+
+            if (entry.area.w <= 0f && abs(inside.y) > tile.y) {
+                return 0f
+            }
+
+            // ⚠ Back into document pixels rather than staying tile-relative: `box.xy` is the ramp's
+            // own centre *in the first tile* and is absolute, so subtracting one origin twice is the
+            // error this shape exists to make impossible.
+            local = entry.area.xy + float2(
+                entry.area.z > 0f ? Wrap(inside.x, tile.x) : inside.x,
+                entry.area.w > 0f ? Wrap(inside.y, tile.y) : inside.y
+            )
+        }
+
+        val progress = Progress(local - entry.box.xy, entry.box.zw, entry.ramp.xy, int(entry.ramp.z + 0.5f))
+
+        if (entry.ramp.w > 0.5f) {
+            if (progress < entry.stops.x) {
+                return lerp(entry.alphas.x, entry.alphas.y, Span(progress, entry.alphas.w, entry.stops.x))
+            }
+
+            return lerp(entry.alphas.y, entry.alphas.z, Span(progress, entry.stops.x, entry.stops.y))
+        }
+
+        return lerp(entry.alphas.x, entry.alphas.z, Span(progress, entry.alphas.w, entry.stops.y))
+    }
+
+    /// How far along its gradient line a point is, from zero at the start to one at the end.
+    ///
+    /// ⚠ The parameterisation is `UiBox.Parameter`'s, to the constant, and the host's
+    /// `UiMask.Coverage` is the third copy. A `mask-image` and a `background-image` written with the
+    /// same gradient have to produce ramps that line up, and the only way to be sure of that is to
+    /// compute the same number the same way.
+    static func Progress(offset: float2, halfSize: float2, axis: float2, kind: int): float {
+        if (kind == 2) {
+            // `ellipse farthest-corner at center`: the point over the half size puts the farthest
+            // *side* at one and the corner at root two, so the reciprocal of root two is the whole
+            // of it.
+            val normalised = offset / max(halfSize, float2(0.0001f, 0.0001f))
+            return length(normalised) * 0.7071067811865476f
+        }
+
+        if (kind == 3) {
+            // CSS starts at twelve o'clock and sweeps clockwise; screen space is y-down, so up is -y
+            // and `atan2(x, -y)` is already CSS's angle. The axis's own angle is the `from <angle>`.
+            val angle = atan2(offset.x, -offset.y) - atan2(axis.x, -axis.y)
+            return frac(angle * 0.15915494309189535f + 1f)
+        }
+
+        val direction = dot(axis, axis) > 1e-12f ? normalize(axis) : float2(1f, 0f)
+        val reach = abs(direction.x * halfSize.x) + abs(direction.y * halfSize.y)
+
+        return dot(offset, direction) / max(reach, 0.0001f) * 0.5f + 0.5f
+    }
+
+    /// Where `t` sits between two stops, flat outside them.
+    ///
+    /// A zero-width span is a hard edge rather than a division by zero: `from-50% to-50%` is a legal
+    /// declaration and a step is what it means.
+    static func Span(t: float, from: float, to: float): float {
+        val width = to - from
+
+        if (width > 0.0001f) {
+            return saturate((t - from) / width)
+        }
+
+        return t < from ? 0f : 1f
+    }
+
+    /// Porter-Duff on the coverage alone, source over backdrop. The host's `UiMask.Compose` is the
+    /// transcription and the numbering is `MaskComposite`'s: 0 add, 1 subtract, 2 intersect,
+    /// 3 exclude.
+    ///
+    /// ⚠ Not clamped here. A stage's `List` clamps once at the end, because clamping every step would
+    /// turn `subtract` into a different operator on any input already outside `[0, 1]` — and the C#
+    /// side has to be free to make the same choice, or the two folds diverge on exactly the lists
+    /// nobody tests.
+    static func Compose(operation: int, source: float, backdrop: float): float {
+        if (operation == 1) {
+            return source * (1f - backdrop)
+        }
+
+        if (operation == 2) {
+            return source * backdrop
+        }
+
+        if (operation == 3) {
+            return source * (1f - backdrop) + backdrop * (1f - source)
+        }
+
+        return source + backdrop * (1f - source)
+    }
+}
+
 /// What the three compositing stages share: the colour matrix, and where their push constants sit.
 ///
 /// ⚠ **The sixteen bytes of `reserved` in each of them are the vertex stage's projection, and they
@@ -1125,12 +1254,15 @@ shader UiMask {
     /// literal reading `intersect` on the bottom layer is `s·0`, and every `mask-t-from-*` Tailwind
     /// has ever emitted would blank its element. `UiMask.Coverage` on the host argues it at length and
     /// makes the identical choice.
+    ///
+    /// ⚠ The per-entry arithmetic is `UiMaskList`'s, shared with `UiBlend`; only this walk is here,
+    /// because it reads the stage's own `masks` binding and a buffer cannot be handed to a function.
     func List(point: float2, first: int, count: int): float {
         if (count <= 0) {
             return 1f
         }
 
-        var result = Coverage(masks[first + count - 1], point)
+        var result = UiMaskList.Coverage(masks[first + count - 1], point)
 
         for (index in 0 .. count - 2) {
             // ⚠ Forwards over a reversed index, because Raven's ranges only ascend. The walk has to
@@ -1138,129 +1270,10 @@ shader UiMask {
             val at = count - 2 - index
             val entry = masks[first + at]
 
-            result = Compose(int(entry.stops.z + 0.5f), Coverage(entry, point), result)
+            result = UiMaskList.Compose(int(entry.stops.z + 0.5f), UiMaskList.Coverage(entry, point), result)
         }
 
         return saturate(result)
-    }
-
-    /// Where a point sits inside the tile it lands in, as an offset from that tile's centre.
-    ///
-    /// ⚠ `floor` rather than a `frac`-based wrap, so a negative offset lands in the tile below rather
-    /// than mirroring into the one above — invisible on a tile centred in its box, obvious on one a
-    /// `mask-position` has moved.
-    func Wrap(value: float, half: float): float {
-        val period = half * 2f
-        val shifted = value + half
-
-        return shifted - period * floor(shifted / period) - half
-    }
-
-    /// One entry's coverage at a point, in document pixels. The host's `UiMask.Coverage` is the
-    /// transcription.
-    func Coverage(entry: MaskEntry, point: float2): float {
-        var local = point
-
-        if (entry.area.z != 0f || entry.area.w != 0f) {
-            val tile = float2(abs(entry.area.z), abs(entry.area.w))
-            val inside = point - entry.area.xy
-
-            // Outside a tile that does not repeat there is no layer, and no layer is zero coverage —
-            // not the ramp's end value clamped, which is what doing nothing here would give.
-            if (entry.area.z <= 0f && abs(inside.x) > tile.x) {
-                return 0f
-            }
-
-            if (entry.area.w <= 0f && abs(inside.y) > tile.y) {
-                return 0f
-            }
-
-            // ⚠ Back into document pixels rather than staying tile-relative: `box.xy` is the ramp's
-            // own centre *in the first tile* and is absolute, so subtracting one origin twice is the
-            // error this shape exists to make impossible.
-            local = entry.area.xy + float2(
-                entry.area.z > 0f ? Wrap(inside.x, tile.x) : inside.x,
-                entry.area.w > 0f ? Wrap(inside.y, tile.y) : inside.y
-            )
-        }
-
-        val progress = Progress(local - entry.box.xy, entry.box.zw, entry.ramp.xy, int(entry.ramp.z + 0.5f))
-
-        if (entry.ramp.w > 0.5f) {
-            if (progress < entry.stops.x) {
-                return lerp(entry.alphas.x, entry.alphas.y, Span(progress, entry.alphas.w, entry.stops.x))
-            }
-
-            return lerp(entry.alphas.y, entry.alphas.z, Span(progress, entry.stops.x, entry.stops.y))
-        }
-
-        return lerp(entry.alphas.x, entry.alphas.z, Span(progress, entry.alphas.w, entry.stops.y))
-    }
-
-    /// How far along its gradient line a point is, from zero at the start to one at the end.
-    ///
-    /// ⚠ The parameterisation is `UiBox.Parameter`'s, to the constant, and the host's
-    /// `UiMask.Coverage` is the third copy. A `mask-image` and a `background-image` written with the
-    /// same gradient have to produce ramps that line up, and the only way to be sure of that is to
-    /// compute the same number the same way.
-    func Progress(offset: float2, halfSize: float2, axis: float2, kind: int): float {
-        if (kind == 2) {
-            // `ellipse farthest-corner at center`: the point over the half size puts the farthest
-            // *side* at one and the corner at root two, so the reciprocal of root two is the whole
-            // of it.
-            val normalised = offset / max(halfSize, float2(0.0001f, 0.0001f))
-            return length(normalised) * 0.7071067811865476f
-        }
-
-        if (kind == 3) {
-            // CSS starts at twelve o'clock and sweeps clockwise; screen space is y-down, so up is -y
-            // and `atan2(x, -y)` is already CSS's angle. The axis's own angle is the `from <angle>`.
-            val angle = atan2(offset.x, -offset.y) - atan2(axis.x, -axis.y)
-            return frac(angle * 0.15915494309189535f + 1f)
-        }
-
-        val direction = dot(axis, axis) > 1e-12f ? normalize(axis) : float2(1f, 0f)
-        val reach = abs(direction.x * halfSize.x) + abs(direction.y * halfSize.y)
-
-        return dot(offset, direction) / max(reach, 0.0001f) * 0.5f + 0.5f
-    }
-
-    /// Where `t` sits between two stops, flat outside them.
-    ///
-    /// A zero-width span is a hard edge rather than a division by zero: `from-50% to-50%` is a legal
-    /// declaration and a step is what it means.
-    func Span(t: float, from: float, to: float): float {
-        val width = to - from
-
-        if (width > 0.0001f) {
-            return saturate((t - from) / width)
-        }
-
-        return t < from ? 0f : 1f
-    }
-
-    /// Porter-Duff on the coverage alone, source over backdrop. The host's `UiMask.Compose` is the
-    /// transcription and the numbering is `MaskComposite`'s: 0 add, 1 subtract, 2 intersect,
-    /// 3 exclude.
-    ///
-    /// ⚠ Not clamped here. `List` clamps once at the end, because clamping every step would turn
-    /// `subtract` into a different operator on any input already outside `[0, 1]` — and the C# side
-    /// has to be free to make the same choice, or the two folds diverge on exactly the lists nobody
-    /// tests.
-    func Compose(operation: int, source: float, backdrop: float): float {
-        if (operation == 1) {
-            return source * (1f - backdrop)
-        }
-
-        if (operation == 2) {
-            return source * backdrop
-        }
-
-        if (operation == 3) {
-            return source * (1f - backdrop) + backdrop * (1f - source)
-        }
-
-        return source + backdrop * (1f - source)
     }
 }
 
@@ -1287,14 +1300,34 @@ shader UiMask {
 /// `UiBlend.Apply` line for line; the clamp to `[0, 1]` is a statement about the frame's white and
 /// not about the number one.
 ///
-/// ⚠ **The backdrop is read at the composite quad's own texture coordinate**, which is the target
-/// texel for an untransformed group because every layer surface is the viewport's size — the same
-/// fact `UiMask` and `UiColour` rely on. It is *not* for a group under `rotate`/`scale`/`perspective`,
-/// whose quad has left the surface's space; Raven has no fragment-position input to read instead, so
-/// the host does not route a transformed group here and counts it in `Unblended`.
+/// ⚠ **The backdrop is read at the composite quad's own texture coordinate for an untransformed
+/// group, and at the fragment's window position for a transformed one** (#1379). The texture
+/// coordinate is the target texel only while the quad is where the surface is — every layer surface is
+/// the viewport's size, the fact `UiMask` and `UiColour` rely on — and a group under
+/// `rotate`/`scale`/`perspective` has left that space: its quad carries the *untransformed* surface
+/// coordinate, which is right for the group's own texels and wrong for what lies under the pixel.
+/// `SV_Position` is that pixel, in the same framebuffer texels the capture is in at any density, so
+/// the host pushes the capture's reciprocal size in `operation.zw` for a transformed group and zero
+/// otherwise. ⚠ This was once declined on the grounds that Raven had no fragment-position input; it
+/// has had one since 289b50247, and `Foliage.rvn` and `WaterMesh.rvn` read it.
+///
+/// ⚠ **The position read assumes the target's origin is the interface's**, which is what every host
+/// arranges — a pass's viewport defaults to the whole attachment, and a group's own surface is the
+/// viewport's size. An interface drawn into a sub-rectangle of a larger attachment would read its
+/// backdrop offset by that rectangle's corner, and only for a transformed blended group; the
+/// untransformed path keeps the texture coordinate so that it has no such assumption to make.
 shader UiBlend {
     [PerFrame] var source: Texture2D
     [PerFrame] var sourceSampler: Sampler
+
+    /// The group's `mask-image` list, at the binding `UiMask` reads it from — binding 2 of the image
+    /// set every composite draw binds, which `BindingPlan.Of` numbers after the texture and the
+    /// sampler whatever order they are declared in.
+    ///
+    /// ⚠ **Read only when `list.y` says the group has one** (#783). Until this was here a blended
+    /// group that also carried a mask kept `UiMask` for its composite and went out source-over, one
+    /// of the arrangements `Unblended` counted.
+    [PerFrame] var masks: Buffer<MaskEntry>
 
     /// What the group composites into, captured before its composite draw — premultiplied, in the
     /// frame's units.
@@ -1304,11 +1337,35 @@ shader UiBlend {
     /// The vertex stage's projection. See `UiComposite`.
     [PushConstant] var reserved: float4 = float4(0f, 0f, 0f, 0f)
 
-    /// `x` the mode as `UiBlendMode` numbers it, `y` the frame's white level — `UiGeometry.WhiteLevel`.
+    /// `x` the mode as `UiBlendMode` numbers it, `y` the frame's white level — `UiGeometry.WhiteLevel`,
+    /// `zw` one over the capture's size in texels for a transformed group and zero for any other.
     ///
     /// ⚠ **A white of one is the default and is right for every display-referred target**; zero or
     /// less is not a white, and is read as one, which is the host's own fallback.
     [PushConstant] var operation: float4 = float4(0f, 1f, 0f, 0f)
+
+    /// `x` one when the group carries a `filter` colour matrix — the three rows below — and zero when
+    /// it does not.
+    ///
+    /// ⚠ **A flag and not an identity matrix, because `UiComposite.Filter` is not the identity on an
+    /// identity matrix.** It clamps premultiplied colour to `[0, a]`, which is CSS's clamp for a
+    /// filter and is wrong for a group that has none: in a frame built at a white level above one the
+    /// colour is legitimately above its alpha, and every blended HUD panel would be clamped to one
+    /// candela on its way into the blend.
+    [PushConstant] var filter: float4 = float4(0f, 0f, 0f, 0f)
+
+    /// The group's colour matrix, as `UiColour` declares it. See `UiComposite.Filter`.
+    [PushConstant] var red: float4 = float4(1f, 0f, 0f, 0f)
+    [PushConstant] var green: float4 = float4(0f, 1f, 0f, 0f)
+    [PushConstant] var blue: float4 = float4(0f, 0f, 1f, 0f)
+
+    /// `UiMask`'s `list`: `x` the first entry's index in `masks`, `y` how many — zero for a group with
+    /// no mask — and `z` framebuffer pixels per document pixel.
+    ///
+    /// ⚠ At bytes 96 to 112 of the shared `[0, 128]` range, after the matrix. `UiMask` puts its list
+    /// after its own matrix too, but its block has no `operation` or `filter` ahead of the rows, so
+    /// the two stages read the same three numbers from different offsets and the host writes each.
+    [PushConstant] var list: float4 = float4(0f, 0f, 0f, 0f)
 
     stream var uv: float2
     stream var colour: float4
@@ -1316,12 +1373,30 @@ shader UiBlend {
 
     [FragmentShader]
     [Semantic("SV_Target")]
-    func Fragment(): float4 {
+    func Fragment([Semantic("SV_Position")] fragment: float4): float4 {
         // ⚠ `UiImage`'s premultiplied path verbatim, before anything is mixed: the group's opacity is
         // the composite quad's vertex alpha, and § 5.1 blends the group *as it will be composited*.
+        // ⚠ Filtered first, as `UiColour` filters it (#783): Filter Effects 1 applies `filter` to the
+        // element's rendered result, and CSS Compositing 1 blends that result with the backdrop — so a
+        // group with both is the matrix, then the blend, which is the order `SoftwareUiRasterizer`
+        // takes when it folds the matrix into the surface before compositing it.
         val sampled = source.Sample(sourceSampler, uv)
-        val group = float4(sampled.rgb * colour.rgb * colour.a, sampled.a * colour.a)
-        val under = backdrop.Sample(backdropSampler, uv)
+        val paint = filter.x > 0.5f ? UiComposite.Filter(sampled, red, green, blue) : sampled.rgb
+
+        // ⚠ Masked before it is mixed, which is CSS's order — a mask clips the element's rendered
+        // result and § 5.1 blends what is left — and `SoftwareUiRasterizer`'s, whose composite
+        // returns the masked fragment that its blend then mixes. All four channels, for `UiMask`'s
+        // premultiplied reason. The point is `UiMask`'s: the surface texel through the *untransformed*
+        // texture coordinate, divided down to document pixels, so a rotated group's mask turns with it.
+        val size = source.GetDimensions(0)
+        val point = uv * float2(float(size.x), float(size.y)) / max(list.z, 0.0001f)
+        val coverage = list.y > 0.5f ? List(point, int(list.x + 0.5f), int(list.y + 0.5f)) : 1f
+        val group = float4(paint * colour.rgb * colour.a * coverage, sampled.a * colour.a * coverage)
+
+        // Where the backdrop is under this pixel: the window position for a transformed group, whose
+        // quad has left the surface's space, and the surface coordinate otherwise. See above.
+        val at = operation.z > 0f ? fragment.xy * operation.zw : uv
+        val under = backdrop.Sample(backdropSampler, at)
 
         return Apply(int(operation.x + 0.5f), group, under, operation.y)
     }
@@ -1339,6 +1414,25 @@ shader UiBlend {
         val mixed = (1f - under.a) * cs + under.a * Mix(mode, cb, cs)
 
         return float4(mixed * (group.a * scale), group.a)
+    }
+
+    /// The whole mask list's coverage at a point — `UiMask.List`, over this stage's own `masks`. See
+    /// `UiMaskList` for why the walk is written twice and nothing it calls is.
+    func List(point: float2, first: int, count: int): float {
+        if (count <= 0) {
+            return 1f
+        }
+
+        var result = UiMaskList.Coverage(masks[first + count - 1], point)
+
+        for (index in 0 .. count - 2) {
+            val at = count - 2 - index
+            val entry = masks[first + at]
+
+            result = UiMaskList.Compose(int(entry.stops.z + 0.5f), UiMaskList.Coverage(entry, point), result)
+        }
+
+        return saturate(result)
     }
 
     /// § 5.1's `B(Cb, Cs)` for the sixteen modes, numbered as `UiBlendMode` numbers them.

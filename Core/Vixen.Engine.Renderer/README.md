@@ -143,14 +143,26 @@ steps four and five of a five-step host contract that no host in the tree perfor
 second pass cannot be opened — so it can only `Record`. `Upload` writes this frame's vertices and
 copies the glyph atlas; `Compose` renders each composited group into a surface of its own. Skipping
 the first was written down here as drawing a HUD out of memory nothing has written; ⚠ on Vulkan it
-throws instead — the ring is created by the first upload, so `Record` binds a vertex buffer handle
-that names nothing. Skipping the second draws every faded group **opaque** rather than approximately
+threw instead — the ring is created by the first upload, so `Record` bound a vertex buffer handle
+that named nothing and `BindVertexBuffer` raised `ArgumentException` mid-graph — and since #1377
+`Record` and `Compose` refuse such a frame by name before recording anything. Skipping the second draws every faded group **opaque** rather than approximately
 faded, because `UiGeometryBuilder` emits a group's contents at alpha one so the surface can carry
 the fade, and that one raises nothing at all. Both were measured on a real device by removing the
 two calls under `InterfaceOverASceneDeviceTests` — and both are now made by the prologue below, which both hosts already call, and what is left to a host is
 `Renderer`, `Mount` and a per-frame `Set`. `DrawingTheWorldUploadsAndComposesAMountedInterface`
 asserts it by calling nothing else, and `InterfaceOverASceneDeviceTests` in the golden suite draws a
 `UiDocument` over a standard frame on a real device through exactly that path.
+
+⚠ **The prologue's compose runs before the scene, so a frame can move it after** (#1378). Composed
+there, a HUD's top-level `mix-blend-mode` and `backdrop-filter` read transparent black for the world,
+which `UiRenderFeature.Sceneless` counts. The constructor also registers `UiComposeFactory` on
+`Host.Builder`, bound to `Ui`, so a document may name a `!UiCompose` node ahead of its interface pass:
+the node composes from inside the render graph, after whatever wrote its `source`, with that target
+as the backdrop, and `Draw` skips its own compose whenever the node and every node above it are
+enabled (`ComposesInFrame`, which walks the built tree once per load and reads the flags per frame).
+`InterfaceComposedAfterTheSceneTests` holds the order on the null recorder; the golden
+`InterfaceOverASceneDeviceTests` holds the pictures. The editor gets both through the `WorldRenderer`
+it owns.
 
 ⚠ **The surface carries the display's density, and both of those calls read it.** `UiInterface.Scale`
 is how many framebuffer pixels one of the geometry's units is; it defaults to one, which is right

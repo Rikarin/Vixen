@@ -4,7 +4,7 @@ slug: ui/compositing
 kind: guide
 area: Core
 summary: How a translucent subtree is rendered into a surface of its own and blended back once — the offscreen pass behind `opacity`, `filter: blur()`, the seven colour functions, `drop-shadow()` and `mask-image`, why a group is not the same as fading each element, why a colour matrix and a mask cost neither a surface nor a pass where a blur and a drop shadow cost both, why a mask's seam is fixed on both executors where a matrix's is free, why a drop shadow's seam is fixed by arithmetic that does not commute, how a colour matrix with zero coefficients turns a surface into a tinted silhouette, how a list of mask layers is folded into one coverage and what `mask-composite` means for each, when the pass is skipped as an exact identity, what the surfaces cost, how a backdrop filter is a replay of the draw-list prefix rather than a read-back and what that cost the compositor's walk, what gradient text would still need on top of it, how `rotate` and `scale` ride the composite quad's four vertices for the price of no shader at all, and why `mix-blend-mode` is the one group-wide effect that has to read its destination — free on the software rasteriser, and a replayed capture in a second descriptor set on the device.
-api: [T:Vixen.Ui.Rendering.UiLayer, T:Vixen.Ui.Rendering.UiBlend, T:Vixen.Ui.Rendering.UiBlendMode, T:Vixen.Ui.Rendering.UiColorMatrix, T:Vixen.Ui.Rendering.UiDropShadow, T:Vixen.Ui.Rendering.UiBackdrop, T:Vixen.Ui.Renderer.UiBackdropSource, T:Vixen.Ui.Rendering.UiMask, T:Vixen.Ui.Rendering.MaskComposite, T:Vixen.Ui.Rendering.UiTransform]
+api: [T:Vixen.Ui.Rendering.UiLayer, T:Vixen.Ui.Rendering.UiBlend, T:Vixen.Ui.Rendering.UiBlendMode, T:Vixen.Ui.Rendering.UiColorMatrix, T:Vixen.Ui.Rendering.UiDropShadow, T:Vixen.Ui.Rendering.UiBackdrop, T:Vixen.Ui.Renderer.UiBackdropSource, T:Vixen.Ui.Renderer.UiComposeAsset, T:Vixen.Ui.Renderer.UiComposeRenderer, T:Vixen.Ui.Renderer.UiComposeFactory, T:Vixen.Ui.Rendering.UiMask, T:Vixen.Ui.Rendering.MaskComposite, T:Vixen.Ui.Rendering.UiTransform]
 tags: [ui, rendering, opacity, blur, filter, compositing, offscreen, mix-blend-mode, blend, isolation, filters, grayscale, colour-matrix, drop-shadow, backdrop-filter, mask, mask-image, mask-composite, transform, rotate, scale]
 since: 0.2
 status: preview
@@ -830,16 +830,17 @@ counts the draws that blended; `UiBlendDeviceTests` holds all fifteen non-normal
 form and to `SoftwareUiRasterizer` on a device, plus overlapping siblings (the second one's backdrop
 replays the first one's *blended* composite) and a blend nested in a translucent group.
 
-⚠ **Four arrangements still composite source-over on the device, and `UiRenderer.Unblended` counts
-the first three** — it needs to, because a blend over a flat backdrop is often the identity
-(`multiply` against white, `screen` against black), so neither a screenshot nor a comparison of the
-two executors can tell. The fourth has no counter, for the reason given against it:
+⚠ **Two arrangements still composite source-over on the device, and `UiRenderer.Unblended` counts
+the first** — it needs to, because a blend over a flat backdrop is often the identity (`multiply`
+against white, `screen` against black), so neither a screenshot nor a comparison of the two
+executors can tell. The second is invisible to it, for the reason given against it, and is counted
+by `UiRenderFeature.Sceneless` instead (#1378). ⚠ **A group's own `filter` and `mask-image` are
+not among them any more** (#783): `UiBlend` applies the colour matrix and then the mask list before it
+mixes — the order CSS gives and `SoftwareUiRasterizer` takes — the matrix behind a flag rather than
+an identity matrix because `UiComposite.Filter` clamps to the alpha and would dim a frame built
+above a white of one, and the mask through `UiMaskList`, the per-entry coverage `UiMask` now shares
+with it. `UiBlendDeviceTests` holds both to § 5.1 on the filtered or masked paint.
 
-- a group under `rotate`, `scale` or `perspective` — the backdrop is read at the composite quad's
-  texture coordinate, which is the target texel only while the quad is where the surface is, and
-  Raven has no fragment-position input to recover it from;
-- a blended group that also carries a `filter` colour matrix or a `mask-image`, whose composite
-  belongs to the module that applies those and samples one texture;
 - a blended group's `drop-shadow()` quad, which the software path blends separately from the group
   (its own word-for-word approximation) and the device composites plainly — which of the two is
   right is still to be settled rather than reproduced. It is counted as a draw of its own, so a
@@ -852,7 +853,20 @@ two executors can tell. The fourth has no counter, for the reason given against 
   transparent black, which is right wherever the interface painted under it and is source-over
   wherever only the scene did. The renderer cannot tell those apart — a default `UiBackdropSource` is
   also what a host that painted nothing would pass — and declining the blend would lose it in the
-  case that works, a badge over a plain HUD panel.
+  case that works, a badge over a plain HUD panel. ⚠ **A frame can now opt out of this one** — see
+  *A HUD over the world* below.
+
+⚠ **A group under `rotate`, `scale` or `perspective` was a fourth until #1379, declined for a reason
+that was false.** Its composite quad carries the *untransformed* surface coordinate — right for the
+group's own texels, wrong for what lies under the pixel — and Raven was said to have no
+fragment-position input to recover the target texel from. It has had one since 289b50247 (`Foliage`,
+`Grass` and `WaterMesh` read it), so `UiBlend` reads the capture at `SV_Position` for such a group,
+the host pushes the capture's reciprocal size in texels for it, and its capture is taken over the
+whole surface because `UiLayer.Bounds` stays untransformed. `UiBlendDeviceTests` holds a scaled group
+to a closed form at a pixel its surface coordinate would read wrongly — at density one and two — and
+a rotated one to `SoftwareUiRasterizer`. ⚠ The untransformed path still reads the texture coordinate:
+the window-position read assumes the target's origin is the interface's, which every host arranges,
+and the untransformed path has no reason to take on that assumption.
 
 ⚠ **The price written here until 2026-09-06 — "a fourth binding on the shared `ui atlas` layout" —
 was not a price, it was an impossibility.** Raven's `BindingPlan.Of` numbers a descriptor set by
@@ -883,6 +897,45 @@ on the one the references come from, is the shape this repository keeps finding 
 as *considered and rejected with evidence* rather than left for a seventh audit to rediscover: `Min`
 and `Max` are a real temptation, because `darken` and `lighten` look like them and are not — those
 two are defined on un-premultiplied colour and a composite surface holds premultiplied.
+
+### A HUD over the world: `!UiCompose`
+
+A world renderer composes a mounted interface in `WorldRenderer.Draw`'s prologue, before any pass of
+the frame has run — which is the only place a host that declares nothing can do it, and the reason a
+HUD's top-level `mix-blend-mode` and `backdrop-filter` read transparent black for the world (#1378).
+A frame document that names a `!UiCompose` node moves that work to where the node sits and hands
+the node's `source` over as `UiBackdropSource.Image`:
+
+```yaml
+beforeUi:
+  - !UiCompose
+    name: Compose
+    source: SceneColour        # the target the interface pass draws into
+  - !RenderPass
+    name: Interface
+    colourTargets: [SceneColour]
+    loaded: [SceneColour]
+    children:
+      - !SingleStage { name: Hud, view: Camera, stage: Ui }
+```
+
+The node is one render-graph pass with no attachments — the graph runs such a pass's body outside
+any render pass, which is where `UiRenderer.Compose` has to be recorded — that reads `source` as a
+shader resource. That read is what places it after whatever last wrote the scene; it is marked as a
+side effect, because it writes only surfaces the graph has never heard of and would otherwise be
+culled. `WorldRenderer.Draw` then skips its own compose, for as long as the node and every node above
+it are enabled. A multiplied HUD panel over the tier goldens' scene is then `grey · scene` at every
+pixel and a glass panel with `backdrop-filter: invert(1)` is `1 − scene`, where the prologue's
+compose gave a flat grey slab and the scene untouched; `InterfaceOverASceneDeviceTests` holds both
+to those closed forms on a device, and `UiRenderFeature.Sceneless` reads zero.
+
+⚠ **`source` has to be `Sampled`, and a swapchain image is not** — Vixen's is created for colour
+attachment and transfer destination only. A frame that wants a scene-aware HUD renders into a target
+of its own, draws the interface into it and copies it out; the node refuses a target without the
+usage when the frame is built. It is the same frame's scene, not last frame's: the other way to give
+a HUD its world is the previous colour target, which lags every blended panel by a frame and still
+needs a copy taken at this same seam. A `source` of another size than the interface is resampled
+under it, and the node says so in its `Degraded`.
 
 ### Isolating which backdrop a blend reaches
 
