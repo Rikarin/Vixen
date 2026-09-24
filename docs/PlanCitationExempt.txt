@@ -1,7 +1,8 @@
-# Citations in docs/plan that record what a file said when the passage was written (#1356).
+# Citations that record what a file said when the passage was written (#1356, #1387, #1388).
 #
-# `Vixen.DocGen.Tests.RealPlanCitationTests` requires every backticked `File.ext:NNN` in docs/plan to
-# name a file that exists and a line it has, and a citation bound to a symbol — `Symbol` (`File.cs:NNN`)
+# `Vixen.DocGen.Tests.RealPlanCitationTests` requires every backticked `File.ext:NNN` in docs/**/*.md
+# and every README.md to name a file that exists and a line it has, a line with a word on it rather
+# than a blank or a lone brace, and a citation bound to a symbol — `Symbol` (`File.cs:NNN`)
 # or `File.cs:NNN` — `code` — to point at a line the symbol is on. A citation here is skipped, and
 # ⚠ this list can only shrink: an entry whose citation now passes, or is no longer in the document,
 # fails the same test.
@@ -14,6 +15,8 @@
 # written without backticks, whitespace, and the reason.
 
 docs/plan/36-an-extensible-editor.md EditorTerrainPanels.cs:451 F6 as surveyed; 81f9e68ec moved the app's terrain partial into Vixen.Editor.Terrain, and the same line now cites where it went
+docs/plan/45-commands-and-focus-scope.md BlockoutModulePanels.cs:93 G2's 2026-08-25 amendment; 9c32e744f deleted the blockout copy of Contextual and line 93 is blank now (#1388)
+docs/plan/45-commands-and-focus-scope.md DiagnosticsModule.cs:439 G2's 2026-08-25 amendment; 9c32e744f deleted the diagnostics copy of Contextual and line 439 is blank now (#1388)
 docs/plan/45-commands-and-focus-scope.md EditorApplication.cs:1774 G2's 2026-08-25 amendment; 9c32e744f replaced EditorApplication.Contextual with DockPanel.WhenPressedIn
 docs/plan/45-commands-and-focus-scope.md TerrainModule.cs:181 G2's 2026-08-25 amendment; 9c32e744f deleted the terrain copy of Contextual and the file is 178 lines now
 docs/plan/47-prefab-overrides-and-nested-prefabs.md Prefabs.cs:242 model (A)'s example; ff686af7d removed PrefabSource.IsOverridden, and at its parent the method is at Prefabs.cs:245 — the 242 was three lines early even then

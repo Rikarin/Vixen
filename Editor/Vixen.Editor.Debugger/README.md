@@ -228,7 +228,7 @@ it could not is kept below because each of its three findings turned out to shap
   it missed from all eight. `LossFor(connection)` is the per-link shape, and `UdpTransport.Loss`'s
   own remarks had said in as many words that this question "would need a different shape to answer".
 - ⚠ **There is no engine protocol version to bump.** The only one is
-  `SessionOptions.ProtocolVersion` (`Core/Vixen.Net/Sessions/SessionOptions.cs:44`), which the host
+  `SessionOptions.ProtocolVersion` (`Core/Vixen.Net/Sessions/SessionOptions.cs:45`), which the host
   sets and the handshake compares — so "this needs a version bump" would have been advice to every
   game that upgrades rather than an action the engine could take. The shape had to be chosen so that
   no bump is needed, and it was.

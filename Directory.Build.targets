@@ -118,16 +118,26 @@
     VX4002 exists to report — so a project that could hit VX4002 was a project VX4002's own advice
     could not help, and three separate comments in this tree had already propagated that advice.
 
-    Measured on `Core/Vixen.Ui.Controls.Advanced`, which self-imports and names only the property
-    generator, with `dotnet msbuild <project> -getItem:ProjectReference -p:VixenUi=true`: before this
-    change the markup compiler was absent from the list; after it, it is there.
+    Measured on `Core/Vixen.Ui.Controls`, which self-imports and names only the property generator,
+    with `dotnet msbuild <project> -getItem:ProjectReference -p:VixenUi=true`: with the old guard on
+    this item group the markup compiler is absent from the list; without it, it is there. ⚠ This
+    paragraph used to name `Core/Vixen.Ui.Controls.Advanced`, which named only the property generator
+    when it was written and has named both since `KeyBindingsView.vxml` moved into it (#650,
+    `80b110057`) — so repeating the measurement there shows no difference at all
+    ([#1371](https://github.com/Rikarin/Vixen/issues/1371)). Re-measured 2026-09-24 on both.
 
     ⚠ **And that `-p:` is an override, not a build this tree performs — so today the change moves no
-    project's reference list at all.** Exactly one project both sets `VixenUi` and self-imports
-    (`Editor/Vixen.Editor.Texturing`), and it already names both generators by hand, so it is owed
-    neither. This is a latent-correctness fix plus a diagnostics message that has stopped lying, and
-    it is exercised by `BuildIntegrationTests` rather than by any project the solution builds. Worth
-    saying plainly, because "measured live on four projects" reads as reach and is not.
+    project's reference list at all.** No project both sets `VixenUi` and self-imports. ⚠ This used
+    to say exactly one did, `Editor/Vixen.Editor.Texturing`, and that was never true: the
+    `<VixenUi>true</VixenUi>` a text search finds in its project file is inside a comment quoting
+    VX4002's advice, and `dotnet msbuild … -getProperty:VixenUi` evaluates it `false` — as it does
+    all thirteen projects that import `Vixen.Ui.targets` by hand. The four that do set `VixenUi`
+    (`Vixen.Editor.Blockout`, `Vixen.Editor.NodeGraph.Tests`, `HelloUi`, `Mmo.Ui`) import nothing
+    by hand (each evaluates `_VixenUiWiredByProject` empty). Re-measured for #1371.
+
+    This is a latent-correctness fix plus a diagnostics message that has stopped lying, and it is
+    exercised by `BuildIntegrationTests` rather than by any project the solution builds. Worth saying
+    plainly, because "measured live on four projects" reads as reach and is not.
 
     **The two guards do not have to be the same guard, and this is why they are not.** The flag
     exists to stop the *globs* being declared twice, which is a duplicate-item failure. An analyzer

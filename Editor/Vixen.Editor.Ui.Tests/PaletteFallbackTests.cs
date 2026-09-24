@@ -30,24 +30,47 @@ namespace Vixen.Editor.Ui.Tests;
 ///         wrong, which is the one that costs something.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The same shape written twenty-three more times is why this is a ledger and not an
-///         assertion of nothing.</b> <c>var(--danger, #f2696e)</c> seventeen times and
-///         <c>var(--accent, #6ba4f2)</c> four times in <c>AssetEditorTheme.vcss</c> are the identical
+///         ⚠ <b>The same shape was written twenty-three more times, and this held them as a ledger
+///         until #1389 emptied it.</b> <c>var(--danger, #f2696e)</c> seventeen times and
+///         <c>var(--accent, #6ba4f2)</c> four times in <c>AssetEditorTheme.vcss</c> were the identical
 ///         finding for two other tokens — <c>#f2696e</c> is none of <c>--danger</c>'s four values and
-///         <c>#6ba4f2</c> none of <c>--accent</c>'s five. ⚠ And it is not only colours:
-///         <c>var(--radius-row, 6px)</c> in <c>WorldTheme.vcss</c> and <c>BrowserTheme.vcss</c> names
-///         a radius <c>EditorTheme</c> declares as <c>4px</c>. They are a change of the same size and
-///         the same look, and #1351 named the five <c>--warning</c> sites only, so they are recorded
-///         here as owed rather than converted under its number.
+///         <c>#6ba4f2</c> none of <c>--accent</c>'s five — and now write the token bare, as the
+///         <c>--warning</c> sites do: <c>ControlTheme</c> declares both, so no host in the tree can
+///         reach a fallback for either. ⚠ It was not only colours: <c>var(--radius-row, 6px)</c> in
+///         <c>WorldTheme.vcss</c> and <c>BrowserTheme.vcss</c> named a radius <c>EditorTheme</c>
+///         declares as <c>4px</c>. Those two keep a fallback and it is <c>4px</c>, because
+///         <c>--radius-row</c> is the editor's alone — <c>ControlTheme</c> does not declare it — so a
+///         bare token would leave a sheet loaded without the editor palette with no radius at all,
+///         where the agreeing literal draws what the editor draws.
+///     </para>
+///     <para>
+///         ⚠ <b>An empty ledger is a gate that can pass by reading nothing</b>, which it could not
+///         while the ledger had rows: a sweep that found no sheet would have reported every row as
+///         gone. So the fallbacks it examined are counted and floored, and the agreeing ones it has
+///         to have passed by are named (<see cref="Examined" />).
 ///     </para>
 /// </remarks>
 public class PaletteFallbackTests {
-    /// <summary>The fallbacks still owed, as <c>file: var(...) ×count</c>.</summary>
-    static readonly string[] Remaining = [
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss: var(--accent, #6ba4f2) ×4",
-        "Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss: var(--danger, #f2696e) ×17",
-        "Editor/Vixen.Editor.App/WorldTheme.vcss: var(--radius-row, 6px) ×1",
-        "Editor/Vixen.Editor.Inspector/BrowserTheme.vcss: var(--radius-row, 6px) ×1"
+    /// <summary>The fallbacks still owed, as <c>file: var(...) ×count</c>. Empty since #1389, and it stays so.</summary>
+    static readonly string[] Remaining = [];
+
+    /// <summary>
+    ///     How many <c>var(--token, literal)</c> sites over a palette token the sweep has to have
+    ///     examined, and three it has to have passed by as agreeing, for a green run to mean anything.
+    /// </summary>
+    /// <remarks>
+    ///     The sweep examined 17, across 19 sheets, when the ledger emptied. The three are the two
+    ///     #1389 radius sites, which agree now, and an inspector colour that is <c>EditorTheme</c>'s
+    ///     own light value — so a sweep that stopped reading either the app's or the inspector's sheets
+    ///     fails by name rather than by count.
+    /// </remarks>
+    const int ExaminedFloor = 12;
+
+    /// <inheritdoc cref="ExaminedFloor" />
+    static readonly string[] Examined = [
+        "Editor/Vixen.Editor.App/WorldTheme.vcss: var(--radius-row, 4px)",
+        "Editor/Vixen.Editor.Inspector/BrowserTheme.vcss: var(--radius-row, 4px)",
+        "Editor/Vixen.Editor.Inspector/InspectorTheme.vcss: var(--danger, #c8352f)"
     ];
 
     [Fact]
@@ -61,12 +84,15 @@ public class PaletteFallbackTests {
         var editor = TokensOf(File.ReadAllText(Path.Combine(root, "Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss")));
 
         var found = new List<string>();
+        var examined = new List<string>();
 
         foreach (var sheet in sheets) {
             var relative = Path.GetRelativePath(root, sheet).Replace('\\', '/');
             var underneath = relative.StartsWith("Editor/", StringComparison.Ordinal)
                 ? control.Union(editor).ToHashSet(StringComparer.Ordinal)
                 : control;
+
+            examined.AddRange(Fallbacks(File.ReadAllText(sheet), underneath).Select(site => $"{relative}: {site.Text}"));
 
             found.AddRange(
                 WrongFallbacks(File.ReadAllText(sheet), underneath, declared)
@@ -92,6 +118,15 @@ public class PaletteFallbackTests {
             + "shrinks:\n  "
             + string.Join("\n  ", gone)
         );
+
+        Assert.True(
+            examined.Count >= ExaminedFloor,
+            $"the sweep examined only {examined.Count} fallback(s) over a palette token across {sheets.Count} sheet(s), "
+            + "so an empty ledger says nothing"
+        );
+
+        var missed = Examined.Except(examined, StringComparer.Ordinal).ToList();
+        Assert.True(missed.Count == 0, "the sweep did not examine these known agreeing fallbacks:\n  " + string.Join("\n  ", missed));
     }
 
     /// <summary>The instrument, over sheets whose answer is known.</summary>
@@ -126,26 +161,22 @@ public class PaletteFallbackTests {
         string css,
         IReadOnlySet<string> underneath,
         IReadOnlyDictionary<string, HashSet<string>> declared
-    ) {
-        var text = Uncommented(css);
-        var found = new List<string>();
+    ) =>
+        Fallbacks(css, underneath)
+            .Where(site => !(declared.TryGetValue(site.Token, out var values) && values.Contains(site.Literal)))
+            .Select(site => site.Text)
+            .ToList();
 
-        foreach (Match site in Regex.Matches(text, @"var\(\s*(--[\w-]+)\s*,\s*([^()]+?)\s*\)")) {
+    /// <summary>Every <c>var(--t, literal)</c> in a sheet whose token is underneath, right or wrong.</summary>
+    static IEnumerable<(string Token, string Literal, string Text)> Fallbacks(string css, IReadOnlySet<string> underneath) {
+        foreach (Match site in Regex.Matches(Uncommented(css), @"var\(\s*(--[\w-]+)\s*,\s*([^()]+?)\s*\)")) {
             var token = site.Groups[1].Value;
             var literal = site.Groups[2].Value.Trim().ToLowerInvariant();
 
-            if (!underneath.Contains(token)) {
-                continue;
+            if (underneath.Contains(token)) {
+                yield return (token, literal, $"var({token}, {literal})");
             }
-
-            if (declared.TryGetValue(token, out var values) && values.Contains(literal)) {
-                continue;
-            }
-
-            found.Add($"var({token}, {literal})");
         }
-
-        return found;
     }
 
     /// <summary>The custom properties a sheet declares.</summary>

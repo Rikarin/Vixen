@@ -1,0 +1,66 @@
+# The type-only selectors neither scoped census credits, and what would build each one.
+#
+#     <selector><TAB><unreached|api|none><TAB><what builds it, with file:line, and why no sweep does>
+#
+# Held against the two scoped censuses by
+# `CombinatorCensusDriftTests.Every_selector_no_scoped_census_credits_is_named_here`, EXACTLY and in
+# both directions: the residue is every row `ScopedSelectors.txt` reads `-` that
+# `Core/Vixen.Ui.Controls.Advanced.Tests/ControlScopedSelectors.txt` does not read `Bare`. This is the
+# negative half of the scoped question in `Rikarin/Vixen#531`, as `UnprovedCombinatorPairs.txt` is
+# the negative half of the pair question — the file both censuses' headers said nobody had made.
+#
+# ⚠ NOT DERIVED and not regenerable, for `UnprovedCombinatorPairs.txt`'s reason: the third column is
+# the whole value of the file, and a regeneration would fill it with a placeholder. A row is added by
+# somebody who chased the selector and can say what builds it. Every reason carries a `file:line`, and
+# the test refuses one that does not.
+#
+# ⚠ The list can only SHRINK. A row a sweep starts crediting fails the test exactly as a new
+# uncredited selector does.
+#
+# The kinds, because "unjudged" hid three different answers:
+#   unreached  Something in this tree builds it, for content or a state no sweep puts it in — an
+#              empty document, a ledger nobody attached, a running task. Live; the ladder is short.
+#   api        A control-sheet rule for a composition the public API offers and nothing in this tree
+#              calls. Not dead: `ControlTheme`/`AdvancedTheme` style what an application builds.
+#   none       ⚠ An editor-sheet rule nothing in this tree CAN build — no path, not merely no state.
+#              `UnprovedCombinatorPairs.txt` refuses such a row and sends its reader to delete the
+#              rule; here each sits in a selector list styling a family of controls, so whether a
+#              future drawer or plugin earns the entry is a decision rather than a correction, and it
+#              is recorded rather than taken. A `none` row is a finding.
+#
+# Traced at `b162d5632` (2026-09-24).
+empty-state icon	api	`EmptyState.Illustration` (Core/Vixen.Ui.Controls/Containers.cs:263) builds the icon on first read, at :269, and nothing in the tree reads it; #1369 owns whether to call it or drop the rule.
+inspector combo-box	none	No drawer builds a `ComboBox`: the only one in the tree is Samples/02-HelloUi/Panels/Gallery.vxml:173, and no inspector drawer adds one (DrawerRegistry.cs:252 is the registration table). Part of the "every input in the inspector" list at InspectorTheme.vcss:160-161.
+inspector textarea	unreached	`MultilineDrawer` (Editor/Vixen.Editor.Inspector/Drawers/ScalarDrawers.cs:221) builds it for a string marked `[Multiline]`, registered at DrawerRegistry.cs:252 — and no member outside a test carries the attribute (Editor/Vixen.Editor.Inspector.Tests/Fixtures.cs:124 is the only one). A game's own component reaches it.
+inspector-editor color-picker	none	The colour drawer puts a `ColorInput` in the slot (AssetDrawers.cs:35), and a `ColorInput` hangs its picker off the document root on purpose (ColorPicker.cs:1243, :1251) — so no picker is ever under `inspector-editor`. A `GradientEditor` would carry one (GradientEditor.cs:463) and no drawer builds that either.
+inspector-editor combo-box	none	As `inspector combo-box`: no drawer builds a `ComboBox`, and the one in the tree is the sample gallery's (Gallery.vxml:173).
+inspector-editor curve-editor	unreached	`CurveDrawer` builds it (Editor/Vixen.Editor.Inspector/Drawers/AssetDrawers.cs:195) for an `AnimationCurve` member, and no component in the tree has one; a game's component does.
+inspector-editor textarea	unreached	`MultilineDrawer` (ScalarDrawers.cs:221) into `InspectorView`'s slot (InspectorView.cs:41), for a `[Multiline]` string — none outside Fixtures.cs:124.
+key-value-row progress-bar	unreached	NetworkView.vxml:85, the "Sent as a difference" row, which the panel builds only in the branch where a bandwidth ledger is attached (NetworkView.vxml:69); a started editor attaches none.
+key-value-value combo-box	api	`KeyValueRow.Content<T>()` (Core/Vixen.Ui.Controls/KeyValueList.cs:82) or a child written inside the row in markup (`ContentHost`, KeyValueList.cs:72). No row in the tree holds a combo box.
+key-value-value level-indicator	api	`KeyValueRow.Content<T>()` (KeyValueList.cs:82) or a markup child (KeyValueList.cs:72); no row in the tree holds a level indicator.
+key-value-value multi-select	api	`KeyValueRow.Content<T>()` (KeyValueList.cs:82) or a markup child (KeyValueList.cs:72); no row in the tree holds one.
+key-value-value numeric-input	unreached	CompositorView.vxml:217, one row per field of the node the author CHOSE; an empty compositor document has no node to choose.
+key-value-value progress-bar	unreached	NetworkView.vxml:85, built only with a bandwidth ledger attached (the branch at NetworkView.vxml:69).
+key-value-value search-box	api	`KeyValueRow.Content<T>()` (KeyValueList.cs:82) or a markup child (KeyValueList.cs:72); no row in the tree holds one.
+key-value-value secure-textbox	api	`KeyValueRow.Content<T>()` (KeyValueList.cs:82) or a markup child (KeyValueList.cs:72); no row in the tree holds one.
+key-value-value select	unreached	CompositorView.vxml:227, a choice field of the chosen node; an empty compositor document has none.
+key-value-value slider	api	`KeyValueRow.Content<T>()` (KeyValueList.cs:82) or a markup child (KeyValueList.cs:72); no row in the tree holds one.
+key-value-value stepper	api	`KeyValueRow.Content<T>()` (KeyValueList.cs:82) or a markup child (KeyValueList.cs:72); no row in the tree holds one.
+key-value-value textarea	api	`KeyValueRow.Content<T>()` (KeyValueList.cs:82) or a markup child (KeyValueList.cs:72); no row in the tree holds one.
+key-value-value textbox	unreached	CompositorView.vxml:246, a text or names field of the chosen node; an empty compositor document has none.
+network-row progress-bar	unreached	NetworkView.vxml:106, one per ledger entry, inside the attached-ledger branch (NetworkView.vxml:69).
+node-inspector fact-value	unreached	NodeInspector.vxml:69, one row per CONNECTED input port; a graph nobody wired has none.
+node-port-editor checkbox	unreached	`NodePortEditor.Bind` adds it for a toggle port (Core/Vixen.Ui.Controls.Advanced/NodeCanvas.cs:121), which `NodeGraphView.Inline` asks for on an unconnected bool input (NodeGraphView.cs:512); an empty graph has no node.
+override-cell > textbox	unreached	TargetOverrideMatrix.cs:236 builds the member's own drawer under the cell, and `StringDrawer` (ScalarDrawers.cs:168) is the only one rooted on a textbox — neither import-settings mirror (TextureImportDocument.cs:21, ModelImportDocument.cs:15) declares a string member. Its three siblings come from bool, numeric and enum members.
+property-editor numeric-input	unreached	`PropertyGrid` puts each member's editor in the row's part (Core/Vixen.Ui.Controls.Advanced/PropertyGrid.cs:399) once it has a target; the one grid in the tree is the sample's (Samples/02-HelloUi/Panels/Inspector.vxml:29), and a bare grid has none.
+property-editor select	unreached	PropertyGrid.cs:399 for an enum member of the target; the only grid is Inspector.vxml:29 in the sample.
+property-editor slider	unreached	PropertyGrid.cs:399 for a ranged member of the target; the only grid is Inspector.vxml:29 in the sample.
+property-editor textbox	unreached	PropertyGrid.cs:399 for a string member of the target; the only grid is Inspector.vxml:29 in the sample.
+radial-item > icon	unreached	SceneMenus.cs:139 sets an entry's art on the wedge, only for an open radial menu under a mode that registered entries.
+shape-fields fact-value > numeric-input	unreached	ProxyShapeView.cs:452 and :461 build the vector's three boxes under `shape-fields` (ProxyShapeView.cs:144) once a shape is CHOSEN; an empty document has none. The pair `fact-value > numeric-input` is proved elsewhere, which is why only this whole-selector file can hold it.
+task-row > task-line	unreached	TaskCenter.vxml:16, one row per RUNNING task; a fixture that started no background work has none.
+task-row progress-bar	unreached	TaskCenter.vxml:35, in the same row as `task-line`.
+toolbar toggle-button	none	The editor's toolbars are all built by `ToolbarPresenter` (ToolbarPresenter.cs:158 — the only `Toolbar` in the tree), whose faces are `Button` and `IconButton` only (ToolbarPresenter.cs:416, :427, :435). EditorTheme.vcss:270, :282, :288, :303 and :310 style a toggle nothing puts there.
+toolbar-group button	unreached	`ToolbarPresenter.Box` (ToolbarPresenter.cs:347) faces a command with art, or with no icon, as a `Button` (:416, :427); the only box in the tree is the play transport (EditorParity.cs:1295), and all four of its commands carry an icon, so it builds icon-buttons.
+toolbar-group toggle-button	none	As `toolbar toggle-button`: `ToolbarPresenter` never builds a `ToggleButton` (ToolbarPresenter.cs:416, :427, :435), so EditorTheme.vcss:408 styles one nothing puts in a group.

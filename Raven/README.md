@@ -902,7 +902,7 @@ and `GeneratedSource` are both only interesting if an `ITargetBackend` written *
 constructs `GeneratedSource`, and calls `ShaderStageNames.Suffix` at line 78. So the question is
 answered by the code rather than by taste, and it answers both.
 
-`Vixen.Raven.csproj:30` already grants `InternalsVisibleTo` to `Vixen.Raven.Tests`, so narrowing
+`Vixen.Raven.csproj:57` already grants `InternalsVisibleTo` to `Vixen.Raven.Tests`, so narrowing
 anything whose only caller is that project costs the suites nothing. Three of the five are in that
 position.
 

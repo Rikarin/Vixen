@@ -45,9 +45,11 @@
 #     more). The `key-value-value *` and `property-editor *` rows stay `-` in both — those controls
 #     build their editors only for content.
 #
-# ⚠ The negative half — a hand-kept file naming, for every `-` row, the producer and why the ladder
-# does not reach it, held exactly the way `UnprovedCombinatorPairs.txt` is — is NOT made here. This
-# file holds the proofs and the loud direction; it does not call anything dead.
+# ⚠ The negative half is `UnjudgedScopedSelectors.txt` beside this file: every `-` row the controls'
+# census does not credit, with its kind — `unreached`, `api` or `none` — and a file:line for what
+# builds it, held exactly by `CombinatorCensusDriftTests` in `Vixen.Ui.Styling.Tests`. This file
+# holds the proofs and the loud direction; it does not call anything dead, and that one says which
+# `-` rows nothing in the tree can build.
 add-component-list > scroll-content	Overlays
 add-component-menu > search-box	Overlays
 add-component-row > icon	Overlays
