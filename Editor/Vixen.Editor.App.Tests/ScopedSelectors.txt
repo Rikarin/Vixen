@@ -100,17 +100,8 @@ dock-tab icon	Started
 dock-tabstrip > icon-button	Started
 editor-shell > menu-bar	Started
 expander-header icon	Panels
-fact-value combo-box	-
-fact-value level-indicator	-
-fact-value multi-select	-
 fact-value numeric-input	Documents
-fact-value progress-bar	-
-fact-value search-box	-
-fact-value secure-textbox	-
 fact-value select	Documents
-fact-value slider	-
-fact-value stepper	-
-fact-value textarea	-
 fact-value textbox	Documents
 field-content combo-box	-
 field-content level-indicator	-

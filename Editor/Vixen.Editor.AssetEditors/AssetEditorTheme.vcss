@@ -70,12 +70,14 @@ fact-value { flex-grow: 1; min-width: 0; }
 /* ⚠ Growing the cell did not grow the field in it (#1404). The cell is a row, so a field
    sits at its content width, and an empty text box has none — the placeholder is absolute —
    so the mixer's empty Parent and Sidechain boxes were 18 px in a 172 px cell. The cell also
-   holds check boxes, toggles and buttons, which keep their own size, so this is the list
-   `key-value-value` and `field-content` use rather than `> *`. `FactValueFillTests`. */
-fact-value textbox, fact-value textarea, fact-value numeric-input, fact-value stepper,
-fact-value secure-textbox, fact-value search-box, fact-value select, fact-value multi-select,
-fact-value combo-box, fact-value slider, fact-value progress-bar,
-fact-value level-indicator {
+   holds check boxes, toggles and buttons, which keep their own size, so the rule names the
+   fields rather than `> *`. ⚠ Only the three fields a fact cell holds, where `key-value-value`
+   and `field-content` carry the whole list: those are control-sheet rules for whatever an
+   application puts in the row, and this is an editor sheet, where every cell is built here —
+   a `TextBox`, a `Select` or a `NumericInput`, and otherwise a check box, a toggle, a button or
+   text. A fourth kind is a line added with the view that builds it; a name nothing here can
+   build is a `none` row in `UnjudgedScopedSelectors.txt`. `FactValueFillTests`. */
+fact-value textbox, fact-value numeric-input, fact-value select {
     flex-grow: 1;
     min-width: 0px;
 }

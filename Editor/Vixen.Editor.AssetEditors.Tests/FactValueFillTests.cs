@@ -58,6 +58,41 @@ public class FactValueFillTests {
         Assert.True(check.Width < check.Parent!.Width / 2, $"a check box is {check.Width} px of a {check.Parent!.Width} px cell");
     }
 
+    /// <summary>
+    ///     Each of the three fields the editor puts in a fact cell fills it, since the rule names those
+    ///     three and no others.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The rule is the three kinds a cell is built with (<c>row.Add("fact-value").Add&lt;T&gt;()</c>
+    ///     across the asset editors), not <c>key-value-value</c>'s twelve — so a kind dropped from it
+    ///     would go back to its content width with nothing else to notice.
+    /// </remarks>
+    [Fact]
+    public void Each_field_kind_a_fact_cell_is_built_with_fills_it() {
+        using var harness = new ViewHarness();
+        harness.Ui.Load("fact-column { width: 400px; flex-direction: column; align-items: stretch; }");
+
+        var column = harness.Ui.Document.Root.Add("fact-column");
+
+        UiElement[] fields = [
+            column.Add("fact-row").Add("fact-value").Add<TextBox>(),
+            column.Add("fact-row").Add("fact-value").Add<NumericInput>(),
+            column.Add("fact-row").Add("fact-value").Add<Select>()
+        ];
+
+        harness.Ui.Frame();
+
+        foreach (var field in fields) {
+            var cell = field.Parent!;
+
+            Assert.True(cell.Width > 300f, $"the value cell of a {field.GetType().Name} is {cell.Width} px wide");
+            Assert.True(
+                MathF.Abs(cell.Width - field.Width) <= 0.5f,
+                $"a {field.GetType().Name} is {field.Width} px of a {cell.Width} px cell"
+            );
+        }
+    }
+
     /// <summary>The case the issue measured: the mixer's bus fields, with Parent and Sidechain empty.</summary>
     [Fact]
     public void The_mixers_bus_fields_fill_their_cells() {
