@@ -122,6 +122,52 @@ public class BehaviorSearchTests {
         Assert.Equal([BehaviorSlot.Composite, BehaviorSlot.Task], view.Search.Slots);
     }
 
+    /// <summary>
+    ///     ⚠ Fourteen composites and tasks in a popup capped at 320 px: the list has to scroll to its
+    ///     last row, and the field must not pay for the rows with its own height.
+    /// </summary>
+    [Fact]
+    public void Every_offered_row_can_be_scrolled_to_and_the_field_keeps_its_height() {
+        using var harness = new ViewHarness();
+        var (view, _) = Open(harness);
+
+        Over(harness, view, nearBottom: true);
+        harness.Ui.PressKey(InputKey.Space);
+        harness.Ui.Frame();
+
+        var search = view.Search;
+        var crowded = search.Query.Height;
+
+        Assert.Equal(14, search.Results.Children.Count);
+
+        // Opened near the bottom of the window, and still all on screen.
+        Assert.True(
+            search.AbsoluteTop + search.Height <= harness.Ui.Document.Viewport.ViewportHeight + 0.5f,
+            $"the popup ends at {search.AbsoluteTop + search.Height:0}, below the {harness.Ui.Document.Viewport.ViewportHeight:0} px window."
+        );
+
+        search.List.ScrollTo(search.List.MaximumTop, 0f);
+        harness.Ui.Frame();
+
+        var last = search.Results.Children[^1];
+
+        // Inside the list's port and inside the popup's own box, which clips too: a list that grew
+        // to its rows instead of scrolling would hold the last one inside itself and below the popup.
+        var floor = MathF.Min(search.List.AbsoluteTop + search.List.Height, search.AbsoluteTop + search.Height);
+
+        Assert.True(
+            last.AbsoluteTop >= search.List.AbsoluteTop - 0.5f && last.AbsoluteTop + last.Height <= floor + 0.5f,
+            $"at the end of the list's scroll the last row ({last.AbsoluteTop:0}–{last.AbsoluteTop + last.Height:0}) is not inside "
+            + $"{search.List.AbsoluteTop:0}–{floor:0}, so no pointer can reach it."
+        );
+
+        harness.Ui.TypeText("sel");
+        harness.Ui.Frame();
+
+        Assert.Equal(2, search.Results.Children.Count);
+        Assert.Equal(search.Query.Height, crowded, 0.5f);
+    }
+
     [Fact]
     public void A_press_outside_closes_it_and_the_popup_goes_with_the_view() {
         using var harness = new ViewHarness();
@@ -159,9 +205,9 @@ public class BehaviorSearchTests {
     ///     The focus is placed rather than clicked for: a press on empty canvas clears the selection,
     ///     and what these tests are about is what happens to the selection after.
     /// </remarks>
-    static (float X, float Y) Over(ViewHarness harness, BehaviorTreeView view) {
+    static (float X, float Y) Over(ViewHarness harness, BehaviorTreeView view, bool nearBottom = false) {
         var x = view.Canvas.AbsoluteLeft + 40f;
-        var y = view.Canvas.AbsoluteTop + view.Canvas.Height - 60f;
+        var y = nearBottom ? view.Canvas.AbsoluteTop + view.Canvas.Height - 60f : view.Canvas.AbsoluteTop + 120f;
 
         harness.Ui.Document.Focus(view.Canvas);
         harness.Ui.MovePointer(x, y);

@@ -539,7 +539,13 @@ behavior-search {
     overflow: hidden;
 }
 
-behavior-search-results { flex-direction: column; gap: 1px; overflow: hidden; }
+/* ⚠ The field keeps its height and the list scrolls. It was a plain list with `overflow: hidden`
+   in a column capped at 320 px, so fourteen rows clipped the last two out of every pointer's reach
+   and the column took the rest of the difference out of the field. Classes rather than tags, so the
+   list is a real `scroll-view` with the user-agent rule's clip and anchor (#1327). The gutter is the
+   bar's width, since the bar is drawn over the port and a row's category is right-aligned. */
+textbox.behavior-search-query { flex-shrink: 0; }
+scroll-view.behavior-search-list > scroll-content { gap: 1px; padding-right: 10px; }
 
 behavior-search-row {
     flex-direction: row;

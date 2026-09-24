@@ -47,7 +47,10 @@ public sealed class BehaviorSearchPopup : Overlay {
     /// <summary>What was typed.</summary>
     public TextBox Query { get; private set; } = null!;
 
-    /// <summary>The rows.</summary>
+    /// <summary>What scrolls the rows.</summary>
+    public ScrollView List { get; private set; } = null!;
+
+    /// <summary>The rows: <see cref="List" />'s content.</summary>
     public UiElement Results { get; private set; } = null!;
 
     /// <summary>What is offered, best first.</summary>
@@ -66,10 +69,17 @@ public sealed class BehaviorSearchPopup : Overlay {
         IsFocusScope = true;
 
         Query = Add<TextBox>();
+        Query.AddClass("behavior-search-query");
         Query.Placeholder = "Search nodes…";
         Query.ValueChanged += (_, _) => Rank();
 
-        Results = Add("behavior-search-results");
+        // ⚠ A scroller, where it was a plain list with `overflow: hidden`. A composite's child row
+        // offers fourteen types and the popup is 320 px tall, so the list clipped the last two —
+        // "Run subtree (from a key)" and "Run utility set" could be reached by typing and by no
+        // pointer — and the flex column took the missing height out of the field, 34 px down to 27.
+        List = Add<ScrollView>();
+        List.AddClass("behavior-search-list");
+        Results = List.Content;
 
         // ⚠ `TapEvent` and not `ClickEvent`: a click is an activation and only a `Control` raises one,
         // so a handler waiting for it on a bare `behavior-search-row` waited for ever — the defect
@@ -112,7 +122,15 @@ public sealed class BehaviorSearchPopup : Overlay {
         Rank();
 
         Open();
-        MoveTo(x, y);
+
+        // Kept on screen: Space pressed near the bottom of a canvas would otherwise open a 320 px
+        // popup with most of its rows below the window. `Open` has laid it out, so its size is known.
+        var viewport = Document.Viewport;
+
+        MoveTo(
+            Math.Clamp(x, 0f, MathF.Max(0f, viewport.ViewportWidth - Bounds.Width)),
+            Math.Clamp(y, 0f, MathF.Max(0f, viewport.ViewportHeight - Bounds.Height))
+        );
 
         Document.Focus(Query);
     }
@@ -120,6 +138,13 @@ public sealed class BehaviorSearchPopup : Overlay {
     /// <summary>Re-ranks the rows against what has been typed.</summary>
     public void Rank() {
         matches.Clear();
+
+        // Back to the top before the rows go, and for two reasons. A new ranking puts the best match
+        // first, which is where the reader has to be looking. ⚠ And a list scrolled down anchors on
+        // one of its rows: rebuilding the rows under it leaves the anchor a removed element, and the
+        // next settle asks it for a position and throws out of `UiElement.Document` (#1392). At the
+        // start edge nothing is anchored.
+        List.ScrollTo(0f, 0f);
 
         while (Results.Children.Count > 0) {
             Results.Children[^1].Remove();

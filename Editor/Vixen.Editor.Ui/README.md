@@ -1003,7 +1003,7 @@ matched byte-for-byte across six states, because every state had rows.
 went stale the same way.** It is a claim about the tree written in a document, which is the same
 failure the sentence above it describes — and the second one lasted a single wave: wave 9's own
 `ComponentsViewDumpTests` was missing from the table below while the file's remarks called themselves
-"a committed dump rather than a wave note". There are **eleven**.
+"a committed dump rather than a wave note". There are **twelve**.
 
 ⚠ **The table is derived now, and that is the only part of this section a reader should trust
 without checking.** `DumpLedgerTests` scans every `Editor/**/*.Tests` source for a call to
@@ -1024,6 +1024,7 @@ prose is still prose; the list is a measurement.
 | `Vixen.Editor.App.Tests/ComponentsViewDumpTests` | `ComponentsView`'s header, in four states reached through the interface (wave 9) |
 | `Vixen.Editor.Ui.Tests/MessageLogViewDumpTests` | `MessageLogView`, in six states reached through the interface, recorded from the hand-written control *before* its port (#89) |
 | `Vixen.Editor.Ui.Tests/KeyBindingsViewDumpTests` | `KeyBindingsView` as the editor hosts it, in five states, recorded while it was still the editor's and held to that after it moved to `Vixen.Ui.Controls.Advanced` (#650) |
+| `Vixen.Editor.AssetEditors.Tests/BehaviorSearchPopupDumpTests` | `BehaviorSearchPopup`, in five states reached through the tree view's own gestures, recorded from the hand-written control before its port (#89, #1370) |
 
 ⚠ **`MessageLogViewDumpTests` is the first dump committed before the port it judges rather than
 after it.** Its reference strings are what the hand-written C# control drew, so the port is held to
