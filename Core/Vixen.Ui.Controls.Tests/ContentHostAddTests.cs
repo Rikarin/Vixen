@@ -48,7 +48,7 @@ public class ContentHostAddTests {
         var wrong = new List<string>();
 
         foreach (var type in Controls()) {
-            var control = (UiElement) AddOfT.MakeGenericMethod(type)
+            var control = (UiElement)AddOfT.MakeGenericMethod(type)
                 .Invoke(null, [fixture.Document.Root])!;
 
             // What the markup emitter writes for a nested tag, so the comparison is against the
