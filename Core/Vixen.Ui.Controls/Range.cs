@@ -211,9 +211,70 @@ public abstract partial class RangeBase : Control {
     /// </remarks>
     protected Color4 ThumbBorderColor => Document.ColorOf(Style, thumbBorderColor) ?? default;
 
-    /// <summary>Draws the unfilled strip.</summary>
-    protected void DrawTrack(DrawContext context, Rectangle rail) =>
-        context.FillRectangle(rail, TrackColor, Thickness(rail) * 0.5f);
+    /// <summary>Draws the track around a fill that will be drawn between two fractions of the rail.</summary>
+    /// <param name="context">Where to draw.</param>
+    /// <param name="rail">The whole rail, rounded at both ends.</param>
+    /// <param name="from">Where the fill will start, as a fraction of the rail.</param>
+    /// <param name="to">Where it will end. At or before <paramref name="from" /> there is no fill, and
+    ///     the whole track is drawn.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Only where the fill is not, rather than whole and underneath it</b> — the defect
+    ///         <see cref="Gauge" /> was found with in its first picture, and every bar here had until
+    ///         #1366. Two antialiased shapes sharing an edge leave the lower one showing through the
+    ///         partial coverage of the upper: a pixel each covers by half is a quarter track. So a
+    ///         track drawn under the whole fill put a track-coloured fringe on every edge the fill
+    ///         shares with the background — a slider's long edges (its rail is a computed thickness
+    ///         and lands between pixel rows), every rounded start, and on a full bar a halo all the
+    ///         way round.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Each piece reaches under the fill by the rail's whole thickness, and that is what
+    ///         keeps the join shut.</b> The fill keeps its rounded end. A track that stopped where the
+    ///         fill stopped, rounded too, would be two pills touching at a point with the background
+    ///         showing between them. Reaching under by one thickness makes the piece's own rounded
+    ///         end the <i>same circle</i> as the fill's end cap: half of it lies inside the fill's
+    ///         straight body, the other half under the cap, so the cap is drawn over track — a blend
+    ///         of the two, which is the picture — and nothing of the track is left under an edge the
+    ///         fill shares with the background.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Round there rather than square, which was tried first.</b> A square end half a
+    ///         thickness under the fill puts a corner on the rail's edge line at the one column where
+    ///         the fill's cap starts to curve away, and the software rasterizer's first picture of it
+    ///         showed that corner bleeding a pixel of track into the background just outside the bar.
+    ///         Two circles that coincide have no corner.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A fill shorter than the rail is thick still has the whole track under it.</b> Its
+    ///         radius is clamped to less than the track's, so a piece reaching under by a thickness
+    ///         would run out past the fill's far end. That residual is a reading within one
+    ///         rail-thickness of an end, where the fringe is a few pixels of a shape a few pixels long.
+    ///         Between one and two thicknesses the two pieces of a span overlap each other under the
+    ///         fill, which is invisible under an opaque fill and darkens a translucent track under a
+    ///         translucent one.
+    ///     </para>
+    /// </remarks>
+    protected void DrawTrack(DrawContext context, Rectangle rail, float from, float to) {
+        var radius = Thickness(rail) * 0.5f;
+        var extent = Extent(rail);
+        var under = extent > 0f ? radius / extent : 0f;
+
+        if (to - from < 2f * under) {
+            context.FillRectangle(rail, TrackColor, radius);
+            return;
+        }
+
+        // Each piece reaches under the fill by the fill's whole end cap, so that its own rounded end is
+        // the same circle as the fill's. See the remarks.
+        if (from > 0f) {
+            context.FillRectangle(Span(rail, 0f, MathF.Min(1f, from + (2f * under))), TrackColor, radius);
+        }
+
+        if (to < 1f) {
+            context.FillRectangle(Span(rail, MathF.Max(0f, to - (2f * under)), 1f), TrackColor, radius);
+        }
+    }
 
     /// <summary>How wide a thumb's ring is. One pixel, which is what every other border here is.</summary>
     const float ThumbBorderWidth = 1f;
@@ -344,7 +405,7 @@ public sealed partial class Slider : RangeBase {
 
         var fraction = Fraction(Value);
 
-        DrawTrack(context, rail);
+        DrawTrack(context, rail, 0f, fraction);
         context.FillRectangle(Span(rail, 0f, fraction), FillColor, Thickness(rail) * 0.5f);
 
         DrawThumb(context, rail, fraction);
@@ -489,7 +550,7 @@ public sealed partial class RangeSlider : RangeBase {
         var low = Fraction(Low);
         var high = Fraction(High);
 
-        DrawTrack(context, rail);
+        DrawTrack(context, rail, low, high);
         context.FillRectangle(Span(rail, low, high), FillColor, Thickness(rail) * 0.5f);
 
         DrawThumb(context, rail, low);
@@ -675,10 +736,12 @@ public sealed partial class ProgressBar : RangeBase {
         }
 
         var radius = Thickness(bounds) * 0.5f;
-        context.FillRectangle(bounds, TrackColor, radius);
 
         if (!IsIndeterminate) {
-            context.FillRectangle(Span(bounds, 0f, Fraction(Value)), FillColor, radius);
+            var filled = Fraction(Value);
+
+            DrawTrack(context, bounds, 0f, filled);
+            context.FillRectangle(Span(bounds, 0f, filled), FillColor, radius);
             return;
         }
 
@@ -690,6 +753,8 @@ public sealed partial class ProgressBar : RangeBase {
         var travel = (1f + Sweep) * Math.Clamp(Phase, 0f, 1f);
         var from = MathF.Max(0f, travel - Sweep);
         var to = MathF.Min(1f, travel);
+
+        DrawTrack(context, bounds, from, to);
 
         if (to > from) {
             context.FillRectangle(Span(bounds, from, to), FillColor, radius);
@@ -876,7 +941,7 @@ public sealed partial class LevelIndicator : RangeBase {
         var filled = Fraction(Value);
 
         if (Segments <= 0) {
-            context.FillRectangle(bounds, TrackColor, radius);
+            DrawTrack(context, bounds, 0f, filled);
 
             if (filled > 0f) {
                 context.FillRectangle(Span(bounds, 0f, filled), FillColor, radius);

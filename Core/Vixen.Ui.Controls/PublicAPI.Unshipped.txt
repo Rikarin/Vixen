@@ -738,7 +738,7 @@ Vixen.Ui.Controls.RangeBase.ClearMinimum() -> void
 Vixen.Ui.Controls.RangeBase.ClearOrientation() -> void
 Vixen.Ui.Controls.RangeBase.ClearStep() -> void
 Vixen.Ui.Controls.RangeBase.DrawThumb(Vixen.Ui.DrawContext context, Vixen.Core.Mathematics.Rectangle rail, float fraction) -> void
-Vixen.Ui.Controls.RangeBase.DrawTrack(Vixen.Ui.DrawContext context, Vixen.Core.Mathematics.Rectangle rail) -> void
+Vixen.Ui.Controls.RangeBase.DrawTrack(Vixen.Ui.DrawContext context, Vixen.Core.Mathematics.Rectangle rail, float from, float to) -> void
 Vixen.Ui.Controls.RangeBase.Extent(Vixen.Core.Mathematics.Rectangle rail) -> float
 Vixen.Ui.Controls.RangeBase.FillColor.get -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.Controls.RangeBase.Fraction(float value) -> float
