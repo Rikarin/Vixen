@@ -136,6 +136,12 @@ partial class Build {
             // The site is TypeScript and its own build; no .csproj owns a line of it, so without
             // this any change under www/ makes `--since` refuse rather than narrow.
             || relative.StartsWith("www/", StringComparison.Ordinal)
+            // ⚠ The VS Code extension is the same case one level down: TextMate grammars, language
+            // configuration and snippets in JSON, tested by `node --test` against its own
+            // node_modules. `Tools/` is otherwise all projects, so the walk found none here and a
+            // batch that taught the grammar a new VXML keyword (`@rows`, #758) made `--since`
+            // refuse outright. No .NET target can check a line of it, so owning none is the answer.
+            || relative.StartsWith("Tools/Vixen.VSCode/", StringComparison.Ordinal)
             // ⚠ An area README documents a top-level directory rather than anything in it, and no
             // .csproj sits beside it to be walked up to — `Raven/README.md`, and `Core/README.md`
             // and `Platform/README.md` the same way. The repository-root `README.md` is already
