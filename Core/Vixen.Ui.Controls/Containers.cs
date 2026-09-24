@@ -28,7 +28,8 @@ public sealed partial class Panel : Control {
     // ⚠ No role, and that is the population's answer rather than a gap in it. A `Panel` is a box; a
     // tree that reported one would read a four-field form as a stack of nested groups, which is the
     // commonest way an accessibility tree comes to be technically complete and useless. An
-    // application that means a landmark says so: `panel.Role = AccessibleRole.Region` and a name.
+    // application that means a landmark says so: `panel.Role = AccessibleRole.Region` and a name —
+    // or a `Section`, which is exactly that region, named by a heading of its own.
 }
 
 /// <summary>A surface with an optional header and footer.</summary>

@@ -771,6 +771,17 @@ group-content { flex-direction: column; align-items: stretch; gap: 8px; }
    beside the one before it. */
 form { flex-direction: column; align-items: stretch; gap: 12px; }
 
+/* ⚠ A section is a part of a page, not a box on one — no border, for the reason
+   `form` has none: a settings window framing every section reads as a stack of
+   cards. What says where one section ends is the next one's heading, so the
+   heading is the only thing here with weight. It is hidden by the control when
+   there is no title, and its role goes with it; see `Section`. */
+section { flex-direction: column; align-items: stretch; gap: 8px; }
+
+section-heading { color: var(--text); font-weight: 600; font-size: 1.15em; flex-shrink: 0; }
+
+section-content { flex-direction: column; align-items: stretch; gap: 8px; }
+
 /* ── Segmented control ──────────────────────────────────────────────── */
 
 segmented-control {

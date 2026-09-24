@@ -848,6 +848,14 @@ Vixen.Ui.Controls.SearchBox : Vixen.Ui.Controls.TextField
 Vixen.Ui.Controls.SearchBox.ClearButton.get -> Vixen.Ui.Controls.IconButton
 Vixen.Ui.Controls.SearchBox.SearchBox() -> void
 Vixen.Ui.Controls.SearchBox.SearchIcon.get -> Vixen.Ui.Controls.Icon
+Vixen.Ui.Controls.Section -> sealed class
+Vixen.Ui.Controls.Section : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Section.ClearTitle() -> void
+Vixen.Ui.Controls.Section.Content.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Section.Heading.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Section.Section() -> void
+Vixen.Ui.Controls.Section.Title.get -> string?
+Vixen.Ui.Controls.Section.Title.set -> string?
 Vixen.Ui.Controls.SecureTextBox -> sealed class
 Vixen.Ui.Controls.SecureTextBox : Vixen.Ui.Controls.TextField
 Vixen.Ui.Controls.SecureTextBox.SecureTextBox() -> void
@@ -1383,6 +1391,11 @@ override Vixen.Ui.Controls.ScrollView.TagName.get -> string
 override Vixen.Ui.Controls.SearchBox.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.SearchBox.OnCreated() -> void
 override Vixen.Ui.Controls.SearchBox.TagName.get -> string
+override Vixen.Ui.Controls.Section.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Section.ContentHost.get -> Vixen.Ui.UiElement
+override Vixen.Ui.Controls.Section.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.Section.OnCreated() -> void
+override Vixen.Ui.Controls.Section.TagName.get -> string
 override Vixen.Ui.Controls.SecureTextBox.NativeAccessibleValue.get -> string?
 override Vixen.Ui.Controls.SecureTextBox.Shown(string? value) -> string?
 override Vixen.Ui.Controls.SecureTextBox.TagName.get -> string
@@ -1652,6 +1665,7 @@ static readonly Vixen.Ui.Controls.ScrollBar.ViewportSizeProperty -> Vixen.Ui.UiP
 static readonly Vixen.Ui.Controls.ScrollView.DragToScrollProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.ScrollView.ScrollLeftProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.ScrollView.ScrollTopProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Section.TitleProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Segment.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.SegmentedControl.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Select.PlaceholderProperty -> Vixen.Ui.UiPropertyKey

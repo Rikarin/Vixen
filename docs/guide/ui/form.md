@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.Controls.Form]
 tags: [ui, controls, forms, validation, accessibility, vxml]
 since: 0.2
 status: preview
-related: [ui/labeled-content, ui/group-box, ui/text-input, ui/accessibility]
+related: [ui/labeled-content, ui/group-box, ui/section, ui/text-input, ui/accessibility]
 ---
 
 ## What it is
@@ -120,5 +120,6 @@ form textbox:user-invalid { border-color: var(--danger); }
 
 - [Labeled content](labeled-content) — the row that names one field and carries its message.
 - [Group box](group-box) — the box round the fields that answer one question.
+- [Section](section) — the titled part of a page a form or its groups sit in.
 - [Text input](text-input) — `Required`, `Validator` and the message a refused field carries.
 - [Accessibility](accessibility) — roles, names and landmarks.

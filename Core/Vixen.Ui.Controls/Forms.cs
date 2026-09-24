@@ -256,9 +256,9 @@ public sealed partial class LabeledContent : Control {
 ///         <b>What it deliberately is not.</b> It does not collapse: that is
 ///         <see cref="Expander" />, whose header is a button that says what it opens, and a
 ///         container with both behaviours would offer two ways to hide the same content. It is also
-///         not the <see cref="Form" /> or the <c>Section</c> doc 49 ranks beside it — a form is a
-///         submission and a section is a document landmark, and neither of those is a bordered box
-///         with a caption. <see cref="Form" /> is below; <c>Section</c> is still owed.
+///         not the <see cref="Form" /> or the <see cref="Section" /> doc 49 ranks beside it — a form
+///         is a submission and a section is a document landmark, and neither of those is a bordered
+///         box with a caption. Both are below.
 ///     </para>
 /// </remarks>
 public sealed partial class GroupBox : Control {
@@ -506,5 +506,123 @@ public sealed partial class Form : Control {
         }
 
         return null;
+    }
+}
+
+/// <summary>A titled part of a page that a screen reader can jump to: a heading, and what it heads.</summary>
+/// <remarks>
+///     <para>
+///         <b>The landmark half of doc 49 § 7.1's rank 4.</b> <see cref="GroupBox" /> says <i>these
+///         controls answer one question</i>; <see cref="Form" /> says <i>these fields are sent
+///         together</i>; this says <i>this is a part of the page, and here is its name</i>. It is
+///         HTML's <c>&lt;section aria-labelledby&gt;</c> with its <c>&lt;h2&gt;</c>, and it is what a
+///         settings window made of "Display", "Audio" and "Controls" is built from.
+///     </para>
+///     <para>
+///         ⚠ <b>Two nodes in the tree, deliberately, where <see cref="GroupBox" /> has one.</b> A
+///         screen-reader user moves through a long page in two ways — by landmark and by heading —
+///         and a section has to be reachable by both. So the heading is a real
+///         <see cref="AccessibleRole.Heading" /> node, and the section is a
+///         <see cref="AccessibleRole.Region" /> <i>named by it</i> through
+///         <see cref="AccessibleRelation.LabelledBy" />, which is ARIA's own pattern. A group box's
+///         legend is not a heading anybody navigates to, so there the name is written on the group
+///         and the legend stays a caption; here the relation is what keeps the one string in one
+///         place while two nodes read it.
+///     </para>
+///     <para>
+///         ⚠ <b>Unnamed, it is still a region — and an unnamed region is a defect the tree reports
+///         rather than hides.</b> ARIA exposes a <c>&lt;section&gt;</c> with no name as a plain
+///         generic, so a role that appeared only once a title was set would look correct and make
+///         the omission invisible: <c>AccessibilitySnapshot.Unnamed</c> cannot see a landmark that is
+///         not there. Kept a region, a titleless section is an unnamed node that gate reports, which
+///         is where <see cref="GroupBox" /> came out for the same reason. An application that wants
+///         the landmark without a visible heading sets <see cref="UiElement.AccessibleName" />, which
+///         wins over the relation.
+///     </para>
+///     <para>
+///         ⚠ <b>The heading's role does move with <see cref="Title" />, and that is the other answer
+///         on purpose.</b> The heading part is hidden when there is no title, and a hidden part is
+///         still walked by the accessibility tree — <c>display</c> is a picture, not a statement
+///         about the tree — so an empty heading would be announced as a heading with no name. No
+///         title means no heading; the section it belongs to is what stays put.
+///     </para>
+///     <para>
+///         <b>What it deliberately is not.</b> It draws no border: it is a part of a page rather than
+///         a box on one, and a settings window framing every section would read as a stack of cards.
+///         It does not collapse — that is <see cref="Expander" />. And there is no heading
+///         <i>level</i>: the accessibility model has no <c>aria-level</c> to carry one, so a section
+///         inside a section is announced as a heading exactly like its parent's. That is recorded
+///         here rather than implied by a smaller font.
+///     </para>
+///     <para>
+///         ⚠ <b>Nest in markup, or add to <see cref="Content" /> from C#.</b> A nested tag goes to
+///         <see cref="ContentHost" />; <c>section.Add&lt;T&gt;()</c> parents on the section itself,
+///         beside the heading, as it does for every container in this assembly.
+///     </para>
+/// </remarks>
+public sealed partial class Section : Control {
+    /// <inheritdoc />
+    protected override string TagName => "section";
+
+    /// <inheritdoc />
+    /// <remarks>The controls inside it are the stops. A section is a part of a page, not a widget.</remarks>
+    protected override bool AcceptsFocus => false;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The first producer of <see cref="AccessibleRole.Region" /> in the control set.</b> The
+    ///     member has existed as long as the enumeration has, and the only way to reach it was
+    ///     <c>panel.Role = AccessibleRole.Region</c> by hand, which is what <see cref="Panel" />'s own
+    ///     comment told an application to write.
+    /// </remarks>
+    protected override AccessibleRole NativeRole => AccessibleRole.Region;
+
+    /// <summary>Where the title is drawn, and the heading a screen reader navigates to.</summary>
+    public UiElement Heading { get; private set; } = null!;
+
+    /// <summary>Where the section's controls go.</summary>
+    public UiElement Content { get; private set; } = null!;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <see cref="Content" />, so that a nested tag means what it looks like. The null guard is
+    ///     <see cref="Card.ContentHost" />'s and is load-bearing for the same reason: this is read
+    ///     before <see cref="OnCreated" /> has run.
+    /// </remarks>
+    protected override UiElement ContentHost => Content ?? this;
+
+    /// <summary>What the heading says, which is also the section's name; <c>null</c> for no heading.</summary>
+    [UiProperty(Changed = nameof(OnTitleChanged))]
+    public partial string? Title { get; set; }
+
+    /// <inheritdoc />
+    protected override void OnCreated() {
+        base.OnCreated();
+
+        Heading = Part("section-heading");
+        Heading.Role = AccessibleRole.None;
+        Heading.SetStyle("display", "none");
+
+        Content = Part("section-content");
+
+        // The region's name is the heading's words, read through the relation on every ask — so
+        // there is one copy of the title, and it is the one on screen.
+        AddAccessibleRelation(AccessibleRelation.LabelledBy, Heading);
+    }
+
+    void OnTitleChanged(string? previous, string? current) {
+        var titled = !string.IsNullOrEmpty(current);
+
+        Heading.Text = current;
+
+        // ⚠ `display: none` for `LabeledContent.Message`'s reason — a hidden flex item takes no
+        // `gap` — and the role with it, for the reason in the class remarks: the tree walks hidden
+        // parts, so a heading with nothing to say would be announced as an unnamed heading.
+        Heading.SetStyle("display", titled ? "flex" : "none");
+        Heading.Role = titled ? AccessibleRole.Heading : AccessibleRole.None;
+
+        // The section's own name just moved too. `AccessibleName` is computed on read, so this is
+        // for the platform bridge rather than the getter.
+        InvalidateAccessibility();
     }
 }

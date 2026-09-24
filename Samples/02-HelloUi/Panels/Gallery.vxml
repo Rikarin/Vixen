@@ -137,6 +137,17 @@
                 </LabeledContent>
             </Form>
 
+            <!--
+                ⚠ **A titled part of the page, reachable two ways.** A `Section` is a `region` landmark
+                named by a `heading` of its own, so a screen-reader user finds it in the landmark list
+                and by jumping heading to heading, and both announce the one `Title`. It draws the
+                heading and nothing else — no border, unlike the `GroupBox` above, because a page of
+                sections framed like cards reads as a stack of cards.
+            -->
+            <Section Title="Output">
+                <CheckBox Label="Write mipmaps" />
+            </Section>
+
             <SearchBox Placeholder="Filter assets" bind:Value="@Model.Filter.Value" />
             <NumericInput Minimum="0" Maximum="64" bind:Number="@Model.Samples.Value" />
 

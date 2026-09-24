@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.Controls.GroupBox]
 tags: [ui, controls, forms, accessibility, vxml]
 since: 0.2
 status: preview
-related: [ui/labeled-content, ui/form, ui/markup-panels, ui/accessibility]
+related: [ui/labeled-content, ui/form, ui/section, ui/markup-panels, ui/accessibility]
 ---
 
 ## What it is
@@ -116,5 +116,6 @@ group-legend { font-size: 0.9em; text-transform: uppercase; }
 
 - [Labeled content](labeled-content) — the row that names one field, and the relations it writes.
 - [Form](form) — what submits the fields in a group, and refuses while one is wrong.
+- [Section](section) — a titled part of a page, announced as a landmark rather than a group.
 - [Markup panels](markup-panels) — `Panel`, `Card` and the boxes that are deliberately not announced.
 - [Accessibility](accessibility) — roles, names and relations, and what a sweep holds them to.

@@ -177,9 +177,11 @@ Samples/02-HelloUi/Panels/Gallery.vxml	Label	Surface
 Samples/02-HelloUi/Panels/Gallery.vxml	Label	Unlit
 Samples/02-HelloUi/Panels/Gallery.vxml	Label	User name
 Samples/02-HelloUi/Panels/Gallery.vxml	Label	Wireframe
+Samples/02-HelloUi/Panels/Gallery.vxml	Label	Write mipmaps
 Samples/02-HelloUi/Panels/Gallery.vxml	Label	vixenengine.org/docs/ui
 Samples/02-HelloUi/Panels/Gallery.vxml	Message	Ui/Msdf.rvn(42): expected ';'
 Samples/02-HelloUi/Panels/Gallery.vxml	Name	Ada Lovelace
+Samples/02-HelloUi/Panels/Gallery.vxml	Title	Output
 Samples/02-HelloUi/Panels/Gallery.vxml	Title	Shader failed to compile
 Samples/02-HelloUi/Shell.vxml	Label	Close
 Samples/02-HelloUi/Shell.vxml	Label	Copy
