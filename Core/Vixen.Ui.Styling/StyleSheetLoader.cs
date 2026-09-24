@@ -823,7 +823,16 @@ public sealed class StyleSheetLoader {
         LoadInto(rule, origin, media, layer, conditions, Containers.RegisterStyle(within, prelude, condition, orSize));
     }
 
-    /// <summary>The text between <c>@container</c> and its block, as the author wrote it.</summary>
+    /// <summary>The text between <c>@container</c> and its block, as the author wrote it less its comments.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A comment is dropped here, because nothing downstream tokenises.</b> This text feeds
+    ///     <see cref="TrySplitContainerPrelude" /> and <see cref="StyleQuery.TryRead" />, which read
+    ///     words and parentheses, so <c>@container /* c */ (a) or (b)</c> used to take <c>/*</c> as the
+    ///     container name and refuse the rest as a feature. CSS Syntax 3 consumes a comment without
+    ///     producing a token, so it is replaced by a space, which separates what it separated. The
+    ///     block is the first <c>{</c> outside a comment or a string, so a brace in either does not
+    ///     cut the prelude short.
+    /// </remarks>
     static string? PreludeOf(IContainerRule rule) {
         var text = rule.StylesheetText?.Text;
 
@@ -832,13 +841,37 @@ public sealed class StyleSheetLoader {
         }
 
         var at = text.IndexOf("@container", StringComparison.OrdinalIgnoreCase);
-        var block = text.IndexOf('{', StringComparison.Ordinal);
 
-        if (at < 0 || block < at) {
+        if (at < 0) {
             return null;
         }
 
-        return text[(at + "@container".Length)..block].Trim();
+        var prelude = new StringBuilder();
+
+        for (var i = at + "@container".Length; i < text.Length; i++) {
+            var c = text[i];
+
+            if (c == '/' && i + 1 < text.Length && text[i + 1] == '*') {
+                i = EndOfComment(text, i);
+                prelude.Append(' ');
+                continue;
+            }
+
+            if (c is '"' or '\'') {
+                var end = EndOfString(text, i);
+                prelude.Append(text, i, end - i + 1);
+                i = end;
+                continue;
+            }
+
+            if (c == '{') {
+                return prelude.ToString().Trim();
+            }
+
+            prelude.Append(c);
+        }
+
+        return null;
     }
 
     void LoadUnknown(

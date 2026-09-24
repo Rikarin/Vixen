@@ -75,6 +75,34 @@ public class ContainerStyleQueryTests {
         Assert.Equal("styled", fixture.Value(leaf, parent: parent));
     }
 
+    /// <summary>
+    ///     A comment in a style query's prelude is ignored. The prelude is read off the source text,
+    ///     and the comment used to be read as part of it.
+    /// </summary>
+    [Theory]
+    [InlineData("/* c */ style(--variant: primary)")]
+    [InlineData("style(--variant: /* c */ primary)")]
+    [InlineData("style(--variant: primary) /* c */ and style(--flag: on)")]
+    public void A_comment_in_a_style_query_prelude_is_ignored(string prelude) {
+        var fixture = new CascadeFixture();
+        fixture.Load($$"""
+            .one { --variant: primary; --flag: on; }
+            .two { --variant: secondary; --flag: on; }
+            @container {{prelude}} { .leaf { color: styled; } }
+            """);
+
+        Assert.Empty(fixture.Engine.Loader.Diagnostics);
+
+        var one = fixture.Tree.CreateElement("div", classNames: ["one"]);
+        var two = fixture.Tree.CreateElement("div", classNames: ["two"]);
+        var matching = fixture.Tree.CreateElement("div", one, classNames: ["leaf"]);
+        var other = fixture.Tree.CreateElement("div", two, classNames: ["leaf"]);
+        var styles = fixture.Engine.ResolveAll();
+
+        Assert.Equal("styled", fixture.Read(styles[matching.Index], "color"));
+        Assert.Null(fixture.Read(styles[other.Index], "color"));
+    }
+
     [Fact]
     public void The_bare_form_asks_whether_the_property_has_a_value() {
         var (flagged, leaf, parent) = Scene("flag");

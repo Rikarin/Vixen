@@ -438,6 +438,41 @@ public class ContainerQueryTests {
         Assert.Equal(matches ? "either" : null, fixture.Value(fixture.Tree.CreateElement("div", box, classNames: ["leaf"])));
     }
 
+    /// <summary>
+    ///     ⚠ A comment in a prelude the loader re-reads from source is ignored, as CSS ignores it, and
+    ///     it used to be read as a word.
+    /// </summary>
+    /// <remarks>
+    ///     <c>@container /* c */ (a) or (b)</c> takes the re-read path, because ExCSS hands an
+    ///     <c>or</c> over as <c>not all</c>, and the splitter took <c>/*</c> as the container name and
+    ///     refused the rest as "not a container feature". The same prelude without <c>or</c> loaded,
+    ///     because ExCSS strips the comment on its own path. Each prelude is asked of a box on both
+    ///     sides of its threshold, so a rule that loaded and applied unconditionally fails too. The
+    ///     last row hides a brace in the comment, which used to end the prelude early.
+    /// </remarks>
+    [Theory]
+    [InlineData("/* c */ (min-width: 400px) or (min-height: 400px)", "")]
+    [InlineData("(min-width: 400px) /* c */ or /* c */ (min-height: 400px)", "")]
+    [InlineData("card /* c */ (min-width: 400px) or (min-height: 400px)", "card")]
+    [InlineData("/* c */ card (min-width: 400px) or (min-height: 400px)", "card")]
+    [InlineData("/* c */ not (max-width: 399px)", "")]
+    [InlineData("(min-width: 400px) or /* { */ (min-height: 400px)", "")]
+    public void A_comment_in_a_re_read_prelude_is_ignored(string prelude, string name) {
+        var fixture = new CascadeFixture();
+        fixture.Load($"@container {prelude} {{ .leaf {{ color: either }} }}");
+
+        Assert.Empty(fixture.Engine.Loader.Diagnostics);
+
+        var wide = fixture.Tree.CreateElement("div");
+        fixture.Contain(wide, width: 500f, height: 100f, name: name, kind: ContainerKind.Size);
+
+        var narrow = fixture.Tree.CreateElement("div");
+        fixture.Contain(narrow, width: 300f, height: 100f, name: name, kind: ContainerKind.Size);
+
+        Assert.Equal("either", fixture.Value(fixture.Tree.CreateElement("div", wide, classNames: ["leaf"])));
+        Assert.Null(fixture.Value(fixture.Tree.CreateElement("div", narrow, classNames: ["leaf"])));
+    }
+
     /// <summary>What the grammar still refuses, each with a reason, and the names CSS reserves.</summary>
     [Theory]
     [InlineData("@container (min-width: 1px) and (max-width: 9px) or (min-height: 1px) { .leaf { color: x } }", "cannot be mixed")]
