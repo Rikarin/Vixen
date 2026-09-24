@@ -415,6 +415,50 @@ public class ContainerStyleQueryTests {
     }
 
     /// <summary>
+    ///     ⚠ A size query nested in a named <c>style()</c> query still collects the chain its outer
+    ///     group needs: whether a group asks for ancestors is inherited from the group it sits in
+    ///     (#1421).
+    /// </summary>
+    /// <remarks>
+    ///     The rule carries only the inner size group, so the per-element gate asks that group, and a
+    ///     size group on its own asks nothing of the ancestor chain. Unless <c>Register</c> copies the
+    ///     answer down from the enclosing group, the gate collects no chain, the named style half
+    ///     searches an empty span, and the rule never applies. Each row is paired with one where
+    ///     exactly one half refuses, so a rule that applied unconditionally fails too.
+    /// </remarks>
+    [Theory]
+    [InlineData("primary", 500f, "nested")]
+    [InlineData("secondary", 500f, null)]
+    [InlineData("primary", 0f, null)]
+    public void A_size_query_nested_in_a_named_style_query_collects_the_chain(
+        string variant,
+        float width,
+        string? expected
+    ) {
+        const string sheet = """
+            .card { container-name: card; }
+            .sized { container-type: inline-size; }
+            .primary { --variant: primary; }
+            .secondary { --variant: secondary; }
+            @container card style(--variant: primary) { @container (min-width: 1px) { .leaf { color: nested; } } }
+            """;
+
+        var fixture = new CascadeFixture();
+        fixture.Load(sheet);
+        Assert.Empty(fixture.Engine.Loader.Diagnostics);
+
+        var card = fixture.Tree.CreateElement("div", classNames: ["card", variant]);
+        var box = fixture.Tree.CreateElement("div", card, classNames: ["sized"]);
+        fixture.Contain(box, width);
+
+        var middle = fixture.Tree.CreateElement("div", box);
+        var leaf = fixture.Tree.CreateElement("div", middle, classNames: ["leaf"]);
+        var styles = fixture.Engine.ResolveAll();
+
+        Assert.Equal(expected, fixture.Read(styles[leaf.Index], "color"));
+    }
+
+    /// <summary>
     ///     The mixed form: a size feature and a <c>style()</c> feature joined by <c>and</c>, both asked
     ///     of one box, the nearest <i>size</i> container (#273).
     /// </summary>
