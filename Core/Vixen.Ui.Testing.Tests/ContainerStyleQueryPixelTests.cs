@@ -150,8 +150,6 @@ public class ContainerStyleQueryPixelTests {
             """
         );
 
-        Assert.Empty(ui.Document.Styles.Loader.Diagnostics);
-
         var left = ui.Create("div", ui.Create("div", ui.Document.Root, null, "slot"), null, "box", "wide", "primary");
         ui.Create("div", ui.Create("div", left, null, "inner"), null, "label");
 
@@ -173,6 +171,9 @@ public class ContainerStyleQueryPixelTests {
         Assert.Equal((1000, 0, 1000), first);
         Assert.Equal((0, 1000, 1000), second);
         Assert.Equal((0, 0, 2000), third);
+
+        // Last, so that a sheet refusing the block still leaves its three frames on disk to look at.
+        Assert.Empty(ui.Document.Styles.Loader.Diagnostics);
     }
 
     /// <summary>Green texels in the left half, green in the right half, and red anywhere.</summary>
