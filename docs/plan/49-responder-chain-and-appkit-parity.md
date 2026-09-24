@@ -377,7 +377,7 @@ Linux). **Nothing above `Vixen.Platform` calls it.** The editor's `PropertyClipb
 ⌘C in a Vixen text box does nothing, in every application, today.
 
 ⚠ **And an application cannot fix this itself**, because `UiApplication` exposes `Window`
-(`Platform/Vixen.Ui.Desktop/UiApplication.cs:375`) and keeps `platform` private (`:110`). One missing
+(`Platform/Vixen.Ui.Desktop/UiApplication.cs:385`) and keeps `platform` private (`:113`). One missing
 property is what makes the clipboard, the native dialogs, the displays and the lifecycle all
 unreachable from `UiApplication.Run(options)`.
 
