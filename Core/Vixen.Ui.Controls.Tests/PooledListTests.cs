@@ -72,12 +72,13 @@ public class PooledListTests {
         sheet.Bound.Clear();
         sheet.List.Scroller.ScrollTop = 2_000f;
 
-        // ⚠ Two passes, and the second is not slack. The control grows and binds its pool from
-        // `LayoutFinished` — after the pass that measured the viewport — so the signals a scroll
-        // writes are written at the END of one update and the bindings that read them run in the
-        // next one. One pass leaves the rows showing the items they had, which is what a test that
-        // asserted after a single update would have called a bug in `Pool`.
-        fixture.Update();
+        // ⚠ ONE update, and that is the assertion. The control binds its pool from `LayoutFinished`
+        // — after the pass that measured the viewport — so the signals a scroll writes are written
+        // at the end of the update, after the frame's only flush used to have run. This used to
+        // say two updates and call the second "not slack": it was the frame drawn with every row
+        // showing the item it had before the scroll, which the #1406 review found as a click on
+        // the asset grid choosing the tile's previous asset. The settle loop now drains the
+        // effects its handlers queue, so the frame that ran the scroll draws it.
         fixture.Update();
 
         // 2 000 pixels at 20 a row is item 100, and the pool starts `Overscan` rows above it.
@@ -88,6 +89,58 @@ public class PooledListTests {
         Assert.Equal(top, sheet.List.FirstItem);
         Assert.Contains(100, sheet.Bound);
         Assert.Equal("row " + top, sheet.List.Rows[0].Text);
+    }
+
+    /// <summary>The grid's half of the same frame: a scrolled tile shows its own item before anything draws.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every realised tile, not the first.</b> The lag this pins is uniform — each slot shows
+    ///     the item it held before the scroll — so a single probe would catch it too, but a partial
+    ///     fix that drained only the effects queued before the handler ran would leave the tiles the
+    ///     handler grew unbound, and those are the last ones.
+    /// </remarks>
+    [Fact]
+    public void A_scrolled_grid_shows_each_tile_s_own_item_on_the_update_that_scrolled_it() {
+        using var fixture = new ControlFixture(
+            400f,
+            300f,
+            "virtualizing-grid { width: 300px; height: 200px; --tile-width: 100px; --tile-height: 50px; }"
+        );
+
+        var grid = fixture.Document.Root.Add<VirtualizingGrid>();
+        var context = BuildContext.BuildInto(new PooledListSheet(), fixture.Document, fixture.Document.Root);
+
+        context.Pool(
+            grid,
+            "virtual-tile",
+            () => Items,
+            (_, tile, showing) => context.Bind(() => tile.Text = "tile " + showing.Value)
+        );
+
+        fixture.Update();
+        fixture.Update();
+
+        // Settled at the top: the predicate below is true here and false the moment the scroll is
+        // written, which is what makes the single update after it the thing under test.
+        Assert.Equal(0, grid.FirstItem);
+        Assert.Equal("tile 0", grid.Tiles[0].Text);
+
+        grid.Scroller.ScrollTop = 5_000f;
+        fixture.Update();
+
+        Assert.NotEqual(0, grid.FirstItem);
+
+        var realised = 0;
+
+        for (var slot = 0; slot < grid.Tiles.Count; slot++) {
+            if (grid.Tiles[slot].HasClass("parked")) {
+                continue;
+            }
+
+            realised++;
+            Assert.Equal("tile " + (grid.FirstItem + slot), grid.Tiles[slot].Text);
+        }
+
+        Assert.True(realised > 10, $"only {realised} tiles were realised");
     }
 
     /// <summary>A count that is a signal's is re-read, because the body of `Pool` is an effect.</summary>

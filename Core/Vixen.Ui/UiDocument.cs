@@ -1272,6 +1272,16 @@ public sealed partial class UiDocument : IDisposable {
         for (var pass = 0; pass <= SettlePasses; pass++) {
             LayoutFinished?.Invoke(this);
 
+            // ⚠ Drained here as well as at the top of `Update`, because a handler's most ordinary
+            // change is a signal write. A pooled list realises from this event and rebinds a slot by
+            // writing the index it shows (`BuildContext.Pool`); the bindings that read it are effects,
+            // and the frame's only flush had already run — so every scrolled row was drawn showing
+            // the item it held before the scroll, and a press in that frame resolved to it. Found by
+            // the #1406 review on the asset grid, and true of every `@rows` list since #758. What the
+            // effects change dirties the document like any handler's change, so the loop below lays
+            // it out before anything is drawn.
+            Effects.Flush();
+
             if (!dirty) {
                 return;
             }
