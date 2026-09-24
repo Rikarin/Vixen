@@ -129,11 +129,15 @@ public class ContainerStyleQueryTests {
     }
 
     [Theory]
-    // Mixed with a size feature, which makes the container the nearest SIZE container rather than
-    // the parent. `ContainerScopes` holds that element as a box and the cascade holds it as a style,
-    // and neither holds both. Named or not.
-    [InlineData("@container (min-width: 400px) and style(--variant: primary) { .leaf { color: x } }", "size container")]
-    [InlineData("@container card (min-width: 400px) and style(--variant: primary) { .leaf { color: x } }", "size container")]
+    // ⚠ Mixed with a size feature by `or`. Both halves would be asked of one box, but they are answered
+    // in two places (the size half by `ContainerScopes`, the style half by the cascade) and joined as
+    // a nested group, which is a conjunction. `and` splits cleanly into two groups and `or` does not.
+    [InlineData("@container (min-width: 400px) or style(--variant: primary) { .leaf { color: x } }", "'or'")]
+    [InlineData("@container style(--variant: primary) or (min-width: 400px) { .leaf { color: x } }", "'or'")]
+    // A size half that does not read is refused for the reason a size query alone would be.
+    [InlineData("@container (min-width: 30furlongs) and style(--variant: primary) { .leaf { color: x } }", "30furlongs")]
+    // `not` over a mixed list is the list rule, whichever half it would negate.
+    [InlineData("@container not style(--a: 1) and (min-width: 400px) { .leaf { color: x } }", "'not' applies to one feature")]
     // A standard property, which no engine answers either and which this cascade has no computed
     // value to compare for without re-deriving one.
     [InlineData("@container style(color: red) { .leaf { color: x } }", "custom properties")]
@@ -344,5 +348,145 @@ public class ContainerStyleQueryTests {
         var leaf = fixture.Tree.CreateElement("div", middle, classNames: ["leaf"]);
 
         Assert.Equal("named", fixture.Value(leaf));
+    }
+
+    /// <summary>
+    ///     The mixed form: a size feature and a <c>style()</c> feature joined by <c>and</c>, both asked
+    ///     of one box, the nearest <i>size</i> container (#273).
+    /// </summary>
+    /// <remarks>
+    ///     CSS Conditional 5: a query's container is the nearest ancestor eligible for every feature in
+    ///     it, and only a size container is eligible for <c>(min-width: …)</c>. So the style half is
+    ///     asked of that container and never of the parent. A <c>.sized</c> element is both declared
+    ///     a size container in the sheet, for the cascade, and entered into the scope chain with
+    ///     <see cref="CascadeFixture.Contain" />, for the size half, as a layout pass would do.
+    /// </remarks>
+    const string Mixed = """
+        .sized { container-type: inline-size; }
+        .card { container-name: card; }
+        .primary { --variant: primary; }
+        .secondary { --variant: secondary; }
+        @container (min-width: 400px) and style(--variant: primary) { .leaf { color: mixed; } }
+        @container style(--variant: primary) and (min-width: 400px) { .leaf { border-color: reversed; } }
+        @container card (min-width: 400px) and style(--variant: primary) { .leaf { background-color: named-mixed; } }
+        """;
+
+    /// <summary>A container of a given width and classes, one element between it and the leaf, and the leaf's style.</summary>
+    static (CascadeFixture Fixture, ComputedStyle Leaf) MixedScene(float width, string[] container, string[] between) {
+        var fixture = new CascadeFixture();
+        fixture.Load(Mixed);
+
+        var box = fixture.Tree.CreateElement("div", classNames: container);
+        fixture.Contain(box, width, name: container.Contains("card") ? "card" : "");
+
+        var middle = fixture.Tree.CreateElement("div", box, classNames: between);
+        var leaf = fixture.Tree.CreateElement("div", middle, classNames: ["leaf"]);
+
+        return (fixture, fixture.Engine.ResolveAll()[leaf.Index]);
+    }
+
+    [Fact]
+    public void The_mixed_sheet_loads_without_a_diagnostic() {
+        var fixture = new CascadeFixture();
+        fixture.Load(Mixed);
+
+        Assert.Empty(fixture.Engine.Loader.Diagnostics);
+    }
+
+    /// <summary>Each half alone is not enough, and the order the two are written in does not matter.</summary>
+    [Theory]
+    [InlineData(900f, "primary", "mixed")]
+    [InlineData(300f, "primary", null)]
+    [InlineData(900f, "secondary", null)]
+    [InlineData(300f, "secondary", null)]
+    public void A_mixed_query_holds_only_when_both_halves_do(float width, string variant, string? expected) {
+        var (fixture, leaf) = MixedScene(width, ["sized", variant], []);
+
+        Assert.Equal(expected, fixture.Read(leaf, "color"));
+        Assert.Equal(expected is null ? null : "reversed", fixture.Read(leaf, "border-color"));
+    }
+
+    /// <summary>
+    ///     ⚠ The style half asks the size container and not the parent: the element between them
+    ///     declares the opposite value, so an evaluator reading the parent answers every row wrongly.
+    /// </summary>
+    [Fact]
+    public void The_style_half_asks_the_size_container_and_not_the_parent() {
+        var (container, leaf) = MixedScene(900f, ["sized", "primary"], ["secondary"]);
+        Assert.Equal("mixed", container.Read(leaf, "color"));
+
+        var (parent, parentLeaf) = MixedScene(900f, ["sized", "secondary"], ["primary"]);
+        Assert.Null(parent.Read(parentLeaf, "color"));
+    }
+
+    /// <summary>
+    ///     A named mixed query asks the nearest size container carrying the name, past a nearer
+    ///     unnamed size container, and an element that only carries the name is not a size container.
+    /// </summary>
+    [Fact]
+    public void A_named_mixed_query_asks_the_named_size_container() {
+        var fixture = new CascadeFixture();
+        fixture.Load(Mixed);
+
+        var outer = fixture.Tree.CreateElement("div", classNames: ["sized", "card", "primary"]);
+        fixture.Contain(outer, 900f, name: "card");
+
+        var inner = fixture.Tree.CreateElement("div", outer, classNames: ["sized", "secondary"]);
+        fixture.Contain(inner, 900f);
+
+        var leaf = fixture.Tree.CreateElement("div", inner, classNames: ["leaf"]);
+        var style = fixture.Engine.ResolveAll()[leaf.Index];
+
+        // The named query asks `outer`, which is primary; the unnamed one asks `inner`, which is not.
+        Assert.Equal("named-mixed", fixture.Read(style, "background-color"));
+        Assert.Null(fixture.Read(style, "color"));
+
+        // A `card` with no container-type is a style container only, so the named mixed query has
+        // no eligible container and is false, even though a named style query alone would find it.
+        // ⚠ `MixedScene` enters the box into the chain whatever its classes say, which a live
+        // document would not, so the size half holds here and only the style half can refuse it:
+        // this row is about the style half's eligibility rule on its own.
+        var (plain, plainLeaf) = MixedScene(900f, ["card", "primary"], []);
+        Assert.Null(plain.Read(plainLeaf, "background-color"));
+    }
+
+    /// <summary>
+    ///     ⚠ The size container's own change reaches an asker below an element that overrides the
+    ///     value, although the container carries no name.
+    /// </summary>
+    /// <remarks>
+    ///     The edge a named container gets, re-resolving its whole subtree when its style moves, has
+    ///     to cover every size container once a sheet declares a mixed query. The unnamed mixed query
+    ///     asks the nearest size container, which need not have a name. The element between declares
+    ///     <c>--variant: secondary</c>, so its inherited portion never moves and the ordinary walk stops
+    ///     there.
+    /// </remarks>
+    [Fact]
+    public void A_size_containers_change_reaches_an_asker_below_an_override() {
+        var fixture = new CascadeFixture();
+        fixture.Load(Mixed);
+
+        var box = fixture.Tree.CreateElement("div", classNames: ["sized", "secondary"]);
+        fixture.Contain(box, 900f);
+
+        var middle = fixture.Tree.CreateElement("div", box, classNames: ["secondary"]);
+        var leaf = fixture.Tree.CreateElement("div", middle, classNames: ["leaf"]);
+
+        var updater = new StyleUpdater(fixture.Engine);
+        updater.ResolveAll();
+
+        Assert.Null(fixture.Read(updater.StyleOf(leaf), "color"));
+
+        fixture.Tree.RemoveClass(box, "secondary");
+        fixture.Tree.AddClass(box, "primary");
+        updater.ClassChanged(box, "secondary", "primary");
+
+        Assert.Equal("mixed", fixture.Read(updater.StyleOf(leaf), "color"));
+
+        fixture.Tree.RemoveClass(box, "primary");
+        fixture.Tree.AddClass(box, "secondary");
+        updater.ClassChanged(box, "secondary", "primary");
+
+        Assert.Null(fixture.Read(updater.StyleOf(leaf), "color"));
     }
 }

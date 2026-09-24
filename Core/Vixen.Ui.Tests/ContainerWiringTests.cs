@@ -728,6 +728,52 @@ public class ContainerWiringTests {
     }
 
     /// <summary>
+    ///     ⚠ A mixed <c>(min-width: …) and style(…)</c> query asks both halves of the nearest size
+    ///     container, through a live document, and follows a change to either half (#273).
+    /// </summary>
+    /// <remarks>
+    ///     The card is a 450-wide inline-size container and the rule asks for 400 and
+    ///     <c>--variant: primary</c>. The label's parent, <c>.inner</c>, declares
+    ///     <c>--variant: secondary</c>, so an evaluator that asked the parent would never match, and
+    ///     the ordinary updater walk stops at <c>.inner</c> when the card's value changes. Three edits
+    ///     move it: the card's value off and back, which is the style half's edge, and the card's
+    ///     width to 300, which is the size half's.
+    /// </remarks>
+    [Fact]
+    public void A_mixed_query_asks_the_size_container_and_follows_both_halves() {
+        using var document = Document("""
+            root { width: 1000px; height: 600px; flex-direction: column; }
+            .card { container-type: inline-size; width: 450px; height: 100px; flex-direction: column; }
+            .card.narrow { width: 300px; }
+            .primary { --variant: primary; }
+            .inner { --variant: secondary; flex-direction: column; }
+            .label { width: 10px; height: 10px; }
+            @container (min-width: 400px) and style(--variant: primary) { .label { width: 300px; } }
+            """);
+
+        Assert.Empty(document.Styles.Loader.Diagnostics);
+
+        var card = document.Root.Add("div", classNames: ["card", "primary"]);
+        var label = card.Add("div", classNames: "inner").Add("div", classNames: "label");
+        document.Update();
+
+        Assert.Equal(300f, label.Width, 0.001f);
+
+        card.RemoveClass("primary");
+        document.Update();
+        Assert.Equal(10f, label.Width, 0.001f);
+
+        card.AddClass("primary");
+        document.Update();
+        Assert.Equal(300f, label.Width, 0.001f);
+
+        card.AddClass("narrow");
+        document.Update();
+        Assert.Equal(300f, card.Width, 0.001f);
+        Assert.Equal(10f, label.Width, 0.001f);
+    }
+
+    /// <summary>
     ///     ⚠ A size query finds a container by any one of the names in its <c>container-name</c> list,
     ///     written as the longhand or in the shorthand (#273).
     /// </summary>

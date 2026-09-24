@@ -709,8 +709,9 @@ public sealed class StyleSheetLoader {
     /// <summary>Loads a <c>@container</c> block whose condition is <c>style()</c> features.</summary>
     /// <remarks>
     ///     The style-only forms, named or not, joined by <c>and</c> or <c>or</c> or under one
-    ///     <c>not</c>. A form mixed with a size feature is a diagnostic here rather than a rule that is
-    ///     sometimes wrong; see <see cref="StyleQuery" /> for why it would answer stale.
+    ///     <c>not</c>, and a form <c>and</c>-joined with size features, which asks the nearest size
+    ///     container. <c>or</c> across a size feature and a style feature is a diagnostic here rather
+    ///     than a rule read as <c>and</c>; see <see cref="StyleQuery" />.
     /// </remarks>
     void LoadStyleContainer(
         IContainerRule rule,
@@ -731,7 +732,22 @@ public sealed class StyleSheetLoader {
             return;
         }
 
-        LoadInto(rule, origin, media, layer, conditions, Containers.RegisterStyle(containers, prelude, condition));
+        // ⚠ A mixed query is two groups, the style group nested in a size group over the same name
+        // (#273). The size half is answered off the box by `ContainerScopes`, as a size query alone
+        // would be, and nesting makes the pair a conjunction. Its readability is the size query's own
+        // question, asked the way `LoadContainer` asks it: against no box, at load.
+        var within = containers;
+
+        if (condition.Size is { } size) {
+            if (!ContainerQuery.TryEvaluate(size, default, out _, out reason)) {
+                diagnostics.Add(new SelectorDiagnostic(label, reason!));
+                return;
+            }
+
+            within = Containers.Register(containers, condition.Name, size);
+        }
+
+        LoadInto(rule, origin, media, layer, conditions, Containers.RegisterStyle(within, prelude, condition));
     }
 
     /// <summary>The text between <c>@container</c> and its block, as the author wrote it.</summary>

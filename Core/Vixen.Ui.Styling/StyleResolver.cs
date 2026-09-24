@@ -225,7 +225,7 @@ public sealed class StyleResolver {
         // ⚠ Collected FIRST, before `winners` and `candidates` are touched. Collecting may cascade an
         // ancestor through this same resolver, which reuses both lists, and a cascade that has
         // started iterating them cannot survive another one running inside it.
-        if (containers.Conditions.HasNamedStyleQueries) {
+        if (containers.Conditions.HasAncestorStyleQueries) {
             ancestors ??= AncestorStyles(tree, element);
         } else {
             ancestors = [];

@@ -13,11 +13,18 @@ readonly record struct StyleFeature(string Property, string? Value);
 /// <param name="Features">The features, in the order written.</param>
 /// <param name="Any">Whether they are <c>or</c>-joined rather than <c>and</c>-joined.</param>
 /// <param name="Negated">Whether the one feature is under <c>not</c>.</param>
+/// <param name="Size">
+///     The size features it was <c>and</c>-joined with, as a size condition <c>(min-width: 400px)</c>,
+///     or null for a style-only query. A mixed query asks the nearest <i>size</i> container.
+/// </param>
 /// <remarks>
 ///     A class and not a record struct, because a record struct over an array compares the array by
 ///     reference and this is never used as a key.
 /// </remarks>
-sealed record StyleCondition(string Name, StyleFeature[] Features, bool Any, bool Negated);
+sealed record StyleCondition(string Name, StyleFeature[] Features, bool Any, bool Negated, string? Size = null) {
+    /// <summary>Whether the element it asks can be above the parent, so the resolver has to collect ancestors.</summary>
+    public bool AsksAncestors => Name.Length > 0 || Size is not null;
+}
 
 /// <summary>Reads and answers <c>@container style(…)</c> conditions.</summary>
 /// <remarks>
@@ -51,13 +58,20 @@ sealed record StyleCondition(string Name, StyleFeature[] Features, bool Any, boo
 ///         ancestor's style comes from <see cref="StyleResolver.ResolvedAncestor" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The mixed form is still refused.</b> <c>(min-width: 400px) and style(…)</c> asks
-///         the nearest <i>size</i> container. That element is known to <see cref="ContainerScopes" />
-///         only as a box, and the cascade knows it only as a style, so neither side holds both
-///         halves. Standard properties are refused because no engine here compares a standard
-///         property's computed value. <c>and</c>, <c>or</c> and a single <c>not</c> are read over
-///         <c>style()</c> features. Mixing <c>and</c> with <c>or</c> needs parentheses in CSS, and
-///         a parenthesised group is refused.
+///         ⚠ <b>The mixed form is answered as two groups, one nested in the other (#273).</b>
+///         <c>(min-width: 400px) and style(…)</c> asks the nearest <i>size</i> container, the one
+///         ancestor eligible for both features. <see cref="ContainerScopes" /> knows that element only
+///         as a box and the cascade knows it only as a style. So the size features become an ordinary
+///         size group, answered off the box, and the style features a style group nested inside it,
+///         answered off the style of the nearest ancestor whose own <c>container-type</c> makes it
+///         a size container. The two pick the same element because both apply one rule: nearest,
+///         not <c>normal</c>, carrying the name if one is asked. That is also why a name list has one
+///         definition, <see cref="ContainerConditions.Carries" />. Nesting is a conjunction, so only
+///         <c>and</c> joins the halves; <c>or</c> across them is refused. Standard properties are
+///         refused because no engine here compares a standard property's computed value.
+///         <c>and</c>, <c>or</c> and a single <c>not</c> are read over <c>style()</c> features.
+///         Mixing <c>and</c> with <c>or</c> needs parentheses in CSS, and a parenthesised group is
+///         refused.
 ///     </para>
 /// </remarks>
 static class StyleQuery {
@@ -111,35 +125,45 @@ static class StyleQuery {
         }
 
         var read = new List<StyleFeature>();
+        var sizes = new List<string>();
         bool? any = null;
 
         while (!text.IsEmpty) {
             if (text[0] == '(') {
-                reason = text.Length > 1 && text[1..].TrimStart().StartsWith("style(", StringComparison.OrdinalIgnoreCase)
-                    ? "a parenthesised group of style queries is not supported"
-                    : "a style query mixed with a size feature asks the nearest size container, which this cascade does not hold";
+                if (text[1..].TrimStart().StartsWith("style(", StringComparison.OrdinalIgnoreCase)) {
+                    reason = "a parenthesised group of style queries is not supported";
+                    return false;
+                }
 
-                return false;
-            }
+                // A size feature, kept as written for the size group the loader registers from it.
+                // Whether it reads is `ContainerQuery`'s question, asked there.
+                var end = Closing(text, 0);
 
-            if (!text.StartsWith("style(", StringComparison.OrdinalIgnoreCase)) {
+                if (end < 0) {
+                    reason = $"'{text.ToString()}' has no closing parenthesis";
+                    return false;
+                }
+
+                sizes.Add(text[..(end + 1)].ToString());
+                text = text[(end + 1)..].TrimStart();
+            } else if (text.StartsWith("style(", StringComparison.OrdinalIgnoreCase)) {
+                var close = Closing(text, "style".Length);
+
+                if (close < 0) {
+                    reason = $"'{text.ToString()}' has no closing parenthesis";
+                    return false;
+                }
+
+                if (!TryFeature(text["style(".Length..close].Trim(), out var feature, out reason)) {
+                    return false;
+                }
+
+                read.Add(feature);
+                text = text[(close + 1)..].TrimStart();
+            } else {
                 reason = $"'{text.ToString()}' is not a container feature Vixen understands";
                 return false;
             }
-
-            var close = Closing(text, "style".Length);
-
-            if (close < 0) {
-                reason = $"'{text.ToString()}' has no closing parenthesis";
-                return false;
-            }
-
-            if (!TryFeature(text["style(".Length..close].Trim(), out var feature, out reason)) {
-                return false;
-            }
-
-            read.Add(feature);
-            text = text[(close + 1)..].TrimStart();
 
             if (text.IsEmpty) {
                 break;
@@ -170,13 +194,21 @@ static class StyleQuery {
         }
 
         // `not` takes one query in parens and not a list, so `not style(--a) and style(--b)` is
-        // invalid CSS rather than a negation of either half.
-        if (negated && read.Count > 1) {
+        // invalid CSS rather than a negation of either half. A size feature counts: it is in the list.
+        if (negated && read.Count + sizes.Count > 1) {
             reason = "'not' applies to one feature; a negated group needs parentheses, which are not supported";
             return false;
         }
 
-        condition = new StyleCondition(name, [.. read], any == true, negated);
+        // ⚠ The halves are answered in two places and joined by nesting one group in the other, which
+        // is a conjunction. `or` between a size feature and a style feature has no such shape, and
+        // reading it as `and` would apply a rule the author wrote as a fallback only when both held.
+        if (sizes.Count > 0 && any == true) {
+            reason = "a size feature and a style() feature can be joined by 'and' only; 'or' across them is not supported";
+            return false;
+        }
+
+        condition = new StyleCondition(name, [.. read], any == true, negated, sizes.Count == 0 ? null : string.Join(" and ", sizes));
         return true;
     }
 
@@ -257,6 +289,41 @@ static class StyleQuery {
 
         // One definition of a name list for both halves, since a mixed query asks both of one box.
         return name is null || ContainerConditions.Carries(written, name);
+    }
+
+    /// <summary>Whether a style makes its element a size container, which is what a mixed query looks for.</summary>
+    /// <param name="style">An element's computed style.</param>
+    /// <param name="properties">The table property names are interned in.</param>
+    /// <param name="values">The table values are interned in.</param>
+    /// <returns>Whether its <c>container-type</c> is <c>inline-size</c> or <c>size</c>.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The same reading as <c>UiDocument.KindOf</c>, which is what enters the element into
+    ///     <see cref="ContainerScopes" />:</b> the shorthand's half after the slash, then the
+    ///     longhand over it. A mixed query's size half is answered off that scope chain and its style
+    ///     half off this, so the two agree on which element is the container only while the two
+    ///     readers agree. <c>container: card</c> with no slash is <c>normal</c>.
+    /// </remarks>
+    public static bool IsSizeContainer(ComputedStyle style, NameTable properties, NameTable values) {
+        var longhand = properties.Lookup("container-type");
+
+        if (longhand != NameTable.None && style.TryGet(longhand, out var declared)) {
+            return IsSizeKeyword(values.NameOf(declared).AsSpan().Trim());
+        }
+
+        var shorthand = properties.Lookup("container");
+
+        if (shorthand == NameTable.None || !style.TryGet(shorthand, out var both)) {
+            return false;
+        }
+
+        var text = values.NameOf(both).AsSpan();
+        var slash = text.IndexOf('/');
+
+        return slash >= 0 && IsSizeKeyword(text[(slash + 1)..].Trim());
+
+        static bool IsSizeKeyword(ReadOnlySpan<char> keyword) =>
+            keyword.Equals("inline-size", StringComparison.OrdinalIgnoreCase)
+            || keyword.Equals("size", StringComparison.OrdinalIgnoreCase);
     }
 
     static ReadOnlySpan<char> ReadNames(ComputedStyle style, NameTable properties, NameTable values) {

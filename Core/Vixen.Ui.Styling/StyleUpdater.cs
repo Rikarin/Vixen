@@ -296,11 +296,14 @@ public sealed class StyleUpdater {
             // level below can stop the walk the same way. It costs nothing unless a sheet declares a
             // named style query, and then only under the elements that carry a container name,
             // before or after.
+            //
+            // ⚠ A mixed `(min-width: …) and style(…)` query asks the nearest SIZE container, and that
+            // one needs no name, so once a sheet declares one every size container is such an element
+            // too. The name test alone missed it: the asker below an override kept last frame's answer.
             if (before is not null
                 && !ReferenceEquals(before, after)
-                && engine.ContainerScopes.Conditions.HasNamedStyleQueries
-                && (StyleQuery.Names(before, engine.Rules.Properties, engine.Rules.Values, null)
-                    || StyleQuery.Names(after, engine.Rules.Properties, engine.Rules.Values, null))) {
+                && engine.ContainerScopes.Conditions.HasAncestorStyleQueries
+                && (CanBeAsked(before) || CanBeAsked(after))) {
                 EnqueueDescendants(new StyleNodeId(index));
                 continue;
             }
@@ -320,6 +323,16 @@ public sealed class StyleUpdater {
         }
 
         return LastPassResolved;
+    }
+
+    /// <summary>Whether a named or mixed <c>style()</c> query can ask an element with this style.</summary>
+    /// <param name="style">The element's style, before or after a change.</param>
+    /// <returns>Whether it carries a container name, or is a size container while a sheet has a mixed query.</returns>
+    bool CanBeAsked(ComputedStyle style) {
+        var (properties, values) = (engine.Rules.Properties, engine.Rules.Values);
+
+        return StyleQuery.Names(style, properties, values, null)
+            || (engine.ContainerScopes.Conditions.HasSizedStyleQueries && StyleQuery.IsSizeContainer(style, properties, values));
     }
 
     /// <summary>Queues every descendant of an element, not only its children.</summary>
