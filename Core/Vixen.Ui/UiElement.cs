@@ -2198,9 +2198,16 @@ public partial class UiElement : Composition.IComposable {
     /// <remarks>
     ///     ⚠ <b>Every <c>display: inline</c> box is walked into, and the layout does not flatten every
     ///     one</b>: <c>LayoutTree.IsNonAtomicInline</c> keeps atomic an inline with a measure function,
-    ///     one with no child that takes part in the line, and one holding a float. A text-less box of
-    ///     that kind that still draws is found empty here and looked past, which is owed
-    ///     (<c>InlineKnownGaps.txt</c>), and harmless while no sheet makes such a box inline.
+    ///     one with no child that takes part in the line, and one holding a float. That was recorded
+    ///     as owed — such a box that draws is found empty here and looked past — and it is not a
+    ///     divergence (#249). The layout's atomicity is how it lays a box out, not what CSS calls an
+    ///     atomic inline: an empty span, padded or not, and a span holding only a float are inline
+    ///     boxes with no content, and Chrome collapses the spaces on either side of both and drops
+    ///     one before either at the end of a line (<c>Oracle/inline-collapse.html</c>,
+    ///     <c>WhiteSpaceInlineCollapseTests</c>). What does keep both spaces is an
+    ///     <c>inline-block</c>, at zero width too, and that is the arm below. The first kind cannot
+    ///     reach here without text: <c>OnTextChanged</c> is the only thing in the tree that gives an
+    ///     element a measure function, and it gives one exactly when there is text to read.
     /// </remarks>
     InlineNeighbour? Boundary(UiElement element) {
         ref readonly var own = ref Document.Layout.GetStyle(element.LayoutNode);
