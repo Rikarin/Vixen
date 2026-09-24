@@ -586,7 +586,7 @@ numbers are that commit's parent's, and the literals are no longer at them.
 | `"Clear"` | `Vixen.Ui.Controls/TextInputs.cs:69` |
 | `"Close"` | `Vixen.Ui.Controls/Dialogs.cs:91`, `Vixen.Ui.Controls.Advanced/DockingHost.cs:472` |
 | `"Dismiss"` | `Vixen.Ui.Controls/Toasts.cs:66` |
-| `"Show suggestions"` | `Vixen.Ui.Controls/Selects.cs:621` |
+| `"Show suggestions"` | `Vixen.Ui.Controls/Selects.cs:866` |
 | `"Previous tab"` · `"Next tab"` | `Vixen.Ui.Controls.Advanced/DockingHost.cs:548`, `:557` |
 | `"Reset"` · `"Search"` | `Vixen.Ui.Controls.Advanced/PropertyGrid.cs:53`, `:117` |
 | `"Intensity"` · `"Pick a colour from the screen"` | `Vixen.Ui.Controls.Advanced/ColorPicker.cs:863`, `:855` |
