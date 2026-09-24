@@ -83,10 +83,11 @@ is shaded on the canvas.
 
 ### Adding nodes
 
-The search popup is filtered by what may go where. **Space** over the canvas, or **Add node** in the
-toolbar, offers composites and tasks: the new node goes under the selected composite, or after the
-selected task in its parent, since a task takes no children. **Add decorator** and **Add service**
-over the attachment list offer only those, and a service only on a composite. Type a few letters and
+The search popup is filtered by what may go where. **Space** with the focus in the canvas, or **Add
+node** in the toolbar, offers composites and tasks: the new node goes under the selected composite,
+or after the selected task in its parent, since a task takes no children. With the focus on a button
+in the side column, Space presses that button instead. **Add decorator** and **Add service** over
+the attachment list offer only those, and a service only on a composite. Type a few letters and
 press **Enter** for the best match, or click a row; **Escape** or a click elsewhere closes it.
 
 ### The inspector

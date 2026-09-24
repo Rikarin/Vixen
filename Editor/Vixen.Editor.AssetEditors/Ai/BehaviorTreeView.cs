@@ -158,6 +158,7 @@ public sealed class BehaviorTreeView : Control {
 
         // Capture, so Space is taken before the canvas reads it as "activate the node the arrows
         // are on" — the trade `NodeGraphView` makes for the same key, and Enter still does that.
+        // Only with the focus in the canvas, though; see `Keyed`.
         AddHandler<KeyEvent>(static (element, args) => ((BehaviorTreeView) element).Keyed(args), RoutingStrategy.Capture);
         AddHandler<PointerEvent>(
             static (element, args) => ((BehaviorTreeView) element).pointer = new(args.X, args.Y),
@@ -385,15 +386,29 @@ public sealed class BehaviorTreeView : Control {
             return;
         }
 
-        // Anything with a caret inside this view keeps its spaces. `ITextInputTarget` rather than
-        // `TextField`, for the reason #650 gave `CommandDispatcher`: a code editor wants them too.
-        if (Document.Focused is ITextInputTarget) {
+        // ⚠ Only while the focus is on the canvas. This handler sees the capture leg of the whole
+        // view, side column included, and Space is how a focused button is pressed: taken here, it
+        // opened the node search in place of the button — "Add decorator" asked for a composite.
+        // Refusing everything outside the canvas also covers whatever control the column gains next.
+        // A caret inside the canvas keeps its spaces: `ITextInputTarget` rather than `TextField`,
+        // for the reason #650 gave `CommandDispatcher` — a code editor wants them too.
+        if (!OnCanvas(Document.Focused) || Document.Focused is ITextInputTarget) {
             return;
         }
 
         if (OpenNodeSearch(pointer.X, pointer.Y)) {
             args.Handled = true;
         }
+    }
+
+    bool OnCanvas(UiElement? focused) {
+        for (var walk = focused; walk is not null && !ReferenceEquals(walk, this); walk = walk.Parent) {
+            if (ReferenceEquals(walk, Canvas)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Opens the search under a button, which is where somebody who clicked it is looking.</summary>

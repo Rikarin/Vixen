@@ -123,6 +123,45 @@ public class BehaviorSearchTests {
     }
 
     /// <summary>
+    ///     ⚠ Space is how a focused button is pressed, and the tree's own Space runs on the capture
+    ///     leg of the whole view: until it asked where the focus was, it took the key from every button
+    ///     in the side column and opened the node search in place of the one the button opens.
+    /// </summary>
+    [Fact]
+    public void Space_on_a_focused_side_button_presses_the_button_rather_than_opening_the_node_search() {
+        using var harness = new ViewHarness();
+        var (view, document) = Open(harness);
+
+        // The pointer over the canvas, as it would be for somebody who tabbed to the button from it.
+        var x = view.Canvas.AbsoluteLeft + 40f;
+        var y = view.Canvas.AbsoluteTop + 120f;
+
+        harness.Ui.MovePointer(x, y);
+        Assert.False(view.AddDecorator.Disabled);
+
+        harness.Ui.Document.Focus(view.AddDecorator);
+        Assert.Same(view.AddDecorator, harness.Ui.Document.Focused);
+
+        harness.Ui.PressKey(InputKey.Space);
+        harness.Ui.Frame();
+
+        Assert.True(view.Search.IsOpen, "Space on Add decorator opened nothing.");
+        Assert.Equal([BehaviorSlot.Decorator], view.Search.Slots);
+
+        harness.Ui.PressKey(InputKey.Escape);
+        Assert.False(view.Search.IsOpen);
+
+        // And the canvas still has its Space once the focus is back on it.
+        harness.Ui.Document.Focus(view.Canvas);
+        harness.Ui.PressKey(InputKey.Space);
+        harness.Ui.Frame();
+
+        Assert.True(view.Search.IsOpen, "Space over the tree did not open the search.");
+        Assert.Equal([BehaviorSlot.Composite, BehaviorSlot.Task], view.Search.Slots);
+        Assert.Empty(document.Model.Content.Root!.Decorators);
+    }
+
+    /// <summary>
     ///     ⚠ Fourteen composites and tasks in a popup capped at 320 px: the list has to scroll to its
     ///     last row, and the field must not pay for the rows with its own height.
     /// </summary>
