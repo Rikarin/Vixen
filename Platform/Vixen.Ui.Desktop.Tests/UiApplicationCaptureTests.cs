@@ -36,8 +36,13 @@ namespace Vixen.Ui.Desktop.Tests;
 public class UiApplicationCaptureTests {
     /// <summary>One box, and nothing else that could draw.</summary>
     sealed class Box : Component {
-        protected override void Build(BuildContext ctx) => ctx.Element(Root, "capture-box");
+        public UiElement Element { get; private set; } = null!;
+
+        protected override void Build(BuildContext ctx) => Element = ctx.Element(Root, "capture-box");
     }
+
+    /// <summary>How many frames every capture here runs. The last one is the one written.</summary>
+    const int Frames = 3;
 
     const int Left = 100;
     const int Top = 50;
@@ -120,6 +125,42 @@ public class UiApplicationCaptureTests {
         Covers(picture, Left, Top, BoxWidth, BoxHeight);
     }
 
+    /// <summary>The picture is of the last frame, not of an earlier one that happens to look the same.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The box above cannot tell frames apart.</b> Its document is the same on every frame, so
+    ///     a capture of the first frame passes it too: measured, with <c>CapturingThisFrame</c> set to
+    ///     frame 0 all of the tests above stayed green. Here the box moves on the last frame and only
+    ///     there, so a capture of any earlier frame finds it at its first place.
+    /// </remarks>
+    [Fact]
+    public void TheCaptureIsOfTheLastFrameAndNotAnEarlierOne() {
+        const int MovedLeft = 380;
+        const int MovedTop = 240;
+
+        var sheet = Sheet + $$"""
+
+            capture-box.moved { left: {{MovedLeft}}px; top: {{MovedTop}}px; }
+            """;
+
+        Box? built = null;
+
+        // `Frame` runs before the frame's update and draw, so a class added there is in that frame.
+        if (Capture(
+                sheet,
+                () => built = new Box(),
+                "last-frame",
+                frame: (application, _) => {
+                    if (application.FrameCount == Frames - 1) {
+                        built!.Element.AddClass("moved");
+                    }
+                }
+            ) is not { } picture) {
+            return;
+        }
+
+        Covers(picture, MovedLeft, MovedTop, BoxWidth, BoxHeight);
+    }
+
     /// <summary>A zero-wide box whose child overflows it, drawn by the device (#1375).</summary>
     /// <remarks>
     ///     <para>
@@ -183,21 +224,30 @@ public class UiApplicationCaptureTests {
     /// <param name="sheet">The application's stylesheet.</param>
     /// <param name="content">Its content.</param>
     /// <param name="name">What to call a copy kept under <c>VIXEN_UI_CAPTURE</c>, when that names a directory.</param>
+    /// <param name="stopping">Runs as the loop stops, while the document is still alive.</param>
+    /// <param name="frame">Runs at the start of every frame, before that frame's update and draw.</param>
     /// <returns>The picture, or <see langword="null" /> when there is no device and none is required.</returns>
-    static Bitmap? Capture(string sheet, Func<Component> content, string name, Action<UiApplication>? stopping = null) {
+    static Bitmap? Capture(
+        string sheet,
+        Func<Component> content,
+        string name,
+        Action<UiApplication>? stopping = null,
+        Action<UiApplication, UiFrame>? frame = null
+    ) {
         var directory = Scratch();
 
         var options = new UiApplicationOptions {
             Title = "capture",
             Size = new Int2(640, 400),
-            Frames = 3,
+            Frames = Frames,
             CapturePath = directory,
             InstallSystemFont = false,
 
             // Pure blue, so that neither the red under test nor anything else can be mistaken for it.
             Ground = new Color4(0f, 0f, 1f, 1f),
             Content = content,
-            Stopping = stopping
+            Stopping = stopping,
+            Frame = frame
         };
 
         options.Styles.Add(sheet);
