@@ -118,7 +118,7 @@ asset-tile {
     padding: 8px 4px;
     gap: 6px;
     overflow: hidden;
-    border-radius: var(--radius-row, 6px);
+    border-radius: var(--radius-row, 4px);
 }
 
 asset-tile.parked { display: none; }

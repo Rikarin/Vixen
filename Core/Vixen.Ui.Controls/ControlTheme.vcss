@@ -100,7 +100,7 @@ root {
        token, and wrong where they were not dead, since `#e2b341` is none of the four values the
        tree declares. They now write the token bare (#1351), and `PaletteFallbackTests` in
        `Vixen.Editor.Ui.Tests` refuses a fallback whose literal is none of its token's declared
-       values, with a ledger of the `--danger`/`--accent`/`--radius-row` ones still owed.
+       values. Its ledger of the `--danger`/`--accent`/`--radius-row` ones is empty since #1389.
 
        ⚠ The editor's value wins by **layer** and not by load order: this palette is in `base`
        (see the paragraph above) and `EditorTheme` is wholly in `components`, so the editor's
