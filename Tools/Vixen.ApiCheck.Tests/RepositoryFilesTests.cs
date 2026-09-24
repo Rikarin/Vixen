@@ -112,20 +112,32 @@ public sealed class RepositoryFilesTests {
     }
 
     /// <summary>
-    ///     ⚠ No source in the tree keeps its own list of directories a sweep skips, outside the two
+    ///     ⚠ No source in the tree keeps its own list of directories a sweep skips, outside the four
     ///     named here — exactly, in both directions.
     /// </summary>
     /// <remarks>
     ///     <para>
     ///         The issue asked that a hand-kept list which stays anywhere be held against
     ///         <c>.gitignore</c>; none stays in a repository sweep, so this holds the other half: a
-    ///         line naming two or more of the directories those lists were made of is a list, and a
-    ///         new one reds here before it drifts. It reads one line at a time, so a list broken
-    ///         across lines one name per line is a limit, stated.
+    ///         line naming two or more of the directories those lists were made of is a list, and so
+    ///         is a statement that names two and compares against them. A new one reds here before
+    ///         it drifts.
     ///     </para>
     ///     <para>
-    ///         Both survivors walk something that is not this repository: a user's project, and the
-    ///         synthetic project directories a build rule's fixtures create in a temp folder.
+    ///         ⚠ <b>A statement as well as a line.</b> This read one line at a time and said so, and
+    ///         the one walker #1424 left behind was exactly the shape that limit could not see:
+    ///         <c>BaselineAgreement.IsSource</c> compared a path segment against <c>"bin"</c>,
+    ///         <c>"obj"</c> and <c>"artifacts"</c> on three lines of one <c>||</c> chain, so the guard
+    ///         read three lines naming one directory each and passed it. The comparison is what
+    ///         separates a list from a neighbourhood: a window of lines alone also caught
+    ///         <c>ProjectPaths</c> naming <c>Library</c> and <c>Build</c> on consecutive lines, and a
+    ///         <c>dotnet pack</c> given its own <c>obj</c> and <c>bin</c>, which skip nothing.
+    ///     </para>
+    ///     <para>
+    ///         All four survivors filter something that is not this repository: a user's project, the
+    ///         synthetic project directories a build rule's fixtures create in a temp folder, and the
+    ///         directory a running application watches for stylesheets, which is wherever it was
+    ///         launched and need not be a checkout.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -137,11 +149,17 @@ public sealed class RepositoryFilesTests {
 
             // One project's directory, and DataContractGeneratorRuleTests hands it synthetic ones
             // written to a temp folder, which are not checkouts either.
-            "build/DataContractGeneratorRule.cs"
+            "build/DataContractGeneratorRule.cs",
+
+            // Stylesheet hot reload at run time, in the editor and in a desktop app: keeps the
+            // generated obj/<config>/…/<Assembly>.g.vcss from binding. A shipped process watching
+            // its own directory, not a sweep of this repository.
+            "Editor/Vixen.Editor.App/EditorApplication.cs",
+            "Platform/Vixen.Ui.Desktop.HotReload/DesktopHotReload.cs"
         ];
 
         var found = RepositoryFiles.Files(RepositoryFiles.Root, "*.cs", "*.vxml")
-            .Where(path => File.ReadLines(path).Any(line => SkipList.Count(line) >= 2))
+            .Where(path => KeepsASkipList(File.ReadAllText(path)))
             .Select(path => Path.GetRelativePath(RepositoryFiles.Root, path).Replace('\\', '/'))
             .Where(path => path != "Tools/Vixen.ApiCheck.Tests/RepositoryFilesTests.cs")
             .Order(StringComparer.Ordinal)
@@ -150,7 +168,7 @@ public sealed class RepositoryFilesTests {
         Assert.Equal(
             string.Empty,
             string.Join('\n', found.Except(named).Select(path =>
-                $"{path} names two or more build-output directories on one line — a sweep deciding for itself "
+                $"{path} names two or more build-output directories on one line or in one comparison — a sweep deciding for itself "
                 + "what the repository is. Read it through Testing/RepositoryFiles.cs (#1424)."))
         );
 
@@ -165,6 +183,29 @@ public sealed class RepositoryFilesTests {
         "\"(?:bin|obj|\\.git|\\.claude|artifacts|node_modules|\\.nuke|references|packages|\\.vs|\\.idea|TestResults|Library|Build)\"",
         RegexOptions.CultureInvariant
     );
+
+    /// <summary>A test of a name against a path segment, the half of a skip list that is not the names.</summary>
+    static readonly Regex Comparison = new(
+        @"Equals\(|==|!=|\bis\b|\bor\b|Contains\(|StartsWith\(",
+        RegexOptions.CultureInvariant
+    );
+
+    /// <summary>A <c>//</c> comment to the end of its line, whose prose would read as a comparison.</summary>
+    static readonly Regex LineComment = new("//[^\n]*", RegexOptions.CultureInvariant);
+
+    /// <summary>
+    ///     Whether <paramref name="source" /> names two distinct skipped directories on one line, or
+    ///     in one statement that also compares against them.
+    /// </summary>
+    static bool KeepsASkipList(string source) {
+        static int Distinct(string text) =>
+            SkipList.Matches(text).Select(match => match.Value).Distinct(StringComparer.Ordinal).Count();
+
+        return source.Split('\n').Any(line => Distinct(line) >= 2)
+            || LineComment.Replace(source, string.Empty)
+                .Split(';')
+                .Any(statement => Distinct(statement) >= 2 && Comparison.IsMatch(statement));
+    }
 
     /// <summary>A throwaway git repository in a temp folder, with this checkout's <c>.gitignore</c>.</summary>
     sealed class ScratchRepository : IDisposable {

@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.DocGen.Tests;
@@ -9,19 +11,55 @@ namespace Vixen.DocGen.Tests;
 ///     docs/plan/25 § 2.1 — the graph and `Vixen.ApiCheck` read the same surface for different
 ///     reasons and have to agree about what is in it.
 /// </summary>
+/// <remarks>
+///     Each fixture is a scratch git repository carrying this checkout's <c>.gitignore</c>, because
+///     <see cref="BaselineAgreement.Compare" /> reads the tree git defines (#1424) and refuses a
+///     directory git cannot answer for.
+/// </remarks>
 public class BaselineAgreementTests : IDisposable {
-    readonly string root = Path.Combine(Path.GetTempPath(), "vixen-baseline-" + Guid.NewGuid().ToString("N"));
+    readonly string root = Directory.CreateTempSubdirectory("vixen-baseline-").FullName;
+
+    public BaselineAgreementTests() {
+        File.Copy(Path.Combine(RepositoryFiles.Root, ".gitignore"), Path.Combine(root, ".gitignore"));
+        Git(root, "init", "--quiet");
+    }
 
     public void Dispose() {
         if (Directory.Exists(root)) {
+            // git marks its object files read-only, which Directory.Delete refuses on Windows.
+            foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)) {
+                File.SetAttributes(file, FileAttributes.Normal);
+            }
+
             Directory.Delete(root, recursive: true);
         }
 
         GC.SuppressFinalize(this);
     }
 
+    /// <summary>Runs git in a scratch repository and fails the test on a non-zero exit.</summary>
+    static void Git(string directory, params string[] arguments) {
+        var start = new ProcessStartInfo("git") {
+            WorkingDirectory = directory,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+
+        foreach (var argument in arguments) {
+            start.ArgumentList.Add(argument);
+        }
+
+        using var git = Process.Start(start)!;
+        var error = git.StandardError.ReadToEndAsync();
+        git.StandardOutput.ReadToEnd();
+        git.WaitForExit();
+
+        Assert.True(git.ExitCode == 0, $"git {string.Join(' ', arguments)} exited {git.ExitCode}: {error.Result}");
+    }
+
     string WriteBaseline(string assembly, string contents) {
-        var directory = Path.Combine(root, assembly);
+        var directory = Path.Combine(root, assembly.Replace('/', Path.DirectorySeparatorChar));
 
         Directory.CreateDirectory(directory);
         File.WriteAllText(Path.Combine(directory, "PublicAPI.Unshipped.txt"), contents);
@@ -151,17 +189,37 @@ public class BaselineAgreementTests : IDisposable {
     }
 
     /// <summary>
-    ///     The failure this filter exists for: a checkout keeps agent worktrees under
-    ///     <c>.claude/worktrees/</c>, so a recursive walk finds nine copies of every baseline and
-    ///     eight are another branch's.
+    ///     ⚠ The failure the listing exists for: a checkout keeps agent worktrees under
+    ///     <c>.claude/worktrees/</c>, so a recursive walk found nine copies of every baseline and
+    ///     eight were another branch's. Every copy planted here disagrees with the graph, so reading
+    ///     any one of them is a reported disagreement.
     /// </summary>
-    [Theory]
-    [InlineData("Core/Vixen.Assets/PublicAPI.Unshipped.txt", true)]
-    [InlineData(".claude/worktrees/other/Core/Vixen.Assets/PublicAPI.Unshipped.txt", false)]
-    [InlineData("Core/Vixen.Assets/bin/Release/net10.0/PublicAPI.Unshipped.txt", false)]
-    [InlineData("Core/Vixen.Assets/obj/PublicAPI.Unshipped.txt", false)]
-    [InlineData("artifacts/staging/Vixen.Assets/PublicAPI.Unshipped.txt", false)]
-    public void OnlyTheProjectsOwnBaselineIsRead(string path, bool expected) {
-        Assert.Equal(expected, BaselineAgreement.IsSource(path));
+    /// <remarks>
+    ///     The <c>references/</c> and <c>.nuke/temp/</c> rows are the two the walk's own name list
+    ///     did not decide the way git does: it skipped every dot directory, so <c>.nuke</c> by luck,
+    ///     and read <c>references/</c>, where a cloned engine's baseline is somebody else's surface.
+    ///     The baseline created and not yet added is the half that keeps this from passing by
+    ///     reading nothing: it has to be found.
+    /// </remarks>
+    [Fact]
+    public void OnlyTheCheckoutsOwnBaselinesAreRead() {
+        WriteBaseline("Core/Vixen.Assets", "Vixen.Assets.Kept -> sealed class");
+        WriteBaseline("Core/Vixen.Fresh", "Vixen.Fresh.Unapproved -> sealed class");
+
+        const string stale = "Vixen.Assets.Stale -> sealed class";
+        WriteBaseline(".claude/worktrees/other/Core/Vixen.Assets", stale);
+        Git(Path.Combine(root, ".claude", "worktrees", "other"), "init", "--quiet");
+        WriteBaseline("Core/Vixen.Assets/bin/Release/net10.0", stale);
+        WriteBaseline("Core/Vixen.Assets/obj", stale);
+        WriteBaseline("artifacts/staging/Vixen.Assets", stale);
+        WriteBaseline("references/godot/Vixen.Assets", stale);
+        WriteBaseline(".nuke/temp/vixen-sdk-tools/Vixen.Assets", stale);
+
+        Git(root, "add", ".gitignore", "Core/Vixen.Assets/PublicAPI.Unshipped.txt");
+
+        var disagreement = Assert.Single(BaselineAgreement.Compare(root, [Node("Vixen.Assets.Kept", "Vixen.Assets")]));
+
+        Assert.Equal("Vixen.Fresh", disagreement.Assembly);
+        Assert.Equal(["Vixen.Fresh.Unapproved"], disagreement.MissingFromGraph);
     }
 }
