@@ -830,14 +830,11 @@ counts the draws that blended; `UiBlendDeviceTests` holds all fifteen non-normal
 form and to `SoftwareUiRasterizer` on a device, plus overlapping siblings (the second one's backdrop
 replays the first one's *blended* composite) and a blend nested in a translucent group.
 
-⚠ **Four arrangements still composite source-over on the device, and `UiRenderer.Unblended` counts
-the first three** — it needs to, because a blend over a flat backdrop is often the identity
+⚠ **Three arrangements still composite source-over on the device, and `UiRenderer.Unblended` counts
+the first two** — it needs to, because a blend over a flat backdrop is often the identity
 (`multiply` against white, `screen` against black), so neither a screenshot nor a comparison of the
-two executors can tell. The fourth has no counter, for the reason given against it:
+two executors can tell. The third has no counter, for the reason given against it:
 
-- a group under `rotate`, `scale` or `perspective` — the backdrop is read at the composite quad's
-  texture coordinate, which is the target texel only while the quad is where the surface is, and
-  Raven has no fragment-position input to recover it from;
 - a blended group that also carries a `filter` colour matrix or a `mask-image`, whose composite
   belongs to the module that applies those and samples one texture;
 - a blended group's `drop-shadow()` quad, which the software path blends separately from the group
@@ -853,6 +850,18 @@ two executors can tell. The fourth has no counter, for the reason given against 
   wherever only the scene did. The renderer cannot tell those apart — a default `UiBackdropSource` is
   also what a host that painted nothing would pass — and declining the blend would lose it in the
   case that works, a badge over a plain HUD panel.
+
+⚠ **A group under `rotate`, `scale` or `perspective` was a fourth until #1379, declined for a reason
+that was false.** Its composite quad carries the *untransformed* surface coordinate — right for the
+group's own texels, wrong for what lies under the pixel — and Raven was said to have no
+fragment-position input to recover the target texel from. It has had one since 289b50247 (`Foliage`,
+`Grass` and `WaterMesh` read it), so `UiBlend` reads the capture at `SV_Position` for such a group,
+the host pushes the capture's reciprocal size in texels for it, and its capture is taken over the
+whole surface because `UiLayer.Bounds` stays untransformed. `UiBlendDeviceTests` holds a scaled group
+to a closed form at a pixel its surface coordinate would read wrongly — at density one and two — and
+a rotated one to `SoftwareUiRasterizer`. ⚠ The untransformed path still reads the texture coordinate:
+the window-position read assumes the target's origin is the interface's, which every host arranges,
+and the untransformed path has no reason to take on that assumption.
 
 ⚠ **The price written here until 2026-09-06 — "a fourth binding on the shared `ui atlas` layout" —
 was not a price, it was an impossibility.** Raven's `BindingPlan.Of` numbers a descriptor set by

@@ -421,8 +421,8 @@ public sealed class UiRenderer : IDisposable {
     ///     ⚠ <b>It gates a pipeline now, and until #783 it was a record of what this renderer was
     ///     <i>not</i> doing.</b> <c>mix-blend-mode</c> reaches the frame as <see cref="UiLayer.Blend" />;
     ///     a group in this map whose capture exists in <see cref="blendCaptures" /> is composited
-    ///     through <see cref="blendPipeline" />, and one whose capture does not — no blend stage, a
-    ///     transformed group, a group whose composite also needs a matrix or a mask — still goes out
+    ///     through <see cref="blendPipeline" />, and one whose capture does not — no blend stage, or a
+    ///     group whose composite also needs a matrix or a mask — still goes out
     ///     source-over and <see cref="SubmitDraw" /> says so in <see cref="Unblended" />. ⚠ A blended
     ///     group's drop-shadow quad is in it too, under <see cref="UiLayer.ShadowImage" />: it is never
     ///     blendable, and the entry is what makes its source-over composite a counted decline rather
@@ -471,6 +471,17 @@ public sealed class UiRenderer : IDisposable {
     ///     <see cref="Compose" /> with the other per-frame maps.
     /// </remarks>
     readonly HashSet<ulong> blendable = [];
+
+    /// <summary>Which of <see cref="blendable" /> are under a transform, and so read their backdrop at the pixel.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The composite quad of a transformed group carries the <i>untransformed</i> surface
+    ///     coordinate</b> — right for the group's own texels, which is why every other composite stage
+    ///     needs nothing here, and wrong for what lies under the pixel. So <c>UiBlend</c> is told to
+    ///     read the capture at <c>SV_Position</c> instead, through <c>operation.zw</c>, and its capture
+    ///     is taken over the whole surface rather than over <see cref="UiLayer.Bounds" />, which stays
+    ///     untransformed (#1379). Filled and cleared beside <see cref="blendable" />.
+    /// </remarks>
+    readonly HashSet<ulong> placedBlends = [];
 
     /// <summary>The composite pipeline a blended group uses: <c>UiBlend</c>, through <see cref="blendLayout" />.</summary>
     readonly PipelineHandle blendPipeline;
@@ -1087,10 +1098,8 @@ public sealed class UiRenderer : IDisposable {
     ///         <see cref="Blended" />, which counts the draws that did.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Four ways a blended composite still goes out source-over, each counted here:</b> a
-    ///         host that handed over no <see cref="UiShaders.Blend" />; a group under
-    ///         <c>rotate</c>/<c>scale</c>/<c>perspective</c>, whose quad has left the space the backdrop
-    ///         is sampled in and whose fragment stage has no position input to recover it; a group whose
+    ///         ⚠ <b>Three ways a blended composite still goes out source-over, each counted here:</b> a
+    ///         host that handed over no <see cref="UiShaders.Blend" />; a group whose
     ///         composite also needs a colour matrix or a mask, which the module that applies those
     ///         cannot combine with a second texture; and the drop-shadow quad of a blended group, which
     ///         the software path blends separately and this one composites plainly (#783's second
@@ -1098,6 +1107,13 @@ public sealed class UiRenderer : IDisposable {
     ///         draw, so a blended shadowed group reads <see cref="Blended" /> for its composite and this
     ///         for its shadow — twice, because the group's own capture replays the shadow quad it lands
     ///         on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A group under <c>rotate</c>/<c>scale</c>/<c>perspective</c> was the fourth, and
+    ///         the reason given for it was false</b> (#1379): its quad carries the untransformed surface
+    ///         coordinate, and the fragment stage was said to have no position input to recover the
+    ///         target texel from. Raven has read a fragment's <c>SV_Position</c> since 289b50247, so
+    ///         <c>UiBlend</c> reads the capture there for such a group — see <see cref="placedBlends" />.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>What this does <i>not</i> count: a top-level blended group in a world renderer.</b>
@@ -1498,6 +1514,7 @@ public sealed class UiRenderer : IDisposable {
         layerMasks.Clear();
         layerBlends.Clear();
         blendable.Clear();
+        placedBlends.Clear();
         layerBoxes.Clear();
 
         if (geometry.Layers.Count == 0 || geometry.Indices.Count == 0) {
@@ -1922,7 +1939,15 @@ public sealed class UiRenderer : IDisposable {
         float scale,
         UiBackdropSource beneath
     ) {
-        var region = Confine(layer.Bounds, surface, scale, 0);
+        // ⚠ <b>The whole surface for a transformed group, because its bounds are not where it lands.</b>
+        // <see cref="UiLayer.Bounds" /> is untransformed — it is the region of the group's own surface
+        // it inks — and a rotated or scaled composite quad covers pixels outside it, every one of
+        // which `UiBlend` reads the capture at (#1379). The same fallback `BlurSurface` takes for such
+        // a group, for the same reason; it costs a full-surface pass on a frame that asked for a
+        // blended transformed panel.
+        var region = layer.Transform is null
+            ? Confine(layer.Bounds, surface, scale, 0)
+            : new ScissorRect(0, 0, layerWidth, layerHeight);
 
         commands.Barrier(new([], [new(captured.Texture, captured.State, ResourceState.ColourTarget)]));
 
@@ -2940,7 +2965,16 @@ public sealed class UiRenderer : IDisposable {
         } else if (capture is not null) {
             // ⚠ Every time, for the colour branch's reason one up: two blended groups in one pass
             // carry two modes. The white level is the geometry's, which is what the colours hold.
-            Span<float> operation = [(float) blend!.Value, blendWhite, 0f, 0f];
+            // ⚠ The last two lanes are zero unless the group is transformed, and then they are what
+            // turns the fragment's window position into a capture coordinate — see `placedBlends`.
+            var placed = placedBlends.Contains(draw.Image);
+
+            Span<float> operation = [
+                (float) blend!.Value,
+                blendWhite,
+                placed ? 1f / layerWidth : 0f,
+                placed ? 1f / layerHeight : 0f
+            ];
 
             commands.PushConstants(PushStages, 16, MemoryMarshal.AsBytes(operation));
 
@@ -3123,17 +3157,24 @@ public sealed class UiRenderer : IDisposable {
             // ⚠ <b>A blend's backdrop, on the terms the draw can actually use it (#783).</b> The
             // composite reaches `blendPipeline` only when nothing else claims it — a colour matrix or
             // a mask goes through the module that applies them, and neither of those samples a second
-            // texture — and only when the group is untransformed, because `UiBlend` reads the backdrop
-            // at the quad's texture coordinate and a rotated quad has left the surface's space. Every
-            // other blended group keeps the source-over composite it had, and `Unblended` counts it;
-            // allocating a capture for one would be a viewport-sized target and a pass nobody reads.
+            // texture. Every other blended group keeps the source-over composite it had, and
+            // `Unblended` counts it; allocating a capture for one would be a viewport-sized target and
+            // a pass nobody reads.
+            // ⚠ <b>A transformed group is blendable now, and the reason it was not was false</b>
+            // (#1379). It was declined because `UiBlend` read the backdrop at the quad's texture
+            // coordinate — which a rotated quad carries untransformed — and "Raven has no
+            // fragment-position input to read instead". Raven has had one since 289b50247; `UiBlend`
+            // reads `SV_Position` for such a group, which `placedBlends` tells `SubmitDraw` to ask for.
             if (layer.Blend != UiBlendMode.Normal
                 && blendPipeline.IsValid
-                && layer.Transform is null
                 && layer.Filter is not { IsIdentity: false }
                 && layer.MaskCount == 0) {
                 EnsureCapture(layer.Image);
                 blendable.Add(layer.Image);
+
+                if (layer.Transform is not null) {
+                    placedBlends.Add(layer.Image);
+                }
             }
         }
 

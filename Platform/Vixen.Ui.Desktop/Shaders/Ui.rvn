@@ -1287,11 +1287,22 @@ shader UiMask {
 /// `UiBlend.Apply` line for line; the clamp to `[0, 1]` is a statement about the frame's white and
 /// not about the number one.
 ///
-/// ⚠ **The backdrop is read at the composite quad's own texture coordinate**, which is the target
-/// texel for an untransformed group because every layer surface is the viewport's size — the same
-/// fact `UiMask` and `UiColour` rely on. It is *not* for a group under `rotate`/`scale`/`perspective`,
-/// whose quad has left the surface's space; Raven has no fragment-position input to read instead, so
-/// the host does not route a transformed group here and counts it in `Unblended`.
+/// ⚠ **The backdrop is read at the composite quad's own texture coordinate for an untransformed
+/// group, and at the fragment's window position for a transformed one** (#1379). The texture
+/// coordinate is the target texel only while the quad is where the surface is — every layer surface is
+/// the viewport's size, the fact `UiMask` and `UiColour` rely on — and a group under
+/// `rotate`/`scale`/`perspective` has left that space: its quad carries the *untransformed* surface
+/// coordinate, which is right for the group's own texels and wrong for what lies under the pixel.
+/// `SV_Position` is that pixel, in the same framebuffer texels the capture is in at any density, so
+/// the host pushes the capture's reciprocal size in `operation.zw` for a transformed group and zero
+/// otherwise. ⚠ This was once declined on the grounds that Raven had no fragment-position input; it
+/// has had one since 289b50247, and `Foliage.rvn` and `WaterMesh.rvn` read it.
+///
+/// ⚠ **The position read assumes the target's origin is the interface's**, which is what every host
+/// arranges — a pass's viewport defaults to the whole attachment, and a group's own surface is the
+/// viewport's size. An interface drawn into a sub-rectangle of a larger attachment would read its
+/// backdrop offset by that rectangle's corner, and only for a transformed blended group; the
+/// untransformed path keeps the texture coordinate so that it has no such assumption to make.
 shader UiBlend {
     [PerFrame] var source: Texture2D
     [PerFrame] var sourceSampler: Sampler
@@ -1304,7 +1315,8 @@ shader UiBlend {
     /// The vertex stage's projection. See `UiComposite`.
     [PushConstant] var reserved: float4 = float4(0f, 0f, 0f, 0f)
 
-    /// `x` the mode as `UiBlendMode` numbers it, `y` the frame's white level — `UiGeometry.WhiteLevel`.
+    /// `x` the mode as `UiBlendMode` numbers it, `y` the frame's white level — `UiGeometry.WhiteLevel`,
+    /// `zw` one over the capture's size in texels for a transformed group and zero for any other.
     ///
     /// ⚠ **A white of one is the default and is right for every display-referred target**; zero or
     /// less is not a white, and is read as one, which is the host's own fallback.
@@ -1316,12 +1328,16 @@ shader UiBlend {
 
     [FragmentShader]
     [Semantic("SV_Target")]
-    func Fragment(): float4 {
+    func Fragment([Semantic("SV_Position")] fragment: float4): float4 {
         // ⚠ `UiImage`'s premultiplied path verbatim, before anything is mixed: the group's opacity is
         // the composite quad's vertex alpha, and § 5.1 blends the group *as it will be composited*.
         val sampled = source.Sample(sourceSampler, uv)
         val group = float4(sampled.rgb * colour.rgb * colour.a, sampled.a * colour.a)
-        val under = backdrop.Sample(backdropSampler, uv)
+
+        // Where the backdrop is under this pixel: the window position for a transformed group, whose
+        // quad has left the surface's space, and the surface coordinate otherwise. See above.
+        val at = operation.z > 0f ? fragment.xy * operation.zw : uv
+        val under = backdrop.Sample(backdropSampler, at)
 
         return Apply(int(operation.x + 0.5f), group, under, operation.y)
     }

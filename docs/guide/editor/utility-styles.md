@@ -169,11 +169,12 @@ also why adding these classes to an existing screen changes nothing until somebo
 ⚠ And they place the **picture**, not the element. An `Image` with no `width` is still a zero-height
 box: sizing a replaced element from its content is a separate thing this framework does not do.
 
-⚠ **`mix-blend-*` is applied on both executors since #783, with four stated exceptions on the
-device.** A transformed group, a blended group that also carries a `filter` matrix or a `mask-*`, a
-blended group's `drop-shadow` quad, and a top-level HUD panel in a world renderer still composite
-source-over on the GPU. `UiRenderer.Unblended` says so for the first three; the HUD panel has no
-counter, because it does go through the blend, against an interface-only backdrop. See
+⚠ **`mix-blend-*` is applied on both executors since #783, with three stated exceptions on the
+device.** A blended group that also carries a `filter` matrix or a `mask-*`, a blended group's
+`drop-shadow` quad, and a top-level HUD panel in a world renderer still composite source-over on the
+GPU. `UiRenderer.Unblended` says so for the first two; the HUD panel has no counter, because it does
+go through the blend, against an interface-only backdrop. A `rotate-*`/`scale-*` group blends since
+#1379, which found the reason it was declined — no fragment-position input in Raven — to be false. See
 `docs/guide/ui/compositing.md` and `docs/plan/43-web-styling-parity.md` § Part 9, Bucket 2.
 
 ⚠ **The `scroll-*` set is written now, and every one of them only means something inside a
