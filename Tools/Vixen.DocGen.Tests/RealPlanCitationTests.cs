@@ -380,6 +380,93 @@ public class RealPlanCitationTests {
     }
 
     /// <summary>
+    ///     Every <c>File.cs:NNN</c> citation in a source comment — <c>&lt;c&gt;…&lt;/c&gt;</c> in a doc
+    ///     comment, backticks in a line comment — names a file that exists, one file, and a line it
+    ///     has with something on it (<a href="https://github.com/Rikarin/Vixen/issues/1427">#1427</a>).
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Nothing checked these at all.</b> <c>WorldRenderer.cs</c> cited
+    ///         <c>UiApplication.cs:1012</c> for the call that loads the UI shaders — a <c>for</c> over
+    ///         surfaces by then — and <c>PlatformCursorTests</c> cited <c>UiApplication.cs:497</c> and
+    ///         <c>EditorHost.cs:296</c> for two <c>PlatformCursor.Apply</c> calls, an initialiser and a
+    ///         <c>&lt;summary&gt;</c>. The first measurement found 18 of 40 changed under them.
+    ///     </para>
+    ///     <para>
+    ///         Resolution, one file, and something on the line: the rules the documents get, less
+    ///         placement, because a comment's prose binds a symbol far less regularly than a plan's. A
+    ///         pin works here too. ⚠ Read the same way the documents are, a citation is its whole
+    ///         token — <c>&lt;c&gt;File.cs:12&lt;/c&gt;</c> as an <i>example</i> of a format is in
+    ///         <see cref="SourceExamples" /> rather than silently skipped.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_source_comment_citation_names_a_file_and_a_line_that_exist() {
+        var (_, index, _) = Sweep();
+        List<string> failures = [];
+        var read = 0;
+
+        foreach (var relative in index.Values.SelectMany(paths => paths).Order(StringComparer.Ordinal)) {
+            if (!SourceExtensions.Contains(Path.GetExtension(relative)) || relative == SelfPath) {
+                continue;
+            }
+
+            var number = 0;
+
+            foreach (var line in File.ReadLines(Path.Combine(Root, relative))) {
+                number++;
+
+                foreach (Match match in SourceCitation.Matches(line)) {
+                    var text = match.Groups["text"].Value;
+
+                    if (SourceExamples.Contains((relative, text))) {
+                        continue;
+                    }
+
+                    read++;
+                    var file = (match.Groups["root"].Success ? "./" : "") + match.Groups["file"].Value;
+                    var lines = Regex.Matches(match.Groups["lines"].Value, @"\d+").Select(digits => int.Parse(digits.Value)).ToArray();
+                    var commit = match.Groups["commit"] is { Success: true } pin ? pin.Value : null;
+                    Cited cited = new(relative, number, text, file, lines, Regex.IsMatch(match.Groups["lines"].Value, "[-–]"), null, null, null, commit);
+
+                    if (Resolve(cited, index) is { } problem) {
+                        failures.Add($"{relative}:{number} `{text}` — {problem}");
+                    } else if (!Unverifiable(cited) && !Targets(cited, index).Any(target => Substantial(cited, target.Lines))) {
+                        failures.Add($"{relative}:{number} `{text}` — a blank line or a lone brace");
+                    }
+                }
+            }
+        }
+
+        Assert.True(
+            failures.Count == 0,
+            $"{failures.Count} citation(s) in source comments name a file or a line that is not there, or a blank (#1427). "
+            + "Re-point each by reading it, or pin it to the commit it describes (`File.cs:N@sha`):\n  " + string.Join("\n  ", failures)
+        );
+
+        // The instrument: 40 when this was written, from 25 files.
+        Assert.True(read >= 30, $"the source sweep read only {read} citation(s), so it has stopped reading comments");
+    }
+
+    /// <summary>The source languages a comment citation is looked for in.</summary>
+    static readonly HashSet<string> SourceExtensions = [".cs", ".vxml", ".rvn", ".vcss"];
+
+    /// <summary>This file, whose remarks and cases quote citations as they were written wrong on purpose.</summary>
+    const string SelfPath = "Tools/Vixen.DocGen.Tests/RealPlanCitationTests.cs";
+
+    /// <summary>A citation in a source comment: in a doc comment's <c>&lt;c&gt;</c>, or backticked in a line comment.</summary>
+    static readonly Regex SourceCitation = new(
+        @"(?:`|<c>)(?<text>(?:(?<root>\./))?(?<file>(?:[\w.-]+/)*[\w.-]+\.(?:cs|vxml|vcss|rvn|md|csproj|props|targets)):(?<lines>\d+(?:\s*[-–,]\s*\d+)*)(?:@(?<commit>[0-9a-f]{7,40}))?)(?:`|</c>)",
+        RegexOptions.Compiled
+    );
+
+    /// <summary>Source comments that show the format with a file that is not meant to exist.</summary>
+    static readonly HashSet<(string, string)> SourceExamples = [
+        // `Effect(…)`'s origin parameter, documented by the shape a caller formats it in.
+        ("Core/Vixen.Ui/Diagnostics.cs", "File.cs:12")
+    ];
+
+    /// <summary>
     ///     Every document holds exactly as many unbound, unpinned citations as <see cref="UnboundPath" />
     ///     records for it, so the set whose drift nothing can see only ever shrinks.
     /// </summary>

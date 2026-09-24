@@ -267,11 +267,11 @@ sealed class LayerStackDocument : EditorDocument {
     ///     <para>
     ///         ⚠ <b>Seven channels rather than § D11's five, because ORM is a <em>packing</em> and not
     ///         a channel.</b> The prose says "occlusion·roughness·metalness packed, which is what
-    ///         <c>TexturedOrmFeature.cs:288</c> reads" — that is what the bake writes into one file,
-    ///         and it is three maps until it does. Modelling the packed map as one channel would mean
-    ///         a layer that wanted to write roughness alone had to write a colour whose other two
-    ///         components mean occlusion and metalness, which is the opposite of what a per-channel
-    ///         enable is for.
+    ///         <c>TexturedOrmFeature</c> reads" (<c>MaterialFeatures.cs:404</c>) — that is what the
+    ///         bake writes into one file, and it is three maps until it does. Modelling the packed map
+    ///         as one channel would mean a layer that wanted to write roughness alone had to write a
+    ///         colour whose other two components mean occlusion and metalness, which is the opposite of
+    ///         what a per-channel enable is for.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And the defaults are the values whose <em>zero</em> is not "off".</b> Occlusion

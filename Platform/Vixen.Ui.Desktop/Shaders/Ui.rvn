@@ -114,7 +114,7 @@ struct Ui {
     /// function means a shader either calls it or visibly does not.
     static func Premultiply(colour: float4): float4 => float4(colour.rgb * colour.a, colour.a)
 
-    /// The exact sRGB EOTF for one channel — a decode, `Raven/Library/Core/ColorSpaces.rvn:26`'s.
+    /// The exact sRGB EOTF for one channel — a decode, `Raven/Library/Core/ColorSpaces.rvn:29`'s.
     ///
     /// ⚠ **Transcribed rather than imported, and this file is *required* to be.**
     ///

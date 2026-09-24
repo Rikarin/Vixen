@@ -636,7 +636,7 @@ public class TextureKernelLanguageSeamTests {
 
         // ⚠ `Uncommented`, and it is the assertion rather than tidiness. `Checker.rvn`'s header
         // says what this test holds and quotes the fold to say it, so searching the raw source
-        // found the needle in a comment: the live line at `Checker.rvn:52` could be changed to
+        // found the needle in a comment: the live line at `Checker.rvn:66` could be changed to
         // anything and this stayed green. A parity check that its own subject's prose satisfies is
         // the "instrument that cannot fail" this repository keeps finding.
         Assert.Contains(expression, Uncommented(TextureKernels.Source("Checker")), StringComparison.Ordinal);

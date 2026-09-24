@@ -42,7 +42,7 @@ namespace Tests;
 ///         compares with <c>GreaterEqual</c>, which is the correct op for this engine's reversed
 ///         depth rather than the inverted one that class of migration usually ships. What is
 ///         genuinely missing is a <em>selector</em>: <c>SamplerPreset.Shadow</c> is read only by
-///         <c>CompositorBuilder.cs:1617</c>'s own switch arm, so the descriptor is buildable and
+///         <c>CompositorBuilder.cs:1701</c>'s own switch arm, so the descriptor is buildable and
 ///         never built.
 ///     </para>
 ///     <para>

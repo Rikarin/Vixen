@@ -375,7 +375,7 @@ sealed class EditorWorldRenderer : IDisposable {
     /// <summary>What a pane's shaded subtree is called, and what <see cref="Trees" /> looks it up by.</summary>
     /// <remarks>
     ///     ⚠ <b>Unique per pane, because <c>CompositorBuilder.Nodes</c> is a dictionary by name and a
-    ///     repeat silently overwrites</b> — <c>Core/Vixen.Rendering/Compositor/CompositorBuilder.cs:629</c>.
+    ///     repeat silently overwrites</b> — <c>Core/Vixen.Rendering/Compositor/CompositorBuilder.cs:768</c>.
     ///     Four panes sharing a node name is three panes whose tree cannot be looked up, which is
     ///     three panes with no mode registered and therefore three panes the tool renderer draws.
     /// </remarks>

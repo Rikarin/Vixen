@@ -261,7 +261,7 @@ public partial class MarkupAccessibleNameTests {
         // ⚠ The role is set because a `Panel` has none, and an element with no role is not in the
         // accessibility tree at all — so the pair of legs below used to be the only two that could
         // not have reached a screen reader, and were the only two written as a property round-trip.
-        // Markup sets `Role` the same way, and `Containers.cs:31` says so in as many words.
+        // Markup sets `Role` the same way, and `Vixen.Ui.Controls/Containers.cs:31` says so in as many words.
         var panel = fixture.Document.Root.Add<Panel>();
         panel.Role = AccessibleRole.Region;
 
