@@ -11,6 +11,10 @@
 # removed or rewrote. It is not for a number that drifted: re-point that by reading it. The reason
 # names the commit that changed the code, so a reader can check out its parent and see the line.
 #
+# ⚠ A new one is better pinned than listed (#1388): `File.cs:NNN@1a2b3c4d5` in the document itself
+# says which tree it describes, and the sweep checks it against that commit wherever the checkout has
+# the history — where an entry here is checked by nothing at all.
+#
 # One line per citation: the document's path from the repository root, whitespace, the citation as
 # written without backticks, whitespace, and the reason.
 

@@ -38,9 +38,9 @@ What is already built and must not be duplicated:
 
 - **`EntityId`** (`SceneFormat.cs:37`) — a GUID identity that survives a save. Its own doc comment
   already names "a prefab override" as one of the three things it exists for.
-- **`PrefabLink`** (`Prefabs.cs:22`) — `(AssetId Prefab, EntityId Source)`. The link's shape is
+- **`PrefabLink`** (`PrefabInstances.cs:19`) — `(AssetId Prefab, EntityId Source)`. The link's shape is
   decided; only its persistence is not.
-- **`SceneSerializer.Instantiate(..., sources)`** (`SceneSerializer.cs:323`) — instantiating a
+- **`SceneSerializer.Instantiate(..., sources)`** (`SceneSerializer.cs:392`) — instantiating a
   template into a document *without* adopting its ids, filling a map of entity → the id the file
   gave it. Its remarks already say this "is also exactly what an override comparison needs".
 - **`IPrefabSource`** (`Editor/Vixen.Editor.Inspector/InspectorField.cs`), `PrefabSource`
@@ -142,7 +142,7 @@ resolved at load.
   every instance of it into an entity with a transform and no content. Under (C) the same case
   degrades to an ordinary subtree with its links intact.
 - **It cannot be reviewed.** A `.vxscene` is a file people merge by hand — that is the stated reason
-  the whole authoring format is YAML (`SceneFormat.cs:484-487`). A level whose contents are a hundred
+  the whole authoring format is YAML (`SceneFormat.cs:521-524`). A level whose contents are a hundred
   asset ids and a patch list is not a file anybody can read a diff of.
 
 It is the right long-term model and it is blocked on work outside this document.
