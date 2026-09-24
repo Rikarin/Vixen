@@ -316,8 +316,8 @@ these hold, and each is a gate in Part 10:
    command handlers.
 2. The editor's `CommandDispatcher` resolves through `CommandRoute` instead of the flat registry.
 3. `EditorShell.Context` — a mutable string pushed by hand from pointer handlers in ten places
-   (`EditorApplication.cs:2329,2416,2545,2601`; `EditorParity.cs:625,1255-1257,2400`;
-   `EditorWorlds.cs:122`; ⚠ ten was a floor when it was written — `EditorWorlds.cs` alone had four —
+   (`EditorApplication.cs:2333,2420,2549,2605`; `EditorParity.cs:625,1255-1257,2433`;
+   `EditorWorlds.cs:129`; ⚠ ten was a floor when it was written — `EditorWorlds.cs` alone had four —
    and a re-count for #1388 finds twenty-one, most of them in the module panels) — is deleted in favour of `CommandScope`, which was built to replace it and
    is assigned only in tests.
 4. `Samples/02-HelloUi` has at least one panel whose Copy means something different from the shell's.

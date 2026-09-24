@@ -623,7 +623,7 @@ owed on both sides of the fence.
 > it can. Five were strings nothing showed (`MenuView`, `NotificationsTitle`, `NotificationsEmpty`,
 > `KeyBindingConflict`, `DialogOk`) and are deleted. Two were the defect this row is named after:
 > `CommandUndo` and `CommandRedo` declared `editor.command.edit.undo`/`.redo` while
-> `EditorApplication.cs:2738` registered the commands with
+> `EditorApplication.cs:3917` registered the commands with
 > `new StringId("editor.command.undo", "Undo")` — **the id in the translator's template and the id
 > the editor looked up were different strings**, and the editor's Undo item was untranslatable.
 >
