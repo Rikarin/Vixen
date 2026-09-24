@@ -320,7 +320,8 @@ public sealed class ScrollingPanelPictureTests {
 
         Assert.True(
             bottom <= document.AbsoluteTop + document.Height + 0.5f,
-            $"at the end of the tab's scroll the import settings still end {bottom - (document.AbsoluteTop + document.Height):0} px below the document."        );
+            $"at the end of the tab's scroll the import settings still end {bottom - (document.AbsoluteTop + document.Height):0} px below the document."
+        );
     }
 
     /// <summary>The scene document's Compiled tab, over more archetypes than the tab holds.</summary>
