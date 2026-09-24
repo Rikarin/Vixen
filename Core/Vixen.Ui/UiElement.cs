@@ -871,7 +871,7 @@ public partial class UiElement : Composition.IComposable {
         var hyphens = Document.HyphensOf(Style);
         var keepSpaces = Document.BreakSpacesOf(Style);
         var collapse = Document.WhiteSpaceCollapseOf(Style);
-        var ownsLines = OwnsItsLines();
+        var (trimStart, trimEnd, hangs) = InlineEdges(collapse);
         var language = ResolvedLanguage;
 
         if (!Document.WrapsOf(Style)) {
@@ -959,11 +959,14 @@ public partial class UiElement : Composition.IComposable {
             // same instance the reference test above compares.
             && lineCollapse == collapse
 
-            // ⚠ In the key for `lineCollapse`'s reason, and it is the one entry here decided by
-            // somebody else's style: a parent turning from flex to block makes an inline leaf share
-            // its first line with a sibling, and whether the leading run is phase II's to remove
-            // changes with it — while nothing about this element's own declarations moved.
-            && lineOwnsLines == ownsLines
+            // ⚠ In the key for `lineCollapse`'s reason, and they are the two entries here decided by
+            // somebody else: a parent turning from flex to block makes an inline leaf share its first
+            // line with a sibling, and a sibling's text or `white-space` decides whether this one's
+            // leading run follows a collapsible space (#1363) — while nothing about this element's
+            // own declarations moved. `UiDocument.RemeasureInlineEdges` is what tells the layout.
+            && lineTrimStart == trimStart
+            && lineTrimEnd == trimEnd
+            && lineHangs == hangs
             && lineWidth.Equals(width)
             && lineSize.Equals(FontSize)
             && lineTracking.Equals(LetterSpacing)
@@ -1001,7 +1004,7 @@ public partial class UiElement : Composition.IComposable {
         // ⚠ The language goes in because casing is language-dependent, and it is already in the
         // cache key above for the shaper's sake — so a block built in one language is not reused in
         // another, which is what makes passing it here safe rather than merely correct.
-        var drawn = TransformedText.Of(Text, transform, language, collapse, ownsLines);
+        var drawn = TransformedText.Of(Text, transform, language, collapse, trimStart, trimEnd);
         var text = drawn.Text;
 
         // ⚠ Phase II can remove every character a paragraph has — a `pre-line` label of nothing but
@@ -1088,7 +1091,7 @@ public partial class UiElement : Composition.IComposable {
             lines.Count = clamp;
         }
 
-        block = new TextLayout(lines.ToImmutable());
+        block = new TextLayout(lines.ToImmutable(), lastLineHangs: hangs);
 
         // ⚠ Copied rather than aliased: `bandScratch` is refilled by the next probe, and a key that
         // compared a list with itself would find every paragraph unchanged for ever.
@@ -1108,7 +1111,9 @@ public partial class UiElement : Composition.IComposable {
         lineHyphens = hyphens;
         lineKeepSpaces = keepSpaces;
         lineCollapse = collapse;
-        lineOwnsLines = ownsLines;
+        lineTrimStart = trimStart;
+        lineTrimEnd = trimEnd;
+        lineHangs = hangs;
         lineTabStop = tabStop;
         lineTransformed = drawn;
         lineFamily = family;
@@ -1965,38 +1970,262 @@ public partial class UiElement : Composition.IComposable {
     HyphenMode lineHyphens;
     bool lineKeepSpaces;
     WhiteSpaceCollapse lineCollapse;
-    bool lineOwnsLines;
+    bool lineTrimStart;
+    bool lineTrimEnd;
+    bool lineHangs;
 
-    /// <summary>Whether this element's text begins a line box and ends one.</summary>
+    /// <summary>Whether a collapsible run at each end of this element's text is removed, and whether its end hangs.</summary>
+    /// <param name="collapse">What its own <c>white-space</c> asks for.</param>
     /// <returns>
-    ///     False only for a <c>display: inline</c> element that its parent lays out on lines, whose
-    ///     text can begin in the middle of a line a sibling started.
+    ///     One answer per end for <see cref="TransformedText.Of" />, and whether the block's last line
+    ///     ends a line box — which is what lets white space at its end hang out of the measure.
     /// </returns>
     /// <remarks>
     ///     <para>
-    ///         It decides whether CSS Text § 4.1.3's phase II may remove a collapsible run at either
-    ///         end of the text — see <see cref="TransformedText.Of" />. For every other element the
-    ///         text is a paragraph of its own: a flex item, a grid item, a float and an absolutely
-    ///         positioned box are all blockified whatever their <c>display</c> says, and a block or
-    ///         inline-block lays its own lines out from its own content edge.
+    ///         For every element that is a paragraph of its own both ends are line edges, so both are
+    ///         CSS Text § 4.1.3's phase II to remove: a flex item, a grid item, a float and an
+    ///         absolutely positioned box are blockified whatever their <c>display</c> says, and a block
+    ///         or inline-block lays its own lines out from its own content edge.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The inline case is left as it was rather than guessed.</b> Whether a leading
-    ///         space survives there depends on whether the text before it on the line ended in one —
-    ///         collapsing across an element boundary — and this engine measures a leaf before it
-    ///         knows its line (<c>InlineKnownGaps.txt</c>, "a text leaf's first line"). Removing it
-    ///         unconditionally would join <c>foo</c> and <c> bar</c> into one word.
+    ///         ⚠ <b>A <c>display: inline</c> element in an inline formatting context is answered from
+    ///         its neighbours, and it was once left untrimmed at both ends on the belief that only its
+    ///         line could answer (#1363).</b> Its start is removed where nothing in the formatting
+    ///         context comes before it (it begins the container's first line), where a block-level box
+    ///         or a segment break does (it begins a line after one), and where the inline content
+    ///         before it ends in a collapsible space — § 4.1.1, "even outside the boundary of the
+    ///         inline containing that space". Its end is removed where nothing that draws comes after
+    ///         it, or a segment break or a block does. Every one of those is a question about the
+    ///         tree and the strings in it, not about where a line wrapped, so none of it waits on
+    ///         the pass order that "a text leaf's first line" (<c>InlineKnownGaps.txt</c>) still does.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The hang is the same question as the end, asked under every value.</b> A trailing
+    ///         space hangs — leaves the intrinsic measure, CSS Text § 4.1.3 and § 5.2 — only at the end
+    ///         of a line box, and <c>TextLayout</c> hung every paragraph's, which is right for one that
+    ///         owns its lines. For an inline element with a word after it the space is between two
+    ///         words, and hanging it put the next element's first glyph against this one's last:
+    ///         <c>foo␠</c> beside <c>bar</c> drew <c>foobar</c>, under <c>normal</c> as much as
+    ///         <c>pre-line</c>. It was also what made <c>foo␠</c> beside <c>␠bar</c> look right —
+    ///         one space's advance, the first space hung and the second drawn — so the issue's "two
+    ///         spaces" reading was never what this engine laid out, and removing the second space
+    ///         without counting the first would have drawn <c>foobar</c> there too.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What stays owed is a line the <i>wrapper</i> begins or ends</b> between two leaves:
+    ///         the first's trailing space should then hang and the second's leading run, where it did
+    ///         not follow a collapsible space, should go — and both are break positions, which a leaf
+    ///         does not know when it is measured (<c>InlineKnownGaps.txt</c>, "a text leaf's first line").
     ///     </para>
     /// </remarks>
-    bool OwnsItsLines() {
-        ref readonly var own = ref Document.Layout.GetStyle(LayoutNode);
-
-        if (own.Display != Display.Inline || own.Float != FloatSide.None || own.PositionType == PositionType.Absolute) {
-            return true;
+    (bool Start, bool End, bool Hangs) InlineEdges(WhiteSpaceCollapse collapse) {
+        if (InlineFormattingRoot() is not { } root) {
+            var collapses = collapse != WhiteSpaceCollapse.Preserve;
+            return (collapses, collapses, true);
         }
 
-        return Parent is null
-            || Document.Layout.GetStyle(Parent.LayoutNode).Display is Display.Flex or Display.InlineFlex or Display.Grid;
+        var after = After(this, root);
+
+        // Nothing collapses, so neither trim can change what is drawn — and answering false keeps
+        // such an element's key constant however the text before it moves.
+        if (collapse == WhiteSpaceCollapse.Preserve) {
+            return (false, false, after != InlineNeighbour.Content);
+        }
+
+        var end = after != InlineNeighbour.Content;
+        return (Before(this, root) != InlineNeighbour.Content, end, end);
+    }
+
+    /// <summary>What sits across an element boundary from a collapsible run.</summary>
+    enum InlineNeighbour : byte {
+        /// <summary>Nothing that draws — the walk ran out, or only met out-of-flow or empty boxes.</summary>
+        Nothing,
+
+        /// <summary>A line edge: a block-level box, or a segment break the text ends or starts with.</summary>
+        Break,
+
+        /// <summary>A collapsible space, which the run on this side collapses onto.</summary>
+        Space,
+
+        /// <summary>Anything else: a character that is not a collapsible space, or an atomic inline.</summary>
+        Content
+    }
+
+    /// <summary>The element whose inline formatting context this one's text is laid out in, or null if it is a paragraph of its own.</summary>
+    /// <remarks>
+    ///     The nearest ancestor that is not itself flattened into its parent's lines — which is where
+    ///     <c>LayoutTree.Inline</c> lays out the boxes, whatever depth of <c>span</c>s they sit in.
+    /// </remarks>
+    UiElement? InlineFormattingRoot() {
+        if (!IsFlattenedInline(this)) {
+            return null;
+        }
+
+        var walk = Parent!;
+
+        while (IsFlattenedInline(walk)) {
+            walk = walk.Parent!;
+        }
+
+        return walk;
+    }
+
+    /// <summary>Whether an element's box is part of its parent's lines rather than a box of its own.</summary>
+    bool IsFlattenedInline(UiElement element) {
+        ref readonly var own = ref Document.Layout.GetStyle(element.LayoutNode);
+
+        if (own.Display != Display.Inline || own.Float != FloatSide.None || own.PositionType == PositionType.Absolute) {
+            return false;
+        }
+
+        return element.Parent is { } parent
+            && Document.Layout.GetStyle(parent.LayoutNode).Display is not (Display.Flex or Display.InlineFlex or Display.Grid);
+    }
+
+    /// <summary>What comes before an element in its formatting context, walking out of every span it is in.</summary>
+    InlineNeighbour Before(UiElement element, UiElement root) {
+        for (var node = element; !ReferenceEquals(node, root) && node.Parent is { } parent; node = parent) {
+            var siblings = parent.ChildList;
+
+            for (var i = siblings.IndexOf(node) - 1; i >= 0; i--) {
+                var found = Last(siblings[i]);
+
+                if (found != InlineNeighbour.Nothing) {
+                    return found;
+                }
+            }
+        }
+
+        return InlineNeighbour.Nothing;
+    }
+
+    /// <summary>What comes after an element in its formatting context, walking out of every span it is in.</summary>
+    InlineNeighbour After(UiElement element, UiElement root) {
+        for (var node = element; !ReferenceEquals(node, root) && node.Parent is { } parent; node = parent) {
+            var siblings = parent.ChildList;
+
+            for (var i = siblings.IndexOf(node) + 1; i < siblings.Count; i++) {
+                var found = First(siblings[i]);
+
+                if (found != InlineNeighbour.Nothing) {
+                    return found;
+                }
+            }
+        }
+
+        return InlineNeighbour.Nothing;
+    }
+
+    /// <summary>How the inline content of one element ends, walking into it if it is a span.</summary>
+    InlineNeighbour Last(UiElement element) {
+        if (Boundary(element) is { } edge) {
+            return edge;
+        }
+
+        if (element.Text is { Length: > 0 } text) {
+            var last = text[^1];
+
+            if (LineWrapper.IsSegmentBreak(last)) {
+                return InlineNeighbour.Break;
+            }
+
+            // ⚠ Collapsible only where that element collapses. A space `normal` preserves is not
+            // one § 4.1.1 collapses onto, so `foo␠` under `normal` keeps the space after it.
+            return TransformedText.IsCollapsible(last) && Collapses(element) ? InlineNeighbour.Space : InlineNeighbour.Content;
+        }
+
+        var children = element.ChildList;
+
+        for (var i = children.Count - 1; i >= 0; i--) {
+            var found = Last(children[i]);
+
+            if (found != InlineNeighbour.Nothing) {
+                return found;
+            }
+        }
+
+        return InlineNeighbour.Nothing;
+    }
+
+    /// <summary>How the inline content of one element begins, walking into it if it is a span.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A leading collapsible run is looked past</b>, because it is only asked about from an
+    ///     element whose own trailing run collapses: the run here then follows a collapsible space and
+    ///     is removed (<see cref="InlineEdges" /> answers that on this element), so what the
+    ///     earlier run is really next to is whatever comes after it. An element of nothing but
+    ///     collapsible spaces therefore draws nothing here and the walk goes on past it.
+    /// </remarks>
+    InlineNeighbour First(UiElement element) {
+        if (Boundary(element) is { } edge) {
+            return edge;
+        }
+
+        if (element.Text is { Length: > 0 } text) {
+            var at = 0;
+
+            if (Collapses(element)) {
+                while (at < text.Length && TransformedText.IsCollapsible(text[at])) {
+                    at++;
+                }
+            }
+
+            if (at == text.Length) {
+                return InlineNeighbour.Nothing;
+            }
+
+            return LineWrapper.IsSegmentBreak(text[at]) ? InlineNeighbour.Break : InlineNeighbour.Content;
+        }
+
+        var children = element.ChildList;
+
+        for (var i = 0; i < children.Count; i++) {
+            var found = First(children[i]);
+
+            if (found != InlineNeighbour.Nothing) {
+                return found;
+            }
+        }
+
+        return InlineNeighbour.Nothing;
+    }
+
+    /// <summary>The answer for a box that is not flattened inline content, or null for one to walk into.</summary>
+    InlineNeighbour? Boundary(UiElement element) {
+        ref readonly var own = ref Document.Layout.GetStyle(element.LayoutNode);
+
+        // Out of flow, or not there at all: the lines close up around it.
+        if (own.Display == Display.None || own.Float != FloatSide.None || own.PositionType == PositionType.Absolute) {
+            return InlineNeighbour.Nothing;
+        }
+
+        return own.Display switch {
+            Display.Inline => null,
+
+            // An atomic inline sits on the line like a word.
+            Display.InlineBlock or Display.InlineFlex => InlineNeighbour.Content,
+
+            // A block-level box ends the lines before it and starts a fresh run of them after it.
+            _ => InlineNeighbour.Break
+        };
+    }
+
+    bool Collapses(UiElement element) =>
+        element.Style is { } style && Document.WhiteSpaceCollapseOf(style) == WhiteSpaceCollapse.PreserveBreaks;
+
+    /// <summary>Whether a changed neighbour has moved the collapsing edges this element's block was built under.</summary>
+    /// <returns>True when a block exists and its edges no longer hold.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The layout tree cannot see this dependency on its own.</b> It re-measures a node when
+    ///     the node's own style or text changes, and here neither did — a sibling's did. Without the
+    ///     check the block would be rebuilt on the next draw, under the new edges, while the box kept
+    ///     the width measured under the old ones: glyphs drawn over a layout that disagrees with them.
+    /// </remarks>
+    internal bool InlineEdgesMoved() {
+        if (block is null || Style is null || string.IsNullOrEmpty(Text)) {
+            return false;
+        }
+
+        return InlineEdges(Document.WhiteSpaceCollapseOf(Style)) != (lineTrimStart, lineTrimEnd, lineHangs);
     }
 
     // ⚠ The stop the current `block` was measured with, in pixels, kept for the same reason

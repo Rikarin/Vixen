@@ -28,11 +28,12 @@ namespace Vixen.Ui.Tests;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>§ 4.1.3's phase II is here too</b> — a collapsible run at the start or end of a line
-///         is not drawn — for every label that is its own paragraph, and
-///         <see cref="An_inline_leaf_keeps_its_leading_space_only_where_it_shares_a_line" /> is the
-///         one element it is withheld from. It was refused as "a question about a line"; after phase
-///         I the only runs a line can still begin or end on are at the two ends of the text, so it
-///         was a question about the string after all. <c>Rikarin/Vixen#249</c>.
+///         is not drawn — for every label that is its own paragraph, and for an inline leaf wherever
+///         its neighbours put an edge of its text at a line edge or after a collapsible space
+///         (<see cref="An_inline_leaf_keeps_its_leading_space_only_after_content" />,
+///         <c>WhiteSpaceInlineCollapseTests</c>). It was refused as "a question about a line"; after
+///         phase I the only runs a line can still begin or end on are at the two ends of the text, so
+///         it was a question about the string after all. <c>Rikarin/Vixen#249</c>, <c>#1363</c>.
 ///     </para>
 /// </remarks>
 public class WhiteSpacePreLineTests {
@@ -313,16 +314,18 @@ public class WhiteSpacePreLineTests {
     }
 
     /// <summary>
-    ///     ⚠ An inline leaf on a line its parent lays out keeps its leading space, and the same leaf in
-    ///     a flex container, where it is blockified, loses it.
+    ///     ⚠ An inline leaf that follows a word on its line keeps its leading space, and the same pair
+    ///     in a flex container, where each is blockified and a paragraph of its own, loses it.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The one element phase II is withheld from, and why.</b> A <c>display: inline</c>
-    ///         element in an inline formatting context can begin in the middle of a line a sibling
-    ///         started, and then whether its leading space survives depends on whether the text before
-    ///         it ended in one — collapsing across an element boundary, which this engine does not
-    ///         do. Removing it unconditionally would draw <c>foo</c> and <c> bar</c> as one word.
+    ///         ⚠ <b>This pinned the opposite for a leaf ALONE in its container, and #1363 inverted
+    ///         that half.</b> It said a lone inline leaf kept its leading space because it "can begin
+    ///         in the middle of a line a sibling started" — true of an inline leaf in general and false
+    ///         of this one, which has no sibling: it begins its container's first line, and Chrome
+    ///         draws <c>   ab</c> there as <c>ab</c>. What does keep the space is a word before it, so
+    ///         the pair now carries one. Removing the run unconditionally would still draw <c>x</c> and
+    ///         <c> ab</c> as one word.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The flex half is the control and it is not decoration</b>: an implementation that
@@ -331,16 +334,18 @@ public class WhiteSpacePreLineTests {
     ///     </para>
     /// </remarks>
     [Fact]
-    public void An_inline_leaf_keeps_its_leading_space_only_where_it_shares_a_line() {
-        Assert.Equal(Width(" ab", Normal), Inline("   ab", "display: block;"), Tolerance);
-        Assert.Equal(Width("ab", PreLine), Inline("   ab", "display: flex;"), Tolerance);
+    public void An_inline_leaf_keeps_its_leading_space_only_after_content() {
+        Assert.Equal(Width(" ab", Normal), Inline("   ab", "display: block;", before: "x"), Tolerance);
+        Assert.Equal(Width("ab", PreLine), Inline("   ab", "display: flex;", before: "x"), Tolerance);
+        Assert.Equal(Width("ab", PreLine), Inline("   ab", "display: block;"), Tolerance);
     }
 
     /// <summary>A <c>display: inline</c> label under <c>pre-line</c>, inside a root of a given display.</summary>
     /// <param name="text">What the author wrote.</param>
     /// <param name="root">The root's <c>display</c> declaration.</param>
+    /// <param name="before">A label's text to put before it on the line, or null for none.</param>
     /// <returns>The first line's width.</returns>
-    static float Inline(string text, string root) {
+    static float Inline(string text, string root, string? before = null) {
         var document = new UiDocument(900f, 300f);
         document.Fonts.Register("Test", Font);
 
@@ -350,6 +355,10 @@ public class WhiteSpacePreLineTests {
               label { font-family: Test; font-size: 16px; display: inline; {{PreLine}} }
               """
         );
+
+        if (before is not null) {
+            document.Root.Add("label").Text = before;
+        }
 
         var element = document.Root.Add("label");
         element.Text = text;
@@ -367,7 +376,9 @@ public class WhiteSpacePreLineTests {
     ///     document cannot see: every assertion above makes a fresh element under a fixed parent. The
     ///     leaf's own declarations, its text and — in a column — its measured width are the same
     ///     either side of the toggle, so the entry is the only thing in <c>UiElement.Block</c>'s key
-    ///     that can tell the two apart.
+    ///     that can tell the two apart. ⚠ A word before the leaf is what makes the two answers differ
+    ///     since #1363 — alone in a block container the leaf begins a line and loses the run too, so
+    ///     a lone leaf would pass this whether the key saw the toggle or not.
     /// </remarks>
     [Fact]
     public void Turning_the_parent_to_block_rebuilds_an_inline_leafs_block() {
@@ -381,6 +392,8 @@ public class WhiteSpacePreLineTests {
               label        { font-family: Test; font-size: 16px; display: inline; {{PreLine}} }
               """
         );
+
+        document.Root.Add("label").Text = "x";
 
         var element = document.Root.Add("label");
         element.Text = "   ab";

@@ -685,14 +685,25 @@ white-space / nowrap              the container-level suppression of line breaki
                                   run is one space with its break opportunity AFTER it, and every run
                                   beside a segment break is gone, so the only runs a line can still
                                   begin or end on are at the two ends of the text — string positions.
-                                  `TransformedText.Of(…, ownsLines: true)` removes them for every
+                                  `TransformedText.Of(…, trimStart, trimEnd)` removes them for every
                                   leaf that is its own paragraph; `WhiteSpacePhaseTwoPixelTests` reads
-                                  it off the picture. Withheld from ONE element: a `display: inline`
-                                  leaf in an inline formatting context, whose first line can begin
-                                  mid-line after a sibling — that answer is collapsing across an
-                                  element boundary, and it is still owed. So is a line begun on a
-                                  space by a break that falls BEFORE one (`line-break: anywhere`, or
-                                  an emergency break). ⚠ AND `normal` STILL DOES NOT COLLAPSE,
+                                  it off the picture. ⚠ AND FOR A `display: inline` LEAF TOO (#1363),
+                                  which this row withheld on the belief that only its LINE could
+                                  answer: its two ends are answered from the tree — a leading run goes
+                                  where nothing, a block or a segment break precedes it in the
+                                  formatting context, or where the inline content before it ends in a
+                                  collapsible space (§4.1.1 across the boundary); a trailing run goes
+                                  where nothing that draws follows it. `WhiteSpaceInlineCollapseTests`
+                                  holds each to a Chrome 153 reading. ⚠ Finding that exposed the
+                                  defect UNDER the filed one: `TextLayout` hung every leaf's trailing
+                                  space, so `foo␠` beside `bar` measured as `foo` and drew `foobar`
+                                  under every value — which is also why `foo␠` beside `␠bar` never
+                                  drew two spaces here, as filed. The hang is now withheld from a leaf
+                                  something follows on its line. STILL OWED: a line the WRAPPER begins
+                                  or ends between two leaves (the trailing space should then hang, the
+                                  leading run go), which is a break position and this row's pass
+                                  order; and a line begun on a space by a break that falls BEFORE one
+                                  (`line-break: anywhere`, or an emergency break). ⚠ AND `normal` STILL DOES NOT COLLAPSE,
                                   deliberately: CSS collapses under it and turns its segment breaks
                                   into spaces, and honouring half of that would change what every
                                   paragraph in every interface on this engine draws. `break-spaces`

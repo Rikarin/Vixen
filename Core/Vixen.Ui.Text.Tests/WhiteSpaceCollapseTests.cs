@@ -31,7 +31,7 @@ namespace Vixen.Ui.Text.Tests;
 ///         can still begin or end on are the ones at the very start and end of the text, so for a
 ///         paragraph that owns its lines they are string positions.
 ///         <see cref="A_paragraph_that_owns_its_lines_loses_a_run_at_either_end" /> holds that, and
-///         the same source without <c>ownsLines</c> is its control. <c>Rikarin/Vixen#249</c>.
+///         the same source without <c>trimStart</c> and <c>trimEnd</c> is its control. <c>Rikarin/Vixen#249</c>.
 ///     </para>
 /// </remarks>
 public class WhiteSpaceCollapseTests {
@@ -211,7 +211,7 @@ public class WhiteSpaceCollapseTests {
     /// <remarks>
     ///     <para>
     ///         <b>Both ends and both answers, over one string.</b> The pair is what makes this a
-    ///         measurement of the parameter rather than of the collapse: without <c>ownsLines</c> the
+    ///         measurement of the parameter rather than of the collapse: without <c>trimStart</c> and <c>trimEnd</c> the
     ///         same source is phase I alone, a run at each end folded to one space, and the difference
     ///         between the two answers is the two spaces phase II removes.
     ///     </para>
@@ -225,7 +225,7 @@ public class WhiteSpaceCollapseTests {
     [Fact]
     public void A_paragraph_that_owns_its_lines_loses_a_run_at_either_end() {
         var source = " \t a  b  ";
-        var owned = TransformedText.Of(source, TextTransform.None, language: null, WhiteSpaceCollapse.PreserveBreaks, ownsLines: true);
+        var owned = TransformedText.Of(source, TextTransform.None, language: null, WhiteSpaceCollapse.PreserveBreaks, trimStart: true, trimEnd: true);
         var shared = Collapsed(source);
 
         Assert.Equal(" a b ", shared.Text);
@@ -240,6 +240,21 @@ public class WhiteSpaceCollapseTests {
         Assert.Equal(6, owned.ToSource(2));
     }
 
+    /// <summary>
+    ///     ⚠ Each end answers on its own flag (#1363). An inline element can start after a
+    ///     collapsible space in the element before it and still end mid-line, or end its container's
+    ///     last line after beginning mid-line — so one flag for both ends, which is what this took
+    ///     before, could only get one of those two right.
+    /// </summary>
+    [Fact]
+    public void Each_end_loses_its_run_on_its_own_answer() {
+        const string source = "  a b  ";
+
+        Assert.Equal("a b ", TransformedText.Of(source, TextTransform.None, language: null, WhiteSpaceCollapse.PreserveBreaks, trimStart: true).Text);
+        Assert.Equal(" a b", TransformedText.Of(source, TextTransform.None, language: null, WhiteSpaceCollapse.PreserveBreaks, trimEnd: true).Text);
+        Assert.Equal(" a b ", Collapsed(source).Text);
+    }
+
     /// <summary>A run in the middle is phase I's and is not touched by the paragraph's edges.</summary>
     /// <remarks>
     ///     ⚠ The shape an implementation keyed on "any run" rather than on "a run at an end" would
@@ -247,7 +262,7 @@ public class WhiteSpaceCollapseTests {
     /// </remarks>
     [Fact]
     public void A_run_between_two_words_still_becomes_one_space() {
-        var owned = TransformedText.Of("a   b", TextTransform.None, language: null, WhiteSpaceCollapse.PreserveBreaks, ownsLines: true);
+        var owned = TransformedText.Of("a   b", TextTransform.None, language: null, WhiteSpaceCollapse.PreserveBreaks, trimStart: true, trimEnd: true);
 
         Assert.Equal("a b", owned.Text);
     }
@@ -259,7 +274,7 @@ public class WhiteSpaceCollapseTests {
     /// </remarks>
     [Fact]
     public void A_text_of_only_spaces_draws_nothing() {
-        var owned = TransformedText.Of("  \t ", TextTransform.None, language: null, WhiteSpaceCollapse.PreserveBreaks, ownsLines: true);
+        var owned = TransformedText.Of("  \t ", TextTransform.None, language: null, WhiteSpaceCollapse.PreserveBreaks, trimStart: true, trimEnd: true);
 
         Assert.Equal("", owned.Text);
         Assert.Equal(0, owned.ToDrawn(2));
@@ -276,7 +291,7 @@ public class WhiteSpaceCollapseTests {
     [Fact]
     public void Owning_its_lines_changes_nothing_under_preserve() {
         var source = "  a  ";
-        var preserved = TransformedText.Of(source, TextTransform.None, language: null, WhiteSpaceCollapse.Preserve, ownsLines: true);
+        var preserved = TransformedText.Of(source, TextTransform.None, language: null, WhiteSpaceCollapse.Preserve, trimStart: true, trimEnd: true);
 
         Assert.Same(source, preserved.Text);
     }
