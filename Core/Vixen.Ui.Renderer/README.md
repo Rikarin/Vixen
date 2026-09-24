@@ -99,9 +99,13 @@ reads the frame's target as a shader resource, which places it after whatever wr
 calls `Compose` with that target as `UiBackdropSource.Image`, and `WorldRenderer.Draw` skips its own
 compose for a frame in which the node, and every node above it, is enabled. `WorldRenderer`'s
 constructor registers `UiComposeFactory` on its own builder with its own feature, so a document names
-the node and never the feature. ⚠ The target must be `Sampled`, which a swapchain image never is, so
-a frame that wants this renders into a target of its own and copies it out; the node refuses the
-target at build time otherwise. The alternative, last frame's scene, lags every blended panel by a
+the node and never the feature. ⚠ The target must be `Sampled`, and the node refuses it at build time
+otherwise. ⚠ **That makes the node unusable in a game today** (#1378's remaining half):
+`AppGraphics.Lend` imports the swapchain under `GraphicsOptions.Output` — `SceneColour`, the same
+default as `!StandardFrame`'s output — as a colour target and nothing else, and the copy-out this
+file used to prescribe is refused too, because `!Copy` needs `CopyDestination` on the destination and
+the import does not declare it. It builds where the target is the frame's own or is imported
+`Sampled`, which is the golden fixtures and the null-device tests. The alternative, last frame's scene, lags every blended panel by a
 frame and would still need a copy at the same seam.
 
 ### Three pipelines, one vertex layout

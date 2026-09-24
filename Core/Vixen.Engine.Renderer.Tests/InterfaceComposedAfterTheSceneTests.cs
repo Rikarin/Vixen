@@ -172,11 +172,67 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
         Assert.Contains("Sampled", refused.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     A scene target of another size than the interface is said in the node's <c>Degraded</c>, and
+    ///     "the interface's size" is the one <c>UiRenderer</c> actually allocates its surfaces at.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>At a fractional density, because that is where two roundings disagree.</b> A 43-unit
+    ///         interface at 1.5 is 64.5 framebuffer pixels: <c>UiRenderer.Compose</c> takes the ceiling
+    ///         and allocates 65, and a check that truncated or rounded — to even, as
+    ///         <c>MathF.Round</c> does — would call a 64-pixel scene a match and the 65-pixel one that
+    ///         really is a mismatch. At a whole density every rounding agrees and the arithmetic is
+    ///         untested.
+    ///     </para>
+    ///     <para>
+    ///         The instrument is the group's own surface pass: the group covers the whole interface, so
+    ///         the pass's render area is clamped by nothing but the surface's edge — <c>UiRenderer.Pixels</c>,
+    ///         the function the surface is allocated by and the one the node compares with — and it is
+    ///         read out of the recorded stream rather than restated here. ⚠ Before that function existed
+    ///         the allocation, the clamp and the comparison were three copies of one line, and rounding
+    ///         the allocation alone left this test green: nothing on the null device reports a
+    ///         texture's size.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(65, false)]
+    [InlineData(64, true)]
+    [InlineData(66, true)]
+    public void ASceneOfAnotherSizeThanTheInterfaceIsReportedAsTheNodesDegrade(int target, bool mismatched) {
+        const int Units = 43;
+        const float Scale = 1.5f;
+
+        var frame = Frame(Composed(), scene: target, units: Units, scale: Scale);
+
+        // The instrument: the node ran, and the surface it composed into is 65 pixels a side.
+        Assert.Equal(1, frame.ComposeCount);
+        Assert.Equal(new Int2(65, 65), frame.LayerArea);
+
+        if (mismatched) {
+            Assert.NotNull(frame.Degraded);
+            Assert.Contains($"65×65 pixels and the scene beneath it is {target}×{target}", frame.Degraded, StringComparison.Ordinal);
+        } else {
+            Assert.Null(frame.Degraded);
+        }
+    }
+
     /// <summary>What one frame recorded.</summary>
-    sealed record Recorded(List<string> Passes, bool SceneDrawnUnderTheCapture, int Sceneless, int ComposeCount);
+    sealed record Recorded(List<string> Passes, bool SceneDrawnUnderTheCapture, int Sceneless, int ComposeCount) {
+        /// <summary>The compose node's <c>Degraded</c> after the frame, or null for none or no node.</summary>
+        public string? Degraded { get; init; }
+
+        /// <summary>The render area of the first group's surface pass, or null when it had none.</summary>
+        public Int2? LayerArea { get; init; }
+    }
 
     /// <summary>Loads <paramref name="document" />, mounts a HUD with one multiplied top-level group, and draws a frame.</summary>
-    Recorded Frame(string document, bool sampled = true) {
+    /// <param name="document">The frame document.</param>
+    /// <param name="sampled">Whether the imported <c>SceneColour</c> is declared <c>Sampled</c>.</param>
+    /// <param name="scene">The imported target's side, in pixels.</param>
+    /// <param name="units">The interface's side, in geometry units.</param>
+    /// <param name="scale">The interface's density.</param>
+    Recorded Frame(string document, bool sampled = true, int scene = Side, int units = Side, float scale = 1f) {
         using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
         using var ui = UiRendererFor(device);
 
@@ -189,8 +245,8 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
         // The frame's last target belongs to somebody outside the graph, or the graph would be right
         // to cull the interface pass that writes it last.
         var description = new TextureDescription {
-            Width = Side,
-            Height = Side,
+            Width = scene,
+            Height = scene,
             Depth = 1,
             MipLevels = 1,
             ArrayLayers = 1,
@@ -213,9 +269,9 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
 
         var id = renderer.Ui.Mount(stage.Mask);
         var atlas = new GlyphAtlas(64, 64);
-        var geometry = Multiplied(atlas);
+        var geometry = Multiplied(atlas, units);
 
-        renderer.Ui.Set(id, new(geometry, atlas, new Int2(Side, Side), 0));
+        renderer.Ui.Set(id, new(geometry, atlas, new Int2(units, units), 0) { Scale = scale });
 
         var commands = device.BeginCommandList(QueueKind.Graphics, "frame");
 
@@ -225,6 +281,7 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
         device.GraphicsQueue.Submit([commands]);
 
         var passes = new List<string>();
+        var layerArea = default(Int2?);
         var drawnUnder = false;
         var inCapture = false;
         var drawsInCapture = 0;
@@ -232,6 +289,12 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
         foreach (var command in device.Recorder.Commands) {
             if (command.Kind == RecordedCommandKind.BeginRenderPass) {
                 passes.Add(command.Text ?? "");
+
+                // The render area is packed width-high, height-low; zero is "the whole target".
+                if (command.Text == "ui layer 0" && command.E != 0) {
+                    layerArea = new Int2((int)(command.E >> 32), (int)(uint)command.E);
+                }
+
                 inCapture = command.Text == "ui blend backdrop 0";
                 drawsInCapture = 0;
             } else if (command.Kind == RecordedCommandKind.EndRenderPass) {
@@ -249,25 +312,36 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
 
         var composer = UiComposeRenderer.PathTo(renderer.Host.Compositor!.Game, renderer.Ui).LastOrDefault() as UiComposeRenderer;
 
-        return new(passes, drawnUnder, renderer.Ui.Sceneless, composer?.ComposeCount ?? 0);
+        return new(passes, drawnUnder, renderer.Ui.Sceneless, composer?.ComposeCount ?? 0) {
+            Degraded = composer?.Degraded,
+            LayerArea = layerArea
+        };
     }
 
     /// <summary>One top-level group, multiplied, of two rectangles so it stays a group.</summary>
-    static UiGeometry Multiplied(GlyphAtlas atlas) {
+    /// <param name="atlas">The atlas the geometry's glyphs would go in.</param>
+    /// <param name="units">The interface's side, in geometry units.</param>
+    /// <remarks>
+    ///     At the default side the group is a panel in the top-left; at any other it covers the whole
+    ///     interface, so the pass that renders its surface is confined by nothing but the surface's
+    ///     own edge and its render area is the size <c>UiRenderer</c> allocated.
+    /// </remarks>
+    static UiGeometry Multiplied(GlyphAtlas atlas, int units = Side) {
+        var (x, y, width, height) = units == Side ? (8f, 8f, 40f, 30f) : (0f, 0f, units, (float)units);
         var list = new DrawList();
 
         list.BeginFrame();
         list.Add(
-            new Vixen.Ui.DrawCommand(DrawCommandKind.LayerPush, 8f, 8f, 40f, 30f, new Color4(1f, 1f, 1f, 1f), 0f, 0f) {
+            new Vixen.Ui.DrawCommand(DrawCommandKind.LayerPush, x, y, width, height, new Color4(1f, 1f, 1f, 1f), 0f, 0f) {
                 Blend = UiBlendMode.Multiply
             }
         );
-        list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.Rectangle, 8f, 8f, 40f, 30f, Color4.White, 0f, 0f));
+        list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.Rectangle, x, y, width, height, Color4.White, 0f, 0f));
         list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.Rectangle, 12f, 12f, 10f, 8f, new Color4(1f, 0f, 0f, 1f), 0f, 0f));
         list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.LayerPop, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f));
         list.EndFrame();
 
-        var geometry = new UiGeometryBuilder().Build(list, new GlyphFieldCache(atlas), new Rectangle(0, 0, Side, Side));
+        var geometry = new UiGeometryBuilder().Build(list, new GlyphFieldCache(atlas), new Rectangle(0, 0, units, units));
 
         // The instrument: one group, and it is the blended one.
         Assert.Equal(UiBlendMode.Multiply, Assert.Single(geometry.Layers).Blend);

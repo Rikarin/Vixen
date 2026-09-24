@@ -910,7 +910,8 @@ the node's `source` over as `UiBackdropSource.Image`:
 beforeUi:
   - !UiCompose
     name: Compose
-    source: SceneColour        # the target the interface pass draws into
+    source: SceneColour        # the target the interface pass draws into — it must be Sampled,
+                               # which in a game's AppGraphics it is not (see below)
   - !RenderPass
     name: Interface
     colourTargets: [SceneColour]
@@ -929,13 +930,30 @@ pixel and a glass panel with `backdrop-filter: invert(1)` is `1 − scene`, wher
 compose gave a flat grey slab and the scene untouched; `InterfaceOverASceneDeviceTests` holds both
 to those closed forms on a device, and `UiRenderFeature.Sceneless` reads zero.
 
-⚠ **`source` has to be `Sampled`, and a swapchain image is not** — Vixen's is created for colour
-attachment and transfer destination only. A frame that wants a scene-aware HUD renders into a target
-of its own, draws the interface into it and copies it out; the node refuses a target without the
-usage when the frame is built. It is the same frame's scene, not last frame's: the other way to give
-a HUD its world is the previous colour target, which lags every blended panel by a frame and still
-needs a copy taken at this same seam. A `source` of another size than the interface is resampled
-under it, and the node says so in its `Degraded`.
+⚠ **`source` has to be `Sampled`, and the node refuses it at build time otherwise** — with a
+`CompositorBindingException` naming `source`, rather than binding a target a driver may or may not
+sample. What decides it is the usage the resource is declared or imported with, and an import wins
+over a declaration of the same name (`GraphicsCompositor`'s resource loop).
+
+⚠ **So the document above does not build in a game today, and nothing else a game can write does
+either** — #1378's remaining half. `AppGraphics.Lend` imports the acquired swapchain image under
+`GraphicsOptions.Output`, which defaults to `SceneColour` as `!StandardFrame`'s `output` does, with
+`TextureUsage.ColourTarget` and nothing else, on every backend. The workaround this page used to
+prescribe — render into a target of the frame's own and copy it out — is refused one node later:
+`!Copy` requires `CopyDestination` on its destination (`TextureCopyRenderer.Build`), and the import
+does not declare it, although the Vulkan swapchain is created with `TRANSFER_DST`. The backends'
+swapchains do not agree on what they allow either — OpenGL's is sampled, Vulkan's windowed one is not
+— so the fix is the host declaring what its swapchain actually supports, not a document. Where the
+target is the frame's own, or is imported `Sampled`, the node builds: the golden suite's fixtures and
+`InterfaceComposedAfterTheSceneTests` are that case, which is why every picture above comes from them
+and none from a sample.
+
+It is the same frame's scene, not last frame's: the other way to give a HUD its world is the previous
+colour target, which lags every blended panel by a frame and still needs a copy taken at this same
+seam. A `source` of another size than the interface is resampled under it, and the node says so in
+its `Degraded` — the interface's size being `UiRenderer.Pixels`, the ceiling of its surface times its
+density, which is the size its group surfaces are allocated at. Name one node per frame: a second one
+composes every group again and the later one wins, and nothing refuses it.
 
 ### Isolating which backdrop a blend reaches
 

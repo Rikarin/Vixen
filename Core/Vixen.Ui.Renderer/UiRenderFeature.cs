@@ -565,12 +565,13 @@ public sealed class UiRenderFeature : RootRenderFeature {
     ///     <see cref="UiBackdropSource.Image" /> is drawn over the whole of an interface's surface, so a
     ///     target of another size is resampled into it — a backdrop stretched under the panels rather
     ///     than the one they sit on. Said rather than refused, because the frame still draws; a
-    ///     <see cref="UiComposeRenderer" /> reports it as its degrade.
+    ///     <see cref="UiComposeRenderer" /> reports it as its degrade. ⚠ The interface's size is
+    ///     <c>UiRenderer.Pixels</c>, the function its surfaces are allocated by, rather than a copy of
+    ///     the arithmetic that could round differently.
     /// </remarks>
     internal string? Mismatched(Int2 target) {
         foreach (var (_, surface) in surfaces) {
-            var width = (int)MathF.Ceiling(surface.Surface.X * surface.Scale);
-            var height = (int)MathF.Ceiling(surface.Surface.Y * surface.Scale);
+            var (width, height) = UiRenderer.Pixels(surface.Surface, surface.Scale);
 
             if (width != target.X || height != target.Y) {
                 return $"an interface is {width}×{height} pixels and the scene beneath it is {target.X}×{target.Y}, "

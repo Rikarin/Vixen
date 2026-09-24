@@ -32,11 +32,23 @@ namespace Vixen.Ui.Renderer;
 ///         wrote the scene.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Source" /> has to be sampleable, and a swapchain image is not.</b> Vixen's
-///         swapchain is created for colour attachment and transfer destination only, so a frame that
-///         wants a scene-aware HUD renders into a target of its own — declared <c>Sampled</c> — draws
-///         the interface into it, and copies it out. The node refuses a target without the usage at
-///         build time rather than binding one a driver may or may not sample.
+///         ⚠ <b><see cref="Source" /> has to be sampleable, and what decides that is the usage the
+///         resource is declared or imported with — which, for the window, is the host's.</b> The node
+///         refuses a target without <c>Sampled</c> at build time rather than binding one a driver may
+///         or may not sample.
+///     </para>
+///     <para>
+///         ⚠ <b>So no frame a game draws through <c>AppGraphics</c> can name this node today, and the
+///         default <see cref="Source" /> is the name that is refused there.</b> <c>AppGraphics.Lend</c>
+///         imports the acquired swapchain image under <c>GraphicsOptions.Output</c> — by default
+///         <c>SceneColour</c>, which is also <c>!StandardFrame</c>'s default output — as
+///         <c>TextureUsage.ColourTarget</c> and nothing else, on every backend, and an import wins
+///         over a declaration of the same name. A copy out of a target of the frame's own does not
+///         get round it either: <c>!Copy</c> refuses a destination without <c>CopyDestination</c>, and
+///         the import does not declare it even where the Vulkan swapchain is created with
+///         <c>TRANSFER_DST</c>. The node builds where the target is the frame's own or is imported
+///         <c>Sampled</c> — the golden suite's fixtures and the null-device tests — and the host path
+///         is #1378's remaining half.
 ///     </para>
 /// </remarks>
 [DataContract("UiCompose")]
@@ -74,6 +86,16 @@ public sealed record UiComposeAsset : ISceneRendererAsset {
 ///         ⚠ <b><c>WorldRenderer.Draw</c> skips its own compose for a frame that has one of these,
 ///         enabled, on an enabled path</b> — see <see cref="PathTo" />. Composing twice would cost a
 ///         pass per group, and whichever ran second would decide the picture.
+///     </para>
+///     <para>
+///         ⚠ <b>One per frame, and nothing refuses a second.</b> Two nodes composing the same feature
+///         both run, each rendering every group's surface again, and the later one decides the
+///         picture. The same waste happens where the host cannot see the node: <see cref="PathTo" />
+///         walks <see cref="SceneRenderer.Nested" />, so a node a parent builds through
+///         <c>BuildChild</c> without exposing it there is invisible to it, and so is any tree that is
+///         not <c>Host.Compositor</c>'s — the editor's panes, which <c>EditorWorldRenderer</c> builds
+///         with <c>Builder.Build</c>. In each case the prologue composes too; the picture is still the
+///         node's, because it runs later.
 ///     </para>
 /// </remarks>
 public sealed class UiComposeRenderer : SceneRenderer {
@@ -144,8 +166,8 @@ public sealed class UiComposeRenderer : SceneRenderer {
                 "source",
                 Source,
                 "was not declared Sampled, so the interface cannot read the scene out of it. Add Sampled to "
-                + "its usage — a swapchain image never has it, so render the frame into a target of its own "
-                + "and copy it out after the interface"
+                + "its usage. If it is the window's image, the host imported it without Sampled — AppGraphics "
+                + "imports its swapchain as a colour target only — and this node cannot run over it (#1378)"
             );
         }
 

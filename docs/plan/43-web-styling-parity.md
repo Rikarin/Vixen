@@ -3696,7 +3696,10 @@ does go through `UiBlend`, against the interface's own prefix over transparent b
 A frame document can now remove it: a `!UiCompose` node ahead of the interface pass composes the
 HUD after the scene with the scene as its backdrop, and `InterfaceOverASceneDeviceTests` holds a
 multiplied panel to `grey · scene` and an inverting glass panel to `1 − scene` on a device. It stays
-an exception for a frame without the node, whose output is a swapchain image the node cannot sample.
+an exception for a frame without the node — ⚠ which today is every frame a game draws: `AppGraphics`
+imports its swapchain as a colour target only, the node refuses a `source` that is not `Sampled`, and
+a copy out of a target of the frame's own is refused for want of `CopyDestination` (#1378's remaining
+half).
 
 ⚠ **`background-blend-mode` is not this and stays refused.** It blends an element's background
 *layers* with each other, and there is one background layer for them to blend.

@@ -1540,8 +1540,7 @@ public sealed class UiRenderer : IDisposable {
             return;
         }
 
-        var width = (int) MathF.Ceiling(surface.X * scale);
-        var height = (int) MathF.Ceiling(surface.Y * scale);
+        var (width, height) = Pixels(surface, scale);
 
         if (width <= 0 || height <= 0) {
             return;
@@ -4068,8 +4067,7 @@ public sealed class UiRenderer : IDisposable {
     ///     </para>
     /// </remarks>
     static ScissorRect Confine(Rectangle bounds, Int2 surface, float scale, int reach) {
-        var width = (int)MathF.Ceiling(surface.X * scale);
-        var height = (int)MathF.Ceiling(surface.Y * scale);
+        var (width, height) = Pixels(surface, scale);
 
         var area = Scissor(bounds, surface, scale);
         var margin = reach + 1;
@@ -4117,8 +4115,7 @@ public sealed class UiRenderer : IDisposable {
     ///     </para>
     /// </remarks>
     static ScissorRect Scissor(Rectangle clip, Int2 surface, float scale) {
-        var width = (int)MathF.Ceiling(surface.X * scale);
-        var height = (int)MathF.Ceiling(surface.Y * scale);
+        var (width, height) = Pixels(surface, scale);
 
         var left = Math.Clamp((int)MathF.Floor(clip.X * scale), 0, width);
         var top = Math.Clamp((int)MathF.Floor(clip.Y * scale), 0, height);
@@ -4127,6 +4124,20 @@ public sealed class UiRenderer : IDisposable {
 
         return new(left, top, right - left, bottom - top);
     }
+
+    /// <summary>The size in framebuffer pixels of an interface <paramref name="surface" /> units across at <paramref name="scale" />.</summary>
+    /// <param name="surface">The geometry's extent, in its own units.</param>
+    /// <param name="scale">How many framebuffer pixels one of those units is.</param>
+    /// <returns>The size every group surface of that interface is allocated at.</returns>
+    /// <remarks>
+    ///     ⚠ <b>One function, because a second copy of it is a second answer.</b> <see cref="Compose" />
+    ///     allocates the group surfaces at this size, the scissors and render areas clamp to it, and
+    ///     <c>UiRenderFeature.Mismatched</c> compares a scene target against it. Up, never to nearest:
+    ///     at a fractional density the last partial pixel is still covered by the interface, and
+    ///     <c>MathF.Round</c> rounds 64.5 to 64.
+    /// </remarks>
+    internal static (int Width, int Height) Pixels(Int2 surface, float scale) =>
+        ((int)MathF.Ceiling(surface.X * scale), (int)MathF.Ceiling(surface.Y * scale));
 }
 
 /// <summary>Copying an <see cref="IReadOnlyList{T}" /> without allocating an enumerator per frame.</summary>
