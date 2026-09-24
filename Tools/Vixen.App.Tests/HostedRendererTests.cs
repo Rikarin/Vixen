@@ -639,7 +639,7 @@ public sealed class HostedRendererTests : IDisposable {
     }
 
     /// <summary>Writes a one-asset content build the way `vixen content build` lays one out.</summary>
-    static void Publish<TAsset>(string directory, string address, TAsset asset) {
+    internal static void Publish<TAsset>(string directory, string address, TAsset asset) {
         Directory.CreateDirectory(directory);
 
         var scratch = new VirtualFileSystem();

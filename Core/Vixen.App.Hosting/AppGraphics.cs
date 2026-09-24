@@ -1394,11 +1394,17 @@ public sealed class AppGraphics : IDisposable {
     ///     as a picture that judders rather than as nothing at all.
     /// </remarks>
     void Lend(TextureViewHandle view) {
+        // ⚠ <b>What the image can do, not a colour target and nothing else (#1419).</b> An import
+        // wins over the document's declaration of the same name, so the usage declared here is the
+        // whole of what a frame may do with the window: with `ColourTarget` alone `!UiCompose`
+        // could not sample it and `!Copy` could not write it, on every backend, although Vulkan's
+        // image had been created with `TRANSFER_DST` all along. Each backend reports what it asked
+        // for, so this can declare no more than the driver was told.
         var description = new TextureDescription(
             swapChain!.Format,
             swapChain.Size.X,
             swapChain.Size.Y,
-            TextureUsage.ColourTarget,
+            swapChain.Usage,
             Name: options.Output
         );
 

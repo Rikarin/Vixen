@@ -185,6 +185,25 @@ public interface ISwapChain : IDisposable {
     /// </remarks>
     ColorGamut Gamut => ColorGamut.Srgb;
 
+    /// <summary>What its images were created able to do, which is what a frame may declare them as.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Read by the host that lends the acquired image to a frame, and an import of fewer
+    ///         bits than the image has is a frame refused work the image could do (#1419).</b>
+    ///         <c>AppGraphics</c> used to import every backend's image as a colour target and nothing
+    ///         else, so a document could neither sample the window — which is what <c>!UiCompose</c>
+    ///         needs to give a HUD the scene — nor <c>!Copy</c> into it, although the Vulkan image
+    ///         had been created with <c>TRANSFER_DST</c> from the start. An import of <em>more</em>
+    ///         bits than the image has is the worse error — a frame binding it for something the
+    ///         driver was never told — so each backend states what it actually asked for.
+    ///     </para>
+    ///     <para>
+    ///         Defaulted to <see cref="TextureUsage.ColourTarget" />, <see cref="Gamut" />'s way: every
+    ///         swapchain is at least that, and a backend that has not said more is not thereby wrong.
+    ///     </para>
+    /// </remarks>
+    TextureUsage Usage => TextureUsage.ColourTarget;
+
     /// <summary>Their size in pixels.</summary>
     Int2 Size { get; }
 

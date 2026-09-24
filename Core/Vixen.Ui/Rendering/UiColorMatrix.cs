@@ -23,7 +23,7 @@ namespace Vixen.Ui.Rendering;
 ///         ⚠ <b>Applied to <i>premultiplied</i> colour, with the offset scaled by alpha, and that is
 ///         what makes the whole feature cost nothing.</b> A colour matrix is defined on
 ///         un-premultiplied colour: <c>c' = M·(c/a) + o</c>, so <c>c'·a = M·c + o·a</c>. The
-///         premultiplied form needs no division and no reconstruction — see <see cref="Apply" /> —
+///         premultiplied form needs no division and no reconstruction — see <see cref="Apply(Color4)" /> —
 ///         which matters twice over. It means transparent black stays transparent black, so a
 ///         viewport-sized surface whose group inks a corner of it does not acquire a rectangle of
 ///         <c>invert(1)</c> white everywhere the group is not; and it means the transform is
@@ -93,13 +93,42 @@ public readonly record struct UiColorMatrix(Vector4 Red, Vector4 Green, Vector4 
     ///     anyway on the way into an <c>Rgba8UNorm</c> target and the software renderer's float buffer
     ///     would not, so any filter that can exceed one would diverge on exactly its brightest pixels.
     /// </remarks>
-    public Color4 Apply(Color4 colour) {
+    public Color4 Apply(Color4 colour) => Apply(colour, 1f);
+
+    /// <summary>Transforms one premultiplied colour held in a frame whose white is <paramref name="white" />.</summary>
+    /// <param name="colour">The sample, premultiplied, in the frame's units.</param>
+    /// <param name="white">
+    ///     What the frame's white is worth in those units — <see cref="UiGeometry.WhiteLevel" />. Zero,
+    ///     negative or not finite is read as one, which is every host's own fallback.
+    /// </param>
+    /// <returns>The transformed sample, premultiplied, in the same units, with the same alpha.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The matrix is defined on colour whose white is one, and a surface on a float pass is
+    ///         not that (#1418).</b> <see cref="UiGeometryBuilder.WhiteLevel" /> scales every interface
+    ///         colour into the pass's units, so on a pass at BT.2408's 203 an authored white reaches a
+    ///         group's surface at 203. Applied as it stands, the clamp to <c>[0, a]</c> in
+    ///         <see cref="Apply(Color4)" /> then caps every filtered pixel at one candela and an offset
+    ///         — <c>invert</c>'s one, a drop shadow's colour — lands a factor of the white too dark.
+    ///         It is <see cref="UiBlend.Apply" />'s clamp, one filter over (#1209).
+    ///     </para>
+    ///     <para>
+    ///         So this normalises by the white, applies the matrix, and re-lights: <c>w·clamp(M·(c/w) +
+    ///         o·a, 0, a)</c>, which is <c>clamp(M·c + o·a·w, 0, a·w)</c> because the coefficients are
+    ///         linear — so the multiply costs one factor on the offset and one on the ceiling, and at
+    ///         a white of one it is <see cref="Apply(Color4)" /> exactly. <c>Ui.rvn</c>'s
+    ///         <c>UiComposite.Filter</c> is the same expression, with the white in a push lane.
+    ///     </para>
+    /// </remarks>
+    public Color4 Apply(Color4 colour, float white) {
+        var scale = white > 0f && float.IsFinite(white) ? white : 1f;
         var rgb = new Vector3(colour.R, colour.G, colour.B);
+        var lit = colour.A * scale;
 
         return new Color4(
-            Math.Clamp(Vector3.Dot(new Vector3(Red.X, Red.Y, Red.Z), rgb) + (Red.W * colour.A), 0f, colour.A),
-            Math.Clamp(Vector3.Dot(new Vector3(Green.X, Green.Y, Green.Z), rgb) + (Green.W * colour.A), 0f, colour.A),
-            Math.Clamp(Vector3.Dot(new Vector3(Blue.X, Blue.Y, Blue.Z), rgb) + (Blue.W * colour.A), 0f, colour.A),
+            Math.Clamp(Vector3.Dot(new Vector3(Red.X, Red.Y, Red.Z), rgb) + (Red.W * lit), 0f, lit),
+            Math.Clamp(Vector3.Dot(new Vector3(Green.X, Green.Y, Green.Z), rgb) + (Green.W * lit), 0f, lit),
+            Math.Clamp(Vector3.Dot(new Vector3(Blue.X, Blue.Y, Blue.Z), rgb) + (Blue.W * lit), 0f, lit),
             colour.A
         );
     }
@@ -214,7 +243,7 @@ public readonly record struct UiColorMatrix(Vector4 Red, Vector4 Green, Vector4 
     ///     ⚠ <b>The spec's linear approximation and not a true HSL rotation, which is the difference
     ///     between matching a browser and being defensible.</b> Filter Effects 1 § 8.5 defines this as
     ///     a fixed 3×3 built from <c>cos</c> and <c>sin</c> — an approximation that does not preserve
-    ///     luminance exactly and can push a saturated colour out of gamut, which <see cref="Apply" />
+    ///     luminance exactly and can push a saturated colour out of gamut, which <see cref="Apply(Color4)" />
     ///     then clamps. Every browser produces exactly these numbers, so a "better" rotation here
     ///     would be a divergence nobody asked for on the one filter people compare side by side.
     /// </remarks>
