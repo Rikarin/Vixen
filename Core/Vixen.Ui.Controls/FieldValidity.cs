@@ -59,3 +59,18 @@ static class FieldValidity {
         return valid ? element.RemoveClass("invalid") : element.AddClass("invalid");
     }
 }
+
+/// <summary>A control that takes part in constraint validation, as a <see cref="Form" /> sees it.</summary>
+/// <remarks>
+///     ⚠ <b>Internal, on <see cref="FieldValidity" />'s terms.</b> The six controls that validate
+///     already answer <c>IsValid</c> and <c>Revalidate()</c> publicly and each in its own words;
+///     this only lets the one caller that has to ask all of them — a form walking its fields — do so
+///     without a type switch that the seventh would silently miss.
+/// </remarks>
+interface IValidated {
+    /// <summary>Whether what it holds is acceptable.</summary>
+    bool IsValid { get; }
+
+    /// <summary>Asks again and republishes the answer.</summary>
+    void Revalidate();
+}

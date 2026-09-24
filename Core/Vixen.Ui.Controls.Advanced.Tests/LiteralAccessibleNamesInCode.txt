@@ -21,8 +21,6 @@
 #
 # ⚠ This file can only shrink. A row leaving means a word moved into a `*Strings` class; a row
 # ARRIVING is a new untranslatable name and is the loud direction.
-Core/Vixen.Ui.Controls.Advanced/Timeline.cs	ToggleButton.Label	M
-Core/Vixen.Ui.Controls/Navigation.cs	PageButton.Label	…
 Editor/Vixen.Editor.App/EditorWorlds.cs	Button.Label	Bake navigation mesh
 Editor/Vixen.Editor.App/EditorWorlds.cs	Button.Label	Close
 Editor/Vixen.Editor.App/EditorWorlds.cs	Button.Label	Recompute budgets

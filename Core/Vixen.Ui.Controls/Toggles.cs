@@ -146,7 +146,7 @@ public abstract partial class ToggleBase : ButtonBase {
 ///         half-ticked list — and clicking it resolves it, which is what it is for.
 ///     </para>
 /// </remarks>
-public sealed partial class CheckBox : ToggleBase {
+public sealed partial class CheckBox : ToggleBase, IValidated {
     Icon mark = null!;
 
     /// <inheritdoc />
@@ -388,7 +388,7 @@ public sealed partial class RadioButton : ToggleBase {
 ///         a group with a selection lands on the selection rather than at the top of the list.
 ///     </para>
 /// </remarks>
-public sealed partial class RadioGroup : Control {
+public sealed partial class RadioGroup : Control, IValidated {
     /// <inheritdoc />
     protected override string TagName => "radio-group";
 
