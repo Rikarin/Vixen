@@ -73,7 +73,7 @@ public class SliderTickTests {
         slider.TickCount = 1;
         ui.Frame();
 
-        Assert.Equal([(int) MathF.Floor(RailStart + (RailLength * 0.5f))], DarkColumns(ui));
+        Assert.Equal([(int)MathF.Floor(RailStart + (RailLength * 0.5f))], DarkColumns(ui));
     }
 
     /// <summary>A range slider draws the same marks, under both of its thumbs.</summary>
@@ -140,7 +140,7 @@ public class SliderTickTests {
 
     /// <summary>The columns tick <c>i</c> of <paramref name="count" /> must occupy.</summary>
     static int[] Expected(int count) =>
-        [.. Enumerable.Range(0, count).Select(index => (int) MathF.Floor(RailStart + (RailLength * index / (count - 1))))];
+        [.. Enumerable.Range(0, count).Select(index => (int)MathF.Floor(RailStart + (RailLength * index / (count - 1))))];
 
     /// <summary>The columns of <see cref="Row" /> drawn much darker than the surface.</summary>
     /// <remarks>
