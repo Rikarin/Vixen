@@ -160,8 +160,19 @@ public sealed class ThemeTokens {
     /// </remarks>
     public Dictionary<string, string> FontFamily { get; } = new(StringComparer.Ordinal);
 
-    /// <summary>Breakpoint widths in pixels, keyed by variant name.</summary>
-    public Dictionary<string, float> Screens { get; } = new(StringComparer.Ordinal);
+    /// <summary>Breakpoint widths, keyed by variant name, in the unit the theme wrote them in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A length that keeps its unit, and not pixels, because the unit is the behaviour</b>
+    ///     (#1417). v4 writes <c>--breakpoint-sm: 40rem</c> so that a reader who asks for larger text
+    ///     gets the narrower layout sooner: <see cref="MediaQuery" /> measures a query's <c>rem</c>
+    ///     against the document's <c>RootFontSize</c>, and 40 rem is 640 pixels at 100 % and 800 at
+    ///     125 %. This used to be a <c>float</c> converted at 16 px a rem when the theme was read, so
+    ///     <c>sm:</c> emitted <c>(min-width: 640px)</c> and stayed at 640 at every text size while
+    ///     <c>min-[40rem]:</c> beside it moved. A <see cref="StyleValue" /> of kind
+    ///     <see cref="StyleValueKind.Length" />, in <see cref="StyleUnit.Rem" /> or
+    ///     <see cref="StyleUnit.Pixels" />; a bare number is pixels.
+    /// </remarks>
+    public Dictionary<string, StyleValue> Screens { get; } = new(StringComparer.Ordinal);
 
     /// <summary>Blur radii in pixels, keyed by suffix — <c>sm</c>, <c>2xl</c>.</summary>
     /// <remarks>
@@ -179,7 +190,7 @@ public sealed class ThemeTokens {
     /// </remarks>
     public Dictionary<string, float> Blur { get; } = new(StringComparer.Ordinal);
 
-    /// <summary>Container-query widths in pixels, keyed by variant name.</summary>
+    /// <summary>Container-query widths, keyed by variant name, in the unit the theme wrote them in.</summary>
     /// <remarks>
     ///     ⚠ <b>A different set of numbers under the same names as <see cref="Screens" />, and that
     ///     is the whole reason the namespace has to exist rather than <c>@sm:</c> reading the
@@ -192,8 +203,14 @@ public sealed class ThemeTokens {
     ///         <c>3xs</c> and there is no <c>2xl</c> window to anchor it, because the sizes a
     ///         <i>card</i> comes in are not the sizes a screen comes in.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>In the theme's own unit, for <see cref="Screens" />' reason</b> (#1417):
+    ///         <see cref="ContainerQuery" /> measures <c>rem</c> against the document's root font
+    ///         size, so <c>@sm:</c> — 24 rem — follows the text-size preference only if it reaches the
+    ///         query as <c>24rem</c> and not as the 384 pixels it is at 100 %.
+    ///     </para>
     /// </remarks>
-    public Dictionary<string, float> Containers { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, StyleValue> Containers { get; } = new(StringComparer.Ordinal);
 
     /// <summary>Every custom property the theme declares, by full name, as it should be emitted.</summary>
     /// <remarks>
@@ -484,12 +501,12 @@ public sealed class ThemeTokens {
         }
 
         if (Suffix(name, "--breakpoint-") is { } screen) {
-            Length(name, value, Screens, screen);
+            Width(name, value, Screens, screen);
             return;
         }
 
         if (Suffix(name, "--container-") is { } container) {
-            Length(name, value, Containers, container);
+            Width(name, value, Containers, container);
             return;
         }
 
@@ -627,6 +644,42 @@ public sealed class ThemeTokens {
         }
 
         Diagnostics.Add($"'{name}' is not a number: {value}");
+    }
+
+    void Width(string name, string value, Dictionary<string, StyleValue> into, string key) {
+        if (Width(value, out var width)) {
+            into[key] = width;
+            return;
+        }
+
+        Diagnostics.Add($"'{name}' is not a length: {value}");
+    }
+
+    /// <summary>Reads a query width, keeping <c>rem</c> as <c>rem</c>; <c>px</c> and a bare number are pixels.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <see cref="Length(string, out float)" />, which is right for a blur radius and
+    ///     wrong here</b>: a radius is drawn in pixels whatever the text size, and a breakpoint is a
+    ///     question the query evaluator asks against the live font. See <see cref="Screens" />.
+    /// </remarks>
+    static bool Width(string value, out StyleValue width) {
+        width = StyleValue.Unknown;
+
+        var text = value.AsSpan().Trim();
+        var unit = StyleUnit.Pixels;
+
+        if (text.EndsWith("rem", StringComparison.OrdinalIgnoreCase)) {
+            unit = StyleUnit.Rem;
+            text = text[..^3];
+        } else if (text.EndsWith("px", StringComparison.OrdinalIgnoreCase)) {
+            text = text[..^2];
+        }
+
+        if (!float.TryParse(text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var number)) {
+            return false;
+        }
+
+        width = StyleValue.FromLength(number, unit);
+        return true;
     }
 
     void Length(string name, string value, Dictionary<string, float> into, string key) {

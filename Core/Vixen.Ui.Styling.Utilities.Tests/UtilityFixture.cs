@@ -129,6 +129,25 @@ sealed class UtilityFixture {
     /// <returns>The generated CSS.</returns>
     public string Generate(params string[] candidate) => Generator.Generate(candidate);
 
+    /// <summary>The theme's breakpoints in pixels at 100 % text size, in the theme's order.</summary>
+    /// <remarks>
+    ///     What a <see cref="MediaContext" /> built without a font measures them at. The theme keeps
+    ///     each one's unit since #1417, so a test that wants a window just either side of one asks
+    ///     here rather than reading a number off <see cref="ThemeTokens.Screens" />.
+    /// </remarks>
+    public Dictionary<string, float> ScreenPixels =>
+        Tokens.Screens.ToDictionary(pair => pair.Key, pair => AtDefaultText(pair.Value), StringComparer.Ordinal);
+
+    /// <summary>The theme's container sizes in pixels at 100 % text size, in the theme's order.</summary>
+    public Dictionary<string, float> ContainerPixels =>
+        Tokens.Containers.ToDictionary(pair => pair.Key, pair => AtDefaultText(pair.Value), StringComparer.Ordinal);
+
+    /// <summary>A theme width in pixels at sixteen pixels a <c>rem</c>.</summary>
+    /// <param name="width">A length in <c>rem</c> or pixels.</param>
+    /// <returns>The pixels.</returns>
+    public static float AtDefaultText(StyleValue width) =>
+        width.Unit == StyleUnit.Rem ? width.Number * 16f : width.Number;
+
     /// <summary>
     ///     Resolves an element carrying some classes against the generated stylesheet, and returns
     ///     what one property came out as.

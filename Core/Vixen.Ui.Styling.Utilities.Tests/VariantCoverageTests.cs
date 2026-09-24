@@ -1175,7 +1175,7 @@ public class VariantCoverageTests {
         // generator was backslash-escaping it instead, so `.2xl\:p-4` reached ExCSS, was refused, and
         // every `2xl:` utility in every project silently produced no rule at all.
         var fixture = new UtilityFixture("");
-        var screens = fixture.Tokens.Screens;
+        var screens = fixture.ScreenPixels;
 
         Assert.True(screens.ContainsKey("2xl"), "the shipped theme is expected to declare a 2xl breakpoint");
 
@@ -1204,7 +1204,7 @@ public class VariantCoverageTests {
         // single breakpoint has nothing to lose to. Enumerated pairwise off the shipped theme, since
         // which pairs a string sort gets right is an accident of their digit counts.
         var fixture = new UtilityFixture("");
-        var screens = fixture.Tokens.Screens.OrderBy(pair => pair.Value).ToArray();
+        var screens = fixture.ScreenPixels.OrderBy(pair => pair.Value).ToArray();
 
         Assert.True(screens.Length >= 2, "the shipped theme is expected to declare several breakpoints");
 
@@ -1237,7 +1237,7 @@ public class VariantCoverageTests {
         // same under both, which is how `@max-*` stayed wrong on containers until #609.
         var fixture = new UtilityFixture("");
 
-        foreach (var (name, width) in fixture.Tokens.Screens) {
+        foreach (var (name, width) in fixture.ScreenPixels) {
             var at = new MediaContext(width, 800f);
             var under = new MediaContext(width - 1f, 800f);
 
@@ -1249,6 +1249,63 @@ public class VariantCoverageTests {
         }
     }
 
+    /// <summary>
+    ///     ⚠ <b><c>sm:</c> and <c>@sm:</c> follow the text size, at a window and a panel that do not
+    ///     move</b> (#1417).
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The shipped theme writes <c>--breakpoint-sm: 40rem</c> and <c>--container-sm: 24rem</c>,
+    ///         and v4 writes them in <c>rem</c> so that a reader who asks for larger text gets the
+    ///         narrower layout sooner. A 700-pixel window is above 40 rem at sixteen (640) and below it
+    ///         at twenty (800); a 420-pixel panel is above 24 rem at sixteen (384) and below it at
+    ///         twenty (480). So both classes switch off when the text grows and back on when it shrinks.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The theme used to convert both to pixels when it was read, so the generator wrote
+    ///         <c>(min-width: 640px)</c> and <c>(min-width: 384px)</c>, and neither moved — while an
+    ///         arbitrary <c>min-[40rem]:</c> in the same sheet did. <c>MediaContextTests</c> has the
+    ///         same test for a hand-written <c>@media</c>; this one goes through the named variants.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_named_breakpoint_and_container_size_follow_the_text_size_without_a_resize() {
+        var fixture = new UtilityFixture("");
+        using var document = new UiDocument(700f, 200f);
+
+        document.Load(
+            """
+            root { width: 4000px; height: 200px; }
+            #panel { container-type: inline-size; width: 420px; height: 50px; }
+            """
+        );
+
+        document.Load(fixture.Generate("sm:pl-4", "@sm:pr-4"));
+
+        var panel = document.Create("div", document.Root, "panel");
+        var box = document.Create("div", panel, "box", "sm:pl-4", "@sm:pr-4");
+        document.Update();
+
+        Assert.Equal(16f, Left());
+        Assert.Equal(16f, Right());
+
+        document.RootFontSize = 20f;
+        document.Update();
+
+        Assert.Null(Left());
+        Assert.Null(Right());
+
+        document.RootFontSize = 16f;
+        document.Update();
+
+        Assert.Equal(16f, Left());
+        Assert.Equal(16f, Right());
+
+        float? Left() => document.LengthOf(box.Style, document.PropertyId("padding-left"));
+
+        float? Right() => document.LengthOf(box.Style, document.PropertyId("padding-right"));
+    }
+
     [Fact]
     public void The_breakpoint_range_forms_meet_at_the_threshold_without_overlapping_on_it() {
         // The same contract `@max-sm`/`@sm` keep on containers, on the window: at exactly the
@@ -1256,7 +1313,7 @@ public class VariantCoverageTests {
         // narrower they swap — so a class list `max-sm:p-2 sm:p-4` has exactly one answer at
         // every width, including 640.
         var fixture = new UtilityFixture("");
-        var sm = fixture.Tokens.Screens["sm"];
+        var sm = fixture.ScreenPixels["sm"];
 
         Assert.Equal("16px", fixture.Computed(["max-sm:p-2", "sm:p-4"], "padding-left", media: new MediaContext(sm, 800f)));
         Assert.Equal("8px", fixture.Computed(["max-sm:p-2", "sm:p-4"], "padding-left", media: new MediaContext(sm - 1f, 800f)));
@@ -1342,7 +1399,7 @@ public class VariantCoverageTests {
         // The same order on the container scale, which the same string sort broke from `@5xl` up:
         // `(min-width: 1024px)` sorts before `(min-width: 384px)`.
         var fixture = new UtilityFixture("");
-        var sizes = fixture.Tokens.Containers.OrderBy(pair => pair.Value).ToArray();
+        var sizes = fixture.ContainerPixels.OrderBy(pair => pair.Value).ToArray();
 
         for (var narrow = 0; narrow < sizes.Length; narrow++) {
             for (var wide = narrow + 1; wide < sizes.Length; wide++) {
@@ -1382,12 +1439,12 @@ public class VariantCoverageTests {
         // `@sm:` resolved against `Screens` is that the same name is a smaller number here — and
         // the enumeration is what stops a fourteenth step from joining the untested.
         var fixture = new UtilityFixture("");
-        var sizes = fixture.Tokens.Containers;
+        var sizes = fixture.ContainerPixels;
 
         Assert.True(sizes.ContainsKey("sm"), "the shipped theme is expected to declare a container sm");
 
         Assert.True(
-            sizes["sm"] < fixture.Tokens.Screens["sm"],
+            sizes["sm"] < fixture.ScreenPixels["sm"],
             "the container scale's sm is not smaller than the breakpoint's, so it is a window's number"
         );
 

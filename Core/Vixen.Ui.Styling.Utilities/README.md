@@ -98,7 +98,10 @@ same token is the showable colour on an sRGB display and the vivid one on P3.
 ⚠ **Three divergences from v4's emission, all of them at the boundary rather than in the model.**
 Lengths are resolved to pixels at build time at 16px to the rem, because there is no root font size
 downstream to resolve them against and a token that stayed relative would be a number nothing could
-turn into one. A line height written as a ratio — v4's `calc(1.25 / 0.875)` — is multiplied out
+turn into one. ⚠ The breakpoints and container sizes are the exception (#1417): a query *does* have a
+root font size downstream — `MediaQuery` and `ContainerQuery` measure `rem` against the document's
+`RootFontSize` — so `--breakpoint-sm: 40rem` is emitted as `40rem`, and `sm:` moves with the reader's
+text size the way v4 wrote it to. A line height written as a ratio — v4's `calc(1.25 / 0.875)` — is multiplied out
 against its size for the same reason. And a utility emits the token's *value* rather than
 `var(--color-blue-500)`; the variable is emitted too, but only into a `root` rule holding what a
 sheet actually references, because three hundred custom properties on every document's root to serve

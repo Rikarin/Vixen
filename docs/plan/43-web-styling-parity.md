@@ -2438,9 +2438,10 @@ Queries 4 § 2.4's range syntax now — `(width < 384px)`, `(width >= 600px)`,
 font for `em` and the root's for `rem` (`ContainerBox.FontSize`, `RootFontSize`). Until then
 `(width < 24rem)` was a load diagnostic in `@media`. ⚠ In `@container` it was worse: the loader's
 readability check ran against a box that answers nothing, returned before the value was parsed, and
-loaded the block to fail silently per element. ⚠ **The theme's scales are still converted to `px`
-when they are read**, so the named `sm:` and `@sm:` do *not* follow the text-size preference where a
-browser's would. Only the arbitrary forms and hand-written CSS scale.
+loaded the block to fail silently per element. ✅ **The named `sm:` and `@sm:` follow it too, since
+#1417**: `ThemeTokens.Screens` and `Containers` keep the theme's unit, so the shipped `sm:` is emitted
+as `(min-width: 40rem)` and not the `640px` it was converted to when the theme was read. Until then
+only the arbitrary forms and hand-written CSS followed the text-size preference.
 ⚠ **The assertions that prove it are all *at* the threshold**:
 every other width answers identically under both readings, which is why the existing bracketing rows
 could not see it. Sabotage: reading `Below` as `AtMost` takes eight rows red across the two suites,
