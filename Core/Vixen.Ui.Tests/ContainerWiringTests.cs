@@ -727,6 +727,124 @@ public class ContainerWiringTests {
         Assert.Equal(300f, label.Width, 0.001f);
     }
 
+    /// <summary>
+    ///     ⚠ A mixed <c>(min-width: …) and style(…)</c> query asks both halves of the nearest size
+    ///     container, through a live document, and follows a change to either half (#273).
+    /// </summary>
+    /// <remarks>
+    ///     The card is a 450-wide inline-size container and the rule asks for 400 and
+    ///     <c>--variant: primary</c>. The label's parent, <c>.inner</c>, declares
+    ///     <c>--variant: secondary</c>, so an evaluator that asked the parent would never match, and
+    ///     the ordinary updater walk stops at <c>.inner</c> when the card's value changes. Three edits
+    ///     move it: the card's value off and back, which is the style half's edge, and the card's
+    ///     width to 300, which is the size half's.
+    /// </remarks>
+    [Fact]
+    public void A_mixed_query_asks_the_size_container_and_follows_both_halves() {
+        using var document = Document("""
+            root { width: 1000px; height: 600px; flex-direction: column; }
+            .card { container-type: inline-size; width: 450px; height: 100px; flex-direction: column; }
+            .card.narrow { width: 300px; }
+            .primary { --variant: primary; }
+            .inner { --variant: secondary; flex-direction: column; }
+            .label { width: 10px; height: 10px; }
+            @container (min-width: 400px) and style(--variant: primary) { .label { width: 300px; } }
+            """);
+
+        Assert.Empty(document.Styles.Loader.Diagnostics);
+
+        var card = document.Root.Add("div", classNames: ["card", "primary"]);
+        var label = card.Add("div", classNames: "inner").Add("div", classNames: "label");
+        document.Update();
+
+        Assert.Equal(300f, label.Width, 0.001f);
+
+        card.RemoveClass("primary");
+        document.Update();
+        Assert.Equal(10f, label.Width, 0.001f);
+
+        card.AddClass("primary");
+        document.Update();
+        Assert.Equal(300f, label.Width, 0.001f);
+
+        card.AddClass("narrow");
+        document.Update();
+        Assert.Equal(300f, card.Width, 0.001f);
+        Assert.Equal(10f, label.Width, 0.001f);
+    }
+
+    /// <summary>
+    ///     ⚠ A size query finds a container by any one of the names in its <c>container-name</c> list,
+    ///     written as the longhand or in the shorthand (#273).
+    /// </summary>
+    /// <remarks>
+    ///     Both panels are 450 wide and the rules ask for 400, so each label has to be 300 wide. Before
+    ///     the fix both stayed 10: the chain carried the whole written list, <c>card side</c>, and the
+    ///     name asked for was compared with it whole.
+    /// </remarks>
+    [Fact]
+    public void A_size_query_finds_a_container_by_one_of_its_names() {
+        using var document = Document("""
+            root { width: 1000px; height: 600px; flex-direction: column; }
+            .longhand { container-type: inline-size; container-name: card side; width: 450px; height: 100px; flex-direction: column; }
+            .shorthand { container: card side / inline-size; width: 450px; height: 100px; flex-direction: column; }
+            .label { width: 10px; height: 10px; }
+            @container side (min-width: 400px) { .label { width: 300px; } }
+            """);
+
+        var longhand = document.Root.Add("div", classNames: "longhand").Add("div", classNames: "label");
+        var shorthand = document.Root.Add("div", classNames: "shorthand").Add("div", classNames: "label");
+        document.Update();
+
+        Assert.Equal(300f, longhand.Width, 0.001f);
+        Assert.Equal(300f, shorthand.Width, 0.001f);
+    }
+
+    /// <summary>
+    ///     ⚠ A named style query follows the named card through a live document, past an element that
+    ///     declares the same property itself (#273).
+    /// </summary>
+    /// <remarks>
+    ///     <c>.inner</c> declares <c>--variant: secondary</c>, so its inherited portion does not move
+    ///     when the card's does, and the updater's ordinary rule stops there. Only the edge from a
+    ///     named element to its whole subtree carries the toggle to the label. The unnamed query
+    ///     beside it asks <c>.inner</c> and so never matches, which shows the two forms ask different
+    ///     elements in the same document.
+    /// </remarks>
+    [Fact]
+    public void A_named_style_query_follows_the_named_ancestor_past_an_override() {
+        using var document = Document("""
+            root { width: 1000px; height: 600px; flex-direction: column; }
+            .card { height: 100px; container-name: card; flex-direction: column; }
+            .primary { --variant: primary; }
+            .inner { --variant: secondary; flex-direction: column; }
+            .label { width: 10px; height: 10px; }
+            .other { width: 10px; height: 10px; }
+            @container card style(--variant: primary) { .label { width: 300px; } }
+            @container style(--variant: primary) { .other { width: 200px; } }
+            """);
+
+        var card = document.Root.Add("div", classNames: ["card", "primary"]);
+        var inner = card.Add("div", classNames: "inner");
+        var label = inner.Add("div", classNames: "label");
+        var other = inner.Add("div", classNames: "other");
+        document.Update();
+
+        Assert.Equal(300f, label.Width, 0.001f);
+        Assert.Equal(10f, other.Width, 0.001f);
+
+        card.RemoveClass("primary");
+        document.Update();
+
+        Assert.Equal(10f, label.Width, 0.001f);
+
+        card.AddClass("primary");
+        document.Update();
+
+        Assert.Equal(300f, label.Width, 0.001f);
+        Assert.Equal(10f, other.Width, 0.001f);
+    }
+
     /// <summary>And a document that settles says nothing, so the channel stays worth reading.</summary>
     /// <remarks>
     ///     ⚠ <b>The other half of the sabotage.</b> Every container in a fresh document moves on its
@@ -746,5 +864,86 @@ public class ContainerWiringTests {
 
         Assert.True(document.Settled);
         Assert.DoesNotContain(sink.Snapshot(), record => record.EventId.Id == 7007);
+    }
+
+    /// <summary>
+    ///     ⚠ A container query's <c>em</c> is the container's own font and its <c>rem</c> is the
+    ///     root's, and a font change at one size re-asks the query (#1373).
+    /// </summary>
+    /// <remarks>
+    ///     The panel's content box is 450 wide and its font is 20, over a root of 16. <c>24em</c> is
+    ///     therefore 480, and the panel is below it; read at the root's font it would be 384, and
+    ///     the panel would be above it. <c>24rem</c> is 384 either way, so the second rule holds, and
+    ///     the pair is what tells the two units apart. Setting the panel's font back to 16 at the same
+    ///     size moves <c>24em</c> to 384. Only the font is in the box's key, so the scope moves and the
+    ///     rule applies; nothing else was resized.
+    /// </remarks>
+    [Fact]
+    public void A_container_queries_em_against_its_own_font_and_rem_against_the_roots() {
+        using var document = Document("""
+            root { width: 1000px; height: 600px; flex-direction: column; }
+            .panel { container-type: inline-size; width: 450px; height: 100px; font-size: 20px; flex-direction: column; }
+            .panel.plain { font-size: 16px; }
+            .em { width: 10px; height: 10px; }
+            .rem { width: 10px; height: 10px; }
+            @container (min-width: 24em) { .em { width: 300px; } }
+            @container (min-width: 24rem) { .rem { width: 200px; } }
+            """);
+
+        var panel = document.Root.Add("div", classNames: "panel");
+        var em = panel.Add("div", classNames: "em");
+        var rem = panel.Add("div", classNames: "rem");
+
+        document.Update();
+
+        Assert.Equal(20f, panel.FontSize, 0.001f);
+        Assert.Equal(10f, em.Width, 0.001f);
+        Assert.Equal(200f, rem.Width, 0.001f);
+
+        panel.AddClass("plain");
+        document.Update();
+
+        Assert.Equal(16f, panel.FontSize, 0.001f);
+        Assert.Equal(450f, panel.Width, 0.001f);
+        Assert.Equal(300f, em.Width, 0.001f);
+        Assert.Equal(200f, rem.Width, 0.001f);
+    }
+
+    /// <summary>A container query's <c>rem</c> follows the document's text size, live, with nothing resized.</summary>
+    /// <remarks>
+    ///     ⚠ The test above keeps the root at 16, so a box whose root font is pinned to 16 passes it:
+    ///     nothing else gives a container query's <c>rem</c> the document's <see cref="UiDocument.RootFontSize" />
+    ///     (#1373). Here the panel's own font is fixed at 16px while the root moves, so neither an
+    ///     <c>em</c> read nor a constant can stand in: 25rem is 400 at 16 and 500 at 20, and the panel
+    ///     is 450 throughout.
+    /// </remarks>
+    [Fact]
+    public void A_container_rem_query_follows_the_root_font_size_without_a_resize() {
+        using var document = Document("""
+            root { width: 1000px; height: 600px; flex-direction: column; }
+            .panel { container-type: inline-size; width: 450px; height: 100px; font-size: 16px; flex-direction: column; }
+            .rem { width: 10px; height: 10px; }
+            @container (min-width: 25rem) { .rem { width: 200px; } }
+            """);
+
+        var panel = document.Root.Add("div", classNames: "panel");
+        var rem = panel.Add("div", classNames: "rem");
+
+        document.Update();
+
+        Assert.Equal(16f, panel.FontSize, 0.001f);
+        Assert.Equal(200f, rem.Width, 0.001f);
+
+        document.RootFontSize = 20f;
+        document.Update();
+
+        Assert.Equal(16f, panel.FontSize, 0.001f);
+        Assert.Equal(450f, panel.Width, 0.001f);
+        Assert.Equal(10f, rem.Width, 0.001f);
+
+        document.RootFontSize = 16f;
+        document.Update();
+
+        Assert.Equal(200f, rem.Width, 0.001f);
     }
 }

@@ -45,6 +45,11 @@ public sealed class StyleUpdater {
         this.engine = engine;
         invalidatorTable = engine.Selectors;
         invalidator = new StyleInvalidator(invalidatorTable);
+
+        // A named `style()` query asks an ancestor that can be above the parent, and these are the
+        // styles it has. Read through the field, because `Grow` replaces the array.
+        engine.Resolver.ResolvedAncestor = (tree, index) =>
+            tree == engine.Tree && (uint) index < (uint) styles.Length ? styles[index] : null;
     }
 
     /// <summary>Rebuilds the invalidator if the engine has replaced the tables it reads.</summary>
@@ -282,6 +287,27 @@ public sealed class StyleUpdater {
             // a highlight that sets `background` changes the row's style and cannot possibly reach
             // a cell, and descending on it undoes the whole point. Any descendant invalidated in its
             // own right is already in the queue and unaffected by stopping here.
+            //
+            // ⚠ <b>Except below an element a named `style()` query can ask about, whose whole subtree
+            // is re-resolved when its style moves (#273).</b> The query asks that element's own value.
+            // A descendant between it and the asker that declares the same custom property has an
+            // inherited portion that did not move, so the rule above stops there and the asker keeps
+            // last frame's answer. The edge has to be the whole subtree, not the children: every
+            // level below can stop the walk the same way. It costs nothing unless a sheet declares a
+            // named style query, and then only under the elements that carry a container name,
+            // before or after.
+            //
+            // ⚠ A mixed `(min-width: …) and style(…)` query asks the nearest SIZE container, and that
+            // one needs no name, so once a sheet declares one every size container is such an element
+            // too. The name test alone missed it: the asker below an override kept last frame's answer.
+            if (before is not null
+                && !ReferenceEquals(before, after)
+                && engine.ContainerScopes.Conditions.HasAncestorStyleQueries
+                && (CanBeAsked(before) || CanBeAsked(after))) {
+                EnqueueDescendants(new StyleNodeId(index));
+                continue;
+            }
+
             if (before is not null && !engine.Resolver.Inherited.InheritedPortionDiffers(before, after)) {
                 LastPassStopped++;
                 continue;
@@ -297,6 +323,29 @@ public sealed class StyleUpdater {
         }
 
         return LastPassResolved;
+    }
+
+    /// <summary>Whether a named or mixed <c>style()</c> query can ask an element with this style.</summary>
+    /// <param name="style">The element's style, before or after a change.</param>
+    /// <returns>Whether it carries a container name, or is a size container while a sheet has a mixed query.</returns>
+    bool CanBeAsked(ComputedStyle style) {
+        var (properties, values) = (engine.Rules.Properties, engine.Rules.Values);
+
+        return StyleQuery.Names(style, properties, values, null)
+            || (engine.ContainerScopes.Conditions.HasSizedStyleQueries && StyleQuery.IsSizeContainer(style, properties, values));
+    }
+
+    /// <summary>Queues every descendant of an element, not only its children.</summary>
+    void EnqueueDescendants(StyleNodeId owner) {
+        for (var i = 0; i < engine.Tree.GetChildCount(owner); i++) {
+            var child = engine.Tree.GetChild(owner, i);
+
+            if (queued.Add(child.Index)) {
+                pending.Enqueue(child.Index, child.Index);
+            }
+
+            EnqueueDescendants(child);
+        }
     }
 
     /// <summary>Moves the resolved styles to follow a compacted tree.</summary>

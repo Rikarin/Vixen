@@ -25,6 +25,12 @@ screen.
 | `color-gamut` | `MediaContext.Gamut`, ascending: `p3` implies `srgb` holds too |
 | `prefers-reduced-motion` | `MediaContext.ReducedMotion` — `reduce`, `no-preference`, and the bare form |
 
+A width may be written in `px`, `rem` or `em`. **Both font-relative units measure the initial font
+size**, `MediaContext.FontSize`, which a document fills from `UiDocument.RootFontSize`, the text-size
+preference (Media Queries 4 § 1.3). So `@media (min-width: 40rem)` is 640 pixels at 100 % and 800 at
+125 %. Changing `RootFontSize` re-asks every surface's queries without a resize. A `resolution` takes
+neither unit.
+
 A game's UI can be a whole window, a split-screen viewport, or a panel on the side of a crate, and
 all three want `@media (max-width: 600px)` to mean *this panel*. `UiSurface` carries its own context,
 so a torn-off window answers for itself while the rules stay shared.

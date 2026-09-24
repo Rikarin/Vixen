@@ -28,7 +28,26 @@ public enum ContainerKind : byte {
 /// <param name="Width">Its content-box inline size.</param>
 /// <param name="Height">Its content-box block size.</param>
 /// <param name="Kind">Which axes it may be asked about.</param>
-public readonly record struct ContainerBox(float Width, float Height, ContainerKind Kind);
+/// <remarks>
+///     ⚠ <b>The two font sizes are part of the box, and so part of the key its scope is interned
+///     under.</b> A container query's <c>em</c> is the container's own computed font, so a container
+///     whose font changes at an unchanged size answers <c>(min-width: 30em)</c> differently. Carrying
+///     the font here makes that a different box, which is a different scope, which is the invalidation
+///     a resize already gets. Keeping the fonts beside the box would have needed an edge of its own.
+/// </remarks>
+public readonly record struct ContainerBox(float Width, float Height, ContainerKind Kind) {
+    /// <summary>The container's computed font size, in pixels: what <c>em</c> measures in its queries.</summary>
+    /// <remarks>Sixteen, CSS's <c>medium</c>, when a box is built without saying.</remarks>
+    public float FontSize { get; init; } = 16f;
+
+    /// <summary>The root font size, in pixels: what <c>rem</c> measures in its queries.</summary>
+    /// <remarks>
+    ///     The document's <c>RootFontSize</c>, the one every other <c>rem</c> in the document is
+    ///     measured against, so a query and a declaration written in the same unit agree. Sixteen when
+    ///     a box is built without saying.
+    /// </remarks>
+    public float RootFontSize { get; init; } = 16f;
+}
 
 /// <summary>Evaluates the size conditions in a <c>@container</c> prelude.</summary>
 /// <remarks>
@@ -122,11 +141,7 @@ public static class ContainerQuery {
 
         if (name.Equals("orientation", StringComparison.OrdinalIgnoreCase)
             || name.Equals("aspect-ratio", StringComparison.OrdinalIgnoreCase)) {
-            // Both axes, so both have to be contained. An `inline-size` container has a height that
-            // is still its content's, and a ratio computed from it would move as the content moved.
-            if (box.Kind != ContainerKind.Size) {
-                return true;
-            }
+            bool readable;
 
             if (name.Equals("orientation", StringComparison.OrdinalIgnoreCase)) {
                 if (terms.IsRanged) {
@@ -134,10 +149,20 @@ public static class ContainerQuery {
                     return false;
                 }
 
-                return TryOrientation(value, box, out matches, out reason);
+                readable = TryOrientation(value, box, out matches, out reason);
+            } else {
+                readable = TryRatio(terms, box, out matches, out reason);
             }
 
-            return TryRatio(terms, box, out matches, out reason);
+            // Both axes, so both have to be contained. An `inline-size` container has a height that
+            // is still its content's, and a ratio computed from it would move as the content moved.
+            // ⚠ Asked after the text is read rather than before, for the reason the lengths below
+            // give: the loader's `default` box is not a `size` container either.
+            if (box.Kind != ContainerKind.Size) {
+                matches = false;
+            }
+
+            return readable;
         }
 
         if (!inline && !block) {
@@ -145,7 +170,29 @@ public static class ContainerQuery {
             return false;
         }
 
-        // ⚠ The containment test, and it comes before the number rather than after it. An
+        // ⚠ <b>The lengths are read before the containment test, and that order is what makes the
+        // loader's check mean anything.</b> The loader asks once, against `default` — a box whose
+        // `Kind` is `Normal`, which answers nothing — and treats "readable" as a fact about the text.
+        // With the containment test first, that box returned before any length was parsed, so
+        // `@container (min-width: 30furlongs)` loaded with no diagnostic and then failed per element
+        // per frame into `ContainerConditions`' `&& matches`, which reads a refusal as "no". Every
+        // unreadable length in a `@container` prelude was a silent never-match, not the load
+        // diagnostic the loader's own remark promised. `em` and `rem` resolve here too, against the
+        // container's own font and the root's (#1373).
+        var wanted = 0f;
+        var second = 0f;
+
+        if (!terms.IsBoolean && !MediaQuery.TryLength(value, box.FontSize, box.RootFontSize, out wanted)) {
+            reason = $"'{value}' is not a length Vixen can compare";
+            return false;
+        }
+
+        if (terms.HasSecond && !MediaQuery.TryLength(terms.SecondValue, box.FontSize, box.RootFontSize, out second)) {
+            reason = $"'{terms.SecondValue}' is not a length Vixen can compare";
+            return false;
+        }
+
+        // ⚠ The containment test, and it comes before the comparison rather than after it. An
         // `inline-size` container's height is not a fact this query may read at all, so there is no
         // number to compare — `false` here is "no eligible container", which is what the specification
         // says an unanswerable query resolves to.
@@ -165,23 +212,11 @@ public static class ContainerQuery {
             return true;
         }
 
-        if (!MediaQuery.TryLength(value, out var wanted)) {
-            reason = $"'{value}' is not a length Vixen can compare";
-            return false;
-        }
-
         matches = FeatureRange.Holds(actual, terms.Comparison, wanted);
 
-        if (!terms.HasSecond) {
-            return true;
+        if (terms.HasSecond) {
+            matches &= FeatureRange.Holds(actual, terms.SecondComparison, second);
         }
-
-        if (!MediaQuery.TryLength(terms.SecondValue, out var second)) {
-            reason = $"'{terms.SecondValue}' is not a length Vixen can compare";
-            return false;
-        }
-
-        matches &= FeatureRange.Holds(actual, terms.SecondComparison, second);
 
         return true;
     }

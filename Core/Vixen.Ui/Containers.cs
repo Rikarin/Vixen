@@ -457,7 +457,13 @@ public sealed partial class UiDocument {
             - Layout.GetComputedBorder(node, Edge.Top)
             - Layout.GetComputedBorder(node, Edge.Bottom);
 
-        return new ContainerBox(Math.Max(width, 0f), Math.Max(height, 0f), kind);
+        // ⚠ The container's own computed font and the document's root one, which are what a query's
+        // `em` and `rem` mean (#1373). Part of the box's equality, so a container whose font changes
+        // at one size enters a new scope and its queries are re-asked, as a resize would make them.
+        return new ContainerBox(Math.Max(width, 0f), Math.Max(height, 0f), kind) {
+            FontSize = element.FontSize,
+            RootFontSize = rootFontSize
+        };
     }
 
     /// <summary>Names the containers that were still moving when the settle loop gave up.</summary>

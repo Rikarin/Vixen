@@ -306,6 +306,12 @@ public sealed partial class UiDocument : IDisposable {
 
             foreach (var surface in surfaces) {
                 surface.Measure(surface.Width, surface.Height, surface.DpiScale, value);
+
+                // ⚠ A text-size change is a media change as well as a length change: `@media
+                // (min-width: 40rem)` measures its `rem` against this number (#1373), so a user who
+                // enlarges text crosses v4's breakpoints without the window moving at all. `Forget`
+                // below restyles and does not re-ask `@media`; only `Remedia` does.
+                Remedia(surface);
             }
 
             Forget();

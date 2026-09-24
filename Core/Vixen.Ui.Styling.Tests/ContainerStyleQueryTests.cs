@@ -129,19 +129,26 @@ public class ContainerStyleQueryTests {
     }
 
     [Theory]
-    // ⚠ Named: the nearest ancestor CALLED `card` can be several levels above the parent, and the
-    // incremental updater stops descending where a parent's style did not move — so a grandparent's
-    // change would never reach the element asking. Refused rather than answered stale.
-    [InlineData("@container card style(--variant: primary) { .leaf { color: x } }", "named")]
-    // Mixed with a size feature, which makes the container the nearest SIZE container rather than
-    // the parent: the same staleness.
-    [InlineData("@container (min-width: 400px) and style(--variant: primary) { .leaf { color: x } }", "size container")]
+    // ⚠ Mixed with a size feature by `or`. Both halves would be asked of one box, but they are answered
+    // in two places (the size half by `ContainerScopes`, the style half by the cascade) and joined as
+    // a nested group, which is a conjunction. `and` splits cleanly into two groups and `or` does not.
+    [InlineData("@container (min-width: 400px) or style(--variant: primary) { .leaf { color: x } }", "'or'")]
+    [InlineData("@container style(--variant: primary) or (min-width: 400px) { .leaf { color: x } }", "'or'")]
+    // A size half that does not read is refused for the reason a size query alone would be.
+    [InlineData("@container (min-width: 30furlongs) and style(--variant: primary) { .leaf { color: x } }", "30furlongs")]
+    // `not` over a mixed list is the list rule, whichever half it would negate.
+    [InlineData("@container not style(--a: 1) and (min-width: 400px) { .leaf { color: x } }", "'not' applies to one feature")]
     // A standard property, which no engine answers either and which this cascade has no computed
     // value to compare for without re-deriving one.
     [InlineData("@container style(color: red) { .leaf { color: x } }", "custom properties")]
-    // `or` and `not`, which neither query grammar here has.
-    [InlineData("@container style(--a: 1) or style(--b: 1) { .leaf { color: x } }", "'or'")]
-    [InlineData("@container not style(--a: 1) { .leaf { color: x } }", "'not'")]
+    // ⚠ `and` and `or` have no precedence over each other in CSS Conditional 5, so mixing them without
+    // parentheses is invalid rather than read one way. A parenthesised group is refused as such.
+    [InlineData("@container style(--a: 1) and style(--b: 1) or style(--c: 1) { .leaf { color: x } }", "mixed without parentheses")]
+    [InlineData("@container (style(--a: 1) or style(--b: 1)) and style(--c: 1) { .leaf { color: x } }", "parenthesised group")]
+    // `not` negates one query in parentheses, never a list.
+    [InlineData("@container not style(--a: 1) and style(--b: 1) { .leaf { color: x } }", "'not' applies to one feature")]
+    // A name with nothing to ask, and a word CSS reserves.
+    [InlineData("@container none style(--a: 1) { .leaf { color: x } }", "cannot be a container name")]
     public void A_style_query_this_cascade_cannot_answer_is_a_diagnostic(string css, string because) {
         var fixture = new CascadeFixture();
         fixture.Load(css);
@@ -151,5 +158,335 @@ public class ContainerStyleQueryTests {
         var parent = fixture.Tree.CreateElement("div");
         var leaf = fixture.Tree.CreateElement("div", parent, classNames: ["leaf"]);
         Assert.Null(fixture.Value(leaf, parent: fixture.Engine.Resolver.Resolve(fixture.Tree, parent)));
+    }
+
+    /// <summary>The named form, the joins and the negation, over one sheet.</summary>
+    /// <remarks>
+    ///     <c>.card</c> is named and <c>.panel</c> is named twice, because <c>container-name</c> is a
+    ///     list. <c>.shadow</c> sets <c>--variant</c> without a name, which is how a named query differs
+    ///     from an unnamed one: the unnamed form reads the parent, whatever it is called.
+    /// </remarks>
+    const string Named = """
+        .card { container-name: card; }
+        .panel { container: side card-like / normal; }
+        .primary { --variant: primary; }
+        .secondary { --variant: secondary; }
+        .flag { --flag: on; }
+        @container card style(--variant: primary) { .leaf { color: named; } }
+        @container card-like style(--variant: primary) { .leaf { background-color: listed; } }
+        @container style(--variant: primary) or style(--flag: on) { .leaf { border-color: either; } }
+        @container not style(--variant: primary) { .leaf { outline-color: not-primary; } }
+        """;
+
+    /// <summary>Resolves a chain of elements top down with the engine, and returns the last one's style.</summary>
+    static (CascadeFixture Fixture, ComputedStyle Leaf) Chain(params string[][] classes) {
+        var fixture = new CascadeFixture();
+        fixture.Load(Named);
+
+        StyleNodeId? at = null;
+
+        foreach (var names in classes) {
+            at = fixture.Tree.CreateElement("div", at, classNames: names);
+        }
+
+        return (fixture, fixture.Engine.ResolveAll()[at!.Value.Index]);
+    }
+
+    [Fact]
+    public void The_named_sheet_loads_without_a_diagnostic() {
+        var fixture = new CascadeFixture();
+        fixture.Load(Named);
+
+        Assert.Empty(fixture.Engine.Loader.Diagnostics);
+    }
+
+    /// <summary>
+    ///     ⚠ A named query asks the nearest ancestor with that name, over an element between them
+    ///     that says something else (#273).
+    /// </summary>
+    /// <remarks>
+    ///     The middle element sets <c>--variant: secondary</c>, so the parent's value is
+    ///     <c>secondary</c> and the unnamed reading would say no. The named card says
+    ///     <c>primary</c>. Reversed, the answer reverses.
+    /// </remarks>
+    [Fact]
+    public void A_named_query_asks_the_named_ancestor_and_not_the_parent() {
+        var (matching, leaf) = Chain(["card", "primary"], ["secondary"], ["leaf"]);
+        Assert.Equal("named", matching.Read(leaf, "color"));
+
+        var (other, otherLeaf) = Chain(["card", "secondary"], ["primary"], ["leaf"]);
+        Assert.Null(other.Read(otherLeaf, "color"));
+
+        // No ancestor called `card` is no container, which is false and never an error.
+        var (unnamed, unnamedLeaf) = Chain(["primary"], ["leaf"]);
+        Assert.Null(unnamed.Read(unnamedLeaf, "color"));
+    }
+
+    /// <summary>The nearest one wins, and an unnamed ancestor between them is skipped over.</summary>
+    /// <remarks>
+    ///     ⚠ The unnamed ancestor between them declares the opposite value. With a <c>plain</c> one
+    ///     there it inherited the nearer card's, so an evaluator reading the parent gave the same
+    ///     answer as one reading the nearest card, and both rows stayed green when the lookup was
+    ///     replaced by the parent. Each row now has three distinct answers: the nearest card's, the
+    ///     farther card's and the parent's, and only the first is right.
+    /// </remarks>
+    [Fact]
+    public void The_nearest_named_ancestor_answers() {
+        var (near, leaf) = Chain(["card", "secondary"], ["card", "primary"], ["secondary"], ["leaf"]);
+        Assert.Equal("named", near.Read(leaf, "color"));
+
+        var (far, farLeaf) = Chain(["card", "primary"], ["card", "secondary"], ["primary"], ["leaf"]);
+        Assert.Null(far.Read(farLeaf, "color"));
+    }
+
+    [Fact]
+    public void A_container_name_is_a_list_and_the_shorthand_names_too() {
+        var (listed, leaf) = Chain(["panel", "primary"], ["leaf"]);
+        Assert.Equal("listed", listed.Read(leaf, "background-color"));
+
+        // `card-like` is not `card`: a name matches whole.
+        Assert.Null(listed.Read(leaf, "color"));
+    }
+
+    [Fact]
+    public void Or_holds_when_either_feature_does() {
+        var (primary, primaryLeaf) = Chain(["primary"], ["leaf"]);
+        Assert.Equal("either", primary.Read(primaryLeaf, "border-color"));
+
+        var (flagged, flaggedLeaf) = Chain(["flag"], ["leaf"]);
+        Assert.Equal("either", flagged.Read(flaggedLeaf, "border-color"));
+
+        var (neither, neitherLeaf) = Chain(["secondary"], ["leaf"]);
+        Assert.Null(neither.Read(neitherLeaf, "border-color"));
+    }
+
+    [Fact]
+    public void Not_negates_the_feature_but_not_the_absence_of_a_container() {
+        var (secondary, leaf) = Chain(["secondary"], ["leaf"]);
+        Assert.Equal("not-primary", secondary.Read(leaf, "outline-color"));
+
+        var (primary, primaryLeaf) = Chain(["primary"], ["leaf"]);
+        Assert.Null(primary.Read(primaryLeaf, "outline-color"));
+
+        // ⚠ A root has no container at all. That query is unknown, and unknown is not negated into a
+        // match: `not` over no container matches nothing.
+        var (root, rootLeaf) = Chain(["leaf"]);
+        Assert.Null(root.Read(rootLeaf, "outline-color"));
+    }
+
+    /// <summary>
+    ///     ⚠ The incremental half: a named ancestor's value changes, an element between it and the
+    ///     asker overrides the property, and the asker still re-answers.
+    /// </summary>
+    /// <remarks>
+    ///     The middle element's inherited portion does not move when the card's does, because it
+    ///     declares <c>--variant</c> itself. <c>StyleUpdater</c> stops descending at exactly that kind
+    ///     of element, and it is the reason the named form was refused. So the updater re-resolves a
+    ///     named element's whole subtree when its style moves. Removing that edge leaves the leaf on
+    ///     the answer it had before the class changed.
+    /// </remarks>
+    [Fact]
+    public void A_named_ancestors_change_reaches_an_asker_below_an_element_that_overrides_it() {
+        var fixture = new CascadeFixture();
+        fixture.Load(Named);
+
+        var card = fixture.Tree.CreateElement("div", classNames: ["card", "secondary"]);
+        var middle = fixture.Tree.CreateElement("div", card, classNames: ["secondary"]);
+        var leaf = fixture.Tree.CreateElement("div", middle, classNames: ["leaf"]);
+
+        var updater = new StyleUpdater(fixture.Engine);
+        updater.ResolveAll();
+
+        Assert.Null(fixture.Read(updater.StyleOf(leaf), "color"));
+
+        fixture.Tree.RemoveClass(card, "secondary");
+        fixture.Tree.AddClass(card, "primary");
+        updater.ClassChanged(card, "secondary", "primary");
+
+        Assert.Equal("named", fixture.Read(updater.StyleOf(leaf), "color"));
+
+        // And back, which the same edge has to carry the other way.
+        fixture.Tree.RemoveClass(card, "primary");
+        fixture.Tree.AddClass(card, "secondary");
+        updater.ClassChanged(card, "secondary", "primary");
+
+        Assert.Null(fixture.Read(updater.StyleOf(leaf), "color"));
+    }
+
+    /// <summary>An element that gains a name becomes a container its subtree's queries find.</summary>
+    [Fact]
+    public void An_ancestor_that_gains_a_name_is_found_on_the_next_pass() {
+        var fixture = new CascadeFixture();
+        fixture.Load(Named);
+
+        var outer = fixture.Tree.CreateElement("div", classNames: ["primary"]);
+        var middle = fixture.Tree.CreateElement("div", outer, classNames: ["secondary"]);
+        var leaf = fixture.Tree.CreateElement("div", middle, classNames: ["leaf"]);
+
+        var updater = new StyleUpdater(fixture.Engine);
+        updater.ResolveAll();
+
+        Assert.Null(fixture.Read(updater.StyleOf(leaf), "color"));
+
+        fixture.Tree.AddClass(outer, "card");
+        updater.ClassChanged(outer, "card");
+
+        Assert.Equal("named", fixture.Read(updater.StyleOf(leaf), "color"));
+    }
+
+    /// <summary>
+    ///     Resolving one element by hand, with no pass holding its ancestors, still finds the named
+    ///     one: the resolver cascades the chain itself.
+    /// </summary>
+    [Fact]
+    public void A_named_query_answers_when_the_leaf_is_resolved_alone() {
+        var fixture = new CascadeFixture();
+        fixture.Load(Named);
+
+        var card = fixture.Tree.CreateElement("div", classNames: ["card", "primary"]);
+        var middle = fixture.Tree.CreateElement("div", card, classNames: ["secondary"]);
+        var leaf = fixture.Tree.CreateElement("div", middle, classNames: ["leaf"]);
+
+        Assert.Equal("named", fixture.Value(leaf));
+    }
+
+    /// <summary>
+    ///     The mixed form: a size feature and a <c>style()</c> feature joined by <c>and</c>, both asked
+    ///     of one box, the nearest <i>size</i> container (#273).
+    /// </summary>
+    /// <remarks>
+    ///     CSS Conditional 5: a query's container is the nearest ancestor eligible for every feature in
+    ///     it, and only a size container is eligible for <c>(min-width: …)</c>. So the style half is
+    ///     asked of that container and never of the parent. A <c>.sized</c> element is both declared
+    ///     a size container in the sheet, for the cascade, and entered into the scope chain with
+    ///     <see cref="CascadeFixture.Contain" />, for the size half, as a layout pass would do.
+    /// </remarks>
+    const string Mixed = """
+        .sized { container-type: inline-size; }
+        .card { container-name: card; }
+        .primary { --variant: primary; }
+        .secondary { --variant: secondary; }
+        @container (min-width: 400px) and style(--variant: primary) { .leaf { color: mixed; } }
+        @container style(--variant: primary) and (min-width: 400px) { .leaf { border-color: reversed; } }
+        @container card (min-width: 400px) and style(--variant: primary) { .leaf { background-color: named-mixed; } }
+        """;
+
+    /// <summary>A container of a given width and classes, one element between it and the leaf, and the leaf's style.</summary>
+    static (CascadeFixture Fixture, ComputedStyle Leaf) MixedScene(float width, string[] container, string[] between) {
+        var fixture = new CascadeFixture();
+        fixture.Load(Mixed);
+
+        var box = fixture.Tree.CreateElement("div", classNames: container);
+        fixture.Contain(box, width, name: container.Contains("card") ? "card" : "");
+
+        var middle = fixture.Tree.CreateElement("div", box, classNames: between);
+        var leaf = fixture.Tree.CreateElement("div", middle, classNames: ["leaf"]);
+
+        return (fixture, fixture.Engine.ResolveAll()[leaf.Index]);
+    }
+
+    [Fact]
+    public void The_mixed_sheet_loads_without_a_diagnostic() {
+        var fixture = new CascadeFixture();
+        fixture.Load(Mixed);
+
+        Assert.Empty(fixture.Engine.Loader.Diagnostics);
+    }
+
+    /// <summary>Each half alone is not enough, and the order the two are written in does not matter.</summary>
+    [Theory]
+    [InlineData(900f, "primary", "mixed")]
+    [InlineData(300f, "primary", null)]
+    [InlineData(900f, "secondary", null)]
+    [InlineData(300f, "secondary", null)]
+    public void A_mixed_query_holds_only_when_both_halves_do(float width, string variant, string? expected) {
+        var (fixture, leaf) = MixedScene(width, ["sized", variant], []);
+
+        Assert.Equal(expected, fixture.Read(leaf, "color"));
+        Assert.Equal(expected is null ? null : "reversed", fixture.Read(leaf, "border-color"));
+    }
+
+    /// <summary>
+    ///     ⚠ The style half asks the size container and not the parent: the element between them
+    ///     declares the opposite value, so an evaluator reading the parent answers every row wrongly.
+    /// </summary>
+    [Fact]
+    public void The_style_half_asks_the_size_container_and_not_the_parent() {
+        var (container, leaf) = MixedScene(900f, ["sized", "primary"], ["secondary"]);
+        Assert.Equal("mixed", container.Read(leaf, "color"));
+
+        var (parent, parentLeaf) = MixedScene(900f, ["sized", "secondary"], ["primary"]);
+        Assert.Null(parent.Read(parentLeaf, "color"));
+    }
+
+    /// <summary>
+    ///     A named mixed query asks the nearest size container carrying the name, past a nearer
+    ///     unnamed size container, and an element that only carries the name is not a size container.
+    /// </summary>
+    [Fact]
+    public void A_named_mixed_query_asks_the_named_size_container() {
+        var fixture = new CascadeFixture();
+        fixture.Load(Mixed);
+
+        var outer = fixture.Tree.CreateElement("div", classNames: ["sized", "card", "primary"]);
+        fixture.Contain(outer, 900f, name: "card");
+
+        var inner = fixture.Tree.CreateElement("div", outer, classNames: ["sized", "secondary"]);
+        fixture.Contain(inner, 900f);
+
+        var leaf = fixture.Tree.CreateElement("div", inner, classNames: ["leaf"]);
+        var style = fixture.Engine.ResolveAll()[leaf.Index];
+
+        // The named query asks `outer`, which is primary; the unnamed one asks `inner`, which is not.
+        Assert.Equal("named-mixed", fixture.Read(style, "background-color"));
+        Assert.Null(fixture.Read(style, "color"));
+
+        // A `card` with no container-type is a style container only, so the named mixed query has
+        // no eligible container and is false, even though a named style query alone would find it.
+        // ⚠ `MixedScene` enters the box into the chain whatever its classes say, which a live
+        // document would not, so the size half holds here and only the style half can refuse it:
+        // this row is about the style half's eligibility rule on its own.
+        var (plain, plainLeaf) = MixedScene(900f, ["card", "primary"], []);
+        Assert.Null(plain.Read(plainLeaf, "background-color"));
+    }
+
+    /// <summary>
+    ///     ⚠ The size container's own change reaches an asker below an element that overrides the
+    ///     value, although the container carries no name.
+    /// </summary>
+    /// <remarks>
+    ///     The edge a named container gets, re-resolving its whole subtree when its style moves, has
+    ///     to cover every size container once a sheet declares a mixed query. The unnamed mixed query
+    ///     asks the nearest size container, which need not have a name. The element between declares
+    ///     <c>--variant: secondary</c>, so its inherited portion never moves and the ordinary walk stops
+    ///     there.
+    /// </remarks>
+    [Fact]
+    public void A_size_containers_change_reaches_an_asker_below_an_override() {
+        var fixture = new CascadeFixture();
+        fixture.Load(Mixed);
+
+        var box = fixture.Tree.CreateElement("div", classNames: ["sized", "secondary"]);
+        fixture.Contain(box, 900f);
+
+        var middle = fixture.Tree.CreateElement("div", box, classNames: ["secondary"]);
+        var leaf = fixture.Tree.CreateElement("div", middle, classNames: ["leaf"]);
+
+        var updater = new StyleUpdater(fixture.Engine);
+        updater.ResolveAll();
+
+        Assert.Null(fixture.Read(updater.StyleOf(leaf), "color"));
+
+        fixture.Tree.RemoveClass(box, "secondary");
+        fixture.Tree.AddClass(box, "primary");
+        updater.ClassChanged(box, "secondary", "primary");
+
+        Assert.Equal("mixed", fixture.Read(updater.StyleOf(leaf), "color"));
+
+        fixture.Tree.RemoveClass(box, "primary");
+        fixture.Tree.AddClass(box, "secondary");
+        updater.ClassChanged(box, "secondary", "primary");
+
+        Assert.Null(fixture.Read(updater.StyleOf(leaf), "color"));
     }
 }
