@@ -23,9 +23,9 @@ namespace Vixen.Ui.Controls.Tests;
 ///         did not see a thumb that was not there. The thumb's colour is sampled from the start-of-scroll
 ///         picture, in the middle of the first thumb-length of the track, and the end-of-scroll picture
 ///         is searched for it along the bar's centre line. Where it has to be is closed form:
-///         <c>ScrollBar</c>'s own rule, a 24 px floor over a proportional length, over the track the
-///         other bar leaves — which is measured off the other bar's box, not read back from the
-///         control.
+///         <c>ScrollBar</c>'s own rule, a floor of 24 px or half the track over a proportional
+///         length, over the track the other bar leaves — which is measured off the other bar's box,
+///         not read back from the control.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>With both bars shown the corner is the other bar's, and before #1401 it was not.</b>
@@ -91,6 +91,21 @@ public class ScrollBarThumbPictureTests {
         Assert.True(found[^1] >= end - 2, $"the thumb stops at {found[^1]}, short of the view's edge at {end}.");
     }
 
+    /// <summary>On a port 34 px tall with both bars, the thumb still travels and is still whole at the end.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The console's detail pane in a 640 px editor, and the reason the thumb's floor is capped
+    ///     at half the track.</b> The corner leaves a 24 px track, and a 24 px floor filled it: the
+    ///     thumb could not move, so the start and the end of the scroll drew the same bar.
+    /// </remarks>
+    [Fact]
+    public void On_a_short_port_with_both_bars_the_thumb_still_travels() {
+        var (found, length, end) = ThumbAtTheEnd("wide", vertical: true, height: 34);
+
+        Assert.True(found.Count >= length - 2, $"{found.Count} of a {length} px thumb found at the end of the track.");
+        Assert.True(found[0] >= end - length - 1, $"the thumb starts at {found[0]}, above {end - length}.");
+        Assert.True(found[^1] < end, $"the thumb runs to {found[^1]}, into the horizontal bar at {end}.");
+    }
+
     /// <summary>A press in the corner both bars leave is neither bar's, so it scrolls nothing.</summary>
     [Fact]
     public void A_press_in_the_corner_scrolls_neither_way() {
@@ -124,8 +139,8 @@ public class ScrollBarThumbPictureTests {
 
     /// <summary>Scrolls to the end on one axis and finds the thumb along that bar's centre line.</summary>
     /// <returns>The positions the thumb was found at, its closed-form length, and where its track ends.</returns>
-    static (List<int> Found, int Length, int End) ThumbAtTheEnd(string classes, bool vertical) {
-        using var ui = ControlHarness.Open(760f, 150f, Css);
+    static (List<int> Found, int Length, int End) ThumbAtTheEnd(string classes, bool vertical, int height = 132) {
+        using var ui = ControlHarness.Open(760f, 150f, Css + $"#view {{ height: {height}px; }}");
 
         var view = ui.Add<ScrollView>("view");
         view.Content.Add("div", null, ["block", .. classes.Split(' ')]);
@@ -174,7 +189,7 @@ public class ScrollBarThumbPictureTests {
 
         var track = end - start;
         var proportion = vertical ? view.Height / view.Content.Height : view.Width / view.Content.Width;
-        var length = (int)MathF.Floor(MathF.Max(MathF.Min(track, 24f), track * proportion));
+        var length = (int)MathF.Floor(MathF.Max(MathF.Min(track / 2f, 24f), track * proportion));
 
         byte[] At(Bitmap picture, int along) => vertical ? Pixel(picture, across, along) : Pixel(picture, along, across);
 

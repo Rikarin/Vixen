@@ -177,10 +177,15 @@ public sealed partial class ScrollBar : Control {
     ///     the travel is measured against what is left rather than against the whole bar. Getting
     ///     the second half wrong is the classic scrollbar bug: the thumb reaches the bottom before
     ///     the content does.
+    ///     ⚠ <b>And the floor is at most half the track</b>, or on a short bar it is the whole track and
+    ///     the thumb cannot move at all. That was reached once the other bar's
+    ///     <see cref="Corner" /> came off the track: the console's detail pane in a 640 px editor is
+    ///     34 px tall, its track 24 px, and a 24 px floor left a thumb that said nothing about where
+    ///     the scroll was. A bar 48 px or longer is unchanged.
     /// </remarks>
     (float Offset, float Length) Thumb(float bar) {
         var proportion = ContentSize <= 0f ? 1f : Math.Clamp(ViewportSize / ContentSize, 0f, 1f);
-        var length = MathF.Max(MathF.Min(bar, 24f), bar * proportion);
+        var length = MathF.Max(MathF.Min(bar * 0.5f, 24f), bar * proportion);
         var travel = MathF.Max(0f, bar - length);
 
         return (travel * (Range <= 0f ? 0f : Math.Clamp(Value / Range, 0f, 1f)), length);

@@ -199,7 +199,7 @@ public sealed class ScrollingPanelPictureTests {
     ///         The colour is sampled rather than assumed, in the same renderer's picture, at a point
     ///         of the track the thumb covers at the top of the scroll and has left at the end: half
     ///         its travel down, and never deeper than half its length. The thumb's length is
-    ///         <c>ScrollBar</c>'s own rule — a 24 px floor over a proportional length — so where it
+    ///         <c>ScrollBar</c>'s own rule — a floor of 24 px or half the track over a proportional length — so where it
     ///         must be at the end is closed form.
     ///     </para>
     ///     <para>
@@ -217,7 +217,7 @@ public sealed class ScrollingPanelPictureTests {
         var start = (int)MathF.Ceiling(bar.AbsoluteTop);
         var limit = (int)MathF.Floor(bar.AbsoluteTop + bar.Height);
         var end = view.MaximumLeft > 0f ? (int)MathF.Floor(view.HorizontalBar.AbsoluteTop) : limit;
-        var length = (int)MathF.Floor(MathF.Max(MathF.Min(end - start, 24f), (end - start) * bar.ViewportSize / bar.ContentSize));
+        var length = (int)MathF.Floor(MathF.Max(MathF.Min((end - start) / 2f, 24f), (end - start) * bar.ViewportSize / bar.ContentSize));
         var travel = end - start - length;
 
         Assert.True(travel >= 4, $"[{renderer}] a thumb that travels {travel} px cannot be told from one that did not move.");
