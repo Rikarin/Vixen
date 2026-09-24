@@ -341,6 +341,13 @@ public static class UtilityFamilies {
     ///     and <c>-blur-2 hue-rotate-90</c> did not rotate the hue. <see cref="TryNegate" /> could not
     ///     see it: the fragment is a bare number and flips as cleanly as <c>-mt-4</c>'s. Tailwind has
     ///     no negative form of any of these; <c>hue-rotate</c>, an angle, keeps its own.
+    ///     <para>
+    ///         ⚠ <b>And for every other value with no negative, which #1348 did not reach</b> (#1384):
+    ///         <c>-opacity-50</c> was <c>opacity: -0.5</c>, <c>-aspect-video</c> was
+    ///         <c>aspect-ratio: -16 / 9</c>, and <c>-grow</c>, <c>-shrink</c>, <c>-line-clamp-2</c> and
+    ///         <c>-tab-2</c> were negative counts. Those are every <see cref="ValueKind.Fraction" /> and
+    ///         <see cref="ValueKind.Number" /> family that is not an order, a layer or a grid line.
+    ///     </para>
     /// </param>
     sealed record Family(
         string Name,
@@ -718,8 +725,8 @@ public static class UtilityFamilies {
         ));
 
         // ── Flex and grid ───────────────────────────────────────────────────────────────────
-        Number("grow", "flex-grow");
-        Number("shrink", "flex-shrink");
+        UnsignedNumber("grow", "flex-grow");
+        UnsignedNumber("shrink", "flex-shrink");
         Number("order", "order");
 
         // ⚠ <b>`order-none` is `order: 0` and not a keyword CSS has</b>, which is why it belongs in a
@@ -1453,7 +1460,7 @@ public static class UtilityFamilies {
         // the first family under a name and merges a later one's keywords into it, so the numeric
         // kind has to be registered first for `line-clamp-none` to be a keyword rather than a value
         // that fails to parse — the same arrangement `decoration` uses for its three properties.
-        Number("line-clamp", "-webkit-line-clamp");
+        UnsignedNumber("line-clamp", "-webkit-line-clamp");
 
         Keywords("line-clamp", "-webkit-line-clamp", new() { ["none"] = "none" });
 
@@ -1492,7 +1499,7 @@ public static class UtilityFamilies {
         // that are facts about the character. `TextRun.IsTab` and `TextLine.WidthOf` are what
         // separate the two; before they existed a `tab-*` that resolved would have broken the
         // paragraph in one place, drawn it in another, and put the caret a stop out.
-        Number("tab", "tab-size");
+        UnsignedNumber("tab", "tab-size");
 
         // ── Hyphens ─────────────────────────────────────────────────────────────────────────
         // ⚠ <b>Two of Tailwind's three, and the third is left unregistered on purpose.</b>
@@ -1959,7 +1966,7 @@ public static class UtilityFamilies {
         // ── Effects ─────────────────────────────────────────────────────────────────────────
         // `opacity-50` is half, not fifty. CSS's `opacity` runs 0 to 1 and the utility scale runs
         // 0 to 100, because nobody writes `opacity-0.5`.
-        Register(new Family("opacity", ValueKind.Fraction, ["opacity"]));
+        Register(new Family("opacity", ValueKind.Fraction, ["opacity"], Unsigned: true));
         // ⚠ <b>Composed, not <c>Spacing("blur", "--blur")</c>, and the change is what closed #28's
         // half of A8.</b> `--blur` was a name of this engine's own invention that nothing assembled
         // and nothing could read; the fragment and the assembler put the length inside a real
@@ -2949,7 +2956,7 @@ public static class UtilityFamilies {
             ["square"] = "aspect-ratio:1 / 1",
             ["video"] = "aspect-ratio:16 / 9",
             ["auto"] = "aspect-ratio:auto"
-        }) { Slash = SlashMeaning.Ratio });
+        }, Unsigned: true) { Slash = SlashMeaning.Ratio });
 
         // ── The eighteen roots that are deliberately NOT here ───────────────────────────────
         //
@@ -4623,6 +4630,19 @@ public static class UtilityFamilies {
 
     static void Number(string name, params string[] properties) =>
         Register(new Family(name, ValueKind.Number, properties));
+
+    /// <summary>A bare-number family whose property has no negative value, so <c>-name-2</c> is no class.</summary>
+    /// <param name="name">The utility prefix.</param>
+    /// <param name="properties">The properties it sets.</param>
+    /// <remarks>
+    ///     ⚠ <b>Beside <see cref="Number" /> rather than a flag on it, because the two halves of
+    ///     <see cref="ValueKind.Number" /> disagree about the sign and the call site is where that is
+    ///     decided.</b> <c>order</c>, <c>z</c> and the grid lines have negatives in Tailwind and in CSS;
+    ///     <c>flex-grow</c>, <c>flex-shrink</c>, <c>-webkit-line-clamp</c> and <c>tab-size</c> do not,
+    ///     and <see cref="TryNegate" /> flipped them all alike (#1384).
+    /// </remarks>
+    static void UnsignedNumber(string name, params string[] properties) =>
+        Register(new Family(name, ValueKind.Number, properties, Unsigned: true));
 
     /// <summary>Registers a family whose count is substituted into a CSS template.</summary>
     /// <param name="name">The utility prefix.</param>
