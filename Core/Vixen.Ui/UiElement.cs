@@ -963,7 +963,7 @@ public partial class UiElement : Composition.IComposable {
             // somebody else: a parent turning from flex to block makes an inline leaf share its first
             // line with a sibling, and a sibling's text or `white-space` decides whether this one's
             // leading run follows a collapsible space (#1363) — while nothing about this element's
-            // own declarations moved. `UiDocument.RemeasureInlineEdges` is what tells the layout.
+            // own declarations moved. `UiDocument.Arrange` is what tells the layout.
             && lineTrimStart == trimStart
             && lineTrimEnd == trimEnd
             && lineHangs == hangs
