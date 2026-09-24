@@ -125,7 +125,10 @@ It is named by *element* — tag, `#id`, classes — rather than by declaration,
 is the same three words in every one of them and a line keyed on it would name none. One line per
 distinct box, produced from the same walk that builds the layout style, so a list of a thousand rows
 under one rule is one line. The cure is a `ScrollView`, and never a taller box: raising a
-`max-height` moves the first unreachable row rather than reaching it (`Rikarin/Vixen#1275`).
+`max-height` moves the first unreachable row rather than reaching it (`Rikarin/Vixen#1275`). And it
+is a log event only, not an entry in `UiDocument.Refusals()`: the declaration is understood and
+applied, and a hot reload rolls back any sheet that adds to that ledger, so a save adding
+`overflow: auto` would otherwise be undone and reported as an error (`Rikarin/Vixen#1396`).
 
 ⚠ **A `ScrollView` under a tag of its own does not get the `scroll-view` user-agent rule**, which is
 where its `overflow: hidden` and `position: relative` live — so a rule keyed on that tag has to

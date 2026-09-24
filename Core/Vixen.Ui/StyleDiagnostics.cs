@@ -389,7 +389,7 @@ public sealed partial class UiDocument {
     ///         a successful reload while the panel it styled laid out as one row. See #583.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two of the five are empty until a pass has run, which is the whole reason this
+    ///         ⚠ <b>Three of the five are empty until a pass has run, which is the whole reason this
     ///         is not a one-line addition to that caller.</b> The loader's and the compiler's lists
     ///         are filled at load; the bridge's and the text resolver's are filled per element
     ///         during <see cref="Update" /> and the draw list's per frame during <see cref="Draw()" />.
