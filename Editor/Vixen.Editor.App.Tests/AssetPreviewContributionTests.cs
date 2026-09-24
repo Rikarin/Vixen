@@ -75,7 +75,7 @@ public class AssetPreviewContributionTests {
         // The instrument: with nothing contributed the file is refused, so no picture is ever asked
         // for. If this were already a picture the test below would prove nothing.
         Assert.False(
-            Until(editor, () => surface.Uploads.Count > 0, frames: 40),
+            Until(editor, () => surface.Uploads.Count > 0),
             "a file no decoder claims was decoded anyway."
         );
         Assert.Contains(grid.Items, item => item.Guid == asset);
@@ -172,7 +172,7 @@ public class AssetPreviewContributionTests {
         Assert.True(Until(editor, () => Volatile.Read(ref asked) > 0), "the contributor was never asked.");
 
         Assert.False(
-            Until(editor, () => surface.Uploads.Count > 0, frames: 40),
+            Until(editor, () => surface.Uploads.Count > 0),
             "a throwing contributor uploaded something."
         );
 
@@ -223,19 +223,23 @@ public class AssetPreviewContributionTests {
 
     static AssetGrid Grid(EditorSession editor) => editor.Control<AssetGrid>("project");
 
-    /// <summary>Pumps frames until something a pool thread does has happened, or gives up.</summary>
+    /// <summary>Pumps frames until something a pool thread does has happened, or can no longer happen.</summary>
     /// <remarks>
-    ///     ⚠ <b>A frame count and a boolean answer, because two of these tests are waiting for
-    ///     <i>nothing</i> to happen.</b> An assertion inside would make "no picture was ever decoded"
-    ///     unsayable; the caller says which way round it wants the answer — and asks for far fewer
-    ///     frames when the answer it wants is "no", since that arm always spends all of them.
+    ///     <para>
+    ///         ⚠ <b>A boolean answer, because two of these tests are waiting for <i>nothing</i> to
+    ///         happen.</b> An assertion inside would make "no picture was ever decoded" unsayable; the
+    ///         caller says which way round it wants the answer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>ThumbnailTests.Pumped</c>'s wait and no longer a frame budget of its own.</b>
+    ///         This was two hundred frames with a millisecond's sleep between them, which is the
+    ///         shape <a href="https://github.com/Rikarin/Vixen/issues/1407">#1407</a> is about: a
+    ///         count of this thread's turns standing in for a decode on the pool, so a loaded machine
+    ///         spent the budget before the contributor ran. The "no" arm was forty frames for the
+    ///         same reason in the other direction — it could only ever say "not <i>yet</i>". Now
+    ///         both end on the work: a decode in flight is waited for, and "no" means nothing was in
+    ///         flight for several frames running.
+    ///     </para>
     /// </remarks>
-    static bool Until(EditorSession editor, Func<bool> done, int frames = 200) {
-        for (var frame = 0; frame < frames && !done(); frame++) {
-            editor.Frame();
-            Thread.Sleep(1);
-        }
-
-        return done();
-    }
+    static bool Until(EditorSession editor, Func<bool> done) => ThumbnailTests.Pumped(editor, done);
 }

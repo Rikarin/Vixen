@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Buffers.Binary;
-using System.Diagnostics;
 using Vixen.Core;
 using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
@@ -43,80 +42,65 @@ public class ThumbnailTests {
         public void Release(ulong image) => released.Add(image);
     }
 
-    /// <summary>Pumps until what the caller is waiting for has happened.</summary>
+    /// <summary>
+    ///     How long a single decode may take before the wait calls it hung. ⚠ A hang check and not a
+    ///     bound: nothing here waits for it in any run that passes, because every wait below ends when
+    ///     the decode does.
+    /// </summary>
+    static readonly TimeSpan Hung = TimeSpan.FromMinutes(10);
+
+    /// <summary>Pumps until what the caller is waiting for has happened, or can no longer happen.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Bounded by the caller's own condition, not by <c>IsBusy</c>.</b> The decode is on
-    ///         the thread pool, so the wait has to end when the work does — counting turns makes the
-    ///         suite pass on a quiet laptop and fail on a loaded runner, which is exactly the
-    ///         flakiness doc 12 forbids.
+    ///         ⚠ <b>Ordered by the work and not by a clock — the fourth shape this helper has had,
+    ///         and the first with no budget in it.</b> It used to poll the caller's condition against
+    ///         a turn count, then against thirty seconds, then against two minutes, and each one
+    ///         failed the same way on a loaded machine: a decode queued behind other work on the pool
+    ///         outlasted whatever number had been chosen on an idle one
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1407">#1407</a>). Now it blocks on
+    ///         <see cref="ThumbnailCache.Decoding" />, which completes when the decodes have queued
+    ///         their answers — so it waits exactly as long as the work takes, and it gives the core
+    ///         it was spinning on to the pool thread doing the decode.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And <c>IsBusy</c> is not that condition.</b> It answers "is anything in flight
-    ///         right now", which is false in the gap between a request being dispatched and its
-    ///         decode being queued — so a loop that stopped on it could return having uploaded four
-    ///         of five textures and report the fifth as never decoded. That is a failure with the
-    ///         shape of a cache bug and the cause of a scheduler hiccup, seen once on a loaded
-    ///         machine and not reproduced in thirteen tries, which is the worst kind to leave in.
-    ///         The clock is the backstop against a decode that never returns; it is not the
-    ///         mechanism, and nothing waits the whole of it in the ordinary case.
+    ///         ⚠ <b>And it stops when nothing is in flight, which is <c>IsBusy</c> — this used to say
+    ///         that was wrong, and in this code it is not.</b> The remark claimed <c>IsBusy</c> is
+    ///         false "in the gap between a request being dispatched and its decode being queued".
+    ///         <c>Request</c> adds to <c>pending</c> before it starts the task and only
+    ///         <c>Pump</c>'s dequeue removes it, so there is no such gap: <c>IsBusy</c> false after a
+    ///         <c>Pump</c> means no decode is running and none is queued, so the condition's answer
+    ///         is final. A request that has not been <em>made</em> yet is the caller's to make — a
+    ///         condition may ask, and <see cref="ThumbnailCache.Decoding" /> is read after it.
     ///     </para>
-    /// </remarks>
-    /// <remarks>
-    ///     ⚠ <b>The clock is the only bound, and a turn count used to be a second one that outranked
-    ///     it.</b> A hundred thousand turns of <c>Pump</c> and <c>Thread.Yield</c> is a fixed amount of
-    ///     *work*, not of time: on an idle machine <c>Yield</c> parks for a scheduling quantum and the
-    ///     budget lasts, and when the whole solution's tests are running there is always another
-    ///     runnable thread, so it returns immediately and the hundred thousand turns are spent in a
-    ///     couple of seconds. The loop then reported "no thumbnail was uploaded" having waited a
-    ///     fifteenth of the thirty seconds it promised — a failure that appears only under load, which
-    ///     is exactly the shape the remark above says is the worst kind to leave in.
-    /// </remarks>
-    /// <remarks>
-    ///     ⚠ <b>Two minutes, because thirty seconds is a plausible queueing delay on the leg this
-    ///     runs on and a hang check has to be implausible.</b> The two remarks above fixed the two
-    ///     mechanisms that made this loop spend its budget without waiting; what was left is the
-    ///     budget itself. `test-ubuntu-latest` runs ~181 assemblies with collection parallelism on
-    ///     top, so a thread-pool item can sit queued for a long time behind work that was admitted
-    ///     first — and "the decode in flight never came back" is what this reports either way, on a
-    ///     test that passes alone every time (run 35736475229).
     ///     <para>
-    ///         This is the third of the three replacements CLAUDE.md names for a wall-clock budget,
-    ///         and it is here because the first two cannot be had: no counter can observe a
-    ///         thread-pool hand-off, and a differential would need <c>ThumbnailCache</c> to hand
-    ///         back the in-flight decode, which is production surface added for a test. So the
-    ///         clock stays and is made absurd instead — two minutes is not a queueing delay, it is
-    ///         a decode that is never coming.
+    ///         A failing condition therefore fails as soon as the work is done rather than after a
+    ///         budget, and the only clock left is <see cref="Hung" />.
     ///     </para>
     /// </remarks>
     static bool Settle(ThumbnailCache cache, Func<bool> until) {
-        var waited = Stopwatch.StartNew();
-        var patience = TimeSpan.FromMinutes(2);
-
-        var spins = 0;
-
-        while (!until() && waited.Elapsed < patience) {
+        while (true) {
             cache.Pump();
 
-            // A yield first, so an idle machine finishes in microseconds; the clock is what stops a
-            // decode that never returns.
-            //
-            // ⚠ But a yield alone starves the thing being waited for. `Thread.Yield` only gives way
-            // to a thread already runnable on this processor, so under the whole-solution `Test` run
-            // — 181 assemblies against ten cores — this loop holds a core for the full thirty
-            // seconds while the pool thread carrying the decode waits for one, and the wait times
-            // out on work that was never allowed to start. That is what "the decode in flight never
-            // came back" was on master, on a test that passes alone every time. After a thousand
-            // yields the core is given up properly.
-            if (++spins < 1_000) {
-                Thread.Yield();
-            } else {
-                Thread.Sleep(1);
+            if (until()) {
+                return true;
             }
-        }
 
-        cache.Pump();
-        return until();
+            if (!cache.IsBusy) {
+                return false;
+            }
+
+            Await(cache.Decoding);
+        }
+    }
+
+    /// <summary>Blocks until the decodes in flight have queued their answers.</summary>
+    static void Await(Task decoding) {
+        if (!decoding.Wait(Hung)) {
+            throw new TimeoutException(
+                $"A thumbnail decode ran for {Hung.TotalMinutes} minutes. That is a hang check, not a "
+                + "budget: the decode is not coming back."
+            );
+        }
     }
 
     /// <summary>Writes a PNG into the project and makes the editor notice it.</summary>
@@ -277,11 +261,20 @@ public class ThumbnailTests {
         var surface = new Recording();
         var cache = new ThumbnailCache(editor.Project) { Surface = surface };
 
-        cache.TryGet(broken, out _);
+        Assert.False(cache.TryGet(broken, out _));
+        Assert.True(cache.IsBusy, "no decode was started, so nothing below is about one");
 
         // It is refused rather than uploaded, and the editor is still standing.
-        Assert.True(Settle(cache, () => !cache.TryGet(broken, out _) && surface.Uploads.Count == 0));
+        //
+        // ⚠ Waited to the end rather than asked once. This used to be a condition that held on its
+        // first evaluation — nothing had been uploaded *yet* — so it returned before the decode had
+        // run and asserted nothing about what the decode did with a broken file.
+        Assert.False(Settle(cache, () => surface.Uploads.Count > 0), "a file that will not decode was uploaded");
         Assert.Equal(0, cache.Count);
+
+        // And refused for good: asking again starts nothing.
+        Assert.False(cache.TryGet(broken, out _));
+        Assert.False(cache.IsBusy, "a refused file was decoded again");
     }
 
     /// <summary>⚠ A repainted file gets a new picture, and it used to keep the old one all session.</summary>
@@ -404,21 +397,192 @@ public class ThumbnailTests {
         Assert.NotEqual(AssetId.Empty, crate);
     }
 
-    /// <summary>Runs frames until something a pool thread does has happened, or gives up.</summary>
+    /// <summary>
+    ///     ⚠ A decode that <c>assets.refresh</c> itself made stale is asked for again, and it used to be
+    ///     the picture that never came.
+    /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The caller's own condition and a clock, for <see cref="Settle" />'s reasons.</b> The
-    ///     decode is on the thread pool, so a turn count is a fixed amount of <em>work</em> rather
-    ///     than of time and lasts a fifteenth as long on a loaded machine — which is the failure that
-    ///     appears only under load. This one drives the application rather than a bare cache, because
-    ///     what is under test is the wiring.
+    ///     <para>
+    ///         <b>What <a href="https://github.com/Rikarin/Vixen/issues/1407">#1407</a> actually
+    ///         was.</b> The issue blamed <see cref="Pumped" />'s thirty-second stopwatch, and a slow
+    ///         decode did outlast it — but a decode made thirty-five seconds long fails the old
+    ///         <see cref="Refreshing_the_project_draws_a_repainted_file" /> at its first assertion
+    ///         <em>however long</em> the wait. <c>RefreshAssets</c> rescans first, which binds the new
+    ///         file and starts its decode, and then calls <c>Forget</c>, which marks that decode stale;
+    ///         the <c>Changed</c> it raises finds the asset still pending, so the grid's ask is a no-op;
+    ///         and the drop, when the answer lands, raised nothing — so no tile ever asked again. On an
+    ///         idle machine the decode finished before <c>Open("project")</c> rebound the grid, and
+    ///         that rebind is what asked again. Under load it did not, and the picture never came.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Held by a contributed preview, so the order is forced rather than hoped for.</b>
+    ///         The first decode blocks inside the delegate until the refresh has marked it stale;
+    ///         every later one returns at once. Two calls is the assertion that the drop was followed
+    ///         by a fresh ask rather than the stale answer sneaking through.
+    ///     </para>
     /// </remarks>
-    static bool Pumped(EditorSession editor, Func<bool> until) {
-        var waited = Stopwatch.StartNew();
-        var patience = TimeSpan.FromSeconds(30);
+    [Fact]
+    public void A_decode_the_refresh_made_stale_is_asked_for_again() {
+        var registry = new EditorRegistry();
+        using var editor = EditorSession.Start(new() { Extensions = registry });
+        using var running = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
 
-        while (!until() && waited.Elapsed < patience) {
+        var surface = new Recording();
+        var calls = 0;
+        var pixels = Enumerable.Repeat((byte) 0x60, 8 * 8 * 4).ToArray();
+
+        editor.Editor.ThumbnailSurface = surface;
+        editor.Open("project");
+        editor.Settle();
+
+        using var scope = registry.Add(
+            new AssetPreview(".png", _ => {
+                if (Interlocked.Increment(ref calls) == 1) {
+                    running.Set();
+                    release.Wait();
+                }
+
+                return new AssetPreviewImage(8, 8, pixels);
+            })
+        );
+
+        try {
+            // The rescan inside `assets.refresh` binds the file and asks for it, and the `Forget` after
+            // it marks that ask stale — both before `Paint` returns.
+            Paint(editor, "Assets/crate.png", 8, 8, static (_, _) => 0);
+
+            Assert.True(editor.Editor.Thumbnails.IsBusy, "the refresh asked for no picture, so nothing below is about one");
+            Assert.True(
+                running.Wait(Hung, TestContext.Current.CancellationToken),
+                "the decode never started, which is a hang check and not a result"
+            );
+        } finally {
+            release.Set();
+        }
+
+        Assert.True(Pumped(editor, () => surface.Uploads.Count > 0), "the dropped decode was never asked for again");
+        Assert.Equal(0x60, Assert.Single(surface.Uploads).Pixels[0]);
+        Assert.Equal(2, Volatile.Read(ref calls));
+    }
+
+    /// <summary>⚠ The wait every test here uses ends when the decode does — not before, not after.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The instrument under <see cref="Settle" /> and <see cref="Pumped" />, checked
+    ///         first.</b> <a href="https://github.com/Rikarin/Vixen/issues/1407">#1407</a> replaced a
+    ///         stopwatch with <see cref="ThumbnailCache.Decoding" />, and a completion that was already
+    ///         complete would turn every wait here into "pump once and give up" — which passes on an
+    ///         idle machine, where the decode has usually finished by the time anyone looks, and fails
+    ///         on a loaded one. That is the flake this replaced, so it is asserted directly.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Held by a contributed preview, which is the one decode a test can stop
+    ///         half-way</b> with no hook in the cache: its delegate runs on the pool thread, inside
+    ///         the decode, and blocks until it is released. So the "still running" half is an
+    ///         ordering and not a hope that the pool was slow.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_wait_is_on_the_decode_itself() {
+        using var editor = EditorSession.Start();
+        using var running = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+
+        var registry = new EditorRegistry();
+        var pixels = Enumerable.Repeat((byte) 0x60, 8 * 8 * 4).ToArray();
+
+        using var scope = registry.Add(
+            new AssetPreview(".png", _ => {
+                running.Set();
+                release.Wait();
+
+                return new AssetPreviewImage(8, 8, pixels);
+            })
+        );
+
+        var crate = Paint(editor, "Assets/Textures/crate.png", 8, 8, static (_, _) => 0);
+        var surface = new Recording();
+        var cache = new ThumbnailCache(editor.Project, registry) { Surface = surface };
+
+        try {
+            Assert.False(cache.TryGet(crate, out _));
+            Assert.True(
+                running.Wait(Hung, TestContext.Current.CancellationToken),
+                "the decode never started, which is a hang check and not a result"
+            );
+
+            var decoding = cache.Decoding;
+
+            // The half that makes it a wait: while the decode is running, it is not done, and a pump
+            // has nothing to take.
+            Assert.False(decoding.IsCompleted, "the wait would have ended with the decode still running");
+            cache.Pump();
+            Assert.Empty(surface.Uploads);
+            Assert.True(cache.IsBusy);
+
+            release.Set();
+            Await(decoding);
+        } finally {
+            release.Set();
+        }
+
+        // And the half that makes it enough: once it completes the answer is queued, so one pump
+        // uploads it — no second wait, no spin.
+        cache.Pump();
+
+        Assert.Equal(0x60, Assert.Single(surface.Uploads).Pixels[0]);
+        Assert.False(cache.IsBusy);
+        Assert.True(cache.Decoding.IsCompleted);
+    }
+
+    /// <summary>
+    ///     Frames in a row with no decode in flight after which nothing more can happen. A count of
+    ///     frame-thread work, not of time.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Frames can be counted where pool work cannot</b>, because a frame is run on this
+    ///     thread and does the same thing on a loaded machine as on an idle one: a grid rebinds on the
+    ///     frame after <c>Changed</c>, and one that has asked for nothing in this many has nothing to
+    ///     ask for. The decode is the only part that is not a frame, and it is waited on, never
+    ///     counted.
+    /// </remarks>
+    const int QuietFrames = 8;
+
+    /// <summary>Runs frames until something a pool thread does has happened, or can no longer happen.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="Settle" />'s shape, driving the application rather than a bare cache,
+    ///         because what is under test is the wiring.</b> This is where
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1407">#1407</a> failed: it spun
+    ///         <c>Frame</c> and <c>Thread.Yield</c> against a thirty-second stopwatch, so on a
+    ///         machine running three editor test hosts the decode — queued on the pool behind all of
+    ///         them, and competing with this loop for a core — outlasted the stopwatch and the test
+    ///         reported "the grid never decoded the file" about work that was merely slow.
+    ///     </para>
+    ///     <para>
+    ///         Now a frame that leaves a decode in flight is followed by a wait on that decode, and
+    ///         the loop gives up only after <see cref="QuietFrames" /> frames in which nothing was
+    ///         asked for — so a broken wiring fails in a handful of frames rather than after a
+    ///         budget, and a slow decode is simply waited for.
+    ///     </para>
+    /// </remarks>
+    internal static bool Pumped(EditorSession editor, Func<bool> until) {
+        var cache = editor.Editor.Thumbnails;
+
+        for (var quiet = 0; quiet < QuietFrames;) {
             editor.Frame();
-            Thread.Yield();
+
+            if (until()) {
+                return true;
+            }
+
+            if (cache.IsBusy) {
+                quiet = 0;
+                Await(cache.Decoding);
+            } else {
+                quiet++;
+            }
         }
 
         return until();
