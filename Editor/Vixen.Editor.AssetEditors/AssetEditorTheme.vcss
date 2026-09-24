@@ -890,10 +890,12 @@ mixer-body > mixer-strips {
    ⚠ **Every fields column, not the mixer's alone (#1411)** — the other eleven were the same
    `ScrollView` over the same max-content `scroll-content`, and three of them were already over on a
    fresh asset: the shader graph's content 606 px in its 300 px column, the VFX graph's 584 and the
-   animation graph's 478, their fact rows cut at the column's edge. ⚠ And it is a ROW that widens a
-   column, not a line of text: a bare line wraps without the cap, measured, because a flex row
-   measured "at most" a width reports its content's size instead of shrinking its items. Every field
-   row here is a row. `SideColumnWidthTests` puts one in each column and holds it at
+   animation graph's 478. In all three it was the analysis row, the mixer's culprit again: hiding
+   that list brings each back to 300 px, and hiding any other child, the transport included, does
+   not. The rest were stretched to the content and cut, the animation graph's fact rows among them.
+   ⚠ And it is a ROW that widens a column, not a line of text: a bare line wraps without the cap,
+   measured, because a flex row measured "at most" a width reports its content's size instead of
+   shrinking its items. Every field row here is a row. `SideColumnWidthTests` puts one in each column and holds it at
    `MaximumLeft == 0`. The same cost at the 120 px floor applies to all twelve, and no column here
    holds anything that has to be scrolled to sideways: a fields column is read top to bottom. */
 animation-side > scroll-content, animgraph-side > scroll-content, input-side > scroll-content,

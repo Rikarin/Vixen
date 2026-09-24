@@ -64,7 +64,7 @@ public sealed class SideColumnWidthTests {
             ?? throw fixture.Fail($"{command} opened no ScrollView under <{tag}>");
 
         var natural = side.MaximumLeft;
-        var widest = Widest(side);
+        var widest = natural == 0f ? "" : Widener(fixture, side);
 
         // The column as the editor leaves it, before the test's line, so that a picture of the sheet
         // with and without the cap compares real content rather than a column the line has widened.
@@ -117,27 +117,46 @@ public sealed class SideColumnWidthTests {
         ScrollingPanelPictureTests.Draw(fixture, gpu, tag);
     }
 
-    /// <summary>What reaches furthest right in the column's content, and the chain above it, for the message.</summary>
-    /// <remarks>Read eagerly, because the line this test adds would otherwise be what it reports.</remarks>
-    static string Widest(ScrollView side) {
-        var widest = Descendants(side.Content)
-            .Where(element => !ReferenceEquals(element, side.Content))
-            .MaxBy(element => element.AbsoluteLeft + element.Width);
+    /// <summary>Which of the content's children widens it, for the message: the ones whose removal narrows it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Found by taking each child out, not by reading which reaches furthest right.</b> The
+    ///         content's children are stretched to its width, so every one of them ends at the same
+    ///         edge and the furthest-right one is simply the first: an earlier version named
+    ///         <c>&lt;vfx-transport&gt;</c> and <c>&lt;shadergraph-transport&gt;</c>, three buttons each,
+    ///         when hiding them changed nothing and hiding the analysis list brought both columns back
+    ///         to 300 px.
+    ///     </para>
+    ///     <para>
+    ///         Read before the test's line is added, which would otherwise be what it reports, and only
+    ///         when the column is already over: each child is hidden and shown again, which is a layout
+    ///         apiece.
+    ///     </para>
+    /// </remarks>
+    static string Widener(EditorSession fixture, ScrollView side) {
+        var over = side.MaximumLeft;
+        var found = new List<string>();
 
-        if (widest is null) {
-            return "the content is empty";
+        foreach (var child in side.Content.Children.ToArray()) {
+            child.SetStyle("display", "none");
+            fixture.Frames(2);
+
+            var without = side.MaximumLeft;
+
+            child.SetStyle("display", null);
+            fixture.Frames(2);
+
+            if (without < over) {
+                var longest = Descendants(child).Select(element => element.Text).Where(text => text is { Length: > 0 })
+                    .MaxBy(text => text!.Length);
+
+                found.Add($"<{child.Tag}> (without it {without:0} px over), its longest line '{longest}'");
+            }
         }
 
-        var chain = new List<string>();
-
-        for (var element = widest; element is not null && !ReferenceEquals(element, side.Content); element = element.Parent) {
-            chain.Add($"{element.Tag}({element.Width:0})");
-        }
-
-        chain.Reverse();
-
-        return $"<{widest.Tag}> reaches {widest.AbsoluteLeft + widest.Width - side.AbsoluteLeft:0} px, '{widest.Text}', "
-            + $"under {string.Join(" > ", chain)}";
+        return found.Count == 0
+            ? "no one child's removal narrows it"
+            : "widened by " + string.Join("; ", found);
     }
 
     static IEnumerable<UiElement> Descendants(UiElement element) {
