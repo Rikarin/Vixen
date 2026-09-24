@@ -207,6 +207,41 @@ public class UiApplicationCaptureTests {
         Covers(picture, Left, Top, 120, 30);
     }
 
+    /// <summary>A zero-tall box with a mask draws nothing of its child on the device (#1375).</summary>
+    /// <remarks>
+    ///     ⚠ The mask is clipped to the border box, and the border box has no area. The guard for this
+    ///     case landed dead (it asked <c>MasksFor</c>, which returns nothing for a zero box), and the
+    ///     child was drawn unmasked: a 120×30 red rectangle. The oracle is that every pixel is ground.
+    ///     The mask is opaque black, so a mask that did apply to a non-zero box would change nothing,
+    ///     and red anywhere can only be the child drawn past its zero box.
+    /// </remarks>
+    [Fact]
+    public void AZeroTallMaskedBoxDrawsNothingOfItsChild() {
+        var masked = $$"""
+            capture-zero {
+                position: absolute;
+                left: {{Left}}px;
+                top: {{Top}}px;
+                width: 200px;
+                height: 0px;
+                mask-image: linear-gradient(to right, #000000, #000000);
+            }
+
+            capture-zero-box { display: block; width: 120px; height: 30px; background-color: #ff0000; }
+            capture-zero-child { display: none; }
+            """;
+
+        if (Capture(masked, () => new ZeroWide(), "zero-masked") is not { } picture) {
+            return;
+        }
+
+        for (var y = 0; y < picture.Height; y++) {
+            for (var x = 0; x < picture.Width; x++) {
+                Assert.Equal((0, 0, 255), Pixel(picture, x, y));
+            }
+        }
+    }
+
     /// <summary>A zero-wide query container holding a 120×30 child.</summary>
     sealed class ZeroWide : Component {
         public UiElement Box { get; private set; } = null!;
