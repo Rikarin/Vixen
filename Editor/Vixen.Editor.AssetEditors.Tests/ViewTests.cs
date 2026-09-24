@@ -813,9 +813,10 @@ public class AudioMixerViewTests {
     /// <summary>In a dock too narrow for both, the side column gives way first and the strips keep one strip.</summary>
     /// <remarks>
     ///     ⚠ <b>The half the obvious fix breaks.</b> <c>flex-basis: 0</c> on the strips alone makes them
-    ///     take only what is left after the side column's 300 px. In a 330 px dock that is 24 px: not
-    ///     one strip, and the side column shrinking was put there so that the pane beside it is not
-    ///     left with nothing (the comment on <c>mixer-side</c>). A floor of one strip keeps both.
+    ///     take only what is left after the side column's 300 px. In a 330 px dock that is 12 px,
+    ///     measured: not one strip, and the side column shrinking was put there so that the pane beside
+    ///     it is not left with nothing (the comment on <c>mixer-side</c>). A floor of one strip keeps
+    ///     both.
     /// </remarks>
     [Fact]
     public void InANarrowDockTheStripsKeepOneStrip() {

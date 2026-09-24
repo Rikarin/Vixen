@@ -846,8 +846,8 @@ font-body > font-atlas, sequence-body > timeline, animation-body > animation-sta
 
    ⚠ **And a floor of one strip, which is the half `flex-basis: 0` alone gets wrong.** On its own it
    leaves the strips only what the side column's 300 px does not take, which in a 330 px dock is
-   24 px. That is the empty pane the comment on `mixer-side` exists to prevent. With the floor the
-   side column gives way first, down to its own 120 px floor, and one strip stays in view.
+   12 px, measured. That is the empty pane the comment on `mixer-side` exists to prevent. With the
+   floor the side column gives way first, down to its own 120 px floor, and one strip stays in view.
 
    The other panes in the rule above may have the same content-weighted shrink. They are left alone
    here because each needs its own picture before its basis moves. */
