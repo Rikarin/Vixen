@@ -3,6 +3,7 @@
 
 using Microsoft.Extensions.Logging;
 using Vixen.Core.Diagnostics;
+using Vixen.Ui.Reactive;
 
 namespace Vixen.Editor.Ui;
 
@@ -107,6 +108,34 @@ public sealed class ConsoleModel {
     string? category;
     bool collapse;
 
+    int errors;
+    int warnings;
+    int infos;
+    int verbose;
+
+    /// <summary>How many times the visible set has changed: <see cref="Changed" />, as a signal.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Signal-backed, not signal-typed</b> — the migration the editor's README describes
+    ///         for <c>BackgroundTask</c>. Every public reading of the visible set and the badge counts
+    ///         reads this first, so a binding that reads the model subscribes to it, and not one caller
+    ///         changed. That is what lets <c>ConsoleView</c>'s <c>@rows</c> follow the model without a
+    ///         revision counter of its own (#758).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A generation and not a snapshot, because the visible set is rewritten in place
+    ///         and must be.</b> An immutable copy a signal could compare would be ten thousand indices
+    ///         allocated on every frame something was logged — the per-line cost this class exists not
+    ///         to have. A row's content can change under an index that did not (a trim, a collapse, a
+    ///         filter), so the index alone cannot say it either.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Moved on the thread that calls <see cref="Pull" /></b>, which is the one that owns
+    ///         the document: the sink is written from every thread, and this is not.
+    ///     </para>
+    /// </remarks>
+    readonly Signal<long> generation = new(0);
+
     /// <summary>Watches a sink.</summary>
     /// <param name="sink">The ring the editor's logging goes into.</param>
     /// <param name="capacity">How many records to keep.</param>
@@ -134,7 +163,7 @@ public sealed class ConsoleModel {
 
     /// <summary>Which severities are shown.</summary>
     public ConsoleLevels Levels {
-        get => levels;
+        get => Observed(levels);
 
         set {
             if (levels != value) {
@@ -179,7 +208,7 @@ public sealed class ConsoleModel {
     ///     the same line would fold none of them — which is the case the feature exists for.
     /// </remarks>
     public bool Collapse {
-        get => collapse;
+        get => Observed(collapse);
 
         set {
             if (collapse != value) {
@@ -190,14 +219,14 @@ public sealed class ConsoleModel {
     }
 
     /// <summary>How many rows are visible.</summary>
-    public int Count => visible.Count;
+    public int Count => Observed(visible.Count);
 
     /// <summary>A visible row.</summary>
     /// <param name="index">Which one, newest last.</param>
-    public ConsoleRow this[int index] => new(received[visible[index]], repeats[index]);
+    public ConsoleRow this[int index] => Observed(new ConsoleRow(received[visible[index]], repeats[index]));
 
     /// <summary>Every category seen since the console was cleared, in the order they first appeared.</summary>
-    public IReadOnlyList<string> Categories => categories;
+    public IReadOnlyList<string> Categories => Observed<IReadOnlyList<string>>(categories);
 
     /// <summary>How many errors have been received, whatever the filter says.</summary>
     /// <remarks>
@@ -205,16 +234,16 @@ public sealed class ConsoleModel {
     ///     whose warning badge went to zero would be one that cannot tell "there are no warnings"
     ///     from "warnings are hidden" — which is the entire question somebody clicks a badge to ask.
     /// </remarks>
-    public int Errors { get; private set; }
+    public int Errors => Observed(errors);
 
     /// <inheritdoc cref="Errors" />
-    public int Warnings { get; private set; }
+    public int Warnings => Observed(warnings);
 
     /// <inheritdoc cref="Errors" />
-    public int Infos { get; private set; }
+    public int Infos => Observed(infos);
 
     /// <inheritdoc cref="Errors" />
-    public int Verbose { get; private set; }
+    public int Verbose => Observed(verbose);
 
     /// <summary>How many records were logged faster than this could keep up with.</summary>
     /// <remarks>
@@ -249,7 +278,7 @@ public sealed class ConsoleModel {
 
         if (any) {
             Trim();
-            Changed?.Invoke(this);
+            Announce();
         }
 
         return any;
@@ -273,12 +302,12 @@ public sealed class ConsoleModel {
         categories.Clear();
         known.Clear();
 
-        Errors = 0;
-        Warnings = 0;
-        Infos = 0;
-        Verbose = 0;
+        errors = 0;
+        warnings = 0;
+        infos = 0;
+        verbose = 0;
 
-        Changed?.Invoke(this);
+        Announce();
     }
 
     /// <summary>Which of the four buttons a level belongs to.</summary>
@@ -295,19 +324,19 @@ public sealed class ConsoleModel {
 
         switch (BucketOf(record.Level)) {
             case ConsoleLevels.Error:
-                Errors++;
+                errors++;
                 break;
 
             case ConsoleLevels.Warning:
-                Warnings++;
+                warnings++;
                 break;
 
             case ConsoleLevels.Info:
-                Infos++;
+                infos++;
                 break;
 
             default:
-                Verbose++;
+                verbose++;
                 break;
         }
 
@@ -332,7 +361,7 @@ public sealed class ConsoleModel {
                 visible[row] = index;
                 repeats[row]++;
 
-                Changed?.Invoke(this);
+                Announce();
                 return;
             }
 
@@ -376,7 +405,7 @@ public sealed class ConsoleModel {
             }
         }
 
-        Changed?.Invoke(this);
+        Announce();
     }
 
     /// <summary>Drops the oldest records once the buffer is over capacity.</summary>
@@ -394,5 +423,20 @@ public sealed class ConsoleModel {
 
         received.RemoveRange(0, Math.Max(received.Count - Capacity, (int) (Capacity * TrimFraction)));
         Refilter();
+    }
+
+    /// <summary>A reading of this model, made a dependency of whatever binding is running.</summary>
+    /// <typeparam name="T">What is read.</typeparam>
+    /// <param name="value">The reading.</param>
+    /// <returns><paramref name="value" />, unchanged.</returns>
+    T Observed<T>(T value) {
+        _ = generation.Value;
+        return value;
+    }
+
+    /// <summary>Says the visible set changed, to a binding and to a subscriber alike.</summary>
+    void Announce() {
+        generation.Value++;
+        Changed?.Invoke(this);
     }
 }

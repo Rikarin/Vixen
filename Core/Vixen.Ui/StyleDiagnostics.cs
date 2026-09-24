@@ -181,6 +181,15 @@ public sealed partial class UiDocument {
     ///         answer are all in hand, and it is reached once per element per <i>change</i> rather
     ///         than per frame, which is what makes a linear scan of this list affordable.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Logged, and deliberately not in <see cref="Refusals" /></b> — the same call the
+    ///         seventh producer made, taken here one issue later. It was filed there at first, and
+    ///         <c>HotReloadHost</c> rolls back any saved sheet that adds an entry to that list, so a
+    ///         save adding <c>overflow: auto</c> to a plain box — well formed, applied, and clipping
+    ///         exactly as declared — was silently undone and reported as an error. A warning about
+    ///         what an applied declaration does not do is not a reason to refuse it. See
+    ///         <c>Rikarin/Vixen#1396</c>.
+    ///     </para>
     /// </remarks>
     readonly List<SelectorDiagnostic> overflowDiagnostics = [];
 
@@ -368,7 +377,7 @@ public sealed partial class UiDocument {
         return declared ?? "overflow: auto";
     }
 
-    /// <summary>Everything the document's six diagnostic producers are holding, as text.</summary>
+    /// <summary>Everything the document's five refusing producers are holding, as text.</summary>
     /// <returns>One entry per distinct refusal, in producer order.</returns>
     /// <remarks>
     ///     <para>
@@ -380,7 +389,7 @@ public sealed partial class UiDocument {
     ///         a successful reload while the panel it styled laid out as one row. See #583.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two of the five are empty until a pass has run, which is the whole reason this
+    ///         ⚠ <b>Three of the five are empty until a pass has run, which is the whole reason this
     ///         is not a one-line addition to that caller.</b> The loader's and the compiler's lists
     ///         are filled at load; the bridge's and the text resolver's are filled per element
     ///         during <see cref="Update" /> and the draw list's per frame during <see cref="Draw()" />.
@@ -394,7 +403,6 @@ public sealed partial class UiDocument {
         .. Styles.Compiler.Diagnostics.Select(diagnostic => diagnostic.ToString()),
         .. Builder.Diagnostics.Select(diagnostic => diagnostic.ToString()),
         .. textDiagnostics.Select(diagnostic => diagnostic.ToString()),
-        .. overflowDiagnostics.Select(diagnostic => diagnostic.ToString()),
         .. drawings.Diagnostics.Select(diagnostic => diagnostic.ToString())
     ];
 

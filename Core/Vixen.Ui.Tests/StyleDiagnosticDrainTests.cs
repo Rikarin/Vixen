@@ -747,8 +747,9 @@ public class StyleDiagnosticDrainTests {
         Assert.Contains("ScrollView", warning.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("refused", warning.Message, StringComparison.Ordinal);
 
-        // And it is in the document's own ledger, which is what a hot reload compares.
-        Assert.Contains(document.Refusals(), line => line.Contains("choice-list.tall", StringComparison.Ordinal));
+        // ⚠ And it is NOT in the document's ledger of refusals, which is what a hot reload compares:
+        // the declaration applied, and a save that adds one must not be rolled back (#1396).
+        Assert.DoesNotContain(document.Refusals(), line => line.Contains("choice-list.tall", StringComparison.Ordinal));
     }
 
     /// <summary>The clip the author asked for says nothing, and so does content that fits.</summary>

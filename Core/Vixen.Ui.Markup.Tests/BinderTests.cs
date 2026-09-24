@@ -876,6 +876,106 @@ public class BinderTests {
         Assert.DoesNotContain("VXML2028", ids);
     }
 
+    /// <summary>A row is a pool slot, not an item, so a <c>key</c> on it names nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Accepted silently before #1398.</b> The only key rules run for an <c>@for</c> root
+    ///     (<c>VXML2004</c>) or inside an <c>@for</c> (<c>VXML2011</c>), and a row is bound as neither.
+    ///     The last row is an <c>@rows</c> inside an <c>@for</c>'s body, where the loop's own rules
+    ///     are in force and still do not reach the row.
+    /// </remarks>
+    [Theory]
+    [InlineData("<VirtualizingPanel>@rows (var i in N) { <a key=\"@i\" /> }</VirtualizingPanel>")]
+    [InlineData("<VirtualizingPanel>@rows (var i in N) { <a key=\"@Stable\"><b /></a> }</VirtualizingPanel>")]
+    [InlineData("<div>@for (var x in Xs) { <VirtualizingPanel key=\"@x\">@rows (var i in N) { <a key=\"@x\" /> }</VirtualizingPanel> }</div>")]
+    public void A_key_on_a_rows_row_is_refused(string markup) =>
+        Assert.Contains("VXML2029", Ids("@component A\n" + markup));
+
+    /// <summary>
+    ///     A <c>ref</c> or a <c>refs</c> anywhere in a row is refused, and with advice that fits a row.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Before #1398 a plain <c>ref</c> was accepted</b> — assigned once per slot, so the
+    ///         last slot the pool made won — <b>and <c>refs</c> was refused by accident</b>, as the
+    ///         <c>@for</c> rule's <c>VXML2013</c>, whose message says "Write 'ref' instead": the
+    ///         same trap in the other spelling. Inside an <c>@for</c> body (the last three rows) the
+    ///         loop depth is positive, so <c>refs</c> was not refused at all and <c>ref</c> met the
+    ///         loop's rule rather than the row's.
+    ///     </para>
+    ///     <para>
+    ///         Anywhere in the row, not only on it: the whole subtree is made once per slot, so a
+    ///         <c>ref</c> three elements down is assigned exactly as often as one on the row.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("<VirtualizingPanel>@rows (var i in N) { <a ref=\"@Row\" /> }</VirtualizingPanel>")]
+    [InlineData("<VirtualizingPanel>@rows (var i in N) { <a><b><Button ref=\"@Save\" /></b></a> }</VirtualizingPanel>")]
+    [InlineData("<VirtualizingPanel>@rows (var i in N) { <a refs=\"@Rows\" /> }</VirtualizingPanel>")]
+    [InlineData("<VirtualizingPanel>@rows (var i in N) { <a>@for (var x in Xs) { <b key=\"@x\" refs=\"@Parts\" /> }</a> }</VirtualizingPanel>")]
+    [InlineData("<div>@for (var x in Xs) { <VirtualizingPanel key=\"@x\">@rows (var i in N) { <a refs=\"@Rows\" /> }</VirtualizingPanel> }</div>")]
+    [InlineData("<div>@for (var x in Xs) { <VirtualizingPanel key=\"@x\">@rows (var i in N) { <a ref=\"@Row\" /> }</VirtualizingPanel> }</div>")]
+    public void A_ref_anywhere_in_a_rows_row_is_refused_as_a_row_s(string markup) {
+        var ids = Ids("@component A\n" + markup);
+
+        Assert.Contains("VXML2030", ids);
+
+        // ⚠ And not as the loop rules: `VXML2013` says "Write 'ref' instead", which is the same trap.
+        Assert.DoesNotContain("VXML2013", ids);
+        Assert.DoesNotContain("VXML2010", ids);
+    }
+
+    /// <summary>One control, one pool: a second <c>@rows</c> would replace the first's delegates.</summary>
+    /// <remarks>
+    ///     <c>BuildContext.Pool</c> says "call it once per control" — a second call over the same host
+    ///     starts a fresh slot table, and every slot already made stops being rebound, so the list
+    ///     goes on scrolling and stops changing. Each block used to bind independently.
+    /// </remarks>
+    [Theory]
+    [InlineData("<VirtualizingPanel>@rows (var i in N) { <a /> } @rows (var j in M) { <b /> }</VirtualizingPanel>")]
+    [InlineData("<VirtualizingPanel>\n    @rows (var i in N) { <a /> }\n    <span />\n    @rows (var i in N) { <a /> }\n</VirtualizingPanel>")]
+    public void A_second_rows_in_one_control_is_refused(string markup) {
+        var diagnostics = Diagnostics("@component A\n" + markup);
+
+        // Once, and on the second: the first is the one that works.
+        var second = Assert.Single(diagnostics, d => d.Descriptor.Id == "VXML2031");
+        Assert.True(second.Location.SourceSpan.Start > markup.IndexOf("@rows", StringComparison.Ordinal) + "@component A\n".Length);
+    }
+
+    /// <summary>
+    ///     <c>VXML2029</c>, <c>VXML2030</c> and <c>VXML2031</c> are not reported for the shapes around a
+    ///     row that are right.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The instrument for the three theories above</b>, and each was proved by widening its
+    ///     rule until this went red: a key refused anywhere in the row reddens the nested
+    ///     <c>@for</c>'s required key; a <c>ref</c> refused from the control that hosts the rows
+    ///     reddens the <c>ref</c> on the panel; a second-block count kept across controls reddens the
+    ///     two panels.
+    /// </remarks>
+    [Fact]
+    public void VXML2029_2030_2031_are_not_reported_around_a_row_that_is_right() {
+        var ids = Ids(
+            "@component A\n"
+            + "<div>\n"
+            + "    <VirtualizingPanel ref=\"@List\">\n"
+            + "        @rows (var i in N) {\n"
+            + "            <a>@for (var x in Xs) { <b key=\"@x\" /> }</a>\n"
+            + "        }\n"
+            + "    </VirtualizingPanel>\n"
+            + "    <VirtualizingPanel ref=\"@Other\">\n"
+            + "        @rows (var j in M) { <c /> }\n"
+            + "    </VirtualizingPanel>\n"
+            + "</div>"
+        );
+
+        Assert.Empty(ids);
+    }
+
+    static ImmutableArray<Diagnostic> Diagnostics(string source) {
+        _ = Binder.Bind(Vxml.Parse(source), out var diagnostics);
+        return [.. diagnostics];
+    }
+
     static ImmutableArray<string> Ids(string source) {
         _ = Binder.Bind(Vxml.Parse(source), out var diagnostics);
         return [.. diagnostics.Select(d => d.Descriptor.Id)];

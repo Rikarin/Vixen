@@ -635,6 +635,74 @@ public class ConsoleViewTests : IDisposable {
         Assert.Contains(string.Empty, values);
     }
 
+    /// <summary>
+    ///     ⚠ <b>Settled first, then logged</b> — which is the order an editor session runs in, and the
+    ///     one every other test here does not.
+    /// </summary>
+    /// <remarks>
+    ///     The rest of this class logs before its first frame, so the first pass that builds the rows
+    ///     already sees every line; a view whose bindings never heard the model change passes all of
+    ///     them. Since #758 the rows are an <c>@rows</c> block over <c>ConsoleModel</c>'s generation
+    ///     signal, and a model that stopped moving it left the console showing its first frame for
+    ///     ever — caught by <c>ConsoleViewDumpTests</c> alone until this case.
+    /// </remarks>
+    [Fact]
+    public void A_line_logged_after_the_console_has_settled_reaches_a_row_and_a_badge() {
+        Frame();
+
+        var errors = Assert.Single(
+            view.Toolbar.Children.OfType<ToggleButton>(),
+            button => button.HasClass("console-level") && button.HasClass("level-error")
+        );
+
+        Assert.Null(view.List.RowOf(0));
+        Assert.Equal("0", errors.Label);
+
+        Log(LogLevel.Error, "first");
+        Frame();
+
+        Assert.Equal("first", view.List.RowOf(0)?.Children[3].Text);
+        Assert.Equal("1", errors.Label);
+
+        Log(LogLevel.Error, "second");
+        Frame();
+
+        Assert.Equal("second", view.List.RowOf(1)?.Children[3].Text);
+        Assert.Equal("2", errors.Label);
+    }
+
+    /// <summary>
+    ///     A reopened console labels the categories it inherits the way it labels the ones that arrive
+    ///     later: by the last segment of the type name.
+    /// </summary>
+    /// <remarks>
+    ///     <c>EditorApplication</c> keeps one <c>ConsoleModel</c> and builds a new view each time the
+    ///     panel is reopened, so the second view's picker starts from a model that already holds
+    ///     categories. <c>Show</c> used to add those under their full name while <c>Grow</c> added
+    ///     later ones short, so one picker read <c>Vixen.Editor.Tests</c> beside <c>Other</c>.
+    /// </remarks>
+    [Fact]
+    public void A_reopened_console_labels_the_categories_it_inherits_as_it_labels_new_ones() {
+        var shared = new ConsoleModel(sink);
+
+        Log(LogLevel.Information, "one");
+        shared.Pull();
+
+        var reopened = document.Root.Add<ConsoleView>();
+        reopened.Show(shared);
+
+        sink.CreateLogger("Vixen.Other").Log(LogLevel.Information, default, "two", null, static (state, _) => state);
+        reopened.Tick();
+        document.Update();
+
+        var labels = reopened.Categories.Options
+            .Where(option => !string.IsNullOrEmpty(option.Value))
+            .Select(option => $"{option.Value}={option.Label}")
+            .ToList();
+
+        Assert.Equal(["Vixen.Editor.Tests=Tests", "Vixen.Other=Other"], labels);
+    }
+
     static IEnumerable<string> Texts(UiElement element) {
         if (element.Text is { Length: > 0 } text) {
             yield return text;
