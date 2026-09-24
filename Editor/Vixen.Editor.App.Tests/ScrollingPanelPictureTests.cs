@@ -282,11 +282,14 @@ public sealed class ScrollingPanelPictureTests {
         var view = Find<Vixen.Editor.AssetEditors.Scenes.CompiledSceneView>(fixture.Document.Root)
             ?? throw fixture.Fail("the scene document built no compiled view");
 
-        // Into the document the tab is showing. The pane keeps it private, and the editor's current
-        // scene is not it: a first cut wrote into `EditorSession.Scene` and compiled four blocks.
+        // Into the document the tab is showing. ⚠ A first cut wrote into `EditorSession.Scene` and
+        // compiled four blocks, because opening the scene file built a second document over it
+        // (#1395). It is the editor's own scene now, and the reflection stays to say so.
         var scene = (Vixen.Editor.SceneView.SceneDocument)typeof(Vixen.Editor.AssetEditors.Scenes.CompiledSceneView)
             .GetField("document", BindingFlags.NonPublic | BindingFlags.Instance)!
             .GetValue(view)!;
+
+        Assert.Same(fixture.Scene, scene);
 
         for (var mask = 1; mask < 32; mask++) {
             var entity = scene.Create($"Combination {mask}", Vixen.Engine.Transforms.LocalTransform.Identity);
