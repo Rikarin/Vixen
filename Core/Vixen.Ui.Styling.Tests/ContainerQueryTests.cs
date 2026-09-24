@@ -254,6 +254,89 @@ public class ContainerQueryTests {
         Assert.Equal("tall", fixture.Value(fixture.Tree.CreateElement("div", both, classNames: ["leaf"])));
     }
 
+    /// <summary>
+    ///     ⚠ A container that cannot answer every feature is skipped, and the query asks the next one
+    ///     up that can (#1429).
+    /// </summary>
+    /// <remarks>
+    ///     CSS Containment 3 § 5.1: the container a query asks is the nearest ancestor that is a valid
+    ///     query container for every feature in it. The walk used to stop at the first non-<c>normal</c>
+    ///     box, so a block-axis query under an <c>inline-size</c> container resolved <c>false</c> however
+    ///     tall the <c>size</c> container above it was. Each row is the same two boxes — an outer
+    ///     <c>size</c> container and an inner <c>inline-size</c> one 100 wide and 50 tall — with only the
+    ///     outer box's size changed, so a row that flips can only have read the outer box. The width
+    ///     rows are the control: a width query is answerable by the inner box, so it must still stop
+    ///     there, and <c>(max-width: 400px)</c> holds off the inner 100 and not the outer 900.
+    /// </remarks>
+    [Theory]
+    [InlineData("(min-height: 200px)", 900f, 900f, true)]
+    [InlineData("(min-height: 200px)", 900f, 150f, false)]
+    [InlineData("(min-block-size: 200px)", 900f, 900f, true)]
+    [InlineData("(height >= 200px)", 900f, 900f, true)]
+    [InlineData("(orientation: portrait)", 300f, 900f, true)]
+    [InlineData("(orientation: portrait)", 900f, 300f, false)]
+    [InlineData("(min-aspect-ratio: 2/1)", 900f, 300f, true)]
+    [InlineData("(min-aspect-ratio: 2/1)", 300f, 900f, false)]
+    [InlineData("(min-width: 400px) and (min-height: 200px)", 900f, 900f, true)]
+    [InlineData("(max-width: 400px) and (min-height: 200px)", 900f, 900f, false)]
+    [InlineData("(max-width: 400px)", 900f, 900f, true)]
+    [InlineData("(min-width: 400px)", 900f, 900f, false)]
+    // ⚠ A feature after `or` counts as much as one after `and`: the inner box can answer the width
+    // half, and would, if the requirement were read off the first feature only.
+    [InlineData("(max-width: 50px) or (min-height: 200px)", 900f, 900f, true)]
+    [InlineData("(max-width: 50px) or (min-height: 200px)", 900f, 150f, false)]
+    [InlineData("not (min-height: 200px)", 900f, 150f, true)]
+    [InlineData("not (min-height: 200px)", 900f, 900f, false)]
+    public void A_query_skips_a_container_that_cannot_answer_every_feature(
+        string condition,
+        float outerWidth,
+        float outerHeight,
+        bool matches
+    ) {
+        var fixture = new CascadeFixture();
+        fixture.Load($"@container {condition} {{ .leaf {{ color: asked }} }}");
+
+        Assert.Empty(fixture.Engine.Loader.Diagnostics);
+
+        var outer = fixture.Tree.CreateElement("div");
+        fixture.Contain(outer, width: outerWidth, height: outerHeight, kind: ContainerKind.Size);
+
+        var inner = fixture.Tree.CreateElement("div", outer);
+        fixture.Contain(inner, width: 100f, height: 50f, kind: ContainerKind.InlineSize);
+
+        var leaf = fixture.Tree.CreateElement("div", inner, classNames: ["leaf"]);
+
+        Assert.Equal(matches ? "asked" : null, fixture.Value(leaf));
+    }
+
+    /// <summary>
+    ///     The skip happens before the name is looked at: an <c>inline-size</c> box carrying the name is
+    ///     not the container a height query with that name asks (#1429).
+    /// </summary>
+    [Fact]
+    public void A_named_height_query_skips_a_named_inline_size_container() {
+        var fixture = new CascadeFixture();
+        fixture.Load("@container card (min-height: 200px) { .leaf { color: tall-card } }");
+
+        var outer = fixture.Tree.CreateElement("div");
+        fixture.Contain(outer, width: 900f, height: 900f, name: "card", kind: ContainerKind.Size);
+
+        var inner = fixture.Tree.CreateElement("div", outer);
+        fixture.Contain(inner, width: 900f, height: 50f, name: "card", kind: ContainerKind.InlineSize);
+
+        Assert.Equal("tall-card", fixture.Value(fixture.Tree.CreateElement("div", inner, classNames: ["leaf"])));
+
+        // With no `size` card above it, there is no eligible container and the query is false — the
+        // skip is not a fall-through to "true".
+        var alone = new CascadeFixture();
+        alone.Load("@container card (min-height: 200px) { .leaf { color: tall-card } }");
+
+        var only = alone.Tree.CreateElement("div");
+        alone.Contain(only, width: 900f, height: 900f, name: "card", kind: ContainerKind.InlineSize);
+
+        Assert.Null(alone.Value(alone.Tree.CreateElement("div", only, classNames: ["leaf"])));
+    }
+
     [Fact]
     public void A_query_with_no_eligible_container_above_it_matches_nothing() {
         // CSS Containment 3 § 5.1: no container to ask is false, not an error and not a match.
@@ -298,6 +381,77 @@ public class ContainerQueryTests {
         refused.Contain(refusedBox, width: 900f);
 
         Assert.Null(refused.Value(refused.Tree.CreateElement("div", refusedBox, classNames: ["leaf"])));
+    }
+
+    /// <summary>
+    ///     ⚠ <c>@container not (…)</c> negates, and it used to be a query for a container called
+    ///     <c>not</c> (#273).
+    /// </summary>
+    /// <remarks>
+    ///     ExCSS reads the first word of the prelude as the name, so the rule loaded with no diagnostic,
+    ///     asked for a box named <c>not</c>, which CSS forbids as a name and no box carries, and never
+    ///     applied. The three boxes are the whole truth table: narrow is a match, wide is not, and no
+    ///     container at all is unknown, which does not negate into a match.
+    /// </remarks>
+    [Fact]
+    public void A_negated_size_query_negates_and_is_not_a_container_named_not() {
+        var fixture = new CascadeFixture();
+        fixture.Load("@container not (min-width: 400px) { .leaf { color: narrow } }");
+
+        Assert.Empty(fixture.Engine.Loader.Diagnostics);
+
+        var narrow = fixture.Tree.CreateElement("div");
+        fixture.Contain(narrow, width: 300f);
+
+        var wide = fixture.Tree.CreateElement("div");
+        fixture.Contain(wide, width: 900f);
+
+        Assert.Equal("narrow", fixture.Value(fixture.Tree.CreateElement("div", narrow, classNames: ["leaf"])));
+        Assert.Null(fixture.Value(fixture.Tree.CreateElement("div", wide, classNames: ["leaf"])));
+        Assert.Null(fixture.Value(fixture.Tree.CreateElement("div", classNames: ["leaf"])));
+    }
+
+    /// <summary>
+    ///     ⚠ <c>or</c> joins size features, and every such query used to be refused as "'not all' is
+    ///     not a container feature" (#273).
+    /// </summary>
+    /// <remarks>
+    ///     ExCSS does not know <c>or</c> in a container prelude and hands its condition over as
+    ///     <c>not all</c>, so the loader re-reads the source text. Named and unnamed, each row on both
+    ///     sides of both halves.
+    /// </remarks>
+    [Theory]
+    [InlineData("", 500f, 100f, true)]
+    [InlineData("", 300f, 500f, true)]
+    [InlineData("", 300f, 100f, false)]
+    [InlineData("card ", 500f, 100f, true)]
+    [InlineData("card ", 300f, 100f, false)]
+    public void Or_joins_size_features(string name, float width, float height, bool matches) {
+        var fixture = new CascadeFixture();
+        fixture.Load($"@container {name}(min-width: 400px) or (min-height: 400px) {{ .leaf {{ color: either }} }}");
+
+        Assert.Empty(fixture.Engine.Loader.Diagnostics);
+
+        var box = fixture.Tree.CreateElement("div");
+        fixture.Contain(box, width: width, height: height, name: name.Trim(), kind: ContainerKind.Size);
+
+        Assert.Equal(matches ? "either" : null, fixture.Value(fixture.Tree.CreateElement("div", box, classNames: ["leaf"])));
+    }
+
+    /// <summary>What the grammar still refuses, each with a reason, and the names CSS reserves.</summary>
+    [Theory]
+    [InlineData("@container (min-width: 1px) and (max-width: 9px) or (min-height: 1px) { .leaf { color: x } }", "cannot be mixed")]
+    [InlineData("@container not (min-width: 1px) and (max-width: 9px) { .leaf { color: x } }", "'not' applies to one feature")]
+    [InlineData("@container ((min-width: 1px) and (max-width: 9px)) { .leaf { color: x } }", "parenthesised group")]
+    [InlineData("@container (min-width: 1px) xor (max-width: 9px) { .leaf { color: x } }", "does not join")]
+    [InlineData("@container none (min-width: 1px) { .leaf { color: x } }", "'none' cannot be a container name")]
+    [InlineData("@container or (min-width: 1px) or (max-width: 9px) { .leaf { color: x } }", "'or' cannot be a container name")]
+    public void A_size_query_this_grammar_cannot_read_is_a_diagnostic(string css, string because) {
+        var fixture = new CascadeFixture();
+        fixture.Load(css);
+
+        var diagnostic = Assert.Single(fixture.Engine.Loader.Diagnostics);
+        Assert.Contains(because, diagnostic.Reason, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -423,6 +577,15 @@ public class ContainerQueryTests {
     // The boolean form, and a unit that is not pixels.
     [InlineData("(width)", 500f, 100f, ContainerKind.Size, true)]
     [InlineData("(width)", 0f, 100f, ContainerKind.Size, false)]
+    // Disjunction and negation (#273).
+    [InlineData("(min-width: 400px) or (min-height: 400px)", 500f, 100f, ContainerKind.Size, true)]
+    [InlineData("(min-width: 400px) or (min-height: 400px)", 300f, 500f, ContainerKind.Size, true)]
+    [InlineData("(min-width: 400px) or (min-height: 400px)", 300f, 100f, ContainerKind.Size, false)]
+    [InlineData("not (min-width: 400px)", 300f, 100f, ContainerKind.Size, true)]
+    [InlineData("not (min-width: 400px)", 500f, 100f, ContainerKind.Size, false)]
+    [InlineData("NOT (min-width: 400px)", 300f, 100f, ContainerKind.Size, true)]
+    // ⚠ A feature the box cannot answer is unknown, and `not` does not turn unknown into a match.
+    [InlineData("not (min-height: 400px)", 300f, 100f, ContainerKind.InlineSize, false)]
     public void Size_features_evaluate(
         string condition,
         float width,

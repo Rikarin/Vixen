@@ -129,11 +129,9 @@ public class ContainerStyleQueryTests {
     }
 
     [Theory]
-    // ⚠ Mixed with a size feature by `or`. Both halves would be asked of one box, but they are answered
-    // in two places (the size half by `ContainerScopes`, the style half by the cascade) and joined as
-    // a nested group, which is a conjunction. `and` splits cleanly into two groups and `or` does not.
-    [InlineData("@container (min-width: 400px) or style(--variant: primary) { .leaf { color: x } }", "'or'")]
-    [InlineData("@container style(--variant: primary) or (min-width: 400px) { .leaf { color: x } }", "'or'")]
+    // Mixed with a size feature by `or` is answered now (#273, `Or_across_the_halves_…` below), but
+    // not mixed with `and` as well: that is the precedence rule again, across the halves.
+    [InlineData("@container (min-width: 400px) or style(--a: 1) and style(--b: 1) { .leaf { color: x } }", "mixed without parentheses")]
     // A size half that does not read is refused for the reason a size query alone would be.
     [InlineData("@container (min-width: 30furlongs) and style(--variant: primary) { .leaf { color: x } }", "30furlongs")]
     // `not` over a mixed list is the list rule, whichever half it would negate.
@@ -350,6 +348,72 @@ public class ContainerStyleQueryTests {
         Assert.Equal("named", fixture.Value(leaf));
     }
 
+    /// <summary>A chain of <paramref name="depth" /> elements each with a sibling, under a sheet with one named <c>style()</c> rule.</summary>
+    /// <returns>The fixture, after one whole-document resolve, and the deepest element.</returns>
+    static (CascadeFixture Fixture, StyleNodeId Deepest) DeepTree(string sheet, int depth, string[] deepestClasses) {
+        var fixture = new CascadeFixture();
+        fixture.Load(sheet);
+
+        var at = fixture.Tree.CreateElement("div", classNames: ["card", "primary"]);
+
+        for (var i = 1; i < depth; i++) {
+            fixture.Tree.CreateElement("span", at, classNames: ["item"]);
+            at = fixture.Tree.CreateElement("div", at, classNames: i == depth - 1 ? deepestClasses : ["item"]);
+        }
+
+        return (fixture, at);
+    }
+
+    /// <summary>
+    ///     ⚠ A named <c>style()</c> query that no element's candidates include collects no ancestor
+    ///     chain, however deep the tree (#1421).
+    /// </summary>
+    /// <remarks>
+    ///     The resolver used to key the collection on the document-wide flag, so one named query in any
+    ///     sheet made every element of every restyle allocate its whole ancestor chain. That was
+    ///     <c>elements × depth</c> slots. The count is a deterministic counter, not a time. Every
+    ///     element here is cascaded, as <c>Cascades</c> shows, so the old code collected once per
+    ///     element and this one collects nothing, because no element is a <c>.never</c>.
+    /// </remarks>
+    [Fact]
+    public void A_named_style_query_no_candidate_reaches_collects_no_ancestor_chain() {
+        const string sheet = """
+            .card { container-name: card; }
+            .primary { --variant: primary; }
+            .item { color: plain; }
+            @container card style(--variant: primary) { .never { color: named; } }
+            """;
+
+        var (fixture, deepest) = DeepTree(sheet, 24, ["item"]);
+        var resolver = fixture.Engine.Resolver;
+        var before = resolver.Cascades;
+        var styles = fixture.Engine.ResolveAll();
+
+        Assert.True(resolver.Cascades - before >= 24, $"only {resolver.Cascades - before} cascades ran");
+        Assert.Equal("plain", fixture.Read(styles[deepest.Index], "color"));
+        Assert.Equal(0, resolver.AncestorCollections);
+    }
+
+    /// <summary>
+    ///     And an element whose candidates do include such a rule still collects its chain, once, and
+    ///     is answered from it: the laziness is per element, not a switch that turned the query off.
+    /// </summary>
+    [Fact]
+    public void Only_the_element_a_named_style_rule_can_reach_collects_its_chain() {
+        const string sheet = """
+            .card { container-name: card; }
+            .primary { --variant: primary; }
+            .item { color: plain; }
+            @container card style(--variant: primary) { .leaf { color: named; } }
+            """;
+
+        var (fixture, deepest) = DeepTree(sheet, 24, ["leaf"]);
+        var styles = fixture.Engine.ResolveAll();
+
+        Assert.Equal("named", fixture.Read(styles[deepest.Index], "color"));
+        Assert.Equal(1, fixture.Engine.Resolver.AncestorCollections);
+    }
+
     /// <summary>
     ///     The mixed form: a size feature and a <c>style()</c> feature joined by <c>and</c>, both asked
     ///     of one box, the nearest <i>size</i> container (#273).
@@ -448,6 +512,115 @@ public class ContainerStyleQueryTests {
         // this row is about the style half's eligibility rule on its own.
         var (plain, plainLeaf) = MixedScene(900f, ["card", "primary"], []);
         Assert.Null(plain.Read(plainLeaf, "background-color"));
+    }
+
+    /// <summary>
+    ///     ⚠ <c>or</c> across the halves holds when either does, and both halves still ask the one
+    ///     size container (#273).
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         This was refused as having "no single place to be answered". CSS Containment 3 § 5.1
+    ///         gives it one: the nearest container eligible for every feature, the element the
+    ///         <c>and</c> form asks. The size group is registered beside the style group, and the
+    ///         cascade reads its verdict as a disjunct.
+    ///     </para>
+    ///     <para>
+    ///         The fourth row puts the opposite value on the element between, so a style half that
+    ///         read the parent would hold there. The last two rows have no size container at all,
+    ///         only a <c>primary</c> parent: that query is unknown and does not apply, which a style
+    ///         half that fell back to the parent would get wrong.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(900f, "secondary", "", true)]
+    [InlineData(300f, "primary", "", true)]
+    [InlineData(300f, "secondary", "", false)]
+    [InlineData(300f, "secondary", "primary", false)]
+    [InlineData(300f, "primary", "secondary", true)]
+    public void Or_across_the_halves_holds_when_either_half_does(float width, string variant, string between, bool holds) {
+        const string sheet = """
+            .sized { container-type: inline-size; }
+            .card { container-name: card; }
+            .primary { --variant: primary; }
+            .secondary { --variant: secondary; }
+            @container (min-width: 400px) or style(--variant: primary) { .leaf { color: either; } }
+            @container style(--variant: primary) or (min-width: 400px) { .leaf { border-color: reversed; } }
+            @container card (min-width: 400px) or style(--variant: primary) { .leaf { background-color: named-either; } }
+            """;
+
+        var fixture = new CascadeFixture();
+        fixture.Load(sheet);
+
+        Assert.Empty(fixture.Engine.Loader.Diagnostics);
+
+        var box = fixture.Tree.CreateElement("div", classNames: ["sized", "card", variant]);
+        fixture.Contain(box, width, name: "card");
+
+        var middle = fixture.Tree.CreateElement("div", box, classNames: between.Length == 0 ? [] : [between]);
+        var leaf = fixture.Tree.CreateElement("div", middle, classNames: ["leaf"]);
+        var style = fixture.Engine.ResolveAll()[leaf.Index];
+
+        Assert.Equal(holds ? "either" : null, fixture.Read(style, "color"));
+        Assert.Equal(holds ? "reversed" : null, fixture.Read(style, "border-color"));
+        Assert.Equal(holds ? "named-either" : null, fixture.Read(style, "background-color"));
+    }
+
+    /// <summary>With no eligible container, <c>or</c> across the halves is unknown and does not apply.</summary>
+    [Fact]
+    public void Or_across_the_halves_with_no_size_container_does_not_apply() {
+        var fixture = new CascadeFixture();
+        fixture.Load("""
+            .primary { --variant: primary; }
+            @container (min-width: 400px) or style(--variant: primary) { .leaf { color: either; } }
+            """);
+
+        var parent = fixture.Tree.CreateElement("div", classNames: ["primary"]);
+        var leaf = fixture.Tree.CreateElement("div", parent, classNames: ["leaf"]);
+
+        Assert.Null(fixture.Read(fixture.Engine.ResolveAll()[leaf.Index], "color"));
+    }
+
+    /// <summary>
+    ///     ⚠ A mixed query whose size half reads the block axis asks the nearest <c>size</c> container
+    ///     for both halves, past a nearer <c>inline-size</c> one (#1429).
+    /// </summary>
+    /// <remarks>
+    ///     The inner box is an <c>inline-size</c> container declaring the opposite value. It cannot
+    ///     answer <c>(min-height: …)</c>, so CSS Containment 3 § 5.1 skips it, and both halves have to
+    ///     skip it: a size half that stopped there resolved false, and a style half that stopped there
+    ///     read <c>secondary</c>. The second scene is the control, with the values swapped, so a style
+    ///     half that read the inner box would hold there and the rule would wrongly apply.
+    /// </remarks>
+    [Fact]
+    public void A_block_axis_mixed_query_asks_the_size_container_past_an_inline_size_one() {
+        const string sheet = """
+            .inline { container-type: inline-size; }
+            .both { container-type: size; }
+            .primary { --variant: primary; }
+            .secondary { --variant: secondary; }
+            @container (min-height: 200px) and style(--variant: primary) { .leaf { color: tall-primary; } }
+            """;
+
+        var asked = new CascadeFixture();
+        asked.Load(sheet);
+        Assert.Empty(asked.Engine.Loader.Diagnostics);
+        Assert.Equal("tall-primary", asked.Read(Leaf(asked, "primary", "secondary"), "color"));
+
+        var swapped = new CascadeFixture();
+        swapped.Load(sheet);
+        Assert.Null(swapped.Read(Leaf(swapped, "secondary", "primary"), "color"));
+
+        static ComputedStyle Leaf(CascadeFixture fixture, string outerVariant, string innerVariant) {
+            var outer = fixture.Tree.CreateElement("div", classNames: ["both", outerVariant]);
+            fixture.Contain(outer, 900f, 900f, kind: ContainerKind.Size);
+
+            var inner = fixture.Tree.CreateElement("div", outer, classNames: ["inline", innerVariant]);
+            fixture.Contain(inner, 900f, 50f, kind: ContainerKind.InlineSize);
+
+            var leaf = fixture.Tree.CreateElement("div", inner, classNames: ["leaf"]);
+            return fixture.Engine.ResolveAll()[leaf.Index];
+        }
     }
 
     /// <summary>

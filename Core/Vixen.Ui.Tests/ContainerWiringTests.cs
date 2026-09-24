@@ -498,6 +498,39 @@ public class ContainerWiringTests {
         Assert.Equal(60f, inBoth.Width, 0.001f);
     }
 
+    /// <summary>
+    ///     ⚠ A block-axis query under an <c>inline-size</c> container asks the <c>size</c> container
+    ///     above it, in a live document (#1429).
+    /// </summary>
+    /// <remarks>
+    ///     CSS Containment 3 § 5.1: the container asked is the nearest one valid for every feature, so
+    ///     the inner <c>inline-size</c> box is skipped. The two outer heights straddle the query's 200,
+    ///     so the pair proves the answer is the outer box's height rather than a skip that always
+    ///     holds; before the fix both were 10, because the walk stopped at the inner box and the query
+    ///     resolved false.
+    /// </remarks>
+    [Theory]
+    [InlineData(300f, 60f)]
+    [InlineData(150f, 10f)]
+    public void A_height_query_under_an_inline_size_container_asks_the_size_container_above_it(
+        float outerHeight,
+        float expected
+    ) {
+        using var document = Document($$"""
+            root { width: 1000px; height: 600px; flex-direction: column; }
+            .both { container-type: size; width: 500px; height: {{outerHeight}}px; }
+            .inline { container-type: inline-size; width: 400px; }
+            .body { width: 10px; height: 10px; }
+            @container (min-height: 200px) { .body { width: 60px; } }
+            """);
+
+        var body = document.Root.Add("div", classNames: "both").Add("div", classNames: "inline").Add("div", classNames: "body");
+
+        document.Update();
+
+        Assert.Equal(expected, body.Width, 0.001f);
+    }
+
     /// <summary>⚠ The <c>container</c> shorthand is read, and a name on its own is not a container.</summary>
     /// <remarks>
     ///     ExCSS expands no shorthand, so <c>container: card / inline-size</c> arrives as one
@@ -770,6 +803,49 @@ public class ContainerWiringTests {
         card.AddClass("narrow");
         document.Update();
         Assert.Equal(300f, card.Width, 0.001f);
+        Assert.Equal(10f, label.Width, 0.001f);
+    }
+
+    /// <summary>
+    ///     ⚠ <c>(min-width: …) or style(…)</c> holds when either half does, through a live document,
+    ///     and follows each half's edge on its own (#273).
+    /// </summary>
+    /// <remarks>
+    ///     The same card as the <c>and</c> test above, the same <c>.inner</c> override between. Four
+    ///     states, each reached by one edit, and each half is the only one holding in one of them: wide
+    ///     and <c>secondary</c> holds by the box, narrow and <c>primary</c> by the style, narrow and
+    ///     <c>secondary</c> by neither. Before this landed the sheet was refused at load and every state
+    ///     read 10.
+    /// </remarks>
+    [Fact]
+    public void An_or_mixed_query_follows_either_half_in_a_live_document() {
+        using var document = Document("""
+            root { width: 1000px; height: 600px; flex-direction: column; }
+            .card { container-type: inline-size; width: 450px; height: 100px; flex-direction: column; }
+            .card.narrow { width: 300px; }
+            .primary { --variant: primary; }
+            .inner { --variant: secondary; flex-direction: column; }
+            .label { width: 10px; height: 10px; }
+            @container (min-width: 400px) or style(--variant: primary) { .label { width: 300px; } }
+            """);
+
+        Assert.Empty(document.Styles.Loader.Diagnostics);
+
+        var card = document.Root.Add("div", classNames: ["card"]);
+        var label = card.Add("div", classNames: "inner").Add("div", classNames: "label");
+        document.Update();
+        Assert.Equal(300f, label.Width, 0.001f);
+
+        card.AddClass("narrow");
+        document.Update();
+        Assert.Equal(10f, label.Width, 0.001f);
+
+        card.AddClass("primary");
+        document.Update();
+        Assert.Equal(300f, label.Width, 0.001f);
+
+        card.RemoveClass("primary");
+        document.Update();
         Assert.Equal(10f, label.Width, 0.001f);
     }
 
