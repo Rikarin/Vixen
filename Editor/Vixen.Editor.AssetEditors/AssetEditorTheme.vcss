@@ -221,6 +221,16 @@ image.texture-preview {
     border-radius: var(--radius-control, 4px);
 }
 
+/* The Texture tab's scroller (#1393): the preview, the facts, the mip ladder and the import
+   settings under it, in a tab bound to the document's height. A plain `scroll-view` with a class
+   rather than a tag of its own, so the user-agent rule's clip and anchor stay (#1327).
+   ⚠ It needs no sizing rule, unlike `sprite-list`, and that was measured rather than assumed: with
+   `flex-grow`, `flex-basis: 0px` and `min-height: 0` each taken away, and then all three, the tab
+   still scrolled to the last setting. It is the tab panel's only child, not one of several sharing
+   a column, and a box that clips has no content-sized minimum to hold it open. The gutter is the
+   bar's width, since the bar is drawn over the port and the ladder's selected row runs to the edge. */
+scroll-view.texture-page > scroll-content { padding-right: 10px; }
+
 texture-channels { flex-direction: row; gap: 4px; }
 texture-ladder { flex-direction: column; }
 
