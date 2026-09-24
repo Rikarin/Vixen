@@ -1217,7 +1217,19 @@ console-level-mark.level-verbose { background-color: var(--border); }
 
 console-time { width: 74px; flex-shrink: 0; color: var(--text-muted); font-size: 0.9em; }
 console-category { width: 112px; flex-shrink: 0; color: var(--text-muted); overflow: hidden; }
-console-message { flex-grow: 1; overflow: hidden; }
+/* ⚠ One line per record, and the line is the row's whole height. Every row
+   is a pool slot exactly `--row-height` tall, placed at a multiple of it,
+   so a message that wraps is taller than its slot, is centred on it, and
+   draws over the rows above and below — `overflow: hidden` here only ever
+   clipped to the message's own box, which had grown with it (#1391). The
+   rest of a long record is what the detail pane is for. */
+console-message {
+    flex-grow: 1;
+    min-width: 0px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
 
 console-repeats {
     flex-shrink: 0;
