@@ -176,11 +176,26 @@ opening for a locale, a currency, a percentage or a group separator. `Format` an
 opening:
 
 ```csharp no-compile="a fragment; `field` is a NumericInput"
-field.Culture = CultureInfo.GetCultureInfo("de-DE");
+var german = (CultureInfo) CultureInfo.InvariantCulture.Clone();
+german.NumberFormat.NumberDecimalSeparator = ",";
+german.NumberFormat.NumberGroupSeparator = ".";
+german.NumberFormat.CurrencyDecimalSeparator = ",";
+german.NumberFormat.CurrencyGroupSeparator = ".";
+german.NumberFormat.CurrencySymbol = "€";
+german.NumberFormat.PercentDecimalSeparator = ",";
+
+field.Culture = german;
 field.Format = "N2";        // 1.234,50
 field.Format = "C2";        // a currency amount, symbol and all
 field.Format = "P0";        // a percentage, stored as a fraction
 ```
+
+⚠ **The locale is built, not looked up.** This repository builds with `InvariantGlobalization`, and
+the web head turns it on for applications too, so `CultureInfo.GetCultureInfo("de-DE")` throws
+`CultureNotFoundException` there rather than returning Germany. A clone of the invariant culture with
+the separators written out works in both modes and says exactly what the field will print, which a
+named culture — whose separators move between ICU versions — does not. An application built without
+invariant globalization may look one up; one that also ships to the web may not.
 
 `Format` is a .NET numeric format string and `Culture` is the locale it is applied in; `null` for
 either means what the field did before — `F{Decimals}`, invariant. `Decimals` is still the simple

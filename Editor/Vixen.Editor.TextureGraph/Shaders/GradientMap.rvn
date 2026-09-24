@@ -6,7 +6,7 @@ package Vixen.Editor.TextureGraph.Shaders
 // Grey through a colour ramp — doc 48 § 4.2's `Gradient Map`, and § 4.1's note that this is
 // **`GradientEditor`'s first production consumer**.
 //
-// ⚠ **That claim used to cite `overview.md:270`, and that line now says something else entirely.**
+// ⚠ **That claim used to cite `overview.md:270@d9e7d960e`, and that line now says something else entirely.**
 // The row there is "Undo inside controls", and what it records about `GradientEditor` is the
 // opposite of a control with no consumer: `Samples/02-HelloUi/Panels/Gallery.vxml` builds one, and
 // wiring the control into *this* editor is a recorded refusal — there is no gradient asset, and

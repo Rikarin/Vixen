@@ -131,7 +131,7 @@ public class CrossCompilationTests {
     ///         half SPIRV-Cross already handles, by dropping the qualifier when separate shader
     ///         objects are off. ⚠ What it does <em>not</em> do, and what this suite believed it did,
     ///         is rename. Raven emits <c>out_normalWS</c> in the producing stage and
-    ///         <c>in_normalWS</c> in the consuming one (<c>GlslEmitter.cs:550,567</c>), and both
+    ///         <c>in_normalWS</c> in the consuming one (<c>GlslEmitter.cs:611,628</c>), and both
     ///         stages compiled perfectly well with names that could never link.
     ///     </para>
     ///     <para>

@@ -170,7 +170,7 @@ public class OverflowLedgerTests {
     ///     <para>
     ///         ⚠ <b><c>overflow-y-auto</c> is a real class here and produces the identical
     ///         unreachable tail.</b> The utility families register all five keywords on all three
-    ///         properties (<c>UtilityFamilies.cs:2648</c>), so
+    ///         properties (<c>UtilityFamilies.cs:2868</c>), so
     ///         <c>class="overflow-y-auto"</c> on a panel asks for exactly what the sixteen ledger
     ///         rules ask for — and the ledger above, which parses <c>.vcss</c> rule blocks, would
     ///         stay green while the box clipped. Only the run-time 7009 line would say so.
@@ -246,7 +246,7 @@ public class OverflowLedgerTests {
     /// <summary>Every scrolling utility class named in a source file, once each.</summary>
     /// <remarks>
     ///     Comments first, in all three spellings this tree writes them, so prose <i>about</i> the
-    ///     class is not read as a use of it: <c>UtilityFamilies.cs:2648</c> names
+    ///     class is not read as a use of it: <c>UtilityFamilies.cs:2868</c> names
     ///     <c>overflow-auto</c> while explaining what it used to be, and is the only place in
     ///     production that says the word at all.
     /// </remarks>

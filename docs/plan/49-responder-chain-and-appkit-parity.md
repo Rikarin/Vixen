@@ -45,7 +45,7 @@ open rows where there is one.
 | `CommandRoute.ScopeOf` (`Commands.cs:418`) | reads it | **0** | 1 — `Shell.vxml:311` |
 | `UiDocument.CommandResponder` (`Commands.cs:537`) | `NSDocument`'s slot | **0** | 1 — `Shell.vxml:323` |
 | `UiElement.AccessKey` (`UiElement.cs:710`) | Alt-mnemonics | **0** | 1 — `Shell.vxml:591` |
-| `UiDocument.MoveFocus(NavigationDirection)` (`Navigation.cs:48`) | arrow/D-pad navigation | **0** | 1 — `Shell.vxml:546` |
+| `UiDocument.MoveFocus(NavigationDirection)` (`Vixen.Ui/Navigation.cs:48`) | arrow/D-pad navigation | **0** | 1 — `Shell.vxml:549` |
 
 ⚠ **Two halves of the "now" column are gated and a third is not, and the difference matters to a
 reader deciding what to trust.** `Core/Vixen.Ui.Tests/ResponderReachTests.cs` sweeps `*.cs` **and**
@@ -133,43 +133,51 @@ all three.
 against the flat registry and never calls `CommandRoute` (`CommandDispatcher.cs:85-107`). (✅ No longer:
 since `ecfb0f3ed` `CommandDispatcher.Focused` asks `CommandRoute.Resolve` first
 (`CommandDispatcher.cs:143-144`), which is § 3.6's second condition.)
-`EditorShell.cs:212` admits it in a comment: *nothing in the editor resolved through `CommandRoute`
+`EditorShell.cs:230` admits it in a comment: *nothing in the editor resolved through `CommandRoute`
 before*. Combined with Part 0 this means an element-level handler, if anyone ever wrote one, would
 be reachable by **clicking a button** and unreachable by **pressing its shortcut** — the two things a
 command system exists to make identical.
 
 **1.4 — There is no window level, and no seam for one.** `UiDocument.Focused` is a single
-document-global field (`Focus.cs:35`). `Dispatch(KeyEvent)` takes no surface (`Keyboard.cs:191`),
+document-global field (`Focus.cs:35@10523d70f`). `Dispatch(KeyEvent)` takes no surface (`Keyboard.cs:191`),
 unlike `Dispatch(UiSurface, PointerEvent)` (`UiDocument.cs:2139`) and
 `Dispatch(UiSurface, WheelEvent)` (`Hover.cs:103`); `Platform/Vixen.Platform.Ui/PlatformInput.cs:173`
 says so outright. With nothing focused, keys land on the **primary** surface's root
-(`Keyboard.cs:196` + `Surfaces.cs:27`) — so a keystroke aimed at a torn-off inspector executes
+(`Keyboard.cs:196@10523d70f` + `Surfaces.cs:29`) — so a keystroke aimed at a torn-off inspector executes
 against the main window. `PlatformEventKind.WindowFocusGained`/`Lost` are produced by every backend
 (`Platform/Vixen.Platform.Desktop/DesktopPlatform.cs:858,863`) and **dropped on the floor** by the UI
 bridge: `PlatformInput.Dispatch` has no arm for either and they fall to `default: return false`
-(`PlatformInput.cs:214-216`). There is no `NSApp.keyWindow`, and `IUiWindow` (`UiWindows.cs:52-87`)
-has nowhere to put the answer.
+(`Vixen.Platform.Ui/PlatformInput.cs:672-674`). There is no `NSApp.keyWindow`, and `IUiWindow`
+(`UiWindows.cs:52-122`) has nowhere to put the answer.
 
 > ⚠ **Closed since `92c554e54` (2026-09-05), and this paragraph is the audit as written.** Focus is the
 > surface's now — `UiDocument.Focused` is `Home().Focused` (`Focus.cs:107`), `KeySurface` is the key
 > window (`Surfaces.cs:66`), `Dispatch(KeyEvent)` has a surface-taking overload beside it
 > (`Keyboard.cs:224`), and `PlatformInput.Dispatch` has an arm for `WindowFocusGained`
-> (`PlatformInput.cs:592`). The two `Dispatch` citations and the `DesktopPlatform.cs` one were
-> re-pointed in #1388, because what they name is still there; the paragraph's other numbers record the
-> tree at `10523d70f` and are not maintained.
+> (`Vixen.Platform.Ui/PlatformInput.cs:592`). The citations of what is still there — the two
+> `Dispatch` overloads, `Primary`, the `default:` arm, `IUiWindow` and `DesktopPlatform.cs` — are
+> re-pointed (#1388); the two of what is gone, the stored `Focused` field and the `Focused ?? Root`
+> fallback, are pinned to `10523d70f`, the tree the paragraph describes.
 
 **1.5 — A focus change cannot be refused.** `UiDocument.Focus` gates on `element.Focusable` and
-nothing else (`Focus.cs:96-98`), writes `Focused` at `:100`, and raises two `FocusEvent`s at
-`:120-121` — *after* the change is committed. `UiEvent` has no `Cancel` (`UiEvent.cs:46-58`). So
+nothing else (`Focus.cs:91-93@10523d70f`), writes `Focused` at `:100`, and raises two `FocusEvent`s at
+`:123-124` — *after* the change is committed. `UiEvent` has no `Cancel` (`UiEvent.cs:46-58`). So
 AppKit's canonical validation pattern — a field refusing to resign first responder while its value is
 invalid — is not expressible. The nearest available thing, pre-emptively setting `Focusable = false`,
 is a different rule and does not know where the focus is going.
 
-Minor, in the same file: `Focus(null)` returns `false` on success (`Focus.cs:99,127`), so a caller
-cannot tell "cleared the focus" from "refused"; and `TabOrder.Collect` tests only `Focusable`
-(`Focus.cs:227-235`), so a `display: none` control is a tab stop — while its two sibling traversals,
-`AccessKeys.cs:158` and `Navigation.cs:107`, both skip zero-box subtrees. Three walks, two of which
-agree.
+Minor, in the same file: `Focus(null)` returns `false` on success (`Focus.cs:96,126@10523d70f`), so a
+caller cannot tell "cleared the focus" from "refused"; and `TabOrder.Collect` tests only `Focusable`
+(`Focus.cs:233-236@10523d70f`), so a `display: none` control is a tab stop — while its two sibling
+traversals, `AccessKeys.cs:240` and `Vixen.Ui/Navigation.cs:107`, both skip zero-box subtrees. Three
+walks, two of which agree.
+
+> ⚠ **Both paragraphs are closed and are the audit as written.** The veto landed in `736e7f968`
+> ([#645](https://github.com/Rikarin/Vixen/issues/645)) and `Focus(null)` answers `true` since; the
+> tab order skips a style-hidden element since `f5bb4fff7`
+> ([#646](https://github.com/Rikarin/Vixen/issues/646)). The `Focus.cs` numbers are pinned to
+> `10523d70f` — ⚠ and were three to five lines early even there, so they are corrected to what that
+> commit has rather than kept as written.
 
 ---
 
@@ -178,24 +186,29 @@ agree.
 The design is not the problem, and a rewrite that discarded these would be a regression. Each is a
 place where Vixen is **ahead of AppKit**, and each survives Part 3 unchanged.
 
-1. **The first responder's `CanExecute` is the only one asked** (`Commands.cs:423-424,436-443`).
+1. **The first responder's `CanExecute` is the only one asked** (`Commands.cs:486-487,499-506`).
    AppKit's `validateUserInterfaceItem:` is famously ambiguous about whether a later responder gets a
    say. Vixen states it once, in one place, and names it as the invariant.
-2. **`IsCommandTransparent` as data rather than as a private event loop** (`Commands.cs:669-693`,
-   `Focus.cs:104`). AppKit gets "a menu is not in the responder chain" for free because a menu is not
+2. **`IsCommandTransparent` as data rather than as a private event loop** (`Commands.cs:732-756`,
+   `Focus.cs:313`). AppKit gets "a menu is not in the responder chain" for free because a menu is not
    a view; Vixen gets it declaratively for menus, menu bars, palettes **and toolbar buttons**
    (`ButtonBase.cs:82`) — and AppKit has no answer at all for the toolbar case.
 3. **A real capture phase over a snapshotted route** (`EventRouter.cs:39-42`). AppKit has no capture
    phase, and walks `nextResponder` live.
-4. **Pointer fall-through is free.** Hit test → target → bubble (`UiDocument.cs:1784,1791`). In
-   AppKit every `mouseDown:` that wants to pass the event on must remember to call `super`.
-5. **`Defocus`** (`Focus.cs:139-180`): a press that lands on nothing focusable clears the focus, on
+4. **Pointer fall-through is free.** Hit test → target → bubble:
+   `UiDocument.Dispatch(UiSurface, PointerEvent)` (`UiDocument.cs:2139`) takes its target from
+   `HitTest` (`UiDocument.cs:2152`) and bubbles through `Raise` (`UiDocument.cs:2162`). In AppKit
+   every `mouseDown:` that wants to pass the event on must remember to call `super`.
+5. **`Defocus`** (`Focus.cs:343-391`): a press that lands on nothing focusable clears the focus, on
    the whole ancestor chain, with a pointer-capture exemption. AppKit has no rule for this and every
    AppKit application writes it by hand or ships without it.
-6. **Coalesced command invalidation** (`Commands.cs:593,603-611`, raised from `UiDocument.cs:1204`,
-   consumed by `ButtonBase.cs:100-108`). AppKit's answer is polling `validateUserInterfaceItem:` per
-   item per menu-open plus an `NSToolbar` revalidation timer. Vixen's is strictly better.
-7. **`CommandFocus` surviving a menu close** (`Focus.cs:39-50`). AppKit gets this free from a nested
+6. **Coalesced command invalidation.** `InvalidateCommands` (`Commands.cs:656`) sets a flag,
+   `RaiseCommandsInvalidated` (`Commands.cs:666-674`) raises the event at most once a frame,
+   `CommandsInvalidated` (`Commands.cs:640`), and `Tick` is what calls it,
+   `RaiseCommandsInvalidated()` (`UiDocument.cs:1414`); a button's `Watch` (`ButtonBase.cs:100-108`)
+   consumes it. AppKit's answer is polling `validateUserInterfaceItem:` per item per menu-open plus
+   an `NSToolbar` revalidation timer. Vixen's is strictly better.
+7. **`CommandFocus` surviving a menu close** (`Focus.cs:135-151`). AppKit gets this free from a nested
    event loop; Vixen gets it without one, which is the harder problem.
 8. **Key position and typed text as distinct events, with IME as a third** (`Keyboard.cs:49-61,117-152`).
 
@@ -288,7 +301,7 @@ exists today, now stated once.
   it. `UiDocument.Focus(element, force: true)` is the escape hatch the shutdown paths use.
 
 - **`Focus(null)`** starts returning `true` when it clears the focus. The current `false`-on-success
-  (`Focus.cs:99,127`) is indistinguishable from a refusal and will be a bug the moment a refusal
+  (`Focus.cs:96,126@10523d70f`) is indistinguishable from a refusal and will be a bug the moment a refusal
   exists.
 
 ### 3.5 The window level
@@ -297,8 +310,9 @@ exists today, now stated once.
   `KeySurface?.Focused`, so every existing call site keeps working and a multi-window application
   stops routing into the primary window.
 - `Dispatch(KeyEvent)` takes a `UiSurface`, matching the pointer and wheel overloads.
-- `PlatformInput.Dispatch` grows arms for `WindowFocusGained`/`WindowFocusLost`
-  (`PlatformInput.cs:214`) — the events already exist and are already produced on every backend.
+- `PlatformInput.Dispatch` grows arms for `WindowFocusGained`/`WindowFocusLost` where they fell
+  through (`Vixen.Platform.Ui/PlatformInput.cs:214@10523d70f` — `default:`) — the events already exist
+  and are already produced on every backend.
 - `IUiWindow` gains `IsKey` and `DidBecomeKey`.
 
 ⚠ **No `acceptsFirstMouse`.** Every first click stays a normal click. That is a decision rather than
@@ -316,7 +330,7 @@ these hold, and each is a gate in Part 10:
    command handlers.
 2. The editor's `CommandDispatcher` resolves through `CommandRoute` instead of the flat registry.
 3. `EditorShell.Context` — a mutable string pushed by hand from pointer handlers in ten places
-   (`EditorApplication.cs:2329,2416,2545,2601`; `EditorParity.cs:625,1255-1257,2400`;
+   (`EditorApplication.cs:2330,2417,2546,2602`; `EditorParity.cs:625,1255-1257,2400`;
    `EditorWorlds.cs:122`; ⚠ ten was a floor when it was written — `EditorWorlds.cs` alone had four —
    and a re-count for #1388 finds twenty-one, most of them in the module panels) — is deleted in favour of `CommandScope`, which was built to replace it and
    is assigned only in tests.
@@ -334,7 +348,7 @@ here, and each becomes cheap once Part 3 exists.
 **Confirmed still true**: there is no undo below `Editor/Vixen.Editor.Core/CommandStack.cs`.
 `git grep "IUndo\|UndoManager"` returns zero hits repository-wide. Doc 46 § Part 1 row 4 stands.
 
-`CodeBuffer.cs:49` argues correctly that a text control must not own an undo stack, and its seam —
+`CodeBuffer.cs:50` argues correctly that a text control must not own an undo stack, and its seam —
 `Changed` — has a real consumer in `Editor/Vixen.Editor.AssetEditors/Code/CodeDocument.cs:27,86-93,258`.
 The argument does not transfer to `TextField`, which has no stack and no seam, so **a dialog's text
 box has no ⌘Z in any Vixen application including the editor**.
@@ -347,11 +361,18 @@ document behind it.
 
 ### 4.2 Editing commands as a table, not two switch statements
 
-`TextField.cs:1072-1152` and `CodeEditor.cs:1376-1441` are two independently hand-maintained
-`switch (args.Key)` blocks over the same vocabulary. They have already diverged: `TextField` treats
-Ctrl **or** Cmd as the word modifier with a comment saying it cannot know which platform it is on
-(`TextField.cs:1067-1070`), while `CodeEditor` tests `Control` only (`:1375`) — so ⌥←/⌘← do nothing
-in the code editor on macOS.
+`TextField.cs:1072-1152@10523d70f` and `CodeEditor.cs:1376-1441@10523d70f` are two independently
+hand-maintained `switch (args.Key)` blocks over the same vocabulary. They have already diverged:
+`TextField` treats Ctrl **or** Cmd as the word modifier with a comment saying it cannot know which
+platform it is on (`TextField.cs:1067-1070@10523d70f`), while `CodeEditor` tests `Control` only
+(`CodeEditor.cs:1374@10523d70f`) — so ⌥←/⌘← do nothing in the code editor on macOS.
+
+(✅ Closed since `7d18b415c` ([#648](https://github.com/Rikarin/Vixen/issues/648)): both controls
+resolve a chord through one table: `TextField`'s key handler calls `EditingCommands.Resolve`
+(`TextField.cs:1610`), and so does `CodeEditor`'s, `EditingCommands.Resolve` (`CodeEditor.cs:1692`), so the
+paragraph above is pinned to the tree it describes. ⚠ It cited CodeEditor's modifier test as a bare
+continuation, line 1375, after a `TextField.cs` citation, which the sweep read as TextField's line; at
+`10523d70f` it was CodeEditor's line 1374.)
 
 AppKit's `doCommandBySelector:` is the fix, and it buys three things at once: rebindable keys,
 per-platform default tables, and the macOS emacs bindings (⌃A/⌃E/⌃K/⌃Y) that are currently absent
@@ -361,7 +382,7 @@ handlers for the ids rather than for the keys.
 
 ⚠ **`CodeEditor` needs the semantic ids anyway** for an unrelated reason: `CodeBuffer.WordStart` /
 `WordEnd` (`CodeBuffer.cs:252-310`) are `char.IsWhiteSpace`-based, so ⌃← in Japanese or Thai jumps a
-whole clause, while `TextField` gets it right through `WordBreaker` (UAX #29, `TextField.cs:1866`).
+whole clause, while `TextField` gets it right through `WordBreaker` (UAX #29, `TextField.cs:1922`).
 (✅ That half is closed: since `53bde2fe9` a run of the word class is subdivided by `WordBreaker`
 (`CodeBuffer.cs:241`). The semantic ids are still owed for the other reason.)
 One table, one word-breaker.
@@ -407,37 +428,39 @@ Part 3 lands.
 ## Part 5 — The application layer
 
 `UiApplicationOptions` describes **one** window with one `Content` component
-(`docs/guide/ui/desktop-application.md:60-100`). AppKit's `NSApplication`/`NSWindow`/`NSDocument` and
+(`docs/guide/ui/desktop-application.md:60-102`). AppKit's `NSApplication`/`NSWindow`/`NSDocument` and
 SwiftUI's `App`/`Scene`/`WindowGroup`/`DocumentGroup` all start one level above that.
 
 | Capability | Vixen today | Verdict |
 |---|---|---|
 | Second top-level window | `UiDocument.CreateSurface` (`Surfaces.cs:168`); `IUiWindowHost.Open` (`UiWindows.cs:141`) | **present** |
 | One document across windows (shared style, focus, cross-window drag) | `UiSurface.cs:9-46`, `Reparent.cs:42` | **present, ahead of AppKit** |
-| Key window | `UiDocument.KeySurface` (`Surfaces.cs:66`); the focus is the surface's, `UiDocument.Focused` (`Focus.cs:107`); `PlatformEventKind.WindowFocusGained` (`PlatformInput.cs:592`) has an arm | **present** since `92c554e54` ([#644](https://github.com/Rikarin/Vixen/issues/644)); **absent** as audited (§ 1.4) |
-| Native menu bar | `MenuBar : Control` `Menus.cs:633`, drawn; **no seam interface exists** | **absent** |
-| System menu items (About, Services, Hide, Quit, Window, Help) | — | **absent** |
-| Toolbar | no type in either controls assembly; the editor's is a drawn strip (`Menus/ToolbarPresenter.cs:51`) | **absent** |
+| Key window | `UiDocument.KeySurface` (`Surfaces.cs:66`); the focus is the surface's, `UiDocument.Focused` (`Focus.cs:107`); `PlatformEventKind.WindowFocusGained` (`Vixen.Platform.Ui/PlatformInput.cs:592`) has an arm | **present** since `92c554e54` ([#644](https://github.com/Rikarin/Vixen/issues/644)); **absent** as audited (§ 1.4) |
+| Native menu bar | `MenuBar` (`Menus.cs:682`), drawn; **no seam interface exists**, and that is now a decision rather than a gap nobody reached: `Core/Vixen.Ui.Controls/README.md:373` — `The menu bar is drawn, and stays drawn` keeps the drawn bar because the golden-image and headless suites can drive it and an `NSMenu` cannot, and names the three conditions that reopen it | **absent by decision** (2026-09-05, [#652](https://github.com/Rikarin/Vixen/issues/652)); **absent** as audited |
+| System menu items (About, Services, Hide, Quit, Window, Help) | — as audited. ⚠ The Controls README refutes the macOS half of this row: `Core/Vixen.Ui.Controls/README.md:380` — `SDL builds one.` The `sdl2-compat`-over-SDL3 library the engine loads installs the default application menu (About, Services, Hide, Quit, Window) itself. Not re-verified here, which needs a Mac; an application's own File, Edit, View and Help menus are still drawn in the window | **absent** as audited; **present on macOS through SDL** per the README |
+| Toolbar | `Toolbar` (`ApplicationBars.cs:32`) is a control with `AccessibleRole.Toolbar` and one roving tab stop, and the editor's strip is one: `Menus/ToolbarPresenter.cs:158` — `host.Add<Toolbar>()`. As audited there was no type in either controls assembly and the editor's was a drawn strip (`Menus/ToolbarPresenter.cs:51@10523d70f`) | **present** since `918c2a098` ([#657](https://github.com/Rikarin/Vixen/issues/657)); **absent** as audited |
 | Clipboard from a control | § 4.3 | **present-but-unwired** |
-| OS drag-in (files from Finder/Explorer) | `DropFile`/`DropText` produced (`DesktopPlatform.cs:664`, `WebPlatform.cs:541`) and **dropped** (`PlatformInput.cs:214`) | **present-but-unwired** |
-| In-app drop model | no `DataObject`, no `IDropTarget`, no `AllowDrop`. `TreeView.cs:247` and `AssetFieldDrop.cs:22-27` each hit-test by hand | **absent** |
+| OS drag-in (files from Finder/Explorer) | `DropFile`/`DropText` produced (`DesktopPlatform.cs:744`, `WebPlatform.cs:578`) and routed (`Vixen.Platform.Ui/PlatformInput.cs:618`) as a `DropEvent`; as audited, **dropped** (`Vixen.Platform.Ui/PlatformInput.cs:214@10523d70f`) | **present** since `14e1abb9d` ([#654](https://github.com/Rikarin/Vixen/issues/654)); **present-but-unwired** as audited |
+| In-app drop model | `DataObject` (`DataObject.cs:35`), `DropEvent` (`Drop.cs:48`), `AllowDrop` (`Drop.cs:228`); as audited there were none, and `TreeView.cs:247` and `AssetFieldDrop.cs:22-27` each hit-test by hand | **present** since `f1e099531`; **absent** as audited |
 | Native open/save panels | `INativeDialogs` complete with six backends; one consumer, in `Editor/Vixen.Editor.App/EditorServices.cs:37`. ⚠ the SDL fallback returns `null` (`DesktopServices.cs:211-241`) | **present-but-unwired** |
-| Recent documents | zero occurrences | **absent** |
+| Recent documents | still no list below the editor, and none can be built yet: one is keyed on `IEditableDocument.Location` (`Documents.cs:70`) and no document in the tree sets it, so the sample removed its Open Recent rather than draw a menu that is always empty, `Samples/02-HelloUi/Shell.vxml:86` — `There is no Open Recent here`. The editor's `ProjectHistory` (`ProjectHistory.cs:49`) keeps recent *projects* for its startup browser, not documents | **absent**; owed on [#656](https://github.com/Rikarin/Vixen/issues/656) |
 | Answerable modal | `DialogService.cs` (465 lines) — doc 46 § A4 landed and the editor's copy is gone | **present** |
 | Sheets (window-attached modals) | `runModal` on purpose (`MacOSDialogs.cs:20-23`) | **absent by decision** |
-| Document model (dirty, save, revert, proxy title) | `EditorDocument.cs:84,159,296` — one assembly no application can reference | **absent below the editor** |
-| Quit / close with unsaved changes | ⚠ `UiApplication.Pump` sets `running = false` outright (`UiApplication.cs:548-566`). `ILifecycle.CancelQuit` exists (`ILifecycle.cs:91`) and `EditorHost.cs:401-427` uses it correctly — the framework host is the copy that still has the bug | **absent** |
+| Document model (dirty, save, revert, proxy title) | `IEditableDocument` (`Documents.cs:36`) in `Core/Vixen.Ui`: `Location` and `IsDirty` as signals, `Save` and `Revert`; `UiWindowTitle.Bind` (`Documents.cs:320`) puts the name and the dirty mark in the title, and the sample's `MaterialDocument` (`Samples/02-HelloUi/MaterialDocument.cs:37`) is the first implementation. No proxy title: a represented file is a path, and `IUiWindow` has no member for one. As audited only `EditorDocument.cs:84,159,296` — one assembly no application can reference | **present** since `e57dfa401` ([#656](https://github.com/Rikarin/Vixen/issues/656)) except the proxy title; **absent below the editor** as audited |
+| Quit / close with unsaved changes | `UiApplication.Quit` (`UiApplication.cs:676`) asks `Document.RequestClose` first and stops the loop only if nothing refuses; `Pump` asks it on a platform Quit and clears the latch with `CancelQuit` (`UiApplication.cs:925-927`) when refused, as `EditorHost.cs:477-482` does; `DocumentClosePrompt` (`DocumentClose.cs:49`) is the Save / Don't Save / Cancel, installed by `Samples/02-HelloUi/Shell.vxml:364`. ⚠ As audited `Pump` set `running = false` outright and the framework host was the copy that still had the bug | **present** since `a1935a308` ([#653](https://github.com/Rikarin/Vixen/issues/653)); **absent** as audited. Proxy icon, recent documents and external modification are still owed on [#656](https://github.com/Rikarin/Vixen/issues/656) |
 | Activation / deactivation into the UI | produced; consumed only by the game host (`Core/Vixen.App.Hosting/PlatformInput.cs:109`) | **present-but-unwired** |
 | Reopen, Settings/preferences scene, status item, services, printing | — | **absent** |
-| Window placement autosave | editor-only (`Docking/EditorUserStore.cs:131`) | **absent** |
-| Background tasks and progress | `BackgroundTask`/`BackgroundTaskManager` in Core, **pumped** by `UiApplication.cs:507` | **present** (no Core UI for it) |
-| DPI, per-monitor rescale, colour gamut | `UiSurface.cs:101`, `Surfaces.cs:159`, `UiWindowSurface.cs:257` | **present and fed** |
+| Window placement autosave | editor-only (`Docking/EditorUserStore.cs:142`) | **absent** |
+| Background tasks and progress | `BackgroundTask`/`BackgroundTaskManager` in Core, **pumped** by `Tasks.Pump()` (`UiApplication.cs:765`) | **present** (no Core UI for it) |
+| DPI, per-monitor rescale, colour gamut | `UiSurface.cs:104`, `Surfaces.cs:266`, `UiWindowSurface.cs:291` | **present and fed** |
 
 **The pattern has moved since doc 46, and it is worth naming precisely.** 46 found five things in the
 *wrong assembly*; four of the five are now fixed. What replaces that defect is a different one:
 `IClipboard`, `INativeDialogs`, `DropFile`/`DropText`, `MediaContext.ColorScheme`,
 `ILifecycle.CancelQuit` and `WindowFocusGained` are all **finished, tested, cross-platform
-implementations in `Core/Vixen.Platform` with no consumer above it** — and
+implementations in `Core/Vixen.Platform` with no consumer above it** (⚠ as audited: `CancelQuit`
+has had one in `UiApplication.Pump` since `a1935a308` and `WindowFocusGained` in `PlatformInput`
+since `92c554e54`, per the rows above) — and
 `Platform/Vixen.Platform.Ui/PlatformInput.cs` plus `Platform/Vixen.Ui.Desktop/UiApplication.cs` are
 the two files where every one of those wires would terminate.
 
@@ -447,7 +470,9 @@ exists — and the decision interacts with the golden-image discipline doc 46 re
 be screenshotted and driven headless, an `NSMenu` cannot. The recommendation is a seam
 (`IUiMenuHost`) with the drawn `MenuBar` as the default implementation and a native implementation
 per platform, so the test suite keeps the drawn one and a shipped macOS application gets ⌘Q, About
-and the Window menu.
+and the Window menu. (⚠ Decided the other way on 2026-09-05, in the Controls README's "The menu bar
+is drawn, and stays drawn": SDL already gives a macOS application ⌘Q, About and the Window menu, so
+the seam waits for one of the three conditions that section names; the `IUiMenuHost` shape stands.)
 
 ---
 
@@ -464,7 +489,7 @@ Checked hard. The framework has exactly three ancestor-walking mechanisms and no
 one `string?`; and `UiDocument.Mounted` (`UiDocument.cs:396`), which records a component for an
 element and offers no "nearest ancestor of type T" query.
 
-So every cross-cutting value is threaded through props by hand. `Samples/02-HelloUi/Shell.vxml:69-83`
+So every cross-cutting value is threaded through props by hand. `Samples/02-HelloUi/Shell.vxml:169-183`
 repeats `Model="@Model"` on three panels and `:126-135` wires two callbacks in `OnComposed` for want
 of a channel. Multiply by an editor with forty panels. This is the single biggest markup gap, and it
 compounds with § 6.2.
@@ -519,7 +544,7 @@ reads. So `<div AccessibleName="Save" Focusable="true">` compiles, matches `[Acc
 does nothing. ~~No diagnostic.~~ ⚠ **Refuted since 168fe675b (2026-09-05):** `VXML2020` warns on a
 capitalised attribute name on a lowercase tag. It is declared as
 `MarkupDiagnostics.InertElementAttribute` (`MarkupDiagnostics.cs:463`), and the binder passes
-`MarkupDiagnostics.InertElementAttribute` (`Binder.cs:1063`) to `Report`. The mechanism is unchanged — the lowercase half of the split is still
+`MarkupDiagnostics.InertElementAttribute` (`Vixen.Ui.Markup/Binding/Binder.cs:1063`) to `Report`. The mechanism is unchanged — the lowercase half of the split is still
 `ctx.Bind` or `ctx.Attribute` (`ComponentEmitter.cs:884-897`), so the attribute is still inert — but it is no longer
 silent. This is the same defect class the language already fixed twice, for `style=` and for `slot=`
 (`VXML2016`).
@@ -537,7 +562,7 @@ silent. This is the same defect class the language already fixed twice, for `sty
 | `.task` / `.onAppear` | `partial void OnComposed()` — sync, no cancellation, no async | ⚠ partial |
 | `.focusable` | real on component tags; inert on `<div>` (§ 6.3) | ⚠ partial |
 | `.accessibilityLabel` | `AccessibleName=` compiles on a capitalised tag, is inert on a lowercase one; **zero `.vxml` in the repo sets it either way** | ⚠ accidental |
-| `.keyboardShortcut` | ❌ `Shell.vxml:120-122` says it outright: *a keyboard shortcut is a method call with two enum arguments and no attribute spelling* | ❌ |
+| `.keyboardShortcut` | ❌ `Shell.vxml:274` says it outright: *a keyboard shortcut is a method call with two enum arguments and no attribute spelling* | ❌ |
 | `.contextMenu` | `ContextMenu.Attach` is a C# call | ❌ |
 | `.help` (tooltip) | `Tooltip.Attach` is a C# call | ❌ |
 | `.alert` / `.confirmationDialog` / `.sheet` / `.popover` | `DialogService`/`Overlay` exist; nothing binds a presentation to state | ❌ markup |
@@ -641,7 +666,7 @@ caller.
 `BuildContext.For` (`BuildContext.cs:1822`) builds a region per item over the whole sequence.
 `VirtualizingPanel`/`VirtualizingGrid` are C# controls fed by delegates, reachable from markup only
 through `use=`. `BoundFor` is `(Variable, Sequence, Key, Body)` — **no index, no sections, no
-grouping** (`BoundNodes.cs:262`). `Region.Clear()` removes synchronously (`Region.cs:143`), so there
+grouping** (`BoundNodes.cs:422`). `Region.Clear()` removes synchronously (`Region.cs:146`), so there
 is **no enter/exit transition** even though the animator is real. SwiftUI gets all four free, and the
 absence of the first is what makes a 10 000-row panel fall back to hand-written C#.
 
@@ -777,8 +802,9 @@ Four earlier corrections to the paragraph above, from #663 and `BindReachTests`:
 component gets one slot only (`VXML2012`); there is no first-class component *event*, only a callback
 prop; `AsyncComputed` and `LinkedSignal` (`Core/Vixen.Ui.Reactive/AsyncComputed.cs:56`,
 `LinkedSignal.cs:24`) have no producers or consumers outside their own tests — and `AsyncComputed` is
-exactly the substrate `.task`/`.refreshable` would need; and `Core/Vixen.Ui.Markup/README.md:44`
-documents a `[Parameter]` attribute that **does not exist in the tree**.
+exactly the substrate `.task`/`.refreshable` would need; and
+`Core/Vixen.Ui.Markup/README.md:44@10523d70f` documents a `[Parameter]` attribute that **does not
+exist in the tree** (the README has said so itself since, `Core/Vixen.Ui.Markup/README.md:70`).
 
 ---
 
@@ -789,13 +815,15 @@ documents a `[Parameter]` attribute that **does not exist in the tree**.
 Measured against `PublicAPI.Unshipped.txt` in both control assemblies (87 and 86 public types).
 
 **Absent entirely**, in the order an application hits them: **Toolbar** (the editor's is a bare
-`UiElement` with a tag name, `ToolbarPresenter.cs:147`); **SegmentedControl**; **SplitView** — a
+`UiElement` with a tag name, `ToolbarPresenter.cs:147@10523d70f`); **SegmentedControl**; **SplitView** — a
 draggable two-pane divider exists only welded inside `DockingHost` as `DockSplitterView` (`DockingHost.cs:767`), so a
 two-pane application must adopt the whole docking model; **Sidebar/source list**; **StatusBar**
-(`EditorShell.cs:138`);
+(`EditorShell.cs:138@8abdfa9bc`);
 **DatePicker**; **secure text field** — zero hits for `secure|password` in the controls assembly, so
 any login screen is blocked; **formatted/validated field** — no formatter, no validation seam;
-**GroupBox / Form / Section / LabeledContent** — and note that `PropertyField`, the single
+**GroupBox / Form / Section / LabeledContent** (✅ as audited: `Toolbar` and `StatusBar`
+(`ApplicationBars.cs:32,227`), `SegmentedControl`, `SplitView` and `DatePicker` exist now, which is
+why the toolbar and status-bar citations are pinned to the tree they describe) — and note that `PropertyField`, the single
 most-used tag in the repo's `.vxml` (46 occurrences), lives in
 `Editor/Vixen.Editor.Inspector/MarkupBinding.cs:33` and no application can reach it; **Gauge /
 LevelIndicator**; **charts**; **PathControl**; **TokenField**; **refresh control**; **ruler**;
@@ -824,14 +852,14 @@ close or reorder (`DockingHost` has all three); `ScrollView` has no magnificatio
 `Core/Vixen.Ui.Controls.Advanced/README.md:4` as one of the eleven controls that prove the framework.
 
 **Declared and never set**, still: `Image.SourceBorder`/`HollowCentre` (`Display.cs:245,249`) — which
-between them gate the nine-slice branch at `Display.cs:259`, so **that branch is unreachable in
+between them gate the nine-slice branch at `Display.cs:296`, so **that branch is unreachable in
 practice**; `Link.Href` (`Display.cs:60`), the one thing that makes a `Link` a link;
 `RadialMenu.DeadZone`. Doc 46's original example, `Control.Disabled`, is now genuinely set in eight
 places and that row is closed.
 
 **Not writable from `.vxml`**: ⚠ the standing note that `MenuBar`, `DockingHost`, `RadioGroup` and
 `Select` need `ref` + `OnComposed` is **stale** — all four are declarative today
-(`Samples/02-HelloUi/Shell.vxml:38-83`, `Panels/Gallery.vxml:74-98`). What remains C#-only is every
+(`Samples/02-HelloUi/Shell.vxml:79-184`, `Panels/Gallery.vxml:76-80,196-200`). What remains C#-only is every
 control whose content model is **not a `UiElement`**: `TreeView` (`TreeNode`), `DataGrid`
 (`DataColumn`), `Timeline`, `NodeCanvas`, `CurveEditor`, `GradientEditor`, `CodeEditor`
 (`CodeBuffer`), `PropertyGrid`, `ColorPicker`, `Viewport`, and both virtualizing panels. Across all
@@ -849,13 +877,14 @@ gaps below as a criticism of that layer; they are all in the controls above it.
   IME candidate window sits at a screen corner. `TextField` computes the caret rectangle already — it
   draws one.
 - ⚠ **`ITextInput.Activate` has one caller in the whole repository, the debug console**
-  (`Core/Vixen.App.Hosting/VixenApplication.cs:654`). No text control activates text input on focus.
+  (`Core/Vixen.App.Hosting/VixenApplication.cs:781`). No text control activates text input on focus.
   Desktop works only because SDL leaves it on; a focused `TextField` on web or mobile receives
   nothing.
 - **`CodeEditor` cannot be used with an IME at all** — it registers no `TextCompositionEvent`
-  handler (`CodeEditor.cs:584-587`), and its geometry is a monospace grid where a column *is* a
-  UTF-16 index (`:474-480`), which is false for CJK width, combining marks and surrogate pairs. This
-  one is architectural, not a missing handler.
+  handler (`CodeEditor.cs:584-587@10523d70f`), and its geometry is a monospace grid where a column
+  *is* a UTF-16 index (`CodeEditor.cs:474-480@10523d70f`), which is false for CJK width, combining
+  marks and surrogate pairs. This one is architectural, not a missing handler. (✅ The handler exists
+  since `aee6d98d2`, `CodeEditor.cs:665`; the grid is as audited.)
 - No colour fonts (no `COLR`/`CPAL`/`sbix`/`CBDT`; outlines are `glyf`+CFF only), so emoji render
   blank.
 - No author-controlled attributed runs: an element's text has one style, and runs exist only as the
@@ -864,9 +893,9 @@ gaps below as a criticism of that layer; they are all in the controls above it.
 - No spell check, substitution, dictation or system font/colour panels; no drag-select autoscroll; no
   undo in `TextField` (§ 4.1).
 
-Two performance notes found in passing: `TextField.Step` (`TextField.cs:1789-1817`) allocates a list
+Two performance notes found in passing: `TextField.Step` (`TextField.cs:1845-1873`) allocates a list
 and re-runs the grapheme breaker over the **entire value** on every arrow keypress, and
-`CodeEditor.RowOf` (`:1070`) is a linear `IndexOf` called per caret move and per draw.
+`CodeEditor.RowOf` (`CodeEditor.cs:1206`) is a linear `IndexOf` called per caret move and per draw.
 
 ### 7.3 Presentation gaps doc 43 structurally cannot see
 
@@ -874,7 +903,7 @@ Doc 43 measures Tailwind roots. Anything with no class name is invisible to it, 
 expensive items are.
 
 1. ⚠ **No damage tracking.** `DrawListBuilder.Build` (`:527`) reconstructs the entire draw list every
-   frame, and `DrawList.cs:463-478` only reports *whether* the frame differs, not where. There is no
+   frame, and `DrawList.cs:526-539` only reports *whether* the frame differs, not where. There is no
    retained per-element surface — which is why `will-change-*` is refused. Combined with
    `UiApplication`'s unconditional frame loop (`docs/guide/ui/desktop-application.md:44-58`, a
    documented decision), this is the difference between an idle editor at 0.5 W and one at 15 W.
@@ -908,18 +937,20 @@ expensive items are.
    What is still owed is a production host to mount a HUD at all — nothing in the tree mounts a
    `UiDocument` in a world renderer's frame, so `UiRenderFeature.Dim` has a test and no production
    reader. See #670 and #627.
-3. ⚠ **`prefers-color-scheme` is built and never fed.** The query works (`MediaQuery.cs:146,151`),
-   the property exists per surface (`UiSurface.cs:152`, `Media.cs:80`), and **the only writers in the
+3. ⚠ **`prefers-color-scheme` is built and never fed.** The query works (`MediaQuery.cs:318,323`),
+   the property exists per surface (`UiSurface.cs:191`, `Media.cs:80`), and **the only writers in the
    tree are two test files**. No platform assembly reads the OS appearance. The editor hides this by
    using the class-based dark strategy; any *application* ships light-only against a dark system.
    This is doc 43's own finding F11 one axis over — F11 fed width, height, DPI and gamut and left
-   this one behind.
+   this one behind. (✅ Fed since `89cbc6b5d` ([#667](https://github.com/Rikarin/Vixen/issues/667)):
+   `PlatformInput` writes every surface's scheme, `Vixen.Platform.Ui/PlatformInput.cs:106`.)
 4. **No momentum, no rubber-band, no scroll anchoring.** `ScrollView` has smooth programmatic
    scrolling, overscroll chaining and snapping, and zero velocity state. A trackpad flick stops dead
    at the finger. On macOS this is the single most immediate "not a native app" tell.
 5. **No `position: sticky` and no `fixed`** — `PositionType` has three values
-   (`LayoutEnums.cs:271-279`). Sticky section headers and frozen `DataGrid` header rows are table
-   stakes and are currently hand-positioned per control.
+   (`LayoutEnums.cs:271-279@10523d70f`). Sticky section headers and frozen `DataGrid` header rows are
+   table stakes and are currently hand-positioned per control. (✅ `sticky` since `c939304fd`,
+   `LayoutEnums.cs:396`; `fixed` is still absent.)
 6. **No reduced-motion, no forced-colors, no system accent, no semantic colours.** `MediaQuery`
    supports six features and none of them is a preference other than colour scheme. ⚠ Now that
    transitions, keyframes and springs are real *and driven by a clock*, shipping animation with no
@@ -1031,15 +1062,15 @@ otherwise take on trust.
 
 | Claim | Where | Verdict |
 |---|---|---|
-| "`scale` and `rotate` are refused — a `DrawCommand` is an axis-aligned rectangle" | `Core/Vixen.Ui/README.md:38` | **False.** `Transform.cs:12` reads `transform`, `rotate` and `scale`; the matrix reaches a composite quad and the hit test inverts it |
-| "Zoom is arithmetic, not a transform… there is no `transform` property" | `Core/Vixen.Ui.Controls.Advanced/NodeCanvas.cs:659` | **False** for the same reason. The workaround is arguably still correct — text reshaped at its real size beats a scaled atlas — but the stated reason is not |
-| "touch events never reach `UiDocument` at all" | doc 43's `touch-action` refusal | **False.** `PlatformInput.cs:138-170` routes them, produced by Desktop and Android |
+| "`scale` and `rotate` are refused — a `DrawCommand` is an axis-aligned rectangle" | `Core/Vixen.Ui/README.md:38@10523d70f` | **False.** `Vixen.Ui/Transform.cs:12` reads `transform`, `rotate` and `scale`; the matrix reaches a composite quad and the hit test inverts it |
+| "Zoom is arithmetic, not a transform… there is no `transform` property" | `Core/Vixen.Ui.Controls.Advanced/NodeCanvas.cs:659@10523d70f` | **False** for the same reason. The workaround is arguably still correct — text reshaped at its real size beats a scaled atlas — but the stated reason is not |
+| "touch events never reach `UiDocument` at all" | doc 43's `touch-action` refusal | **False.** `Vixen.Platform.Ui/PlatformInput.cs:491-524` routes them, produced by Desktop and Android |
 | `Vixen.Ui` has "`MenuItem : ButtonBase` and a `Disabled` bool nothing sets" | doc 46 § Part 1 row 1 | **Refuted as a statement of today.** `Commands.cs` is 834 lines; `ButtonBase.Command` sets `Disabled`, title and check from `CommandRoute`. What is still open is the *registry, keymap and palette* — and `Editor/Vixen.Editor.Ui/Commands/` has **grown** to 2 240 lines |
 | Doc 46 rows 2, 3 and 5 (strings, answerable dialog, accessibility tree) | doc 46 § Part 1 | **Confirmed closed.** The editor's `Dialogs/` directory no longer exists |
 | Doc 46 row 4 (no undo below `Vixen.Editor.Core`) | doc 46 § Part 1 | **Confirmed open** |
-| Doc 45 § G2's "derived scope" was built | `Commands.cs:367` | **Built, tested, documented — and dead.** `EditorShell.Context`, the pushed mutable string it was written to replace, is what ships |
+| Doc 45 § G2's "derived scope" was built | `Commands.cs:414` | **Built, tested, documented — and dead.** `EditorShell.Context`, the pushed mutable string it was written to replace, is what ships |
 | `MenuBar`/`DockingHost`/`TreeView`/`RadioGroup`/`Select` need `ref` + `OnComposed` | working note | **Stale for four of five.** Only model-backed controls still need it (§ 7.1) |
-| `[Parameter]` attribute on a component property | `Core/Vixen.Ui.Markup/README.md:44` | **The type does not exist** |
+| `[Parameter]` attribute on a component property | `Core/Vixen.Ui.Markup/README.md:44@10523d70f` | **The type does not exist** |
 | Doc 43's own track markers (A/B/C) | `43-web-styling-parity.md` | **Stale and understating.** Block, grid and inline have all landed; B2 is still marked 🔴, and A7 is 🟢 while its own cell describes the work as done. The 18.8 EM figure should be re-costed before it is quoted again |
 
 ⚠ **`RefusalExpiryTests` guards the TSV's `note` cells only**, so the same defect doc 43 built a test

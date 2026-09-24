@@ -1,0 +1,44 @@
+# How many citations in each document bind to nothing and are pinned to nothing (#1388).
+#
+# `Vixen.DocGen.Tests.RealPlanCitationTests` checks every backticked `File.ext:NNN` in docs/**/*.md
+# and every README.md. A citation bound to a symbol — `Symbol` (`File.cs:NNN`), or
+# `File.cs:NNN` — `code` — fails the day the symbol leaves the line, and a pinned one —
+# `File.cs:NNN@1a2b3c4d5` — is checked against the commit it describes. An unbound one fails only
+# when its number lands on a blank line or a lone brace, so it can drift a hundred lines and still
+# read as evidence; that is how ~140 plan citations came to point at the wrong code under a green
+# sweep.
+#
+# ⚠ So a count here never moves silently. The check is equality, not a ceiling: a document that
+# gains an unbound citation fails until the new one binds, pins, or the count here is raised in the
+# same diff, where a reviewer sees it and can refuse it; a document that loses one fails until the
+# count is lowered, so a fall is recorded and cannot be spent later. Re-pointing an unbound citation by reading it
+# leaves its count alone, which is the point of counting rather than listing.
+#
+# One line per document: the count, whitespace, the document's path from the repository root.
+# Citations listed in docs/PlanCitationExempt.txt are not counted here.
+
+2 Core/Vixen.Net/README.md
+1 Core/Vixen.Rendering.RayTracing/README.md
+10 Core/Vixen.Ui/README.md
+1 Editor/Vixen.Editor.Debugger/README.md
+1 Editor/Vixen.Editor.ShaderGraph/README.md
+1 Editor/Vixen.Editor.Ui/README.md
+1 Platform/Vixen.Graphics.Golden.Tests/README.md
+1 Platform/Vixen.Graphics.OpenGL/README.md
+6 Raven/README.md
+1 Tools/Vixen.AotProbe/README.md
+5 Tools/Vixen.Sdk/README.md
+2 docs/guide/editor/texture-graph-generators.md
+1 docs/guide/ui/documents.md
+1 docs/guide/ui/drag-and-drop.md
+31 docs/overview.md
+5 docs/plan/04-ecs-and-scripting.md
+1 docs/plan/07-raven-shader-pipeline.md
+16 docs/plan/36-an-extensible-editor.md
+2 docs/plan/43-web-styling-parity.md
+4 docs/plan/45-commands-and-focus-scope.md
+24 docs/plan/46-what-an-application-needs.md
+2 docs/plan/47-prefab-overrides-and-nested-prefabs.md
+11 docs/plan/48-material-authoring.md
+99 docs/plan/49-responder-chain-and-appkit-parity.md
+61 docs/plan/50-the-editor-as-bounded-contexts.md

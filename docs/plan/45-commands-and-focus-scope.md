@@ -49,7 +49,7 @@ pushed. The pull is one level too shallow, and every new panel is a new chance t
 > from a focus handler. Every one is pushed from a `PointerEvent` on the **capture** leg of a
 > `DockPanel` — `EditorApplication.Contextual` (`EditorApplication.cs:1774`) and
 > `ContextualViewport` (`:1801`), plus four verbatim copies of the same eight lines in
-> `BlockoutModulePanels.cs:93`, `TerrainModule.cs:181`, `WaterModule.cs:231` and
+> `BlockoutModulePanels.cs:93`, `TerrainModule.cs:181`, `WaterModule.cs:231@3dcb392ad` and
 > `DiagnosticsModule.cs:439`. (⚠ The six line numbers are as of this amendment: `9c32e744f` (2026-09-02)
 > replaced all six copies with `DockPanel.WhenPressedIn`, and `docs/PlanCitationExempt.txt`
 > records the ones that no longer hold.)
@@ -109,7 +109,7 @@ pushed. The pull is one level too shallow, and every new panel is a new chance t
 >
 > **And the scope machinery has almost no consumers, which changes what step 2 is worth.** Exactly
 > one command in `Vixen.Editor.App` declares a `Context` at all — `edit.rename`, at
-> `EditorParity.cs:286`, through the `Scoped` helper at `:1312`. Of the nine context strings, four —
+> `EditorParity.cs:286@f9d0afbe0`, through the `Scoped` helper at `:1312`. Of the nine context strings, four —
 > `console`, `project`, `world`, `diagnostics` — are **only ever written**: no command and no keymap
 > override is filed under any of them, and their entire effect is to *not* equal `scene`, which is
 > what takes `edit.rename` out of scope while the console has been clicked in. The rest of the
@@ -260,7 +260,7 @@ Each step is independently shippable and leaves the editor working.
    > so **focus acceptance needed no new API**. `CommandDispatcher`'s single root handler on the
    > **bubble** leg (`CommandDispatcher.cs:67`, `RoutingStrategy.Bubble` by default) gives the inner
    > control the same priority AppKit's downward `performKeyEquivalent:` does — different mechanism,
-   > same outcome. `Menu.IsCommandTransparent` (`Menus.cs:282`), `MenuBar.IsCommandTransparent` (`:715`) and
+   > same outcome. `Menu.IsCommandTransparent` (`Menus.cs:282`), `MenuBar.IsCommandTransparent` (`Menus.cs:715`) and
    > a bound control's (`ButtonBase.cs:82`) are already "a menu is not in the responder chain".
 
    > ⚠️ **One claim in the brief for this step was refuted: the editor's `CommandRegistry` does not

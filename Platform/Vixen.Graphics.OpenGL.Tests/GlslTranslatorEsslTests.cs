@@ -81,13 +81,13 @@ public sealed class GlslTranslatorEsslTests {
     ///         GLSL ES 3.00 allows <c>layout(location = …)</c> on a vertex <em>input</em> and a
     ///         fragment <em>output</em> and nowhere else: a vertex output or a fragment input carrying
     ///         one is <c>'location qualifier on output' : not supported in this stage</c>. Raven's
-    ///         emitter writes a location on all four (<c>GlslEmitter.cs:560,588</c>), so the varyings
+    ///         emitter writes a location on all four (<c>GlslEmitter.cs:621,649</c>), so the varyings
     ///         of every shipped shader are illegal at ES 3.00.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And stripping the qualifier here would be worse than leaving it.</b> Below ES 3.10
     ///         varyings link by <em>name</em>, and Raven names the same stream <c>out_uv</c> in the
-    ///         producing stage and <c>in_uv</c> in the consuming one (<c>GlslEmitter.cs:550,567</c>) —
+    ///         producing stage and <c>in_uv</c> in the consuming one (<c>GlslEmitter.cs:611,628</c>) —
     ///         so a translator that removed the locations would turn a compile error, which names the
     ///         line, into a silent link failure, which does not. The two halves are one change and
     ///         they are in the emitter, or they are in the cross-compiler that renames both ends.

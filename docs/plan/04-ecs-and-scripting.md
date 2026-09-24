@@ -457,7 +457,7 @@ one to the other, and this document does not pretend the migration is free.
 >
 > ⚠ **And what building it found is worth more than the verb.** *No `.vxscene` in this repository
 > names a behaviour* — all fourteen carry components only, and every behaviour instance in
-> `Samples/13` is attached from code (`Arena.cs:526` puts one `LampFlicker` on each point light the
+> `Samples/13` is attached from code (`Samples/13-ThirdPersonShooter/Arena.cs:537` puts one `LampFlicker` on each point light the
 > level placed). So the count a scene can be asked for is, today, zero everywhere, and the command
 > says so in a finding rather than printing a clean report: an instrument that reports "nothing is
 > over the threshold" when what happened is that it counted nothing is the failure a doctor exists
@@ -535,9 +535,9 @@ need throughput. Both are first-class and documented as such.
 > - ⚠ **And a third blocker the list above did not have, which is the one that decides the order.**
 >   `Behavior.Get<T>()` and `Read<T>()` are the *only* way a behaviour reaches a component, and on a
 >   **managed** component both of them mutate world-wide state. `World.Read<T>` reaches
->   `World.Managed<T>` (`World.cs:969`) exactly as `Get<T>` does; that method calls `StoreFor<T>()`,
+>   `World.Managed<T>` (`Vixen.Ecs/World.cs:969`) exactly as `Get<T>` does; that method calls `StoreFor<T>()`,
 >   which can `Array.Resize(ref managedStores, …)` and `managedStores[id] ??= new …`
->   (`World.cs:1100-1107`), and then `store.Allocate(default!)` when the row's handle is still zero,
+>   (`Vixen.Ecs/World.cs:1100-1107`), and then `store.Allocate(default!)` when the row's handle is still zero,
 >   which pops an unsynchronised `Stack<int>` or appends to a `ChunkedArray<T>`
 >   (`ManagedComponentStore.cs:78-84`). ⚠ **So a behaviour that only *reads* a managed component it
 >   has never written races two other behaviours doing the same**, and nothing about the call site
