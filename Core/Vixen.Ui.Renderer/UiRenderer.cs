@@ -166,7 +166,8 @@ public readonly record struct UiShaders(
 ///         and the golden fixture each begin the interface's pass with a <c>LoadAction.Clear</c>; what
 ///         they have "already painted" is that colour. <see cref="Image" /> is for the host that has
 ///         genuinely rendered something — a scene, a video, a previous frame — into a texture of the
-///         interface's own size.
+///         interface's own size. ⚠ <see cref="UiComposeRenderer" /> is the one caller that hands one
+///         over: the frame's scene target, the same frame, from inside the render graph (#1378).
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Only a <i>top-level</i> group's backdrop reads this, and that is Filter Effects 2's
@@ -421,9 +422,10 @@ public sealed class UiRenderer : IDisposable {
     ///     ⚠ <b>It gates a pipeline now, and until #783 it was a record of what this renderer was
     ///     <i>not</i> doing.</b> <c>mix-blend-mode</c> reaches the frame as <see cref="UiLayer.Blend" />;
     ///     a group in this map whose capture exists in <see cref="blendCaptures" /> is composited
-    ///     through <see cref="blendPipeline" />, and one whose capture does not — no blend stage, a
-    ///     transformed group, a group whose composite also needs a matrix or a mask — still goes out
-    ///     source-over and <see cref="SubmitDraw" /> says so in <see cref="Unblended" />. ⚠ A blended
+    ///     through <see cref="blendPipeline" />, and one whose capture does not — a host that handed
+    ///     over no blend stage — still goes out source-over and <see cref="SubmitDraw" /> says so in
+    ///     <see cref="Unblended" />. A matrix and a mask both used to be declines here too; `UiBlend`
+    ///     applies both now (#783). ⚠ A blended
     ///     group's drop-shadow quad is in it too, under <see cref="UiLayer.ShadowImage" />: it is never
     ///     blendable, and the entry is what makes its source-over composite a counted decline rather
     ///     than a silent one. Rebuilt by <see cref="Compose" /> each frame for
@@ -471,6 +473,17 @@ public sealed class UiRenderer : IDisposable {
     ///     <see cref="Compose" /> with the other per-frame maps.
     /// </remarks>
     readonly HashSet<ulong> blendable = [];
+
+    /// <summary>Which of <see cref="blendable" /> are under a transform, and so read their backdrop at the pixel.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The composite quad of a transformed group carries the <i>untransformed</i> surface
+    ///     coordinate</b> — right for the group's own texels, which is why every other composite stage
+    ///     needs nothing here, and wrong for what lies under the pixel. So <c>UiBlend</c> is told to
+    ///     read the capture at <c>SV_Position</c> instead, through <c>operation.zw</c>, and its capture
+    ///     is taken over the whole surface rather than over <see cref="UiLayer.Bounds" />, which stays
+    ///     untransformed (#1379). Filled and cleared beside <see cref="blendable" />.
+    /// </remarks>
+    readonly HashSet<ulong> placedBlends = [];
 
     /// <summary>The composite pipeline a blended group uses: <c>UiBlend</c>, through <see cref="blendLayout" />.</summary>
     readonly PipelineHandle blendPipeline;
@@ -1087,12 +1100,9 @@ public sealed class UiRenderer : IDisposable {
     ///         <see cref="Blended" />, which counts the draws that did.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Four ways a blended composite still goes out source-over, each counted here:</b> a
-    ///         host that handed over no <see cref="UiShaders.Blend" />; a group under
-    ///         <c>rotate</c>/<c>scale</c>/<c>perspective</c>, whose quad has left the space the backdrop
-    ///         is sampled in and whose fragment stage has no position input to recover it; a group whose
-    ///         composite also needs a colour matrix or a mask, which the module that applies those
-    ///         cannot combine with a second texture; and the drop-shadow quad of a blended group, which
+    ///         ⚠ <b>Two ways a blended composite still goes out source-over, each counted here:</b> a
+    ///         host that handed over no <see cref="UiShaders.Blend" />, and the drop-shadow quad of a
+    ///         blended group, which
     ///         the software path blends separately and this one composites plainly (#783's second
     ///         question, still to be settled rather than reproduced). The shadow is counted as its own
     ///         draw, so a blended shadowed group reads <see cref="Blended" /> for its composite and this
@@ -1100,9 +1110,23 @@ public sealed class UiRenderer : IDisposable {
     ///         on.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What this does <i>not</i> count: a top-level blended group in a world renderer.</b>
-    ///         <c>UiRenderFeature.Compose</c> passes no <c>beneath</c>, because the scene is not drawn
-    ///         when these passes are recorded, so such a group blends through <c>UiBlend</c> — and
+    ///         ⚠ <b>A group under <c>rotate</c>/<c>scale</c>/<c>perspective</c> was the fourth, and
+    ///         the reason given for it was false</b> (#1379): its quad carries the untransformed surface
+    ///         coordinate, and the fragment stage was said to have no position input to recover the
+    ///         target texel from. Raven has read a fragment's <c>SV_Position</c> since 289b50247, so
+    ///         <c>UiBlend</c> reads the capture there for such a group — see <see cref="placedBlends" />.
+    ///         ⚠ A group with a <c>filter</c> colour matrix was a declined arrangement too, and is not
+    ///         any more: <c>UiBlend</c> applies the matrix itself before it mixes (#783). Nor is a
+    ///         group with a <c>mask-image</c>, which was the third of these until <c>UiBlend</c> read
+    ///         the mask list through <c>UiMaskList</c> — masked first, then mixed, as CSS and
+    ///         <c>SoftwareUiRasterizer</c> both order it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this does <i>not</i> count: a top-level blended group in a world renderer
+    ///         composed by <c>WorldRenderer.Draw</c>'s prologue.</b> That compose passes no
+    ///         <c>beneath</c>, because the scene is not drawn when its passes are recorded — a frame
+    ///         that names <c>!UiCompose</c> composes after the scene instead and passes it (#1378) — so
+    ///         such a group blends through <c>UiBlend</c> — and
     ///         reads <see cref="Blended" /> — against the interface's own prefix over transparent
     ///         black. Where the interface has painted under it that is the right answer; where only
     ///         the scene has, a backdrop of alpha zero weights the blend to nothing and the composite
@@ -1111,6 +1135,8 @@ public sealed class UiRenderer : IDisposable {
     ///         host that genuinely painted nothing would pass, and there the picture is right. And it
     ///         is not declined, because declining would lose the blend in the case that works — a
     ///         top-level badge over a plain HUD panel, which is not a group and so is in the prefix.
+    ///         ⚠ <c>UiRenderFeature.Sceneless</c> counts it instead (#1378): the feature is the host
+    ///         that passed nothing, so it is the one party that can.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>History worth keeping, because two refusals were written here as blockers and both
@@ -1329,6 +1355,10 @@ public sealed class UiRenderer : IDisposable {
     ///         function of a draw list. Two numbers here cost one multiply per draw.
     ///     </para>
     /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     The frame has geometry and no <see cref="Upload" /> has ever created the rings it would be
+    ///     drawn from. See <see cref="ThrowIfNeverUploaded" />.
+    /// </exception>
     public void Record(ICommandList commands, in UiGeometry geometry, Int2 surface, float scale = 1f) {
         ArgumentNullException.ThrowIfNull(commands);
 
@@ -1338,8 +1368,45 @@ public sealed class UiRenderer : IDisposable {
             return;
         }
 
+        ThrowIfNeverUploaded(nameof(Record));
+
         var bound = default(Bindings);
         Submit(commands, geometry, self: -1, surface, scale, ref bound);
+    }
+
+    /// <summary>Refuses to record a frame into a ring no <see cref="Upload" /> has created.</summary>
+    /// <param name="caller">Which of the two recording entry points was reached first.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A throw and not a counter, and the difference from every other degradation in
+    ///         this file is deliberate</b> (#1377). <see cref="Unblended" />, <c>Filtered</c> and
+    ///         <c>UiRenderFeature.Dim</c> count because each is a <i>document</i> asking for something
+    ///         this device or this pass cannot give it — a legitimate frame, drawn as well as it can
+    ///         be, that must not be killed over an authoring choice. A frame recorded before its
+    ///         geometry was ever uploaded is none of that: it is a host that skipped a step of the
+    ///         contract, it is wrong on the first frame and on every frame after it, and no document
+    ///         can make it right. Counted, it is a HUD that is simply not there with one integer
+    ///         nobody reads saying why — this repository's "finished thing nothing calls" in its
+    ///         purest form. <c>UiRenderFeature</c> refuses two interfaces through one renderer the
+    ///         same way and for the same reason.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Here, before a single command is recorded, and not where it used to fail.</b> The
+    ///         vertex and index rings are created by the first <see cref="Upload" /> that carries
+    ///         indices, so until then both handles name nothing. Vulkan resolved the vertex handle
+    ///         inside <c>BindVertexBuffer</c> and threw an <see cref="ArgumentException" /> out of the
+    ///         middle of a render graph, naming a handle rather than the missing call; the null
+    ///         backend recorded the bind of nothing and carried on, so no test on it could see the
+    ///         fault at all. Only the <i>first</i> upload is checkable — a host that uploaded once and
+    ///         then stopped draws the last frame it uploaded, which is stale rather than undefined.
+    ///     </para>
+    /// </remarks>
+    void ThrowIfNeverUploaded(string caller) {
+        if (!vertices.IsValid || !indices.IsValid) {
+            throw new InvalidOperationException(
+                $"UiRenderer.{caller} was called before any Upload: the vertex and index rings are created by the first Upload of a frame with geometry in it, so there is nothing to draw from. Call Upload, outside the render pass, first."
+            );
+        }
     }
 
     /// <summary>
@@ -1425,6 +1492,10 @@ public sealed class UiRenderer : IDisposable {
     ///     opaque, which leaves a blurred copy composited over the sharp original instead of replacing
     ///     it. A frame with no backdrop group in it is unaffected. See <see cref="UiBackdropSource" />.
     /// </param>
+    /// <exception cref="InvalidOperationException">
+    ///     The frame has a composited group and no <see cref="Upload" /> has ever created the rings
+    ///     its passes would draw from. As <see cref="Record" />.
+    /// </exception>
     public void Compose(
         ICommandList commands,
         in UiGeometry geometry,
@@ -1453,11 +1524,14 @@ public sealed class UiRenderer : IDisposable {
         layerMasks.Clear();
         layerBlends.Clear();
         blendable.Clear();
+        placedBlends.Clear();
         layerBoxes.Clear();
 
         if (geometry.Layers.Count == 0 || geometry.Indices.Count == 0) {
             return;
         }
+
+        ThrowIfNeverUploaded(nameof(Compose));
 
         if (surface.X <= 0 || surface.Y <= 0 || scale <= 0f || !imagePipeline.IsValid) {
             // ⚠ No image pipeline means no shader to composite a surface back with, so rendering the
@@ -1466,8 +1540,7 @@ public sealed class UiRenderer : IDisposable {
             return;
         }
 
-        var width = (int) MathF.Ceiling(surface.X * scale);
-        var height = (int) MathF.Ceiling(surface.Y * scale);
+        var (width, height) = Pixels(surface, scale);
 
         if (width <= 0 || height <= 0) {
             return;
@@ -1857,11 +1930,13 @@ public sealed class UiRenderer : IDisposable {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>At the top level, the backdrop is <paramref name="beneath" /> and the interface's
-    ///         own prefix — and inside a world renderer that is less than the frame.</b>
-    ///         <c>UiRenderFeature.Compose</c> passes no <paramref name="beneath" />, because the scene
-    ///         has not been drawn when these passes are recorded, so a top-level blended HUD panel
-    ///         blends with the interface under it and composites source-over onto the world. That is
-    ///         the limitation <c>backdrop-filter</c> already has there, for the same reason.
+    ///         own prefix — and inside a world renderer that is less than the frame unless the frame
+    ///         names <c>!UiCompose</c>.</b> <c>WorldRenderer.Draw</c>'s prologue passes no
+    ///         <paramref name="beneath" />, because the scene has not been drawn when these passes are
+    ///         recorded, so a top-level blended HUD panel blends with the interface under it and
+    ///         composites source-over onto the world — the limitation <c>backdrop-filter</c> has there,
+    ///         for the same reason. <see cref="UiComposeRenderer" /> records them after the scene and
+    ///         passes it, and then <see cref="Fullscreen" /> puts the world under the prefix (#1378).
     ///     </para>
     /// </remarks>
     void CaptureBlend(
@@ -1875,7 +1950,15 @@ public sealed class UiRenderer : IDisposable {
         float scale,
         UiBackdropSource beneath
     ) {
-        var region = Confine(layer.Bounds, surface, scale, 0);
+        // ⚠ <b>The whole surface for a transformed group, because its bounds are not where it lands.</b>
+        // <see cref="UiLayer.Bounds" /> is untransformed — it is the region of the group's own surface
+        // it inks — and a rotated or scaled composite quad covers pixels outside it, every one of
+        // which `UiBlend` reads the capture at (#1379). The same fallback `BlurSurface` takes for such
+        // a group, for the same reason; it costs a full-surface pass on a frame that asked for a
+        // blended transformed panel.
+        var region = layer.Transform is null
+            ? Confine(layer.Bounds, surface, scale, 0)
+            : new ScissorRect(0, 0, layerWidth, layerHeight);
 
         commands.Barrier(new([], [new(captured.Texture, captured.State, ResourceState.ColourTarget)]));
 
@@ -2760,10 +2843,12 @@ public sealed class UiRenderer : IDisposable {
         // silently — the picture would be a correctly filtered, entirely unmasked group, which looks
         // like the mask never parsed. That precedence is also what makes the matrix unconditional in
         // the push below: it goes out as the identity when there is no filter.
-        // ⚠ <b>A blend is the fourth, and it takes the draw only when none of the other three
-        // does</b> (#783). `UiBlend` samples the group and its backdrop and does nothing else, so a
-        // blended group that also carries a matrix or a mask keeps the module that applies those and
-        // goes out source-over — `EnsureSurfaces` makes no capture for it, and `Unblended` counts it.
+        // ⚠ <b>A blend is the fourth, and it takes the draw from the matrix and the mask but not from
+        // the rounded box</b> (#783). `UiBlend` applies a colour matrix itself — the group's own
+        // `filter`, before it mixes — and a `mask-image` list through the binding `UiMask` reads,
+        // but has no box, so a blended rounded backdrop keeps the colour module and goes out
+        // source-over. ⚠ The mask was a decline too until `UiBlend` learnt `UiMaskList`: the mask
+        // won this choice, and a blended masked group was masked and laid down unblended.
         var blend = layerBlends.Count > 0
             && draw.Kind == BatchKind.Image
             && layerBlends.TryGetValue(draw.Image, out var declared)
@@ -2771,18 +2856,16 @@ public sealed class UiRenderer : IDisposable {
                 : default(UiBlendMode?);
 
         var capture = blend is not null
-            && mask is null
-            && matrix is null
             && box is null
             && blendable.Contains(draw.Image)
             && blendCaptures.TryGetValue(draw.Image, out var captured)
                 ? captured
                 : null;
 
-        var pipeline = mask is not null
-            ? maskPipeline
-            : capture is not null
-                ? blendPipeline
+        var pipeline = capture is not null
+            ? blendPipeline
+            : mask is not null
+                ? maskPipeline
                 : matrix is null && box is null
                     ? PipelineFor(draw.Kind)
                     : colourPipeline;
@@ -2829,7 +2912,44 @@ public sealed class UiRenderer : IDisposable {
             bound.Pushed = true;
         }
 
-        if (mask is { } list) {
+        if (capture is not null) {
+            // ⚠ Every time, for the colour branch's reason below: two blended groups in one pass
+            // carry two modes. The white level is the geometry's, which is what the colours hold.
+            // ⚠ The last two lanes are zero unless the group is transformed, and then they are what
+            // turns the fragment's window position into a capture coordinate — see `placedBlends`.
+            var placed = placedBlends.Contains(draw.Image);
+
+            // ⚠ The matrix goes out whole on every blended draw, flagged rather than pushed as the
+            // identity, because `UiBlend` applies it through `UiComposite.Filter`, whose clamp to the
+            // alpha is not the identity on a frame built above a white of one. A second blended group
+            // in the pass would otherwise inherit the first one's filter — the mask branch's reason.
+            var filter = matrix ?? UiColorMatrix.Identity;
+
+            // ⚠ And the mask list, as zeros for a group with none, on the same terms: `UiBlend` reads
+            // `list.y` on every draw, so a second blended group that pushed nothing here would be
+            // masked by the first one's ramp. The index is absolute in the buffer and carries this
+            // frame's region, exactly as the mask branch's does, and the scale rides the third lane
+            // for #1200's reason.
+            var masking = mask ?? (0, 0);
+
+            Span<float> operation = [
+                (float) blend!.Value,
+                blendWhite,
+                placed ? 1f / layerWidth : 0f,
+                placed ? 1f / layerHeight : 0f,
+                matrix is null ? 0f : 1f, 0f, 0f, 0f,
+                filter.Red.X, filter.Red.Y, filter.Red.Z, filter.Red.W,
+                filter.Green.X, filter.Green.Y, filter.Green.Z, filter.Green.W,
+                filter.Blue.X, filter.Blue.Y, filter.Blue.Z, filter.Blue.W,
+                mask is null ? 0f : (slot * MaskCapacity) + masking.First, masking.Count, scale, 0f
+            ];
+
+            commands.PushConstants(PushStages, 16, MemoryMarshal.AsBytes(operation));
+
+            // ⚠ Set 1, through the blend layout, and not tracked in `Bindings`: it is bound only
+            // while this pipeline is, and no other pipeline declares a set 1 for it to disturb.
+            commands.BindDescriptorSet(DescriptorSetSlot.PerView, capture.Set);
+        } else if (mask is { } list) {
             // ⚠ <b>The matrix goes out here too, as the identity when the group has no filter.</b>
             // `ui-mask.frag` reads its matrix rows unconditionally, so a mask-only group that pushed
             // only its list would leave them holding whatever the last filtered draw put there — the
@@ -2890,16 +3010,6 @@ public sealed class UiRenderer : IDisposable {
             ];
 
             commands.PushConstants(PushStages, 16, MemoryMarshal.AsBytes(rows));
-        } else if (capture is not null) {
-            // ⚠ Every time, for the colour branch's reason one up: two blended groups in one pass
-            // carry two modes. The white level is the geometry's, which is what the colours hold.
-            Span<float> operation = [(float) blend!.Value, blendWhite, 0f, 0f];
-
-            commands.PushConstants(PushStages, 16, MemoryMarshal.AsBytes(operation));
-
-            // ⚠ Set 1, through the blend layout, and not tracked in `Bindings`: it is bound only
-            // while this pipeline is, and no other pipeline declares a set 1 for it to disturb.
-            commands.BindDescriptorSet(DescriptorSetSlot.PerView, capture.Set);
         }
 
         // ⚠ Per draw rather than once, now that a draw can carry its own texture. The set is the
@@ -3073,20 +3183,25 @@ public sealed class UiRenderer : IDisposable {
                 Ensure(layer.BackdropImage);
             }
 
-            // ⚠ <b>A blend's backdrop, on the terms the draw can actually use it (#783).</b> The
-            // composite reaches `blendPipeline` only when nothing else claims it — a colour matrix or
-            // a mask goes through the module that applies them, and neither of those samples a second
-            // texture — and only when the group is untransformed, because `UiBlend` reads the backdrop
-            // at the quad's texture coordinate and a rotated quad has left the surface's space. Every
-            // other blended group keeps the source-over composite it had, and `Unblended` counts it;
-            // allocating a capture for one would be a viewport-sized target and a pass nobody reads.
-            if (layer.Blend != UiBlendMode.Normal
-                && blendPipeline.IsValid
-                && layer.Transform is null
-                && layer.Filter is not { IsIdentity: false }
-                && layer.MaskCount == 0) {
+            // ⚠ <b>A blend's backdrop, for every blended group now (#783).</b> The composite reaches
+            // `blendPipeline` whenever the host handed over a blend stage. ⚠ <b>Neither a colour
+            // matrix nor a mask claims it any more</b>: `UiBlend` applies the group's matrix itself
+            // before mixing, as `UiColour` would have, and its `mask-image` list through
+            // `UiMaskList`, as `UiMask` would have — so a `filter`, a `mask` and a `mix-blend-mode`
+            // on one group are all honoured. A masked group was the last of these to be declined; it
+            // used to keep `UiMask` and go out source-over, counted in `Unblended`.
+            // ⚠ <b>A transformed group is blendable now, and the reason it was not was false</b>
+            // (#1379). It was declined because `UiBlend` read the backdrop at the quad's texture
+            // coordinate — which a rotated quad carries untransformed — and "Raven has no
+            // fragment-position input to read instead". Raven has had one since 289b50247; `UiBlend`
+            // reads `SV_Position` for such a group, which `placedBlends` tells `SubmitDraw` to ask for.
+            if (layer.Blend != UiBlendMode.Normal && blendPipeline.IsValid) {
                 EnsureCapture(layer.Image);
                 blendable.Add(layer.Image);
+
+                if (layer.Transform is not null) {
+                    placedBlends.Add(layer.Image);
+                }
             }
         }
 
@@ -3952,8 +4067,7 @@ public sealed class UiRenderer : IDisposable {
     ///     </para>
     /// </remarks>
     static ScissorRect Confine(Rectangle bounds, Int2 surface, float scale, int reach) {
-        var width = (int)MathF.Ceiling(surface.X * scale);
-        var height = (int)MathF.Ceiling(surface.Y * scale);
+        var (width, height) = Pixels(surface, scale);
 
         var area = Scissor(bounds, surface, scale);
         var margin = reach + 1;
@@ -4001,8 +4115,7 @@ public sealed class UiRenderer : IDisposable {
     ///     </para>
     /// </remarks>
     static ScissorRect Scissor(Rectangle clip, Int2 surface, float scale) {
-        var width = (int)MathF.Ceiling(surface.X * scale);
-        var height = (int)MathF.Ceiling(surface.Y * scale);
+        var (width, height) = Pixels(surface, scale);
 
         var left = Math.Clamp((int)MathF.Floor(clip.X * scale), 0, width);
         var top = Math.Clamp((int)MathF.Floor(clip.Y * scale), 0, height);
@@ -4011,6 +4124,20 @@ public sealed class UiRenderer : IDisposable {
 
         return new(left, top, right - left, bottom - top);
     }
+
+    /// <summary>The size in framebuffer pixels of an interface <paramref name="surface" /> units across at <paramref name="scale" />.</summary>
+    /// <param name="surface">The geometry's extent, in its own units.</param>
+    /// <param name="scale">How many framebuffer pixels one of those units is.</param>
+    /// <returns>The size every group surface of that interface is allocated at.</returns>
+    /// <remarks>
+    ///     ⚠ <b>One function, because a second copy of it is a second answer.</b> <see cref="Compose" />
+    ///     allocates the group surfaces at this size, the scissors and render areas clamp to it, and
+    ///     <c>UiRenderFeature.Mismatched</c> compares a scene target against it. Up, never to nearest:
+    ///     at a fractional density the last partial pixel is still covered by the interface, and
+    ///     <c>MathF.Round</c> rounds 64.5 to 64.
+    /// </remarks>
+    internal static (int Width, int Height) Pixels(Int2 surface, float scale) =>
+        ((int)MathF.Ceiling(surface.X * scale), (int)MathF.Ceiling(surface.Y * scale));
 }
 
 /// <summary>Copying an <see cref="IReadOnlyList{T}" /> without allocating an enumerator per frame.</summary>

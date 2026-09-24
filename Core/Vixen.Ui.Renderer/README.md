@@ -48,8 +48,14 @@ on a command list that is **not inside a render pass**.
 
 ⚠ **`Upload` is not optional, and forgetting it is a fault rather than a picture.** It was written
 here as drawing from memory nothing has written; ⚠ the ring the vertices live in is created by the
-first upload, so on Vulkan the first `Record` binds a handle that names nothing and
-`BindVertexBuffer` throws (measured by `InterfaceOverASceneDeviceTests` with the call removed).
+first upload, so on Vulkan the first `Record` used to bind a handle that named nothing and
+`BindVertexBuffer` threw an `ArgumentException` from the middle of the render graph (measured by
+`InterfaceOverASceneDeviceTests` with the call removed). ⚠ `Record` and `Compose` now refuse that
+frame themselves, with an `InvalidOperationException` naming `Upload`, before recording a command
+(#1377). A throw rather than a counter, unlike `Dim`, `Soft` or `Unblended`: those count a *document*
+asking for something this pass cannot give, which is a legitimate frame; a frame recorded before any
+upload is a host that skipped a step, and it is wrong on every frame. On the null backend it used to
+be silent, because `NullCommandList` records the bind of an invalid handle.
 `WorldRenderer.Draw` now makes the call for a world host (#627). `Draw` runs
 inside the pass and can only `Record`; the vertices, indices, box records and the glyph atlas are
 written by `UiRenderer.Upload`, and a texture copy is the one thing a Vulkan command list may not do
@@ -76,6 +82,31 @@ that guessed at the index writes a record some other feature is handed and quiet
 also decides the bounds, which are `float.MaxValue` and not a mistake — an interface is in screen
 space and has no place in the world, so anything finite there is a HUD that appears and disappears as
 the player turns around.
+
+⚠ **A HUD's top-level `mix-blend-mode` and `backdrop-filter` see the scene only in a frame that
+names `!UiCompose`, and `UiRenderFeature.Sceneless` says when they did not**
+([#1378](https://github.com/Rikarin/Vixen/issues/1378)). `WorldRenderer.Draw`'s prologue composes
+before the scene is drawn, so there `UiRenderer.Compose` gets no backdrop and such a group reads the
+interface over transparent black — a multiplied panel lands as its own flat colour on the world
+(`InterfaceOverASceneDeviceTests` pins exactly that on a device). The renderer's own counters read
+`Blended`, because a default `UiBackdropSource` is also what a host that painted nothing passes; the
+feature is the one party that knows it passed nothing, so the count is its.
+
+`UiComposeRenderer` is the other place to compose: a compositor node, placed at the `BeforeUi` seam
+ahead of the host's interface pass, whose render-graph pass has no attachments — so the graph runs
+its body *outside* a render pass (`RenderGraph.RunSegment`, the `pass.HasAttachments` branch) — and
+reads the frame's target as a shader resource, which places it after whatever wrote the scene. It
+calls `Compose` with that target as `UiBackdropSource.Image`, and `WorldRenderer.Draw` skips its own
+compose for a frame in which the node, and every node above it, is enabled. `WorldRenderer`'s
+constructor registers `UiComposeFactory` on its own builder with its own feature, so a document names
+the node and never the feature. ⚠ The target must be `Sampled`, and the node refuses it at build time
+otherwise. ⚠ **That makes the node unusable in a game today** (#1378's remaining half):
+`AppGraphics.Lend` imports the swapchain under `GraphicsOptions.Output` — `SceneColour`, the same
+default as `!StandardFrame`'s output — as a colour target and nothing else, and the copy-out this
+file used to prescribe is refused too, because `!Copy` needs `CopyDestination` on the destination and
+the import does not declare it. It builds where the target is the frame's own or is imported
+`Sampled`, which is the golden fixtures and the null-device tests. The alternative, last frame's scene, lags every blended panel by a
+frame and would still need a copy at the same seam.
 
 ### Three pipelines, one vertex layout
 

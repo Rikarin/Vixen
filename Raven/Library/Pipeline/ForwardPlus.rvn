@@ -335,11 +335,15 @@ shader ForwardPlus : ClusteredShading {
 
     /// View-space position, for finding the fragment's cluster.
     ///
-    /// Carried from the vertex stage rather than recovered in the fragment stage, because Raven has no
-    /// fragment-stage position built-in — there is no `SV_Position` to read on the way in, only to
-    /// write on the way out. Interpolating it costs a location, which the unclustered variant does
-    /// not pay: the write below is inside the permutation, so with clustering off there is no write,
-    /// and a stream nothing writes is not an output.
+    /// Carried from the vertex stage rather than recovered in the fragment stage, because
+    /// `ClusterCulling.Of` finds a cluster from a *view-space* position and a window position is not
+    /// one: recovering it would put the viewport's size and the projection's depth mapping into the
+    /// fragment stage to rebuild what the vertex stage already had. ⚠ The reason this used to give —
+    /// that Raven has no fragment-stage `SV_Position` to read — was false (#1379): it has had one
+    /// since 289b50247, and `Foliage.rvn`, `Grass.rvn` and `WaterMesh.rvn` take it. Interpolating
+    /// costs a location, which the unclustered variant does not pay: the write below is inside the
+    /// permutation, so with clustering off there is no write, and a stream nothing writes is not an
+    /// output.
     stream var positionVS: float3
 
 
