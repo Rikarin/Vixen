@@ -122,6 +122,32 @@ public static class ControlStrings {
     /// <summary>The arrow that steps a pager on.</summary>
     public static StringId PaginationNext { get; } = new("ui.control.pagination.next-page", "Next page");
 
+    /// <summary>The mark a pager draws where it leaves pages out.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Shown and never spoken.</b> The gap is a disabled separator that goes nowhere, so it is
+    ///     taken out of the accessibility tree rather than named — a screen reader walking the row
+    ///     hears the page numbers and the arrows, and a skip in the numbers says what the mark says.
+    ///     It is declared anyway because the mark is typography and typography is a locale's: a CJK
+    ///     layout writes the midline <c>⋯</c> where Latin writes <c>…</c>.
+    /// </remarks>
+    public static StringId PaginationGap { get; } = new("ui.control.pagination.gap", "…");
+
+    /// <summary>What a screen reader calls a timeline track's mute toggle.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The name, and not the letter on the button.</b> The toggle shows
+    ///     <see cref="TimelineMuteMark" /> because a track header has room for one character; a
+    ///     toggle announced by that character was announced as "M", which is not a word in any
+    ///     language.
+    /// </remarks>
+    public static StringId TimelineMute { get; } = new("ui.control.timeline.mute", "Mute");
+
+    /// <summary>The one character a timeline track's mute toggle shows.</summary>
+    /// <remarks>
+    ///     A translator's, since the letter abbreviates the English word: whether a locale keeps the
+    ///     convention or writes its own initial is its call, and a literal left it no call to make.
+    /// </remarks>
+    public static StringId TimelineMuteMark { get; } = new("ui.control.timeline.mute-mark", "M");
+
     /// <summary>What a screen reader calls the bar down the side of a scrolling area.</summary>
     /// <remarks>
     ///     ⚠ <b>Three declarations that are not on screen anywhere, and that is the point of
@@ -335,6 +361,9 @@ public static class ControlStrings {
         ColorPickerEyedropper,
         PaginationPrevious,
         PaginationNext,
+        PaginationGap,
+        TimelineMute,
+        TimelineMuteMark,
         ScrollBarVertical,
         ScrollBarHorizontal,
         ColorPickerHex,

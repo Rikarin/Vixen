@@ -5,6 +5,7 @@ using System.Globalization;
 using Vixen.Input;
 using Vixen.Ui.Composition;
 using Vixen.Ui.Styling;
+using Vixen.Ui.Testing;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Tests;
@@ -508,6 +509,45 @@ public class SelectionTests {
             .ToList();
 
         Assert.Equal(["1", "…", "44", "45", "46", "…", "90"], labels);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The gaps are drawn and not announced</b>: a listener hears the numbers either side of
+    ///     one, and not a disabled button called "…".
+    /// </summary>
+    /// <remarks>
+    ///     The gap was a <c>PageButton</c> whose label was a literal ellipsis, so it was in the tree as
+    ///     a button named U+2026 — twice on a middle page (#1368). The arrows beside it were always
+    ///     named properly; the numbers are the page buttons' own labels.
+    /// </remarks>
+    [Fact]
+    public void Pagination_draws_its_gaps_and_leaves_them_out_of_the_accessibility_tree() {
+        using var fixture = new ControlFixture();
+
+        var pagination = fixture.Add<Pagination>();
+        pagination.PageCount = 90;
+        pagination.CurrentPage = 44;
+        fixture.Update();
+
+        var gaps = pagination.Children.OfType<PageButton>().Where(static button => button.Page < 0).ToList();
+
+        Assert.Equal(2, gaps.Count);
+        Assert.All(gaps, static gap => Assert.Equal(ControlStrings.PaginationGap.Text, gap.Label));
+        Assert.All(gaps, static gap => Assert.False(gap.IsInAccessibilityTree));
+
+        // What a screen reader is handed: the two arrows and the five numbers, in order, and nothing
+        // for either gap.
+        var buttons = AccessibilitySnapshot.Render(pagination)
+            .Split('\n')
+            .Select(static line => line.Trim())
+            .Where(static line => line.StartsWith("button ", StringComparison.Ordinal))
+            .Select(static line => line.Split('"')[1])
+            .ToList();
+
+        Assert.Equal(
+            [ControlStrings.PaginationPrevious.Text, "1", "44", "45", "46", "90", ControlStrings.PaginationNext.Text],
+            buttons
+        );
     }
 
     [Fact]

@@ -273,8 +273,11 @@ public sealed partial class TimelineHeader : Control {
 
         Label = Part("timeline-name");
 
+        // ⚠ The letter is what fits, and the name is what is said: announced by its label, every
+        // track's toggle was "M" to a screen reader (#1368).
         Mute = Part<ToggleButton>();
-        Mute.Label = "M";
+        Mute.Label = ControlStrings.TimelineMuteMark.Text;
+        Mute.AccessibleName = ControlStrings.TimelineMute.Text;
         Mute.Size = ControlSize.Small;
         Mute.Variant = ControlVariant.Subtle;
     }

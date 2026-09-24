@@ -233,6 +233,30 @@ public class AccessibilityTreeTests {
         Assert.Empty(AccessibilitySnapshot.Unnamed(fixture.Add<Viewport>()));
     }
 
+    /// <summary>
+    ///     ⚠ <b>A track's mute toggle is announced as "Mute", and shows the one letter that fits.</b>
+    /// </summary>
+    /// <remarks>
+    ///     A button is named by its label, and the label was the literal <c>"M"</c> — so every
+    ///     timeline track's toggle reached a screen reader as the letter, which is not a word in any
+    ///     language and nothing a translator could reach (#1368). <c>Unnamed</c> cannot see this: the
+    ///     toggle had a name, it was just not one.
+    /// </remarks>
+    [Fact]
+    public void A_timeline_track_s_mute_toggle_is_announced_by_what_it_does() {
+        using var fixture = new AdvancedFixture();
+
+        var timeline = fixture.Add<Timeline>();
+        timeline.AddTrack("Position");
+        fixture.Update();
+
+        var mute = Assert.Single(timeline.HeaderRows).Mute;
+
+        Assert.Equal(ControlStrings.TimelineMute.Text, mute.AccessibleName);
+        Assert.Equal(ControlStrings.TimelineMuteMark.Text, mute.Label);
+        Assert.NotEqual(mute.Label, mute.AccessibleName);
+    }
+
     /// <summary>Every advanced control at once, held to the one rule that cannot pass vacuously.</summary>
     /// <remarks>
     ///     ⚠ <b>The gate that keeps the population honest as it grows, and the one that found three
