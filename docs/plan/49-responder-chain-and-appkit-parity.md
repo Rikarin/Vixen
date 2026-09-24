@@ -368,7 +368,8 @@ platform it is on (`TextField.cs:1067-1070@10523d70f`), while `CodeEditor` tests
 (`CodeEditor.cs:1374@10523d70f`) — so ⌥←/⌘← do nothing in the code editor on macOS.
 
 (✅ Closed since `7d18b415c` ([#648](https://github.com/Rikarin/Vixen/issues/648)): both controls
-resolve a chord through `EditingCommands.Resolve` (`TextField.cs:1609`, `CodeEditor.cs:1692`), so the
+resolve a chord through one table: `TextField`'s key handler calls `EditingCommands.Resolve`
+(`TextField.cs:1610`), and so does `CodeEditor`'s, `EditingCommands.Resolve` (`CodeEditor.cs:1692`), so the
 paragraph above is pinned to the tree it describes. ⚠ It cited CodeEditor's modifier test as a bare
 continuation, line 1375, after a `TextField.cs` citation, which the sweep read as TextField's line; at
 `10523d70f` it was CodeEditor's line 1374.)
@@ -435,17 +436,17 @@ SwiftUI's `App`/`Scene`/`WindowGroup`/`DocumentGroup` all start one level above 
 | Second top-level window | `UiDocument.CreateSurface` (`Surfaces.cs:168`); `IUiWindowHost.Open` (`UiWindows.cs:141`) | **present** |
 | One document across windows (shared style, focus, cross-window drag) | `UiSurface.cs:9-46`, `Reparent.cs:42` | **present, ahead of AppKit** |
 | Key window | `UiDocument.KeySurface` (`Surfaces.cs:66`); the focus is the surface's, `UiDocument.Focused` (`Focus.cs:107`); `PlatformEventKind.WindowFocusGained` (`Vixen.Platform.Ui/PlatformInput.cs:592`) has an arm | **present** since `92c554e54` ([#644](https://github.com/Rikarin/Vixen/issues/644)); **absent** as audited (§ 1.4) |
-| Native menu bar | `MenuBar : Control` `Menus.cs:682`, drawn; **no seam interface exists** | **absent** |
-| System menu items (About, Services, Hide, Quit, Window, Help) | — | **absent** |
-| Toolbar | no type in either controls assembly; the editor's is a drawn strip (`Menus/ToolbarPresenter.cs:51`) | **absent** |
+| Native menu bar | `MenuBar` (`Menus.cs:682`), drawn; **no seam interface exists**, and that is now a decision rather than a gap nobody reached: `Core/Vixen.Ui.Controls/README.md:373` — `The menu bar is drawn, and stays drawn` keeps the drawn bar because the golden-image and headless suites can drive it and an `NSMenu` cannot, and names the three conditions that reopen it | **absent by decision** (2026-09-05, [#652](https://github.com/Rikarin/Vixen/issues/652)); **absent** as audited |
+| System menu items (About, Services, Hide, Quit, Window, Help) | — as audited. ⚠ The Controls README refutes the macOS half of this row: `Core/Vixen.Ui.Controls/README.md:380` — `SDL builds one.` The `sdl2-compat`-over-SDL3 library the engine loads installs the default application menu (About, Services, Hide, Quit, Window) itself. Not re-verified here, which needs a Mac; an application's own File, Edit, View and Help menus are still drawn in the window | **absent** as audited; **present on macOS through SDL** per the README |
+| Toolbar | `Toolbar` (`ApplicationBars.cs:32`) is a control with `AccessibleRole.Toolbar` and one roving tab stop, and the editor's strip is one: `Menus/ToolbarPresenter.cs:158` — `host.Add<Toolbar>()`. As audited there was no type in either controls assembly and the editor's was a drawn strip (`Menus/ToolbarPresenter.cs:51@10523d70f`) | **present** since `918c2a098` ([#657](https://github.com/Rikarin/Vixen/issues/657)); **absent** as audited |
 | Clipboard from a control | § 4.3 | **present-but-unwired** |
 | OS drag-in (files from Finder/Explorer) | `DropFile`/`DropText` produced (`DesktopPlatform.cs:744`, `WebPlatform.cs:578`) and routed (`Vixen.Platform.Ui/PlatformInput.cs:618`) as a `DropEvent`; as audited, **dropped** (`Vixen.Platform.Ui/PlatformInput.cs:214@10523d70f`) | **present** since `14e1abb9d` ([#654](https://github.com/Rikarin/Vixen/issues/654)); **present-but-unwired** as audited |
 | In-app drop model | `DataObject` (`DataObject.cs:35`), `DropEvent` (`Drop.cs:48`), `AllowDrop` (`Drop.cs:228`); as audited there were none, and `TreeView.cs:247` and `AssetFieldDrop.cs:22-27` each hit-test by hand | **present** since `f1e099531`; **absent** as audited |
 | Native open/save panels | `INativeDialogs` complete with six backends; one consumer, in `Editor/Vixen.Editor.App/EditorServices.cs:37`. ⚠ the SDL fallback returns `null` (`DesktopServices.cs:211-241`) | **present-but-unwired** |
-| Recent documents | zero occurrences | **absent** |
+| Recent documents | still no list below the editor, and none can be built yet: one is keyed on `IEditableDocument.Location` (`Documents.cs:70`) and no document in the tree sets it, so the sample removed its Open Recent rather than draw a menu that is always empty, `Samples/02-HelloUi/Shell.vxml:86` — `There is no Open Recent here`. The editor's `ProjectHistory` (`ProjectHistory.cs:49`) keeps recent *projects* for its startup browser, not documents | **absent**; owed on [#656](https://github.com/Rikarin/Vixen/issues/656) |
 | Answerable modal | `DialogService.cs` (465 lines) — doc 46 § A4 landed and the editor's copy is gone | **present** |
 | Sheets (window-attached modals) | `runModal` on purpose (`MacOSDialogs.cs:20-23`) | **absent by decision** |
-| Document model (dirty, save, revert, proxy title) | `EditorDocument.cs:84,159,296` — one assembly no application can reference | **absent below the editor** |
+| Document model (dirty, save, revert, proxy title) | `IEditableDocument` (`Documents.cs:36`) in `Core/Vixen.Ui`: `Location` and `IsDirty` as signals, `Save` and `Revert`; `UiWindowTitle.Bind` (`Documents.cs:320`) puts the name and the dirty mark in the title, and the sample's `MaterialDocument` (`Samples/02-HelloUi/MaterialDocument.cs:37`) is the first implementation. No proxy title: a represented file is a path, and `IUiWindow` has no member for one. As audited only `EditorDocument.cs:84,159,296` — one assembly no application can reference | **present** since `e57dfa401` ([#656](https://github.com/Rikarin/Vixen/issues/656)) except the proxy title; **absent below the editor** as audited |
 | Quit / close with unsaved changes | `UiApplication.Quit` (`UiApplication.cs:676`) asks `Document.RequestClose` first and stops the loop only if nothing refuses; `Pump` asks it on a platform Quit and clears the latch with `CancelQuit` (`UiApplication.cs:925-927`) when refused, as `EditorHost.cs:477-482` does; `DocumentClosePrompt` (`DocumentClose.cs:49`) is the Save / Don't Save / Cancel, installed by `Samples/02-HelloUi/Shell.vxml:364`. ⚠ As audited `Pump` set `running = false` outright and the framework host was the copy that still had the bug | **present** since `a1935a308` ([#653](https://github.com/Rikarin/Vixen/issues/653)); **absent** as audited. Proxy icon, recent documents and external modification are still owed on [#656](https://github.com/Rikarin/Vixen/issues/656) |
 | Activation / deactivation into the UI | produced; consumed only by the game host (`Core/Vixen.App.Hosting/PlatformInput.cs:109`) | **present-but-unwired** |
 | Reopen, Settings/preferences scene, status item, services, printing | — | **absent** |
@@ -469,7 +470,9 @@ exists — and the decision interacts with the golden-image discipline doc 46 re
 be screenshotted and driven headless, an `NSMenu` cannot. The recommendation is a seam
 (`IUiMenuHost`) with the drawn `MenuBar` as the default implementation and a native implementation
 per platform, so the test suite keeps the drawn one and a shipped macOS application gets ⌘Q, About
-and the Window menu.
+and the Window menu. (⚠ Decided the other way on 2026-09-05, in the Controls README's "The menu bar
+is drawn, and stays drawn": SDL already gives a macOS application ⌘Q, About and the Window menu, so
+the seam waits for one of the three conditions that section names; the `IUiMenuHost` shape stands.)
 
 ---
 

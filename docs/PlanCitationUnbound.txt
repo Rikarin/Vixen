@@ -8,9 +8,10 @@
 # read as evidence; that is how ~140 plan citations came to point at the wrong code under a green
 # sweep.
 #
-# ⚠ So these counts can only fall. A document that gains an unbound citation fails until the new one
-# binds, pins, or the count here is raised in the same diff, where a reviewer sees it; a document
-# that loses one fails until the count is lowered. Re-pointing an unbound citation by reading it
+# ⚠ So a count here never moves silently. The check is equality, not a ceiling: a document that
+# gains an unbound citation fails until the new one binds, pins, or the count here is raised in the
+# same diff, where a reviewer sees it and can refuse it; a document that loses one fails until the
+# count is lowered, so a fall is recorded and cannot be spent later. Re-pointing an unbound citation by reading it
 # leaves its count alone, which is the point of counting rather than listing.
 #
 # One line per document: the count, whitespace, the document's path from the repository root.
@@ -39,5 +40,5 @@
 24 docs/plan/46-what-an-application-needs.md
 2 docs/plan/47-prefab-overrides-and-nested-prefabs.md
 11 docs/plan/48-material-authoring.md
-103 docs/plan/49-responder-chain-and-appkit-parity.md
+99 docs/plan/49-responder-chain-and-appkit-parity.md
 61 docs/plan/50-the-editor-as-bounded-contexts.md
