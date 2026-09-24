@@ -129,11 +129,9 @@ public class ContainerStyleQueryTests {
     }
 
     [Theory]
-    // ⚠ Mixed with a size feature by `or`. Both halves would be asked of one box, but they are answered
-    // in two places (the size half by `ContainerScopes`, the style half by the cascade) and joined as
-    // a nested group, which is a conjunction. `and` splits cleanly into two groups and `or` does not.
-    [InlineData("@container (min-width: 400px) or style(--variant: primary) { .leaf { color: x } }", "'or'")]
-    [InlineData("@container style(--variant: primary) or (min-width: 400px) { .leaf { color: x } }", "'or'")]
+    // Mixed with a size feature by `or` is answered now (#273, `Or_across_the_halves_…` below), but
+    // not mixed with `and` as well: that is the precedence rule again, across the halves.
+    [InlineData("@container (min-width: 400px) or style(--a: 1) and style(--b: 1) { .leaf { color: x } }", "mixed without parentheses")]
     // A size half that does not read is refused for the reason a size query alone would be.
     [InlineData("@container (min-width: 30furlongs) and style(--variant: primary) { .leaf { color: x } }", "30furlongs")]
     // `not` over a mixed list is the list rule, whichever half it would negate.
@@ -514,6 +512,73 @@ public class ContainerStyleQueryTests {
         // this row is about the style half's eligibility rule on its own.
         var (plain, plainLeaf) = MixedScene(900f, ["card", "primary"], []);
         Assert.Null(plain.Read(plainLeaf, "background-color"));
+    }
+
+    /// <summary>
+    ///     ⚠ <c>or</c> across the halves holds when either does, and both halves still ask the one
+    ///     size container (#273).
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         This was refused as having "no single place to be answered". CSS Containment 3 § 5.1
+    ///         gives it one: the nearest container eligible for every feature, the element the
+    ///         <c>and</c> form asks. The size group is registered beside the style group, and the
+    ///         cascade reads its verdict as a disjunct.
+    ///     </para>
+    ///     <para>
+    ///         The fourth row puts the opposite value on the element between, so a style half that
+    ///         read the parent would hold there. The last two rows have no size container at all,
+    ///         only a <c>primary</c> parent: that query is unknown and does not apply, which a style
+    ///         half that fell back to the parent would get wrong.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(900f, "secondary", "", true)]
+    [InlineData(300f, "primary", "", true)]
+    [InlineData(300f, "secondary", "", false)]
+    [InlineData(300f, "secondary", "primary", false)]
+    [InlineData(300f, "primary", "secondary", true)]
+    public void Or_across_the_halves_holds_when_either_half_does(float width, string variant, string between, bool holds) {
+        const string sheet = """
+            .sized { container-type: inline-size; }
+            .card { container-name: card; }
+            .primary { --variant: primary; }
+            .secondary { --variant: secondary; }
+            @container (min-width: 400px) or style(--variant: primary) { .leaf { color: either; } }
+            @container style(--variant: primary) or (min-width: 400px) { .leaf { border-color: reversed; } }
+            @container card (min-width: 400px) or style(--variant: primary) { .leaf { background-color: named-either; } }
+            """;
+
+        var fixture = new CascadeFixture();
+        fixture.Load(sheet);
+
+        Assert.Empty(fixture.Engine.Loader.Diagnostics);
+
+        var box = fixture.Tree.CreateElement("div", classNames: ["sized", "card", variant]);
+        fixture.Contain(box, width, name: "card");
+
+        var middle = fixture.Tree.CreateElement("div", box, classNames: between.Length == 0 ? [] : [between]);
+        var leaf = fixture.Tree.CreateElement("div", middle, classNames: ["leaf"]);
+        var style = fixture.Engine.ResolveAll()[leaf.Index];
+
+        Assert.Equal(holds ? "either" : null, fixture.Read(style, "color"));
+        Assert.Equal(holds ? "reversed" : null, fixture.Read(style, "border-color"));
+        Assert.Equal(holds ? "named-either" : null, fixture.Read(style, "background-color"));
+    }
+
+    /// <summary>With no eligible container, <c>or</c> across the halves is unknown and does not apply.</summary>
+    [Fact]
+    public void Or_across_the_halves_with_no_size_container_does_not_apply() {
+        var fixture = new CascadeFixture();
+        fixture.Load("""
+            .primary { --variant: primary; }
+            @container (min-width: 400px) or style(--variant: primary) { .leaf { color: either; } }
+            """);
+
+        var parent = fixture.Tree.CreateElement("div", classNames: ["primary"]);
+        var leaf = fixture.Tree.CreateElement("div", parent, classNames: ["leaf"]);
+
+        Assert.Null(fixture.Read(fixture.Engine.ResolveAll()[leaf.Index], "color"));
     }
 
     /// <summary>

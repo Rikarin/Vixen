@@ -11,11 +11,15 @@ readonly record struct StyleFeature(string Property, string? Value);
 /// <summary>A whole <c>style()</c> condition: which container it asks, and how its features combine.</summary>
 /// <param name="Name">The container name it asks for, or empty for the parent.</param>
 /// <param name="Features">The features, in the order written.</param>
-/// <param name="Any">Whether they are <c>or</c>-joined rather than <c>and</c>-joined.</param>
+/// <param name="Any">
+///     Whether they are <c>or</c>-joined rather than <c>and</c>-joined — and, when there is a
+///     <paramref name="Size" /> half, whether that half is a disjunct rather than a conjunct.
+/// </param>
 /// <param name="Negated">Whether the one feature is under <c>not</c>.</param>
 /// <param name="Size">
-///     The size features it was <c>and</c>-joined with, as a size condition <c>(min-width: 400px)</c>,
-///     or null for a style-only query. A mixed query asks the nearest <i>size</i> container.
+///     The size features it was joined with, as a size condition <c>(min-width: 400px)</c> joined
+///     by the same word, or null for a style-only query. A mixed query asks the nearest <i>size</i>
+///     container eligible for every size feature.
 /// </param>
 /// <remarks>
 ///     A class and not a record struct, because a record struct over an array compares the array by
@@ -67,8 +71,12 @@ sealed record StyleCondition(string Name, StyleFeature[] Features, bool Any, boo
 ///         a size container. The two pick the same element because both apply one rule: nearest,
 ///         contained on every axis the size half reads (#1429), carrying the name if one is asked.
 ///         That is also why a name list has one
-///         definition, <see cref="ContainerConditions.Carries" />. Nesting is a conjunction, so only
-///         <c>and</c> joins the halves; <c>or</c> across them is refused. Standard properties are
+///         definition, <see cref="ContainerConditions.Carries" />. Nesting is a conjunction, so
+///         <c>or</c> across the halves is not nested: the size group is registered beside the style
+///         group, and <see cref="ContainerConditions.StyleHolds" /> reads its verdict as a disjunct.
+///         ⚠ That form was refused as having "no single place to be answered", and the claim was
+///         wrong: CSS Containment 3 § 5.1 gives it one element, the same one the <c>and</c> form
+///         asks, and the cascade already holds both that element's style and its box's verdict. Standard properties are
 ///         refused because no engine here compares a standard property's computed value.
 ///         <c>and</c>, <c>or</c> and a single <c>not</c> are read over <c>style()</c> features.
 ///         Mixing <c>and</c> with <c>or</c> needs parentheses in CSS, and a parenthesised group is
@@ -201,15 +209,18 @@ static class StyleQuery {
             return false;
         }
 
-        // ⚠ The halves are answered in two places and joined by nesting one group in the other, which
-        // is a conjunction. `or` between a size feature and a style feature has no such shape, and
-        // reading it as `and` would apply a rule the author wrote as a fallback only when both held.
-        if (sizes.Count > 0 && any == true) {
-            reason = "a size feature and a style() feature can be joined by 'and' only; 'or' across them is not supported";
-            return false;
-        }
+        // ⚠ The halves are answered in two places. `and` joins them by nesting the style group in the
+        // size group, which is a conjunction. `or` joins them in `StyleHolds`, which asks the size
+        // group's verdict first and the style features only when it fails (#273). Both halves still
+        // ask one element: the nearest container eligible for every feature, whichever joiner.
+        condition = new StyleCondition(
+            name,
+            [.. read],
+            any == true,
+            negated,
+            sizes.Count == 0 ? null : string.Join(any == true ? " or " : " and ", sizes)
+        );
 
-        condition = new StyleCondition(name, [.. read], any == true, negated, sizes.Count == 0 ? null : string.Join(" and ", sizes));
         return true;
     }
 

@@ -56,6 +56,10 @@ public sealed class ContainerConditions {
     // asks above the parent, so a rule carrying it needs the element's ancestors' styles (#1421).
     readonly List<bool> asksAncestors = [false];
 
+    // Parallel to `groups`: for a style group whose size half is `or`-joined, the size group that
+    // answers that half, whose verdict is a disjunct; `Unconditional` for every other group.
+    readonly List<int> disjuncts = [Unconditional];
+
     /// <summary>Whether any registered group is a <c>style()</c> query.</summary>
     /// <remarks>
     ///     The cascade's fast path: every stylesheet this repository ships has none, and the resolver
@@ -113,6 +117,7 @@ public sealed class ContainerConditions {
         styles.Add(null);
         requires.Add(ContainerQuery.Requires(key.Condition));
         asksAncestors.Add(asksAncestors[within]);
+        disjuncts.Add(Unconditional);
         interned[key] = groups.Count - 1;
         Revision++;
 
@@ -123,6 +128,11 @@ public sealed class ContainerConditions {
     /// <param name="within">The group this one is nested in, or <see cref="Unconditional" />.</param>
     /// <param name="prelude">The prelude as written, which is what diagnostics and interning use.</param>
     /// <param name="condition">The condition it was read into.</param>
+    /// <param name="orSize">
+    ///     For <c>(min-width: …) or style(…)</c>, the size group registered beside this one for the size
+    ///     half, whose verdict <see cref="StyleHolds" /> reads as a disjunct; otherwise
+    ///     <see cref="Unconditional" />. The <c>and</c> form nests in its size group instead.
+    /// </param>
     /// <returns>The group's id, which a rule carries.</returns>
     /// <remarks>
     ///     ⚠ <b>Its verdict per container chain is always "holds"</b>, because a chain is boxes and this
@@ -130,7 +140,7 @@ public sealed class ContainerConditions {
     ///     condition against the parent's style, or the named ancestor's. See <see cref="StyleQuery" />
     ///     for why there.
     /// </remarks>
-    internal int RegisterStyle(int within, string prelude, StyleCondition condition) {
+    internal int RegisterStyle(int within, string prelude, StyleCondition condition, int orSize = Unconditional) {
         ArgumentOutOfRangeException.ThrowIfNegative(within);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(within, groups.Count);
 
@@ -149,6 +159,7 @@ public sealed class ContainerConditions {
         // half needs; a style-only group asks any element, `normal` included.
         requires.Add(condition.Size is { } size ? ContainerQuery.Requires(size) : ContainerKind.Normal);
         asksAncestors.Add(condition.AsksAncestors || asksAncestors[within]);
+        disjuncts.Add(orSize);
         interned[key] = groups.Count - 1;
         HasStyleQueries = true;
         HasAncestorStyleQueries |= condition.AsksAncestors;
@@ -178,6 +189,10 @@ public sealed class ContainerConditions {
     ///     The element's ancestors' resolved styles, nearest first, which a named group searches. Only
     ///     collected when <see cref="AsksAncestors" /> is true of this group.
     /// </param>
+    /// <param name="contained">
+    ///     The element's container verdicts, which answer the size half of an <c>or</c>-joined mixed
+    ///     group. An <c>and</c>-joined one is answered by nesting and never reads them here.
+    /// </param>
     /// <param name="properties">The table property names are interned in.</param>
     /// <param name="values">The table values are interned in.</param>
     /// <returns>Whether the style half of the stack holds; the size half is the verdicts' question.</returns>
@@ -185,11 +200,20 @@ public sealed class ContainerConditions {
         int group,
         ComputedStyle? parent,
         ReadOnlySpan<ComputedStyle> ancestors,
+        ContainerVerdicts contained,
         NameTable properties,
         NameTable values
     ) {
         for (var at = group; at > Unconditional; at = groups[at].Within) {
             if (styles[at] is not { } condition) {
+                continue;
+            }
+
+            // ⚠ The size half of `(min-width: …) or style(…)`, answered off the box like any size
+            // group, and enough on its own. Both halves ask one element — the size group resolves
+            // with `requires[at]`'s rule and `Nearest` below with the same — so when no container is
+            // eligible both are false and the query is, as CSS says an unknown one is.
+            if (disjuncts[at] != Unconditional && contained.Holds(disjuncts[at])) {
                 continue;
             }
 
@@ -243,6 +267,7 @@ public sealed class ContainerConditions {
         styles.RemoveRange(1, styles.Count - 1);
         requires.RemoveRange(1, requires.Count - 1);
         asksAncestors.RemoveRange(1, asksAncestors.Count - 1);
+        disjuncts.RemoveRange(1, disjuncts.Count - 1);
         interned.Clear();
         HasStyleQueries = false;
         HasAncestorStyleQueries = false;

@@ -772,9 +772,9 @@ public sealed class StyleSheetLoader {
     /// <summary>Loads a <c>@container</c> block whose condition is <c>style()</c> features.</summary>
     /// <remarks>
     ///     The style-only forms, named or not, joined by <c>and</c> or <c>or</c> or under one
-    ///     <c>not</c>, and a form <c>and</c>-joined with size features, which asks the nearest size
-    ///     container. <c>or</c> across a size feature and a style feature is a diagnostic here rather
-    ///     than a rule read as <c>and</c>; see <see cref="StyleQuery" />.
+    ///     <c>not</c>, and a form joined with size features by either word, which asks the nearest
+    ///     size container eligible for every size feature. Mixing the two words is a diagnostic here
+    ///     rather than a rule read one way; see <see cref="StyleQuery" />.
     /// </remarks>
     void LoadStyleContainer(
         IContainerRule rule,
@@ -800,6 +800,7 @@ public sealed class StyleSheetLoader {
         // would be, and nesting makes the pair a conjunction. Its readability is the size query's own
         // question, asked the way `LoadContainer` asks it: against no box, at load.
         var within = containers;
+        var orSize = ContainerConditions.Unconditional;
 
         if (condition.Size is { } size) {
             if (!ContainerQuery.TryEvaluate(size, default, out _, out reason)) {
@@ -807,10 +808,19 @@ public sealed class StyleSheetLoader {
                 return;
             }
 
-            within = Containers.Register(containers, condition.Name, size);
+            // ⚠ `or` across the halves registers the size group BESIDE the style group rather than
+            // around it, and the cascade reads its verdict as a disjunct (#273). Nested, it would
+            // seal the style half behind the size half, which is `and`.
+            var sized = Containers.Register(containers, condition.Name, size);
+
+            if (condition.Any) {
+                orSize = sized;
+            } else {
+                within = sized;
+            }
         }
 
-        LoadInto(rule, origin, media, layer, conditions, Containers.RegisterStyle(within, prelude, condition));
+        LoadInto(rule, origin, media, layer, conditions, Containers.RegisterStyle(within, prelude, condition, orSize));
     }
 
     /// <summary>The text between <c>@container</c> and its block, as the author wrote it.</summary>

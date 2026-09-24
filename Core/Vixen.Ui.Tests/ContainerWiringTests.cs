@@ -807,6 +807,49 @@ public class ContainerWiringTests {
     }
 
     /// <summary>
+    ///     ⚠ <c>(min-width: …) or style(…)</c> holds when either half does, through a live document,
+    ///     and follows each half's edge on its own (#273).
+    /// </summary>
+    /// <remarks>
+    ///     The same card as the <c>and</c> test above, the same <c>.inner</c> override between. Four
+    ///     states, each reached by one edit, and each half is the only one holding in one of them: wide
+    ///     and <c>secondary</c> holds by the box, narrow and <c>primary</c> by the style, narrow and
+    ///     <c>secondary</c> by neither. Before this landed the sheet was refused at load and every state
+    ///     read 10.
+    /// </remarks>
+    [Fact]
+    public void An_or_mixed_query_follows_either_half_in_a_live_document() {
+        using var document = Document("""
+            root { width: 1000px; height: 600px; flex-direction: column; }
+            .card { container-type: inline-size; width: 450px; height: 100px; flex-direction: column; }
+            .card.narrow { width: 300px; }
+            .primary { --variant: primary; }
+            .inner { --variant: secondary; flex-direction: column; }
+            .label { width: 10px; height: 10px; }
+            @container (min-width: 400px) or style(--variant: primary) { .label { width: 300px; } }
+            """);
+
+        Assert.Empty(document.Styles.Loader.Diagnostics);
+
+        var card = document.Root.Add("div", classNames: ["card"]);
+        var label = card.Add("div", classNames: "inner").Add("div", classNames: "label");
+        document.Update();
+        Assert.Equal(300f, label.Width, 0.001f);
+
+        card.AddClass("narrow");
+        document.Update();
+        Assert.Equal(10f, label.Width, 0.001f);
+
+        card.AddClass("primary");
+        document.Update();
+        Assert.Equal(300f, label.Width, 0.001f);
+
+        card.RemoveClass("primary");
+        document.Update();
+        Assert.Equal(10f, label.Width, 0.001f);
+    }
+
+    /// <summary>
     ///     ⚠ A size query finds a container by any one of the names in its <c>container-name</c> list,
     ///     written as the longhand or in the shorthand (#273).
     /// </summary>

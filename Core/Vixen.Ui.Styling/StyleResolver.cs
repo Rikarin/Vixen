@@ -342,7 +342,7 @@ public sealed class StyleResolver {
 
             if (styleQueries
                 && candidate.Containers != ContainerConditions.Unconditional
-                && !containers.Conditions.StyleHolds(candidate.Containers, parent, ancestors, rules.Properties, rules.Values)) {
+                && !containers.Conditions.StyleHolds(candidate.Containers, parent, ancestors, contained, rules.Properties, rules.Values)) {
                 continue;
             }
 
