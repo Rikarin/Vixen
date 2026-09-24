@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Microsoft.Extensions.Logging;
+using Vixen.Core.Diagnostics;
 using Vixen.Ui.Composition;
 using Vixen.Ui.Reactive;
 using Xunit;
@@ -168,6 +170,51 @@ public class HotReloadTests {
 
         document.Update();
         Assert.Equal(40f, component.Root.Children[0].Width);
+    }
+
+    /// <summary>A warning about a declaration that applied is not a reason to undo the save.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>overflow: auto</c> on a plain box is understood, applied and clips</b> — event
+    ///         7009 says only that it does not <i>scroll</i> in this UI. It used to be filed in
+    ///         <c>UiDocument.Refusals()</c> beside the real refusals, so this host, which rolls back
+    ///         any save that introduces an entry there, silently put the old sheet back: the author
+    ///         saw nothing change and a reload report listing a warning as an error. 7010 had the
+    ///         same trap and was moved out by #1327; 7009 was left in. See <c>Rikarin/Vixen#1396</c>.
+    ///     </para>
+    ///     <para>
+    ///         Both halves are measured: the width the same save changed arrives, and the warning is
+    ///         still said, once, in the ring the editor's Console reads — so leaving the ledger did
+    ///         not silence it. Sabotage: file the overflow list in <c>Refusals()</c> again and this
+    ///         goes red on <c>Succeeded</c>.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_sheet_that_adds_a_clipping_overflow_is_warned_about_and_not_rolled_back() {
+        var sink = new RingBufferSink(64);
+        using var document = new UiDocument(200f, 200f, logger: sink.CreateLogger("Vixen.Ui.Styling"));
+        var sheet = document.Load("box { width: 10px; height: 20px; }");
+
+        var host = new HotReloadHost(document);
+        var component = host.Mount<Boxes>(document.Root);
+
+        document.Update();
+        document.Draw();
+
+        var box = component.Root.Children[0];
+        Assert.DoesNotContain(sink.Snapshot(), record => record.EventId.Id == 7009);
+
+        var report = host.ReloadStyles(sheet, "box { width: 40px; height: 20px; overflow: auto; }");
+
+        Assert.True(report.Succeeded, $"a save adding 'overflow: auto' was rolled back: {string.Join(" | ", report.Errors)}");
+        Assert.Empty(report.Errors);
+
+        document.Update();
+        Assert.Equal(40f, box.Width);
+
+        var warning = Assert.Single(sink.Snapshot(), record => record.EventId.Id == 7009);
+        Assert.Equal(LogLevel.Warning, warning.Level);
+        Assert.Contains("'box'", warning.Message, StringComparison.Ordinal);
     }
 
     // ------------------------------------------------------------ Markup
