@@ -1168,7 +1168,10 @@ console-toolbar toggle-button.console-level:checked.level-warning { color: var(-
 console-toolbar toggle-button.console-level:checked.level-info { color: var(--text); }
 console-toolbar toggle-button.console-level:checked.level-verbose { color: var(--text-muted); }
 
-console-view virtualizing-panel { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
+/* ⚠ Two rows is the floor, and the detail pane is what gives way to it
+   (#1390). A floor of zero let a selected record's pane take the whole of
+   a short console and leave no list to select from. */
+console-view virtualizing-panel { flex-grow: 1; flex-basis: 0px; min-height: 44px; }
 
 /* Doc 36 § P5's errors panel. A column of monospaced lines, because every one of them is
    `File.cs(12,5): CS0103: …` and the columns only line up in a fixed pitch — which is what
@@ -1242,11 +1245,21 @@ console-row:checked console-repeats { color: var(--accent-text); }
    without the clip the scrolled-off lines draw over the list above. The
    padding is on the content, not the port, because the port's own padding
    would be inside what the bars measure and leave the last lines unreachable
-   by exactly its height. */
+   by exactly its height.
+
+   ⚠ 132 px is what the pane asks for, not what it insists on (#1390). It
+   was `flex-shrink: 0`, and in an editor 800 px tall the docked console is
+   shorter than its toolbar and 132 px together: the list went to zero rows
+   and the pane's own last 28 px — the end of the stack and the whole of the
+   thumb at the bottom of the scroll — sat behind the dock panel's edge,
+   which is what "the thumb vanishes at the end of the scroll" was (#1327).
+   Now the pane shrinks, down to a floor that still shows a line of the
+   record, and the list keeps the two rows its own rule reserves. */
 console-detail {
     flex-direction: column;
-    flex-shrink: 0;
+    flex-shrink: 1;
     height: 132px;
+    min-height: 48px;
     border-top-width: 1px;
     border-color: var(--border);
     background-color: var(--surface-sunken);
@@ -1259,7 +1272,7 @@ console-detail > scroll-content { gap: 3px; padding: 7px 9px; }
 /* ⚠ One line tall with nothing selected. A console docked along the bottom is
    about six rows deep, and a detail pane holding a third of that open for a
    stack that is not there is a panel with no room to read the log in. */
-console-detail.empty { height: auto; color: var(--text-muted); }
+console-detail.empty { height: auto; flex-shrink: 0; min-height: 0px; color: var(--text-muted); }
 console-detail.empty > scroll-content { padding: 5px 9px; }
 console-detail-heading { color: var(--text); }
 console-detail-meta { color: var(--text-muted); font-size: 0.85em; }
