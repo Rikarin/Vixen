@@ -33,7 +33,7 @@ public class CalendarTests {
 
     /// <summary>A week that starts on Monday, and a Czech month, to prove both are read off the culture.</summary>
     static CultureInfo Monday() {
-        var culture = (CultureInfo) CultureInfo.InvariantCulture.Clone();
+        var culture = (CultureInfo)CultureInfo.InvariantCulture.Clone();
 
         culture.DateTimeFormat.FirstDayOfWeek = DayOfWeek.Monday;
         culture.DateTimeFormat.MonthNames = [
@@ -166,7 +166,7 @@ public class CalendarTests {
 
             fixture.Document.Focus(calendar.DayOf(Today)!);
 
-            DateOnly Focused() => ((CalendarDay) fixture.Document.Focused!).Date;
+            DateOnly Focused() => ((CalendarDay)fixture.Document.Focused!).Date;
 
             fixture.Type(InputKey.Right);
             Assert.Equal(new DateOnly(2026, 9, 25), Focused());
@@ -214,7 +214,7 @@ public class CalendarTests {
 
             fixture.Type(InputKey.PageDown);
 
-            Assert.Equal(new DateOnly(2026, 2, 28), ((CalendarDay) fixture.Document.Focused!).Date);
+            Assert.Equal(new DateOnly(2026, 2, 28), ((CalendarDay)fixture.Document.Focused!).Date);
         }
     }
 
@@ -242,7 +242,7 @@ public class CalendarTests {
             fixture.Document.Focus(calendar.DayOf(Today)!);
             fixture.Type(InputKey.Down);
 
-            Assert.Equal(new DateOnly(2026, 9, 26), ((CalendarDay) fixture.Document.Focused!).Date);
+            Assert.Equal(new DateOnly(2026, 9, 26), ((CalendarDay)fixture.Document.Focused!).Date);
             Assert.Equal(new DateOnly(2026, 9, 1), calendar.Month);
         }
     }

@@ -413,7 +413,7 @@ public sealed partial class Form : Control {
         Control? refused = null;
 
         foreach (var field in Fields) {
-            var validated = (IValidated) field;
+            var validated = (IValidated)field;
             validated.Revalidate();
 
             // ⚠ The bit `:user-invalid` waits for, set on the field and on whatever in it takes the
@@ -448,11 +448,11 @@ public sealed partial class Form : Control {
     protected override void OnCreated() {
         base.OnCreated();
 
-        AddHandler<SubmitEvent>(static (element, args) => ((Form) element).Heard(args.Source));
+        AddHandler<SubmitEvent>(static (element, args) => ((Form)element).Heard(args.Source));
 
         AddHandler<ClickEvent>(static (element, args) => {
             if (args.Source is Button { IsDefault: true } button) {
-                ((Form) element).Heard(button);
+                ((Form)element).Heard(button);
             }
         });
     }

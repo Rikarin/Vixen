@@ -245,8 +245,8 @@ public sealed partial class Calendar : Control {
         AddAccessibleRelation(AccessibleRelation.LabelledBy, Title);
         Grid.AddAccessibleRelation(AccessibleRelation.LabelledBy, Title);
 
-        AddHandler<ClickEvent>(static (element, args) => ((Calendar) element).Chosen(args));
-        AddHandler<KeyEvent>(static (element, args) => ((Calendar) element).Keyed(args));
+        AddHandler<ClickEvent>(static (element, args) => ((Calendar)element).Chosen(args));
+        AddHandler<KeyEvent>(static (element, args) => ((Calendar)element).Keyed(args));
 
         today = DateOnly.FromDateTime(DateTime.Today);
         active = Value ?? today;
@@ -317,8 +317,8 @@ public sealed partial class Calendar : Control {
         }
 
         var date = day.Date;
-        var first = (int) Locale.DateTimeFormat.FirstDayOfWeek;
-        var intoWeek = ((int) date.DayOfWeek - first + DaysInWeek) % DaysInWeek;
+        var first = (int)Locale.DateTimeFormat.FirstDayOfWeek;
+        var intoWeek = ((int)date.DayOfWeek - first + DaysInWeek) % DaysInWeek;
 
         DateOnly? target = (args.Key, shift) switch {
             (InputKey.Left, false) => Step(date, -1),
@@ -383,7 +383,7 @@ public sealed partial class Calendar : Control {
 
         var locale = Locale;
         var format = locale.DateTimeFormat;
-        var first = (int) format.FirstDayOfWeek;
+        var first = (int)format.FirstDayOfWeek;
 
         for (var i = 0; i < DaysInWeek; i++) {
             var weekday = (first + i) % DaysInWeek;
@@ -391,7 +391,7 @@ public sealed partial class Calendar : Control {
             weekdays[i].AccessibleName = format.DayNames[weekday];
         }
 
-        var offset = ((int) month.DayOfWeek - first + DaysInWeek) % DaysInWeek;
+        var offset = ((int)month.DayOfWeek - first + DaysInWeek) % DaysInWeek;
 
         // ⚠ Clamped at both ends of the calendar .NET can represent: the grid for January of the
         // year 1 would otherwise start in December of the year 0, which throws.
@@ -432,11 +432,11 @@ public sealed partial class Calendar : Control {
     static DateOnly FirstOf(DateOnly date) => new(date.Year, date.Month, 1);
 
     static DateOnly? Step(DateOnly date, int by) {
-        var number = (long) date.DayNumber + by;
+        var number = (long)date.DayNumber + by;
 
         return number < DateOnly.MinValue.DayNumber || number > DateOnly.MaxValue.DayNumber
             ? null
-            : DateOnly.FromDayNumber((int) number);
+            : DateOnly.FromDayNumber((int)number);
     }
 
     /// <remarks><see cref="DateOnly.AddMonths" /> keeps the day where it can and clamps it where it cannot: 31 January and a month is 28 or 29 February.</remarks>
@@ -598,8 +598,8 @@ public sealed partial class DatePicker : Control, IValidated {
             }
         });
 
-        AddHandler<PointerEvent>(static (element, args) => ((DatePicker) element).Pointed(args));
-        AddHandler<KeyEvent>(static (element, args) => ((DatePicker) element).Keyed(args));
+        AddHandler<PointerEvent>(static (element, args) => ((DatePicker)element).Pointed(args));
+        AddHandler<KeyEvent>(static (element, args) => ((DatePicker)element).Keyed(args));
 
         Restate();
         Revalidate();
