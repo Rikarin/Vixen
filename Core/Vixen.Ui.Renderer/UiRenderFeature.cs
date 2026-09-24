@@ -197,6 +197,62 @@ public sealed class UiRenderFeature : RootRenderFeature {
     /// </remarks>
     public int Soft { get; private set; }
 
+    /// <summary>How many of the last <see cref="Compose" />'s top-level groups read a backdrop that has
+    /// no scene in it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The only observer #1378's picture has, and it lives here because this is the only
+    ///         place that knows.</b> A top-level group with <c>mix-blend-mode</c> or a
+    ///         <c>backdrop-filter</c> reads what lies beneath it, and inside a world renderer that is
+    ///         the scene — which has not been drawn when <see cref="Compose" /> records its passes, so
+    ///         <see cref="UiRenderer.Compose" /> is handed no backdrop. The group then blends or blurs
+    ///         against the interface's own prefix over transparent black: right wherever the interface
+    ///         painted under it, and source-over the world wherever only the scene did. It reads
+    ///         <see cref="UiRenderer.Blended" /> or <see cref="UiRenderer.Backdropped" />, not
+    ///         <see cref="UiRenderer.Unblended" />, because the renderer cannot tell "a scene I was not
+    ///         given" from "a host that painted nothing" — a default <see cref="UiBackdropSource" /> is
+    ///         both. This feature can: it is the host that passed nothing, every time.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Top-level only, and that is the whole of the arrangement.</b> A nested group's
+    ///         backdrop root is its parent's surface (CSS Compositing 1 § 3), which the renderer has in
+    ///         full, so it is right whatever lies under the interface and is not counted. A group is
+    ///         top-level when no earlier layer's range contains it — <see cref="UiGeometry.Layers" />
+    ///         is sorted by its first draw and the ranges nest, so one comparison per layer answers it.
+    ///     </para>
+    ///     <para>
+    ///         Counted per group and not per pixel: it cannot know whether the interface painted under
+    ///         the group, so a badge over a plain HUD panel — which is right — is counted as well. A
+    ///         count of zero is the claim worth having, and it is exact. Reset by every
+    ///         <see cref="Compose" />. Giving such a group the real scene is a decision about where the
+    ///         interface composes and not a missing call; see <c>Core/Vixen.Ui.Renderer/README.md</c>.
+    ///     </para>
+    /// </remarks>
+    public int Sceneless { get; private set; }
+
+    /// <summary>How many of <paramref name="geometry" />'s top-level groups read their backdrop.</summary>
+    /// <param name="geometry">One interface's frame.</param>
+    /// <returns>The number <see cref="Sceneless" /> adds for it.</returns>
+    internal static int ScenelessIn(in UiGeometry geometry) {
+        var count = 0;
+        var end = -1;
+
+        foreach (var layer in geometry.Layers) {
+            if (layer.First < end) {
+                // Inside the last top-level group's range: nested, and its backdrop root is that group.
+                continue;
+            }
+
+            end = layer.First + layer.Count;
+
+            if (layer.Blend != UiBlendMode.Normal || layer.Backdrop is not null) {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
     /// <summary>Whether a frame's flattening or fringe is coarser than drawing it at this scale wants.</summary>
     /// <param name="geometry">What was built.</param>
     /// <param name="scale">Framebuffer pixels per unit of the geometry — <see cref="UiInterface.Scale" />.</param>
@@ -439,9 +495,12 @@ public sealed class UiRenderFeature : RootRenderFeature {
     ///         the scene — which at this point in the frame <em>has not been drawn</em>, because
     ///         these passes are recorded ahead of the caller's own. So a <c>backdrop-filter</c> over
     ///         a HUD blurs the interface above it and reads a transparent field for the world behind
-    ///         it. Every other group composites correctly. Supplying it needs the scene's colour
-    ///         target from the frame before, which is a decision about latency rather than a missing
-    ///         call, and is not made here.
+    ///         it. Every other group composites correctly. Supplying it needs either the scene's colour
+    ///         target from the frame before, which is a decision about latency, or these passes
+    ///         recorded after the scene, which is a decision about where the interface composes —
+    ///         neither is a missing call, and neither is made here. ⚠ What <i>is</i> here is the count:
+    ///         <see cref="Sceneless" /> says how many groups of this frame read that degraded
+    ///         backdrop (#1378), because nothing else can.
     ///     </para>
     ///     <para>
     ///         The scale is <see cref="UiInterface.Scale" />, and so is <see cref="Draw" />'s. ⚠ The
@@ -462,6 +521,7 @@ public sealed class UiRenderFeature : RootRenderFeature {
         // wrong picture the upload half refuses, drawn one stage later. A feature with one
         // interface, which is every host today, resolves to `Renderer` and is unaffected.
         serving.Clear();
+        Sceneless = 0;
 
         foreach (var (index, surface) in surfaces) {
             if (Serve(index) is not { } renderer) {
@@ -469,6 +529,9 @@ public sealed class UiRenderFeature : RootRenderFeature {
             }
 
             renderer.Compose(commands, surface.Geometry, surface.Surface, surface.Scale);
+
+            // After the call, so an interface that was not composed — no renderer — is not counted.
+            Sceneless += ScenelessIn(surface.Geometry);
         }
     }
 

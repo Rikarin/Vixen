@@ -215,6 +215,165 @@ public sealed class InterfaceOverASceneDeviceTests {
         Assert.True(composited > 0, "the faded panel's group was never composed into a surface of its own");
     }
 
+    /// <summary>A multiplied panel at the top level of a HUD, over the 3-D scene: the picture #1378 describes, and its counter.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This pins a defect, so that the day it is fixed is a red line and not a
+    ///         silence.</b> <c>WorldRenderer.Draw</c> composes the interface before the scene is
+    ///         drawn, so the panel's blend capture holds the interface over transparent black, a
+    ///         backdrop of alpha zero weights § 5.1 to nothing, and the panel lands source-over on the
+    ///         world: its own grey, where <c>multiply</c> would have darkened the scene by it. The
+    ///         closed form for that is exact — the grey's own code at every panel pixel, whatever the
+    ///         scene — and the right answer is <c>grey · scene</c> in linear light, which the
+    ///         instrument checks is far from it on this scene before anything is asserted.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And no counter the renderer has can see it</b>: the panel reads
+    ///         <c>UiRenderer.Blended</c> one and <c>Unblended</c> zero, exactly as a correct blend
+    ///         would. <c>UiRenderFeature.Sceneless</c> is the one that does, and this is the frame it
+    ///         is one on. A fix that gives the group the scene inverts the pixel half to the multiply
+    ///         and the counter to zero.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ATopLevelBlendedHudPanelLandsSourceOverTheSceneAndIsCountedAsSeeingNone() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        Bitmap backdrop;
+
+        using (var scene = StandardFrameTierImageTests.Stage(owned, QualityTier.High, Document)) {
+            backdrop = scene.Frames(Frames);
+        }
+
+        Bitmap picture;
+        int sceneless;
+        int blended;
+        int unblended;
+
+        using (var scene = StandardFrameTierImageTests.Stage(owned, QualityTier.High, Document)) {
+            using var ui = new UiRenderer(
+                owned.Device,
+                UiShaderLibrary.Load(owned.Device),
+                new RenderOutput([PixelFormat.Rgba8UNormSrgb])
+            );
+
+            var stage = scene.Stages["Ui"];
+
+            scene.View.Stages |= stage.Mask;
+            scene.Renderer.Ui.Renderer = ui;
+
+            var id = scene.Renderer.Ui.Mount(stage.Mask);
+            var (geometry, atlas) = Multiplied();
+
+            // The instrument: one group, at the top level, and it is the blended one.
+            var layer = Assert.Single(geometry.Layers);
+            Assert.Equal(UiBlendMode.Multiply, layer.Blend);
+
+            scene.Renderer.Ui.Set(id, new(geometry, atlas, new Int2(Side, Side), 0));
+
+            picture = scene.Frames(Frames);
+            sceneless = scene.Renderer.Ui.Sceneless;
+            blended = ui.Blended;
+            unblended = ui.Unblended;
+        }
+
+        Keep("hud-blend-over-a-scene.backdrop", backdrop);
+        Keep("hud-blend-over-a-scene", picture);
+
+        var worst = 0;
+        var measured = 0;
+        var distinguishable = 0;
+
+        foreach (var (x, y) in Inside(Blended)) {
+            if (Near(BlendedInner, x, y)) {
+                continue;
+            }
+
+            var under = At(backdrop, x, y);
+            var over = At(picture, x, y);
+
+            // What multiply over the scene would be, per channel, in linear light.
+            var right = (
+                R: Encode(Decode(Grey) * Decode(under.R)),
+                G: Encode(Decode(Grey) * Decode(under.G)),
+                B: Encode(Decode(Grey) * Decode(under.B))
+            );
+
+            if (Math.Max(Math.Abs(right.R - Grey), Math.Max(Math.Abs(right.G - Grey), Math.Abs(right.B - Grey))) >= 10) {
+                distinguishable++;
+            }
+
+            worst = Math.Max(worst, Math.Abs(over.R - Grey));
+            worst = Math.Max(worst, Math.Abs(over.G - Grey));
+            worst = Math.Max(worst, Math.Abs(over.B - Grey));
+            measured++;
+        }
+
+        // The instrument: on this scene the right answer and the pinned one are pictures apart.
+        Assert.True(measured > 400, $"only {measured} pixels of the panel were measured");
+        Assert.True(
+            distinguishable > measured / 2,
+            $"multiply over this scene is within 10 codes of the grey at {measured - distinguishable} of {measured} pixels, "
+            + "so the pin could not tell a scene-aware blend from the source-over it pins"
+        );
+
+        // The defect: the grey, unmixed with the scene beneath it.
+        Assert.True(worst <= 2, $"the panel is {worst} codes from its own grey; #1378's source-over would be exact");
+
+        // And its visibility: the renderer's counters say a correct blend happened; the feature's says
+        // the backdrop had no scene in it.
+        Assert.True(blended > 0, "the panel never went through UiBlend, so this is not the arrangement #1378 describes");
+        Assert.Equal(0, unblended);
+        Assert.Equal(1, sceneless);
+    }
+
+    /// <summary>The multiplied panel, in document pixels, which are framebuffer pixels here.</summary>
+    static readonly (int X, int Y, int Width, int Height) Blended = (24, 40, 80, 48);
+
+    /// <summary>A box inside it, so the panel's subtree is more than one command and stays a group.</summary>
+    static readonly (int X, int Y, int Width, int Height) BlendedInner = (32, 48, 16, 12);
+
+    /// <summary>The panel's grey as an sRGB code: <c>#808080</c>.</summary>
+    const byte Grey = 0x80;
+
+    /// <summary>A HUD whose only panel is multiplied onto whatever it lands on.</summary>
+    static (UiGeometry Geometry, GlyphAtlas Atlas) Multiplied() {
+        var document = new UiDocument(Side, Side);
+
+        document.Load(
+            $$"""
+            root { width: {{Side}}px; height: {{Side}}px; }
+            .blended {
+                position: absolute; left: {{Blended.X}}px; top: {{Blended.Y}}px;
+                width: {{Blended.Width}}px; height: {{Blended.Height}}px; background-color: #808080;
+                mix-blend-mode: multiply;
+            }
+            .inner {
+                position: absolute; left: {{BlendedInner.X - Blended.X}}px; top: {{BlendedInner.Y - Blended.Y}}px;
+                width: {{BlendedInner.Width}}px; height: {{BlendedInner.Height}}px; background-color: #ff0000;
+            }
+            """
+        );
+
+        document.Root.Add("div", classNames: "blended").Add("div", classNames: "inner");
+        document.Update();
+        document.Draw();
+
+        var atlas = new GlyphAtlas(256, 256);
+
+        var geometry = new UiGeometryBuilder().Build(
+            document.Drawing,
+            new GlyphFieldCache(atlas),
+            new Rectangle(0, 0, Side, Side)
+        );
+
+        return (geometry, atlas);
+    }
+
     /// <summary>The HUD: a document with an opaque panel and a half-transparent one, built as a host builds it.</summary>
     static (UiGeometry Geometry, GlyphAtlas Atlas) Hud() {
         var document = new UiDocument(Side, Side);

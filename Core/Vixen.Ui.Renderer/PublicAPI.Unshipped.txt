@@ -30,6 +30,7 @@ Vixen.Ui.Renderer.UiRenderFeature.Remove(Vixen.Rendering.RenderObjectId id) -> v
 Vixen.Ui.Renderer.UiRenderFeature.Renderer.get -> Vixen.Ui.Renderer.UiRenderer?
 Vixen.Ui.Renderer.UiRenderFeature.Renderer.set -> Vixen.Ui.Renderer.UiRenderer?
 Vixen.Ui.Renderer.UiRenderFeature.RendererOf(Vixen.Rendering.RenderObjectId id) -> Vixen.Ui.Renderer.UiRenderer?
+Vixen.Ui.Renderer.UiRenderFeature.Sceneless.get -> int
 Vixen.Ui.Renderer.UiRenderFeature.Set(Vixen.Rendering.RenderObjectId id, in Vixen.Ui.Renderer.UiInterface surface) -> void
 Vixen.Ui.Renderer.UiRenderFeature.Soft.get -> int
 Vixen.Ui.Renderer.UiRenderFeature.UiRenderFeature() -> void

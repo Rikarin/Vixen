@@ -83,6 +83,22 @@ also decides the bounds, which are `float.MaxValue` and not a mistake — an int
 space and has no place in the world, so anything finite there is a HUD that appears and disappears as
 the player turns around.
 
+⚠ **A HUD's top-level `mix-blend-mode` and `backdrop-filter` cannot see the scene, and
+`UiRenderFeature.Sceneless` is what says so** ([#1378](https://github.com/Rikarin/Vixen/issues/1378)).
+`WorldRenderer.Draw` composes before the scene is drawn, so `UiRenderer.Compose` gets no backdrop and
+such a group reads the interface over transparent black — a multiplied panel lands as its own flat
+colour on the world (`InterfaceOverASceneDeviceTests` pins exactly that on a device). The renderer's
+own counters read `Blended`, because a default `UiBackdropSource` is also what a host that painted
+nothing passes; the feature is the one party that knows it passed nothing, so the count is its.
+Giving the group the real scene is a decision, not a missing call, and the mechanism for the cheaper
+of the two is already in the tree: a render-graph pass with no attachments runs its body *outside* a
+render pass (`RenderGraph.RunSegment`, the `pass.HasAttachments` branch), so a compositor node at
+the `BeforeUi` seam — ahead of the host's interface pass, reading the frame's output — could call
+`Compose` with the output as `UiBackdropSource.Image`. What that costs is a node kind (an `ISceneRendererFactory` the
+world renderer registers) and moving `Compose` out of `WorldRenderer.Draw`'s prologue for a host that
+declares one. The alternative, last frame's scene, is a latency decision and still needs a copy at
+the same seam, before the interface draws, or it would hand the HUD its own previous frame.
+
 ### Three pipelines, one vertex layout
 
 They differ only in the fragment stage, so a frame binds a different pipeline per batch kind and

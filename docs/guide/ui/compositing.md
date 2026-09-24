@@ -833,7 +833,8 @@ replays the first one's *blended* composite) and a blend nested in a translucent
 ⚠ **Three arrangements still composite source-over on the device, and `UiRenderer.Unblended` counts
 the first two** — it needs to, because a blend over a flat backdrop is often the identity
 (`multiply` against white, `screen` against black), so neither a screenshot nor a comparison of the
-two executors can tell. The third has no counter, for the reason given against it:
+two executors can tell. The third is invisible to it, for the reason given against it, and is
+counted by `UiRenderFeature.Sceneless` instead (#1378):
 
 - a blended group that also carries a `filter` colour matrix or a `mask-image`, whose composite
   belongs to the module that applies those and samples one texture;

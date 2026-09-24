@@ -1127,6 +1127,8 @@ public sealed class UiRenderer : IDisposable {
     ///         host that genuinely painted nothing would pass, and there the picture is right. And it
     ///         is not declined, because declining would lose the blend in the case that works — a
     ///         top-level badge over a plain HUD panel, which is not a group and so is in the prefix.
+    ///         ⚠ <c>UiRenderFeature.Sceneless</c> counts it instead (#1378): the feature is the host
+    ///         that passed nothing, so it is the one party that can.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>History worth keeping, because two refusals were written here as blockers and both

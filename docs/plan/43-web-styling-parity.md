@@ -3691,6 +3691,7 @@ no fragment-position input, which was false, and `UiBlend` now reads `SV_Positio
 `Unblended` counts the first two. ⚠ The third it cannot: that panel
 does go through `UiBlend`, against the interface's own prefix over transparent black, and reads
 `Blended`; the renderer has nothing that tells a scene beneath from a host that painted nothing.
+`UiRenderFeature.Sceneless` counts it instead, because the feature is what passed nothing (#1378).
 
 ⚠ **`background-blend-mode` is not this and stays refused.** It blends an element's background
 *layers* with each other, and there is one background layer for them to blend.
