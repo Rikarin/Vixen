@@ -26,8 +26,8 @@
     though `Add<AnalysisRow>()` does not.
 
     ⚠ **`class` is the caller's and is not a parameter here.** `analysis-row.error` and
-    `analysis-row.warning` are the two severity colours, `AddressableGroupsView` passes them
-    positionally today, and `class` is one of markup's three universal attributes — so a caller
+    `analysis-row.warning` are the two severity colours, `AddressableGroupsView` passed them
+    positionally until #89 ported it, and `class` is one of markup's three universal attributes — so a caller
     writes `class="@note.Class"` on the tag and this file has no opinion about severity at all.
 -->
 @component AnalysisRow

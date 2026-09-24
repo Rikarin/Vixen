@@ -51,9 +51,6 @@ Editor/Vixen.Editor.AssetEditors/Animation/ProxyShapeView.cs	Button.Label	Genera
 Editor/Vixen.Editor.AssetEditors/Animation/ProxyShapeView.cs	Button.Label	Mirror
 Editor/Vixen.Editor.AssetEditors/Animation/ProxyShapeView.cs	Button.Label	Remove
 Editor/Vixen.Editor.AssetEditors/Code/PreviewCodeEditorView.vxml	Button.Label	Button
-Editor/Vixen.Editor.AssetEditors/Content/AddressableGroupsView.cs	Button.Label	Analyse build
-Editor/Vixen.Editor.AssetEditors/Content/AddressableGroupsView.cs	EmptyState.Description	A .vxgroup is a policy: how its assets are packed, compressed and shipped.
-Editor/Vixen.Editor.AssetEditors/Content/AddressableGroupsView.cs	EmptyState.Title	No group selected
 Editor/Vixen.Editor.AssetEditors/Importing/SpriteSheetView.cs	Alert.Title	No pixels
 Editor/Vixen.Editor.AssetEditors/Importing/SpriteSheetView.cs	Button.Label	Add
 Editor/Vixen.Editor.AssetEditors/Importing/SpriteSheetView.cs	Button.Label	Clear

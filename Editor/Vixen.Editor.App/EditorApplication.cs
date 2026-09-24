@@ -317,6 +317,9 @@ sealed partial class EditorApplication : IDisposable {
     readonly AssetEditorRegistry editors;
     readonly HashSet<string> assetPanels = new(StringComparer.Ordinal);
 
+    /// <summary>The document each asset tab was last built over, which is what closing it after a move reads.</summary>
+    readonly Dictionary<string, EditorDocument> tabDocuments = new(StringComparer.Ordinal);
+
     /// <summary>What turns doc 34's asset paths into rigs, shape sets and scenes.</summary>
 
     /// <summary>The one system the editor runs, and <see cref="ResolveTransforms" /> says why.</summary>
@@ -2721,6 +2724,7 @@ sealed partial class EditorApplication : IDisposable {
                 panel => {
                     if ((TryGetOpenScene(asset, out var open) || project.TryGetDocument(asset, out open))
                         && editors.TryGetForFile(project.Assets.TryGetByGuid(asset, out var entry) ? entry.Path : title, out var editor)) {
+                        tabDocuments[id] = open;
                         Joined(editor.CreateView(open, panel), open);
                     }
                 }
@@ -2765,13 +2769,10 @@ sealed partial class EditorApplication : IDisposable {
             return false;
         }
 
-        var file = Path.GetFullPath(project.Paths.Absolute(entry.Path));
-        var comparison = OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+        var file = project.Paths.Absolute(entry.Path);
 
         foreach (var open in openScenes) {
-            var written = open.Document.Writer is SceneFileWriter writer ? writer.Path : open.Path;
-
-            if (open.Document.IsOpen && string.Equals(Path.GetFullPath(written), file, comparison)) {
+            if (open.Document.IsOpen && SameFile(open.Writes, file)) {
                 document = open.Document;
 
                 return true;
@@ -2779,6 +2780,87 @@ sealed partial class EditorApplication : IDisposable {
         }
 
         return false;
+    }
+
+    /// <summary>Whether two paths name one file, on this platform's terms.</summary>
+    static bool SameFile(string left, string right) =>
+        string.Equals(
+            Path.GetFullPath(left),
+            Path.GetFullPath(right),
+            OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase
+        );
+
+    /// <summary>Finds a document other than <paramref name="scene" /> that edits a file.</summary>
+    /// <param name="path">The file.</param>
+    /// <param name="scene">The scene asking, which does not count; <see langword="null" /> for none.</param>
+    /// <returns>The document, or <see langword="null" /> when no other one edits it.</returns>
+    /// <remarks>
+    ///     Both kinds: the editor's own scenes, found by the file their writer names, and a document an
+    ///     asset tab opened, found by its asset's file. Pointing a second one at a file either of them
+    ///     holds is the arrangement #1395 removed — two undo histories and two writers over one set of
+    ///     bytes, whichever saved last winning.
+    /// </remarks>
+    EditorDocument? EditedElsewhere(string path, SceneDocument? scene) {
+        foreach (var open in openScenes) {
+            if (!ReferenceEquals(open.Document, scene) && open.Document.IsOpen && SameFile(open.Writes, path)) {
+                return open.Document;
+            }
+        }
+
+        foreach (var document in project.Documents) {
+            if (ReferenceEquals(document, scene)
+                || document.Asset.IsEmpty
+                || !project.Assets.TryGetByGuid(document.Asset, out var entry)
+                || entry.IsFolder) {
+                continue;
+            }
+
+            if (SameFile(project.Paths.Absolute(entry.Path), path)) {
+                return document;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Says why a scene was not pointed at a file another document already edits.</summary>
+    void RefuseSecondDocument(string path, EditorDocument holder, string title) =>
+        Shell.Notifications.Show(
+            title,
+            NotificationSeverity.Warning,
+            $"{Path.GetFileName(path)} is already open as '{holder.Title.Peek()}'. Close that first, so that one document writes the file."
+        );
+
+    /// <summary>Closes every asset tab showing an editor scene that no longer writes that asset's file.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A document tab is bound to the file it was opened on</b> (#1416). It is registered
+    ///         once under that asset's GUID with the title the file had, and its builder decides what to
+    ///         show on every rebuild by asking <see cref="TryGetOpenScene" />, which matches the file
+    ///         the scene writes <i>now</i>. So after Save As or Open Scene moved the scene, a tab named
+    ///         after the old file kept showing a scene that writes another one — until something rebuilt
+    ///         it, when the same tab lost the scene. Which of the two you saw depended on when the panel
+    ///         was last built.
+    ///     </para>
+    ///     <para>
+    ///         Closing it is the answer that depends on nothing: the scene is still in the Scene view,
+    ///         the file it left is on disk unchanged, and opening that file again is an ordinary
+    ///         document of its own, because nothing edits it any more.
+    ///     </para>
+    /// </remarks>
+    void CloseTabsTheSceneLeft() {
+        foreach (var (id, shown) in tabDocuments.ToArray()) {
+            if (shown is not SceneDocument moved || !openScenes.Exists(open => ReferenceEquals(open.Document, moved))) {
+                continue;
+            }
+
+            if (TryReadAssetPanel(id, out var asset) && TryGetOpenScene(asset, out var now) && ReferenceEquals(now, moved)) {
+                continue;
+            }
+
+            tabDocuments.Remove(id);
+            Shell.Workspace.Close(id);
+        }
     }
 
     /// <summary>Puts a document panel where the documents are, before it is first opened.</summary>
