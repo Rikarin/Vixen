@@ -80,6 +80,16 @@ public class LayerStackEditingTests {
 
         Buttons(panel, "layer-stack-move-up")[1].Activate();
 
+        // ⚠ The list first and the signals after it, so that a disagreement says which side is
+        // wrong. #1413 saw `Depth` read 0 straight after `IsDirty` read true, once in sixteen runs:
+        // both are computeds over the same `revision` and cannot disagree on one thread. What could
+        // make them was the process-wide `Strings` node — this panel adds two live consumers to it,
+        // and every other UI test class was doing the same on its own thread, racing on that node's
+        // edge arrays — which are rented from, and returned to, the pool of whichever thread grew
+        // them, so a torn one can end up in a private graph. `Strings` now keeps a node per thread
+        // (`StringsThreadingTests`). `History` is a plain list, so if this ever fails again with
+        // the list holding the move, the fault is in the graph and not in the stack.
+        Assert.Single(document.Stack.History);
         Assert.True(document.IsDirty.Value);
         Assert.Equal(1, document.Stack.Depth.Value);
         Assert.Equal(0.25f, TopColour(document));
