@@ -78,6 +78,8 @@ default for.
 | `InstallSystemFont` | `true` | Whether a face is borrowed from the OS when none is registered |
 | `Configure` | — | Run once against the document, after the sheets and before the content |
 | `Frames` | `0` | How many frames to run, or zero for "until it is closed" |
+| `Offscreen` | `false` | Draw on a device with no surface, with the window hidden |
+| `CapturePath` | `null` | A directory to write the last frame into, as `frame.png` |
 | `Platform` | SDL | Where the window comes from |
 
 ⚠ **`Styles` cannot be inferred, and the generated utility sheet is the one people forget.**
@@ -108,9 +110,15 @@ long the previous frame took.
 with long work to report does not need a timer of its own; see
 [background tasks](background-tasks.md).
 
-**`Run(options, arguments)` is the overload to use from `Main`.** It reads the arguments every Vixen
-application understands before starting, of which the one that matters here is `--frames N` — which
-sets `Frames`, and is what makes a screenshot run or a smoke test terminate.
+**`Run(options, arguments)` is the overload to use from `Main`.** It reads these arguments before
+starting. Each takes its value as the next argument or after `=`:
+
+| Argument | Sets | What it does |
+|---|---|---|
+| `--vixen-frames N` (or `--frames N`) | `Frames` | Runs N frames and exits. This is what makes a smoke test stop |
+| `--vixen-size WxH` | `Size` | Replaces the application's own window size |
+| `--vixen-offscreen` | `Offscreen` | Draws on a device with no surface and hides the window |
+| `--vixen-capture <dir>` | `CapturePath` | The same, and writes the last frame to `<dir>/frame.png` |
 
 **`Platform` is how an application reaches the operating system.** The clipboard, the native file
 pickers, the displays and the process lifecycle live on `IPlatform`, which `Vixen.Ui` is not allowed
@@ -134,6 +142,37 @@ operating systems' rule, not the framework's.
 loads that assembly by name and runs its module initializer, so a Release build does not resolve it
 and nothing in `Main` changes. `Mount` exists for the same reason — it lets the reload host own the
 mounting without `Vixen.Ui.HotReload` being linked into a shipped application.
+
+## Capturing the whole application
+
+⚠ **`--frames N` on its own is not a screenshot.** It runs the loop and presents to the window, and
+nothing is written anywhere. Until #1367 there was no way to picture a `Vixen.Ui` application whole:
+controls were pictured one at a time, in a test document, and never together with the application's
+own sheet.
+
+`--vixen-capture <dir>` renders into a texture the size of the window's framebuffer, on a real device,
+through the same passes a presented frame takes. It copies the last frame out and writes it as
+`frame.png`. The window is created hidden, because it is still what gives the document its size,
+its DPI scale and its event stream.
+
+```
+MyTool --vixen-frames 3 --vixen-size 1280x1800 --vixen-capture ./shots
+```
+
+Three rules keep it from quietly producing nothing:
+
+* ⚠ **It needs a frame count.** A hidden window cannot be closed, so `--vixen-capture` or
+  `--vixen-offscreen` without `--vixen-frames` throws instead of running for ever.
+* ⚠ **It refuses to run without a Vulkan device.** The windowed path draws nothing on a machine with no
+  GPU, which is fine for a smoke test. A run that asked for a picture throws with the reason instead,
+  and never falls back to drawing nothing.
+* ⚠ **A run that wrote no picture exits 1.** Exiting 0 would look like a run that worked.
+
+The run prints the adapter, `Vulkan device created on '<name>'`, and `Captured the frame to <path>.`.
+Check both before trusting the picture.
+
+⚠ **It still needs a display server.** The window is hidden but it is a real SDL window, so a Linux
+runner with no X server or Wayland compositor needs Xvfb. `--vixen-headless` is not read by this host.
 
 ## Quitting, and refusing to
 
@@ -212,10 +251,16 @@ application.Frame += (_, frame) => model.FrameTime.Value = frame.Delta.TotalMill
 Because `Frame` runs before `UiDocument.Update`, the number written there is laid out and drawn in
 that same frame.
 
-A headless run of a fixed length, which is what a screenshot job wants:
+A run of a fixed length, which is what a smoke test wants. It presents to a window and writes nothing:
 
 ```
 MyTool --frames 4
+```
+
+A picture of the whole application, drawn on the GPU with the window hidden:
+
+```
+MyTool --vixen-frames 3 --vixen-capture ./shots
 ```
 
 ## See also

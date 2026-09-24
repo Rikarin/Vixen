@@ -606,6 +606,35 @@ public sealed class ScrollingPanelPictureTests {
         );
 
         Check(fixture, strips, "mixer-strips", sideways: true);
+
+        // ⚠ The side column keeps its 300 px beside sixteen buses (#1397). The strips' basis was their
+        // content, so the column shrank with every bus: 143 px here, its analysis line cut to
+        // "19 bus(e". Asserted only where the body has room for the column, a gap and one strip, and
+        // after `Check` so that the pictures are written whichever way this comes out.
+        var body = strips.Parent!;
+        var side = Scroller(fixture, "mixer-side");
+
+        Assert.True(body.Width > 300f + 6f + 76f, $"the mixer body is {body.Width:0} px, too narrow to say anything");
+        Assert.True(
+            MathF.Abs(side.Width - 300f) < 0.5f,
+            $"the side column is {side.Width:0} px of its 300 in a {body.Width:0} px body, beside strips {strips.Width:0} px wide."
+        );
+
+        // ⚠ And nothing in it is wider than it. At its full 300 px the analysis line was still cut, to
+        // "19 bus(es), 0 snapshot(s). Bui", because a scroll content is as wide as its widest unwrapped
+        // line: 330 px here. The column scrolls down, so the line wraps rather than scrolling across.
+        var message = Descendants(side).First(element => element.Tag == "analysis-message");
+
+        Assert.True(
+            side.MaximumLeft == 0f,
+            $"the side column's content is {side.Content.Width:0} px in a {side.Width:0} px column, so its "
+            + $"lines run under a sideways bar: the analysis line is {message.Width:0} px wide and reads '{message.Text}'."
+        );
+
+        Assert.True(
+            message.Height > 30f,
+            $"the analysis line is {message.Height:0} px tall in {message.Width:0} px, so it was cut rather than wrapped."
+        );
     }
 
     /// <summary>The input debug panel, over more rows than the panel is tall.</summary>

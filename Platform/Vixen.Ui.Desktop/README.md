@@ -56,7 +56,11 @@ The loop. **Four steps, and only the last knows what a GPU is** — which is wha
 meaningful on a machine with no Vulkan at all: everything above the RHI still runs.
 
 - `Run(options)` opens the window, runs the loop, returns an exit code.
-- `Run(options, arguments)` reads `--frames N` first.
+- `Run(options, arguments)` reads `--vixen-frames N`, `--vixen-size WxH`, `--vixen-offscreen` and
+  `--vixen-capture <dir>` first. The last one hides the window, draws on a device with no surface and
+  writes the last frame to `<dir>/frame.png`. It refuses to run with no device or no frame count, and
+  exits 1 if it wrote nothing. Before #1367 this read `--frames` only, so no `Vixen.Ui` application
+  could be pictured whole.
 - `Started`, `Frame` and `Stopping` are the hooks. They exist as events *and* as properties on the
   options, because the short form constructs the application itself and hands a caller nothing to
   subscribe to.
