@@ -586,6 +586,16 @@ public class ContainerQueryTests {
     [InlineData("NOT (min-width: 400px)", 300f, 100f, ContainerKind.Size, true)]
     // ⚠ A feature the box cannot answer is unknown, and `not` does not turn unknown into a match.
     [InlineData("not (min-height: 400px)", 300f, 100f, ContainerKind.InlineSize, false)]
+    [InlineData("not (min-height: 400px)", 300f, 500f, ContainerKind.InlineSize, false)]
+    // ⚠ Unknown in a list is CSS's three-valued logic: true beside a true under `or`, and false beside
+    // a false under `and`. Any unknown feature used to make the whole condition false, so the first
+    // row answered no although its known half holds. Every row that expects false has a height of
+    // 500, so an evaluator that read the height anyway would find that feature holding.
+    [InlineData("(min-width: 400px) or (min-height: 400px)", 500f, 100f, ContainerKind.InlineSize, true)]
+    [InlineData("(min-height: 400px) or (min-width: 400px)", 500f, 100f, ContainerKind.InlineSize, true)]
+    [InlineData("(min-width: 400px) or (min-height: 400px)", 300f, 500f, ContainerKind.InlineSize, false)]
+    [InlineData("(min-width: 400px) and (min-height: 400px)", 500f, 500f, ContainerKind.InlineSize, false)]
+    [InlineData("(min-width: 400px) and (min-height: 400px)", 300f, 500f, ContainerKind.InlineSize, false)]
     public void Size_features_evaluate(
         string condition,
         float width,

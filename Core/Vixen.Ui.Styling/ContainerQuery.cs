@@ -74,9 +74,9 @@ public readonly record struct ContainerBox(float Width, float Height, ContainerK
 ///         the container a query asks is the nearest ancestor that is a valid query container for
 ///         <i>every</i> feature in it, so the <c>inline-size</c> box is skipped and a <c>size</c>
 ///         container above it answers. <see cref="Requires" /> is what the walk in
-///         <see cref="ContainerConditions" /> reads to skip it. This evaluator still answers
-///         <c>false</c> for a box that cannot answer rather than reading the height anyway, but the
-///         walk never hands it one; <c>false</c> is only right when no eligible container exists at all.
+///         <see cref="ContainerConditions" /> reads to skip it. This evaluator still reads such a
+///         feature as <i>unknown</i> rather than reading the height anyway, but the walk never hands it
+///         that box; <c>false</c> is only right when no eligible container exists at all.
 ///     </para>
 /// </remarks>
 public static class ContainerQuery {
@@ -118,11 +118,15 @@ public static class ContainerQuery {
     ///         and a parenthesised group is refused rather than read one way.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A feature the box cannot answer makes the whole condition false, under <c>not</c>
-    ///         and <c>or</c> too.</b> The query is <i>unknown</i> there, and unknown does not apply.
-    ///         Negating the <c>false</c> a single feature answers would match every <c>inline-size</c>
-    ///         box with <c>not (min-height: …)</c>. No walk reaches that branch, since
-    ///         <see cref="Requires" /> skips such a box (#1429); a direct caller can.
+    ///         ⚠ <b>A feature the box cannot answer is <i>unknown</i>, and the condition is read in CSS's
+    ///         three-valued logic.</b> <c>not</c> of unknown is unknown, <c>and</c> with unknown is
+    ///         false only beside a false, and <c>or</c> with unknown is true beside a true. Only a
+    ///         condition that ends up true matches: an unknown one does not apply. So an
+    ///         <c>inline-size</c> box answers <c>not (min-height: …)</c> no, and
+    ///         <c>(min-width: 1px) or (min-height: 1px)</c> yes when it is wide. It used to answer the
+    ///         second no as well, because any unknown feature made the whole condition false. No walk
+    ///         reaches either case, since <see cref="Requires" /> skips such a box (#1429); a direct
+    ///         caller can.
     ///     </para>
     /// </remarks>
     public static bool TryEvaluate(string? condition, ContainerBox box, out bool matches, out string? reason) =>
@@ -167,8 +171,9 @@ public static class ContainerQuery {
 
         bool? any = null;
         var count = 0;
-        var result = false;
-        var unknown = false;
+
+        // Three-valued, with null for unknown: a feature the box cannot answer.
+        bool? result = false;
 
         while (true) {
             if (text.IsEmpty || text[0] != '(') {
@@ -198,8 +203,8 @@ public static class ContainerQuery {
                 requires = ContainerKind.Size;
             }
 
-            unknown |= !answerable;
-            result = count++ == 0 ? held : any == true ? result || held : result && held;
+            bool? term = answerable ? held : null;
+            result = count++ == 0 ? term : any == true ? Or(result, term) : And(result, term);
             text = text[(close + 1)..].TrimStart();
 
             if (text.IsEmpty) {
@@ -229,9 +234,18 @@ public static class ContainerQuery {
             return false;
         }
 
-        matches = !unknown && (negated ? !result : result);
+        // `!` on a nullable bool keeps null null: not unknown is unknown.
+        matches = (negated ? !result : result) == true;
         return true;
     }
+
+    /// <summary>Kleene disjunction: true beside a true, unknown beside an unknown, otherwise false.</summary>
+    static bool? Or(bool? left, bool? right) =>
+        left == true || right == true ? true : left is null || right is null ? null : false;
+
+    /// <summary>Kleene conjunction: false beside a false, unknown beside an unknown, otherwise true.</summary>
+    static bool? And(bool? left, bool? right) =>
+        left == false || right == false ? false : left is null || right is null ? null : true;
 
     /// <summary>Whether a text opens with a keyword followed by whitespace, which is how CSS separates one.</summary>
     static bool StartsWithWord(ReadOnlySpan<char> text, string word) =>
