@@ -727,6 +727,51 @@ public class ContainerWiringTests {
         Assert.Equal(300f, label.Width, 0.001f);
     }
 
+    /// <summary>
+    ///     ⚠ A named style query follows the named card through a live document, past an element that
+    ///     declares the same property itself (#273).
+    /// </summary>
+    /// <remarks>
+    ///     <c>.inner</c> declares <c>--variant: secondary</c>, so its inherited portion does not move
+    ///     when the card's does, and the updater's ordinary rule stops there. Only the edge from a
+    ///     named element to its whole subtree carries the toggle to the label. The unnamed query
+    ///     beside it asks <c>.inner</c> and so never matches, which shows the two forms ask different
+    ///     elements in the same document.
+    /// </remarks>
+    [Fact]
+    public void A_named_style_query_follows_the_named_ancestor_past_an_override() {
+        using var document = Document("""
+            root { width: 1000px; height: 600px; flex-direction: column; }
+            .card { height: 100px; container-name: card; flex-direction: column; }
+            .primary { --variant: primary; }
+            .inner { --variant: secondary; flex-direction: column; }
+            .label { width: 10px; height: 10px; }
+            .other { width: 10px; height: 10px; }
+            @container card style(--variant: primary) { .label { width: 300px; } }
+            @container style(--variant: primary) { .other { width: 200px; } }
+            """);
+
+        var card = document.Root.Add("div", classNames: ["card", "primary"]);
+        var inner = card.Add("div", classNames: "inner");
+        var label = inner.Add("div", classNames: "label");
+        var other = inner.Add("div", classNames: "other");
+        document.Update();
+
+        Assert.Equal(300f, label.Width, 0.001f);
+        Assert.Equal(10f, other.Width, 0.001f);
+
+        card.RemoveClass("primary");
+        document.Update();
+
+        Assert.Equal(10f, label.Width, 0.001f);
+
+        card.AddClass("primary");
+        document.Update();
+
+        Assert.Equal(300f, label.Width, 0.001f);
+        Assert.Equal(10f, other.Width, 0.001f);
+    }
+
     /// <summary>And a document that settles says nothing, so the channel stays worth reading.</summary>
     /// <remarks>
     ///     ⚠ <b>The other half of the sabotage.</b> Every container in a fresh document moves on its

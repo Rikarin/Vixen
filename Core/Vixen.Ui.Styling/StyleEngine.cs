@@ -418,6 +418,22 @@ public sealed class StyleEngine {
 
         var styles = new ComputedStyle[Tree.Count];
 
+        // A named `style()` query reads an ancestor out of this pass's own array, which is filled in
+        // ancestor-first order. The updater's reader is put back afterwards, because the two share
+        // one resolver.
+        var previous = Resolver.ResolvedAncestor;
+        Resolver.ResolvedAncestor = (tree, index) => tree == Tree && (uint) index < (uint) styles.Length ? styles[index] : null;
+
+        try {
+            ResolveInto(styles);
+        } finally {
+            Resolver.ResolvedAncestor = previous;
+        }
+
+        return styles;
+    }
+
+    void ResolveInto(ComputedStyle[] styles) {
         for (var i = 0; i < Tree.Count; i++) {
             // ⚠ A removed slot keeps its place so that the indices above it do not move — see
             // StyleTree.Remove — and resolves to nothing. Cascading it would be work for an element
@@ -435,7 +451,5 @@ public sealed class StyleEngine {
                 Tree.InlineAt(i)
             );
         }
-
-        return styles;
     }
 }

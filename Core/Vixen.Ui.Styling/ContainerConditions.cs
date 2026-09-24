@@ -45,7 +45,7 @@ public sealed class ContainerConditions {
 
     // Parallel to `groups`, null for every size group. Kept out of `Group` so the record stays a
     // value the interning dictionary can compare — an array field would compare by reference.
-    readonly List<StyleFeature[]?> styles = [null];
+    readonly List<StyleCondition?> styles = [null];
 
     /// <summary>Whether any registered group is a <c>style()</c> query.</summary>
     /// <remarks>
@@ -53,6 +53,14 @@ public sealed class ContainerConditions {
     ///     asks this once per element before it would walk a group's enclosing chain per candidate.
     /// </remarks>
     internal bool HasStyleQueries { get; private set; }
+
+    /// <summary>Whether any registered group is a <i>named</i> <c>style()</c> query.</summary>
+    /// <remarks>
+    ///     What turns on the two costs the named form has and the unnamed one does not. The resolver
+    ///     collects an element's ancestors' styles, and <see cref="StyleUpdater" /> re-resolves the
+    ///     whole subtree of a named element whose style moved. See <see cref="StyleQuery" />.
+    /// </remarks>
+    internal bool HasNamedStyleQueries { get; private set; }
 
     /// <summary>How many groups there are, the unconditional one included.</summary>
     public int Count => groups.Count;
@@ -87,51 +95,80 @@ public sealed class ContainerConditions {
         return groups.Count - 1;
     }
 
-    /// <summary>Registers an unnamed <c>style()</c> group, or finds the one already registered.</summary>
+    /// <summary>Registers a <c>style()</c> group, or finds the one already registered.</summary>
     /// <param name="within">The group this one is nested in, or <see cref="Unconditional" />.</param>
-    /// <param name="condition">The condition as written, which is what diagnostics and interning use.</param>
-    /// <param name="features">The features it was read into.</param>
+    /// <param name="prelude">The prelude as written, which is what diagnostics and interning use.</param>
+    /// <param name="condition">The condition it was read into.</param>
     /// <returns>The group's id, which a rule carries.</returns>
     /// <remarks>
     ///     ⚠ <b>Its verdict per container chain is always "holds"</b>, because a chain is boxes and this
     ///     asks nothing of a box: <see cref="Evaluate" /> passes it through and the cascade answers the
-    ///     features against the parent's style — see <see cref="StyleQuery" /> for why there and only
-    ///     for the unnamed form.
+    ///     condition against the parent's style, or the named ancestor's. See <see cref="StyleQuery" />
+    ///     for why there.
     /// </remarks>
-    internal int RegisterStyle(int within, string condition, StyleFeature[] features) {
+    internal int RegisterStyle(int within, string prelude, StyleCondition condition) {
         ArgumentOutOfRangeException.ThrowIfNegative(within);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(within, groups.Count);
 
         // A name no size query can carry, so a style group and a size group never intern together.
-        var key = new Group(within, "\0style", condition);
+        // The prelude carries the container name, so two names never intern together either.
+        var key = new Group(within, "\0style", prelude);
 
         if (interned.TryGetValue(key, out var existing)) {
             return existing;
         }
 
         groups.Add(key);
-        styles.Add(features);
+        styles.Add(condition);
         interned[key] = groups.Count - 1;
         HasStyleQueries = true;
+        HasNamedStyleQueries |= condition.Name.Length > 0;
         Revision++;
 
         return groups.Count - 1;
     }
 
-    /// <summary>Whether every <c>style()</c> group in a group's stack holds against a parent's style.</summary>
+    /// <summary>Whether every <c>style()</c> group in a group's stack holds for one element.</summary>
     /// <param name="group">The group a rule carries.</param>
     /// <param name="parent">The parent's resolved style, or null for a root.</param>
+    /// <param name="ancestors">
+    ///     The element's ancestors' resolved styles, nearest first, which a named group searches. Empty
+    ///     unless <see cref="HasNamedStyleQueries" />.
+    /// </param>
     /// <param name="properties">The table property names are interned in.</param>
     /// <param name="values">The table values are interned in.</param>
     /// <returns>Whether the style half of the stack holds; the size half is the verdicts' question.</returns>
-    internal bool StyleHolds(int group, ComputedStyle? parent, NameTable properties, NameTable values) {
+    internal bool StyleHolds(
+        int group,
+        ComputedStyle? parent,
+        ReadOnlySpan<ComputedStyle> ancestors,
+        NameTable properties,
+        NameTable values
+    ) {
         for (var at = group; at > Unconditional; at = groups[at].Within) {
-            if (styles[at] is { } features && !StyleQuery.Holds(features, parent, properties, values)) {
+            if (styles[at] is not { } condition) {
+                continue;
+            }
+
+            var container = condition.Name.Length == 0 ? parent : Named(ancestors, condition.Name, properties, values);
+
+            if (!StyleQuery.Holds(condition, container, properties, values)) {
                 return false;
             }
         }
 
         return true;
+    }
+
+    /// <summary>The nearest ancestor style carrying a container name, or null when none does.</summary>
+    static ComputedStyle? Named(ReadOnlySpan<ComputedStyle> ancestors, string name, NameTable properties, NameTable values) {
+        foreach (var style in ancestors) {
+            if (StyleQuery.Names(style, properties, values, name)) {
+                return style;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Forgets every group, as a reload does.</summary>
@@ -140,6 +177,7 @@ public sealed class ContainerConditions {
         styles.RemoveRange(1, styles.Count - 1);
         interned.Clear();
         HasStyleQueries = false;
+        HasNamedStyleQueries = false;
         Revision++;
     }
 

@@ -708,9 +708,9 @@ public sealed class StyleSheetLoader {
 
     /// <summary>Loads a <c>@container</c> block whose condition is <c>style()</c> features.</summary>
     /// <remarks>
-    ///     Only the unnamed, style-only form: see <see cref="StyleQuery" /> for why the named and
-    ///     the mixed forms would answer stale under this engine's incremental restyle, which makes
-    ///     them a diagnostic here rather than a rule that is sometimes wrong.
+    ///     The style-only forms, named or not, joined by <c>and</c> or <c>or</c> or under one
+    ///     <c>not</c>. A form mixed with a size feature is a diagnostic here rather than a rule that is
+    ///     sometimes wrong; see <see cref="StyleQuery" /> for why it would answer stale.
     /// </remarks>
     void LoadStyleContainer(
         IContainerRule rule,
@@ -722,28 +722,16 @@ public sealed class StyleSheetLoader {
         int containers
     ) {
         var label = $"@container {prelude}";
-        var first = prelude.AsSpan().TrimStart();
 
-        // Anything that opens with neither a feature nor `not` opens with a container name.
-        if (!first.StartsWith("style(", StringComparison.OrdinalIgnoreCase)
-            && !first.StartsWith("(", StringComparison.Ordinal)
-            && !first.StartsWith("not ", StringComparison.OrdinalIgnoreCase)) {
-            diagnostics.Add(
-                new SelectorDiagnostic(
-                    label,
-                    "a named style query asks an ancestor that may be above the parent, which this cascade cannot keep current"
-                )
-            );
-
-            return;
-        }
-
-        if (!StyleQuery.TryRead(prelude, out var features, out var reason)) {
+        // ⚠ A named prelude is read, not refused, since #273: the ancestor it asks is found by the
+        // resolver, and `StyleUpdater` re-resolves a named element's whole subtree when its style
+        // moves. See `StyleQuery`.
+        if (!StyleQuery.TryRead(prelude, out var condition, out var reason)) {
             diagnostics.Add(new SelectorDiagnostic(label, reason!));
             return;
         }
 
-        LoadInto(rule, origin, media, layer, conditions, Containers.RegisterStyle(containers, prelude, features));
+        LoadInto(rule, origin, media, layer, conditions, Containers.RegisterStyle(containers, prelude, condition));
     }
 
     /// <summary>The text between <c>@container</c> and its block, as the author wrote it.</summary>
