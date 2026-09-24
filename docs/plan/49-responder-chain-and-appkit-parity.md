@@ -140,15 +140,23 @@ command system exists to make identical.
 
 **1.4 — There is no window level, and no seam for one.** `UiDocument.Focused` is a single
 document-global field (`Focus.cs:35`). `Dispatch(KeyEvent)` takes no surface (`Keyboard.cs:191`),
-unlike `Dispatch(UiSurface, PointerEvent)` (`UiDocument.cs:1771`) and
-`Dispatch(UiSurface, WheelEvent)` (`Hover.cs:75`); `Platform/Vixen.Platform.Ui/PlatformInput.cs:173`
+unlike `Dispatch(UiSurface, PointerEvent)` (`UiDocument.cs:2099`) and
+`Dispatch(UiSurface, WheelEvent)` (`Hover.cs:103`); `Platform/Vixen.Platform.Ui/PlatformInput.cs:173`
 says so outright. With nothing focused, keys land on the **primary** surface's root
 (`Keyboard.cs:196` + `Surfaces.cs:27`) — so a keystroke aimed at a torn-off inspector executes
 against the main window. `PlatformEventKind.WindowFocusGained`/`Lost` are produced by every backend
-(`Platform/Vixen.Platform.Desktop/DesktopPlatform.cs:745,750`) and **dropped on the floor** by the UI
+(`Platform/Vixen.Platform.Desktop/DesktopPlatform.cs:858,863`) and **dropped on the floor** by the UI
 bridge: `PlatformInput.Dispatch` has no arm for either and they fall to `default: return false`
 (`PlatformInput.cs:214-216`). There is no `NSApp.keyWindow`, and `IUiWindow` (`UiWindows.cs:52-87`)
 has nowhere to put the answer.
+
+> ⚠ **Closed since `92c554e54` (2026-09-05), and this paragraph is the audit as written.** Focus is the
+> surface's now — `UiDocument.Focused` is `Home().Focused` (`Focus.cs:107`), `KeySurface` is the key
+> window (`Surfaces.cs:66`), `Dispatch(KeyEvent)` has a surface-taking overload beside it
+> (`Keyboard.cs:224`), and `PlatformInput.Dispatch` has an arm for `WindowFocusGained`
+> (`PlatformInput.cs:592`). The two `Dispatch` citations and the `DesktopPlatform.cs` one were
+> re-pointed in #1388, because what they name is still there; the paragraph's other numbers record the
+> tree at `10523d70f` and are not maintained.
 
 **1.5 — A focus change cannot be refused.** `UiDocument.Focus` gates on `element.Focusable` and
 nothing else (`Focus.cs:96-98`), writes `Focused` at `:100`, and raises two `FocusEvent`s at
@@ -308,8 +316,9 @@ these hold, and each is a gate in Part 10:
    command handlers.
 2. The editor's `CommandDispatcher` resolves through `CommandRoute` instead of the flat registry.
 3. `EditorShell.Context` — a mutable string pushed by hand from pointer handlers in ten places
-   (`EditorApplication.cs:1989,2076,2155,2267`; `EditorParity.cs:560,1203-1205,1770`;
-   `EditorWorlds.cs:118`) — is deleted in favour of `CommandScope`, which was built to replace it and
+   (`EditorApplication.cs:2329,2416,2545,2601`; `EditorParity.cs:625,1255-1257,2400`;
+   `EditorWorlds.cs:122`; ⚠ ten was a floor when it was written — `EditorWorlds.cs` alone had four —
+   and a re-count for #1388 finds twenty-one, most of them in the module panels) — is deleted in favour of `CommandScope`, which was built to replace it and
    is assigned only in tests.
 4. `Samples/02-HelloUi` has at least one panel whose Copy means something different from the shell's.
 
@@ -368,7 +377,7 @@ Linux). **Nothing above `Vixen.Platform` calls it.** The editor's `PropertyClipb
 ⌘C in a Vixen text box does nothing, in every application, today.
 
 ⚠ **And an application cannot fix this itself**, because `UiApplication` exposes `Window`
-(`Platform/Vixen.Ui.Desktop/UiApplication.cs:324`) and keeps `platform` private (`:110`). One missing
+(`Platform/Vixen.Ui.Desktop/UiApplication.cs:375`) and keeps `platform` private (`:110`). One missing
 property is what makes the clipboard, the native dialogs, the displays and the lifecycle all
 unreachable from `UiApplication.Run(options)`.
 
@@ -412,11 +421,11 @@ SwiftUI's `App`/`Scene`/`WindowGroup`/`DocumentGroup` all start one level above 
 | Clipboard from a control | § 4.3 | **present-but-unwired** |
 | OS drag-in (files from Finder/Explorer) | `DropFile`/`DropText` produced (`DesktopPlatform.cs:664`, `WebPlatform.cs:541`) and **dropped** (`PlatformInput.cs:214`) | **present-but-unwired** |
 | In-app drop model | no `DataObject`, no `IDropTarget`, no `AllowDrop`. `TreeView.cs:247` and `AssetFieldDrop.cs:22-27` each hit-test by hand | **absent** |
-| Native open/save panels | `INativeDialogs` complete with six backends; one consumer, in `Editor/Vixen.Editor.App/EditorServices.cs:39`. ⚠ the SDL fallback returns `null` (`DesktopServices.cs:211-241`) | **present-but-unwired** |
+| Native open/save panels | `INativeDialogs` complete with six backends; one consumer, in `Editor/Vixen.Editor.App/EditorServices.cs:37`. ⚠ the SDL fallback returns `null` (`DesktopServices.cs:211-241`) | **present-but-unwired** |
 | Recent documents | zero occurrences | **absent** |
 | Answerable modal | `DialogService.cs` (465 lines) — doc 46 § A4 landed and the editor's copy is gone | **present** |
 | Sheets (window-attached modals) | `runModal` on purpose (`MacOSDialogs.cs:20-23`) | **absent by decision** |
-| Document model (dirty, save, revert, proxy title) | `EditorDocument.cs:50,125,224` — one assembly no application can reference | **absent below the editor** |
+| Document model (dirty, save, revert, proxy title) | `EditorDocument.cs:84,159,296` — one assembly no application can reference | **absent below the editor** |
 | Quit / close with unsaved changes | ⚠ `UiApplication.Pump` sets `running = false` outright (`UiApplication.cs:548-566`). `ILifecycle.CancelQuit` exists (`ILifecycle.cs:91`) and `EditorHost.cs:401-427` uses it correctly — the framework host is the copy that still has the bug | **absent** |
 | Activation / deactivation into the UI | produced; consumed only by the game host (`Core/Vixen.App.Hosting/PlatformInput.cs:109`) | **present-but-unwired** |
 | Reopen, Settings/preferences scene, status item, services, printing | — | **absent** |
@@ -487,10 +496,17 @@ be provided as a `Signal<T>` and read through `.Value`.
 
 ### 6.2 ⚠ Component props are assigned *after* `Build` runs
 
-`BuildContext.Child<T>` constructs, mounts (runs `Build`), and *then* assigns parameters
-(`BuildContext.cs:510`, `ComponentEmitter.cs:657`). So every effect has already read the property once
+> ⚠ **Refuted by `00d20937a`, which landed the same day as this audit (2026-09-05).** A tag that
+> carries a parameter emits `Create` … the assignments … `Compose` now (`ComponentEmitter.cs:482`,
+> `:502`), so the child is built with the caller's values; the old order survives only in
+> `Child<T>` (`BuildContext.cs:533`) for hand-written callers. Signal-backing is still what makes a
+> prop *track*, and `Samples/02-HelloUi/Shell.vxml:252-263` now says so and names the reason that went.
+> The paragraph below is the audit as written, with its two emitter citations removed (#1388): they
+> named the post-mount assignment, which no longer exists.
+
+`BuildContext.Child<T>` constructs, mounts (runs `Build`), and *then* assigns parameters. So every effect has already read the property once
 at its default, and **a plain C# property used as a component prop silently never updates**.
-`Samples/02-HelloUi/Shell.vxml:105-110` documents the trap; nothing enforces it, and there is no
+The sample's `Shell.vxml` documented the trap; nothing enforces it, and there is no
 diagnostic. Either assign parameters before mounting, or emit a `VXML2xxx` for a non-signal-backed
 public property used as a parameter. The second is cheaper and catches the case the first cannot.
 
@@ -500,9 +516,10 @@ public property used as a parameter. The second is cheaper and catches the case 
 real, Roslyn-typechecked property assignment; a lowercase tag gets
 `Styles.Tree.SetAttribute(...)` (`BuildContext.cs:864`) — data a selector can match and nothing
 reads. So `<div AccessibleName="Save" Focusable="true">` compiles, matches `[AccessibleName]`, and
-does nothing. ~~No diagnostic.~~ ⚠ **Refuted since 168fe675b (2026-09-05):** `VXML2020`
-(`MarkupDiagnostics.cs:463`, reported at `Binder.cs:936`) warns on a capitalised attribute name on a
-lowercase tag. The mechanism is unchanged — the lowercase half of the split is still
+does nothing. ~~No diagnostic.~~ ⚠ **Refuted since 168fe675b (2026-09-05):** `VXML2020` warns on a
+capitalised attribute name on a lowercase tag. It is declared as
+`MarkupDiagnostics.InertElementAttribute` (`MarkupDiagnostics.cs:463`), and the binder passes
+`MarkupDiagnostics.InertElementAttribute` (`Binder.cs:1015`) to `Report`. The mechanism is unchanged — the lowercase half of the split is still
 `ctx.Bind` or `ctx.Attribute` (`ComponentEmitter.cs:884-897`), so the attribute is still inert — but it is no longer
 silent. This is the same defect class the language already fixed twice, for `style=` and for `slot=`
 (`VXML2016`).
@@ -516,7 +533,7 @@ silent. This is the same defect class the language already fixed twice, for `sty
 | `.animation` / `.transition` (property) | `transition-*`, `@keyframes`, `spring()` | ✅ full |
 | `.disabled` | `Disabled="@x"` + `:disabled` | ✅ |
 | `.clipShape` | `border-radius` + `overflow: hidden`. ⚠ **`clip-path` is not implemented at all** | ⚠ rects only |
-| `.onChange` | `change:Prop` — ⚠ `[UiProperty]` on elements only; **cannot be used on a component tag** (`ComponentEmitter.cs:643-648`) | ⚠ partial |
+| `.onChange` | `change:Prop` — ⚠ `[UiProperty]` on elements only; **cannot be used on a component tag** (`ComponentEmitter.cs:860-864`) | ⚠ partial |
 | `.task` / `.onAppear` | `partial void OnComposed()` — sync, no cancellation, no async | ⚠ partial |
 | `.focusable` | real on component tags; inert on `<div>` (§ 6.3) | ⚠ partial |
 | `.accessibilityLabel` | `AccessibleName=` compiles on a capitalised tag, is inert on a lowercase one; **zero `.vxml` in the repo sets it either way** | ⚠ accidental |
@@ -658,7 +675,7 @@ so anything can animate out). The LIS reorder was #178 / #56 and landed 2026-09-
 ### 6.6 `bind:` is too narrow to be used, and the repo proves it
 
 `ctx.TwoWay` requires an **lvalue of the property's exact type** with no converter and no coercion
-(`ComponentEmitter.cs:629-630`, `BuildContext.cs:942-974`). Nested properties and settable indexers
+(`ComponentEmitter.cs:847-848`, `BuildContext.cs:1435-1494`). Nested properties and settable indexers
 work; expressions, method calls and conversions do not. Across every committed `.vxml`: **8 `bind:`**
 against 26 `change:` and 239 `ref`, and **all eight `bind:` attributes are in one file** —
 `Samples/02-HelloUi/Panels/Gallery.vxml`. Two-way binding is nominally present and practically absent.

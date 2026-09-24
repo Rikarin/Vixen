@@ -120,7 +120,7 @@ better than doc 40's Part 1 suggested.
 | UV unwrapping | [`Vixen.Geometry.Uv`](../../Core/Vixen.Geometry.Uv/README.md) | Charting, flattening, packing — so a mesh with no UVs is not a refusal |
 | A brush, a stroke and a falloff | `Core/Vixen.Terrain/BrushStroke.cs`, `BrushFalloff.cs`, `TerrainPaint.cs`; `Editor/Vixen.Editor.Terrain/TerrainPaintCommand.cs` | Pointer → stamp → kernel → **one undo entry per drag**, already solved once |
 | A plugin host, and two features that use it | [`Vixen.Editor.Plugin`](../../Editor/Vixen.Editor.Plugin/README.md), `TerrainModule`, `WaterModule` | Commands, panels, modes, layouts, keybindings, contributions, `Owns`/`With`, collectible unload |
-| A material asset and three sampling features | `MaterialAsset.cs:133` (`.vxmat`), `MaterialFeatures.cs:93`, `:220`, `:288` | Base colour, tangent normal and a packed ORM all sample from the bindless table today |
+| A material asset and three sampling features | `MaterialAsset.cs:133` (`.vxmat`), `MaterialFeatures.cs:180`, `:331`, `:404` | Base colour, tangent normal and a packed ORM all sample from the bindless table today |
 | The authoring pattern to copy | [doc 39](39-standard-frame-and-render-presets.md), [doc 40 § D4](40-ai-assisted-material-generation.md) | A simple surface that *is* a graph, and an **Explode** that hands over the real one, one-way |
 
 ⚠ **Doc 40 § B1 is out of date and this document corrects it.** It said thirteen material features and
@@ -426,7 +426,7 @@ the node. Not a hand-rolled expression evaluator, not a scripting language, not 
 graph" of forty tiny nodes.
 
 ⚠ **The machinery for the mapping already exists and already has a UI caller.** `NodeDiagnostic`
-carries a `NodeSpan`, `RavenEmitter` counts the lines it writes, and `ShaderGraphView.vxml:352` reads
+carries a `NodeSpan`, `RavenEmitter` counts the lines it writes, and `ShaderGraphView.vxml:398` reads
 `SourceNodeDiagnostics` so a Raven complaint names a node the author can select. This node is that
 mechanism's second consumer, which is the cheapest possible proof it was built at the right altitude.
 

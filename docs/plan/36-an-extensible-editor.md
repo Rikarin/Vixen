@@ -902,15 +902,15 @@ whole of it was `AssetEditorRegistry` moving somewhere both ends could see:
 
 | File | Names |
 |---|---|
-| `EditorApplication.cs:264` | `AssetEditorRegistry` |
-| `EditorApplication.cs:878` | `AssetEditorsModule` |
-| `EditorApplication.cs:11,12,40,41` | the `Vixen.Editor.AssetEditors` and `.Content` namespaces, and the `Prefab` / `PrefabSource` aliases |
+| `EditorApplication.cs:316` | `AssetEditorRegistry` |
+| `EditorApplication.cs:1099` | `AssetEditorsModule` |
+| `EditorApplication.cs:12,13,46,47` | the `Vixen.Editor.AssetEditors` and `.Content` namespaces, and the `Prefab` / `PrefabSource` aliases |
 | `ComponentsView.cs:21` | `PrefabSource` |
-| `EditorFrames.cs:6,254,264,289` | `StandardFrameDocument` |
+| `EditorFrames.cs:7,399,409,434` | `StandardFrameDocument` |
 | `ShaderGraphPreviews.cs:4,5,27,56,66,80` | `IPreviewImages`, `ShaderGraphPreviewRenderer`, `ShaderGraphDocument`, and `Vixen.Editor.ShaderGraph` itself |
 
 ⚠⚠ **And the compiler under-reports, so "remove the reference and count the errors" is a floor on the
-dependency list and never the list.** `EditorWorlds.cs:1082,1086` name
+dependency list and never the list.** `EditorWorlds.cs:1169,1173` name
 `Vixen.Editor.AssetEditors.Vfx.VfxGraphView` and `…Sequencing.SequenceView` fully qualified, in live
 `case` patterns, and produce **no diagnostic at all** — confirmed independently by both agents, the
 second by checking that the file is compiled (a deliberate syntax error in it *is* reported) and that a
@@ -1251,7 +1251,7 @@ and scale are three members, so one entry becomes a `CompositeCommand` of 3N.
 
 ⚠ **And the blocker: the pipeline has no way to record a change that has already been applied.**
 `IEditMember.CreateSetCommand(targets, value, document)` takes no before-state — every implementation
-reads it at construction (`ReflectedDescriptor.cs:96`), and after a drag what it reads *is* the after
+reads it at construction (`ReflectedDescriptor.cs:121`), and after a drag what it reads *is* the after
 state, so the entry undoes to where the drag ended. Restoring the captured pose first does not defeat
 that either, because `EditProperty.Write` and `WriteEach` both skip a target whose current value
 already equals the one being written (`EditProperty.cs:115`, `:167`) — and

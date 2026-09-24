@@ -409,9 +409,9 @@ because the tree above was designed against it and the reasons are not recoverab
 
 **The bridge is per surface, not per document.** Every one of the three protocols roots at a *window*
 — an `NSWindow`, an `HWND`, an AT-SPI object with `ROLE_FRAME` — and `UiDocument` deliberately spans
-several (`Surfaces.cs:20`, and one document across windows is the thing this framework does that
+several (`Surfaces.cs:22`, and one document across windows is the thing this framework does that
 AppKit does not). So the attach and detach points are `SurfaceAdded`/`SurfaceRemoved`
-(`Surfaces.cs:35,38`), `SurfaceOf` (`Surfaces.cs:199`) is how a node answers which window it belongs
+(`Surfaces.cs:133,136`), `SurfaceOf` (`Surfaces.cs:306`) is how a node answers which window it belongs
 to, and the per-frame raise stays document-wide because coalescing across surfaces is cheaper than
 three flags and the diff has to walk anyway.
 
@@ -436,7 +436,7 @@ provider references an AT retains for as long as it likes, AT-SPI hands out bus 
 frame ended. So a snapshot node carries a stable id allocated once per element and kept across
 republishes, and the map from id back to a live element for the *action* path is weak — a request
 against an id whose element is gone answers "no longer valid" rather than resurrecting it or
-crashing. `ReleaseAccessibilitySubscribers` (`Accessibility.cs:897`) exists for the mirror image of
+crashing. `ReleaseAccessibilitySubscribers` (`Accessibility.cs:907`) exists for the mirror image of
 this leak and is the precedent for taking it seriously.
 
 **Three things the model owes a bridge and does not have yet, in the order a bridge needs them.**
@@ -462,7 +462,7 @@ a validation seam that does not exist rather than on a bridge — and `Accessibl
 no producer either.
 
 **Geometry crosses two coordinate systems and neither of them is the one AT asks for.** Layout gives
-a rect in document space; a surface knows its size and DPI scale (`UiSurface.cs:101`); the protocols
+a rect in document space; a surface knows its size and DPI scale (`UiSurface.cs:104`); the protocols
 want screen space, and on macOS in a bottom-left origin. The snapshot therefore carries surface-space
 rects and the platform half adds the window origin, because the window origin is the one number that
 only the platform assembly can know and the one that changes when the user drags the window without
@@ -1830,7 +1830,7 @@ property at a time, across the `UiDocument` partials that produce it.
 | Doc 13 asks for | What is here | Where |
 |---|---|---|
 | layout-node count | `LayoutTree.NodeCount` | `Vixen.Ui.Layout/LayoutTree.cs:81` |
-| the frame's work | `StylesResolved`, `StylesApplied`, `ContainerScopesEntered`, `StyleCompactions`, `SettlingPasses`, `Settled`, `LastPassWasCold` | `Restyle.cs:63`, `UiDocument.cs:387`, `Containers.cs:129`, `UiDocument.cs:821`, `UiDocument.cs:1088` |
+| the frame's work | `StylesResolved`, `StylesApplied`, `ContainerScopesEntered`, `StyleCompactions`, `SettlingPasses`, `Settled`, `LastPassWasCold` | `Restyle.cs:76`, `UiDocument.cs:501`, `Containers.cs:180`, `UiDocument.cs:973`, `UiDocument.cs:1253` |
 | element bounds, box model | `UiElement.AbsoluteLeft`/`Top`/`Width`/`Height`, and the layout node behind them | `UiElement.cs` |
 | the hovered element | `UiDocument.HitTest(x, y)`, and `HitTest(surface, x, y)` | `UiDocument.cs` |
 | style origin for it | `StyleOrigin`, `CascadePrecedence`, `StyleRuleSet.Origin` — the cascade carries provenance because it needs it | `Vixen.Ui.Styling` |

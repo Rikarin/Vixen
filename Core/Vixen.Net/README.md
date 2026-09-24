@@ -230,7 +230,7 @@ set, the session wraps and publishes the wrapper as `NetworkSession.Simulation`.
   game rather than for the engine: write the line in the template.** "On by default in dev builds" is
   a claim about what a new game does, and the tree has exactly one place a new game's `SessionOptions`
   comes from —
-  `Tools/Vixen.Templates/templates/vixen-mmo/VixenMmo1.Client/VixenMmo1Client.cs:41`, which builds one
+  `Tools/Vixen.Templates/templates/vixen-mmo/VixenMmo1.Client/VixenMmo1Client.cs:44`, which builds one
   for its realm connection. ⚠ **Both halves are already in scope there and neither package reference
   has to change**: that file already carries `using Vixen.App;` (its base class `Game` is in the
   `Vixen.App` package, and `BuildVariants` is compiled into the same assembly behind it) and

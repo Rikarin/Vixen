@@ -228,7 +228,7 @@ download on its own.
 
 ⚠ **What that paragraph used to end with — "and the text stack is reached by font import" — is
 false, and it is the sentence that made HarfBuzz look unavoidable.** Nothing imports a font.
-`BuiltInImporters.cs:174` lists `.ttf` and `.otf` among the extensions that are *refused* with a
+`BuiltInImporters.cs:175-176` lists `.ttf` and `.otf` among the extensions that are *refused* with a
 reason, `Vixen.Editor.Assets.Tests.UnimportedFormatTests` asserts that refusal names a `FontImporter`
 nobody has written, and no file under `Editor/Vixen.Editor.Assets` mentions HarfBuzz at all. The
 shaper is reached only by the graph chain below, so the whole 46 MB is accidental rather than earned.
