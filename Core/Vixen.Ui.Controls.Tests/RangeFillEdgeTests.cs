@@ -191,7 +191,7 @@ public class RangeFillEdgeTests {
         using var ui = Opened();
         var bar = ui.Add<ProgressBar>();
 
-        foreach (var value in (float[]) [0.3f, 0.6f, 0.61f, 0.625f]) {
+        foreach (var value in (float[])[0.3f, 0.6f, 0.61f, 0.625f]) {
             bar.Value = value;
             ui.Frame();
 
