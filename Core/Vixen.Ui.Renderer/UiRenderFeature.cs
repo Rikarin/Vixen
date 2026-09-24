@@ -569,8 +569,8 @@ public sealed class UiRenderFeature : RootRenderFeature {
     /// </remarks>
     internal string? Mismatched(Int2 target) {
         foreach (var (_, surface) in surfaces) {
-            var width = (int) MathF.Ceiling(surface.Surface.X * surface.Scale);
-            var height = (int) MathF.Ceiling(surface.Surface.Y * surface.Scale);
+            var width = (int)MathF.Ceiling(surface.Surface.X * surface.Scale);
+            var height = (int)MathF.Ceiling(surface.Surface.Y * surface.Scale);
 
             if (width != target.X || height != target.Y) {
                 return $"an interface is {width}×{height} pixels and the scene beneath it is {target.X}×{target.Y}, "
