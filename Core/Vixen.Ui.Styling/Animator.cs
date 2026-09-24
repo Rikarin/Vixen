@@ -455,10 +455,31 @@ public sealed class Animator {
     const int MixLimit = 4096;
 
     /// <summary>A mix written out as the CSS function <c>TransformReader</c> reads it back from.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The progress is written to four decimals, and that is the decision #1383 asked
+    ///         for.</b> Every overlaid value is interned, because a <see cref="ComputedStyle" /> holds
+    ///         ids, and <see cref="NameTable" /> never forgets one. Written at full float precision the
+    ///         progress was a new string on nearly every frame, so an infinite spinner grew the value
+    ///         table by one entry a frame for the life of the document — twenty-five thousand frames,
+    ///         twenty-five thousand entries. On a grid of 10⁻⁴ a mix between two given values has at
+    ///         most 10,001 spellings, however long it runs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Four decimals because that is what every number the animator overlays already
+    ///         had</b> — <see cref="StyleValue.ToCss" /> writes <c>0.####</c> — which is why the numeric
+    ///         half of #1383's claim did not hold: a fading opacity has at most ten thousand spellings a
+    ///         unit and always did. The two alternatives were worse: caching per
+    ///         <c>(element, property, t)</c> saves nothing when <c>t</c> moves every frame, and keeping
+    ///         the text out of the table means a value that is not an id, which every reader of a
+    ///         style would have to learn. The grid costs at most 5·10⁻⁵ of the way — 0.018° of a full
+    ///         turn.
+    ///     </para>
+    /// </remarks>
     string MixText(string function, float progress, int from, int to) =>
         string.Create(
             CultureInfo.InvariantCulture,
-            $"{function}({progress}, {values.NameOf(from)}, {values.NameOf(to)})"
+            $"{function}({progress:0.####}, {values.NameOf(from)}, {values.NameOf(to)})"
         );
 
     /// <summary>What a style computes a property to, filling in an initial value where it says nothing.</summary>
