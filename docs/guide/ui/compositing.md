@@ -928,7 +928,7 @@ beforeUi:
   - !UiCompose
     name: Compose
     source: SceneColour        # the target the interface pass draws into — it must be Sampled,
-                               # which in a game's AppGraphics it is not (see below)
+                               # which in a game is the window (see below)
   - !RenderPass
     name: Interface
     colourTargets: [SceneColour]
@@ -952,18 +952,26 @@ to those closed forms on a device, and `UiRenderFeature.Sceneless` reads zero.
 sample. What decides it is the usage the resource is declared or imported with, and an import wins
 over a declaration of the same name (`GraphicsCompositor`'s resource loop).
 
-⚠ **So the document above does not build in a game today, and nothing else a game can write does
-either** — #1378's remaining half. `AppGraphics.Lend` imports the acquired swapchain image under
-`GraphicsOptions.Output`, which defaults to `SceneColour` as `!StandardFrame`'s `output` does, with
-`TextureUsage.ColourTarget` and nothing else, on every backend. The workaround this page used to
-prescribe — render into a target of the frame's own and copy it out — is refused one node later:
-`!Copy` requires `CopyDestination` on its destination (`TextureCopyRenderer.Build`), and the import
-does not declare it, although the Vulkan swapchain is created with `TRANSFER_DST`. The backends'
-swapchains do not agree on what they allow either — OpenGL's is sampled, Vulkan's windowed one is not
-— so the fix is the host declaring what its swapchain actually supports, not a document. Where the
-target is the frame's own, or is imported `Sampled`, the node builds: the golden suite's fixtures and
-`InterfaceComposedAfterTheSceneTests` are that case, which is why every picture above comes from them
-and none from a sample.
+⚠ **In a game `SceneColour` is the window, and the host declares what the window can do** (#1419).
+`AppGraphics.Lend` imports the acquired swapchain image under `GraphicsOptions.Output`, which
+defaults to `SceneColour` as `!StandardFrame`'s `output` does, with the usage the backend reports in
+`ISwapChain.Usage`. Until #1419 it declared `TextureUsage.ColourTarget` and nothing else on every
+backend, so the document above was refused by the node and a copy out of a target of the frame's own
+was refused by `!Copy`, although the Vulkan image had been created with `TRANSFER_DST` all along.
+What each backend reports:
+
+| Backend | `ISwapChain.Usage` | `!UiCompose` over the window |
+|---|---|---|
+| Vulkan, windowed | colour target, copy destination, and sampled where the surface's `supportedUsageFlags` list it — every desktop driver's do | builds |
+| Vulkan, offscreen (`--vixen-offscreen`, `--vixen-capture`) | colour target, copy source, copy destination, sampled | builds |
+| OpenGL | colour target, sampled, copy source | builds |
+| WebGPU | colour target, copy source | refused — the surface would have to be asked for `TextureBinding` |
+| Null | the Vulkan windowed chain's, and deliberately no more | builds |
+
+`Tools/Vixen.App.Tests/HostedInterfaceComposeTests` is the stock host — `VixenApp`, a published frame
+document and `RunFrame` — building a frame that names the node over the window on the Null device,
+and drawing a multiplied HUD panel through it on a device: every panel pixel is `grey · world` in
+linear light, and the same frame without the node lays the grey down flat.
 
 It is the same frame's scene, not last frame's: the other way to give a HUD its world is the previous
 colour target, which lags every blended panel by a frame and still needs a copy taken at this same

@@ -113,6 +113,16 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
     public ColorGamut Gamut { get; private set; }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     A colour target and a copy destination always, and sampled where the surface allows it —
+    ///     which every desktop driver's does — so a frame can hand the window's own picture to
+    ///     <c>!UiCompose</c> as a HUD's backdrop (#1419). Decided per build, off the surface's
+    ///     <c>supportedUsageFlags</c>, because asking for a usage the surface does not list is a
+    ///     validation error rather than a quiet no.
+    /// </remarks>
+    public TextureUsage Usage { get; private set; } = TextureUsage.ColourTarget;
+
+    /// <inheritdoc />
     public int ImageCount => images.Length;
 
     /// <inheritdoc />
@@ -554,6 +564,9 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
         var extent = ChooseExtent(capabilities, size);
         var count = ChooseImageCount(capabilities, preferredCount);
         var previous = handle;
+        var sampled = (capabilities.SupportedUsageFlags & ImageUsageFlags.SampledBit) != 0;
+        var usage = ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.TransferDstBit
+            | (sampled ? ImageUsageFlags.SampledBit : 0);
 
         var create = new SwapchainCreateInfoKHR {
             SType = StructureType.SwapchainCreateInfoKhr,
@@ -566,8 +579,9 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
 
             // Transfer-destination as well as colour-attachment: a blit into the swapchain image is
             // how a post-processing chain that ends in a full-resolution image finishes, and a
-            // swapchain that cannot be copied into forces a redundant fullscreen draw.
-            ImageUsage = ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.TransferDstBit,
+            // swapchain that cannot be copied into forces a redundant fullscreen draw. Sampled where
+            // the surface offers it, so a HUD can read the scene it is drawn over (#1419).
+            ImageUsage = usage,
             ImageSharingMode = SharingMode.Exclusive,
             PreTransform = capabilities.CurrentTransform,
             CompositeAlpha = CompositeAlphaFlagsKHR.OpaqueBitKhr,
@@ -589,6 +603,7 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
         Gamut = GamutOf(chosen.ColorSpace);
         PresentMode = VulkanEnums.FromVulkan(mode);
         Size = new((int)extent.Width, (int)extent.Height);
+        Usage = TextureUsage.ColourTarget | TextureUsage.CopyDestination | (sampled ? TextureUsage.Sampled : 0);
 
         uint imageCount = 0;
         extension.GetSwapchainImages(device.Handle, handle, ref imageCount, null);
@@ -617,7 +632,7 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
             Format,
             (int)extent.Width,
             (int)extent.Height,
-            TextureUsage.ColourTarget | TextureUsage.CopyDestination,
+            Usage,
             Name: "SwapChain image"
         );
 

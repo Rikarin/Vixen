@@ -724,6 +724,7 @@ Vixen.Graphics.ISwapChain.Present() -> Vixen.Graphics.SwapChainStatus
 Vixen.Graphics.ISwapChain.PresentMode.get -> Vixen.Graphics.PresentMode
 Vixen.Graphics.ISwapChain.Resize(Vixen.Core.Mathematics.Int2 size) -> void
 Vixen.Graphics.ISwapChain.Size.get -> Vixen.Core.Mathematics.Int2
+Vixen.Graphics.ISwapChain.Usage.get -> Vixen.Graphics.TextureUsage
 Vixen.Graphics.IndexFormat -> enum : byte
 Vixen.Graphics.IndexFormat.IndexFormat() -> void
 Vixen.Graphics.IndexFormat.UInt16 = 0 -> Vixen.Graphics.IndexFormat
