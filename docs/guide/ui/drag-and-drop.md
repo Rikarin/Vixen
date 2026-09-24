@@ -288,7 +288,7 @@ express — so the note lives beside the code rather than here.
 ⚠ **One event per gesture, and this entry used to say the opposite.** It read *"SDL 2 posts one
 `SDL_DROPFILE` per path and brackets a group with `SDL_DROPBEGIN`/`SDL_DROPCOMPLETE`, which the
 desktop backend does not yet forward — so a five-file drop arrives as five `DropEvent`s"*. It does
-forward them (`DesktopPlatform.cs:720`), and `PlatformInput` collects the paths between the brackets
+forward them (`DesktopPlatform.cs:723`), and `PlatformInput` collects the paths between the brackets
 and dispatches one `DropEvent` carrying all of them at `DropComplete`. So `Files` is a list because
 a drop really does arrive that way, and a handler that opens a document per drop opens one.
 

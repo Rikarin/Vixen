@@ -177,8 +177,8 @@ worse than that, and the evidence is in the protocol rather than in an opinion:
 
 So in Trinix **the enabled bit gates the keyboard shortcut, in another process, before the application
 is asked anything.** A menu that computes enablement as it opens — which is what
-`MenuPresenter.cs:404` does, and its own remark says so: *"Enablement is applied as the menu opens, not
-as it is built"* — is a menu whose ⌘S silently does nothing, because the accelerator path never opens
+the editor's menus do, and `MenuPresenter.cs:19` says so: *"Enablement is applied as the menu opens, not
+as it is built"* (now through `Menu`'s own `OpenChanged` rather than the presenter, the same remark adds) — is a menu whose ⌘S silently does nothing, because the accelerator path never opens
 a menu. `about_to_show` does not rescue it: it fires per submenu, when a submenu opens, and it is
 explicitly best-effort (*"the shell shows the menu on the next commit, or immediately if none arrives
 promptly"*).
@@ -440,8 +440,8 @@ intersection with `ControlStrings`' thirteen call sites actually contains is:
 | Sites | What reaches the accessible name | Verdict |
 |---|---|---|
 | **11** — every `ClearButton`/`CloseButton`/`Toggle`/`Reset`/`Eyedropper`/arrow | `ButtonBase.NativeAccessibleName => Label`, and the label is the catalogue's | ✅ Localised, with nothing written for it |
-| `PropertyGrid.cs:117` | Nothing. The string went to `Placeholder`, and a `TextField`'s name is `null` on purpose | ⚠ **Announced nothing at all** — fixed by naming it from the same `StringId`, one line under the placeholder |
-| `ColorPicker.cs:486` | Nothing. The string is on a caption element and the slider beside it had no relation to it | ⚠ **Announced nothing at all** — fixed by one `LabelledBy` |
+| `PropertyGrid.cs:125` | Nothing. The string went to `Placeholder`, and a `TextField`'s name is `null` on purpose | ⚠ **Announced nothing at all** — fixed by naming it from the same `StringId`, one line under the placeholder |
+| `ColorPicker.cs:863` | Nothing. The string is on a caption element and the slider beside it had no relation to it | ⚠ **Announced nothing at all** — fixed by one `LabelledBy` |
 
 Both defects are the same shape and neither is a hardcoded literal: **a translated word on screen that
 no element in the accessibility tree was reading.** That is the failure mode a reconciliation of these
@@ -555,7 +555,7 @@ request rather than a project:
 >
 > | String | Where |
 > |---|---|
-> | `"Previous page"` · `"Next page"` | `Vixen.Ui.Controls/Navigation.cs:293`, `:314` |
+> | `"Previous page"` · `"Next page"` | `Vixen.Ui.Controls/Navigation.cs:315`, `:336` |
 >
 > They are `Pagination`'s arrow labels, passed to a private `Arrow(geometry, page, label)` helper
 > rather than assigned — which is why a sweep for `.Label = "` alone misses them, and why the count
@@ -565,12 +565,12 @@ request rather than a project:
 > control assemblies, with two ids for the two `"Close"`s because a dialog's dismiss button and a
 > dock tab's are the same English word and are not the same string.
 >
-> **Three left out, and they are a judgement rather than an oversight.** `GradientEditor.cs:474`
+> **Three left out, and they are a judgement rather than an oversight.** `GradientEditor.cs:720`
 > names colour spaces — `"sRGB"`, `"Linear light"`, `"Perceptual (Oklab)"`. A colour-space name is a
 > term of art a translator should generally leave alone, `"sRGB"` is not translatable at all, and
 > putting a mixed set of three through the catalogue would be worse than leaving all three. Also
 > left: `Timeline.cs:277`'s `"M"` (a one-letter mute button, where a translation is a design
-> question about the button), `Navigation.cs:300`'s `"…"` and `CodeEditor.cs:417`'s `"0"` (a
+> question about the button), `Navigation.cs:322`'s `"…"` and `CodeEditor.cs:610`'s `"0"` (a
 > measurement probe, never drawn).
 
 Where each one was until `ca239c357` (2026-08-25) moved all of them into `ControlStrings` — the line
@@ -584,7 +584,7 @@ numbers are that commit's parent's, and the literals are no longer at them.
 | `"Show suggestions"` | `Vixen.Ui.Controls/Selects.cs:621` |
 | `"Previous tab"` · `"Next tab"` | `Vixen.Ui.Controls.Advanced/DockingHost.cs:548`, `:557` |
 | `"Reset"` · `"Search"` | `Vixen.Ui.Controls.Advanced/PropertyGrid.cs:53`, `:117` |
-| `"Intensity"` · `"Pick a colour from the screen"` | `Vixen.Ui.Controls.Advanced/ColorPicker.cs:486`, `:478` |
+| `"Intensity"` · `"Pick a colour from the screen"` | `Vixen.Ui.Controls.Advanced/ColorPicker.cs:863`, `:855` |
 
 **`Strings.Resource`, checked as asked: planned, not built.** [11](11-editor.md) § asks for it at line
 87; the *As built* box at line 104 records that it is not generated; [`../overview.md`](../overview.md)

@@ -256,7 +256,7 @@ Each step is independently shippable and leaves the editor working.
 
    > ⚠️ **Three of the doc's other parity assumptions were checked and hold, so nothing was
    > rebuilt.** `UiElement.Focusable` + `TabIndex = -1` is already `acceptsFirstResponder` plus
-   > exclusion from the key view loop (`Focus.cs:206`, *"Negative is focusable but not a stop"*),
+   > exclusion from the key view loop (`Focus.cs:424`, *"Negative is focusable but not a stop"*),
    > so **focus acceptance needed no new API**. `CommandDispatcher`'s single root handler on the
    > **bubble** leg (`CommandDispatcher.cs:67`, `RoutingStrategy.Bubble` by default) gives the inner
    > control the same priority AppKit's downward `performKeyEquivalent:` does — different mechanism,

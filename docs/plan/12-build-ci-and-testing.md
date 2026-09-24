@@ -59,7 +59,7 @@ Debug, is not a conclusion about them.
 | `CompileShaderLibrary` | `CheckShaders` — recompiles the shaders whose `.spv` is committed, from their import closure, and reports drift |
 | `GenerateApiBaseline` | `--update-api` on `CheckApi` |
 | `AotSmoke` | `CheckAot` and `CheckAotIos` |
-| `Coverage` | ✅ reports line coverage of each test project's own subject assembly and gates on nothing but its own instrument; not in CI. ⚠️ This row used to add "not on the graph", and it is: `Coverage` `DependsOn(Compile)` (`build/Build.Coverage.cs:67`). § Coverage below |
+| `Coverage` | ✅ reports line coverage of each test project's own subject assembly and gates on nothing but its own instrument; not in CI. ⚠️ This row used to add "not on the graph", and it is: `Coverage` `DependsOn(Compile)` (`build/Build.Coverage.cs:66`). § Coverage below |
 | `Sign`, `Notarize` | — |
 | `PublishAndroid`, `PublishIos` | — `CompileMobile` builds the assemblies; nothing publishes |
 

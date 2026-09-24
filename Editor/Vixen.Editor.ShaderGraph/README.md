@@ -255,7 +255,7 @@ and a change to one method when it is time to wire it into the engine's clustere
   and the interesting part is not the node but what happens to a diagnostic inside it.
 - **Post and UI masters.** ⚠ **Four masters are in, not three** — Unlit, Sprite, PBR and Surface —
   and ⚠ **doc 11 is one table cell**: `master (PBR/unlit/sprite/UI/post)` at
-  `docs/plan/11-editor.md:486`, with no prose anywhere and nothing at all about what shape either
+  `docs/plan/11-editor.md:528`, with no prose anywhere and nothing at all about what shape either
   emits. `Master/Surface` emits `shader N : IMaterialSurface`; a post pass is a full-screen shader
   with a source texture and `UiQuad.rvn` has its own vertex contract, so both are most likely a
   *third* and *fourth* `ShaderGraphKind` rather than variations of the standalone preamble. That

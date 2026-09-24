@@ -344,7 +344,7 @@ bound permits, because a frame whose reflection is absent in both runs agrees wi
 ⚠ **This reference used to be a picture of a frame with no diffuse ambient in it. It was
 regenerated when that was fixed, and the paragraph below is what the new picture means.** In split
 mode `ForwardPlus` withholds the diffuse ambient for the combine to rebuild
-(`ForwardPlus.rvn:444-457`), and the combine rebuilt it from an irradiance plane — which
+(`ForwardPlus.rvn:452-465`), and the combine rebuilt it from an irradiance plane — which
 `StandardFrame` names only when `gi: probes`: `Irradiance = probes ? "ProbeIrradiance" : ""`. So
 `gi: ambient` split, dropped the term and put nothing back, and `gi: off, reflections: screen` did
 the same, because reflections need the split too. `AmbientCombine` now falls back to the scene's own

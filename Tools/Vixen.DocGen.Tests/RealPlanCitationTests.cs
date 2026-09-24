@@ -7,9 +7,12 @@ using Xunit;
 namespace Vixen.DocGen.Tests;
 
 /// <summary>
-///     Every <c>`File.cs:NNN`</c> citation in <c>docs/plan</c> names a file that exists and a line it
-///     has, and where the citation stands beside the symbol it is evidence for, that symbol is on the
-///     cited line (<a href="https://github.com/Rikarin/Vixen/issues/1356">#1356</a>).
+///     Every <c>`File.cs:NNN`</c> citation in <c>docs/</c> and the module READMEs names a file that
+///     exists and a line it has with something on it, and where the citation stands beside the symbol
+///     it is evidence for, that symbol is on the cited line
+///     (<a href="https://github.com/Rikarin/Vixen/issues/1356">#1356</a>,
+///     <a href="https://github.com/Rikarin/Vixen/issues/1387">#1387</a>,
+///     <a href="https://github.com/Rikarin/Vixen/issues/1388">#1388</a>).
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -56,14 +59,29 @@ namespace Vixen.DocGen.Tests;
 ///         document, the line and what is on it.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Unbound is most of it, and most of the drift.</b> Of 425 citations 75 bind. Read
+///         against the history — the line each cited when its sentence was last written, beside the
+///         same line now — 158 pointed at a line whose text had changed since, 142 of them in plans,
+///         when the sweep was widened. A bound one fails here the day it moves and an unbound one only
+///         when it lands on a blank or a brace (<see cref="Every_cited_line_has_something_on_it" />),
+///         so a citation that should hold is worth writing so it binds. ⚠ And a bare <c>`:108`</c>
+///         continues the file named last on its line, which is a guess: doc 50 wrote
+///         <c>`EditorProject.cs:56`</c> and then <c>`EditorApplication.scene` (`:108` …)</c>, meaning
+///         <c>EditorApplication.cs</c>, and the sweep read it as <c>EditorProject.cs:108</c> — a line
+///         that was blank the day it was written, passed by resolution because the file is long enough.
+///     </para>
+///     <para>
 ///         ⚠ <b>Both source languages.</b> Five of doc 49's six closed rows are closed by
 ///         <c>.vxml</c> citations alone, so a walker that indexed only <c>.cs</c> would call them
 ///         unresolvable and be wrong.
 ///     </para>
 /// </remarks>
 public class RealPlanCitationTests {
-    /// <summary>The directory whose documents are swept, relative to the checkout root.</summary>
+    /// <summary>The directory the sweep began with, relative to the checkout root, and what finds the checkout.</summary>
     const string PlanPath = "docs/plan";
+
+    /// <summary>What the sweep reads, for the failure messages: every document in the tree that describes it.</summary>
+    const string Swept = "docs/**/*.md and every README.md";
 
     /// <summary>Citations that record a file as it was, one per line: document, citation, reason.</summary>
     const string ExemptPath = "docs/PlanCitationExempt.txt";
@@ -76,13 +94,28 @@ public class RealPlanCitationTests {
     ///     ⚠ <b>What this prints on the day the regex matches nothing is the question.</b> Every
     ///     assertion below is over a loop, so a pattern that parsed no row — a changed backtick, a
     ///     renamed directory — would pass three hundred citations without reading one. The sweep read
-    ///     343 citations, 57 of them bound to a symbol, when this was written; the floors
-    ///     sit well under that and fail loudly on an empty read.
+    ///     343 citations, 57 of them bound to a symbol, when this was written, and 425 with 75 bound
+    ///     once it read every document rather than the plans alone (#1387, #1388) — read by raising
+    ///     each floor out of reach and taking the number the failure printed; the floors sit well under
+    ///     that and fail loudly on an empty read. ⚠ The total stays under what the plans alone hold
+    ///     (350), so that it is <see cref="OutsidePlanFloor" /> and not this that names a sweep which
+    ///     stopped reading the rest.
     /// </remarks>
     const int CitationFloor = 300;
 
     /// <inheritdoc cref="CitationFloor" />
-    const int BoundFloor = 45;
+    const int BoundFloor = 60;
+
+    /// <summary>
+    ///     How many citations have to come from outside <c>docs/plan</c> — the overview, the guide, the
+    ///     manual and the module READMEs (<a href="https://github.com/Rikarin/Vixen/issues/1387">#1387</a>).
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A floor of its own because the total cannot see this half go.</b> The plan documents
+    ///     alone clear <see cref="CitationFloor" />, so a selection that stopped reading READMEs would
+    ///     pass it with room to spare. 75 of the 425 were outside when the sweep was widened.
+    /// </remarks>
+    const int OutsidePlanFloor = 60;
 
     /// <summary>Directories a source sweep must not descend into, matched by name at any depth.</summary>
     /// <remarks>
@@ -104,8 +137,15 @@ public class RealPlanCitationTests {
     );
 
     /// <summary>A backticked symbol immediately before the opening parenthesis a citation sits in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A call written with its arguments binds too</b>, on the last dotted segment before the
+    ///     parenthesis (<a href="https://github.com/Rikarin/Vixen/issues/1388">#1388</a>). It took
+    ///     <c>()</c> and nothing else, so doc 49's <c>`Styles.Tree.SetAttribute(...)`
+    ///     (`BuildContext.cs:711`)</c> bound nothing and stood 153 lines from its call under a green
+    ///     sweep until a reviewer read it.
+    /// </remarks>
     static readonly Regex BoundSymbol = new(
-        @"(?<before>.{0,4})`(?<symbol>[A-Za-z_][\w.]*(?:<[^`]*>)?(?:\(\))?)`\s*\($",
+        @"(?<before>.{0,4})`(?<symbol>[A-Za-z_][\w.]*(?:<[^`]*>)?(?:\([^`]*\))?)`\s*\($",
         RegexOptions.Compiled
     );
 
@@ -131,12 +171,18 @@ public class RealPlanCitationTests {
 
         Assert.True(
             failures.Count == 0,
-            $"{failures.Count} citation(s) in {PlanPath} name a file or line that is not there (#1356). Point each at "
+            $"{failures.Count} citation(s) in {Swept} name a file or line that is not there (#1356, #1387). Point each at "
             + $"what it means now, or — if it records what a removed file said — add it to {ExemptPath} with the commit:\n  "
             + string.Join("\n  ", failures)
         );
 
-        Assert.True(citations.Count >= CitationFloor, $"the sweep found only {citations.Count} citation(s) in {PlanPath}");
+        Assert.True(citations.Count >= CitationFloor, $"the sweep found only {citations.Count} citation(s) in {Swept}");
+
+        var outside = citations.Count(cited => !cited.Document.StartsWith(PlanPath + "/", StringComparison.Ordinal));
+        Assert.True(
+            outside >= OutsidePlanFloor,
+            $"the sweep found only {outside} citation(s) outside {PlanPath}, so it has stopped reading the overview, the guide or the READMEs"
+        );
     }
 
     /// <summary>A citation bound to a symbol points at a line where that symbol is.</summary>
@@ -164,12 +210,58 @@ public class RealPlanCitationTests {
 
         Assert.True(
             failures.Count == 0,
-            $"{failures.Count} citation(s) in {PlanPath} point at a line their own symbol is not on (#1356). Re-point "
+            $"{failures.Count} citation(s) in {Swept} point at a line their own symbol is not on (#1356). Re-point "
             + "each by reading it — a citation to the wrong symbol is a prose error, not a number to move:\n  "
             + string.Join("\n  ", failures)
         );
 
-        Assert.True(bound >= BoundFloor, $"only {bound} citation(s) in {PlanPath} were bound to a symbol");
+        Assert.True(bound >= BoundFloor, $"only {bound} citation(s) in {Swept} were bound to a symbol");
+    }
+
+    /// <summary>A citation of a line cites a line with something on it, and not a brace or a blank.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one thing an unbound citation can be held to without guessing what it
+    ///         meant</b> (<a href="https://github.com/Rikarin/Vixen/issues/1388">#1388</a>). Placement
+    ///         needs a symbol and most citations have none within reach of the parser, so resolution
+    ///         was all they got, and in a file of a thousand lines resolution almost never fails
+    ///         however far the number drifts. But a number that drifted lands, often enough, on a line
+    ///         that says nothing: the first run of this found the overview citing a closing brace for
+    ///         <c>ReplicationServer.Acknowledge</c>'s soak caller, and the Ui README citing a blank
+    ///         line for <c>UiDocument.Surfaces</c> and <c>) {</c> for <c>SurfaceOf</c> — all three
+    ///         green under resolution.
+    ///     </para>
+    ///     <para>
+    ///         A single line and every line of a list must carry a word; a range needs one, because a
+    ///         range legitimately ends on the brace that closes what it spans. Nobody cites a blank line
+    ///         or a lone <c>}</c> as evidence, so this has no false positive worth the name — and a
+    ///         citation that means one on purpose goes in <see cref="ExemptPath" /> like any other.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_cited_line_has_something_on_it() {
+        var (citations, index, exempt) = Sweep();
+        List<string> failures = [];
+
+        foreach (var cited in citations) {
+            if (Resolve(cited, index) is not null || exempt.ContainsKey((cited.Document, cited.Text))) {
+                continue;
+            }
+
+            if (!Candidates(cited, index).Any(path => Substantial(cited, Lines(path)))) {
+                var there = Candidates(cited, index)
+                    .Where(path => cited.Lines.All(line => line <= Lines(path).Length))
+                    .Select(path => $"{path}:{string.Join(",", cited.Lines)} is "
+                                    + string.Join(" / ", cited.Lines.Select(line => $"'{Lines(path)[line - 1].Trim()}'")));
+                failures.Add($"{cited.Document}:{cited.Line} `{cited.Text}` — {string.Join("; ", there)}");
+            }
+        }
+
+        Assert.True(
+            failures.Count == 0,
+            $"{failures.Count} citation(s) in {Swept} point at a blank line or a lone brace, which is what a number that "
+            + "drifted lands on (#1388). Re-point each by reading it:\n  " + string.Join("\n  ", failures)
+        );
     }
 
     /// <summary>The exemption list can only shrink: every entry is still cited and still fails.</summary>
@@ -183,8 +275,10 @@ public class RealPlanCitationTests {
 
             if (matching.Count == 0) {
                 stale.Add($"{document} `{text}` is no longer cited — delete the line");
-            } else if (matching.All(cited => Resolve(cited, index) is null && (cited.Symbol is null && cited.Code is null
-                                                                             || Candidates(cited, index).Any(path => Holds(cited, Lines(path)))))) {
+            } else if (matching.All(cited => Resolve(cited, index) is null
+                                             && Candidates(cited, index).Any(path => Substantial(cited, Lines(path)))
+                                             && (cited.Symbol is null && cited.Code is null
+                                                 || Candidates(cited, index).Any(path => Holds(cited, Lines(path)))))) {
                 stale.Add($"{document} `{text}` resolves and holds now — delete the line");
             }
         }
@@ -245,6 +339,20 @@ public class RealPlanCitationTests {
         return cover.Any(line => Collapse(line).Contains(code, StringComparison.Ordinal));
     }
 
+    /// <summary>Whether the cited lines say anything: every one of a line or a list, and one of a range.</summary>
+    static bool Substantial(Cited cited, string[] lines) {
+        static bool Worded(string line) => Regex.IsMatch(line, @"\w");
+
+        // A candidate too short for the citation says nothing; resolution has already found one that is not.
+        if (!cited.Lines.All(line => line >= 1 && line <= lines.Length)) {
+            return false;
+        }
+
+        return cited.Range
+            ? lines[(cited.Lines[0] - 1)..Math.Min(cited.Lines[1], lines.Length)].Any(Worded)
+            : cited.Lines.All(line => Worded(lines[line - 1]));
+    }
+
     static string Collapse(string text) => Regex.Replace(text, @"\s+", "");
 
     static List<string> Candidates(Cited cited, Dictionary<string, List<string>> index) =>
@@ -278,8 +386,8 @@ public class RealPlanCitationTests {
 
         List<Cited> citations = [];
 
-        foreach (var document in Directory.EnumerateFiles(Path.Combine(Root, PlanPath), "*.md", SearchOption.AllDirectories).Order(StringComparer.Ordinal)) {
-            var relative = Path.GetRelativePath(Root, document).Replace('\\', '/');
+        foreach (var relative in Documents(index)) {
+            var document = Path.Combine(Root, relative);
             var number = 0;
 
             foreach (var line in File.ReadLines(document)) {
@@ -341,6 +449,32 @@ public class RealPlanCitationTests {
 
         return (citations, index, exempt);
     }
+
+    /// <summary>
+    ///     The documents swept: every Markdown file under <c>docs/</c> and every <c>README.md</c> in the
+    ///     tree, in path order.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The sweep began at <c>docs/plan</c> and the documents trusted most were outside it</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1387">#1387</a>). CLAUDE.md makes
+    ///         <c>docs/overview.md</c> the state, winning over any plan document, and the module
+    ///         READMEs the reasoning for each subsystem, so a citation there is read by the people who
+    ///         trust it most and was checked by nothing.
+    ///     </para>
+    ///     <para>
+    ///         Taken from the walk's own index rather than a second walk, so a directory the index
+    ///         refuses — somebody else's worktree under <c>.claude/</c>, build output — is refused here
+    ///         for the same reason. <c>CHANGELOG.md</c> and the analyzers' release notes are history on
+    ///         purpose and are not swept.
+    ///     </para>
+    /// </remarks>
+    static IEnumerable<string> Documents(Dictionary<string, List<string>> index) =>
+        index.Values
+            .SelectMany(paths => paths)
+            .Where(path => path.EndsWith(".md", StringComparison.Ordinal)
+                           && (path.StartsWith("docs/", StringComparison.Ordinal) || Path.GetFileName(path) == "README.md"))
+            .Order(StringComparer.Ordinal);
 
     static void Walk(string directory, Dictionary<string, List<string>> index) {
         foreach (var file in Directory.EnumerateFiles(directory)) {

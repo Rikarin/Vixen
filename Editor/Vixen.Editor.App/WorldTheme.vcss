@@ -38,7 +38,7 @@ scene-row {
     gap: 6px;
     min-height: 24px;
     padding: 0px 4px;
-    border-radius: var(--radius-row, 6px);
+    border-radius: var(--radius-row, 4px);
 }
 
 scene-row.selected { background-color: var(--accent-deep, var(--accent)); color: #ffffff; }
