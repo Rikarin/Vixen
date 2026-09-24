@@ -118,7 +118,9 @@ public partial class LiveCombinatorPairTests {
             + "against 168 measured — so it built the elements and did not walk them"
         );
 
-        // `ScrollView.cs:426`, `SplitView.cs:149` and `Tabs.cs:162` — three `Part("…")` calls, each
+        // `Content = Part("scroll-content")`, `Bar = Part("split-bar")` and `Panels = Part("tab-panels")`,
+        // in `ScrollView`, `SplitView` and `Tabs`'s `OnCreated` — named by member rather than line, so
+        // an insertion above one cannot send the reader to the wrong place (#1399). Three calls, each
         // in a different control, each the far end of a rule in a committed sheet. They are the
         // orientation control: `scroll-content > scroll-view` is the same walk with the two ends
         // swapped, and it would satisfy every count above.
