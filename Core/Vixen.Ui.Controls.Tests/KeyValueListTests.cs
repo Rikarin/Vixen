@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Reflection;
 using Vixen.Core.Mathematics;
 using Vixen.Ui.Composition;
 using Vixen.Ui.Styling;
+using Vixen.Ui.Text;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Tests;
@@ -217,17 +219,17 @@ public class KeyValueListTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A key too long for its column is clipped, and this theme asks for no ellipsis.</b>
-    ///     What the theme has to prevent is the other outcome: text that <i>wraps</i>, which turns
-    ///     one row of a uniform list into seven lines of one. <c>overflow: hidden</c> cutting the
-    ///     glyphs at the column's edge is the defined behaviour here.
+    ///     ⚠ <b>A key too long for its column is cut at the column's edge and says so, and it does not
+    ///     wrap.</b> What the theme has to prevent is text that <i>wraps</i>, which turns one row of a
+    ///     uniform list into seven lines of one; <c>overflow: hidden</c> cuts it, and since #1402 the
+    ///     key asks for an ellipsis.
     ///     <para>
-    ///         ⚠ <b>The reason the assertion below is <c>Null</c> changed under it, and the wording
-    ///         used to say the engine had no <c>text-overflow</c> at all.</b> It has one now — doc
-    ///         43's F5 — so this row is clipped because <c>KeyValueList</c>'s theme does not set the
-    ///         property, which is a choice, and not because setting it would do nothing, which was a
-    ///         gap. Adding <c>text-overflow: ellipsis</c> to the key part would now give this list
-    ///         ellipsised keys; whether it should is a design question this test does not answer.
+    ///         ⚠ <b>This assertion has now flipped twice.</b> It was <c>Null</c> because the engine had
+    ///         no <c>text-overflow</c>, then <c>Null</c> because the theme did not set the one doc 43's
+    ///         F5 added — while <c>ControlTheme.vcss</c> still told its reader there was no ellipsis to
+    ///         be had. The value half stays <c>Null</c> on purpose: the property inherits here, and the
+    ///         value half is where an editor goes. What the cascade says is not what the list draws,
+    ///         so <see cref="A_long_key_ends_in_an_ellipsis_that_fits_its_column" /> counts glyphs.
     ///     </para>
     /// </summary>
     [Fact]
@@ -241,9 +243,75 @@ public class KeyValueListTests {
         harness.Update();
 
         Assert.Equal(short_.Bounds.Height, long_.Bounds.Height, 0.5f);
-        Assert.Null(harness.StyleOf(long_.KeyPart, "text-overflow"));
+        Assert.Equal("ellipsis", harness.StyleOf(long_.KeyPart, "text-overflow"));
+        Assert.Null(harness.StyleOf(long_.ValuePart, "text-overflow"));
         Assert.Equal("nowrap", harness.StyleOf(long_.KeyPart, "white-space"));
         Assert.Equal("hidden", harness.StyleOf(long_.KeyPart, "overflow"));
+    }
+
+    /// <summary>A long key's drawn line ends in U+2026 and fits its column; a long value's does not end in one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>TextOverflowTests</c>' two halves, on this control: the line has to <i>fit</i>, or it
+    ///         is the old clip, and it has to <i>end in the marker</i>, or it is a shorter clip. The
+    ///         marker is also looked for in the draw list, which is what the rasteriser is handed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Open Sans as a fallback, because the fixture's face has no U+2026</b> — the trap
+    ///         <c>TextOverflowTests</c> records, where seven of eight tests passed measuring glyph
+    ///         zero. Open Sans is the editor's own face, so the marker is the one the editor draws.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_long_key_ends_in_an_ellipsis_that_fits_its_column() {
+        using var harness = new Harness(width: 200f);
+        harness.Document.Fonts.AddFallback(Marked);
+
+        var marker = Marked.GlyphFor('…');
+        Assert.NotEqual(0, marker);
+
+        var list = harness.List(0);
+        var row = list.AddRow(
+            "a key long enough to wrap several times over if it were allowed to",
+            "a value long enough to overflow as well"
+        );
+
+        harness.Update();
+        harness.Document.Draw();
+
+        var key = row.KeyPart;
+        var drawn = key.Ellipsized(key.Bounds.Width)!;
+
+        Assert.True(key.Block()!.Lines[0].Width > key.Bounds.Width, "the key fits its column, so there is nothing to elide");
+        Assert.True(
+            drawn.Lines[0].Width <= key.Bounds.Width,
+            $"the drawn key is {drawn.Lines[0].Width} px in a {key.Bounds.Width} px column"
+        );
+
+        var placed = new List<PositionedGlyph>();
+        drawn.Lines[0].Place(placed);
+        Assert.Equal(marker, placed[^1].GlyphId);
+
+        Assert.Equal(1, harness.Document.Drawing.Glyphs.Count(glyph => glyph.GlyphId == marker));
+
+        // The value half is clipped without one, by the choice ControlTheme.vcss explains.
+        var value = row.ValuePart;
+        Assert.True(value.Block()!.Lines[0].Width > value.Bounds.Width, "the value fits its column, so this half proves nothing");
+        Assert.Same(value.Block(), value.Ellipsized(value.Bounds.Width));
+    }
+
+    /// <summary>A face that has U+2026, which the fixture's does not.</summary>
+    static readonly FontFace Marked = LoadMarked();
+
+    static FontFace LoadMarked() {
+        using var stream = Assembly.GetExecutingAssembly()
+            .GetManifestResourceStream("Vixen.Ui.Controls.Tests.Fonts.OpenSans-Regular.ttf")
+            ?? throw new InvalidOperationException("the test font is not embedded");
+
+        using var memory = new MemoryStream();
+        stream.CopyTo(memory);
+
+        return FontFace.Load(memory.ToArray(), name: "OpenSans");
     }
 
     /// <summary>
@@ -441,6 +509,10 @@ public class KeyValueListTests {
         // on black for every second row, which is a fixture with no panel in it rather than a
         // control with a bug in it, and the two look identical.
         using var ui = ControlHarness.Open(280f, 180f, "root { background-color: var(--surface); flex-direction: column; }");
+
+        // ⚠ The long key ends in an ellipsis since #1402, and the fixture's face has no U+2026: without
+        // a fallback that has one, the committed picture would show `.notdef` where the marker goes.
+        ui.Document.Fonts.AddFallback(Marked);
 
         var list = ui.Document.Root.Add<KeyValueList>();
         ui.Frame();

@@ -111,6 +111,7 @@ frame-editor fact-value	Documents
 frame-editor inspector	Documents
 gradient-editor color-picker	-
 group-editor > tree-view	Panels
+harness-side > scroll-content	Documents
 history-view scroll-view	Panels
 icon-button label	Started
 import-settings > scroll-view	Documents
@@ -178,6 +179,7 @@ mixer-strips > scroll-content	Documents
 mode-bar > toolbar	Started
 model-editor > tree-view	Documents
 moveset-bar > textbox	Documents
+moveset-side > scroll-content	Documents
 multi-select icon	Panels
 network-row progress-bar	-
 node-graph > node-canvas	Documents
