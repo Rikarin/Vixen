@@ -80,6 +80,10 @@ public sealed class VariantAuditTests {
         // ⚠ Nor `backdrop`, for the same reason, although the variant table said it named "a control
         // that does not exist": `Dialog` and `Drawer` build the sheet behind them as parts.
         Assert.DoesNotContain("backdrop", unsupported);
+
+        // ⚠ Nor `details-content`, which the file said waited on the generated box: `Expander` is the
+        // `<details>` here and builds the slot as `Part("expander-content")`.
+        Assert.DoesNotContain("details-content", unsupported);
     }
 
     /// <summary>A variant v4 has that Vixen refuses and nobody wrote down.</summary>

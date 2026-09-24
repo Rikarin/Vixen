@@ -1,6 +1,6 @@
 # tailwindcss variants that Vixen.Ui.Styling.Utilities does not resolve.
 #
-# 17 of tailwindcss@4.3.3's 88. Measured, not transcribed: Tools/Vixen.TailwindParity hands each
+# 16 of tailwindcss@4.3.3's 88. Measured, not transcribed: Tools/Vixen.TailwindParity hands each
 # variant's probe class to `Variants.TryResolve` — the same call the generator makes — and this file
 # is what it refused. A variant v4 has that Vixen refuses and this file does not name fails as
 # TWP008; a name here that Vixen has since learned fails as TWP009; a name here v4 does not have
@@ -29,9 +29,12 @@
 # sheet behind them as `Part("dialog-backdrop")` and `Part("drawer-backdrop")`, so `backdrop:` landed
 # as `placeholder:` did, a child combinator onto those two tags (#233). The claim that it named "a
 # control that does not exist" was false.
+#
+# ⚠ Nor is `details-content`, which this file said waited on the generated box. `Expander` is this
+# framework's `<details>`: `ExpanderHeader` is the summary and `Part("expander-content")` is the slot
+# `::details-content` names, hidden until the expander opens. So it landed as `backdrop:` did (#233).
 after
 before
-details-content
 file
 first-letter
 first-line

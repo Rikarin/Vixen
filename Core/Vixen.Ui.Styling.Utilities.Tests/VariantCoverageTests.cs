@@ -311,7 +311,14 @@ public class VariantCoverageTests {
         new("backdrop", "drawer-backdrop", 1, true),
         new("backdrop", "dialog-backdrop", 0, false),
         new("backdrop", "dialog-surface", 1, false),
-        new("backdrop", "drawer-backdrop", 2, false)
+        new("backdrop", "drawer-backdrop", 2, false),
+
+        // The expander's content slot, v4's `::details-content`. The wrong-tag row is its header,
+        // the `<summary>` a `> *` would reach and v4's `details-content:` never does.
+        new("details-content", "expander-content", 1, true),
+        new("details-content", "expander-content", 0, false),
+        new("details-content", "expander-header", 1, false),
+        new("details-content", "expander-content", 2, false)
     ];
 
     public static TheoryData<string, string, int, bool> PartRows {
@@ -381,17 +388,13 @@ public class VariantCoverageTests {
         // reaches the compiler, and never one the compiler accepts.
         var fixture = new UtilityFixture();
 
-        foreach (var candidate in new[] {
-                     "not-placeholder:p-4",
-                     "has-placeholder:p-4",
-                     "group-placeholder:p-4",
-                     "peer-placeholder:p-4",
-                     "not-backdrop:p-4",
-                     "has-backdrop:p-4",
-                     "group-backdrop:p-4",
-                     "peer-backdrop:p-4"
-                 }) {
-            Assert.DoesNotContain("padding", fixture.Generate(candidate), StringComparison.Ordinal);
+        // Over the whole table rather than a list of names, so an entry added later is covered
+        // without anybody remembering to add four lines here.
+        foreach (var part in Variants.PartVariants) {
+            foreach (var composer in new[] { "not", "has", "group", "peer" }) {
+                var candidate = $"{composer}-{part}:p-4";
+                Assert.DoesNotContain("padding", fixture.Generate(candidate), StringComparison.Ordinal);
+            }
         }
 
         // And the ones that do compose, because they act on the element side of the combinator: a
@@ -500,6 +503,71 @@ public class VariantCoverageTests {
         );
 
         Assert.Equal((0f, 0f, 200f, 100f), (painted.X, painted.Y, painted.Width, painted.Height));
+    }
+
+    /// <summary>
+    ///     ⚠ <c>details-content:</c> reaches the content slot a real <c>Expander</c> builds, and it is
+    ///     drawn only while the expander is open (#233).
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         v4's <c>details-content:</c> is <c>&amp;::details-content</c>, the box a
+    ///         <c>&lt;details&gt;</c> element puts everything except its <c>&lt;summary&gt;</c> in.
+    ///         <c>Expander</c> is that element: <c>ExpanderHeader</c> is the summary and
+    ///         <c>Part("expander-content")</c> is the slot, a direct child that
+    ///         <c>ControlTheme.vcss</c> hides with <c>display: none</c> until the expander is open.
+    ///     </para>
+    ///     <para>
+    ///         Closed, the frame holds no magenta at all, because the slot is not displayed, as a
+    ///         closed <c>&lt;details&gt;</c> hides its content. Open, it holds exactly one magenta
+    ///         rectangle, the slot's own box. The header and the expander itself never take the
+    ///         colour.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_details_content_variant_reaches_the_slot_a_real_expander_builds() {
+        using var document = new UiDocument(200f, 100f);
+        var fixture = new UtilityFixture();
+
+        ControlTheme.Install(document);
+        document.Load(fixture.Generate("details-content:bg-[#ff00ff]"), StyleOrigin.Author);
+        document.Load(".body { width: 60px; height: 20px; }", StyleOrigin.Author);
+
+        var expander = document.Root.Add<Expander>(null, null, "details-content:bg-[#ff00ff]");
+        expander.Label = "Section";
+        expander.Content.Add("div", null, "body");
+        document.Update();
+        document.Draw();
+
+        static bool Magenta(DrawCommand command) => command is { Kind: DrawCommandKind.Rectangle, Color: { R: 1f, G: 0f, B: 1f } };
+
+        Assert.DoesNotContain(document.Drawing.Commands, Magenta);
+
+        expander.IsExpanded = true;
+        document.Update();
+        document.Draw();
+
+        var content = expander.Content;
+        var background = document.Styles.Properties.Lookup("background-color");
+        var accent = Normalised(document, "#ff00ff");
+
+        Assert.True(content.Style.TryGet(background, out var value), "the content slot has no background at all.");
+        Assert.Equal(accent, document.Styles.Values.NameOf(value));
+
+        foreach (var other in new UiElement[] { expander, expander.Header }) {
+            Assert.False(
+                other.Style.TryGet(background, out var own) && document.Styles.Values.NameOf(own) == accent,
+                $"<{other.Tag}> took the colour, so the tag is not what selected it."
+            );
+        }
+
+        var painted = Assert.Single(document.Drawing.Commands, Magenta);
+
+        Assert.True(content.Width > 60f && content.Height > 20f, $"the slot is {content.Width} × {content.Height}, smaller than what it holds.");
+        Assert.Equal(
+            (content.AbsoluteLeft, content.AbsoluteTop, content.Width, content.Height),
+            (painted.X, painted.Y, painted.Width, painted.Height)
+        );
     }
 
     /// <summary>How a colour reads back once the loader has normalised it, by loading it on a probe.</summary>

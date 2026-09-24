@@ -265,7 +265,7 @@ public static class Variants {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>This is the half of A12 (<c>Rikarin/Vixen#233</c>) that needs no generated box,
-    ///         and it is two entries.</b> v4's <c>placeholder:</c> is <c>&amp;::placeholder</c>, and
+    ///         and it is three entries.</b> v4's <c>placeholder:</c> is <c>&amp;::placeholder</c>, and
     ///         <c>TextField.OnCreated</c> already builds that box as <c>Part("field-placeholder")</c>,
     ///         a direct child with a tag of its own that <c>ControlTheme.vcss</c> styles at
     ///         <c>field-placeholder</c>. So the variant is a child combinator onto that tag and
@@ -295,8 +295,22 @@ public static class Variants {
     /// </remarks>
     static readonly Dictionary<string, string> Parts = new(StringComparer.Ordinal) {
         ["placeholder"] = PlaceholderPart,
-        ["backdrop"] = BackdropPart
+        ["backdrop"] = BackdropPart,
+        ["details-content"] = DetailsContentPart
     };
+
+    /// <summary>The child <c>Expander</c> builds its collapsible body as, as a scope onto the expander.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The third part variant, and the list that held it said it waited on the generated box
+    ///     (#233).</b> v4's <c>details-content:</c> is <c>&amp;::details-content</c>, the box a
+    ///     <c>&lt;details&gt;</c> puts everything except its <c>&lt;summary&gt;</c> in, hidden while
+    ///     it is closed. <c>Expander</c> is that element here: <c>ExpanderHeader</c> is the summary,
+    ///     and <c>Expander.OnCreated</c> builds the body as <c>Part("expander-content")</c>, a direct
+    ///     child <c>ControlTheme.vcss</c> keeps at <c>display: none</c> until <c>.open</c>. So it is
+    ///     <see cref="PlaceholderPart" />'s shape, a child combinator onto that tag, and the class goes
+    ///     on the expander as v4 puts it on the <c>&lt;details&gt;</c>.
+    /// </remarks>
+    internal const string DetailsContentPart = " > expander-content";
 
     /// <summary>The children <c>Dialog</c> and <c>Drawer</c> build the sheet behind them as, as a scope onto the overlay.</summary>
     /// <remarks>
