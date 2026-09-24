@@ -237,6 +237,43 @@ public class WhiteSpaceInlineCollapseTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>Pinned as OWED, not as right: a line the wrapper begins between two elements.</b>
+    ///     <c>foo</c> then <c>␠bar</c> in a box too narrow for both puts <c>␠bar</c> on the second
+    ///     line, where Chrome draws <c>bar</c> flush with the line's start — the space is § 4.1.3's
+    ///     phase II to remove there. This engine answers an inline leaf's two ends from the tree
+    ///     (#1363), and "the element before it ends in a word" says keep the space, which is right
+    ///     on the first line and wrong on the second. Whether the leaf starts a line is a break
+    ///     position, decided after the leaf was measured — the pass order
+    ///     <c>InlineKnownGaps.txt</c> names under "a text leaf's first line" (#249). The day that
+    ///     lands this goes red on its last assertion and is to be inverted, not deleted.
+    /// </summary>
+    [Fact]
+    public void A_leading_run_on_a_line_the_wrapper_began_is_still_drawn_which_is_owed() {
+        var document = new UiDocument(900f, 300f);
+        document.Fonts.Register("Test", Font);
+
+        document.Load(
+            $$"""
+              root      { width: 800px; height: 300px; }
+              container { display: block; width: 40px; }
+              label     { font-family: Test; font-size: 16px; line-height: 20px; display: inline; {{PreLine}} }
+              """
+        );
+
+        var container = document.Root.Add("container");
+        var foo = container.Add("label");
+        var bar = container.Add("label");
+        foo.Text = "foo";
+        bar.Text = " bar";
+        document.Update();
+
+        var word = Line(PreLine, "bar").Labels[0].Block()!.Width;
+
+        Assert.True(bar.Bounds.Y >= foo.Bounds.Bottom, $"the second label did not wrap, so this measures nothing: {foo.Bounds} then {bar.Bounds}");
+        Assert.True(bar.Block()!.Width > word + 1f, $"the leading run on the wrapped line is no longer drawn ({bar.Block()!.Width} against {word}) — invert this test");
+    }
+
+    /// <summary>
     ///     ⚠ <b>Decided by a neighbour's text, so a neighbour's text change has to reach this
     ///     element's box</b> — which the layout tree does not do by itself: a node is re-measured
     ///     when it or its style changes, and here neither did. Without the neighbour being dirtied the
