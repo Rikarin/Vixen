@@ -382,6 +382,22 @@ public sealed class ScrollingPanelPictureTests {
             MathF.Abs(side.Width - 300f) < 0.5f,
             $"the side column is {side.Width:0} px of its 300 in a {body.Width:0} px body, beside strips {strips.Width:0} px wide."
         );
+
+        // ⚠ And nothing in it is wider than it. At its full 300 px the analysis line was still cut, to
+        // "19 bus(es), 0 snapshot(s). Bui", because a scroll content is as wide as its widest unwrapped
+        // line: 330 px here. The column scrolls down, so the line wraps rather than scrolling across.
+        var message = Descendants(side).First(element => element.Tag == "analysis-message");
+
+        Assert.True(
+            side.MaximumLeft == 0f,
+            $"the side column's content is {side.Content.Width:0} px in a {side.Width:0} px column, so its "
+            + $"lines run under a sideways bar: the analysis line is {message.Width:0} px wide and reads '{message.Text}'."
+        );
+
+        Assert.True(
+            message.Height > 30f,
+            $"the analysis line is {message.Height:0} px tall in {message.Width:0} px, so it was cut rather than wrapped."
+        );
     }
 
     /// <summary>The input debug panel, over more rows than the panel is tall.</summary>
