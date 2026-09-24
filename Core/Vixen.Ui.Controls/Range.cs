@@ -64,6 +64,12 @@ public abstract partial class RangeBase : Control {
     ///         are where to look, not where the thumb must stop — which is the default AppKit chose
     ///         too.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only <see cref="Slider" /> and <see cref="RangeSlider" /> draw them.</b> The
+    ///         property is here because the snapping arithmetic is, so <see cref="ProgressBar" />,
+    ///         <see cref="LevelIndicator" /> and <see cref="Gauge" /> inherit it and ignore it —
+    ///         including <see cref="LevelIndicator" />, the control AppKit's own tick marks belong to.
+    ///     </para>
     /// </remarks>
     [UiProperty(Changed = nameof(OnTicksChanged))]
     public partial int TickCount { get; set; }

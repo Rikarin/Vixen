@@ -813,8 +813,9 @@ the field and declines a scrub when it meets a control on the way; a version of 
 `args.Source` never fires, because what a pointer hits inside a button is the `Icon`.
 
 **Present but with a named gap**: `Button` has no default (Return) or cancel (Esc) key equivalent, no
-attached menu (so no pull-down or pop-up button), no repeat-on-hold; `Slider` has no tick marks;
-`SearchBox` has no recents menu or scope bar; `ComboBox` has no completion; `Tabs` has no overflow,
+attached menu (so no pull-down or pop-up button), no repeat-on-hold; ~~`Slider` has no tick
+marks~~ — landed (#666): `RangeBase.TickCount` and `SnapsToTicks`, drawn by `Slider` and
+`RangeSlider` only, so a `LevelIndicator` given ticks still draws none; `SearchBox` has no recents menu or scope bar; `ComboBox` has no completion; `Tabs` has no overflow,
 close or reorder (`DockingHost` has all three); `ScrollView` has no magnification and no rulers;
 `DataGrid` has no column show/hide menu and no layout autosave.
 
