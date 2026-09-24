@@ -109,14 +109,14 @@ public sealed class HostedInterfaceComposeTests : IDisposable {
 
         Directory.CreateDirectory(captures);
 
-        var world = Capture(compose: true, hud: false, captures, "world");
+        var world = Capture(compose: true, hud: null, captures, "world");
 
         if (world is null) {
             return;
         }
 
-        var composed = Capture(compose: true, hud: true, captures, "composed")!;
-        var prologue = Capture(compose: false, hud: true, captures, "prologue")!;
+        var composed = Capture(compose: true, Panelled, captures, "composed")!;
+        var prologue = Capture(compose: false, Panelled, captures, "prologue")!;
 
         Keep("hud-world", world.Picture);
         Keep("hud-composed", composed.Picture);
@@ -161,13 +161,83 @@ public sealed class HostedInterfaceComposeTests : IDisposable {
         Assert.Equal(0, composed.Sceneless);
         Assert.True(composed.Blended > 0, "the panel never went through UiBlend");
         Assert.Equal(0, composed.Unblended);
+
+        // #627's two counters a head drawing a HUD was to assert, read off the stock host: the HUD was
+        // drawn at the pass's white and composited sharp.
+        Assert.Equal(0, composed.Dim);
+        Assert.Equal(0, composed.Soft);
+    }
+
+    /// <summary>
+    ///     On a real device, through the stock host: a HUD glass panel with <c>backdrop-filter:
+    ///     invert(1)</c> is the world inverted, where the frame without the node inverts nothing.
+    /// </summary>
+    /// <remarks>
+    ///     #1378's other half, the one a blend does not cover: a backdrop is captured rather than
+    ///     blended, so a node that handed the blend its scene and the capture none would pass the
+    ///     multiply and fail here. Without the node the capture holds the interface over transparent
+    ///     black, and inverting premultiplied transparent black is transparent black — the world
+    ///     shows through untouched, which is the control.
+    /// </remarks>
+    [Fact]
+    public void AHudGlassPanelInvertsTheWorldThroughTheStockHost() {
+        var captures = Path.Combine(files.TemporaryDirectory, "captures");
+
+        Directory.CreateDirectory(captures);
+
+        var world = Capture(compose: true, hud: null, captures, "world");
+
+        if (world is null) {
+            return;
+        }
+
+        var composed = Capture(compose: true, Glass, captures, "glass-composed")!;
+        var prologue = Capture(compose: false, Glass, captures, "glass-prologue")!;
+
+        Keep("hud-glass-composed", composed.Picture);
+        Keep("hud-glass-prologue", prologue.Picture);
+
+        var box = Panel(world.Picture.Width, world.Picture.Height);
+        var measured = 0;
+        var worst = 0;
+        var blind = 0;
+
+        for (var y = box.Top + 2; y < box.Bottom - 2; y += 3) {
+            for (var x = box.Left + 2; x < box.Right - 2; x += 3) {
+                // The glass's own paint, a small block in its top-left corner, is not the backdrop.
+                if (x < box.Left + (box.Width / 4) + 2 && y < box.Top + (box.Height / 4) + 2) {
+                    continue;
+                }
+
+                var under = At(world.Picture, x, y);
+                var inverted = (R: Invert(under.R), G: Invert(under.G), B: Invert(under.B));
+
+                // Where the world is its own inverse to within a rounding, the two frames agree.
+                if (Distance(inverted, under) < 10) {
+                    continue;
+                }
+
+                worst = Math.Max(worst, Distance(At(composed.Picture, x, y), inverted));
+                blind = Math.Max(blind, Distance(At(prologue.Picture, x, y), under));
+                measured++;
+            }
+        }
+
+        Assert.True(measured > 200, $"only {measured} panel pixels had a world under them whose inverse differs from it");
+        Assert.True(worst <= 3, $"through the stock host the glass is {worst} codes from the world inverted");
+
+        // The control: the prologue's capture saw no world, so the glass inverted nothing.
+        Assert.True(blind <= 2, $"without the node the glass is {blind} codes from the world it should have left alone");
+        Assert.True(composed.Backdropped > 0, "the glass never captured a backdrop");
+        Assert.Equal(1, prologue.Sceneless);
+        Assert.Equal(0, composed.Sceneless);
     }
 
     /// <summary>What one run of the stock host produced.</summary>
-    sealed record Captured(Bitmap Picture, int Sceneless, int Blended, int Unblended);
+    sealed record Captured(Bitmap Picture, int Sceneless, int Blended, int Unblended, int Backdropped, int Dim, int Soft);
 
-    /// <summary>Runs the stock host on Vulkan offscreen, optionally with the panel mounted, and captures a frame.</summary>
-    Captured? Capture(bool compose, bool hud, string directory, string name) {
+    /// <summary>Runs the stock host on Vulkan offscreen, optionally with a HUD mounted, and captures a frame.</summary>
+    Captured? Capture(bool compose, Func<Int2, DrawList>? hud, string directory, string name) {
         Publish(Document(compose));
 
         VixenApplication application;
@@ -189,7 +259,7 @@ public sealed class HostedInterfaceComposeTests : IDisposable {
 
             UiRenderer? ui = null;
 
-            if (hud) {
+            if (hud is not null) {
                 var swapChain = graphics.SwapChain!;
                 var size = swapChain.Size;
 
@@ -204,9 +274,10 @@ public sealed class HostedInterfaceComposeTests : IDisposable {
                 graphics.Renderer.Ui.Renderer = ui;
 
                 var atlas = new GlyphAtlas(64, 64);
-                var geometry = new UiGeometryBuilder().Build(Panelled(size), new GlyphFieldCache(atlas), new Rectangle(0, 0, size.X, size.Y));
+                var geometry = new UiGeometryBuilder().Build(hud(size), new GlyphFieldCache(atlas), new Rectangle(0, 0, size.X, size.Y));
 
-                Assert.Equal(UiBlendMode.Multiply, Assert.Single(geometry.Layers).Blend);
+                // One top-level group, so the arrangement is the one #1378 is about.
+                Assert.Single(geometry.Layers);
 
                 var id = graphics.Renderer.Ui.Mount(stage.Mask);
 
@@ -228,7 +299,10 @@ public sealed class HostedInterfaceComposeTests : IDisposable {
                 PngCodec.Load(path!),
                 graphics.Renderer.Ui.Sceneless,
                 ui?.Blended ?? 0,
-                ui?.Unblended ?? 0
+                ui?.Unblended ?? 0,
+                ui?.Backdropped ?? 0,
+                graphics.Renderer.Ui.Dim,
+                graphics.Renderer.Ui.Soft
             );
 
             graphics.Device.WaitIdle();
@@ -257,6 +331,27 @@ public sealed class HostedInterfaceComposeTests : IDisposable {
         // the builder takes the layer back.
         list.Add(new(DrawCommandKind.Rectangle, box.Left, box.Top, box.Width, box.Height, new Color4(linear, linear, linear, 1f), 0, 0));
         list.Add(new(DrawCommandKind.Rectangle, box.Left, box.Top, box.Width / 4f, box.Height / 4f, new Color4(linear, linear, linear, 1f), 0, 0));
+        list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+        list.EndFrame();
+
+        return list;
+    }
+
+    /// <summary>A clear glass panel over the middle of the window that inverts whatever lies behind it.</summary>
+    static DrawList Glass(Int2 size) {
+        var box = Panel(size.X, size.Y);
+
+        var list = new DrawList();
+        list.BeginFrame();
+        list.Add(
+            new DrawCommand(DrawCommandKind.LayerPush, box.Left, box.Top, box.Width, box.Height, Color4.White, 0, 0) {
+                Backdrop = new UiBackdrop(0f, 1f, UiColorMatrix.Invert(1f))
+            }
+        );
+
+        // Something of its own to draw, in one corner, so the rest of the panel is backdrop alone.
+        list.Add(new(DrawCommandKind.Rectangle, box.Left, box.Top, box.Width / 4f, box.Height / 4f, new Color4(1f, 0f, 0f, 1f), 0, 0));
+        list.Add(new(DrawCommandKind.Rectangle, box.Left, box.Top, box.Width / 8f, box.Height / 8f, new Color4(0f, 0f, 1f, 1f), 0, 0));
         list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
         list.EndFrame();
 
@@ -337,6 +432,8 @@ public sealed class HostedInterfaceComposeTests : IDisposable {
         Math.Max(Math.Abs(a.R - b.R), Math.Max(Math.Abs(a.G - b.G), Math.Abs(a.B - b.B)));
 
     static int Multiply(int under) => Encode(Decode(Grey) * Decode(under));
+
+    static int Invert(int under) => Encode(1f - Decode(under));
 
     static float Decode(int code) {
         var c = code / 255f;
