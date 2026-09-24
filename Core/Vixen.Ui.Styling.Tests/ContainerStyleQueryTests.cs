@@ -219,12 +219,19 @@ public class ContainerStyleQueryTests {
     }
 
     /// <summary>The nearest one wins, and an unnamed ancestor between them is skipped over.</summary>
+    /// <remarks>
+    ///     ⚠ The unnamed ancestor between them declares the opposite value. With a <c>plain</c> one
+    ///     there it inherited the nearer card's, so an evaluator reading the parent gave the same
+    ///     answer as one reading the nearest card, and both rows stayed green when the lookup was
+    ///     replaced by the parent. Each row now has three distinct answers: the nearest card's, the
+    ///     farther card's and the parent's, and only the first is right.
+    /// </remarks>
     [Fact]
     public void The_nearest_named_ancestor_answers() {
-        var (near, leaf) = Chain(["card", "secondary"], ["card", "primary"], ["plain"], ["leaf"]);
+        var (near, leaf) = Chain(["card", "secondary"], ["card", "primary"], ["secondary"], ["leaf"]);
         Assert.Equal("named", near.Read(leaf, "color"));
 
-        var (far, farLeaf) = Chain(["card", "primary"], ["card", "secondary"], ["plain"], ["leaf"]);
+        var (far, farLeaf) = Chain(["card", "primary"], ["card", "secondary"], ["primary"], ["leaf"]);
         Assert.Null(far.Read(farLeaf, "color"));
     }
 
