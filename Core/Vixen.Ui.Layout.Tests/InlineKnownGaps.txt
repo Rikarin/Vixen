@@ -702,8 +702,15 @@ white-space / nowrap              the container-level suppression of line breaki
                                   something follows on its line. STILL OWED: a line the WRAPPER begins
                                   or ends between two leaves (the trailing space should then hang, the
                                   leading run go), which is a break position and this row's pass
-                                  order; and a line begun on a space by a break that falls BEFORE one
-                                  (`line-break: anywhere`, or an emergency break). ⚠ NO LONGER
+                                  order. ⚠ A LINE BEGUN ON A SPACE by a break that falls BEFORE one
+                                  is FIXED, in the wrapper (#249), and it was narrower than this row
+                                  said: a fitting break is never before a space, because the break
+                                  after it fits whenever that one does, so only a break taken when
+                                  NOTHING fits — a room narrower than one letter, under either
+                                  `anywhere` — could land there. It made the space a line of its own,
+                                  five line boxes for `ab cd` where Chrome 153 draws four
+                                  (`Oracle/narrow-anywhere.html`); `LineWrapper.PastHangingSpaces`
+                                  hangs it on the line before. ⚠ NO LONGER
                                   OWED, AND NEVER WAS (#249): a `display: inline` box the LAYOUT
                                   makes atomic (`IsNonAtomicInline`) is walked into by
                                   `UiElement.First`/`Last`, found empty and looked past — and that
