@@ -62,12 +62,13 @@ namespace Vixen.Editor.App.Tests;
 ///         bar now spans the whole console; that is why the bars are checked as boxes as well.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Drawn at the session's own 1600×1000, and the size is not arbitrary.</b> At 1280×800
-///         the console's detail pane — 132 px and <c>flex-shrink: 0</c> — is taller than what the
-///         docked console has left under its toolbar: the list goes to zero rows and the pane's
-///         bottom 28 px, with the end of the stack and the thumb, sit behind the dock panel's edge.
-///         That is a layout defect of its own and not the conversion's, and the ancestor check below
-///         is what reports it at that size.
+///         ⚠ <b>Drawn at the session's own 1600×1000, and once at 1280×800 on purpose.</b> At the
+///         smaller size the console's detail pane — 132 px and <c>flex-shrink: 0</c> until #1390 —
+///         was taller than what the docked console had left under its toolbar: the list went to zero
+///         rows and the pane's bottom 28 px, with the end of the stack and the whole thumb at the end
+///         of the scroll, sat behind the dock panel's edge. The ancestor check below is what reports
+///         that, and <see cref="The_console_detail_fits_a_short_console_and_its_thumb_reaches_the_end" />
+///         runs it there.
 ///     </para>
 /// </remarks>
 public sealed class ScrollingPanelPictureTests {
@@ -101,6 +102,158 @@ public sealed class ScrollingPanelPictureTests {
     public void The_console_detail_scrolls_inside_its_box_and_nowhere_else() {
         using var fixture = Start();
 
+        var (_, view) = SelectDeepError(fixture);
+
+        Check(fixture, view, "console-detail");
+    }
+
+    /// <summary>The same pane in an editor 800 px tall, where the docked console is shorter than the pane.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The size the session's own 1600×1000 hid (#1390).</b> The pane was 132 px and
+    ///         <c>flex-shrink: 0</c>, and here the console under its toolbar has less than that: the
+    ///         list went to zero rows and the pane's bottom 28 px sat behind the dock panel's edge.
+    ///         <see cref="Check" />'s ancestor half is what reports the cut, and the list's height
+    ///         is the other half of the issue.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the thumb, measured rather than looked at (#1327).</b> A capture of exactly
+    ///         this view showed the vertical thumb present at the top of the scroll and gone at the
+    ///         end, on the Vulkan device and the software rasteriser alike, and a reviewer looking at
+    ///         the picture had missed it. The end of the track was in those hidden 28 px and a
+    ///         24 px thumb fits inside them — so the question is asked of pixels, by
+    ///         <see cref="ThumbAtTheEnd" /> from inside <see cref="Check" />: the thumb's own colour,
+    ///         sampled where the thumb is in the first frame, has to be found in the last
+    ///         thumb-length of the track in the second. Every vertical view here is held to it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_console_detail_fits_a_short_console_and_its_thumb_reaches_the_end() {
+        using var fixture = Start(1280, 800);
+
+        var (console, view) = SelectDeepError(fixture);
+
+        Assert.True(
+            console.List.Height >= console.List.RowHeight,
+            $"with a record selected the console's list is {console.List.Height} px tall — not one "
+            + $"{console.List.RowHeight} px row left to select from at {WidthOf(fixture)}×{HeightOf(fixture)}."
+        );
+
+        // The thumb half is in `Check`, which every vertical view in this class goes through.
+        Check(fixture, view, "console-detail-short");
+    }
+
+    /// <summary>With nothing selected, the pane's one line and the list's row both fit a console 640 px tall.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A floor for the list is a floor something else pays for.</b> The empty pane is one line
+    ///     and does not shrink, and the first cut of #1390's floor — two rows — pushed that line
+    ///     through the dock panel's bottom edge in the Preferences pictures' 1600×640 editor. Seen in
+    ///     a picture taken for a different panel, which is why it is a fact of its own now: the
+    ///     pane inside every clip above it, and the list at least a row.
+    /// </remarks>
+    [Fact]
+    public void The_empty_console_detail_and_a_row_of_the_list_fit_a_short_console() {
+        using var fixture = Start(Width, 640);
+
+        fixture.Open("console");
+        fixture.Frames(2);
+
+        var console = Find<Vixen.Editor.Ui.ConsoleView>(fixture.Document.Root)
+            ?? throw fixture.Fail("the console is not open");
+
+        var view = Scroller(fixture, "console-detail");
+
+        Assert.True(view.HasClass("empty"), "a record is selected, so this is not the empty pane");
+        Assert.True(console.List.Height >= console.List.RowHeight, $"the list is {console.List.Height} px tall.");
+
+        Uncut(fixture, view);
+    }
+
+    /// <summary>With a record selected, the pane and the list's row both fit the same console 640 px tall.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The size where #1390's first fix still cut the pane.</b> Here the console is 97 px: a
+    ///     41 px toolbar and a 22 px row leave 34 px, and a pane with a 48 px floor went 11 px through
+    ///     the dock panel's bottom edge — the end of its track and its horizontal bar behind that edge
+    ///     again, which is the original symptom at a shorter console. Found by a reviewer's probe
+    ///     that ran <see cref="Check" /> at four sizes; the fact above only drew this one empty.
+    /// </remarks>
+    [Fact]
+    public void A_selected_record_s_detail_and_a_row_of_the_list_fit_a_console_640_px_tall() {
+        using var fixture = Start(Width, 640);
+
+        var (console, view) = SelectDeepError(fixture);
+
+        Assert.False(view.HasClass("empty"), "no record is selected, so this is the empty pane");
+        Assert.True(
+            console.List.Height >= console.List.RowHeight,
+            $"with a record selected the console's list is {console.List.Height} px tall — not one "
+            + $"{console.List.RowHeight} px row left to select from at {WidthOf(fixture)}×{HeightOf(fixture)}."
+        );
+
+        Check(fixture, view, "console-detail-640");
+    }
+
+    /// <summary>Whether the vertical thumb is drawn at the far end of its track once the view is scrolled there.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The colour is sampled rather than assumed, in the same renderer's picture, at a point
+    ///         of the track the thumb covers at the top of the scroll and has left at the end: half
+    ///         its travel down, and never deeper than half its length. The thumb's length is
+    ///         <c>ScrollBar</c>'s own rule — a 24 px floor over a proportional length — so where it
+    ///         must be at the end is closed form.
+    ///     </para>
+    ///     <para>
+    ///         The horizontal bar overlays the bottom of the vertical one when both are shown, so what
+    ///         is required at the end is some of the thumb, all of it inside the last thumb-length,
+    ///         not all of it (<c>ScrollBarThumbPictureTests</c> measures that overlay on a plain view).
+    ///     </para>
+    /// </remarks>
+    static void ThumbAtTheEnd(string renderer, ScrollBar bar, Bitmap top, Bitmap bottom) {
+        var length = (int)MathF.Floor(MathF.Max(MathF.Min(bar.Height, 24f), bar.Height * bar.ViewportSize / bar.ContentSize));
+        var x = (int)MathF.Floor(bar.AbsoluteLeft + bar.Width / 2f);
+        var start = (int)MathF.Ceiling(bar.AbsoluteTop);
+        var end = (int)MathF.Floor(bar.AbsoluteTop + bar.Height);
+        var travel = end - start - length;
+
+        Assert.True(travel >= 4, $"[{renderer}] a thumb that travels {travel} px cannot be told from one that did not move.");
+
+        var sample = start + Math.Clamp(travel / 2, 2, length / 2);
+        var thumb = Pixel(top, x, sample);
+
+        Assert.False(
+            thumb.SequenceEqual(Pixel(bottom, x, sample)),
+            $"[{renderer}] the top of the track looks the same at both ends of the scroll, so the colour sampled "
+            + "there is not the thumb's and the count below would measure nothing."
+        );
+
+        var found = new List<int>();
+
+        // ⚠ Clamped to the picture: a track that runs off the bottom of the window is the defect
+        // this looks for at its worst, and a row nobody can see holds no thumb.
+        for (var y = start; y < Math.Min(end, bottom.Height); y++) {
+            if (Pixel(bottom, x, y).SequenceEqual(thumb)) {
+                found.Add(y);
+            }
+        }
+
+        Assert.True(
+            found.Count >= length / 3,
+            $"[{renderer}] scrolled to the end, the vertical thumb has {found.Count} pixels in column {x} of its "
+            + $"track ({start}–{end}); a {length} px thumb belongs at {end - length}–{end}. It is drawn somewhere "
+            + "nothing shows it."
+        );
+
+        Assert.True(
+            found[0] >= end - length - 1,
+            $"[{renderer}] scrolled to the end, the vertical thumb starts at y {found[0]}, above the last {length} px "
+            + $"of its track ({end - length}–{end})."
+        );
+    }
+
+    static byte[] Pixel(Bitmap picture, int x, int y) => picture.Pixels.AsSpan(((y * picture.Width) + x) * 4, 4).ToArray();
+
+    /// <summary>Opens the console, logs an error with a stack forty frames deep and selects it.</summary>
+    static (Vixen.Editor.Ui.ConsoleView Console, ScrollView Detail) SelectDeepError(EditorSession fixture) {
         fixture.Open("console");
 
         Sink(fixture)
@@ -117,7 +270,7 @@ public sealed class ScrollingPanelPictureTests {
         fixture.Click(row);
         fixture.Frames(2);
 
-        Check(fixture, Scroller(fixture, "console-detail"), "console-detail");
+        return (console, Scroller(fixture, "console-detail"));
     }
 
     /// <summary>The message log's detail pane, over a detail forty lines long.</summary>
@@ -423,13 +576,22 @@ public sealed class ScrollingPanelPictureTests {
     /// <summary>A model's platform-override grid, sideways, over more targets than the panel is wide.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The targets are added with the import settings scrolled to the top, and that is a
-    ///         workaround for a crash rather than a choice.</b> Adding a target rebuilds the grid's
-    ///         rows, and with the settings' <c>ScrollView</c> scrolled down its scroll anchor is one of
-    ///         those rows: the next settle asks the removed row for its position and
-    ///         <c>UiElement.Document</c> throws, because <c>ScrollView.Holds</c> walks <c>Parent</c>
-    ///         and a removed element keeps its parent pointer. That is a defect of its own, reported
-    ///         with this work.
+    ///         ⚠ <b>The targets are added with the import settings scrolled down to the grid, the way
+    ///         a person reaches it.</b> They used to be added at the top of the scroll as a workaround
+    ///         for a crash: <c>ScrollView.Holds</c> walked <c>Parent</c>, which a removed element
+    ///         keeps, so a view anchored on a row a rebuild had removed asked that row for its
+    ///         position on the next settle and <c>UiElement.Document</c> threw (#1392). That is fixed
+    ///         in <c>ScrollView</c> and pinned by
+    ///         <c>ScrollAnchoringTests.A_removed_anchor_is_dropped_and_anchoring_carries_on</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This test is not that fix's regression test, and it stays green with the fix
+    ///         taken out.</b> The grid's rows are the content of <c>override-body</c>, a
+    ///         <c>ScrollView</c> of its own since #1275's conversion, and the settings view's anchor
+    ///         walk stops at a nested scroll view — so the rows the rebuild removes can no longer be
+    ///         that view's anchor. The conversion and the crash's report landed in one commit, so the
+    ///         crash was most likely seen before the rows moved into that nested view; it is real of
+    ///         any view anchored on a row that is rebuilt, and it is the unit test that shows it.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -446,6 +608,18 @@ public sealed class ScrollingPanelPictureTests {
 
         fixture.Editor.OpenAsset(entry.Guid);
         fixture.Frames(2);
+
+        var first = Find<Vixen.Editor.AssetEditors.Importing.TargetOverrideMatrix>(fixture.Document.Root)
+            ?? throw fixture.Fail("the model document has no platform-override grid");
+
+        var settings = Ancestors(first).OfType<ScrollView>().First();
+
+        settings.ScrollIntoView(first);
+        fixture.Frames(2);
+
+        // The premise: a view at the top is never anchored, so without a scroll the rebuild below
+        // would prove nothing about a removed anchor.
+        Assert.True(settings.ScrollTop > 0f, "the import settings did not scroll down to the override grid");
 
         foreach (var target in (ReadOnlySpan<string>)["Android", "iOS", "Switch", "WebGPU", "Windows", "Linux"]) {
             // Found again each time: adding a target rebuilds what is under the matrix.
@@ -485,29 +659,7 @@ public sealed class ScrollingPanelPictureTests {
 
         var box = Box(view);
 
-        // ⚠ And the whole of the view is on screen. A view that scrolls and clips perfectly but is
-        // itself cut by the panel it sits in hides the bottom of its own scroll — the last lines and
-        // the thumb that says there are any — behind the panel's edge, and the difference oracle
-        // cannot see that: the rows it hides are the same in both frames.
-        foreach (var ancestor in Ancestors(view)) {
-            if (!Clips(fixture, ancestor)) {
-                continue;
-            }
-
-            var cut = Box(ancestor);
-
-            // ⚠ Along the scroll's own axis only when it runs sideways. A sideways scroller may be
-            // taller than a vertical one it sits in — the override grid is, inside the import
-            // settings' region — and that is the outer view's business, reached by the outer bar.
-            var across = box.Left >= cut.Left && box.Right <= cut.Right;
-            var down = box.Top >= cut.Top && box.Bottom <= cut.Bottom;
-
-            Assert.True(
-                sideways ? across : across && down,
-                $"<{view.Tag}> {box} is cut by <{ancestor.Tag}> {cut}, so the far end of its scroll is behind "
-                + $"that element's edge at {WidthOf(fixture)}×{HeightOf(fixture)}."
-            );
-        }
+        Uncut(fixture, view, sideways);
 
         // ⚠ And the bars are the view's. They are absolutely positioned, so their containing block is
         // the nearest *positioned* ancestor: a view under a tag of its own that lost the user-agent
@@ -560,8 +712,49 @@ public sealed class ScrollingPanelPictureTests {
                 if (top.Gpu is { } before && bottom.Gpu is { } after) {
                     Oracle("Vulkan", view, box, before, after);
                 }
+            },
+            () => {
+                if (!sideways) {
+                    ThumbAtTheEnd("software", view.VerticalBar, top.Software, bottom.Software);
+                }
+            },
+            () => {
+                if (!sideways && top.Gpu is { } before && bottom.Gpu is { } after) {
+                    ThumbAtTheEnd("Vulkan", view.VerticalBar, before, after);
+                }
             }
         );
+    }
+
+    /// <summary>Whether the whole of an element is inside every ancestor that clips it.</summary>
+    /// <remarks>
+    ///     ⚠ A view that scrolls and clips perfectly but is itself cut by the panel it sits in hides
+    ///     the bottom of its own scroll — the last lines and the thumb that says there are any —
+    ///     behind the panel's edge, and the difference oracle cannot see that: the rows it hides are
+    ///     the same in both frames.
+    /// </remarks>
+    static void Uncut(EditorSession fixture, UiElement view, bool sideways = false) {
+        var box = Box(view);
+
+        foreach (var ancestor in Ancestors(view)) {
+            if (!Clips(fixture, ancestor)) {
+                continue;
+            }
+
+            var cut = Box(ancestor);
+
+            // ⚠ Along the scroll's own axis only when it runs sideways. A sideways scroller may be
+            // taller than a vertical one it sits in — the override grid is, inside the import
+            // settings' region — and that is the outer view's business, reached by the outer bar.
+            var across = box.Left >= cut.Left && box.Right <= cut.Right;
+            var down = box.Top >= cut.Top && box.Bottom <= cut.Bottom;
+
+            Assert.True(
+                sideways ? across : across && down,
+                $"<{view.Tag}> {box} is cut by <{ancestor.Tag}> {cut}, so the far end of its scroll is behind "
+                + $"that element's edge at {WidthOf(fixture)}×{HeightOf(fixture)}."
+            );
+        }
     }
 
     static void Oracle(string renderer, ScrollView view, (int Left, int Top, int Right, int Bottom) box, Bitmap before, Bitmap after) {
