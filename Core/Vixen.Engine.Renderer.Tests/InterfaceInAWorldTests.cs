@@ -360,8 +360,9 @@ public sealed class InterfaceInAWorldTests : IDisposable {
         Assert.Contains("UiRenderer", refused.Message, StringComparison.Ordinal);
 
         // ⚠ And the same arrangement is refused when it is *recorded* rather than uploaded. A host
-        // that never uploaded has no vertex ring to draw from — on Vulkan the bind throws — and that
-        // path must not be the one on which a shared renderer is quietly tolerated.
+        // that never uploaded has no vertex ring to draw from — `UiRenderer.Record` refuses it by
+        // name (#1377) — and that path must not be the one on which a shared renderer is quietly
+        // tolerated.
         var camera = Camera(stage.Mask);
         system.SetViews([camera]);
         system.Draw();
@@ -469,8 +470,9 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     ///     <para>
     ///         ⚠ <b>#627: steps four and five of the host contract had no host.</b> Nothing in the tree
     ///         performed them, and neither fails the way it was long described. Without <c>Upload</c>
-    ///         the ring the vertices live in is never created, so on Vulkan the first <c>Record</c>
-    ///         throws from <c>BindVertexBuffer</c> rather than drawing a HUD out of unwritten memory;
+    ///         the ring the vertices live in is never created, so the first <c>Record</c> is refused
+    ///         by name (#1377) — on Vulkan it used to throw from <c>BindVertexBuffer</c> — rather than
+    ///         drawing a HUD out of unwritten memory;
     ///         without <c>Compose</c> every faded panel is drawn solid, which is a picture and not an
     ///         error. <c>WorldRenderer.Draw</c> is the
     ///         one call both hosts already make before the frame's passes, so it makes both, and this

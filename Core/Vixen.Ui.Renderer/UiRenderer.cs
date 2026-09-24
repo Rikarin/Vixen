@@ -1329,6 +1329,10 @@ public sealed class UiRenderer : IDisposable {
     ///         function of a draw list. Two numbers here cost one multiply per draw.
     ///     </para>
     /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     The frame has geometry and no <see cref="Upload" /> has ever created the rings it would be
+    ///     drawn from. See <see cref="ThrowIfNeverUploaded" />.
+    /// </exception>
     public void Record(ICommandList commands, in UiGeometry geometry, Int2 surface, float scale = 1f) {
         ArgumentNullException.ThrowIfNull(commands);
 
@@ -1338,8 +1342,45 @@ public sealed class UiRenderer : IDisposable {
             return;
         }
 
+        ThrowIfNeverUploaded(nameof(Record));
+
         var bound = default(Bindings);
         Submit(commands, geometry, self: -1, surface, scale, ref bound);
+    }
+
+    /// <summary>Refuses to record a frame into a ring no <see cref="Upload" /> has created.</summary>
+    /// <param name="caller">Which of the two recording entry points was reached first.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A throw and not a counter, and the difference from every other degradation in
+    ///         this file is deliberate</b> (#1377). <see cref="Unblended" />, <c>Filtered</c> and
+    ///         <c>UiRenderFeature.Dim</c> count because each is a <i>document</i> asking for something
+    ///         this device or this pass cannot give it — a legitimate frame, drawn as well as it can
+    ///         be, that must not be killed over an authoring choice. A frame recorded before its
+    ///         geometry was ever uploaded is none of that: it is a host that skipped a step of the
+    ///         contract, it is wrong on the first frame and on every frame after it, and no document
+    ///         can make it right. Counted, it is a HUD that is simply not there with one integer
+    ///         nobody reads saying why — this repository's "finished thing nothing calls" in its
+    ///         purest form. <c>UiRenderFeature</c> refuses two interfaces through one renderer the
+    ///         same way and for the same reason.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Here, before a single command is recorded, and not where it used to fail.</b> The
+    ///         vertex and index rings are created by the first <see cref="Upload" /> that carries
+    ///         indices, so until then both handles name nothing. Vulkan resolved the vertex handle
+    ///         inside <c>BindVertexBuffer</c> and threw an <see cref="ArgumentException" /> out of the
+    ///         middle of a render graph, naming a handle rather than the missing call; the null
+    ///         backend recorded the bind of nothing and carried on, so no test on it could see the
+    ///         fault at all. Only the <i>first</i> upload is checkable — a host that uploaded once and
+    ///         then stopped draws the last frame it uploaded, which is stale rather than undefined.
+    ///     </para>
+    /// </remarks>
+    void ThrowIfNeverUploaded(string caller) {
+        if (!vertices.IsValid || !indices.IsValid) {
+            throw new InvalidOperationException(
+                $"UiRenderer.{caller} was called before any Upload: the vertex and index rings are created by the first Upload of a frame with geometry in it, so there is nothing to draw from. Call Upload, outside the render pass, first."
+            );
+        }
     }
 
     /// <summary>
@@ -1425,6 +1466,10 @@ public sealed class UiRenderer : IDisposable {
     ///     opaque, which leaves a blurred copy composited over the sharp original instead of replacing
     ///     it. A frame with no backdrop group in it is unaffected. See <see cref="UiBackdropSource" />.
     /// </param>
+    /// <exception cref="InvalidOperationException">
+    ///     The frame has a composited group and no <see cref="Upload" /> has ever created the rings
+    ///     its passes would draw from. As <see cref="Record" />.
+    /// </exception>
     public void Compose(
         ICommandList commands,
         in UiGeometry geometry,
@@ -1458,6 +1503,8 @@ public sealed class UiRenderer : IDisposable {
         if (geometry.Layers.Count == 0 || geometry.Indices.Count == 0) {
             return;
         }
+
+        ThrowIfNeverUploaded(nameof(Compose));
 
         if (surface.X <= 0 || surface.Y <= 0 || scale <= 0f || !imagePipeline.IsValid) {
             // ⚠ No image pipeline means no shader to composite a surface back with, so rendering the

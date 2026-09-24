@@ -1133,8 +1133,9 @@ public sealed class WorldRenderer : IDisposable {
         // passes begin — which is this point, for the reason the environment upload above is here.
         // They were steps four and five of a host contract that no host in the tree performed. A host
         // that forgets `Upload` does not draw out of an unwritten buffer, as this was long described:
-        // the ring is created by the first upload, so on Vulkan `Record` binds a handle that names
-        // nothing and `BindVertexBuffer` throws out of the middle of the graph. One that forgets
+        // the ring is created by the first upload, so `Record` has nothing to bind and refuses the
+        // frame by name (#1377) — on Vulkan it used to throw out of `BindVertexBuffer` in the middle
+        // of the graph. One that forgets
         // `Compose` draws every faded panel solid. Here, both hosts get them from the one call they
         // already make: `AppGraphics.Begin` and `EditorWorldRenderer` both reach this method. With
         // nothing mounted both are a walk over an empty dictionary.
