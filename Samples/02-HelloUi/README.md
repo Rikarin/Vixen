@@ -174,6 +174,19 @@ and stops without a validation error or a hang — on a machine that may have no
 everything above the RHI runs whether or not a device was ever created. On the way out the sample
 prints the docking arrangement, which is what an application would write to disk.
 
+⚠ **`--frames N` writes no picture.** To see the whole sample the way a user does, with its own sheet,
+theme and fonts, capture it:
+
+```
+HelloUi --vixen-frames 3 --vixen-size 1280x1800 --vixen-capture ./shots
+```
+
+This draws on the GPU with the window hidden and writes `./shots/frame.png`. The taller size brings the
+Feedback card, with its `LevelIndicator`s and `Gauge`, above the fold of the Controls panel. Check the
+output for `Vulkan device created on '<name>'` before trusting the picture. A run with no device throws,
+and a run that wrote nothing exits 1. See
+[capturing the whole application](../../docs/guide/ui/desktop-application.md#capturing-the-whole-application).
+
 ## Where the markup stops, and why
 
 Everything in this sample is a nested tag except one thing, and that one cannot be:

@@ -369,6 +369,19 @@ public sealed class ScrollingPanelPictureTests {
         );
 
         Check(fixture, strips, "mixer-strips", sideways: true);
+
+        // ⚠ The side column keeps its 300 px beside sixteen buses (#1397). The strips' basis was their
+        // content, so the column shrank with every bus: 143 px here, its analysis line cut to
+        // "19 bus(e". Asserted only where the body has room for the column, a gap and one strip, and
+        // after `Check` so that the pictures are written whichever way this comes out.
+        var body = strips.Parent!;
+        var side = Scroller(fixture, "mixer-side");
+
+        Assert.True(body.Width > 300f + 6f + 76f, $"the mixer body is {body.Width:0} px, too narrow to say anything");
+        Assert.True(
+            MathF.Abs(side.Width - 300f) < 0.5f,
+            $"the side column is {side.Width:0} px of its 300 in a {body.Width:0} px body, beside strips {strips.Width:0} px wide."
+        );
     }
 
     /// <summary>The input debug panel, over more rows than the panel is tall.</summary>

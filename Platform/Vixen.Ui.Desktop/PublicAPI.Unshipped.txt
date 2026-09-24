@@ -19,6 +19,8 @@ Vixen.Ui.Desktop.UiApplication.Window.get -> Vixen.Platform.IWindow
 Vixen.Ui.Desktop.UiApplicationOptions -> sealed class
 Vixen.Ui.Desktop.UiApplicationOptions.Application.get -> string
 Vixen.Ui.Desktop.UiApplicationOptions.Application.set -> string
+Vixen.Ui.Desktop.UiApplicationOptions.CapturePath.get -> string?
+Vixen.Ui.Desktop.UiApplicationOptions.CapturePath.set -> string?
 Vixen.Ui.Desktop.UiApplicationOptions.Configure.get -> System.Action<Vixen.Ui.UiDocument>?
 Vixen.Ui.Desktop.UiApplicationOptions.Configure.set -> System.Action<Vixen.Ui.UiDocument>?
 Vixen.Ui.Desktop.UiApplicationOptions.Content.get -> System.Func<Vixen.Ui.Composition.Component>?
@@ -37,6 +39,8 @@ Vixen.Ui.Desktop.UiApplicationOptions.IsResizable.get -> bool
 Vixen.Ui.Desktop.UiApplicationOptions.IsResizable.set -> bool
 Vixen.Ui.Desktop.UiApplicationOptions.Mount.get -> System.Func<Vixen.Ui.UiDocument, Vixen.Ui.UiElement, Vixen.Ui.Composition.Component>?
 Vixen.Ui.Desktop.UiApplicationOptions.Mount.set -> System.Func<Vixen.Ui.UiDocument, Vixen.Ui.UiElement, Vixen.Ui.Composition.Component>?
+Vixen.Ui.Desktop.UiApplicationOptions.Offscreen.get -> bool
+Vixen.Ui.Desktop.UiApplicationOptions.Offscreen.set -> bool
 Vixen.Ui.Desktop.UiApplicationOptions.Organisation.get -> string
 Vixen.Ui.Desktop.UiApplicationOptions.Organisation.set -> string
 Vixen.Ui.Desktop.UiApplicationOptions.Platform.get -> System.Func<Vixen.Ui.Desktop.UiApplicationOptions, Vixen.Platform.IPlatform>?

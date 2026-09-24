@@ -93,7 +93,11 @@ partial class Build {
     ///         nothing for them. Their leg is <c>--vixen-frames N</c> on a machine with a display,
     ///         which is a different gate and not this one. <c>02-HelloUi</c> is a third case again:
     ///         it deliberately has no <c>Vixen.App</c> at all — that is the boundary it exists to
-    ///         prove — so it has no <c>--vixen-*</c> arguments to give.
+    ///         prove. ⚠ Since #1367 its host, <c>UiApplication</c>, reads <c>--vixen-capture</c>,
+    ///         <c>--vixen-offscreen</c> and <c>--vixen-size</c> itself and writes <c>frame.png</c> on a
+    ///         real device. It still is not a subject here: it writes no <c>--vixen-log-file</c> and no
+    ///         validation summary for this target to read, and its window, though hidden, needs a
+    ///         display server.
     ///     </para>
     ///     <para>
     ///         <c>03-PbrShowcase</c> is the default because it is the smallest complete project on

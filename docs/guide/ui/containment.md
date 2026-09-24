@@ -45,14 +45,24 @@ wrong.** § 3.2 says the box is sized as if it were empty. It goes on laying its
 painting them, hit-testing them and scrolling them — it only refuses to let them decide its own box.
 The difference is invisible in any fixture where the children happen to fit, which is most of them.
 
-⚠ **Except that this engine does not paint the contents of a box that comes out zero wide or zero
-tall**, and that is a divergence from CSS rather than something containment asks for. The draw list
-skips the whole subtree of a zero-sized element (`DrawListBuilder.Emit`) — the shortcut that keeps
-`display: none` out of the list — while the layout still places the children and the hit test still
-reaches them, so they are invisible and clickable. Size containment is the easy way to get such a
-box: `contain: size` with no stated size, and above all a content-sized query container with no
-padding or border, such as a flex item carrying `container-type: inline-size` and no width. Give a
-contained box a size, or padding, until the paint walk stops pruning on size alone.
+⚠ **A box that comes out zero wide or zero tall still paints its contents.** Size containment is the
+easy way to get such a box: `contain: size` with no stated size, or a content-sized query container
+with no padding or border, such as a flex item carrying `container-type: inline-size` and no width.
+The box itself has no area, so it paints no background, border, shadow or outline. Its children
+overflow it and are painted, as in CSS, and the hit test reaches them. Until #1375 the draw list
+skipped the whole subtree of any zero-sized element, so those children were invisible and still
+clickable.
+
+⚠ **The box's own text is still not painted**, and that is a divergence from CSS. Text that overflows
+a zero-wide box, or anything a control draws in `OnDraw` when its box is zero, is skipped. Put the
+text in a child element if it has to show.
+
+Three zero-sized boxes still paint nothing, because in CSS they paint nothing:
+
+* `display: none`, whose subtree the layout zeroes with it.
+* A zero axis that the box's own `overflow` clips, such as `height: 0; overflow: hidden`.
+* A box with a `mask-image`, because a mask is clipped to the border box. ⚠ The pointer can still
+  reach those children: the hit test reads no mask, for a zero box or any other.
 
 ## What it is for
 

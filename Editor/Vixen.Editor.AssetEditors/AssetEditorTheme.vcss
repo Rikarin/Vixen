@@ -831,10 +831,30 @@ animation-body, animgraph-body, input-body, mixer-body, font-body, sequence-body
     gap: 6px;
 }
 
-animgraph-body > state-map, input-body > tree-view, mixer-body > mixer-strips,
+animgraph-body > state-map, input-body > tree-view,
 font-body > font-atlas, sequence-body > timeline, animation-body > animation-stage {
     flex-grow: 1;
     min-width: 0;
+    min-height: 0;
+}
+
+/* ⚠ **The strips take what is left, not what they hold (#1397).** With no `flex-basis` their basis
+   was their content: 76 px a strip, none of which shrink, so sixteen buses made a basis of about
+   1 500 px. Shrinking is weighted by basis, so `mixer-side`'s 300 px gave up a share of the whole
+   overflow and every bus added took more of it — 143 px at sixteen buses, with the analysis line cut
+   to "19 bus(e". The strips scroll sideways, so they are the pane that should give way.
+
+   ⚠ **And a floor of one strip, which is the half `flex-basis: 0` alone gets wrong.** On its own it
+   leaves the strips only what the side column's 300 px does not take, which in a 330 px dock is
+   12 px, measured. That is the empty pane the comment on `mixer-side` exists to prevent. With the
+   floor the side column gives way first, down to its own 120 px floor, and one strip stays in view.
+
+   The other panes in the rule above may have the same content-weighted shrink. They are left alone
+   here because each needs its own picture before its basis moves. */
+mixer-body > mixer-strips {
+    flex-grow: 1;
+    flex-basis: 0px;
+    min-width: 76px;
     min-height: 0;
 }
 
