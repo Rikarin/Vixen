@@ -29,11 +29,10 @@
 #              is recorded rather than taken. A `none` row is a finding.
 #
 # Traced at `b162d5632` (2026-09-24).
-empty-state icon	api	`EmptyState.Illustration` (Core/Vixen.Ui.Controls/Containers.cs:263) builds the icon on first read, at :269, and nothing in the tree reads it; #1369 owns whether to call it or drop the rule.
-inspector combo-box	none	No drawer builds a `ComboBox`: the only one in the tree is Samples/02-HelloUi/Panels/Gallery.vxml:173, and no inspector drawer adds one (DrawerRegistry.cs:252 is the registration table). Part of the "every input in the inspector" list at InspectorTheme.vcss:160-161.
+inspector combo-box	none	No drawer builds a `ComboBox`: the only one in the tree is Samples/02-HelloUi/Panels/Gallery.vxml:212, and no inspector drawer adds one (DrawerRegistry.cs:252 is the registration table). Part of the "every input in the inspector" list at InspectorTheme.vcss:160-161.
 inspector textarea	unreached	`MultilineDrawer` (Editor/Vixen.Editor.Inspector/Drawers/ScalarDrawers.cs:221) builds it for a string marked `[Multiline]`, registered at DrawerRegistry.cs:252 — and no member outside a test carries the attribute (Editor/Vixen.Editor.Inspector.Tests/Fixtures.cs:124 is the only one). A game's own component reaches it.
 inspector-editor color-picker	none	The colour drawer puts a `ColorInput` in the slot (AssetDrawers.cs:35), and a `ColorInput` hangs its picker off the document root on purpose (ColorPicker.cs:1243, :1251) — so no picker is ever under `inspector-editor`. A `GradientEditor` would carry one (GradientEditor.cs:463) and no drawer builds that either.
-inspector-editor combo-box	none	As `inspector combo-box`: no drawer builds a `ComboBox`, and the one in the tree is the sample gallery's (Gallery.vxml:173).
+inspector-editor combo-box	none	As `inspector combo-box`: no drawer builds a `ComboBox`, and the one in the tree is the sample gallery's (Gallery.vxml:212).
 inspector-editor curve-editor	unreached	`CurveDrawer` builds it (Editor/Vixen.Editor.Inspector/Drawers/AssetDrawers.cs:195) for an `AnimationCurve` member, and no component in the tree has one; a game's component does.
 inspector-editor textarea	unreached	`MultilineDrawer` (ScalarDrawers.cs:221) into `InspectorView`'s slot (InspectorView.cs:41), for a `[Multiline]` string — none outside Fixtures.cs:124.
 key-value-row progress-bar	unreached	NetworkView.vxml:85, the "Sent as a difference" row, which the panel builds only in the branch where a bandwidth ledger is attached (NetworkView.vxml:69); a started editor attaches none.
