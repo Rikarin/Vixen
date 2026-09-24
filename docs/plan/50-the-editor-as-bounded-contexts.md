@@ -218,7 +218,7 @@ module (the front-door audit, 2026-09-17):
 |---|---|---|
 | `AssetEditors`, `Scripts`, `Texturing` | everything | — |
 | `Blockout` | mode, submenus, four services | `Shell.RegisterPanel` ×2 with no removal (`BlockoutModulePanels.cs:64,115`), `BlockoutTheme.Install` never uninstalled, no `Deactivate` |
-| `Terrain` | registry adds via `Owns`, `Saved` unhooked on unload | `Shell.RegisterPanel` ×5 (`TerrainModulePanels.cs:112-276`, #740), `Shell.Modes.Add` ×2 (`:475-476`) |
+| `Terrain` | registry adds via `Owns`, `Saved` unhooked on unload | `Shell.RegisterPanel` ×5 (`TerrainModulePanels.cs:112-276`, #740), `Shell.Modes.Add` ×2 (`TerrainModulePanels.cs:475-476`) |
 | `Water` | commands paired with `OnUnload` | `Shell.RegisterPanel` ×2 (`WaterModulePanels.cs:33,63`), `Shell.Modes.Add` (`WaterModule.cs:135`), a process-wide `WaterDebug` static |
 | `TerrainPhysics` | `IEditorRegistry` | writes `ITerrainColliders` **into the shared services bag** (`TerrainPhysicsModule.cs:75`) and never removes it — `PluginServices.Add` throws on a duplicate, so a reload of this module fails |
 | `Diagnostics` | eight `AddPanel`s | `ProfilerTheme.Install` + `DebuggerTheme.Install` never released (`DiagnosticsModule.cs:327-328`) |
@@ -271,7 +271,7 @@ What *is* doubled is the language, and each pair is two contexts sharing a word:
 
 | One idea | Vocabulary A | Vocabulary B | Measured |
 |---|---|---|---|
-| **the active scene** | `EditorProject.ActiveDocument` (`EditorProject.cs:56`) | `EditorApplication.scene` (`EditorApplication.cs:108` — *"half the editor holds the active scene"*), plus `Shown => inspected ?? scene` wrapped as `IActiveScene` | `ActiveDocument` has **3** readers; `scene.` is read **124** times across the partials; `EditorWorlds.cs:483-486` sets both in sequence |
+| **the active scene** | `EditorProject.ActiveDocument` (`EditorProject.cs:56`) | `EditorApplication.scene` (`EditorApplication.cs:109`), whose remarks say *"half the editor holds the active scene"* (`EditorApplication.cs:103-104`), plus `Shown => inspected ?? scene` wrapped as `IActiveScene` | `ActiveDocument` has **3** readers; `scene.` is read **124** times across the partials; `EditorWorlds.cs:483-486` sets both in sequence |
 | **dirty** | `CommandStack.IsDirty` → `EditorDocument.IsDirty` → `EditorProject.HasUnsavedChanges` | `SettingsView.dirty` + `ProjectSettingsStore.HasUnsavedChanges` | `HasUnsavedChanges` gates Save All and close (`EditorParity.cs:136,3078`) and **does not include** the settings store's — project settings edits are non-undoable by construction (`EditorSettingsPanels.cs:747`, `EditedDocument = null`) and can be lost on close |
 | **selection** | `Selection<T>` — assets on the project, entities on the scene | `HashSet<NodeId>` (`NodeGraphView.cs:109`), `List<FoliageAddress>`, `HashSet<SplineHandle>`, `LayerPath?` | the graph's is read cross-assembly by two `.vxml` views; none of B's is reactive or on `EditorContext` |
 | **a document** | `EditorDocument` (25 subclasses) | `Vixen.Ui.IEditableDocument` (0 implementations under `Editor/`; #656) | the model itemises its own divergence at `EditorDocument.cs:29-61` |

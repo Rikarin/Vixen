@@ -68,11 +68,19 @@ namespace Vixen.DocGen.Tests;
 ///         it was taken, not as a count anything keeps. A bound one fails here the day it moves and
 ///         an unbound one only when it lands on a blank or a brace
 ///         (<see cref="Every_cited_line_has_something_on_it" />), so a citation that should hold is
-///         worth writing so it binds. ⚠ And a bare <c>`:108`</c>
-///         continues the file named last on its line, which is a guess: doc 50 wrote
+///         worth writing so it binds.
+///     </para>
+///     <para>
+///         ⚠ <b>A bare <c>`:108`</c> continues the file named last on its line, and where a symbol of
+///         another type stands between the two that is a guess, so it does not resolve</b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/1422">#1422</a>). Doc 50 wrote
 ///         <c>`EditorProject.cs:56`</c> and then <c>`EditorApplication.scene` (`:108` …)</c>, meaning
 ///         <c>EditorApplication.cs</c>, and the sweep read it as <c>EditorProject.cs:108</c> — a line
 ///         that was blank the day it was written, passed by resolution because the file is long enough.
+///         The rule is deliberately blunt: <c>`Shell.Modes.Add` (`:475-476`)</c> after
+///         <c>`TerrainModulePanels.cs:112-276`</c> meant that file and is refused anyway, because only
+///         the prose knows whether a type is called in a file or declared in one. Naming the file costs
+///         a few characters, and the three documents that tripped it the day it landed were rewritten so.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Both source languages.</b> Five of doc 49's six closed rows are closed by
@@ -150,7 +158,8 @@ public class RealPlanCitationTests {
     /// <summary>A backticked file citation: a path or file name, a colon, and lines.</summary>
     /// <remarks>
     ///     Lines are one number, a range (<c>38-49</c>) or a list (<c>321,368</c>). A bare
-    ///     <c>`:557`</c> is a continuation and cites the file most recently named on the same line.
+    ///     <c>`:557`</c> is a continuation and cites the file most recently named on the same line —
+    ///     unless a symbol of another type stands between them (<see cref="TypedSymbol" />, #1422).
     ///     ⚠ One that opens a line, its file having been named on the line before, is not read: a
     ///     paragraph is wrapped wherever it falls, and binding across the wrap would guess.
     /// </remarks>
@@ -178,7 +187,24 @@ public class RealPlanCitationTests {
     /// <summary>Backticked code after an em dash, which is what the citation says is there.</summary>
     static readonly Regex BoundCode = new(@"^\s*—\s*`(?<code>[^`]+)`", RegexOptions.Compiled);
 
-    sealed record Cited(string Document, int Line, string Text, string File, int[] Lines, bool Range, string? Symbol, string? Code);
+    /// <summary>A backticked dotted symbol, and the type it names: <c>`EditorApplication.scene`</c>.</summary>
+    static readonly Regex TypedSymbol = new(@"`(?<symbol>(?<type>[A-Z]\w*)(?:<[^`]*>)?\.[A-Za-z_][^`]*)`", RegexOptions.Compiled);
+
+    /// <summary>
+    ///     One citation. <paramref name="Across" /> is the symbol naming another type that stands between a
+    ///     bare continuation and the file it would continue, which makes the continuation a guess.
+    /// </summary>
+    sealed record Cited(
+        string Document,
+        int Line,
+        string Text,
+        string File,
+        int[] Lines,
+        bool Range,
+        string? Symbol,
+        string? Code,
+        string? Across = null
+    );
 
     /// <summary>Every citation resolves to a file that has the cited lines.</summary>
     [Fact]
@@ -331,6 +357,40 @@ public class RealPlanCitationTests {
     }
 
     /// <summary>
+    ///     A bare continuation with a symbol of another type between it and the file it would continue
+    ///     does not resolve, and one without does (<a href="https://github.com/Rikarin/Vixen/issues/1422">#1422</a>).
+    /// </summary>
+    /// <remarks>
+    ///     Doc 50's row as it stood before <c>1c14dab07</c>: the author meant
+    ///     <c>EditorApplication.cs:108</c>, the sweep read <c>EditorProject.cs:108</c> — a blank line
+    ///     that day, passed by resolution because the file is long enough. The real documents cannot
+    ///     carry the shape any more, which is why the old wording is fed in here rather than found.
+    /// </remarks>
+    [Fact]
+    public void A_continuation_across_another_type_is_a_guess() {
+        const string Doc50 =
+            "| **the active scene** | `EditorProject.ActiveDocument` (`EditorProject.cs:56`) | `EditorApplication.scene` "
+            + "(`:108` — *\"half the editor holds the active scene\"*), plus `Shown => inspected ?? scene` |";
+
+        var (_, index, _) = Sweep();
+        var guessed = Parse("docs/plan/50-the-editor-as-bounded-contexts.md", 274, Doc50).Single(cited => cited.Text == ":108");
+
+        Assert.Equal("EditorProject.cs", guessed.File);
+        Assert.Equal("EditorApplication.scene", guessed.Across);
+        Assert.Contains("#1422", Resolve(guessed, index));
+
+        // ⚠ And the shape the continuation exists for still binds: doc 46's two `DockingHost.cs` lines.
+        const string Doc46 = "| `\"Previous tab\"` · `\"Next tab\"` | `Vixen.Ui.Controls.Advanced/DockingHost.cs:548`, `:557` |";
+        var continued = Parse("docs/plan/46-what-an-application-needs.md", 590, Doc46).Single(cited => cited.Text == ":557");
+
+        Assert.Null(continued.Across);
+        Assert.Null(Resolve(continued, index));
+
+        // A symbol of the file's own type is no guess: `Menu.cs:1` … `Menu.Open` (`:2`).
+        Assert.Null(Parse("x.md", 1, "`Menu.cs:1` and `Menu.Open` (`:2`)").Last().Across);
+    }
+
+    /// <summary>
     ///     The walk reads <c>references/README.md</c> and nothing a reference clone brings with it, and
     ///     still enters a directory that is only <i>named</i> like it.
     /// </summary>
@@ -373,6 +433,11 @@ public class RealPlanCitationTests {
 
     /// <summary>Why a citation does not resolve, or <see langword="null" /> when it does.</summary>
     static string? Resolve(Cited cited, Dictionary<string, List<string>> index) {
+        if (cited.Across is { } across) {
+            return $"a bare continuation after `{across}`, which names a type other than {cited.File}, so which file it "
+                   + "continues is a guess — name the file (#1422)";
+        }
+
         var candidates = Candidates(cited, index);
 
         if (candidates.Count == 0) {
@@ -455,45 +520,7 @@ public class RealPlanCitationTests {
             var number = 0;
 
             foreach (var line in File.ReadLines(document)) {
-                number++;
-                string? file = null;
-
-                foreach (Match match in Citation.Matches(line)) {
-                    var named = match.Groups["file"];
-
-                    if (named.Success) {
-                        file = named.Value;
-                    } else if (file is null) {
-                        // A continuation with nothing before it on the line cites a file named on an
-                        // earlier one, which is prose the reader resolves and a sweep cannot.
-                        continue;
-                    }
-
-                    var spec = match.Groups["lines"].Value;
-                    var lines = Regex.Matches(spec, @"\d+").Select(number => int.Parse(number.Value)).ToArray();
-                    var range = Regex.IsMatch(spec, "[-–]");
-                    var closes = match.Index + match.Length < line.Length && line[match.Index + match.Length] == ')';
-
-                    string? symbol = null;
-                    var rest = line[(match.Index + match.Length)..];
-
-                    if (Regex.IsMatch(rest, @"^\s*\|") && CellSymbol.Match(line[..match.Index]) is { Success: true } cell) {
-                        symbol = cell.Groups["symbol"].Value;
-                    } else if (closes && BoundSymbol.Match(line[..match.Index]) is { Success: true } bound) {
-                        var before = bound.Groups["before"].Value;
-
-                        // ⚠ Not bound when it is one of a list or the object of a negation.
-                        if (!Regex.IsMatch(before, @"(`,\s*|`\s+and\s+|`\s+or\s+|`\s*·\s*|\bno\s+)$")) {
-                            symbol = bound.Groups["symbol"].Value;
-                        }
-                    }
-
-                    var code = BoundCode.Match(line[(match.Index + match.Length)..]) is { Success: true } dash
-                        ? dash.Groups["code"].Value
-                        : null;
-
-                    citations.Add(new(relative, number, match.Value.Trim('`'), file, lines, range, symbol, code));
-                }
+                citations.AddRange(Parse(relative, ++number, line));
             }
         }
 
@@ -512,6 +539,58 @@ public class RealPlanCitationTests {
         }
 
         return (citations, index, exempt);
+    }
+
+    /// <summary>The citations on one line of a document, each with what it is bound to.</summary>
+    static IEnumerable<Cited> Parse(string relative, int number, string line) {
+        string? file = null;
+        var namedEnd = 0;
+
+        foreach (Match match in Citation.Matches(line)) {
+            var named = match.Groups["file"];
+            string? across = null;
+
+            if (named.Success) {
+                file = named.Value;
+                namedEnd = match.Index + match.Length;
+            } else if (file is null) {
+                // A continuation with nothing before it on the line cites a file named on an
+                // earlier one, which is prose the reader resolves and a sweep cannot.
+                continue;
+            } else {
+                // ⚠ And one with a symbol of another type between it and that file is a guess too
+                // (#1422): `EditorProject.cs:56` … `EditorApplication.scene` (`:108`) meant
+                // EditorApplication.cs and was checked against EditorProject.cs.
+                var stem = Path.GetFileNameWithoutExtension(file);
+                across = TypedSymbol.Matches(line[namedEnd..match.Index])
+                    .Where(symbol => symbol.Groups["type"].Value != stem)
+                    .Select(symbol => symbol.Groups["symbol"].Value)
+                    .FirstOrDefault();
+            }
+
+            var spec = match.Groups["lines"].Value;
+            var lines = Regex.Matches(spec, @"\d+").Select(digits => int.Parse(digits.Value)).ToArray();
+            var range = Regex.IsMatch(spec, "[-–]");
+            var closes = match.Index + match.Length < line.Length && line[match.Index + match.Length] == ')';
+
+            string? symbol = null;
+            var rest = line[(match.Index + match.Length)..];
+
+            if (Regex.IsMatch(rest, @"^\s*\|") && CellSymbol.Match(line[..match.Index]) is { Success: true } cell) {
+                symbol = cell.Groups["symbol"].Value;
+            } else if (closes && BoundSymbol.Match(line[..match.Index]) is { Success: true } bound) {
+                var before = bound.Groups["before"].Value;
+
+                // ⚠ Not bound when it is one of a list or the object of a negation.
+                if (!Regex.IsMatch(before, @"(`,\s*|`\s+and\s+|`\s+or\s+|`\s*·\s*|\bno\s+)$")) {
+                    symbol = bound.Groups["symbol"].Value;
+                }
+            }
+
+            var code = BoundCode.Match(rest) is { Success: true } dash ? dash.Groups["code"].Value : null;
+
+            yield return new(relative, number, match.Value.Trim('`'), file, lines, range, symbol, code, across);
+        }
     }
 
     /// <summary>

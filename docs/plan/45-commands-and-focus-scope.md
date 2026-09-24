@@ -260,7 +260,7 @@ Each step is independently shippable and leaves the editor working.
    > so **focus acceptance needed no new API**. `CommandDispatcher`'s single root handler on the
    > **bubble** leg (`CommandDispatcher.cs:67`, `RoutingStrategy.Bubble` by default) gives the inner
    > control the same priority AppKit's downward `performKeyEquivalent:` does — different mechanism,
-   > same outcome. `Menu.IsCommandTransparent` (`Menus.cs:282`), `MenuBar.IsCommandTransparent` (`:715`) and
+   > same outcome. `Menu.IsCommandTransparent` (`Menus.cs:282`), `MenuBar.IsCommandTransparent` (`Menus.cs:715`) and
    > a bound control's (`ButtonBase.cs:82`) are already "a menu is not in the responder chain".
 
    > ⚠️ **One claim in the brief for this step was refuted: the editor's `CommandRegistry` does not
