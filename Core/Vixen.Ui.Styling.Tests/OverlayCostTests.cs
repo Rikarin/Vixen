@@ -67,6 +67,65 @@ public class OverlayCostTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>An element with nothing running asks the tiers about none of its properties</b>, while
+    ///     sixty-four other elements are transitioning.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         This is the per-element early return in <see cref="Animator.Apply" />, and
+    ///         <see cref="An_elements_overlay_does_not_walk_other_elements_transitions" /> cannot see it:
+    ///         its idle element visits no entries and gets its own style back with or without the
+    ///         early return, because <c>Withdrawing</c> reads only the element's own entries. With the
+    ///         old document-wide test (<c>running.Count == 0 &amp;&amp; animations.Count == 0</c>) put
+    ///         back, that test stayed green and this one reads the idle style's whole property count.
+    ///     </para>
+    ///     <para>
+    ///         Both halves of the instrument are asserted: the idle style has properties to ask about,
+    ///         and the transitioning element beside it is asked about every one of its own.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_idle_element_is_not_asked_about_while_others_transition() {
+        var fixture = new CascadeFixture();
+        fixture.Load("""
+            .a { transition-property: margin-left; transition-duration: 1s; transition-timing-function: linear }
+            .a.moved { margin-left: 40px }
+            """);
+
+        var animator = Animator(fixture);
+
+        for (var i = 0; i < 64; i++) {
+            var element = fixture.Tree.CreateElement("div", classNames: ["a"]);
+            var before = fixture.Engine.Resolver.Resolve(fixture.Tree, element);
+            animator.Observe(element, null, before, 0f);
+            fixture.Tree.AddClass(element, "moved");
+            animator.Observe(element, before, fixture.Engine.Resolver.Resolve(fixture.Tree, element), 0f);
+        }
+
+        var moving = fixture.Tree.CreateElement("div", classNames: ["a"]);
+        var rest = fixture.Engine.Resolver.Resolve(fixture.Tree, moving);
+        animator.Observe(moving, null, rest, 0f);
+        fixture.Tree.AddClass(moving, "moved");
+        var movingStyle = fixture.Engine.Resolver.Resolve(fixture.Tree, moving);
+        animator.Observe(moving, rest, movingStyle, 0f);
+
+        var idle = fixture.Tree.CreateElement("div", classNames: ["a"]);
+        var idleStyle = fixture.Engine.Resolver.Resolve(fixture.Tree, idle);
+        animator.Observe(idle, null, idleStyle, 0f);
+
+        Assert.Equal(65, animator.RunningCount);
+        Assert.True(idleStyle.Count > 0, "the idle style has no properties, so asking about none of them proves nothing");
+
+        var start = animator.OverlayProbes;
+        animator.Apply(moving, movingStyle, 0.5f);
+        Assert.Equal(movingStyle.Count, animator.OverlayProbes - start);
+
+        start = animator.OverlayProbes;
+        Assert.Same(idleStyle, animator.Apply(idle, idleStyle, 0.5f));
+        Assert.Equal(0, animator.OverlayProbes - start);
+    }
+
+    /// <summary>
     ///     ⚠ <b>One transition's element looks at one entry, beside one other element or sixty-four.</b>
     /// </summary>
     /// <remarks>

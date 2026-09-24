@@ -661,6 +661,11 @@ public sealed class Animator {
         // travel from or to, and holds its one stop — which is what every single-stop animation did
         // before #1381. Lerping against `Unknown` would put nothing in its place. See `InitialValues`
         // for which properties that is; `width` is one, whose real underlying value is `auto`.
+        // ⚠ So are `rotate`, `translate` and `scale`: their initial is `none`, they have no entry,
+        // and they are not in `mixes`. `@keyframes spin { to { rotate: 360deg } }` on an element that
+        // does not declare `rotate` still draws a full turn from the first frame, and a linear
+        // `to { rotate: 90deg }` reads 90deg a quarter of the way through, where CSS reads 22.5deg
+        // (measured). Only `transform`, which the Tailwind spinner uses, travels from its `none`.
         var stop = parser.Parse(side == Synthesised.Start ? end : start);
         var underlying = Underlying(style, property);
 
@@ -896,6 +901,7 @@ public sealed class Animator {
 
         for (var i = 0; i < style.Count; i++) {
             var property = style.Properties[i];
+            OverlayProbes++;
 
             if (!TryOverlay(element, property, now, style, out var value)) {
                 continue;
@@ -998,6 +1004,14 @@ public sealed class Animator {
     /// </remarks>
     internal long WithdrawingVisits { get; private set; }
 
+    /// <summary>How many cascaded properties <see cref="Apply" /> has asked the tiers about, over the animator's life.</summary>
+    /// <remarks>
+    ///     The other half of #1383's instrument: it counts the work the per-element early return in
+    ///     <see cref="Apply" /> saves, which <see cref="WithdrawingVisits" /> cannot see, because
+    ///     <see cref="Withdrawing" /> already reads only the element's own entries.
+    /// </remarks>
+    internal long OverlayProbes { get; private set; }
+
     /// <summary>Whether an overlay under construction already holds a property.</summary>
     /// <remarks>A loop rather than <c>List.Exists</c>, whose lambda captures and allocates on every call.</remarks>
     static bool Holds(List<KeyValuePair<int, int>> overlaid, int property) {
@@ -1030,6 +1044,13 @@ public sealed class Animator {
     ///         moved nothing, because the loop it was answering never asked. Writing
     ///         <c>rotate: 0deg</c> into the rule made it work, which is not something CSS asks an
     ///         author to do.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Introduced is not the same as travelling.</b> This example is now overlaid, but
+    ///         <c>rotate</c> has no initial value this animator can travel from, so its one
+    ///         <c>to</c> stop is held and the turn is drawn complete from the first frame. See the
+    ///         partial #1381 records in <see cref="TryGetAnimated(StyleNodeId, int, float, out StyleValue)" />'s
+    ///         private overload. <c>transform: rotate(360deg)</c> does travel.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Every stop of every running animation, not the first.</b> A block may declare a
