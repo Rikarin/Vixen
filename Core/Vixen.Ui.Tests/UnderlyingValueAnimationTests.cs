@@ -49,6 +49,118 @@ public class UnderlyingValueAnimationTests {
         document.Update();
     }
 
+    /// <summary>Where a point on the box's top edge ends up, which says the angle it has turned by.</summary>
+    static Vector2 Tip(UiElement box) =>
+        box.Transform is { } transform ? transform.Apply(new Vector2(100f, 0f)) : new Vector2(100f, 0f);
+
+    static void Turned(UiElement box, float degrees) {
+        var radians = degrees * MathF.PI / 180f;
+        var tip = Tip(box);
+
+        Assert.Equal(100f * MathF.Cos(radians), tip.X, Tolerance);
+        Assert.Equal(100f * MathF.Sin(radians), tip.Y, Tolerance);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The Tailwind spinner — <c>to { transform: rotate(360deg) }</c> alone — spins.</b>
+    /// </summary>
+    /// <remarks>
+    ///     CSS Animations 1 § 3 builds the missing <c>from</c> out of the underlying value, which for a
+    ///     box with no transform is <c>none</c>, so a quarter of the way through it has turned a
+    ///     quarter. The one stop used to hold for the whole run: a full turn, from the first frame,
+    ///     indistinguishable from standing still (#1381).
+    /// </remarks>
+    [Fact]
+    public void A_spinner_with_only_a_to_stop_turns() {
+        using var document = new UiDocument(400f, 300f);
+        var box = Settled(
+            document,
+            """
+            @keyframes spin { to { transform: rotate(360deg); } }
+            #box { animation-name: spin; animation-duration: 1s; animation-timing-function: linear;
+                   animation-iteration-count: infinite; }
+            """
+        );
+
+        Frame(document, 0.25);
+        Turned(box, 90f);
+
+        Frame(document, 0.625);
+        Turned(box, 225f);
+    }
+
+    /// <summary>A <c>to</c>-only animation starts from the transform the element's own rule gives it.</summary>
+    /// <remarks>
+    ///     The underlying value is the cascaded one, not <c>none</c>: from 30° to 90°, half way is 60°.
+    ///     Holding the stop would read 90°; starting from <c>none</c> would read 45°.
+    /// </remarks>
+    [Fact]
+    public void A_to_only_transform_starts_from_the_elements_own_transform() {
+        using var document = new UiDocument(400f, 300f);
+        var box = Settled(
+            document,
+            """
+            @keyframes turn { to { transform: rotate(90deg); } }
+            #box { transform: rotate(30deg); animation-name: turn; animation-duration: 1s;
+                   animation-timing-function: linear; }
+            """
+        );
+
+        Frame(document, 0.5);
+        Turned(box, 60f);
+    }
+
+    /// <summary>A <c>from</c>-only animation of a number ends at the underlying value.</summary>
+    /// <remarks>
+    ///     The mirrored arm: <c>from { margin-left: 40px }</c> on a box that declares no margin travels
+    ///     to the initial <c>0px</c>, so a quarter of the way it is at 30 and half way at 20. The one
+    ///     stop used to hold at 40 for the whole run.
+    /// </remarks>
+    [Fact]
+    public void A_from_only_margin_travels_to_the_initial_value() {
+        using var document = new UiDocument(400f, 300f);
+        var box = Settled(
+            document,
+            """
+            @keyframes slide { from { margin-left: 40px; } }
+            #box { animation-name: slide; animation-duration: 1s; animation-timing-function: linear; }
+            """
+        );
+
+        Frame(document, 0.25);
+        Assert.Equal(30f, box.AbsoluteLeft, Tolerance);
+
+        Frame(document, 0.5);
+        Assert.Equal(20f, box.AbsoluteLeft, Tolerance);
+    }
+
+    /// <summary>A stop in the middle alone is approached from, and left for, the declared value.</summary>
+    /// <remarks>
+    ///     Both ends synthesised at once: <c>50% { margin-left: 40px }</c> over a declared <c>8px</c>
+    ///     is 8 → 40 → 8, so at a quarter and at three quarters the box is at 24.
+    /// </remarks>
+    [Fact]
+    public void A_middle_stop_alone_is_reached_from_and_left_for_the_declared_value() {
+        using var document = new UiDocument(400f, 300f);
+        var box = Settled(
+            document,
+            """
+            @keyframes bump { 50% { margin-left: 40px; } }
+            #box { margin-left: 8px; animation-name: bump; animation-duration: 1s;
+                   animation-timing-function: linear; }
+            """
+        );
+
+        Frame(document, 0.25);
+        Assert.Equal(24f, box.AbsoluteLeft, Tolerance);
+
+        Frame(document, 0.5);
+        Assert.Equal(40f, box.AbsoluteLeft, Tolerance);
+
+        Frame(document, 0.75);
+        Assert.Equal(24f, box.AbsoluteLeft, Tolerance);
+    }
+
     /// <summary>
     ///     ⚠ <b>A number the cascade stops holding is seen on its way back to its initial value.</b>
     /// </summary>

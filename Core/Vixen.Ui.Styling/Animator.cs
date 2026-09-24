@@ -595,8 +595,17 @@ public sealed class Animator {
     ///     element's animations set the same property, the one closer to the end of
     ///     <c>animation-name</c> decides it. Every one of them is still asked, because an animation
     ///     that says nothing about this property must not stop an earlier one that does.
+    ///     <para>
+    ///         ⚠ <b>With no style to read, a missing <c>from</c> or <c>to</c> is built from the
+    ///         property's initial value.</b> <see cref="Apply" /> builds it from the cascaded value the
+    ///         element actually has (#1381); this overload is not handed one, and the initial value is
+    ///         what that cascaded value is for an element that declares nothing.
+    ///     </para>
     /// </remarks>
-    public bool TryGetAnimated(StyleNodeId element, int property, float now, out StyleValue value) {
+    public bool TryGetAnimated(StyleNodeId element, int property, float now, out StyleValue value) =>
+        TryGetAnimated(element, property, now, null, out value);
+
+    bool TryGetAnimated(StyleNodeId element, int property, float now, ComputedStyle? style, out StyleValue value) {
         value = StyleValue.Unknown;
 
         if (!animations.TryGetValue(element.Index, out var entries)) {
@@ -606,7 +615,7 @@ public sealed class Animator {
         var found = false;
 
         foreach (var entry in entries) {
-            if (TryGetAnimated(entry, property, now, out var candidate)) {
+            if (TryGetAnimated(entry, property, now, style, out var candidate)) {
                 value = candidate;
                 found = true;
             }
@@ -615,15 +624,41 @@ public sealed class Animator {
         return found;
     }
 
-    bool TryGetAnimated(RunningAnimation entry, int property, float now, out StyleValue value) {
+    bool TryGetAnimated(RunningAnimation entry, int property, float now, ComputedStyle? style, out StyleValue value) {
         value = StyleValue.Unknown;
 
-        if (!TryGetAnimatedEnds(entry, property, now, out var start, out var end, out var t)) {
+        if (!TryGetAnimatedEnds(entry, property, now, out var start, out var end, out var t, out var side)) {
             return false;
         }
 
-        value = end == NameTable.None ? parser.Parse(start) : StyleValue.Lerp(parser.Parse(start), parser.Parse(end), t);
+        if (side == Synthesised.Neither) {
+            value = end == NameTable.None ? parser.Parse(start) : StyleValue.Lerp(parser.Parse(start), parser.Parse(end), t);
+            return true;
+        }
+
+        // ⚠ A property with neither a declaration nor an initial value here has no underlying value to
+        // travel from or to, and holds its one stop — which is what every single-stop animation did
+        // before #1381. Lerping against `Unknown` would put nothing in its place. See `InitialValues`
+        // for which properties that is; `width` is one, whose real underlying value is `auto`.
+        var stop = parser.Parse(side == Synthesised.Start ? end : start);
+        var underlying = Underlying(style, property);
+
+        value = underlying.Kind == StyleValueKind.Unknown
+            ? stop
+            : side == Synthesised.Start
+                ? StyleValue.Lerp(underlying, stop, t)
+                : StyleValue.Lerp(stop, underlying, t);
+
         return true;
+    }
+
+    /// <summary>What a property is under the animation: its cascaded value, or its initial value where there is no style.</summary>
+    StyleValue Underlying(ComputedStyle? style, int property) {
+        if (style is not null) {
+            return Computed(style, property);
+        }
+
+        return initials.TryGet(property, out var initial) ? parser.Parse(initial) : StyleValue.Unknown;
     }
 
     /// <summary>The same question for a property handed on as a mix, answered as the mix's interned text.</summary>
@@ -633,8 +668,14 @@ public sealed class Animator {
     ///     is nothing — so a spin written with <c>transform: rotate(360deg)</c> overlaid a transform of
     ///     "" and the element lost even the transform its own rule gave it, for as long as the
     ///     animation ran. A stop pair is a mix like any transition's; see <c>mixes</c>.
+    ///     <para>
+    ///         ⚠ <b>A missing end is the element's own transform, or <c>none</c> — the value a
+    ///         transition withdrawing the property mixes to.</b> <c>to { transform: rotate(360deg) }</c>
+    ///         alone is the Tailwind spinner, and holding its one stop drew a full turn from the first
+    ///         frame: indistinguishable from standing still (#1381).
+    ///     </para>
     /// </remarks>
-    bool TryGetAnimatedMix(StyleNodeId element, int property, string function, float now, out int value) {
+    bool TryGetAnimatedMix(StyleNodeId element, int property, string function, float now, ComputedStyle style, out int value) {
         value = NameTable.None;
 
         if (!animations.TryGetValue(element.Index, out var entries)) {
@@ -644,29 +685,77 @@ public sealed class Animator {
         var found = false;
 
         foreach (var entry in entries) {
-            if (!TryGetAnimatedEnds(entry, property, now, out var start, out var end, out var t)) {
+            if (!TryGetAnimatedEnds(entry, property, now, out var start, out var end, out var t, out var side)) {
                 continue;
             }
 
-            value = end == NameTable.None ? start : values.Intern(MixText(function, t, start, end));
+            var underlying = style.TryGet(property, out var declared) ? declared : noneValue;
+
+            value = side switch {
+                Synthesised.Start => values.Intern(MixText(function, t, underlying, end)),
+                Synthesised.End => values.Intern(MixText(function, t, start, underlying)),
+                _ => end == NameTable.None ? start : values.Intern(MixText(function, t, start, end))
+            };
+
             found = true;
         }
 
         return found;
     }
 
+    /// <summary>Which end of a keyframe segment is the element's underlying value rather than a stop.</summary>
+    /// <remarks>
+    ///     CSS Animations 1 § 3: where no <c>0%</c> (or no <c>100%</c>) keyframe declares a property,
+    ///     one is constructed from the property's underlying value. Web Animations makes that per
+    ///     property, which is why a stop at <c>0%</c> naming only <c>opacity</c> still leaves
+    ///     <c>transform</c> to begin at the element's own value.
+    /// </remarks>
+    enum Synthesised : byte {
+        /// <summary>Both ends are declared stops, or one stop at the very end holds alone.</summary>
+        Neither,
+
+        /// <summary>The segment starts at the underlying value, at offset zero.</summary>
+        Start,
+
+        /// <summary>The segment ends at the underlying value, at offset one.</summary>
+        End
+    }
+
     /// <summary>The two stops a keyframe animation is between for a property, and how far between.</summary>
     /// <param name="entry">The animation.</param>
     /// <param name="property">The interned property.</param>
     /// <param name="now">The current time in seconds.</param>
-    /// <param name="start">The earlier stop's interned value — or the only stop's, where there is one.</param>
-    /// <param name="end">The later stop's, or <see cref="NameTable.None" /> where one stop decides it alone.</param>
+    /// <param name="start">
+    ///     The earlier stop's interned value, or <see cref="NameTable.None" /> where the segment starts at
+    ///     the underlying value.
+    /// </param>
+    /// <param name="end">
+    ///     The later stop's, or <see cref="NameTable.None" /> where it ends at the underlying value — or,
+    ///     with <paramref name="side" /> <see cref="Synthesised.Neither" />, where the one stop at the
+    ///     very end decides it alone.
+    /// </param>
     /// <param name="t">How far from the first to the second.</param>
+    /// <param name="side">Which end, if either, the caller must build from the underlying value.</param>
     /// <returns>Whether the animation says anything about the property at this moment.</returns>
-    bool TryGetAnimatedEnds(RunningAnimation entry, int property, float now, out int start, out int end, out float t) {
+    /// <remarks>
+    ///     ⚠ <b>A missing end used to be answered by the one stop that exists, held for the whole
+    ///     segment</b> — so <c>to { transform: rotate(90deg) }</c> read 90° half way where CSS reads
+    ///     45°, and a <c>from</c>-only fade never faded (#1381). The segment now runs to or from a stop
+    ///     synthesised at offset zero or one, and the caller, which has the style, fills in its value.
+    /// </remarks>
+    bool TryGetAnimatedEnds(
+        RunningAnimation entry,
+        int property,
+        float now,
+        out int start,
+        out int end,
+        out float t,
+        out Synthesised side
+    ) {
         start = NameTable.None;
         end = NameTable.None;
         t = 0f;
+        side = Synthesised.Neither;
 
         if (!entry.Spec.TryOffsetAt(now - entry.StartedAt, out var offset)
             || !keyframes.TryGet(entry.Spec.Name, out var stops)
@@ -696,14 +785,28 @@ public sealed class Animator {
             return false;
         }
 
+        // No stop at or before the offset declares it: the segment starts at a stop synthesised at 0%.
+        // The first declaring stop is past the offset, which is at least zero, so its offset is not.
         if (before < 0) {
-            Declares(stops[after], property, out start);
+            Declares(stops[after], property, out end);
+            side = Synthesised.Start;
+            t = offset / stops[after].Offset;
+
             return true;
         }
 
         Declares(stops[before], property, out start);
 
         if (after < 0) {
+            // A stop at the very end holds alone; anywhere short of it, the segment runs on to a stop
+            // synthesised at 100%.
+            var remaining = 1f - stops[before].Offset;
+
+            if (remaining > 0f) {
+                side = Synthesised.End;
+                t = (offset - stops[before].Offset) / remaining;
+            }
+
             return true;
         }
 
@@ -773,7 +876,7 @@ public sealed class Animator {
         for (var i = 0; i < style.Count; i++) {
             var property = style.Properties[i];
 
-            if (!TryOverlay(element, property, now, out var value)) {
+            if (!TryOverlay(element, property, now, style, out var value)) {
                 continue;
             }
 
@@ -795,18 +898,18 @@ public sealed class Animator {
     ///     answered as the mix's text on both tiers, never through <see cref="StyleValue" />, which
     ///     has nothing to hold it in.
     /// </remarks>
-    bool TryOverlay(StyleNodeId element, int property, float now, out int value) {
+    bool TryOverlay(StyleNodeId element, int property, float now, ComputedStyle style, out int value) {
         if (mixes.TryGetValue(property, out var function)) {
             if (running.TryGetValue((element.Index, property), out var mixing) && mixing.IsMix) {
                 value = values.Intern(MixText(function, mixing.MixAt(now), mixing.MixFrom, mixing.MixTo));
                 return true;
             }
 
-            return TryGetAnimatedMix(element, property, function, now, out value);
+            return TryGetAnimatedMix(element, property, function, now, style, out value);
         }
 
         if (!TryGetCurrent(element, property, now, out var current)
-            && !TryGetAnimated(element, property, now, out current)) {
+            && !TryGetAnimated(element, property, now, style, out current)) {
             value = NameTable.None;
             return false;
         }
@@ -944,7 +1047,7 @@ public sealed class Animator {
 
                     // Transitions still first, for `Apply`'s reason — see `TryOverlay`, which is the
                     // one place the precedence is stated.
-                    if (!TryOverlay(element, property, now, out var value)) {
+                    if (!TryOverlay(element, property, now, style, out var value)) {
                         continue;
                     }
 
