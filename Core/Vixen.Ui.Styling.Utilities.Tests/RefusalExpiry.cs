@@ -4,6 +4,7 @@
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using Vixen.Testing;
 
 namespace Vixen.Ui.Styling.Utilities.Tests;
 
@@ -279,48 +280,22 @@ static partial class RefusalExpiry {
         "docs/plan/43-web-styling-parity.md"
     ];
 
-    /// <summary>Directories the prose sweep does not descend into.</summary>
-    /// <remarks>
-    ///     ⚠ <b><c>.claude</c> is the one that is not obvious and the one that matters.</b> It holds a
-    ///     whole checkout per agent worktree, so a walk from the repository root that did not skip it
-    ///     would sweep every parallel agent's copy of these files and record their clauses in this
-    ///     tree's census — a suite whose verdict depends on who else is working today. The rest are
-    ///     build output, where the same file appears again as a copy.
-    /// </remarks>
-    static readonly string[] Skipped = [
-        ".git", ".claude", ".vs", ".idea", "bin", "obj", "artifacts", "node_modules", "TestResults"
-    ];
-
     /// <summary>Every <c>.md</c> and <c>.cs</c> file a prose refusal could be written in.</summary>
     /// <param name="root">The repository root.</param>
     /// <returns>Their paths, repository-relative and with forward slashes.</returns>
+    /// <remarks>
+    ///     ⚠ <b>As git defines the tree, not as the disk holds it</b> (#1424). A walk from the root
+    ///     that did not skip <c>.claude</c> would sweep every parallel agent's checkout and record
+    ///     their clauses in this tree's census — a suite whose verdict depends on who else is working
+    ///     today — and the hand-kept list of names that did skip it still read the ignored
+    ///     <c>references/</c> clones and the unpacked Sdk README under <c>.nuke/temp/</c>, a verdict
+    ///     that depended on what had been built.
+    /// </remarks>
     public static List<string> ProseFiles(string root) {
-        var files = new List<string>();
-        var stack = new Stack<string>();
-
-        stack.Push(root);
-
-        while (stack.Count != 0) {
-            var directory = stack.Pop();
-
-            foreach (var child in Directory.EnumerateDirectories(directory)) {
-                if (!Skipped.Contains(Path.GetFileName(child), StringComparer.Ordinal)) {
-                    stack.Push(child);
-                }
-            }
-
-            foreach (var file in Directory.EnumerateFiles(directory)) {
-                if (Path.GetExtension(file) is not (".cs" or ".md")) {
-                    continue;
-                }
-
-                var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
-
-                if (!Grammar.Contains(relative, StringComparer.Ordinal)) {
-                    files.Add(relative);
-                }
-            }
-        }
+        var files = RepositoryFiles.Listed(root)
+            .Where(relative => relative.EndsWith(".cs", StringComparison.Ordinal) || relative.EndsWith(".md", StringComparison.Ordinal))
+            .Where(relative => !Grammar.Contains(relative, StringComparer.Ordinal))
+            .ToList();
 
         files.Sort(StringComparer.Ordinal);
 

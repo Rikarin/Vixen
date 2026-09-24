@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using Vixen.Testing;
 using Vixen.Ui.Markup.Testing;
 using Xunit;
 
@@ -586,31 +587,18 @@ public class ResponderReachTests {
     static bool IsTest(string path) =>
         path.Contains(".Tests" + Path.DirectorySeparatorChar, StringComparison.Ordinal);
 
-    /// <summary>Directories a source sweep must not descend into, matched by name at any depth.</summary>
+    /// <summary>The repository's files matching a pattern, as git defines the repository.</summary>
     /// <remarks>
-    ///     ⚠ <c>.claude/worktrees/</c> holds a full checkout of this repository per agent — dozens of
-    ///     them — so a walk that does not prune it is both minutes slower and answering a question
-    ///     about somebody else's tree. A sweep in another suite failed a gate that way, by finding in
-    ///     a neighbouring worktree the very defect it exists to prevent.
+    ///     ⚠ Not a directory walk (#1424). <c>.claude/worktrees/</c> holds a full checkout per agent —
+    ///     a sweep in another suite failed a gate by finding in a neighbouring worktree the very
+    ///     defect it exists to prevent — and the ignored <c>references/</c> and <c>.nuke/temp/</c>
+    ///     hold sources this tree does not own, which a hand-kept list of names did not skip.
     /// </remarks>
-    static readonly string[] Unwalked = [".git", ".claude", "bin", "obj", "artifacts", "node_modules"];
-
     static List<string> SourceFiles(string pattern) {
-        List<string> found = [];
-        Walk(RepositoryRoot(), pattern, found);
+        var found = RepositoryFiles.Files(RepositoryRoot(), pattern);
         found.Sort(StringComparer.Ordinal);
 
         return found;
-    }
-
-    static void Walk(string directory, string pattern, List<string> into) {
-        into.AddRange(Directory.EnumerateFiles(directory, pattern));
-
-        foreach (var child in Directory.EnumerateDirectories(directory)) {
-            if (!Unwalked.Contains(Path.GetFileName(child), StringComparer.Ordinal)) {
-                Walk(child, pattern, into);
-            }
-        }
     }
 
     static string RepositoryRoot() {

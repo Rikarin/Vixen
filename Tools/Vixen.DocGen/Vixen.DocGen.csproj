@@ -50,4 +50,11 @@ SPDX-License-Identifier: Apache-2.0
     <ItemGroup>
         <InternalsVisibleTo Include="Vixen.DocGen.Tests" />
     </ItemGroup>
+
+    <!--
+        What git calls the tree, for LogEventRegister's sweep of every [LoggerMessage] (#1424).
+        ⚠ Vixen.DocGen.Tests does NOT import this props as well: the type is internal and the tests
+        already see this copy through InternalsVisibleTo, so a second copy would be CS0436.
+    -->
+    <Import Project="..\..\Testing\Vixen.Testing.RepositoryFiles.props" />
 </Project>

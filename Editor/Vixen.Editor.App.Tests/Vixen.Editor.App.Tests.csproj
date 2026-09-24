@@ -168,4 +168,7 @@
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
     </ItemGroup>
+
+    <!-- What git calls the tree, for the repository sweeps here, instead of a directory walk (#1424). -->
+    <Import Project="..\..\Testing\Vixen.Testing.RepositoryFiles.props" />
 </Project>

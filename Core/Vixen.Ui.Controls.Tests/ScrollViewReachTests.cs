@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Testing;
 using Vixen.Ui.Markup.Testing;
 using Xunit;
 
@@ -238,30 +239,17 @@ public class ScrollViewReachTests {
     static bool IsTest(string path) =>
         path.Contains(".Tests" + Path.DirectorySeparatorChar, StringComparison.Ordinal);
 
-    /// <summary>Directories a source sweep must not descend into, matched by name at any depth.</summary>
+    /// <summary>The repository's files matching a pattern, as git defines the repository.</summary>
     /// <remarks>
-    ///     ⚠ <c>.claude/worktrees/</c> holds a full checkout of this repository per agent, so a walk
-    ///     that does not prune it answers a question about somebody else's tree — and would find a
-    ///     subscriber another agent had written and not yet merged.
+    ///     ⚠ Not a directory walk (#1424): <c>.claude/worktrees/</c> holds a full checkout per agent,
+    ///     and would find a subscriber another agent had written and not yet merged, and the ignored
+    ///     <c>references/</c> holds cloned C# engines no census here is about.
     /// </remarks>
-    static readonly string[] Unwalked = [".git", ".claude", "bin", "obj", "artifacts", "node_modules"];
-
     static List<string> SourceFiles(string pattern) {
-        List<string> found = [];
-        Walk(RepositoryRoot(), pattern, found);
+        var found = RepositoryFiles.Files(RepositoryRoot(), pattern);
         found.Sort(StringComparer.Ordinal);
 
         return found;
-    }
-
-    static void Walk(string directory, string pattern, List<string> into) {
-        into.AddRange(Directory.EnumerateFiles(directory, pattern));
-
-        foreach (var child in Directory.EnumerateDirectories(directory)) {
-            if (!Unwalked.Contains(Path.GetFileName(child), StringComparer.Ordinal)) {
-                Walk(child, pattern, into);
-            }
-        }
     }
 
     static string RepositoryRoot() {

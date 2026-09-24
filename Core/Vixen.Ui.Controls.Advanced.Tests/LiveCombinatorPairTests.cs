@@ -625,6 +625,9 @@ public partial class LiveCombinatorPairTests {
             ui.Update();
             count++;
             WalkSeeded(control, pairs, [.. introduced]);
+
+            // The whole-selector question, with the same refusal. See the partial beside this file.
+            ScopeSeeded(ui.Document, introduced);
         }
 
         seeded = count;

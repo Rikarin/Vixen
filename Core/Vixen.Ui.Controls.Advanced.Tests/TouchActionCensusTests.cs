@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Testing;
 using Vixen.Ui.Markup.Testing;
 using Xunit;
 
@@ -44,13 +45,6 @@ public class TouchActionCensusTests {
     ///     <c>build</c> are left out: none of them is a control a finger lands on.
     /// </remarks>
     static readonly string[] Swept = ["Core", "Editor", "Samples", "Platform", "Tools", "Gameplay", "Live"];
-
-    /// <summary>Directories a source sweep must not descend into, matched by name at any depth.</summary>
-    /// <remarks>
-    ///     ⚠ <c>.claude</c> holds a full checkout per agent, so a walk that did not prune it would
-    ///     answer about somebody else's tree.
-    /// </remarks>
-    static readonly string[] Unwalked = [".git", ".claude", "bin", "obj", "artifacts", "node_modules"];
 
     [Fact]
     public void Every_pointer_capture_in_the_tree_is_in_the_census_and_nothing_else_is() {
@@ -258,27 +252,8 @@ public class TouchActionCensusTests {
 
     static bool IsTest(string relative) => relative.Contains(".Tests/", StringComparison.Ordinal);
 
-    static IEnumerable<string> Files(string directory) {
-        if (!Directory.Exists(directory)) {
-            yield break;
-        }
-
-        foreach (var file in Directory.EnumerateFiles(directory)) {
-            if (file.EndsWith(".cs", StringComparison.Ordinal) || file.EndsWith(".vxml", StringComparison.Ordinal)) {
-                yield return file;
-            }
-        }
-
-        foreach (var child in Directory.EnumerateDirectories(directory)) {
-            if (Unwalked.Contains(Path.GetFileName(child), StringComparer.Ordinal)) {
-                continue;
-            }
-
-            foreach (var file in Files(child)) {
-                yield return file;
-            }
-        }
-    }
+    static List<string> Files(string directory) =>
+        Directory.Exists(directory) ? RepositoryFiles.Files(directory, "*.cs", "*.vxml") : [];
 
     static string Joined(List<string> lines) => lines.Count == 0 ? "  (none)" : string.Join('\n', lines);
 

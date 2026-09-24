@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.Ui.Layout.Tests;
@@ -36,10 +37,13 @@ namespace Vixen.Ui.Layout.Tests;
 ///         going quietly green.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>.claude</c> is pruned, and that is not housekeeping.</b> Agent worktrees under
-///         <c>.claude/worktrees/</c> are full checkouts, so a sweep that walks them asserts against
-///         other people's uncommitted work — a true statement about a tree nobody was asking about.
-///         <c>TypeSelectorReachTests</c> failed a gate run that way and this list is its list.
+///         ⚠ <b>It reads what git tracks, and that is not housekeeping</b> (#1424). Agent worktrees
+///         under <c>.claude/worktrees/</c> are full checkouts, so a sweep that walks them asserts
+///         against other people's uncommitted work — a true statement about a tree nobody was asking
+///         about; <c>TypeSelectorReachTests</c> failed a gate run that way. The hand-kept list of
+///         directory names this used to share with it did not know about the ignored
+///         <c>references/</c>, where <c>Vixen.YogaTestGen</c> and <c>Vixen.TaffyTestGen</c> expect
+///         their upstream clones — third-party tests of exactly the kind a citation names.
 ///     </para>
 ///     <para>
 ///         <b>The sweep reads <c>.cs</c> under a <c>*.Tests</c> directory, and no more.</b> A
@@ -159,42 +163,30 @@ public class ConformanceCorpusNoticeTests {
     /// <summary>The repository-relative paths of the test sources naming <paramref name="citation" />.</summary>
     static List<string> CitingFiles(string citation) {
         var root = RepositoryRoot();
-        List<string> found = [];
-        Walk(root, root, found);
+
+        // Every C# file under a test project, as git defines the tree (#1424) — a directory walk
+        // pruned by a hand-kept name list read the ignored `references/` clones as well.
+        List<string> found = [
+            .. RepositoryFiles.Listed(root)
+                .Where(path => path.EndsWith(".cs", StringComparison.Ordinal) && InTestProject(path))
+                .Where(path => path[(path.LastIndexOf('/') + 1)..] != Self)
+        ];
+
         found.RemoveAll(path => !File.ReadAllText(Path.Combine(root, path)).Contains(citation, StringComparison.Ordinal));
         found.Sort(StringComparer.Ordinal);
 
         return found;
     }
 
-    /// <summary>Directories a source sweep must not descend into, matched by name at any depth.</summary>
-    static readonly string[] Unwalked = [".git", ".claude", "bin", "obj", "artifacts", "node_modules"];
-
     /// <summary>This file names every citation in <see cref="Corpora" /> and transcribes none of them.</summary>
     const string Self = "ConformanceCorpusNoticeTests.cs";
 
-    static void Walk(string root, string directory, List<string> into) {
-        if (Path.GetFileName(directory).EndsWith(".Tests", StringComparison.Ordinal)) {
-            foreach (var file in Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories)) {
-                if (Path.GetFileName(file) != Self && !IsUnwalked(root, file)) {
-                    into.Add(Path.GetRelativePath(root, file).Replace('\\', '/'));
-                }
-            }
+    /// <summary>Whether a repository-relative path lies under a directory named <c>*.Tests</c>.</summary>
+    static bool InTestProject(string path) {
+        var segments = path.Split('/');
 
-            return;
-        }
-
-        foreach (var child in Directory.EnumerateDirectories(directory)) {
-            if (!Unwalked.Contains(Path.GetFileName(child), StringComparer.Ordinal)) {
-                Walk(root, child, into);
-            }
-        }
+        return segments[..^1].Any(segment => segment.EndsWith(".Tests", StringComparison.Ordinal));
     }
-
-    static bool IsUnwalked(string root, string file) =>
-        Path.GetRelativePath(root, file)
-            .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-            .Any(segment => Unwalked.Contains(segment, StringComparer.Ordinal));
 
     static string RepositoryRoot() {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory);

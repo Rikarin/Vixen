@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.RegularExpressions;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.Editor.Ui.Tests;
@@ -174,32 +175,18 @@ public partial class DumpLedgerTests {
         return null;
     }
 
-    /// <summary>Every C# source under <c>Editor/</c>.</summary>
+    /// <summary>Every C# source under <c>Editor/</c>, as git defines the tree.</summary>
+    /// <remarks>
+    ///     ⚠ Not a directory walk (#1424): a sweep that reads what the disk holds rather than what git
+    ///     tracks asserts about build output and other people's uncommitted work.
+    ///     <c>TypeSelectorReachTests</c> failed a gate run exactly that way, by finding a defect in a
+    ///     tree nobody was asking about.
+    /// </remarks>
     static List<string> Sources() {
-        List<string> found = [];
-        Walk(Path.Combine(RepositoryRoot(), "Editor"), found);
+        var found = RepositoryFiles.Files(Path.Combine(RepositoryRoot(), "Editor"), "*.cs");
         found.Sort(StringComparer.Ordinal);
 
         return found;
-    }
-
-    /// <summary>Directories a source sweep must not descend into, matched by name at any depth.</summary>
-    /// <remarks>
-    ///     ⚠ <c>.claude</c> is the one that matters and it is not housekeeping: agent worktrees under
-    ///     <c>.claude/worktrees/</c> are full checkouts, so a sweep that walks them asserts about
-    ///     other people's uncommitted work. <c>TypeSelectorReachTests</c> failed a gate run exactly
-    ///     that way, by finding a defect in a tree nobody was asking about.
-    /// </remarks>
-    static readonly string[] Unwalked = [".git", ".claude", "bin", "obj", "artifacts", "node_modules"];
-
-    static void Walk(string directory, List<string> into) {
-        into.AddRange(Directory.EnumerateFiles(directory, "*.cs"));
-
-        foreach (var child in Directory.EnumerateDirectories(directory)) {
-            if (!Unwalked.Contains(Path.GetFileName(child), StringComparer.Ordinal)) {
-                Walk(child, into);
-            }
-        }
     }
 
     static string RepositoryRoot() {

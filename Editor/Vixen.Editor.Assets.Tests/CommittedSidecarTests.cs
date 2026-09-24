@@ -3,6 +3,7 @@
 
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.Editor.Assets.Tests;
@@ -113,22 +114,12 @@ public sealed class CommittedSidecarTests {
             : null;
 
     /// <summary>
-    ///     ⚠ Skipping <c>.claude</c>, which holds a whole checkout of this repository per agent. A
-    ///     walk that descends into it reads another agent's copy of these same files, and the
-    ///     exclusions are matched against the path <em>below the repository root</em> because this
-    ///     checkout may itself be inside a <c>.claude/worktrees</c> directory.
+    ///     ⚠ Every sidecar this checkout owns, as git defines the tree (#1424) — not another agent's
+    ///     copy under <c>.claude/worktrees</c>, and not a sidecar a sample's ignored <c>Library/</c> or
+    ///     <c>Build/</c> regenerated. This was a walk of the whole disk below the root filtered by a
+    ///     hand-kept list of names, which read every worktree before discarding it.
     /// </summary>
-    static IEnumerable<string> Sidecars() {
-        var root = RepositoryRoot();
-        var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true };
-
-        return Directory.EnumerateFiles(root, "*" + AssetMetaFile.Extension, options)
-            .Where(path => !Segments(Path.GetRelativePath(root, path))
-                .Any(segment => segment is ".claude" or ".git" or "bin" or "obj" or "artifacts" or "node_modules")
-            );
-    }
-
-    static IEnumerable<string> Segments(string path) => path.Replace('\\', '/').Split('/');
+    static List<string> Sidecars() => RepositoryFiles.Files(RepositoryRoot(), "*" + AssetMetaFile.Extension);
 
     static string Relative(string path) =>
         Path.GetRelativePath(RepositoryRoot(), path).Replace('\\', '/');

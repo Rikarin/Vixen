@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.ApiCheck.Tests;
@@ -158,27 +159,17 @@ public sealed class PublicApiTypeNamesTests {
             .Where(path => path.Replace('\\', '/').Contains("/docs/", StringComparison.Ordinal));
 
     /// <summary>
-    ///     ⚠ Skipping <c>.claude</c>, which holds a whole checkout of this repository per agent. A
-    ///     walk that descends into it reads another agent's copy of these same files and compares
-    ///     one version of the tree with another.
+    ///     ⚠ Every file this checkout owns, as git defines the tree (#1424) — not another agent's copy
+    ///     under <c>.claude/worktrees</c>, which compares one version of the tree with another.
     /// </summary>
     /// <remarks>
-    ///     ⚠ And the exclusions are matched against the path <em>below the repository root</em>,
-    ///     because this checkout is itself inside a <c>.claude/worktrees</c> directory: matching
-    ///     absolute paths excluded the whole tree and the walk read nothing, which is the shape of
-    ///     failure this file is about.
+    ///     ⚠ This was a walk of the whole disk filtered by a hand-kept list of names, and the filter
+    ///     had to be matched against the path <em>below the repository root</em>, because this
+    ///     checkout is itself inside a <c>.claude/worktrees</c> directory: matching absolute paths
+    ///     excluded the whole tree and the walk read nothing, which is the shape of failure this file
+    ///     is about. <c>git ls-files</c> answers relative to the checkout by construction.
     /// </remarks>
-    static IEnumerable<string> TreeFiles() {
-        var root = RepositoryRoot();
-        var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true };
-
-        return Directory.EnumerateFiles(root, "*", options)
-            .Where(path => !Segments(Path.GetRelativePath(root, path))
-                .Any(segment => segment is ".claude" or ".git" or "bin" or "obj" or "artifacts" or "node_modules")
-            );
-    }
-
-    static IEnumerable<string> Segments(string path) => path.Replace('\\', '/').Split('/');
+    static List<string> TreeFiles() => RepositoryFiles.Files(RepositoryRoot());
 
     static string RepositoryRoot() {
         var directory = AppContext.BaseDirectory;

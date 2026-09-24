@@ -273,7 +273,7 @@ public class CombinatorCensusDriftTests {
     ///         nobody had made</b> (<c>Rikarin/Vixen#531</c>). A <c>-</c> in <c>ScopedSelectors.txt</c>
     ///         meant "unjudged" and nothing more, and with no file saying why, a rule that had died
     ///         read exactly like one waiting for content. The residue is the editor's <c>-</c> rows
-    ///         less those <c>ControlScopedSelectors.txt</c> reads <c>Bare</c> — the controls' sweep
+    ///         less those <c>ControlScopedSelectors.txt</c> reads <c>Bare</c> or <c>Seeded</c> — the controls' sweeps
     ///         credits ten the editor cannot reach — and it is held exactly, as the pair residue is,
     ///         so a row a sweep starts crediting expires and a new uncredited selector is refused.
     ///     </para>
@@ -291,7 +291,10 @@ public class CombinatorCensusDriftTests {
         var editor = Verdicts(root, ScopedFile);
         var control = Verdicts(root, ControlScopedFile);
 
-        var residue = editor.Where(row => row.Value == "-" && control.GetValueOrDefault(row.Key) != "Bare")
+        // `Seeded` credits as `Bare` does: the controls' seeded sweep refuses every element its seed
+        // introduced at every compound but the leftmost, as the seeded pair census refuses them as
+        // children, and the pair gate already counts that census as a proof.
+        var residue = editor.Where(row => row.Value == "-" && control.GetValueOrDefault(row.Key) is not ("Bare" or "Seeded"))
             .Select(static row => row.Key)
             .ToHashSet(StringComparer.Ordinal);
 
@@ -408,7 +411,7 @@ public class CombinatorCensusDriftTests {
         return pairs;
     }
 
-    /// <summary>A scoped census's verdicts: selector to the depth, <c>Bare</c> or <c>-</c> beside it.</summary>
+    /// <summary>A scoped census's verdicts: selector to the depth, <c>Bare</c>, <c>Seeded</c> or <c>-</c> beside it.</summary>
     static Dictionary<string, string> Verdicts(string root, string file) =>
         Rows(root, file)
             .Select(static row => row.Split('\t'))

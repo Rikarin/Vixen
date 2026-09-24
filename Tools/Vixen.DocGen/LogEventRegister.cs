@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Vixen.Testing;
 
 namespace Vixen.DocGen;
 
@@ -70,14 +71,6 @@ sealed record LogEventRange(int First, int Last, IReadOnlyList<string> Owners, b
 ///     </para>
 /// </remarks>
 static partial class LogEventRegister {
-    // ⚠ `.claude` holds git worktrees, and a worktree is a *whole checkout* — so without it every id
-    // in the engine is reported as claimed by as many call sites as there are branches in flight
-    // (twenty-two, the day this was written). That failure is invisible in the worktree an agent
-    // builds this in and appears only on the tree that has the others underneath it, which is
-    // exactly the union-only defect this file exists to catch, one level up.
-    static readonly string[] SkippedDirectories =
-        ["bin", "obj", "artifacts", ".git", ".claude", "node_modules", "packages"];
-
     /// <summary>A row of the range table: two numbers, a subsystem cell and a status.</summary>
     [GeneratedRegex(@"^\|\s*([\d\s ]+?)\s*[–-]\s*([\d\s ]+?)\s*\|(.+?)\|\s*\**(.+?)\**\s*\|\s*$",
         RegexOptions.Multiline)]
@@ -145,21 +138,14 @@ static partial class LogEventRegister {
         return [.. sites.OrderBy(site => site.Id).ThenBy(site => site.Where, StringComparer.Ordinal)];
     }
 
-    static IEnumerable<string> Sources(string directory) {
-        foreach (var file in Directory.EnumerateFiles(directory, "*.cs")) {
-            yield return file;
-        }
-
-        foreach (var child in Directory.EnumerateDirectories(directory)) {
-            if (SkippedDirectories.Contains(Path.GetFileName(child), StringComparer.Ordinal)) {
-                continue;
-            }
-
-            foreach (var file in Sources(child)) {
-                yield return file;
-            }
-        }
-    }
+    // ⚠ What git calls the tree, not what the disk holds (#1424). `.claude` holds git worktrees, and
+    // a worktree is a *whole checkout* — so a walk into it reports every id in the engine as claimed
+    // by as many call sites as there are branches in flight (twenty-two, the day this was written), a
+    // failure invisible in the worktree an agent builds this in and present only on the tree that has
+    // the others underneath it: exactly the union-only defect this file exists to catch, one level
+    // up. The hand-kept list of names that answered it did not know about `references/`, whose clones
+    // of other engines are C# of their own.
+    static List<string> Sources(string directory) => RepositoryFiles.Files(directory, "*.cs");
 
     /// <summary>The nearest <c>.csproj</c> at or above the file, by name.</summary>
     static string? ProjectOf(string repositoryRoot, string path) {
