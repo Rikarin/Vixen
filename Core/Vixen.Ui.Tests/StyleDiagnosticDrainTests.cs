@@ -602,6 +602,16 @@ public class StyleDiagnosticDrainTests {
     [InlineData("filter: blur(200ms) invert(1)")]
     [InlineData("filter: drop-shadow(90deg 2px #000000)")]
     [InlineData("backdrop-filter: blur(50%)")]
+    // ⚠ #1385: an argument of the wrong kind or count has no parse at all, so these arrived as
+    // `Unknown` and were dropped before `One` could refuse them — the same outcome as `blur(200ms)`
+    // and not a word in the log.
+    [InlineData("filter: brightness(2deg)")]
+    [InlineData("filter: brightness(2deg) invert(1)")]
+    [InlineData("filter: hue-rotate(1px) invert(1)")]
+    [InlineData("filter: sepia(abc) invert(1)")]
+    [InlineData("filter: blur(2px 3px)")]
+    [InlineData("filter: blur(2px 3px) invert(1)")]
+    [InlineData("backdrop-filter: sepia(abc) invert(1)")]
     public void A_filter_this_cannot_execute_reaches_the_log(string declaration) {
         var (document, sink) = Watched();
         using var owned = document;
@@ -616,6 +626,31 @@ public class StyleDiagnosticDrainTests {
         Assert.Equal(7004, warning.EventId.Id);
         Assert.Contains("The draw list", warning.Message, StringComparison.Ordinal);
         Assert.Contains("none of it is applied", warning.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A filter switched off, or one this executes, says nothing.</summary>
+    /// <remarks>
+    ///     The other half of the refusal above (#1385): <c>none</c> is not a list either, and a
+    ///     reader that refused everything that is not a list would put a warning in the log for every
+    ///     theme that turns a filter back off.
+    /// </remarks>
+    /// <param name="declaration">A declaration that must reach the draw list without a warning.</param>
+    [Theory]
+    [InlineData("filter: none")]
+    [InlineData("backdrop-filter: none")]
+    [InlineData("filter: invert(1)")]
+    [InlineData("filter: brightness(2) hue-rotate(90deg)")]
+    [InlineData("filter: blur(2px) sepia(0.5)")]
+    public void A_filter_switched_off_or_executed_says_nothing(string declaration) {
+        var (document, sink) = Watched();
+        using var owned = document;
+
+        document.Load($"root {{ width: 200px; height: 200px }} .card {{ width: 50px; height: 20px; {declaration} }}");
+        document.Root.Add("div", classNames: "card");
+        document.Update();
+        document.Draw();
+
+        Assert.Empty(Warnings(sink));
     }
 
     /// <summary>

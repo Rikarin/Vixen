@@ -101,7 +101,15 @@ readonly record struct RunningAnimation(AnimationSpec Spec, float StartedAt);
 ///     </para>
 /// </remarks>
 public sealed class Animator {
-    readonly Dictionary<(int Element, int Property), RunningTransition> running = [];
+    /// <summary>The running transitions, keyed by element and then by property.</summary>
+    /// <remarks>
+    ///     ⚠ <b>By element first, because every per-element question is asked once per element per
+    ///     restyle.</b> A flat <c>(element, property)</c> table answered "what is running on this
+    ///     element" only by walking all of it, which <see cref="Withdrawing" /> did for every element
+    ///     in the style walk the moment anything anywhere transitioned — O(elements × running
+    ///     transitions) per restyle (#1383). See <see cref="TransitionTable" />.
+    /// </remarks>
+    readonly TransitionTable running = new();
     readonly List<(int Element, int Property)> finished = [];
     readonly List<TransitionSpec> specs = [];
     readonly List<AnimationSpec> animationSpecs = [];
@@ -447,10 +455,31 @@ public sealed class Animator {
     const int MixLimit = 4096;
 
     /// <summary>A mix written out as the CSS function <c>TransformReader</c> reads it back from.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The progress is written to four decimals, and that is the decision #1383 asked
+    ///         for.</b> Every overlaid value is interned, because a <see cref="ComputedStyle" /> holds
+    ///         ids, and <see cref="NameTable" /> never forgets one. Written at full float precision the
+    ///         progress was a new string on nearly every frame, so an infinite spinner grew the value
+    ///         table by one entry a frame for the life of the document — twenty-five thousand frames,
+    ///         twenty-five thousand entries. On a grid of 10⁻⁴ a mix between two given values has at
+    ///         most 10,001 spellings, however long it runs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Four decimals because that is what every number the animator overlays already
+    ///         had</b> — <see cref="StyleValue.ToCss" /> writes <c>0.####</c> — which is why the numeric
+    ///         half of #1383's claim did not hold: a fading opacity has at most ten thousand spellings a
+    ///         unit and always did. The two alternatives were worse: caching per
+    ///         <c>(element, property, t)</c> saves nothing when <c>t</c> moves every frame, and keeping
+    ///         the text out of the table means a value that is not an id, which every reader of a
+    ///         style would have to learn. The grid costs at most 5·10⁻⁵ of the way — 0.018° of a full
+    ///         turn.
+    ///     </para>
+    /// </remarks>
     string MixText(string function, float progress, int from, int to) =>
         string.Create(
             CultureInfo.InvariantCulture,
-            $"{function}({progress}, {values.NameOf(from)}, {values.NameOf(to)})"
+            $"{function}({progress:0.####}, {values.NameOf(from)}, {values.NameOf(to)})"
         );
 
     /// <summary>What a style computes a property to, filling in an initial value where it says nothing.</summary>
@@ -561,9 +590,11 @@ public sealed class Animator {
     public int Advance(float now) {
         finished.Clear();
 
-        foreach (var (key, transition) in running) {
-            if (transition.IsFinished(now)) {
-                finished.Add(key);
+        foreach (var (element, entries) in running.Elements) {
+            foreach (var (property, transition) in entries) {
+                if (transition.IsFinished(now)) {
+                    finished.Add((element, property));
+                }
             }
         }
 
@@ -585,8 +616,17 @@ public sealed class Animator {
     ///     element's animations set the same property, the one closer to the end of
     ///     <c>animation-name</c> decides it. Every one of them is still asked, because an animation
     ///     that says nothing about this property must not stop an earlier one that does.
+    ///     <para>
+    ///         ⚠ <b>With no style to read, a missing <c>from</c> or <c>to</c> is built from the
+    ///         property's initial value.</b> <see cref="Apply" /> builds it from the cascaded value the
+    ///         element actually has (#1381); this overload is not handed one, and the initial value is
+    ///         what that cascaded value is for an element that declares nothing.
+    ///     </para>
     /// </remarks>
-    public bool TryGetAnimated(StyleNodeId element, int property, float now, out StyleValue value) {
+    public bool TryGetAnimated(StyleNodeId element, int property, float now, out StyleValue value) =>
+        TryGetAnimated(element, property, now, null, out value);
+
+    bool TryGetAnimated(StyleNodeId element, int property, float now, ComputedStyle? style, out StyleValue value) {
         value = StyleValue.Unknown;
 
         if (!animations.TryGetValue(element.Index, out var entries)) {
@@ -596,7 +636,7 @@ public sealed class Animator {
         var found = false;
 
         foreach (var entry in entries) {
-            if (TryGetAnimated(entry, property, now, out var candidate)) {
+            if (TryGetAnimated(entry, property, now, style, out var candidate)) {
                 value = candidate;
                 found = true;
             }
@@ -605,15 +645,46 @@ public sealed class Animator {
         return found;
     }
 
-    bool TryGetAnimated(RunningAnimation entry, int property, float now, out StyleValue value) {
+    bool TryGetAnimated(RunningAnimation entry, int property, float now, ComputedStyle? style, out StyleValue value) {
         value = StyleValue.Unknown;
 
-        if (!TryGetAnimatedEnds(entry, property, now, out var start, out var end, out var t)) {
+        if (!TryGetAnimatedEnds(entry, property, now, out var start, out var end, out var t, out var side)) {
             return false;
         }
 
-        value = end == NameTable.None ? parser.Parse(start) : StyleValue.Lerp(parser.Parse(start), parser.Parse(end), t);
+        if (side == Synthesised.Neither) {
+            value = end == NameTable.None ? parser.Parse(start) : StyleValue.Lerp(parser.Parse(start), parser.Parse(end), t);
+            return true;
+        }
+
+        // ⚠ A property with neither a declaration nor an initial value here has no underlying value to
+        // travel from or to, and holds its one stop — which is what every single-stop animation did
+        // before #1381. Lerping against `Unknown` would put nothing in its place. See `InitialValues`
+        // for which properties that is; `width` is one, whose real underlying value is `auto`.
+        // ⚠ So are `rotate`, `translate` and `scale`: their initial is `none`, they have no entry,
+        // and they are not in `mixes`. `@keyframes spin { to { rotate: 360deg } }` on an element that
+        // does not declare `rotate` still draws a full turn from the first frame, and a linear
+        // `to { rotate: 90deg }` reads 90deg a quarter of the way through, where CSS reads 22.5deg
+        // (measured). Only `transform`, which the Tailwind spinner uses, travels from its `none`.
+        var stop = parser.Parse(side == Synthesised.Start ? end : start);
+        var underlying = Underlying(style, property);
+
+        value = underlying.Kind == StyleValueKind.Unknown
+            ? stop
+            : side == Synthesised.Start
+                ? StyleValue.Lerp(underlying, stop, t)
+                : StyleValue.Lerp(stop, underlying, t);
+
         return true;
+    }
+
+    /// <summary>What a property is under the animation: its cascaded value, or its initial value where there is no style.</summary>
+    StyleValue Underlying(ComputedStyle? style, int property) {
+        if (style is not null) {
+            return Computed(style, property);
+        }
+
+        return initials.TryGet(property, out var initial) ? parser.Parse(initial) : StyleValue.Unknown;
     }
 
     /// <summary>The same question for a property handed on as a mix, answered as the mix's interned text.</summary>
@@ -623,8 +694,14 @@ public sealed class Animator {
     ///     is nothing — so a spin written with <c>transform: rotate(360deg)</c> overlaid a transform of
     ///     "" and the element lost even the transform its own rule gave it, for as long as the
     ///     animation ran. A stop pair is a mix like any transition's; see <c>mixes</c>.
+    ///     <para>
+    ///         ⚠ <b>A missing end is the element's own transform, or <c>none</c> — the value a
+    ///         transition withdrawing the property mixes to.</b> <c>to { transform: rotate(360deg) }</c>
+    ///         alone is the Tailwind spinner, and holding its one stop drew a full turn from the first
+    ///         frame: indistinguishable from standing still (#1381).
+    ///     </para>
     /// </remarks>
-    bool TryGetAnimatedMix(StyleNodeId element, int property, string function, float now, out int value) {
+    bool TryGetAnimatedMix(StyleNodeId element, int property, string function, float now, ComputedStyle style, out int value) {
         value = NameTable.None;
 
         if (!animations.TryGetValue(element.Index, out var entries)) {
@@ -634,29 +711,77 @@ public sealed class Animator {
         var found = false;
 
         foreach (var entry in entries) {
-            if (!TryGetAnimatedEnds(entry, property, now, out var start, out var end, out var t)) {
+            if (!TryGetAnimatedEnds(entry, property, now, out var start, out var end, out var t, out var side)) {
                 continue;
             }
 
-            value = end == NameTable.None ? start : values.Intern(MixText(function, t, start, end));
+            var underlying = style.TryGet(property, out var declared) ? declared : noneValue;
+
+            value = side switch {
+                Synthesised.Start => values.Intern(MixText(function, t, underlying, end)),
+                Synthesised.End => values.Intern(MixText(function, t, start, underlying)),
+                _ => end == NameTable.None ? start : values.Intern(MixText(function, t, start, end))
+            };
+
             found = true;
         }
 
         return found;
     }
 
+    /// <summary>Which end of a keyframe segment is the element's underlying value rather than a stop.</summary>
+    /// <remarks>
+    ///     CSS Animations 1 § 3: where no <c>0%</c> (or no <c>100%</c>) keyframe declares a property,
+    ///     one is constructed from the property's underlying value. Web Animations makes that per
+    ///     property, which is why a stop at <c>0%</c> naming only <c>opacity</c> still leaves
+    ///     <c>transform</c> to begin at the element's own value.
+    /// </remarks>
+    enum Synthesised : byte {
+        /// <summary>Both ends are declared stops, or one stop at the very end holds alone.</summary>
+        Neither,
+
+        /// <summary>The segment starts at the underlying value, at offset zero.</summary>
+        Start,
+
+        /// <summary>The segment ends at the underlying value, at offset one.</summary>
+        End
+    }
+
     /// <summary>The two stops a keyframe animation is between for a property, and how far between.</summary>
     /// <param name="entry">The animation.</param>
     /// <param name="property">The interned property.</param>
     /// <param name="now">The current time in seconds.</param>
-    /// <param name="start">The earlier stop's interned value — or the only stop's, where there is one.</param>
-    /// <param name="end">The later stop's, or <see cref="NameTable.None" /> where one stop decides it alone.</param>
+    /// <param name="start">
+    ///     The earlier stop's interned value, or <see cref="NameTable.None" /> where the segment starts at
+    ///     the underlying value.
+    /// </param>
+    /// <param name="end">
+    ///     The later stop's, or <see cref="NameTable.None" /> where it ends at the underlying value — or,
+    ///     with <paramref name="side" /> <see cref="Synthesised.Neither" />, where the one stop at the
+    ///     very end decides it alone.
+    /// </param>
     /// <param name="t">How far from the first to the second.</param>
+    /// <param name="side">Which end, if either, the caller must build from the underlying value.</param>
     /// <returns>Whether the animation says anything about the property at this moment.</returns>
-    bool TryGetAnimatedEnds(RunningAnimation entry, int property, float now, out int start, out int end, out float t) {
+    /// <remarks>
+    ///     ⚠ <b>A missing end used to be answered by the one stop that exists, held for the whole
+    ///     segment</b> — so <c>to { transform: rotate(90deg) }</c> read 90° half way where CSS reads
+    ///     45°, and a <c>from</c>-only fade never faded (#1381). The segment now runs to or from a stop
+    ///     synthesised at offset zero or one, and the caller, which has the style, fills in its value.
+    /// </remarks>
+    bool TryGetAnimatedEnds(
+        RunningAnimation entry,
+        int property,
+        float now,
+        out int start,
+        out int end,
+        out float t,
+        out Synthesised side
+    ) {
         start = NameTable.None;
         end = NameTable.None;
         t = 0f;
+        side = Synthesised.Neither;
 
         if (!entry.Spec.TryOffsetAt(now - entry.StartedAt, out var offset)
             || !keyframes.TryGet(entry.Spec.Name, out var stops)
@@ -686,14 +811,28 @@ public sealed class Animator {
             return false;
         }
 
+        // No stop at or before the offset declares it: the segment starts at a stop synthesised at 0%.
+        // The first declaring stop is past the offset, which is at least zero, so its offset is not.
         if (before < 0) {
-            Declares(stops[after], property, out start);
+            Declares(stops[after], property, out end);
+            side = Synthesised.Start;
+            t = offset / stops[after].Offset;
+
             return true;
         }
 
         Declares(stops[before], property, out start);
 
         if (after < 0) {
+            // A stop at the very end holds alone; anywhere short of it, the segment runs on to a stop
+            // synthesised at 100%.
+            var remaining = 1f - stops[before].Offset;
+
+            if (remaining > 0f) {
+                side = Synthesised.End;
+                t = (offset - stops[before].Offset) / remaining;
+            }
+
             return true;
         }
 
@@ -750,7 +889,11 @@ public sealed class Animator {
     public ComputedStyle Apply(StyleNodeId element, ComputedStyle style, float now) {
         ArgumentNullException.ThrowIfNull(style);
 
-        if (running.Count == 0 && animations.Count == 0) {
+        // ⚠ <b>Per element, and not "is anything running anywhere".</b> `UiDocument.Accumulate`
+        // calls this for every element of every style walk, and the document-wide test let one
+        // spinner send every other element through the loop below and through `Withdrawing` (#1383).
+        // An element with nothing of its own has nothing to overlay.
+        if (!running.Holds(element.Index) && !animations.ContainsKey(element.Index)) {
             return style;
         }
 
@@ -758,8 +901,9 @@ public sealed class Animator {
 
         for (var i = 0; i < style.Count; i++) {
             var property = style.Properties[i];
+            OverlayProbes++;
 
-            if (!TryOverlay(element, property, now, out var value)) {
+            if (!TryOverlay(element, property, now, style, out var value)) {
                 continue;
             }
 
@@ -781,18 +925,18 @@ public sealed class Animator {
     ///     answered as the mix's text on both tiers, never through <see cref="StyleValue" />, which
     ///     has nothing to hold it in.
     /// </remarks>
-    bool TryOverlay(StyleNodeId element, int property, float now, out int value) {
+    bool TryOverlay(StyleNodeId element, int property, float now, ComputedStyle style, out int value) {
         if (mixes.TryGetValue(property, out var function)) {
             if (running.TryGetValue((element.Index, property), out var mixing) && mixing.IsMix) {
                 value = values.Intern(MixText(function, mixing.MixAt(now), mixing.MixFrom, mixing.MixTo));
                 return true;
             }
 
-            return TryGetAnimatedMix(element, property, function, now, out value);
+            return TryGetAnimatedMix(element, property, function, now, style, out value);
         }
 
         if (!TryGetCurrent(element, property, now, out var current)
-            && !TryGetAnimated(element, property, now, out current)) {
+            && !TryGetAnimated(element, property, now, style, out current)) {
             value = NameTable.None;
             return false;
         }
@@ -801,15 +945,25 @@ public sealed class Animator {
         return true;
     }
 
-    /// <summary>Adds a mix still running for a property the cascade no longer gives the element.</summary>
+    /// <summary>Adds a transition still running for a property the cascade no longer gives the element.</summary>
     /// <remarks>
-    ///     ⚠ <b>The commonest transform transition there is, and without this it would run and never
-    ///     be seen.</b> <c>hover:rotate-z-45</c> puts a <c>transform</c> on an element that has none
-    ///     at rest, so the moment the pointer leaves, the cascade stops holding the property at all
-    ///     and <see cref="Apply" />'s loop — which walks the properties the style has — never reaches
-    ///     the transition <see cref="Observe" /> started back to <c>none</c>. The card snapped home.
-    ///     Mixes only: whether a numeric fade back to an initial value has the same gap is a question
-    ///     about that path, recorded rather than changed here.
+    ///     <para>
+    ///         ⚠ <b>The commonest transition there is, and without this it would run and never be
+    ///         seen.</b> <c>hover:rotate-z-45</c> puts a <c>transform</c> on an element that has none at
+    ///         rest, and <c>hover:ml-10</c> a <c>margin-left</c>, so the moment the pointer leaves the
+    ///         cascade stops holding the property at all and <see cref="Apply" />'s loop — which walks
+    ///         the properties the style has — never reaches the transition <see cref="Observe" />
+    ///         started back to <c>none</c> or to the initial value. The card snapped home.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Numbers as well as mixes, which this used to say it had left open (#1382).</b> It was
+    ///         written for the transform half under #174 and filtered on <c>IsMix</c>, so a
+    ///         <c>margin-left</c> fading back to its initial <c>0px</c> ran in the table for its whole
+    ///         duration while the box sat at zero from the first frame — and every fixture that asked
+    ///         the animator (<see cref="TryGetCurrent" />) rather than the document saw it running. The
+    ///         value is the transition's own, heading for the initial value <see cref="Computed" />
+    ///         filled in; a property with no initial value never started a transition to reach here.
+    ///     </para>
     /// </remarks>
     List<KeyValuePair<int, int>>? Withdrawing(
         StyleNodeId element,
@@ -817,29 +971,57 @@ public sealed class Animator {
         float now,
         List<KeyValuePair<int, int>>? overlaid
     ) {
-        if (running.Count == 0) {
+        if (running.Of(element.Index) is not { } entries) {
             return overlaid;
         }
 
-        foreach (var ((index, property), transition) in running) {
-            if (index != element.Index || !transition.IsMix || style.TryGet(property, out _)) {
+        foreach (var (property, transition) in entries) {
+            WithdrawingVisits++;
+
+            if (style.TryGet(property, out _)) {
                 continue;
             }
 
-            if (overlaid is not null && overlaid.Exists(pair => pair.Key == property)) {
+            if (overlaid is not null && Holds(overlaid, property)) {
                 continue;
             }
+
+            var value = transition.IsMix
+                ? values.Intern(MixText(mixes[property], transition.MixAt(now), transition.MixFrom, transition.MixTo))
+                : values.Intern(transition.ValueAt(now).ToCss(values));
 
             overlaid ??= Copy(style);
-            overlaid.Add(
-                new KeyValuePair<int, int>(
-                    property,
-                    values.Intern(MixText(mixes[property], transition.MixAt(now), transition.MixFrom, transition.MixTo))
-                )
-            );
+            overlaid.Add(new KeyValuePair<int, int>(property, value));
         }
 
         return overlaid;
+    }
+
+    /// <summary>How many running transitions <see cref="Withdrawing" /> has looked at, over the animator's life.</summary>
+    /// <remarks>
+    ///     The instrument for #1383, which is a cost and so wants a count rather than a clock: it must
+    ///     not move with the number of <i>other</i> elements that are transitioning.
+    /// </remarks>
+    internal long WithdrawingVisits { get; private set; }
+
+    /// <summary>How many cascaded properties <see cref="Apply" /> has asked the tiers about, over the animator's life.</summary>
+    /// <remarks>
+    ///     The other half of #1383's instrument: it counts the work the per-element early return in
+    ///     <see cref="Apply" /> saves, which <see cref="WithdrawingVisits" /> cannot see, because
+    ///     <see cref="Withdrawing" /> already reads only the element's own entries.
+    /// </remarks>
+    internal long OverlayProbes { get; private set; }
+
+    /// <summary>Whether an overlay under construction already holds a property.</summary>
+    /// <remarks>A loop rather than <c>List.Exists</c>, whose lambda captures and allocates on every call.</remarks>
+    static bool Holds(List<KeyValuePair<int, int>> overlaid, int property) {
+        foreach (var pair in overlaid) {
+            if (pair.Key == property) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Adds the properties this element's animations name and its cascade never gave it.</summary>
@@ -862,6 +1044,13 @@ public sealed class Animator {
     ///         moved nothing, because the loop it was answering never asked. Writing
     ///         <c>rotate: 0deg</c> into the rule made it work, which is not something CSS asks an
     ///         author to do.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Introduced is not the same as travelling.</b> This example is now overlaid, but
+    ///         <c>rotate</c> has no initial value this animator can travel from, so its one
+    ///         <c>to</c> stop is held and the turn is drawn complete from the first frame. See the
+    ///         partial #1381 records in <see cref="TryGetAnimated(StyleNodeId, int, float, out StyleValue)" />'s
+    ///         private overload. <c>transform: rotate(360deg)</c> does travel.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Every stop of every running animation, not the first.</b> A block may declare a
@@ -900,7 +1089,7 @@ public sealed class Animator {
 
                     // Transitions still first, for `Apply`'s reason — see `TryOverlay`, which is the
                     // one place the precedence is stated.
-                    if (!TryOverlay(element, property, now, out var value)) {
+                    if (!TryOverlay(element, property, now, style, out var value)) {
                         continue;
                     }
 
@@ -941,10 +1130,14 @@ public sealed class Animator {
         // being walked and two slots can map onto one another's old keys.
         var movedTransitions = new List<(int Element, int Property, RunningTransition Value)>(running.Count);
 
-        foreach (var ((element, property), transition) in running) {
+        foreach (var (element, entries) in running.Elements) {
             var to = At(remap, element);
 
-            if (to >= 0) {
+            if (to < 0) {
+                continue;
+            }
+
+            foreach (var (property, transition) in entries) {
                 movedTransitions.Add((to, property, transition));
             }
         }
@@ -1217,5 +1410,89 @@ public sealed class Animator {
         }
 
         return found;
+    }
+}
+
+/// <summary>The animator's running transitions, indexed by element so a per-element question costs that element's entries.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The answer to #1383, and the shape <c>Animator.animations</c> already had.</b> A flat
+///         dictionary keyed <c>(element, property)</c> is O(1) for "this property of this element" and
+///         O(everything) for "every transition on this element" — and the second is the question the
+///         style walk asks of every element on every restyle while anything is transitioning.
+///     </para>
+///     <para>
+///         An element's inner table is recycled rather than dropped when its last transition ends: a
+///         pointer brushing across a list starts and finishes a transition per row, and a fresh
+///         dictionary per row per hover is garbage the flat table never made.
+///     </para>
+/// </remarks>
+sealed class TransitionTable {
+    readonly Dictionary<int, Dictionary<int, RunningTransition>> byElement = [];
+    readonly Stack<Dictionary<int, RunningTransition>> spare = [];
+
+    /// <summary>How many transitions are running, over every element.</summary>
+    public int Count { get; private set; }
+
+    /// <summary>Every element with a transition, and its transitions by property.</summary>
+    public Dictionary<int, Dictionary<int, RunningTransition>> Elements => byElement;
+
+    /// <summary>Whether an element has any transition running.</summary>
+    public bool Holds(int element) => byElement.ContainsKey(element);
+
+    /// <summary>An element's transitions by property, or null where it has none.</summary>
+    public Dictionary<int, RunningTransition>? Of(int element) =>
+        byElement.TryGetValue(element, out var entries) ? entries : null;
+
+    public bool TryGetValue((int Element, int Property) key, out RunningTransition value) {
+        if (byElement.TryGetValue(key.Element, out var entries)) {
+            return entries.TryGetValue(key.Property, out value);
+        }
+
+        value = default;
+        return false;
+    }
+
+    public bool ContainsKey((int Element, int Property) key) =>
+        byElement.TryGetValue(key.Element, out var entries) && entries.ContainsKey(key.Property);
+
+    public RunningTransition this[(int Element, int Property) key] {
+        set {
+            if (!byElement.TryGetValue(key.Element, out var entries)) {
+                entries = spare.Count > 0 ? spare.Pop() : [];
+                byElement[key.Element] = entries;
+            }
+
+            if (entries.TryAdd(key.Property, value)) {
+                Count++;
+            } else {
+                entries[key.Property] = value;
+            }
+        }
+    }
+
+    public bool Remove((int Element, int Property) key) {
+        if (!byElement.TryGetValue(key.Element, out var entries) || !entries.Remove(key.Property)) {
+            return false;
+        }
+
+        Count--;
+
+        if (entries.Count == 0) {
+            byElement.Remove(key.Element);
+            spare.Push(entries);
+        }
+
+        return true;
+    }
+
+    public void Clear() {
+        foreach (var entries in byElement.Values) {
+            entries.Clear();
+            spare.Push(entries);
+        }
+
+        byElement.Clear();
+        Count = 0;
     }
 }

@@ -2771,7 +2771,15 @@ public sealed class DrawListBuilder {
         var value = parser.Parse(id);
 
         if (value.Kind != StyleValueKind.List) {
-            return default;
+            // ⚠ <b>`Unknown` is a refusal, and returning the identity for it in silence was #1385.</b>
+            // `StyleValueParser` has no reading at all for a function whose argument is the wrong
+            // kind or the wrong count — `brightness(2deg)`, `hue-rotate(1px)`, `sepia(abc)`,
+            // `blur(2px 3px)` — so the WHOLE declaration arrives here as `Unknown` and never reaches
+            // `One`, whose unit and arity checks were written for exactly those shapes. `blur(200ms)`
+            // did reach it, because `200ms` parses as a length, and so it was the one of them that
+            // was reported. `none` is a keyword and is how a filter is switched off, which is why
+            // only `Unknown` is said out loud — the rule `box-shadow`'s reader already keeps.
+            return value.Kind == StyleValueKind.Unknown ? Refused(property, id) : default;
         }
 
         // ⚠ One function or several, and the two arrive in shapes that are not nested the same way.

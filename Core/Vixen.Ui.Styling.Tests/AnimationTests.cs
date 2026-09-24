@@ -132,6 +132,27 @@ public class AnimationTests {
         Assert.Equal(0.75f, backwards.Number, Tolerance);
     }
 
+    /// <summary>
+    ///     ⚠ <b>A <c>to</c>-only block travels from the property's initial value when no style is
+    ///     given</b>, where it used to hold its one stop for the whole run (#1381).
+    /// </summary>
+    /// <remarks>
+    ///     The public reader has no cascaded style to take an underlying value from, so it takes the
+    ///     initial one — which is what the cascaded value is for an element that declares nothing.
+    ///     <c>opacity</c>'s is 1, so half way to 0.2 is 0.6. <c>Animator.Apply</c> reads the cascade;
+    ///     <c>Vixen.Ui.Tests</c>' <c>UnderlyingValueAnimationTests</c> covers that half in a document.
+    /// </remarks>
+    [Fact]
+    public void A_to_only_block_travels_from_the_initial_value() {
+        var (animator, element, opacity) = Running("@keyframes dim { to { opacity: 0.2 } } .a { animation: dim 1s linear }");
+
+        Assert.True(animator.TryGetAnimated(element, opacity, 0.5f, out var half));
+        Assert.Equal(0.6f, half.Number, Tolerance);
+
+        Assert.True(animator.TryGetAnimated(element, opacity, 0.75f, out var later));
+        Assert.Equal(0.4f, later.Number, Tolerance);
+    }
+
     [Fact]
     public void Fill_decides_what_is_left_behind_before_and_after() {
         var none = Running("@keyframes fade { from { opacity: 0.2 } to { opacity: 0.8 } } .a { animation: fade 1s linear 1s }");

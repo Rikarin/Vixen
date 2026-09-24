@@ -60,6 +60,40 @@ public class UtilityGenerationTests {
         Assert.Equal("16px", fixture.Computed(["mt-4"], "margin-top"));
     }
 
+    /// <summary>
+    ///     ⚠ <b>A number with no negative value has no negative class</b>, where
+    ///     <c>-opacity-50</c> used to be <c>opacity: -0.5</c> (#1384).
+    /// </summary>
+    /// <remarks>
+    ///     #1348 refused the leading minus for the filter slots and left every other
+    ///     <c>Fraction</c> and <c>Number</c> family negatable, because <c>TryNegate</c> flips any
+    ///     value that starts with a digit. The counts beside <c>opacity</c> were the same gap:
+    ///     <c>flex-grow: -1</c>, <c>aspect-ratio: -16 / 9</c>. The rows that resolve are the
+    ///     instrument: <c>order</c>, <c>z-index</c> and the grid lines have negatives in CSS and in
+    ///     Tailwind, and a fix that refused every negative number would turn them red.
+    /// </remarks>
+    /// <param name="utility">A negative spelling.</param>
+    /// <param name="expected">What it emits, or null where it should be no class.</param>
+    [Theory]
+    [InlineData("-opacity-50", null)]
+    [InlineData("-grow", null)]
+    [InlineData("-grow-2", null)]
+    [InlineData("-shrink-2", null)]
+    [InlineData("-line-clamp-2", null)]
+    [InlineData("-tab-2", null)]
+    [InlineData("-aspect-2", null)]
+    [InlineData("-aspect-video", null)]
+    [InlineData("opacity-50", "opacity: 0.5")]
+    [InlineData("-order-2", "order: -2")]
+    [InlineData("-z-2", "z-index: -2")]
+    [InlineData("-col-start-2", "grid-column-start: -2")]
+    [InlineData("-row-end-2", "grid-row-end: -2")]
+    public void A_number_with_no_negative_value_has_no_negative_class(string utility, string? expected) {
+        var fixture = new UtilityFixture();
+
+        Assert.Equal(expected, fixture.Declarations(utility) is { } emitted ? string.Join("; ", emitted) : null);
+    }
+
     [Fact]
     public void A_direction_variant_becomes_an_ancestor_attribute_selector() {
         // The same shape as `dark:` under the class strategy: an ancestor declares it and the utility

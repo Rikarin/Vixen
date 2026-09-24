@@ -138,6 +138,33 @@ public class AssembledReaderProbeTests {
     }
 
     /// <summary>
+    ///     <c>blur-auto</c> is no class, and the spacing steps its fall-through still answers are.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Found by this probe only once the draw list stopped being silent (#1385).</b>
+    ///     <c>TryBlur</c> fell through to the spacing scale, which answers <c>auto</c>, so
+    ///     <c>blur-auto</c> emitted <c>blur(auto)</c>. The parser reads that as nothing it knows, and
+    ///     the draw list returned the identity for it without a refusal — so the probe, which listens
+    ///     for refusals, heard nothing and the ledger scored <c>blur-*</c> as <c>works</c> while
+    ///     <c>blur-auto invert</c> drew unfiltered.
+    /// </remarks>
+    /// <param name="utility">A blur spelling.</param>
+    /// <param name="resolves">Whether it should resolve at all.</param>
+    [Theory]
+    [InlineData("blur-auto", false)]
+    [InlineData("backdrop-blur-auto", false)]
+    [InlineData("blur-2", true)]
+    [InlineData("blur-px", true)]
+    [InlineData("backdrop-blur-2", true)]
+    public void A_blur_of_auto_is_no_class(string utility, bool resolves) {
+        Assert.Equal(resolves, AssembledReaderProbe.FillsASlot(utility, Tokens));
+
+        if (resolves) {
+            Assert.False(AssembledReaderProbe.Declines(utility));
+        }
+    }
+
+    /// <summary>
     ///     A valid filter beside a negative spelling now reaches the draw list — the other half of the
     ///     fix, which "the negative no longer resolves" does not say on its own.
     /// </summary>
