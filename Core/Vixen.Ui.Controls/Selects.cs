@@ -150,32 +150,9 @@ public abstract partial class SelectBase : Control {
         // `Popover.ContentAdded`, which exists for this. Both routes now reach `OnOptionAdded`:
         // `AddOption` is sugar over `List.Content.Add<Option>()` and two properties.
         List.ContentAdded += (_, child) => {
-            if (child is not Option option) {
-                return;
+            if (child is Option option) {
+                Enlist(option);
             }
-
-            OnOptionAdded(option);
-
-            // ⚠ **And again whenever the option says something different about itself, which is the
-            // half that arriving cannot cover.** A tag is created before its attributes are
-            // assigned, so the line above runs on an option with no value and no label — and
-            // `Restate` matches on the value and displays the label. Without this an
-            // `<Option Value="cutout" />` in a `<Select Value="cutout" />` leaves the closed field
-            // showing its placeholder: everything correct, nothing selected, no diagnostic.
-            //
-            // Any property rather than a test against two keys, because restating is a walk of a
-            // handful of options and being right is worth more than the comparison it saves.
-            option.PropertyChanged += (changed, _) => {
-                if (changed is Option named) {
-                    OnOptionAdded(named);
-                }
-            };
-
-            // ⚠ And the label, which is not a `[UiProperty]` and so is not covered by the line above:
-            // `ButtonBase.Label` writes a part's text. It is what the closed field displays, so a
-            // label assigned after the option arrived — which is every order there is — has to reach
-            // `Restate` or the field shows its placeholder for a value that is selected.
-            option.LabelChanged += OnOptionAdded;
         };
 
         AddHandler<PointerEvent>(static (element, args) => ((SelectBase) element).Pointed(args));
@@ -206,6 +183,59 @@ public abstract partial class SelectBase : Control {
                 Document.Focus(this);
             }
         };
+    }
+
+    /// <summary>Makes an option that has arrived in the list one this control listens to.</summary>
+    void Enlist(Option option) {
+        OnOptionAdded(option);
+
+        // ⚠ **And again whenever the option says something different about itself, which is the
+        // half that arriving cannot cover.** A tag is created before its attributes are assigned,
+        // so the line above runs on an option with no value and no label — and `Restate` matches on
+        // the value and displays the label. Without this an `<Option Value="cutout" />` in a
+        // `<Select Value="cutout" />` leaves the closed field showing its placeholder: everything
+        // correct, nothing selected, no diagnostic.
+        //
+        // Any property rather than a test against two keys, because restating is a walk of a
+        // handful of options and being right is worth more than the comparison it saves.
+        option.PropertyChanged += (changed, _) => {
+            if (changed is Option named) {
+                OnOptionAdded(named);
+            }
+        };
+
+        // ⚠ And the label, which is not a `[UiProperty]` and so is not covered by the line above:
+        // `ButtonBase.Label` writes a part's text. It is what the closed field displays, so a label
+        // assigned after the option arrived — which is every order there is — has to reach
+        // `Restate` or the field shows its placeholder for a value that is selected.
+        option.LabelChanged += OnOptionAdded;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>An <see cref="Option" /> built as this control's own child is moved into the list,
+    ///     because that is the only place an option works.</b> <c>select.Add&lt;Option&gt;()</c>
+    ///     reads like adding a choice and is not one: <see cref="UiElement.Add{T}" /> parents on
+    ///     <c>this</c> and not on <see cref="ContentHost" />, so the option sat beside the field and
+    ///     the chevron — laid out inline as part of the closed control, missing from
+    ///     <see cref="Options" />, and deaf to a click, since the click that chooses is heard on the
+    ///     list. The sprite editor's slice-method select shipped exactly that way, drawing its three
+    ///     choices across the toolbar and offering none of them (#1394). Markup never had the
+    ///     problem, because a nested tag goes to <see cref="ContentHost" />; this is the same answer
+    ///     for C#.
+    ///     <para>
+    ///         ⚠ The move is a <see cref="UiDocument.Reparent" />, which raises no
+    ///         <c>Popover.ContentAdded</c> — that hook is creation only — so the option is enlisted
+    ///         here by hand, before its caller has assigned the value and label it is about to.
+    ///     </para>
+    /// </remarks>
+    protected override void OnChildAdded(UiElement child) {
+        base.OnChildAdded(child);
+
+        if (child is Option option && List is not null) {
+            Document.Reparent(option, List.Content);
+            Enlist(option);
+        }
     }
 
     /// <inheritdoc />

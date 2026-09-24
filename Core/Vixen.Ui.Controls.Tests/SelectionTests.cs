@@ -353,6 +353,47 @@ public class SelectionTests {
         Assert.Equal("sprite", select.Value);
     }
 
+    /// <summary>
+    ///     ⚠ <b>An option built as the select's own child is a choice in its list, not a row printed
+    ///     under the field.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <c>UiElement.Add</c> parents on the element and not on its content host, so
+    ///     <c>select.Add&lt;Option&gt;()</c> used to leave the option beside the field: drawn inline,
+    ///     absent from <c>Options</c>, and unchoosable, because the click is heard on the popover. The
+    ///     sprite editor shipped that way (#1394). Markup was never affected, since a nested tag goes to
+    ///     the content host.
+    /// </remarks>
+    [Fact]
+    public void An_option_added_to_the_select_itself_lands_in_its_list() {
+        using var fixture = new ControlFixture();
+
+        var select = fixture.Add<Select>();
+        select.Value = "sprite";
+
+        var mesh = select.Add<Option>();
+        mesh.Value = "mesh";
+        mesh.Label = "Mesh";
+
+        var sprite = select.Add<Option>();
+        sprite.Value = "sprite";
+        sprite.Label = "Sprite";
+        fixture.Update();
+
+        Assert.Same(select.List.Content, mesh.Parent);
+        Assert.Equal([mesh, sprite], select.Options);
+
+        // The value set before the options existed is found once they say what they are, which is
+        // the enlisting — not just the move.
+        Assert.Equal("Sprite", select.Field.Text);
+        Assert.True(sprite.IsSelected);
+
+        fixture.Click(select);
+        fixture.Click(mesh);
+
+        Assert.Equal("mesh", select.Value);
+    }
+
     [Fact]
     public void A_multi_select_stays_open_and_counts_what_is_chosen() {
         using var fixture = new ControlFixture();
