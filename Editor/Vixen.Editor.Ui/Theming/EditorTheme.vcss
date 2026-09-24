@@ -1174,8 +1174,17 @@ console-toolbar toggle-button.console-level:checked.level-verbose { color: var(-
 
    ⚠ One and not two, and that was measured: the empty pane's line does not
    shrink, and at 1600×640 — the Preferences pictures' size — a two-row
-   floor pushed it through the dock panel's bottom edge. */
-console-view virtualizing-panel { flex-grow: 1; flex-basis: 0px; min-height: 22px; }
+   floor pushed it through the dock panel's bottom edge.
+
+   The floor is the panel's own `--row-height`, which is what it sizes its
+   rows by, so a denser row cannot leave the floor a row and a half. The
+   fallback is the panel's own default (`VirtualizingPanel.RowHeight`) and
+   is the value in use today, since nothing sets the token on the console. */
+console-view virtualizing-panel {
+    flex-grow: 1;
+    flex-basis: 0px;
+    min-height: var(--row-height, 22px);
+}
 
 /* Doc 36 § P5's errors panel. A column of monospaced lines, because every one of them is
    `File.cs(12,5): CS0103: …` and the columns only line up in a fixed pitch — which is what
@@ -1269,13 +1278,23 @@ console-row:checked console-repeats { color: var(--accent-text); }
    and the pane's own last 28 px — the end of the stack and the whole of the
    thumb at the bottom of the scroll — sat behind the dock panel's edge,
    which is what "the thumb vanishes at the end of the scroll" was (#1327).
-   Now the pane shrinks, down to a floor that still shows a line of the
-   record, and the list keeps the row its own rule reserves. */
+   Now the list gives way first, down to the one row its own rule reserves,
+   and then the pane shrinks.
+
+   ⚠ All the way to nothing, and a floor here only moves the cut. A 48 px
+   floor fixed 1280×800 and cut the pane 11 px at 1600×640, where a 97 px
+   console under a 41 px toolbar and a 22 px row has 34 px for it: any floor
+   is a console height below which the pane goes back through the dock's
+   edge, and a pane that is clipped by the dock shows no more of the record
+   than one that is shorter. So a short console shows less of the pane —
+   its bars and its end are still its own. ⚠ What remains is a console
+   shorter than its toolbar and one row (63 px; a dock ~69 px tall): the
+   list's row is then cut, and nothing in this rule can help it. */
 console-detail {
     flex-direction: column;
     flex-shrink: 1;
     height: 132px;
-    min-height: 48px;
+    min-height: 0px;
     border-top-width: 1px;
     border-color: var(--border);
     background-color: var(--surface-sunken);

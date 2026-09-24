@@ -169,6 +169,30 @@ public sealed class ScrollingPanelPictureTests {
         Uncut(fixture, view);
     }
 
+    /// <summary>With a record selected, the pane and the list's row both fit the same console 640 px tall.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The size where #1390's first fix still cut the pane.</b> Here the console is 97 px: a
+    ///     41 px toolbar and a 22 px row leave 34 px, and a pane with a 48 px floor went 11 px through
+    ///     the dock panel's bottom edge — the end of its track and its horizontal bar behind that edge
+    ///     again, which is the original symptom at a shorter console. Found by a reviewer's probe
+    ///     that ran <see cref="Check" /> at four sizes; the fact above only drew this one empty.
+    /// </remarks>
+    [Fact]
+    public void A_selected_record_s_detail_and_a_row_of_the_list_fit_a_console_640_px_tall() {
+        using var fixture = Start(Width, 640);
+
+        var (console, view) = SelectDeepError(fixture);
+
+        Assert.False(view.HasClass("empty"), "no record is selected, so this is the empty pane");
+        Assert.True(
+            console.List.Height >= console.List.RowHeight,
+            $"with a record selected the console's list is {console.List.Height} px tall — not one "
+            + $"{console.List.RowHeight} px row left to select from at {WidthOf(fixture)}×{HeightOf(fixture)}."
+        );
+
+        Check(fixture, view, "console-detail-640");
+    }
+
     /// <summary>Whether the vertical thumb is drawn at the far end of its track once the view is scrolled there.</summary>
     /// <remarks>
     ///     <para>

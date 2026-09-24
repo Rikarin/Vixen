@@ -81,13 +81,14 @@ public sealed partial class ConsoleView : Control {
 
     /// <summary>The pane under it showing the whole of the selected record.</summary>
     /// <remarks>
-    ///     ⚠ <b>The content of a <see cref="ScrollView" />, not the pane itself.</b> The pane is 132
-    ///     px tall by the theme and a deep exception's stack is forty lines, and for as long as the
-    ///     pane was a plain element with <c>overflow: auto</c> everything past the sixth line was cut
-    ///     off with no way to reach it — in this UI that property clips and does not scroll, and the
-    ///     stack is the reason somebody clicked the row. See <c>Rikarin/Vixen#1275</c>. The
-    ///     <c>empty</c> class goes on the scroller, since it is the scroller's height the class
-    ///     collapses.
+    ///     ⚠ <b>The content of a <see cref="ScrollView" />, not the pane itself.</b> The pane is at
+    ///     most 132 px tall by the theme and a deep exception's stack is forty lines, and for as
+    ///     long as the pane was a plain element with <c>overflow: auto</c> everything past the sixth
+    ///     line was cut off with no way to reach it — in this UI that property clips and does not
+    ///     scroll, and the stack is the reason somebody clicked the row. See
+    ///     <c>Rikarin/Vixen#1275</c>. The <c>empty</c> class goes on the scroller, since it is the
+    ///     scroller's height the class collapses. In a short console the pane is less than 132 px,
+    ///     down to nothing, once the list is down to its one row (<c>Rikarin/Vixen#1390</c>).
     /// </remarks>
     public UiElement Detail { get; private set; } = null!;
 
