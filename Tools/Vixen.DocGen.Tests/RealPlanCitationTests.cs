@@ -97,9 +97,11 @@ public class RealPlanCitationTests {
     ///     343 citations, 57 of them bound to a symbol, when this was written, and 425 with 75 bound
     ///     once it read every document rather than the plans alone (#1387, #1388) — read by raising
     ///     each floor out of reach and taking the number the failure printed; the floors sit well under
-    ///     that and fail loudly on an empty read.
+    ///     that and fail loudly on an empty read. ⚠ The total stays under what the plans alone hold
+    ///     (350), so that it is <see cref="OutsidePlanFloor" /> and not this that names a sweep which
+    ///     stopped reading the rest.
     /// </remarks>
-    const int CitationFloor = 380;
+    const int CitationFloor = 300;
 
     /// <inheritdoc cref="CitationFloor" />
     const int BoundFloor = 60;
