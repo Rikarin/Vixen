@@ -162,10 +162,12 @@ public sealed class HostedInterfaceComposeTests : IDisposable {
         Assert.True(composed.Blended > 0, "the panel never went through UiBlend");
         Assert.Equal(0, composed.Unblended);
 
-        // #627's two counters a head drawing a HUD was to assert, read off the stock host: the HUD was
-        // drawn at the pass's white and composited sharp.
-        Assert.Equal(0, composed.Dim);
-        Assert.Equal(0, composed.Soft);
+        // ⚠ Not `UiRenderFeature.Dim` or `Soft`, #627's two counters, although this is the stock host
+        // they are read off: neither can be non-zero here. `Dim` counts geometry built below the
+        // renderer's white, and this window is 8-bit sRGB, whose white is one — the default the
+        // geometry is built at; `Soft` counts geometry built for another scale, and this is built at
+        // one for a scale of one. Asserting them would be a predicate that cannot be false. They mean
+        // something to a head that builds its own HUD on a float pass, and that head is #627's.
     }
 
     /// <summary>
@@ -234,7 +236,7 @@ public sealed class HostedInterfaceComposeTests : IDisposable {
     }
 
     /// <summary>What one run of the stock host produced.</summary>
-    sealed record Captured(Bitmap Picture, int Sceneless, int Blended, int Unblended, int Backdropped, int Dim, int Soft);
+    sealed record Captured(Bitmap Picture, int Sceneless, int Blended, int Unblended, int Backdropped);
 
     /// <summary>Runs the stock host on Vulkan offscreen, optionally with a HUD mounted, and captures a frame.</summary>
     Captured? Capture(bool compose, Func<Int2, DrawList>? hud, string directory, string name) {
@@ -300,9 +302,7 @@ public sealed class HostedInterfaceComposeTests : IDisposable {
                 graphics.Renderer.Ui.Sceneless,
                 ui?.Blended ?? 0,
                 ui?.Unblended ?? 0,
-                ui?.Backdropped ?? 0,
-                graphics.Renderer.Ui.Dim,
-                graphics.Renderer.Ui.Soft
+                ui?.Backdropped ?? 0
             );
 
             graphics.Device.WaitIdle();
