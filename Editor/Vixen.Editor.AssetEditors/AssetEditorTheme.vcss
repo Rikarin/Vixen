@@ -894,10 +894,14 @@ mixer-body > mixer-strips {
    viewport, the message wraps to two lines instead. This is the column the sheet had before
    #1275 made it a `ScrollView`: a plain `overflow-y: auto` column, its children stretched across it.
 
-   ⚠ Not `flex-basis: 0` on the message, which was tried: the row stops widening the content, but
-   the list's height is measured while the message is 0 px wide, one word a line, and 65 px of
-   empty list stays under the two real lines. The cost of the cap is at the 120 px floor, where a
-   field wider than the column is clipped rather than scrolled to. */
+   ⚠ Not `flex-basis: 0` on the message, which was tried. It left the list 109 px around its 44 px
+   row, and that was a layout-engine defect rather than a property of the sheet (#1412): the column
+   measured its items at its content width and only then let `min-width: 100%` widen it. With that
+   fixed the zero basis gives a 44 px list, measured in this very panel. It is still not the rule,
+   because what it relies on — a zero basis keeping the row out of the content's max-content width —
+   is this engine's reading and not CSS's, where a growable item's max-content contribution is its
+   content. The cap says the thing meant. Its cost is at the 120 px floor, where a field wider than
+   the column is clipped rather than scrolled to. */
 mixer-side > scroll-content { max-width: 100%; }
 
 /* ── The clip editor ────────────────────────────────────────────────
