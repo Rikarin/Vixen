@@ -231,7 +231,14 @@ public sealed class UiSurface {
     }
 
     /// <summary>What <c>@media</c> is answered against in this window.</summary>
-    public MediaContext Media => new(Width, Height, DpiScale, ColorScheme, Gamut, Preferences);
+    /// <remarks>
+    ///     ⚠ <b>The font size is the one <see cref="Metrics" /> was measured with</b>, which is the
+    ///     document's <c>RootFontSize</c>: the initial font size Media Queries 4 measures a query's
+    ///     <c>rem</c> and <c>em</c> against. Read off the same field as every <c>rem</c> in a
+    ///     declaration, so <c>min-[40rem]:</c> and <c>w-[40rem]</c> cannot disagree about what a
+    ///     <c>rem</c> is (#1373).
+    /// </remarks>
+    public MediaContext Media => new(Width, Height, DpiScale, ColorScheme, Gamut, Preferences) { FontSize = Metrics.RootFontSize };
 
     /// <summary>Its entry in the document's <see cref="MediaScopes" />.</summary>
     /// <remarks>

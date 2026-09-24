@@ -265,15 +265,24 @@ public static class Variants {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>This is the half of A12 (<c>Rikarin/Vixen#233</c>) that needs no generated box,
-    ///         and it is exactly one entry.</b> v4's <c>placeholder:</c> is <c>&amp;::placeholder</c>,
-    ///         and <c>::placeholder</c> is the one pseudo-element whose box this framework already
-    ///         builds: <c>TextField.OnCreated</c> makes it as <c>Part("field-placeholder")</c>, a
-    ///         direct child with a tag of its own that <c>ControlTheme.vcss</c> styles at
+    ///         and it is three entries.</b> v4's <c>placeholder:</c> is <c>&amp;::placeholder</c>, and
+    ///         <c>TextField.OnCreated</c> already builds that box as <c>Part("field-placeholder")</c>,
+    ///         a direct child with a tag of its own that <c>ControlTheme.vcss</c> styles at
     ///         <c>field-placeholder</c>. So the variant is a child combinator onto that tag and
     ///         nothing more. <c>before</c>, <c>after</c> and <c>marker</c> name boxes nothing
-    ///         generates; <c>selection</c> names a colour the field reads off its own style;
-    ///         <c>file</c> and <c>backdrop</c> name controls that do not exist. None of them belongs
-    ///         here until the thing it names does.
+    ///         generates; <c>selection</c> names a colour the field reads off its own style; no
+    ///         control here is a file input, so <c>file</c> names nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>backdrop</c> was listed with <c>file</c> as naming "controls that do not
+    ///         exist", and that was false.</b> v4's <c>backdrop:</c> is <c>&amp;::backdrop</c>, the
+    ///         box a modal <c>&lt;dialog&gt;</c> draws behind itself over the page. Both modal
+    ///         overlays here build that box: <c>Dialog.OnCreated</c> makes
+    ///         <c>Part("dialog-backdrop")</c> and <c>Drawer.OnCreated</c> makes
+    ///         <c>Part("drawer-backdrop")</c>, each a direct child that <c>ControlTheme.vcss</c>
+    ///         styles and paints (#233). So it is <see cref="PlaceholderPart" />'s shape over the two
+    ///         tags, as <c>:is()</c>. The class goes on the overlay, which is where v4 puts it on the
+    ///         <c>&lt;dialog&gt;</c>.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The child combinator and not the descendant one.</b> The part is a direct child
@@ -285,8 +294,33 @@ public static class Variants {
     ///     </para>
     /// </remarks>
     static readonly Dictionary<string, string> Parts = new(StringComparer.Ordinal) {
-        ["placeholder"] = PlaceholderPart
+        ["placeholder"] = PlaceholderPart,
+        ["backdrop"] = BackdropPart,
+        ["details-content"] = DetailsContentPart
     };
+
+    /// <summary>The child <c>Expander</c> builds its collapsible body as, as a scope onto the expander.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The third part variant, and the list that held it said it waited on the generated box
+    ///     (#233).</b> v4's <c>details-content:</c> is <c>&amp;::details-content</c>, the box a
+    ///     <c>&lt;details&gt;</c> puts everything except its <c>&lt;summary&gt;</c> in, hidden while
+    ///     it is closed. <c>Expander</c> is that element here: <c>ExpanderHeader</c> is the summary,
+    ///     and <c>Expander.OnCreated</c> builds the body as <c>Part("expander-content")</c>, a direct
+    ///     child <c>ControlTheme.vcss</c> keeps at <c>display: none</c> until <c>.open</c>. So it is
+    ///     <see cref="PlaceholderPart" />'s shape, a child combinator onto that tag, and the class goes
+    ///     on the expander as v4 puts it on the <c>&lt;details&gt;</c>.
+    /// </remarks>
+    internal const string DetailsContentPart = " > expander-content";
+
+    /// <summary>The children <c>Dialog</c> and <c>Drawer</c> build the sheet behind them as, as a scope onto the overlay.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both tags, because an author writing <c>backdrop:</c> means the modal's backdrop
+    ///     whichever modal it is.</b> Naming only <c>dialog-backdrop</c> would leave a drawer's class
+    ///     styling nothing, which looks exactly like the variant working on dialogs only by accident.
+    ///     <c>:is()</c> takes the more specific of its arguments, and both are one type selector, so
+    ///     the rule has the same specificity it would have over either tag alone.
+    /// </remarks>
+    internal const string BackdropPart = " > :is(dialog-backdrop, drawer-backdrop)";
 
     /// <summary>The child <c>TextField</c> builds its prompt as, as a scope onto the control.</summary>
     /// <remarks>
@@ -657,9 +691,11 @@ public static class Variants {
 
         if (rest.Length > 2 && rest[0] == '[' && rest[^1] == ']') {
             // Verbatim, as `@min-[…]` is: the author wrote a length, and which units compare is
-            // `MediaQuery`'s question. ⚠ It reads `px` and not `rem` or `em`, so `min-[40rem]:` —
-            // v4's own unit — generates a block the loader drops with a diagnostic naming `40rem`,
-            // and the class styles nothing at any width. See `MediaQuery.TryLength`.
+            // `MediaQuery`'s question. ⚠ It reads `rem` and `em` since #1373, against the document's
+            // text size, so `min-[40rem]:` — v4's own unit — is 640 pixels at 100 % and moves with a
+            // user's text-size preference. Until then it was a block the loader dropped. ⚠ The theme's
+            // named breakpoints are still converted to pixels when the theme is read, so `sm:` does
+            // NOT move with the preference; see `MediaQuery.TryLength`.
             width = rest[1..^1].ToString().Replace('_', ' ');
         } else if (tokens.Screens.TryGetValue(rest.ToString(), out var scale)) {
             width = Pixels(scale);

@@ -113,6 +113,52 @@ public sealed class StyleResolver {
     /// </remarks>
     public void BeginPass() => shared.Clear();
 
+    /// <summary>
+    ///     Where an ancestor's already-resolved style is read from, for a named <c>style()</c> query;
+    ///     null, or a null answer, cascades the ancestor instead.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Set by whoever holds the styles, which is not this class.</b> A named query asks an
+    ///         ancestor that can be several levels above the parent, and the parent's style is all a
+    ///         resolve is handed. <see cref="StyleUpdater" /> and <see cref="StyleEngine.ResolveAll" />
+    ///         each keep the array those styles are in, so each one points this at its own. It is
+    ///         keyed on the tree, because <c>StyleDiagnostics</c> cascades a tree of probes through
+    ///         this same resolver and an index into the document's array would be a stranger's style.
+    ///     </para>
+    ///     <para>
+    ///         Without it the ancestors are cascaded here, top down, before this element's own cascade
+    ///         touches the working lists. That is correct and costs a cascade per ancestor, and only
+    ///         a caller resolving one element by hand, as the styling tests do, ever pays it.
+    ///     </para>
+    /// </remarks>
+    internal Func<StyleTree, int, ComputedStyle?>? ResolvedAncestor { get; set; }
+
+    /// <summary>An element's ancestors' styles, nearest first, for a named <c>style()</c> query to search.</summary>
+    ComputedStyle[] AncestorStyles(StyleTree tree, StyleNodeId element) {
+        var chain = new List<int>();
+
+        for (var at = tree.ParentOf(tree.Validate(element)); at >= 0; at = tree.ParentOf(at)) {
+            chain.Add(at);
+        }
+
+        var styles = new ComputedStyle[chain.Count];
+
+        // Root first, so that an ancestor this has to cascade itself is handed its parent's style.
+        for (var i = chain.Count - 1; i >= 0; i--) {
+            var index = chain[i];
+            var parent = i + 1 < chain.Count ? styles[i + 1] : null;
+
+            // ⚠ Handed the part of this same array above it, which is complete by now. A plain
+            // `Cascade` would collect that ancestor's own ancestors again, and each of those theirs:
+            // exponential in the depth, for a lookup that is linear.
+            styles[i] = ResolvedAncestor?.Invoke(tree, index)
+                ?? CascadeCore(tree, new StyleNodeId(index), parent, tree.InlineAt(index), styles[(i + 1)..]);
+        }
+
+        return styles;
+    }
+
     /// <summary>Resolves an element's style, using the sharing cache where it is sound.</summary>
     /// <param name="tree">The element store.</param>
     /// <param name="element">The element.</param>
@@ -165,6 +211,26 @@ public sealed class StyleResolver {
     ) {
         ArgumentNullException.ThrowIfNull(tree);
 
+        return CascadeCore(tree, element, parent, inline, null);
+    }
+
+    /// <summary><see cref="Cascade" />, with the ancestors' styles supplied when the caller already has them.</summary>
+    ComputedStyle CascadeCore(
+        StyleTree tree,
+        StyleNodeId element,
+        ComputedStyle? parent,
+        InlineStyleId? inline,
+        ComputedStyle[]? ancestors
+    ) {
+        // ⚠ Collected FIRST, before `winners` and `candidates` are touched. Collecting may cascade an
+        // ancestor through this same resolver, which reuses both lists, and a cascade that has
+        // started iterating them cannot survive another one running inside it.
+        if (containers.Conditions.HasAncestorStyleQueries) {
+            ancestors ??= AncestorStyles(tree, element);
+        } else {
+            ancestors = [];
+        }
+
         Cascades++;
         winners.Clear();
 
@@ -206,7 +272,7 @@ public sealed class StyleResolver {
 
             if (styleQueries
                 && candidate.Containers != ContainerConditions.Unconditional
-                && !containers.Conditions.StyleHolds(candidate.Containers, parent, rules.Properties, rules.Values)) {
+                && !containers.Conditions.StyleHolds(candidate.Containers, parent, ancestors, rules.Properties, rules.Values)) {
                 continue;
             }
 

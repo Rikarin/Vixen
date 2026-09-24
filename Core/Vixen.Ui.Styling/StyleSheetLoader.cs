@@ -708,9 +708,10 @@ public sealed class StyleSheetLoader {
 
     /// <summary>Loads a <c>@container</c> block whose condition is <c>style()</c> features.</summary>
     /// <remarks>
-    ///     Only the unnamed, style-only form: see <see cref="StyleQuery" /> for why the named and
-    ///     the mixed forms would answer stale under this engine's incremental restyle, which makes
-    ///     them a diagnostic here rather than a rule that is sometimes wrong.
+    ///     The style-only forms, named or not, joined by <c>and</c> or <c>or</c> or under one
+    ///     <c>not</c>, and a form <c>and</c>-joined with size features, which asks the nearest size
+    ///     container. <c>or</c> across a size feature and a style feature is a diagnostic here rather
+    ///     than a rule read as <c>and</c>; see <see cref="StyleQuery" />.
     /// </remarks>
     void LoadStyleContainer(
         IContainerRule rule,
@@ -722,28 +723,31 @@ public sealed class StyleSheetLoader {
         int containers
     ) {
         var label = $"@container {prelude}";
-        var first = prelude.AsSpan().TrimStart();
 
-        // Anything that opens with neither a feature nor `not` opens with a container name.
-        if (!first.StartsWith("style(", StringComparison.OrdinalIgnoreCase)
-            && !first.StartsWith("(", StringComparison.Ordinal)
-            && !first.StartsWith("not ", StringComparison.OrdinalIgnoreCase)) {
-            diagnostics.Add(
-                new SelectorDiagnostic(
-                    label,
-                    "a named style query asks an ancestor that may be above the parent, which this cascade cannot keep current"
-                )
-            );
-
-            return;
-        }
-
-        if (!StyleQuery.TryRead(prelude, out var features, out var reason)) {
+        // ⚠ A named prelude is read, not refused, since #273: the ancestor it asks is found by the
+        // resolver, and `StyleUpdater` re-resolves a named element's whole subtree when its style
+        // moves. See `StyleQuery`.
+        if (!StyleQuery.TryRead(prelude, out var condition, out var reason)) {
             diagnostics.Add(new SelectorDiagnostic(label, reason!));
             return;
         }
 
-        LoadInto(rule, origin, media, layer, conditions, Containers.RegisterStyle(containers, prelude, features));
+        // ⚠ A mixed query is two groups, the style group nested in a size group over the same name
+        // (#273). The size half is answered off the box by `ContainerScopes`, as a size query alone
+        // would be, and nesting makes the pair a conjunction. Its readability is the size query's own
+        // question, asked the way `LoadContainer` asks it: against no box, at load.
+        var within = containers;
+
+        if (condition.Size is { } size) {
+            if (!ContainerQuery.TryEvaluate(size, default, out _, out reason)) {
+                diagnostics.Add(new SelectorDiagnostic(label, reason!));
+                return;
+            }
+
+            within = Containers.Register(containers, condition.Name, size);
+        }
+
+        LoadInto(rule, origin, media, layer, conditions, Containers.RegisterStyle(within, prelude, condition));
     }
 
     /// <summary>The text between <c>@container</c> and its block, as the author wrote it.</summary>

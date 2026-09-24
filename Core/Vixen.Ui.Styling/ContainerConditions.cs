@@ -45,7 +45,7 @@ public sealed class ContainerConditions {
 
     // Parallel to `groups`, null for every size group. Kept out of `Group` so the record stays a
     // value the interning dictionary can compare — an array field would compare by reference.
-    readonly List<StyleFeature[]?> styles = [null];
+    readonly List<StyleCondition?> styles = [null];
 
     /// <summary>Whether any registered group is a <c>style()</c> query.</summary>
     /// <remarks>
@@ -53,6 +53,26 @@ public sealed class ContainerConditions {
     ///     asks this once per element before it would walk a group's enclosing chain per candidate.
     /// </remarks>
     internal bool HasStyleQueries { get; private set; }
+
+    /// <summary>
+    ///     Whether any registered group is a <c>style()</c> query that can ask above the parent: a
+    ///     named one, or one mixed with a size feature.
+    /// </summary>
+    /// <remarks>
+    ///     What turns on the two costs those forms have and the unnamed style-only one does not. The
+    ///     resolver collects an element's ancestors' styles, and <see cref="StyleUpdater" />
+    ///     re-resolves the whole subtree of an element such a query can ask whose style moved. See
+    ///     <see cref="StyleQuery" />.
+    /// </remarks>
+    internal bool HasAncestorStyleQueries { get; private set; }
+
+    /// <summary>Whether any registered group is a <c>style()</c> query mixed with a size feature.</summary>
+    /// <remarks>
+    ///     ⚠ Such a query asks the nearest size container, <i>named or not</i>. So once a sheet has one,
+    ///     every size container is an element a query can ask, and <see cref="StyleUpdater" />'s
+    ///     whole-subtree edge has to cover the unnamed ones too.
+    /// </remarks>
+    internal bool HasSizedStyleQueries { get; private set; }
 
     /// <summary>How many groups there are, the unconditional one included.</summary>
     public int Count => groups.Count;
@@ -87,51 +107,102 @@ public sealed class ContainerConditions {
         return groups.Count - 1;
     }
 
-    /// <summary>Registers an unnamed <c>style()</c> group, or finds the one already registered.</summary>
+    /// <summary>Registers a <c>style()</c> group, or finds the one already registered.</summary>
     /// <param name="within">The group this one is nested in, or <see cref="Unconditional" />.</param>
-    /// <param name="condition">The condition as written, which is what diagnostics and interning use.</param>
-    /// <param name="features">The features it was read into.</param>
+    /// <param name="prelude">The prelude as written, which is what diagnostics and interning use.</param>
+    /// <param name="condition">The condition it was read into.</param>
     /// <returns>The group's id, which a rule carries.</returns>
     /// <remarks>
     ///     ⚠ <b>Its verdict per container chain is always "holds"</b>, because a chain is boxes and this
     ///     asks nothing of a box: <see cref="Evaluate" /> passes it through and the cascade answers the
-    ///     features against the parent's style — see <see cref="StyleQuery" /> for why there and only
-    ///     for the unnamed form.
+    ///     condition against the parent's style, or the named ancestor's. See <see cref="StyleQuery" />
+    ///     for why there.
     /// </remarks>
-    internal int RegisterStyle(int within, string condition, StyleFeature[] features) {
+    internal int RegisterStyle(int within, string prelude, StyleCondition condition) {
         ArgumentOutOfRangeException.ThrowIfNegative(within);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(within, groups.Count);
 
         // A name no size query can carry, so a style group and a size group never intern together.
-        var key = new Group(within, "\0style", condition);
+        // The prelude carries the container name, so two names never intern together either.
+        var key = new Group(within, "\0style", prelude);
 
         if (interned.TryGetValue(key, out var existing)) {
             return existing;
         }
 
         groups.Add(key);
-        styles.Add(features);
+        styles.Add(condition);
         interned[key] = groups.Count - 1;
         HasStyleQueries = true;
+        HasAncestorStyleQueries |= condition.AsksAncestors;
+        HasSizedStyleQueries |= condition.Size is not null;
         Revision++;
 
         return groups.Count - 1;
     }
 
-    /// <summary>Whether every <c>style()</c> group in a group's stack holds against a parent's style.</summary>
+    /// <summary>Whether every <c>style()</c> group in a group's stack holds for one element.</summary>
     /// <param name="group">The group a rule carries.</param>
     /// <param name="parent">The parent's resolved style, or null for a root.</param>
+    /// <param name="ancestors">
+    ///     The element's ancestors' resolved styles, nearest first, which a named group searches. Empty
+    ///     unless <see cref="HasAncestorStyleQueries" />.
+    /// </param>
     /// <param name="properties">The table property names are interned in.</param>
     /// <param name="values">The table values are interned in.</param>
     /// <returns>Whether the style half of the stack holds; the size half is the verdicts' question.</returns>
-    internal bool StyleHolds(int group, ComputedStyle? parent, NameTable properties, NameTable values) {
+    internal bool StyleHolds(
+        int group,
+        ComputedStyle? parent,
+        ReadOnlySpan<ComputedStyle> ancestors,
+        NameTable properties,
+        NameTable values
+    ) {
         for (var at = group; at > Unconditional; at = groups[at].Within) {
-            if (styles[at] is { } features && !StyleQuery.Holds(features, parent, properties, values)) {
+            if (styles[at] is not { } condition) {
+                continue;
+            }
+
+            var container = condition.AsksAncestors
+                ? Nearest(ancestors, condition.Name, condition.Size is not null, properties, values)
+                : parent;
+
+            if (!StyleQuery.Holds(condition, container, properties, values)) {
                 return false;
             }
         }
 
         return true;
+    }
+
+    /// <summary>The nearest ancestor style a named or mixed condition asks, or null when none is eligible.</summary>
+    /// <param name="ancestors">The ancestors' styles, nearest first.</param>
+    /// <param name="name">The container name asked for, or empty for any.</param>
+    /// <param name="sized">
+    ///     Whether the condition has a size half, so only a size container is eligible. That is the
+    ///     rule <see cref="TryResolve" /> applies to the same query's size half, and it is what makes
+    ///     the two halves ask one element.
+    /// </param>
+    /// <param name="properties">The table property names are interned in.</param>
+    /// <param name="values">The table values are interned in.</param>
+    static ComputedStyle? Nearest(
+        ReadOnlySpan<ComputedStyle> ancestors,
+        string name,
+        bool sized,
+        NameTable properties,
+        NameTable values
+    ) {
+        foreach (var style in ancestors) {
+            if (sized && !StyleQuery.IsSizeContainer(style, properties, values)) {
+                continue;
+            }
+
+            if (name.Length == 0 || StyleQuery.Names(style, properties, values, name)) {
+                return style;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Forgets every group, as a reload does.</summary>
@@ -140,6 +211,8 @@ public sealed class ContainerConditions {
         styles.RemoveRange(1, styles.Count - 1);
         interned.Clear();
         HasStyleQueries = false;
+        HasAncestorStyleQueries = false;
+        HasSizedStyleQueries = false;
         Revision++;
     }
 
@@ -219,7 +292,7 @@ public sealed class ContainerConditions {
                 continue;
             }
 
-            if (name.Length != 0 && !string.Equals(candidate.Name, name, StringComparison.Ordinal)) {
+            if (name.Length != 0 && !Carries(candidate.Name, name)) {
                 continue;
             }
 
@@ -231,11 +304,32 @@ public sealed class ContainerConditions {
         return false;
     }
 
+    /// <summary>Whether a written <c>container-name</c> list includes one name.</summary>
+    /// <param name="names">The list as the container wrote it, <c>card side</c>.</param>
+    /// <param name="name">The one name a query asks for.</param>
+    /// <returns>Whether any entry is that name, compared whole and case-sensitively.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A list, CSS Containment 3 § 3.1, and this used to compare it whole (#273).</b> A box
+    ///     named <c>card side</c> was found by neither <c>@container card</c> nor <c>@container
+    ///     side</c>, while a <c>style()</c> query found it by either — <c>StyleQuery.Names</c> splits
+    ///     the list. A mixed query asks both halves of one box, so the two have to agree on what a
+    ///     name is.
+    /// </remarks>
+    internal static bool Carries(ReadOnlySpan<char> names, string name) {
+        foreach (var range in names.SplitAny(' ', '\t', '\n')) {
+            if (names[range].Equals(name, StringComparison.Ordinal)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     readonly record struct Group(int Within, string Name, string Condition);
 }
 
 /// <summary>One container in an element's ancestry.</summary>
-/// <param name="Name">Its <c>container-name</c>, or empty.</param>
+/// <param name="Name">Its <c>container-name</c> list as written, <c>card side</c>, or empty. A query asks for one entry.</param>
 /// <param name="Box">Its measured box and which axes it may be asked about.</param>
 public readonly record struct ContainerScope(string Name, ContainerBox Box);
 

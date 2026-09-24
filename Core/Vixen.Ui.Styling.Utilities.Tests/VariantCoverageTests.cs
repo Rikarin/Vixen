@@ -303,7 +303,22 @@ public class VariantCoverageTests {
         new("placeholder", "field-placeholder", 1, true),
         new("placeholder", "field-placeholder", 0, false),
         new("placeholder", "field-text", 1, false),
-        new("placeholder", "field-placeholder", 2, false)
+        new("placeholder", "field-placeholder", 2, false),
+
+        // Both modal overlays' backdrops, since an author means either. The wrong-tag row is the
+        // dialog's own surface, which is the sibling a `> *` would reach.
+        new("backdrop", "dialog-backdrop", 1, true),
+        new("backdrop", "drawer-backdrop", 1, true),
+        new("backdrop", "dialog-backdrop", 0, false),
+        new("backdrop", "dialog-surface", 1, false),
+        new("backdrop", "drawer-backdrop", 2, false),
+
+        // The expander's content slot, v4's `::details-content`. The wrong-tag row is its header,
+        // the `<summary>` a `> *` would reach and v4's `details-content:` never does.
+        new("details-content", "expander-content", 1, true),
+        new("details-content", "expander-content", 0, false),
+        new("details-content", "expander-header", 1, false),
+        new("details-content", "expander-content", 2, false)
     ];
 
     public static TheoryData<string, string, int, bool> PartRows {
@@ -373,13 +388,13 @@ public class VariantCoverageTests {
         // reaches the compiler, and never one the compiler accepts.
         var fixture = new UtilityFixture();
 
-        foreach (var candidate in new[] {
-                     "not-placeholder:p-4",
-                     "has-placeholder:p-4",
-                     "group-placeholder:p-4",
-                     "peer-placeholder:p-4"
-                 }) {
-            Assert.DoesNotContain("padding", fixture.Generate(candidate), StringComparison.Ordinal);
+        // Over the whole table rather than a list of names, so an entry added later is covered
+        // without anybody remembering to add four lines here.
+        foreach (var part in Variants.PartVariants) {
+            foreach (var composer in new[] { "not", "has", "group", "peer" }) {
+                var candidate = $"{composer}-{part}:p-4";
+                Assert.DoesNotContain("padding", fixture.Generate(candidate), StringComparison.Ordinal);
+            }
         }
 
         // And the ones that do compose, because they act on the element side of the combinator: a
@@ -427,6 +442,145 @@ public class VariantCoverageTests {
         // And not the value box beside it, nor the field itself.
         Assert.False(text.Style.TryGet(padding, out _), "the text part was styled, so the tag is not what selected it.");
         Assert.False(field.Style.TryGet(padding, out _), "the field itself was styled, which is F6's own defect.");
+    }
+
+    /// <summary>
+    ///     ⚠ <c>backdrop:</c> reaches the sheet a real <c>Dialog</c> and a real <c>Drawer</c> build,
+    ///     over the control theme that already colours it (#233).
+    /// </summary>
+    /// <remarks>
+    ///     The writer's side, for the reason the placeholder test above gives. The theme is loaded as
+    ///     <c>ControlTheme.Install</c> loads it, because the backdrop is not unstyled: the theme paints
+    ///     it <c>#00000066</c>. So a variant that reached nothing still reads a background, and the
+    ///     assertion is that it reads the utility's. Neither the overlay itself nor its surface may
+    ///     take the colour.
+    /// </remarks>
+    [Theory]
+    [InlineData(typeof(Dialog), "dialog-backdrop", "dialog-surface")]
+    [InlineData(typeof(Drawer), "drawer-backdrop", "drawer-surface")]
+    public void The_backdrop_variant_reaches_the_sheet_a_real_modal_builds(Type overlay, string backdropTag, string surfaceTag) {
+        using var document = new UiDocument(200f, 100f);
+        var fixture = new UtilityFixture();
+
+        ControlTheme.Install(document);
+        document.Load(fixture.Generate("backdrop:bg-[#ff00ff]"), StyleOrigin.Author);
+
+        Overlay modal = overlay == typeof(Dialog)
+            ? document.Root.Add<Dialog>(null, null, "backdrop:bg-[#ff00ff]")
+            : document.Root.Add<Drawer>(null, null, "backdrop:bg-[#ff00ff]");
+
+        // Open, because a closed overlay draws nothing, and a variant that reached the backdrop of
+        // a modal nobody can see would still pass everything above the draw below.
+        modal.Open();
+        document.Update();
+
+        var backdrop = modal.Children.Single(child => child.Tag == backdropTag);
+        var surface = modal.Children.Single(child => child.Tag == surfaceTag);
+        var background = document.Styles.Properties.Lookup("background-color");
+        const string accent = "#ff00ff";
+
+        Assert.True(backdrop.Style.TryGet(background, out var value), "the backdrop has no background at all.");
+        Assert.Equal(Normalised(document, accent), document.Styles.Values.NameOf(value));
+
+        Assert.False(
+            modal.Style.TryGet(background, out var own) && document.Styles.Values.NameOf(own) == Normalised(document, accent),
+            "the overlay itself took the colour, which is F6's own defect."
+        );
+
+        Assert.False(
+            surface.Style.TryGet(background, out var raised) && document.Styles.Values.NameOf(raised) == Normalised(document, accent),
+            "the surface took the colour, so the tag is not what selected it."
+        );
+
+        // ⚠ And it reaches the frame. The theme places the backdrop over the whole overlay, which
+        // covers the whole 200 × 100 document, so exactly one pure-magenta rectangle is drawn and it
+        // is that size at the origin. Magenta's channels survive the linear conversion exactly.
+        document.Draw();
+
+        var painted = Assert.Single(
+            document.Drawing.Commands,
+            command => command is { Kind: DrawCommandKind.Rectangle, Color: { R: 1f, G: 0f, B: 1f } }
+        );
+
+        Assert.Equal((0f, 0f, 200f, 100f), (painted.X, painted.Y, painted.Width, painted.Height));
+    }
+
+    /// <summary>
+    ///     ⚠ <c>details-content:</c> reaches the content slot a real <c>Expander</c> builds, and it is
+    ///     drawn only while the expander is open (#233).
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         v4's <c>details-content:</c> is <c>&amp;::details-content</c>, the box a
+    ///         <c>&lt;details&gt;</c> element puts everything except its <c>&lt;summary&gt;</c> in.
+    ///         <c>Expander</c> is that element: <c>ExpanderHeader</c> is the summary and
+    ///         <c>Part("expander-content")</c> is the slot, a direct child that
+    ///         <c>ControlTheme.vcss</c> hides with <c>display: none</c> until the expander is open.
+    ///     </para>
+    ///     <para>
+    ///         Closed, the frame holds no magenta at all, because the slot is not displayed, as a
+    ///         closed <c>&lt;details&gt;</c> hides its content. Open, it holds exactly one magenta
+    ///         rectangle, the slot's own box. The header and the expander itself never take the
+    ///         colour.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_details_content_variant_reaches_the_slot_a_real_expander_builds() {
+        using var document = new UiDocument(200f, 100f);
+        var fixture = new UtilityFixture();
+
+        ControlTheme.Install(document);
+        document.Load(fixture.Generate("details-content:bg-[#ff00ff]"), StyleOrigin.Author);
+        document.Load(".body { width: 60px; height: 20px; }", StyleOrigin.Author);
+
+        var expander = document.Root.Add<Expander>(null, null, "details-content:bg-[#ff00ff]");
+        expander.Label = "Section";
+        expander.Content.Add("div", null, "body");
+        document.Update();
+        document.Draw();
+
+        static bool Magenta(DrawCommand command) => command is { Kind: DrawCommandKind.Rectangle, Color: { R: 1f, G: 0f, B: 1f } };
+
+        Assert.DoesNotContain(document.Drawing.Commands, Magenta);
+
+        expander.IsExpanded = true;
+        document.Update();
+        document.Draw();
+
+        var content = expander.Content;
+        var background = document.Styles.Properties.Lookup("background-color");
+        var accent = Normalised(document, "#ff00ff");
+
+        Assert.True(content.Style.TryGet(background, out var value), "the content slot has no background at all.");
+        Assert.Equal(accent, document.Styles.Values.NameOf(value));
+
+        foreach (var other in new UiElement[] { expander, expander.Header }) {
+            Assert.False(
+                other.Style.TryGet(background, out var own) && document.Styles.Values.NameOf(own) == accent,
+                $"<{other.Tag}> took the colour, so the tag is not what selected it."
+            );
+        }
+
+        var painted = Assert.Single(document.Drawing.Commands, Magenta);
+
+        Assert.True(content.Width > 60f && content.Height > 20f, $"the slot is {content.Width} × {content.Height}, smaller than what it holds.");
+        Assert.Equal(
+            (content.AbsoluteLeft, content.AbsoluteTop, content.Width, content.Height),
+            (painted.X, painted.Y, painted.Width, painted.Height)
+        );
+    }
+
+    /// <summary>How a colour reads back once the loader has normalised it, by loading it on a probe.</summary>
+    static string Normalised(UiDocument document, string colour) {
+        using var probe = new UiDocument(10f, 10f);
+        probe.Load($"#probe {{ background-color: {colour}; }}", StyleOrigin.Author);
+
+        var element = probe.Create("div", probe.Root, "probe");
+        probe.Update();
+
+        element.Style.TryGet(probe.Styles.Properties.Lookup("background-color"), out var value);
+
+        return probe.Styles.Values.NameOf(value);
     }
 
     [Fact]
@@ -1111,21 +1265,26 @@ public class VariantCoverageTests {
     }
 
     [Fact]
-    public void An_arbitrary_range_in_rem_styles_nothing_and_the_loader_says_why() {
+    public void An_arbitrary_range_in_rem_takes_the_width_at_the_text_size() {
         // ⚠ v4 writes its own breakpoints in rem, so `min-[40rem]:` is the spelling a ported class
-        // list carries. `MediaQuery` reads px and not rem, which the comment in `Variants.TryScreen`
-        // used to call "a diagnostic rather than a guess" as though the diagnostic were somewhere the
-        // author would see it. This pins where it is: on the loader, naming the width, with the class
-        // styling nothing even far above the threshold.
+        // list carries. Until #1373 `MediaQuery` read px and not rem, and this test pinned the
+        // diagnostic the loader gave instead. Now the class takes its width at the context's text
+        // size, and the threshold moves with it: 640 at sixteen, 800 at twenty.
         var fixture = new UtilityFixture("");
+        var large = new MediaContext(799f, 800f) { FontSize = 20f };
 
-        Assert.Null(fixture.Computed(["min-[40rem]:p-4"], "padding-left", media: new MediaContext(1600f, 800f)));
-        Assert.Null(fixture.Computed(["max-[40rem]:p-4"], "padding-left", media: new MediaContext(100f, 800f)));
+        Assert.Equal("16px", fixture.Computed(["min-[40rem]:p-4"], "padding-left", media: new MediaContext(640f, 800f)));
+        Assert.Null(fixture.Computed(["min-[40rem]:p-4"], "padding-left", media: new MediaContext(639f, 800f)));
+        Assert.Null(fixture.Computed(["min-[40rem]:p-4"], "padding-left", media: large));
+        Assert.Equal("16px", fixture.Computed(["min-[40rem]:p-4"], "padding-left", media: large with { Width = 800f }));
+
+        Assert.Equal("16px", fixture.Computed(["max-[40rem]:p-4"], "padding-left", media: large));
+        Assert.Null(fixture.Computed(["max-[40rem]:p-4"], "padding-left", media: large with { Width = 800f }));
 
         var engine = new StyleEngine();
-        engine.Load(fixture.Generate("min-[40rem]:p-4"), StyleOrigin.Author, new MediaContext(1600f, 800f));
+        engine.Load(fixture.Generate("min-[40rem]:p-4", "@min-[30rem]:p-2"), StyleOrigin.Author, new MediaContext(1600f, 800f));
 
-        Assert.Contains(engine.Loader.Diagnostics, diagnostic => diagnostic.Reason.Contains("'40rem'", StringComparison.Ordinal));
+        Assert.Empty(engine.Loader.Diagnostics);
     }
 
     [Fact]

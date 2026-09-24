@@ -85,6 +85,41 @@ public class MediaContextTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>A breakpoint written in <c>rem</c> moves with the text-size preference, at a window
+    ///     that does not move (#1373).</b>
+    /// </summary>
+    /// <remarks>
+    ///     Media Queries 4 § 1.3 measures a media query's <c>rem</c> against the initial font size,
+    ///     which here is <see cref="UiDocument.RootFontSize" />. A 700-pixel window is above
+    ///     <c>40rem</c> at sixteen (640) and below it at twenty (800), so the rule has to switch off
+    ///     when the preference grows and back on when it shrinks. Nothing about the window changes, so
+    ///     only the setter can re-ask the question. The <c>width: 20rem</c> beside it is the control: a
+    ///     declaration's <c>rem</c> already followed the preference, and the query's has to agree.
+    /// </remarks>
+    [Fact]
+    public void A_breakpoint_in_rem_follows_the_text_size_without_a_resize() {
+        using var document = new UiDocument(700f, 200f);
+        var box = Box(document, """
+            root { width: 4000px; height: 200px; }
+            #box { width: 10px; height: 20px; }
+            @media (min-width: 40rem) { #box { width: 20rem; } }
+            """);
+
+        Assert.Equal(16f, document.Media.FontSize);
+        Assert.Equal(320f, box.Width);
+
+        document.RootFontSize = 20f;
+        document.Update();
+
+        Assert.Equal(20f, document.Media.FontSize);
+        Assert.Equal(10f, box.Width);
+
+        document.RootFontSize = 16f;
+        document.Update();
+        Assert.Equal(320f, box.Width);
+    }
+
+    /// <summary>
     ///     ⚠ <b><c>@media (color-gamut: p3)</c> matches on a wide surface and not on an sRGB one.</b>
     /// </summary>
     /// <remarks>
