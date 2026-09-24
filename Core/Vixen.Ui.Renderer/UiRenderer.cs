@@ -1099,9 +1099,9 @@ public sealed class UiRenderer : IDisposable {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Three ways a blended composite still goes out source-over, each counted here:</b> a
-    ///         host that handed over no <see cref="UiShaders.Blend" />; a group whose
-    ///         composite also needs a colour matrix or a mask, which the module that applies those
-    ///         cannot combine with a second texture; and the drop-shadow quad of a blended group, which
+    ///         host that handed over no <see cref="UiShaders.Blend" />; a group whose composite also
+    ///         needs a mask, which the module that applies it cannot combine with a second texture;
+    ///         and the drop-shadow quad of a blended group, which
     ///         the software path blends separately and this one composites plainly (#783's second
     ///         question, still to be settled rather than reproduced). The shadow is counted as its own
     ///         draw, so a blended shadowed group reads <see cref="Blended" /> for its composite and this
@@ -1114,6 +1114,8 @@ public sealed class UiRenderer : IDisposable {
     ///         coordinate, and the fragment stage was said to have no position input to recover the
     ///         target texel from. Raven has read a fragment's <c>SV_Position</c> since 289b50247, so
     ///         <c>UiBlend</c> reads the capture there for such a group — see <see cref="placedBlends" />.
+    ///         ⚠ A group with a <c>filter</c> colour matrix was a declined arrangement too, and is not
+    ///         any more: <c>UiBlend</c> applies the matrix itself before it mixes (#783).
     ///     </para>
     ///     <para>
     ///         ⚠ <b>What this does <i>not</i> count: a top-level blended group in a world renderer.</b>
@@ -2834,10 +2836,11 @@ public sealed class UiRenderer : IDisposable {
         // silently — the picture would be a correctly filtered, entirely unmasked group, which looks
         // like the mask never parsed. That precedence is also what makes the matrix unconditional in
         // the push below: it goes out as the identity when there is no filter.
-        // ⚠ <b>A blend is the fourth, and it takes the draw only when none of the other three
-        // does</b> (#783). `UiBlend` samples the group and its backdrop and does nothing else, so a
-        // blended group that also carries a matrix or a mask keeps the module that applies those and
-        // goes out source-over — `EnsureSurfaces` makes no capture for it, and `Unblended` counts it.
+        // ⚠ <b>A blend is the fourth, and it takes the draw from the matrix but not from the mask or
+        // the rounded box</b> (#783). `UiBlend` applies a colour matrix itself — the group's own
+        // `filter`, before it mixes — but has no mask list and no box, so a blended group that also
+        // carries a mask keeps the module that applies it and goes out source-over: `EnsureSurfaces`
+        // makes no capture for it, and `Unblended` counts it.
         var blend = layerBlends.Count > 0
             && draw.Kind == BatchKind.Image
             && layerBlends.TryGetValue(draw.Image, out var declared)
@@ -2846,7 +2849,6 @@ public sealed class UiRenderer : IDisposable {
 
         var capture = blend is not null
             && mask is null
-            && matrix is null
             && box is null
             && blendable.Contains(draw.Image)
             && blendCaptures.TryGetValue(draw.Image, out var captured)
@@ -2971,11 +2973,21 @@ public sealed class UiRenderer : IDisposable {
             // turns the fragment's window position into a capture coordinate — see `placedBlends`.
             var placed = placedBlends.Contains(draw.Image);
 
+            // ⚠ The matrix goes out whole on every blended draw, flagged rather than pushed as the
+            // identity, because `UiBlend` applies it through `UiComposite.Filter`, whose clamp to the
+            // alpha is not the identity on a frame built above a white of one. A second blended group
+            // in the pass would otherwise inherit the first one's filter — the mask branch's reason.
+            var filter = matrix ?? UiColorMatrix.Identity;
+
             Span<float> operation = [
                 (float) blend!.Value,
                 blendWhite,
                 placed ? 1f / layerWidth : 0f,
-                placed ? 1f / layerHeight : 0f
+                placed ? 1f / layerHeight : 0f,
+                matrix is null ? 0f : 1f, 0f, 0f, 0f,
+                filter.Red.X, filter.Red.Y, filter.Red.Z, filter.Red.W,
+                filter.Green.X, filter.Green.Y, filter.Green.Z, filter.Green.W,
+                filter.Blue.X, filter.Blue.Y, filter.Blue.Z, filter.Blue.W
             ];
 
             commands.PushConstants(PushStages, 16, MemoryMarshal.AsBytes(operation));
@@ -3157,11 +3169,13 @@ public sealed class UiRenderer : IDisposable {
             }
 
             // ⚠ <b>A blend's backdrop, on the terms the draw can actually use it (#783).</b> The
-            // composite reaches `blendPipeline` only when nothing else claims it — a colour matrix or
-            // a mask goes through the module that applies them, and neither of those samples a second
-            // texture. Every other blended group keeps the source-over composite it had, and
-            // `Unblended` counts it; allocating a capture for one would be a viewport-sized target and
-            // a pass nobody reads.
+            // composite reaches `blendPipeline` only when nothing else claims it — a mask goes through
+            // the module that applies it, which samples no second texture. A blended group with a
+            // mask keeps the source-over composite it had, and `Unblended` counts it; allocating a
+            // capture for one would be a viewport-sized target and a pass nobody reads.
+            // ⚠ <b>A colour matrix no longer claims it</b>: `UiBlend` applies the group's matrix
+            // itself before mixing, as `UiColour` would have, so a `filter` and a `mix-blend-mode` on
+            // one group are both honoured rather than the blend being dropped.
             // ⚠ <b>A transformed group is blendable now, and the reason it was not was false</b>
             // (#1379). It was declined because `UiBlend` read the backdrop at the quad's texture
             // coordinate — which a rotated quad carries untransformed — and "Raven has no
@@ -3169,7 +3183,6 @@ public sealed class UiRenderer : IDisposable {
             // reads `SV_Position` for such a group, which `placedBlends` tells `SubmitDraw` to ask for.
             if (layer.Blend != UiBlendMode.Normal
                 && blendPipeline.IsValid
-                && layer.Filter is not { IsIdentity: false }
                 && layer.MaskCount == 0) {
                 EnsureCapture(layer.Image);
                 blendable.Add(layer.Image);

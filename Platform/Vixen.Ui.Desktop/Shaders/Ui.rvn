@@ -1322,6 +1322,21 @@ shader UiBlend {
     /// less is not a white, and is read as one, which is the host's own fallback.
     [PushConstant] var operation: float4 = float4(0f, 1f, 0f, 0f)
 
+    /// `x` one when the group carries a `filter` colour matrix — the three rows below — and zero when
+    /// it does not.
+    ///
+    /// ⚠ **A flag and not an identity matrix, because `UiComposite.Filter` is not the identity on an
+    /// identity matrix.** It clamps premultiplied colour to `[0, a]`, which is CSS's clamp for a
+    /// filter and is wrong for a group that has none: in a frame built at a white level above one the
+    /// colour is legitimately above its alpha, and every blended HUD panel would be clamped to one
+    /// candela on its way into the blend.
+    [PushConstant] var filter: float4 = float4(0f, 0f, 0f, 0f)
+
+    /// The group's colour matrix, as `UiColour` declares it. See `UiComposite.Filter`.
+    [PushConstant] var red: float4 = float4(1f, 0f, 0f, 0f)
+    [PushConstant] var green: float4 = float4(0f, 1f, 0f, 0f)
+    [PushConstant] var blue: float4 = float4(0f, 0f, 1f, 0f)
+
     stream var uv: float2
     stream var colour: float4
     stream var shape: float4
@@ -1331,8 +1346,13 @@ shader UiBlend {
     func Fragment([Semantic("SV_Position")] fragment: float4): float4 {
         // ⚠ `UiImage`'s premultiplied path verbatim, before anything is mixed: the group's opacity is
         // the composite quad's vertex alpha, and § 5.1 blends the group *as it will be composited*.
+        // ⚠ Filtered first, as `UiColour` filters it (#783): Filter Effects 1 applies `filter` to the
+        // element's rendered result, and CSS Compositing 1 blends that result with the backdrop — so a
+        // group with both is the matrix, then the blend, which is the order `SoftwareUiRasterizer`
+        // takes when it folds the matrix into the surface before compositing it.
         val sampled = source.Sample(sourceSampler, uv)
-        val group = float4(sampled.rgb * colour.rgb * colour.a, sampled.a * colour.a)
+        val paint = filter.x > 0.5f ? UiComposite.Filter(sampled, red, green, blue) : sampled.rgb
+        val group = float4(paint * colour.rgb * colour.a, sampled.a * colour.a)
 
         // Where the backdrop is under this pixel: the window position for a transformed group, whose
         // quad has left the surface's space, and the surface coordinate otherwise. See above.
