@@ -171,7 +171,7 @@ static class GeneratorPackagingRule {
     /// <remarks>
     ///     ⚠ <b>Every one of them, not only the ones some library names as an <c>Analyzer</c>
     ///     reference.</b> <c>Vixen.Core.IO.Analyzers</c> is referenced by nothing in any
-    ///     <c>.csproj</c> — <c>Directory.Build.props:485</c> adds it to every non-generator
+    ///     <c>.csproj</c> — <c>./Directory.Build.props:579</c> adds it to every non-generator
     ///     <c>Core/</c> project at once — so a subject set built from the references would not
     ///     contain it, and the rule would be silent about the one generator whose packaging is
     ///     genuinely a judgement call.

@@ -294,7 +294,7 @@ static unsafe class SpirvCrossTranspiler {
     ///         drops <c>layout(location = …)</c> from a varying — the qualifier arrived for varyings
     ///         in ES 3.10 and is a compile error below it — but it keeps whatever names the module
     ///         carried. Raven names the same stream <c>out_normalWS</c> where it is written and
-    ///         <c>in_normalWS</c> where it is read (<c>GlslEmitter.cs:550,567</c>), and below ES 3.10
+    ///         <c>in_normalWS</c> where it is read (<c>GlslEmitter.cs:611,628</c>), and below ES 3.10
     ///         a varying links <em>by name</em>. So the two halves compiled and the program did not
     ///         link, with the fragment input unwritten.
     ///     </para>

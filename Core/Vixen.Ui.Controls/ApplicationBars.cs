@@ -212,7 +212,7 @@ public sealed partial class Toolbar : Control {
 ///     <para>
 ///         ⚠ <b><see cref="AccessibleRole.Status" /> is the whole reason this is a control.</b> A
 ///         status bar built out of a bare <c>UiElement</c> and a stylesheet — which is what
-///         <c>EditorShell.cs:138-155</c> does — is visually right and silent: ARIA's <c>status</c>
+///         <c>EditorShell.cs:138-155@918c2a098</c> did — is visually right and silent: ARIA's <c>status</c>
 ///         is a live region, so a screen reader announces a change to it <i>without</i> moving the
 ///         focus, and that is the entire behaviour a status bar exists to have.
 ///     </para>

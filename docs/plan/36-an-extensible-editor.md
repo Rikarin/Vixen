@@ -73,7 +73,7 @@ reaches the registry the host published rather than a process static. The findin
 they were measured, because the audit is the argument and rewriting it would lose it.
 
 **F3 — The Create menu is a hardcoded tuple array.**
-[`EditorWorlds.cs:744`](../../Editor/Vixen.Editor.App/EditorWorlds.cs) —
+[`EditorWorlds.cs:744@df8322123`](../../Editor/Vixen.Editor.App/EditorWorlds.cs) —
 
 ```csharp no-compile="the shape, not the whole array"
 NewAssetKinds = [
@@ -204,7 +204,7 @@ The grid already has per-type coloured icons. `AssetThumbnails` is
 `AssetGrid` draws it — a folder is amber, an unknown kind is grey, and each importer gets its own
 glyph.
 
-The tree does not. [`ProjectBrowser.cs:596`](../../Editor/Vixen.Editor.App/ProjectBrowser.cs) is the
+The tree does not. [`ProjectBrowser.cs:596@f9201ddda`](../../Editor/Vixen.Editor.App/ProjectBrowser.cs) is the
 whole of its icon logic:
 
 ```csharp no-compile="the whole of the tree view's icon logic"
@@ -903,8 +903,8 @@ whole of it was `AssetEditorRegistry` moving somewhere both ends could see:
 | File | Names |
 |---|---|
 | `EditorApplication.cs:317` | `AssetEditorRegistry` |
-| `EditorApplication.cs:1099` | `AssetEditorsModule` |
-| `EditorApplication.cs:12,13,46,47` | the `Vixen.Editor.AssetEditors` and `.Content` namespaces, and the `Prefab` / `PrefabSource` aliases |
+| `EditorApplication.cs:1100` | `AssetEditorsModule` |
+| `EditorApplication.cs:13,14,47,48` | the `Vixen.Editor.AssetEditors` and `.Content` namespaces, and the `Prefab` / `PrefabSource` aliases |
 | `ComponentsView.cs:21` | `PrefabSource` |
 | `EditorFrames.cs:7,399,409,434` | `StandardFrameDocument` |
 | `ShaderGraphPreviews.cs:4,5,27,56,66,80` | `IPreviewImages`, `ShaderGraphPreviewRenderer`, `ShaderGraphDocument`, and `Vixen.Editor.ShaderGraph` itself |
@@ -1238,7 +1238,7 @@ row assumed turned out not to be true, and the third is a design decision.**
 
 ⚠ **There is no coalescing to preserve, and the fear that there was is the wrong worry.** A drag does
 not produce a stream of edits: `SceneViewport.EndManipulate` builds the `GizmoDrag` and asks the first
-target for one entry, once, on mouse-up, then `Execute`s it and `Seal`s — `SceneViewport.cs:1135-1156`.
+target for one entry, once, on mouse-up, then `Execute`s it and `Seal`s — `SceneViewport.cs:1168-1189`.
 `TransformTargetsCommand.TryMergeWith` returns false on purpose. The gizmo owns the live manipulation
 and the command owns the history, which is the division `CommandTransaction` makes for every drag.
 

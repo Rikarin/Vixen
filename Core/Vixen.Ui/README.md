@@ -1830,7 +1830,7 @@ property at a time, across the `UiDocument` partials that produce it.
 | Doc 13 asks for | What is here | Where |
 |---|---|---|
 | layout-node count | `LayoutTree.NodeCount` | `Vixen.Ui.Layout/LayoutTree.cs:81` |
-| the frame's work | `StylesResolved`, `StylesApplied`, `ContainerScopesEntered`, `StyleCompactions`, `SettlingPasses`, `Settled`, `LastPassWasCold` | `Restyle.cs:76`, `UiDocument.cs:501`, `Containers.cs:180`, `UiDocument.cs:973`, `UiDocument.cs:1253` |
+| the frame's work | `StylesResolved`, `StylesApplied`, `ContainerScopesEntered`, `StyleCompactions`, `SettlingPasses`, `Settled`, `LastPassWasCold` | `Restyle.cs:76`, `UiDocument.cs:507`, `Vixen.Ui/Containers.cs:180`, `UiDocument.cs:979`, `UiDocument.cs:1259` |
 | element bounds, box model | `UiElement.AbsoluteLeft`/`Top`/`Width`/`Height`, and the layout node behind them | `UiElement.cs` |
 | the hovered element | `UiDocument.HitTest(x, y)`, and `HitTest(surface, x, y)` | `UiDocument.cs` |
 | style origin for it | `StyleOrigin`, `CascadePrecedence`, `StyleRuleSet.Origin` — the cascade carries provenance because it needs it | `Vixen.Ui.Styling` |

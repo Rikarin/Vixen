@@ -97,7 +97,7 @@
                 deduplicated, an entry per path with its own command id derived from the path rather
                 than its position, a greyed line for an unmounted volume and a `file.no-recent`
                 placeholder so an empty submenu reads as empty rather than broken
-                (`Vixen.Editor.App/EditorParity.cs:208`). What `Vixen.Ui` owes is the same idea one
+                (`Vixen.Editor.App/EditorParity.cs:206`). What `Vixen.Ui` owes is the same idea one
                 level down, and it owes a document with a `Location` first.
             -->
 

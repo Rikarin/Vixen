@@ -112,11 +112,11 @@ better than doc 40's Part 1 suggested.
 |---|---|---|
 | A node-graph framework | [`Vixen.Editor.NodeGraph`](../../Editor/Vixen.Editor.NodeGraph/README.md) | The model, the generated registry, `NodeGraphCompiler<T>`, port typing, sub-graphs, undo per gesture, search-to-create, auto-layout, clipboard, **and the per-node preview swatch** (`NodePreview`, `INodePreviewSource`) |
 | A second graph already built on it | [`Vixen.Editor.ShaderGraph`](../../Editor/Vixen.Editor.ShaderGraph/README.md) | The exact split this wants: a compiler that knows nothing about a project, a preview renderer that takes an `IGraphicsDevice`, and a panel elsewhere |
-| A shader language with compute | [`Raven`](../../Raven/README.md) — `README.md:577`, `:612` | Workgroup size on the stage attribute, `RWBuffer<T>` and storage images. **A node kernel is a Raven compute shader** — ⚠ an *editor* one, which `CheckShaders` reaches only through a hand-kept list of four; see § D1 |
+| A shader language with compute | [`Raven`](../../Raven/README.md) — `Raven/README.md:592`, `:627` | Workgroup size on the stage attribute, `RWBuffer<T>` and storage images. **A node kernel is a Raven compute shader** — ⚠ an *editor* one, which `CheckShaders` reaches only through a hand-kept list of four; see § D1 |
 | Offscreen rendering inside the editor | `Editor/Vixen.Editor.App/ThumbnailSurface.cs`, `ShaderGraphPreviewRenderer.cs` | A device in an editor assembly, drawing into a target, with no window |
 | Image containers and codecs | [`Vixen.Core.Imaging`](../../Core/Vixen.Core.Imaging/README.md) | `TextureData`, `MipChain`, `PngCodec`, `Ktx2`, `BlockCompression`, `DataFormatDescriptor` |
 | Texture import | `Editor/Vixen.Editor.Assets/Textures/` | `TextureImporter`, `StbImageDecoder`, `DdsDecoder`, and `SpriteSlicing` — doc 40's cited precedent for a pure pixel kernel tested with images built in a test |
-| An atlas rasteriser and a cage bake | `Core/Vixen.Geometry.Remeshing/Transfer/` — `AtlasRaster.cs`, `SourceSurface.cs`, `MapBaker.cs:142` | Conservative texel coverage, gutter dilation, opposed ray casting with a fallback, and a triangle tree over the source. **The expensive half of a mesh-map baker** |
+| An atlas rasteriser and a cage bake | `Core/Vixen.Geometry.Remeshing/Transfer/` — `AtlasRaster.cs`, `SourceSurface.cs`, `MapBaker.cs:287` | Conservative texel coverage, gutter dilation, opposed ray casting with a fallback, and a triangle tree over the source. **The expensive half of a mesh-map baker** |
 | UV unwrapping | [`Vixen.Geometry.Uv`](../../Core/Vixen.Geometry.Uv/README.md) | Charting, flattening, packing — so a mesh with no UVs is not a refusal |
 | A brush, a stroke and a falloff | `Core/Vixen.Terrain/BrushStroke.cs`, `BrushFalloff.cs`, `TerrainPaint.cs`; `Editor/Vixen.Editor.Terrain/TerrainPaintCommand.cs` | Pointer → stamp → kernel → **one undo entry per drag**, already solved once |
 | A plugin host, and two features that use it | [`Vixen.Editor.Plugin`](../../Editor/Vixen.Editor.Plugin/README.md), `TerrainModule`, `WaterModule` | Commands, panels, modes, layouts, keybindings, contributions, `Owns`/`With`, collectible unload |
@@ -125,7 +125,7 @@ better than doc 40's Part 1 suggested.
 
 ⚠ **Doc 40 § B1 is out of date and this document corrects it.** It said thirteen material features and
 only one names a map. Three name one now — `TexturedMetalRoughnessFeature`, `TexturedNormalMapFeature`
-and `TexturedOrmFeature` — and `WorldRenderer.cs:1058` pairs all three into the bindless table. The
+and `TexturedOrmFeature` — and `WorldRenderer.cs:1301-1303` pairs all three into the bindless table. The
 gap that remains is real but different, and it is [B1](#b1-a-layer-stack-cannot-ship-as-a-live-layered-material--for-the-runtime-path-only) below.
 
 ---
@@ -268,7 +268,7 @@ Core/Vixen.Geometry.Remeshing      + seven mesh-map bakers on the existing raste
 ⚠ **All of it is editor-side, and `Core/` gains nothing but the bakers.** Four reasons, and the first
 is the one that makes the rest free:
 
-1. **The CLI already reaches into `Editor/`.** `Tools/Vixen.Cli/Vixen.Cli.csproj:62-63` references
+1. **The CLI already reaches into `Editor/`.** `Tools/Vixen.Cli/Vixen.Cli.csproj:61-62` references
    `Vixen.Editor.Assets` and `Vixen.Editor.Core`, because the content pipeline lives there. So a
    headless `vixen texture bake` costs exactly nothing by being an editor assembly — which is the
    fact that usually decides this question the other way.
@@ -284,8 +284,9 @@ is the one that makes the rest free:
    `Raven/Library`.
 
 ⚠ **The one real cost of that placement, and it must not be discovered late.** `CheckShaders` has an
-editor half already — `Build.Shaders.cs:140`'s `EditorSources`, which recompiles a standalone `.rvn`
-beside its project and diffs the committed module — so the kernels are *gateable*. But that list is
+editor half already — `Build.Shaders.cs:140@d9e7d960e`'s `EditorSources`, which recompiles a
+standalone `.rvn` beside its project and diffs the committed module — so the kernels are *gateable*.
+But that list is
 **four hand-written tuples**, and its own remarks say what a source it does not know about costs:
 *"a source this gate did not know about is a source somebody can edit without recompiling, which is
 exactly the state this whole target exists to make impossible"* — which has already fired once, on
@@ -707,7 +708,7 @@ Three rules the whole catalogue obeys:
 |---|---|---|---|
 | **Uniform** | image | colour or grey, format | The `float4` every "which node is at fault" bisection starts from |
 | **Bitmap** | image | asset, filter, **colour space** | ⚠ An sRGB texture decoded as linear and then blended is the commonest wrong-looking graph there is. The node decodes on the asset's declared space and the port carries it |
-| **Gradient** | image | linear · radial · angular · reflected, angle, centre, ramp | The ramp is `Vixen.Ui.Controls.Advanced`'s `Gradient`, and ⚠ this is **`GradientEditor`'s first production consumer** — `overview.md:270` records that it has none, and a grep confirms it: the control, its tests and a string table |
+| **Gradient** | image | linear · radial · angular · reflected, angle, centre, ramp | The ramp is `Vixen.Ui.Controls.Advanced`'s `Gradient`, and ⚠ this is **`GradientEditor`'s first production consumer** — `overview.md:270@d9e7d960e` records that it has none, and a grep confirms it: the control, its tests and a string table |
 | **Shape** | grey | disc · square · triangle · paraboloid · gaussian · cone · half-bell · gradation, scale, rotation, falloff | The splatter's usual pattern input. Analytic rather than rasterised, so it is exact at every resolution — which is half of D8's scale-invariance criterion passing for free |
 | **Noise** | grey **+ cell id** | basis: value · gradient · worley · white; octaves, lacunarity, gain, **seed**, tiling | ⚠ One kernel with the basis as a **uniform** and a branch — this row said *permutation* from the day the document was written and [#638](https://github.com/Rikarin/Vixen/issues/638) is where the reversal is argued. A texture-graph plan has nowhere to put a permutation value, so one written here would take its `.rvn` default in every op for ever, silently; and the branch is the better answer anyway, because four bases times three storable formats is twelve modules for a branch every invocation in a bandwidth-bound dispatch takes the same way. `TextureKernelLanguageSeamTests` refuses a `[Permutation]` in any kernel, so the decision is held rather than remembered. Worley also outputs F1, F2 and a **cell index** — which is what a splatter wants and what saves a flood fill downstream |
 | **Checker** | grey | scale, rotation, offset | `ComputeColor.Checker` has one already, for the shader graph — and `Checker.rvn` **transcribes** its fold rather than calling it, and no longer because it cannot — `ComputeColor.Checker` takes a uv and a scale and has no rotation or offset, so the call would pass the identity for its only parameter ([#1077](https://github.com/Rikarin/Vixen/issues/1077)). The copy is held: the gate reads `mod(cell.x + cell.y, 2f)` out of the library and requires the kernel to contain it |

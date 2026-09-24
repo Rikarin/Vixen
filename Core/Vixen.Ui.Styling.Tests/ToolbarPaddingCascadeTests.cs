@@ -17,7 +17,7 @@ namespace Vixen.Ui.Styling.Tests;
 ///         <c>button.size-sm { padding: 2px 8px }</c> against <c>EditorTheme.vcss</c>'s
 ///         <c>toolbar button { padding: 4px 10px }</c> and concluded that the first won inside the
 ///         group and the second won on the strip, which no ordering produces. There is a third rule:
-///         <c>EditorTheme.vcss:693</c> restates <c>button.size-sm</c> at <c>3px 9px</c>. Same
+///         <c>EditorTheme.vcss:700</c> restates <c>button.size-sm</c> at <c>3px 9px</c>. Same
 ///         specificity as the control theme's, same <c>components</c> layer, later sheet — so it wins
 ///         at <i>both</i> sites, and the two buttons differ only in the border that
 ///         <c>toolbar-group button { border-width: 0px }</c> takes off the one in the group.
