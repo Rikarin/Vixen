@@ -830,17 +830,17 @@ counts the draws that blended; `UiBlendDeviceTests` holds all fifteen non-normal
 form and to `SoftwareUiRasterizer` on a device, plus overlapping siblings (the second one's backdrop
 replays the first one's *blended* composite) and a blend nested in a translucent group.
 
-⚠ **Three arrangements still composite source-over on the device, and `UiRenderer.Unblended` counts
-the first two** — it needs to, because a blend over a flat backdrop is often the identity
-(`multiply` against white, `screen` against black), so neither a screenshot nor a comparison of the
-two executors can tell. The third is invisible to it, for the reason given against it, and is
-counted by `UiRenderFeature.Sceneless` instead (#1378):
+⚠ **Two arrangements still composite source-over on the device, and `UiRenderer.Unblended` counts
+the first** — it needs to, because a blend over a flat backdrop is often the identity (`multiply`
+against white, `screen` against black), so neither a screenshot nor a comparison of the two
+executors can tell. The second is invisible to it, for the reason given against it, and is counted
+by `UiRenderFeature.Sceneless` instead (#1378). ⚠ **A group's own `filter` and `mask-image` are
+not among them any more** (#783): `UiBlend` applies the colour matrix and then the mask list before it
+mixes — the order CSS gives and `SoftwareUiRasterizer` takes — the matrix behind a flag rather than
+an identity matrix because `UiComposite.Filter` clamps to the alpha and would dim a frame built
+above a white of one, and the mask through `UiMaskList`, the per-entry coverage `UiMask` now shares
+with it. `UiBlendDeviceTests` holds both to § 5.1 on the filtered or masked paint.
 
-- a blended group that also carries a `mask-image`, whose composite belongs to the module that
-  applies it and samples one texture. ⚠ A `filter` colour matrix used to be declined the same way
-  and is not: `UiBlend` applies the matrix before it mixes, as `UiColour` would have and in the order
-  `SoftwareUiRasterizer` takes, behind a flag rather than an identity matrix because
-  `UiComposite.Filter` clamps to the alpha and would dim a frame built above a white of one;
 - a blended group's `drop-shadow()` quad, which the software path blends separately from the group
   (its own word-for-word approximation) and the device composites plainly — which of the two is
   right is still to be settled rather than reproduced. It is counted as a draw of its own, so a

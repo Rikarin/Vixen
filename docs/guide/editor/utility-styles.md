@@ -169,16 +169,15 @@ also why adding these classes to an existing screen changes nothing until somebo
 ⚠ And they place the **picture**, not the element. An `Image` with no `width` is still a zero-height
 box: sizing a replaced element from its content is a separate thing this framework does not do.
 
-⚠ **`mix-blend-*` is applied on both executors since #783, with three stated exceptions on the
-device.** A blended group that also carries a `mask-*`, a blended group's `drop-shadow` quad, and a
-top-level HUD panel in a world renderer still composite source-over on the GPU.
-`UiRenderer.Unblended` says so for the first two; the HUD panel does go through the blend, against an
-interface-only backdrop, so it is `UiRenderFeature.Sceneless` that counts it (#1378) — and a frame
-document that names `!UiCompose` ahead of its interface pass composes the HUD after the scene, over
-it, which removes that third exception for the frame. A
+⚠ **`mix-blend-*` is applied on both executors since #783, with two stated exceptions on the
+device.** A blended group's `drop-shadow` quad and a top-level HUD panel in a world renderer still
+composite source-over on the GPU. `UiRenderer.Unblended` says so for the first; the HUD panel does go
+through the blend, against an interface-only backdrop, so it is `UiRenderFeature.Sceneless` that
+counts it (#1378) — and a frame document that names `!UiCompose` ahead of its interface pass
+composes the HUD after the scene, over it, which removes that exception for the frame. A
 `rotate-*`/`scale-*` group blends since #1379, which found the reason it was declined — no
-fragment-position input in Raven — to be false, and a `filter` group since #783's `UiBlend` learnt to
-apply the colour matrix itself. See
+fragment-position input in Raven — to be false, and a `filter` group and a `mask-*` group since
+#783's `UiBlend` learnt to apply the colour matrix and the mask list itself. See
 `docs/guide/ui/compositing.md` and `docs/plan/43-web-styling-parity.md` § Part 9, Bucket 2.
 
 ⚠ **The `scroll-*` set is written now, and every one of them only means something inside a

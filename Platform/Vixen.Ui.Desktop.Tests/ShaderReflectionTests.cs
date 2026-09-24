@@ -85,6 +85,11 @@ public class ShaderReflectionTests {
     [InlineData("UiMask", "list", 64)]
     // `UiRenderer.SubmitDraw` pushes the mode and the white level at 16 for a blended composite.
     [InlineData("UiBlend", "operation", 16)]
+    // …then the matrix flag and rows, and the mask list after them (#783) — not at `UiMask`'s 64,
+    // because the blend block carries `operation` and `filter` ahead of its rows.
+    [InlineData("UiBlend", "filter", 32)]
+    [InlineData("UiBlend", "red", 48)]
+    [InlineData("UiBlend", "list", 96)]
     public void ThePushConstantsAreWhereTheHostWritesThem(string shader, string member, int offset) {
         foreach (var block in Reflection(shader).GetProperty("PushConstants").EnumerateArray()) {
             foreach (var declared in block.GetProperty("Members").EnumerateArray()) {
@@ -249,6 +254,9 @@ public class ShaderReflectionTests {
 
         Assert.Equal((0, "SampledTexture"), sets[0]["source"]);
         Assert.Equal((1, "Sampler"), sets[0]["sourceSampler"]);
+
+        // The mask list at the binding every image set writes the mask buffer to — `UiMask`'s (#783).
+        Assert.Equal((2, "StorageBuffer"), sets[0]["masks"]);
         Assert.Equal((0, "SampledTexture"), sets[1]["backdrop"]);
         Assert.Equal((1, "Sampler"), sets[1]["backdropSampler"]);
     }

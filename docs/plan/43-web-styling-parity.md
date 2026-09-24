@@ -3683,13 +3683,13 @@ until that number can be zero on a frame that asks for a blend.
 on in set 1 — the parent's draws replayed up to the composite, which is `backdrop-filter`'s replay with
 a later stop — and applies `UiBlend.Apply`'s arithmetic, white level included. `UiBlendDeviceTests`
 holds all fifteen non-normal modes to the closed form and to `SoftwareUiRasterizer` on a device. The
-row stays `partial` on three arrangements the device still composites source-over — a blended group
-that also carries a mask, a blended group's drop-shadow quad, and a top-level HUD panel in a world
-renderer, whose capture cannot contain a scene not yet drawn — which its `value_gap` names. (A
-transformed group was a fourth until #1379: it was declined because Raven was said to have no
-fragment-position input, which was false, and `UiBlend` now reads `SV_Position` for it. A group with
-a colour matrix was declined beside the masked one until `UiBlend` applied the matrix itself.)
-`Unblended` counts the first two. ⚠ The third it cannot: that panel
+row stays `partial` on two arrangements the device still composites source-over — a blended group's
+drop-shadow quad, and a top-level HUD panel in a world renderer, whose capture cannot contain a scene
+not yet drawn — which its `value_gap` names. (A transformed group was another until #1379: it was
+declined because Raven was said to have no fragment-position input, which was false, and `UiBlend`
+now reads `SV_Position` for it. A group with a colour matrix and a group with a mask were declined
+too until `UiBlend` applied the matrix, and then the mask list through `UiMaskList`, itself.)
+`Unblended` counts the first. ⚠ The second it cannot: that panel
 does go through `UiBlend`, against the interface's own prefix over transparent black, and reads
 `Blended`; the renderer has nothing that tells a scene beneath from a host that painted nothing.
 `UiRenderFeature.Sceneless` counts it instead, because the feature is what passed nothing (#1378).

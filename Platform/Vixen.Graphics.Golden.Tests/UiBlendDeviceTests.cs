@@ -447,6 +447,91 @@ public sealed class UiBlendDeviceTests {
         Assert.True(comparison.Matches, $"a filtered blend: the executors disagree: {comparison}");
     }
 
+    /// <summary>A group with a <c>mask-image</c> and a blend mode has both: the mask, then the blend (#783).</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This was the last counted decline of a group's own composite</b>: the mask took the
+    ///         draw for <c>UiMask</c>, which samples one texture, so the group was masked and then laid
+    ///         source-over — the blend dropped and <c>Unblended</c> one. <c>UiBlend</c> now reads the
+    ///         mask list through <c>UiMaskList</c> and masks the group before it mixes, which is CSS's
+    ///         order and the one <c>SoftwareUiRasterizer</c> takes.
+    ///     </para>
+    ///     <para>
+    ///         The mask is a flat half, so the closed form is § 5.1 at half the group's opacity. The
+    ///         instrument checks that answer is 20 or more codes from both wrong pictures: the masked
+    ///         group source-over, which is the old decline, and the unmasked blend, which is a mask the
+    ///         blend stage dropped.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AMaskedBlendAppliesTheMaskAndThenTheBlend() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        const float Coverage = 0.5f;
+
+        var expected = ExpectedOver(UiBlendMode.Multiply, Paint, Field, opacity: Opacity * Coverage);
+        var declined = ExpectedOver(UiBlendMode.Normal, Paint, Field, opacity: Opacity * Coverage);
+        var unmasked = ExpectedOver(UiBlendMode.Multiply, Paint, Field);
+
+        Assert.True(Distance(expected, declined) >= 20, $"{expected} and the old masked source-over {declined} are too close to tell apart");
+        Assert.True(Distance(expected, unmasked) >= 20, $"{expected} and the unmasked blend {unmasked} are too close to tell apart");
+
+        var list = new DrawList();
+        list.BeginFrame();
+        list.Add(new(DrawCommandKind.Rectangle, 0, 0, Side, Side, Field, 0, 0));
+        list.Add(
+            new DrawCommand(DrawCommandKind.LayerPush, 24, 24, 80, 80, new Color4(1f, 1f, 1f, Opacity), 0, 0) {
+                Blend = UiBlendMode.Multiply,
+                Offset = list.AddMasks([FlatHalf]),
+                Length = 1
+            }
+        );
+        list.Add(new(DrawCommandKind.Rectangle, 24, 24, 80, 80, Grey, 0, 0));
+        list.Add(new(DrawCommandKind.Rectangle, 40, 40, 48, 48, Paint, 0, 0));
+        list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+        list.EndFrame();
+
+        var (rendered, software, renderer) = Draw(owned, list, "blend-masked");
+
+        Assert.Equal(1, renderer.Blended);
+        Assert.Equal(0, renderer.Unblended);
+        Assert.Equal(1, renderer.Masked);
+
+        var middle = Middle(rendered);
+
+        Assert.True(
+            Distance(middle, expected) <= 3,
+            $"the device drew {middle}; the mask then the blend is {expected} (the old masked source-over {declined}, the "
+            + $"blend unmasked {unmasked})"
+        );
+
+        Assert.True(Distance(Middle(software), expected) <= 3, $"the software path drew {Middle(software)}; it should be {expected}");
+
+        var comparison = ImageComparer.Compare(rendered, software, new ImageTolerance(4, 0.001));
+
+        Assert.True(comparison.Matches, $"a masked blend: the executors disagree: {comparison}");
+    }
+
+    /// <summary>A mask entry of flat half coverage over the group's whole box.</summary>
+    /// <remarks>
+    ///     A ramp whose three stops are all one half: neither the identity the builder drops nor a
+    ///     hidden layer that erases the group, and a coverage with a closed form at every pixel.
+    /// </remarks>
+    static UiMask FlatHalf =>
+        new(
+            new Vector2(Side / 2f, Side / 2f),
+            new Vector2(40f, 40f),
+            Vector2.UnitX,
+            new Vector3(0.5f, 0.5f, 0.5f),
+            GradientStops.Default,
+            GradientShape.Linear,
+            Via: false
+        );
+
     /// <summary>
     ///     The field, a stripe down its left quarter, and a multiplied group over the middle half scaled
     ///     1.5× about its centre — in <paramref name="units" /> document pixels across.
@@ -512,10 +597,16 @@ public sealed class UiBlendDeviceTests {
         Assert.True(Distance(middle, expected) <= 3, $"{executor}: the middle is {middle}; it should be {expected}");
     }
 
-    /// <summary><paramref name="paint" /> at <see cref="Opacity" />, blended by <paramref name="mode" /> onto an opaque <paramref name="under" />.</summary>
-    static (int Red, int Green, int Blue) ExpectedOver(UiBlendMode mode, Color4 paint, Color4 under, Color4? onto = null) {
+    /// <summary><paramref name="paint" /> at <paramref name="opacity" /> — <see cref="Opacity" /> unless given — blended by <paramref name="mode" /> onto an opaque <paramref name="under" />.</summary>
+    static (int Red, int Green, int Blue) ExpectedOver(
+        UiBlendMode mode,
+        Color4 paint,
+        Color4 under,
+        Color4? onto = null,
+        float opacity = Opacity
+    ) {
         var destination = onto ?? under;
-        var source = new Color4(paint.R * Opacity, paint.G * Opacity, paint.B * Opacity, Opacity);
+        var source = new Color4(paint.R * opacity, paint.G * opacity, paint.B * opacity, opacity);
         var mixed = UiBlend.Apply(mode, source, under);
         var inverse = 1f - mixed.A;
 
@@ -668,21 +759,23 @@ public sealed class UiBlendDeviceTests {
         static int Code(float value) => (int)MathF.Round(Math.Clamp(value, 0f, 1f) * 255f);
     }
 
-    /// <summary>A capture left over from last frame is not used for this frame's group at the same number.</summary>
+    /// <summary>A capture left over from last frame is not used for this frame's draw at the same number.</summary>
     /// <remarks>
     ///     ⚠ <b>Surface numbers are reused by position from frame to frame, and a capture outlives the
-    ///     group that made it.</b> Frame one blends a plain group and makes its capture; frame two puts
-    ///     a masked group at the same number, which the device declines. A renderer that asked only
-    ///     "is there a capture for this number" would blend frame two against last frame's texels — so
-    ///     what decides is this frame's own verdict, and this reads it.
+    ///     group that made it.</b> Frame one blends a group and makes its capture; frame two puts a
+    ///     draw the device declines at the same number. A renderer that asked only "is there a capture
+    ///     for this number" would blend frame two's draw against last frame's texels — so what decides
+    ///     is this frame's own verdict, and this reads it.
     ///     <para>
-    ///         ⚠ <b>Frame two was a rotated group until #1379 made rotation blendable, and a filtered
-    ///         one until #783 made a colour matrix blendable too.</b> A mask is the arrangement left,
-    ///         and on an ordinary host it is declined twice over: by <c>EnsureSurfaces</c>' verdict and
-    ///         again by <c>SubmitDraw</c>, whose mask takes the draw first. So the host here has no
-    ///         colour or mask stage — the one arrangement in which the mask never reaches
-    ///         <c>SubmitDraw</c>'s map and the per-frame verdict is the only thing standing between the
-    ///         group and last frame's capture.
+    ///         ⚠ <b>Frame two was a rotated group until #1379 made rotation blendable, a filtered one
+    ///         until #783 made a colour matrix blendable, and a masked one until #783 made a mask
+    ///         blendable too.</b> What is left is a blended group's <i>drop-shadow quad</i>: it
+    ///         carries the group's mode under <see cref="UiLayer.ShadowImage" /> and is never
+    ///         blendable. Frame one is a plain faded group then a multiplied one, so the capture is at
+    ///         the second surface number; frame two is one multiplied group with a shadow, whose
+    ///         shadow takes that same second number. Asked "is there a capture", the shadow would go
+    ///         through <c>UiBlend</c> against frame one's texels — measured under sabotage as
+    ///         <c>Blended</c> 3: the composite and both of the shadow's draws.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -695,54 +788,59 @@ public sealed class UiBlendDeviceTests {
 
         var renderer = new UiRenderer(
             owned.Device,
-            UiShaderLibrary.Load(owned.Device) with { Colour = default, Mask = default },
+            UiShaderLibrary.Load(owned.Device),
             new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
         );
 
         owned.Owns(renderer.Dispose);
 
-        var plain = Group(UiBlendMode.Multiply);
-        Frame(plain, "ui-blend-first");
+        var first = new DrawList();
+        first.BeginFrame();
+        first.Add(new(DrawCommandKind.Rectangle, 0, 0, Side, Side, Field, 0, 0));
 
+        // Surface zero: faded and not blended, so it makes no capture.
+        first.Add(new DrawCommand(DrawCommandKind.LayerPush, 4, 4, 16, 16, new Color4(1f, 1f, 1f, 0.5f), 0, 0));
+        first.Add(new(DrawCommandKind.Rectangle, 4, 4, 16, 16, Grey, 0, 0));
+        first.Add(new(DrawCommandKind.Rectangle, 8, 8, 8, 8, Paint, 0, 0));
+        first.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+
+        // Surface one: multiplied, so its capture is made at that number.
+        first.Add(new DrawCommand(DrawCommandKind.LayerPush, 24, 24, 80, 80, new Color4(1f, 1f, 1f, Opacity), 0, 0) { Blend = UiBlendMode.Multiply });
+        first.Add(new(DrawCommandKind.Rectangle, 24, 24, 80, 80, Grey, 0, 0));
+        first.Add(new(DrawCommandKind.Rectangle, 40, 40, 48, 48, Paint, 0, 0));
+        first.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+        first.EndFrame();
+
+        var built = Frame(first, "ui-blend-first");
+
+        // The instrument: the capture really is at the number the shadow will take.
         Assert.Equal(1, renderer.Blended);
+        Assert.Equal(UiGeometryBuilder.LayerImage(1), built.Layers.Single(layer => layer.Blend != UiBlendMode.Normal).Image);
 
-        var masked = new DrawList();
-        masked.BeginFrame();
-        masked.Add(new(DrawCommandKind.Rectangle, 0, 0, Side, Side, Field, 0, 0));
-
-        // A half-transparent linear ramp, so the mask is neither the identity the builder drops nor
-        // a hidden layer that erases the group.
-        UiMask[] ramp = [
-            new(
-                new Vector2(Side / 2f, Side / 2f),
-                new Vector2(40f, 40f),
-                Vector2.UnitX,
-                new Vector3(0.5f, 0.5f, 0.5f),
-                GradientStops.Default,
-                GradientShape.Linear,
-                Via: false
-            )
-        ];
-
-        masked.Add(
+        var second = new DrawList();
+        second.BeginFrame();
+        second.Add(new(DrawCommandKind.Rectangle, 0, 0, Side, Side, Field, 0, 0));
+        second.Add(
             new DrawCommand(DrawCommandKind.LayerPush, 24, 24, 80, 80, new Color4(1f, 1f, 1f, Opacity), 0, 0) {
                 Blend = UiBlendMode.Multiply,
-                Offset = masked.AddMasks(ramp),
-                Length = ramp.Length
+                Shadow = new UiDropShadow(new Vector2(6f, 6f), 0f, new Color4(0.1f, 0.6f, 0.9f, 1f))
             }
         );
+        second.Add(new(DrawCommandKind.Rectangle, 24, 24, 80, 80, Grey, 0, 0));
+        second.Add(new(DrawCommandKind.Rectangle, 40, 40, 48, 48, Paint, 0, 0));
+        second.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+        second.EndFrame();
 
-        masked.Add(new(DrawCommandKind.Rectangle, 24, 24, 80, 80, new Color4(0.5f, 0.5f, 0.5f, 1f), 0, 0));
-        masked.Add(new(DrawCommandKind.Rectangle, 40, 40, 48, 48, Paint, 0, 0));
-        masked.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
-        masked.EndFrame();
+        built = Frame(second, "ui-blend-second");
 
-        Frame(masked, "ui-blend-second");
+        Assert.Equal(UiGeometryBuilder.LayerImage(1), Assert.Single(built.Layers).ShadowImage);
 
-        Assert.Equal(0, renderer.Blended);
-        Assert.Equal(1, renderer.Unblended);
+        // The group's own composite blends; its shadow — at the stale capture's number — does not,
+        // and is counted twice, once in the frame and once in the group's own capture's replay.
+        Assert.Equal(1, renderer.Blended);
+        Assert.Equal(2, renderer.Unblended);
 
-        void Frame(DrawList list, string name) {
+        UiGeometry Frame(DrawList list, string name) {
             var colour = owned.ColourTarget(name);
             var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
             var geometry = new UiGeometryBuilder().Build(list, cache, Viewport);
@@ -762,6 +860,8 @@ public sealed class UiBlendDeviceTests {
             );
 
             owned.Graph.Reset();
+
+            return geometry;
         }
     }
 
