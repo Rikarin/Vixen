@@ -81,7 +81,7 @@ namespace Vixen.DocGen.Tests;
 ///         and doc 49's <c>MediaQuery.cs:146,151</c> cited a blank and a brace, doc 46's
 ///         <c>Strings.cs:56</c> the line above its field. Afterwards: 453 citations, 117 bound — the
 ///         bold and wrapped shapes below found five drifted citations on their first run — and 39
-///         pinned. The 294 still unbound are held to a count per document that can only fall
+///         pinned. The 294 still unbound are held to a count per document that cannot move silently
 ///         (<see cref="Every_document_keeps_its_unbound_citations_to_the_recorded_count" />), so the
 ///         set whose drift nothing sees stops growing even where nobody re-reads it.
 ///     </para>
@@ -468,7 +468,7 @@ public class RealPlanCitationTests {
 
     /// <summary>
     ///     Every document holds exactly as many unbound, unpinned citations as <see cref="UnboundPath" />
-    ///     records for it, so the set whose drift nothing can see only ever shrinks.
+    ///     records for it, so the set whose drift nothing can see grows only by an edit to that file.
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -521,7 +521,7 @@ public class RealPlanCitationTests {
 
         Assert.True(
             wrong.Count == 0,
-            $"{wrong.Count} document(s) disagree with {UnboundPath}, whose counts can only fall (#1388):\n  " + string.Join("\n  ", wrong)
+            $"{wrong.Count} document(s) disagree with {UnboundPath}, whose counts change only where a diff says so (#1388):\n  " + string.Join("\n  ", wrong)
         );
     }
 
@@ -644,13 +644,24 @@ public class RealPlanCitationTests {
 
     /// <summary>A pin is checked against its commit and not against HEAD, in both directions.</summary>
     /// <remarks>
-    ///     Doc 49's § 1.5 as the audit had it: at <c>10523d70f</c> line 90 opened <c>Focus</c> and line 91
-    ///     was its <c>Focusable</c> gate. At HEAD neither line is either, so a pin read against HEAD would
-    ///     fail the first and a pin not read at all would pass the second.
+    ///     <para>
+    ///         Doc 49's § 1.5 as the audit had it: at <c>10523d70f</c> line 90 opened <c>Focus</c> and
+    ///         line 91 was its <c>Focusable</c> gate. By <c>6de5ac0f2</c> neither line was either, so a
+    ///         pin read against a later tree fails the first and a pin not read at all passes the second.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing here reads the live <c>Focus.cs</c>.</b> It did, asserting that HEAD's line 90
+    ///         was not a <c>Focus</c> line — and <c>Focus</c> is a whole word on sixteen of that hot
+    ///         file's lines, so an unrelated edit could land one on line 90 and turn this red for nothing.
+    ///         The later tree is a commit, which cannot move. And what catches a <see cref="Targets" />
+    ///         that reads HEAD for a pin is a file HEAD does not have: the Ui test kit's own
+    ///         <c>PngCodec</c>, deleted in <c>8ce3c54da</c>, so a pin to it holds at its parent and
+    ///         finds nothing at all at HEAD whatever anybody edits.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_pinned_citation_is_held_to_its_commit() {
-        if (!History.Has("10523d70f")) {
+        if (!History.Has("10523d70f") || !History.Has("6de5ac0f2") || !History.Has("5ac755981")) {
             Assert.Skip("this checkout has no history to hold a pin to (a shallow clone)");
         }
 
@@ -660,8 +671,15 @@ public class RealPlanCitationTests {
 
         Assert.Null(Resolve(right, index));
         Assert.Contains(Targets(right, index), target => Holds(right, target.Lines));
-        Assert.DoesNotContain(Targets(right, index), target => Holds(right, Lines(target.Path)));
+        Assert.DoesNotContain(Targets(right, index), target => Holds(right, History.Lines("6de5ac0f2", target.Path) ?? []));
         Assert.DoesNotContain(Targets(wrong, index), target => Holds(wrong, target.Lines));
+
+        // A pin to a file that is gone: it holds at its commit, and HEAD has nothing it could be read against.
+        var gone = Parse("x.md", 3, "`PngCodec` (`Vixen.Ui.Testing/Visual/PngCodec.cs:38@5ac755981`)").Single();
+
+        Assert.Empty(Candidates(gone, index));
+        Assert.Null(Resolve(gone, index));
+        Assert.Contains(Targets(gone, index), target => Holds(gone, target.Lines));
     }
 
     /// <summary>
