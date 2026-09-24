@@ -243,6 +243,87 @@ public sealed class ScrollingPanelPictureTests {
         Check(fixture, list, "sprite-list");
     }
 
+    /// <summary>The texture document's Texture tab, down to the import settings under the mip ladder.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>#1393: the settings were below the ladder, past the tab's clipped edge, with
+    ///         nothing to reach them.</b> The tab held the preview, the alert, the channel bar, the
+    ///         facts, the ladder and then <c>ImportSettingsView</c>, in a <c>document-tabs</c> tab set
+    ///         bound to the document's height inside a <c>texture-editor</c> that clips — so max size,
+    ///         compression and the platform overrides, everything a person opens a texture to change,
+    ///         were drawn off the bottom of the panel.
+    ///     </para>
+    ///     <para>
+    ///         A 128×128 texture has an eight-rung ladder, and at the session's 1600×1000 its last rung
+    ///         sits on the document's lower edge: the size #1275's picture was taken at.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_texture_tab_scrolls_down_to_its_import_settings() {
+        using var fixture = Start();
+
+        var relative = "Assets/ladder.png";
+        var absolute = fixture.Project.Paths.Absolute(relative);
+
+        Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
+        var opaque = new byte[128 * 128 * 4];
+        Array.Fill(opaque, (byte)255);
+
+        File.WriteAllBytes(absolute, Vixen.Editor.Assets.Tests.MinimalPng.Write(128, 128, opaque));
+        fixture.Project.Assets.Scan();
+
+        Assert.True(fixture.Project.Assets.TryGetByPath(relative, out var entry));
+
+        fixture.Editor.OpenAsset(entry.Guid);
+        fixture.Frames(2);
+
+        var texture = Find<Vixen.Editor.AssetEditors.Importing.TextureImportView>(fixture.Document.Root)
+            ?? throw fixture.Fail("opening a texture opened no texture view");
+
+        Assert.Equal(8, texture.Ladder.Children.Count);
+
+        var settings = texture.SettingsView;
+        var document = Ancestors(settings).First(ancestor => ancestor.Tag == "texture-editor");
+
+        Draw(fixture, null, "texture-tab-top");
+
+        // ⚠ The scroller that owns the settings, and it must be inside the document: the panel or
+        // the window scrolling would not be the tab reaching its own content.
+        var page = Ancestors(settings)
+            .TakeWhile(ancestor => !ReferenceEquals(ancestor, document))
+            .OfType<ScrollView>()
+            .FirstOrDefault();
+
+        Assert.True(
+            page is not null,
+            $"nothing between the texture document and its import settings scrolls, and the settings start "
+            + $"{settings.AbsoluteTop - (document.AbsoluteTop + document.Height):0} px below the document's bottom edge."
+        );
+
+        Check(fixture, page!, "texture-page");
+
+        // Scrolled to its end, the whole of the settings is inside the document: the last section is
+        // what a person scrolls for, and a scroller that stopped short of it would pass the check above.
+        page!.ScrollTo(page.MaximumTop, 0f);
+        fixture.Frames(2);
+
+        Draw(fixture, null, "texture-tab-bottom");
+
+        // One bar and not one inside another: the settings' own scroller, in content with no height
+        // bound, grows to what it holds and has nothing beyond a fold of its own.
+        Assert.True(
+            settings.Scroll.MaximumTop < 1f,
+            $"the import settings' own scroller has {settings.Scroll.MaximumTop:0} px beyond its fold inside the tab's."
+        );
+
+        var bottom = settings.AbsoluteTop + settings.Height;
+
+        Assert.True(
+            bottom <= document.AbsoluteTop + document.Height + 0.5f,
+            $"at the end of the tab's scroll the import settings still end {bottom - (document.AbsoluteTop + document.Height):0} px below the document."
+        );
+    }
+
     /// <summary>The scene document's Compiled tab, over more archetypes than the tab holds.</summary>
     /// <remarks>
     ///     <para>
@@ -282,11 +363,14 @@ public sealed class ScrollingPanelPictureTests {
         var view = Find<Vixen.Editor.AssetEditors.Scenes.CompiledSceneView>(fixture.Document.Root)
             ?? throw fixture.Fail("the scene document built no compiled view");
 
-        // Into the document the tab is showing. The pane keeps it private, and the editor's current
-        // scene is not it: a first cut wrote into `EditorSession.Scene` and compiled four blocks.
+        // Into the document the tab is showing. ⚠ A first cut wrote into `EditorSession.Scene` and
+        // compiled four blocks, because opening the scene file built a second document over it
+        // (#1395). It is the editor's own scene now, and the reflection stays to say so.
         var scene = (Vixen.Editor.SceneView.SceneDocument)typeof(Vixen.Editor.AssetEditors.Scenes.CompiledSceneView)
             .GetField("document", BindingFlags.NonPublic | BindingFlags.Instance)!
             .GetValue(view)!;
+
+        Assert.Same(fixture.Scene, scene);
 
         for (var mask = 1; mask < 32; mask++) {
             var entity = scene.Create($"Combination {mask}", Vixen.Engine.Transforms.LocalTransform.Identity);

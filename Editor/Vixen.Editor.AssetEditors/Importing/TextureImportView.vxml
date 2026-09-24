@@ -63,67 +63,78 @@
 -->
 <Tabs ref="@Tabs" class="document-tabs">
     <TabItem Label="Texture">
-        <Image ref="@Preview" Description="The texture's source pixels" class="texture-preview" />
+        <!--
+            ⚠ The whole tab scrolls, because the thing a person opens a texture to change is at the
+            bottom of it (#1393). The tab set is bound to the document's height and `texture-editor`
+            clips, so with the settings under an eight-rung ladder max size, compression and the
+            platform overrides were drawn past the panel's lower edge with nothing to reach them —
+            and the larger the texture, the longer the ladder and the further away they were. The
+            settings keep their own `ScrollView`: in content with no height bound it grows to what
+            it holds, so there is one bar here and not one inside another.
+        -->
+        <ScrollView ref="@Page" class="texture-page">
+            <Image ref="@Preview" Description="The texture's source pixels" class="texture-preview" />
 
-        <Alert ref="@Undecodable"
-               class="@UndecodableClass"
-               Title="No preview"
-               Message="@UndecodableMessage" />
+            <Alert ref="@Undecodable"
+                   class="@UndecodableClass"
+                   Title="No preview"
+                   Message="@UndecodableMessage" />
 
-        <texture-channels>
-            @for (var entry in ChannelButtons) {
-                <ToggleButton key="@entry"
-                              Label="@entry.Label"
-                              IsChecked="@Shown(entry.Channel)"
-                              change:IsChecked="@(on => SetChannel(entry.Channel, on))" />
-            }
-        </texture-channels>
+            <texture-channels>
+                @for (var entry in ChannelButtons) {
+                    <ToggleButton key="@entry"
+                                  Label="@entry.Label"
+                                  IsChecked="@Shown(entry.Channel)"
+                                  change:IsChecked="@(on => SetChannel(entry.Channel, on))" />
+                }
+            </texture-channels>
 
-        <texture-facts ref="@Facts">
-            @if (Numbers is not null) {
-                <fact-row>
-                    <FactName Text="Source" />
-                    <FactValue Text="@SourceFact" />
-                </fact-row>
+            <texture-facts ref="@Facts">
+                @if (Numbers is not null) {
+                    <fact-row>
+                        <FactName Text="Source" />
+                        <FactValue Text="@SourceFact" />
+                    </fact-row>
 
-                <fact-row>
-                    <FactName Text="Ships as" />
-                    <FactValue Text="@ShipsAsFact" />
-                </fact-row>
+                    <fact-row>
+                        <FactName Text="Ships as" />
+                        <FactValue Text="@ShipsAsFact" />
+                    </fact-row>
 
-                <fact-row>
-                    <FactName Text="Levels" />
-                    <FactValue Text="@LevelsFact" />
-                </fact-row>
+                    <fact-row>
+                        <FactName Text="Levels" />
+                        <FactValue Text="@LevelsFact" />
+                    </fact-row>
 
-                <fact-row>
-                    <FactName Text="Total" />
-                    <FactValue Text="@TotalFact" />
-                </fact-row>
-            }
-        </texture-facts>
+                    <fact-row>
+                        <FactName Text="Total" />
+                        <FactValue Text="@TotalFact" />
+                    </fact-row>
+                }
+            </texture-facts>
 
-        <texture-ladder ref="@Ladder">
-            @for (var level in Rungs) {
-                <!--
-                    ⚠ The row is the mip control, and until this handler existed there was none:
-                    `SetMipLevel` had no production caller anywhere, so the level the preview shows
-                    could only ever be zero. `on:click` is `TapEvent`, which is what a plain element
-                    hears; the captured `level` is safe precisely because it is the key — a
-                    `TextureMipLevel` is an immutable record struct, so a surviving row is a row
-                    whose value has not changed.
-                -->
-                <ladder-row key="@level"
-                            class="@RungClass(level)"
-                            on:click="@(() => SetMipLevel(level.Level))">
-                    <LadderLevel Text="@Number(level.Level)" />
-                    <LadderExtent Text="@($"{level.Width}×{level.Height}")" />
-                    <LadderBytes Text="@Measure(level.Bytes)" />
-                </ladder-row>
-            }
-        </texture-ladder>
+            <texture-ladder ref="@Ladder">
+                @for (var level in Rungs) {
+                    <!--
+                        ⚠ The row is the mip control, and until this handler existed there was none:
+                        `SetMipLevel` had no production caller anywhere, so the level the preview shows
+                        could only ever be zero. `on:click` is `TapEvent`, which is what a plain element
+                        hears; the captured `level` is safe precisely because it is the key — a
+                        `TextureMipLevel` is an immutable record struct, so a surviving row is a row
+                        whose value has not changed.
+                    -->
+                    <ladder-row key="@level"
+                                class="@RungClass(level)"
+                                on:click="@(() => SetMipLevel(level.Level))">
+                        <LadderLevel Text="@Number(level.Level)" />
+                        <LadderExtent Text="@($"{level.Width}×{level.Height}")" />
+                        <LadderBytes Text="@Measure(level.Bytes)" />
+                    </ladder-row>
+                }
+            </texture-ladder>
 
-        <ImportSettingsView ref="@SettingsView" />
+            <ImportSettingsView ref="@SettingsView" />
+        </ScrollView>
     </TabItem>
 
     <TabItem Label="Sprites">
@@ -187,6 +198,9 @@
 
     /// <summary>The settings, the overrides and the addressable block.</summary>
     public ImportSettingsView SettingsView { get; private set; } = null!;
+
+    /// <summary>What scrolls the Texture tab, from the preview down to the import settings.</summary>
+    public ScrollView Page { get; private set; } = null!;
 
     /// <summary>The two halves of a texture: what it ships as, and what is cut out of it.</summary>
     public Tabs Tabs { get; private set; } = null!;

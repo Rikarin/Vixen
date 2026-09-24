@@ -1,0 +1,222 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    #89. The behaviour tree's search-to-create popup: a field, and the node types that fit the slot
+    it was opened for, best first. `NodeSearchPopup.vxml`'s shape, one library over.
+
+    ⚠ **The model decision is one signal over the ranked list, and the list is a snapshot.** The
+    catalogue is `BehaviorNodeSchema`, which is fixed while the popup is open, and what changes is
+    the query — so `Rank` computes the ordered matches from the field's value and writes them to
+    `found` in one assignment. `Matches` reads that signal, so a caller asking what is offered right
+    after a keystroke gets the new answer at once; only the rows wait for the flush.
+
+    ⚠ **A keyed `@for` over the types, where the C# removed every row and built them again on every
+    keystroke.** A `BehaviorNodeType` is a record and the schema hands out one instance per type, so a
+    type still offered after a keystroke keeps its row and only the rows that changed are built.
+
+    ⚠ **A row is still picked by its position, not by a handler per row.** `Picked` walks up from the
+    tap to the list and asks which child it landed in; the position in `Results` is the position in
+    `found`, because the `@for` writes them in that order. `on:click` on each row would have worked
+    and would have captured the row's type for nothing: the index is already the identity.
+
+    ⚠ **The tap handler stays in `OnComposed`**, for `NodeSearchPopup`'s reason: it walks the
+    source chain rather than sitting on a row. The key handler is `<self on:keydown.capture>`, on the
+    capture leg so Enter is taken before the field treats it as its own.
+-->
+@component BehaviorSearchPopup
+@namespace Vixen.Editor.AssetEditors.Ai
+@inherits Vixen.Ui.Controls.Overlay
+@tag behavior-search
+@using System.Collections.Immutable
+@using Vixen.Ai
+@using Vixen.Input
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<self on:keydown.capture="@((KeyEvent e) => Keyed(e))" />
+
+<TextBox ref="@Query" class="behavior-search-query" Placeholder="Search nodes…" change:Value="@(_ => Rank())" />
+
+<!--
+    ⚠ A scroller: a composite's child row offers fourteen types in a popup capped at 320 px. As a
+    plain list with `overflow: hidden` it clipped the last two out of every pointer's reach.
+-->
+<ScrollView ref="@List" class="behavior-search-list">
+    @for (var type in Rows) {
+        <behavior-search-row key="@type">
+            <BehaviorSearchLabel Text="@type.Label" />
+            <BehaviorSearchCategory Text="@type.Category" />
+        </behavior-search-row>
+    }
+</ScrollView>
+
+@code {
+    /// <summary>What is offered, best first.</summary>
+    readonly Signal<ImmutableArray<BehaviorNodeType>> found = new([]);
+
+    BehaviorNodeSchema? schema;
+    BehaviorSlot[] slots = [];
+
+    /// <summary>What was typed.</summary>
+    public TextBox Query { get; private set; } = null!;
+
+    /// <summary>What scrolls the rows.</summary>
+    public ScrollView List { get; private set; } = null!;
+
+    /// <summary>The rows: <see cref="List" />'s content.</summary>
+    public UiElement Results { get; private set; } = null!;
+
+    /// <summary>What is offered, best first.</summary>
+    public IReadOnlyList<BehaviorNodeType> Matches => found.Value;
+
+    /// <summary>Which slots it was opened for.</summary>
+    public IReadOnlyList<BehaviorSlot> Slots => slots;
+
+    /// <summary>Raised when a row is picked.</summary>
+    public event Action<BehaviorNodeType>? Chosen;
+
+    /// <summary>Opens it over a slot.</summary>
+    /// <param name="library">The node library.</param>
+    /// <param name="wanted">Which slot the new thing goes in.</param>
+    /// <param name="x">Where to put the popup, in document space.</param>
+    /// <param name="y">Ditto.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="library" /> is null.</exception>
+    public void Show(BehaviorNodeSchema library, BehaviorSlot wanted, float x, float y) => Show(library, [wanted], x, y);
+
+    /// <summary>Opens it for anything that fits one of several slots.</summary>
+    /// <param name="library">The node library.</param>
+    /// <param name="wanted">
+    ///     The slots the new thing may fill — a composite's child row takes a composite or a task, so
+    ///     that gesture asks for both.
+    /// </param>
+    /// <param name="x">Where to put the popup, in document space.</param>
+    /// <param name="y">Ditto.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="library" /> or <paramref name="wanted" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>The query is cleared every time</b>, for <c>NodeSearchPopup</c>'s reason: a popup that
+    ///     remembered the last word makes the common case start by deleting it.
+    /// </remarks>
+    public void Show(BehaviorNodeSchema library, IReadOnlyList<BehaviorSlot> wanted, float x, float y) {
+        ArgumentNullException.ThrowIfNull(library);
+        ArgumentNullException.ThrowIfNull(wanted);
+
+        schema = library;
+        slots = [.. wanted];
+
+        Query.Value = string.Empty;
+        Rank();
+
+        Open();
+
+        // Kept on screen: Space pressed near the bottom of a canvas would otherwise open a 320 px
+        // popup with most of its rows below the window. `Open` has laid it out, so its size is known.
+        var viewport = Document.Viewport;
+
+        MoveTo(
+            Math.Clamp(x, 0f, MathF.Max(0f, viewport.ViewportWidth - Bounds.Width)),
+            Math.Clamp(y, 0f, MathF.Max(0f, viewport.ViewportHeight - Bounds.Height))
+        );
+
+        Document.Focus(Query);
+    }
+
+    /// <summary>Re-ranks the rows against what has been typed.</summary>
+    public void Rank() {
+        // Back to the top before the rows change, and for two reasons. A new ranking puts the best
+        // match first, which is where the reader has to be looking. ⚠ And a list scrolled down
+        // anchors on one of its rows: rebuilding the rows under it leaves the anchor a removed
+        // element, and the next settle asks it for a position and throws out of
+        // `UiElement.Document` (#1392). At the start edge nothing is anchored.
+        List?.ScrollTo(0f, 0f);
+
+        if (schema is null) {
+            found.Value = [];
+
+            return;
+        }
+
+        var query = (Query.Value ?? string.Empty).Trim();
+
+        // Best first, and ties on the declaration order — which groups the composites together and
+        // puts Selector above Sequence, because that is the order somebody reading the library
+        // learned them in. ⚠ `OrderByDescending` because it is stable and `List.Sort` is not.
+        found.Value = [
+            .. schema.Types
+                .Where(type => Array.IndexOf(slots, type.Slot) >= 0)
+                .Select(type => (Type: type, Score: Score(type, query)))
+                .Where(entry => entry.Score > 0)
+                .OrderByDescending(entry => entry.Score)
+                .Select(entry => entry.Type)
+        ];
+    }
+
+    /// <summary>Picks the row at an index, which is what a click and the keyboard both do.</summary>
+    /// <param name="index">Which row.</param>
+    /// <returns>Whether there was one.</returns>
+    public bool Pick(int index) {
+        var matches = found.Value;
+
+        if ((uint) index >= (uint) matches.Length) {
+            return false;
+        }
+
+        Chosen?.Invoke(matches[index]);
+        Close();
+
+        return true;
+    }
+
+    /// <remarks>
+    ///     ⚠ <b><c>TapEvent</c> and not <c>ClickEvent</c></b>: a click is an activation and only a
+    ///     <c>Control</c> raises one, so a handler waiting for it on a bare
+    ///     <c>behavior-search-row</c> waited for ever — the defect <c>ConsoleView.Row</c> and
+    ///     <c>MessageLogView</c> each fixed in their own rows (#89, 7d5ba5692).
+    /// </remarks>
+    partial void OnComposed() {
+        IsFocusScope = true;
+        Results = List.Content;
+
+        AddHandler<TapEvent>(static (element, args) => ((BehaviorSearchPopup) element).Picked(args));
+    }
+
+    void Keyed(KeyEvent args) {
+        if (args.Action != KeyAction.Pressed || args.Key is not (InputKey.Enter or InputKey.KeypadEnter)) {
+            return;
+        }
+
+        // The best match, which is the one at the top: type three letters, press Enter.
+        Pick(0);
+        args.Handled = true;
+    }
+
+    void Picked(TapEvent args) {
+        // ⚠ Found by position rather than by a reference on the element: `UiElement.Tag` is the
+        // element's *name* in this framework, not a slot for an object, so the row's index in the
+        // ranked list is what ties it back to what it offers.
+        for (var element = args.Source; element is not null && !ReferenceEquals(element, this); element = element.Parent) {
+            var index = IndexIn(Results, element);
+
+            if (index >= 0 && Pick(index)) {
+                args.Handled = true;
+
+                return;
+            }
+        }
+    }
+
+    static int IndexIn(UiElement list, UiElement child) {
+        for (var index = 0; index < list.Children.Count; index++) {
+            if (ReferenceEquals(list.Children[index], child)) {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    // ================================================================== What the markup reads
+
+    ImmutableArray<BehaviorNodeType> Rows => found.Value;
+}

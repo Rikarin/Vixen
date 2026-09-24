@@ -121,22 +121,36 @@ public class SelectionTests {
     ///     stack of its own, and clicking in it has to reach the inspector like anything else.
     /// </summary>
     /// <remarks>
-    ///     The second dead end, and the one that looks most like "the hierarchy is broken": the panel
-    ///     is a tree of entities, clicking a row highlights it, and the inspector — which is showing
-    ///     the editor's own scene, or nothing — does not move.
+    ///     <para>
+    ///         The second dead end, and the one that looks most like "the hierarchy is broken": the
+    ///         panel is a tree of entities, clicking a row highlights it, and the inspector — which is
+    ///         showing the editor's own scene, or nothing — does not move.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A scene other than the editor's own, which this test did not use to need.</b> It
+    ///         opened <c>Main.vxscene</c> and required the inspector's document <i>not</i> to be the
+    ///         editor's scene — which held only because opening the file the editor was already
+    ///         editing built a second document over it (#1395). That file opens as the editor's own
+    ///         scene now, so the separate stack this asserts is a separate file's.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void Clicking_in_an_opened_scenes_own_hierarchy_shows_that_scenes_entity() {
         using var fixture = EditorSession.Start();
 
+        var main = Assert.IsType<Vixen.Editor.SceneView.SceneFileWriter>(fixture.Scene.Writer).Path;
+
+        File.Copy(main, Path.Combine(Path.GetDirectoryName(main)!, "Level.vxscene"));
+
         fixture.Open("project");
+        fixture.Run("assets.refresh");
         fixture.ExpandAll(fixture.Assets);
 
         // ⚠ Selected and then opened through the command, because a double-click in the browser
         // begins a rename now rather than opening — see `TreeView.RenameOnActivate`, which is the
         // gesture the outliner already had. Opening is Enter, the context menu's Open, and a
         // double-click in the *grid*, where a tile is a document rather than a name edited in place.
-        fixture.ClickRow(fixture.Assets, "Main.vxscene");
+        fixture.ClickRow(fixture.Assets, "Level.vxscene");
         fixture.Run("assets.open");
 
         var opened = OpenedAssetTree(fixture);

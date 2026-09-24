@@ -4,7 +4,6 @@
 using Vixen.Ai;
 using Vixen.Editor.Core;
 using Vixen.Ui;
-using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
 
 namespace Vixen.Editor.AssetEditors.Ai;
@@ -24,108 +23,22 @@ namespace Vixen.Editor.AssetEditors.Ai;
 ///         factory this library has neither of. Twenty lines of ranking against a reference to a
 ///         framework whose model was deliberately not taken is the wrong trade — doc 37 § D19.
 ///     </para>
+///     <para>
+///         ⚠ <b>An overlay and a root child, as <c>NodeSearchPopup</c> is, and it was neither.</b> It
+///         used to be a child of the tree view placed with <c>left</c>/<c>top</c> — which are
+///         relative to the view, while <c>Show</c> was documented as taking document space, so every
+///         panel not docked at the window's origin would have put it off by the panel's offset.
+///         Nobody saw that because nothing ever opened it (#1370). As an overlay it is drawn over
+///         whatever clips the panel, closes on Escape and on a press outside it, and keeps the focus
+///         in its field so the next letter typed lands there.
+///     </para>
+///     <para>
+///         The popup is <c>BehaviorSearchPopup.vxml</c> (#89); this file is the accessibility
+///         modifier, the ranking rule, which reads no element, and the two elements that exist only so
+///         that markup can write an intrinsic tag's own <c>Text</c>.
+///     </para>
 /// </remarks>
-public sealed class BehaviorSearchPopup : Control {
-    readonly List<BehaviorNodeType> matches = [];
-
-    BehaviorNodeSchema? schema;
-    BehaviorSlot slot;
-
-    /// <inheritdoc />
-    protected override string TagName => "behavior-search";
-
-    /// <inheritdoc />
-    protected override bool AcceptsFocus => true;
-
-    /// <summary>What was typed.</summary>
-    public TextBox Query { get; private set; } = null!;
-
-    /// <summary>The rows.</summary>
-    public UiElement Results { get; private set; } = null!;
-
-    /// <summary>Whether it is showing.</summary>
-    public bool IsOpen { get; private set; }
-
-    /// <summary>What is offered, best first.</summary>
-    public IReadOnlyList<BehaviorNodeType> Matches => matches;
-
-    /// <summary>Raised when a row is picked.</summary>
-    public event Action<BehaviorNodeType>? Chosen;
-
-    /// <inheritdoc />
-    protected override void OnCreated() {
-        base.OnCreated();
-
-        Query = Add<TextBox>();
-        Query.Placeholder = "Search nodes…";
-        Query.ValueChanged += (_, _) => Rank();
-
-        Results = Add("behavior-search-results");
-        AddClass("hidden");
-
-        AddHandler<ClickEvent>(static (element, args) => ((BehaviorSearchPopup) element).Picked(args));
-    }
-
-    /// <summary>Opens it over a slot.</summary>
-    /// <param name="library">The node library.</param>
-    /// <param name="wanted">Which slot the new thing goes in.</param>
-    /// <param name="x">Where to put the popup, in document space.</param>
-    /// <param name="y">Ditto.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="library" /> is null.</exception>
-    public void Show(BehaviorNodeSchema library, BehaviorSlot wanted, float x, float y) {
-        ArgumentNullException.ThrowIfNull(library);
-
-        schema = library;
-        slot = wanted;
-        IsOpen = true;
-
-        RemoveClass("hidden");
-        SetStyle("left", Pixels(x));
-        SetStyle("top", Pixels(y));
-
-        Query.Value = string.Empty;
-        Rank();
-    }
-
-    /// <summary>Closes it.</summary>
-    public void Close() {
-        IsOpen = false;
-        AddClass("hidden");
-    }
-
-    /// <summary>Re-ranks the rows against what has been typed.</summary>
-    public void Rank() {
-        matches.Clear();
-
-        while (Results.Children.Count > 0) {
-            Results.Children[^1].Remove();
-        }
-
-        if (schema is null) {
-            return;
-        }
-
-        var query = (Query.Value ?? string.Empty).Trim();
-
-        foreach (var type in schema.For(slot)) {
-            if (Score(type, query) > 0) {
-                matches.Add(type);
-            }
-        }
-
-        // Best first, and ties on the declaration order — which groups the composites together and
-        // puts Selector above Sequence, because that is the order somebody reading the library
-        // learned them in.
-        matches.Sort((left, right) => Score(right, query).CompareTo(Score(left, query)));
-
-        foreach (var type in matches) {
-            var row = Results.Add("behavior-search-row");
-
-            row.Add("search-label").Text = type.Label;
-            row.Add("search-category").Text = type.Category;
-        }
-    }
-
+public sealed partial class BehaviorSearchPopup {
     /// <summary>How well a type answers a query. Zero means it does not.</summary>
     /// <param name="type">The type.</param>
     /// <param name="query">What was typed.</param>
@@ -156,48 +69,20 @@ public sealed class BehaviorSearchPopup : Control {
 
         return type.Category.Contains(query, StringComparison.OrdinalIgnoreCase) ? 5 : 0;
     }
+}
 
-    /// <summary>Picks the row at an index, which is what a click and the keyboard both do.</summary>
-    /// <param name="index">Which row.</param>
-    /// <returns>Whether there was one.</returns>
-    public bool Pick(int index) {
-        if ((uint) index >= (uint) matches.Count) {
-            return false;
-        }
+/// <summary>A search row's label: the type's name.</summary>
+/// <remarks>An element type so that markup can set an intrinsic tag's <c>Text</c> — the panel ledger's shape 5.</remarks>
+internal sealed class BehaviorSearchLabel : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "search-label";
+}
 
-        Chosen?.Invoke(matches[index]);
-        Close();
-
-        return true;
-    }
-
-    static string Pixels(float value) =>
-        value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "px";
-
-    static int IndexIn(UiElement list, UiElement child) {
-        for (var index = 0; index < list.Children.Count; index++) {
-            if (ReferenceEquals(list.Children[index], child)) {
-                return index;
-            }
-        }
-
-        return -1;
-    }
-
-    void Picked(ClickEvent args) {
-        // ⚠ Found by position rather than by a reference on the element: `UiElement.Tag` is the
-        // element's *name* in this framework, not a slot for an object, so the row's index in the
-        // ranked list is what ties it back to what it offers.
-        for (var element = args.Source; element is not null && !ReferenceEquals(element, this); element = element.Parent) {
-            var index = IndexIn(Results, element);
-
-            if (index >= 0 && Pick(index)) {
-                args.Handled = true;
-
-                return;
-            }
-        }
-    }
+/// <summary>A search row's category, right-aligned beside its label.</summary>
+/// <remarks>An element type so that markup can set an intrinsic tag's <c>Text</c> — the panel ledger's shape 5.</remarks>
+internal sealed class BehaviorSearchCategory : UiElement {
+    /// <inheritdoc />
+    protected override string TagName => "search-category";
 }
 
 /// <summary>Opens a behaviour tree.</summary>
