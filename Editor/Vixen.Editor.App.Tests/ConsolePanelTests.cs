@@ -142,6 +142,66 @@ public class ConsolePanelTests {
         Assert.False(fixture.Shell.Commands.CanExecute("edit.delete"));
     }
 
+    /// <summary>Two messages longer than the message column each stay inside their own row.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every row is a pool slot of one fixed height</b> — <c>VirtualizingPanel</c> places
+    ///         row <i>n</i> at <i>n</i> × <c>RowHeight</c> and sets its height to match — so a message
+    ///         that wraps is taller than its slot, is centred on it by <c>align-items: center</c>, and
+    ///         draws over the rows above and below. Two wrapped warnings in a row were unreadable in
+    ///         #1275's before-captures (#1391). The console keeps one line per record and ends a long
+    ///         one in an ellipsis; the whole record is in the detail pane.
+    ///     </para>
+    ///     <para>
+    ///         Asked of the boxes rather than of the text: each message's box inside its row's, and
+    ///         the two messages' boxes apart. Red against a sheet whose <c>console-message</c> may
+    ///         wrap, because the first message's box is then three lines tall in a 22 px row.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_message_longer_than_its_column_stays_inside_its_own_row() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Open("console");
+
+        var view = Console(fixture);
+        var sentence = string.Join(" ", Enumerable.Repeat("a message far longer than the console's message column", 8));
+
+        fixture.Shell.Notifications.Show("first " + sentence);
+        fixture.Shell.Notifications.Show("second " + sentence);
+        fixture.Frames(2);
+
+        var shown = view.List.Rows
+            .Where(row => !row.HasClass("parked"))
+            .Select(row => (Row: row, Message: row.Children.First(cell => cell.Tag == "console-message")))
+            .Where(pair => pair.Message.Text?.Contains("far longer", StringComparison.Ordinal) == true)
+            .OrderBy(pair => pair.Row.AbsoluteTop)
+            .ToList();
+
+        Assert.Equal(2, shown.Count);
+
+        foreach (var (row, message) in shown) {
+            Assert.True(
+                message.AbsoluteTop >= row.AbsoluteTop - 0.5f
+                && message.AbsoluteTop + message.Height <= row.AbsoluteTop + row.Height + 0.5f,
+                $"a {message.Height:0.#} px message spills out of its {row.Height:0.#} px row "
+                + $"({message.AbsoluteTop:0.#}–{message.AbsoluteTop + message.Height:0.#} in {row.AbsoluteTop:0.#}–{row.AbsoluteTop + row.Height:0.#})."
+            );
+
+            Assert.True(
+                message.AbsoluteLeft + message.Width <= row.AbsoluteLeft + row.Width + 0.5f,
+                "a message wider than its row pushes the row past the list."
+            );
+        }
+
+        var (above, below) = (shown[0].Message, shown[1].Message);
+
+        Assert.True(
+            above.AbsoluteTop + above.Height <= below.AbsoluteTop + 0.5f,
+            "the two messages' boxes overlap, so one is drawn over the other."
+        );
+    }
+
     static ConsoleView Console(EditorSession fixture) =>
         Find<ConsoleView>(fixture.Document.Root) ?? throw new InvalidOperationException("the console is not open");
 

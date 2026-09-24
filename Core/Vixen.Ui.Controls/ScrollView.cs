@@ -1301,8 +1301,23 @@ public sealed partial class ScrollView : Control {
     ///     Walked rather than remembered, because the anchor is held across a frame in which anything
     ///     may have happened to it — including being reparented into a different view, which a
     ///     remembered depth or index would not notice.
+    ///     <para>
+    ///         ⚠ <b>A removed element is held by nothing, whatever its parent pointer says.</b>
+    ///         Removal detaches an element from its parent's children and leaves its own
+    ///         <see cref="UiElement.Parent" /> where it was, so the walk alone answered true for a row
+    ///         a rebuild had just thrown away — and <see cref="Position" /> then read its bounds
+    ///         through <see cref="UiElement.Document" />, which throws for a removed element by design.
+    ///         Rebuilding the rows under any scrolled view crashed the next frame (#1392). Removal
+    ///         retires the whole subtree, so asking the anchor itself covers an anchor deep inside a
+    ///         removed row too. The anchor is then dropped without a correction and a new one chosen,
+    ///         which is what CSS Scroll Anchoring does when the anchor node leaves the tree.
+    ///     </para>
     /// </remarks>
     bool Holds(UiElement element) {
+        if (element.IsRemoved) {
+            return false;
+        }
+
         for (var node = element.Parent; node is not null; node = node.Parent) {
             if (ReferenceEquals(node, Content)) {
                 return true;
