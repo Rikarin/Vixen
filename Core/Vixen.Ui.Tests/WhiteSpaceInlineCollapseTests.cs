@@ -238,6 +238,117 @@ public class WhiteSpaceInlineCollapseTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>A box with no content between two spaces is looked past, and whether it has a size
+    ///     does not enter into it</b> (#249). The layout keeps such a <c>display: inline</c> box
+    ///     atomic — <c>LayoutTree.IsNonAtomicInline</c> answers false for one with no child that takes
+    ///     part in the line — and this was recorded as owed on the belief that the collapsing walk,
+    ///     which walks into it and finds nothing, might be wrong for one that draws. Chrome 153
+    ///     (<c>Oracle/inline-collapse.html</c>) says otherwise: <c>foo␠</c>, an empty span and
+    ///     <c>␠bar</c> is <c>54.016</c>, one space, bare or with 5 px of padding a side (<c>64.016</c>
+    ///     with the padding). CSS's atomic inline is a different thing: an empty
+    ///     <c>inline-block</c> keeps both spaces at zero width — <c>58.172</c> — so it is the kind of
+    ///     box and not its size that decides, which is the rule <c>UiElement.Boundary</c> already has.
+    /// </summary>
+    [Theory]
+    [InlineData("inline", "", 54.016f)]
+    [InlineData("inline", "padding: 0px 5px;", 54.016f)]
+    [InlineData("inline-block", "", 58.172f)]
+    public void An_empty_box_between_two_spaces_decides_by_its_kind_and_not_by_its_size(string display, string padding, float chrome) {
+        var document = new UiDocument(900f, 300f);
+        document.Fonts.Register("Test", Font);
+
+        document.Load(
+            $$"""
+              root      { width: 800px; height: 300px; }
+              container { display: block; width: 800px; }
+              empty     { display: {{display}}; {{padding}} }
+              label     { font-family: Test; font-size: 16px; line-height: 20px; display: inline; {{PreLine}} }
+              """
+        );
+
+        var container = document.Root.Add("container");
+        var foo = container.Add("label");
+        foo.Text = "foo ";
+
+        var empty = container.Add("empty");
+
+        var bar = container.Add("label");
+        bar.Text = " bar";
+        document.Update();
+
+        // The premise: the box is there, and with the padding it has a width of its own.
+        Assert.Equal(padding.Length == 0 ? 0f : 10f, empty.Bounds.Width, 0.001f);
+
+        Assert.Equal(chrome, foo.Block()!.Width + bar.Block()!.Width, Tolerance);
+    }
+
+    /// <summary>
+    ///     The third kind the layout keeps atomic, a span whose only child is a float, is looked past
+    ///     too, and Chrome agrees: <c>foo␠</c>, such a span and <c>␠bar</c> is <c>62.391</c>, which is
+    ///     <c>54.016</c> and the float's own <c>8.375</c> — one space.
+    /// </summary>
+    [Fact]
+    public void A_span_holding_only_a_float_between_two_spaces_is_looked_past() {
+        var document = new UiDocument(900f, 300f);
+        document.Fonts.Register("Test", Font);
+
+        document.Load(
+            $$"""
+              root      { width: 800px; height: 300px; }
+              container { display: block; width: 800px; }
+              holder    { display: inline; }
+              floated   { float: left; font-family: Test; font-size: 16px; line-height: 20px; }
+              label     { font-family: Test; font-size: 16px; line-height: 20px; display: inline; {{PreLine}} }
+              """
+        );
+
+        var container = document.Root.Add("container");
+        var foo = container.Add("label");
+        foo.Text = "foo ";
+
+        container.Add("holder").Add("floated").Text = "x";
+
+        var bar = container.Add("label");
+        bar.Text = " bar";
+        document.Update();
+
+        Assert.Equal(54.016f, foo.Block()!.Width + bar.Block()!.Width, Tolerance);
+    }
+
+    /// <summary>
+    ///     The same box at the END of the line, which is the half the owed note said went wrong:
+    ///     "<c>foo␠</c> before a text-less drawing box hangs its space". It does, and so does
+    ///     Chrome's: <c>foo␠</c> then an empty span with 5 px of padding a side is <c>34.641</c>,
+    ///     <c>foo</c>'s <c>24.641</c> and the padding — while an empty <c>inline-block</c> there keeps
+    ///     the space, <c>28.797</c>.
+    /// </summary>
+    [Theory]
+    [InlineData("inline", "padding: 0px 5px;", 24.641f)]
+    [InlineData("inline-block", "", 28.797f)]
+    public void An_empty_box_ending_the_line_decides_by_its_kind_whether_the_space_before_it_stays(string display, string padding, float chrome) {
+        var document = new UiDocument(900f, 300f);
+        document.Fonts.Register("Test", Font);
+
+        document.Load(
+            $$"""
+              root      { width: 800px; height: 300px; }
+              container { display: block; width: 800px; }
+              empty     { display: {{display}}; {{padding}} }
+              label     { font-family: Test; font-size: 16px; line-height: 20px; display: inline; {{PreLine}} }
+              """
+        );
+
+        var container = document.Root.Add("container");
+        var foo = container.Add("label");
+        foo.Text = "foo ";
+
+        container.Add("empty");
+        document.Update();
+
+        Assert.Equal(chrome, foo.Block()!.Width, Tolerance);
+    }
+
+    /// <summary>
     ///     ⚠ <b>Pinned as OWED, not as right: a line the wrapper begins between two elements.</b>
     ///     <c>foo</c> then <c>␠bar</c> in a box too narrow for both puts <c>␠bar</c> on the second
     ///     line, where Chrome draws <c>bar</c> flush with the line's start — the space is § 4.1.3's

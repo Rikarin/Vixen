@@ -29,6 +29,18 @@
 #              is recorded rather than taken. A `none` row is a finding.
 #
 # Traced at `b162d5632` (2026-09-24).
+field-content combo-box	api	`LabeledContent.Content` (Core/Vixen.Ui.Controls/Forms.cs:71), which a markup child reaches through `ContentHost` (Forms.cs:88). No `LabeledContent` in the editor, and the sample's three (Samples/02-HelloUi/Panels/Gallery.vxml:104, :135, :158) hold none.
+field-content level-indicator	api	`LabeledContent.Content` (Forms.cs:71) or a markup child through `ContentHost` (Forms.cs:88); no row in the tree holds one.
+field-content multi-select	api	`LabeledContent.Content` (Forms.cs:71) or a markup child through `ContentHost` (Forms.cs:88); no row in the tree holds one.
+field-content numeric-input	api	`LabeledContent.Content` (Forms.cs:71) or a markup child through `ContentHost` (Forms.cs:88); the sample's numeric input (Gallery.vxml:163) stands outside any row.
+field-content progress-bar	api	`LabeledContent.Content` (Forms.cs:71) or a markup child through `ContentHost` (Forms.cs:88); no row in the tree holds one.
+field-content search-box	api	`LabeledContent.Content` (Forms.cs:71) or a markup child through `ContentHost` (Forms.cs:88); the sample's search box (Gallery.vxml:162) stands outside any row.
+field-content secure-textbox	unreached	Samples/02-HelloUi/Panels/Gallery.vxml:105, the sample's Password row — the case #1404 measured at 18 px. No sweep builds a sample, and no editor panel holds a `LabeledContent`.
+field-content select	api	`LabeledContent.Content` (Forms.cs:71) or a markup child through `ContentHost` (Forms.cs:88); no row in the tree holds one.
+field-content slider	api	`LabeledContent.Content` (Forms.cs:71) or a markup child through `ContentHost` (Forms.cs:88); no row in the tree holds one.
+field-content stepper	api	`LabeledContent.Content` (Forms.cs:71) or a markup child through `ContentHost` (Forms.cs:88); no row in the tree holds one.
+field-content textarea	api	`LabeledContent.Content` (Forms.cs:71) or a markup child through `ContentHost` (Forms.cs:88); no row in the tree holds one.
+field-content textbox	unreached	Samples/02-HelloUi/Panels/Gallery.vxml:136, the User name row of the sample's `Form`. No sweep builds a sample, and no editor panel holds a `LabeledContent`.
 inspector combo-box	none	No drawer builds a `ComboBox`: the only one in the tree is Samples/02-HelloUi/Panels/Gallery.vxml:212, and no inspector drawer adds one (DrawerRegistry.cs:252 is the registration table). Part of the "every input in the inspector" list at InspectorTheme.vcss:160-161.
 inspector textarea	unreached	`MultilineDrawer` (Editor/Vixen.Editor.Inspector/Drawers/ScalarDrawers.cs:221) builds it for a string marked `[Multiline]`, registered at DrawerRegistry.cs:252 — and no member outside a test carries the attribute (Editor/Vixen.Editor.Inspector.Tests/Fixtures.cs:124 is the only one). A game's own component reaches it.
 inspector-editor color-picker	none	The colour drawer puts a `ColorInput` in the slot (AssetDrawers.cs:35), and a `ColorInput` hangs its picker off the document root on purpose (ColorPicker.cs:1243, :1251) — so no picker is ever under `inspector-editor`. A `GradientEditor` would carry one (GradientEditor.cs:463) and no drawer builds that either.

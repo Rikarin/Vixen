@@ -555,6 +555,8 @@ public static class LineWrapper {
                     forced = FirstGrapheme(text, start, here);
                 }
 
+                forced = PastHangingSpaces(text, forced, keepSpaces);
+
                 if (forced > start) {
                     lines.Add(Line(text, advances, start, forced, origin, tabStop, hyphen, keepSpaces, mandatory: false));
                     start = forced;
@@ -564,8 +566,10 @@ public static class LineWrapper {
                 }
             }
 
-            lines.Add(Line(text, advances, start, here, origin, tabStop, hyphen, keepSpaces, mandatory: false));
-            start = here;
+            var end = PastHangingSpaces(text, here, keepSpaces);
+
+            lines.Add(Line(text, advances, start, end, origin, tabStop, hyphen, keepSpaces, mandatory: false));
+            start = end;
             room = maxAdvance;
             origin = 0f;
             index++;
@@ -837,6 +841,44 @@ public static class LineWrapper {
         bool mandatory
     ) =>
         new(start, end - start, Width(text, advances, start, end, origin, tabStop, hyphen, keepSpaces), mandatory);
+
+    /// <summary>Where a line broken at <paramref name="end" /> really ends, once the spaces after the break hang on it.</summary>
+    /// <param name="text">The paragraph.</param>
+    /// <param name="end">Where the break fell.</param>
+    /// <param name="keepSpaces">Whether spaces take up room (<c>break-spaces</c>), in which case none hang.</param>
+    /// <returns>The break moved past any spaces and tabs right after it; never past a segment break.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Only a break that fell BEFORE a space needs this, and only two kinds of break
+    ///         can</b> (#249). UAX #14 never offers one there — its opportunity is after the space —
+    ///         and a fitting break is always taken after the space rather than before it, since
+    ///         <see cref="Width" /> trims the space and so both fit alike. What is left is the break
+    ///         taken when nothing fits: one grapheme under <c>overflow-wrap: anywhere</c>, or the
+    ///         first opportunity under <c>line-break: anywhere</c>, which offers one at every grapheme
+    ///         boundary. In a box narrower than a letter each of those fell between <c>b</c> and the
+    ///         space of <c>ab cd</c>, and the space became a line of its own: five line boxes where
+    ///         Chrome 153 draws four under <c>normal</c>, <c>pre-line</c> and <c>pre-wrap</c> alike
+    ///         (<c>Oracle/narrow-anywhere.html</c>). A min-content probe is exactly such a box.
+    ///     </para>
+    ///     <para>
+    ///         CSS Text § 4.1.3 says where the space goes: a collapsible one at the start of a line
+    ///         is removed and a preserved one at the end of a line hangs, and both come to the same
+    ///         line boxes — the space ends the line before the break rather than starting the one
+    ///         after it, and <see cref="Width" /> already leaves it out of that line's measure. Only
+    ///         U+0020 and U+0009, which are CSS's white space; a no-break space is a letter here.
+    ///     </para>
+    /// </remarks>
+    static int PastHangingSpaces(string text, int end, bool keepSpaces) {
+        if (keepSpaces) {
+            return end;
+        }
+
+        while (end < text.Length && text[end] is ' ' or '\t') {
+            end++;
+        }
+
+        return end;
+    }
 
     /// <summary>How wide a range is, ignoring whitespace at its end.</summary>
     /// <remarks>

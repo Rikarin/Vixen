@@ -161,14 +161,20 @@ same line: `<label>foo </label><label>bar</label>` drew `foobar`, under `normal`
 
 ⚠ **Still owed: a line the wrapper begins or ends between two labels.** The first label's trailing
 space should then hang and the second's leading run, where it did not follow a collapsible space,
-should go; both are break positions, which a label does not know when it is measured. A line that a
-`line-break: anywhere` break starts on a space keeps that space too.
+should go; both are break positions, which a label does not know when it is measured.
 
-⚠ **Also owed: an inline box the layout treats as atomic.** A `display: inline` element with a
-measure function and no text, one whose children take no part in the line, or one holding a float is
-laid out as a single box, but the edge walk steps into it, finds no text and looks past it. So a
-label ending in a space, followed by such a box, hangs that space and the box is drawn against the
-last word. Nothing inline in the shipped theme is like that today.
+A break never starts a line on a space. The only breaks that could fall before one were taken in a
+box narrower than a single letter, under `line-break: anywhere` or `overflow-wrap: anywhere`, and
+there the space used to become a line of its own; it now hangs at the end of the line before, which
+is where a browser puts it.
+
+⚠ **An empty inline box is looked past, and that is what a browser does.** A `display: inline`
+element with no content, with padding or without, or one holding only a float, is laid out as a
+single box, and the edge walk steps into it, finds no text and looks past it. This was once listed
+as owed. It is not: such a box is an inline box with no content, not an atomic inline, and Chrome
+collapses the spaces on either side of it and drops a space before it at the end of a line. An
+`inline-block` is atomic, and it keeps both spaces even at zero width, so what decides is the kind
+of box and not its size.
 
 ## Examples
 

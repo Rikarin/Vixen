@@ -702,16 +702,31 @@ white-space / nowrap              the container-level suppression of line breaki
                                   something follows on its line. STILL OWED: a line the WRAPPER begins
                                   or ends between two leaves (the trailing space should then hang, the
                                   leading run go), which is a break position and this row's pass
-                                  order; and a line begun on a space by a break that falls BEFORE one
-                                  (`line-break: anywhere`, or an emergency break). ALSO OWED: a
-                                  `display: inline` box the LAYOUT makes atomic (a measure function
-                                  and no text, a span of nothing that participates, or a span
-                                  holding a float — `IsNonAtomicInline`) is walked into by
-                                  `UiElement.First`/`Last`, found empty and looked past, so `foo␠`
-                                  before a text-less drawing box hangs its space and the box sits
-                                  against `foo` — the `foobar` class for a non-text neighbour. Not a
-                                  regression (every leaf hung before), and no sheet makes such a box
-                                  inline today. ⚠ AND `normal` STILL DOES NOT COLLAPSE,
+                                  order. ⚠ A LINE BEGUN ON A SPACE by a break that falls BEFORE one
+                                  is FIXED, in the wrapper (#249), and it was narrower than this row
+                                  said: a fitting break is never before a space, because the break
+                                  after it fits whenever that one does, so only a break taken when
+                                  NOTHING fits — a room narrower than one letter, under either
+                                  `anywhere` — could land there. It made the space a line of its own,
+                                  five line boxes for `ab cd` where Chrome 153 draws four
+                                  (`Oracle/narrow-anywhere.html`); `LineWrapper.PastHangingSpaces`
+                                  hangs it on the line before. ⚠ NO LONGER
+                                  OWED, AND NEVER WAS (#249): a `display: inline` box the LAYOUT
+                                  makes atomic (`IsNonAtomicInline`) is walked into by
+                                  `UiElement.First`/`Last`, found empty and looked past — and that
+                                  is Chrome's answer. The layout's atomicity is how it lays the box
+                                  out, not CSS's atomic inline: an empty span, bare or padded, and a
+                                  span holding only a float are inline boxes with no content, and
+                                  Chrome 153 collapses the spaces on both sides of each and drops
+                                  `foo␠`'s space before one at the end of a line
+                                  (`Oracle/inline-collapse.html`: 54.016, 64.016 with 10 px of
+                                  padding, 62.391 with an 8.375 float, 34.641). An empty
+                                  `inline-block` keeps both spaces at ZERO width (58.172, 28.797), so
+                                  the kind of box decides and not its size, which is what `Boundary`
+                                  already asks. The measure-function kind cannot reach the walk
+                                  without text: `UiElement.OnTextChanged` is the only caller of
+                                  `SetMeasureFunction` in the tree, and attaches one exactly when
+                                  there is text. ⚠ AND `normal` STILL DOES NOT COLLAPSE,
                                   deliberately: CSS collapses under it and turns its segment breaks
                                   into spaces, and honouring half of that would change what every
                                   paragraph in every interface on this engine draws. `break-spaces`

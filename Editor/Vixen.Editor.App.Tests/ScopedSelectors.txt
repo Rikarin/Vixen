@@ -100,6 +100,21 @@ dock-tab icon	Started
 dock-tabstrip > icon-button	Started
 editor-shell > menu-bar	Started
 expander-header icon	Panels
+fact-value numeric-input	Documents
+fact-value select	Documents
+fact-value textbox	Documents
+field-content combo-box	-
+field-content level-indicator	-
+field-content multi-select	-
+field-content numeric-input	-
+field-content progress-bar	-
+field-content search-box	-
+field-content secure-textbox	-
+field-content select	-
+field-content slider	-
+field-content stepper	-
+field-content textarea	-
+field-content textbox	-
 font-body > font-atlas	Documents
 font-side > scroll-content	Documents
 frame-editor > scroll-view	Documents

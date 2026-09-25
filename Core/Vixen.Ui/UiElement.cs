@@ -2112,11 +2112,16 @@ public partial class UiElement : Composition.IComposable {
     }
 
     /// <summary>What comes before an element in its formatting context, walking out of every span it is in.</summary>
+    /// <remarks>
+    ///     ⚠ Each level starts from <see cref="IndexInParent" />, which is stored: a search for the
+    ///     node's own position here made a block container of n inline leaves cost n² comparisons on
+    ///     every pass (#1403, <c>InlineNeighbourCostTests</c>). The same holds for <see cref="After" />.
+    /// </remarks>
     InlineNeighbour Before(UiElement element, UiElement root) {
         for (var node = element; !ReferenceEquals(node, root) && node.Parent is { } parent; node = parent) {
             var siblings = parent.ChildList;
 
-            for (var i = siblings.IndexOf(node) - 1; i >= 0; i--) {
+            for (var i = node.IndexInParent - 1; i >= 0; i--) {
                 var found = Last(siblings[i]);
 
                 if (found != InlineNeighbour.Nothing) {
@@ -2133,7 +2138,7 @@ public partial class UiElement : Composition.IComposable {
         for (var node = element; !ReferenceEquals(node, root) && node.Parent is { } parent; node = parent) {
             var siblings = parent.ChildList;
 
-            for (var i = siblings.IndexOf(node) + 1; i < siblings.Count; i++) {
+            for (var i = node.IndexInParent + 1; i < siblings.Count; i++) {
                 var found = First(siblings[i]);
 
                 if (found != InlineNeighbour.Nothing) {
@@ -2222,9 +2227,16 @@ public partial class UiElement : Composition.IComposable {
     /// <remarks>
     ///     ⚠ <b>Every <c>display: inline</c> box is walked into, and the layout does not flatten every
     ///     one</b>: <c>LayoutTree.IsNonAtomicInline</c> keeps atomic an inline with a measure function,
-    ///     one with no child that takes part in the line, and one holding a float. A text-less box of
-    ///     that kind that still draws is found empty here and looked past, which is owed
-    ///     (<c>InlineKnownGaps.txt</c>), and harmless while no sheet makes such a box inline.
+    ///     one with no child that takes part in the line, and one holding a float. That was recorded
+    ///     as owed — such a box that draws is found empty here and looked past — and it is not a
+    ///     divergence (#249). The layout's atomicity is how it lays a box out, not what CSS calls an
+    ///     atomic inline: an empty span, padded or not, and a span holding only a float are inline
+    ///     boxes with no content, and Chrome collapses the spaces on either side of both and drops
+    ///     one before either at the end of a line (<c>Oracle/inline-collapse.html</c>,
+    ///     <c>WhiteSpaceInlineCollapseTests</c>). What does keep both spaces is an
+    ///     <c>inline-block</c>, at zero width too, and that is the arm below. The first kind cannot
+    ///     reach here without text: <c>OnTextChanged</c> is the only thing in the tree that gives an
+    ///     element a measure function, and it gives one exactly when there is text to read.
     /// </remarks>
     InlineNeighbour? Boundary(UiElement element) {
         ref readonly var own = ref Document.Layout.GetStyle(element.LayoutNode);
@@ -2927,11 +2939,19 @@ public partial class UiElement : Composition.IComposable {
     /// </summary>
     internal ParagraphDirection? AppliedParagraphDirection { get; set; }
 
+    // ⚠ This element's position in its parent's `children`, valid only while the PARENT's
+    // `positionsDirty` is false — see `IndexInParent`. Appending keeps every position right, so
+    // `Attach` writes the new one and leaves the list clean; an insert, a removal or a move shifts
+    // the ones after it and dirties the list instead, and the next reader renumbers it in one sweep.
+    int position = -1;
+    bool positionsDirty;
+
     // ⚠ The three structural edits all set the accessibility flag, because the shape of the tree is
     // the one thing a bridge caches that no property setter can tell it about. It is a store to a
     // bool that is already dirty for all but the first element of a build, which is what makes it
     // affordable on the path a panel of four hundred elements runs four hundred times.
     internal void Attach(UiElement child) {
+        child.position = children.Count;
         children.Add(child);
         orderDirty = true;
         document?.InvalidateAccessibility();
@@ -2939,12 +2959,15 @@ public partial class UiElement : Composition.IComposable {
 
     internal void Insert(UiElement child, int index) {
         children.Insert(index, child);
+        positionsDirty = true;
         orderDirty = true;
         document?.InvalidateAccessibility();
     }
 
     internal void Detach(UiElement child) {
         children.Remove(child);
+        child.position = -1;
+        positionsDirty = true;
         orderDirty = true;
         document?.InvalidateAccessibility();
     }
@@ -2961,11 +2984,39 @@ public partial class UiElement : Composition.IComposable {
     internal void MoveChild(UiElement child, int index) {
         children.Remove(child);
         children.Insert(index, child);
+        positionsDirty = true;
         orderDirty = true;
     }
 
     /// <summary>Where this element sits among its siblings, or -1 if it has no parent.</summary>
-    public int IndexInParent => Parent?.children.IndexOf(this) ?? -1;
+    /// <remarks>
+    ///     ⚠ <b>A stored position, not a search</b> (#1403). This was <c>IndexOf</c>, one comparison
+    ///     per sibling ahead of the element, and the inline neighbour walk asks it of every leaf at
+    ///     every level it climbs on every pass — so n inline leaves in one block container cost about
+    ///     n² comparisons a pass, a settled one included. Every write to the list is one of four
+    ///     methods on this class, so each keeps the positions right or marks them stale, and a stale
+    ///     list is renumbered once for all its children: amortised constant per read. A removed
+    ///     element keeps its <see cref="Parent" /> but is given -1, which is what the search answered.
+    /// </remarks>
+    public int IndexInParent {
+        get {
+            if (Parent is not { } parent) {
+                return -1;
+            }
+
+            if (parent.positionsDirty) {
+                var siblings = parent.children;
+
+                for (var i = 0; i < siblings.Count; i++) {
+                    siblings[i].position = i;
+                }
+
+                parent.positionsDirty = false;
+            }
+
+            return position;
+        }
+    }
 
     internal void Retire() => IsRemoved = true;
 

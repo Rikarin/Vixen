@@ -26,13 +26,19 @@ body { margin: 0; }
 <pre id="out"></pre>
 <script>
 // A block container of spans, one per string, and its max-content width. A part written as
-// {block: 'x'} or {atomic: 'x'} is a display: block or display: inline-block box instead.
+// {block: 'x'} or {atomic: 'x'} is a display: block or display: inline-block box instead, and
+// {empty: n} is a span with no content and n px of padding on each side (#249).
 function build(parts) {
   const d = document.createElement('div'); d.className = 'c';
   for (const p of parts) {
     const s = document.createElement(typeof p === 'string' ? 'span' : p.block !== undefined ? 'div' : 'span');
     if (typeof p === 'string') s.textContent = p;
     else if (p.block !== undefined) s.textContent = p.block;
+    else if (p.empty !== undefined) s.style.padding = '0 ' + p.empty + 'px';
+    else if (p.holdsFloat !== undefined) {
+      const f = document.createElement('span'); f.style.float = 'left'; f.textContent = p.holdsFloat;
+      s.appendChild(f);
+    }
     else { s.textContent = p.atomic; s.style.display = 'inline-block'; }
     d.appendChild(s);
   }
@@ -51,6 +57,14 @@ const CASES = [
   ['ab   '],
   ['foo ', '   ', ' bar'],
   ['foo\n', ' bar'], ['foo\nbar'],
+  // #249: a span with no content between the two spaces, bare and with 5 px of padding a side.
+  ['foo ', { empty: 0 }, ' bar'],
+  ['foo ', { empty: 5 }, ' bar'],
+  ['foo ', { atomic: '' }, ' bar'],
+  // …and one at the END of the line, after a space, which is the "hangs its space" half.
+  ['foo'], ['foo ', { empty: 5 }], ['foo ', { atomic: '' }],
+  // …and a span whose only child is a float, beside the float's own width.
+  ['foo ', { holdsFloat: 'x' }, ' bar'], ['x'],
 ];
 
 // The width of the LAST span alone, after a block-level box and after an atomic inline.
