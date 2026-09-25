@@ -129,6 +129,15 @@
             initialisers in this tree that build something else.
         -->
         <Compile Include="..\..\build\StringIdCensus.cs" Link="StringIdCensus.cs" />
+
+        <!--
+            ⚠ And the narrowing targets' ownership rule (#1420). It refused every change under Raven/Library,
+            because no .csproj contains the shader library, and the only place that could be seen was
+            a Nuke run on a branch that had edited a shader. `AffectedOwnershipTests` holds the
+            library to the suites whose project files read it, and holds it out of the "projectless"
+            list that would have narrowed a shader edit to no test at all.
+        -->
+        <Compile Include="..\..\build\AffectedOwnership.cs" Link="AffectedOwnership.cs" />
     </ItemGroup>
 
     <!--
@@ -153,4 +162,7 @@
     <ItemGroup>
         <Compile Include="..\..\build\BenchmarkInventory.cs" Link="BenchmarkInventory.cs" />
     </ItemGroup>
+
+    <!-- What git calls the tree, for the repository sweeps here, instead of a directory walk (#1424). -->
+    <Import Project="..\..\Testing\Vixen.Testing.RepositoryFiles.props" />
 </Project>

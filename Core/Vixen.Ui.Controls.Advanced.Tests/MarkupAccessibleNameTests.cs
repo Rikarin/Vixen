@@ -3,6 +3,7 @@
 
 using System.Text;
 using System.Text.RegularExpressions;
+using Vixen.Testing;
 using Vixen.Ui.Markup.Testing;
 using Xunit;
 
@@ -509,29 +510,16 @@ public partial class MarkupAccessibleNameTests {
 
     /// <summary>Every <c>.vxml</c> in the working tree, in a stable order.</summary>
     /// <remarks>
-    ///     ⚠ <c>.claude</c> is pruned, and that is the difference between a test about this
-    ///     repository and a test about whatever else is on the disk: an agent worktree under
+    ///     ⚠ What git calls the tree, not what the disk holds (#1424): an agent worktree under
     ///     <c>.claude/worktrees/</c> is a full checkout of arbitrary other work, and a census
-    ///     comparing against it asserts on somebody else's uncommitted markup.
+    ///     comparing against it asserts on somebody else's uncommitted markup — and so is a clone
+    ///     under the ignored <c>references/</c>.
     /// </remarks>
     static List<string> Sources() {
-        var found = new List<string>();
-        Walk(Root(), found);
+        var found = RepositoryFiles.Files(Root(), "*.vxml");
         found.Sort(StringComparer.Ordinal);
 
         return found;
-    }
-
-    static readonly string[] Unwalked = [".git", ".claude", "bin", "obj", "artifacts", "node_modules"];
-
-    static void Walk(string directory, List<string> into) {
-        into.AddRange(Directory.EnumerateFiles(directory, "*.vxml"));
-
-        foreach (var child in Directory.EnumerateDirectories(directory)) {
-            if (!Unwalked.Contains(Path.GetFileName(child), StringComparer.Ordinal)) {
-                Walk(child, into);
-            }
-        }
     }
 
     static string Root() {

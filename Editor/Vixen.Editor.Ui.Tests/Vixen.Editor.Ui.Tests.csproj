@@ -76,4 +76,7 @@
         <Compile Include="..\..\Core\Vixen.Ui.Styling.Tests\Shared\VxmlLines.cs" Link="Shared\VxmlLines.cs" />
         <Compile Include="..\..\Core\Vixen.Ui.Styling.Tests\Shared\VxmlLinesTests.cs" Link="Shared\VxmlLinesTests.cs" />
     </ItemGroup>
+
+    <!-- What git calls the tree, for the repository sweeps here, instead of a directory walk (#1424). -->
+    <Import Project="..\..\Testing\Vixen.Testing.RepositoryFiles.props" />
 </Project>

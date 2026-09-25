@@ -6,6 +6,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -526,20 +527,15 @@ public partial class SharedUiShaderTests {
     public void EveryRavenCopyAgreesAboutTheShadersItShares() {
         var root = RepositoryRoot();
 
-        var sources = Directory.EnumerateFiles(root, "Ui.rvn", SearchOption.AllDirectories)
-            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-
-            // ⚠ <b>And not another checkout of this repository, which is what a dot directory under
-            // the root is.</b> `.claude/worktrees` holds a git worktree per parallel agent, each a
-            // full tree with its own `Ui.rvn` at whatever commit that branch is on — so this walk
-            // was comparing *old versions of this file with each other* and reporting drift that is
-            // not in the tree under test. It failed exactly that way, naming two agent worktrees,
-            // and it would have gone on doing so however correct the working tree was. The reverse
-            // is the worse half: a walk whose first disagreement is between two other checkouts
-            // stops before it reaches this one.
-            .Where(path => !Relative(root, path).Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                .Any(segment => segment.StartsWith('.')))
+        // ⚠ <b>The tree git tracks, and not another checkout of this repository</b> (#1424).
+        // `.claude/worktrees` holds a git worktree per parallel agent, each a full tree with its own
+        // `Ui.rvn` at whatever commit that branch is on — so a disk walk was comparing *old versions
+        // of this file with each other* and reporting drift that is not in the tree under test. It
+        // failed exactly that way, naming two agent worktrees, and it would have gone on doing so
+        // however correct the working tree was. The reverse is the worse half: a walk whose first
+        // disagreement is between two other checkouts stops before it reaches this one. The
+        // dot-directory and bin/obj filters that answered it are git's answer, asked directly.
+        var sources = RepositoryFiles.Files(root, "Ui.rvn")
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToList();
 
@@ -918,24 +914,21 @@ public partial class SharedUiShaderTests {
     ///         byte-identical, and they now differ by three lines of comment.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the walk skips any dot directory.</b> <c>.claude/worktrees</c> holds a whole
-    ///         checkout per parallel agent, so a walk from the root compares old versions of these
-    ///         files with each other and reports drift that is not in the tree under test — see
-    ///         <see cref="EveryRavenCopyAgreesAboutTheShadersItShares" />, which failed exactly that
-    ///         way.
+    ///         ⚠ <b>And it reads the tree git tracks, not the disk</b> (#1424). <c>.claude/worktrees</c>
+    ///         holds a whole checkout per parallel agent, so a walk from the root compares old
+    ///         versions of these files with each other and reports drift that is not in the tree
+    ///         under test — see <see cref="EveryRavenCopyAgreesAboutTheShadersItShares" />, which
+    ///         failed exactly that way. The walk this replaced skipped every dot directory and
+    ///         <c>bin</c>, <c>obj</c> and <c>artifacts</c> by name, and still enumerated all of them
+    ///         first; it read the ignored <c>references/</c> clones as sources.
     ///     </para>
     /// </remarks>
     [Fact]
     public void EveryDuplicateGlslSourceIsADeclaredPair() {
         var root = RepositoryRoot();
 
-        var sources = Directory
-            .EnumerateFiles(root, "*", SearchOption.AllDirectories)
+        var sources = RepositoryFiles.Listed(root)
             .Where(path => Extensions.Contains(Path.GetExtension(path), StringComparer.Ordinal))
-            .Where(path => !Relative(root, path)
-                .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                .Any(segment => segment.StartsWith('.') || segment is "bin" or "obj" or "artifacts"))
-            .Select(path => Relative(root, path).Replace('\\', '/'))
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToList();
 

@@ -122,4 +122,7 @@
 
     <!-- The **/*.vxml glob and the two properties the generator asks MSBuild for. -->
     <Import Project="..\Vixen.Ui\build\Vixen.Ui.targets" />
+
+    <!-- What git calls the tree, for the repository sweeps here, instead of a directory walk (#1424). -->
+    <Import Project="..\..\Testing\Vixen.Testing.RepositoryFiles.props" />
 </Project>

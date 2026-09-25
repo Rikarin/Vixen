@@ -3,6 +3,7 @@
 
 using System.Xml;
 using System.Xml.Linq;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.DocGen.Tests;
@@ -46,15 +47,6 @@ public class RealExemptionTests {
 
     /// <summary>The prefix every class <c>Vixen.Shaders.Generators</c> emits carries.</summary>
     const string GeneratedPrefix = "T:Vixen.Shaders.Generated.";
-
-    /// <summary>Directories a walk of the checkout must not descend into.</summary>
-    /// <remarks>
-    ///     ⚠ <c>.claude/worktrees/</c> holds a whole checkout per parallel agent, so a walk that kept
-    ///     going would read another branch's project files and answer about a tree this run cannot
-    ///     change. That is the false positive that stopped <c>SharedUiShaderTests</c> reaching this
-    ///     tree at all.
-    /// </remarks>
-    static readonly string[] Skipped = [".git", ".claude", ".nuke", "bin", "obj", "artifacts", "node_modules"];
 
     /// <summary>The checkout this assembly was compiled in — the nearest root, never the outermost.</summary>
     static string Root {
@@ -146,22 +138,15 @@ public class RealExemptionTests {
         }
     }
 
-    /// <summary>Every <c>.csproj</c> in the checkout, skipping the directories that are not it.</summary>
-    static IEnumerable<string> Projects(string directory) {
-        foreach (var child in Directory.EnumerateDirectories(directory)) {
-            if (Skipped.Contains(Path.GetFileName(child), StringComparer.OrdinalIgnoreCase)) {
-                continue;
-            }
-
-            foreach (var project in Projects(child)) {
-                yield return project;
-            }
-        }
-
-        foreach (var project in Directory.EnumerateFiles(directory, "*.csproj")) {
-            yield return project;
-        }
-    }
+    /// <summary>Every <c>.csproj</c> in the checkout, as git defines it.</summary>
+    /// <remarks>
+    ///     ⚠ Not a directory walk (#1424): <c>.claude/worktrees/</c> holds a whole checkout per
+    ///     parallel agent, so a walk that kept going would read another branch's project files and
+    ///     answer about a tree this run cannot change — the false positive that stopped
+    ///     <c>SharedUiShaderTests</c> reaching this tree at all — and the ignored <c>references/</c>
+    ///     clones carry project files of their own.
+    /// </remarks>
+    static List<string> Projects(string directory) => RepositoryFiles.Files(directory, "*.csproj");
 
     /// <summary>The exemption ids this file is about, with the namespace stripped.</summary>
     static IReadOnlyList<Exemption> GeneratedExemptions() {

@@ -11,6 +11,7 @@ using Nuke.Common.ProjectModel;
 using Nuke.Common.Tools.DotNet;
 using Nuke.Common.Tools.Git;
 using Serilog;
+using Vixen.Build;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
 
 /// <summary>
@@ -29,7 +30,8 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 ///         ⚠ <b>A selector that returns the empty set on an unrecognised path reports success by
 ///         running nothing</b>, which is the failure shape CLAUDE.md § "How this codebase decides
 ///         something is proved" names first. So the mapping here is total: every changed file either
-///         maps to a project or matches <see cref="OwnedByNoProject" />, and anything else is an
+///         maps to a project — the one containing it, or one that reads it through an item — or matches
+///         <see cref="AffectedOwnership.OwnedByNoProject" />, and anything else is an
 ///         error rather than a silent skip.
 ///     </para>
 /// </remarks>
@@ -114,81 +116,61 @@ partial class Build {
     }
 
     /// <summary>
-    ///     Whether a changed file is one no project can own, so that owning none of them is an
-    ///     answer rather than a hole.
+    ///     Each solution project's out-of-directory item patterns, keyed by its repository-relative
+    ///     path — what <see cref="AffectedOwnership.ReadersOf" /> matches a changed file against.
     /// </summary>
     /// <remarks>
-    ///     The list is deliberately short and by directory. Everything else that reaches the walk
-    ///     and finds no project is reported as an error: a source file outside every project is
-    ///     either a project that was never added or a rule here that has gone stale, and both are
-    ///     worth a message.
+    ///     ⚠ The solution's projects and not every <c>.csproj</c> on disk, for the reason
+    ///     <see cref="SolutionProjects" /> gives: a reader outside the solution is one no narrowed
+    ///     target could act on anyway. <c>_build.csproj</c> is outside it too, which is exactly why a
+    ///     linked <c>build/*.cs</c> needs its reader here.
     /// </remarks>
-    bool OwnedByNoProject(AbsolutePath file) {
-        var relative = RootDirectory.GetRelativePathTo(file).ToUnixRelativePath().ToString();
+    Dictionary<string, IReadOnlyList<string>> ItemPatternsBySolutionProject() {
+        var patterns = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
 
-        return !relative.Contains('/', StringComparison.Ordinal)
-            || relative.StartsWith("docs/", StringComparison.Ordinal)
-            || relative.StartsWith(".github/", StringComparison.Ordinal)
-            || relative.StartsWith(".nuke/", StringComparison.Ordinal)
-            || relative.StartsWith(".config/", StringComparison.Ordinal)
-            || relative.StartsWith("references/", StringComparison.Ordinal)
-            || relative.StartsWith("artifacts/", StringComparison.Ordinal)
-            // The site is TypeScript and its own build; no .csproj owns a line of it, so without
-            // this any change under www/ makes `--since` refuse rather than narrow.
-            || relative.StartsWith("www/", StringComparison.Ordinal)
-            // ⚠ The VS Code extension is the same case one level down: TextMate grammars, language
-            // configuration and snippets in JSON, tested by `node --test` against its own
-            // node_modules. `Tools/` is otherwise all projects, so the walk found none here and a
-            // batch that taught the grammar a new VXML keyword (`@rows`, #758) made `--since`
-            // refuse outright. No .NET target can check a line of it, so owning none is the answer.
-            || relative.StartsWith("Tools/Vixen.VSCode/", StringComparison.Ordinal)
-            // ⚠ An area README documents a top-level directory rather than anything in it, and no
-            // .csproj sits beside it to be walked up to — `Raven/README.md`, and `Core/README.md`
-            // and `Platform/README.md` the same way. The repository-root `README.md` is already
-            // covered by the no-slash clause at the top, so only the sibling case was missing, and
-            // it made `--since` refuse outright: a batch that touched an area README could not use
-            // the narrowing targets at all. CLAUDE.md calls these READMEs "the best entry point
-            // into an unfamiliar area", so they are edited often and compile into nothing.
-            //
-            // Kept as narrow as the others: exactly one slash, and exactly that name. A README
-            // deeper in the tree still belongs to the project above it, which is where the
-            // per-module READMEs the convention actually cares about live.
-            || (relative.EndsWith("/README.md", StringComparison.Ordinal)
-                && relative.Count(character => character == '/') == 1);
+        foreach (var project in SolutionProjects().Where(project => project.FileExists())) {
+            var relative = RootDirectory.GetRelativePathTo(project).ToUnixRelativePath().ToString();
+
+            patterns[relative] = AffectedOwnership.ItemPatterns(
+                relative,
+                project.ReadAllText(),
+                imported => (RootDirectory / imported).FileExists() ? (RootDirectory / imported).ReadAllText() : null
+            );
+        }
+
+        return patterns;
     }
 
     /// <summary>
-    ///     The projects that own <paramref name="changed" />, deduplicated and ordered.
+    ///     The projects that own <paramref name="changed" />, deduplicated and ordered: the one
+    ///     whose directory holds each file, and every one that reads it from outside.
     /// </summary>
     /// <exception cref="Exception">
-    ///     When a changed file neither maps to a project nor matches <see cref="OwnedByNoProject" />.
+    ///     When a changed file is owned by no project and does not match
+    ///     <see cref="AffectedOwnership.OwnedByNoProject" />.
     /// </exception>
+    /// <remarks>
+    ///     The rule is <see cref="AffectedOwnership.Classify" />, linked into
+    ///     <c>Vixen.ApiCheck.Tests</c>; this is the half that touches the disk.
+    /// </remarks>
     IReadOnlyList<AbsolutePath> ProjectsOwning(IEnumerable<AbsolutePath> changed) {
-        var projects = new SortedSet<string>(StringComparer.Ordinal);
-        var orphans = new List<string>();
-
-        foreach (var file in changed) {
-            var project = OwningProject(file);
-
-            if (project is not null) {
-                projects.Add(project);
-
-                continue;
-            }
-
-            if (!OwnedByNoProject(file)) {
-                orphans.Add(RootDirectory.GetRelativePathTo(file).ToUnixRelativePath());
-            }
-        }
-
-        Assert.True(
-            orphans.Count == 0,
-            $"{orphans.Count} changed file(s) belong to no project and to no directory this build "
-            + "knows is projectless, so narrowing by --since would have skipped them silently: "
-            + string.Join(", ", orphans.Take(10))
+        var ownership = AffectedOwnership.Classify(
+            changed.Select(file => RootDirectory.GetRelativePathTo(file).ToUnixRelativePath().ToString()),
+            relative => OwningProject(RootDirectory / relative) is { } project
+                ? RootDirectory.GetRelativePathTo(project).ToUnixRelativePath().ToString()
+                : null,
+            ItemPatternsBySolutionProject()
         );
 
-        return [.. projects.Select(AbsolutePath.Create)];
+        Assert.True(
+            ownership.Orphans.Count == 0,
+            $"{ownership.Orphans.Count} changed file(s) belong to no project, are read by none, and are "
+            + "in no directory this build knows is projectless, so narrowing by --since would have "
+            + "skipped them silently: "
+            + string.Join(", ", ownership.Orphans.Take(10))
+        );
+
+        return [.. ownership.Projects.Select(project => RootDirectory / project)];
     }
 
     /// <summary>

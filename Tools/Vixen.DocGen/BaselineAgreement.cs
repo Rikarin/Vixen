@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Testing;
+
 namespace Vixen.DocGen;
 
 /// <summary>
@@ -40,9 +42,14 @@ static class BaselineAgreement {
             .GroupBy(node => node.Assembly, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
 
-        foreach (var directory in Directory
-            .EnumerateFiles(repositoryRoot, "PublicAPI.Unshipped.txt", SearchOption.AllDirectories)
-            .Where(path => IsSource(Path.GetRelativePath(repositoryRoot, path)))
+        // ⚠ What git calls the tree, not what the disk holds (#1424). A checkout keeps its agent
+        // worktrees under `.claude/worktrees/`, so a recursive walk of the main checkout found nine
+        // copies of every baseline, eight of them another branch's, and reported seven assemblies
+        // as disagreeing whose baselines were correct. The walk that replaced it pruned by its own
+        // list of names, which still read `references/` and whatever else a machine had cloned;
+        // git's listing reads only this checkout's own files.
+        foreach (var directory in RepositoryFiles
+            .Files(repositoryRoot, "PublicAPI.Unshipped.txt")
             .Select(path => Path.GetDirectoryName(path)!)
             .OrderBy(path => path, StringComparer.Ordinal)) {
             var assembly = Path.GetFileName(directory);
@@ -72,28 +79,6 @@ static class BaselineAgreement {
         }
 
         return disagreements;
-    }
-
-    /// <summary>
-    ///     Whether a baseline found by the walk is the project's own, rather than a copy of it.
-    /// </summary>
-    /// <remarks>
-    ///     ⚠ <b>A recursive walk of a checkout finds more baselines than there are projects</b>, and
-    ///     the extras are stale by construction. This repository keeps its agent worktrees under
-    ///     <c>.claude/worktrees/</c>, so the main checkout carries nine copies of every
-    ///     <c>PublicAPI.Unshipped.txt</c> — eight of them from other branches. Read anyway, they made
-    ///     this check report seven assemblies as disagreeing whose baselines are in fact correct: the
-    ///     newest branch's types against another branch's file. Build outputs are the same mistake in
-    ///     a smaller way, which is why <c>ApiCheckedProjects()</c> filters them too.
-    /// </remarks>
-    internal static bool IsSource(string relativePath) {
-        var segments = relativePath.Replace('\\', '/').Split('/');
-
-        return !segments.Any(segment =>
-            segment.StartsWith('.')
-            || string.Equals(segment, "bin", StringComparison.Ordinal)
-            || string.Equals(segment, "obj", StringComparison.Ordinal)
-            || string.Equals(segment, "artifacts", StringComparison.Ordinal));
     }
 
     /// <summary>

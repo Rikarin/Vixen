@@ -1,7 +1,8 @@
 # Every WHOLE selector the two control sheets (`ControlTheme.vcss`, `AdvancedTheme.vcss`) spell
-# entirely in tags and combinators, and whether any bare control's tree matched it.
+# entirely in tags and combinators, and whether any bare control's tree matched it — or, failing
+# that, any seeded control's.
 #
-#     <selector><TAB><Bare|->
+#     <selector><TAB><Bare|Seeded|->
 #
 # Held against the sheets and against the bare sweep by
 # `LiveCombinatorPairTests.Every_type_only_control_selector_is_in_the_scoped_census_with_its_verdict`,
@@ -15,12 +16,17 @@
 # rules, because the editor never builds those controls bare. The two files answer one question
 # from two sets of trees, through the same matcher.
 #
-# ⚠ The loud direction is `Bare` becoming `-`: the sheet still declares the rule and no control
-# builds anything under the scope it names any more. A `-` row is UNJUDGED, never dead — a part a
-# control builds only with content, or a control that only exists inside another, is unreached by a
-# bare sweep. Bare controls only: a seeded tree can match a whole selector THROUGH an element the
-# seed introduced, and nothing here can refuse that. A `-` row the editor's census does not credit
-# either is named, with what builds it, in `Editor/Vixen.Editor.App.Tests/UnjudgedScopedSelectors.txt`.
+# ⚠ The loud direction is DOWN the ladder `Bare` → `Seeded` → `-`: the sheet still declares the
+# rule and no control builds anything under the scope it names any more, or no longer without its
+# first item. A `-` row is UNJUDGED, never dead — a part a control builds only with content, or a
+# control that only exists inside another, is unreached by both sweeps.
+#
+# `Seeded` is a selector only a control given its first item matched (`LiveCombinatorPairTests`'
+# `Seeds`), with every element the seed introduced REFUSED at every compound but the leftmost — the
+# seeded pair walk's rule, asked of the cascade's own matcher as `b:not(.<marker>)`. So a row is
+# never the harness's own nesting; `tab-strip tab` is asserted refused and `tab-panels tab-panel`
+# kept. A `-` row the editor's census does not credit either is named, with what builds it, in
+# `Editor/Vixen.Editor.App.Tests/UnjudgedScopedSelectors.txt`.
 checkbox box	Bare
 checkbox box icon	Bare
 code-editor scroll-view	Bare
@@ -56,7 +62,7 @@ menu-item kbd	-
 multi-select icon	Bare
 node-port-editor checkbox	-
 node-port-editor numeric-input	-
-option icon	-
+option icon	Seeded
 property-editor numeric-input	-
 property-editor select	-
 property-editor slider	-

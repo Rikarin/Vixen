@@ -3,6 +3,7 @@
 
 using System.Text.Json;
 using System.Xml.Linq;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.ApiCheck.Tests;
@@ -145,36 +146,21 @@ public sealed class PackageValidationTests {
     /// <summary>Every project file this tree owns.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The excluded directories are pruned rather than filtered, and both halves of that
-    ///         matter.</b> <c>.claude/worktrees</c> holds a whole checkout per agent — fifteen of them
-    ///         at once on this machine — so a walk that recurses into it and discards the results
-    ///         afterwards reads every one of those trees' <c>bin</c> and <c>obj</c> before deciding it
-    ///         did not want them. Pruning at the directory is the difference between milliseconds and
-    ///         a walk nobody wants in a test.
+    ///         ⚠ <b>As git defines the tree</b> (#1424). This was a walk pruned by a hand-kept list of
+    ///         names, pruned rather than filtered for a measured reason: <c>.claude/worktrees</c> holds
+    ///         a whole checkout per agent — fifteen at once on this machine — and a walk that recursed
+    ///         and discarded read every one of them first. <c>git ls-files</c> keeps that (a worktree
+    ///         is one nested-repository entry) and knows about the ignored <c>references/</c>, whose
+    ///         clones carry project files the list did not skip.
     ///     </para>
     ///     <para>
-    ///         ⚠ And the name is matched on the <em>segment</em>, never on the absolute path: this
-    ///         tree may itself live at <c>…/.claude/worktrees/&lt;branch&gt;</c>, so an absolute
-    ///         <c>Contains(".claude")</c> excludes everything — which is what happened the first time
-    ///         this ran, and is why <see cref="TheWalksAboveActuallyReadSomething" /> states a floor.
+    ///         ⚠ The old walk had to match names on the <em>segment</em>, never on the absolute path:
+    ///         this tree may itself live at <c>…/.claude/worktrees/&lt;branch&gt;</c>, so an absolute
+    ///         <c>Contains(".claude")</c> excluded everything the first time it ran — which is why
+    ///         <see cref="TheWalksAboveActuallyReadSomething" /> states a floor, still.
     ///     </para>
     /// </remarks>
-    static List<string> ProjectFiles() {
-        var found = new List<string>();
-        var pending = new Stack<string>([RepositoryRoot()]);
-
-        while (pending.TryPop(out var directory)) {
-            found.AddRange(Directory.EnumerateFiles(directory, "*.csproj"));
-
-            foreach (var child in Directory.EnumerateDirectories(directory)) {
-                if (Path.GetFileName(child) is not (".claude" or "artifacts" or "bin" or "obj" or ".git")) {
-                    pending.Push(child);
-                }
-            }
-        }
-
-        return found;
-    }
+    static List<string> ProjectFiles() => RepositoryFiles.Files(RepositoryRoot(), "*.csproj");
 
     static List<string> ArchivedReleases() {
         using var index = JsonDocument.Parse(

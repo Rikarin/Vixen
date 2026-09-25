@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.RegularExpressions;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.Editor.Ui.Tests;
@@ -41,13 +42,6 @@ public class MarkupRatioTests {
         @"^(?:public\s+|internal\s+)?(?:sealed\s+|abstract\s+|static\s+|partial\s+)*(?:class|record)\s+(?<name>\w+(?:View|Panel|Inspector|Popup))\b",
         RegexOptions.Compiled | RegexOptions.Multiline
     );
-
-    /// <summary>Directories a source sweep must not descend into, matched by name at any depth.</summary>
-    /// <remarks>
-    ///     ⚠ <c>.claude/worktrees/</c> holds a full checkout per agent, so a walk that does not prune
-    ///     it is minutes slower and answering a question about somebody else's tree.
-    /// </remarks>
-    static readonly string[] Unwalked = [".git", ".claude", "bin", "obj", "artifacts", "node_modules"];
 
     /// <summary>The hand-built views are the ledger, and the ledger is the hand-built views.</summary>
     [Fact]
@@ -285,22 +279,16 @@ public class MarkupRatioTests {
         return entries;
     }
 
+    /// <summary>The files under a directory matching a pattern, as git defines the tree.</summary>
+    /// <remarks>
+    ///     ⚠ Not a directory walk (#1424): <c>.claude/worktrees/</c> holds a full checkout per agent,
+    ///     and a walk pruned by a hand-kept list of names answered about whatever else was on the disk.
+    /// </remarks>
     static List<string> SourceFiles(string directory, string pattern) {
-        List<string> found = [];
-        Walk(directory, pattern, found);
+        var found = RepositoryFiles.Files(directory, pattern);
         found.Sort(StringComparer.Ordinal);
 
         return found;
-    }
-
-    static void Walk(string directory, string pattern, List<string> into) {
-        into.AddRange(Directory.EnumerateFiles(directory, pattern));
-
-        foreach (var child in Directory.EnumerateDirectories(directory)) {
-            if (Array.IndexOf(Unwalked, Path.GetFileName(child)) < 0) {
-                Walk(child, pattern, into);
-            }
-        }
     }
 
     static string RepositoryRoot() {

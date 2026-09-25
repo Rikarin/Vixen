@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -82,16 +83,6 @@ namespace Vixen.Graphics.Golden.Tests;
 ///     </para>
 /// </remarks>
 public class CommittedGlslModuleTests {
-    /// <summary>Directory names a walk from the repository root must not descend into.</summary>
-    /// <remarks>
-    ///     ⚠ <c>.claude</c> holds a whole checkout per agent. A walk that does not skip it compares
-    ///     one agent's copy of a file with another's and reports work against a tree nobody is
-    ///     editing. <c>bin</c> and <c>obj</c> hold copies of the very modules this checks.
-    /// </remarks>
-    static readonly string[] Skipped = [
-        ".git", ".claude", ".vs", ".idea", "bin", "obj", "artifacts", "TestResults", "node_modules"
-    ];
-
     /// <summary>The committed record of which source each hand-compiled module was built from.</summary>
     static string Ledger =>
         Path.Combine(SharedUiShaderTests.RepositoryRoot(), "Platform", "Vixen.Graphics.Golden.Tests", "hand-compiled.sha256");
@@ -367,29 +358,11 @@ public class CommittedGlslModuleTests {
         );
     }
 
-    /// <summary>Every <c>.spv</c> under <paramref name="root" />, skipping what a walk must not read.</summary>
+    /// <summary>Every <c>.spv</c> under <paramref name="root" />, as git defines the tree.</summary>
     /// <remarks>
-    ///     Hand-rolled rather than <c>EnumerateFiles(..., AllDirectories)</c> because that one cannot
-    ///     be told to skip a directory — it walks every agent worktree and every <c>obj</c> first and
-    ///     hands the caller the results afterwards.
+    ///     ⚠ Not a directory walk (#1424): <c>.claude</c> holds a whole checkout per agent, and
+    ///     <c>bin</c> and <c>obj</c> hold copies of the very modules this checks — and a hand-kept list
+    ///     of names to skip is a second, drifting answer to the question git already answers.
     /// </remarks>
-    static IEnumerable<string> Modules(string root) {
-        var pending = new Stack<string>();
-
-        pending.Push(root);
-
-        while (pending.Count > 0) {
-            var current = pending.Pop();
-
-            foreach (var directory in Directory.EnumerateDirectories(current)) {
-                if (!Skipped.Contains(Path.GetFileName(directory), StringComparer.Ordinal)) {
-                    pending.Push(directory);
-                }
-            }
-
-            foreach (var file in Directory.EnumerateFiles(current, "*.spv")) {
-                yield return file;
-            }
-        }
-    }
+    static List<string> Modules(string root) => RepositoryFiles.Files(root, "*.spv");
 }

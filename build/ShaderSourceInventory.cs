@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Vixen.Testing;
 
 /// <summary>
 ///     Every Raven source outside the library whose compiled modules are committed beside it.
@@ -51,9 +52,6 @@ using System.Linq;
 ///     </para>
 /// </remarks>
 static class ShaderSourceInventory {
-    /// <summary>Directory names a walk from the repository root must not descend into.</summary>
-    static readonly string[] Skipped = [".git", ".claude", ".vs", ".idea", "bin", "obj", "artifacts", "Raven"];
-
     /// <summary>
     ///     Walks <paramref name="root" /> for the sources this gate has to know about.
     /// </summary>
@@ -91,33 +89,21 @@ static class ShaderSourceInventory {
     }
 
     /// <summary>
-    ///     Every <c>.rvn</c> under <paramref name="root" />, skipping what a repository walk must not
-    ///     read.
+    ///     Every <c>.rvn</c> under <paramref name="root" /> outside the library, as git defines the
+    ///     tree.
     /// </summary>
     /// <remarks>
-    ///     Hand-rolled rather than <c>EnumerateFiles(..., AllDirectories)</c> because that one cannot
-    ///     be told to skip a directory — it walks every agent worktree and every <c>obj</c> first and
-    ///     hands the caller the results afterwards.
+    ///     ⚠ Not a directory walk (#1424). This was a hand-rolled walk pruned by a list of names,
+    ///     because <c>EnumerateFiles(..., AllDirectories)</c> cannot be told to skip a directory and
+    ///     walks every agent worktree first; <c>git ls-files</c> keeps the pruning and drops the list,
+    ///     which did not know about the ignored <c>references/</c> or <c>Samples/*/Build/</c>.
+    ///     <c>Raven</c> stays excluded as a directory name, for the reason the class remarks give.
     /// </remarks>
-    static IEnumerable<string> Sources(string root) {
-        var pending = new Stack<string>();
-
-        pending.Push(root);
-
-        while (pending.Count > 0) {
-            var current = pending.Pop();
-
-            foreach (var directory in Directory.EnumerateDirectories(current)) {
-                if (!Skipped.Contains(Path.GetFileName(directory), StringComparer.Ordinal)) {
-                    pending.Push(directory);
-                }
-            }
-
-            foreach (var file in Directory.EnumerateFiles(current, "*.rvn")) {
-                yield return file;
-            }
-        }
-    }
+    static IEnumerable<string> Sources(string root) =>
+        RepositoryFiles.Listed(root)
+            .Where(relative => relative.EndsWith(".rvn", StringComparison.Ordinal))
+            .Where(relative => !relative.Split('/')[..^1].Contains("Raven", StringComparer.Ordinal))
+            .Select(relative => Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar)));
 
     /// <summary>
     ///     Whether a source reaches into another package, which is what decides it cannot be compiled
