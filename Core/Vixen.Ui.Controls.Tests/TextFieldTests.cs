@@ -336,6 +336,34 @@ public class TextFieldTests {
         Assert.Equal("7", field.Value);
     }
 
+    /// <summary>A field whose number is its default shows that number, not an empty box.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The text used to be written only when <see cref="NumericInput.Number" /> or
+    ///     <see cref="NumericInput.Decimals" /> changed</b>, and both default to nought — so a field
+    ///     showing whole numbers and handed a zero was two no-op assignments and an empty box. The
+    ///     inspector draws every integer member that way, and a texture's Max Size, whose zero means
+    ///     "no limit", opened blank on every texture (#1415). A float field escaped only because
+    ///     <c>Decimals = 3</c> is a change.
+    /// </remarks>
+    [Fact]
+    public void A_whole_number_field_at_nought_shows_nought() {
+        using var fixture = new ControlFixture();
+
+        var born = fixture.Add<NumericInput>();
+        Assert.Equal("0", born.Value);
+
+        // The inspector's own sequence for an `int` member at zero: both assignments are no-ops.
+        var drawn = fixture.Add<NumericInput>();
+        drawn.Decimals = 0;
+        drawn.Number = 0d;
+        Assert.Equal("0", drawn.Value);
+
+        // And a float field is still what it was — this is not a new default format.
+        var single = fixture.Add<NumericInput>();
+        single.Decimals = 3;
+        Assert.Equal("0.000", single.Value);
+    }
+
     [Fact]
     public void The_arrows_step_it_and_the_modifiers_scale_the_step() {
         using var fixture = new ControlFixture();

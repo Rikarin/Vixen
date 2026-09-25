@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Samples.HelloUi.Tests</RootNamespace>
+        <AssemblyName>HelloUi.Tests</AssemblyName>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ **The sample itself, which is an executable, and that is the point (#650).** Its shell
+            is where the first chord any framework application dispatches is drawn and answered, and
+            until this project existed nothing could reach it but a compiler: the claim "⌘S saves the
+            material" was compile-verified only. The shell is `internal` — markup emits no
+            accessibility modifier — so `HelloUi.csproj` names this assembly as a friend.
+        -->
+        <ProjectReference Include="..\HelloUi.csproj" />
+
+        <!--
+            The harness that runs frames instead of waiting, and rasterises without a GPU. No window
+            is opened: the shell is built straight into a test document, the way Mmo.Ui.Tests builds
+            the HUD.
+        -->
+        <ProjectReference Include="..\..\..\Core\Vixen.Ui.Testing\Vixen.Ui.Testing.csproj" />
+    </ItemGroup>
+</Project>

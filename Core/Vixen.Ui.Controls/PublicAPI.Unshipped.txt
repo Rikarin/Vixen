@@ -803,13 +803,17 @@ Vixen.Ui.Controls.RangeBase : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.RangeBase.ClearMaximum() -> void
 Vixen.Ui.Controls.RangeBase.ClearMinimum() -> void
 Vixen.Ui.Controls.RangeBase.ClearOrientation() -> void
+Vixen.Ui.Controls.RangeBase.ClearSnapsToTicks() -> void
 Vixen.Ui.Controls.RangeBase.ClearStep() -> void
+Vixen.Ui.Controls.RangeBase.ClearTickCount() -> void
 Vixen.Ui.Controls.RangeBase.DrawThumb(Vixen.Ui.DrawContext context, Vixen.Core.Mathematics.Rectangle rail, float fraction) -> void
+Vixen.Ui.Controls.RangeBase.DrawTicks(Vixen.Ui.DrawContext context, Vixen.Core.Mathematics.Rectangle rail) -> void
 Vixen.Ui.Controls.RangeBase.DrawTrack(Vixen.Ui.DrawContext context, Vixen.Core.Mathematics.Rectangle rail, float from, float to) -> void
 Vixen.Ui.Controls.RangeBase.Extent(Vixen.Core.Mathematics.Rectangle rail) -> float
 Vixen.Ui.Controls.RangeBase.FillColor.get -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.Controls.RangeBase.Fraction(float value) -> float
 Vixen.Ui.Controls.RangeBase.FractionAt(float x, float y) -> float
+Vixen.Ui.Controls.RangeBase.Increment.get -> float
 Vixen.Ui.Controls.RangeBase.IsVertical.get -> bool
 Vixen.Ui.Controls.RangeBase.Maximum.get -> float
 Vixen.Ui.Controls.RangeBase.Maximum.set -> float
@@ -820,6 +824,8 @@ Vixen.Ui.Controls.RangeBase.Orientation.set -> Vixen.Ui.Controls.Orientation
 Vixen.Ui.Controls.RangeBase.Rail(Vixen.Core.Mathematics.Rectangle bounds) -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Controls.RangeBase.RangeBase() -> void
 Vixen.Ui.Controls.RangeBase.Snap(float value) -> float
+Vixen.Ui.Controls.RangeBase.SnapsToTicks.get -> bool
+Vixen.Ui.Controls.RangeBase.SnapsToTicks.set -> bool
 Vixen.Ui.Controls.RangeBase.Span(Vixen.Core.Mathematics.Rectangle rail, float from, float to) -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Controls.RangeBase.Step.get -> float
 Vixen.Ui.Controls.RangeBase.Step.set -> float
@@ -827,6 +833,9 @@ Vixen.Ui.Controls.RangeBase.Thickness(Vixen.Core.Mathematics.Rectangle rail) -> 
 Vixen.Ui.Controls.RangeBase.ThumbBorderColor.get -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.Controls.RangeBase.ThumbColor.get -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.Controls.RangeBase.ThumbSize.get -> float
+Vixen.Ui.Controls.RangeBase.TickColor.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.RangeBase.TickCount.get -> int
+Vixen.Ui.Controls.RangeBase.TickCount.set -> int
 Vixen.Ui.Controls.RangeBase.TrackColor.get -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.Controls.RangeBase.ValueAt(float fraction) -> float
 Vixen.Ui.Controls.RangeSlider -> sealed class
@@ -1671,6 +1680,7 @@ static Vixen.Ui.Controls.KeyMapPreset.Of(string name, System.Collections.Generic
 static Vixen.Ui.Controls.KeyboardShortcut.Describe(Vixen.Input.InputKey key, Vixen.Ui.ModifierKeys modifiers) -> string
 static Vixen.Ui.Controls.KeyboardShortcut.Formatter.get -> System.Func<Vixen.Input.InputKey, Vixen.Ui.ModifierKeys, string>
 static Vixen.Ui.Controls.KeyboardShortcut.Formatter.set -> System.Func<Vixen.Input.InputKey, Vixen.Ui.ModifierKeys, string>
+static Vixen.Ui.Controls.RangeBase.TickFraction(int index, int count) -> float
 static readonly Vixen.Ui.Controls.Accordion.AllowMultipleProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Avatar.NameProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.BreadcrumbItem.ValueProperty -> Vixen.Ui.UiPropertyKey
@@ -1741,7 +1751,9 @@ static readonly Vixen.Ui.Controls.RadioGroup.ValueProperty -> Vixen.Ui.UiPropert
 static readonly Vixen.Ui.Controls.RangeBase.MaximumProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.RangeBase.MinimumProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.RangeBase.OrientationProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.RangeBase.SnapsToTicksProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.RangeBase.StepProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.RangeBase.TickCountProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.RangeSlider.HighProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.RangeSlider.LowProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.ScrollBar.ContentSizeProperty -> Vixen.Ui.UiPropertyKey

@@ -24,6 +24,19 @@
         <VixenUi>true</VixenUi>
     </PropertyGroup>
 
+    <!--
+        The shell's tests live one directory down as their own project, the carve-out samples 03 and
+        13 make for their frame tests: the SDK's default globs would otherwise compile them straight
+        into the application. They are a friend because the shell is `internal` — markup emits no
+        accessibility modifier.
+    -->
+    <ItemGroup>
+        <Compile Remove="HelloUi.Tests/**" />
+        <None Remove="HelloUi.Tests/**" />
+        <Content Remove="HelloUi.Tests/**" />
+        <InternalsVisibleTo Include="HelloUi.Tests" />
+    </ItemGroup>
+
     <ItemGroup>
         <!--
             ⚠ **No Vixen.Engine and no Vixen.App, and that absence is the sample.**

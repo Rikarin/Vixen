@@ -285,6 +285,56 @@ public class DrawerTests {
         Assert.Equal(110_000f, material.FoamWidth);
     }
 
+    /// <summary>An integer member at nought draws <c>0</c>, however the row got there.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Both halves are the same defect: the field's text is written only when its number
+    ///         changes.</b> An <c>int</c> row is <c>Decimals = 0</c> then <c>Number = 0</c>, two no-op
+    ///         assignments over a field born at nought, and it drew an empty box (#1415 — a texture's
+    ///         Max Size, whose zero means "no limit", on every texture).
+    ///     </para>
+    ///     <para>
+    ///         The second half is the same no-op one step later. A mixed row blanks the text and
+    ///         leaves the number where it was; when the selection comes to agree on that number again,
+    ///         assigning it is not a change, so the dash went and nothing replaced it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_integer_member_at_nought_draws_nought_even_after_a_mixed_selection() {
+        using var document = new UiDocument(600f, 400f);
+        var host = document.Root.Add("host");
+        var drawer = (IPropertyDrawer) new NumberDrawer();
+
+        var first = new WaterMaterial { Version = 0 };
+        var second = new WaterMaterial { Version = 0 };
+        var field = new InspectorField(Water, Member("Version"), [first, second]);
+        var box = Assert.IsType<NumericInput>(drawer.Build(field, host));
+
+        using (field.Refreshing()) {
+            drawer.Show(field, box);
+        }
+
+        Assert.Equal("0", box.Value);
+
+        second.Version = 5;
+
+        using (field.Refreshing()) {
+            drawer.Show(field, box);
+        }
+
+        Assert.Equal(string.Empty, box.Value);
+        Assert.Equal("—", box.Placeholder);
+
+        second.Version = 0;
+
+        using (field.Refreshing()) {
+            drawer.Show(field, box);
+        }
+
+        Assert.Equal("0", box.Value);
+        Assert.Null(box.Placeholder);
+    }
+
     [Fact]
     public void Typing_into_one_component_of_a_vector_leaves_the_others_alone() {
         using var document = new UiDocument(600f, 400f);

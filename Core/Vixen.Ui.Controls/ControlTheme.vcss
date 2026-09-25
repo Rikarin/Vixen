@@ -128,6 +128,12 @@ root {
        rather than as rescue. `transparent` turns the ring off and costs no draw command. */
     --thumb-border-color: #7a7f88;
     --thumb-size: 14px;
+
+    /* A slider's tick marks (`RangeBase.TickCount`): the muted text grey, because a tick is read
+       across the track as well as beside it — 4.8:1 against the surface and 3.9:1 against the
+       track in this palette, 6.5:1 and 4.6:1 in the dark one, both above the 3:1 WCAG asks of a
+       mark that carries meaning. `transparent` draws none and costs no command. */
+    --tick-color: #6b7280;
     --selection-color: #b8ccf8;
     --caret-color: #1c1f23;
 
@@ -160,6 +166,7 @@ root.dark {
     --fill-color: #5b87ff;
     --thumb-color: #e8eaed;
     --thumb-border-color: #383c43;
+    --tick-color: #9aa1ab;
     --selection-color: #2c4a86;
     --caret-color: #e8eaed;
     --diagnostics-margin: #ffb866;

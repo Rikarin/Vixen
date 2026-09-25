@@ -330,8 +330,8 @@ these hold, and each is a gate in Part 10:
    command handlers.
 2. The editor's `CommandDispatcher` resolves through `CommandRoute` instead of the flat registry.
 3. `EditorShell.Context` — a mutable string pushed by hand from pointer handlers in ten places
-   (`EditorApplication.cs:2330,2417,2546,2602`; `EditorParity.cs:625,1255-1257,2400`;
-   `EditorWorlds.cs:122`; ⚠ ten was a floor when it was written — `EditorWorlds.cs` alone had four —
+   (`EditorApplication.cs:2342,2429,2558,2614`; `EditorParity.cs:625,1255-1257,2433`;
+   `EditorWorlds.cs:129`; ⚠ ten was a floor when it was written — `EditorWorlds.cs` alone had four —
    and a re-count for #1388 finds twenty-one, most of them in the module panels) — is deleted in favour of `CommandScope`, which was built to replace it and
    is assigned only in tests.
 4. `Samples/02-HelloUi` has at least one panel whose Copy means something different from the shell's.
@@ -841,8 +841,9 @@ the field and declines a scrub when it meets a control on the way; a version of 
 `args.Source` never fires, because what a pointer hits inside a button is the `Icon`.
 
 **Present but with a named gap**: `Button` has no default (Return) or cancel (Esc) key equivalent, no
-attached menu (so no pull-down or pop-up button), no repeat-on-hold; `Slider` has no tick marks;
-`SearchBox` has no recents menu or scope bar; `ComboBox` has no completion; `Tabs` has no overflow,
+attached menu (so no pull-down or pop-up button), no repeat-on-hold; ~~`Slider` has no tick
+marks~~ — landed (#666): `RangeBase.TickCount` and `SnapsToTicks`, drawn by `Slider` and
+`RangeSlider` only, so a `LevelIndicator` given ticks still draws none; `SearchBox` has no recents menu or scope bar; `ComboBox` has no completion; `Tabs` has no overflow,
 close or reorder (`DockingHost` has all three); `ScrollView` has no magnification and no rulers;
 `DataGrid` has no column show/hide menu and no layout autosave.
 

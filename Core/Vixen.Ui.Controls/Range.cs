@@ -32,6 +32,7 @@ namespace Vixen.Ui.Controls;
 ///     </para>
 /// </remarks>
 public abstract partial class RangeBase : Control {
+    int tickColor;
     int trackColor;
     int fillColor;
     int thumbColor;
@@ -50,10 +51,118 @@ public abstract partial class RangeBase : Control {
     [UiProperty]
     public partial float Step { get; set; }
 
+    /// <summary>How many tick marks are drawn along the rail, both ends included. Zero draws none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         AppKit's <c>numberOfTickMarks</c>, and counted the same way: five ticks over nought to
+    ///         one mark the quarters, and the first and last sit under the thumb at either end. One
+    ///         tick is drawn at the middle, which is the only place a single mark means anything.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A picture, not a constraint, unless <see cref="SnapsToTicks" /> says so.</b> A
+    ///         slider with ticks and no snapping is a ruler under a continuous control — the marks
+    ///         are where to look, not where the thumb must stop — which is the default AppKit chose
+    ///         too.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only <see cref="Slider" /> and <see cref="RangeSlider" /> draw them.</b> The
+    ///         property is here because the snapping arithmetic is, so <see cref="ProgressBar" />,
+    ///         <see cref="LevelIndicator" /> and <see cref="Gauge" /> inherit it and ignore it —
+    ///         including <see cref="LevelIndicator" />, the control AppKit's own tick marks belong to.
+    ///     </para>
+    /// </remarks>
+    [UiProperty(Changed = nameof(OnTicksChanged))]
+    public partial int TickCount { get; set; }
+
+    /// <summary>Whether a value may only be one a tick marks.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         AppKit's <c>allowsTickMarkValuesOnly</c>. With two ticks or more it replaces
+    ///         <see cref="Step" /> as the increment for a drag and for the arrow keys alike, so the
+    ///         arrows move one tick rather than a step that would round back to where they began.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Replaces rather than combines.</b> A step of a tenth under five ticks has no common
+    ///         answer — the quarter is not a multiple of it — and a control that honoured both would
+    ///         let only nought and one through. The ticks are what the person can see, so they win.
+    ///     </para>
+    /// </remarks>
+    [UiProperty(Changed = nameof(OnSnapsToTicksChanged))]
+    public partial bool SnapsToTicks { get; set; }
+
+    /// <summary>What a drag, a snap and one arrow press move in: the tick spacing when snapping, otherwise <see cref="Step" />.</summary>
+    protected float Increment =>
+        SnapsToTicks && TickCount >= 2 ? (Maximum - Minimum) / (TickCount - 1) : Step;
+
+    /// <summary>Where a tick sits along the rail, as zero to one.</summary>
+    /// <param name="index">Which tick, from the minimum end.</param>
+    /// <param name="count">How many there are.</param>
+    protected static float TickFraction(int index, int count) => count <= 1 ? 0.5f : index / (float) (count - 1);
+
+    /// <summary>How far a tick reaches past each long edge of the rail.</summary>
+    const float TickReach = 3f;
+
+    /// <summary>The ticks' colour.</summary>
+    protected Color4 TickColor => Document.ColorOf(Style, tickColor) ?? TrackColor;
+
+    /// <summary>Draws the tick marks across the rail, before anything that should cover them.</summary>
+    /// <param name="context">Where to draw.</param>
+    /// <param name="rail">The rail.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Across the rail rather than beside it</b>, reaching a few pixels past each long
+    ///         edge. A mark below the rail needs a taller control than the theme's twenty pixels, and
+    ///         every existing slider would have grown to make room for something it does not draw;
+    ///         across the rail it fits inside the thumb's own height, and the fill and the thumb are
+    ///         drawn over it — a tick under the thumb is covered, which is where the value is anyway.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>On a whole pixel.</b> A one-pixel mark centred on a fraction of a pixel is two
+    ///         half-covered columns, which is a grey smear rather than a line; flooring the start is
+    ///         at most half a pixel off where the value is, and the thumb is fourteen wide.
+    ///     </para>
+    /// </remarks>
+    protected void DrawTicks(DrawContext context, Rectangle rail) {
+        var count = TickCount;
+        var color = TickColor;
+
+        if (count <= 0 || color.A <= 0f) {
+            return;
+        }
+
+        var length = Thickness(rail) + (2f * TickReach);
+
+        for (var index = 0; index < count; index++) {
+            var fraction = TickFraction(index, count);
+
+            context.FillRectangle(
+                IsVertical
+                    ? new Rectangle(
+                        rail.X + ((rail.Width - length) * 0.5f),
+                        MathF.Floor(rail.Y + (rail.Height * (1f - fraction))),
+                        length,
+                        1f
+                    )
+                    : new Rectangle(
+                        MathF.Floor(rail.X + (rail.Width * fraction)),
+                        rail.Y + ((rail.Height - length) * 0.5f),
+                        1f,
+                        length
+                    ),
+                color
+            );
+        }
+    }
+
+    void OnTicksChanged(int previous, int current) => OnBoundsChanged();
+
+    void OnSnapsToTicksChanged(bool previous, bool current) => OnBoundsChanged();
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
 
+        tickColor = Document.PropertyId("--tick-color");
         trackColor = Document.PropertyId("--track-color");
         fillColor = Document.PropertyId("--fill-color");
         thumbColor = Document.PropertyId("--thumb-color");
@@ -75,20 +184,16 @@ public abstract partial class RangeBase : Control {
         return span <= 0f ? 0f : Math.Clamp((value - Minimum) / span, 0f, 1f);
     }
 
-    /// <summary>The value a fraction of the way along the range, snapped to <see cref="Step" />.</summary>
-    protected float ValueAt(float fraction) {
-        var value = Minimum + (Math.Clamp(fraction, 0f, 1f) * (Maximum - Minimum));
+    /// <summary>The value a fraction of the way along the range, snapped to <see cref="Increment" />.</summary>
+    protected float ValueAt(float fraction) =>
+        Snap(Minimum + (Math.Clamp(fraction, 0f, 1f) * (Maximum - Minimum)));
 
-        if (Step > 0f) {
-            value = Minimum + (MathF.Round((value - Minimum) / Step) * Step);
-        }
+    /// <summary>Brings a value inside the bounds and onto a step, or onto a tick when <see cref="SnapsToTicks" />.</summary>
+    protected float Snap(float value) {
+        var increment = Increment;
 
-        return Clamp(value);
+        return Clamp(increment > 0f ? Minimum + (MathF.Round((value - Minimum) / increment) * increment) : value);
     }
-
-    /// <summary>Brings a value inside the bounds and onto a step.</summary>
-    protected float Snap(float value) =>
-        Clamp(Step > 0f ? Minimum + (MathF.Round((value - Minimum) / Step) * Step) : value);
 
     /// <summary>Brings a value inside the bounds, whichever way round they currently are.</summary>
     /// <remarks>
@@ -405,6 +510,7 @@ public sealed partial class Slider : RangeBase {
 
         var fraction = Fraction(Value);
 
+        DrawTicks(context, rail);
         DrawTrack(context, rail, 0f, fraction);
         context.FillRectangle(Span(rail, 0f, fraction), FillColor, Thickness(rail) * 0.5f);
 
@@ -463,7 +569,7 @@ public sealed partial class Slider : RangeBase {
         // A step of zero means continuous, and a continuous slider still has to be movable by
         // keyboard — so the arrows fall back to a hundredth of the range, which is what a slider
         // with no declared step is asking for.
-        var step = Step > 0f ? Step : (Maximum - Minimum) * 0.01f;
+        var step = Increment > 0f ? Increment : (Maximum - Minimum) * 0.01f;
 
         var moved = args.Key switch {
             InputKey.Left or InputKey.Down => Value - step,
@@ -550,6 +656,7 @@ public sealed partial class RangeSlider : RangeBase {
         var low = Fraction(Low);
         var high = Fraction(High);
 
+        DrawTicks(context, rail);
         DrawTrack(context, rail, low, high);
         context.FillRectangle(Span(rail, low, high), FillColor, Thickness(rail) * 0.5f);
 
@@ -634,7 +741,7 @@ public sealed partial class RangeSlider : RangeBase {
             return;
         }
 
-        var step = Step > 0f ? Step : (Maximum - Minimum) * 0.01f;
+        var step = Increment > 0f ? Increment : (Maximum - Minimum) * 0.01f;
         var from = draggingHigh ? High : Low;
 
         var moved = args.Key switch {

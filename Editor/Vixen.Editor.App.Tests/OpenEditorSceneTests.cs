@@ -65,6 +65,235 @@ public sealed class OpenEditorSceneTests {
         Assert.Equal(before + 3, view.Content!.Count);
     }
 
+    /// <summary>
+    ///     ⚠ <b>#1416: a document tab is bound to the file it was opened on, so the editor's scene
+    ///     leaving that file closes it.</b> The tab is registered once under the asset's GUID with the
+    ///     title that file had; its builder decided what to show again on every rebuild by matching
+    ///     the file the scene writes <i>now</i>. After Save As a tab called <c>Main</c> either kept
+    ///     showing a scene that writes <c>Other</c> or, rebuilt, lost it — which one depended on
+    ///     when the panel was last built. Closing it is the one answer that does not.
+    /// </summary>
+    [Fact]
+    public void Save_as_closes_the_tab_named_after_the_file_the_scene_left() {
+        using var session = EditorSession.Start();
+
+        var main = MainScene(session);
+        var tab = "asset." + main.Guid;
+
+        session.Editor.OpenAsset(main.Guid);
+        session.Frames(2);
+        Assert.True(session.Shell.Workspace.IsOpen(tab));
+
+        var other = Path.Combine(session.Project.Paths.Assets, "Other.vxscene");
+        session.Editor.SaveSceneAs(other);
+        session.Frames(2);
+
+        Assert.Equal(Path.GetFullPath(other), Path.GetFullPath(Writer(session).Path));
+        Assert.False(session.Shell.Workspace.IsOpen(tab), $"the tab named after {main.Path} still shows a scene that writes Other.vxscene");
+
+        // The file the scene left is nobody's now, so opening it is a document of its own…
+        session.Editor.OpenAsset(main.Guid);
+        session.Frames(2);
+
+        var reopened = Assert.IsType<SceneDocument>(session.Project.ActiveDocument.Peek());
+        Assert.NotSame(session.Scene, reopened);
+        Assert.Equal(main.Guid, reopened.Asset);
+
+        // …and the file it moved to is the editor's scene, brought forward rather than doubled.
+        Assert.True(session.Project.Assets.TryGetByPath(session.Project.Paths.Relative(other), out var moved));
+        session.Editor.OpenAsset(moved.Guid);
+        session.Frames(2);
+
+        Assert.Same(session.Scene, session.Project.ActiveDocument.Peek());
+    }
+
+    /// <summary>Open Scene moves the scene's writer too, and leaves the same tab behind.</summary>
+    [Fact]
+    public void Open_scene_closes_the_tab_named_after_the_file_the_scene_left() {
+        using var session = EditorSession.Start();
+
+        var main = MainScene(session);
+        var tab = "asset." + main.Guid;
+        var other = CopyOf(session, main, "Other.vxscene");
+
+        session.Editor.OpenAsset(main.Guid);
+        session.Frames(2);
+        Assert.True(session.Shell.Workspace.IsOpen(tab));
+
+        session.Editor.LoadScene(other);
+        session.Frames(2);
+
+        Assert.Equal(Path.GetFullPath(other), Path.GetFullPath(Writer(session).Path));
+        Assert.False(session.Shell.Workspace.IsOpen(tab));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The question #1416 left open: Save As onto a file another tab is editing made two
+    ///     documents over one file again</b>, the defect #1395 removed — two undo histories, two
+    ///     writers, whichever saved last winning. It is refused, and the scene keeps writing where it
+    ///     did.
+    /// </summary>
+    [Fact]
+    public void Save_as_onto_a_file_another_tab_is_editing_is_refused() {
+        using var session = EditorSession.Start();
+
+        var main = MainScene(session);
+        var before = Writer(session).Path;
+        var other = CopyOf(session, main, "Other.vxscene");
+        Assert.True(session.Project.Assets.TryGetByPath(session.Project.Paths.Relative(other), out var entry));
+
+        session.Editor.OpenAsset(entry.Guid);
+        session.Frames(2);
+
+        var theirs = Assert.IsType<SceneDocument>(session.Project.ActiveDocument.Peek());
+        Assert.NotSame(session.Scene, theirs);
+
+        session.Editor.SaveSceneAs(other);
+        session.Frames(2);
+
+        Assert.Equal(before, Writer(session).Path);
+        Assert.Contains(
+            session.Shell.Notifications.History,
+            message => (message.Detail ?? string.Empty).Contains("Other.vxscene", StringComparison.Ordinal)
+        );
+
+        // And Open Scene onto it is the same second document by another route.
+        session.Editor.LoadScene(other);
+        session.Frames(2);
+
+        Assert.Equal(before, Writer(session).Path);
+        Assert.True(theirs.IsOpen);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Closing the tab is what "close that first" asks for, so it has to be enough.</b> Closing
+    ///     an asset tab leaves its document in the project, and the refusal counted every document the
+    ///     project held — so once a scene file had been opened in a tab at all, Save As, Open Scene and
+    ///     Open Additively onto it were refused until the editor restarted, by a message naming a
+    ///     document the user could no longer see. A clean one no tab shows is released instead.
+    /// </summary>
+    [Fact]
+    public void Closing_the_other_tab_releases_its_file_to_save_as_open_and_open_additively() {
+        using var session = EditorSession.Start();
+
+        var main = MainScene(session);
+        var other = CopyOf(session, main, "Other.vxscene");
+        var third = CopyOf(session, main, "Third.vxscene");
+
+        var theirs = OpenAndClose(session, other);
+        session.Editor.SaveSceneAs(other);
+        session.Frames(2);
+
+        Assert.Equal(Path.GetFullPath(other), Path.GetFullPath(Writer(session).Path));
+        Assert.False(theirs.IsOpen, "the closed tab's document still holds Other.vxscene");
+        Assert.DoesNotContain(theirs, session.Project.Documents);
+
+        var thirds = OpenAndClose(session, third);
+        session.Editor.LoadScene(third);
+        session.Frames(2);
+
+        Assert.Equal(Path.GetFullPath(third), Path.GetFullPath(Writer(session).Path));
+        Assert.False(thirds.IsOpen);
+
+        // Open Additively reads the same answer: Main.vxscene, left behind by Save As, opened in a
+        // tab and closed again, is an ordinary file to add.
+        var left = session.Project.Paths.Absolute(main.Path);
+        var mains = OpenAndClose(session, left);
+        var added = session.Editor.OpenSceneAdditively(left);
+
+        Assert.NotNull(added);
+        Assert.NotSame(mains, added);
+        Assert.False(mains.IsOpen);
+    }
+
+    /// <summary>
+    ///     A document with unsaved changes is still the file's holder with its tab closed — releasing
+    ///     it would throw the changes away — and the refusal says the one thing that clears it, which
+    ///     then does.
+    /// </summary>
+    [Fact]
+    public void A_closed_tab_with_unsaved_changes_still_holds_its_file_until_they_are_saved() {
+        using var session = EditorSession.Start();
+
+        var main = MainScene(session);
+        var before = Writer(session).Path;
+        var other = CopyOf(session, main, "Other.vxscene");
+
+        var theirs = OpenAndClose(session, other, dirty: true);
+        session.Editor.SaveSceneAs(other);
+        session.Frames(2);
+
+        Assert.Equal(before, Writer(session).Path);
+        Assert.True(theirs.IsOpen);
+        Assert.Contains(
+            session.Shell.Notifications.History,
+            message => (message.Detail ?? string.Empty).Contains("unsaved changes", StringComparison.Ordinal)
+        );
+
+        theirs.Save();
+        session.Editor.SaveSceneAs(other);
+        session.Frames(2);
+
+        Assert.Equal(Path.GetFullPath(other), Path.GetFullPath(Writer(session).Path));
+        Assert.False(theirs.IsOpen);
+    }
+
+    /// <summary>Opens a scene file in an asset tab of its own and closes the tab, returning its document.</summary>
+    static SceneDocument OpenAndClose(EditorSession session, string path, bool dirty = false) {
+        Assert.True(session.Project.Assets.TryGetByPath(session.Project.Paths.Relative(path), out var entry));
+
+        session.Editor.OpenAsset(entry.Guid);
+        session.Frames(2);
+
+        var document = Assert.IsType<SceneDocument>(session.Project.ActiveDocument.Peek());
+        Assert.NotSame(session.Scene, document);
+
+        if (dirty) {
+            document.Create("Unsaved", LocalTransform.Identity);
+            Assert.True(document.IsDirty.Peek());
+        }
+
+        Assert.True(session.Shell.Workspace.Close("asset." + entry.Guid));
+        session.Frames(2);
+        Assert.Contains(document, session.Project.Documents);
+
+        return document;
+    }
+
+    /// <summary>
+    ///     Opening a scene additively matched the scene's <i>recorded</i> path, which Save As leaves
+    ///     behind — so after the main scene moved, adding its old file activated the main scene, and
+    ///     adding its new one loaded a second document over the file it writes.
+    /// </summary>
+    [Fact]
+    public void Opening_additively_after_save_as_matches_the_file_the_scene_writes_now() {
+        using var session = EditorSession.Start();
+
+        var main = MainScene(session);
+        var left = Writer(session).Path;
+        var other = Path.Combine(session.Project.Paths.Assets, "Other.vxscene");
+
+        session.Editor.SaveSceneAs(other);
+        session.Frames(2);
+
+        Assert.Same(session.Scene, session.Editor.OpenSceneAdditively(other));
+
+        var added = session.Editor.OpenSceneAdditively(left);
+        Assert.NotNull(added);
+        Assert.NotSame(session.Scene, added);
+        Assert.Equal(main.Path, session.Project.Paths.Relative(Assert.IsType<SceneFileWriter>(added!.Writer).Path));
+    }
+
+    static SceneFileWriter Writer(EditorSession session) => Assert.IsType<SceneFileWriter>(session.Scene.Writer);
+
+    static string CopyOf(EditorSession session, Vixen.Editor.Core.AssetEntry entry, string name) {
+        var path = Path.Combine(session.Project.Paths.Assets, name);
+        File.Copy(session.Project.Paths.Absolute(entry.Path), path);
+        session.Project.Assets.Scan();
+
+        return path;
+    }
+
     static Vixen.Editor.Core.AssetEntry MainScene(EditorSession session) {
         var writer = Assert.IsType<SceneFileWriter>(session.Scene.Writer);
         var relative = session.Project.Paths.Relative(writer.Path);

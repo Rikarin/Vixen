@@ -902,15 +902,15 @@ whole of it was `AssetEditorRegistry` moving somewhere both ends could see:
 
 | File | Names |
 |---|---|
-| `EditorApplication.cs:317` | `AssetEditorRegistry` |
-| `EditorApplication.cs:1100` | `AssetEditorsModule` |
+| `EditorApplication.cs:326` | `AssetEditorRegistry` |
+| `EditorApplication.cs:1112` | `AssetEditorsModule` |
 | `EditorApplication.cs:13,14,47,48` | the `Vixen.Editor.AssetEditors` and `.Content` namespaces, and the `Prefab` / `PrefabSource` aliases |
 | `ComponentsView.cs:21` | `PrefabSource` |
 | `EditorFrames.cs:7,399,409,434` | `StandardFrameDocument` |
 | `ShaderGraphPreviews.cs:4,5,27,56,66,80` | `IPreviewImages`, `ShaderGraphPreviewRenderer`, `ShaderGraphDocument`, and `Vixen.Editor.ShaderGraph` itself |
 
 ⚠⚠ **And the compiler under-reports, so "remove the reference and count the errors" is a floor on the
-dependency list and never the list.** `EditorWorlds.cs:1169,1173` name
+dependency list and never the list.** `EditorWorlds.cs:1185,1189` name
 `Vixen.Editor.AssetEditors.Vfx.VfxGraphView` and `…Sequencing.SequenceView` fully qualified, in live
 `case` patterns, and produce **no diagnostic at all** — confirmed independently by both agents, the
 second by checking that the file is compiled (a deliberate syntax error in it *is* reported) and that a

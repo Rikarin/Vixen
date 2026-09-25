@@ -608,7 +608,7 @@ public sealed class EditorShell : IDisposable {
     ///         writers here agree with that — every <c>panel.WhenPressedIn(() =&gt; Shell.Context =
     ///         …)</c> in <c>EditorApplication</c>, <c>EditorWorlds</c>, <c>DiagnosticsModule</c> and
     ///         <c>BlockoutModulePanels</c> is a press inside a panel. Two writers do not.
-    ///         <c>EditorApplication.cs:2546</c> reads <c>Shell.Modes.Context ?? SceneContext</c>, and
+    ///         <c>EditorApplication.cs:2558</c> reads <c>Shell.Modes.Context ?? SceneContext</c>, and
     ///         <c>RegisterModes</c> claims the context on entering a mode <i>without waiting for a
     ///         press</i> — its own comment says why: somebody who has just pressed the Blockout
     ///         button has aimed at the viewport and should not have to click it as well. The focus at
