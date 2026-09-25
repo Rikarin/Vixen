@@ -699,7 +699,12 @@ identity to file the slots under (`VXML2030`) — put the `ref` on the control a
 there, or read what the row shows through `index`. And a control has one pool: a second `@rows` in
 it would replace the first's delegates, and every row the first had made would stop updating
 (`VXML2031`). A nested `@for` inside a row keys its own roots as every `@for` does
-([#1398](https://github.com/Rikarin/Vixen/issues/1398)). The syntax types are `RowsSyntax` and
+([#1398](https://github.com/Rikarin/Vixen/issues/1398)).
+
+⚠ **No `exit` in a row either.** A slot the list scrolls past is parked and rebound, never removed,
+so there is nothing for an exit interval to delay (`VXML2032`). An `@for` nested inside a row is the
+exception, because its reconciler does remove items: an `exit` on *its* row works as it does anywhere
+([#1405](https://github.com/Rikarin/Vixen/issues/1405)). The syntax types are `RowsSyntax` and
 `BoundRows`.
 
 ### `help`, for a sentence a screen reader can reach

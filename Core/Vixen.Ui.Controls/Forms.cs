@@ -555,9 +555,10 @@ public sealed partial class Form : Control {
 ///         here rather than implied by a smaller font.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nest in markup, or add to <see cref="Content" /> from C#.</b> A nested tag goes to
-///         <see cref="ContentHost" />; <c>section.Add&lt;T&gt;()</c> parents on the section itself,
-///         beside the heading, as it does for every container in this assembly.
+///         ⚠ <b>Nest in markup, or add from C#, and both land in <see cref="Content" />.</b> A nested
+///         tag goes to <see cref="ContentHost" />, and so does <c>section.Add&lt;T&gt;()</c> since
+///         #1425 — before that it parented on the section itself, beside the heading, as it did for
+///         every container in this assembly.
 ///     </para>
 /// </remarks>
 public sealed partial class Section : Control {

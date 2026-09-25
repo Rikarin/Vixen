@@ -1492,7 +1492,6 @@ override Vixen.Ui.Controls.Select.OnOptionAdded(Vixen.Ui.Controls.Option option)
 override Vixen.Ui.Controls.Select.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
 override Vixen.Ui.Controls.Select.TagName.get -> string
 override Vixen.Ui.Controls.SelectBase.ContentHost.get -> Vixen.Ui.UiElement
-override Vixen.Ui.Controls.SelectBase.OnChildAdded(Vixen.Ui.UiElement child) -> void
 override Vixen.Ui.Controls.SelectBase.OnCreated() -> void
 override Vixen.Ui.Controls.SelectBase.OnRemoved() -> void
 override Vixen.Ui.Controls.Separator.AcceptsFocus.get -> bool

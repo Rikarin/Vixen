@@ -971,6 +971,64 @@ public class BinderTests {
         Assert.Empty(ids);
     }
 
+    /// <summary>
+    ///     An <c>exit</c> whose nearest iteration is an <c>@rows</c> row is refused, as a row's and not
+    ///     as a loop's.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Before #1405 the loop rule gave a row both wrong answers.</b> Outside an <c>@for</c>
+    ///     (the first two rows) it reported <c>VXML2024</c>, whose advice sends the author to an
+    ///     <c>@for</c>; with the <c>@rows</c> in an <c>@for</c> body (the last three) the loop depth
+    ///     was positive and the exit bound silently — on the row, two elements down, and on an
+    ///     <c>@empty</c> arm of an <c>@for</c> inside the row, which is not a loop body either.
+    /// </remarks>
+    [Theory]
+    [InlineData("<VirtualizingPanel>@rows (var i in N) { <a exit=\"200ms\" /> }</VirtualizingPanel>")]
+    [InlineData("<VirtualizingPanel>@rows (var i in N) { <a><b exit=\"200ms\" /></a> }</VirtualizingPanel>")]
+    [InlineData("<div>@for (var x in Xs) { <VirtualizingPanel key=\"@x\">@rows (var i in N) { <a exit=\"200ms\" /> }</VirtualizingPanel> }</div>")]
+    [InlineData("<div>@for (var x in Xs) { <VirtualizingPanel key=\"@x\">@rows (var i in N) { <a><b exit=\"200ms\" /></a> }</VirtualizingPanel> }</div>")]
+    [InlineData("<div>@for (var x in Xs) { <VirtualizingPanel key=\"@x\">@rows (var i in N) { <a>@for (var y in Ys) { <b key=\"@y\" /> } @empty { <c exit=\"200ms\" /> }</a> }</VirtualizingPanel> }</div>")]
+    public void An_exit_in_a_rows_row_is_refused_as_a_row_s(string markup) {
+        var ids = Ids("@component A\n" + markup);
+
+        Assert.Equal(["VXML2032"], ids);
+    }
+
+    /// <summary>
+    ///     <c>VXML2032</c> is not reported for an <c>exit</c> on the row of an <c>@for</c> nested inside
+    ///     an <c>@rows</c> row, whose reconciler does remove items, nor for one in an <c>@for</c> that
+    ///     encloses the <c>@rows</c>.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The instrument for the theory above</b>, proved by widening the rule from the nearest
+    ///     iteration to <c>rowDepth &gt; 0</c> until this went red on the nested loop's exit. The
+    ///     second loop is the other half: an exit on an <c>@for</c> root that <i>contains</i> a row is
+    ///     the outer loop's and must still bind.
+    /// </remarks>
+    [Fact]
+    public void VXML2032_is_not_reported_for_an_exit_an_inner_or_outer_loop_reads() {
+        var component = BindClean(
+            "@component A\n"
+            + "<div>\n"
+            + "    <VirtualizingPanel ref=\"@List\">\n"
+            + "        @rows (var i in N) {\n"
+            + "            <a>@for (var x in Xs) { <b key=\"@x\" exit=\"200ms\" /> }</a>\n"
+            + "        }\n"
+            + "    </VirtualizingPanel>\n"
+            + "    @for (var y in Ys) {\n"
+            + "        <section key=\"@y\" exit=\"300ms\">\n"
+            + "            <VirtualizingPanel>@rows (var j in M) { <c /> }</VirtualizingPanel>\n"
+            + "        </section>\n"
+            + "    }\n"
+            + "</div>"
+        );
+
+        var div = Assert.IsType<BoundElement>(Assert.Single(component.Content));
+        var outer = Assert.Single(div.Children.OfType<BoundFor>());
+
+        Assert.Equal(300, outer.ExitAfter);
+    }
+
     static ImmutableArray<Diagnostic> Diagnostics(string source) {
         _ = Binder.Bind(Vxml.Parse(source), out var diagnostics);
         return [.. diagnostics];

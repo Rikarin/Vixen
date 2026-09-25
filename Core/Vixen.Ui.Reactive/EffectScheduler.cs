@@ -19,7 +19,11 @@ namespace Vixen.Ui.Reactive;
 ///     </para>
 ///     <para>
 ///         So writing a signal only ever queues. <see cref="Flush" /> is what runs anything, and the
-///         UI system calls it once per frame in one place.
+///         UI system calls it at two points of one frame and never during the draw: at the top of
+///         <c>UiDocument.Update</c>, after input and before layout, and again in its settle loop
+///         after every <c>LayoutFinished</c>, for the signals a layout handler wrote — a pooled
+///         list's rows are rebound there, and waiting for the next frame drew every scrolled row
+///         showing its previous item (#1406).
 ///     </para>
 /// </remarks>
 public sealed class EffectScheduler {

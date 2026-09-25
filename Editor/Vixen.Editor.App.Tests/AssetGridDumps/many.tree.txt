@@ -1,0 +1,221 @@
+<asset-grid .size-md .variant-default> 170,0 757×156
+  <asset-path> 0,0 757×28
+    <button .asset-crumb .size-sm .variant-subtle> 0,0 63×28
+      <label> 10,4 43×20 "Assets"
+    <button .asset-crumb .size-sm .variant-subtle> 65,0 57×28
+      <label> 10,4 37×20 "Many"
+  <virtualizing-grid .asset-tiles .size-md .variant-default> 0,32 757×124
+    <scroll-view .size-md .variant-default> 0,0 757×124
+      <scroll-content .virtual-grid> 0,0 757×2320
+        <asset-tile .size-md .variant-default> 0,1508 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file078.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 112,1508 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file079.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 224,1508 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file080.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 336,1508 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file081.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 448,1508 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file082.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 560,1508 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file083.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 0,1624 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file084.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 112,1624 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file085.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 224,1624 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file086.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 336,1624 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file087.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 448,1624 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file088.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 560,1624 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file089.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 0,1740 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file090.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 112,1740 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file091.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 224,1740 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file092.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 336,1740 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file093.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 448,1740 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file094.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 560,1740 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file095.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 0,1856 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file096.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 112,1856 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file097.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 224,1856 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file098.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 336,1856 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file099.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 448,1856 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file100.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 560,1856 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file101.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 0,1972 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file102.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 112,1972 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file103.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 224,1972 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file104.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 336,1972 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file105.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 448,1972 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file106.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 560,1972 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file107.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 0,2088 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file108.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 112,2088 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file109.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 224,2088 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file110.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 336,2088 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file111.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 448,2088 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file112.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 560,2088 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file113.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 0,2204 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file114.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 112,2204 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file115.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 224,2204 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file116.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 336,2204 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file117.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 448,2204 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file118.png"
+          <asset-status .hidden> 0,0 0×0
+        <asset-tile .size-md .variant-default> 560,2204 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "file119.png"
+          <asset-status .hidden> 0,0 0×0
+      <scrollbar .size-md .variant-default .vertical> 748,0 10×124
+      <scrollbar .horizontal .size-md .variant-default> 0,114 757×10

@@ -166,11 +166,9 @@ public class ApplicationBarTests {
 
     /// <summary>The message is the label's text; the cells go in the trailing area after it.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>Trailing</c> and not <c>Add</c> directly, and the difference is the one every
-    ///     control with parts has:</b> <c>UiElement.Add</c> puts a child on the element it was
-    ///     called on, and <c>ContentHost</c> is what redirects a <i>nested markup tag</i>. A test
-    ///     that called <c>status.Add</c> and expected the trailing area would be asserting on a
-    ///     redirection that does not exist in C#.
+    ///     <c>Trailing</c> written out, although <c>status.Add</c> would land there too: since #1425
+    ///     <c>UiElement.Add</c> parents on <c>ContentHost</c>, which is <c>Trailing</c> here, exactly
+    ///     as a nested markup tag does.
     /// </remarks>
     [Fact]
     public void A_status_bars_cells_land_after_its_message() {

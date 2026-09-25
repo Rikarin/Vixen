@@ -147,8 +147,12 @@ public abstract partial class SelectBase : Control {
 
         // ⚠ **What makes an `<Option>` written as a nested tag mean what it looks like.** The options
         // live in the popover, so `UiElement.OnChildAdded` fires there rather than here — see
-        // `Popover.ContentAdded`, which exists for this. Both routes now reach `OnOptionAdded`:
-        // `AddOption` is sugar over `List.Content.Add<Option>()` and two properties.
+        // `Popover.ContentAdded`, which exists for this. Every route now reaches `OnOptionAdded`:
+        // `AddOption` is sugar over `List.Content.Add<Option>()` and two properties, and
+        // `select.Add<Option>()` lands in the same place because `UiElement.Add` parents on
+        // `ContentHost`. ⚠ That last one used to need an `OnChildAdded` here that reparented the
+        // option and enlisted it by hand (#1394); #1425 routed `Add` itself, which is the fix for every
+        // container rather than this one, and the override was removed as unreachable.
         List.ContentAdded += (_, child) => {
             if (child is Option option) {
                 Enlist(option);
@@ -209,33 +213,6 @@ public abstract partial class SelectBase : Control {
         // assigned after the option arrived — which is every order there is — has to reach
         // `Restate` or the field shows its placeholder for a value that is selected.
         option.LabelChanged += OnOptionAdded;
-    }
-
-    /// <inheritdoc />
-    /// <remarks>
-    ///     ⚠ <b>An <see cref="Option" /> built as this control's own child is moved into the list,
-    ///     because that is the only place an option works.</b> <c>select.Add&lt;Option&gt;()</c>
-    ///     reads like adding a choice and is not one: <see cref="UiElement.Add{T}" /> parents on
-    ///     <c>this</c> and not on <see cref="ContentHost" />, so the option sat beside the field and
-    ///     the chevron — laid out inline as part of the closed control, missing from
-    ///     <see cref="Options" />, and deaf to a click, since the click that chooses is heard on the
-    ///     list. The sprite editor's slice-method select shipped exactly that way, drawing its three
-    ///     choices across the toolbar and offering none of them (#1394). Markup never had the
-    ///     problem, because a nested tag goes to <see cref="ContentHost" />; this is the same answer
-    ///     for C#.
-    ///     <para>
-    ///         ⚠ The move is a <see cref="UiDocument.Reparent" />, which raises no
-    ///         <c>Popover.ContentAdded</c> — that hook is creation only — so the option is enlisted
-    ///         here by hand, before its caller has assigned the value and label it is about to.
-    ///     </para>
-    /// </remarks>
-    protected override void OnChildAdded(UiElement child) {
-        base.OnChildAdded(child);
-
-        if (child is Option option && List is not null) {
-            Document.Reparent(option, List.Content);
-            Enlist(option);
-        }
     }
 
     /// <inheritdoc />

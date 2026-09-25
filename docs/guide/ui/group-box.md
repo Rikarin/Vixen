@@ -57,8 +57,10 @@ group.Label = "Shadows";
 var resolution = group.Content.Add<NumericInput>();
 ```
 
-⚠ `Add<T>` does not go near `ContentHost` — that routes a *nested tag* in markup — so a C# caller adds
-to `Content` and a markup caller nests, and both land in the same place.
+`group.Add<NumericInput>()` is the same call: `Add<T>` parents on the control's content host, which
+is where a nested tag goes in markup, so C# and markup land in the same place however they are
+written. ⚠ Until [#1425](https://github.com/Rikarin/Vixen/issues/1425) it did not, and
+`group.Add<T>()` put the field beside the legend, outside the group.
 
 The caption is one property and one copy of the words. `Label` writes the legend and is also what the
 group answers as its accessible name, so there is no relation to keep in step and nothing to forget:

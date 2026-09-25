@@ -115,8 +115,8 @@ public class SectionTests {
     /// <remarks>
     ///     <para>
     ///         Through markup, because that is the route <c>ContentHost</c> decides: a nested tag goes
-    ///         to the content host, where C#'s <c>section.Add&lt;T&gt;()</c> parents on the section
-    ///         itself — which is why every C# line in this file says <c>section.Content</c>.
+    ///         to the content host. Since #1425 so does C#'s <c>section.Add&lt;T&gt;()</c>; the C#
+    ///         lines in this file say <c>section.Content</c> because they were written before it did.
     ///     </para>
     ///     <para>
     ///         And not named by it: the title is context for everything under it, and a field that

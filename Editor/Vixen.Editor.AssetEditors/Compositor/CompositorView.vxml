@@ -260,7 +260,11 @@
             // `KeyPart` by name rather than to `row.Children[0]`: the row's parts are the control's
             // business now, and an index into them is a guess that stops being right the moment the
             // control grows one.
-            var tooltip = row.Add<Tooltip>();
+            //
+            // ⚠ Created on the row with `Document.Create` rather than `row.Add`, because `Add` parents
+            // on the row's `ContentHost` — its value part — since #1425, and a tooltip is not a
+            // value: it would sit beside the editor in the slot the editor is laid out in.
+            var tooltip = row.Document.Create<Tooltip>(null, row);
             tooltip.Label = field.Help;
             tooltip.Attach(row.KeyPart);
         }
