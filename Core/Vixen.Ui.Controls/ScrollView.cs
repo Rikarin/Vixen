@@ -27,6 +27,7 @@ namespace Vixen.Ui.Controls;
 public sealed partial class ScrollBar : Control {
     int trackColor;
     int thumbColor;
+    int thumbBorderColor;
     bool dragging;
     float grabbed;
 
@@ -104,6 +105,7 @@ public sealed partial class ScrollBar : Control {
 
         trackColor = Document.PropertyId("--track-color");
         thumbColor = Document.PropertyId("--thumb-color");
+        thumbBorderColor = Document.PropertyId("--thumb-border-color");
 
         AddClass(Separator.ClassOf(Orientation));
         AddHandler<PointerEvent>(static (element, args) => ((ScrollBar) element).Pointed(args));
@@ -111,6 +113,31 @@ public sealed partial class ScrollBar : Control {
 
     /// <summary>How far it can travel.</summary>
     public float Range => MathF.Max(0f, ContentSize - ViewportSize);
+
+    /// <summary>How much of the far end of the bar is the corner where the other bar ends.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Zero unless a <see cref="ScrollView" /> is showing both of its bars, and what the
+    ///         corner exists for is the thumb.</b> Both bars run to the view's edges, so with both
+    ///         shown the horizontal track, a later sibling, was painted over the last ten pixels of
+    ///         the vertical one — and the vertical thumb's travel was measured over the whole bar, so
+    ///         at the end of the scroll eleven of its twenty-four pixels were under the other track
+    ///         (#1401). The thumb now travels over what is left, and a press in the corner is neither
+    ///         bar's; the corner is still painted in the track colour, which is the square a browser
+    ///         leaves there.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Drawing and hit testing, not layout.</b> The bar's box keeps its full length: a
+    ///         corner written as an inset would be a style change made from inside
+    ///         <see cref="UiDocument.LayoutFinished" /> and would settle a frame late, on exactly the
+    ///         frame the content first overflowed on the second axis.
+    ///     </para>
+    /// </remarks>
+    internal float Corner { get; set; }
+
+    /// <summary>The length of the bar the thumb travels over: the whole bar, less the corner.</summary>
+    float Track(Rectangle bounds) =>
+        MathF.Max(0f, (Orientation == Orientation.Vertical ? bounds.Height : bounds.Width) - Corner);
 
     void OnOrientationChanged(Orientation previous, Orientation current) {
         RemoveClass(Separator.ClassOf(previous));
@@ -126,17 +153,39 @@ public sealed partial class ScrollBar : Control {
             return;
         }
 
+        // The whole box, corner included: with both bars shown the corner is then track-coloured from
+        // either of them, which is the square a browser paints there, rather than a hole in the frame.
         context.FillRectangle(bounds, Document.ColorOf(Style, trackColor) ?? new Color4(0f, 0f, 0f, 0.08f));
 
-        var (offset, length) = Thumb(Orientation == Orientation.Vertical ? bounds.Height : bounds.Width);
+        var along = Track(bounds);
+        if (along <= 0f) {
+            return;
+        }
+
+        var (offset, length) = Thumb(along);
         var colour = Document.ColorOf(Style, thumbColor) ?? new Color4(0.5f, 0.5f, 0.5f, 0.8f);
 
         var thumb = Orientation == Orientation.Vertical
             ? new Rectangle(bounds.X, bounds.Y + offset, bounds.Width, length)
             : new Rectangle(bounds.X + offset, bounds.Y, length, bounds.Height);
 
-        context.FillRectangle(thumb, colour, MathF.Min(thumb.Width, thumb.Height) * 0.5f);
+        var radius = MathF.Min(thumb.Width, thumb.Height) * 0.5f;
+        context.FillRectangle(thumb, colour, radius);
+
+        // ⚠ The slider's ring, off the slider's token (#594), for the slider's reason: the light
+        // palette's `--thumb-color` and `--surface` are the same white, and a thumb covering most of
+        // its bar read as the surface while the stub of uncovered track read as a small grey thumb
+        // parked at the wrong end (#1414). Fill then ring, so the ring outlines the pill; a theme
+        // that set nothing, or `transparent`, costs no command.
+        var ring = Document.ColorOf(Style, thumbBorderColor) ?? default;
+
+        if (ring.A > 0f) {
+            context.StrokeRectangle(thumb, ring, ThumbBorderWidth, BoxStyle.Rounded(CornerRadii.Uniform(radius)));
+        }
     }
+
+    /// <summary>How wide the thumb's ring is. One pixel, as the slider's is.</summary>
+    const float ThumbBorderWidth = 1f;
 
     /// <summary>Where the thumb sits along the bar, and how long it is.</summary>
     /// <remarks>
@@ -145,10 +194,15 @@ public sealed partial class ScrollBar : Control {
     ///     the travel is measured against what is left rather than against the whole bar. Getting
     ///     the second half wrong is the classic scrollbar bug: the thumb reaches the bottom before
     ///     the content does.
+    ///     ⚠ <b>And the floor is at most half the track</b>, or on a short bar it is the whole track and
+    ///     the thumb cannot move at all. That was reached once the other bar's
+    ///     <see cref="Corner" /> came off the track: the console's detail pane in a 640 px editor is
+    ///     34 px tall, its track 24 px, and a 24 px floor left a thumb that said nothing about where
+    ///     the scroll was. A bar 48 px or longer is unchanged.
     /// </remarks>
     (float Offset, float Length) Thumb(float bar) {
         var proportion = ContentSize <= 0f ? 1f : Math.Clamp(ViewportSize / ContentSize, 0f, 1f);
-        var length = MathF.Max(MathF.Min(bar, 24f), bar * proportion);
+        var length = MathF.Max(MathF.Min(bar * 0.5f, 24f), bar * proportion);
         var travel = MathF.Max(0f, bar - length);
 
         return (travel * (Range <= 0f ? 0f : Math.Clamp(Value / Range, 0f, 1f)), length);
@@ -158,11 +212,12 @@ public sealed partial class ScrollBar : Control {
         var bounds = Bounds;
         var vertical = Orientation == Orientation.Vertical;
 
-        var bar = vertical ? bounds.Height : bounds.Width;
+        var bar = Track(bounds);
         var along = (vertical ? args.Y - bounds.Y : args.X - bounds.X);
 
         switch (args.Action) {
-            case PointerAction.Pressed when args.Button == PointerButton.Primary && Range > 0f:
+            // A press in the corner is not on the track, so it is left to go on bubbling.
+            case PointerAction.Pressed when args.Button == PointerButton.Primary && Range > 0f && along < bar:
                 var (offset, length) = Thumb(bar);
 
                 // A press on the thumb grabs it where it was touched; a press on the track jumps the
@@ -1931,6 +1986,8 @@ public sealed partial class ScrollView : Control {
         HorizontalBar.ContentSize = Content.Width;
         HorizontalBar.Value = ScrollLeft;
 
+        Corners();
+
         // The clamp has to run again here rather than only in the coercion, because the thing it
         // clamps against is the content's size — and that changes without anybody assigning to the
         // scroll offset at all.
@@ -1994,7 +2051,21 @@ public sealed partial class ScrollView : Control {
         HorizontalBar.ViewportSize = Width;
         HorizontalBar.ContentSize = Content.Width;
 
+        Corners();
+
         Scrolled?.Invoke(this);
+    }
+
+    /// <summary>Leaves each bar's far end to the other when both are shown. See <see cref="ScrollBar.Corner" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The other bar's laid-out thickness, not a constant</b>, so a sheet that narrows a bar
+    ///     (<c>virtualizing-panel scrollbar { width: 8px }</c>) or hides one gets a corner that fits it.
+    ///     And only while that bar is <i>shown</i> — it draws nothing without a range, and a corner
+    ///     kept for a bar that is not there is track the thumb can never reach.
+    /// </remarks>
+    void Corners() {
+        VerticalBar.Corner = HorizontalBar.Range > 0f ? HorizontalBar.Height : 0f;
+        HorizontalBar.Corner = VerticalBar.Range > 0f ? VerticalBar.Width : 0f;
     }
 
     /// <summary>Scrolls from a wheel notch or a trackpad scroll, smoothing the first kind only, with

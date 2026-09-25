@@ -64,6 +64,7 @@ font-body > font-atlas	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 font-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 frame-editor > scroll-view	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 group-editor > tree-view	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+harness-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 import-settings > scroll-view	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 input-body > tree-view	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 input-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
@@ -84,6 +85,7 @@ mixer-strips > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.
 mode-bar > toolbar	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 model-editor > tree-view	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 moveset-bar > textbox	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+moveset-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 node-graph > node-canvas	Editor/Vixen.Editor.NodeGraph/NodeGraphTheme.vcss
 outliner-filters > search-box	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 outliner-filters > select	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss

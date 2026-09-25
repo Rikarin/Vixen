@@ -266,7 +266,7 @@ public class AccessibleNameDomainTests {
             + "controls — so it built the elements and did not read their names"
         );
 
-        // `ScrollView.cs:51` names its two bars, and `ColorPicker.cs:271` names its field. Each is a
+        // `ScrollView.cs:52` names its two bars, and `ColorPicker.cs:271` names its field. Each is a
         // `ControlStrings` id read at construction, so the pseudo-locale's guillemets are proof the
         // catalogue was installed before the control was made rather than after.
         // ⚠ Spelled out rather than read off `StringId.Text`: the sweep puts the catalogue back the
