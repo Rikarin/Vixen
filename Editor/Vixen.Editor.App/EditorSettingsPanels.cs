@@ -568,11 +568,13 @@ sealed partial class EditorApplication {
 
     /// <summary>Which language <see cref="Strings.Use" /> was last given, so it is only told once.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not an optimisation.</b> <c>Strings</c> is the one static reactive node in
-    ///     <c>Vixen.Ui</c> and it is process-wide, so an editor that wrote to it on every Apply — and
-    ///     on start-up, whether or not a language had ever been chosen — would be reaching into a
-    ///     signal shared with everything else in the process for no reason. Comparing first means an
-    ///     editor whose preference is empty never touches it at all.
+    ///     ⚠ <b>Not an optimisation.</b> The language <c>Strings</c> holds is process-wide, and a
+    ///     <c>Use</c> sets it for everything in the process, clears its missing-id list and raises
+    ///     the static <c>Strings.Changed</c>, which rebuilds every menu subscribed to it — so an editor
+    ///     that called it on every Apply, and on start-up whether or not a language had ever been
+    ///     chosen, would be reaching into state shared with everything else in the process for no
+    ///     reason. Comparing first means an editor whose preference is empty never touches it at all.
+    ///     (Only the graph node that re-labels bound expressions is per thread, since #1413.)
     /// </remarks>
     string appliedLanguage = string.Empty;
 

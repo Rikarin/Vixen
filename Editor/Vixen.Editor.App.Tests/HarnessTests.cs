@@ -236,20 +236,28 @@ public class HarnessTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Two editors at once is not a configuration this assembly may run in.</b> Issue #365:
-    ///     every panel here is a live consumer of <c>Strings</c>, which is one process-wide
-    ///     <c>Signal</c>, and the signal graph's edge lists are plain arrays with nothing
-    ///     interlocked. Two classes standing editors up on two threads did
-    ///     <c>--liveConsumerCount</c> on the same producer, the count went negative, and a detach
-    ///     indexed <c>liveConsumers[-1]</c> — reported as a flake in
-    ///     <c>MilestoneE3Tests.Every_registered_panel_survives_being_closed_and_reopened</c>, which
-    ///     passed on its own because running alone is running with nobody to race.
+    ///     ⚠ <b>Two editors at once is not a configuration this assembly may run in.</b> The
+    ///     language is process-wide, and <c>StringCatalogChainTests</c> changes it under any editor a
+    ///     class next door has standing — see <c>AssemblyInfo.cs</c> for that and the other reason.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Asserted rather than left to the file.</b> <c>AssemblyInfo.cs</c> carries the
-    ///     attribute and its reasoning, and an assembly attribute is exactly the kind of thing that
-    ///     is deleted by somebody speeding a slow suite up — at which point nothing fails, for a
-    ///     while, and then one unrelated test fails once on a loaded machine.
+    ///     <para>
+    ///         ⚠ <b>The reason this was written for no longer holds.</b> Issue #365: every panel here is
+    ///         a live consumer of <c>Strings</c>, which was one process-wide <c>Signal</c> until
+    ///         #1413, and the signal graph's edge lists are plain arrays with nothing interlocked. Two
+    ///         classes standing editors up on two threads did <c>--liveConsumerCount</c> on the same
+    ///         producer, the count went negative, and a detach indexed <c>liveConsumers[-1]</c> —
+    ///         reported as a flake in
+    ///         <c>MilestoneE3Tests.Every_registered_panel_survives_being_closed_and_reopened</c>.
+    ///         <c>Strings</c> now keeps its node per thread, so two editors on two threads no longer
+    ///         share one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Asserted rather than left to the file.</b> <c>AssemblyInfo.cs</c> carries the
+    ///         attribute and its reasoning, and an assembly attribute is exactly the kind of thing that
+    ///         is deleted by somebody speeding a slow suite up — at which point nothing fails, for a
+    ///         while, and then one unrelated test fails once on a loaded machine.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void This_assembly_does_not_run_its_classes_in_parallel() {
@@ -261,8 +269,8 @@ public class HarnessTests {
         Assert.True(
             behaviour is { DisableTestParallelization: true },
             "Vixen.Editor.App.Tests must declare [assembly: CollectionBehavior(DisableTestParallelization = "
-            + "true)]. Two EditorSessions on two threads share Strings' process-wide signal, and its edge "
-            + "list is not thread-safe. See AssemblyInfo.cs."
+            + "true)]. The language is process-wide, so a class that changes it changes the words an editor "
+            + "another class has standing on another thread reads. See AssemblyInfo.cs."
         );
     }
 

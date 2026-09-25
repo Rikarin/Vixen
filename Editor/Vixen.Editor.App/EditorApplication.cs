@@ -240,6 +240,15 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     internal ContentTasks Content => content;
 
+    /// <summary>The pictures the browser and the picker draw, for a test to wait on its decodes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>So a test waits on the work and not on a stopwatch</b> — see
+    ///     <see cref="ThumbnailCache.Decoding" />. What the cache <i>uploads</i> is still read through
+    ///     the surface a test hands <see cref="ThumbnailSurface" />, which is the application's wiring
+    ///     and the thing under test.
+    /// </remarks>
+    internal ThumbnailCache Thumbnails => thumbnails;
+
     /// <summary>What puts doc 48 § D12's baked mesh maps into the project as ordinary assets.</summary>
     /// <remarks>
     ///     ⚠ <b>Held as well as published, because it has two callers and they are different

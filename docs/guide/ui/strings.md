@@ -51,6 +51,12 @@ that reads a string is a consumer of that signal without saying so. `Strings.Use
 the document's next flush re-runs it, and the label changes. Nothing subscribes, nothing is rebuilt,
 and no application writes a line of code for it.
 
+⚠ **The language is process-wide; the signal is per thread.** A graph belongs to one thread, so each
+thread reads the language through a node of its own, and `Strings.Use` marks dirty the expressions
+of the thread that calls it. In an application that is the only graph there is — `UiApplication` and
+the editor pin the reactive graph to their UI thread — so call `Use` from there. A graph on another
+thread reads the new language the next time it evaluates, and is not told to.
+
 ⚠ **A label assigned once in C# is not an expression.** A control whose constructor writes
 `Button.Label = ControlStrings.Close.Text` reads the signal outside any effect, so it shows whatever
 language was in use when it was built — which is what the standard control set does today. Bind

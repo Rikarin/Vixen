@@ -125,9 +125,19 @@ sealed class ThumbnailCache : IDisposable {
     /// </remarks>
     readonly HashSet<AssetId> stale = [];
 
+    /// <summary>The decodes started and not yet seen to finish, touched only on the frame thread.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Kept so that a caller can wait for the work rather than for a clock.</b> See
+    ///     <see cref="Decoding" />. Pruned in <see cref="Pump" />, so it holds at most what is in flight.
+    /// </remarks>
+    readonly List<Task> decoding = [];
+
     bool closed;
 
-    /// <summary>Raised on the frame thread when a picture became available.</summary>
+    /// <summary>
+    ///     Raised on the frame thread when a picture became available, or when one that was asked for
+    ///     has to be asked for again.
+    /// </summary>
     public event Action? Changed;
 
     /// <summary>What has been contributed, or <see langword="null" /> when nothing can be.</summary>
@@ -184,6 +194,38 @@ sealed class ThumbnailCache : IDisposable {
     /// </remarks>
     public bool IsBusy => pending.Count > 0 || !finished.IsEmpty;
 
+    /// <summary>Completes when every decode started so far has queued its answer.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The signal a waiter blocks on, so that it waits as long as the work takes and no
+    ///         longer.</b> <see cref="IsBusy" /> says <i>whether</i> something is in flight and a
+    ///         loop polling it has to choose how long to keep asking — which is a clock, and a clock
+    ///         calibrated on an idle machine is what made the thumbnail tests fail under load
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1407">#1407</a>). A waiter that blocks
+    ///         on this also gives its core to the pool thread doing the decode, where a spinning one
+    ///         competed with it.
+    ///     </para>
+    ///     <para>
+    ///         A snapshot: a decode requested after this was read is not in it. The answers are
+    ///         queued, not uploaded — <see cref="Pump" /> is still what takes them. <c>Decode</c>
+    ///         turns every failure into a refusal, so this faults only if that promise is ever
+    ///         broken — and then a waiter hears the exception rather than waiting on an asset that
+    ///         will sit in <c>pending</c> for good. Read on the frame thread.
+    ///     </para>
+    /// </remarks>
+    internal Task Decoding => decoding.Count == 0 ? Task.CompletedTask : Task.WhenAll(decoding);
+
+    /// <summary>Run on the decode's own thread while it holds the file open, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>For a test to hold a decode at the one moment that matters.</b> Whether a save can
+    ///     land while a thumbnail is reading the file is an ordering question
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1326">#1326</a>), and a test that waited
+    ///     for the overlap to happen by itself met it once in several hundred runs. Read when the
+    ///     decode is requested, on the frame thread, so setting it cannot race a decode already
+    ///     started. Only the built-in decoders open the file here; a contributed preview opens its own.
+    /// </remarks>
+    internal Action? Reading { get; set; }
+
     /// <summary>The picture for an asset, asking for one if there is none yet.</summary>
     /// <param name="asset">Which asset.</param>
     /// <param name="image">The image number to draw.</param>
@@ -217,7 +259,9 @@ sealed class ThumbnailCache : IDisposable {
             return;
         }
 
-        var arrived = false;
+        // ⚠ Whether whoever draws pictures has to look again — a picture arrived, *or* an answer
+        // was dropped and the asset has to be asked for afresh. See the drop below.
+        var changed = false;
 
         while (finished.TryDequeue(out var decoded)) {
             pending.Remove(decoded.Asset);
@@ -229,7 +273,16 @@ sealed class ThumbnailCache : IDisposable {
             // ⚠ Decoded before a `Forget`, so these are the bytes of a file that has since changed.
             // Dropped rather than uploaded *or* refused: the asset is then neither ready, pending nor
             // refused, so the next tile that asks for it starts a decode of the file as it now is.
+            //
+            // ⚠ And `Changed` is raised for it, because otherwise there is no next tile. The grid
+            // asks from its bind and rebinds on `Changed`; the `Changed` that `Forget` raised found
+            // this asset still pending, so that ask was a no-op, and a drop that stayed silent left
+            // the tile a type glyph until something else happened to rebind it. `assets.refresh`
+            // with the browser open is exactly that order — the rescan binds the new file and starts
+            // its decode, then `Forget` marks the decode stale — and whenever the decode outlasted
+            // the next rebind, which a loaded machine makes likely, the picture never came (#1407).
             if (stale.Remove(decoded.Asset)) {
+                changed = true;
                 continue;
             }
 
@@ -249,10 +302,14 @@ sealed class ThumbnailCache : IDisposable {
             Touch(decoded.Asset);
             Evict();
 
-            arrived = true;
+            changed = true;
         }
 
-        if (arrived) {
+        if (decoding.Count > 0) {
+            decoding.RemoveAll(static task => task.IsCompleted);
+        }
+
+        if (changed) {
             Changed?.Invoke();
         }
     }
@@ -381,7 +438,9 @@ sealed class ThumbnailCache : IDisposable {
         // ⚠ Long-running is not asked for and would be wrong: these are short, there are many, and
         // the pool's own scheduling is what keeps a folder of two hundred from starting two hundred
         // threads.
-        _ = Task.Run(() => finished.Enqueue(Decode(asset, path, extension, preview)));
+        var reading = Reading;
+
+        decoding.Add(Task.Run(() => finished.Enqueue(Decode(asset, path, extension, preview, reading))));
     }
 
     /// <summary>Which contributed preview claims an extension, or <see langword="null" />.</summary>
@@ -400,10 +459,10 @@ sealed class ThumbnailCache : IDisposable {
     /// <remarks>
     ///     ⚠ <b>Every failure is a refusal rather than an exception.</b> A file being written by
     ///     another program, a truncated download, an extension that lies about its contents — all of
-    ///     them are ordinary, all of them arrive here, and a background task that threw would take
-    ///     the editor down from a thread nobody was watching.
+    ///     them are ordinary, all of them arrive here, and a background task that threw would leave
+    ///     its asset pending for good from a thread nobody was watching.
     /// </remarks>
-    static Decoded Decode(AssetId asset, string path, string extension, AssetPreview? preview) {
+    static Decoded Decode(AssetId asset, string path, string extension, AssetPreview? preview, Action? reading) {
         try {
             // ⚠ Before the built-in decoders, not after. A registry consulted only where
             // `ImageDecoders` gave up could never answer for an extension a decoder also claims,
@@ -416,8 +475,8 @@ sealed class ThumbnailCache : IDisposable {
                 return new Decoded(asset, 0, 0, null);
             }
 
-            using var stream = File.OpenRead(path);
-            var texture = decoder.Decode(stream, extension);
+            using var bytes = Read(path, reading);
+            var texture = decoder.Decode(bytes, extension);
 
             // ⚠ Only the eight-bit form. An HDR source decodes to `Rgba32Float`, which is four times
             // the bytes and needs a tone map to look like anything — and a thumbnail that showed a
@@ -427,13 +486,54 @@ sealed class ThumbnailCache : IDisposable {
             }
 
             return Reduce(asset, texture);
-        } catch (Exception failure) when (failure is IOException
-            or UnauthorizedAccessException
-            or NotSupportedException
-            or InvalidDataException
-            or ArgumentException) {
+        } catch (Exception) {
+            // ⚠ Every exception, and the five this used to name were not enough: StbImageSharp
+            // answers a PNG whose header is cut short with `InvalidOperationException("unknown image
+            // type")`, which is none of them. The task faulted, nothing was queued, and the asset sat
+            // in `pending` for the rest of the session — never refused, never asked about again,
+            // `IsBusy` true for ever. The test named for exactly this passed throughout, because its
+            // condition held before the decode had run (#1407). The codec is third-party and reads
+            // bytes anybody could have written, so what it throws is as unbounded as a plugin's
+            // delegate — `Contributed`'s argument, and `TexturePreview.Read`'s wide net.
             return new Decoded(asset, 0, 0, null);
         }
+    }
+
+    /// <summary>Reads a whole file into memory without standing in the way of anybody saving it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/1326">#1326</a>: on Windows a
+    ///         thumbnail being decoded made the file unsaveable.</b> The decode held
+    ///         <c>File.OpenRead</c>'s handle — which shares for reading only — for the whole of the
+    ///         decode, and on Windows a share mode is enforced by <c>CreateFile</c>, so a
+    ///         <c>File.WriteAllBytes</c> over the same path in that window failed with a sharing
+    ///         violation. A person saving over a texture whose thumbnail was being made got an
+    ///         <c>IOException</c> from their paint program; the test suite got one from its own
+    ///         repaint. The same overlap on Linux and macOS succeeds, because .NET's share modes are
+    ///         advisory there, which is why only the Windows leg ever saw it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, because either alone leaves a window.</b> Shared for writing and
+    ///         deleting, so a save or a rename-over that allows other readers — <c>File.WriteAllBytes</c>
+    ///         does — lands whenever it comes; and read whole and closed before the decode starts,
+    ///         because a program that opens for writing with <em>no</em> sharing is refused by any
+    ///         open handle whatever its share mode, and this way the handle lives for the length of a
+    ///         read rather than of a decode. What a writer racing the read can do is hand this torn
+    ///         bytes, which decode to a refusal — and the save is followed by a <c>Forget</c>, which
+    ///         is what clears a refusal.
+    ///     </para>
+    /// </remarks>
+    static MemoryStream Read(string path, Action? reading) {
+        using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+
+        reading?.Invoke();
+
+        var bytes = new MemoryStream();
+
+        file.CopyTo(bytes);
+        bytes.Position = 0;
+
+        return bytes;
     }
 
     /// <summary>Asks a contributed preview for a picture, and survives it however it behaves.</summary>

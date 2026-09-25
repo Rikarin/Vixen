@@ -282,6 +282,13 @@ language, which is why the sabotage matters more than the test: reverting the si
 leaves both assertions in `Vixen.Ui.Controls.Tests/LocalisationTests.cs` reading `"Close"` where they
 expect `"Zavřít"`.
 
+⚠ **The signal is one per thread, and the language behind it is one per process** (#1413). It was a
+single static node until every UI test class, each on its own xunit thread, was found adding and
+removing live consumers on its edge arrays at once — a removal writes into the *consumer's* arrays,
+which belong to another thread's graph. The language lives in a volatile field every thread reads;
+`Strings.Use` re-labels the calling thread's graph, which in an application is the only one.
+`Vixen.Ui.Controls.Tests/StringsThreadingTests.cs` holds both halves.
+
 ⚠ **A label assigned once in C# is not an expression.** A control whose constructor writes
 `Button.Label = ControlStrings.Close.Text` reads the signal outside any effect and shows the language
 that was in use when it was built. `Strings.Changed` — a plain event, and static — is what a
