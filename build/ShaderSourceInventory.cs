@@ -102,7 +102,7 @@ static class ShaderSourceInventory {
     static IEnumerable<string> Sources(string root) =>
         RepositoryFiles.Listed(root)
             .Where(relative => relative.EndsWith(".rvn", StringComparison.Ordinal))
-            .Where(relative => !relative.Split('/')[..^1].Contains("Raven", StringComparer.Ordinal))
+            .Where(relative => !relative.Split('/').SkipLast(1).Contains("Raven", StringComparer.Ordinal))
             .Select(relative => Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar)));
 
     /// <summary>
