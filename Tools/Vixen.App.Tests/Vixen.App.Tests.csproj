@@ -20,6 +20,8 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.App\Vixen.App.csproj" />
+        <!-- `UiShaderLibrary`, for the one test that mounts a HUD in the stock host (#1419). -->
+        <ProjectReference Include="..\..\Platform\Vixen.Ui.Desktop\Vixen.Ui.Desktop.csproj" />
 
         <!-- The content tests write a real bundle and a real catalog, so they need the serializer
              generated for their own [DataContract] asset. Analyzers do not flow through a

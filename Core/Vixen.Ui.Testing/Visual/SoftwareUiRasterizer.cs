@@ -1426,13 +1426,22 @@ public static class SoftwareUiRasterizer {
         ///     would leave the caller with two functions that look interchangeable and are not. The
         ///     device's cost is not this: its transform is nine multiplies in a fragment shader that
         ///     was already running, and this file's job is the picture rather than the cost.
+        ///     <para>
+        ///         ⚠ <b>At the frame's white, read off the geometry for the reason the rasteriser's
+        ///         blend reads it there (#1418).</b> A surface on a float pass holds colour scaled by
+        ///         <see cref="UiGeometry.WhiteLevel" />, and a matrix clamped to the alpha as if the
+        ///         white were one caps every filtered pixel at one candela and leaves a drop shadow's
+        ///         colour a factor of the white too dark. <see cref="UiColorMatrix.Apply(Color4, float)" />
+        ///         normalises and re-lights, as <c>UiComposite.Filter</c> does on the device.
+        ///     </para>
         /// </remarks>
-        static float[] Filtered(float[] surface, in UiColorMatrix matrix) {
+        float[] Filtered(float[] surface, in UiColorMatrix matrix) {
             var result = new float[surface.Length];
 
             for (var offset = 0; offset < surface.Length; offset += 4) {
                 var filtered = matrix.Apply(
-                    new Color4(surface[offset], surface[offset + 1], surface[offset + 2], surface[offset + 3])
+                    new Color4(surface[offset], surface[offset + 1], surface[offset + 2], surface[offset + 3]),
+                    geometry.WhiteLevel
                 );
 
                 result[offset] = filtered.R;

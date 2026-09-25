@@ -433,7 +433,7 @@ public sealed class UiRenderer : IDisposable {
     /// </remarks>
     readonly Dictionary<ulong, UiBlendMode> layerBlends = [];
 
-    /// <summary>The white level the last <see cref="Compose" />'s geometry was built at, for the blend.</summary>
+    /// <summary>The white level the geometry last handed to <see cref="Compose" /> or <see cref="Record" /> was built at.</summary>
     /// <remarks>
     ///     ⚠ <b>Pushed with every blended composite, because § 5.1's functions are not scale-free</b>
     ///     (#1209): both operands are normalised by it and the answer re-lit, so a <c>multiply</c> in a
@@ -441,6 +441,13 @@ public sealed class UiRenderer : IDisposable {
     ///     rather than from <see cref="WhiteLevel" />, because the geometry is what the colours
     ///     actually hold — the two disagreeing is what <c>UiRenderFeature.Dim</c> counts, and the
     ///     blend has to be right for the frame it was given.
+    ///     <para>
+    ///         ⚠ <b>And with every filtered or masked composite, for the colour matrix's clamp</b>
+    ///         (#1418): <c>UiComposite.Filter</c> clamps to the alpha times this, so a filter in a
+    ///         frame at 203 that was handed a one capped every pixel at one candela. Set by
+    ///         <see cref="Record" /> as well as by <see cref="Compose" />, because a filtered group's
+    ///         composite is drawn by the first and a blended group's capture replay by the second.
+    ///     </para>
     /// </remarks>
     float blendWhite = 1f;
 
@@ -1363,6 +1370,7 @@ public sealed class UiRenderer : IDisposable {
         ArgumentNullException.ThrowIfNull(commands);
 
         Draws = 0;
+        blendWhite = geometry.WhiteLevel > 0f && float.IsFinite(geometry.WhiteLevel) ? geometry.WhiteLevel : 1f;
 
         if (geometry.Indices.Count == 0 || surface.X <= 0 || surface.Y <= 0 || scale <= 0f) {
             return;
@@ -2830,8 +2838,11 @@ public sealed class UiRenderer : IDisposable {
         // pipeline, and it is the only one of the three that is not a property of the group's own
         // paint.</b> `ui-image.frag` has no push block on purpose — it draws every viewport,
         // thumbnail and video frame in the interface — so the box has to reach a module that does,
-        // and `colourPipeline` with an identity matrix is that module for the same price the file's
-        // own remark already accepts: a pipeline switch for the one draw that has one.
+        // and `colourPipeline` with its matrix flagged off is that module for the same price the
+        // file's own remark already accepts: a pipeline switch for the one draw that has one. ⚠ Off,
+        // and not the identity: `UiComposite.Filter` clamps to the alpha times the white, so the
+        // identity was a ceiling at the white on a scene behind the glass, and a rounded panel
+        // capped an HDR world that the square one beside it passed through.
         var box = layerBoxes.Count > 0
             && draw.Kind == BatchKind.Image
             && layerBoxes.TryGetValue(draw.Image, out var rounded)
@@ -2921,7 +2932,7 @@ public sealed class UiRenderer : IDisposable {
 
             // ⚠ The matrix goes out whole on every blended draw, flagged rather than pushed as the
             // identity, because `UiBlend` applies it through `UiComposite.Filter`, whose clamp to the
-            // alpha is not the identity on a frame built above a white of one. A second blended group
+            // alpha times the white (#1418) is not the identity on a colour authored above the white. A second blended group
             // in the pass would otherwise inherit the first one's filter — the mask branch's reason.
             var filter = matrix ?? UiColorMatrix.Identity;
 
@@ -2958,7 +2969,8 @@ public sealed class UiRenderer : IDisposable {
             var identity = matrix ?? UiColorMatrix.Identity;
 
             // The packing `ui-mask.frag` declares: three matrix rows, then the index, the count and
-            // the scale.
+            // the scale — and the white level in the fourth lane, which only `Ui.rvn`'s `UiMask` reads
+            // (#1418). The GLSL twin leaves it unread, which is the same picture at a white of one.
             // ⚠ <b>The index is absolute within the buffer and carries this frame's own region with
             // it.</b> The binding covers the whole allocation rather than one frame's slice — a
             // ring of offsets would be a descriptor rewrite per frame on sets that are shared with
@@ -2980,9 +2992,14 @@ public sealed class UiRenderer : IDisposable {
                 identity.Red.X, identity.Red.Y, identity.Red.Z, identity.Red.W,
                 identity.Green.X, identity.Green.Y, identity.Green.Z, identity.Green.W,
                 identity.Blue.X, identity.Blue.Y, identity.Blue.Z, identity.Blue.W,
-                (slot * MaskCapacity) + list.First, list.Count, scale, 0f,
+                (slot * MaskCapacity) + list.First, list.Count, scale, blendWhite,
                 corner.CentreX, corner.CentreY, corner.HalfX, corner.HalfY,
-                corner.Radius, 0f, 0f, 0f
+
+                // ⚠ And whether there is a matrix at all, in the third lane: `UiMask` skips
+                // `UiComposite.Filter` on a zero, because its clamp to the alpha times the white is
+                // not the identity on a backdrop above the white — a masked glass panel over an HDR
+                // world capped the world at 203 cd/m² with the identity matrix pushed above.
+                corner.Radius, 0f, matrix is null ? 0f : 1f, 0f
             ];
 
             commands.PushConstants(PushStages, 16, MemoryMarshal.AsBytes(block));
@@ -3006,7 +3023,14 @@ public sealed class UiRenderer : IDisposable {
                 filter.Green.X, filter.Green.Y, filter.Green.Z, filter.Green.W,
                 filter.Blue.X, filter.Blue.Y, filter.Blue.Z, filter.Blue.W,
                 corner.CentreX, corner.CentreY, corner.HalfX, corner.HalfY,
-                corner.Radius, 0f, 0f, 0f
+
+                // ⚠ The white level rides the corner's second lane (#1418): `UiComposite.Filter`
+                // clamps to the alpha times it, and a filter handed a one in a frame at 203 capped
+                // every pixel at one candela. ⚠ The third lane says whether there is a matrix at all:
+                // a rounded backdrop with none is here for its box, and the identity through that
+                // clamp capped an HDR world behind a rounded glass panel at the white, where the
+                // square panel on `imagePipeline` passed it through. `UiBlend`'s `filter.x`, again.
+                corner.Radius, blendWhite, matrix is null ? 0f : 1f, 0f
             ];
 
             commands.PushConstants(PushStages, 16, MemoryMarshal.AsBytes(rows));

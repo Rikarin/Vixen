@@ -38,17 +38,15 @@ namespace Vixen.Ui.Renderer;
 ///         or may not sample.
 ///     </para>
 ///     <para>
-///         ⚠ <b>So no frame a game draws through <c>AppGraphics</c> can name this node today, and the
-///         default <see cref="Source" /> is the name that is refused there.</b> <c>AppGraphics.Lend</c>
-///         imports the acquired swapchain image under <c>GraphicsOptions.Output</c> — by default
-///         <c>SceneColour</c>, which is also <c>!StandardFrame</c>'s default output — as
-///         <c>TextureUsage.ColourTarget</c> and nothing else, on every backend, and an import wins
-///         over a declaration of the same name. A copy out of a target of the frame's own does not
-///         get round it either: <c>!Copy</c> refuses a destination without <c>CopyDestination</c>, and
-///         the import does not declare it even where the Vulkan swapchain is created with
-///         <c>TRANSFER_DST</c>. The node builds where the target is the frame's own or is imported
-///         <c>Sampled</c> — the golden suite's fixtures and the null-device tests — and the host path
-///         is #1378's remaining half.
+///         ⚠ <b>In a game the default <see cref="Source" /> is the window, and until #1419 it was
+///         refused there.</b> <c>AppGraphics.Lend</c> imports the acquired swapchain image under
+///         <c>GraphicsOptions.Output</c> — by default <c>SceneColour</c>, which is also
+///         <c>!StandardFrame</c>'s default output — and an import wins over a declaration of the same
+///         name. It used to import it as <c>TextureUsage.ColourTarget</c> and nothing else, on every
+///         backend; it now declares <c>ISwapChain.Usage</c>, which is sampled on Vulkan wherever the
+///         surface allows it, on OpenGL and on the offscreen chain. WebGPU's surface is not sampled,
+///         and this node still refuses to run over it there. <c>HostedInterfaceComposeTests</c> is
+///         the stock host drawing a multiplied HUD panel over the world through this node.
 ///     </para>
 /// </remarks>
 [DataContract("UiCompose")]
@@ -166,8 +164,8 @@ public sealed class UiComposeRenderer : SceneRenderer {
                 "source",
                 Source,
                 "was not declared Sampled, so the interface cannot read the scene out of it. Add Sampled to "
-                + "its usage. If it is the window's image, the host imported it without Sampled — AppGraphics "
-                + "imports its swapchain as a colour target only — and this node cannot run over it (#1378)"
+                + "its usage. If it is the window's image, the backend's swapchain was not created sampled — "
+                + "AppGraphics declares what ISwapChain.Usage reports, and WebGPU's surface is not (#1419)"
             );
         }
 

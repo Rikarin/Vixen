@@ -901,14 +901,24 @@ struct UiComposite {
     /// alpha, and clamping there is exactly clamping the un-premultiplied colour to `[0, 1]`, which
     /// is what CSS specifies. It is also what makes `brightness(2)` the same picture as the software
     /// renderer's — `UiColorMatrix.Apply` does this, once, in the same place.
-    static func Filter(sampled: float4, red: float4, green: float4, blue: float4): float3 {
+    ///
+    /// ⚠ **At the frame's white, and "`[0, a]`" above is the white-of-one case of it** (#1418). A
+    /// surface on a float pass holds colour scaled by `UiGeometry.WhiteLevel`, so the matrix is
+    /// applied to colour normalised by it and the answer re-lit: `clamp(M·c + o·a·w, 0, a·w)`, which
+    /// is the same thing because the coefficients are linear. Clamped to the bare alpha, every
+    /// filtered pixel of an HDR HUD was capped at one candela and a drop shadow's colour — which is
+    /// an offset — landed a factor of the white too dark. Zero or less is read as one, the host's own
+    /// fallback. `UiColorMatrix.Apply(Color4, float)` is the host's copy.
+    static func Filter(sampled: float4, red: float4, green: float4, blue: float4, white: float): float3 {
+        val lit = sampled.a * (white > 0f ? white : 1f)
+
         val filtered = float3(
-            dot(red.rgb, sampled.rgb) + red.w * sampled.a,
-            dot(green.rgb, sampled.rgb) + green.w * sampled.a,
-            dot(blue.rgb, sampled.rgb) + blue.w * sampled.a
+            dot(red.rgb, sampled.rgb) + red.w * lit,
+            dot(green.rgb, sampled.rgb) + green.w * lit,
+            dot(blue.rgb, sampled.rgb) + blue.w * lit
         )
 
-        return clamp(filtered, float3(0f), float3(sampled.a))
+        return clamp(filtered, float3(0f), float3(lit))
     }
 
     /// The signed distance to a box with an elliptical corner, negative inside — `UiBox`'s
@@ -1082,7 +1092,16 @@ shader UiColour {
     [PushConstant] var box: float4 = float4(0f, 0f, 0f, 0f)
 
     /// `x` the corner radius in target texels, uniform across the four corners or zero —
-    /// `UiLayer.BackdropRadius` times the frame's scale.
+    /// `UiLayer.BackdropRadius` times the frame's scale. `y` the frame's white level,
+    /// `UiGeometry.WhiteLevel`, which `UiComposite.Filter` normalises by (#1418); zero is read as one.
+    /// `z` one when the draw carries a colour matrix — the three rows above — and zero when it does
+    /// not, which is `UiBlend`'s `filter.x` for `UiBlend`'s reason.
+    ///
+    /// ⚠ **A flag and not an identity matrix, because `UiComposite.Filter` is not the identity on an
+    /// identity matrix.** It clamps to `[0, a·w]`, and a rounded glass panel with no matrix — which
+    /// is here for its box and nothing else — was clamped by it: a `backdrop-filter: blur()` panel
+    /// with a radius over an HDR world capped every highlight behind it at the frame's white, where
+    /// the square panel beside it, on `UiImage`, passed them through.
     ///
     /// ⚠ **Zero is the whole of the "this draw is not a rounded backdrop" test, and it has to be a
     /// number rather than an absent push.** This pipeline also serves every filtered group, and one
@@ -1104,7 +1123,7 @@ shader UiColour {
         // filter or a rounded backdrop. A straight-alpha texture can never arrive here, so the flag
         // would be a branch on a constant.
         val sampled = source.Sample(sourceSampler, uv)
-        val filtered = UiComposite.Filter(sampled, red, green, blue)
+        val filtered = corner.z > 0.5f ? UiComposite.Filter(sampled, red, green, blue, corner.y) : sampled.rgb
 
         // ⚠ **The point comes from the texture coordinate times the surface size, which is a
         // *target texel*** — `UiMask` argues it at length and this is the same expression for the
@@ -1167,7 +1186,8 @@ shader UiMask {
     [PushConstant] var blue: float4 = float4(0f, 0f, 1f, 0f)
 
     /// `x` the first entry's index in `masks`, `y` how many entries, `z` framebuffer pixels per
-    /// document pixel. `w` unused.
+    /// document pixel. `w` the frame's white level, which `UiComposite.Filter` normalises by (#1418);
+    /// zero is read as one.
     ///
     /// ⚠ Floats holding integers, because the whole fragment range is `float4`s and a mixed block
     /// would have to be laid out by hand on both sides of the wire. Rounded rather than truncated on
@@ -1188,6 +1208,11 @@ shader UiMask {
     /// deliberately arrive in two different spaces. See `Fragment`, which evaluates one in each.
     [PushConstant] var box: float4 = float4(0f, 0f, 0f, 0f)
 
+    /// `x` the radius, and `z` one when the draw carries a colour matrix and zero when it does not —
+    /// `UiColour`'s `corner` lane for lane but for `y`, since the white rides `list.w` here. ⚠ A mask
+    /// alone is the commoner case by far, and without the flag it ran the identity through
+    /// `UiComposite.Filter`'s clamp: a masked glass panel over an HDR world capped the world at the
+    /// frame's white. See `UiColour.corner`.
     [PushConstant] var corner: float4 = float4(0f, 0f, 0f, 0f)
 
     stream var uv: float2
@@ -1201,7 +1226,7 @@ shader UiMask {
         // for word. This pipeline is bound for a composite quad and nothing else, so a straight-alpha
         // texture can never arrive and the flag would be a branch on a constant.
         val sampled = source.Sample(sourceSampler, uv)
-        val filtered = UiComposite.Filter(sampled, red, green, blue)
+        val filtered = corner.z > 0.5f ? UiComposite.Filter(sampled, red, green, blue, list.w) : sampled.rgb
 
         // ⚠ **The texture coordinate times the surface size is a *target texel*, and the sentence
         // that used to stand here said it was a document pixel.** The two claims were in one
@@ -1348,10 +1373,11 @@ shader UiBlend {
     /// it does not.
     ///
     /// ⚠ **A flag and not an identity matrix, because `UiComposite.Filter` is not the identity on an
-    /// identity matrix.** It clamps premultiplied colour to `[0, a]`, which is CSS's clamp for a
-    /// filter and is wrong for a group that has none: in a frame built at a white level above one the
-    /// colour is legitimately above its alpha, and every blended HUD panel would be clamped to one
-    /// candela on its way into the blend.
+    /// identity matrix.** It clamps premultiplied colour to `[0, a·w]`, which is CSS's clamp for a
+    /// filter and is wrong for a group that has none. Before #1418 the ceiling was the bare alpha, so
+    /// in a frame built at a white level above one every blended HUD panel would have been clamped to
+    /// one candela on its way into the blend; with the white in it the clamp is the identity on every
+    /// colour an interface can author, and still not on one authored above the frame's white.
     [PushConstant] var filter: float4 = float4(0f, 0f, 0f, 0f)
 
     /// The group's colour matrix, as `UiColour` declares it. See `UiComposite.Filter`.
@@ -1381,7 +1407,7 @@ shader UiBlend {
         // group with both is the matrix, then the blend, which is the order `SoftwareUiRasterizer`
         // takes when it folds the matrix into the surface before compositing it.
         val sampled = source.Sample(sourceSampler, uv)
-        val paint = filter.x > 0.5f ? UiComposite.Filter(sampled, red, green, blue) : sampled.rgb
+        val paint = filter.x > 0.5f ? UiComposite.Filter(sampled, red, green, blue, operation.y) : sampled.rgb
 
         // ⚠ Masked before it is mixed, which is CSS's order — a mask clips the element's rendered
         // result and § 5.1 blends what is left — and `SoftwareUiRasterizer`'s, whose composite

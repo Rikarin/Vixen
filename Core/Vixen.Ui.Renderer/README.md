@@ -100,13 +100,14 @@ calls `Compose` with that target as `UiBackdropSource.Image`, and `WorldRenderer
 compose for a frame in which the node, and every node above it, is enabled. `WorldRenderer`'s
 constructor registers `UiComposeFactory` on its own builder with its own feature, so a document names
 the node and never the feature. ⚠ The target must be `Sampled`, and the node refuses it at build time
-otherwise. ⚠ **That makes the node unusable in a game today** (#1378's remaining half):
-`AppGraphics.Lend` imports the swapchain under `GraphicsOptions.Output` — `SceneColour`, the same
-default as `!StandardFrame`'s output — as a colour target and nothing else, and the copy-out this
-file used to prescribe is refused too, because `!Copy` needs `CopyDestination` on the destination and
-the import does not declare it. It builds where the target is the frame's own or is imported
-`Sampled`, which is the golden fixtures and the null-device tests. The alternative, last frame's scene, lags every blended panel by a
-frame and would still need a copy at the same seam.
+otherwise. ⚠ **In a game that target is the window, and until #1419 the node could not run over
+it**: `AppGraphics.Lend` imported the swapchain under `GraphicsOptions.Output` — `SceneColour`, the
+same default as `!StandardFrame`'s output — as a colour target and nothing else. It now declares
+`ISwapChain.Usage`, what the backend actually created the image as: sampled on Vulkan wherever the
+surface lists it (every desktop driver does), on OpenGL and on the offscreen chain always, and a copy
+destination on both Vulkan chains, so `!Copy` into the window is legal there too. WebGPU's surface is
+configured `RenderAttachment | CopySrc` and still refuses the node. The alternative, last frame's
+scene, lags every blended panel by a frame and would still need a copy at the same seam.
 
 ### Three pipelines, one vertex layout
 

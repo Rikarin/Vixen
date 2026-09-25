@@ -178,6 +178,17 @@ sealed class NullSwapChain(SwapChainDescription description, NullDevice device) 
     public int ImageCount => views.Length;
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The Vulkan windowed chain's on a desktop driver, and deliberately no more</b> (#1419).
+    ///     This is the device a host test runs its frame against in place of the backend a player
+    ///     gets first, so an image allowed more here than there is a frame that builds under test and
+    ///     is refused on the machine — the test double more permissive than the runtime. A colour
+    ///     target, a copy destination and sampled; not a copy source, which only the offscreen chain
+    ///     and OpenGL's back buffer are.
+    /// </remarks>
+    public TextureUsage Usage => NullDevice.BackBufferUsage;
+
+    /// <inheritdoc />
     public TextureHandle CurrentTexture => index >= 0 ? textures[index] : TextureHandle.Null;
 
     /// <summary>How many times <see cref="Present" /> has been called.</summary>
@@ -1038,9 +1049,13 @@ public sealed class NullDevice : IGraphicsDevice {
         }
     }
 
+    /// <summary>What a back buffer is created as; see <c>NullSwapChain.Usage</c>.</summary>
+    internal const TextureUsage BackBufferUsage =
+        TextureUsage.ColourTarget | TextureUsage.CopyDestination | TextureUsage.Sampled;
+
     internal (TextureHandle Texture, TextureViewHandle View) CreateBackBuffer(PixelFormat format, Int2 size) {
         var texture = CreateTexture(
-            new(format, Math.Max(1, size.X), Math.Max(1, size.Y), TextureUsage.ColourTarget, Name: "SwapChain")
+            new(format, Math.Max(1, size.X), Math.Max(1, size.Y), BackBufferUsage, Name: "SwapChain")
         );
 
         return (texture, CreateTextureView(texture));

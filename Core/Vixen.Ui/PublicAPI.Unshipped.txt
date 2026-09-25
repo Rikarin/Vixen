@@ -1055,6 +1055,7 @@ Vixen.Ui.Rendering.UiBlendMode.UiBlendMode() -> void
 Vixen.Ui.Rendering.UiColorMatrix -> readonly struct
 Vixen.Ui.Rendering.UiColorMatrix : System.IEquatable<Vixen.Ui.Rendering.UiColorMatrix>
 Vixen.Ui.Rendering.UiColorMatrix.Apply(Vixen.Core.Mathematics.Color4 colour) -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Rendering.UiColorMatrix.Apply(Vixen.Core.Mathematics.Color4 colour, float white) -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.Rendering.UiColorMatrix.Blue.get -> Vixen.Core.Mathematics.Vector4
 Vixen.Ui.Rendering.UiColorMatrix.Blue.init -> Vixen.Core.Mathematics.Vector4
 Vixen.Ui.Rendering.UiColorMatrix.Green.get -> Vixen.Core.Mathematics.Vector4

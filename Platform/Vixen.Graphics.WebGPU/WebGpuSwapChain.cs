@@ -67,6 +67,14 @@ sealed class WebGpuSwapChain : ISwapChain {
     public int ImageCount { get; }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     What the surface is configured with — <c>RenderAttachment | CopySrc</c> — and not
+    ///     sampled, so a frame on this backend cannot name <c>!UiCompose</c> over the window: the
+    ///     surface's own capabilities would have to be asked for <c>TextureBinding</c> first (#1419).
+    /// </remarks>
+    public TextureUsage Usage => TextureUsage.ColourTarget | TextureUsage.CopySource;
+
+    /// <inheritdoc />
     public TextureHandle CurrentTexture => currentTexture;
 
     /// <summary>The format the surface was configured with.</summary>

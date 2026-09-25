@@ -35,6 +35,8 @@ namespace Vixen.Graphics.OpenGL;
 ///     </para>
 /// </remarks>
 sealed class GlSwapChain : ISwapChain {
+    const TextureUsage Created = TextureUsage.ColourTarget | TextureUsage.Sampled | TextureUsage.CopySource;
+
     readonly GlDevice device;
     readonly Action? present;
     readonly int imageCount;
@@ -73,6 +75,10 @@ sealed class GlSwapChain : ISwapChain {
 
     /// <inheritdoc />
     public int ImageCount => imageCount;
+
+    /// <inheritdoc />
+    /// <remarks>What <c>Allocate</c> creates the back buffer as: an ordinary texture, so sampled and copyable.</remarks>
+    public TextureUsage Usage => Created;
 
     /// <inheritdoc />
     public TextureHandle CurrentTexture => acquired ? texture : TextureHandle.Null;
@@ -131,7 +137,7 @@ sealed class GlSwapChain : ISwapChain {
             Format,
             Math.Max(1, Size.X),
             Math.Max(1, Size.Y),
-            TextureUsage.ColourTarget | TextureUsage.Sampled | TextureUsage.CopySource,
+            Created,
             Name: "SwapChain"
         ));
 

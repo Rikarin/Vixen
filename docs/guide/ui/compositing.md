@@ -807,6 +807,22 @@ is the picture: white is `multiply`'s identity, so a white panel over a wall at 
 it at 100, and it read 1 before. **The device path inherits this convention rather than choosing its
 own** — it is the divisor the fragment stage transcribes.
 
+⚠ **A composited group was lit twice on the device above a white of one, and the colour matrix was
+clamped as if the white were one on both executors (#1418).** The three quads that draw a group's
+finished surface — the composite, the drop shadow and the filtered backdrop — carry a white tint whose
+only job is the group's alpha, and they used to send it through `UiGeometryBuilder.Show` like any
+colour, so it arrived as the white level in each channel and every stage multiplied an already-lit
+surface by 203 again. They are emitted unlit now. The colour matrix — `UiComposite.Filter` on the
+device, `UiColorMatrix.Apply(Color4, float)` in software — normalises by the white and re-lights,
+`clamp(M·c + o·a·w, 0, a·w)`, because clamped to the bare alpha it capped every filtered pixel at one
+candela and left `invert` and a drop shadow's colour, which are offsets, a factor of the white too dark.
+⚠ The drop shadow was the one composite the double lighting got right on the device, by accident, which
+is why fixing the tint alone would have been a regression. `UiCompositeWhiteLevelDeviceTests` holds an
+opacity, blended, filtered, shadowed, backdrop-filtered and masked group at 203 to the same frame at
+one times 203, on the device and in software. The golden suite's GLSL twins (`ui-colour.frag`,
+`ui-mask.frag`) do not read the white lane; every fixture that draws through them does so at one,
+where the two are the same arithmetic.
+
 ⚠ **The sixteen functions have an oracle now, and it is what the two transcriptions have to agree
 with.** `Core/Vixen.Ui.Tests/UiBlendTests.cs` holds `UiBlend.Blend` to § 5.1's and § 5.3's own
 arithmetic on two operand triples chosen so that no two modes agree on either — and to the four
@@ -837,8 +853,9 @@ executors can tell. The second is invisible to it, for the reason given against 
 by `UiRenderFeature.Sceneless` instead (#1378). ⚠ **A group's own `filter` and `mask-image` are
 not among them any more** (#783): `UiBlend` applies the colour matrix and then the mask list before it
 mixes — the order CSS gives and `SoftwareUiRasterizer` takes — the matrix behind a flag rather than
-an identity matrix because `UiComposite.Filter` clamps to the alpha and would dim a frame built
-above a white of one, and the mask through `UiMaskList`, the per-entry coverage `UiMask` now shares
+an identity matrix because `UiComposite.Filter` clamps — to the alpha times the frame's white since
+#1418, which is the identity on every colour an interface can author, and not on one authored above
+the white, and the mask through `UiMaskList`, the per-entry coverage `UiMask` now shares
 with it. `UiBlendDeviceTests` holds both to § 5.1 on the filtered or masked paint.
 
 - a blended group's `drop-shadow()` quad, which the software path blends separately from the group
@@ -911,7 +928,7 @@ beforeUi:
   - !UiCompose
     name: Compose
     source: SceneColour        # the target the interface pass draws into — it must be Sampled,
-                               # which in a game's AppGraphics it is not (see below)
+                               # which in a game is the window (see below)
   - !RenderPass
     name: Interface
     colourTargets: [SceneColour]
@@ -935,18 +952,26 @@ to those closed forms on a device, and `UiRenderFeature.Sceneless` reads zero.
 sample. What decides it is the usage the resource is declared or imported with, and an import wins
 over a declaration of the same name (`GraphicsCompositor`'s resource loop).
 
-⚠ **So the document above does not build in a game today, and nothing else a game can write does
-either** — #1378's remaining half. `AppGraphics.Lend` imports the acquired swapchain image under
-`GraphicsOptions.Output`, which defaults to `SceneColour` as `!StandardFrame`'s `output` does, with
-`TextureUsage.ColourTarget` and nothing else, on every backend. The workaround this page used to
-prescribe — render into a target of the frame's own and copy it out — is refused one node later:
-`!Copy` requires `CopyDestination` on its destination (`TextureCopyRenderer.Build`), and the import
-does not declare it, although the Vulkan swapchain is created with `TRANSFER_DST`. The backends'
-swapchains do not agree on what they allow either — OpenGL's is sampled, Vulkan's windowed one is not
-— so the fix is the host declaring what its swapchain actually supports, not a document. Where the
-target is the frame's own, or is imported `Sampled`, the node builds: the golden suite's fixtures and
-`InterfaceComposedAfterTheSceneTests` are that case, which is why every picture above comes from them
-and none from a sample.
+⚠ **In a game `SceneColour` is the window, and the host declares what the window can do** (#1419).
+`AppGraphics.Lend` imports the acquired swapchain image under `GraphicsOptions.Output`, which
+defaults to `SceneColour` as `!StandardFrame`'s `output` does, with the usage the backend reports in
+`ISwapChain.Usage`. Until #1419 it declared `TextureUsage.ColourTarget` and nothing else on every
+backend, so the document above was refused by the node and a copy out of a target of the frame's own
+was refused by `!Copy`, although the Vulkan image had been created with `TRANSFER_DST` all along.
+What each backend reports:
+
+| Backend | `ISwapChain.Usage` | `!UiCompose` over the window |
+|---|---|---|
+| Vulkan, windowed | colour target, copy destination, and sampled where the surface's `supportedUsageFlags` list it — ⚠ untested: the windowed chain cannot be created on the machine the tests ran on, and the request is not also checked against the format's own image properties | builds where the surface lists sampled |
+| Vulkan, offscreen (`--vixen-offscreen`, `--vixen-capture`) | colour target, copy source, copy destination, sampled | builds |
+| OpenGL | colour target, sampled, copy source | builds |
+| WebGPU | colour target, copy source | refused — the surface would have to be asked for `TextureBinding` |
+| Null | the Vulkan windowed chain's, and deliberately no more | builds |
+
+`Tools/Vixen.App.Tests/HostedInterfaceComposeTests` is the stock host — `VixenApp`, a published frame
+document and `RunFrame` — building a frame that names the node over the window on the Null device,
+and drawing a multiplied HUD panel through it on a device: every panel pixel is `grey · world` in
+linear light, and the same frame without the node lays the grey down flat.
 
 It is the same frame's scene, not last frame's: the other way to give a HUD its world is the previous
 colour target, which lags every blended panel by a frame and still needs a copy taken at this same

@@ -39,6 +39,9 @@ namespace Vixen.Graphics.Vulkan;
 ///     </para>
 /// </remarks>
 sealed class VulkanOffscreenSwapChain : ISwapChain {
+    const TextureUsage Created =
+        TextureUsage.ColourTarget | TextureUsage.CopySource | TextureUsage.CopyDestination | TextureUsage.Sampled;
+
     readonly VulkanDevice device;
 
     TextureHandle texture;
@@ -68,6 +71,14 @@ sealed class VulkanOffscreenSwapChain : ISwapChain {
 
     /// <inheritdoc />
     public int ImageCount => 1;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     The windowed chain's usage on a desktop driver — a colour target, a copy destination and
+    ///     sampled — plus <see cref="TextureUsage.CopySource" />, which is what a capture reads
+    ///     through. See the creation below for why none of it is conditional.
+    /// </remarks>
+    public TextureUsage Usage => Created;
 
     /// <inheritdoc />
     public TextureHandle CurrentTexture => texture;
@@ -101,8 +112,9 @@ sealed class VulkanOffscreenSwapChain : ISwapChain {
                 //
                 // CopyDestination for the same reason the presenting chain has TransferDst: a post
                 // chain that ends in a full-resolution image blits into the final target rather than
-                // drawing a redundant fullscreen triangle.
-                TextureUsage.ColourTarget | TextureUsage.CopySource | TextureUsage.CopyDestination,
+                // drawing a redundant fullscreen triangle. Sampled for the reason it has SampledBit
+                // where the surface offers it: `!UiCompose` reads the scene out of the window (#1419).
+                Created,
                 Name: "offscreen swapchain image"
             );
 

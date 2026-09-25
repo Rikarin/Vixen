@@ -1030,7 +1030,8 @@ public sealed class UiGeometryBuilder {
                     (backdropBounds.Y + backdropBounds.Height - viewport.Y) / viewport.Height
                 ),
                 new Color4(1f, 1f, 1f, open.Alpha * filtered.Alpha),
-                new Vector4(1f, 0f, 0f, 0f)
+                new Vector4(1f, 0f, 0f, 0f),
+                carrier: true
             );
 
             draws.Add(
@@ -1070,7 +1071,8 @@ public sealed class UiGeometryBuilder {
                 // and then the transform, so a rotated panel's shadow is offset in the panel's own
                 // frame and swings round with it, rather than always falling to the same corner of the
                 // screen. Both readings look identical at zero degrees.
-                open.Transform
+                open.Transform,
+                carrier: true
             );
 
             draws.Add(
@@ -1114,7 +1116,10 @@ public sealed class UiGeometryBuilder {
             // alone, and a picture that was rasterised upright arrives rotated or scaled. Nothing
             // downstream is told: the software rasteriser interpolates the coordinate by barycentrics
             // and the device by its own rasteriser, and both are exact for an affine.
-            open.Transform
+            open.Transform,
+
+            // ⚠ Unlit: the surface is already in the frame's units. See `Quad` (#1418).
+            carrier: true
         );
 
         // ⚠ The scissor is the ancestor clip *untransformed*, which is the other half of the pre-image
@@ -2084,6 +2089,17 @@ public sealed class UiGeometryBuilder {
     ///         Null is the ordinary case and costs one null check per quad, on a path that already
     ///         does a gamut lookup per quad.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b><paramref name="carrier" /> is the composite quads' and nobody else's, and it is
+    ///         what keeps a group from being lit twice (#1418).</b> A quad that samples a group's
+    ///         surface — the composite, the drop shadow, the filtered backdrop — samples colour those
+    ///         same pipelines already wrote in the frame's units, and every stage that draws it
+    ///         multiplies the sample by the vertex colour. Its colour is a coverage carrier, not a
+    ///         display colour: white at the group's alpha. Sent through <see cref="Show" /> it arrived
+    ///         as <see cref="WhiteLevel" /> in each channel, so on a float pass at 203 a group's
+    ///         surface was multiplied by 203 a second time — the same frame at a white of one, where
+    ///         <see cref="Lit" /> is the identity, is the only one any test drew.
+    ///     </para>
     /// </remarks>
     void Quad(
         float left,
@@ -2094,13 +2110,16 @@ public sealed class UiGeometryBuilder {
         Vector2 textureMax,
         Color4 color,
         Vector4 shape,
-        UiTransform? placed = null
+        UiTransform? placed = null,
+        bool carrier = false
     ) {
         var start = (uint)vertices.Count;
 
         // Once per quad rather than once per vertex: the four corners share a colour, and asking
         // four times would be four early-out tests to reach one answer.
-        color = Show(color);
+        if (!carrier) {
+            color = Show(color);
+        }
 
         var topLeft = new Vector2(left, top);
         var topRight = new Vector2(right, top);

@@ -162,9 +162,11 @@ as the backdrop, and `Draw` skips its own compose whenever the node and every no
 enabled (`ComposesInFrame`, which walks the built tree once per load and reads the flags per frame).
 `InterfaceComposedAfterTheSceneTests` holds the order on the null recorder; the golden
 `InterfaceOverASceneDeviceTests` holds the pictures. The editor gets both through the `WorldRenderer`
-it owns. ⚠ **But no game frame can name the node yet**: its `source` must be `Sampled`, and
-`AppGraphics` imports the swapchain as a colour target only — see `UiComposeAsset`'s remarks and
-`docs/guide/ui/compositing.md`.
+it owns. ⚠ Its `source` must be `Sampled`, and in a game that is the window: `AppGraphics` lends
+the swapchain under `SceneColour` with the usage the backend reports in `ISwapChain.Usage` (#1419) —
+sampled on Vulkan wherever the surface allows it, and on OpenGL and the offscreen chain always — so
+the stock `source: SceneColour` builds. `HostedInterfaceComposeTests` draws a multiplied HUD panel
+through the stock host on a device. WebGPU's surface is not sampled and still refuses the node.
 
 ⚠ **The surface carries the display's density, and both of those calls read it.** `UiInterface.Scale`
 is how many framebuffer pixels one of the geometry's units is; it defaults to one, which is right
