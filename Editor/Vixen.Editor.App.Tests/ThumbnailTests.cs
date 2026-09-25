@@ -468,6 +468,12 @@ public class ThumbnailTests {
     ///         that rebind is what asked again. Under load it did not, and the picture never came.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>Since <a href="https://github.com/Rikarin/Vixen/issues/1406">#1406</a> one refresh
+    ///         no longer does both halves.</b> The markup tile asks at the document's next flush, after
+    ///         <c>Forget</c>, so the decode it starts is live. The drop is now reached by a refresh
+    ///         that lands while an earlier decode is still in flight, and that is what this test does.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>Held by a contributed preview, so the order is forced rather than hoped for.</b>
     ///         The first decode blocks inside the delegate until the refresh has marked it stale;
     ///         every later one returns at once. Two calls is the assertion that the drop was followed
@@ -503,8 +509,8 @@ public class ThumbnailTests {
         var crate = AssetId.Empty;
 
         try {
-            // The rescan inside `assets.refresh` binds the file and asks for it, and the `Forget` after
-            // it marks that ask stale — both before `Paint` returns.
+            // The first `assets.refresh` binds the file and the grid asks for it; the decode starts
+            // and is held inside the delegate.
             crate = Paint(editor, "Assets/crate.png", 8, 8, static (_, _) => 0);
 
             Assert.True(editor.Editor.Thumbnails.IsBusy, "the refresh asked for no picture, so nothing below is about one");
@@ -512,6 +518,13 @@ public class ThumbnailTests {
                 running.Wait(Hung, TestContext.Current.CancellationToken),
                 "the decode never started, which is a hang check and not a result"
             );
+
+            // ⚠ A second refresh while that decode is in flight is what marks it stale. The one
+            // refresh used to do both, because the hand-written grid asked from inside the rescan,
+            // before `Forget`. Since #1406 the tile is markup and asks at the document's next flush,
+            // which is after `Forget` has found nothing pending. So a single refresh no longer reaches
+            // the drop, and the test went on passing the tile while asserting one decode rather than two.
+            editor.Run("assets.refresh");
         } finally {
             release.Set();
         }

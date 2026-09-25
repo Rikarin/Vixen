@@ -140,7 +140,7 @@ command system exists to make identical.
 
 **1.4 — There is no window level, and no seam for one.** `UiDocument.Focused` is a single
 document-global field (`Focus.cs:35@10523d70f`). `Dispatch(KeyEvent)` takes no surface (`Keyboard.cs:191`),
-unlike `Dispatch(UiSurface, PointerEvent)` (`UiDocument.cs:2139`) and
+unlike `Dispatch(UiSurface, PointerEvent)` (`UiDocument.cs:2149`) and
 `Dispatch(UiSurface, WheelEvent)` (`Hover.cs:103`); `Platform/Vixen.Platform.Ui/PlatformInput.cs:173`
 says so outright. With nothing focused, keys land on the **primary** surface's root
 (`Keyboard.cs:196@10523d70f` + `Surfaces.cs:29`) — so a keystroke aimed at a torn-off inspector executes
@@ -196,8 +196,8 @@ place where Vixen is **ahead of AppKit**, and each survives Part 3 unchanged.
 3. **A real capture phase over a snapshotted route** (`EventRouter.cs:39-42`). AppKit has no capture
    phase, and walks `nextResponder` live.
 4. **Pointer fall-through is free.** Hit test → target → bubble:
-   `UiDocument.Dispatch(UiSurface, PointerEvent)` (`UiDocument.cs:2139`) takes its target from
-   `HitTest` (`UiDocument.cs:2152`) and bubbles through `Raise` (`UiDocument.cs:2162`). In AppKit
+   `UiDocument.Dispatch(UiSurface, PointerEvent)` (`UiDocument.cs:2149`) takes its target from
+   `HitTest` (`UiDocument.cs:2162`) and bubbles through `Raise` (`UiDocument.cs:2172`). In AppKit
    every `mouseDown:` that wants to pass the event on must remember to call `super`.
 5. **`Defocus`** (`Focus.cs:343-391`): a press that lands on nothing focusable clears the focus, on
    the whole ancestor chain, with a pointer-capture exemption. AppKit has no rule for this and every
@@ -205,7 +205,7 @@ place where Vixen is **ahead of AppKit**, and each survives Part 3 unchanged.
 6. **Coalesced command invalidation.** `InvalidateCommands` (`Commands.cs:656`) sets a flag,
    `RaiseCommandsInvalidated` (`Commands.cs:666-674`) raises the event at most once a frame,
    `CommandsInvalidated` (`Commands.cs:640`), and `Tick` is what calls it,
-   `RaiseCommandsInvalidated()` (`UiDocument.cs:1414`); a button's `Watch` (`ButtonBase.cs:100-108`)
+   `RaiseCommandsInvalidated()` (`UiDocument.cs:1424`); a button's `Watch` (`ButtonBase.cs:100-108`)
    consumes it. AppKit's answer is polling `validateUserInterfaceItem:` per item per menu-open plus
    an `NSToolbar` revalidation timer. Vixen's is strictly better.
 7. **`CommandFocus` surviving a menu close** (`Focus.cs:135-151`). AppKit gets this free from a nested

@@ -22,7 +22,6 @@
 10 Core/Vixen.Ui/README.md
 1 Editor/Vixen.Editor.Debugger/README.md
 1 Editor/Vixen.Editor.ShaderGraph/README.md
-1 Editor/Vixen.Editor.Ui/README.md
 1 Platform/Vixen.Graphics.Golden.Tests/README.md
 1 Platform/Vixen.Graphics.OpenGL/README.md
 6 Raven/README.md

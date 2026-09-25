@@ -278,9 +278,12 @@ sealed class ThumbnailCache : IDisposable {
             // asks from its bind and rebinds on `Changed`; the `Changed` that `Forget` raised found
             // this asset still pending, so that ask was a no-op, and a drop that stayed silent left
             // the tile a type glyph until something else happened to rebind it. `assets.refresh`
-            // with the browser open is exactly that order — the rescan binds the new file and starts
-            // its decode, then `Forget` marks the decode stale — and whenever the decode outlasted
-            // the next rebind, which a loaded machine makes likely, the picture never came (#1407).
+            // with the browser open was exactly that order when the grid was hand-written — the
+            // rescan bound the new file and started its decode, then `Forget` marked the decode
+            // stale — and whenever the decode outlasted the next rebind, which a loaded machine makes
+            // likely, the picture never came (#1407). ⚠ Since #1406 the markup tile asks at the next
+            // flush, after `Forget`, so the order now needs a refresh landing while an earlier decode
+            // is still in flight; the drop is the same.
             if (stale.Remove(decoded.Asset)) {
                 changed = true;
                 continue;
