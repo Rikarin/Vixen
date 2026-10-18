@@ -60,6 +60,14 @@ public sealed class LoadedPlugin {
 
     internal IEditorPlugin? Instance { get; set; }
 
+    /// <summary>A built-in's module, kept whatever its state, because there is nowhere to re-read it from.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only for a built-in.</b> A compiled-in module lives in the default context for the life
+    ///     of the process, so holding it costs nothing; holding something loaded from a collectible
+    ///     context would be the reference that stops it being collected.
+    /// </remarks>
+    internal IEditorPlugin? Module { get; init; }
+
     internal PluginLoadContext? Context { get; set; }
 
     /// <summary>

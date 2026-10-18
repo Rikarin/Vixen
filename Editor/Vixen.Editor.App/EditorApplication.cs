@@ -986,6 +986,14 @@ sealed partial class EditorApplication : IDisposable {
         // and over a project's script assembly. See `DeclaredContributions`.
         plugins.Scanners.Add(new DeclaredContributions());
 
+        // ⚠ The user's own list of what to leave alone is read before anything is activated — and
+        // the editor's own modules are activated inside `Commands()`, below, so this is the line it
+        // has to precede (#1288). It used to sit beside `StartPlugins`, which was early enough for a
+        // disk plugin and too late for every built-in: Water disabled in the manager was back on the
+        // mode bar at the next launch. A plugin somebody switched off because it broke the editor is
+        // exactly the one whose Activate must not run, whichever door it comes through.
+        LoadDisabledPlugins();
+
         Layouts();
         Commands();
 
@@ -1005,12 +1013,8 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ Plugins go here and not later, and the two reasons are the two lines below. A plugin's
         // commands have to exist before the keymap is read or the user's override for one lands on
         // a command with no default; a plugin's panels have to be registered before the saved
-        // layout is applied or an arrangement that had one comes back without it.
-        //
-        // ⚠ And the user's own list of what to leave alone is read before anything is activated.
-        // A plugin somebody switched off because it broke the editor is exactly the one whose
-        // Activate must not run.
-        LoadDisabledPlugins();
+        // layout is applied or an arrangement that had one comes back without it. The user's list
+        // of what to leave alone was read before `Commands()`, which is where the built-ins start.
         StartPlugins(directory);
 
         // ⚠ In this order and no other. The keymap has to be loaded after the commands that own its

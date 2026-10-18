@@ -322,7 +322,10 @@ public sealed class PluginHost {
     ///     command since it started comes back as it is now.
     /// </remarks>
     PluginReport Revive(LoadedPlugin existing) {
-        if (existing.Instance is not { } module) {
+        // ⚠ `Module` rather than `Instance` alone: `Deactivate` drops the instance, so a built-in the
+        // user had switched off — now or in a previous session — had nothing left to start, and
+        // Enable answered "restart the editor" (#1288).
+        if ((existing.Instance ?? existing.Module) is not { } module) {
             return new PluginReport(
                 [],
                 [],
@@ -561,10 +564,31 @@ public sealed class PluginHost {
         // lists them, and unloading one has an assembly to drop.
         var plugin = new LoadedPlugin(new(manifest, string.Empty, string.Empty, string.Empty)) {
             IsBuiltIn = context is null,
-            Context = context
+            Context = context,
+            Module = context is null ? module : null
         };
 
         plugins.Add(plugin);
+
+        // ⚠ The user's switch, consulted here as `Load` consults it (#1288). Until it was, Disable in
+        // the plugin manager meant "until the next launch" for every module the editor ships, because
+        // this overload is the only door they come through. Recorded as present-and-disabled rather
+        // than skipped, so the manager still has a row to switch back on — and the instance is kept
+        // in `Module` for `Revive` to start when it does.
+        if (suppressed.Contains(id)) {
+            plugin.State = PluginState.Disabled;
+
+            // Something loaded rather than compiled in has a context nobody will use now, and holding
+            // it would keep the assembly in memory for the life of the session.
+            if (context is not null) {
+                plugin.Context = null;
+                plugin.Collectible = new WeakReference(context);
+                context.Unload();
+            }
+
+            Changed?.Invoke(plugin);
+            return plugin;
+        }
 
         try {
             module.Activate(new PluginContext(plugin.Descriptor, shell, Services, plugin.Scope));

@@ -132,7 +132,11 @@ command. *"Disabled list before activation"* — true for disk plugins, **false 
 modules**: they are activated inside `Commands()` → `RegisterModes()` (`EditorParity.cs:1246-1248`,
 called from `EditorApplication.cs:3880`), before `LoadDisabledPlugins` at `:1007`, and
 `PluginHost.Activate` (`PluginHost.cs:522`) never consults `suppressed`. **A built-in module cannot
-be disabled**, which the plugin manager's Disable button does not say.
+be disabled**, which the plugin manager's Disable button does not say. *(Fixed by
+[#1288](https://github.com/Rikarin/Vixen/issues/1288): `Activate` consults the set and keeps a
+suppressed built-in as a disabled row, and the list is read before `Commands()`. ⚠ It also found a
+second half: a built-in disabled while running could not be re-enabled without a restart, because
+`Deactivate` dropped the only instance `Revive` could start.)*
 
 ⚠ **The verbs are private and closed over the fields.** `Group()`, `SnapToFloor()`, `EnterPlay()`,
 `ExportPackage()`, `BringIn()`, `DropIntoScene()` — `EditorParity.cs:684-3032` — are instance
