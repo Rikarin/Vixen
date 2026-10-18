@@ -20,7 +20,7 @@
 2 Core/Vixen.Net/README.md
 1 Core/Vixen.Rendering.RayTracing/README.md
 10 Core/Vixen.Ui/README.md
-1 Editor/Vixen.Editor.Debugger/README.md
+2 Editor/Vixen.Editor.Debugger/README.md
 1 Editor/Vixen.Editor.ShaderGraph/README.md
 1 Platform/Vixen.Graphics.Golden.Tests/README.md
 1 Platform/Vixen.Graphics.OpenGL/README.md
@@ -34,10 +34,10 @@
 5 docs/plan/04-ecs-and-scripting.md
 1 docs/plan/07-raven-shader-pipeline.md
 16 docs/plan/36-an-extensible-editor.md
-2 docs/plan/43-web-styling-parity.md
+3 docs/plan/43-web-styling-parity.md
 4 docs/plan/45-commands-and-focus-scope.md
 24 docs/plan/46-what-an-application-needs.md
 2 docs/plan/47-prefab-overrides-and-nested-prefabs.md
 11 docs/plan/48-material-authoring.md
-99 docs/plan/49-responder-chain-and-appkit-parity.md
-61 docs/plan/50-the-editor-as-bounded-contexts.md
+101 docs/plan/49-responder-chain-and-appkit-parity.md
+68 docs/plan/50-the-editor-as-bounded-contexts.md

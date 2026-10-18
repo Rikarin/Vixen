@@ -154,10 +154,17 @@ public class RealPlanCitationTests {
     /// <summary>A backticked file citation: a path or file name, a colon, and lines.</summary>
     /// <remarks>
     ///     Lines are one number, a range (<c>38-49</c>) or a list (<c>321,368</c>). A bare
-    ///     <c>`:557`</c> is a continuation and cites the file most recently named on the same line —
-    ///     unless a symbol of another type stands between them (<see cref="TypedSymbol" />, #1422).
-    ///     ⚠ One that opens a line, its file having been named on the line before, is not read: a
-    ///     paragraph is wrapped wherever it falls, and binding across the wrap would guess.
+    ///     <c>`:557`</c> is a continuation and cites the file most recently named in its paragraph — by
+    ///     a citation or by a bare <c>`File.cs`</c> (<see cref="NamedFile" />) — unless a symbol of
+    ///     another type stands between them (<see cref="TypedSymbol" />, #1422).
+    ///     ⚠ <b>One that opens a line was not read at all</b>, on the reasoning that a paragraph wraps
+    ///     wherever it falls and binding across the wrap would guess
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1455">#1455</a>). But the wrap is not where
+    ///     the guess is — the paragraph is the prose's own scope, and the other-type rule reads across
+    ///     the wrap as well as it reads along a line — and the skip left a class nothing checked, a
+    ///     continuation of a pin among it. So the file carries to the end of the paragraph
+    ///     (<see cref="Opens" />), and a continuation with no file before it there is refused rather
+    ///     than skipped.
     ///     <para>
     ///         ⚠ <b>A citation can be pinned to the commit it describes</b>, <c>`File.cs:NNN@1a2b3c4d5`</c>
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/1388">#1388</a>) — for a dated finding
@@ -587,6 +594,91 @@ public class RealPlanCitationTests {
     }
 
     /// <summary>
+    ///     A bare continuation opening a line continues the file its paragraph named last, in every
+    ///     line form, across the wrap and no further (<a href="https://github.com/Rikarin/Vixen/issues/1455">#1455</a>).
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Before this, <c>Parse</c> returned nothing at all for such a citation, so every assertion
+    ///     below about what one resolves to had nothing to hold: the old sweep passed all of them by
+    ///     not reading the line.
+    /// </remarks>
+    [Fact]
+    public void A_continuation_that_opens_a_line_continues_its_paragraph() {
+        var (_, index, _) = Sweep();
+
+        // Each line form, carried across two wraps.
+        var carried = ParseDocument("x.md", [
+            "the menu (`Menus.cs:12,15`) and",
+            "its rows `:20-25`, then the",
+            "separators at `:30,31`."
+        ]);
+
+        Assert.All(carried, cited => Assert.Equal("Menus.cs", cited.File));
+        Assert.Equal(new[] { new[] { 12, 15 }, [20, 25], [30, 31] }, carried.Select(cited => cited.Lines));
+        Assert.Equal(new[] { false, true, false }, carried.Select(cited => cited.Range));
+
+        // A pin carries with its file, so the continuation is read at the pinned commit too.
+        Assert.Equal("10523d70f", ParseDocument("x.md", ["(`Focus.cs:91-93@10523d70f`), and", "`:123-124` after"])[1].Commit);
+
+        // A file named with no line is a file named: `ProjectBrowser.cs` 2 — a pair (`:1167-1175`).
+        var named = ParseDocument("x.md", ["`EditorShell.cs` 0, `ProjectBrowser.cs` 2 — a", "pair, `Scan()` (`:1167-1175`)"]).Single();
+        Assert.Equal("ProjectBrowser.cs", named.File);
+        Assert.Equal("Scan()", named.Symbol);
+        Assert.Null(ParseDocument("x.md", ["`ProjectBrowser.cs` (`:1167`)"]).Single().Symbol);
+
+        // A blockquote paragraph carries; a bare `>` ends it like a blank line.
+        Assert.Equal("Menus.cs", ParseDocument("x.md", ["> (`Menus.cs:12`),", "> `:20` too"])[1].File);
+
+        // ⚠ The other-type rule (#1422) reads across the wrap as well.
+        var across = ParseDocument("x.md", ["`EditorProject.cs:56` and the", "`EditorApplication.scene` (`:108`)"])[1];
+        Assert.Equal("EditorApplication.scene", across.Across);
+
+        // And a paragraph's end is where a continuation stops reaching: a blank line, a bare `>`, a
+        // heading, a table row, a list item, a fence. Each of those is refused and not skipped.
+        string[][] ends = [
+            ["(`Menus.cs:12`).", "", "`:20` begins"],
+            ["> (`Menus.cs:12`).", ">", "> `:20` begins"],
+            ["(`Menus.cs:12`).", "## Next", "`:20` begins"],
+            ["| `Menus.cs:12` |", "`:20` begins"],
+            ["(`Menus.cs:12`).", "| `:20` |"],
+            ["- (`Menus.cs:12`).", "- `:20` begins"],
+            ["(`Menus.cs:12`).", "```", "`:20` begins"]
+        ];
+
+        foreach (var lines in ends) {
+            var orphan = ParseDocument("x.md", lines).Single(cited => cited.Text == ":20");
+
+            Assert.Equal("", orphan.File);
+            Assert.Contains("#1455", Resolve(orphan, index));
+        }
+    }
+
+    /// <summary>
+    ///     Doc 49 § 1.5's <c>`:123-124`</c>, the continuation of a pin that nothing read: moved onto a
+    ///     blank line of <c>Focus.cs</c> at <c>10523d70f</c>, it goes red
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1455">#1455</a>).
+    /// </summary>
+    [Fact]
+    public void Doc_49s_continuation_of_a_pin_is_held_to_the_pin() {
+        if (!History.Has("10523d70f")) {
+            Assert.Skip("this checkout has no history to hold a pin to (a shallow clone)");
+        }
+
+        var (_, index, _) = Sweep();
+
+        const string Opens = "nothing else (`Focus.cs:91-93@10523d70f`), writes `Focused` at `:100`, and raises two `FocusEvent`s at";
+        var right = ParseDocument("docs/plan/49-responder-chain-and-appkit-parity.md", [Opens, "`:123-124` — *after* the change is committed."])[^1];
+        var moved = ParseDocument("docs/plan/49-responder-chain-and-appkit-parity.md", [Opens, "`:122` — *after* the change is committed."])[^1];
+
+        Assert.Equal(("Focus.cs", "10523d70f"), (right.File, right.Commit));
+        Assert.Null(Resolve(right, index));
+        Assert.Contains(Targets(right, index), target => Substantial(right, target.Lines));
+
+        Assert.Null(Resolve(moved, index));
+        Assert.DoesNotContain(Targets(moved, index), target => Substantial(moved, target.Lines));
+    }
+
+    /// <summary>
     ///     The shapes #1388 taught the sweep, each fed in as the documents wrote it: bold and wrapped
     ///     symbols bind, a pin reads its commit, a bare name several files share is a guess, and a
     ///     root file can still be named.
@@ -749,6 +841,12 @@ public class RealPlanCitationTests {
 
     /// <summary>Why a citation does not resolve, or <see langword="null" /> when it does.</summary>
     static string? Resolve(Cited cited, Dictionary<string, List<string>> index) {
+        if (cited.File.Length == 0) {
+            return "a bare continuation with no file named before it in its paragraph — a blank line, a heading, a "
+                   + "table row or a list item ends what a continuation can reach — so which file it cites is a guess; "
+                   + "name the file (#1455)";
+        }
+
         if (cited.Across is { } across) {
             return $"a bare continuation after `{across}`, which names a type other than {cited.File}, so which file it "
                    + "continues is a guess — name the file (#1422)";
@@ -938,14 +1036,7 @@ public class RealPlanCitationTests {
         List<Cited> citations = [];
 
         foreach (var relative in Documents(index)) {
-            var document = Path.Combine(Root, relative);
-            var number = 0;
-            string? previous = null;
-
-            foreach (var line in File.ReadLines(document)) {
-                citations.AddRange(Parse(relative, ++number, line, previous));
-                previous = line;
-            }
+            citations.AddRange(ParseDocument(relative, File.ReadLines(Path.Combine(Root, relative))));
         }
 
         Dictionary<(string, string), string> exempt = [];
@@ -965,38 +1056,135 @@ public class RealPlanCitationTests {
         return (citations, index, exempt);
     }
 
+    /// <summary>
+    ///     The file a paragraph named last, carried onto its next line, with the text written since —
+    ///     what a bare continuation opening that line continues
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1455">#1455</a>).
+    /// </summary>
+    /// <param name="File">The file, as written.</param>
+    /// <param name="Pinned">The commit its naming citation was pinned to, which its continuations inherit.</param>
+    /// <param name="Since">Everything after the naming, which the #1422 other-type rule reads across the wrap.</param>
+    sealed record Carry(string File, string? Pinned, string Since);
+
+    /// <summary>A backticked file named with no line: <c>`ProjectBrowser.cs`</c>, which a later <c>`:1167`</c> continues.</summary>
+    static readonly Regex NamedFile = new(
+        @"`(?:…/|\.\.\./|(?<root>\./))?(?<file>(?:[\w.-]+/)*[\w.-]+\.(?:cs|vxml|vcss|rvn|md|csproj|props|targets|txt|json|tsv|yml|yaml|py|sh|cmd|xml))`",
+        RegexOptions.Compiled
+    );
+
+    /// <summary>A list item's marker, after any quote markers: <c>- </c>, <c>* </c>, <c>1. </c>.</summary>
+    static readonly Regex ListItem = new(@"^(?:[-*+]|\d+[.)])\s", RegexOptions.Compiled);
+
+    /// <summary>A Markdown line with its blockquote markers and indentation taken off.</summary>
+    static string Unquoted(string line) {
+        var text = line.TrimStart();
+
+        while (text.StartsWith('>')) {
+            text = text[1..].TrimStart();
+        }
+
+        return text;
+    }
+
+    /// <summary>
+    ///     Whether this line starts something new, so a file named above it does not carry onto it: a
+    ///     blank line (a lone <c>&gt;</c> too), a heading, a table row, a fence, a list item.
+    /// </summary>
+    static bool Opens(string line) {
+        var text = Unquoted(line);
+
+        return text.Length == 0
+               || Regex.IsMatch(text, @"^#{1,6}\s")
+               || text.StartsWith('|')
+               || text.StartsWith("```", StringComparison.Ordinal)
+               || ListItem.IsMatch(text);
+    }
+
+    /// <summary>
+    ///     The citations of a whole document, a file named on one line of a paragraph carried onto the
+    ///     next (<a href="https://github.com/Rikarin/Vixen/issues/1455">#1455</a>).
+    /// </summary>
+    /// <remarks>
+    ///     A table row carries nothing in or out: each row is its own line, and a row's cells are about
+    ///     that row.
+    /// </remarks>
+    static List<Cited> ParseDocument(string relative, IEnumerable<string> lines) {
+        List<Cited> citations = [];
+        string? previous = null;
+        Carry? carry = null;
+        var number = 0;
+
+        foreach (var line in lines) {
+            if (Opens(line)) {
+                carry = null;
+            }
+
+            citations.AddRange(Parse(relative, ++number, line, previous, carry, out var next));
+            carry = Unquoted(line).StartsWith('|') ? null : next;
+            previous = line;
+        }
+
+        return citations;
+    }
+
+    /// <summary>The citations on one line read alone, with nothing carried onto it.</summary>
+    static List<Cited> Parse(string relative, int number, string line, string? previous = null) =>
+        Parse(relative, number, line, previous, null, out _);
+
     /// <summary>The citations on one line of a document, each with what it is bound to.</summary>
     /// <param name="relative">The document.</param>
     /// <param name="number">The line's number in it.</param>
     /// <param name="line">The line.</param>
     /// <param name="previous">The line before it, which a citation opening this one may be bound across.</param>
-    static IEnumerable<Cited> Parse(string relative, int number, string line, string? previous = null) {
-        string? file = null;
-        string? pinned = null;
+    /// <param name="carried">The file the paragraph named last on an earlier line, if any.</param>
+    /// <param name="carry">What this line hands the next line of its paragraph.</param>
+    static List<Cited> Parse(string relative, int number, string line, string? previous, Carry? carried, out Carry? carry) {
+        List<Cited> citations = [];
+        var file = carried?.File;
+        var pinned = carried?.Pinned;
+        var namedHere = false;
         var namedEnd = 0;
 
-        foreach (Match match in Citation.Matches(line)) {
+        // A file named with no line is named all the same — `ProjectBrowser.cs` 2 — … (`:1167-1175`)
+        // — so the two shapes are read in the order they are written.
+        var tokens = Citation.Matches(line).Concat(NamedFile.Matches(line))
+            .OrderBy(match => match.Index)
+            .ToList();
+
+        foreach (var match in tokens) {
             var named = match.Groups["file"];
             string? across = null;
+
+            if (!match.Groups["lines"].Success) {
+                file = match.Groups["root"].Success ? "./" + named.Value : named.Value;
+                pinned = null;
+                namedHere = true;
+                namedEnd = match.Index + match.Length;
+
+                continue;
+            }
 
             if (named.Success) {
                 file = match.Groups["root"].Success ? "./" + named.Value : named.Value;
                 pinned = match.Groups["commit"] is { Success: true } own ? own.Value : null;
+                namedHere = true;
                 namedEnd = match.Index + match.Length;
-            } else if (file is null) {
-                // A continuation with nothing before it on the line cites a file named on an
-                // earlier one, which is prose the reader resolves and a sweep cannot.
-                continue;
-            } else {
+            } else if (file is not null) {
                 // ⚠ And one with a symbol of another type between it and that file is a guess too
                 // (#1422): `EditorProject.cs:56` … `EditorApplication.scene` (`:108`) meant
-                // EditorApplication.cs and was checked against EditorProject.cs.
+                // EditorApplication.cs and was checked against EditorProject.cs. Across a wrap the
+                // text between is the rest of the naming line and every line since.
                 var stem = Path.GetFileNameWithoutExtension(file);
-                across = TypedSymbol.Matches(line[namedEnd..match.Index])
+                var between = namedHere ? line[namedEnd..match.Index] : carried!.Since + "\n" + line[..match.Index];
+                across = TypedSymbol.Matches(between)
                     .Where(symbol => symbol.Groups["type"].Value != stem)
                     .Select(symbol => symbol.Groups["symbol"].Value)
                     .FirstOrDefault();
             }
+
+            // ⚠ A continuation with no file named before it in its paragraph is no longer skipped
+            // (#1455): it was the one class of citation nothing read at all, and doc 49's
+            // `:123-124` continuing a pin was in it. It is read with no file and refused by Resolve.
 
             var spec = match.Groups["lines"].Value;
             var lines = Regex.Matches(spec, @"\d+").Select(digits => int.Parse(digits.Value)).ToArray();
@@ -1020,7 +1208,10 @@ public class RealPlanCitationTests {
                 var before = bound.Groups["before"].Value;
 
                 // ⚠ Not bound when it is one of a list or the object of a negation.
-                if (!Regex.IsMatch(before, @"(`,\s*|`\s+and\s+|`\s+or\s+|`\s*·\s*|\bno\s+)$")) {
+                // And not when the "symbol" is the file itself, `ProjectBrowser.cs` (`:12`), which
+                // names where and not what.
+                if (!Regex.IsMatch(before, @"(`,\s*|`\s+and\s+|`\s+or\s+|`\s*·\s*|\bno\s+)$")
+                    && !NamedFile.IsMatch($"`{bound.Groups["symbol"].Value}`")) {
                     symbol = bound.Groups["symbol"].Value;
                 }
             }
@@ -1028,8 +1219,14 @@ public class RealPlanCitationTests {
             var code = BoundCode.Match(rest) is { Success: true } dash ? dash.Groups["code"].Value : null;
             var commit = match.Groups["commit"] is { Success: true } pin ? pin.Value : pinned;
 
-            yield return new(relative, number, match.Value.Trim('`'), file, lines, range, symbol, code, across, commit);
+            citations.Add(new(relative, number, match.Value.Trim('`'), file ?? "", lines, range, symbol, code, across, commit));
         }
+
+        carry = file is null ? null
+            : namedHere ? new Carry(file, pinned, line[namedEnd..])
+            : new Carry(file, pinned, carried!.Since + "\n" + line);
+
+        return citations;
     }
 
     /// <summary>

@@ -137,7 +137,7 @@ Six. Two are ⛔ and both are smaller than they look.
 ### B1. A layer stack cannot ship as a live layered material ⛔ *for the runtime path only*
 
 `MaterialLayersFeature` (`MaterialFeatures.cs:867`) blends N metal-roughness layers — and
-`MaterialLayerValue` (`:487`) carries `Weight` as a **`float` constant**. Its own remarks say where the
+`MaterialLayerValue` (`MaterialFeatures.cs:487@d9e7d960e`) carries `Weight` as a **`float` constant**. Its own remarks say where the
 weight comes from is the caller's business; no caller supplies one from a texture, and there is no
 `TexturedMaterialLayersFeature`. `BlendFeature` (`:553`) has the same shape one level up.
 

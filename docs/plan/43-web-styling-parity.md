@@ -2220,7 +2220,7 @@ worse than feared for the general one.
 the sizing mode it resolves per axis is `SizingMode` (`Core/Vixen.Ui.Layout/FlexAxis.cs:109`):
 `StretchFit`, `MaxContent`, `FitContent`. For a normal-flow block, `CalculateBlockLayoutImpl` takes
 this branch, which opens at `Core/Vixen.Ui.Layout/LayoutTree.Block.cs:218` — `if (widthSizingMode == SizingMode.StretchFit) {`
-and closes at `:248`:
+and runs to its closing brace, `LayoutTree.Block.cs:218-248`:
 
 ```csharp
 if (widthSizingMode == SizingMode.StretchFit) {

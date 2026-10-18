@@ -413,15 +413,22 @@ roughly **1 475 are application-generic**:
 | `KeyMap.cs` | 520 | **Yes** — bind/rebind, conflict detection, defaults→preset→user, YAML round-trip |
 | `KeyChord.cs` | 312 | **Yes** — parse/format, `ForPlatform()` Ctrl↔⌘ |
 | `CommandRegistry.cs` | 264 | **Yes** — the table plus an `ICommandResponder` adapter |
-| `KeyMapPreset.cs` | 255 | Mechanism yes; **data editor-specific** (`:212-254` binds `scene.translate`) |
+| `KeyMapPreset.cs` | 255 | Mechanism yes; **data editor-specific** (`Editor/Vixen.Editor.Ui/Commands/KeyMapPreset.cs:212-254@10523d70f` binds `scene.translate`) |
 | `EditorCommand.cs` | 193 | **Yes** except `StringId` conventions |
-| `CommandDispatcher.cs` | 131 | Yes **except** `element is TextField` at `:124` |
+| `CommandDispatcher.cs` | 131 | Yes **except** `element is TextField` at `Editor/Vixen.Editor.Ui/Commands/CommandDispatcher.cs:124@10523d70f` |
 | `KeyBindingsView.cs` + `.vxml` | 55 | **Yes** |
 
-⚠ `CommandDispatcher.Available`'s `element is TextField` (`:124`) is the editor asking a
-controls-library type a question that should be a responder's own answer. It becomes
+(As measured at `10523d70f`. The next day `7199a1da1` brought the mechanism down to
+`Core/Vixen.Ui.Controls/` and left the editor's preset data in `KeyMapPresets.cs`, which is why
+the rows are pinned.)
+
+⚠ `CommandDispatcher.Available`'s `element is TextField` (`CommandDispatcher.cs:124@10523d70f`) is the
+editor asking a controls-library type a question that should be a responder's own answer. It becomes
 `IResponder.WantsRawKeys` — the AppKit question "is the first responder a field editor" — the moment
 Part 3 lands.
+(✅ Answered the same day without waiting for Part 3, and not by that name: `c7b1e4a2a` asks the
+responder whether it is an `ITextInputTarget` (`Core/Vixen.Ui.Controls/CommandDispatcher.cs:196`),
+which covers `CodeEditor` as well as `TextField`.)
 
 ---
 
@@ -544,7 +551,7 @@ reads. So `<div AccessibleName="Save" Focusable="true">` compiles, matches `[Acc
 does nothing. ~~No diagnostic.~~ ⚠ **Refuted since 168fe675b (2026-09-05):** `VXML2020` warns on a
 capitalised attribute name on a lowercase tag. It is declared as
 `MarkupDiagnostics.InertElementAttribute` (`MarkupDiagnostics.cs:463`), and the binder passes
-`MarkupDiagnostics.InertElementAttribute` (`Vixen.Ui.Markup/Binding/Binder.cs:1088`) to `Report`. The mechanism is unchanged — the lowercase half of the split is still
+`MarkupDiagnostics.InertElementAttribute` (`Vixen.Ui.Markup/Binding/Binder.cs:1127`) to `Report`. The mechanism is unchanged — the lowercase half of the split is still
 `ctx.Bind` or `ctx.Attribute` (`ComponentEmitter.cs:884-897`), so the attribute is still inert — but it is no longer
 silent. This is the same defect class the language already fixed twice, for `style=` and for `slot=`
 (`VXML2016`).
@@ -642,11 +649,12 @@ For a project whose thesis is *markup is the authoring path*, that ❌ column is
 weakest evidence, and closing it is mostly attribute spellings over APIs that already exist.
 
 ⚠ **The `.keyboardShortcut` row is right about the sample and was read as a claim about the
-framework.** A complete chord system exists — `Editor/Vixen.Editor.Ui/Commands/CommandDispatcher.cs`
-attaches to any `UiDocument` (`:55`), builds a platform-adapted `KeyChord` (`:76`), resolves it
-against the focused context with a global fallback (`:85`), falls *through* rather than refusing when
-the chord belongs elsewhere (`:92`), and marks a disabled command's chord handled so a greyed-out ⌘S
-cannot type an `s` (`:98`). What is true is narrower: there is no `.vxml` spelling and no chord table
+framework.** A complete chord system exists — the dispatcher as audited
+(`Editor/Vixen.Editor.Ui/Commands/CommandDispatcher.cs:55@e7dbe65db`, moved to
+`Core/Vixen.Ui.Controls/` by `7199a1da1` the next day) attaches to any `UiDocument`, builds a
+platform-adapted `KeyChord` (`:76`), resolves it against the focused context with a global fallback
+(`:85`), falls *through* rather than refusing when the chord belongs elsewhere (`:94`), and marks a
+disabled command's chord handled (`:98`) so a greyed-out ⌘S cannot type an `s`. What is true is narrower: there is no `.vxml` spelling and no chord table
 below `Vixen.Editor.Ui`, which is #650.
 
 The rest are one issue each, because each needs a spelling decided before it can be built: #762 (the
@@ -904,7 +912,7 @@ and re-runs the grapheme breaker over the **entire value** on every arrow keypre
 Doc 43 measures Tailwind roots. Anything with no class name is invisible to it, and that is where the
 expensive items are.
 
-1. ⚠ **No damage tracking.** `DrawListBuilder.Build` (`:527`) reconstructs the entire draw list every
+1. ⚠ **No damage tracking.** `DrawListBuilder.Build` (`DrawListBuilder.cs:625`) reconstructs the entire draw list every
    frame, and `DrawList.cs:526-539` only reports *whether* the frame differs, not where. There is no
    retained per-element surface — which is why `will-change-*` is refused. Combined with
    `UiApplication`'s unconditional frame loop (`docs/guide/ui/desktop-application.md:44-58`, a
