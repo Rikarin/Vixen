@@ -1562,157 +1562,9 @@ sealed partial class EditorApplication {
 
         deferred.When(
             dialogs.OpenFilesAsync(new FileDialogOptions { Title = "Import Assets", AllowsMultipleSelection = true }),
-            paths => BringIn(paths, folder),
+            paths => library.Import(paths, folder),
             failure => Shell.Notifications.Show("Could not import", NotificationSeverity.Error, failure.Message)
         );
-    }
-
-    /// <summary>Copies what was dragged in from the OS into the folder it was dropped on.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The first consumer of a <c>DropEvent</c> in the editor, and the gesture doc 20 § Part
-    ///     D lists as the last ⛔ under Content.</b> The wire and the model both landed under
-    ///     <see href="https://github.com/Rikarin/Vixen/issues/654">#654</see> and nothing in this
-    ///     application had ever listened, so a folder of textures dragged out of Finder was routed,
-    ///     hit-tested and bubbled to a panel with no handler — which looks exactly like a platform
-    ///     that cannot do it.
-    /// </remarks>
-    void ImportDropped(IReadOnlyList<string> paths, string folder) => BringIn(paths, folder);
-
-    /// <summary>Copies files and folders into the project, then scans and imports what arrived.</summary>
-    /// <param name="paths">Absolute paths on the user's disk.</param>
-    /// <param name="folder">The project-relative folder to land them in.</param>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Copied rather than referenced.</b> An asset outside the project tree is one the
-    ///         content build cannot find, the reference index cannot name and a colleague does not
-    ///         have — every engine that allowed it spent years telling people why their build was
-    ///         broken.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>A directory is copied whole, and until it was, the commonest drag there is did
-    ///         nothing.</b> "Drag a folder of textures in from Finder" is doc 20's own wording for
-    ///         this row, and <c>File.Copy</c> over a directory throws — so the dialog half reported
-    ///         "could not copy the files" for the one input every user tries first.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>A path already inside the project is refused rather than duplicated.</b> The
-    ///         browser is a file view of <c>Assets/</c>, and a person dragging a row of it onto
-    ///         itself means a move — which <see cref="MoveAssets" /> does with identity intact.
-    ///         Copying would mint a second GUID for the same bytes, which is the state the reference
-    ///         index cannot repair.
-    ///     </para>
-    /// </remarks>
-    void BringIn(IReadOnlyList<string> paths, string folder) {
-        if (paths.Count == 0) {
-            return;
-        }
-
-        var destination = project.Paths.Absolute(string.IsNullOrEmpty(folder) ? AssetTree.RootName : folder);
-        var copied = 0;
-
-        try {
-            Directory.CreateDirectory(destination);
-
-            foreach (var path in paths) {
-                copied += Bring(path, destination) ? 1 : 0;
-            }
-        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
-            Shell.Notifications.Show("Could not copy the files", NotificationSeverity.Error, exception.Message);
-            return;
-        }
-
-        if (copied == 0) {
-            return;
-        }
-
-        project.Assets.Scan();
-        browser?.Rescan();
-        content.Import();
-
-        Shell.Notifications.Success(
-            copied == 1 ? $"1 asset imported into {folder}" : $"{copied} assets imported into {folder}"
-        );
-    }
-
-    /// <summary>Copies one file or one directory in, and says why not if it will not.</summary>
-    /// <param name="path">What was chosen or dropped.</param>
-    /// <param name="destination">The absolute folder it goes into.</param>
-    /// <returns>Whether anything was copied.</returns>
-    bool Bring(string path, string destination) {
-        var name = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-
-        if (string.IsNullOrEmpty(name)) {
-            return false;
-        }
-
-        var target = Path.Combine(destination, name);
-
-        if (Inside(path, project.Paths.Root)) {
-            Shell.Notifications.Show(
-                name + " is already in this project",
-                NotificationSeverity.Warning,
-                "Drag it onto a folder in the browser to move it, which keeps its references."
-            );
-
-            return false;
-        }
-
-        // ⚠ Never over something already there. Two textures called `wood.png` from two folders is
-        // the ordinary case, and silently replacing the one already in the project is a change
-        // nothing records and undo cannot reach.
-        if (File.Exists(target) || Directory.Exists(target)) {
-            Shell.Notifications.Show(
-                name + " is already in the project",
-                NotificationSeverity.Warning,
-                "Rename it, or import it into a folder of its own."
-            );
-
-            return false;
-        }
-
-        if (Directory.Exists(path)) {
-            CopyTree(path, target);
-            return true;
-        }
-
-        if (!File.Exists(path)) {
-            return false;
-        }
-
-        File.Copy(path, target);
-        return true;
-    }
-
-    /// <summary>Copies a directory and everything under it.</summary>
-    /// <param name="from">The source directory.</param>
-    /// <param name="to">Where it goes, which does not exist yet.</param>
-    static void CopyTree(string from, string to) {
-        Directory.CreateDirectory(to);
-
-        foreach (var file in Directory.EnumerateFiles(from)) {
-            File.Copy(file, Path.Combine(to, Path.GetFileName(file)));
-        }
-
-        foreach (var directory in Directory.EnumerateDirectories(from)) {
-            CopyTree(directory, Path.Combine(to, Path.GetFileName(directory)));
-        }
-    }
-
-    /// <summary>Whether a path is the given directory or lives under it.</summary>
-    /// <param name="path">The path in question.</param>
-    /// <param name="directory">The directory it might be under.</param>
-    /// <returns>Whether it is.</returns>
-    /// <remarks>
-    ///     ⚠ <b>Compared with a separator on the end, so <c>ProjectTwo</c> is not "inside"
-    ///     <c>Project</c>.</b> A prefix test without one is the check that refuses a legitimate
-    ///     import from the folder next door and gives a reason that is not true.
-    /// </remarks>
-    static bool Inside(string path, string directory) {
-        var full = Path.GetFullPath(path);
-        var root = Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-
-        return full.StartsWith(root, StringComparison.Ordinal)
-            || string.Equals(full + Path.DirectorySeparatorChar, root, StringComparison.Ordinal);
     }
 
     /// <summary>Asks which kind of asset to make, and runs that kind's own verb.</summary>
@@ -1746,56 +1598,13 @@ sealed partial class EditorApplication {
         }
     }
 
-    /// <summary>What a package this editor writes is called.</summary>
-    internal const string PackageExtension = ".vxpackage";
-
-    /// <summary>Everything the selection reaches through the reference graph, itself included.</summary>
-    /// <param name="roots">Where to start.</param>
-    /// <returns>The closure, roots first and each asset once.</returns>
-    /// <remarks>
-    ///     ⚠ <b>A closure and not one step, and the difference is what a package is for.</b>
-    ///     <see cref="SelectDependencies" /> walks one edge because a person is about to look at the
-    ///     answer; an archive has to carry the material, the textures it names, and whatever those
-    ///     name in turn, or it unpacks into a project with holes in it.
-    ///     <para>
-    ///         ⚠ <b>A reference cycle is ordinary here rather than exceptional.</b> Two prefabs that
-    ///         name each other are a project people actually have, so the walk is over a visited set
-    ///         and not a recursion with a depth limit.
-    ///     </para>
-    /// </remarks>
-    internal IReadOnlyList<AssetId> Closure(IEnumerable<AssetId> roots) {
-        ArgumentNullException.ThrowIfNull(roots);
-
-        List<AssetId> found = [];
-        HashSet<AssetId> seen = [];
-        Queue<AssetId> pending = [];
-
-        foreach (var root in roots) {
-            if (seen.Add(root)) {
-                found.Add(root);
-                pending.Enqueue(root);
-            }
-        }
-
-        while (pending.Count > 0) {
-            foreach (var reference in project.References.ReferencesFrom(pending.Dequeue())) {
-                if (seen.Add(reference.Asset)) {
-                    found.Add(reference.Asset);
-                    pending.Enqueue(reference.Asset);
-                }
-            }
-        }
-
-        return found;
-    }
-
     /// <summary>Asks where to put a package of the selection, and writes one there.</summary>
     void ExportPackage() {
         if (services.Dialogs is not { } dialogs) {
             return;
         }
 
-        var assets = Closure(project.Selection);
+        var assets = library.Closure(project.Selection);
 
         if (assets.Count == 0) {
             return;
@@ -1807,71 +1616,16 @@ sealed partial class EditorApplication {
                     Title = "Export Package",
                     InitialDirectory = project.Paths.Root,
                     SuggestedFileName = Path.GetFileName(project.Paths.Root.TrimEnd(Path.DirectorySeparatorChar))
-                        + PackageExtension,
-                    Filters = [new FileFilter("Vixen package", PackageExtension.TrimStart('.'))]
+                        + ContentLibrary.PackageExtension,
+                    Filters = [new FileFilter("Vixen package", ContentLibrary.PackageExtension.TrimStart('.'))]
                 }
             ),
             path => {
                 if (path is { Length: > 0 }) {
-                    WritePackage(path, assets);
+                    library.ExportPackage(path, assets);
                 }
             },
             failure => Shell.Notifications.Show("Could not export", NotificationSeverity.Error, failure.Message)
-        );
-    }
-
-    /// <summary>Writes the assets into an archive, each under its project-relative path.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>The sidecar ships with the asset, and leaving it out would be the defect.</b> An
-    ///         identity is in the <c>.meta</c> — a package unpacked without one is scanned into a
-    ///         project that mints fresh GUIDs, so every reference inside the package points at
-    ///         nothing and the material arrives white. That is exactly the failure the closure was
-    ///         computed to avoid, arriving by the other door.
-    ///     </para>
-    ///     <para>
-    ///         Folders carry no bytes, so they are skipped rather than written as empty entries: the
-    ///         paths inside the archive already describe the shape of the tree.
-    ///     </para>
-    /// </remarks>
-    internal void WritePackage(string path, IReadOnlyList<AssetId> assets) {
-        var written = 0;
-
-        try {
-            // ⚠ Truncated rather than opened. `ZipArchiveMode.Create` over an existing file appends
-            // to whatever is in it, which for a second export to the same name is an archive with
-            // two copies of every asset — and a reader that takes the first one.
-            using (var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None))
-            using (var archive = new ZipArchive(stream, ZipArchiveMode.Create)) {
-                foreach (var asset in assets) {
-                    if (!project.Assets.TryGetByGuid(asset, out var entry) || entry.IsFolder) {
-                        continue;
-                    }
-
-                    var absolute = project.Paths.Absolute(entry.Path);
-
-                    if (!File.Exists(absolute)) {
-                        continue;
-                    }
-
-                    archive.CreateEntryFromFile(absolute, entry.Path);
-
-                    var meta = AssetMetaFile.PathFor(absolute);
-
-                    if (File.Exists(meta)) {
-                        archive.CreateEntryFromFile(meta, AssetMetaFile.PathFor(entry.Path));
-                    }
-
-                    written++;
-                }
-            }
-        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
-            Shell.Notifications.Show("Could not export", NotificationSeverity.Error, exception.Message);
-            return;
-        }
-
-        Shell.Notifications.Success(
-            written == 1 ? "1 asset exported" : $"{written} assets exported"
         );
     }
 

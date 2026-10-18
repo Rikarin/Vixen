@@ -5,6 +5,7 @@ using System.Text;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.App;
+using Vixen.Editor.Assets;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Inspector;
@@ -188,31 +189,39 @@ public sealed class EditorSession : IDisposable {
     ///     reason: the browser's menu is filled from what it holds, so a test asserting about a copy
     ///     would be asserting about an object no menu is built from.
     /// </remarks>
-    public IReadOnlyList<SavedAssetFilter> AssetFilters => editor.AssetFilters;
+    public IReadOnlyList<SavedAssetFilter> AssetFilters => editor.Library.Filters;
 
     /// <summary>Keeps a named filter the way the Save line does, without the modal prompt.</summary>
     /// <param name="name">What to call it.</param>
     /// <param name="search">What was in the search box.</param>
     /// <param name="kind">The importer tag, or empty for every kind.</param>
-    public void SaveFilter(string name, string search, string kind) => editor.SaveFilter(name, search, kind);
+    public void SaveFilter(string name, string search, string kind) => editor.Library.SaveFilter(name, search, kind);
 
     /// <summary>The project's collections, which unlike the filters are the project's own.</summary>
-    public IReadOnlyList<SavedAssetSet> AssetCollections => editor.AssetCollections;
+    public IReadOnlyList<SavedAssetSet> AssetCollections => editor.Library.Collections;
 
     /// <summary>Puts assets into a collection the way a drop does, without the drag.</summary>
     /// <param name="name">What the collection is called; it is made if it is not there.</param>
     /// <param name="assets">What goes into it.</param>
-    public void AddToCollection(string name, params AssetId[] assets) => editor.AddToCollection(name, assets);
+    public void AddToCollection(string name, params AssetId[] assets) => editor.Library.AddToCollection(name, assets);
 
     /// <summary>Takes assets out of a collection the way the menu line does.</summary>
     /// <param name="name">What the collection is called.</param>
     /// <param name="assets">What comes out of it.</param>
     public void RemoveFromCollection(string name, params AssetId[] assets) =>
-        editor.RemoveFromCollection(name, assets);
+        editor.Library.RemoveFromCollection(name, assets);
 
     /// <summary>Forgets a collection the way the menu line does.</summary>
     /// <param name="name">What it is called.</param>
-    public void ForgetCollection(string name) => editor.ForgetCollection(name);
+    public void ForgetCollection(string name) => editor.Library.ForgetCollection(name);
+
+    /// <summary>The content library the editor publishes to plugins — doc 50 § P2c.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read out of the plugin services rather than off the application</b>, so a test that
+    ///     drives a verb through it proves the published object is the one the editor's own menus and
+    ///     drops use — which is what "a plugin can reach it" means.
+    /// </remarks>
+    public IContentLibrary Library => editor.PluginHost.Services.Require<IContentLibrary>();
 
     /// <summary>The focused pane, or <see langword="null" /> while the scene panel is closed.</summary>
     public SceneViewport? Viewport => editor.Viewport;
