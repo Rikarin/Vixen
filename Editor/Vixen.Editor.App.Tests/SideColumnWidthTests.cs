@@ -72,8 +72,10 @@ public sealed class SideColumnWidthTests {
 
         // ⚠ In a row, the way every field row in these columns holds its words — a caption and a
         // value, a stage and a message. A bare line of text in the column WRAPS without any cap, and
-        // was measured to: a flex row measured "at most" a width reports its content's size instead
-        // of shrinking its items, so it is the row and not the text that widens the column.
+        // was measured to: a flex row measured "at most" a width reported its content's size instead
+        // of shrinking its items, so it was the row and not the text that widened the column. The
+        // layout bounds such a row now (#1448); with the sheet's cap removed all twelve stay green,
+        // which is measured, so this row is also what holds the engine to that.
         var row = side.Content.Add("div");
         row.SetStyle("flex-direction", "row");
 

@@ -915,7 +915,11 @@ mixer-body > mixer-strips {
    measured, because a flex row measured "at most" a width reports its content's size instead of
    shrinking its items. Every field row here is a row. `SideColumnWidthTests` puts one in each column and holds it at
    `MaximumLeft == 0`. The same cost at the 120 px floor applies to all twelve, and no column here
-   holds anything that has to be scrolled to sideways: a fields column is read top to bottom. */
+   holds anything that has to be scrolled to sideways: a fields column is read top to bottom.
+   ⚠ The layout now bounds such a row by its offer (#1448), and with this rule removed all twelve
+   `SideColumnWidthTests` stay green — measured. So the cap no longer prevents the defect; what it
+   still decides is the 120 px floor, clip rather than scroll, and changing that is a visual change
+   owed a picture, so it was left in place. */
 animation-side > scroll-content, animgraph-side > scroll-content, input-side > scroll-content,
 mixer-side > scroll-content, font-side > scroll-content, sequence-side > scroll-content,
 shadergraph-side > scroll-content, vfx-side > scroll-content, shape-side > scroll-content,
