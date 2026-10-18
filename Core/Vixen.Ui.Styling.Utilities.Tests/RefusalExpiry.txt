@@ -136,8 +136,6 @@ Core/Vixen.Ui.Styling/SelectorCompiler.cs	expires-on	Vixen.Ui.Styling.Selector.P
 bg-clip	expires-on	Vixen.Ui.Rendering.UiLayer.Coverage
 border-e-*	expires-when-read	border-inline-end-color
 border-s-*	expires-when-read	border-inline-start-color
-border-spacing-x-*	expires-with	border-spacing-*
-border-spacing-y-*	expires-with	border-spacing-*
 hyphens	expires-on	Vixen.Ui.Text.HyphenMode.Auto
 list-*	expires-on	Vixen.Ui.Styling.Selector.PseudoElement
 list-image-*	expires-with	list-*

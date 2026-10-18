@@ -395,6 +395,21 @@ public static class UtilityFamilies {
         Static("grid", "display", "grid");
         Static("hidden", "display", "none");
 
+        // ⚠ <b>`table` is two Tailwind roots, `block`'s shape again</b>: bare it is
+        // `display: table`, and with a value it is `table-layout` — `table-auto`, `table-fixed`. One
+        // family whose empty keyword is the display value, because `Register` keeps the first family
+        // under a name and `SplitName` hands `table-fixed` to `table` either way. `table-row` and
+        // `table-cell` are longer names, so they reach their own entries. These three are the table
+        // keywords `LayoutTree.Table.cs` lays out (#258); `inline-table`, the row groups, the column
+        // keywords and `table-caption` need boxes it does not generate and stay unregistered.
+        Register(new Family("table", ValueKind.Keyword, ["table-layout"], new Dictionary<string, string>(StringComparer.Ordinal) {
+            [string.Empty] = "display:table",
+            ["auto"] = "table-layout:auto",
+            ["fixed"] = "table-layout:fixed"
+        }));
+        Static("table-row", "display", "table-row");
+        Static("table-cell", "display", "table-cell");
+
         // ⚠ <b>All of Tailwind's keywords, and the two that used to be missing were missing for a
         // reason that turned out to be a conflation.</b> This comment said `float-start` and
         // `float-end` emit `float: inline-start` / `inline-end`, "which CSS Logical Properties
@@ -859,6 +874,31 @@ public static class UtilityFamilies {
         Spacing("gap", "gap");
         Spacing("gap-x", "column-gap");
         Spacing("gap-y", "row-gap");
+
+        // ⚠ <b>A table's gap, and v4 spells it as two fragments and an assembly</b> — `translate`'s
+        // shape, because `border-spacing` takes both axes in one declaration and `border-spacing-x-2
+        // border-spacing-y-4` must compose rather than fight. `Depth` and not `Spacing`, for v4's own
+        // grammar: a number of spacing units, `px` or an arbitrary length, and no keyword or fraction
+        // — `auto` and `1/2` are not lengths `border-spacing` can take, and the bridge would drop the
+        // whole declaration for them. Read by `LayoutTree.Table.cs` on a table (#258).
+        Register(new Family(
+            "border-spacing",
+            ValueKind.Depth,
+            [UtilityComposition.BorderSpacingX, UtilityComposition.BorderSpacingY],
+            Alongside: [new UtilityDeclaration("border-spacing", UtilityComposition.BorderSpacing())]
+        ));
+        Register(new Family(
+            "border-spacing-x",
+            ValueKind.Depth,
+            [UtilityComposition.BorderSpacingX],
+            Alongside: [new UtilityDeclaration("border-spacing", UtilityComposition.BorderSpacing())]
+        ));
+        Register(new Family(
+            "border-spacing-y",
+            ValueKind.Depth,
+            [UtilityComposition.BorderSpacingY],
+            Alongside: [new UtilityDeclaration("border-spacing", UtilityComposition.BorderSpacing())]
+        ));
 
         Spacing("p", "padding");
         Spacing("px", "padding-left", "padding-right");

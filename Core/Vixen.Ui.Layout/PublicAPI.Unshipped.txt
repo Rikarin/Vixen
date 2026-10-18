@@ -67,6 +67,9 @@ Vixen.Ui.Layout.Display.Inline = 4 -> Vixen.Ui.Layout.Display
 Vixen.Ui.Layout.Display.InlineBlock = 5 -> Vixen.Ui.Layout.Display
 Vixen.Ui.Layout.Display.InlineFlex = 6 -> Vixen.Ui.Layout.Display
 Vixen.Ui.Layout.Display.None = 1 -> Vixen.Ui.Layout.Display
+Vixen.Ui.Layout.Display.Table = 8 -> Vixen.Ui.Layout.Display
+Vixen.Ui.Layout.Display.TableCell = 10 -> Vixen.Ui.Layout.Display
+Vixen.Ui.Layout.Display.TableRow = 9 -> Vixen.Ui.Layout.Display
 Vixen.Ui.Layout.Edge -> enum : byte
 Vixen.Ui.Layout.Edge.All = 8 -> Vixen.Ui.Layout.Edge
 Vixen.Ui.Layout.Edge.Bottom = 3 -> Vixen.Ui.Layout.Edge
@@ -260,6 +263,7 @@ Vixen.Ui.Layout.LayoutStyle.AlignSelf -> Vixen.Ui.Layout.Align
 Vixen.Ui.Layout.LayoutStyle.AlignSelfOverflow -> Vixen.Ui.Layout.OverflowAlignment
 Vixen.Ui.Layout.LayoutStyle.AspectRatio -> float
 Vixen.Ui.Layout.LayoutStyle.Border -> Vixen.Ui.Layout.EdgeLengths
+Vixen.Ui.Layout.LayoutStyle.BorderSpacing -> Vixen.Ui.Layout.DimensionLengths
 Vixen.Ui.Layout.LayoutStyle.BoxSizing -> Vixen.Ui.Layout.BoxSizing
 Vixen.Ui.Layout.LayoutStyle.Clear -> Vixen.Ui.Layout.Clear
 Vixen.Ui.Layout.LayoutStyle.Containment -> Vixen.Ui.Layout.Containment
@@ -298,6 +302,7 @@ Vixen.Ui.Layout.LayoutStyle.Position -> Vixen.Ui.Layout.EdgeLengths
 Vixen.Ui.Layout.LayoutStyle.PositionType -> Vixen.Ui.Layout.PositionType
 Vixen.Ui.Layout.LayoutStyle.ScrollbarWidth -> float
 Vixen.Ui.Layout.LayoutStyle.Strut -> Vixen.Ui.Layout.StrutMetrics
+Vixen.Ui.Layout.LayoutStyle.TableLayout -> Vixen.Ui.Layout.TableLayout
 Vixen.Ui.Layout.LayoutStyle.TextAlign -> Vixen.Ui.Layout.TextAlign
 Vixen.Ui.Layout.LayoutStyle.VerticalAlign -> Vixen.Ui.Layout.VerticalAlign
 Vixen.Ui.Layout.LayoutStyle.VerticalAlignOffset -> float
@@ -352,6 +357,7 @@ Vixen.Ui.Layout.LayoutTree.SetAlignSelf(Vixen.Ui.Layout.LayoutNodeId node, Vixen
 Vixen.Ui.Layout.LayoutTree.SetAspectRatio(Vixen.Ui.Layout.LayoutNodeId node, float aspectRatio) -> void
 Vixen.Ui.Layout.LayoutTree.SetBaselineFunction(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.BaselineFunction? baseline) -> void
 Vixen.Ui.Layout.LayoutTree.SetBorder(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge, Vixen.Ui.Layout.StyleLength border) -> void
+Vixen.Ui.Layout.LayoutTree.SetBorderSpacing(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Dimension dimension, Vixen.Ui.Layout.StyleLength length) -> void
 Vixen.Ui.Layout.LayoutTree.SetBoxSizing(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.BoxSizing boxSizing) -> void
 Vixen.Ui.Layout.LayoutTree.SetClear(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Clear clear) -> void
 Vixen.Ui.Layout.LayoutTree.SetContainment(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Containment containment) -> void
@@ -394,6 +400,7 @@ Vixen.Ui.Layout.LayoutTree.SetPositionType(Vixen.Ui.Layout.LayoutNodeId node, Vi
 Vixen.Ui.Layout.LayoutTree.SetScrollbarWidth(Vixen.Ui.Layout.LayoutNodeId node, float width) -> void
 Vixen.Ui.Layout.LayoutTree.SetStrut(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.StrutMetrics strut) -> void
 Vixen.Ui.Layout.LayoutTree.SetStyle(Vixen.Ui.Layout.LayoutNodeId node, in Vixen.Ui.Layout.LayoutStyle style) -> void
+Vixen.Ui.Layout.LayoutTree.SetTableLayout(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.TableLayout tableLayout) -> void
 Vixen.Ui.Layout.LayoutTree.SetTextAlign(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.TextAlign textAlign) -> void
 Vixen.Ui.Layout.LayoutTree.SetVerticalAlign(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.VerticalAlign verticalAlign) -> void
 Vixen.Ui.Layout.LayoutTree.SetVerticalAlignOffset(Vixen.Ui.Layout.LayoutNodeId node, float offset) -> void
@@ -480,6 +487,9 @@ Vixen.Ui.Layout.StyleLength.IsResolvable.get -> bool
 Vixen.Ui.Layout.StyleLength.Resolve(float referenceLength) -> float
 Vixen.Ui.Layout.StyleLength.StyleLength() -> void
 Vixen.Ui.Layout.StyleLength.StyleLength(float value, Vixen.Ui.Layout.LayoutUnit unit) -> void
+Vixen.Ui.Layout.TableLayout -> enum : byte
+Vixen.Ui.Layout.TableLayout.Auto = 0 -> Vixen.Ui.Layout.TableLayout
+Vixen.Ui.Layout.TableLayout.Fixed = 1 -> Vixen.Ui.Layout.TableLayout
 Vixen.Ui.Layout.TextAlign -> enum : byte
 Vixen.Ui.Layout.TextAlign.Center = 4 -> Vixen.Ui.Layout.TextAlign
 Vixen.Ui.Layout.TextAlign.End = 1 -> Vixen.Ui.Layout.TextAlign

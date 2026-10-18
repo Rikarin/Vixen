@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.Layout.Containment]
 tags: [ui, layout, contain, containment, css, performance]
 since: 0.2
 status: preview
-related: [ui/floats, ui/inline-layout, ui/box-alignment]
+related: [ui/floats, ui/inline-layout, ui/box-alignment, ui/tables]
 ---
 
 ## What it is

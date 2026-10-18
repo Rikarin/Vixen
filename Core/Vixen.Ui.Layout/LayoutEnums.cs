@@ -632,7 +632,69 @@ public enum Display : byte {
     ///         <c>BlockMarginsCollapsibleWithParent</c>.
     ///     </para>
     /// </remarks>
-    FlowRoot
+    FlowRoot,
+
+    /// <summary>
+    ///     A table: its rows stack down the block axis and its cells line up in columns, CSS 2.1 §17.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The fifth algorithm, and not an alias for <see cref="Block" /> — which is the one
+    ///         shortcut every audit of <c>Rikarin/Vixen#258</c> warned against.</b> A cell's width
+    ///         comes from its COLUMN, which is decided across rows before any cell is laid out, and its
+    ///         height from its ROW, which is decided across the row's cells. Neither question can be
+    ///         asked of a block box. See <c>LayoutTree.Table.cs</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the separated-borders model, and no anonymous boxes.</b> A child of a table
+    ///         that is not a <see cref="TableRow" /> stands in for its own anonymous row and cell — a
+    ///         one-cell row in the first column — and a child of a row that is not a
+    ///         <see cref="TableCell" /> is a cell where it stands. CSS 2.1 §17.2.1 would wrap
+    ///         consecutive strays in ONE anonymous box; this store gives each its own, which differs by
+    ///         the spacing between them.
+    ///     </para>
+    /// </remarks>
+    Table,
+
+    /// <summary>A row of a <see cref="Table" />: the cells in it share one height.</summary>
+    /// <remarks>
+    ///     Outside a table it is laid out as <see cref="Block" />, where CSS 2.1 §17.2.1 would wrap it
+    ///     in an anonymous table — that box is not generated here.
+    /// </remarks>
+    TableRow,
+
+    /// <summary>A cell of a <see cref="TableRow" />: a block container sized by its column and its row.</summary>
+    /// <remarks>
+    ///     Its inside is flow, so it runs the block algorithm and establishes a block formatting
+    ///     context, CSS 2.1 §17.4. Its width is its column's and its height is its row's; its own
+    ///     <c>width</c> decides a column only from the first row of a fixed-layout table, and its
+    ///     margins do not apply.
+    /// </remarks>
+    TableCell
+}
+
+/// <summary>Which of CSS 2.1 §17.5.2's two algorithms sizes a table's columns.</summary>
+public enum TableLayout : byte {
+    /// <summary>
+    ///     The automatic layout, from every cell's content. The initial value.
+    /// </summary>
+    /// <remarks>
+    ///     §17.5.2.2 is non-normative, so this store answers with the shape every engine shares:
+    ///     each column between the widest min-content and the widest max-content of its cells, the
+    ///     table at its columns' max-content sum capped by the room on offer, and the room between
+    ///     the two sums shared in proportion to each column's own range.
+    /// </remarks>
+    Auto,
+
+    /// <summary>
+    ///     The fixed layout, §17.5.2.1: columns from the first row's cells and the table's own width.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Only with a definite <c>width</c>.</b> CSS Tables 3 and every engine fall
+    ///     back to <see cref="Auto" /> on an <c>auto</c>-width table, because there is no width to
+    ///     share out; so does this store.
+    /// </remarks>
+    Fixed
 }
 
 /// <summary>

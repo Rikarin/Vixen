@@ -370,6 +370,16 @@ public sealed partial class LayoutTree {
         var marginColumnLeading = StyleResolution.InlineStartMargin(in styles[index], flexColumn, direction, ownerWidth);
         var marginColumnTrailing = StyleResolution.InlineEndMargin(in styles[index], flexColumn, direction, ownerWidth);
 
+        // ⚠ CSS 2.1 §17: a table's rows and cells have no margins. Zeroed here rather than in the
+        // table's walk, because every number below — the margin axis an offer is reduced by, the
+        // collapsible margins, the result the draw list reads — starts from these four.
+        if (IsTablePart(index)) {
+            marginRowLeading = 0f;
+            marginRowTrailing = 0f;
+            marginColumnLeading = 0f;
+            marginColumnTrailing = 0f;
+        }
+
         results[index].Margin[(int) startEdge] = marginRowLeading;
         results[index].Margin[(int) endEdge] = marginRowTrailing;
         results[index].Margin[(int) Edge.Top] = marginColumnLeading;
@@ -496,6 +506,44 @@ public sealed partial class LayoutTree {
             return;
         }
 
+        // ⚠ A table joins grid ahead of the childless shortcut for grid's reason: an empty table with
+        // `border-spacing` is not the height of its own padding, and the walk that knows it is in
+        // `LayoutTree.Table.cs`. A row is laid out by the table's own walk, which has the columns;
+        // reached any other way — outside a table, or by a probe — it falls through to block below.
+        if (styles[index].Display == Display.Table) {
+            CalculateTableLayoutImpl(
+                index,
+                availableWidth,
+                availableHeight,
+                direction,
+                widthSizingMode,
+                heightSizingMode,
+                ownerWidth,
+                ownerHeight,
+                performLayout,
+                currentDepth,
+                marginAxisRow,
+                marginAxisColumn
+            );
+
+            return;
+        }
+
+        if (styles[index].Display == Display.TableRow && activeTable >= 0 && links[index].Parent == activeTable) {
+            LayOutTableRow(
+                index,
+                availableWidth,
+                availableHeight,
+                direction,
+                performLayout,
+                currentDepth,
+                marginAxisRow,
+                marginAxisColumn
+            );
+
+            return;
+        }
+
         // ⚠ The inner display type decides the algorithm and the outer one decides nothing here.
         // CSS Display §2.1 makes `inline-block` a box whose *outside* is inline and whose *inside* is
         // flow — so it runs block layout, exactly as `block` does, and the only difference is who
@@ -507,7 +555,12 @@ public sealed partial class LayoutTree {
         // ⚠ `flow-root` adds nothing to the dispatch for the same reason: its inner display is flow,
         // so it runs the very same algorithm as `block`. Everything the keyword means is one answer
         // from `EstablishesBlockFormattingContext`, which the block path asks on its own way in.
-        if (styles[index].Display is Display.Block or Display.InlineBlock or Display.Inline or Display.FlowRoot) {
+        //
+        // ⚠ A cell's inside is flow too, CSS 2.1 §17.4, so it is here; the table has already decided
+        // its size and offers it as StretchFit on both axes. A row that is not being laid out by its
+        // table is here as well — see `Display.TableRow`.
+        if (styles[index].Display is Display.Block or Display.InlineBlock or Display.Inline or Display.FlowRoot
+            or Display.TableCell or Display.TableRow) {
             // An inline formatting context is not a variant of block layout, it is what a block
             // container does instead when everything in it is inline-level. See LayoutTree.Inline.cs.
             if (EstablishesInlineFormattingContext(index)) {

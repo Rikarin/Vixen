@@ -118,7 +118,8 @@ public sealed partial class LayoutTree {
                 // placed on a physical `row` puts every RTL grid child at
                 // `container − child − Position[Right]`, with a stale zero for the right edge.
                 var isPhysicalParent =
-                    styles[currentNode].Display is Display.Block or Display.FlowRoot or Display.Grid or Display.Inline;
+                    styles[currentNode].Display is Display.Block or Display.FlowRoot or Display.Grid or Display.Inline
+                    or Display.Table or Display.TableRow or Display.TableCell;
                 var parentMainAxis = isPhysicalParent
                     ? FlexDirection.Row
                     : FlexAxis.Resolve(styles[currentNode].FlexDirection, currentNodeDirection);
@@ -204,7 +205,8 @@ public sealed partial class LayoutTree {
         // child to the wrong physical edge. All three box types are physical: inline is the row,
         // block is the column, and the writing direction is applied by the `Inline*` helpers rather
         // than by the axis.
-        var isPhysicalParent = styles[node].Display is Display.Block or Display.FlowRoot or Display.Grid or Display.Inline;
+        var isPhysicalParent = styles[node].Display is Display.Block or Display.FlowRoot or Display.Grid or Display.Inline
+            or Display.Table or Display.TableRow or Display.TableCell;
         var mainAxis = isPhysicalParent ? FlexDirection.Row : FlexAxis.Resolve(styles[node].FlexDirection, direction);
         var crossAxis = isPhysicalParent ? FlexDirection.Column : FlexAxis.ResolveCross(mainAxis, direction);
 
@@ -462,7 +464,7 @@ public sealed partial class LayoutTree {
         // on an inline box and are whatever the stylesheet left there. It landed at the union's
         // inline start whatever the flow had done, which is why rebasing the recorded pair onto the
         // union looked obligatory and measured as dead code.
-        if (styles[parent].Display is Display.Block or Display.FlowRoot or Display.Inline) {
+        if (styles[parent].Display is Display.Block or Display.FlowRoot or Display.Inline or Display.TableCell) {
             var isRow = FlexAxis.IsRow(axis);
             var staticEdge = isRow ? Edge.Left : Edge.Top;
             var staticValue = isRow ? results[child].BlockStaticLeft : results[child].BlockStaticTop;

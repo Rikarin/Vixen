@@ -21,6 +21,14 @@ namespace Vixen.Ui.Tests;
 ///         tree would have contradicted it. Now something does.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Three of the ten table keywords are accepted now, and each is a box type of its
+///         own</b> — <see cref="Display.Table" />, <see cref="Display.TableRow" /> and
+///         <see cref="Display.TableCell" />, laid out by <c>LayoutTree.Table.cs</c>. They moved
+///         from the denial list to the accepted pairs, which is the move this file was written to
+///         force: the coverage fact went red the moment the enum grew, and stayed red until each
+///         member had a keyword. The other seven still need boxes the store does not generate.
+///     </para>
+///     <para>
 ///         ⚠ <b>The two halves check each other, which is what makes this an instrument rather than
 ///         a list.</b> The first is derived: every member of <see cref="Display" /> has to be
 ///         reachable, and the keyword count has to equal the enum's, so a ninth member cannot arrive
@@ -54,7 +62,10 @@ public class DisplayKeywordSurfaceTests {
         ("inline", Display.Inline),
         ("inline-block", Display.InlineBlock),
         ("inline-flex", Display.InlineFlex),
-        ("flow-root", Display.FlowRoot)
+        ("flow-root", Display.FlowRoot),
+        ("table", Display.Table),
+        ("table-row", Display.TableRow),
+        ("table-cell", Display.TableCell)
     ];
 
     /// <inheritdoc cref="AcceptedPairs" />
@@ -76,13 +87,10 @@ public class DisplayKeywordSurfaceTests {
     /// </summary>
     public static TheoryData<string> Refused =>
         [
-            "table",
             "inline-table",
             "table-row-group",
             "table-header-group",
             "table-footer-group",
-            "table-row",
-            "table-cell",
             "table-column-group",
             "table-column",
             "table-caption",
@@ -199,7 +207,9 @@ public class DisplayKeywordSurfaceTests {
     ///         <see cref="Display.Flex" />, and that is right: the CASCADE collapses the two
     ///         declarations before the bridge sees either, and <c>table</c> is the later one, so
     ///         <c>grid</c> is lost exactly as it would be in a browser. What a browser does next is
-    ///         lay out a table; what this does is drop the only declaration left.
+    ///         lay out a table; what this does is drop the only declaration left. (Written against
+    ///         <c>table</c> and moved to <c>inline-table</c> when <c>table</c> became a box type here
+    ///         — the argument is about the keyword being unread, not about which one.)
     ///     </para>
     ///     <para>
     ///         So "the keyword the bridge could not read" and "the value the element would otherwise
@@ -218,7 +228,7 @@ public class DisplayKeywordSurfaceTests {
     /// </remarks>
     [Fact]
     public void The_last_declaration_wins_before_the_bridge_so_an_unread_keyword_leaves_the_default() {
-        var style = new BridgeFixture().BuildInline(("display", "grid"), ("display", "table"));
+        var style = new BridgeFixture().BuildInline(("display", "grid"), ("display", "inline-table"));
         var undeclared = new BridgeFixture().BuildInline();
 
         Assert.Equal(undeclared.Display, style.Display);

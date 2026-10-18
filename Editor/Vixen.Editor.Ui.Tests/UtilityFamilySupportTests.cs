@@ -120,6 +120,18 @@ public class UtilityFamilySupportTests {
         { "inline-block", "display", "inline-block" },
         { "inline-flex", "display", "inline-flex" },
 
+        // ⚠ The table set, #258's first slice: `LayoutTree.Table.cs` is a fifth algorithm and these
+        // three are the keywords it lays out. `table` is two roots — bare it is `display`, with a
+        // value `table-layout` — and the `border-spacing` families compose two fragments into one
+        // assembly, so their rows read the assembled value, which is what the bridge reads.
+        { "table", "display", "table" },
+        { "table-row", "display", "table-row" },
+        { "table-cell", "display", "table-cell" },
+        { "table-fixed", "table-layout", "fixed" },
+        { "border-spacing-2", "border-spacing", "8px 8px" },
+        { "border-spacing-x-2", "border-spacing", "8px 0px" },
+        { "border-spacing-y-2", "border-spacing", "0px 8px" },
+
         // ⚠ <b>All eight are here now, and the four that were absent were absent for a conflation
         // rather than for a limit.</b> This comment said `float-start`, `float-end`, `clear-start`
         // and `clear-end` "emit the logical `inline-start` / `inline-end`, which resolve against a

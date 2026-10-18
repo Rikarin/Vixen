@@ -304,6 +304,17 @@ public static class UtilityComposition {
     /// <summary>How far along y.</summary>
     public const string TranslateY = Prefix + "translate-y";
 
+    /// <summary>A table's horizontal cell spacing, half of <c>border-spacing</c>.</summary>
+    /// <remarks>
+    ///     <see cref="TranslateX" />'s reason one property over: <c>border-spacing</c> takes both axes
+    ///     in one declaration, so <c>border-spacing-x-2 border-spacing-y-4</c> is two classes that
+    ///     must end up as one <c>border-spacing: 8px 16px</c>. See <see cref="BorderSpacing" />.
+    /// </remarks>
+    public const string BorderSpacingX = Prefix + "border-spacing-x";
+
+    /// <summary>A table's vertical cell spacing.</summary>
+    public const string BorderSpacingY = Prefix + "border-spacing-y";
+
     /// <summary>How much a transform scales the box along x.</summary>
     /// <remarks>
     ///     ⚠ The translations' arrangement exactly, for the identical reason one property up: CSS's
@@ -805,6 +816,11 @@ public static class UtilityComposition {
         [TranslateX] = "0px",
         [TranslateY] = "0px",
 
+        // v4's own `@property` initials for the pair, and `0px` for `TranslateX`'s legibility reason:
+        // `border-spacing: 8px 0px` says what it is.
+        [BorderSpacingX] = "0px",
+        [BorderSpacingY] = "0px",
+
         // ⚠ <b>The empty token stream, and it is a value rather than the absence of one.</b>
         // `var(--tw-ordinal,)` with an empty fallback is legal CSS and is what
         // `VarSubstitution.Substitute` distinguishes from `var(--tw-ordinal)` — the second is
@@ -1126,6 +1142,15 @@ public static class UtilityComposition {
     ///     only in which fragment they set beside it.
     /// </remarks>
     public static string Translation() => $"{Reference(TranslateX)} {Reference(TranslateY)}";
+
+    /// <summary>The two-axis value a <c>border-spacing</c> declaration takes.</summary>
+    /// <returns>The assembled value.</returns>
+    /// <remarks>
+    ///     <see cref="Translation" />'s arrangement: <c>border-spacing-*</c>, <c>-x-*</c> and
+    ///     <c>-y-*</c> all emit this same constant beside the fragments they set, so any one works
+    ///     alone and the axes compose — v4's own output.
+    /// </remarks>
+    public static string BorderSpacing() => $"{Reference(BorderSpacingX)} {Reference(BorderSpacingY)}";
 
     /// <summary>The two-axis value a <c>scale</c> declaration takes.</summary>
     /// <returns>The assembled value.</returns>

@@ -334,6 +334,20 @@ public struct LayoutStyle {
     /// <inheritdoc cref="GridTemplateColumns" />
     internal GridTemplate GridAutoRows;
 
+    /// <summary><c>table-layout</c>: which algorithm sizes a <see cref="Display.Table" />'s columns.</summary>
+    public TableLayout TableLayout;
+
+    /// <summary>
+    ///     <c>border-spacing</c>: the horizontal (<see cref="Dimension.Width" />) and vertical
+    ///     (<see cref="Dimension.Height" />) distance between a table's cells, and between the outer
+    ///     cells and the table's padding edge.
+    /// </summary>
+    /// <remarks>
+    ///     Read only on a <see cref="Display.Table" />, as a length; a percentage is not a value of
+    ///     the property and resolves to nothing.
+    /// </remarks>
+    public DimensionLengths BorderSpacing;
+
     static LayoutStyle CreateDefault() {
         var style = default(LayoutStyle);
         style.Direction = Direction.Inherit;
