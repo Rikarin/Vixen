@@ -465,11 +465,31 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
         && !content.Features.Any(feature => feature is ParallaxOcclusionFeature);
 
     /// <summary>What it says, which has to name the step rather than the state.</summary>
+    /// <remarks>
+    ///     Built from <see cref="Unfed" /> and <see cref="MaterialBakeParallax.Tag" /> rather than
+    ///     spelled out, so the two things a caller keys on cannot be reworded out of it.
+    /// </remarks>
     static string Unsampled(string name) =>
-        $"'{name}' was baked with a height map and nothing in the material samples it — a height "
-        + "output is written for whatever wants it, and the feature that marches one is the author's. "
-        + $"Add '- !ParallaxOcclusion' as the first feature of {name}{MaterialImporter.Extension} and "
-        + "bake again: the next bake keeps it, keeps its heightScale, and binds this map to it.";
+        $"'{name}' was baked with a height map. {Unfed} A height output is written for whatever wants "
+        + "it, and the feature that marches one is the author's. "
+        + $"Add '- {MaterialBakeParallax.Tag}' as the first feature of {name}{MaterialImporter.Extension} "
+        + "and bake again: the next bake keeps it, keeps its heightScale, and binds this map to it.";
+
+    /// <summary>
+    ///     The sentence every unfed-height warning carries, and what a caller that makes it false
+    ///     drops it by.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Shared for the reason <see cref="Overpaint" /> is</b>: a caller has to tell this one
+    ///     warning from the others in <see cref="MaterialBakeSet.Warnings" />. A bake asked for
+    ///     parallax composes the very feature this warning asks for, so
+    ///     <see cref="MaterialBakeParallax.Requested" /> has to drop it and keep the rest — and before
+    ///     this existed it did so by finding the YAML tag in the prose, which held only because a test
+    ///     in another assembly happened to assert the tag was still there (#1127). Keying on a
+    ///     constant <see cref="Unsampled" /> is built from means a reword cannot leave a sentence
+    ///     telling an artist to do what the flag just did.
+    /// </remarks>
+    public const string Unfed = "Nothing in the material samples that height map.";
 
     /// <summary>What a bake says when the database did not pick a file it wrote back up.</summary>
     /// <remarks>

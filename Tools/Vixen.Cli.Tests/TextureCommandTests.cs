@@ -268,13 +268,11 @@ public sealed class TextureCommandTests : IDisposable {
     ///     <see cref="MaterialBakeParallax" /> matches on.
     /// </summary>
     /// <remarks>
-    ///     <b>The anchor for a match across an assembly seam, and it is here because there is no
-    ///     shared constant to match on.</b> <c>ProjectMaterialBaker.Overpaint</c> is a public const
-    ///     for exactly this reason one refusal over — a caller has to tell one of that type's
-    ///     messages from the others — and the unfed-height warning has none, so
-    ///     <c>MaterialBakeParallax.Requested</c> drops it by looking for the YAML tag in its text. A reword
-    ///     in <c>Vixen.Editor.Assets</c> would otherwise leave <c>--parallax</c> printing a sentence
-    ///     telling an artist to do the thing the flag has just done, silently and for ever.
+    ///     The warning has to stay actionable, so the tag an artist pastes is asserted through the
+    ///     verb's own output. What <c>MaterialBakeParallax.Requested</c> drops it by is no longer the
+    ///     tag but <see cref="ProjectMaterialBaker.Unfed" />, the sentence the warning is built from
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1127">#1127</a>), so this asserts that
+    ///     anchor reaches the console too.
     /// </remarks>
     [Fact]
     public async Task The_bakers_unfed_height_warning_still_names_the_tag() {
@@ -285,6 +283,7 @@ public sealed class TextureCommandTests : IDisposable {
 
         Assert.Equal(ExitCode.Success, code);
         Assert.Contains(MaterialBakeParallax.Tag, complaint, StringComparison.Ordinal);
+        Assert.Contains(ProjectMaterialBaker.Unfed, complaint, StringComparison.Ordinal);
     }
 
     /// <summary>⚠ A first bake can ask for the march, and what it writes compiles.</summary>
@@ -350,12 +349,10 @@ public sealed class TextureCommandTests : IDisposable {
     ///         <see cref="MaterialBakeParallax" /> filters at all.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the filter matches on prose</b>, because <c>ProjectMaterialBaker</c> has no
-    ///         shared constant for that warning the way it has <c>Overpaint</c> for a refusal
-    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1127">#1127</a>). Until it does,
-    ///         this and <see cref="The_bakers_unfed_height_warning_still_names_the_tag" /> are the
-    ///         two halves that turn a reword in another assembly into a red test rather than into
-    ///         either a lost warning or a sentence telling an artist to do what the flag just did.
+    ///         The filter keys on <see cref="ProjectMaterialBaker.Unfed" />, a constant the warning is
+    ///         built from, the way <c>Overpaint</c> anchors a refusal
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1127">#1127</a>); this is the
+    ///         end-to-end half of that, through the verb.
     ///     </para>
     /// </remarks>
     [Fact]

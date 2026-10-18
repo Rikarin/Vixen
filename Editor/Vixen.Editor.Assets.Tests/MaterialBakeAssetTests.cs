@@ -613,6 +613,38 @@ public sealed class MaterialBakeAssetTests : IDisposable {
         // being actionable.
         Assert.Contains("- !ParallaxOcclusion", warning, StringComparison.Ordinal);
         Assert.Contains("ShipHull", warning, StringComparison.Ordinal);
+
+        // ⚠ And it carries the anchor a caller that makes it false drops it by (#1127).
+        Assert.Contains(ProjectMaterialBaker.Unfed, warning, StringComparison.Ordinal);
+    }
+
+    /// <summary>⚠ Asking for parallax drops the unfed-height warning by its constant, not by the tag.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1127">#1127</a>.</b>
+    ///         <see cref="MaterialBakeParallax.Requested" /> used to drop every warning containing
+    ///         <c>!ParallaxOcclusion</c> — which is the unfed-height one today, and would equally have
+    ///         been any other sentence that came to mention the tag. It now keys on
+    ///         <see cref="ProjectMaterialBaker.Unfed" />, the sentence that warning is built from.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The second warning names the tag on purpose</b>: it is the input that tells a
+    ///         filter on the tag from a filter on the anchor. Against the tag filter it is dropped and
+    ///         this is red; a <c>Requested</c> returning nothing is red too, and so is one returning
+    ///         everything.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Asking_for_parallax_drops_only_the_unfed_height_warning() {
+        var project = Project();
+        var baked = new ProjectMaterialBaker(project).Write("ShipHull", WithHeight(), Record());
+        var unrelated = "ShipHull_2 already carried - !ParallaxOcclusion and kept it.";
+        var set = baked with { Warnings = [.. baked.Warnings, unrelated] };
+
+        var still = MaterialBakeParallax.Requested(set, out var refused);
+
+        Assert.Null(refused);
+        Assert.Equal([unrelated], still);
     }
 
     /// <summary>And a bake that wrote no height map says nothing, which is most bakes.</summary>
