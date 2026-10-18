@@ -60,7 +60,14 @@ public sealed class TerrainBrushSettings {
     public BrushFalloffKind Curve { get; set; } = BrushFalloffKind.Smooth;
 
     /// <summary>What footprint the brush has.</summary>
-    [Inspector]
+    /// <remarks>
+    ///     ⚠ <b>Not an <c>[Inspector]</c> row, because nothing it does is reachable yet</b>
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1098">#1098</a>). It acts only through an
+    ///     <see cref="IBrushMask" />, and no terrain or foliage tool passes one, so
+    ///     <see cref="TerrainBrush.WeightAt" /> paints the same disc whatever this says. Kept, and still
+    ///     carried by <see cref="ToBrush" />, so a mask source has somewhere to land; offered again
+    ///     when one does.
+    /// </remarks>
     public BrushShape Shape { get; set; } = BrushShape.Circle;
 
     /// <summary>How far apart stamps are along a stroke, as a fraction of the radius.</summary>
@@ -70,7 +77,14 @@ public sealed class TerrainBrushSettings {
     public float Spacing { get; set; } = 0.25f;
 
     /// <summary>How the stamps are turned.</summary>
-    [Inspector]
+    /// <remarks>
+    ///     ⚠ <b>Not an <c>[Inspector]</c> row, because nothing it does is reachable yet</b>
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1098">#1098</a>). It acts only through an
+    ///     <see cref="IBrushMask" />, and no terrain or foliage tool passes one, so
+    ///     <see cref="TerrainBrush.WeightAt" /> paints the same disc whatever this says. Kept, and still
+    ///     carried by <see cref="ToBrush" />, so a mask source has somewhere to land; offered again
+    ///     when one does.
+    /// </remarks>
     public BrushRotation Rotation { get; set; } = BrushRotation.Fixed;
 
     /// <summary>The brush's own angle, in degrees.</summary>
@@ -78,14 +92,17 @@ public sealed class TerrainBrushSettings {
     ///     ⚠ <b>Degrees here and radians in the kernel</b>, which is the convention every angle in
     ///     the editor follows: a person types 45 and a shader is handed 0.785. <see cref="ToBrush" />
     ///     is the only place the two meet.
+    ///     <para>
+    ///         ⚠ <b>Not an <c>[Inspector]</c> row</b>, for <see cref="Shape" />'s reason: a stamp's angle
+    ///         turns a mask and nothing else, and there is no mask (#1098).
+    ///     </para>
     /// </remarks>
-    [Inspector]
     [Range(0f, 360f)]
     [ShowIf(nameof(IsAngled))]
     public float Angle { get; set; }
 
     /// <summary>How many metres of world one tile of a pattern mask covers.</summary>
-    [Inspector]
+    /// <remarks>⚠ Not an <c>[Inspector]</c> row, for <see cref="Shape" />'s reason (#1098).</remarks>
     [Range(0.1f, 512f)]
     [ShowIf(nameof(IsPatterned))]
     public float PatternScale { get; set; } = 4f;

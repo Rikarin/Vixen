@@ -32,8 +32,8 @@ editor joins them to what is being edited *after* the tree is built.
 ## What it is for
 
 **Order and grouping, mostly.** The generated inspector draws a type's members in declaration order
-because that is the only order it has. A brush is a shape, a stroke and a pattern; `Spacing` belongs
-with `Rotation` rather than with `Falloff`, and no attribute on the type can say that.
+because that is the only order it has. A brush is a shape and a stroke; `Spacing` belongs with
+`Strength` rather than with `Falloff`, and no attribute on the type can say that.
 
 ⚠ **It is not for drawing rows by hand.** A `<PropertyField>` produces exactly the row the default
 inspector would have — the drawer that claims the member, the reset button, the tooltip, the prefab

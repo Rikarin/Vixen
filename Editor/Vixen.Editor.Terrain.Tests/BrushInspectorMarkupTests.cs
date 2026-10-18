@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Inspector;
+using Vixen.Terrain;
 using Vixen.Ui;
 using Vixen.Ui.Composition;
 using Vixen.Ui.Controls;
@@ -15,8 +16,8 @@ namespace Vixen.Editor.Terrain.Tests;
 /// <remarks>
 ///     <para>
 ///         <b>Doc 36 § P4's exit criterion, and F7's answer.</b> <c>TerrainBrushInspector.vxml</c> has
-///         no <c>@code</c> block and no C# in it at all — it is nine <c>&lt;PropertyField&gt;</c>s in
-///         three <c>&lt;Expander&gt;</c>s — and this asserts that what it produces is the rows the
+///         no <c>@code</c> block and no C# in it at all — it is five <c>&lt;PropertyField&gt;</c>s in
+///         two <c>&lt;Expander&gt;</c>s — and this asserts that what it produces is the rows the
 ///         generated inspector would have drawn, in the order the markup put them in.
 ///     </para>
 ///     <para>
@@ -75,13 +76,13 @@ public class BrushInspectorMarkupTests : IDisposable {
         var order = fields.Select(field => field.Path).ToList();
 
         Assert.Equal(
-            ["Radius", "Falloff", "Curve", "Shape", "Strength", "Spacing", "Rotation", "Angle", "PatternScale"],
+            ["Radius", "Falloff", "Curve", "Strength", "Spacing"],
             order
         );
 
         var groups = Descendants(document.Root).OfType<Expander>().Select(group => group.Label).ToList();
 
-        Assert.Equal(["Shape", "Stroke", "Pattern"], groups);
+        Assert.Equal(["Shape", "Stroke"], groups);
     }
 
     /// <summary>
@@ -96,7 +97,7 @@ public class BrushInspectorMarkupTests : IDisposable {
         var (_, fields) = Built();
         var groups = Descendants(document.Root).OfType<Expander>().ToList();
 
-        Assert.Equal(3, groups.Count);
+        Assert.Equal(2, groups.Count);
         Assert.All(groups, group => Assert.NotEmpty(group.Content.Children));
 
         // Every row is under some group's content, and none of them is a child of a group itself.
@@ -106,8 +107,8 @@ public class BrushInspectorMarkupTests : IDisposable {
 
     /// <summary>
     ///     <b>Doc 36 § P4's grouping argument, which is only worth anything if a group can shut.</b>
-    ///     The three headings exist so that a brush reads as a shape, a stroke and a pattern rather
-    ///     than as eleven sliders; a heading that cannot be closed is a caption.
+    ///     The headings exist so that a brush reads as a shape and a stroke rather
+    ///     than as one column of sliders; a heading that cannot be closed is a caption.
     /// </summary>
     /// <remarks>
     ///     ⚠ <b>The rows' own rectangles, not just the group's flag.</b> <c>IsExpanded</c> going
@@ -121,7 +122,7 @@ public class BrushInspectorMarkupTests : IDisposable {
         var stroke = Descendants(document.Root).OfType<Expander>().Single(group => group.Label == "Stroke");
         var rows = fields.Where(field => Descendants(stroke.Content).Contains(field)).ToList();
 
-        Assert.Equal(["Strength", "Spacing", "Rotation", "Angle"], rows.Select(row => row.Path));
+        Assert.Equal(["Strength", "Spacing"], rows.Select(row => row.Path));
         Assert.All(rows, row => Assert.True(row.Height > 0f));
 
         stroke.IsExpanded = false;
@@ -222,6 +223,98 @@ public class BrushInspectorMarkupTests : IDisposable {
         Assert.NotNull(radius.Row);
         Assert.True(radius.Row.Field.Write(20f));
         Assert.Equal(20f, brush.Radius);
+    }
+
+    /// <summary>What each row is moved to, away from its default, to ask whether the ground notices.</summary>
+    /// <remarks>
+    ///     ⚠ A row missing from this table fails the test below rather than being skipped: a new row
+    ///     has to say what it changes before it is allowed on the panel.
+    /// </remarks>
+    static readonly Dictionary<string, object> Moved = new() {
+        ["Radius"] = 10f,
+        ["Falloff"] = 0f,
+        ["Curve"] = BrushFalloffKind.Tip,
+        ["Shape"] = BrushShape.Alpha,
+        ["Strength"] = 0.25f,
+        ["Spacing"] = 1.5f,
+        ["Rotation"] = BrushRotation.Random,
+        ["Angle"] = 45f,
+        ["PatternScale"] = 1f
+    };
+
+    /// <summary>
+    ///     ⚠ <b>Every row the brush inspector offers changes the ground a stroke writes</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1098">#1098</a>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The panel offered <c>Shape</c> (Circle, Alpha, Pattern), <c>Rotation</c>, <c>Angle</c>
+    ///         and <c>PatternScale</c>, and every one of them acts only through an
+    ///         <see cref="IBrushMask" /> — which no terrain tool supplies, so
+    ///         <see cref="TerrainBrush.WeightAt" /> takes its documented null-mask path and paints the
+    ///         same disc. Four controls an artist could move and watch nothing happen.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured through the real tool and the real markup</b>, not through
+    ///         <c>WeightAt</c> with a null argument: a row is written the way a person writes it, a
+    ///         stroke is dragged through <see cref="TerrainEdit" />, and every sample of the ground is
+    ///         compared with the same drag at the defaults. When a mask source lands, a row that comes
+    ///         back has to pass this — which it will, because then it will move the ground.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_row_the_brush_inspector_offers_changes_the_ground_a_stroke_writes() {
+        var (_, fields) = Built();
+        var baseline = Stroked(null);
+        var inert = new List<string>();
+
+        foreach (var path in fields.Select(field => field.Path ?? "")) {
+            Assert.True(Moved.ContainsKey(path), $"'{path}' is a new row; say what it changes in {nameof(Moved)}.");
+
+            if (Stroked(path).SequenceEqual(baseline)) {
+                inert.Add(path);
+            }
+        }
+
+        Assert.Empty(inert);
+    }
+
+    /// <summary>The ground after one drag, with one row of the inspector moved first, or none.</summary>
+    static float[] Stroked(string? path) {
+        using var panel = new UiDocument(400f, 800f);
+
+        ControlTheme.Install(panel);
+        AdvancedTheme.Install(panel);
+        InspectorTheme.Install(panel);
+
+        var (edit, terrain) = Ground.Editing();
+        var view = BuildContext.Build<TerrainBrushInspector>(panel, panel.Root);
+
+        edit.Tools.Metres = 2f;
+        MarkupBinding.Bind(view.Root, new InspectorTarget([edit.Brush]));
+        panel.Update();
+
+        if (path is not null) {
+            var row = Descendants(view.Root).OfType<PropertyField>().Single(field => field.Path == path).Row;
+
+            Assert.NotNull(row);
+            Assert.True(row.Field.Write(Moved[path]), $"the '{path}' row refused {Moved[path]}");
+        }
+
+        Assert.True(edit.Begin(new(30f, 30f)));
+        edit.Extend(new(40f, 34f));
+        edit.Commit(rebuildColliders: false);
+
+        var samples = Ground.Shape.TileSamples * Ground.Shape.TilesX - 1;
+        var heights = new float[samples * samples];
+
+        for (var z = 0; z < samples; z++) {
+            for (var x = 0; x < samples; x++) {
+                heights[(z * samples) + x] = Ground.HeightAt(terrain, x, z);
+            }
+        }
+
+        return heights;
     }
 
     static IEnumerable<UiElement> Descendants(UiElement element) {
