@@ -235,6 +235,34 @@ public sealed class UiRenderFeature : RootRenderFeature {
     /// </remarks>
     public int Sceneless { get; private set; }
 
+    /// <summary>How many times this frame's interfaces were composed after the first.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The only observer a doubled compose has, because the picture is right</b> (#1461).
+    ///         Every <see cref="Compose(ICommandList)" /> renders each mounted interface's group
+    ///         surfaces again, and the last one decides what the interface pass samples — so a frame
+    ///         composed twice looks exactly like a frame composed once, at the cost of a pass per group
+    ///         per extra compose. Three arrangements do it, and the frame cannot be refused for any of
+    ///         them because each is the right picture: two <c>!UiCompose</c> nodes for this feature in
+    ///         one frame; a node a parent builds through <c>BuildChild</c> without exposing it in
+    ///         <c>Nested</c>, which <see cref="UiComposeRenderer.PathTo" /> cannot see, so
+    ///         <c>WorldRenderer.Draw</c>'s prologue composes as well; and an editor document naming the
+    ///         node, because the editor's trees are not <c>Host.Compositor</c>'s and the prologue
+    ///         always composes there.
+    ///     </para>
+    ///     <para>
+    ///         Counted only for a compose that composed something — with nothing mounted, or no
+    ///         renderer, a compose costs nothing and is not waste. Reset by <see cref="Upload" />,
+    ///         which every frame makes once before any compose, so it is a fact about the last frame
+    ///         and is read after that frame has executed: a node composes inside the graph, after the
+    ///         prologue has returned.
+    ///     </para>
+    /// </remarks>
+    public int Recomposed { get; private set; }
+
+    // Composes since the last `Upload` that composed at least one interface.
+    int composes;
+
     /// <summary>How many of <paramref name="geometry" />'s top-level groups read their backdrop.</summary>
     /// <param name="geometry">One interface's frame.</param>
     /// <returns>The number <see cref="Sceneless" /> adds for it.</returns>
@@ -427,6 +455,8 @@ public sealed class UiRenderFeature : RootRenderFeature {
         serving.Clear();
         Dim = 0;
         Soft = 0;
+        Recomposed = 0;
+        composes = 0;
 
         foreach (var (index, surface) in surfaces) {
             if (Serve(index) is not { } renderer) {
@@ -544,17 +574,25 @@ public sealed class UiRenderFeature : RootRenderFeature {
         serving.Clear();
         Sceneless = 0;
 
+        var composed = false;
+
         foreach (var (index, surface) in surfaces) {
             if (Serve(index) is not { } renderer) {
                 continue;
             }
 
             renderer.Compose(commands, surface.Geometry, surface.Surface, surface.Scale, beneath);
+            composed = true;
 
             // After the call, so an interface that was not composed — no renderer — is not counted.
             if (!beneath.Image.IsValid) {
                 Sceneless += ScenelessIn(surface.Geometry);
             }
+        }
+
+        // See `Recomposed`. After the loop, so a compose that served nothing is not counted.
+        if (composed && ++composes > 1) {
+            Recomposed = composes - 1;
         }
     }
 

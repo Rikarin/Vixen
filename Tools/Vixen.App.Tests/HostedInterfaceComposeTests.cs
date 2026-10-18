@@ -269,10 +269,12 @@ public sealed class HostedInterfaceComposeTests : IDisposable {
 
                 var stage = graphics.Renderer.Host.Builder.Stages["Ui"];
 
-                // ⚠ The camera's view collects the stage the game draws in and nothing else — see
-                // `AppGraphics`' load — so a HUD in a stage of its own is culled until the view is
-                // told to collect it too.
-                graphics.View.Stages |= stage.Mask;
+                // ⚠ Nothing widens `graphics.View.Stages` here, and that is the assertion (#1460).
+                // `AppGraphics` sets the camera's mask to the game's stage alone at load, but
+                // `GraphicsCompositor.Collect` rebuilds every view's mask each frame from the nodes
+                // that draw it, and the document's `Hud` node draws `Ui` from `Camera`. So the HUD
+                // is collected because the frame names its stage — and a frame that does not name
+                // it has no pass to draw it in, which no mask could fix.
                 graphics.Renderer.Ui.Renderer = ui;
 
                 var atlas = new GlyphAtlas(64, 64);

@@ -43,8 +43,9 @@ namespace Vixen.Ui.Renderer;
 ///         <c>GraphicsOptions.Output</c> — by default <c>SceneColour</c>, which is also
 ///         <c>!StandardFrame</c>'s default output — and an import wins over a declaration of the same
 ///         name. It used to import it as <c>TextureUsage.ColourTarget</c> and nothing else, on every
-///         backend; it now declares <c>ISwapChain.Usage</c>, which is sampled on Vulkan wherever the
-///         surface allows it, on OpenGL and on the offscreen chain. WebGPU's surface is not sampled,
+///         backend; it now declares <c>ISwapChain.Usage</c>, which is sampled on a windowed Vulkan
+///         chain wherever the surface and the chosen format both allow it, on OpenGL and on the
+///         offscreen chain. WebGPU's surface is not sampled,
 ///         and this node still refuses to run over it there. <c>HostedInterfaceComposeTests</c> is
 ///         the stock host drawing a multiplied HUD panel over the world through this node.
 ///     </para>
@@ -86,7 +87,8 @@ public sealed record UiComposeAsset : ISceneRendererAsset {
 ///         pass per group, and whichever ran second would decide the picture.
 ///     </para>
 ///     <para>
-///         ⚠ <b>One per frame, and nothing refuses a second.</b> Two nodes composing the same feature
+///         ⚠ <b>One per frame, and nothing refuses a second — <c>UiRenderFeature.Recomposed</c> counts
+///         it</b> (#1461). Two nodes composing the same feature
 ///         both run, each rendering every group's surface again, and the later one decides the
 ///         picture. The same waste happens where the host cannot see the node: <see cref="PathTo" />
 ///         walks <see cref="SceneRenderer.Nested" />, so a node a parent builds through

@@ -962,7 +962,7 @@ What each backend reports:
 
 | Backend | `ISwapChain.Usage` | `!UiCompose` over the window |
 |---|---|---|
-| Vulkan, windowed | colour target, copy destination, and sampled where the surface's `supportedUsageFlags` list it — ⚠ untested: the windowed chain cannot be created on the machine the tests ran on, and the request is not also checked against the format's own image properties | builds where the surface lists sampled |
+| Vulkan, windowed | colour target, copy destination, and sampled where the surface's `supportedUsageFlags` list it **and** `vkGetPhysicalDeviceImageFormatProperties` takes it for the chosen format (`VulkanSwapChain.SamplesAs`, VUID-VkSwapchainCreateInfoKHR-imageFormat-01778) — ⚠ untested: the windowed chain cannot be created on the machine the tests ran on, which has no `VK_EXT_headless_surface` | builds where the surface and the format both allow sampled |
 | Vulkan, offscreen (`--vixen-offscreen`, `--vixen-capture`) | colour target, copy source, copy destination, sampled | builds |
 | OpenGL | colour target, sampled, copy source | builds |
 | WebGPU | colour target, copy source | refused — the surface would have to be asked for `TextureBinding` |
@@ -978,7 +978,11 @@ colour target, which lags every blended panel by a frame and still needs a copy 
 seam. A `source` of another size than the interface is resampled under it, and the node says so in
 its `Degraded` — the interface's size being `UiRenderer.Pixels`, the ceiling of its surface times its
 density, which is the size its group surfaces are allocated at. Name one node per frame: a second one
-composes every group again and the later one wins, and nothing refuses it.
+composes every group again and the later one wins. Nothing refuses it, because the picture is right,
+but `UiRenderFeature.Recomposed` counts it (#1461) — and counts the two arrangements that compose
+twice with only one node: a node a parent builds through `BuildChild` without listing it in `Nested`,
+which `UiComposeRenderer.PathTo` cannot see, and any editor document that names the node, because the
+editor's prologue always composes (`WorldRenderer.ComposesInFrame` reads only `Host.Compositor`).
 
 ### Isolating which backdrop a blend reaches
 

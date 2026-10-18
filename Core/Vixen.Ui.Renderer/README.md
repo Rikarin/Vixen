@@ -103,8 +103,9 @@ the node and never the feature. ⚠ The target must be `Sampled`, and the node r
 otherwise. ⚠ **In a game that target is the window, and until #1419 the node could not run over
 it**: `AppGraphics.Lend` imported the swapchain under `GraphicsOptions.Output` — `SceneColour`, the
 same default as `!StandardFrame`'s output — as a colour target and nothing else. It now declares
-`ISwapChain.Usage`, what the backend actually created the image as: sampled on Vulkan wherever the
-surface lists it (every desktop driver does), on OpenGL and on the offscreen chain always, and a copy
+`ISwapChain.Usage`, what the backend actually created the image as: sampled on a windowed Vulkan
+chain wherever the surface lists it and the chosen format takes it (`VulkanSwapChain.SamplesAs`;
+untested on a windowed chain), on OpenGL and on the offscreen chain always, and a copy
 destination on both Vulkan chains, so `!Copy` into the window is legal there too. WebGPU's surface is
 configured `RenderAttachment | CopySrc` and still refuses the node. The alternative, last frame's
 scene, lags every blended panel by a frame and would still need a copy at the same seam.

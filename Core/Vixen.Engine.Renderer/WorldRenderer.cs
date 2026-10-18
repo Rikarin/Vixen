@@ -1193,7 +1193,8 @@ public sealed class WorldRenderer : IDisposable {
     ///         <c>!UiCompose</c> in an editor document would still compose, a second time and after
     ///         the scene, and the interface pass would draw its surfaces — the right picture, for the
     ///         prologue's passes wasted. Nothing mounts an interface on the editor's <see cref="Ui" />
-    ///         today.
+    ///         today. <see cref="UiRenderFeature.Recomposed" /> counts that waste (#1461), as it does a
+    ///         node <see cref="UiComposeRenderer.PathTo" /> cannot see and a second node.
     ///     </para>
     /// </remarks>
     bool ComposesInFrame() {
