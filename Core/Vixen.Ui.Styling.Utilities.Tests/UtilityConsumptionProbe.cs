@@ -172,6 +172,20 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///         probe does not drive". This scene is the probe driving it.
 ///     </para>
 /// </param>
+/// <param name="Selected">
+///     Whether <c>#probe</c> sits INSIDE a <see cref="TextBox" /> and the scene drags a mouse from it
+///     across the field's text before the first recorded frame. False for every scene but
+///     <c>selected</c>.
+///     <para>
+///         ⚠ <b>The twelfth time this list has been the thing missing, and the first where the
+///         ingredient is a place a gesture STARTS.</b> <c>user-select</c> is read by
+///         <c>TextField.StartsUnselectable</c> on the press of a selection drag, and only between the
+///         element pressed and the field — CSS UI 4 makes an editable element's own value
+///         <c>contain</c>, so the <c>edited</c> scene, whose field is a CHILD of <c>#probe</c>, could
+///         never see it. Here the probe is inside the field, the drag starts on it, and the selection
+///         band the field paints is the observation (#225).
+///     </para>
+/// </param>
 /// <param name="Observes">
 ///     The properties this scene is a valid observer for, or <see langword="null" /> for all of them.
 ///     <para>
@@ -215,6 +229,7 @@ sealed record ProbeScene(
     bool Pictured = false,
     bool Forced = false,
     bool Touched = false,
+    bool Selected = false,
     IReadOnlyList<string>? Observes = null
 );
 
@@ -1238,6 +1253,40 @@ static class UtilityConsumptionProbe {
             Edited: true
         ),
 
+        // ⚠ <b>Selected: `#probe` is inside a text box and a mouse drag starts on it.</b> The one
+        // arrangement in which `user-select` can be observed, because the reader asks where a
+        // selection drag STARTED — see `ProbeScene.Selected`. The drag runs from the probe leftwards
+        // across the field's text before the first recorded frame, so every recorded frame carries
+        // either a selection band or none. The baseline carries the identical gesture, so the only
+        // thing that can change the band is what the injected declaration does to the press, which is
+        // what "read" means here; no `Observes` list for the reason `touched` carries none.
+        //
+        // The field's rules are `ControlTheme.vcss` quoted, as in `edited`, plus the selection colour
+        // as a literal — the band is painted in `--selection-color`, and a `var()` to a token this
+        // project does not declare would paint nothing and measure the property inert.
+        new(
+            "selected",
+            """
+            textbox          { flex-direction: row; align-items: center; padding: 4px;
+                               border-width: 1px; border-color: #c02020; background-color: #f0f0f0;
+                               color: #202020; position: relative; --selection-color: #3070ff; }
+            field-text       { flex-shrink: 0; white-space: nowrap; min-height: 1.2em; }
+            field-placeholder { position: absolute; left: 4px; display: none; }
+
+            #host  { display: flex; flex-direction: column; width: 220px; height: 120px;
+                     align-items: flex-start; }
+            #field { width: 200px; }
+            #probe { display: flex; flex-direction: row; width: 60px; height: 20px;
+                     background-color: #204080; color: #e0e0e0; }
+            .kid   { width: 4px; height: 4px; }
+            #wide  { width: 4px; height: 4px; }
+            #label { width: 10px; }
+            #short { width: 10px; }
+            #after { width: 30px; height: 12px; background-color: #a0a040; }
+            """,
+            Selected: true
+        ),
+
         // ⚠ <b>Pictured: `#probe` is an `Image` with a texture and an intrinsic size, and every one of
         // those three words is load-bearing.</b> `object-fit` and `object-position` are the only
         // properties in the registry read by a *replaced element*, and there was no replaced element
@@ -1927,6 +1976,7 @@ static class UtilityConsumptionProbe {
 
         UiElement probe;
         UiElement body;
+        TextBox? selecting = null;
 
         // The `snapped` scene is `scrolled`'s tree with a different thing done to it, so the shape is
         // built once and only the driving differs. See `Drive`.
@@ -1949,7 +1999,13 @@ static class UtilityConsumptionProbe {
                 document.Create("div", host, "lead");
             }
 
-            if (scene.Pictured) {
+            if (scene.Selected) {
+                // ⚠ Inside the field, after its parts, so the probe sits to the right of the text
+                // and a drag from it to the left crosses every character. See the scene's remark.
+                selecting = host.Add<TextBox>(null, "field");
+                selecting.Value = "Ag jq Wm il Ag jq";
+                probe = document.Create("div", selecting, "probe");
+            } else if (scene.Pictured) {
                 // ⚠ The probe *is* the replaced element rather than holding one, because
                 // `object-fit` does not inherit — an injected declaration lands on `#probe` and
                 // nowhere else, so a picture one level down would never see it. That is the opposite
@@ -2082,6 +2138,15 @@ static class UtilityConsumptionProbe {
             document.Draw();
         }
 
+        if (selecting is not null) {
+            Select(selecting);
+
+            now += TimeSpan.FromMilliseconds(16);
+            document.Tick(now);
+            document.Update();
+            document.Draw();
+        }
+
         Record();
 
         probe.AddClass("moved");
@@ -2159,6 +2224,43 @@ static class UtilityConsumptionProbe {
             now += TimeSpan.FromMilliseconds(16);
             document.Tick(now);
             document.Update();
+        }
+
+        // The `selected` scene's one gesture: a MOUSE pressed on `#probe` and drawn leftwards to the
+        // field's left edge. A mouse because a finger or a pen begins no selection in a field at all
+        // (#1357), so a touch drag would measure the property inert with the reader present.
+        void Select(TextBox field) {
+            document.Update();
+
+            var from = probe.Bounds;
+            var x = from.X + (from.Width * 0.5f);
+            var y = from.Y + (from.Height * 0.5f);
+            var to = field.Bounds.X + 2f;
+
+            Mouse(x, y, PointerAction.Pressed, PointerButton.Primary);
+
+            for (var step = 1; step <= 3; step++) {
+                Mouse(x + ((to - x) * step / 3f), y, PointerAction.Moved, PointerButton.None);
+                document.Update();
+            }
+
+            Mouse(to, y, PointerAction.Released, PointerButton.Primary);
+        }
+
+        void Mouse(float x, float y, PointerAction action, PointerButton button) {
+            now += TimeSpan.FromMilliseconds(16);
+
+            document.Dispatch(
+                new PointerEvent {
+                    PointerId = 1,
+                    PointerType = PointerType.Mouse,
+                    X = x,
+                    Y = y,
+                    Action = action,
+                    Button = button,
+                    Timestamp = now
+                }
+            );
         }
 
         void Finger(float x, float y, PointerAction action, PointerButton button) {

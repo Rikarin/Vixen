@@ -1280,6 +1280,47 @@ public abstract partial class TextField : Control, ITextInputTarget, IValidated 
     /// </remarks>
     static bool IsDirect(PointerType type) => type is PointerType.Touch or PointerType.Pen;
 
+    /// <summary>The <c>user-select</c> property's id in this field's document, interned on first use.</summary>
+    int userSelect = -1;
+
+    /// <summary>Whether a press on <paramref name="source" /> starts on something declared unselectable.</summary>
+    /// <param name="source">What the pointer hit: this field or something inside it.</param>
+    /// <returns>Whether any element from the source up to — not including — this field computes <c>user-select: none</c>.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The walk stops short of the field, and that is CSS UI 4 § 6.1 rather than a
+    ///         shortcut.</b> On an editable element the used value of <c>user-select</c> is
+    ///         <c>contain</c> whatever was declared, so <c>select-none</c> written on a text box — or on
+    ///         a panel around one — still leaves its text selectable. What the property can refuse is a
+    ///         selection that would <i>start</i> on a non-editable part inside the field: an adornment,
+    ///         an icon, a button.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is the per-control half of #225 and not the document-wide one.</b> Nothing
+    ///         outside a text control selects text in Vixen, so <c>select-none</c> on a plain button has
+    ///         still nothing to suppress — <c>select-text</c> and <c>select-all</c> on non-editable
+    ///         content are what wait on a document selection, which does not exist.
+    ///     </para>
+    ///     <para>
+    ///         The computed value of each element on the path, rather than an inherited one: the
+    ///         property does not inherit, and CSS's <c>auto</c> resolving to its parent's <c>none</c> is
+    ///         the same answer as finding the <c>none</c> further up the same walk.
+    ///     </para>
+    /// </remarks>
+    bool StartsUnselectable(UiElement? source) {
+        if (userSelect < 0) {
+            userSelect = Document.PropertyId("user-select");
+        }
+
+        for (var element = source; element is not null && !ReferenceEquals(element, this); element = element.Parent) {
+            if (string.Equals(Document.KeywordOf(element.Style, userSelect), "none", StringComparison.Ordinal)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     void Pointed(PointerEvent args) {
         switch (args.Action) {
             // ⚠ <b>A finger or a pen does not begin a selection drag</b> (#1357). The capture below
@@ -1291,13 +1332,23 @@ public abstract partial class TextField : Control, ITextInputTarget, IValidated 
             // is what this does — a finger's drag is the scroll view's, the caret goes where a TAP
             // lands (`Tapped`), and selection is a double tap or a long press (`LongPressed`).
             //
-            // ⚠ Not `user-select`, and not #225. Nothing here reads that property: the condition is
-            // the device, so the ledger line waiting for a reader of `user-select` does not expire.
+            // ⚠ Not `user-select`: the condition here is the device. The property's reader is the
+            // next case down (#225), and it is about where the press landed, not what pressed.
             //
             // Still handled, as the mouse's press is: the recogniser sees the press whether or not
             // anything handled it, and an ancestor that acts on a press — a row that selects itself —
             // must not start answering a press on a field inside it just because it came from a finger.
             case PointerAction.Pressed when args.Button == PointerButton.Primary && IsDirect(args.PointerType):
+                args.Handled = true;
+                break;
+
+            // ⚠ <b>A press that lands on a part declared `user-select: none` begins no selection</b>
+            // (#225) — `SearchBox`'s magnifier is the one the control theme declares. The field is
+            // focused, as a press anywhere in its box focuses it, and the caret stays where it was:
+            // moving it and capturing the pointer is what turned a drag off the icon into a text
+            // selection. Handled for the reason the finger case above is.
+            case PointerAction.Pressed when args.Button == PointerButton.Primary && StartsUnselectable(args.Source):
+                Document.Focus(this);
                 args.Handled = true;
                 break;
 

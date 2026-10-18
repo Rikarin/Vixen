@@ -369,7 +369,7 @@ platform it is on (`TextField.cs:1067-1070@10523d70f`), while `CodeEditor` tests
 
 (✅ Closed since `7d18b415c` ([#648](https://github.com/Rikarin/Vixen/issues/648)): both controls
 resolve a chord through one table: `TextField`'s key handler calls `EditingCommands.Resolve`
-(`TextField.cs:1610`), and so does `CodeEditor`'s, `EditingCommands.Resolve` (`CodeEditor.cs:1692`), so the
+(`TextField.cs:1661`), and so does `CodeEditor`'s, `EditingCommands.Resolve` (`CodeEditor.cs:1692`), so the
 paragraph above is pinned to the tree it describes. ⚠ It cited CodeEditor's modifier test as a bare
 continuation, line 1375, after a `TextField.cs` citation, which the sweep read as TextField's line; at
 `10523d70f` it was CodeEditor's line 1374.)
@@ -382,7 +382,7 @@ handlers for the ids rather than for the keys.
 
 ⚠ **`CodeEditor` needs the semantic ids anyway** for an unrelated reason: `CodeBuffer.WordStart` /
 `WordEnd` (`CodeBuffer.cs:252-310`) are `char.IsWhiteSpace`-based, so ⌃← in Japanese or Thai jumps a
-whole clause, while `TextField` gets it right through `WordBreaker` (UAX #29, `TextField.cs:1922`).
+whole clause, while `TextField` gets it right through `WordBreaker` (UAX #29, `TextField.cs:1973`).
 (✅ That half is closed: since `53bde2fe9` a run of the word class is subdivided by `WordBreaker`
 (`CodeBuffer.cs:241`). The semantic ids are still owed for the other reason.)
 One table, one word-breaker.
@@ -918,7 +918,7 @@ gaps below as a criticism of that layer; they are all in the controls above it.
 - No spell check, substitution, dictation or system font/colour panels; no drag-select autoscroll; no
   undo in `TextField` (§ 4.1).
 
-Two performance notes found in passing: `TextField.Step` (`TextField.cs:1845-1873`) allocates a list
+Two performance notes found in passing: `TextField.Step` (`TextField.cs:1896-1924`) allocates a list
 and re-runs the grapheme breaker over the **entire value** on every arrow keypress, and
 `CodeEditor.RowOf` (`CodeEditor.cs:1206`) is a linear `IndexOf` called per caret move and per draw.
 

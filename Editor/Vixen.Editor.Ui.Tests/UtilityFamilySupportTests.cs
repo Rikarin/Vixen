@@ -982,6 +982,15 @@ public class UtilityFamilySupportTests {
         { "touch-pan-left", "touch-action", "pan-left" },
         { "touch-manipulation", "touch-action", "manipulation" },
 
+        // ⚠ <b>`select-none` moved here from `Inert` on 2026-10-18 (#225), against the refusal that
+        // kept it there — read that refusal's summary in `Inert` before trusting this row's reach.</b>
+        // `TextField.StartsUnselectable` declines a selection drag that STARTS on a `user-select: none`
+        // part inside a field, which is the one place in Vixen a selection could begin; the control
+        // theme writes it on a search box's magnifier. On a button outside any text control the value
+        // is honoured too, but vacuously: nothing there would have selected. The ledger row is
+        // `partial` for `select-text`/`select-all`, which wait on a document-wide selection.
+        { "select-none", "user-select", "none" },
+
         // ⚠ <b>`caret-*` is a reader that existed under a different name, which is a shape this
         // table had not seen before.</b> `TextField` and `CodeEditor` have drawn the insertion point
         // off Vixen's own `--caret-color` since they were written; the family emits CSS's
@@ -1394,8 +1403,8 @@ public class UtilityFamilySupportTests {
         // it emitted `outline-color`, a property no Tailwind has ever emitted for it, so the row was
         // accurate about the symptom and wrong about the disease. A reader would not have fixed it.
         //
-        // What is left of A6 is `user-select`, below, and it is the one that is not waiting for a
-        // reader either.
+        // What was left of A6 was `user-select`, below, and it has gone to `Supported` too (#225) —
+        // with the caveat its note there carries.
 
 
         // ⚠ <b>Transforms are gone from this table, and they left later than they should have.</b>
@@ -1421,28 +1430,15 @@ public class UtilityFamilySupportTests {
         // are different claims with different expiry dates — which is #582, and is why the one-line
         // link this table now has could not simply be applied to every row it held.
 
-        // ⚠ <b>`select-none` stays, and the reason it used to give was disprovable in five
-        // minutes.</b> Both this table and `InertProperties.txt` said "no selection model reads it",
-        // and there is a selection model: `TextField` has `CaretIndex`, `SelectionAnchor`,
-        // `SelectWord`, drag-to-select and a highlight it paints in its own `OnDraw`, and
-        // `CodeEditor` has a second one. Anybody checking that sentence would have found them and
-        // concluded the row was stale — which is the same trap `align-middle` sat in, a row that
-        // names a missing consumer when what is actually missing is something else.
-        //
-        // What does not exist is the *document-wide* selection CSS is talking about. Both models are
-        // per-control and cannot be otherwise: each captures the pointer for the length of its own
-        // drag, gates its highlight on being focused, and hit-tests only its own `TextLayout`.
-        // Nothing can drag a selection across a `TextBlock`, across a label, or across two sibling
-        // elements — `TextBlock` has no pointer handler at all. So `select-none` on a button, which
-        // is overwhelmingly how the class is written and what it is *for* — stopping a double-click
-        // from selecting the caption — has nothing to suppress, because nothing would have selected.
-        //
-        // ⚠ <b>And the cheap close was available and is refused.</b> Teaching `TextField.Pointed` to
-        // decline a drag under `user-select: none` would be a real reader, would expire the
-        // `InertProperties.txt` line, and would leave the promise above exactly as unkept — a family
-        // reported as supported that does nothing in every place a person writes it. Task #24 is the
-        // document-wide model, not the reader.
-        { "select-none", "user-select" },
+        // ⚠ <b>`select-none` left this table on 2026-10-18 for `Supported` (#225), and the
+        // argument that held it here is worth its summary.</b> Both selection models are per-control
+        // — `TextField`'s and `CodeEditor`'s each capture their own drag and hit-test their own
+        // `TextLayout` — so nothing selects across a `TextBlock`, a label or two siblings, and
+        // `select-none` on a button has nothing to suppress. Teaching `TextField.Pointed` to decline a
+        // drag under the property was refused as a reader that would expire the allow-list line and
+        // leave that promise as unkept as before. The batch plan asked for exactly that reader; it
+        // landed with a probe scene that measures it, and the promise is kept by the ledger row being
+        // `partial` rather than by the property going unread.
 
         // ⚠ <b>Half of `border-s-*`/`border-e-*`, and the half is the row.</b> The width longhands
         // are in <see cref="Supported" /> above; these two colours are read by nothing, which is the

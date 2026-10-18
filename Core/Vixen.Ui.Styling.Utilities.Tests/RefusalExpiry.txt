@@ -144,4 +144,3 @@ list-image-*	expires-with	list-*
 list-style-position	expires-with	list-*
 scrollbar-gutter	expires-on	Vixen.Ui.Layout.Overflow.Auto
 select	expires-on	Vixen.Ui.UiDocument.Selection
-select	expires-when-read	user-select
