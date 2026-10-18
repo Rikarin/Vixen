@@ -308,8 +308,16 @@ public sealed class AppGraphics : IDisposable {
         Renderer.Host.Load(document);
 
         if (Renderer.Host.Builder.Stages.TryGetValue(options.Stage, out var stage)) {
-            // The view draws the camera's stage alone; extraction covers that one and every caster
-            // stage beside it. See GraphicsOptions.CasterStages for why the two masks differ.
+            // Extraction covers the camera's stage and every caster stage beside it. See
+            // GraphicsOptions.CasterStages for why the two masks differ.
+            //
+            // ⚠ The view's mask set below is a starting value and not what the frame culls with:
+            // GraphicsCompositor.Collect clears every view's mask each frame and rebuilds it from the
+            // nodes that draw that view. So a HUD mounted in a stage of its own is collected whenever
+            // the frame has a node drawing that stage from the camera, with nothing widened here, and
+            // one with no such node has no pass to be drawn in at all (#1460; the stock-host proof is
+            // HostedInterfaceComposeTests). An interface's object is mounted with its own stages and
+            // is not extracted, so `extracted` does not have to name its stage either.
             var extracted = stage.Mask;
 
             // ⚠ Accumulated across *both* caster lists below, because it is what a drawable saying it
