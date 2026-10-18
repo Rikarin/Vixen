@@ -296,8 +296,8 @@ public partial class SharedUiShaderTests {
                     Assert.True(
                         Reflavouring || string.Equals(was.Flavour, flavour, StringComparison.Ordinal),
                         $"{Path.Combine(Shaders, name)}.spv was built with `glslc {flavour}` and the ledger records "
-                        + $"`glslc {was.Flavour}`. Rebuild it the way its siblings were built: `glslc {was.Flavour} "
-                        + $"Shaders/{name} -o Shaders/{name}.spv`. If changing the flavour is the point, rerun with "
+                        + $"`glslc {was.Flavour}`. Rebuild it the way its siblings were built. {RecipeInstruction}. "
+                        + "If changing the flavour is the point, rerun with "
                         + "`VIXEN_UPDATE_SHADER_FLAVOUR=1` as well -- and read `Reconciled`, because the "
                         + "arithmetic census is calibrated against what glslc folds."
                     );
@@ -331,9 +331,7 @@ public partial class SharedUiShaderTests {
                 string.Equals(pair.Code, code, StringComparison.Ordinal),
                 $"{Path.Combine(Shaders, name)} has changed since its module was built — its code, not its "
                 + $"comments, which are stripped before this digest. The module this suite renders with is "
-                + $"not this source. Regenerate it and the ledger: `glslc {pair.Flavour} Shaders/{name} -o "
-                + $"Shaders/{name}.spv` from this project's directory, then rerun with "
-                + "`VIXEN_UPDATE_SHADER_DIGESTS=1`."
+                + $"not this source. Regenerate it at `{pair.Flavour}` and the ledger. {RecipeInstruction}."
             );
 
             Assert.True(
