@@ -253,6 +253,39 @@ public class GeneratedContentTests {
     }
 
     [Fact]
+    public void An_inline_generated_box_joins_the_line_of_its_inline_siblings() {
+        // ⚠ The CSS default for a pseudo-element, written out because Vixen's is flex. An inline
+        // leaf's collapsing edges read its NEIGHBOURS, and a generated box is in no sibling list —
+        // so this is the path most likely to index a box that is not there.
+        UiElement para = null!;
+        UiElement word = null!;
+
+        using var document = new UiDocument(400f, 300f);
+        document.Fonts.Register("Test", Face);
+        document.Load(
+            """
+            root { width: 400px; height: 300px; align-items: flex-start; font-family: Test; font-size: 16px; }
+            .para { display: block; width: 300px; }
+            .para::before { content: "AB "; display: inline; }
+            .word { display: inline; }
+            """
+        );
+
+        para = document.Root.Add("div", classNames: "para");
+        word = para.Add("span", classNames: "word");
+        word.Text = "CD";
+        document.Update();
+
+        var box = Assert.IsType<GeneratedBox>(para.GeneratedBefore);
+
+        Assert.True(box.Width > 0f, "the inline box measures its text");
+
+        // One line, the box first: the word starts after it and on the same row.
+        Assert.True(word.AbsoluteLeft >= box.AbsoluteLeft + box.Width - 0.5f, $"the word at {word.AbsoluteLeft} overlaps the box ending at {box.AbsoluteLeft + box.Width}");
+        Assert.Equal(box.AbsoluteTop, word.AbsoluteTop, 1f);
+    }
+
+    [Fact]
     public void An_element_with_text_of_its_own_generates_nothing_and_does_not_throw() {
         UiElement label = null!;
 
