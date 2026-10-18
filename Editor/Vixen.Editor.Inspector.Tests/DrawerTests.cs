@@ -3,6 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Inspector.Drawers;
+using Vixen.Input;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -350,6 +351,125 @@ public class DrawerTests {
         box.Number = 9d;
 
         Assert.Equal(new Vector3(1f, 9f, 3f), material.Flow);
+    }
+
+    /// <summary>The arrow key steps a vector component from the number its box shows.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The box said 2 and the control believed 0</b> (#1442). <c>ComponentDrawer.Show</c>
+    ///     wrote the text and never <c>Number</c>, and the arrow keys and the scrub both start from
+    ///     <c>Number</c> — so Up on a Y of 2 wrote 0.1. Asserting the text would have passed
+    ///     throughout; only reading the member back after a real key press sees it.
+    /// </remarks>
+    [Fact]
+    public void Stepping_a_vector_component_starts_from_the_value_it_shows() {
+        using var test = UiTest.Create(600f, 400f);
+        var host = test.Create("host");
+
+        var material = new WaterMaterial { Flow = new Vector3(1f, 2f, 3f) };
+        var field = new InspectorField(Water, Member("Flow"), [material]);
+        var drawer = (IPropertyDrawer) new Vector3Drawer();
+        var editor = drawer.Build(field, host);
+
+        using (field.Refreshing()) {
+            drawer.Show(field, editor);
+        }
+
+        test.Frame();
+
+        var box = editor.Children[1].Children.OfType<NumericInput>().Single();
+        Assert.Equal("2", box.Value);
+
+        Assert.True(test.Document.Focus(box));
+        test.PressKey(InputKey.Up);
+        test.Frame();
+
+        Assert.Equal(new Vector3(1f, 2.1f, 3f), material.Flow);
+    }
+
+    /// <summary>A component that stops being mixed shows its number again and steps from it.</summary>
+    /// <remarks>
+    ///     The second half of the same defect, the one <c>NumberDrawer</c> met as #1415: leaving a
+    ///     mixed state, the number may not have moved, an assignment that is not a change writes no
+    ///     text, and the dash would go with nothing replacing it.
+    /// </remarks>
+    [Fact]
+    public void A_vector_component_leaving_a_mixed_selection_shows_and_steps_from_its_number() {
+        using var test = UiTest.Create(600f, 400f);
+        var host = test.Create("host");
+
+        var first = new WaterMaterial { Flow = new Vector3(1f, 2f, 3f) };
+        var second = new WaterMaterial { Flow = new Vector3(1f, 2f, 3f) };
+        var field = new InspectorField(Water, Member("Flow"), [first, second]);
+        var drawer = (IPropertyDrawer) new Vector3Drawer();
+        var editor = drawer.Build(field, host);
+        var box = editor.Children[1].Children.OfType<NumericInput>().Single();
+
+        // Agreeing first, so the box's number is already 2 when the selection comes back to 2 —
+        // the no-op assignment is the case that loses the text.
+        using (field.Refreshing()) {
+            drawer.Show(field, editor);
+        }
+
+        Assert.Equal("2", box.Value);
+
+        second.Flow = new Vector3(1f, 7f, 3f);
+
+        using (field.Refreshing()) {
+            drawer.Show(field, editor);
+        }
+
+        Assert.Equal(string.Empty, box.Value);
+        Assert.Equal("—", box.Placeholder);
+
+        second.Flow = new Vector3(1f, 2f, 3f);
+
+        using (field.Refreshing()) {
+            drawer.Show(field, editor);
+        }
+
+        Assert.Equal("2", box.Value);
+        Assert.Null(box.Placeholder);
+
+        test.Frame();
+        Assert.True(test.Document.Focus(box));
+        test.PressKey(InputKey.Up);
+        test.Frame();
+
+        Assert.Equal(new Vector3(1f, 2.1f, 3f), first.Flow);
+        Assert.Equal(new Vector3(1f, 2.1f, 3f), second.Flow);
+    }
+
+    /// <summary>Showing a vector row is not an edit.</summary>
+    /// <remarks>
+    ///     Writing <c>Number</c> raises <c>NumberChanged</c>, which is the drawer's writer — so the
+    ///     write must stay inside <c>InspectorField.Refreshing</c>, or merely drawing a row would
+    ///     write the value back and record an undo entry per component. ⚠ The selection is mixed on
+    ///     purpose: an agreeing one would hide the loop, because <c>Write</c> skips a value the
+    ///     objects already hold, but a mixed property always writes — and the X box's handler
+    ///     rebuilds from <c>default</c> when the value is mixed, so a loop here would zero Y and Z on
+    ///     both objects.
+    /// </remarks>
+    [Fact]
+    public void Showing_a_partly_mixed_vector_row_writes_nothing_back() {
+        using var document = new UiDocument(600f, 400f);
+        var host = document.Root.Add("host");
+
+        var first = new WaterMaterial { Flow = new Vector3(1f, 2f, 3f) };
+        var second = new WaterMaterial { Flow = new Vector3(1f, 7f, 3f) };
+        var field = new InspectorField(Water, Member("Flow"), [first, second]);
+        var drawer = (IPropertyDrawer) new Vector3Drawer();
+        var editor = drawer.Build(field, host);
+        var writes = 0;
+
+        field.Changed += _ => writes++;
+
+        using (field.Refreshing()) {
+            drawer.Show(field, editor);
+        }
+
+        Assert.Equal(0, writes);
+        Assert.Equal(new Vector3(1f, 2f, 3f), first.Flow);
+        Assert.Equal(new Vector3(1f, 7f, 3f), second.Flow);
     }
 
     [Fact]
