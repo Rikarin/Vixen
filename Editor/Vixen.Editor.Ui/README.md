@@ -1086,7 +1086,7 @@ that is `<verb-row><Button on:click="…" /></verb-row>`, which needs no part at
 
 Sizes are the wave-1b unit: four panels, ~1,130 lines of C# removed, ~1,370 of `.vxml` added, one
 model signal-backed. ⚠ **"Signal-backed? no" is the answer for every row**, which is itself the
-finding — outside `Vixen.Editor.Core` (`EditorDocument`, `Selection`, `EditorProperty`,
+finding — outside `Vixen.Editor.Core` (`EditorDocument`, `Selection`, `CommandStack`,
 `EditorProject`) and the four models wave 1b touched, nothing in the editor holds a signal. So no
 port in this table starts from a reactive model, and each one has to decide between a snapshot
 record, an additive signal-backing, and shapes 1–3 above saying leave it alone.

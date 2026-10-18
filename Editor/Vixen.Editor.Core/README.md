@@ -67,8 +67,15 @@ state clean and lose the file.
 ⚠ **This is the only document model in the repository, and a `Vixen.Ui` application cannot use it —
 but not for the reason that is usually given.** The claim that it lives "in an assembly no application
 can reference" is not right: `Vixen.Editor.Core` is packable, ships as a package, and references only
-`Vixen.Core*` and `Vixen.Ui.Reactive` — not `Vixen.Ui`, and nothing editor-shaped in the build graph.
+`Vixen.Core*`, `Vixen.Ui.Reactive` and `Vixen.Ui`, and nothing editor-shaped in the build graph.
 An application may reference it today.
+
+⚠ **This paragraph used to say "not `Vixen.Ui`", and the project file has disagreed since #647.** The
+reference is there for exactly one thing — `IUndoManager`, the six-member interface `CommandStack`
+implements so that a text field finds the editor's stack on the responder chain — and
+`CommandStack.cs` is the only file here that imports the `Vixen.Ui` namespace. The csproj's remark
+says why the interface could not move. Anything else from `Vixen.Ui` reaching this project is a new
+coupling, and the domain-kernel claim doc 50 § F9 rests on is that there is none.
 
 What it cannot do is *construct* one. `EditorDocument`'s only constructor takes an `EditorProject` and
 an `AssetId`, and it calls `project.Register(this)` from the base constructor — so a document does not
@@ -87,10 +94,12 @@ Between them they answer, once, the four questions every editing surface otherwi
 itself: undo, editing N objects at once, what a disagreement looks like (`EditValue.IsMixed`, never
 one of the values), and telling the rest of the editor that something moved.
 
-⚠ **This is deliberately not `EditorProperty<T>`, which is one field on one object.** That is the
-document model: storage, a signal, a typed value. This is a *binding* with no storage of its own,
-over a member somebody else described and a selection somebody else made. They meet at the command
-stack and nowhere else.
+⚠ **This used to sit beside `EditorProperty<T>`, one letter away, and that type is gone.** It was a
+signal on one `EditorObject`, written through `SetPropertyCommand<T>`, and nothing under `Editor/`
+outside this project's own tests ever subclassed `EditorObject` — the scene's fields, which this
+section once said it was, are plain dictionaries. The three types were deleted (doc 50 § F10,
+#1282), and `EditProperty` is the only property type: a *binding* with no storage of its own, over
+a member somebody else described and a selection somebody else made.
 
 `IEditMember` is the whole contract a provider has to satisfy — a name, a type, a read, a write, and
 the command that makes the write undoable — and `SetValuesCommand` supplies that last one for
@@ -137,18 +146,14 @@ Copying any of them here would make a plugin's drawer land in whichever of two r
 inspector was not reading — which is the mistake doc 36 § F10 reports at scale, and it is worse than
 having two ways to register because it looks like one.
 
-## The object model is signal-backed
+## The stacks are signal-backed
 
-An `EditorProperty<T>` is a `Signal<T>` with the write routed through the command stack. The
-inspector binds to the property; a gizmo drag writes it; the inspector updates. There is no change
-event to raise, no listener list to unsubscribe from on tab close, and no path by which two views of
-one value disagree — which is the signal investment from
-[docs/plan/09](../../docs/plan/09-ui-framework.md) paying off outside the UI framework.
-
-Reading is through the signal and writing is through `Set`, and that asymmetry is the point: the
-write goes to the stack, so "every edit produces a command" is true by construction rather than by
-every drawer remembering to do it. Everything a menu binds to is a signal too — `CanUndo` for
-enablement, `UndoName` for the label, `IsDirty` for the asterisk in the title bar.
+⚠ **This section used to describe a signal-backed object model — `EditorProperty<T>` on an
+`EditorObject` — that nothing in the editor used**, and it was deleted with those types (#1282). What
+is true is narrower: every edit goes through `EditProperty` to the stack, so "every edit produces a
+command" holds by construction rather than by every drawer remembering to, and everything a menu
+binds to is a signal — `CanUndo` for enablement, `UndoName` for the label, `IsDirty` for the
+asterisk in the title bar.
 
 ## Project settings are assets
 
@@ -425,8 +430,8 @@ Multi-object editing and the generated drawer descriptors are in
 — a material, a texture, a model, a prefab, a shader, a stylesheet, an addressable group and a
 graphics compositor each have a document and a view, and one registry says which of them claims a
 file. They are there rather than here for the reason `SceneDocument` is: a document belongs beside
-its subject, and this project deliberately references neither the interface framework nor the
-importers.
+its subject, and this project deliberately references neither the interface framework's elements
+nor the importers — it reaches `Vixen.Ui` for `IUndoManager` alone (see above).
 
 **Following the disk.** The head owns an `IFileWatcher` over `Assets/` and drains it on the frame;
 this project holds the half that knows what a change *means* to something that is open.

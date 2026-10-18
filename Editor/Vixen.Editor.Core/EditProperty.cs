@@ -14,10 +14,12 @@ namespace Vixen.Editor.Core;
 ///         five of them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Not to be confused with <see cref="EditorProperty{T}" />.</b> That is a signal on one
-///         object, part of the document model, and it is what a <c>SceneDocument</c>'s own fields
-///         are. This is a <i>binding</i>: one member, N objects, no storage of its own. They meet at
-///         the command stack and nowhere else.
+///         ⚠ <b>It had a twin one letter away, and the twin is gone.</b> <c>EditorProperty&lt;T&gt;</c>
+///         — a signal on one <c>EditorObject</c>, written through a <c>SetPropertyCommand&lt;T&gt;</c>
+///         — had no production user under <c>Editor/</c>, and this remark used to say it "is what a
+///         <c>SceneDocument</c>'s own fields are", which they never were: those are plain
+///         dictionaries. All three were deleted (doc 50 § F10, #1282). This is the one edit path: a
+///         <i>binding</i> — one member, N objects, no storage of its own.
 ///     </para>
 ///     <para>
 ///         <b>Every write goes through the document's command stack</b>, which is the whole reason
@@ -96,7 +98,7 @@ public class EditProperty {
     ///     <para>
     ///         Writing the value they all already hold does nothing and records nothing — a slider
     ///         that re-emits its position every frame of a drag it is not moving in leaves no trace,
-    ///         the same rule <see cref="EditorProperty{T}.Set" /> follows.
+    ///         and the reason a scrub that stops moving does not grow the history.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A mixed property always writes.</b> The values differ, so there is no "already

@@ -995,9 +995,9 @@ sealed partial class EditorApplication : IDisposable {
         SceneMenuCommands();
         RegisterSceneMenus();
 
-        // ⚠ After the commands and before the keymap, because the undo depth it carries is applied
-        // to stacks that exist by now, and because `SavePreferences` is reachable from a panel the
-        // line above has just registered.
+        // ⚠ Not because of the undo depth: the stacks it is applied to exist from the first lines of
+        // this constructor. It REPLACES `preferences`, so nothing above may capture the object rather
+        // than read the field. See the App README § Load order.
         LoadPreferences();
         LoadPresets();
         ApplyProjectSettings();
@@ -1007,9 +1007,9 @@ sealed partial class EditorApplication : IDisposable {
         // a command with no default; a plugin's panels have to be registered before the saved
         // layout is applied or an arrangement that had one comes back without it.
         //
-        // ⚠ And the user's own list of what to leave alone is read before anything is activated.
-        // A plugin somebody switched off because it broke the editor is exactly the one whose
-        // Activate must not run.
+        // ⚠ And the user's own list of what to leave alone is read before any DISK plugin is
+        // activated. ⚠ Not before the built-in modules — `Commands()` activated those already, and
+        // `PluginHost.Activate` never reads this list, so a built-in cannot be disabled (#1288).
         LoadDisabledPlugins();
         StartPlugins(directory);
 

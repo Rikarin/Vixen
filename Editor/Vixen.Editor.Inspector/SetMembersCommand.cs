@@ -24,7 +24,7 @@ namespace Vixen.Editor.Inspector;
 ///         same member on the same objects in the same order, and the merged command keeps the
 ///         earlier one's old values — so one undo goes back to before the drag, not to the value one
 ///         mouse-move ago. <c>CommandStack.Seal</c> on mouse-up is what ends the run, exactly as
-///         <c>EditorProperty</c> does it.
+///         <c>SetValuesCommand</c> does it.
 ///     </para>
 /// </remarks>
 /// <typeparam name="TOwner">What the member belongs to.</typeparam>

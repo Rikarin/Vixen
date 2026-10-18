@@ -6,7 +6,7 @@ using Xunit;
 
 namespace Vixen.Editor.Core.Tests;
 
-/// <summary>Dirty tracking, the signal-backed object model, and the two stacks meeting.</summary>
+/// <summary>Dirty tracking, and the two stacks meeting.</summary>
 public sealed class EditorDocumentTests {
     [Fact]
     public void ADocumentIsCleanUntilItIsEditedAndCleanAgainOnceItIsSaved() {
@@ -59,33 +59,6 @@ public sealed class EditorDocumentTests {
 
         Assert.Equal(2, document.Stack.Depth.Value);
         Assert.True(document.IsDirty.Value);
-    }
-
-    [Fact]
-    public void APropertyIsASignalSoTwoReadersOfItNeverDisagree() {
-        var document = new TestDocument(ModelFixture.Project());
-        var knob = new Knob(document);
-
-        // What the inspector would bind to. Nothing subscribes; reading re-evaluates.
-        var shown = new Vixen.Ui.Reactive.Computed<string>(() => $"Amount: {knob.Amount.Value}");
-
-        Assert.Equal("Amount: 0", shown.Value);
-
-        // What a gizmo drag would do.
-        knob.Amount.Set(4f);
-        Assert.Equal("Amount: 4", shown.Value);
-
-        document.Stack.Undo();
-        Assert.Equal("Amount: 0", shown.Value);
-    }
-
-    [Fact]
-    public void PropertiesAreListedInTheOrderTheyWereDeclared() {
-        var knob = new Knob(null);
-
-        Assert.Equal(["Amount", "Label"], knob.Properties.Select(property => property.Name));
-        Assert.True(knob.TryGetProperty("Label", out var label));
-        Assert.Equal("none", label.BoxedValue);
     }
 
     [Fact]
