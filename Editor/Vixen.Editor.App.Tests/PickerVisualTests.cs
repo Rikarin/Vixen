@@ -27,24 +27,45 @@ namespace Vixen.Editor.App.Tests;
 /// </remarks>
 public class PickerVisualTests {
     /// <summary>
-    ///     Skips where a committed picture cannot be compared, which is every platform but the one
-    ///     that recorded it.
+    ///     Skips where the committed picture is not compared, and fails instead of skipping where
+    ///     <c>VIXEN_REQUIRE_SCREENSHOTS=1</c> says the comparison must happen — which CI says on the
+    ///     macOS leg (<a href="https://github.com/Rikarin/Vixen/issues/500">#500</a>).
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The same gate, and the same argument, as <c>EditorChromeVisualTests</c>.</b> Shaping
-    ///     goes through HarfBuzz and <c>Vixen.Ui.Text</c> takes a different native package per
-    ///     platform, which places the same glyphs a fraction differently — indistinguishable to look
-    ///     at, and about eight per cent of the pixels. A tolerance wide enough to admit that would
-    ///     admit a collapsed layout, which is the only thing this test exists to catch.
-    ///     ⚠ <b>And CI has no leg on which this may not skip</b>, which is the second half of #500.
+    ///     <para>
+    ///         ⚠ <b>macOS only, for a different reason from the one this used to give.</b>
+    ///         <c>EditorChromeVisualTests</c> measured that Windows and macOS shape this font
+    ///         identically, so the per-platform-glyphs argument holds for Linux and not for Windows.
+    ///         This picture is held back on Windows because rendered there (2026-10-18) it differs
+    ///         from the committed reference by 1.40 %, and not in text: the inspector's tab strip sits
+    ///         about ten pixels lower than the hierarchy's beside it, the picker's search field has a
+    ///         caret, the hierarchy's filter placeholder reads differently, and the console's empty
+    ///         line is muted. The tab strip may be the layout regression this test exists to catch,
+    ///         so the reference is not re-taken to make it pass — see
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1477">#1477</a>. Once that is settled,
+    ///         Windows belongs in the condition below.
+    ///     </para>
+    ///     <para>
+    ///         A tolerance wide enough to admit a platform's glyph placement would admit a collapsed
+    ///         layout, which is the only thing this test exists to catch.
+    ///     </para>
     /// </remarks>
-    static void SkipWhereTheReferenceDoesNotApply() =>
-        Assert.SkipUnless(
-            OperatingSystem.IsMacOS(),
-            "the committed screenshots are recorded on macOS, and HarfBuzz's per-platform natives "
-            + "place glyphs differently enough that a pixel comparison against them is meaningless "
-            + "elsewhere."
+    static void SkipWhereTheReferenceDoesNotApply() {
+        if (OperatingSystem.IsMacOS()) {
+            return;
+        }
+
+        const string why = "the committed screenshot is compared on macOS; on Windows it waits on #1477 "
+            + "(a stale reference that may hide an inspector tab-strip regression), and Linux's HarfBuzz "
+            + "natives place glyphs differently enough that a pixel comparison is meaningless there.";
+
+        Assert.False(
+            Environment.GetEnvironmentVariable("VIXEN_REQUIRE_SCREENSHOTS") == "1",
+            $"VIXEN_REQUIRE_SCREENSHOTS=1, and this platform has no references: {why}"
         );
+
+        Assert.Skip(why);
+    }
 
     /// <summary>
     ///     ⚠ <b>What this is looking for is a grid that is a grid.</b> "Everything in a strip down the
