@@ -185,10 +185,10 @@ static class TextureExternalImages {
             return (null, $"nothing here decodes '{extension}'.");
         }
 
-        // ⚠ Through `PictureFile` (#1432), which is what makes a truncated file an
-        // `InvalidDataException` the pass refuses rather than the codec's own exception escaping it,
-        // and what keeps the file saveable on Windows while it decodes.
-        return pass.Picture(file, path => PictureFile.Decode(decoder, path, extension));
+        // ⚠ Through `ImageDecoders.DecodeFile` (#1432, #1471), which is what makes a truncated file
+        // an `InvalidDataException` the pass refuses rather than the codec's own exception escaping
+        // it, and what keeps the file saveable on Windows while it decodes.
+        return pass.Picture(file, path => ImageDecoders.DecodeFile(decoder, path, extension));
     }
 
     /// <summary>Reads one channel of a paint layer's canvas and uploads it.</summary>
