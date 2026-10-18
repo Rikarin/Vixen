@@ -150,7 +150,16 @@ sealed class WaterPresenter : IDisposable {
     ///     water in it and nothing else different, because a body whose curve nothing can supply is
     ///     what the fold already counts into <c>UnresolvedBodies</c>.
     /// </remarks>
-    public IWaterScene? Scene { get; set; }
+    /// <remarks>
+    ///     ⚠ <b>Set by hand, or the last one contributed to <see cref="Extensions" />, asked every
+    ///     frame</b> — <see cref="ScenePresenter.TerrainScene" />'s arrangement and its reason.
+    /// </remarks>
+    public IWaterScene? Scene {
+        get => scene ?? (Extensions?.All<IWaterScene>() is [.., var last] ? last : null);
+        set => scene = value;
+    }
+
+    IWaterScene? scene;
 
     /// <summary>Where this editor's contributions are — the <see cref="WaterDebugFlags" /> among them.</summary>
     /// <remarks>
@@ -248,7 +257,7 @@ sealed class WaterPresenter : IDisposable {
     void Diagnose() {
         debug.Clear();
 
-        // The last contribution wins, which is `EditorApplication.WaterScene`'s own arrangement.
+        // The last contribution wins, which is `Scene`'s own arrangement.
         if (Extensions?.All<WaterDebugFlags>() is not [.., { Any: true } flags]) {
             return;
         }

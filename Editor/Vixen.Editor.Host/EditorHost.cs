@@ -1031,23 +1031,15 @@ sealed class EditorHost : IDisposable {
             // from Raven/Library/Terrain/Terrain.rvn with its import closure and commits the bytes;
             // a build whose resources do not carry them draws no terrain and nothing else changes.
             presenter.TerrainStages = TerrainModules();
-            presenter.TerrainScene = editor.TerrainScene;
 
-            // The vegetation rides the same two seams: the modules from the library build, the
-            // painted volume from whichever module contributed one. Either absent is a pane that
-            // draws less, not a pane that fails.
+            // The vegetation rides the same seam: the modules from the library build. Absent is a
+            // pane that draws less, not a pane that fails.
             presenter.GrassStages = GrassModules();
-            presenter.VegetationScene = editor.VegetationScene;
 
-            // ⚠ And the water, which needs no modules at all: the preview surface is evaluated on the
-            // CPU by the same `WaterQuery` a game's vertex stage samples — docs/plan/35 § D2 — so
-            // there is no library stage to be missing and no build in which a lake silently does not
-            // draw. Absent a contributing module the seam is null, which is a pane with no water in
-            // it and nothing else different.
-            presenter.WaterScene = editor.WaterScene;
-
-            // ⚠ And the editor's registry, which is where a module's per-session state is — the water
-            // module's debug switches, which used to be process-wide statics two editors shared.
+            // ⚠ And the editor's registry, which is where the terrain, vegetation and water scenes
+            // are — read by the pane every frame rather than copied onto it here. Copied once, a pane
+            // went on drawing a module that had been unloaded since, and its reference was what kept
+            // that module reachable. The water module's per-session debug switches arrive the same way.
             presenter.Extensions = editor.Extensions;
 
             scenes.Add(presenter);

@@ -33,7 +33,6 @@ using Vixen.Engine.Transforms;
 using Vixen.Input;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
-using Vixen.Rendering.Terrain;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -1071,16 +1070,6 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     internal SceneDocument Shown => inspected ?? scene;
 
-    /// <summary>What the viewport draws the ground from, if a terrain module contributed one.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Read from the registry rather than owned.</b> This used to be a property on the
-    ///     application because the terrain session was a partial of it; the session is
-    ///     `Vixen.Editor.Terrain`'s now, and it contributes its implementation. The last contribution
-    ///     wins, which is the ordinary override rule — a project shipping its own terrain module
-    ///     replaces the built-in rather than fighting it.
-    /// </remarks>
-    internal ITerrainScene? TerrainScene => Extensions.All<ITerrainScene>() is [.., var scene] ? scene : null;
-
     /// <summary>Play, pause, step and stop — and what this session's frame is made of.</summary>
     /// <remarks>
     ///     ⚠ <b>Internal for the tests that assert about the <em>frame</em> rather than the
@@ -1089,15 +1078,6 @@ sealed partial class EditorApplication : IDisposable {
     ///     honest answer is <c>PlayModeController.Session</c> and not a notification's wording.
     /// </remarks>
     internal PlayModeController PlayMode => play;
-
-    /// <summary>What the viewport draws the painted foliage from, if a module contributed one.</summary>
-    /// <remarks><see cref="TerrainScene" />'s arrangement exactly, and the last contribution wins.</remarks>
-    internal IVegetationScene? VegetationScene =>
-        Extensions.All<IVegetationScene>() is [.., var scene] ? scene : null;
-
-    /// <summary>What the viewport draws the water from, if a water module contributed one.</summary>
-    /// <remarks><see cref="TerrainScene" />'s arrangement exactly, and the last contribution wins.</remarks>
-    internal IWaterScene? WaterScene => Extensions.All<IWaterScene>() is [.., var scene] ? scene : null;
 
     /// <summary>The features this editor was told to load, in the order it registers them.</summary>
     /// <remarks>

@@ -108,7 +108,7 @@ sealed class PlayTerrainColliders(PlayColliders colliders, IEditorRegistry exten
             return;
         }
 
-        // ⚠ The last contribution wins, which is `EditorApplication.TerrainScene`'s own arrangement:
+        // ⚠ The last contribution wins, which is the viewport pane's own arrangement:
         // a second editor terrain source in one process is a test's, and a test's is the one that
         // should answer. No source at all is a session with no ground placed, which runs physics and
         // no collider system rather than throwing.
