@@ -115,7 +115,7 @@ static class FeatureNameRule {
         "typeof", "nameof", "when", "not", "and", "or", "class", "struct", "record", "interface", "enum"
     };
 
-    static readonly Regex Extension =new(@"^\.vx[a-z0-9]+$", RegexOptions.CultureInvariant);
+    static readonly Regex Extension = new(@"^\.vx[a-z0-9]+$", RegexOptions.CultureInvariant);
     static readonly Regex PanelRegistration = new(@"\b(?:AddPanel|RegisterPanel)\(\s*""([^""]+)""", RegexOptions.CultureInvariant);
     static readonly Regex PanelConstant = new(@"const\s+string\s+\w*Panel\w*\s*=\s*""([^""]+)""", RegexOptions.CultureInvariant);
     static readonly Regex DottedId = new(@"^[a-z][a-z0-9-]*(\.[a-z0-9-]+)+\.?$", RegexOptions.CultureInvariant);

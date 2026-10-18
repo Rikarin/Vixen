@@ -106,7 +106,7 @@ public class ContributionWriterTests {
 
     static int Count(IEditorRegistry registry, Type kind) {
         var all = typeof(IEditorRegistry).GetMethod(nameof(IEditorRegistry.All))!.MakeGenericMethod(kind);
-        return ((IEnumerable) all.Invoke(registry, null)!).Cast<object>().Count();
+        return ((IEnumerable)all.Invoke(registry, null)!).Cast<object>().Count();
     }
 
     /// <summary>What each kind holds in an editor opened the way the host opens one.</summary>

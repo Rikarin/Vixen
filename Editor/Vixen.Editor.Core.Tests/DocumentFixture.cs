@@ -82,7 +82,7 @@ public sealed class Dial<T> {
     }
 
     /// <summary>What it holds now.</summary>
-    public T Value => (T) member.Read(owner)!;
+    public T Value => (T)member.Read(owner)!;
 
     /// <summary>The same, for the call sites that only look.</summary>
     /// <returns>The value.</returns>
@@ -109,9 +109,9 @@ public sealed class Dial<T> {
 
         public bool AreEqual(object? left, object? right) => Equals(left, right);
 
-        public object? Read(object owner) => read((Knob) owner);
+        public object? Read(object owner) => read((Knob)owner);
 
-        public void Write(object owner, object? value) => write((Knob) owner, (T) value!);
+        public void Write(object owner, object? value) => write((Knob)owner, (T)value!);
 
         public IEditorCommand CreateSetCommand(IReadOnlyList<object> targets, object? value, EditorDocument? document) {
             var previous = new object?[targets.Count];
