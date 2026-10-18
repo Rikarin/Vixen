@@ -266,6 +266,7 @@ toolbar icon-button	Started
 toolbar segment	Started
 toolbar segmented-control	Started
 toolbar separator	Started
+toolbar-grid-shell > slot	Panels
 toolbar-group button	-
 toolbar-group icon-button	Started
 tree-row icon	Started
