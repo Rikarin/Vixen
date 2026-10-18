@@ -136,6 +136,30 @@ public class PaintAlphaSourceTests {
         Assert.Contains("decodes", why, StringComparison.Ordinal);
     }
 
+    /// <summary>⚠ A truncated picture is a sentence, and not the codec's exception.</summary>
+    /// <remarks>
+    ///     <b><a href="https://github.com/Rikarin/Vixen/issues/1432">#1432</a>.</b> StbImageSharp
+    ///     answers a PNG whose header is cut short with <c>InvalidOperationException</c>, which the
+    ///     resolver's two catches did not name — so a half-written brush alpha threw out of the
+    ///     panel's text box, against this type's own remark that every failure is a sentence.
+    /// </remarks>
+    [Fact]
+    public void A_truncated_png_is_refused_with_a_sentence() {
+        using var fixture = new TexturingFixture();
+
+        const string Relative = "Assets/torn.png";
+
+        File.WriteAllBytes(fixture.Paths.Absolute(Relative), [0x89, 0x50, 0x4E, 0x47, 1, 2]);
+        fixture.Project.Assets.Scan();
+
+        Assert.True(fixture.Project.Assets.TryGetByPath(Relative, out _), "the scan did not pick the file up");
+
+        var (mask, message) = PaintAlphaSource.Resolve(fixture.Project, Relative);
+
+        Assert.Null(mask);
+        Assert.Contains("would not read", message, StringComparison.Ordinal);
+    }
+
     /// <summary>The brush column resolves a path, and the module is what gave it the project.</summary>
     /// <remarks>
     ///     <para>

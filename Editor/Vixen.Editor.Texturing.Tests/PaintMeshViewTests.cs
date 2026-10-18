@@ -232,7 +232,17 @@ public class PaintMeshViewTests {
         var file = Path.Combine(Path.GetDirectoryName(document.AssetPath)!, layer.Paint);
         var depth = document.Stack.Depth.Value;
 
+        Assert.Equal(depth, document.Stack.History.Count);
         Assert.True(document.Stack.Undo());
+
+        // ⚠ The plain list first and the signal after it, as #1413's test does, so that a
+        // disagreement says which side is wrong. #1452 saw `Depth` unmoved after an `Undo()` that
+        // returned true, once in ten runs, on a tree from before `Strings` kept a node per thread —
+        // when every UI test class tore one shared node's edge arrays from its own thread. Nothing
+        // in this plugin or `Vixen.Editor.Core` mutates a stack off the test thread (no task, timer,
+        // watcher or dispatcher reaches one), so if this fails again with the list right, the fault
+        // is in the reactive graph and not in the stack.
+        Assert.Equal(depth - 1, document.Stack.History.Count);
         Assert.Equal(depth - 1, document.Stack.Depth.Value);
 
         using (var undone = File.OpenRead(file)) {

@@ -78,7 +78,7 @@ public sealed class MoveSetView : Control {
 
         Bar = Part("moveset-bar");
 
-        Bar.Add("fact-name").Text = "Query";
+        Bar.Add("bar-label").Text = "Query";
 
         Filter = Bar.Add<TextBox>();
         Filter.Placeholder = "role=loop style=injured speed:3.2";

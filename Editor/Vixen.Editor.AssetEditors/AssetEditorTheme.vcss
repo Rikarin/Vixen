@@ -681,6 +681,15 @@ animation-bar, animgraph-bar, input-bar, mixer-bar, font-bar, sequence-bar {
     flex-shrink: 0;
 }
 
+/* ⚠ **A toolbar's label is a word, not a column (#1465).** The bars labelled their fields with
+   a bare `fact-name`, which is the name half of a pair — `width: 40%` of whatever holds it — so
+   in a 1200 px bar each one-word label was 476 px: the move set's "Query" ended 480 px from its
+   box, and the clip bar's three wrapped it onto two lines with "Length" closing the first and
+   its box opening the second. `bar-label` is as wide as its word and muted like a name, and it
+   does not shrink, so a narrow dock wraps the bar rather than folding the word.
+   `BarLabelTests` measures each one against its field. */
+bar-label { flex-shrink: 0; white-space: nowrap; color: var(--text-muted); }
+
 /* ⚠ **Shrinkable, with a floor.** Three hundred pixels that refuse to shrink take the whole
    of a docked panel — an asset editor opens in a column about that wide — and the pane beside
    this one is left with nothing: the sequence timeline laid out zero pixels across, so its

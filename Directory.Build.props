@@ -326,8 +326,15 @@
       the run where a second does not matter. The switch names are spelled around rather than
       written: XML forbids a double hyphen inside a comment, which is the trap the results-directory
       note below and `Directory.Build.targets` both record.
+
+      ⚠ **The blame switches are the same shape, and missing them cost a crash its only witness
+      (#1434).** A test host died with an access violation mid-run and the advice was to rerun with
+      blame so the sequence file names the test in flight; the reruns took that advice, stayed on the
+      platform, printed `MTP0001: … VSTestBlame` and wrote no sequence file and no dump. Blame, its
+      crash-dump and its hang-dump halves are all VSTest data collectors — the platform's equivalents
+      are extensions this tree does not reference — so asking for any of them means VSTest.
     -->
-    <TestingPlatformDotnetTestSupport Condition="'$(TestingPlatformDotnetTestSupport)' == '' AND ('$(VSTestTestCaseFilter)' != '' OR '$(VSTestSetting)' != '' OR '$(VSTestCollect)' != '')">false</TestingPlatformDotnetTestSupport>
+    <TestingPlatformDotnetTestSupport Condition="'$(TestingPlatformDotnetTestSupport)' == '' AND ('$(VSTestTestCaseFilter)' != '' OR '$(VSTestSetting)' != '' OR '$(VSTestCollect)' != '' OR '$(VSTestBlame)' == 'true' OR '$(VSTestBlameCrash)' == 'true' OR '$(VSTestBlameHang)' == 'true')">false</TestingPlatformDotnetTestSupport>
     <TestingPlatformDotnetTestSupport Condition="'$(TestingPlatformDotnetTestSupport)' == ''">true</TestingPlatformDotnetTestSupport>
     <UseMicrosoftTestingPlatformRunner Condition="'$(TestingPlatformDotnetTestSupport)' == 'true'">true</UseMicrosoftTestingPlatformRunner>
     <!--

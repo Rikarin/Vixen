@@ -77,17 +77,17 @@ static class PaintAlphaSource {
 
         TextureData decoded;
 
+        // ⚠ Through `PictureFile`, which is #1432: a truncated PNG threw the codec's
+        // `InvalidOperationException` straight past these catches, and `File.OpenRead` held a
+        // read-only-share handle across the decode, so saving over the alpha was refused on Windows.
         try {
-            using var stream = File.OpenRead(file);
-
-            if (decoder.Decode(stream, extension) is not { } read) {
+            if (PictureFile.Decode(decoder, file, extension) is not { } read) {
                 return (null, $"'{path}' decoded to nothing.");
             }
 
             decoded = read;
-        } catch (IOException failure) {
-            return (null, $"'{path}' would not read: {failure.Message}");
-        } catch (NotSupportedException failure) {
+        } catch (Exception failure) when (failure is IOException or InvalidDataException
+            or UnauthorizedAccessException or NotSupportedException) {
             return (null, $"'{path}' would not read: {failure.Message}");
         }
 
