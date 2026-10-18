@@ -129,8 +129,8 @@ after commands, because the undo depth is pushed into stacks that exist by then"
 holds, the reason does not: `ApplyPreferences` writes `project.GlobalStack.Capacity` and
 `scene.Stack.Capacity` (`EditorSettingsPanels.cs:545-548`), which exist from line 633, before any
 command. *"Disabled list before activation"* — true for disk plugins, **false for the built-in
-modules**: they are activated inside `Commands()` → `RegisterModes()` (`EditorParity.cs:1240-1242`,
-called from `EditorApplication.cs:3863`), before `LoadDisabledPlugins` at `:1007`, and
+modules**: they are activated inside `Commands()` → `RegisterModes()` (`EditorParity.cs:1246-1248`,
+called from `EditorApplication.cs:3880`), before `LoadDisabledPlugins` at `:1007`, and
 `PluginHost.Activate` (`PluginHost.cs:522`) never consults `suppressed`. **A built-in module cannot
 be disabled**, which the plugin manager's Disable button does not say.
 
@@ -265,7 +265,7 @@ database mutation and importer calls: `LayerStackView.cs` 0, `NodeGraphView.cs` 
 `Stack.Execute`), `ProjectBrowser.cs` 2 — a `Scan()`+`Save()` pair (`:1167-1175`) that duplicates
 `EditorProject.Open` minus its "save only if changed" guard. **The application logic is not in the
 views; it is in the one class** — `EditorParity.cs` alone has 21 file-system calls, including
-`Directory.Delete(project.Paths.Library, recursive: true)` at `EditorParity.cs:2307`.
+`Directory.Delete(project.Paths.Library, recursive: true)` at `EditorParity.cs:2313`.
 
 What *is* doubled is the language, and each pair is two contexts sharing a word:
 
@@ -279,7 +279,7 @@ What *is* doubled is the language, and each pair is two contexts sharing a word:
 
 And **hidden and locked are edited behind the stack's back**: `SceneDocument.SetHidden`/`SetLocked`
 have no command (grep: none), and are written directly from the outliner's eye and lock toggles
-(`EditorApplication.cs:5479,5481`, `EditorParity.cs:796,805`, `EditorWorlds.cs:600,613`), from `Isolate`
+(`EditorApplication.cs:5502,5504`, `EditorParity.cs:796,805`, `EditorWorlds.cs:600,613`), from `Isolate`
 (`EditorSelectionVerbs.cs:178-230`), and — the one that is a bug — from **inside a Blockout
 transaction** (`BlockoutBoolean.cs:66-71`), so undoing a boolean restores the reparent and the mesh
 and leaves the operand hidden. Filed as [#1277](https://github.com/Rikarin/Vixen/issues/1277).
@@ -336,7 +336,7 @@ architecture rules enforce.
 | | **Documents** | `EditorDocument`, `CommandStack` | open, reopen, join to a panel, `AssetEditorRegistry`, `Saved`, `Opened` — `EditorApplication.cs:2696-3060` | `Vixen.Editor.Core` (already) |
 | | **Editing** (shared kernel) | `EditTarget`, `EditProperty`, `IEditProvider` | the one edit path, doc 36 § D1 | `Vixen.Editor.Core` (already) |
 | | **Session** | `PlayModeController` | enter/stop play, snapshot/restore, `PlayPhysics`, play diagnostics — `EditorParity.cs:855-954, 2913-3032`, `PlayPhysics.cs` | `Vixen.Editor.Core` |
-| | **Delivery** | `BuildPlan` | build settings, Build and Run, deploy, `BuildStep` contributions — `EditorBuilds.cs`, `EditorApplication.cs:5251` | `Vixen.Editor.Assets.Content` |
+| | **Delivery** | `BuildPlan` | build settings, Build and Run, deploy, `BuildStep` contributions — `EditorBuilds.cs`, `EditorApplication.cs:5276` | `Vixen.Editor.Assets.Content` |
 | **Application** | **Workspace** | `DockingWorkspace`, `EditorUserStore` | panels, layouts, view bookmarks, what persists — `EditorApplication.cs:1447-1515, 2236-2696, 3657-3734, 5785` | `Vixen.Editor.Ui` (already) |
 | | **Extensibility** | `PluginHost`, `EditorRegistry` | modules, disk plugins, scripts, hot reload, `PluginPoints` — `EditorApplication.cs:3060-3254`, `Vixen.Editor.Scripts` | `Vixen.Editor.Plugin` (already) |
 | | **Composition root** | `EditorApplication` | construct, publish, activate, tick | `Vixen.Editor.App` — **≤ 800 lines** |
