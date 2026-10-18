@@ -632,8 +632,8 @@ isolation but a change of coordinates:
 
 CSS Transforms 2 splits the same idea two ways: three independent properties — `translate`, `rotate`,
 `scale` — and one `transform` taking a list of functions. Both are read, and both end up in the same
-`UiTransform`. What this engine reads inside a list is `matrix()`, `translate()`/`translateX()`/
-`translateY()`, `scale()`/`scaleX()`/`scaleY()`, `rotate()` and `skew()`/`skewX()`/`skewY()`.
+`UiTransform`. A list may hold every function Transforms 1 and 2 define, the 3D family and
+`perspective()` included — the whole set is under "`transform` itself is read" below.
 
 ⚠ **Three orderings decide the picture, and none of them is the one a reader guesses.**
 
@@ -647,11 +647,12 @@ CSS Transforms 2 splits the same idea two ways: three independent properties —
 - **A list shares one `transform-origin`.** It is composed first and re-centred once; re-centring each
   function separately is a different picture as soon as a translation is among them.
 
-⚠ **A list this engine cannot read is dropped whole, and only the list.** `rotateX`, `translate3d`
-and `perspective` are legal CSS and there is no third axis here — reading the functions that happen
-to be flat and skipping the rest turns a card flip into a card that never moves, which is a different
-picture rather than a degraded one. The `rotate` or `scale` beside it still applies, because CSS drops
-an invalid declaration and leaves its neighbours alone.
+⚠ **A list this engine cannot read is dropped whole, and only the list.** An argument that does not
+resolve — a `min()`, `max()` or `clamp()`, which fold to nothing — or a function CSS itself calls
+invalid, such as `rotate3d(0, 0, 0, 45deg)`'s zero-length axis, makes the list unreadable, and
+reading the functions that happen to work while skipping the rest turns a card flip into a card that
+never moves, which is a different picture rather than a degraded one. The `rotate` or `scale` beside
+it still applies, because CSS drops an invalid declaration and leaves its neighbours alone.
 
 ⚠ **A percentage inside `translate()` is of the element's own border box**, per Transforms 1 § 8 —
 the opposite of every percentage in the box model, and the same rule the `translate` property follows.
