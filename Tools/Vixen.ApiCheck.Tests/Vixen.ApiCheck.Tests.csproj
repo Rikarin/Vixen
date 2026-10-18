@@ -129,6 +129,7 @@
         -->
         <Compile Include="..\..\build\ApplicationSizeRule.cs" Link="ApplicationSizeRule.cs" />
         <Compile Include="..\..\build\FeatureNameRule.cs" Link="FeatureNameRule.cs" />
+        <Compile Include="..\..\build\ModuleRegistrationRule.cs" Link="ModuleRegistrationRule.cs" />
 
         <!--
             ⚠ And `CheckStrings`' pattern set (#1203), where the argument is the case rule's exactly

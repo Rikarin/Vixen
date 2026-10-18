@@ -141,7 +141,8 @@ partial class Build {
     Target CheckArchitecture => definition => definition
         .Description(
             "Fails on a layer violation, a banned IL-rewriting package, editor-only code in a runtime "
-            + "assembly, an editor plugin that reaches the editor application, a shell assembly naming a feature, "
+            + "assembly, an editor plugin that reaches the editor application, a shell assembly naming a feature, a "
+            + "module registering round PluginContext, "
             + "or an EditorApplication part "
             + "over its ceiling"
         )
@@ -476,6 +477,33 @@ partial class Build {
                 }
 
                 violations.AddRange(FeatureNameRule.Violations(featureFindings, FeatureNameRule.Exempt(RootDirectory)));
+
+                // Doc 50 § D6 and § F7: a module registering straight into the shell, a theme or the
+                // services bag rather than through PluginContext, whose wrappers record the removal.
+                var moduleSubjects = ModuleRegistrationRule.Subjects(RootDirectory);
+                var moduleVacuity = ModuleRegistrationRule.Vacuity(moduleSubjects);
+
+                Assert.True(moduleVacuity is null, moduleVacuity ?? "");
+
+                var moduleFindings = ModuleRegistrationRule.Scan(RootDirectory, moduleSubjects);
+
+                if (UpdateExemptions) {
+                    System.IO.File.WriteAllText(
+                        RootDirectory / ModuleRegistrationRule.ExemptionFile,
+                        ModuleRegistrationRule.Render(moduleFindings, ModuleRegistrationRule.Exempt(RootDirectory)),
+                        new System.Text.UTF8Encoding(false)
+                    );
+
+                    Log.Warning("{File} has been rewritten from the tree. Read the diff before committing.", ModuleRegistrationRule.ExemptionFile);
+                }
+
+                violations.AddRange(ModuleRegistrationRule.Violations(moduleFindings, ModuleRegistrationRule.Exempt(RootDirectory)));
+
+                Log.Information(
+                    "Module registration: {Subjects} projects declare a module; {Rows} rows go round PluginContext.",
+                    moduleSubjects.Count,
+                    moduleFindings.Count
+                );
 
                 Log.Information(
                     "Feature names: {Features} feature assemblies own {Types} types, {Extensions} extensions, {Panels} panel ids "

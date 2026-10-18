@@ -177,26 +177,48 @@ static class FeatureNameRule {
     /// <param name="markup">Whether <c>.vxml</c> counts.</param>
     /// <returns>Absolute paths.</returns>
     public static IEnumerable<string> Sources(string directory, bool markup = true) {
+        return Walk(directory, file => file.EndsWith(".cs", StringComparison.Ordinal) || (markup && file.EndsWith(".vxml", StringComparison.Ordinal)));
+    }
+
+    /// <summary>Files under a directory, never descending into build output, tests or a nested checkout.</summary>
+    /// <param name="directory">Where to start.</param>
+    /// <param name="keep">Which files to return.</param>
+    /// <returns>Absolute paths.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Pruned at the directory, not filtered at the file.</b> A <c>bin/</c> or <c>obj/</c>
+    ///     holds more files than the source beside it, and enumerating them to throw them away cost
+    ///     the first version of this rule twenty seconds a run. And judged relative to where the walk
+    ///     started: an agent's checkout lives under <c>.claude/</c>, so judging the absolute path
+    ///     would exclude the whole tree it is checking.
+    /// </remarks>
+    public static IEnumerable<string> Walk(string directory, Func<string, bool> keep) {
+        ArgumentNullException.ThrowIfNull(keep);
+
         if (!Directory.Exists(directory)) {
             yield break;
         }
 
-        foreach (var file in Directory.EnumerateFiles(directory, "*.*", SearchOption.AllDirectories)) {
-            if (!file.EndsWith(".cs", StringComparison.Ordinal) && !(markup && file.EndsWith(".vxml", StringComparison.Ordinal))) {
-                continue;
+        var pending = new Stack<string>();
+        pending.Push(directory);
+
+        while (pending.Count > 0) {
+            var current = pending.Pop();
+
+            foreach (var file in Directory.EnumerateFiles(current)) {
+                if (keep(file)) {
+                    yield return file;
+                }
             }
 
-            // ⚠ Relative to where the walk started: an agent's checkout lives under `.claude/`, and
-            // judging the absolute path would exclude the whole tree it is checking.
-            var parts = Path.GetRelativePath(directory, file).Replace('\\', '/').Split('/');
+            foreach (var child in Directory.EnumerateDirectories(current)) {
+                var name = Path.GetFileName(child);
 
-            if (parts.Any(part =>
-                    part is "obj" or "bin" or "node_modules" or ".claude"
-                    || part.EndsWith(".Tests", StringComparison.Ordinal))) {
-                continue;
+                if (name is "obj" or "bin" or "node_modules" || name.StartsWith('.') || name.EndsWith(".Tests", StringComparison.Ordinal)) {
+                    continue;
+                }
+
+                pending.Push(child);
             }
-
-            yield return file;
         }
     }
 
