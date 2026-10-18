@@ -470,7 +470,7 @@ public sealed class AnimationClipView : Control {
 
         Fields.Add("animation-title").Text = clip.Clip.Name;
 
-        Fields.Add("fact-row").Add("fact-name").Text = string.Create(
+        Fields.Add("text").Text = string.Create(
             CultureInfo.InvariantCulture,
             $"{clip.Clip.Targets.Count} object(s), {clip.KeyCount} key(s), {clip.Clip.Events.Count} event(s)"
         );

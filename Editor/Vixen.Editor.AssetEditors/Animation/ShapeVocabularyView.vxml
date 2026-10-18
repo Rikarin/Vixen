@@ -330,7 +330,7 @@
             Fields.Add("vocab-error").Text = error;
         }
 
-        Fields.Add("fact-row").Add("fact-name").Text =
+        Fields.Add("text").Text =
             $"{vocabulary.Vocabulary.Shapes.Length} name(s), {vocabulary.Vocabulary.Tags.Length} tag(s), "
             + $"{vocabulary.Vocabulary.Classes.Length} class(es)";
 

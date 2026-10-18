@@ -95,10 +95,13 @@ inspector-editor {
     min-width: 0;
 }
 
+/* ⚠ What a drawer can put in the slot, and nothing else (#1423). `combo-box` went because no
+   drawer builds one, and `color-picker` because the colour drawer's `ColorInput` hangs its
+   picker off the document root — and a picker that did land here, inside a future gradient
+   drawer, is a fixed-size panel this rule would have stretched. */
 inspector-editor textbox, inspector-editor textarea, inspector-editor numeric-input,
 inspector-editor select, inspector-editor multi-select, inspector-editor slider,
-inspector-editor combo-box, inspector-editor color-picker, inspector-editor curve-editor,
-inspector-editor asset-field {
+inspector-editor curve-editor, inspector-editor asset-field {
     flex-grow: 1;
     min-width: 0;
 }
@@ -158,7 +161,7 @@ inspector-row > icon-button { flex-shrink: 0; }
    padding — it is positioned absolutely and would otherwise sit two pixels off the text it
    stands in for. */
 inspector textbox, inspector textarea, inspector numeric-input, inspector search-box,
-inspector select, inspector multi-select, inspector combo-box {
+inspector select, inspector multi-select {
     padding: 3px 8px;
     border-radius: 6px;
     background-color: var(--surface-sunken);

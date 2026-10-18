@@ -34,10 +34,11 @@
     `InputActionsView`'s reason: `on:click` would bring a `TapEvent` subscription this panel never had,
     and the hand-written control marked the click handled at the host.
 
-    ⚠ **The `warning` class on the summary and on the no-planner sentence is kept, and is a defect.**
-    Every non-error line has been painted in `--warning` since this panel was written — the summary of
-    a clean plan included. A port that changed it would be a port that moved pixels; it is recorded
-    beside this change for its own fix.
+    ⚠ **Only a warning is painted as one.** Every non-error line was painted in `--warning` from the
+    hand-written control through the port — the summary of a clean plan and any Information diagnostic
+    included (#1443). The port kept it so as not to move pixels; `Severity` now maps the class from
+    the diagnostic, and the summary carries none. The no-planner sentence stays a warning on purpose:
+    the panel cannot do what its button says, which is worth the colour.
 -->
 @component AddressableGroupsView
 @namespace Vixen.Editor.AssetEditors.Content
@@ -225,11 +226,12 @@
                 errors++;
             }
 
-            notes.Add(new Note(notes.Count, diagnostic.Severity.ToString().ToLowerInvariant(), diagnostic.Message, isError ? "error" : "warning"));
+            notes.Add(new Note(notes.Count, diagnostic.Severity.ToString().ToLowerInvariant(), diagnostic.Message, Severity(diagnostic.Severity)));
         }
 
         // Said even when there is nothing wrong, because a panel that emptied itself on success is
-        // one nobody can tell apart from a panel that did not run.
+        // one nobody can tell apart from a panel that did not run. ⚠ In no severity class: it is a
+        // count, not a complaint, and painted amber it read as a warning on a clean plan (#1443).
         notes.Add(
             new Note(
                 notes.Count,
@@ -238,13 +240,26 @@
                     CultureInfo.InvariantCulture,
                     $"{plan.Assets.Length} addressable assets across {plan.Groups.Length} groups."
                 ),
-                "warning"
+                string.Empty
             )
         );
 
         reported.Value = notes.MoveToImmutable();
         return errors;
     }
+
+    /// <summary>The class a diagnostic's row carries: <c>analysis-row</c> colours two of three.</summary>
+    /// <remarks>
+    ///     Information is the row's own colour, as it is in every other panel on <c>AnalysisRow</c>
+    ///     that has no severity at all. A class of its own would be a selector to style and to record
+    ///     in the scoped-selector census for a colour the row already has.
+    /// </remarks>
+    static string Severity(ImportSeverity severity) =>
+        severity switch {
+            ImportSeverity.Error => "error",
+            ImportSeverity.Warning => "warning",
+            _ => string.Empty
+        };
 
     void Chosen(ClickEvent args) {
         for (var element = args.Source; element is not null; element = element.Parent) {

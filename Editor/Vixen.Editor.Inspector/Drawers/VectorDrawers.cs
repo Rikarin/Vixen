@@ -64,6 +64,10 @@ public abstract class ComponentDrawer<TValue> : IPropertyDrawer where TValue : s
             var box = group.Add<NumericInput>();
             box.ReadOnly = !field.CanWrite;
             box.Decimals = 3;
+
+            // What the row has always printed — `2`, not `F3`'s `2.000` — now that `Show` writes the
+            // number and lets the field render it, rather than writing the text itself.
+            box.Format = "0.###";
             box.Step = 0.1d;
 
             box.NumberChanged += (_, number) => {
@@ -94,9 +98,23 @@ public abstract class ComponentDrawer<TValue> : IPropertyDrawer where TValue : s
 
             var (number, mixed) = ReadComponent(field, axis);
 
-            box.Value = mixed
-                ? string.Empty
-                : number.ToString("0.###", CultureInfo.InvariantCulture);
+            // ⚠ The number, not the text — the defect `NumberDrawer.Show` carries the long comment
+            // for. `NumericInput.Value` is a rendering of `Number` and writing it does not parse
+            // back, so a box given only its text kept the `Number` it was born with: it showed 2,
+            // and Up or a scrub started from 0 (#1442). Safe against a write-back loop for the
+            // same reason as there: `InspectorRows.Show` wraps this in `InspectorField.Refreshing`
+            // and `Write` refuses while that is held.
+            if (mixed) {
+                box.Value = string.Empty;
+            } else {
+                box.Number = number;
+
+                // Leaving a mixed state the number may not have moved, and an assignment that is
+                // not a change writes no text; `Format`'s setter is the field's "rewrite now".
+                if (box.Placeholder is not null) {
+                    box.Format = box.Format;
+                }
+            }
 
             box.Placeholder = mixed ? "—" : null;
         }

@@ -50,8 +50,8 @@ public class ToolbarPaddingCascadeTests {
     const string EditorTheme = """
         @layer base, components, utilities;
         @layer components {
-            toolbar button, toolbar icon-button, toolbar toggle-button { padding: 4px 10px; }
-            toolbar-group button, toolbar-group icon-button, toolbar-group toggle-button,
+            toolbar button, toolbar icon-button { padding: 4px 10px; }
+            toolbar-group button, toolbar-group icon-button,
             toolbar-group button.variant-subtle, toolbar-group icon-button.variant-subtle {
                 border-width: 0px;
             }

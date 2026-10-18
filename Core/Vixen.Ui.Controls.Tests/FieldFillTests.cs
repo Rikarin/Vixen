@@ -74,6 +74,54 @@ public class FieldFillTests {
         }
     }
 
+    /// <summary>A date picker fills a form row as the text fields around it do (#1438).</summary>
+    /// <remarks>
+    ///     ⚠ <c>date-picker</c> was missing from the list, so the gallery's Due field was 94 px wide
+    ///     between Password and User name fields 575 px wide. Its own <c>date-picker-field</c> already
+    ///     grows; the row never gave it anything to grow into.
+    /// </remarks>
+    [Fact]
+    public void A_date_picker_fills_its_row() {
+        var (fixture, row, field) = Row<DatePicker>();
+
+        using (fixture) {
+            field.Placeholder = "No date";
+            fixture.Update();
+
+            Assert.True(row.Content.Width > 400f, $"the row is {row.Content.Width} px wide");
+            Assert.Equal(row.Content.Width, field.Width, 0.5f);
+        }
+    }
+
+    /// <summary>A range slider fills a form row rather than sitting at its 80 px minimum (#1438).</summary>
+    [Fact]
+    public void A_range_slider_fills_its_row() {
+        var (fixture, row, field) = Row<RangeSlider>();
+
+        using (fixture) {
+            Assert.True(row.Content.Width > 400f, $"the row is {row.Content.Width} px wide");
+            Assert.Equal(row.Content.Width, field.Width, 0.5f);
+        }
+    }
+
+    /// <summary>
+    ///     The same two in a key-value row's value half, which carries the same list for the same reason.
+    /// </summary>
+    [Theory]
+    [InlineData(typeof(DatePicker))]
+    [InlineData(typeof(RangeSlider))]
+    public void A_date_picker_or_a_range_slider_fills_a_key_value_rows_value_half(Type kind) {
+        using var fixture = new ControlFixture(css: "column { width: 600px; flex-direction: column; align-items: stretch; }");
+        var row = fixture.Document.Root.Add("column").Add<KeyValueRow>();
+        row.Key = "Due";
+
+        UiElement field = kind == typeof(DatePicker) ? row.Content<DatePicker>() : row.Content<RangeSlider>();
+        fixture.Update();
+
+        Assert.True(row.ValuePart.Width > 200f, $"the value half is {row.ValuePart.Width} px wide");
+        Assert.Equal(row.ValuePart.Width, field.Width, 0.5f);
+    }
+
     [Fact]
     public void A_check_box_in_a_row_keeps_its_own_width() {
         var (fixture, row, box) = Row<CheckBox>();

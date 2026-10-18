@@ -267,7 +267,12 @@ toolbar {
 
 toolbar separator { height: 16px; margin: 0px 5px; background-color: var(--border); }
 
-toolbar button, toolbar icon-button, toolbar toggle-button {
+/* ⚠ Two faces, not three. Every `Toolbar` in the editor is `ToolbarPresenter`'s, and it
+   builds a `Button` or an `IconButton` — a checkable command is a `Button` carrying
+   `:checked`, never a `ToggleButton`. The `toggle-button` arms these rules and
+   `toolbar-group`'s carried styled nothing anything can build, and were removed with their
+   `none` rows (#1423); a face that adds one adds its arm with it. */
+toolbar button, toolbar icon-button {
     padding: 4px 10px;
     border-radius: var(--radius-control);
     border-color: var(--border);
@@ -278,14 +283,12 @@ toolbar button, toolbar icon-button, toolbar toggle-button {
 /* ⚠ Including the subtle variant, which is what a toolbar is full of. Left
    transparent it is a word floating on the desk with no edge and no affordance
    — a toolbar's buttons have to look pressable before they are hovered. */
-toolbar button.variant-subtle, toolbar icon-button.variant-subtle,
-toolbar toggle-button.variant-subtle {
+toolbar button.variant-subtle, toolbar icon-button.variant-subtle {
     border-color: var(--border);
     background-color: var(--surface);
 }
 
-toolbar button:hover:not(:disabled), toolbar icon-button:hover:not(:disabled),
-toolbar toggle-button:hover:not(:disabled) {
+toolbar button:hover:not(:disabled), toolbar icon-button:hover:not(:disabled) {
     background-color: var(--surface-hover);
     color: var(--text);
 }
@@ -300,14 +303,13 @@ toolbar toggle-button:hover:not(:disabled) {
    The accent's soft tone rather than the accent, for the reason a tree row uses
    `--accent-deep`: several of these are on at once, all the time, and the accent at
    full strength across a strip is the loudest thing in the window. */
-toolbar button:checked, toolbar icon-button:checked, toolbar toggle-button:checked {
+toolbar button:checked, toolbar icon-button:checked {
     background-color: var(--accent-soft);
     border-color: var(--accent);
     color: var(--text);
 }
 
-toolbar button:checked:hover:not(:disabled), toolbar icon-button:checked:hover:not(:disabled),
-toolbar toggle-button:checked:hover:not(:disabled) {
+toolbar button:checked:hover:not(:disabled), toolbar icon-button:checked:hover:not(:disabled) {
     background-color: var(--accent-soft);
     color: var(--text);
 }
@@ -405,7 +407,7 @@ toolbar-group {
    corners. It reads all four now, so `rounded-l`/`rounded-r` on the first and last member is
    available; the concentric radius is kept because it is the look this group wants, not
    because it is the only one expressible. */
-toolbar-group button, toolbar-group icon-button, toolbar-group toggle-button,
+toolbar-group button, toolbar-group icon-button,
 toolbar-group button.variant-subtle, toolbar-group icon-button.variant-subtle {
     border-width: 0px;
     border-radius: 2px;

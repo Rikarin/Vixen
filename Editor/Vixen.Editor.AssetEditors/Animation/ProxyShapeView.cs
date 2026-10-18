@@ -322,7 +322,7 @@ public sealed class ProxyShapeView : Control, IDisposable {
 
         Fields.Add("shape-title").Text = set.Set.Name;
 
-        Fields.Add("fact-row").Add("fact-name").Text = string.Create(
+        Fields.Add("text").Text = string.Create(
             CultureInfo.InvariantCulture,
             $"{set.Set.Shapes.Length} shape(s), {set.Set.Shapes.Count(static shape => shape.Coarse)} coarse"
         );

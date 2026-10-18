@@ -325,7 +325,7 @@ public sealed class MoveSetView : Control {
 
         Fields.Add("moveset-title").Text = set.Set.Name;
 
-        Fields.Add("fact-row").Add("fact-name").Text = string.Create(
+        Fields.Add("text").Text = string.Create(
             CultureInfo.InvariantCulture,
             $"{set.Set.Entries.Count} move(s), {set.Set.Rules.Count} rule(s), {set.Set.Bases.Count} overlay(s)"
         );

@@ -81,6 +81,32 @@ public sealed class AddressableGroupsViewDumpTests {
         Check(harness, "reanalysed", ReanalysedTree, ReanalysedFlags);
     }
 
+    /// <summary>Only a warning is painted as one: information and the summary are neutral.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The panel used to put every line that was not an error in <c>warning</c></b> (#1443),
+    ///     so the success summary of a clean plan was the same amber as a real warning, and so was an
+    ///     <see cref="ImportSeverity.Information" /> diagnostic. Read off the rows' classes, which is
+    ///     what <c>analysis-row.warning</c> colours by.
+    /// </remarks>
+    [Fact]
+    public void Only_a_warning_is_painted_as_one() {
+        using var harness = new Harness(Plans.Mixed);
+
+        harness.Click(harness.View.Analyse);
+
+        var rows = harness.View.Analysis.Children.OfType<AnalysisRow>().ToArray();
+
+        Assert.Equal(["error", "warning", "information", "plan"], rows.Select(row => row.Stage));
+
+        Assert.True(rows[0].HasClass("error"));
+        Assert.True(rows[1].HasClass("warning"));
+
+        foreach (var neutral in rows[2..]) {
+            Assert.False(neutral.HasClass("warning"), $"the '{neutral.Stage}' row is painted as a warning");
+            Assert.False(neutral.HasClass("error"), $"the '{neutral.Stage}' row is painted as an error");
+        }
+    }
+
     /// <summary>With no planner the button is disabled, and a host's <c>Run</c> says why in a sentence.</summary>
     [Fact]
     public void No_planner_is_a_sentence() {
@@ -125,6 +151,17 @@ public sealed class AddressableGroupsViewDumpTests {
             [],
             [],
             [new ImportDiagnostic(ImportSeverity.Warning, "Assets/Scratch/Old.png could not be imported and is not shipped.")]
+        );
+
+        /// <summary>One diagnostic of each severity, worst first.</summary>
+        public static BuildPlan Mixed { get; } = new(
+            [],
+            [],
+            [
+                new ImportDiagnostic(ImportSeverity.Error, "Assets/Levels/Boss.vxscene depends on Assets/Shared/Rock.png, which is not shipped."),
+                new ImportDiagnostic(ImportSeverity.Warning, "Assets/Scratch/Old.png could not be imported and is not shipped."),
+                new ImportDiagnostic(ImportSeverity.Information, "Assets/Ui/Atlas.png is shipped in two groups and packed once.")
+            ]
         );
     }
 
@@ -512,7 +549,7 @@ public sealed class AddressableGroupsViewDumpTests {
             <analysis-row .warning> 0,24 1188×22
               <analysis-stage> 4,0 72×22 "warning"
               <analysis-message> 84,0 1100×22 "Assets/Scratch/Old.png could not be imported and is not shipped."
-            <analysis-row .warning> 0,48 1188×22
+            <analysis-row> 0,48 1188×22
               <analysis-stage> 4,0 72×22 "plan"
               <analysis-message> 84,0 1100×22 "0 addressable assets across 0 groups."
         """;
@@ -582,7 +619,7 @@ public sealed class AddressableGroupsViewDumpTests {
             <analysis-row .warning> 0,0 1188×22
               <analysis-stage> 4,0 72×22 "warning"
               <analysis-message> 84,0 1100×22 "Assets/Scratch/Old.png could not be imported and is not shipped."
-            <analysis-row .warning> 0,24 1188×22
+            <analysis-row> 0,24 1188×22
               <analysis-stage> 4,0 72×22 "plan"
               <analysis-message> 84,0 1100×22 "0 addressable assets across 0 groups."
         """;
