@@ -12,8 +12,15 @@ namespace Vixen.Ui.Tests;
 ///     <para>
 ///         The mixer's side column without the editor: a column that is <c>align-self: flex-start</c>
 ///         in a 300 px parent with <c>min-width: 100%</c> — a <c>scroll-content</c>'s rules — holding a
-///         list, a row, a 72 px label and a <c>flex: 1 0 0</c> message. Its content is 88 px wide,
-///         because the message's zero basis contributes nothing, and the minimum makes it 300.
+///         list, a row, a 72 px label and a <c>flex: 1 0 0</c> message. Its content was 88 px wide,
+///         because the message's zero basis contributed nothing, and the minimum made it 300.
+///     </para>
+///     <para>
+///         ⚠ <b>Since #1440 the message's content counts</b> — a growable item's max-content
+///         contribution is its content — and since #1448 a row offered "at most" a width is capped
+///         there, so the column is 300 from its content and the offer before the minimum is read. The
+///         two tests below that assert 300 still hold; what they guard is now reached by a different
+///         road, and the #1412 re-entry no longer fires for this tree.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The cause was not the zero basis and not the max-content pass</b>, which is what the
@@ -104,17 +111,46 @@ public class ZeroBasisWrapHeightTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Not only a minimum equal to the space offered.</b> Here the column is offered 400 px,
-    ///     its content asks for 88 and its minimum is 300, so the answer is decided by the clamp and
-    ///     only after the content is measured — a fix that turned a minimum at least as large as the
-    ///     offer into a fixed width before measuring would pass the test above and fail this one.
+    ///     ⚠ <b>With nothing for the minimum to widen, a growable zero-basis item still counts its
+    ///     content (#1440).</b> CSS Flexbox §9.9.1 makes a growable item's max-content contribution its
+    ///     content, and lets the flex base size clamp it only from above and only when the item is not
+    ///     growable — so the column is as wide as the row's content allows within the 300 px it is
+    ///     offered, and the message, back on its zero basis once that width is decided, grows into
+    ///     what is left. Chrome 153 draws the content 300x40 and the message 212x40.
     /// </summary>
+    /// <remarks>
+    ///     Before the fix the row took the declared zero at face value under a fit-content offer, so
+    ///     the column was 88 wide — the stage, the gap and the padding — and the message 0 wide and
+    ///     seven lines tall. Only a max-content offer reached the content branch.
+    /// </remarks>
     [Fact]
-    public void A_minimum_between_the_content_and_the_offer_decides_the_width_the_items_are_measured_at() {
-        var (_, content, list, row, _, message) = Build("side { width: 400px; } content { min-width: 300px; }");
+    public void A_growable_zero_basis_item_counts_its_content_under_a_fit_content_offer() {
+        var (_, content, _, row, _, message) = Build("content { min-width: 0px; }");
 
         Assert.Equal(300f, content.Bounds.Width, 0.5f);
+        Assert.Equal(40f, content.Bounds.Height, 0.5f);
+        Assert.Equal(212f, message.Bounds.Width, 0.5f);
+        Assert.Equal(40f, message.Bounds.Height, 0.5f);
+        Assert.Equal(40f, row.Bounds.Height, 0.5f);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A minimum below the offer no longer decides this column, because its content is wider
+    ///     than the offer (#1440).</b> This test used to assert 300: offered 400 px with a 300 px
+    ///     minimum, the column's content asked for 88 — the message's zero basis contributing
+    ///     nothing — so the clamp decided. That 88 was this engine's reading and not CSS's: the message
+    ///     is growable, so its content counts, the row's one-line width exceeds the offer, and
+    ///     fit-content gives the offer. The column is 400 wide, as Chrome would draw it, and the list
+    ///     still hugs its row — the #1412 property this file exists for.
+    /// </summary>
+    [Fact]
+    public void A_minimum_below_the_offer_does_not_narrow_a_column_whose_content_is_wider() {
+        var (_, content, list, row, _, message) = Build("side { width: 400px; } content { min-width: 300px; }");
+
+        Assert.Equal(400f, content.Bounds.Width, 0.5f);
+        Assert.Equal(312f, message.Bounds.Width, 0.5f);
         Assert.Equal(2, message.Block()!.Lines.Length);
         Assert.Equal(row.Bounds.Height, list.Bounds.Height, 0.5f);
+        Assert.Equal(row.Bounds.Height, content.Bounds.Height, 0.5f);
     }
 }

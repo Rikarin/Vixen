@@ -210,6 +210,99 @@ public class FitContentRowTests {
     }
 
     /// <summary>
+    ///     A growable <c>flex-basis: 0</c> item in a row offered "at most" 300 points (#1440): its
+    ///     content counts toward the row's size, and once that size is decided its base is the
+    ///     declared zero again and it grows into what is left.
+    /// </summary>
+    /// <remarks>
+    ///     CSS Flexbox §9.9.1: a growable item's max-content contribution is its content; the flex
+    ///     base size clamps it from above only when the item is not growable. Before the fix the
+    ///     declared zero was trusted under a fit-content offer, so the row was the stage alone, 72
+    ///     wide, and the message 0 — only a max-content offer reached the content branch.
+    /// </remarks>
+    [Theory]
+    [InlineData(10, 172f, 100f, 10f)] // fits: the row is its content, 72 + 100
+    [InlineData(50, 300f, 228f, 30f)] // overflows: capped at the offer (#1448), 22 words a line
+    public void A_growable_zero_basis_item_counts_its_content_under_a_fit_content_offer(
+        int words,
+        float rowWidth,
+        float messageWidth,
+        float messageHeight
+    ) {
+        var tree = new LayoutTree();
+
+        var root = tree.CreateNode();
+        tree.SetFlexDirection(root, FlexDirection.Column);
+        tree.SetDimension(root, Dimension.Width, StyleLength.Points(300f));
+        tree.SetDimension(root, Dimension.Height, StyleLength.Points(400f));
+
+        var row = tree.CreateNode();
+        tree.SetFlexDirection(row, FlexDirection.Row);
+        tree.SetAlignSelf(row, Align.FlexStart);
+        tree.AddChild(root, row);
+
+        var stage = tree.CreateNode();
+        tree.SetDimension(stage, Dimension.Width, StyleLength.Points(72f));
+        tree.SetDimension(stage, Dimension.Height, StyleLength.Points(10f));
+        tree.SetFlexShrink(stage, 0f);
+        tree.AddChild(row, stage);
+
+        var message = tree.CreateNode();
+        tree.SetMeasureFunction(message, Words(words));
+        tree.SetFlexGrow(message, 1f);
+        tree.SetFlexShrink(message, 0f);
+        tree.SetFlexBasis(message, StyleLength.Points(0f));
+        tree.SetMinDimension(message, Dimension.Width, StyleLength.Points(0f));
+        tree.AddChild(row, message);
+
+        tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
+
+        Assert.Equal(rowWidth, tree.GetWidth(row));
+        Assert.Equal(messageWidth, tree.GetWidth(message));
+        Assert.Equal(messageHeight, tree.GetHeight(message));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The contributions size the row and the bases flex it, and they are two numbers.</b>
+    ///     Two <c>flex: 1 0 0</c> texts of 5 and 15 words in a row offered "at most" 300: the row is
+    ///     their contributions, 50 + 150, and the 200 is then shared from the declared zeros — 100
+    ///     each. Leaving the measured contributions in place as bases keeps them at 50 and 150, which
+    ///     sums to the same row and is wrong per item (#1440, AdoptDeclaredFlexBases).
+    /// </summary>
+    [Fact]
+    public void A_fit_content_row_is_sized_by_contributions_and_flexed_from_its_declared_bases() {
+        var tree = new LayoutTree();
+
+        var root = tree.CreateNode();
+        tree.SetFlexDirection(root, FlexDirection.Column);
+        tree.SetDimension(root, Dimension.Width, StyleLength.Points(300f));
+        tree.SetDimension(root, Dimension.Height, StyleLength.Points(400f));
+
+        var row = tree.CreateNode();
+        tree.SetFlexDirection(row, FlexDirection.Row);
+        tree.SetAlignSelf(row, Align.FlexStart);
+        tree.AddChild(root, row);
+
+        var items = new LayoutNodeId[2];
+        int[] words = [5, 15];
+        for (var i = 0; i < items.Length; i++) {
+            items[i] = tree.CreateNode();
+            tree.SetMeasureFunction(items[i], Words(words[i]));
+            tree.SetFlexGrow(items[i], 1f);
+            tree.SetFlexShrink(items[i], 0f);
+            tree.SetFlexBasis(items[i], StyleLength.Points(0f));
+            tree.SetMinDimension(items[i], Dimension.Width, StyleLength.Points(0f));
+            tree.AddChild(row, items[i]);
+        }
+
+        tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
+
+        Assert.Equal(200f, tree.GetWidth(row));
+        Assert.Equal(100f, tree.GetWidth(items[0]));
+        Assert.Equal(100f, tree.GetWidth(items[1]));
+    }
+
+    /// <summary>
     ///     ⚠ <b>Only the inline axis.</b> A column's main size is its height, and CSS never sizes a
     ///     block size by shrink-to-fit: an auto height is the content's, offer or no offer. The same
     ///     tree turned into a column inside a 40-point-tall offer must keep its content height.

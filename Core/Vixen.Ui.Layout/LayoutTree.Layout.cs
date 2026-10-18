@@ -703,6 +703,7 @@ public sealed partial class LayoutTree {
 
             // STEP 5: RESOLVING FLEXIBLE LENGTHS ON MAIN AXIS
             var sizeBasedOnContent = false;
+            var cappedByOffer = false;
             if (sizingModeMainDim != SizingMode.StretchFit) {
                 var minInnerWidth = StyleResolution.ResolvedMinDimension(in styles[index], Dimension.Width, ownerWidth, ownerWidth, direction) - contentInsetAxisRow;
                 var maxInnerWidth = StyleResolution.ResolvedMaxDimension(in styles[index], Dimension.Width, ownerWidth, ownerWidth, direction) - contentInsetAxisRow;
@@ -740,6 +741,7 @@ public sealed partial class LayoutTree {
                     // fixtures red, each a 70-point child squeezed into a 50-point offer where Chrome
                     // keeps it at 70 and overflows.
                     availableInnerMainDim = fitContentMainDim;
+                    cappedByOffer = true;
                 } else {
                     if (line.TotalFlexGrowFactors == 0f
                         || StyleResolution.ResolveFlexGrow(in styles[index], links[index].Parent < 0) == 0f) {
@@ -755,8 +757,17 @@ public sealed partial class LayoutTree {
             // makes its main size definite — so §9.2's declared flex BASES become owed.</b> The two
             // are one field until here; see AdoptDeclaredFlexBases for why they have to move
             // together and for why a percentage is excluded.
-            if (sizeBasedOnContent
-                && float.IsNaN(gapBasis)
+            //
+            // ⚠ A fit-content ROW was sized from contributions too: ComputeFlexBasisForChild measures
+            // a growable item's content under that offer (#1440). And so was one the offer CAPPED
+            // (#1448) — there the bases are owed even more plainly, because the size is the offer's
+            // and §9.7 has to share out what is left of it from the declared zero, not from the
+            // content the item would have had at max-content.
+            var sizedFromContributions = float.IsNaN(gapBasis)
+                || (isMainAxisRow && sizingModeMainDim == SizingMode.FitContent);
+
+            if ((sizeBasedOnContent || cappedByOffer)
+                && sizedFromContributions
                 && !float.IsNaN(availableInnerMainDim)
                 && AdoptDeclaredFlexBases(index, ref line, direction, mainAxis, ownerWidth, mainAxisOwnerSize)) {
                 sizeBasedOnContent = false;

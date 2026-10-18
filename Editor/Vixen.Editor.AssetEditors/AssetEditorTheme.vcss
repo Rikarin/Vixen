@@ -902,8 +902,10 @@ mixer-body > mixer-strips {
    fixed the zero basis gives a 44 px list, measured in this very panel. It is still not the rule,
    because what it relies on — a zero basis keeping the row out of the content's max-content width —
    is this engine's reading and not CSS's, where a growable item's max-content contribution is its
-   content. The cap says the thing meant. Its cost is at the 120 px floor, where a field wider than
-   the column is clipped rather than scrolled to.
+   content. ⚠ That reading is gone (#1440): under a fit-content offer a growable zero-basis item now
+   counts its content, as Chrome does, so a zero basis no longer keeps the row narrow at all — it is
+   the fit-content cap of #1448 that does. The cap says the thing meant. Its cost is at the 120 px
+   floor, where a field wider than the column is clipped rather than scrolled to.
 
    ⚠ **Every fields column, not the mixer's alone (#1411)** — the other eleven were the same
    `ScrollView` over the same max-content `scroll-content`, and three of them were already over on a
