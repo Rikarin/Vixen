@@ -198,6 +198,47 @@ public class RetainedDrawingTests {
         Same(retained, rebuilt, "after the wrapper changed");
     }
 
+    /// <summary>
+    ///     ⚠ A zero-tall box with no children returns before its body, so it drew nothing and walked
+    ///     nothing — and a child added to it later is painted as overflow (#1375) with every other
+    ///     part of the box's key unchanged. The editor shell's toast overlay is this shape; the Debug
+    ///     verifier found it there.
+    /// </summary>
+    [Fact]
+    public void A_child_added_to_an_empty_zero_tall_box_is_drawn() {
+        using var retained = Overlay(retaining: true);
+        using var rebuilt = Overlay(retaining: false);
+        retained.VerifiesRetainedDrawing = false;
+
+        for (var frame = 0; frame < 2; frame++) {
+            Frame(retained);
+            Frame(rebuilt);
+        }
+
+        Assert.Empty(rebuilt.Drawing.Commands);
+
+        retained.Root.Children[0].Add("toast");
+        rebuilt.Root.Children[0].Add("toast");
+        Frame(retained);
+        Frame(rebuilt);
+
+        Assert.Single(rebuilt.Drawing.Commands);
+        Same(retained, rebuilt, "after the toast arrived");
+    }
+
+    static UiDocument Overlay(bool retaining) {
+        var document = new UiDocument(200f, 100f);
+        document.RetainsDrawing = retaining;
+        document.Load("""
+            root { width: 200px; height: 100px; }
+            overlay { width: 200px; height: 0px; }
+            toast { width: 50px; height: 20px; background-color: #234; }
+            """);
+
+        document.Root.Add("overlay");
+        return document;
+    }
+
     static UiDocument Collapsing(bool retaining) {
         var document = new UiDocument(200f, 100f);
         document.Fonts.Register("Test", Face);

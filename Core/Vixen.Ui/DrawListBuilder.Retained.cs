@@ -164,6 +164,13 @@ public sealed partial class DrawListBuilder {
         entry.Descended = false;
         entry.ChildAlpha = 0f;
 
+        // ⚠ The key is read before the drawing as well as after it, and an element whose key moved
+        // in between is not retained this frame. `OnDraw` is documented as read-only and nothing
+        // enforces it: a control that changed what an ancestor reads in the middle of the walk would
+        // leave a key describing a state the recorded drawing never saw. Insurance rather than a
+        // measured defect — no test in the tree has done it.
+        var before = DrawsItself(element) ? default : KeyOf(document, element);
+
         EmitFresh(document, element, into, inherited);
 
         entry.List = into;
@@ -176,10 +183,10 @@ public sealed partial class DrawListBuilder {
         entry.Checked = 0;
         entry.Retainable = Retainable(element, entry, into);
 
-        // Keyed only when it could ever be replayed, so an ancestor of a custom-drawn control —
-        // which the root of every real interface is — pays nothing for the key it will never use.
+        // Keyed again only when it could ever be replayed.
         if (entry.Retainable) {
             entry.Key = KeyOf(document, element);
+            entry.Retainable = entry.Key.Equals(before);
             Snapshot(element, entry);
         }
 
@@ -346,13 +353,23 @@ public sealed partial class DrawListBuilder {
             verifying = false;
         }
 
-        var difference = into.FirstDifference(start, end, into.Mark);
+        var fresh = into.Mark;
+        var difference = into.FirstDifference(start, end, fresh);
+        var replayed = difference >= 0 && start.Commands + difference < end.Commands
+            ? into.Commands[start.Commands + difference].ToString()
+            : "nothing";
+        var emitted = difference >= 0 && end.Commands + difference < fresh.Commands
+            ? into.Commands[end.Commands + difference].ToString()
+            : "nothing";
+
         into.Truncate(end, fonts);
 
         if (difference >= 0) {
             throw new InvalidOperationException(
                 $"A retained drawing went stale: {Describe(element)} "
-                + $"replayed a subtree that differs from a fresh emission at its command {difference}. Something the "
+                + $"replayed a subtree that differs from a fresh emission at its command {difference} "
+                + $"(replayed {replayed}, fresh {emitted}; {end.Commands - start.Commands} against "
+                + $"{fresh.Commands - end.Commands} commands). Something the "
                 + "element's drawing reads is missing from DrawListBuilder.KeyOf — add it there; turning retention off "
                 + "only hides it (#671)."
             );
@@ -470,6 +487,13 @@ public sealed partial class DrawListBuilder {
             element.AppliedLengths,
             element.FontSize,
             empty ? layout.GetStyle(node).Display : default,
+
+            // ⚠ How many children, whether or not they were walked. Found by the verifier on the
+            // editor shell: a zero-tall overlay with no children returns before its body, so its
+            // children were never part of its drawing — and the toast added to it later was, with
+            // every other part of the key unchanged. `EmitFresh` reads `PaintOrder.Count` for
+            // exactly that early return (#1375).
+            element.PaintOrder.Count,
             fragments,
             first,
             hash,
@@ -499,6 +523,7 @@ public sealed partial class DrawListBuilder {
         LengthContext lengths,
         float fontSize,
         Display display,
+        int children,
         int fragments,
         (float, float, float, float, LayoutFragmentEnds) first,
         int rest,
@@ -516,6 +541,7 @@ public sealed partial class DrawListBuilder {
         readonly LengthContext lengths = lengths;
         readonly float fontSize = fontSize;
         readonly Display display = display;
+        readonly int children = children;
         readonly int fragments = fragments;
         readonly (float, float, float, float, LayoutFragmentEnds) first = first;
         readonly int rest = rest;
@@ -535,6 +561,7 @@ public sealed partial class DrawListBuilder {
             && lengths.Equals(other.lengths)
             && fontSize.Equals(other.fontSize)
             && display == other.display
+            && children == other.children
             && fragments == other.fragments
             && first.Equals(other.first)
             && rest == other.rest
