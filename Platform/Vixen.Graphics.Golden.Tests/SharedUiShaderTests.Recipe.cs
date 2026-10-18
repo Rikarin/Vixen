@@ -199,7 +199,7 @@ public partial class SharedUiShaderTests {
             checkedModules++;
         }
 
-        Assert.Equal(8, checkedModules);
+        Assert.Equal(9, checkedModules);
     }
 
     /// <summary>Why a module was not built by the recipe, or <see langword="null" /> if its bytes say it was.</summary>

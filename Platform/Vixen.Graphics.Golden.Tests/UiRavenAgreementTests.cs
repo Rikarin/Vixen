@@ -333,6 +333,138 @@ public sealed class UiRavenAgreementTests {
         );
     }
 
+    /// <summary>Every <c>mix-blend-mode</c>, drawn through <c>ui-blend.frag</c> and <c>UiBlend</c> and compared.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Until this case the device blend had one implementation and nothing to hold it to
+    ///         but the software rasteriser at a tolerance of four codes</b> (#783). The fifteen modes
+    ///         are a page of branches — § 5.1's piecewise dodge, burn and soft light, § 5.3's
+    ///         <c>ClipColor</c> and index-chasing <c>SetSat</c> — and a transcription slip in one of
+    ///         them moves a pixel by a code or two, which is inside that tolerance. Two modules on one
+    ///         device in one process compare exactly.
+    ///     </para>
+    ///     <para>
+    ///         One group per mode, tiled, each over a two-coloured ground so that both a saturated and
+    ///         a grey backdrop are under every mode; the last one rotated, which is the only arrangement
+    ///         that reads the backdrop at <c>gl_FragCoord</c> rather than at the texture coordinate.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheGlslCopyAndTheRavenBlendTheSameFrame() {
+        if (!TryOpen(out var opened, out _)) {
+            return;
+        }
+
+        using var owned = opened!;
+
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var geometry = new UiGeometryBuilder().Build(EveryBlend(), cache, Viewport);
+
+        // The instrument: a group per mode, each of them blended, and the last one transformed.
+        Assert.Equal(15, geometry.Layers.Count);
+        Assert.Equal(15, geometry.Layers.Select(layer => layer.Blend).Distinct().Count());
+        Assert.DoesNotContain(geometry.Layers, layer => layer.Blend == UiBlendMode.Normal);
+
+        var glsl = new UiShaders(
+            owned.Shader("ui.vert.spv", ShaderStage.Vertex),
+            owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
+            owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
+            owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
+        ) {
+            Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment),
+            Blur = owned.Shader("ui-blur.frag.spv", ShaderStage.Fragment),
+            Colour = owned.Shader("ui-colour.frag.spv", ShaderStage.Fragment),
+            Mask = owned.Shader("ui-mask.frag.spv", ShaderStage.Fragment),
+            Blend = owned.Shader("ui-blend.frag.spv", ShaderStage.Fragment)
+        };
+
+        var raven = UiShaderLibrary.Load(owned.Device);
+
+        owned.Owns(() => Destroy(owned, raven));
+
+        var one = Declare(owned, geometry, glsl, "ui-raven-blended-glsl");
+        var two = Declare(owned, geometry, raven, "ui-raven-blended-rvn");
+
+        void Frame(ICommandList commands) {
+            one.Renderer.Upload(commands, geometry, cache.Atlas);
+            one.Renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+
+            two.Renderer.Upload(commands, geometry, cache.Atlas);
+            two.Renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+        }
+
+        var copy = owned.Render(one.Target, Frame);
+        var source = owned.Render(two.Target, Frame);
+
+        // Per arm: a table whose `Blend` the renderer could not use declines every group and counts
+        // it, and the two arms would then agree on fifteen source-over composites.
+        foreach (var renderer in new[] { one.Renderer, two.Renderer }) {
+            Assert.Equal(15, renderer.Composited);
+            Assert.True(renderer.Blended >= 15, $"only {renderer.Blended} blended draws");
+            Assert.Equal(0, renderer.Unblended);
+        }
+
+        Assert.Equal(one.Renderer.Blended, two.Renderer.Blended);
+
+        var comparison = ImageComparer.Compare(copy, source, Agreement(owned.Device.Adapter.Kind));
+
+        Assert.True(
+            comparison.Matches,
+            "'Shaders/ui-blend.frag' and 'UiBlend' in 'Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn' blend a "
+            + $"group differently, and the shipping applications draw through the second: {comparison}"
+        );
+    }
+
+    /// <summary>Fifteen blended groups, one per mode, tiled over a two-coloured ground.</summary>
+    static DrawList EveryBlend() {
+        var field = new Color4(0.8f, 0.3f, 0.55f, 1f);
+        var grey = new Color4(0.5f, 0.5f, 0.5f, 1f);
+        var paint = new Color4(0.2f, 0.9f, 0.4f, 1f);
+        var dark = new Color4(0.05f, 0.25f, 0.7f, 1f);
+
+        var list = new DrawList();
+        list.BeginFrame();
+        list.Add(new(DrawCommandKind.Rectangle, 0, 0, Side, Side, field, 0, 0));
+
+        // ⚠ Stripes rather than two halves. The rotated group reads its backdrop at `gl_FragCoord`,
+        // and over a uniform ground that read and the texture-coordinate one return the same colour —
+        // which is how a first version of this fixture stayed green with the window-position read
+        // deleted from the copy.
+        for (var stripe = 0f; stripe < Side; stripe += 12f) {
+            list.Add(new(DrawCommandKind.Rectangle, stripe, 0, 6f, Side, grey, 0, 0));
+        }
+
+        const float Cell = Side / 4f;
+        var index = 0;
+
+        foreach (var mode in Enum.GetValues<UiBlendMode>()) {
+            if (mode == UiBlendMode.Normal) {
+                continue;
+            }
+
+            var x = (index % 4 * Cell) + 2f;
+            var y = (index / 4 * Cell) + 2f;
+            var size = Cell - 4f;
+            var transform = mode == UiBlendMode.Luminosity
+                ? UiTransform.Rotation(12f, new Vector2(x + (size / 2f), y + (size / 2f)))
+                : (UiTransform?)null;
+
+            list.Add(
+                new DrawCommand(DrawCommandKind.LayerPush, x, y, size, size, new Color4(1f, 1f, 1f, 0.8f), 0, 0) {
+                    Blend = mode,
+                    Transform = transform
+                }
+            );
+            list.Add(new(DrawCommandKind.Rectangle, x, y, size, size, paint, 0, 0));
+            list.Add(new(DrawCommandKind.Rectangle, x + (size / 4f), y + (size / 4f), size / 2f, size / 2f, dark, 0, 0));
+            list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+            index++;
+        }
+
+        list.EndFrame();
+        return list;
+    }
+
     /// <summary>A group under a perspective, drawn through both vertex stages and compared.</summary>
     /// <remarks>
     ///     <para>
@@ -677,7 +809,7 @@ public sealed class UiRavenAgreementTests {
         return (colour, renderer);
     }
 
-    /// <summary>Destroys the eight modules a loaded table holds.</summary>
+    /// <summary>Destroys the nine modules a loaded table holds.</summary>
     /// <remarks>
     ///     ⚠ <b>Eight, and this used to destroy four.</b> <see cref="UiShaderLibrary.Load" /> creates
     ///     the four positional stages <i>and</i> <c>Image</c>, <c>Blur</c>, <c>Colour</c> and
@@ -696,6 +828,10 @@ public sealed class UiRavenAgreementTests {
         owned.Device.Destroy(shaders.Blur);
         owned.Device.Destroy(shaders.Colour);
         owned.Device.Destroy(shaders.Mask);
+
+        // ⚠ And the ninth: `UiShaderLibrary.Load` has created `Blend` since #783's device path, and
+        // this went on freeing eight — the leak the remark above describes, one module later.
+        owned.Device.Destroy(shaders.Blend);
     }
 
     /// <summary>Opens a device, or skips — unless the environment promised one.</summary>

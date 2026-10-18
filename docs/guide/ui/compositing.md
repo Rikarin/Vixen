@@ -823,9 +823,12 @@ candela and left `invert` and a drop shadow's colour, which are offsets, a facto
 ⚠ The drop shadow was the one composite the double lighting got right on the device, by accident, which
 is why fixing the tint alone would have been a regression. `UiCompositeWhiteLevelDeviceTests` holds an
 opacity, blended, filtered, shadowed, backdrop-filtered and masked group at 203 to the same frame at
-one times 203, on the device and in software. The golden suite's GLSL twins (`ui-colour.frag`,
-`ui-mask.frag`) do not read the white lane; every fixture that draws through them does so at one,
-where the two are the same arithmetic.
+one times 203, on the device and in software. ⚠ The golden suite's GLSL twins (`ui-colour.frag`,
+`ui-mask.frag`) were said here not to read the white lane; they have since #1458, and
+`ui-blend.frag` — the twin `UiBlend` had none of until #783's agreement case — reads it in
+`operation.y` as the Raven does. `UiRavenAgreementTests.TheGlslCopyAndTheRavenBlendTheSameFrame`
+draws all fifteen modes through both, one rotated over a striped ground so the `gl_FragCoord` read is
+exercised, and compares the two exactly.
 
 ⚠ **The sixteen functions have an oracle now, and it is what the two transcriptions have to agree
 with.** `Core/Vixen.Ui.Tests/UiBlendTests.cs` holds `UiBlend.Blend` to § 5.1's and § 5.3's own
