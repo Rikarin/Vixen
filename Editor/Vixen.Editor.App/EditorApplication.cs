@@ -718,6 +718,11 @@ sealed partial class EditorApplication : IDisposable {
         // pass.
         contributions.Add(Extensions.Add<IPlaySystems>(new PlayAnimation()));
 
+        // ⚠ And the agents, built from what the project's assemblies declared — see `PlayAi`, and
+        // `IActivePlaySession` below for how the agent debugger reaches a system that lives only as
+        // long as the session. #470.
+        contributions.Add(Extensions.Add<IPlaySystems>(new PlayAi()));
+
         // ⚠ Every entity gets a *new handle* when a play-mode snapshot is restored, so the
         // document's name and stable-id tables — both keyed by handle — name nothing at all
         // afterwards. `SceneDocument.Remap` was written for exactly this and nothing called it: the
@@ -3109,6 +3114,12 @@ sealed partial class EditorApplication : IDisposable {
             // contract rather than the document itself, because the answer moves and a module handed
             // one at activation would hold the scene that was open when it loaded.
             .Add<IActiveScene>(new ShownScene(this))
+
+            // ⚠ And the play session, if one is running — the controller itself under the
+            // contract, so what is published once outlives every session and the answer moves under
+            // it. A session's own services are `Provide`d to it and die with it; publishing *them*
+            // here would leave every reader after the first Stop holding a torn-down world. #470.
+            .Add<IActivePlaySession>(play)
 
             // ⚠ And which eye it is showing it through, which is a separate question with a separate
             // answer: doc 39's resolved volume stack is per camera, because the volume fold weighs

@@ -39,42 +39,28 @@ namespace Vixen.Editor.AssetEditors;
 ///         a stale control is never refreshed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Live needs an <see cref="AiSystem" /> and the editor does not have one.</b>
-///         <see cref="AgentDebugModel.Refresh" /> photographs a system in this process, and nothing
-///         in the editor owns one. So the panel looks for one in <see cref="PluginServices" /> and
-///         shows an empty model when there is none, which is the honest reading of doc 20's first
-///         bar: a verb that is not implemented is <i>visibly</i> not implemented rather than absent.
-///         A host that does step agents — a game embedding the editor — publishes its system with
-///         <c>Services.Add(system)</c> and the panel goes live with no further wiring.
+///         ⚠ <b>Live needs an <see cref="AiSystem" />, and in the editor one exists only while Play
+///         is pressed.</b> <see cref="AgentDebugModel.Refresh" /> photographs a system in this
+///         process. <c>PlayAi</c> builds one on Play from what the project's assemblies declared
+///         through <c>AgentDeclarations</c>, <c>Provide</c>s it to that session and lets it die on
+///         Stop — so the panel asks <see cref="IActivePlaySession" /> first and reads the session's
+///         world. Between sessions, or in a project that declares no actions, it shows an empty model,
+///         which is the honest reading of doc 20's first bar: a verb that is not running is
+///         <i>visibly</i> not running rather than absent. A host that steps agents of its own — a
+///         game embedding the editor — can still publish its system with <c>Services.Add(system)</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This used to add "there is no play mode that steps agents", and that is false.</b>
-///         <c>PlayModeController</c> steps a real <c>EngineLoop</c>, and <c>IPlaySystems</c> is the
-///         declared seam for adding a system that needs a service the loop cannot invent —
-///         <c>PlayPhysics</c> is the worked example. What stops a <c>PlayAi</c> contribution is
-///         lifetime rather than scheduling: an <c>AiSystem</c> created on Play dies on Stop, and
-///         <see cref="PluginServices" /> has no removal, which is precisely why <c>PlayPhysics</c>
-///         calls <c>session.Provide</c> instead. Nothing here can see a play session.
-///         <see href="https://github.com/Rikarin/Vixen/issues/470">#470</see> carries that decision.
+///         ⚠ <b>Why a seam and not a publish of the system: lifetime.</b> <see cref="PluginServices" />
+///         has no removal, so an <c>AiSystem</c> put there on Play would be a dead object after the
+///         first Stop — the reason <c>PlayPhysics</c> calls <c>session.Provide</c>. The seam is the
+///         controller itself under <see cref="IActivePlaySession" />, published once, with the answer
+///         moving under it the way <c>ShownScene</c>'s does. #470.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the service that decision asks for mostly exists already, which narrows it.</b>
-///         #470 proposes inventing "an <c>IActivePlaySession</c>-shaped service published once and
-///         long-lived, whose <c>Current</c> is null between sessions" — <c>PlayModeController.Session</c>
-///         is public, is exactly that, and is set on Play and nulled on Stop. What is missing is only
-///         that <c>EditorApplication.PlayMode</c> is internal and the controller is not in
-///         <c>PluginServices</c>; the precedent for publishing it is <c>ShownScene</c>, which is a
-///         contract over a moving answer for the same reason. So option 1 is a publish rather than a
-///         design.
-///     </para>
-///     <para>
-///         ⚠ <b>What is genuinely undecided is the <em>producer</em>, and that is not scheduling
-///         either.</b> An <c>AiSystem</c> takes an <c>AgentActionRegistry</c> and a
-///         <c>BlackboardLayout</c>, and a project's actions are registered by that project's own
-///         <c>OnInitialise</c> — which the editor does not run. A <c>PlayAi</c> handing the system an
-///         empty registry would put agents in the debugger whose every action is missing, which
-///         teaches an author something false. Publishing the seam before that is answered would add
-///         a second empty place for these panels to look.
+///         ⚠ <b>What it still cannot do is tint an agent nobody spawned.</b> <c>AiAgent</c> is not
+///         scene-placeable — its remarks defer the authored form to the behaviour-tree asset — so the
+///         agents a session runs are the ones a project's <c>[GameSystem]</c> creates, handed the
+///         session's system. A scene with no such system has nothing for this panel to follow.
 ///     </para>
 /// </remarks>
 public sealed partial class AssetEditorsModule {
@@ -303,12 +289,34 @@ public sealed partial class AssetEditorsModule {
     ///     <see cref="AiSystem" /> is already the public thing a game holds — a one-implementation
     ///     interface here would be a seam nobody has checked is a seam, which is the failure doc 37 §
     ///     Part 4 exists to refuse.
+    ///     <para>
+    ///         ⚠ <b>The play session first, and the world it steps rather than the shown scene's.</b>
+    ///         The editor Vixen ships publishes no <see cref="AiSystem" /> — one made on Play is
+    ///         <c>Provide</c>d to that session and dies with it, because <see cref="PluginServices" />
+    ///         has no removal — so asking only <see cref="PluginServices" /> kept this panel dark in
+    ///         the one host it ships in (#470). A host that does publish one, a game embedding the
+    ///         editor's panels, is still the second answer.
+    ///     </para>
     /// </remarks>
     bool TryLive(out AiSystem system, out World world) {
         system = null!;
         world = null!;
 
-        if (agentContext is null || !agentContext.Services.TryGet<AiSystem>(out var found)) {
+        if (agentContext is null) {
+            return false;
+        }
+
+        if (agentContext.Services.TryGet<IActivePlaySession>(out var play)
+            && play.Current is { } session
+            && session.TryGet<AiSystem>(out var running)
+            && running is not null) {
+            system = running;
+            world = session.World;
+
+            return true;
+        }
+
+        if (!agentContext.Services.TryGet<AiSystem>(out var found)) {
             return false;
         }
 
