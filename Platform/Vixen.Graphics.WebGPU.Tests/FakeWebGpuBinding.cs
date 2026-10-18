@@ -85,6 +85,14 @@ public sealed class FakeWebGpuBinding : IWebGpuBinding {
     public WgpuTextureFormat PreferredSurfaceFormat { get; }
 
     /// <inheritdoc />
+    /// <remarks>Settable, so a test can offer a surface that does or does not take sampling; by
+    /// default what the native binding reports.</remarks>
+    public WgpuTextureUsage SurfaceUsages {
+        get => HasSurface ? field : WgpuTextureUsage.None;
+        init;
+    } = WgpuTextureUsage.RenderAttachment | WgpuTextureUsage.CopySrc;
+
+    /// <inheritdoc />
     public bool HasFeature(WgpuFeatureName feature) => features.Contains(feature);
 
     /// <summary>Every call of one name.</summary>

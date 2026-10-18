@@ -95,6 +95,25 @@ public sealed class BrowserWebGpuBinding : IWebGpuBinding {
     public WgpuTextureFormat PreferredSurfaceFormat { get; }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         Render attachment, both copies and texture binding, whenever there is a canvas. A
+    ///         browser has no capabilities query to ask because it needs none: the WebGPU
+    ///         specification's <c>GPUCanvasContext.configure</c> accepts any of those four usages for
+    ///         every canvas format (<c>bgra8unorm</c>, <c>rgba8unorm</c>, <c>rgba16float</c>), and
+    ///         only <c>STORAGE_BINDING</c> depends on the format, which is why it is not listed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Read off the specification, not off a browser: no test in this repository runs one
+    ///         (#1462).
+    ///     </para>
+    /// </remarks>
+    public WgpuTextureUsage SurfaceUsages => HasSurface
+        ? WgpuTextureUsage.RenderAttachment | WgpuTextureUsage.CopySrc | WgpuTextureUsage.CopyDst
+            | WgpuTextureUsage.TextureBinding
+        : WgpuTextureUsage.None;
+
+    /// <inheritdoc />
     public bool HasFeature(WgpuFeatureName feature) => features.Contains(feature);
 
     /// <summary>Loads the module, asks for an adapter and a device, and configures the canvas.</summary>

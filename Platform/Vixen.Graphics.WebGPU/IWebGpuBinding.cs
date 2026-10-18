@@ -46,6 +46,25 @@ public interface IWebGpuBinding : IDisposable {
     /// <see cref="WgpuTextureFormat.Undefined" /> when there is no surface.</summary>
     WgpuTextureFormat PreferredSurfaceFormat { get; }
 
+    /// <summary>
+    ///     The usages a texture of the surface may be configured with, as far as the implementation
+    ///     can say — <see cref="WgpuTextureUsage.None" /> when there is no surface.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         What the swapchain is configured with is this, intersected with what it wants; in
+    ///         particular it is sampled — and a frame may name <c>!UiCompose</c> over the window —
+    ///         only when this lists <see cref="WgpuTextureUsage.TextureBinding" /> (#1462).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An implementation that cannot ask reports what it has always configured and no
+    ///         more.</b> Listing a usage the surface does not take is a validation error at configure,
+    ///         which on a native implementation is an uncaptured error rather than a refusal anyone
+    ///         can handle.
+    ///     </para>
+    /// </remarks>
+    WgpuTextureUsage SurfaceUsages { get; }
+
     /// <summary>Whether the device was created with an optional feature enabled.</summary>
     /// <param name="feature">The feature.</param>
     bool HasFeature(WgpuFeatureName feature);

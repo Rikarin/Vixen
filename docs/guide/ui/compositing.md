@@ -969,7 +969,8 @@ What each backend reports:
 | Vulkan, windowed | colour target, copy destination, and sampled where the surface's `supportedUsageFlags` list it **and** `vkGetPhysicalDeviceImageFormatProperties` takes it for the chosen format (`VulkanSwapChain.SamplesAs`, VUID-VkSwapchainCreateInfoKHR-imageFormat-01778) — ⚠ untested: the windowed chain cannot be created on the machine the tests ran on, which has no `VK_EXT_headless_surface` | builds where the surface and the format both allow sampled |
 | Vulkan, offscreen (`--vixen-offscreen`, `--vixen-capture`) | colour target, copy source, copy destination, sampled | builds |
 | OpenGL | colour target, sampled, copy source | builds |
-| WebGPU | colour target, copy source | refused — the surface would have to be asked for `TextureBinding` |
+| WebGPU, browser canvas | colour target, copy source, sampled — `GPUCanvasContext.configure` takes `TEXTURE_BINDING` for every canvas format (`BrowserWebGpuBinding.SurfaceUsages`, #1462) — ⚠ read off the specification: no browser runs in this repository's tests | builds |
+| WebGPU, native (Dawn, wgpu-native) | colour target, copy source | refused — the surface cannot be asked: `WGPUSurfaceCapabilities` has no `usages` in Silk.NET 2.23.0 or in wgpu-native v0.19.4.1, and configuring an unlisted usage is an uncaptured validation error (`NativeWebGpuBinding.SurfaceUsages`) |
 | Null | the Vulkan windowed chain's, and deliberately no more | builds |
 
 `Tools/Vixen.App.Tests/HostedInterfaceComposeTests` is the stock host — `VixenApp`, a published frame

@@ -48,7 +48,7 @@ sealed class WebGpuSwapChain : ISwapChain {
         Size = new(Math.Max(1, description.Size.X), Math.Max(1, description.Size.Y));
         PresentMode = description.PresentMode;
         ImageCount = Math.Max(1, description.ImageCount);
-        usage = WgpuTextureUsage.RenderAttachment | WgpuTextureUsage.CopySrc;
+        (usage, Usage) = Negotiate(binding.SurfaceUsages);
 
         Configure();
     }
@@ -68,11 +68,12 @@ sealed class WebGpuSwapChain : ISwapChain {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     What the surface is configured with — <c>RenderAttachment | CopySrc</c> — and not
-    ///     sampled, so a frame on this backend cannot name <c>!UiCompose</c> over the window: the
-    ///     surface's own capabilities would have to be asked for <c>TextureBinding</c> first (#1419).
+    ///     What the surface is configured with: colour target and copy source always, and sampled
+    ///     exactly when the binding's <see cref="IWebGpuBinding.SurfaceUsages" /> lists
+    ///     <c>TextureBinding</c> — so a frame may name <c>!UiCompose</c> over the window on a browser
+    ///     canvas and is refused by name on a native surface, which cannot be asked (#1462).
     /// </remarks>
-    public TextureUsage Usage => TextureUsage.ColourTarget | TextureUsage.CopySource;
+    public TextureUsage Usage { get; }
 
     /// <inheritdoc />
     public TextureHandle CurrentTexture => currentTexture;
@@ -136,6 +137,26 @@ sealed class WebGpuSwapChain : ISwapChain {
 
         disposed = true;
         ReleaseCurrent();
+    }
+
+    /// <summary>What the surface is configured with, and what the swapchain reports for it.</summary>
+    /// <param name="allowed">What the surface says it takes.</param>
+    /// <remarks>
+    ///     <c>RenderAttachment | CopySrc</c> is what this backend has always configured and is not
+    ///     gated, so a binding reporting less changes nothing it did before. <c>TextureBinding</c>
+    ///     is added only when listed — the same rule the Vulkan windowed chain applies to
+    ///     <c>supportedUsageFlags</c> — and <see cref="TextureUsage.Sampled" /> is reported only
+    ///     when it was added, since <c>AppGraphics</c> declares the window with exactly what this
+    ///     says.
+    /// </remarks>
+    internal static (WgpuTextureUsage Configured, TextureUsage Reported) Negotiate(WgpuTextureUsage allowed) {
+        var sampled = (allowed & WgpuTextureUsage.TextureBinding) != 0;
+
+        return (
+            WgpuTextureUsage.RenderAttachment | WgpuTextureUsage.CopySrc
+                | (sampled ? WgpuTextureUsage.TextureBinding : WgpuTextureUsage.None),
+            TextureUsage.ColourTarget | TextureUsage.CopySource | (sampled ? TextureUsage.Sampled : 0)
+        );
     }
 
     void Configure() =>

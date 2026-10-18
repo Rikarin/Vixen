@@ -126,6 +126,27 @@ public sealed unsafe partial class NativeWebGpuBinding : IWebGpuBinding {
     /// <inheritdoc />
     public WgpuTextureFormat PreferredSurfaceFormat { get; }
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         <c>RenderAttachment | CopySrc</c> — what this binding has always configured — and never
+    ///         <c>TextureBinding</c>, because <b>neither implementation it can load can be asked.</b>
+    ///         The answer is <c>WGPUSurfaceCapabilities.usages</c>, and that field does not exist in
+    ///         <c>Silk.NET.WebGPU</c> 2.23.0's struct (formats, present modes and alpha modes only,
+    ///         read off the assembly) nor in the <c>webgpu.h</c> wgpu-native v0.19.4.1 was built
+    ///         against, which is the newest this binding loads (<see cref="WebGpuLoader" />).
+    ///     </para>
+    ///     <para>
+    ///         Configuring it unasked is not the conservative guess it looks like: a surface that does
+    ///         not take the usage fails <c>wgpuSurfaceConfigure</c> validation, which arrives as an
+    ///         uncaptured error with no frame to refuse. So a native window stays unsampled and a
+    ///         frame naming <c>!UiCompose</c> over it is refused by name (#1462).
+    ///     </para>
+    /// </remarks>
+    public WgpuTextureUsage SurfaceUsages => surface is null
+        ? WgpuTextureUsage.None
+        : WgpuTextureUsage.RenderAttachment | WgpuTextureUsage.CopySrc;
+
     /// <summary>Where the implementation was loaded from, for the boot log.</summary>
     public static string? LibraryPath => WebGpuLoader.ResolvedPath;
 
