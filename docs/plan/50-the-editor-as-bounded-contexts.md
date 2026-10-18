@@ -130,7 +130,7 @@ holds, the reason does not: `ApplyPreferences` writes `project.GlobalStack.Capac
 `scene.Stack.Capacity` (`EditorSettingsPanels.cs:545-548`), which exist from line 633, before any
 command. *"Disabled list before activation"* — true for disk plugins, **false for the built-in
 modules**: they are activated inside `Commands()` → `RegisterModes()` (`EditorParity.cs:1246-1248`,
-called from `EditorApplication.cs:3880`), before `LoadDisabledPlugins` at `:1007`, and
+called from `EditorApplication.cs:3860`), before `LoadDisabledPlugins` at `:1007`, and
 `PluginHost.Activate` (`PluginHost.cs:522`) never consults `suppressed`. **A built-in module cannot
 be disabled**, which the plugin manager's Disable button does not say.
 
@@ -203,7 +203,7 @@ feature modular inside; a `TexturingModule` of 2,381 lines is the application's 
 one level down.
 
 **F6 — The plugin's view of the editor is a bag of fourteen services and the shell.**
-`EditorApplication.PluginPoints()` (`EditorApplication.cs:3060-3154`) publishes: the project, the
+`EditorApplication.PluginPoints()` (`EditorApplication.cs:3051-3134`) publishes: the project, the
 scene, `DrawerRegistry.Default`, `ImporterContributions.Default`, the extension registry, the
 editing state, the work plane, `IMeshBaker`, `IMeshMapBaker`, `IMeshSource`, `IActiveScene`,
 `IActiveView`, `IDeviceDeploy`, `IEditorGraphics`, the asset editors, the reload host. Two of them
@@ -218,9 +218,9 @@ module (the front-door audit, 2026-09-17):
 |---|---|---|
 | `AssetEditors`, `Scripts`, `Texturing` | everything | — |
 | `Blockout` | mode, submenus, four services | `Shell.RegisterPanel` ×2 with no removal (`BlockoutModulePanels.cs:64,115`), `BlockoutTheme.Install` never uninstalled, no `Deactivate` |
-| `Terrain` | registry adds via `Owns`, `Saved` unhooked on unload | ~~`Shell.RegisterPanel` ×5 (`TerrainModulePanels.cs:112-276`, #740), `Shell.Modes.Add` ×2 (`TerrainModulePanels.cs:475-476`)~~ — `context.AddPanel`/`AddMode` since #1287, and the three mode events unhooked on unload |
-| `Water` | commands paired with `OnUnload` | ~~`Shell.RegisterPanel` ×2 (`WaterModulePanels.cs:33,63`), `Shell.Modes.Add` (`WaterModule.cs:135`), a process-wide `WaterDebug` static~~ — `context.*` since #1286; the switches are a per-module `WaterDebugFlags` contribution, and `WaterDebug.Process` stays the game console's (the static could not go: samples and `BuoyancyDebugSystem` read it) |
-| `TerrainPhysics` | `IEditorRegistry` | ~~writes `ITerrainColliders` **into the shared services bag** (`TerrainPhysicsModule.cs:75`) and never removes it — `PluginServices.Add` throws on a duplicate, so a reload of this module fails~~ — contributed through `Owns` since #1287; `TerrainModule` follows the registry each frame |
+| `Terrain` | registry adds via `Owns`, `Saved` unhooked on unload | ~~`Shell.RegisterPanel` ×5 (`TerrainModulePanels.cs:112-276@0d7dda4a9`, #740), `Shell.Modes.Add` ×2 (`TerrainModulePanels.cs:475-476@0d7dda4a9`)~~ — `context.AddPanel`/`AddMode` since #1287, and the three mode events unhooked on unload |
+| `Water` | commands paired with `OnUnload` | ~~`Shell.RegisterPanel` ×2 (`WaterModulePanels.cs:33,63@0d7dda4a9`), `Shell.Modes.Add` (`WaterModule.cs:135@0d7dda4a9`), a process-wide `WaterDebug` static~~ — `context.*` since #1286; the switches are a per-module `WaterDebugFlags` contribution, and `WaterDebug.Process` stays the game console's (the static could not go: samples and `BuoyancyDebugSystem` read it) |
+| `TerrainPhysics` | `IEditorRegistry` | ~~writes `ITerrainColliders` **into the shared services bag** (`TerrainPhysicsModule.cs:75@0d7dda4a9`) and never removes it — `PluginServices.Add` throws on a duplicate, so a reload of this module fails~~ — contributed through `Owns` since #1287; `TerrainModule` follows the registry each frame |
 | `Diagnostics` | eight `AddPanel`s | `ProfilerTheme.Install` + `DebuggerTheme.Install` never released (`DiagnosticsModule.cs:327-328`) |
 
 `PluginContext.AddPanel` and `AddMode` exist precisely to record the removal
@@ -271,9 +271,9 @@ What *is* doubled is the language, and each pair is two contexts sharing a word:
 
 | One idea | Vocabulary A | Vocabulary B | Measured |
 |---|---|---|---|
-| **the active scene** | `EditorProject.ActiveDocument` (`EditorProject.cs:56`) | `EditorApplication.scene` (`EditorApplication.cs:109`), whose remarks say *"half the editor holds the active scene"* (`EditorApplication.cs:103-104`), plus `Shown => inspected ?? scene` wrapped as `IActiveScene` | `ActiveDocument` has **3** readers; `scene.` is read **124** times across the partials; `EditorWorlds.cs:499-502` sets both in sequence |
+| **the active scene** | `EditorProject.ActiveDocument` (`EditorProject.cs:56`) | `EditorApplication.scene` (`EditorApplication.cs:108`), whose remarks say *"half the editor holds the active scene"* (`EditorApplication.cs:102-103`), plus `Shown => inspected ?? scene` wrapped as `IActiveScene` | `ActiveDocument` has **3** readers; `scene.` is read **124** times across the partials; `EditorWorlds.cs:499-502` sets both in sequence |
 | **dirty** | `CommandStack.IsDirty` → `EditorDocument.IsDirty` → `EditorProject.HasUnsavedChanges` | `SettingsView.dirty` + `ProjectSettingsStore.HasUnsavedChanges` | `HasUnsavedChanges` gates Save All and close (`EditorParity.cs:136,3111`) and **does not include** the settings store's — project settings edits are non-undoable by construction (`EditorSettingsPanels.cs:747`, `EditedDocument = null`) and can be lost on close |
-| **selection** | `Selection<T>` — assets on the project, entities on the scene | `HashSet<NodeId>` (`NodeGraphView.cs:109`), `List<FoliageAddress>`, `HashSet<SplineHandle>`, `LayerPath?` | the graph's is read cross-assembly by two `.vxml` views; none of B's is reactive or on `EditorContext` |
+| **selection** | `Selection<T>` — assets on the project, entities on the scene | `HashSet<NodeId>` (`NodeGraphView.cs:109@0d7dda4a9`), `List<FoliageAddress>`, `HashSet<SplineHandle>`, `LayerPath?` | the graph's is read cross-assembly by two `.vxml` views; none of B's is reactive or on `EditorContext` |
 | **a document** | `EditorDocument` (25 subclasses) | `Vixen.Ui.IEditableDocument` (0 implementations under `Editor/`; #656) | the model itemises its own divergence at `EditorDocument.cs:29-61` |
 | **a property** | `EditProperty` (18 uses, the live edit path) | `EditorProperty<T>` / `EditorObject` / `SetPropertyCommand<T>` — **5 uses, all in Core, no subclass of `EditorObject` anywhere under `Editor/`** | `EditProperty.cs:18-19` says it *"is what a `SceneDocument`'s own fields are"*; they are plain dictionaries (`SceneDocument.cs:120-194`). A dead type with a remark that describes the live one |
 
@@ -330,7 +330,7 @@ architecture rules enforce.
 
 | Tier | Context | Aggregate root(s) | Owns today (measured) | Lives in |
 |---|---|---|---|---|
-| **Domain** | **Project** | `EditorProject` | paths, recents, scaffold, disk watch, project assemblies, external-edit announcement — `EditorProjects.cs`, `Watch`/`FollowDisk`/`BuildProjectCode` (`EditorApplication.cs:1695-2116`), `ProjectAssemblies.cs`, `ProjectHistory.cs` | `Vixen.Editor.Core` (already) |
+| **Domain** | **Project** | `EditorProject` | paths, recents, scaffold, disk watch, project assemblies, external-edit announcement — `EditorProjects.cs`, `Watch`/`FollowDisk`/`BuildProjectCode` (`EditorApplication.cs:1675-2096`), `ProjectAssemblies.cs`, `ProjectHistory.cs` | `Vixen.Editor.Core` (already) |
 | | **Scene Authoring** | `SceneDocument`, `Selection<Entity>` | hierarchy, entity verbs (create, group, parent, duplicate, align, snap, LOD), marks, bounds — `EditorParity.cs:684-855, 2446-2913`, `EditorSelectionVerbs.cs`, `EditorApplication.cs:4542-5737` | `Vixen.Editor.SceneView` + a service |
 | | **Content Library** | `AssetDatabase` | browser model, collections, saved filters, thumbnails, import and content build, drag-and-drop, package export — `EditorParity.cs:411-684, 1545-2038`, `EditorApplication.cs:3520-3645, 4868-5052`, `ContentTasks.cs`, `AssetCollections.cs`, `ThumbnailCache.cs` | `Vixen.Editor.Assets` + a service |
 | | **Documents** | `EditorDocument`, `CommandStack` | open, reopen, join to a panel, `AssetEditorRegistry`, `Saved`, `Opened` — `EditorApplication.cs:2696-3060` | `Vixen.Editor.Core` (already) |
@@ -338,7 +338,7 @@ architecture rules enforce.
 | | **Session** | `PlayModeController` | enter/stop play, snapshot/restore, `PlayPhysics`, play diagnostics — `EditorParity.cs:855-954, 2913-3032`, `PlayPhysics.cs` | `Vixen.Editor.Core` |
 | | **Delivery** | `BuildPlan` | build settings, Build and Run, deploy, `BuildStep` contributions — `EditorBuilds.cs`, `EditorApplication.cs:5276` | `Vixen.Editor.Assets.Content` |
 | **Application** | **Workspace** | `DockingWorkspace`, `EditorUserStore` | panels, layouts, view bookmarks, what persists — `EditorApplication.cs:1447-1515, 2236-2696, 3657-3734, 5785` | `Vixen.Editor.Ui` (already) |
-| | **Extensibility** | `PluginHost`, `EditorRegistry` | modules, disk plugins, scripts, hot reload, `PluginPoints` — `EditorApplication.cs:3060-3254`, `Vixen.Editor.Scripts` | `Vixen.Editor.Plugin` (already) |
+| | **Extensibility** | `PluginHost`, `EditorRegistry` | modules, disk plugins, scripts, hot reload, `PluginPoints` — `EditorApplication.cs:3051-3234`, `Vixen.Editor.Scripts` | `Vixen.Editor.Plugin` (already) |
 | | **Composition root** | `EditorApplication` | construct, publish, activate, tick | `Vixen.Editor.App` — **≤ 800 lines** |
 | **Supporting** | Diagnostics, Source control, Preferences | `EditorLog`, `SourceControl`, `EditorSettings` | `EditorDiagnostics.cs`, `EditorSourceControl.cs`, `EditorSettingsPanels.cs` | modules |
 
@@ -545,7 +545,7 @@ without touching another concern — and then by what a plugin most plausibly wa
 | 2a | `IPlaySession` | `EditorParity.cs:855-954, 2913-3032`, `PlayPhysics.cs`, `DrainPlayDiagnostics` | the smallest; proves the shape |
 | 2b | `ISceneEditing` | `EditorParity.cs:684-855, 2446-2913`, `EditorSelectionVerbs.cs`, `EditorApplication.cs:4542-5737` | `SceneEntity.cs`; the gizmo recording decision (§ P5); **`Active` is `EditorProject.ActiveDocument` and the 124 reads of the `scene` field become reads of it** (Part 1 § F10's first pair); a visibility command for hidden/locked (#1277) |
 | 2c | `IContentLibrary` | `EditorParity.cs:411-684, 1545-2304`, `EditorApplication.cs:3520-3645, 4868-5052` | `AssetCollections`, `ThumbnailCache`, `ContentTasks`; the `NewAssetKinds` literal becomes `LibraryModule`'s |
-| 2d | `IProjectSession` | `EditorProjects.cs`, `EditorApplication.cs:1695-2116` | `ProjectAssemblies`, `ProjectHistory`, the watcher |
+| 2d | `IProjectSession` | `EditorProjects.cs`, `EditorApplication.cs:1675-2096` | `ProjectAssemblies`, `ProjectHistory`, the watcher |
 | 2e | `IDocumentHost` + `IWorkspace` | `EditorApplication.cs:1447-1515, 2236-3060, 3657-3734` | § D4's two registries; `Inspecting` |
 | 2f | `IPlayerDelivery` | `EditorBuilds.cs`, `AnalyseContent` | the deploy contribution (frees `Debugger`) |
 
