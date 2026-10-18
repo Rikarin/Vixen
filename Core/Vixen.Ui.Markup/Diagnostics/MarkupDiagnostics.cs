@@ -711,4 +711,33 @@ public static class MarkupDiagnostics {
         BindingCategory,
         DiagnosticSeverity.Error
     );
+
+    /// <summary>An <c>exit</c> inside an <c>@for</c> body on an element that is not one of the body's roots.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The interval belongs to the row, and the row is the root.</b> The reconciler holds
+    ///         a removed item's whole region for one interval, and the loop reads that interval off the
+    ///         elements written directly in its body. An <c>exit</c> one element down, on an element
+    ///         inside an <c>@if</c> at the root, or on an inner loop's <c>@empty</c> arm was inside a
+    ///         loop — so <see cref="ExitOutsideLoop" /> passed it — and was read by nothing, so the
+    ///         row went at once, which looks exactly like the attribute not working. See
+    ///         <c>Rikarin/Vixen#1436</c>.
+    ///     </para>
+    ///     <para>
+    ///         Refused rather than given a meaning. A nested element's exit cannot hold anything the
+    ///         row's does not, since what leaves is the row; and an element under an <c>@if</c> at
+    ///         the root leaves when the item does, so its exit is the row's and belongs on an
+    ///         element the loop can see. An inner <c>@for</c>'s own roots are roots of <i>that</i>
+    ///         loop and are read by it.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor ExitNotOnLoopRoot = new(
+        "VXML2033",
+        "'exit' not on a root of its @for",
+        "'exit' is read off the elements written directly in an @for body — the row — and this element is "
+        + "inside one, under an @if, or in an @empty arm, where nothing reads it and the row would be removed "
+        + "at once. Move it to the element written directly in the loop's braces.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
 }

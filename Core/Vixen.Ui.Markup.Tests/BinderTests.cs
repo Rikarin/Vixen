@@ -1029,6 +1029,62 @@ public class BinderTests {
         Assert.Equal(300, outer.ExitAfter);
     }
 
+    /// <summary>
+    ///     An <c>exit</c> on an element that is not a root of its nearest <c>@for</c> body is refused,
+    ///     because the loop reads its exit off its roots and nothing else does.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Each of these bound clean and did nothing until #1436.</b> The loop rule asked only
+    ///     whether the element was under an <c>@for</c> at all, and <c>BindFor</c> reads the exit
+    ///     from the <c>BoundElement</c>s directly in its body — so an exit one element down, inside
+    ///     an <c>@if</c> at the root, one element below an inner loop's root, or on an inner loop's
+    ///     <c>@empty</c> arm was accepted and never read, and the row went at once.
+    /// </remarks>
+    [Theory]
+    [InlineData("<ul>@for (var x in Xs) { <li key=\"@x\"><span exit=\"200ms\" /></li> }</ul>")]
+    [InlineData("<ul>@for (var x in Xs) { @if (x.On) { <li key=\"@x\" exit=\"200ms\" /> } }</ul>")]
+    [InlineData("<ul>@for (var x in Xs) { @if (x.On) { <li key=\"@x\" /> } else { <li key=\"@x\" exit=\"200ms\" /> } }</ul>")]
+    [InlineData("<ul>@for (var x in Xs) { <li key=\"@x\">@for (var y in x.Ys) { <b key=\"@y\"><i exit=\"200ms\" /></b> }</li> }</ul>")]
+    [InlineData("<ul>@for (var x in Xs) { <li key=\"@x\">@for (var y in x.Ys) { <b key=\"@y\" /> } @empty { <c exit=\"200ms\" /> }</li> }</ul>")]
+    public void An_exit_that_is_not_on_a_root_of_its_loop_is_refused(string markup) {
+        var ids = Ids("@component A\n" + markup);
+
+        Assert.Equal(["VXML2033"], ids);
+    }
+
+    /// <summary>
+    ///     <c>VXML2033</c> is not reported for an <c>exit</c> on a root of its nearest loop — the
+    ///     outer loop's root and an inner loop's root inside it — and both are read.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The instrument for the theory above</b>, proved by widening the rule until this went
+    ///     red: a root flag set only for the outermost loop's body refused the inner loop's exit here.
+    ///     The read is asserted as well as the silence, because silence is what the defect looked
+    ///     like.
+    /// </remarks>
+    [Fact]
+    public void VXML2033_is_not_reported_for_an_exit_on_a_root_of_its_loop() {
+        var component = BindClean(
+            "@component A\n"
+            + "<ul>\n"
+            + "    @for (var x in Xs) {\n"
+            + "        <li key=\"@x\" exit=\"300ms\">\n"
+            + "            @for (var y in x.Ys) { <b key=\"@y\" exit=\"200ms fading\" /> }\n"
+            + "        </li>\n"
+            + "    }\n"
+            + "</ul>"
+        );
+
+        var ul = Assert.IsType<BoundElement>(Assert.Single(component.Content));
+        var outer = Assert.Single(ul.Children.OfType<BoundFor>());
+        var li = Assert.Single(outer.Body.OfType<BoundElement>());
+        var inner = Assert.Single(li.Children.OfType<BoundFor>());
+
+        Assert.Equal(300, outer.ExitAfter);
+        Assert.Equal(200, inner.ExitAfter);
+        Assert.Equal("fading", inner.ExitClass);
+    }
+
     static ImmutableArray<Diagnostic> Diagnostics(string source) {
         _ = Binder.Bind(Vxml.Parse(source), out var diagnostics);
         return [.. diagnostics];
