@@ -305,6 +305,67 @@ public class LevelIndicatorTests {
         Assert.Equal(2, Runs(ui));
     }
 
+    /// <summary>
+    ///     ⚠ <b>A level indicator draws the ticks it inherits, over the bar, with the last one on the
+    ///     bar's last column</b> (#1444).
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="RangeBase.TickCount" /> was public here and drew nothing. The oracle is
+    ///         closed-form: tick <c>i</c> of <c>n</c> is column <c>min(floor(w · i / (n − 1)), w − 1)</c>
+    ///         of a bar that fills its 100-pixel element, so five ticks are 0, 25, 50, 75 and 99.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The clamp is the point of the last one.</b> Unclamped, the maximum's tick is column
+    ///         100 — outside the element, so it is clipped and four ticks are drawn for five. A
+    ///         slider hid this because its rail is inset by half a thumb.
+    ///     </para>
+    ///     <para>
+    ///         Asserted empty and full: the ticks are a ruler over the reading, so the fill must not
+    ///         cover them. "Dark" is every channel under 200, which neither the track
+    ///         (<c>#e3e6eb</c>) nor the fill (<c>#3b6cf0</c>, blue 240) is and the tick
+    ///         (<c>#6b7280</c>) is.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Ticks_are_drawn_over_the_bar_and_the_last_is_its_last_column() {
+        // A white page, because the bar's ends are rounded by half its thickness whatever the
+        // border radius says, and an end blended against a transparent page is dark.
+        using var ui = ControlHarness.Open(
+            Width,
+            Height,
+            $"root {{ background-color: #ffffff; }} level-indicator {{ position: absolute; left: 0px; top: 0px; width: {Width}px; height: 8px; border-radius: 0px; }}"
+        );
+        var meter = ui.Add<LevelIndicator>("meter");
+
+        ui.Frame();
+        Assert.Empty(Ticks(ui));
+
+        meter.TickCount = 5;
+        ui.Frame();
+        Assert.Equal([0, 25, 50, 75, 99], Ticks(ui));
+
+        meter.Value = 1f;
+        ui.Frame();
+        Assert.Equal([0, 25, 50, 75, 99], Ticks(ui));
+    }
+
+    /// <summary>The columns of the bar's middle row drawn in the tick colour, which nothing else here is.</summary>
+    static List<int> Ticks(UiTest ui) {
+        var image = ui.Capture();
+        var columns = new List<int>();
+
+        for (var x = 0; x < image.Width; x++) {
+            var at = image.Offset(x, 4);
+
+            if (image.Pixels[at] < 200 && image.Pixels[at + 1] < 200 && image.Pixels[at + 2] < 200) {
+                columns.Add(x);
+            }
+        }
+
+        return columns;
+    }
+
     /// <summary>A negative count is a continuous bar rather than a crash.</summary>
     [Fact]
     public void A_negative_segment_count_is_refused_at_the_property() {

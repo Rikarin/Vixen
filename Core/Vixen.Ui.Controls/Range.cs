@@ -65,10 +65,12 @@ public abstract partial class RangeBase : Control {
     ///         too.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Only <see cref="Slider" /> and <see cref="RangeSlider" /> draw them.</b> The
-    ///         property is here because the snapping arithmetic is, so <see cref="ProgressBar" />,
-    ///         <see cref="LevelIndicator" /> and <see cref="Gauge" /> inherit it and ignore it —
-    ///         including <see cref="LevelIndicator" />, the control AppKit's own tick marks belong to.
+    ///         ⚠ <b><see cref="Slider" />, <see cref="RangeSlider" /> and <see cref="LevelIndicator" />
+    ///         draw them; <see cref="ProgressBar" /> and <see cref="Gauge" /> inherit the property and
+    ///         ignore it.</b> It is here because the snapping arithmetic is. A level indicator is the
+    ///         control AppKit's own tick marks belong to, and drew none until #1444. A progress bar
+    ///         marks a job rather than a scale, and a dial's marks run round an arc that
+    ///         <see cref="DrawTicks(DrawContext, Rectangle)" /> does not know how to draw.
     ///     </para>
     /// </remarks>
     [UiProperty(Changed = nameof(OnTicksChanged))]
@@ -117,12 +119,22 @@ public abstract partial class RangeBase : Control {
     ///         drawn over it — a tick under the thumb is covered, which is where the value is anyway.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>On a whole pixel.</b> A one-pixel mark centred on a fraction of a pixel is two
-    ///         half-covered columns, which is a grey smear rather than a line; flooring the start is
-    ///         at most half a pixel off where the value is, and the thumb is fourteen wide.
+    ///         ⚠ <b>On a whole pixel, and on one of the rail's own.</b> A one-pixel mark centred on a
+    ///         fraction of a pixel is two half-covered columns, which is a grey smear rather than a
+    ///         line; flooring the start is at most half a pixel off where the value is, and the thumb
+    ///         is fourteen wide. But the floor of the far end is the column <i>after</i> the rail, so
+    ///         it is clamped to the rail's last — on a slider the maximum's tick stood one column
+    ///         outside the rail, and on a <see cref="LevelIndicator" />, whose bar is the whole
+    ///         element, it was outside the element and clipped away (#1444).
     ///     </para>
     /// </remarks>
-    protected void DrawTicks(DrawContext context, Rectangle rail) {
+    protected void DrawTicks(DrawContext context, Rectangle rail) => DrawTicks(context, rail, TickReach);
+
+    /// <summary>Draws the tick marks across the rail, reaching <paramref name="reach" /> past each long edge.</summary>
+    /// <param name="context">Where to draw.</param>
+    /// <param name="rail">The rail.</param>
+    /// <param name="reach">How far past each long edge; zero for a bar that already fills its element.</param>
+    private protected void DrawTicks(DrawContext context, Rectangle rail, float reach) {
         var count = TickCount;
         var color = TickColor;
 
@@ -130,7 +142,7 @@ public abstract partial class RangeBase : Control {
             return;
         }
 
-        var length = Thickness(rail) + (2f * TickReach);
+        var length = Thickness(rail) + (2f * reach);
 
         for (var index = 0; index < count; index++) {
             var fraction = TickFraction(index, count);
@@ -139,12 +151,12 @@ public abstract partial class RangeBase : Control {
                 IsVertical
                     ? new Rectangle(
                         rail.X + ((rail.Width - length) * 0.5f),
-                        MathF.Floor(rail.Y + (rail.Height * (1f - fraction))),
+                        OnRail(rail.Y, rail.Height, 1f - fraction),
                         length,
                         1f
                     )
                     : new Rectangle(
-                        MathF.Floor(rail.X + (rail.Width * fraction)),
+                        OnRail(rail.X, rail.Width, fraction),
                         rail.Y + ((rail.Height - length) * 0.5f),
                         1f,
                         length
@@ -153,6 +165,13 @@ public abstract partial class RangeBase : Control {
             );
         }
     }
+
+    /// <summary>The whole pixel a fraction of the way along a rail, never past either end of it.</summary>
+    static float OnRail(float start, float extent, float fraction) =>
+        MathF.Max(
+            MathF.Floor(start),
+            MathF.Min(MathF.Floor(start + (extent * fraction)), MathF.Ceiling(start + extent) - 1f)
+        );
 
     void OnTicksChanged(int previous, int current) => OnBoundsChanged();
 
@@ -1053,10 +1072,19 @@ public sealed partial class LevelIndicator : RangeBase {
             if (filled > 0f) {
                 context.FillRectangle(Span(bounds, 0f, filled), FillColor, radius);
             }
-
-            return;
+        } else {
+            DrawSegments(context, bounds, filled, radius);
         }
 
+        // ⚠ Over the bar rather than under it, the opposite of a slider: there is no thumb to stand
+        // where the value is, so the marks are a ruler read against the fill and a fill that covered
+        // them would hide every tick the reading has passed. No reach past the edges — the bar is
+        // the whole element, and anything beyond it is somebody else's pixels.
+        DrawTicks(context, bounds, 0f);
+    }
+
+    /// <summary>Draws <see cref="Segments" /> blocks, of which the filled share is lit.</summary>
+    void DrawSegments(DrawContext context, Rectangle bounds, float filled, float radius) {
         // ⚠ The gap is taken out of each block rather than added between them, so that the blocks
         // together occupy exactly the rail the continuous bar would — a segmented indicator and a
         // plain one of the same width end in the same place, which is what lets them sit in a
