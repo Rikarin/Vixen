@@ -927,8 +927,9 @@ and re-runs the grapheme breaker over the **entire value** on every arrow keypre
 Doc 43 measures Tailwind roots. Anything with no class name is invisible to it, and that is where the
 expensive items are.
 
-1. ⚠ **No damage tracking.** `DrawListBuilder.Build` (`DrawListBuilder.cs:625`) reconstructs the entire draw list every
-   frame, and `DrawList.cs:526-539` only reports *whether* the frame differs, not where. There is no
+1. ⚠ **No damage tracking.** `DrawListBuilder.Build` (`DrawListBuilder.cs:643`) reconstructs the entire draw list every
+   frame — ⚠ *since #671's first slice it replays every unchanged subtree out of the previous frame
+   instead of walking it, see W7 below; the list is still finished whole* — and `DrawList.cs:526-539` only reports *whether* the frame differs, not where. There is no
    retained per-element surface — which is why `will-change-*` is refused. Combined with
    `UiApplication`'s unconditional frame loop (`docs/guide/ui/desktop-application.md:44-58`, a
    documented decision), this is the difference between an idle editor at 0.5 W and one at 15 W.
