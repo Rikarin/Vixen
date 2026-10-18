@@ -58,6 +58,21 @@ by entry, to doc 24's order.
 empties `BlockoutTheme`'s and the next activation refills the same slot; before, every reload left
 another copy of the rules in the cascade.
 
+## The verbs are a service; the mode keeps the pointer
+
+`IBlockout` is every verb doc 24's tables name — selection, geometry, surfaces, creation, the
+booleans, the handoff — as a method, and `BlockoutVerbs` implements it over the mode's editing state
+and dials. Those bodies were closures in `BlockoutMode.Register` until #1307 moved them; the mode's
+commands are now names for the methods, and the module publishes the same instance with
+`context.Publish`, so a menu line, a key and another plugin's `Require<IBlockout>()` are one
+implementation. ⚠ The guards moved in too: a method a plugin calls has no command around it to check
+for a scene first, so each verb answers `false`, zero or `Entity.Null` with nothing to act on.
+
+What stayed on the mode is what is about a gesture in a pane: arming the shape tool or the knife,
+which shape kind is chosen, which lattice cell is under the cursor (`CubeGrid` takes it as an
+argument), the handles and the drawing. `BlockoutVerbTests` holds both halves — a verb run with no
+shell at all, and every `IBlockout` method reached by some command, by reflection over the interface.
+
 ## The settings panel
 
 ⚠ **`BlockoutMode.Panel` names one, and doc 36 § P1's last blockout row is why it exists.**

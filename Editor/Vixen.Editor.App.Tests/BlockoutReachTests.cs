@@ -105,6 +105,11 @@ public class BlockoutReachTests {
         Assert.NotNull(module);
         Assert.Equal(PluginState.Active, module.State);
         Assert.True(module.IsBuiltIn);
+
+        // #1307: the verbs the commands run are the ones a plugin can Require — one instance.
+        var mode = Assert.IsType<BlockoutMode>(shell.Modes.Modes.Single(entry => entry.Id == BlockoutMode.ModeId));
+
+        Assert.Same(mode.Verbs, session.Application.PluginHost.Services.Require<IBlockout>());
     }
 
     /// <summary>Unloading Blockout takes every line, panel, mode and rule out; loading it again puts each back once.</summary>
@@ -150,6 +155,7 @@ public class BlockoutReachTests {
         Assert.Single(shell.Modes.Modes, mode => mode.Id == BlockoutMode.ModeId);
         Assert.Equal(BlockoutTheme.Css, styles.SheetText(sheet));
         Assert.Equal(sheets, styles.SheetCount);
+        Assert.True(host.Services.Contains<IBlockout>());
 
         // And an unload leaves nothing of it registered, and nothing of its rules in the cascade.
         Assert.True(host.Unload(BlockoutModule.ModuleId));
@@ -160,6 +166,7 @@ public class BlockoutReachTests {
         Assert.DoesNotContain(shell.Modes.Modes, mode => mode.Id == BlockoutMode.ModeId);
         Assert.Equal(string.Empty, styles.SheetText(sheet));
         Assert.Equal(sheets, styles.SheetCount);
+        Assert.False(host.Services.Contains<IBlockout>());
     }
 
     static List<string> Lines(EditorShell shell) {

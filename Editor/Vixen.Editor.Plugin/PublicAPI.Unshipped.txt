@@ -83,6 +83,7 @@ Vixen.Editor.Plugin.PluginContext.OnDeviceLost(System.Action<Vixen.Graphics.IGra
 Vixen.Editor.Plugin.PluginContext.OnUnload(System.Action action) -> void
 Vixen.Editor.Plugin.PluginContext.OnUpdate(System.Action<System.TimeSpan> update) -> void
 Vixen.Editor.Plugin.PluginContext.Owns<T>(T scope) -> T
+Vixen.Editor.Plugin.PluginContext.Publish<T>(T service) -> T
 Vixen.Editor.Plugin.PluginContext.Registrations.get -> Vixen.Editor.Plugin.PluginRegistrations
 Vixen.Editor.Plugin.PluginContext.Services.get -> Vixen.Editor.Plugin.PluginServices
 Vixen.Editor.Plugin.PluginContext.Shell.get -> Vixen.Editor.Ui.EditorShell

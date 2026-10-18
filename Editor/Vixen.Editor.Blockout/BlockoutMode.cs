@@ -706,44 +706,50 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         // of them a key; select-by-group, coplanar and linked are menu verbs there, because they are
         // run once per wall rather than once per second, and a chord for each would spend three keys
         // out of a mode that has to leave room for the geometry verbs.
-        Verb(SelectLoopCommand, editing => BlockoutSelection.Loop(editing), InputKey.L);
-        Verb(SelectRingCommand, editing => BlockoutSelection.Ring(editing), InputKey.R, ModifierKeys.Control);
-        Verb(GrowCommand, BlockoutSelection.Grow, InputKey.Up, ModifierKeys.Control);
-        Verb(ShrinkCommand, BlockoutSelection.Shrink, InputKey.Down, ModifierKeys.Control);
-        Verb(SelectGroupCommand, editing => BlockoutSelection.Group(editing));
-        Verb(SelectCoplanarCommand, editing => BlockoutSelection.Coplanar(editing));
-        Verb(SelectLinkedCommand, editing => BlockoutSelection.Linked(editing));
-        Verb(SelectAllCommand, BlockoutSelection.All, InputKey.A, ModifierKeys.Control);
-        Verb(SelectNoneCommand, BlockoutSelection.None, InputKey.A, ModifierKeys.Alt);
-        Verb(InvertCommand, BlockoutSelection.Invert, InputKey.I, ModifierKeys.Control);
+        Verb(SelectLoopCommand, Verbs.SelectLoop, InputKey.L);
+        Verb(SelectRingCommand, Verbs.SelectRing, InputKey.R, ModifierKeys.Control);
+        Verb(GrowCommand, Verbs.Grow, InputKey.Up, ModifierKeys.Control);
+        Verb(ShrinkCommand, Verbs.Shrink, InputKey.Down, ModifierKeys.Control);
+        Verb(SelectGroupCommand, Verbs.SelectGroup);
+        Verb(SelectCoplanarCommand, Verbs.SelectCoplanar);
+        Verb(SelectLinkedCommand, Verbs.SelectLinked);
+        Verb(SelectAllCommand, Verbs.SelectAll, InputKey.A, ModifierKeys.Control);
+        Verb(SelectNoneCommand, Verbs.SelectNone, InputKey.A, ModifierKeys.Alt);
+        Verb(InvertCommand, Verbs.Invert, InputKey.I, ModifierKeys.Control);
 
         // ⚠ Doc 24's Geometry table, with the bindings it names. Extrude is first and alone in the
         // plan's ordering for a reason — every other verb is judged against how that one feels — and
         // the ones with no chord here are the ones the table itself files under "menu".
-        Verb(ExtrudeCommand, editing => BlockoutGeometry.Extrude(editing, Step), InputKey.E);
-        Verb(ExtrudeIndividualCommand, editing => BlockoutGeometry.Extrude(editing, Step, individually: true), InputKey.E, ModifierKeys.Alt);
-        Verb(InsetCommand, editing => BlockoutGeometry.Inset(editing, Step * 0.25f), InputKey.I);
-        Verb(InsetIndividualCommand, editing => BlockoutGeometry.Inset(editing, Step * 0.25f, individually: true), InputKey.I, ModifierKeys.Alt);
-        Verb(BevelCommand, editing => BlockoutGeometry.Bevel(editing, Step * 0.25f, BevelSegments, out _), InputKey.B, ModifierKeys.Control);
-        Verb(LoopCutCommand, editing => BlockoutGeometry.LoopCut(editing), InputKey.R, ModifierKeys.Control | ModifierKeys.Shift);
-        Verb(SubdivideCommand, editing => BlockoutGeometry.Subdivide(editing));
-        Verb(BridgeCommand, BlockoutGeometry.Bridge, InputKey.E, ModifierKeys.Control);
+        Verb(ExtrudeCommand, () => Verbs.Extrude(), InputKey.E);
+        Verb(ExtrudeIndividualCommand, () => Verbs.Extrude(individually: true), InputKey.E, ModifierKeys.Alt);
+        Verb(InsetCommand, () => Verbs.Inset(), InputKey.I);
+        Verb(InsetIndividualCommand, () => Verbs.Inset(individually: true), InputKey.I, ModifierKeys.Alt);
+        Verb(BevelCommand, Verbs.Bevel, InputKey.B, ModifierKeys.Control);
+        Verb(LoopCutCommand, Verbs.LoopCut, InputKey.R, ModifierKeys.Control | ModifierKeys.Shift);
+        Verb(SubdivideCommand, Verbs.Subdivide);
+        Verb(BridgeCommand, Verbs.Bridge, InputKey.E, ModifierKeys.Control);
         // ⚠ `Alt+F`, and plain `F` is the reason. Focus Selection is reserved on the keymap and is
         // pressed several times a minute in every mode; a context binding on the bare key made it
         // stop working in the one mode where somebody is looking around the most.
-        Verb(FillCommand, BlockoutGeometry.FillHole, InputKey.F, ModifierKeys.Alt);
-        Verb(FlipCommand, BlockoutGeometry.Flip);
-        Verb(WeldCommand, editing => BlockoutGeometry.Weld(editing), InputKey.M);
-        Verb(DissolveCommand, BlockoutGeometry.Dissolve, InputKey.X, ModifierKeys.Control);
-        Verb(DeleteCommand, BlockoutGeometry.Delete, InputKey.X);
-        Verb(DetachCommand, editing => BlockoutGeometry.Detach(editing) is not null, InputKey.P);
+        Verb(FillCommand, Verbs.FillHole, InputKey.F, ModifierKeys.Alt);
+        Verb(FlipCommand, Verbs.Flip);
+        Verb(WeldCommand, Verbs.Weld, InputKey.M);
+        Verb(DissolveCommand, Verbs.Dissolve, InputKey.X, ModifierKeys.Control);
+        Verb(DeleteCommand, Verbs.Delete, InputKey.X);
+        Verb(DetachCommand, Verbs.Detach, InputKey.P);
 
         // ⚠ The knife arms rather than runs, which is why it is a `Verb` whose body sets a flag. Every
         // other row of the Geometry table has its subject before the key is pressed; this one goes and
         // gets one. Blender's `K`, and the same key, because the gesture is the same gesture.
         Verb(
             KnifeCommand,
-            _ => {
+            () => {
+                // Armed only with a mesh being edited, which is what running it through the old
+                // element-verb guard meant: a knife over nothing has nothing to cut.
+                if (Editing is not { IsActive: true }) {
+                    return false;
+                }
+
                 Knife.IsArmed = true;
 
                 return true;
@@ -754,27 +760,27 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         // ⚠ Doc 24's Surfaces table, and every one of these is an element verb like the ones above —
         // "project these faces" needs faces. Assigning a material is the one that is not here: it
         // comes from a palette rather than from a key, and the palette is the inspector's.
-        Verb(ProjectWorldCommand, editing => BlockoutSurfaces.Project(editing, UvProjection.World, UvScale));
-        Verb(ProjectBoxCommand, editing => BlockoutSurfaces.Project(editing, UvProjection.Box, UvScale));
-        Verb(FitUvCommand, BlockoutSurfaces.Fit);
-        Verb(SmoothCommand, editing => BlockoutSurfaces.Smooth(editing));
-        Verb(HardenCommand, editing => BlockoutSurfaces.Smooth(editing, smooth: false));
-        Verb(AutoSmoothCommand, editing => BlockoutSurfaces.AutoSmooth(editing));
-        Verb(NewGroupCommand, BlockoutSurfaces.Regroup);
+        Verb(ProjectWorldCommand, () => Verbs.Project(UvProjection.World));
+        Verb(ProjectBoxCommand, () => Verbs.Project(UvProjection.Box));
+        Verb(FitUvCommand, Verbs.FitUvs);
+        Verb(SmoothCommand, () => Verbs.Smooth());
+        Verb(HardenCommand, () => Verbs.Smooth(smooth: false));
+        Verb(AutoSmoothCommand, Verbs.AutoSmooth);
+        Verb(NewGroupCommand, Verbs.NewGroup);
 
         // ⚠ Doc 24's Creation table, and these are enabled in *Object* mode as well — unlike every
         // verb above them. Making a shape is not a statement about an element selection, and a tool
         // that could only be reached from inside a mesh would be one nobody could use to make the
         // first mesh.
         Make(ShapeToolCommand, () => IsArmed = true, InputKey.A, ModifierKeys.Shift);
-        Make(CreateShapeCommand, () => Created(BlockoutCreate.Shape(Scene!, Shape, Where())));
-        Make(CubeGridCommand, () => Created(BlockoutCubeGrid.Create(Scene!, Cell(), Plane)), InputKey.G);
-        Make(PushOutCommand, () => Pushed(1), InputKey.RightBracket, ModifierKeys.Alt);
-        Make(PushInCommand, () => Pushed(-1), InputKey.LeftBracket, ModifierKeys.Alt);
-        Make(DuplicateCommand, () => BlockoutCreate.Duplicate(Scene!, Vector3.Zero), InputKey.D, ModifierKeys.Control);
-        Make(MirrorCommand, () => BlockoutCreate.Mirror(Scene!, (Plane ?? Ground).AsPlane()), InputKey.M, ModifierKeys.Control);
-        Make(ArrayCommand, () => Repeated(radial: false));
-        Make(RadialCommand, () => Repeated(radial: true));
+        Make(CreateShapeCommand, () => Verbs.CreateShape());
+        Make(CubeGridCommand, () => Verbs.CubeGrid(HoverCell), InputKey.G);
+        Make(PushOutCommand, () => Verbs.Push(1), InputKey.RightBracket, ModifierKeys.Alt);
+        Make(PushInCommand, () => Verbs.Push(-1), InputKey.LeftBracket, ModifierKeys.Alt);
+        Make(DuplicateCommand, () => Verbs.Duplicate(), InputKey.D, ModifierKeys.Control);
+        Make(MirrorCommand, () => Verbs.Mirror(), InputKey.M, ModifierKeys.Control);
+        Make(ArrayCommand, () => Verbs.Repeat(radial: false));
+        Make(RadialCommand, () => Verbs.Repeat(radial: true));
 
         foreach (var kind in Kinds) {
             var chosen = kind;
@@ -785,47 +791,27 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         // ⚠ Doc 24's P6 and P7, and both are Object-mode verbs like the creation ones above: a boolean
         // is a statement about two entities and a bake is a statement about one, and neither has
         // anything to do with which faces are selected.
-        Make(UnionCommand, () => BlockoutBoolean.Union(Scene!));
-        Make(SubtractCommand, () => BlockoutBoolean.Subtract(Scene!));
-        Make(IntersectCommand, () => BlockoutBoolean.Intersect(Scene!));
-        Make(ApplyBooleanCommand, () => BlockoutBoolean.Collapse(Scene!));
-        Make(PlaneCutCommand, () => BlockoutBoolean.PlaneCut(Scene!, (Plane ?? Ground).AsPlane()));
-        Make(TrimCommand, () => BlockoutBoolean.Trim(Scene!));
+        Make(UnionCommand, () => Verbs.Union());
+        Make(SubtractCommand, () => Verbs.Subtract());
+        Make(IntersectCommand, () => Verbs.Intersect());
+        Make(ApplyBooleanCommand, () => Verbs.ApplyBoolean());
+        Make(PlaneCutCommand, () => Verbs.PlaneCut());
+        Make(TrimCommand, () => Verbs.Trim());
 
         // ⚠ Doc 41 § D16's blockout row, and an Object-mode verb like the booleans above it: a
         // retopology replaces every face of a solid, so which faces are selected has nothing to say
         // about it. No chord, deliberately — it is seconds of work and is run once a shape is
         // settled, which is a menu verb by the same rule the plan's own tables use.
-        Make(RetopologizeCommand, () => BlockoutRetopology.Run(Scene!, Retopology.ToRemeshSettings()));
+        Make(RetopologizeCommand, () => Verbs.Retopologize());
 
-        // ⚠ docs/plan/41 § R7's debug overlays, and the settings it captures with are the *same* ones
-        // Retopologize runs with. A dump taken at other numbers would be a picture of a remesh that is
-        // not the one the next click is going to produce, which is worse than no picture.
-        Make(
-            RemeshDebugCommand,
-            () => {
-                if (RemeshDebug.Dump is not null) {
-                    RemeshDebug.Clear();
-                } else {
-                    RemeshDebug.Capture(Scene!, Retopology.ToRemeshSettings());
-                }
-            }
-        );
+        // ⚠ docs/plan/41 § R7's debug overlays — see `BlockoutVerbs.ToggleRemeshDebug` for why the
+        // capture uses the settings Retopologize runs with.
+        Make(RemeshDebugCommand, () => Verbs.ToggleRemeshDebug());
+        Make(BakeCommand, () => Verbs.Bake());
+        Make(EditableCommand, () => Verbs.MakeEditable());
 
-        Make(BakeCommand, () => {
-            if (Baker is { } baker) {
-                BlockoutHandoff.Bake(Scene!, baker);
-            }
-        });
-
-        Make(EditableCommand, () => {
-            if (Meshes is { } source) {
-                BlockoutHandoff.Editable(Scene!, source);
-            }
-        });
-
-        Make(ExportObjCommand, () => Exported(".obj"));
-        Make(ExportGltfCommand, () => Exported(".gltf"));
+        Make(ExportObjCommand, () => Verbs.Export(".obj"));
+        Make(ExportGltfCommand, () => Verbs.Export(".gltf"));
 
         void Make(
             string id,
@@ -836,11 +822,9 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
             ShapeKind kind = default
         ) {
             shell.Commands.Add(
-                new EditorCommand(id, BlockoutStrings.Commands[id], () => {
-                    if (radio || Scene is not null) {
-                        run();
-                    }
-                }) {
+                // ⚠ No scene guard here any more: every verb this runs checks for itself, because a
+                // plugin calling one through `IBlockout` has no command around it to check first.
+                new EditorCommand(id, BlockoutStrings.Commands[id], run) {
                     Category = BlockoutStrings.CategoryBlockout,
                     Context = BlockoutContext,
                     RadioGroup = radio ? KindGroup : null,
@@ -854,9 +838,9 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
             }
         }
 
-        void Verb(string id, Func<MeshEdit, bool> run, InputKey key = InputKey.Unknown, ModifierKeys modifiers = ModifierKeys.None) {
+        void Verb(string id, Func<bool> run, InputKey key = InputKey.Unknown, ModifierKeys modifiers = ModifierKeys.None) {
             shell.Commands.Add(
-                new EditorCommand(id, BlockoutStrings.Commands[id], () => Run(run)) {
+                new EditorCommand(id, BlockoutStrings.Commands[id], () => run()) {
                     Category = BlockoutStrings.CategoryBlockout,
                     Context = BlockoutContext,
 
@@ -922,11 +906,22 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         this.shell = null;
     }
 
-    /// <summary>Runs a selection verb against the editing state, if there is one.</summary>
-    void Run(Func<MeshEdit, bool> verb) {
-        if (Editing is { } editing && editing.IsActive) {
-            verb(editing);
-        }
+    /// <summary>The verbs the mode's commands run — doc 24's tables as a service (#1307).</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="BlockoutVerbs" /> over this mode unless something replaces it, and
+    ///         <c>BlockoutModule</c> publishes the same instance as <see cref="IBlockout" /> — so a menu
+    ///         line, a key and a plugin's <c>Require&lt;IBlockout&gt;()</c> are one implementation.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Settable so a test can tell "the command runs the verb" from "the verb works"</b>:
+    ///         a recording <see cref="IBlockout" /> here is how <c>BlockoutVerbWiringTests</c> proves
+    ///         every command reaches its method, which the verbs' own tests cannot.
+    ///     </para>
+    /// </remarks>
+    public IBlockout Verbs {
+        get => field ??= new BlockoutVerbs(this);
+        set => field = value ?? throw new ArgumentNullException(nameof(value));
     }
 
     /// <summary>How many world units one repeat of a texture covers, for the projection verbs.</summary>
@@ -988,16 +983,6 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// <summary>The scene the creation verbs act on, or null while the mode drives none.</summary>
     SceneDocument? Scene => Editing?.Document;
 
-    void Exported(string extension) {
-        if (Scene is { } scene && Export is { } write) {
-            var text = BlockoutHandoff.Export(scene, extension);
-
-            if (text.Length > 0) {
-                write(text, extension);
-            }
-        }
-    }
-
     /// <summary>Every shape the tool can make, in the order a menu should offer them.</summary>
     /// <remarks>
     ///     ⚠ <b>Written out rather than taken from <c>Enum.GetValues</c></b>, for the reason
@@ -1021,72 +1006,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     ];
 
     /// <summary>The ground, for a mode nobody has given a work plane.</summary>
-    static readonly WorkPlane Ground = new();
-
-    /// <summary>Where a menu-run creation verb puts what it makes: the work plane's origin.</summary>
-    /// <remarks>⚠ <b>Not the world origin and not the camera.</b> The work plane is where the designer
-    ///     said they are building — D5's whole argument — so a shape made from a menu lands there and
-    ///     a shape made from a drag lands where the drag was.</remarks>
-    Vector3 Where() => Plane?.Origin ?? Vector3.Zero;
-
-    /// <summary>Which cells a creation verb makes a box in: the hovered one, or the plane's origin.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The hover wins, and the fallback is what the verb used to do unconditionally.</b> A key
-    ///     pressed with the pointer outside the pane — or in a test, or from the palette — still has to
-    ///     mean something, and the plane's origin is the answer every other menu-run creation verb
-    ///     gives. What changes is that with the pointer on the plane the box lands where the preview
-    ///     said it would.
-    /// </remarks>
-    GridBox Cell() {
-        if (HoverCell is { } hovered) {
-            return hovered;
-        }
-
-        var cell = BlockoutCubeGrid.CellOf(Where(), Plane);
-
-        return GridBox.At(cell.X, cell.Y, cell.Z);
-    }
-
-    void Created(Entity entity) {
-        if (Scene is { } scene && !entity.IsNull) {
-            scene.Selection.Set(entity);
-        }
-    }
-
-    /// <summary>Pushes the selected box's side along the work plane's second axis.</summary>
-    /// <remarks>
-    ///     ⚠ <b>One axis and one side from the keyboard, which is the honest shape of a keyboard
-    ///     verb.</b> Unreal's cube grid pushes whichever face the pointer is over; picking that face is
-    ///     a pick against the <i>box</i>, and what <see cref="HoverCell" /> answers is a pick against
-    ///     the work <i>plane</i> — so the candidate-cell preview that arrived with doc 24 § P4 does not
-    ///     settle this one. The keys still push upwards, which is the direction a block-out grows nine
-    ///     times in ten, and the other five sides are a drag of the gizmo.
-    /// </remarks>
-    void Pushed(int cells) {
-        if (Scene is not { } scene) {
-            return;
-        }
-
-        foreach (var entity in scene.Selection.Items.ToArray()) {
-            BlockoutCubeGrid.Push(scene, entity, axis: 1, positive: true, cells, Plane);
-        }
-    }
-
-    void Repeated(bool radial) {
-        if (Scene is not { } scene || scene.Selection.Count == 0) {
-            return;
-        }
-
-        var entity = scene.Selection.Items[0];
-        var step = Step;
-
-        if (radial) {
-            BlockoutCubeGrid.CellOf(Where(), Plane);
-            BlockoutCreate.Radial(scene, entity, Where(), Plane?.Normal ?? Vector3.UnitY, Copies);
-        } else {
-            BlockoutCreate.Array(scene, entity, new(step, 0f, 0f), Copies);
-        }
-    }
+    internal static readonly WorkPlane Ground = new();
 
     /// <inheritdoc />
     public void Activated() {

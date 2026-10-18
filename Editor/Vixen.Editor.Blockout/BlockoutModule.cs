@@ -143,6 +143,11 @@ public sealed partial class BlockoutModule : IEditorPlugin {
 
         context.AddMode(mode);
 
+        // The verbs the mode's commands run, for a plugin to `Require` — the same instance, so a menu
+        // line and a plugin's call are one implementation (#1307). Withdrawn on unload, or a reload
+        // would fail on the second publish of the type.
+        context.Publish(mode.Verbs);
+
         // ⚠ Last, and after the mode in particular: every line it declares names a command the mode's
         // `Register` made, and a hand registration made before it is the one that wins — the rule the
         // scan a disk plugin gets follows too.
