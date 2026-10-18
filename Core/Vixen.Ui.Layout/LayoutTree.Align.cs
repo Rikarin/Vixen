@@ -449,7 +449,7 @@ public sealed partial class LayoutTree {
             return results[index].InlineBaseline;
         }
 
-        if (styles[index].Display is Display.Block or Display.InlineBlock or Display.Inline or Display.FlowRoot) {
+        if (styles[index].Display is Display.Block or Display.InlineBlock or Display.Inline or Display.FlowRoot or Display.TableCell) {
             return results[index].MeasuredDimensions[(int) Dimension.Height];
         }
 

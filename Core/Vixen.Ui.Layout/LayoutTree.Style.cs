@@ -551,6 +551,36 @@ public sealed partial class LayoutTree {
         MarkDirtyAndPropagate(index);
     }
 
+    /// <summary>Sets which algorithm sizes a table's columns. CSS 2.1 §17.5.2's <c>table-layout</c>.</summary>
+    /// <param name="node">The node.</param>
+    /// <param name="tableLayout">The algorithm. <see cref="TableLayout.Auto" /> is the initial value.</param>
+    public void SetTableLayout(LayoutNodeId node, TableLayout tableLayout) {
+        var index = Validate(node);
+        if (styles[index].TableLayout == tableLayout) {
+            return;
+        }
+
+        styles[index].TableLayout = tableLayout;
+        MarkDirtyAndPropagate(index);
+    }
+
+    /// <summary>Sets one axis of a table's cell spacing. CSS 2.1 §17.6.1's <c>border-spacing</c>.</summary>
+    /// <param name="node">The node.</param>
+    /// <param name="dimension">
+    ///     <see cref="Dimension.Width" /> for the spacing between columns, <see cref="Dimension.Height" />
+    ///     for the spacing between rows.
+    /// </param>
+    /// <param name="length">The length. Only a point length is read.</param>
+    public void SetBorderSpacing(LayoutNodeId node, Dimension dimension, StyleLength length) {
+        var index = Validate(node);
+        if (styles[index].BorderSpacing[(int) dimension] == length) {
+            return;
+        }
+
+        styles[index].BorderSpacing[(int) dimension] = length;
+        MarkDirtyAndPropagate(index);
+    }
+
     /// <summary>Sets the requested size on one axis.</summary>
     /// <param name="node">The node.</param>
     /// <param name="dimension">Which axis.</param>

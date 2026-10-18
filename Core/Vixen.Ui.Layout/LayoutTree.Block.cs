@@ -110,6 +110,9 @@ public sealed partial class LayoutTree {
         || styles[index].OverflowY != Overflow.Visible
         || IsInlineLevel(styles[index].Display)
         || styles[index].Display == Display.FlowRoot
+        // CSS 2.1 §17.4 and §17.5: a table and each of its cells is a formatting context root. A row
+        // is here for the fallback it takes outside a table, where it stands for that table.
+        || styles[index].Display is Display.Table or Display.TableRow or Display.TableCell
         || styles[index].Float != FloatSide.None
         // CSS Containment § 3.1 and § 3.3 in one clause: both `layout` and `paint` make the box an
         // independent formatting context, which here is what stops a child's margin collapsing out
