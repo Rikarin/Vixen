@@ -599,6 +599,9 @@ Doc 36 § Part 6 measured the two options — a recording entry point (`EditProp
 after)`) or per-frame writes coalesced by `SetValuesCommand.TryMergeWith`. **This document
 recommends the first**: *"the surface applied it and is telling you"* is a real case, and `ISceneEditing`
 is its first non-gizmo customer (a script that moved an entity wants the same entry). It lands in 2b.
+*Landed (#1291): `EditProperty.Record(before, after, name)` and `CreateRecordCommand`, with
+`IEditMember.CreateRecordCommand` defaulting to `RecordedValuesCommand`; the entity gizmo records
+through it with its own N-target `TransformTargetsCommand`.*
 
 ---
 

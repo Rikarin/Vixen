@@ -100,9 +100,22 @@ public sealed class EntityGizmoTarget : IGizmoTarget {
     ///     </para>
     /// </remarks>
     public GizmoEdit? Record(in GizmoDrag drag) {
-        var command = new TransformTargetsCommand(drag.Verb, drag.Targets, drag.Captured, drag.Document);
+        // ⚠ Through the edit pipeline, as a change already applied (doc 50 § P5, #1291): the drag has
+        // written every mouse-move, so the before-state exists only in `Captured` and anything that
+        // read it now would read the after-state and record nothing.
+        var property = new EditProperty(GizmoTransformMember.Instance, drag.Targets, drag.Document);
+        var before = new object?[drag.Captured.Count];
+        var after = new object?[drag.Targets.Count];
 
-        if (command.IsEmpty) {
+        for (var index = 0; index < before.Length; index++) {
+            before[index] = drag.Captured[index];
+        }
+
+        for (var index = 0; index < after.Length; index++) {
+            after[index] = GizmoTransformMember.State(drag.Targets[index]);
+        }
+
+        if (property.CreateRecordCommand(before, after, drag.Verb) is not { } command) {
             return null;
         }
 

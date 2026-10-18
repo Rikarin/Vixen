@@ -184,6 +184,82 @@ public class EditProperty {
         }
     }
 
+    /// <summary>Records a change the caller has already applied, as one undo step.</summary>
+    /// <param name="before">What each of <see cref="Objects" /> held before, in their order.</param>
+    /// <param name="after">What each holds now.</param>
+    /// <param name="name">What the history calls it — <c>Move</c> becomes <c>Move (3)</c> for three.</param>
+    /// <returns>Whether anything had changed, and so whether anything was recorded.</returns>
+    /// <exception cref="ArgumentException">There is not exactly one before and one after per object.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The entry point for a surface that applied the change itself</b> (doc 50 § P5, #1291).
+    ///         A gizmo writes the transform on every mouse-move and is done by the time it knows the
+    ///         drag was an edit; <see cref="Write" /> and <see cref="WriteEach" /> both compare the
+    ///         value with what the object holds <i>now</i> — which is the after-state — and skip it as
+    ///         unchanged, so the drag records nothing. Doc 36 § Part 6 measured exactly that: stack
+    ///         depth 0. Restoring the before-state first and writing again would record, but as one
+    ///         command per object under a composite, executed twice.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not held off by <see cref="Refreshing" /></b>, which guards a control echoing the
+    ///         model back into it; a recorded change has already happened, and refusing to record it
+    ///         would only lose the way back.
+    ///     </para>
+    ///     <para>
+    ///         With no document the change stands and nothing records it — the previewing case the
+    ///         class remarks describe.
+    ///     </para>
+    /// </remarks>
+    public bool Record(IReadOnlyList<object?> before, IReadOnlyList<object?> after, string name) {
+        var command = CreateRecordCommand(before, after, name);
+
+        if (command is null) {
+            return false;
+        }
+
+        Document?.Stack.Execute(command);
+        Changed?.Invoke(this);
+
+        return true;
+    }
+
+    /// <summary>The command <see cref="Record" /> executes, for a caller that composes it with more.</summary>
+    /// <param name="before">What each object held before.</param>
+    /// <param name="after">What each holds now.</param>
+    /// <param name="name">What the history calls it.</param>
+    /// <returns>The command, or <see langword="null" /> when no object's value changed.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Built by the member</b> — <see cref="IEditMember.CreateRecordCommand" /> — so a member
+    ///     whose objects have a command of their own records with it. The gizmo needs this rather
+    ///     than <see cref="Record" /> because a drag of a prefab instance puts its override claims in
+    ///     the same entry.
+    /// </remarks>
+    public IEditorCommand? CreateRecordCommand(IReadOnlyList<object?> before, IReadOnlyList<object?> after, string name) {
+        ArgumentNullException.ThrowIfNull(before);
+        ArgumentNullException.ThrowIfNull(after);
+        ArgumentException.ThrowIfNullOrEmpty(name);
+
+        if (before.Count != Objects.Count || after.Count != Objects.Count) {
+            throw new ArgumentException(
+                $"There are {Objects.Count} objects, {before.Count} before-values and {after.Count} "
+                + "after-values. A recorded change has to say what each object held and holds.",
+                nameof(before)
+            );
+        }
+
+        if (!CanWrite) {
+            return null;
+        }
+
+        var changed = false;
+
+        for (var index = 0; index < Objects.Count && !changed; index++) {
+            changed = !Member.AreEqual(before[index], after[index]);
+        }
+
+        return changed ? Member.CreateRecordCommand(Objects, before, after, name, Document) : null;
+    }
+
     /// <summary>Holds off writes while a control is being filled in from the model.</summary>
     /// <returns>A scope to dispose when the control is done.</returns>
     /// <remarks>
