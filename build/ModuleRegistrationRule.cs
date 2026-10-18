@@ -3,6 +3,7 @@
 
 using System.Text;
 using System.Text.RegularExpressions;
+using Vixen.Testing;
 
 namespace Vixen.Build;
 
@@ -66,26 +67,26 @@ static class ModuleRegistrationRule {
 
         var subjects = new SortedSet<string>(StringComparer.Ordinal);
 
-        foreach (var top in Directory.EnumerateDirectories(root)) {
-            var name = Path.GetFileName(top);
+        // ⚠ The tree as git lists it (#1424), once: the projects, and the C# that mentions the
+        // interface at all, which is a few dozen files rather than every source in the repository.
+        var projects = RepositoryFiles.Files(root, "*.csproj")
+            .Select(project => Path.GetRelativePath(root, Path.GetDirectoryName(project)!).Replace('\\', '/'))
+            .Where(directory => !directory.EndsWith(".Tests", StringComparison.Ordinal) && Path.GetFileName(directory) != Contract)
+            .ToList();
 
-            if (name.StartsWith('.') || name is "build" or "docs" or "www" or "references") {
+        foreach (var file in RepositoryFiles.Files(root, "*.cs")) {
+            var text = File.ReadAllText(file);
+
+            if (!text.Contains("IEditorPlugin", StringComparison.Ordinal) || !Plugin.IsMatch(FeatureNameRule.Lex(text).Code)) {
                 continue;
             }
 
-            foreach (var project in FeatureNameRule.Walk(top, file => file.EndsWith(".csproj", StringComparison.Ordinal))) {
-                var directory = Path.GetDirectoryName(project)!;
-                var relative = Path.GetRelativePath(root, directory).Replace('\\', '/');
+            var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
 
-                if (Path.GetFileName(directory) == Contract) {
-                    continue;
-                }
-
-                if (FeatureNameRule.Sources(directory, markup: false)
-                    .Select(File.ReadAllText)
-                    .Any(text => text.Contains("IEditorPlugin", StringComparison.Ordinal) && Plugin.IsMatch(FeatureNameRule.Lex(text).Code))) {
-                    subjects.Add(relative);
-                }
+            // The nearest project above the file owns it.
+            if (projects.Where(project => relative.StartsWith(project + "/", StringComparison.Ordinal))
+                    .MaxBy(project => project.Length) is { } owner) {
+                subjects.Add(owner);
             }
         }
 

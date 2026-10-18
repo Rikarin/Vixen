@@ -3,6 +3,7 @@
 
 using System.Text;
 using System.Text.RegularExpressions;
+using Vixen.Testing;
 
 namespace Vixen.Build;
 
@@ -172,54 +173,26 @@ static class FeatureNameRule {
             .ToList();
     }
 
-    /// <summary>Production source under a directory: <c>.cs</c> and <c>.vxml</c>, no tests, no build output.</summary>
-    /// <param name="directory">Where to look.</param>
+    /// <summary>Production source under a directory: <c>.cs</c> and <c>.vxml</c>, as git lists them, no tests.</summary>
+    /// <param name="directory">Where to look; nothing when it does not exist.</param>
     /// <param name="markup">Whether <c>.vxml</c> counts.</param>
     /// <returns>Absolute paths.</returns>
-    public static IEnumerable<string> Sources(string directory, bool markup = true) {
-        return Walk(directory, file => file.EndsWith(".cs", StringComparison.Ordinal) || (markup && file.EndsWith(".vxml", StringComparison.Ordinal)));
-    }
-
-    /// <summary>Files under a directory, never descending into build output, tests or a nested checkout.</summary>
-    /// <param name="directory">Where to start.</param>
-    /// <param name="keep">Which files to return.</param>
-    /// <returns>Absolute paths.</returns>
     /// <remarks>
-    ///     ⚠ <b>Pruned at the directory, not filtered at the file.</b> A <c>bin/</c> or <c>obj/</c>
-    ///     holds more files than the source beside it, and enumerating them to throw them away cost
-    ///     the first version of this rule twenty seconds a run. And judged relative to where the walk
-    ///     started: an agent's checkout lives under <c>.claude/</c>, so judging the absolute path
-    ///     would exclude the whole tree it is checking.
+    ///     ⚠ <b>Through <c>RepositoryFiles</c>, not a walk.</b> The first version walked the disk and
+    ///     skipped build output by a hand-kept list of names, which is the copy #1424 replaced with
+    ///     git's own answer — and filtering per file inside build output cost it twenty seconds a
+    ///     run. A fixture is therefore a <c>git init</c>'d directory.
     /// </remarks>
-    public static IEnumerable<string> Walk(string directory, Func<string, bool> keep) {
-        ArgumentNullException.ThrowIfNull(keep);
-
+    public static IEnumerable<string> Sources(string directory, bool markup = true) {
         if (!Directory.Exists(directory)) {
-            yield break;
+            return [];
         }
 
-        var pending = new Stack<string>();
-        pending.Push(directory);
+        string[] patterns = markup ? ["*.cs", "*.vxml"] : ["*.cs"];
 
-        while (pending.Count > 0) {
-            var current = pending.Pop();
-
-            foreach (var file in Directory.EnumerateFiles(current)) {
-                if (keep(file)) {
-                    yield return file;
-                }
-            }
-
-            foreach (var child in Directory.EnumerateDirectories(current)) {
-                var name = Path.GetFileName(child);
-
-                if (name is "obj" or "bin" or "node_modules" || name.StartsWith('.') || name.EndsWith(".Tests", StringComparison.Ordinal)) {
-                    continue;
-                }
-
-                pending.Push(child);
-            }
-        }
+        return RepositoryFiles.Files(directory, patterns)
+            .Where(file => !Path.GetRelativePath(directory, file).Replace('\\', '/').Split('/')
+                .Any(part => part.EndsWith(".Tests", StringComparison.Ordinal)));
     }
 
     /// <summary>Builds the vocabulary from the tree.</summary>

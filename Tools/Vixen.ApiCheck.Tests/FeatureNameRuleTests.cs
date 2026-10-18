@@ -34,7 +34,9 @@ public class FeatureNameRuleTests {
 
     /// <summary>A tree with one feature, one runtime project and one shell file.</summary>
     sealed class Fixture : IDisposable {
-        public string Root { get; } = Path.Combine(Path.GetTempPath(), "vixen-featurename-" + Guid.NewGuid().ToString("N"));
+        readonly ScratchCheckout checkout = new("vixen-featurename-");
+
+        public string Root => checkout.Root;
 
         public Fixture() {
             Write("Editor/Vixen.Editor.Terrain/Vixen.Editor.Terrain.csproj", "<Project />");
@@ -63,17 +65,9 @@ public class FeatureNameRuleTests {
             Write("Editor/Vixen.Editor.App/Shell.cs", "sealed class Shell { void Inspecting(string id) { } }\n");
         }
 
-        public void Write(string relative, string text) {
-            var path = Path.Combine(Root, relative.Replace('/', Path.DirectorySeparatorChar));
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, text);
-        }
+        public void Write(string relative, string text) => checkout.Write(relative, text);
 
-        public void Dispose() {
-            if (Directory.Exists(Root)) {
-                Directory.Delete(Root, recursive: true);
-            }
-        }
+        public void Dispose() => checkout.Dispose();
     }
 
     static FeatureNameRule.Vocabulary Vocabulary(Fixture fixture) => FeatureNameRule.Measure(fixture.Root);

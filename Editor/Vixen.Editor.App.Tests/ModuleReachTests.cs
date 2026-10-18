@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
+using Vixen.Testing;
 using Vixen.Editor.Ui;
 using Xunit;
 
@@ -67,24 +68,14 @@ public class ModuleReachTests {
 
     static readonly Regex Declared = new("""const\s+string\s+ModuleId\s*=\s*"([^"]+)"\s*;""", RegexOptions.CultureInvariant);
 
-    static string Root() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
-            if (File.Exists(Path.Combine(directory.FullName, "Vixen.slnx"))) {
-                return directory.FullName;
-            }
-        }
-
-        throw new DirectoryNotFoundException($"the repository root was not found above '{AppContext.BaseDirectory}'.");
-    }
-
-    /// <summary>Every module id production source under <c>Editor/</c> declares.</summary>
+    /// <summary>Every module id production source under <c>Editor/</c> declares, as git lists it (#1424).</summary>
     static SortedSet<string> DeclaredModules(string root) {
         var ids = new SortedSet<string>(StringComparer.Ordinal);
 
-        foreach (var file in Directory.EnumerateFiles(Path.Combine(root, "Editor"), "*.cs", SearchOption.AllDirectories)) {
+        foreach (var file in RepositoryFiles.Files(Path.Combine(root, "Editor"), "*.cs")) {
             var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
 
-            if (relative.Split('/').Any(part => part is "obj" or "bin" || part.EndsWith(".Tests", StringComparison.Ordinal))) {
+            if (relative.Split('/').Any(part => part.EndsWith(".Tests", StringComparison.Ordinal))) {
                 continue;
             }
 
@@ -174,7 +165,7 @@ public class ModuleReachTests {
 
     [Fact]
     public void Every_module_the_editor_declares_ships_in_the_standard_list_or_says_why_not() {
-        var declared = DeclaredModules(Root());
+        var declared = DeclaredModules(RepositoryFiles.Root);
         var standard = EditorModules.Standard().Select(module => module.Id).ToHashSet(StringComparer.Ordinal);
 
         // The instrument: a grep that stopped matching would find nothing and agree with anything.
@@ -201,7 +192,7 @@ public class ModuleReachTests {
     [Fact]
     public void Every_standard_module_reaches_the_user_with_what_the_manifest_records() {
         var measured = Measure();
-        var root = Root();
+        var root = RepositoryFiles.Root;
         var path = Path.Combine(root, ManifestFile.Replace('/', Path.DirectorySeparatorChar));
 
         if (Environment.GetEnvironmentVariable("VIXEN_REGENERATE") == "1") {

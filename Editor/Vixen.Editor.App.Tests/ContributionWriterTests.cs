@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using Vixen.Editor.Core;
 using Vixen.Editor.Testing;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -60,28 +61,14 @@ public class ContributionWriterTests {
 
     static readonly Regex Reader = new(@"\.All<([A-Z][A-Za-z0-9_]*)>\(\)", RegexOptions.CultureInvariant);
 
-    static string Root() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
-            if (File.Exists(Path.Combine(directory.FullName, "Vixen.slnx"))) {
-                return directory.FullName;
-            }
-        }
-
-        throw new DirectoryNotFoundException($"the repository root was not found above '{AppContext.BaseDirectory}'.");
-    }
-
-    /// <summary>The kind names production code reads, by grep over <c>.cs</c> and <c>.vxml</c>.</summary>
+    /// <summary>The kind names production code reads, by grep over <c>.cs</c> and <c>.vxml</c> as git lists them (#1424).</summary>
     static SortedSet<string> ReadKinds(string root) {
         var kinds = new SortedSet<string>(StringComparer.Ordinal);
 
-        foreach (var file in Directory.EnumerateFiles(Path.Combine(root, "Editor"), "*.*", SearchOption.AllDirectories)) {
-            if (!file.EndsWith(".cs", StringComparison.Ordinal) && !file.EndsWith(".vxml", StringComparison.Ordinal)) {
-                continue;
-            }
-
+        foreach (var file in RepositoryFiles.Files(Path.Combine(root, "Editor"), "*.cs", "*.vxml")) {
             var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
 
-            if (relative.Split('/').Any(part => part is "obj" or "bin" || part.EndsWith(".Tests", StringComparison.Ordinal))) {
+            if (relative.Split('/').Any(part => part.EndsWith(".Tests", StringComparison.Ordinal))) {
                 continue;
             }
 
@@ -124,7 +111,7 @@ public class ContributionWriterTests {
 
     /// <summary>What each kind holds in an editor opened the way the host opens one.</summary>
     static SortedDictionary<string, int> Census() {
-        var root = Root();
+        var root = RepositoryFiles.Root;
         var names = ReadKinds(root);
         var census = new SortedDictionary<string, int>(StringComparer.Ordinal);
 

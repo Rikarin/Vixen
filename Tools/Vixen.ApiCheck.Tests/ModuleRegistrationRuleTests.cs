@@ -31,20 +31,16 @@ public class ModuleRegistrationRuleTests {
     }
 
     sealed class Fixture : IDisposable {
-        public string Root { get; } = Path.Combine(Path.GetTempPath(), "vixen-modulereg-" + Guid.NewGuid().ToString("N"));
+        readonly ScratchCheckout checkout = new("vixen-modulereg-");
+
+        public string Root => checkout.Root;
 
         public Fixture Write(string relative, string text) {
-            var path = Path.Combine(Root, relative.Replace('/', Path.DirectorySeparatorChar));
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, text);
+            checkout.Write(relative, text);
             return this;
         }
 
-        public void Dispose() {
-            if (Directory.Exists(Root)) {
-                Directory.Delete(Root, recursive: true);
-            }
-        }
+        public void Dispose() => checkout.Dispose();
     }
 
     const string Module = "sealed class WaterModule : IEditorPlugin {\n    public void Activate(PluginContext context) { }\n}\n";

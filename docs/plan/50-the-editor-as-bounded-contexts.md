@@ -12,7 +12,8 @@ methods, a 489-line constructor and every verb the editor has as a private metho
 those fields. Both
 statements are true, and the second is why the first is not yet an architecture.
 
-> **Status.** Written 2026-09-17. Nothing in it is built. Every number in Part 1 was measured on
+> **Status.** Written 2026-09-17. § P0's instruments landed 2026-10-19 (see § P0 for what
+> re-measuring them changed); the moves are in progress. Every number in Part 1 was measured on
 > master that day with the command beside it; a revision that restates a figure without re-running
 > the command is writing down a memory (doc 36 § P3 learned this six times).
 
@@ -516,6 +517,38 @@ subclass anywhere (§ F10) — so that `EditProperty` stops having a twin one le
 **Exit:** three rules in `CheckArchitecture`, each with a false-positive-free run over the tree and a
 test that shows it can fire (`ApplicationReferenceRuleTests` is the shape). #1276 decided and closed.
 
+✅ **Landed 2026-10-19, re-measured rather than restated.** The three rules are in `CheckArchitecture`
+with fixtures in `Vixen.ApiCheck.Tests`; the two by-effect tests are in `Vixen.Editor.App.Tests`.
+Every list regenerates with one command — `./build.sh CheckArchitecture --update-exemptions` for
+the three files, `VIXEN_REGENERATE=1` on `ModuleReachTests` for the manifest — and every list fails on
+a row the tree no longer needs. What the measurement changed:
+
+* **`ApplicationSizeRule`** — fourteen partials, not thirteen (`PlayOverlaySwitches.cs`), 15,241
+  lines; `EditorApplication.cs` is 5,826. A `(total)` row and a new-partial-file failure stop a verb
+  moving into a new partial from counting as a move.
+* **`FeatureNameRule`** — **109 rows** (159 occurrences): App 63, Assets 41, Host 4, Ui 1, and Core,
+  Inspector and SceneView none. ⚠ Not § F9's 110 by definition, not by miss: F9 also counted runtime
+  components a shell names (`TerrainComponent` is `Core/`'s) and member names that spell a feature
+  (`ModeArt.Blockout`), and its 35 `EditorStrings` ids had already moved (#1301). The vocabulary is
+  derived from the feature assemblies; `Host/EditorModules.cs` is the one named false positive,
+  exempt in code because a list row for it could never become clean.
+* **`ModuleRegistrationRule`** — 18 rows over ten module-bearing projects. ⚠ § F7's six leaks are
+  there and so are four it did not name: `BlockoutMode`, `TerrainMode`, `FoliageMode` and `WaterMode`
+  put 25 commands straight into the shell, and three Texturing views install the module's sheet.
+* **`ContributionWriterTests`** — **sixteen** kinds read through `IEditorRegistry`, not twelve (the
+  four interface seams `ITerrainScene`, `IVegetationScene`, `IWaterScene`, `IPlaySystems` were not
+  counted); § F8's six unwritten kinds confirmed exactly.
+* **`ModuleReachTests`** — ⚠ **found that Blockout's five Scene submenus reach nobody**: the modules
+  activate in `Commands()` → `RegisterModes()` before `SceneMenu()` creates the Scene menu, so
+  `FindMenu` answers null ([#1483](https://github.com/Rikarin/Vixen/issues/1483)). And Terrain's
+  unload takes back nothing a user sees, so its reach is recorded under `editor`. The disabled-module
+  negative half waits on #1288.
+* The three one-line truths (#1282): the Core README now says `Vixen.Ui` is referenced, for
+  `IUndoManager` alone; the App README's two load-order reasons are corrected; and `EditorObject`,
+  `EditorProperty<T>` and `SetPropertyCommand<T>` are deleted. ⚠ "Five uses, all in Core" was short by
+  the forty in `Vixen.Editor.Core.Tests` — the command stack's merge, seal and transaction tests drove
+  it through an `EditorObject` — so those now go through `EditProperty` and `SetValuesCommand`.
+
 ### P1 — The generator and the first attribute authors (≈ 1 EM)
 
 `Vixen.Editor.Plugin.Generator`; `EditorMenuAttribute.Title`; `DeclaredParityTest`. Migrate
@@ -621,11 +654,11 @@ Waves follow the phases; a wave is five worktrees, merged as each lands, gates o
 
 | # | Task | Phase | Wave |
 |---|---|---|---|
-| [#1278](https://github.com/Rikarin/Vixen/issues/1278) | `FeatureNameRule` + measured exemption list (110 rows) | P0 | 1 |
-| [#1279](https://github.com/Rikarin/Vixen/issues/1279) | `ApplicationSizeRule` with per-file ceilings, shrink-only | P0 | 1 |
-| [#1280](https://github.com/Rikarin/Vixen/issues/1280) | `ReachTest`: every standard module's Create ▸ / menu / panel present, by effect | P0 | 1 |
-| [#1281](https://github.com/Rikarin/Vixen/issues/1281) | `ModuleRegistrationRule` + `ContributionWriterTest` | P0 | 1 |
-| [#1282](https://github.com/Rikarin/Vixen/issues/1282) | Three README/dead-type corrections (Core `Vixen.Ui` line; App load-order reasons; delete `EditorObject` family) | P0 | 1 |
+| [#1278](https://github.com/Rikarin/Vixen/issues/1278) | `FeatureNameRule` + measured exemption list (110 rows; re-measured 109 — § P0) | P0 | 1 · landed |
+| [#1279](https://github.com/Rikarin/Vixen/issues/1279) | `ApplicationSizeRule` with per-file ceilings, shrink-only | P0 | 1 · landed |
+| [#1280](https://github.com/Rikarin/Vixen/issues/1280) | `ReachTest`: every standard module's Create ▸ / menu / panel present, by effect | P0 | 1 · landed, negative half on #1288 |
+| [#1281](https://github.com/Rikarin/Vixen/issues/1281) | `ModuleRegistrationRule` + `ContributionWriterTest` | P0 | 1 · landed |
+| [#1282](https://github.com/Rikarin/Vixen/issues/1282) | Three README/dead-type corrections (Core `Vixen.Ui` line; App load-order reasons; delete `EditorObject` family) | P0 | 1 · landed |
 | — | [#1276](https://github.com/Rikarin/Vixen/issues/1276) `TexturingModule` reaches nothing — decide and close | P0 | 1 · filed |
 | — | [#1277](https://github.com/Rikarin/Vixen/issues/1277) Blockout boolean undo leaves operands hidden | P2b | 1 · filed |
 | [#1283](https://github.com/Rikarin/Vixen/issues/1283) | `Vixen.Editor.Plugin.Generator`: the eight attributes → `Declared.Register` | P1 | 2 |
