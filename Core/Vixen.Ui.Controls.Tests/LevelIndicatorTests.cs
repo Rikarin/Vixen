@@ -144,6 +144,43 @@ public class LevelIndicatorTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>One line reads the same way whichever line it is</b> — a lone <c>Warning</c> and a
+    ///     lone <c>Critical</c> are both ceilings when inferred and both floors when stated falling.
+    /// </summary>
+    /// <remarks>
+    ///     The rule #1353 settled is about the number of lines, not their names: one line has no
+    ///     order, so it is rising unless <see cref="LevelIndicator.Direction" /> says otherwise. An
+    ///     inference that tested only one of the two for <see cref="float.NaN" /> would read a lone
+    ///     warning one way and a lone critical the other, and only the second has a test above.
+    /// </remarks>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_lone_line_reads_the_same_way_whichever_line_it_is(bool warning) {
+        using var ui = Opened();
+        var meter = ui.Add<LevelIndicator>("meter");
+        var fired = warning ? LevelReading.Warning : LevelReading.Critical;
+
+        if (warning) {
+            meter.Warning = 0.2f;
+        } else {
+            meter.Critical = 0.2f;
+        }
+
+        meter.Value = 1f;
+        Assert.Equal(fired, meter.Level);
+
+        meter.Value = 0.1f;
+        Assert.Equal(LevelReading.Ordinary, meter.Level);
+
+        meter.Direction = LevelDirection.Falling;
+        Assert.Equal(fired, meter.Level);
+
+        meter.Value = 1f;
+        Assert.Equal(LevelReading.Ordinary, meter.Level);
+    }
+
+    /// <summary>
     ///     ⚠ <b>A stated direction is obeyed against the pair, and the contradiction is loud rather
     ///     than silent.</b>
     /// </summary>
