@@ -633,7 +633,7 @@ public sealed class WorldRenderer : IDisposable {
     ///     </para>
     ///     <para>
     ///         The precedent to copy is already written twice, and neither copy is in the editor
-    ///         alone: <c>Editor/Vixen.Editor.Host/EditorHost.cs:1287</c> and
+    ///         alone: <c>Editor/Vixen.Editor.Host/EditorHost.cs:1283</c> and
     ///         <c>Platform/Vixen.Ui.Desktop/UiApplication.cs:1252</c> both open a device and call
     ///         <c>UiShaderLibrary.Load</c> once per device, sharing the table across every surface.
     ///         Both sit <i>above</i> <c>Core/</c> and <c>Platform/</c> rather than inside either, so
