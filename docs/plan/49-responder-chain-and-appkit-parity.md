@@ -330,7 +330,7 @@ these hold, and each is a gate in Part 10:
    command handlers.
 2. The editor's `CommandDispatcher` resolves through `CommandRoute` instead of the flat registry.
 3. `EditorShell.Context` — a mutable string pushed by hand from pointer handlers in ten places
-   (`EditorApplication.cs:2342,2429,2558,2614`; `EditorParity.cs:625,1255-1257,2433`;
+   (`EditorApplication.cs:2353,2440,2569,2625`; `EditorParity.cs:625,1261-1263,2439`;
    `EditorWorlds.cs:129`; ⚠ ten was a floor when it was written — `EditorWorlds.cs` alone had four —
    and a re-count for #1388 finds twenty-one, most of them in the module panels) — is deleted in favour of `CommandScope`, which was built to replace it and
    is assigned only in tests.
@@ -555,7 +555,7 @@ reads. So `<div AccessibleName="Save" Focusable="true">` compiles, matches `[Acc
 does nothing. ~~No diagnostic.~~ ⚠ **Refuted since 168fe675b (2026-09-05):** `VXML2020` warns on a
 capitalised attribute name on a lowercase tag. It is declared as
 `MarkupDiagnostics.InertElementAttribute` (`MarkupDiagnostics.cs:463`), and the binder passes
-`MarkupDiagnostics.InertElementAttribute` (`Vixen.Ui.Markup/Binding/Binder.cs:1127`) to `Report`. The mechanism is unchanged — the lowercase half of the split is still
+`MarkupDiagnostics.InertElementAttribute` (`Vixen.Ui.Markup/Binding/Binder.cs:1178`) to `Report`. The mechanism is unchanged — the lowercase half of the split is still
 `ctx.Bind` or `ctx.Attribute` (`ComponentEmitter.cs:884-897`), so the attribute is still inert — but it is no longer
 silent. This is the same defect class the language already fixed twice, for `style=` and for `slot=`
 (`VXML2016`).
