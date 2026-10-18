@@ -1885,6 +1885,22 @@ all but one length of that produced nothing. `IdleFrameWorkTests` asserts the ex
 than a ceiling, because a bound would be met by a builder emitting fewer commands for the wrong
 reason.
 
+⚠ **Retained drawing is the first slice of that work, and `DrawCommandsEmitted` turned out not to be
+the number it moves** (#671). `DrawListBuilder.Retained.cs` keys every element on everything its own
+emission reads — the interned style by reference, the box, the transform, the lengths context, the
+border and padding, the fragments, the text layout — and replays an unchanged subtree's commands and
+side-buffer entries out of the previous frame instead of walking it. The finished list is the list a
+full rebuild finishes, byte for byte, so `DrawCommandsEmitted` — read off that list — does not move at
+all; `DrawCommandsReplayed` is what does, and *emitted minus replayed* is the work an idle frame still
+does: zero after the first frame on a still document of boxes and text, one card's commands when one
+label changes. ⚠ An element whose type overrides `OnDraw` is never replayed and neither is anything
+above it, because a control's own drawing reads state no key can name — so on a real interface what
+stays is the custom-drawn controls' ancestry. ⚠ In a Debug build every replay is re-emitted beside
+itself and a difference throws naming the element, which makes every Debug test that draws twice a
+differential test of the key; its first run found the system palette, which a `Canvas` background
+resolves against with no element changing. Still owed: the dirty-rect path, the GPU recording, and
+`will-change`.
+
 ⚠ **What a still window pays and what it does not, stated as the counters that measure it.**
 `DrawListsBuilt` climbs once per window per frame — the rebuild is paid. `Tessellations` climbs once
 and `TessellationsSkipped` takes the rest — the geometry is kept, on a five-part key (draw-list

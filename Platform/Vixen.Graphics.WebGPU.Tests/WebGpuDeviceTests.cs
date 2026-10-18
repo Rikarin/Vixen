@@ -486,6 +486,62 @@ public class WebGpuDeviceTests {
     }
 
     /// <summary>
+    ///     #1462: the window is sampled — and a frame may name <c>!UiCompose</c> over it — exactly
+    ///     when the surface lists <c>TextureBinding</c>, in what is configured and in what
+    ///     <c>ISwapChain.Usage</c> reports, which is what <c>AppGraphics</c> declares the import with.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ASwapChainIsSampledExactlyWhenTheSurfaceListsTextureBinding(bool listed) {
+        var binding = new FakeWebGpuBinding(hasSurface: true) {
+            SurfaceUsages = WgpuTextureUsage.RenderAttachment | WgpuTextureUsage.CopySrc
+                | (listed ? WgpuTextureUsage.TextureBinding : WgpuTextureUsage.None)
+        };
+        using var device = Device(binding);
+        using var swapChain = device.CreateSwapChain(new(SurfaceHandle.None, new Int2(64, 64)));
+
+        var configured = (WgpuTextureUsage)Assert.Single(binding.OfName("ConfigureSurface")).Values[1];
+
+        Assert.Equal(listed, (configured & WgpuTextureUsage.TextureBinding) != 0);
+        Assert.Equal(listed, (swapChain.Usage & TextureUsage.Sampled) != 0);
+
+        // What it always configured, it still configures: a surface reporting less changes nothing.
+        Assert.Equal(WgpuTextureUsage.RenderAttachment | WgpuTextureUsage.CopySrc, configured & ~WgpuTextureUsage.TextureBinding);
+        Assert.Equal(TextureUsage.ColourTarget | TextureUsage.CopySource, swapChain.Usage & ~TextureUsage.Sampled);
+
+        // And a resize reconfigures with the same answer rather than renegotiating a different one.
+        swapChain.Resize(new(32, 32));
+        Assert.Equal(configured, (WgpuTextureUsage)binding.OfName("ConfigureSurface")[1].Values[1]);
+    }
+
+    /// <summary>The decision on its own, over every usage a surface could list.</summary>
+    [Fact]
+    public void OnlyTextureBindingDecidesWhetherTheWindowIsSampled() {
+        for (uint bits = 0; bits < 32; bits++) {
+            var allowed = (WgpuTextureUsage)bits;
+            var (configured, reported) = WebGpuSwapChain.Negotiate(allowed);
+            var sampled = (allowed & WgpuTextureUsage.TextureBinding) != 0;
+
+            Assert.Equal(sampled, (configured & WgpuTextureUsage.TextureBinding) != 0);
+            Assert.Equal(sampled, (reported & TextureUsage.Sampled) != 0);
+            Assert.Equal(0u, (uint)(configured & (WgpuTextureUsage.StorageBinding | WgpuTextureUsage.CopyDst)));
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ The native binding cannot ask its surface — <c>WGPUSurfaceCapabilities</c> has no
+    ///     <c>usages</c> in the ABI it loads — so it must not claim <c>TextureBinding</c>, or a
+    ///     native window would be configured with a usage it may refuse at validation.
+    /// </summary>
+    [Fact]
+    public void TheNativeBindingDoesNotClaimASurfaceItCannotAsk() {
+        var source = typeof(Silk.NET.WebGPU.SurfaceCapabilities).GetFields();
+
+        Assert.DoesNotContain(source, field => field.Name.Contains("Usage", StringComparison.Ordinal));
+    }
+
+    /// <summary>
     ///     A surface texture belongs to the surface, so each acquire wraps a fresh pair of handles
     ///     and the present that follows retires them.
     /// </summary>

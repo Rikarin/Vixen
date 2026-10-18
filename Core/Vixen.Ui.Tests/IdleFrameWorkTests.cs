@@ -195,9 +195,16 @@ public class IdleFrameWorkTests {
     ///         The still window emits its whole picture thirty times over and one of those thirty is
     ///         the picture: <c>DrawCommandsEmitted</c> is thirty times the list's own length, and
     ///         twenty-nine thirtieths of it is the figure this issue otherwise has to describe in
-    ///         watts. A retained per-element surface is precisely the change that takes it down, and
-    ///         this assertion is written to go red the day it does — like every other one in this
-    ///         file.
+    ///         watts.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Refuted on the day it was meant to go red: retained drawing landed (#671) and this
+    ///         stayed green, correctly.</b> The count is read off the finished list, and a replayed
+    ///         subtree finishes the identical list, so the product is unchanged. What the retained
+    ///         drawing moves is <c>DrawCommandsReplayed</c>, and the work an idle frame still does is
+    ///         emitted minus replayed — see <c>RetainedDrawingTests</c>, where it is zero after the
+    ///         first frame. The fixture's document is retained too, which is why this test still
+    ///         says what is emitted and no longer says what is built.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Asserted as an exact product rather than as a ceiling.</b> A bound would be

@@ -142,6 +142,7 @@ public partial class SharedUiShaderTests {
 
     /// <summary>The eight shaders this suite renders with, source and module alike.</summary>
     static readonly string[] Names = [
+        "ui-blend.frag",
         "ui-blur.frag",
         "ui-box.frag",
         "ui-colour.frag",
@@ -351,7 +352,7 @@ public partial class SharedUiShaderTests {
         // ⚠ The instrument. A ledger the parser failed to read is an empty dictionary, and an empty
         // dictionary would have failed the first `TryGetValue` above — but only if `Names` is not
         // itself empty, and a census of nothing agrees with everything.
-        Assert.Equal(8, Names.Length);
+        Assert.Equal(9, Names.Length);
         Assert.Equal(Names.Length, recorded.Count);
     }
 
@@ -621,6 +622,7 @@ public partial class SharedUiShaderTests {
     ///     the comparison back out.
     /// </remarks>
     static readonly Dictionary<string, string> Transcribes = new(StringComparer.Ordinal) {
+        ["ui-blend.frag"] = "UiBlend",
         ["ui-blur.frag"] = "UiBlur",
         ["ui-box.frag"] = "UiBox",
         ["ui-colour.frag"] = "UiColour",
@@ -697,6 +699,7 @@ public partial class SharedUiShaderTests {
     ///     </para>
     /// </remarks>
     [Theory]
+    [InlineData("ui-blend.frag")]
     [InlineData("ui-blur.frag")]
     [InlineData("ui-box.frag")]
     [InlineData("ui-colour.frag")]
@@ -1092,6 +1095,7 @@ public partial class SharedUiShaderTests {
 
     /// <summary>Which module the Raven compiler produced for each GLSL copy beside it.</summary>
     static readonly (string Glsl, string Raven)[] Pairs = [
+        ("ui-blend.frag", "UiBlend.frag.spv"),
         ("ui-blur.frag", "UiBlur.frag.spv"),
         ("ui-box.frag", "UiBox.frag.spv"),
         ("ui-colour.frag", "UiColour.frag.spv"),

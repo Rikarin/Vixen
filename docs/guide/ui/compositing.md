@@ -823,9 +823,12 @@ candela and left `invert` and a drop shadow's colour, which are offsets, a facto
 ⚠ The drop shadow was the one composite the double lighting got right on the device, by accident, which
 is why fixing the tint alone would have been a regression. `UiCompositeWhiteLevelDeviceTests` holds an
 opacity, blended, filtered, shadowed, backdrop-filtered and masked group at 203 to the same frame at
-one times 203, on the device and in software. The golden suite's GLSL twins (`ui-colour.frag`,
-`ui-mask.frag`) do not read the white lane; every fixture that draws through them does so at one,
-where the two are the same arithmetic.
+one times 203, on the device and in software. ⚠ The golden suite's GLSL twins (`ui-colour.frag`,
+`ui-mask.frag`) were said here not to read the white lane; they have since #1458, and
+`ui-blend.frag` — the twin `UiBlend` had none of until #783's agreement case — reads it in
+`operation.y` as the Raven does. `UiRavenAgreementTests.TheGlslCopyAndTheRavenBlendTheSameFrame`
+draws all fifteen modes through both, one rotated over a striped ground so the `gl_FragCoord` read is
+exercised, and compares the two exactly.
 
 ⚠ **The sixteen functions have an oracle now, and it is what the two transcriptions have to agree
 with.** `Core/Vixen.Ui.Tests/UiBlendTests.cs` holds `UiBlend.Blend` to § 5.1's and § 5.3's own
@@ -969,7 +972,8 @@ What each backend reports:
 | Vulkan, windowed | colour target, copy destination, and sampled where the surface's `supportedUsageFlags` list it **and** `vkGetPhysicalDeviceImageFormatProperties` takes it for the chosen format (`VulkanSwapChain.SamplesAs`, VUID-VkSwapchainCreateInfoKHR-imageFormat-01778) — ⚠ untested: the windowed chain cannot be created on the machine the tests ran on, which has no `VK_EXT_headless_surface` | builds where the surface and the format both allow sampled |
 | Vulkan, offscreen (`--vixen-offscreen`, `--vixen-capture`) | colour target, copy source, copy destination, sampled | builds |
 | OpenGL | colour target, sampled, copy source | builds |
-| WebGPU | colour target, copy source | refused — the surface would have to be asked for `TextureBinding` |
+| WebGPU, browser canvas | colour target, copy source, sampled — `GPUCanvasContext.configure` takes `TEXTURE_BINDING` for every canvas format (`BrowserWebGpuBinding.SurfaceUsages`, #1462) — ⚠ read off the specification: no browser runs in this repository's tests | builds |
+| WebGPU, native (Dawn, wgpu-native) | colour target, copy source | refused — the surface cannot be asked: `WGPUSurfaceCapabilities` has no `usages` in Silk.NET 2.23.0 or in wgpu-native v0.19.4.1, and configuring an unlisted usage is an uncaptured validation error (`NativeWebGpuBinding.SurfaceUsages`) |
 | Null | the Vulkan windowed chain's, and deliberately no more | builds |
 
 `Tools/Vixen.App.Tests/HostedInterfaceComposeTests` is the stock host — `VixenApp`, a published frame
