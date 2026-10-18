@@ -68,7 +68,7 @@ public readonly record struct PlayLeak(string Category, int Count);
 ///         a system graph" is the reasoning.
 ///     </para>
 /// </remarks>
-public sealed class PlayModeController : IDisposable {
+public sealed class PlayModeController : IDisposable, IActivePlaySession {
     /// <summary>One authored behaviour, as bytes that outlive the copy a session runs.</summary>
     /// <param name="Entity">Which entity carried it, in pre-snapshot handles.</param>
     /// <param name="Alias">Its name, which is what survives the round trip.</param>
@@ -136,6 +136,9 @@ public sealed class PlayModeController : IDisposable {
     ///     lifetime of the snapshot that will be restored over them.
     /// </remarks>
     public PlaySession? Session { get; private set; }
+
+    /// <inheritdoc />
+    PlaySession? IActivePlaySession.Current => Session;
 
     /// <summary>The contributions that threw while attaching, by type name.</summary>
     /// <remarks>

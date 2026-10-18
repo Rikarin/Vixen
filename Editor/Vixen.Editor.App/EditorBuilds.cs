@@ -200,7 +200,7 @@ sealed partial class EditorApplication {
             Shell.Commands.Add(
                 new EditorCommand(
                     BuildIds.Variant(variant),
-                    new StringId("editor.command." + BuildIds.Variant(variant), variant),
+                    EditorStrings.BuildConfigurations[variant.ToLowerInvariant()],
                     () => {
                         Builds.Variant = chosen;
                         SaveBuildSettings();

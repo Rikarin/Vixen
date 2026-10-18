@@ -4,7 +4,7 @@ slug: editor/play-mode-systems
 kind: guide
 area: Editor
 summary: How a module adds systems to the frame the editor's Play button steps — the `IPlaySystems` contribution, the `PlaySession` that owns their lifetime, and the physics world the editor now stands up on Play and takes away on Stop.
-api: [T:Vixen.Editor.SceneView.IPlaySystems, T:Vixen.Editor.SceneView.PlaySession, T:Vixen.Editor.SceneView.PlaySystemOrder, T:Vixen.Editor.SceneView.ProvidesAttribute, T:Vixen.Editor.SceneView.RunsAfterAttribute, T:Vixen.Editor.Terrain.Physics.TerrainPhysicsModule]
+api: [T:Vixen.Editor.SceneView.IPlaySystems, T:Vixen.Editor.SceneView.PlaySession, T:Vixen.Editor.SceneView.IActivePlaySession, T:Vixen.Editor.SceneView.PlaySystemOrder, T:Vixen.Editor.SceneView.ProvidesAttribute, T:Vixen.Editor.SceneView.RunsAfterAttribute, T:Vixen.Editor.Terrain.Physics.TerrainPhysicsModule]
 tags: [editor, play-mode, systems, physics, terrain, collision]
 since: 0.1
 status: preview
@@ -135,6 +135,12 @@ because audio could not open a device would be worse than one that plays without
 systems the project declares and the behaviours the session could not take over. A frame that runs
 most of a game and says nothing moves the failure out of the editor, where it is, and into the user's
 game, where it is not.
+
+**Reach a session's services through `IActivePlaySession`, never through a publish.** A panel that
+wants what a session `Provide`d — the agent debugger wants the running `AiSystem` — asks
+`PluginServices` for `IActivePlaySession` and reads `Current`, which is `null` between sessions. The
+controller is what is published, once; the session's own objects never are, because `PluginServices`
+has no removal and anything put there on Play is a dead object after the first Stop.
 
 ## Examples
 

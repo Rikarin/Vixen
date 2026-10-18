@@ -77,6 +77,60 @@ public class SceneMenuBindingTests {
         Assert.Equal("test.nothing-answers-this", item.Command);
     }
 
+    /// <summary>The radial menu greys the same two cases, though it cannot be bound.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one surface of the three with no test until this one, and the one most able to
+    ///     drift.</b> A <c>RadialItem</c> cannot take <c>ButtonBase.Command</c> — the hold-and-release
+    ///     gesture runs a wedge through <c>RadialMenu.Accept</c> without a click, so a bound wedge would
+    ///     run twice on the click path — and so <c>SceneMenus.OpenRadialMenu</c> copies what the binding
+    ///     does by hand. A copy is exactly what goes stale when the binding changes; this pins that it
+    ///     still greys an id nothing answers <i>and</i> a command that says no, and leaves an answering
+    ///     one pressable.
+    /// </remarks>
+    [Fact]
+    public void A_radial_wedge_greys_when_nothing_answers_or_its_command_says_no() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Open("scene");
+        fixture.Scene.Selection.Clear();
+        fixture.Settle();
+
+        var refusing = true;
+
+        fixture.Shell.Commands.Add(
+            new EditorCommand("test.radial-refuses", new StringId("test.radial-refuses", "Refusing Wedge"), static () => { }) {
+                Enablement = () => !refusing
+            }
+        );
+
+        using var absent = fixture.Extensions.Add(
+            new SceneMenuItem("test.nothing-answers-this", SceneMenuSurface.Radial) { Label = "Absent Wedge" }
+        );
+
+        using var refused = fixture.Extensions.Add(
+            new SceneMenuItem("test.radial-refuses", SceneMenuSurface.Radial) { Label = "Refusing Wedge" }
+        );
+
+        fixture.Run("scene.radial-menu").Settle();
+
+        Assert.True(Wedge(fixture, "Absent Wedge").Disabled, "a wedge whose id nothing answers was pressable");
+        Assert.True(Wedge(fixture, "Refusing Wedge").Disabled, "a wedge whose command said no was pressable");
+
+        Radial(fixture).Close(CloseReason.Code);
+        refusing = false;
+        fixture.Run("scene.radial-menu").Settle();
+
+        Assert.False(Wedge(fixture, "Refusing Wedge").Disabled, "a wedge whose command said yes stayed greyed");
+        Assert.True(Wedge(fixture, "Absent Wedge").Disabled);
+    }
+
+    static RadialMenu Radial(EditorSession fixture) =>
+        Descendants(fixture.Document.Root).OfType<RadialMenu>().FirstOrDefault(static menu => menu.IsOpen)
+        ?? throw fixture.Fail("the radial menu did not open");
+
+    static RadialItem Wedge(EditorSession fixture, string label) =>
+        Assert.Single(Radial(fixture).Items, candidate => candidate.Label == label);
+
     /// <summary>And one whose command says no right now is greyed for the ordinary reason.</summary>
     [Fact]
     public void A_context_entry_whose_command_is_disabled_greys_and_un_greys_with_the_selection() {

@@ -89,6 +89,69 @@ public class ToolbarPollTests {
         Assert.True(save.Disabled, "Save stayed pressable after the scene was written");
     }
 
+    /// <summary>Build greys while content work runs and comes back when it ends, from the task alone.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The second predicate #430 named, and the only one of the three notifications with
+    ///         no test until this one.</b> <c>assets.build</c> reads <c>ContentTasks.IsBusy</c>, a
+    ///         counter a pool thread moves; what tells the strip is <c>BusyChanged</c> reaching
+    ///         <c>InvalidateCommands</c>. Deleting that one line left every other test here green.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The un-greying is the half that proves it.</b> Starting the work is a click, and a
+    ///         click can invalidate on its own; the work <i>ending</i> happens on the pool with nobody
+    ///         touching the editor, so the only thing that can bring the button back is the task's own
+    ///         notification. The publish is held on a gate so the busy state is a fact rather than a
+    ///         race.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Build_greys_while_content_work_runs_and_comes_back_when_it_ends() {
+        using var fixture = EditorSession.Start();
+        using var gate = new ManualResetEventSlim();
+
+        File.WriteAllText(Path.Combine(fixture.ProjectRoot, "Game.csproj"), "<Project />");
+
+        fixture.Editor.Content.Publisher = (_, _, _) => {
+            // A hang check, not a budget: the test opens the gate itself a few lines down.
+            gate.Wait(TimeSpan.FromSeconds(30));
+            return Task.FromResult(true);
+        };
+
+        fixture.Settle();
+
+        var build = Button(fixture, "assets.build");
+
+        Assert.False(build.Disabled, "Build was greyed before anything was running");
+
+        var view = fixture.Control<BuildSettingsView>(EditorApplication.BuildPanel);
+
+        view.Rebuild();
+        fixture.Click(view.BuildButton);
+
+        Until(fixture, () => fixture.Editor.Content.IsBusy, "the build never started");
+        fixture.Settle();
+
+        Assert.True(build.Disabled, "Build stayed pressable while content work was running");
+
+        gate.Set();
+
+        Until(fixture, () => !fixture.Editor.Content.IsBusy, "the build never finished");
+        fixture.Settle();
+
+        Assert.False(build.Disabled, "Build stayed greyed after the content work ended");
+    }
+
+    /// <summary>Pumps frames until a pool thread has done something. The ceiling is a hang check.</summary>
+    static void Until(EditorSession fixture, Func<bool> done, string what) {
+        for (var frame = 0; frame < 400 && !done(); frame++) {
+            fixture.Frame();
+            Thread.Sleep(1);
+        }
+
+        Assert.True(done(), what);
+    }
+
     /// <summary>And the tick itself no longer names either strip.</summary>
     /// <remarks>
     ///     ⚠ <b>Asserted on the behaviour rather than on the source, which is why it is the frame

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
@@ -235,6 +236,118 @@ public class EditorAffordanceTests {
         // ⚠ The id does not move with the label. It is what the keymap, the palette and the menu
         // model all name, and a command that renamed itself would break every one of them.
         Assert.True(editor.Shell.Commands.TryGet("scene.toggle-space", out _));
+    }
+
+    /// <summary>Translated, the two toggles still say two different things.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The caption used to be the command's own string id with a second text, and a
+    ///         catalog looks a string up by id.</b> <c>Caption</c> built
+    ///         <c>new StringId("editor.command." + id, text)</c> for both states, so the moment any
+    ///         language translated that one id, both states read the translation — the "Local Space in
+    ///         both spaces" defect <c>EditorCommand.Caption</c> exists to fix, back again under every
+    ///         language but English. The note beside it said the id "has to stay the same string";
+    ///         what has to stay is the <i>command</i> id, which is a different string.
+    ///     </para>
+    ///     <para>
+    ///         So the catalog is filled from what the command shows in each state, the way a
+    ///         translator working from the template would, and each state must then read its own
+    ///         word. And every word a state can show is in the template, because a caption no
+    ///         translator was given is one that stays English.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_translated_gizmo_toggle_still_says_which_state_it_is_in() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("scene");
+        editor.Frames(2);
+
+        var pane = editor.Viewport!;
+        var template = EditorStrings.All.Select(static id => id.Id).ToHashSet(StringComparer.Ordinal);
+
+        var space = Command(editor, "scene.toggle-space");
+        var pivot = Command(editor, "scene.toggle-pivot");
+
+        pane.Gizmo.Space = GizmoSpace.World;
+        pane.Gizmo.Pivot = PivotMode.Pivot;
+
+        var world = space.CurrentTitle.Id;
+        var atObject = pivot.CurrentTitle.Id;
+
+        pane.Gizmo.Space = GizmoSpace.Local;
+        pane.Gizmo.Pivot = PivotMode.Center;
+
+        var local = space.CurrentTitle.Id;
+        var atCentre = pivot.CurrentTitle.Id;
+
+        foreach (var id in (string[]) [world, local, atObject, atCentre, space.Title.Id, pivot.Title.Id]) {
+            Assert.True(template.Contains(id), $"'{id}' is shown by a gizmo toggle and is in no translator's template");
+        }
+
+        try {
+            Strings.Use(
+                new StringCatalog("cs")
+                    .Set(world, "Světový prostor")
+                    .Set(local, "Místní prostor")
+                    .Set(atObject, "Pivot u objektu")
+                    .Set(atCentre, "Pivot ve středu")
+            );
+
+            pane.Gizmo.Space = GizmoSpace.World;
+            pane.Gizmo.Pivot = PivotMode.Pivot;
+
+            Assert.Equal("Světový prostor", space.CurrentTitle.Text);
+            Assert.Equal("Pivot u objektu", pivot.CurrentTitle.Text);
+
+            pane.Gizmo.Space = GizmoSpace.Local;
+            pane.Gizmo.Pivot = PivotMode.Center;
+
+            Assert.Equal("Místní prostor", space.CurrentTitle.Text);
+            Assert.Equal("Pivot ve středu", pivot.CurrentTitle.Text);
+        } finally {
+            Strings.Use(null);
+        }
+    }
+
+    /// <summary>Every title #1178's sites used to build is now a declared word a translator is given.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read off the registry, not off <c>EditorStrings</c>.</b> What matters is the title the
+    ///     editor actually registered; a test that checked the declarations existed would pass with
+    ///     every call site still building its own id beside them. The shape, light and configuration
+    ///     ids are generated from the same lists the registrations walk, so a kind added to one of
+    ///     those lists is checked here without this test being edited.
+    /// </remarks>
+    [Fact]
+    public void Every_command_the_migrated_helpers_register_has_a_declared_title() {
+        using var editor = EditorSession.Start();
+
+        var template = EditorStrings.All.Select(static id => id.Id).ToHashSet(StringComparer.Ordinal);
+
+        string[] ids = [
+            "scene.translate", "scene.rotate", "scene.scale", "scene.toggle-space", "scene.toggle-pivot",
+            "scene.toggle-snap", "scene.toggle-grid", "scene.toggle-projection", "scene.orbit-around-selection",
+            "scene.zoom-to-cursor", "scene.invert-orbit-y", "scene.focus", "scene.frame-all",
+            "scene.view-front", "scene.view-back", "scene.view-right", "scene.view-left", "scene.view-top",
+            "scene.view-bottom", "scene.orbit-left", "scene.orbit-right", "scene.orbit-up", "scene.orbit-down",
+            .. PrimitiveShapes.All.Select(static kind => "scene.create-" + PrimitiveShapes.NameOf(kind).ToLowerInvariant()),
+            .. Lights.All.Select(static kind => "scene.create-light-" + Lights.NameOf(kind).ToLowerInvariant()),
+            .. PlayerBuild.Variants.Select(static variant => "build.configuration-" + variant.ToLowerInvariant())
+        ];
+
+        foreach (var id in ids) {
+            var title = Command(editor, id).Title;
+
+            Assert.True(template.Contains(title.Id), $"{id}'s title '{title.Id}' is in no translator's template");
+        }
+
+        // ⚠ And a light's declared title says what `Lights.TitleOf` says. The family is spelled out in
+        // an assembly that cannot see `Lights`, so this is the line that notices the two disagreeing.
+        foreach (var kind in Lights.All) {
+            var id = "scene.create-light-" + Lights.NameOf(kind).ToLowerInvariant();
+
+            Assert.Equal(Lights.TitleOf(kind), Command(editor, id).Title.Source);
+        }
     }
 
     /// <summary>And the pivot toggle does the same.</summary>

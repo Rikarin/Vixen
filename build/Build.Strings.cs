@@ -415,10 +415,17 @@ partial class Build {
     ///         piece of work.
     ///     </para>
     ///     <para>
-    ///         <b>What the thirteen are.</b> All of them are <c>Vixen.Editor.App</c>'s, which is
-    ///         the one assembly of the five #1178 named that is not migrated —
-    ///         <c>DeclaredContributions</c> (3), <c>EditorApplication</c> (5), <c>EditorBuilds</c>
-    ///         (3), <c>EditorParity</c> (1) and <c>EditorWorlds</c> (1). The other four —
+    ///         <b>What the eight are.</b> All of them are <c>Vixen.Editor.App</c>'s, and every one
+    ///         needs a decision rather than a migration: <c>DeclaredContributions</c> (3, a
+    ///         plugin's command), <c>EditorApplication</c> (1, a panel titled by a document — user
+    ///         data), <c>EditorParity</c> (1, a recent project's directory name — user data),
+    ///         <c>EditorBuilds</c> (2, "This Machine (rid)" — machine data — and
+    ///         <c>PlayerBuild.WhyNotPublishable</c>'s prose, which another assembly owns) and
+    ///         <c>EditorWorlds</c> (1, a <c>NewAssetKind</c>'s title, which a plugin can contribute).
+    ///         ⚠ The viewport helper's twenty-three labels, its two-state captions and the shape,
+    ///         light and build-configuration families went to <c>EditorStrings</c>; the captions
+    ///         were a translation bug and not only a census entry, because they reused the title's
+    ///         id with a second text and a catalog looks a string up by id. The other four —
     ///         <c>Vixen.Editor.Texturing</c>, <c>.Terrain</c>, <c>.Blockout</c> and
     ///         <c>.Diagnostics</c> — now declare <c>TexturingStrings</c>, <c>TerrainStrings</c>,
     ///         <c>BlockoutStrings</c> and <c>DiagnosticsStrings</c>, and <c>VXS0312</c> holds each
@@ -449,7 +456,7 @@ partial class Build {
     ///         initialisers in this repository that build something else.
     ///     </para>
     /// </remarks>
-    const int ConstructedCeiling = 13;
+    const int ConstructedCeiling = 8;
 
     /// <summary>Applies <see cref="ConstructedCeiling" />.</summary>
     /// <param name="text">Every source file, by path.</param>
