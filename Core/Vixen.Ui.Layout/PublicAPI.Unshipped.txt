@@ -488,6 +488,7 @@ Vixen.Ui.Layout.StyleLength.Resolve(float referenceLength) -> float
 Vixen.Ui.Layout.StyleLength.StyleLength() -> void
 Vixen.Ui.Layout.StyleLength.StyleLength(float value, Vixen.Ui.Layout.LayoutUnit unit) -> void
 Vixen.Ui.Layout.TableLayout -> enum : byte
+Vixen.Ui.Layout.TableLayout.TableLayout() -> void
 Vixen.Ui.Layout.TableLayout.Auto = 0 -> Vixen.Ui.Layout.TableLayout
 Vixen.Ui.Layout.TableLayout.Fixed = 1 -> Vixen.Ui.Layout.TableLayout
 Vixen.Ui.Layout.TextAlign -> enum : byte
