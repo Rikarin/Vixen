@@ -1,0 +1,34 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    The toolbar / body / status shell that the editor's list panels reproduced by hand (#459) — a
+    strip of controls, a grid that takes the rest of the height, and a one-line status under it.
+
+    ⚠ **A plain component, because only a plain component can declare a named slot.** `VXML2012`
+    refuses one on the `@inherits Control` flavour, which has one `ContentHost` and therefore one
+    hole, and every panel this replaces is that flavour. They can still *fill* the slots — the
+    restriction is on the declaring side — so the shell is consumed from inside them.
+
+    ⚠ **The slots are this component's roots, with no wrapper of its own — and still two levels.**
+    A `<slot>` is a real element, so what a consumer projects lands under `toolbar-grid-shell` →
+    `slot`, two levels between the panel's own element and the pieces its stylesheet and `ref`
+    members are written against. A `shell-root` / `shell-toolbar` / `shell-body` nesting like the
+    test fixture's would have been four. Every one of them is CSS-initial `row` with no
+    `flex-grow`, which is the "correct tree drawn in a strip down the left" failure — and it is what
+    the first build of this drew — so `AdvancedTheme.vcss` styles the host and all three slots.
+
+    ⚠ **The order is the shell's, whatever order the consumer writes.** `DeviceManagerView` put its
+    status line *above* its grid; a shell that decides the order is what makes that drift
+    impossible rather than reviewable.
+
+    Its one style rule is in `AdvancedTheme.vcss`: a column that fills its parent with no gap, so
+    every projected piece lands at the coordinates it had before the shell existed.
+-->
+@component ToolbarGridShell
+@namespace Vixen.Ui.Controls.Advanced
+@tag toolbar-grid-shell
+
+<slot name="toolbar" />
+<slot />
+<slot name="status" />

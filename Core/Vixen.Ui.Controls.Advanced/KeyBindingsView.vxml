@@ -72,44 +72,52 @@
 
 <self on:keydown.capture.handled="@((KeyEvent e) => Keyed(e))" />
 
-<keybindings-toolbar ref="@Toolbar">
-    <SearchBox ref="@Search" Placeholder="@ControlStrings.KeysFilter.Text" />
+<!--
+    ⚠ Through `ToolbarGridShell` since #459, which decides the order the three pieces are drawn in.
+    Two levels more in the tree (`toolbar-grid-shell`, then a `slot`) and no pixel moved: both are
+    gapless columns that fill what holds them, so every piece keeps its old bounds — which
+    `KeyBindingsViewDumpTests` holds to, alongside five captures compared before and after.
+-->
+<ToolbarGridShell>
+    <keybindings-toolbar slot="toolbar" ref="@Toolbar">
+        <SearchBox ref="@Search" Placeholder="@ControlStrings.KeysFilter.Text" />
 
-    <!--
-        ⚠ First on the strip on purpose. Doc 20's own note is that "presets matter more than they
-        look" — a Unity user and an Unreal user disagree about most of the bar and both are certain
-        — so the one control that turns a week of friction into a choice is in front of the grid it
-        makes unnecessary.
-    -->
-    <Select ref="@Presets" Size="Small" />
+        <!--
+            ⚠ First on the strip on purpose. Doc 20's own note is that "presets matter more than they
+            look" — a Unity user and an Unreal user disagree about most of the bar and both are certain
+            — so the one control that turns a week of friction into a choice is in front of the grid it
+            makes unnecessary.
+        -->
+        <Select ref="@Presets" Size="Small" />
 
-    <Button ref="@Record"
-            Size="Small"
-            Variant="Subtle"
-            Label="@(IsCapturing ? ControlStrings.KeysRecording.Text : ControlStrings.KeysRecord.Text)"
-            Disabled="@(Selected is null)"
-            on:click="@Toggle" />
+        <Button ref="@Record"
+                Size="Small"
+                Variant="Subtle"
+                Label="@(IsCapturing ? ControlStrings.KeysRecording.Text : ControlStrings.KeysRecord.Text)"
+                Disabled="@(Selected is null)"
+                on:click="@Toggle" />
 
-    <Button Size="Small" Variant="Subtle" Label="@ControlStrings.KeysClear.Text" on:click="@Unbind" />
-    <Button Size="Small" Variant="Subtle" Label="@ControlStrings.KeysResetRow.Text" on:click="@ResetRow" />
-    <Button Size="Small" Variant="Subtle" Label="@ControlStrings.KeysResetAll.Text" on:click="@ResetAll" />
+        <Button Size="Small" Variant="Subtle" Label="@ControlStrings.KeysClear.Text" on:click="@Unbind" />
+        <Button Size="Small" Variant="Subtle" Label="@ControlStrings.KeysResetRow.Text" on:click="@ResetRow" />
+        <Button Size="Small" Variant="Subtle" Label="@ControlStrings.KeysResetAll.Text" on:click="@ResetAll" />
 
-    <Button ref="@Import"
-            Size="Small"
-            Variant="Subtle"
-            Label="@ControlStrings.KeysImport.Text"
-            on:click="@AskToImport" />
+        <Button ref="@Import"
+                Size="Small"
+                Variant="Subtle"
+                Label="@ControlStrings.KeysImport.Text"
+                on:click="@AskToImport" />
 
-    <Button ref="@Export"
-            Size="Small"
-            Variant="Subtle"
-            Label="@ControlStrings.KeysExport.Text"
-            on:click="@AskToExport" />
-</keybindings-toolbar>
+        <Button ref="@Export"
+                Size="Small"
+                Variant="Subtle"
+                Label="@ControlStrings.KeysExport.Text"
+                on:click="@AskToExport" />
+    </keybindings-toolbar>
 
-<DataGrid ref="@Grid" MultiSelect="false" />
+    <DataGrid ref="@Grid" MultiSelect="false" />
 
-<keybindings-status ref="@Status" class='@(Conflict is null ? "" : "conflict")'>@Sentence()</keybindings-status>
+    <keybindings-status slot="status" ref="@Status" class='@(Conflict is null ? "" : "conflict")'>@Sentence()</keybindings-status>
+</ToolbarGridShell>
 
 @code {
     readonly List<KeyBindingRow> rows = [];

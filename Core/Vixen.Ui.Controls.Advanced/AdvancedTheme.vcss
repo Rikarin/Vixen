@@ -1160,6 +1160,20 @@ timeline-lanes { touch-action: none; }
    finger or a pen begins no selection drag (`CodeEditor.Pointed`), so the drag is the scroller's. */
 color-strip, gradient-rail, timeline-ruler, data-header-cell { touch-action: pan-y; }
 
+/* ── Toolbar / grid / status shell ──────────────────────────────────────
+   ToolbarGridShell (#459). A panel adopting it gains two levels — the host
+   element and a `slot` element per hole — and must move no pixel, so all of
+   them are gapless, boxless columns: the host fills the panel, the toolbar
+   and status slots take their content's height, and the middle slot takes
+   the rest. ⚠ A `slot` is a real element and CSS-initial `row`; left unstyled
+   it shrinks the toolbar to its buttons' width and gives the grid nothing,
+   which is the first thing this conversion drew.
+   ⚠ `:nth-child(2)` because a slot element carries neither its name nor a
+   class; the shell declares exactly three, in this order. */
+toolbar-grid-shell { flex-direction: column; flex-grow: 1; flex-basis: 0px; min-height: 0px; gap: 0px; }
+toolbar-grid-shell > slot { flex-direction: column; flex-shrink: 0; gap: 0px; }
+toolbar-grid-shell > slot:nth-child(2) { flex-grow: 1; flex-shrink: 1; flex-basis: 0px; min-height: 0px; }
+
 /* ── Keybindings ────────────────────────────────────────────────────────
    A strip, a grid and a status line. The status line is the part that is
    easy to leave out and is the whole of "conflict reporting inline": a
