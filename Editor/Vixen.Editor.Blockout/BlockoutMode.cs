@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
@@ -274,54 +275,71 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     public const string ToggleMeshCommand = "blockout.toggle-mesh";
 
     /// <summary>Selects the edge loop through the active edge.</summary>
+    [EditorMenu(BlockoutModule.ElementsMenu, Priority = 4, Separator = true)]
     public const string SelectLoopCommand = "blockout.select-loop";
 
     /// <summary>Selects the edge ring through it.</summary>
+    [EditorMenu(BlockoutModule.ElementsMenu, Priority = 5)]
     public const string SelectRingCommand = "blockout.select-ring";
 
     /// <summary>Takes in everything touching the selection.</summary>
+    [EditorMenu(BlockoutModule.ElementsMenu, Priority = 6)]
     public const string GrowCommand = "blockout.grow";
 
     /// <summary>Gives back everything on its rim.</summary>
+    [EditorMenu(BlockoutModule.ElementsMenu, Priority = 7)]
     public const string ShrinkCommand = "blockout.shrink";
 
     /// <summary>Selects every face in the active face's group.</summary>
+    [EditorMenu(BlockoutModule.ElementsMenu, Priority = 8, Separator = true)]
     public const string SelectGroupCommand = "blockout.select-group";
 
     /// <summary>Selects every face coplanar with and joined to it.</summary>
+    [EditorMenu(BlockoutModule.ElementsMenu, Priority = 9)]
     public const string SelectCoplanarCommand = "blockout.select-coplanar";
 
     /// <summary>Selects every face joined to it.</summary>
+    [EditorMenu(BlockoutModule.ElementsMenu, Priority = 10)]
     public const string SelectLinkedCommand = "blockout.select-linked";
 
     /// <summary>Selects every element of the current mode.</summary>
+    [EditorMenu(BlockoutModule.ElementsMenu, Priority = 1)]
     public const string SelectAllCommand = "blockout.select-all";
 
     /// <summary>Deselects everything.</summary>
+    [EditorMenu(BlockoutModule.ElementsMenu, Priority = 2)]
     public const string SelectNoneCommand = "blockout.select-none";
 
     /// <summary>Selects what is not selected.</summary>
+    [EditorMenu(BlockoutModule.ElementsMenu, Priority = 3)]
     public const string InvertCommand = "blockout.invert";
 
     /// <summary>Pulls the selected faces out along their normal.</summary>
+    [EditorMenu(BlockoutModule.GeometryMenu, Priority = 1)]
     public const string ExtrudeCommand = "blockout.extrude";
 
     /// <summary>Ditto, one face at a time.</summary>
+    [EditorMenu(BlockoutModule.GeometryMenu, Priority = 2)]
     public const string ExtrudeIndividualCommand = "blockout.extrude-individual";
 
     /// <summary>Shrinks them towards their own centre.</summary>
+    [EditorMenu(BlockoutModule.GeometryMenu, Priority = 3)]
     public const string InsetCommand = "blockout.inset";
 
     /// <summary>Ditto, one face at a time.</summary>
+    [EditorMenu(BlockoutModule.GeometryMenu, Priority = 4)]
     public const string InsetIndividualCommand = "blockout.inset-individual";
 
     /// <summary>Cuts the corner off the selected edges.</summary>
+    [EditorMenu(BlockoutModule.GeometryMenu, Priority = 5)]
     public const string BevelCommand = "blockout.bevel";
 
     /// <summary>Puts a loop across the ring the active edge is part of.</summary>
+    [EditorMenu(BlockoutModule.GeometryMenu, Priority = 6)]
     public const string LoopCutCommand = "blockout.loop-cut";
 
     /// <summary>Splits the selected faces into one face per corner.</summary>
+    [EditorMenu(BlockoutModule.GeometryMenu, Priority = 7)]
     public const string SubdivideCommand = "blockout.subdivide";
 
     /// <summary>Arms the knife: a free cut across faces, snapping to edges and midpoints.</summary>
@@ -331,75 +349,99 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     ///     a knife has no subject until a path has been drawn, so <c>K</c> takes the pointer and the
     ///     stroke is what runs. <c>Enter</c> commits it, <c>Escape</c> throws it away.
     /// </remarks>
+    [EditorMenu(BlockoutModule.GeometryMenu, Priority = 8)]
     public const string KnifeCommand = "blockout.knife";
 
     /// <summary>Joins two selected faces with a tube.</summary>
+    [EditorMenu(BlockoutModule.GeometryMenu, Priority = 9, Separator = true)]
     public const string BridgeCommand = "blockout.bridge";
 
     /// <summary>Puts a face across a hole.</summary>
+    [EditorMenu(BlockoutModule.GeometryMenu, Priority = 10)]
     public const string FillCommand = "blockout.fill";
 
     /// <summary>Turns the selected faces inside out.</summary>
+    [EditorMenu(BlockoutModule.GeometryMenu, Priority = 14, Separator = true)]
     public const string FlipCommand = "blockout.flip";
 
     /// <summary>Merges the selected positions into one.</summary>
+    [EditorMenu(BlockoutModule.GeometryMenu, Priority = 11)]
     public const string WeldCommand = "blockout.weld";
 
     /// <summary>Removes the selected edges and keeps the surface.</summary>
+    [EditorMenu(BlockoutModule.GeometryMenu, Priority = 12)]
     public const string DissolveCommand = "blockout.dissolve";
 
     /// <summary>Removes the selected faces, leaving a hole.</summary>
+    [EditorMenu(BlockoutModule.GeometryMenu, Priority = 13)]
     public const string DeleteCommand = "blockout.delete";
 
     /// <summary>Takes the selected faces out into an entity of their own.</summary>
+    [EditorMenu(BlockoutModule.GeometryMenu, Priority = 15)]
     public const string DetachCommand = "blockout.detach";
 
     /// <summary>Arms the shape tool, so a drag on the work plane makes geometry.</summary>
+    [EditorMenu(BlockoutModule.CreateMenu, Priority = 1)]
     public const string ShapeToolCommand = "blockout.shape-tool";
 
     /// <summary>Makes one of the current shape at its default size, at the work plane's origin.</summary>
+    [EditorMenu(BlockoutModule.CreateMenu, Priority = 2)]
     public const string CreateShapeCommand = "blockout.create-shape";
 
     /// <summary>Puts a box on the lattice at the work plane's origin.</summary>
+    [EditorMenu(BlockoutModule.CreateMenu, Priority = 3, Separator = true)]
     public const string CubeGridCommand = "blockout.cube-grid";
 
     /// <summary>Pushes the selected box's far side out by a cell, and its near side with <c>Shift</c>.</summary>
+    [EditorMenu(BlockoutModule.CreateMenu, Priority = 4)]
     public const string PushOutCommand = "blockout.push-out";
 
     /// <summary>And pulls it in.</summary>
+    [EditorMenu(BlockoutModule.CreateMenu, Priority = 5)]
     public const string PushInCommand = "blockout.push-in";
 
     /// <summary>Copies what is selected.</summary>
+    [EditorMenu(BlockoutModule.CreateMenu, Priority = 6, Separator = true)]
     public const string DuplicateCommand = "blockout.duplicate";
 
     /// <summary>Reflects a copy of it across the work plane.</summary>
+    [EditorMenu(BlockoutModule.CreateMenu, Priority = 7)]
     public const string MirrorCommand = "blockout.mirror";
 
     /// <summary>Repeats it along a line.</summary>
+    [EditorMenu(BlockoutModule.CreateMenu, Priority = 8)]
     public const string ArrayCommand = "blockout.array";
 
     /// <summary>Repeats it round a circle.</summary>
+    [EditorMenu(BlockoutModule.CreateMenu, Priority = 9)]
     public const string RadialCommand = "blockout.radial";
 
     /// <summary>Projects the selected faces' texture coordinates in world space.</summary>
+    [EditorMenu(BlockoutModule.SurfacesMenu, Priority = 1)]
     public const string ProjectWorldCommand = "blockout.project-world";
 
     /// <summary>Ditto in the object's own space.</summary>
+    [EditorMenu(BlockoutModule.SurfacesMenu, Priority = 2)]
     public const string ProjectBoxCommand = "blockout.project-box";
 
     /// <summary>Stretches each selected face's coordinates to cover one repeat.</summary>
+    [EditorMenu(BlockoutModule.SurfacesMenu, Priority = 3)]
     public const string FitUvCommand = "blockout.fit-uv";
 
     /// <summary>Puts the selected faces in a smoothing group.</summary>
+    [EditorMenu(BlockoutModule.SurfacesMenu, Priority = 4, Separator = true)]
     public const string SmoothCommand = "blockout.smooth";
 
     /// <summary>Takes them out of one.</summary>
+    [EditorMenu(BlockoutModule.SurfacesMenu, Priority = 5)]
     public const string HardenCommand = "blockout.harden";
 
     /// <summary>Groups the whole mesh's faces by how sharply they meet.</summary>
+    [EditorMenu(BlockoutModule.SurfacesMenu, Priority = 6)]
     public const string AutoSmoothCommand = "blockout.auto-smooth";
 
     /// <summary>Puts the selected faces in a face group of their own.</summary>
+    [EditorMenu(BlockoutModule.SurfacesMenu, Priority = 7, Separator = true)]
     public const string NewGroupCommand = "blockout.new-group";
 
     /// <summary>What the command that creates a shape of a kind is called.</summary>
@@ -408,22 +450,38 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     public static string KindCommand(ShapeKind kind) =>
         "blockout.shape." + kind.ToString().ToLowerInvariant();
 
+    /// <summary>The twelve shape-kind commands, in <see cref="Kinds" />' order, as one run of menu lines.</summary>
+    /// <returns>Their ids.</returns>
+    /// <remarks>
+    ///     A family computed from <see cref="Kinds" /> rather than twelve constants, so the menu and the
+    ///     commands <c>Register</c> makes cannot list different shapes — and declared, so the Shape
+    ///     submenu is filled the way every other Blockout line is.
+    /// </remarks>
+    [EditorMenu(BlockoutModule.ShapeMenu)]
+    public static IEnumerable<string> KindCommands() => Kinds.Select(KindCommand);
+
     /// <summary>Everything in either of the selected solids, as a derived result.</summary>
+    [EditorMenu(BlockoutModule.BooleanMenu, Priority = 1)]
     public const string UnionCommand = "blockout.union";
 
     /// <summary>The first selected solid, less the rest.</summary>
+    [EditorMenu(BlockoutModule.BooleanMenu, Priority = 2)]
     public const string SubtractCommand = "blockout.subtract";
 
     /// <summary>Only what all the selected solids share.</summary>
+    [EditorMenu(BlockoutModule.BooleanMenu, Priority = 3)]
     public const string IntersectCommand = "blockout.intersect";
 
     /// <summary>Collapses a derived result into a plain mesh and deletes its operands.</summary>
+    [EditorMenu(BlockoutModule.BooleanMenu, Priority = 6, Separator = true)]
     public const string ApplyBooleanCommand = "blockout.apply-boolean";
 
     /// <summary>Cuts the selection with the work plane and keeps the near half.</summary>
+    [EditorMenu(BlockoutModule.BooleanMenu, Priority = 4, Separator = true)]
     public const string PlaneCutCommand = "blockout.plane-cut";
 
     /// <summary>Cuts the first selected solid by the second's surface.</summary>
+    [EditorMenu(BlockoutModule.BooleanMenu, Priority = 5)]
     public const string TrimCommand = "blockout.trim";
 
     /// <summary>Replaces the selected solids with all-quad meshes of the same shape.</summary>
@@ -443,15 +501,19 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     public const string RemeshDebugCommand = "blockout.retopology-debug";
 
     /// <summary>Writes the selection into a mesh asset and points the entity at it.</summary>
+    [EditorMenu(BlockoutModule.HandoffMenu, Priority = 1)]
     public const string BakeCommand = "blockout.bake";
 
     /// <summary>Makes an entity's mesh asset editable again.</summary>
+    [EditorMenu(BlockoutModule.HandoffMenu, Priority = 2)]
     public const string EditableCommand = "blockout.make-editable";
 
     /// <summary>Writes the selection out as a Wavefront OBJ.</summary>
+    [EditorMenu(BlockoutModule.HandoffMenu, Priority = 3, Separator = true)]
     public const string ExportObjCommand = "blockout.export-obj";
 
     /// <summary>Ditto as a glTF.</summary>
+    [EditorMenu(BlockoutModule.HandoffMenu, Priority = 4)]
     public const string ExportGltfCommand = "blockout.export-gltf";
 
     /// <summary>Every boolean and cut, in the order the menu lists them.</summary>

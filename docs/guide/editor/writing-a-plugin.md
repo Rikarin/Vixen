@@ -365,9 +365,11 @@ no assembly loading and no `AssemblyLoadContext`, because a compiled-in module i
 default one, but the same `PluginContext`, the same registration scope, the same rollback when
 `Activate` throws and the same unload.
 
-`BlockoutModule` is the worked example: it registers an editor mode and five submenus of the Scene
-menu, and asks for the four things it needs of the host — the shared mesh-editing state, the work
-plane, a mesh baker and a mesh source — through `Services.Require`.
+`BlockoutModule` is the worked example: it registers an editor mode and two panels, declares six
+submenus of the Scene menu and every line in them with `[EditorSubmenu]` and `[EditorMenu]` — which
+the in-tree generator turns into the `Declared.Register` its `Activate` calls last — and asks for the
+four things it needs of the host — the shared mesh-editing state, the work plane, a mesh baker and a
+mesh source — through `Services.Require`.
 
 ⚠ **It exists because an API whose own authors bypass it is a guess.** A feature wired into the
 application through internals proves nothing about whether a third party could have written it; one
