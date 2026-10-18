@@ -253,6 +253,7 @@ public sealed class LayoutStyleBuilder {
         ApplyDimensions(style, in context, ref result);
         ApplyEdges(style, in context, ref result);
         ApplyGaps(style, in context, ref result);
+        ApplyTable(style, in context, ref result);
         ApplyScrollbar(style, in context, ref result);
 
         // ⚠ Here rather than in `ApplyKeywords` beside the other keyword tables, because
@@ -730,6 +731,54 @@ public sealed class LayoutStyleBuilder {
     void ApplyGaps(ComputedStyle style, in LengthContext context, ref LayoutStyle result) {
         SetLength(style, names.RowGap, in context, ref result.Gap[(int) Gutter.Row]);
         SetLength(style, names.ColumnGap, in context, ref result.Gap[(int) Gutter.Column]);
+    }
+
+    /// <summary>Writes <c>table-layout</c> and <c>border-spacing</c>, which only a table reads.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>border-spacing</c> is one length for both axes or two — horizontal, then vertical,
+    ///         CSS 2.1 §17.6.1 — and neither may be negative or a percentage. A value outside that
+    ///         grammar writes nothing, for <see cref="Set" />'s reason.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not inherited, where CSS inherits it.</b> It takes relative units, so inheriting
+    ///         the specified text — which is what this cascade inherits, see
+    ///         <c>InheritedProperties</c> — would resolve an <c>em</c> against each descendant
+    ///         table's font rather than the declaring element's. It is read on the table that
+    ///         declares it, which is where every utility class writes it.
+    ///     </para>
+    /// </remarks>
+    void ApplyTable(ComputedStyle style, in LengthContext context, ref LayoutStyle result) {
+        if (TryKeyword(style, names.TableLayout, keywords.TableLayouts, out TableLayout tableLayout)) {
+            result.TableLayout = tableLayout;
+        }
+
+        if (!TryValue(style, names.BorderSpacing, out var spacing)) {
+            return;
+        }
+
+        StyleValue horizontal;
+        StyleValue vertical;
+
+        if (spacing.Kind != StyleValueKind.List) {
+            horizontal = spacing;
+            vertical = spacing;
+        } else if (spacing.Items.Length == 2) {
+            horizontal = spacing.Items[0];
+            vertical = spacing.Items[1];
+        } else {
+            return;
+        }
+
+        var x = context.ToLength(horizontal);
+        var y = context.ToLength(vertical);
+
+        if (x.Unit != LayoutUnit.Point || y.Unit != LayoutUnit.Point || x.Value < 0f || y.Value < 0f) {
+            return;
+        }
+
+        result.BorderSpacing[(int) Dimension.Width] = x;
+        result.BorderSpacing[(int) Dimension.Height] = y;
     }
 
     /// <summary>Reads <c>vertical-align</c>, which is seven keywords or a distance.</summary>
@@ -1315,6 +1364,8 @@ public sealed class LayoutStyleBuilder {
             ScrollbarWidth = table.Intern("scrollbar-width");
             RowGap = table.Intern("row-gap");
             ColumnGap = table.Intern("column-gap");
+            TableLayout = table.Intern("table-layout");
+            BorderSpacing = table.Intern("border-spacing");
 
             // ── Grid ────────────────────────────────────────────────────────────────────────────
             //
@@ -1382,6 +1433,10 @@ public sealed class LayoutStyleBuilder {
         public int ScrollbarWidth { get; }
         public int RowGap { get; }
         public int ColumnGap { get; }
+
+        public int TableLayout { get; }
+
+        public int BorderSpacing { get; }
         public int GridTemplateColumns { get; }
         public int GridTemplateRows { get; }
 
@@ -1568,7 +1623,22 @@ public sealed class LayoutStyleBuilder {
                 [table.Intern("inline")] = Display.Inline,
                 [table.Intern("inline-block")] = Display.InlineBlock,
                 [table.Intern("inline-flex")] = Display.InlineFlex,
-                [table.Intern("flow-root")] = Display.FlowRoot
+                [table.Intern("flow-root")] = Display.FlowRoot,
+
+                // ⚠ <b>Three of CSS's ten table keywords, and each is a real box type rather than an
+                // alias — doc 43 § B4.</b> `table`, `table-row` and `table-cell` reach
+                // `LayoutTree.Table.cs`. The other seven — `inline-table`, the three row groups, the two
+                // column keywords and `table-caption` — still drop, because each would need a box this
+                // store does not generate (an inline-level table wrapper, a group, a caption), and
+                // mapping any of them onto one of these three would be the alias this table refuses.
+                [table.Intern("table")] = Display.Table,
+                [table.Intern("table-row")] = Display.TableRow,
+                [table.Intern("table-cell")] = Display.TableCell
+            };
+
+            TableLayouts = new Dictionary<int, TableLayout> {
+                [Auto] = TableLayout.Auto,
+                [table.Intern("fixed")] = TableLayout.Fixed
             };
 
             // ⚠ <b>The two LOGICAL keywords are here now, and what used to keep them out was a
@@ -1748,6 +1818,8 @@ public sealed class LayoutStyleBuilder {
         public Dictionary<int, Wrap> Wraps { get; }
         public Dictionary<int, Overflow> Overflows { get; }
         public Dictionary<int, Display> Displays { get; }
+
+        public Dictionary<int, TableLayout> TableLayouts { get; }
         public Dictionary<int, FloatSide> Floats { get; }
         public Dictionary<int, Clear> Clears { get; }
         public Dictionary<int, BoxSizing> BoxSizings { get; }
