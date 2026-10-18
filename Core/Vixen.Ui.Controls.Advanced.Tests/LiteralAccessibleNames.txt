@@ -144,7 +144,6 @@ Editor/Vixen.Editor.Debugger/RemoteInspectorView.vxml	Label	Set
 Editor/Vixen.Editor.Profiler/MemoryView.vxml	Label	Refresh
 Editor/Vixen.Editor.Profiler/StatisticsView.vxml	Label	Refresh
 Editor/Vixen.Editor.Terrain/PaletteBlock.vxml	Name	No types
-Editor/Vixen.Editor.Terrain/TerrainBrushInspector.vxml	Label	Pattern
 Editor/Vixen.Editor.Terrain/TerrainBrushInspector.vxml	Label	Shape
 Editor/Vixen.Editor.Terrain/TerrainBrushInspector.vxml	Label	Stroke
 Editor/Vixen.Editor.Texturing/LayerRowView.vxml	Label	Delete
