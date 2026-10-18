@@ -750,6 +750,102 @@ public static class EditorStrings {
     public static StringId CommandSceneWorldSettings { get; } =
         new("editor.command.scene.world-settings", "World Settings…");
 
+    /// <summary>The <c>Translate</c> gizmo mode.</summary>
+    public static StringId CommandSceneTranslate { get; } = new("editor.command.scene.translate", "Translate");
+
+    /// <summary>The <c>Rotate</c> gizmo mode.</summary>
+    public static StringId CommandSceneRotate { get; } = new("editor.command.scene.rotate", "Rotate");
+
+    /// <summary>The <c>Scale</c> gizmo mode.</summary>
+    public static StringId CommandSceneScale { get; } = new("editor.command.scene.scale", "Scale");
+
+    /// <summary>The gizmo's space toggle, as the palette and the keymap name it.</summary>
+    public static StringId CommandSceneToggleSpace { get; } = new("editor.command.scene.toggle-space", "Local Space");
+
+    /// <summary>What the space toggle says while the gizmo is in world space.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Its own id, not the command's with a second text.</b> A catalog looks a string up by
+    ///     id, so the caption that used to reuse <see cref="CommandSceneToggleSpace" />'s id read that
+    ///     id's translation in both states — the defect <c>EditorCommand.Caption</c> exists to fix,
+    ///     under every language but English. What must not move is the <i>command</i> id.
+    /// </remarks>
+    public static StringId CommandSceneSpaceWorld { get; } =
+        new("editor.command.scene.toggle-space.world", "World Space");
+
+    /// <summary>What the space toggle says while the gizmo is in local space.</summary>
+    public static StringId CommandSceneSpaceLocal { get; } =
+        new("editor.command.scene.toggle-space.local", "Local Space");
+
+    /// <summary>The gizmo's pivot toggle, as the palette and the keymap name it.</summary>
+    public static StringId CommandSceneTogglePivot { get; } =
+        new("editor.command.scene.toggle-pivot", "Pivot at Centre");
+
+    /// <summary>What the pivot toggle says while the gizmo sits at the selection's centre.</summary>
+    public static StringId CommandScenePivotCentre { get; } =
+        new("editor.command.scene.toggle-pivot.centre", "Pivot at Centre");
+
+    /// <summary>What the pivot toggle says while the gizmo sits at each object's own pivot.</summary>
+    public static StringId CommandScenePivotObject { get; } =
+        new("editor.command.scene.toggle-pivot.object", "Pivot at Object");
+
+    /// <summary>The <c>Snapping</c> toggle.</summary>
+    public static StringId CommandSceneToggleSnap { get; } = new("editor.command.scene.toggle-snap", "Snapping");
+
+    /// <summary>The <c>Grid</c> toggle.</summary>
+    public static StringId CommandSceneToggleGrid { get; } = new("editor.command.scene.toggle-grid", "Grid");
+
+    /// <summary>The <c>Orthographic</c> toggle.</summary>
+    public static StringId CommandSceneToggleProjection { get; } =
+        new("editor.command.scene.toggle-projection", "Orthographic");
+
+    /// <summary>The <c>Orbit Around Selection</c> preference.</summary>
+    public static StringId CommandSceneOrbitAroundSelection { get; } =
+        new("editor.command.scene.orbit-around-selection", "Orbit Around Selection");
+
+    /// <summary>The <c>Zoom to Mouse Position</c> preference.</summary>
+    public static StringId CommandSceneZoomToCursor { get; } =
+        new("editor.command.scene.zoom-to-cursor", "Zoom to Mouse Position");
+
+    /// <summary>The <c>Invert Orbit Y</c> preference.</summary>
+    public static StringId CommandSceneInvertOrbitY { get; } =
+        new("editor.command.scene.invert-orbit-y", "Invert Orbit Y");
+
+    /// <summary>The <c>Focus Selection</c> command.</summary>
+    public static StringId CommandSceneFocus { get; } = new("editor.command.scene.focus", "Focus Selection");
+
+    /// <summary>The <c>Frame All</c> command.</summary>
+    public static StringId CommandSceneFrameAll { get; } = new("editor.command.scene.frame-all", "Frame All");
+
+    /// <summary>The <c>Front View</c> command.</summary>
+    public static StringId CommandSceneViewFront { get; } = new("editor.command.scene.view-front", "Front View");
+
+    /// <summary>The <c>Back View</c> command.</summary>
+    public static StringId CommandSceneViewBack { get; } = new("editor.command.scene.view-back", "Back View");
+
+    /// <summary>The <c>Right View</c> command.</summary>
+    public static StringId CommandSceneViewRight { get; } = new("editor.command.scene.view-right", "Right View");
+
+    /// <summary>The <c>Left View</c> command.</summary>
+    public static StringId CommandSceneViewLeft { get; } = new("editor.command.scene.view-left", "Left View");
+
+    /// <summary>The <c>Top View</c> command.</summary>
+    public static StringId CommandSceneViewTop { get; } = new("editor.command.scene.view-top", "Top View");
+
+    /// <summary>The <c>Bottom View</c> command.</summary>
+    public static StringId CommandSceneViewBottom { get; } = new("editor.command.scene.view-bottom", "Bottom View");
+
+    /// <summary>The <c>Orbit Left</c> command.</summary>
+    public static StringId CommandSceneOrbitLeft { get; } = new("editor.command.scene.orbit-left", "Orbit Left");
+
+    /// <summary>The <c>Orbit Right</c> command.</summary>
+    public static StringId CommandSceneOrbitRight { get; } = new("editor.command.scene.orbit-right", "Orbit Right");
+
+    /// <summary>The <c>Orbit Up</c> command.</summary>
+    public static StringId CommandSceneOrbitUp { get; } = new("editor.command.scene.orbit-up", "Orbit Up");
+
+    /// <summary>The <c>Orbit Down</c> command.</summary>
+    public static StringId CommandSceneOrbitDown { get; } = new("editor.command.scene.orbit-down", "Orbit Down");
+
     /// <summary>The <c>Generate Diagnostics Report…</c> command.</summary>
     public static StringId CommandToolsDiagnosticsReport { get; } =
         new("editor.command.tools.diagnostics-report", "Generate Diagnostics Report…");
@@ -1070,6 +1166,61 @@ public static class EditorStrings {
         ]
     );
 
+    /// <summary>What each built-in shape's create command is called, by the shape's lowercased name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Spelled out rather than built from <c>PrimitiveShapes.All</c>, because this assembly
+    ///     cannot see <c>Vixen.Rendering</c> and must not start to</b> — the same trade the two refused
+    ///     view modes in <see cref="PlannedReasons" /> make. The coupling is checked rather than
+    ///     hoped for: a shape that joins the list without a line here throws while the editor
+    ///     registers its commands, which every editor test does. #1178.
+    /// </remarks>
+    public static StringFamily CreateShapes { get; } = new(
+        "editor.command.create-",
+        [
+            new("cube", "Cube"),
+            new("sphere", "Sphere"),
+            new("capsule", "Capsule"),
+            new("cylinder", "Cylinder"),
+            new("cone", "Cone"),
+            new("plane", "Plane"),
+            new("quad", "Quad"),
+            new("torus", "Torus")
+        ]
+    );
+
+    /// <summary>What each kind of light's create command is called, by the kind's lowercased name.</summary>
+    /// <remarks>
+    ///     <see cref="CreateShapes" />' trade, over <c>Lights.All</c>. The titles are not the names —
+    ///     <c>Lights.TitleOf</c> says why "Point" alone is not a menu line and "Rect" is "Area Light" —
+    ///     and they are what a translator needs, so they are what is declared.
+    /// </remarks>
+    public static StringFamily CreateLights { get; } = new(
+        "editor.command.create-light-",
+        [
+            new("directional", "Directional Light"),
+            new("point", "Point Light"),
+            new("spot", "Spot Light"),
+            new("rect", "Area Light"),
+            new("tube", "Tube Light")
+        ]
+    );
+
+    /// <summary>The Build menu's configuration lines, by the command id's suffix.</summary>
+    /// <remarks>
+    ///     <see cref="CreateShapes" />' trade, over <c>PlayerBuild.Variants</c> in
+    ///     <c>Vixen.Editor.Assets</c>. The ids are the ones <c>BuildIds.Variant</c> composes, so the
+    ///     command and its title still share a stem.
+    /// </remarks>
+    public static StringFamily BuildConfigurations { get; } = new(
+        "editor.command.build.configuration-",
+        [
+            new("debug", "Debug"),
+            new("development", "Development"),
+            new("release", "Release"),
+            new("server", "Server")
+        ]
+    );
+
     /// <summary>Every string above, for a translator to start from.</summary>
     public static IReadOnlyList<StringId> All { get; } = [
         MenuFile,
@@ -1282,6 +1433,33 @@ public static class EditorStrings {
         CommandSceneSaveAllScenes,
         CommandSceneScenes,
         CommandSceneWorldSettings,
+        CommandSceneTranslate,
+        CommandSceneRotate,
+        CommandSceneScale,
+        CommandSceneToggleSpace,
+        CommandSceneSpaceWorld,
+        CommandSceneSpaceLocal,
+        CommandSceneTogglePivot,
+        CommandScenePivotCentre,
+        CommandScenePivotObject,
+        CommandSceneToggleSnap,
+        CommandSceneToggleGrid,
+        CommandSceneToggleProjection,
+        CommandSceneOrbitAroundSelection,
+        CommandSceneZoomToCursor,
+        CommandSceneInvertOrbitY,
+        CommandSceneFocus,
+        CommandSceneFrameAll,
+        CommandSceneViewFront,
+        CommandSceneViewBack,
+        CommandSceneViewRight,
+        CommandSceneViewLeft,
+        CommandSceneViewTop,
+        CommandSceneViewBottom,
+        CommandSceneOrbitLeft,
+        CommandSceneOrbitRight,
+        CommandSceneOrbitUp,
+        CommandSceneOrbitDown,
         CommandToolsDiagnosticsReport,
         CommandToolsExportStrings,
         CommandToolsPlugins,
@@ -1352,7 +1530,10 @@ public static class EditorStrings {
         // ⚠ Spread, which is what puts every member of a family in a translator's template. A family
         // left out of this list hides seventeen sentences rather than one, which is why VXS0310
         // counts a StringFamily property as a declaration.
-        .. PlannedReasons.All
+        .. PlannedReasons.All,
+        .. CreateShapes.All,
+        .. CreateLights.All,
+        .. BuildConfigurations.All
     ];
 
     /// <summary>A catalog holding every string the editor declares, for a translator to start from.</summary>

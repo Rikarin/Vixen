@@ -3984,9 +3984,9 @@ sealed partial class EditorApplication : IDisposable {
         // buttons. A menu of Translate, Rotate and Scale with nothing saying which is current is one
         // where the only way to find out what a drag will do is to drag — and the tick costs a
         // predicate, which both the menu and the toolbar already ask for.
-        Mode("scene.translate", "Translate", GizmoMode.Translate, InputKey.W);
-        Mode("scene.rotate", "Rotate", GizmoMode.Rotate, InputKey.E);
-        Mode("scene.scale", "Scale", GizmoMode.Scale, InputKey.R);
+        Mode("scene.translate", EditorStrings.CommandSceneTranslate, GizmoMode.Translate, InputKey.W);
+        Mode("scene.rotate", EditorStrings.CommandSceneRotate, GizmoMode.Rotate, InputKey.E);
+        Mode("scene.scale", EditorStrings.CommandSceneScale, GizmoMode.Scale, InputKey.R);
 
         // ⚠ These two say which state they are <i>in</i> rather than what pressing them does, and
         // that is the convention every 3D editor uses for exactly this pair. A button that read
@@ -3995,23 +3995,27 @@ sealed partial class EditorApplication : IDisposable {
         // to know whether the label names the current state or the one the click would move to.
         Add(
             "scene.toggle-space",
-            "Local Space",
+            EditorStrings.CommandSceneToggleSpace,
             pane => pane.Gizmo.Space = pane.Gizmo.Space == GizmoSpace.World ? GizmoSpace.Local : GizmoSpace.World,
             on: pane => pane.Gizmo.Space != GizmoSpace.World,
-            caption: pane => pane.Gizmo.Space == GizmoSpace.World ? "World Space" : "Local Space"
+            caption: pane => pane.Gizmo.Space == GizmoSpace.World
+                ? EditorStrings.CommandSceneSpaceWorld
+                : EditorStrings.CommandSceneSpaceLocal
         );
 
         Add(
             "scene.toggle-pivot",
-            "Pivot at Centre",
+            EditorStrings.CommandSceneTogglePivot,
             pane => pane.Gizmo.Pivot = pane.Gizmo.Pivot == PivotMode.Pivot ? PivotMode.Center : PivotMode.Pivot,
             on: pane => pane.Gizmo.Pivot == PivotMode.Center,
-            caption: pane => pane.Gizmo.Pivot == PivotMode.Center ? "Pivot at Centre" : "Pivot at Object"
+            caption: pane => pane.Gizmo.Pivot == PivotMode.Center
+                ? EditorStrings.CommandScenePivotCentre
+                : EditorStrings.CommandScenePivotObject
         );
 
         Add(
             "scene.toggle-snap",
-            "Snapping",
+            EditorStrings.CommandSceneToggleSnap,
             pane => {
                 var on = !pane.Gizmo.Snap.SnapPosition;
 
@@ -4027,7 +4031,7 @@ sealed partial class EditorApplication : IDisposable {
         // doc 20's rule about a preferences window and a menu tick disagreeing.
         Add(
             "scene.toggle-grid",
-            "Grid",
+            EditorStrings.CommandSceneToggleGrid,
             pane => pane.Show ^= SceneShow.Grid,
             on: pane => (pane.Show & SceneShow.Grid) != 0
         );
@@ -4038,7 +4042,7 @@ sealed partial class EditorApplication : IDisposable {
 
         Add(
             "scene.toggle-projection",
-            "Orthographic",
+            EditorStrings.CommandSceneToggleProjection,
             pane => pane.Camera.IsOrthographic = !pane.Camera.IsOrthographic,
             on: pane => pane.Camera.IsOrthographic,
             key: InputKey.Keypad5
@@ -4051,7 +4055,7 @@ sealed partial class EditorApplication : IDisposable {
         // preferences window to put it in — and it is what makes them rebindable and searchable.
         Add(
             "scene.orbit-around-selection",
-            "Orbit Around Selection",
+            EditorStrings.CommandSceneOrbitAroundSelection,
             pane => pane.OrbitAround =
                 pane.OrbitAround == OrbitPivot.Selection ? OrbitPivot.View : OrbitPivot.Selection,
             on: pane => pane.OrbitAround == OrbitPivot.Selection
@@ -4059,20 +4063,20 @@ sealed partial class EditorApplication : IDisposable {
 
         Add(
             "scene.zoom-to-cursor",
-            "Zoom to Mouse Position",
+            EditorStrings.CommandSceneZoomToCursor,
             pane => pane.ZoomToCursor = !pane.ZoomToCursor,
             on: pane => pane.ZoomToCursor
         );
 
         Add(
             "scene.invert-orbit-y",
-            "Invert Orbit Y",
+            EditorStrings.CommandSceneInvertOrbitY,
             pane => pane.Camera.InvertOrbitY = !pane.Camera.InvertOrbitY,
             on: pane => pane.Camera.InvertOrbitY
         );
 
-        Add("scene.focus", "Focus Selection", pane => pane.FocusSelection(SelectionBounds()), key: InputKey.F);
-        Add("scene.frame-all", "Frame All", pane => pane.Camera.Focus(SceneBounds()), key: InputKey.A);
+        Add("scene.focus", EditorStrings.CommandSceneFocus, pane => pane.FocusSelection(SelectionBounds()), key: InputKey.F);
+        Add("scene.frame-all", EditorStrings.CommandSceneFrameAll, pane => pane.Camera.Focus(SceneBounds()), key: InputKey.A);
 
         // ⚠ The one reserved chord in the editor, and it earns it. Focus Selection is pressed several
         // times a minute in every mode, and a mode that bound the same key for its own context —
@@ -4084,45 +4088,48 @@ sealed partial class EditorApplication : IDisposable {
         // The six axis views on the six numpad keys every 3D editor puts them on, opposites included.
         // Half of them existed and half did not, which meant the front view had a key and the back
         // view could only be reached by orbiting a hundred and eighty degrees by hand.
-        View("scene.view-front", "Front View", ViewDirection.Front, InputKey.Keypad1);
-        View("scene.view-back", "Back View", ViewDirection.Back, InputKey.Keypad9);
-        View("scene.view-right", "Right View", ViewDirection.Right, InputKey.Keypad3);
-        View("scene.view-left", "Left View", ViewDirection.Left);
-        View("scene.view-top", "Top View", ViewDirection.Top, InputKey.Keypad7);
-        View("scene.view-bottom", "Bottom View", ViewDirection.Bottom);
+        View("scene.view-front", EditorStrings.CommandSceneViewFront, ViewDirection.Front, InputKey.Keypad1);
+        View("scene.view-back", EditorStrings.CommandSceneViewBack, ViewDirection.Back, InputKey.Keypad9);
+        View("scene.view-right", EditorStrings.CommandSceneViewRight, ViewDirection.Right, InputKey.Keypad3);
+        View("scene.view-left", EditorStrings.CommandSceneViewLeft, ViewDirection.Left);
+        View("scene.view-top", EditorStrings.CommandSceneViewTop, ViewDirection.Top, InputKey.Keypad7);
+        View("scene.view-bottom", EditorStrings.CommandSceneViewBottom, ViewDirection.Bottom);
 
         // ⚠ In degrees, through `Turn`. A keyboard orbit expressed as a pointer drag would move when
         // the orbit speed is tuned and reverse when somebody sets "invert orbit Y" — and a key that
         // says "turn left" has no business being affected by a preference about the mouse.
-        Step("scene.orbit-left", "Orbit Left", 15f, 0f, InputKey.Keypad4);
-        Step("scene.orbit-right", "Orbit Right", -15f, 0f, InputKey.Keypad6);
-        Step("scene.orbit-up", "Orbit Up", 0f, 15f, InputKey.Keypad8);
-        Step("scene.orbit-down", "Orbit Down", 0f, -15f, InputKey.Keypad2);
+        Step("scene.orbit-left", EditorStrings.CommandSceneOrbitLeft, 15f, 0f, InputKey.Keypad4);
+        Step("scene.orbit-right", EditorStrings.CommandSceneOrbitRight, -15f, 0f, InputKey.Keypad6);
+        Step("scene.orbit-up", EditorStrings.CommandSceneOrbitUp, 0f, 15f, InputKey.Keypad8);
+        Step("scene.orbit-down", EditorStrings.CommandSceneOrbitDown, 0f, -15f, InputKey.Keypad2);
 
-        void Mode(string id, string label, GizmoMode mode, InputKey key) =>
-            Add(id, label, pane => pane.Gizmo.Mode = mode, pane => pane.Gizmo.Mode == mode, key);
+        void Mode(string id, StringId title, GizmoMode mode, InputKey key) =>
+            Add(id, title, pane => pane.Gizmo.Mode = mode, pane => pane.Gizmo.Mode == mode, key);
 
-        void View(string id, string label, ViewDirection direction, InputKey key = InputKey.Unknown) =>
-            Add(id, label, pane => pane.Camera.LookFrom(direction), key: key);
+        void View(string id, StringId title, ViewDirection direction, InputKey key = InputKey.Unknown) =>
+            Add(id, title, pane => pane.Camera.LookFrom(direction), key: key);
 
-        void Step(string id, string label, float yaw, float pitch, InputKey key) =>
+        void Step(string id, StringId title, float yaw, float pitch, InputKey key) =>
             Add(
                 id,
-                label,
+                title,
                 pane => pane.Camera.Turn(MathUtil.DegreesToRadians(yaw), MathUtil.DegreesToRadians(pitch)),
                 key: key
             );
 
+        // ⚠ A declared title rather than a label to build one from (#1178). The helper used to take
+        // twenty-three literals and build an id from each by concatenation at the call — one
+        // construction to the census and twenty-three words no translator's template contained.
         void Add(
             string id,
-            string label,
+            StringId title,
             Action<SceneViewport> action,
             Func<SceneViewport, bool>? on = null,
             InputKey key = InputKey.Unknown,
-            Func<SceneViewport, string>? caption = null
+            Func<SceneViewport, StringId>? caption = null
         ) {
             Shell.Commands.Add(
-                new EditorCommand(id, new StringId("editor.command." + id, label), () => {
+                new EditorCommand(id, title, () => {
                     if (Viewport is { } pane) {
                         action(pane);
                     }
@@ -4137,15 +4144,17 @@ sealed partial class EditorApplication : IDisposable {
                     Checked = on is null ? null : () => Viewport is { } pane && on(pane),
 
                     // ⚠ And null when the name does not move, which is all but two of these. See
-                    // `EditorCommand.Caption`: a delegate asked per button per frame is not free,
-                    // and the id has to stay the *same* string whatever the label says — it is what
-                    // the keymap, the palette and the menu model all name.
+                    // `EditorCommand.Caption`: a delegate asked per button per frame is not free.
+                    // ⚠ Each state is its own declared string, and that is a correctness point, not
+                    // tidiness. This used to rebuild the *title's* string id with a second text — on
+                    // the belief that "the id has to stay the same string" — and a catalog looks a
+                    // string up by id, so once any language translated that id both states read the
+                    // translation: "Local Space" in both spaces again, everywhere but English. What
+                    // the keymap, the palette and the menu model name is the *command* id, `id`,
+                    // which no caption touches.
                     Caption = caption is null
                         ? null
-                        : () => new StringId(
-                            "editor.command." + id,
-                            Viewport is { } pane ? caption(pane) : label
-                        )
+                        : () => Viewport is { } pane ? caption(pane) : title
                 }
             );
 
@@ -4318,7 +4327,7 @@ sealed partial class EditorApplication : IDisposable {
             Shell.Commands.Add(
                 new EditorCommand(
                     ShapeCommandId(shape),
-                    new StringId("editor.command.create-" + name.ToLowerInvariant(), name),
+                    EditorStrings.CreateShapes[name.ToLowerInvariant()],
                     () => CreateShape(shape)
                 ) {
                     Category = EditorStrings.CategoryCreate
@@ -4342,12 +4351,11 @@ sealed partial class EditorApplication : IDisposable {
     void ObjectCommands() {
         foreach (var kind in Lights.All) {
             var light = kind;
-            var title = Lights.TitleOf(light);
 
             Shell.Commands.Add(
                 new EditorCommand(
                     LightCommandId(light),
-                    new StringId("editor.command.create-light-" + Lights.NameOf(light).ToLowerInvariant(), title),
+                    EditorStrings.CreateLights[Lights.NameOf(light).ToLowerInvariant()],
                     () => CreateLight(light)
                 ) {
                     Category = EditorStrings.CategoryCreate
