@@ -109,22 +109,28 @@ static partial class GuideReader {
         string relative,
         SourceLinks links
     ) {
-        var (front, body, errors) = FrontMatter.Parse(File.ReadAllText(path));
+        var text = File.ReadAllText(path).ReplaceLineEndings("\n");
+        var (front, body, errors) = FrontMatter.Parse(text);
 
         if (front is null) {
             return (null, errors);
         }
+
+        // ⚠ The body is a suffix of the file with the front matter and the blank lines after it cut
+        // off, so its first line is this many lines into the file. Every line a problem or an
+        // example reports is a line of the file — #1453 — and not of the string it was found in.
+        var skipped = text.AsSpan(0, text.Length - body.Length).Count('\n');
 
         var problems = new List<string>(errors);
         var headings = Headings(body);
 
         problems.AddRange(ContractErrors(headings, body));
 
-        var (resolved, snippetErrors) = ResolveSnippets(repositoryRoot, body);
+        var (resolved, bodyLineOf, snippetErrors) = ResolveSnippets(repositoryRoot, body);
 
         problems.AddRange(snippetErrors);
 
-        var examples = Fences(relative, resolved, problems);
+        var examples = Fences(relative, resolved, line => skipped + bodyLineOf[line] + 1, problems);
 
         return problems.Count > 0
             ? (null, problems)
@@ -201,10 +207,61 @@ static partial class GuideReader {
     ///     stops compiling stops being an example — which is the whole point of quoting one rather
     ///     than typing it.
     /// </remarks>
-    static (string Body, IReadOnlyList<string> Errors) ResolveSnippets(string repositoryRoot, string body) {
+    /// <returns>
+    ///     The resolved text, and for each of its lines the 0-based line of <paramref name="body" />
+    ///     it came from. Every line an expansion adds maps to the line of its include, which is the
+    ///     line a reader can find in the file.
+    /// </returns>
+    static (string Body, int[] BodyLineOf, IReadOnlyList<string> Errors) ResolveSnippets(
+        string repositoryRoot,
+        string body
+    ) {
         var errors = new List<string>();
+        var resolved = new StringBuilder(body.Length);
+        var bodyLineOf = new List<int> { 0 };
+        var bodyLine = 0;
+        var copied = 0;
 
-        var resolved = SnippetInclude().Replace(body, match => {
+        void Append(string text, bool expanded) {
+            var from = bodyLine;
+
+            foreach (var character in text) {
+                resolved.Append(character);
+
+                if (character != '\n') {
+                    continue;
+                }
+
+                if (!expanded) {
+                    bodyLine++;
+                }
+
+                bodyLineOf.Add(expanded ? from : bodyLine);
+            }
+        }
+
+        foreach (Match match in SnippetInclude().Matches(body)) {
+            Append(body[copied..match.Index], expanded: false);
+            copied = match.Index + match.Length;
+
+            var include = match.Value;
+            var replacement = Expand(match);
+
+            if (replacement is null) {
+                Append(include, expanded: false);
+            } else {
+                // An include that spans lines still moves the file on by its own newlines.
+                Append(replacement, expanded: true);
+                bodyLine += include.AsSpan().Count('\n');
+            }
+        }
+
+        Append(body[copied..], expanded: false);
+
+        return (resolved.ToString(), [.. bodyLineOf], errors);
+
+        // Null leaves the include as written, its error reported.
+        string? Expand(Match match) {
             var file = match.Groups[1].Value;
             var region = match.Groups[2].Value;
             var path = System.IO.Path.Combine(repositoryRoot, file.Replace('/', System.IO.Path.DirectorySeparatorChar));
@@ -212,16 +269,16 @@ static partial class GuideReader {
             if (!File.Exists(path)) {
                 errors.Add($"the snippet names `{file}`, which does not exist");
 
-                return match.Value;
+                return null;
             }
 
-            var text = File.ReadAllText(path);
+            var text = File.ReadAllText(path).ReplaceLineEndings("\n");
             var extracted = Region(text, region);
 
             if (extracted is null) {
                 errors.Add($"`{file}` has no `#region {region}`");
 
-                return match.Value;
+                return null;
             }
 
             var language = System.IO.Path.GetExtension(path) switch {
@@ -235,9 +292,7 @@ static partial class GuideReader {
             // `snippet` marks a fence the solution itself compiles, so it satisfies § 4.3 without
             // being compiled twice — the region would not exist if the file had stopped building.
             return $"```{language} snippet title={file}\n{extracted}\n```";
-        });
-
-        return (resolved, errors);
+        }
     }
 
     static string? Region(string text, string name) {
@@ -268,9 +323,13 @@ static partial class GuideReader {
     }
 
     /// <summary>Every fenced block, and what the build has to do about it.</summary>
-    static List<Example> Fences(string page, string body, List<string> problems) {
+    /// <param name="page">The page's repository-relative path.</param>
+    /// <param name="body">The resolved body, already <c>\n</c>-only.</param>
+    /// <param name="fileLine">The 1-based line of the file that a 0-based line of the body is.</param>
+    /// <param name="problems">Where a fence's problems go.</param>
+    static List<Example> Fences(string page, string body, Func<int, int> fileLine, List<string> problems) {
         var examples = new List<Example>();
-        var lines = body.ReplaceLineEndings("\n").Split('\n');
+        var lines = body.Split('\n');
         var index = 0;
 
         while (index < lines.Length) {
@@ -281,7 +340,7 @@ static partial class GuideReader {
             }
 
             var info = lines[index][3..].Trim();
-            var opened = index + 1;
+            var opened = fileLine(index);
             var code = new StringBuilder();
 
             index++;

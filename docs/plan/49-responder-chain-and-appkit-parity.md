@@ -397,6 +397,10 @@ Linux). **Nothing above `Vixen.Platform` calls it.** The editor's `PropertyClipb
 
 ⌘C in a Vixen text box does nothing, in every application, today.
 
+(✅ Closed by `2267100d8` the same day: `IUiClipboard` (`UiClipboard.cs:31`) in `Vixen.Ui` is what a
+control asks, and `PlatformClipboard.Install` fills it from `IClipboard` in both hosts — see the
+Part 5 row, re-judged for [#1456](https://github.com/Rikarin/Vixen/issues/1456).)
+
 ⚠ **And an application cannot fix this itself**, because `UiApplication` exposes `Window`
 (`Platform/Vixen.Ui.Desktop/UiApplication.cs:385`) and keeps `platform` private (`:113`). One missing
 property is what makes the clipboard, the native dialogs, the displays and the lifecycle all
@@ -413,15 +417,22 @@ roughly **1 475 are application-generic**:
 | `KeyMap.cs` | 520 | **Yes** — bind/rebind, conflict detection, defaults→preset→user, YAML round-trip |
 | `KeyChord.cs` | 312 | **Yes** — parse/format, `ForPlatform()` Ctrl↔⌘ |
 | `CommandRegistry.cs` | 264 | **Yes** — the table plus an `ICommandResponder` adapter |
-| `KeyMapPreset.cs` | 255 | Mechanism yes; **data editor-specific** (`:212-254` binds `scene.translate`) |
+| `KeyMapPreset.cs` | 255 | Mechanism yes; **data editor-specific** (`Editor/Vixen.Editor.Ui/Commands/KeyMapPreset.cs:212-254@10523d70f` binds `scene.translate`) |
 | `EditorCommand.cs` | 193 | **Yes** except `StringId` conventions |
-| `CommandDispatcher.cs` | 131 | Yes **except** `element is TextField` at `:124` |
+| `CommandDispatcher.cs` | 131 | Yes **except** `element is TextField` at `Editor/Vixen.Editor.Ui/Commands/CommandDispatcher.cs:124@10523d70f` |
 | `KeyBindingsView.cs` + `.vxml` | 55 | **Yes** |
 
-⚠ `CommandDispatcher.Available`'s `element is TextField` (`:124`) is the editor asking a
-controls-library type a question that should be a responder's own answer. It becomes
+(As measured at `10523d70f`. The next day `7199a1da1` brought the mechanism down to
+`Core/Vixen.Ui.Controls/` and left the editor's preset data in `KeyMapPresets.cs`, which is why
+the rows are pinned.)
+
+⚠ `CommandDispatcher.Available`'s `element is TextField` (`CommandDispatcher.cs:124@10523d70f`) is the
+editor asking a controls-library type a question that should be a responder's own answer. It becomes
 `IResponder.WantsRawKeys` — the AppKit question "is the first responder a field editor" — the moment
 Part 3 lands.
+(✅ Answered the same day without waiting for Part 3, and not by that name: `c7b1e4a2a` asks the
+responder whether it is an `ITextInputTarget` (`Core/Vixen.Ui.Controls/CommandDispatcher.cs:196`),
+which covers `CodeEditor` as well as `TextField`.)
 
 ---
 
@@ -437,18 +448,18 @@ SwiftUI's `App`/`Scene`/`WindowGroup`/`DocumentGroup` all start one level above 
 | One document across windows (shared style, focus, cross-window drag) | `UiSurface.cs:9-46`, `Reparent.cs:42` | **present, ahead of AppKit** |
 | Key window | `UiDocument.KeySurface` (`Surfaces.cs:66`); the focus is the surface's, `UiDocument.Focused` (`Focus.cs:107`); `PlatformEventKind.WindowFocusGained` (`Vixen.Platform.Ui/PlatformInput.cs:592`) has an arm | **present** since `92c554e54` ([#644](https://github.com/Rikarin/Vixen/issues/644)); **absent** as audited (§ 1.4) |
 | Native menu bar | `MenuBar` (`Menus.cs:682`), drawn; **no seam interface exists**, and that is now a decision rather than a gap nobody reached: `Core/Vixen.Ui.Controls/README.md:373` — `The menu bar is drawn, and stays drawn` keeps the drawn bar because the golden-image and headless suites can drive it and an `NSMenu` cannot, and names the three conditions that reopen it | **absent by decision** (2026-09-05, [#652](https://github.com/Rikarin/Vixen/issues/652)); **absent** as audited |
-| System menu items (About, Services, Hide, Quit, Window, Help) | — as audited. ⚠ The Controls README refutes the macOS half of this row: `Core/Vixen.Ui.Controls/README.md:380` — `SDL builds one.` The `sdl2-compat`-over-SDL3 library the engine loads installs the default application menu (About, Services, Hide, Quit, Window) itself. Not re-verified here, which needs a Mac; an application's own File, Edit, View and Help menus are still drawn in the window | **absent** as audited; **present on macOS through SDL** per the README |
+| System menu items (About, Services, Hide, Quit, Window, Help) | — as audited. ⚠ The Controls README refutes the macOS half of this row: `Core/Vixen.Ui.Controls/README.md:380` — `SDL builds one.` The `sdl2-compat`-over-SDL3 library the engine loads installs the default application menu (About, Services, Hide, Quit, Window) itself. An application's own File, Edit, View and Help menus are still drawn in the window. ⚠ **Unverified on this machine** (re-judged on Windows, 2026-10-18, [#1456](https://github.com/Rikarin/Vixen/issues/1456)). The code path the README relies on: `DesktopPlatform` loads whatever `libSDL2` the Mac has — `Prefixes` (`SdlLibrary.cs:132`) looks in Homebrew's directories, which is where `sdl2-compat` over SDL3 comes from — and initialises video (`DesktopPlatform.cs:174`) with no menu hint set; nothing in `Platform/` sends `setMainMenu:` or builds an `NSMenu`, so any application menu a Vixen app has is SDL's Cocoa backend's own. The `strings` evidence shows the menu is in the binary, not that a Vixen window shows it; settling it is `Samples/02-HelloUi` run on a Mac — a screenshot of the bar, then ⌘Q, About and Hide | **absent** as audited; **present on macOS through SDL** per the README, **unverified** |
 | Toolbar | `Toolbar` (`ApplicationBars.cs:32`) is a control with `AccessibleRole.Toolbar` and one roving tab stop, and the editor's strip is one: `Menus/ToolbarPresenter.cs:158` — `host.Add<Toolbar>()`. As audited there was no type in either controls assembly and the editor's was a drawn strip (`Menus/ToolbarPresenter.cs:51@10523d70f`) | **present** since `918c2a098` ([#657](https://github.com/Rikarin/Vixen/issues/657)); **absent** as audited |
-| Clipboard from a control | § 4.3 | **present-but-unwired** |
+| Clipboard from a control | § 4.3 as audited. At HEAD a text field copies through `UiDocument.Clipboard` (`UiClipboard.cs:55`) — `edit.copy` is a command handler on the control (`TextField.cs:392`) — and both hosts fill it from the pasteboard: `PlatformClipboard.Install` (`UiApplication.cs:224`) and the editor's `EditorHost.cs:236` | **present** since `2267100d8`; **present-but-unwired** as audited |
 | OS drag-in (files from Finder/Explorer) | `DropFile`/`DropText` produced (`DesktopPlatform.cs:744`, `WebPlatform.cs:578`) and routed (`Vixen.Platform.Ui/PlatformInput.cs:618`) as a `DropEvent`; as audited, **dropped** (`Vixen.Platform.Ui/PlatformInput.cs:214@10523d70f`) | **present** since `14e1abb9d` ([#654](https://github.com/Rikarin/Vixen/issues/654)); **present-but-unwired** as audited |
 | In-app drop model | `DataObject` (`DataObject.cs:35`), `DropEvent` (`Drop.cs:48`), `AllowDrop` (`Drop.cs:228`); as audited there were none, and `TreeView.cs:247` and `AssetFieldDrop.cs:22-27` each hit-test by hand | **present** since `f1e099531`; **absent** as audited |
-| Native open/save panels | `INativeDialogs` complete with six backends; one consumer, in `Editor/Vixen.Editor.App/EditorServices.cs:37`. ⚠ the SDL fallback returns `null` (`DesktopServices.cs:211-241`) | **present-but-unwired** |
+| Native open/save panels | `INativeDialogs` complete with six backends. As audited one consumer, `Editor/Vixen.Editor.App/EditorServices.cs:37`, and at HEAD that is still the one place above the platform that asks for it, `platform.Pickers()` (`EditorServices.cs:37`) — but it now feeds seven `services.Dialogs` call sites in `Vixen.Editor.App`, three of them through `Picked` (`EditorProjects.cs:195`). An application can reach the same object through `UiApplication.Platform` (`UiApplication.cs:430`), public since `a1935a308`, and `Pickers()` (`PlatformExtensions.cs:59`); nothing in `Vixen.Ui*` or the sample does. ⚠ the SDL fallback returns `null` (`DesktopServices.cs:211-241`) | **present-but-unwired**, re-judged at HEAD: reachable by an application, called only by the editor |
 | Recent documents | still no list below the editor, and none can be built yet: one is keyed on `IEditableDocument.Location` (`Documents.cs:70`) and no document in the tree sets it, so the sample removed its Open Recent rather than draw a menu that is always empty, `Samples/02-HelloUi/Shell.vxml:86` — `There is no Open Recent here`. The editor's `ProjectHistory` (`ProjectHistory.cs:49`) keeps recent *projects* for its startup browser, not documents | **absent**; owed on [#656](https://github.com/Rikarin/Vixen/issues/656) |
 | Answerable modal | `DialogService.cs` (465 lines) — doc 46 § A4 landed and the editor's copy is gone | **present** |
 | Sheets (window-attached modals) | `runModal` on purpose (`MacOSDialogs.cs:20-23`) | **absent by decision** |
 | Document model (dirty, save, revert, proxy title) | `IEditableDocument` (`Documents.cs:36`) in `Core/Vixen.Ui`: `Location` and `IsDirty` as signals, `Save` and `Revert`; `UiWindowTitle.Bind` (`Documents.cs:320`) puts the name and the dirty mark in the title, and the sample's `MaterialDocument` (`Samples/02-HelloUi/MaterialDocument.cs:37`) is the first implementation. No proxy title: a represented file is a path, and `IUiWindow` has no member for one. As audited only `EditorDocument.cs:84,159,296` — one assembly no application can reference | **present** since `e57dfa401` ([#656](https://github.com/Rikarin/Vixen/issues/656)) except the proxy title; **absent below the editor** as audited |
 | Quit / close with unsaved changes | `UiApplication.Quit` (`UiApplication.cs:676`) asks `Document.RequestClose` first and stops the loop only if nothing refuses; `Pump` asks it on a platform Quit and clears the latch with `CancelQuit` (`UiApplication.cs:925-927`) when refused, as `EditorHost.cs:477-482` does; `DocumentClosePrompt` (`DocumentClose.cs:49`) is the Save / Don't Save / Cancel, installed by `Samples/02-HelloUi/Shell.vxml:364`. ⚠ As audited `Pump` set `running = false` outright and the framework host was the copy that still had the bug | **present** since `a1935a308` ([#653](https://github.com/Rikarin/Vixen/issues/653)); **absent** as audited. Proxy icon, recent documents and external modification are still owed on [#656](https://github.com/Rikarin/Vixen/issues/656) |
-| Activation / deactivation into the UI | produced; consumed only by the game host (`Core/Vixen.App.Hosting/PlatformInput.cs:109`) | **present-but-unwired** |
+| Activation / deactivation into the UI | As audited, consumed only by the game host (`Core/Vixen.App.Hosting/PlatformInput.cs:109`). At HEAD a window's activation reaches the UI: `PlatformInput` sets `UiDocument.KeySurface` on `WindowFocusGained` and clears it on `WindowFocusLost` (`Vixen.Platform.Ui/PlatformInput.cs:592-601`), `null` meaning the application is in the background; `IsKey` (`UiWindows.cs:92`) and `KeySurfaceChanged` (`Surfaces.cs:116`) carry it to an application, and the command route falls back on it (`Vixen.Ui/Commands.cs:407`). `Suspending` releases the host's GPU resources (`UiApplication.cs:965-966`). No stylesheet state follows it — a sweep of `Vixen.Ui*` finds no inactive-window variant | **present** for a window since `92c554e54` ([#644](https://github.com/Rikarin/Vixen/issues/644)); **present-but-unwired** as audited |
 | Reopen, Settings/preferences scene, status item, services, printing | — | **absent** |
 | Window placement autosave | editor-only (`Docking/EditorUserStore.cs:142`) | **absent** |
 | Background tasks and progress | `BackgroundTask`/`BackgroundTaskManager` in Core, **pumped** by `Tasks.Pump()` (`UiApplication.cs:765`) | **present** (no Core UI for it) |
@@ -459,8 +470,8 @@ SwiftUI's `App`/`Scene`/`WindowGroup`/`DocumentGroup` all start one level above 
 `IClipboard`, `INativeDialogs`, `DropFile`/`DropText`, `MediaContext.ColorScheme`,
 `ILifecycle.CancelQuit` and `WindowFocusGained` are all **finished, tested, cross-platform
 implementations in `Core/Vixen.Platform` with no consumer above it** (⚠ as audited: `CancelQuit`
-has had one in `UiApplication.Pump` since `a1935a308` and `WindowFocusGained` in `PlatformInput`
-since `92c554e54`, per the rows above) — and
+has had one in `UiApplication.Pump` since `a1935a308`, `WindowFocusGained` in `PlatformInput`
+since `92c554e54` and `IClipboard` in `PlatformClipboard` since `2267100d8`, per the rows above) — and
 `Platform/Vixen.Platform.Ui/PlatformInput.cs` plus `Platform/Vixen.Ui.Desktop/UiApplication.cs` are
 the two files where every one of those wires would terminate.
 
@@ -544,7 +555,7 @@ reads. So `<div AccessibleName="Save" Focusable="true">` compiles, matches `[Acc
 does nothing. ~~No diagnostic.~~ ⚠ **Refuted since 168fe675b (2026-09-05):** `VXML2020` warns on a
 capitalised attribute name on a lowercase tag. It is declared as
 `MarkupDiagnostics.InertElementAttribute` (`MarkupDiagnostics.cs:463`), and the binder passes
-`MarkupDiagnostics.InertElementAttribute` (`Vixen.Ui.Markup/Binding/Binder.cs:1088`) to `Report`. The mechanism is unchanged — the lowercase half of the split is still
+`MarkupDiagnostics.InertElementAttribute` (`Vixen.Ui.Markup/Binding/Binder.cs:1127`) to `Report`. The mechanism is unchanged — the lowercase half of the split is still
 `ctx.Bind` or `ctx.Attribute` (`ComponentEmitter.cs:884-897`), so the attribute is still inert — but it is no longer
 silent. This is the same defect class the language already fixed twice, for `style=` and for `slot=`
 (`VXML2016`).
@@ -642,11 +653,12 @@ For a project whose thesis is *markup is the authoring path*, that ❌ column is
 weakest evidence, and closing it is mostly attribute spellings over APIs that already exist.
 
 ⚠ **The `.keyboardShortcut` row is right about the sample and was read as a claim about the
-framework.** A complete chord system exists — `Editor/Vixen.Editor.Ui/Commands/CommandDispatcher.cs`
-attaches to any `UiDocument` (`:55`), builds a platform-adapted `KeyChord` (`:76`), resolves it
-against the focused context with a global fallback (`:85`), falls *through* rather than refusing when
-the chord belongs elsewhere (`:92`), and marks a disabled command's chord handled so a greyed-out ⌘S
-cannot type an `s` (`:98`). What is true is narrower: there is no `.vxml` spelling and no chord table
+framework.** A complete chord system exists — the dispatcher as audited
+(`Editor/Vixen.Editor.Ui/Commands/CommandDispatcher.cs:55@e7dbe65db`, moved to
+`Core/Vixen.Ui.Controls/` by `7199a1da1` the next day) attaches to any `UiDocument`, builds a
+platform-adapted `KeyChord` (`:76`), resolves it against the focused context with a global fallback
+(`:85`), falls *through* rather than refusing when the chord belongs elsewhere (`:94`), and marks a
+disabled command's chord handled (`:98`) so a greyed-out ⌘S cannot type an `s`. What is true is narrower: there is no `.vxml` spelling and no chord table
 below `Vixen.Editor.Ui`, which is #650.
 
 The rest are one issue each, because each needs a spelling decided before it can be built: #762 (the
@@ -904,7 +916,7 @@ and re-runs the grapheme breaker over the **entire value** on every arrow keypre
 Doc 43 measures Tailwind roots. Anything with no class name is invisible to it, and that is where the
 expensive items are.
 
-1. ⚠ **No damage tracking.** `DrawListBuilder.Build` (`:527`) reconstructs the entire draw list every
+1. ⚠ **No damage tracking.** `DrawListBuilder.Build` (`DrawListBuilder.cs:625`) reconstructs the entire draw list every
    frame, and `DrawList.cs:526-539` only reports *whether* the frame differs, not where. There is no
    retained per-element surface — which is why `will-change-*` is refused. Combined with
    `UiApplication`'s unconditional frame loop (`docs/guide/ui/desktop-application.md:44-58`, a

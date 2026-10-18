@@ -10,7 +10,7 @@ namespace Vixen.Ui.Controls;
 ///     <para>
 ///         ⚠ <b><see cref="AccessibleRole.Toolbar" /> has existed in <c>Accessibility.cs</c> with
 ///         nothing to carry it.</b> The editor draws its own strip out of bare
-///         <c>UiElement</c>s — <c>ToolbarPresenter.cs:51</c> — so no application could reach one and
+///         <c>UiElement</c>s — <c>ToolbarPresenter.cs:147@e57dfa401</c> — so no application could reach one and
 ///         the role reached no screen reader. This is the carrier.
 ///     </para>
 ///     <para>

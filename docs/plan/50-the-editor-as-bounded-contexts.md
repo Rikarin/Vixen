@@ -54,7 +54,7 @@ document decides is *who registers* a command and *what it calls*.
 | The eight declaration attributes | `EditorMenuAttribute` (Plugin), `CreateAssetMenuAttribute` (Core), `[CustomInspector]`/`[CustomDrawer]` (Inspector), `[EditorTool]`/`[Overlay]`/`[DrawGizmo]` (SceneView), `[Importer]` (Assets) | **Declared and read** — `DeclaredContributions : IContributionScanner`, `Editor/Vixen.Editor.App/DeclaredContributions.cs:47` |
 | The architecture rule | `build/ApplicationReferenceRule.cs` | **Real**, with `Allowed` (6) and a shrink-only `NotYetMoved` (5) |
 | The editing pipeline | `EditTarget` / `EditProperty` / `IEditProvider` / `SetValuesCommand` in `Vixen.Editor.Core` | **Real**, reached by the inspector and node ports; not by the gizmo (doc 36 § Part 6) |
-| Domain kernel with (almost) no UI | `Vixen.Editor.Core.csproj` | No importer reference and no feature name in it. ⚠ **Its README (`:67-70`, `:428-429`) says it does not reference `Vixen.Ui`; the csproj does (`:98`), for `IUndoManager` alone (#647), and `CommandStack.cs:4` is the only consumer.** The README is stale, not the boundary |
+| Domain kernel with (almost) no UI | `Vixen.Editor.Core.csproj` | No importer reference and no feature name in it. ⚠ **Its README (`Editor/Vixen.Editor.Core/README.md:67-70`, `:428-429`) says it does not reference `Vixen.Ui`; the csproj does (`Vixen.Editor.Core.csproj:98`), for `IUndoManager` alone (#647), and `CommandStack.cs:4` is the only consumer.** The README is stale, not the boundary |
 
 ### The findings
 
@@ -251,7 +251,7 @@ The feature-name audit (`.cs` and `.vxml`, code only, comments excluded):
 | `Vixen.Editor.Ui` | 38 | **35 string ids in `EditorStrings.cs` that belong to a feature which already has its own `*Strings` class** (Terrain 9, Blockout 10, Water 4, Texturing 4, Diagnostics 8); `ModeArt` has a static icon per mode; `EditorIcons["profiler"]` |
 | `Vixen.Editor.Assets` | 14 | `BuiltInImporters.cs:57-99` is a hand list of **34** importers naming Vfx, ShaderGraph, Terrain ×2, Water, Ai ×4, Animation ×7, Gameplay, Net; `VfxImporter` and `ShaderGraphSources` construct the two graph compilers, which is the `ShaderGraph`/`VfxGraph` reference |
 | `Vixen.Editor.Host` | 8 | builds `ShaderGraphPreviewRenderer` itself (`EditorHost.cs:581`), loads the terrain stages' SPIR-V (`:1033-1047`), a stale `using Vixen.Editor.Profiler` (`:8`) |
-| `Vixen.Editor.SceneView` | 2 | `SceneLines.LightShapes` still walks entities for one component (`:901`); five seams named for one feature each (`IVegetationScene`, `IWaterScene`, `SplineOverlay`, `SplineEdit`, `MeshExport`'s `"Blockout"` default) |
+| `Vixen.Editor.SceneView` | 2 | `SceneLines.LightShapes` still walks entities for one component (`SceneLines.cs:901`); five seams named for one feature each (`IVegetationScene`, `IWaterScene`, `SplineOverlay`, `SplineEdit`, `MeshExport`'s `"Blockout"` default) |
 | `Vixen.Editor.Core`, `Vixen.Editor.Inspector` | **0** | the two assemblies whose READMEs promised it |
 
 ⚠ **`Core` and `Inspector` being clean is the finding that makes the rest tractable**: the domain
@@ -265,7 +265,7 @@ database mutation and importer calls: `LayerStackView.cs` 0, `NodeGraphView.cs` 
 `Stack.Execute`), `ProjectBrowser.cs` 2 — a `Scan()`+`Save()` pair (`:1167-1175`) that duplicates
 `EditorProject.Open` minus its "save only if changed" guard. **The application logic is not in the
 views; it is in the one class** — `EditorParity.cs` alone has 21 file-system calls, including
-`Directory.Delete(project.Paths.Library, recursive: true)` at `:2274`.
+`Directory.Delete(project.Paths.Library, recursive: true)` at `EditorParity.cs:2307`.
 
 What *is* doubled is the language, and each pair is two contexts sharing a word:
 
@@ -279,7 +279,7 @@ What *is* doubled is the language, and each pair is two contexts sharing a word:
 
 And **hidden and locked are edited behind the stack's back**: `SceneDocument.SetHidden`/`SetLocked`
 have no command (grep: none), and are written directly from the outliner's eye and lock toggles
-(`EditorApplication.cs:5477,5479`, `EditorParity.cs:796,805`, `EditorWorlds.cs:600,613`), from `Isolate`
+(`EditorApplication.cs:5479,5481`, `EditorParity.cs:796,805`, `EditorWorlds.cs:600,613`), from `Isolate`
 (`EditorSelectionVerbs.cs:178-230`), and — the one that is a bug — from **inside a Blockout
 transaction** (`BlockoutBoolean.cs:66-71`), so undoing a boolean restores the reparent and the mesh
 and leaves the operand hidden. Filed as [#1277](https://github.com/Rikarin/Vixen/issues/1277).

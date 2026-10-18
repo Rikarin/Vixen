@@ -318,7 +318,7 @@ in `Vixen.Net`, and the three turn out to need very different things:
   ⚠ **Correction to the count, which three passes recorded identically: there are *two* per-call
   callouts, not one.** `Ledger?.RecordCall(from, …)` at the accept site
   (`Core/Vixen.Net/Rpc/RpcRouter.cs:604`) is the one that has been named every time; the other is
-  `Ledger?.RecordCall(PlayerId.None, …)` in `EndCall` (`:495`), on the **outbound** path, attributed
+  `Ledger?.RecordCall(PlayerId.None, …)` inside `EndCall`, at `:495`, on the **outbound** path, attributed
   once per encode rather than once per observer. It matters because an implementer told there is one
   callout on the accepted inbound path would look at half the type and conclude the outbound half has
   no accounting at all. Both are histogram writes and neither is on any refusal path, so the

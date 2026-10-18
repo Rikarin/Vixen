@@ -296,12 +296,13 @@ sealed partial class TransformReader {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The whole list is refused if any one function is</b>, and refused means <i>no
-    ///         transform</i> rather than a partial one. The three-dimensional functions are the reason
-    ///         this matters: <c>rotateX</c>, <c>translate3d</c> and <c>perspective</c> are legal CSS
-    ///         and there is no third axis here, so reading the ones that happen to be flat and
-    ///         dropping the rest turns a card flip into a card that never moves — which is a picture,
-    ///         and a wrong one. Nothing is the honest answer, and it is also what CSS does with a
-    ///         declaration it cannot parse.
+    ///         transform</i> rather than a partial one. Reading the functions that happen to resolve
+    ///         and dropping the one that does not — a <c>min()</c> argument, a zero-length
+    ///         <c>rotate3d</c> axis — turns a card flip into a card that never moves, which is a
+    ///         picture, and a wrong one. Nothing is the honest answer, and it is also what CSS does with
+    ///         a declaration it cannot parse. (This used to name <c>rotateX</c>, <c>translate3d</c>
+    ///         and <c>perspective</c> as the functions with "no third axis here"; every one of them is
+    ///         read below, #1350.)
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A <c>calc()</c> argument folds rather than refusing, and that reach is what used

@@ -47,7 +47,7 @@ pushed. The pull is one level too shallow, and every new panel is a new chance t
 >
 > **The push is real; "in their focus handlers" is not.** Not one context in the editor is pushed
 > from a focus handler. Every one is pushed from a `PointerEvent` on the **capture** leg of a
-> `DockPanel` — `EditorApplication.Contextual` (`EditorApplication.cs:1774`) and
+> `DockPanel` — `EditorApplication.Contextual` (`EditorApplication.cs:1774@4e61970ee`) and
 > `ContextualViewport` (`:1801`), plus four verbatim copies of the same eight lines in
 > `BlockoutModulePanels.cs:93`, `TerrainModule.cs:181`, `WaterModule.cs:231@3dcb392ad` and
 > `DiagnosticsModule.cs:439`. (⚠ The six line numbers are as of this amendment: `9c32e744f` (2026-09-02)
@@ -206,12 +206,16 @@ Each step is independently shippable and leaves the editor working.
 
    > ⚠️ **`Toolbar` is not built, and the doc naming it was the last of G5's assumptions to survive
    > contact.** No `Toolbar` type exists in `Vixen.Ui.Controls`; what exists is
-   > `Editor/Vixen.Editor.Ui/Menus/ToolbarPresenter.cs`, whose `Refresh` (`:166`) does exactly three
+   > `Editor/Vixen.Editor.Ui/Menus/ToolbarPresenter.cs`, whose `Refresh` (`ToolbarPresenter.cs:166@a71cc5db0`) does exactly three
    > things per button — `Disabled`, `Label` from `Caption`, `ElementState.Checked` — and all three
    > are now what `ButtonBase.Command` does by itself. What is left of a toolbar is a `Panel` of
    > `Button`s and `Separator`s, both of which already exist, plus the `toolbar-group` class the
    > editor theme already has. A new public control would have been a container with no behaviour in
    > it.
+   >
+   > ⚠ Overtaken on 2026-09-05: `918c2a098` built `Toolbar` (`ApplicationBars.cs:32`), and it has
+   > behaviour — the toolbar role a screen reader reads, and one tab stop with the arrows moving
+   > inside it, which a `Panel` of `Button`s cannot do.
 
    > ⚠️ **A second, larger finding: the route could not see past the surfaces that display it.**
    > `Menu.OnOpened` (`Menus.cs:454`) focuses its first item so the arrow keys work, and
