@@ -697,10 +697,15 @@ root.dark .tok-directive { color: #e3b341; }
    point of it: it is a measurement of the font the cascade chose, not a number. */
 code-metrics { position: absolute; left: 0px; top: 0px; visibility: hidden; }
 
+/* ⚠ `white-space: nowrap`: the popup's `left` is the caret, and an auto-width absolute box shrinks
+   to the room right of its `left` (#1447, CSS 2 §10.3.7). At column 90 that folded every entry
+   onto two lines, 191 px where the same popup at column 0 is 393 (`CompletionPopupWidthTests`).
+   An entry is one line; near the edge the popup overhangs, as it always did. */
 code-completion {
     position: absolute;
     left: 0px;
     top: 0px;
+    white-space: nowrap;
     flex-direction: column;
     min-width: 180px;
     padding: 2px;

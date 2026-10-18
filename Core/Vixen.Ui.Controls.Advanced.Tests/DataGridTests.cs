@@ -521,4 +521,41 @@ public class DataGridTests {
 
     static string Cell(DataGrid grid, int row, int column) =>
         grid.Columns[column].TextOf(grid.Items[grid.ItemAt(row)]);
+
+    /// <summary>
+    ///     A group label pinned to the scroll offset is as wide at the far right of the table as at
+    ///     its start (#1447).
+    /// </summary>
+    /// <remarks>
+    ///     The label's <c>left</c> is the scroll offset and it has no width of its own, so since #1447
+    ///     it shrinks to the room right of that offset in its row, as CSS 2 §10.3.7 says. The row is
+    ///     the whole table wide, so at any offset the room is at least the viewport — the label keeps
+    ///     its width, measured, and needs nothing from the sheet.
+    /// </remarks>
+    [Fact]
+    public void A_group_label_keeps_its_width_at_the_far_right_of_the_table() {
+        using var fixture = new AdvancedFixture();
+        var grid = Grid(
+            fixture,
+            [
+                new Unit("Ada", 12, "The Blue Legion of the Northern Marches"),
+                new Unit("Bob", 3, "The Red Company of the Southern Shore")
+            ],
+            columns: 60
+        );
+
+        grid.GroupBy(grid.Columns[2]);
+        fixture.Update();
+
+        var label = grid.Rows.First(static row => row.Item is null && row.Index == 0).GroupLabel;
+        var start = label.Bounds;
+
+        grid.Scroller.ScrollLeft = grid.Scroller.MaximumLeft;
+        fixture.Update();
+
+        var header = grid.Rows.First(static row => row.Item is null && row.Index == 0).GroupLabel;
+        Assert.True(grid.Scroller.ScrollLeft > 1_000f, $"the premise: scrolled to {grid.Scroller.ScrollLeft}");
+        Assert.Equal(start.Width, header.Bounds.Width, 0.5f);
+        Assert.Equal(start.Height, header.Bounds.Height, 0.5f);
+    }
 }

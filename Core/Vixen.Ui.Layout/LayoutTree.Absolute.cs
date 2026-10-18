@@ -207,7 +207,6 @@ public sealed partial class LayoutTree {
         var isPhysicalParent = styles[node].Display is Display.Block or Display.FlowRoot or Display.Grid or Display.Inline;
         var mainAxis = isPhysicalParent ? FlexDirection.Row : FlexAxis.Resolve(styles[node].FlexDirection, direction);
         var crossAxis = isPhysicalParent ? FlexDirection.Column : FlexAxis.ResolveCross(mainAxis, direction);
-        var isMainAxisRow = FlexAxis.IsRow(mainAxis);
 
         var childWidth = float.NaN;
         var childHeight = float.NaN;
@@ -278,12 +277,27 @@ public sealed partial class LayoutTree {
 
             // Constraining to the containing block is what lets text inside an absolute child wrap
             // to that block's width, which is what browsers do.
-            if (!isMainAxisRow
-                && float.IsNaN(childWidth)
+            //
+            // ⚠ <b>Whatever the parent's direction, and less the insets that are written (#1447).</b>
+            // This used to be `!isMainAxisRow && …` and the full block width, which is Yoga's rule:
+            // under a row parent — the root is one — an auto-width absolute box was measured at
+            // max-content and never wrapped, so a plain div at `left: 16px` with a long text in a
+            // 400 px window came out 1464 px wide. CSS 2 §10.3.7's shrink-to-fit is
+            // `min(max-content, max(min-content, available))` for every parent, and the available
+            // width is the containing block less the `left` and `right` that are not `auto`; with
+            // neither written the box's static position stands in, which is the block's start edge
+            // here. FitContent gives the `min` and the `max` half both, since a box measured at most
+            // W is never narrower than its own min-content.
+            if (float.IsNaN(childWidth)
                 && widthMode != SizingMode.MaxContent
                 && !float.IsNaN(containingBlockWidth)
                 && containingBlockWidth > 0f) {
-                childWidth = containingBlockWidth;
+                childWidth = MathF.Max(
+                    0f,
+                    containingBlockWidth
+                        - StyleResolution.FlexStartPosition(in styles[child], FlexDirection.Row, direction, containingBlockWidth)
+                        - StyleResolution.FlexEndPosition(in styles[child], FlexDirection.Row, direction, containingBlockWidth)
+                );
                 childWidthSizingMode = SizingMode.FitContent;
             }
 

@@ -29,6 +29,10 @@ namespace Vixen.Ui.Controls.Tests;
 ///         with it</b>: a row offered "at most" a width is bounded by the offer and shrinks its items.
 ///         These facts were red with the cap removed and the engine unchanged, and are green with the
 ///         cap removed and the engine fixed, so the toast is now the engine's regression test as well.
+///         ⚠ <b>And so was the first (#1447)</b>: an auto-width absolute box shrinks to its containing
+///         block less its insets under any parent. With the host's <c>left</c> removed the toast now
+///         wraps at 384 px rather than running to 1528 — it fails only the 16 px left gutter, which is
+///         what <c>left</c> is still there for.
 ///     </para>
 ///     <para>
 ///         The oracle is geometric and closed-form: the toast's box inside the window's, less the

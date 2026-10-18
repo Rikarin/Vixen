@@ -948,8 +948,13 @@ state-map {
     border-radius: var(--radius-panel, 5px);
 }
 
+/* ⚠ `white-space: nowrap`: `StateMapView` writes a box's `left` and nothing else, and an
+   auto-width absolute box shrinks to the room right of its `left` (#1447, CSS 2 §10.3.7). A box
+   dragged near the map's right edge folded to 105x113 where the same box at the left is 269x47
+   (`StateBoxWidthTests`) — a node changing shape with where it stands. The map clips instead. */
 state-box {
     position: absolute;
+    white-space: nowrap;
     flex-direction: column;
     justify-content: center;
     padding: 4px 8px;

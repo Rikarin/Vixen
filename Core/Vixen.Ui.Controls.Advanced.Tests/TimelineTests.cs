@@ -86,6 +86,51 @@ public class TimelineTests {
         Assert.True(live is > 0 and < 40, $"{live} labels");
     }
 
+    /// <summary>
+    ///     ⚠ A ruler label at the right edge is as wide as its number and one line tall (#1447).
+    /// </summary>
+    /// <remarks>
+    ///     Each label is placed by <c>left</c> alone, so since #1447 it shrinks to the room right of
+    ///     that offset, as CSS 2 §10.3.7 says — and the last label sits within a few pixels of the
+    ///     ruler's end. It still comes out its number's width, because a number has no break
+    ///     opportunity and shrink-to-fit never goes below min-content; measured here rather than
+    ///     argued. Every live label is compared with the same text laid out with room to spare.
+    /// </remarks>
+    [Fact]
+    public void A_ruler_label_near_the_right_edge_keeps_its_width() {
+        using var fixture = new AdvancedFixture();
+        var timeline = Built(fixture);
+
+        // The first zoom that puts a label closer to the ruler's end than the label is wide.
+        List<UiElement> live = [];
+        for (var scale = 40f; scale < 400f; scale += 1f) {
+            timeline.PixelsPerSecond = scale;
+            timeline.Refresh();
+            fixture.Update();
+
+            live = timeline.Ruler.Children.Where(static child => !child.HasClass("parked")).ToList();
+            var rightmost = live.MaxBy(static label => label.Bounds.X)!;
+            if (timeline.Ruler.Bounds.Right - rightmost.Bounds.X < rightmost.Bounds.Width - 2f) {
+                break;
+            }
+
+            live = [];
+        }
+
+        Assert.NotEmpty(live);
+
+        foreach (var label in live) {
+            var free = fixture.Document.Root.Add("timeline-tick");
+            free.SetStyle("left", "0px");
+            free.Text = label.Text;
+            fixture.Update();
+
+            Assert.Equal(free.Bounds.Width, label.Bounds.Width, 0.5f);
+            Assert.Equal(free.Bounds.Height, label.Bounds.Height, 0.5f);
+            free.Remove();
+        }
+    }
+
     [Fact]
     public void Scrubbing_the_ruler_moves_the_playhead() {
         using var fixture = new AdvancedFixture();
