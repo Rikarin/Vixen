@@ -172,6 +172,16 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///         probe does not drive". This scene is the probe driving it.
 ///     </para>
 /// </param>
+/// <param name="Tabled">
+///     Whether the probe holds a <c>#row</c> of two cells, <c>#first</c> and <c>#second</c>. False
+///     for every scene but <c>tabled</c>.
+///     <para>
+///         ⚠ <b>The twelfth time this list has been the thing missing, and the ingredient is a
+///         table.</b> <c>table-layout</c> and <c>border-spacing</c> are read on a table and only
+///         through its columns; with no row and no second cell there is no column to share, so both
+///         would measure inert with <c>LayoutTree.Table.cs</c> finished (#258).
+///     </para>
+/// </param>
 /// <param name="Observes">
 ///     The properties this scene is a valid observer for, or <see langword="null" /> for all of them.
 ///     <para>
@@ -215,6 +225,7 @@ sealed record ProbeScene(
     bool Pictured = false,
     bool Forced = false,
     bool Touched = false,
+    bool Tabled = false,
     IReadOnlyList<string>? Observes = null
 );
 
@@ -1401,6 +1412,25 @@ static class UtilityConsumptionProbe {
             Observes: TransitionProperties
         ),
 
+        // ⚠ <b>Tabled: a probe that IS a table, with a first row of two cells — the twelfth entry on
+        // this list's tally and the one #258's audits predicted.</b> `table-layout` and
+        // `border-spacing` have exactly one reader, `LayoutTree.Table.cs`, and it reads them through
+        // a table's columns, so on every other scene's probe both measure inert with the reader
+        // finished. The two cells are the minimum that separates the two layouts: `#first` states a
+        // width and `#second` does not, so §17.5.2.1 gives the second column the rest of the table
+        // where the automatic layout gives it its (empty) content. Spacing moves every cell.
+        new(
+            "tabled",
+            """
+            #host  { display: flex; flex-direction: row; width: 120px; height: 120px; align-items: flex-start; }
+            #probe { display: table; width: 100px; background-color: #204080; color: #e0e0e0; }
+            #row   { display: table-row; }
+            #first { display: table-cell; width: 20px; height: 10px; background-color: #a0a040; }
+            #second { display: table-cell; height: 10px; background-color: #40a0a0; }
+            """,
+            Tabled: true
+        ),
+
         // ⚠ <b>Queried: a probe that already IS a query container, inside a host that is one too,
         // with two queries waiting on it — and without all three of those, the `@container` marker
         // family measures inert with the whole of container queries wired.</b> The eleventh entry
@@ -1966,6 +1996,15 @@ static class UtilityConsumptionProbe {
             }
 
             body = probe;
+        }
+
+        // A row of two cells for `tabled`, FIRST, because §17.5.2.1 reads the first row and nothing
+        // else; in that scene the shared children below are stray rows after it. Every other scene
+        // is unchanged.
+        if (scene.Tabled) {
+            var row = document.Create("div", body, "row");
+            document.Create("div", row, "first");
+            document.Create("div", row, "second");
         }
 
         document.Create("div", body, null, "kid");

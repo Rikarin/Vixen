@@ -84,9 +84,9 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **331** | 322 families |
-| CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **107** (11 of them `--tw-*` fragments) |
-| …of which something in the engine acts on | — | **90** |
+| Utility **roots** (the unit of this table) | **331** | 325 families |
+| CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **108** (11 of them `--tw-*` fragments) |
+| …of which something in the engine acts on | — | **91** |
 | Variant keys | **88** | **55** |
 
 ⚠ **The family figure moves every week, which is why it is no longer typed here.** It has been quoted
@@ -107,10 +107,10 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **260** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **261** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **23** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **44** |
+| **absent** | not emitted at all | **43** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 
 ⚠ **There was a sixth, `unknown`, and it described a row rather than a state.** Exactly one row held
@@ -515,9 +515,9 @@ refusal block, which already says so for the same reason.
 | Backgrounds | 11 | 6 | 1 | 0 | 4 | 0 |
 | Transitions and Animation | 6 | 5 | 0 | 0 | 1 | 0 |
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 |
-| Tables | 2 | 0 | 0 | 0 | 2 | 0 |
+| Tables | 2 | 1 | 0 | 0 | 1 | 0 |
 | Accessibility | 1 | 1 | 0 | 0 | 0 | 0 |
-| **Total** | **331** | **260** | **23** | **1** | **44** | **3** |
+| **Total** | **331** | **261** | **23** | **1** | **43** | **3** |
 
 Flexbox and Grid leads at 30 of 34, with only two absent roots left and both of those refused on
 policy rather than owed; then Layout at 36 of 49, Interactivity at 31 of 40, Borders at 28 of 34,
