@@ -141,7 +141,8 @@ partial class Build {
     Target CheckArchitecture => definition => definition
         .Description(
             "Fails on a layer violation, a banned IL-rewriting package, editor-only code in a runtime "
-            + "assembly, an editor plugin that reaches the editor application, or an EditorApplication part "
+            + "assembly, an editor plugin that reaches the editor application, a shell assembly naming a feature, "
+            + "or an EditorApplication part "
             + "over its ceiling"
         )
         .Executes(() => {
@@ -445,6 +446,47 @@ partial class Build {
                 Assert.True(sizeVacuity is null, sizeVacuity ?? "");
 
                 violations.AddRange(ApplicationSizeRule.Violations(applicationParts, applicationCeilings));
+
+                // Doc 50 § D6: a shell assembly naming what a feature owns. Project references cannot
+                // see an extension literal, a panel id or a command id, and doc 36 § P3 recorded a
+                // fully-qualified `case` pattern compiling with no diagnostic once the reference went —
+                // so this reads source, `.cs` and `.vxml`, against a list that may only shrink.
+                var featureVocabulary = FeatureNameRule.Measure(RootDirectory);
+                var featureVacuity = FeatureNameRule.Vacuity(featureVocabulary);
+
+                Assert.True(featureVacuity is null, featureVacuity ?? "");
+
+                var featureFindings = FeatureNameRule.Scan(RootDirectory, featureVocabulary);
+
+                if (UpdateExemptions) {
+                    var before = FeatureNameRule.Exempt(RootDirectory);
+
+                    System.IO.File.WriteAllText(
+                        RootDirectory / FeatureNameRule.ExemptionFile,
+                        FeatureNameRule.Render(featureFindings, before),
+                        new System.Text.UTF8Encoding(false)
+                    );
+
+                    foreach (var finding in featureFindings.Where(finding =>
+                                 !before.TryGetValue(finding.Key, out var row) || finding.Count > row.Count)) {
+                        Log.Warning("The shell learned a feature name: {File} {Name} {Count}", finding.File, finding.Name, finding.Count);
+                    }
+
+                    Log.Warning("{File} has been rewritten from the tree. Read the diff before committing.", FeatureNameRule.ExemptionFile);
+                }
+
+                violations.AddRange(FeatureNameRule.Violations(featureFindings, FeatureNameRule.Exempt(RootDirectory)));
+
+                Log.Information(
+                    "Feature names: {Features} feature assemblies own {Types} types, {Extensions} extensions, {Panels} panel ids "
+                    + "and {Prefixes} command prefixes; the shell holds {Rows} exempt rows.",
+                    featureVocabulary.Features.Count,
+                    featureVocabulary.Types.Count,
+                    featureVocabulary.Extensions.Count,
+                    featureVocabulary.PanelIds.Count,
+                    featureVocabulary.Prefixes.Count,
+                    featureFindings.Count
+                );
 
                 foreach (var violation in violations) {
                     Log.Error("{Violation}", violation);

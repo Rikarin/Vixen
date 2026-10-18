@@ -128,6 +128,7 @@
             checkout, so the gate is one caller of this source and these are the other.
         -->
         <Compile Include="..\..\build\ApplicationSizeRule.cs" Link="ApplicationSizeRule.cs" />
+        <Compile Include="..\..\build\FeatureNameRule.cs" Link="FeatureNameRule.cs" />
 
         <!--
             ⚠ And `CheckStrings`' pattern set (#1203), where the argument is the case rule's exactly
