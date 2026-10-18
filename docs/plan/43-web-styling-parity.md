@@ -1495,7 +1495,12 @@ does mirror that one.
    `UtilityFamilies.ValuesFor` had no arm for it and fell through a `default: break;`, so the root
    contributed no class to `Surface`, met no consumption probe, and measured `absent` — identical
    to a root nobody registered. That arm is a throw now, because the silent version is a new kind's
-   default behaviour and a new root would have been invisible to every suite at once.
+   default behaviour and a new root would have been invisible to every suite at once. ⚠ And since
+   #1435 a signed root negates what v4 negates: `-translate-x-full` and `-inset-full` are `-100%`
+   (`full` left `NotNegatable`), and a value that is a math function or a `var()` is wrapped as
+   `calc(<value> * -1)`, v4's spelling, rather than refused for not starting with a digit.
+   ⛔ `-bg-linear-*` and `-bg-conic-*` stay refused on purpose: the value is a whole gradient, and
+   every negative angle has a positive spelling (`ValueKind.Angle`'s remark).
 3. ⚠ *The property is **read** and the **value** is refused, so a registration keeps the gate green
    over a class that paints nothing.* The dangerous shape, and no per-property measurement can catch
    it — though a per-*value* one can where a reader drops a whole list, and the `transform` slots have

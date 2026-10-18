@@ -133,10 +133,54 @@ public class UtilityGenerationTests {
     [InlineData("-outline-offset-2", "outline-offset: -2px")]
     [InlineData("-underline-offset-4", "text-underline-offset: -4px")]
     [InlineData("-col-2", "grid-column: -2")]
+    [InlineData("-w-full", null)]
+    [InlineData("-inset-screen", null)]
+    [InlineData("-translate-none", null)]
+    [InlineData("-mt-[auto]", null)]
+    [InlineData("-translate-x-full", "--tw-translate-x: -100%; translate: var(--tw-translate-x, 0px) var(--tw-translate-y, 0px)")]
+    [InlineData("-inset-full", "top: -100%; right: -100%; bottom: -100%; left: -100%")]
+    [InlineData("-mx-[calc(100%_-_2px)]", "margin-left: calc(calc(100% - 2px) * -1); margin-right: calc(calc(100% - 2px) * -1)")]
+    [InlineData("-mt-(--gap)", "margin-top: calc(var(--gap) * -1)")]
+    [InlineData("-rotate-[calc(1deg_+_2deg)]", "rotate: calc(calc(1deg + 2deg) * -1)")]
     public void Only_a_root_Tailwind_signs_has_a_negative_class(string utility, string? expected) {
         var fixture = new UtilityFixture();
 
         Assert.Equal(expected, fixture.Declarations(utility) is { } emitted ? string.Join("; ", emitted) : null);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A negated gradient angle is refused on purpose</b> (#1435): its value is a whole
+    ///     <c>linear-gradient(…)</c>, not a number, and every negative angle has a positive spelling.
+    /// </summary>
+    /// <remarks>See <c>ValueKind.Angle</c>'s remark, which records the decision.</remarks>
+    [Theory]
+    [InlineData("-bg-linear-45")]
+    [InlineData("-bg-conic-45")]
+    public void A_negated_gradient_angle_is_refused(string utility) {
+        var fixture = new UtilityFixture();
+
+        Assert.Null(fixture.Declarations(utility));
+    }
+
+    /// <summary>
+    ///     A wrapped negation is a value the engine computes: <c>-mt-(--gap)</c> under
+    ///     <c>--gap: 8px</c> is a margin of minus eight.
+    /// </summary>
+    /// <remarks>
+    ///     The rows above pin the spelling; this pins that the spelling means something. A minus on
+    ///     the front of <c>var(--gap)</c> would be an identifier, and the margin would not be read.
+    /// </remarks>
+    [Fact]
+    public void A_negated_variable_computes_to_the_negative_length() {
+        var fixture = new UtilityFixture();
+        var computed = fixture.Computed(["-mt-(--gap)"], "margin-top", extraCss: "div { --gap: 8px; }");
+
+        Assert.NotNull(computed);
+
+        var margin = new StyleValueParser(new NameTable(), new NameTable()).Parse(computed);
+
+        Assert.Equal(StyleValueKind.Length, margin.Kind);
+        Assert.Equal(-8f, margin.Number, 3);
     }
 
     /// <summary>Tailwind v4's negatable roots, written out here rather than read from the registry.</summary>

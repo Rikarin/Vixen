@@ -388,4 +388,77 @@ public class TransformPaintTests {
         Assert.False(Inked(ui, 20, 110));
         Assert.False(Inked(ui, 80, 60));
     }
+
+    /// <summary>
+    ///     ⚠ <b><c>rotate: z 90deg</c> and <c>rotate: 0 0 1 90deg</c> are the in-plane quarter turn, and
+    ///     both used to draw unrotated</b> (#1450).
+    /// </summary>
+    /// <remarks>
+    ///     Transforms 2 § 3 lets <c>rotate</c> name its axis, and the z axis — by keyword or as a
+    ///     vector parallel to it — is the plane this engine draws. The same four probes as
+    ///     <see cref="A_quarter_turn_moves_the_bars_length_onto_the_other_axis" />.
+    /// </remarks>
+    [Theory]
+    [InlineData("rotate: z 90deg;")]
+    [InlineData("rotate: 0 0 1 90deg;")]
+    [InlineData("rotate: 90deg z;")]
+    public void A_rotation_about_the_z_axis_is_drawn_as_the_plane_rotation(string rotate) {
+        using var turned = Bar(rotate);
+
+        Assert.True(Inked(turned, Middle, Middle - 10));
+        Assert.False(Inked(turned, Middle - 10, Middle));
+    }
+
+    /// <summary>An axis out of the plane is still drawn unrotated, as <c>Degrees</c>' remark decides.</summary>
+    /// <remarks>
+    ///     Reading the angle of <c>rotate: x 45deg</c> as a plane rotation would draw a different
+    ///     picture, not a degraded one; the bar stays exactly where it was.
+    /// </remarks>
+    [Theory]
+    [InlineData("rotate: x 90deg;")]
+    [InlineData("rotate: y 90deg;")]
+    [InlineData("rotate: 1 0 0 90deg;")]
+    [InlineData("rotate: 0 1 1 90deg;")]
+    public void A_rotation_about_an_axis_out_of_the_plane_is_drawn_unrotated(string rotate) {
+        using var turned = Bar(rotate);
+
+        Assert.True(Inked(turned, Middle - 10, Middle));
+        Assert.False(Inked(turned, Middle, Middle - 10));
+    }
+
+    /// <summary>
+    ///     A quarter of the way through <c>to { rotate: z 90deg }</c> the arm has turned 22.5°, which
+    ///     needs the animator to carry the keyword (#1445) and to interpolate past it (#1439).
+    /// </summary>
+    /// <remarks>
+    ///     The fixture and probes of
+    ///     <see cref="A_to_only_rotate_is_drawn_a_quarter_turned_a_quarter_of_the_way_through" />, with
+    ///     the axis spelt out each way.
+    /// </remarks>
+    [Theory]
+    [InlineData("z 90deg")]
+    [InlineData("0 0 1 90deg")]
+    public void A_to_only_rotate_about_z_is_drawn_a_quarter_turned_a_quarter_of_the_way_through(string rotate) {
+        using var ui = UiTest.Create(120f, 120f, new UiTestOptions { FrameDelta = TimeSpan.FromMilliseconds(250) });
+        ui.Document.Compositing = true;
+
+        ui.Load(
+            $$"""
+            root { width: 120px; height: 120px; background-color: #000000; }
+            @keyframes turn { to { rotate: {{rotate}}; } }
+            .arm { position: absolute; left: 20px; top: 57px; width: 80px; height: 6px;
+                   background-color: #ffffff; transform-origin: 0px 3px;
+                   animation-name: turn; animation-duration: 1s; animation-timing-function: linear; }
+            """
+        );
+
+        ui.Create("div", null, "arm", "arm");
+
+        ui.Frame();
+        ui.Frame();
+
+        Assert.True(Inked(ui, 75, 83));
+        Assert.False(Inked(ui, 20, 110));
+        Assert.False(Inked(ui, 80, 60));
+    }
 }

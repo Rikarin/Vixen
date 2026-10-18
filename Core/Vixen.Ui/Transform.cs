@@ -72,6 +72,9 @@ sealed partial class TransformReader {
     readonly int right;
     readonly int top;
     readonly int bottom;
+
+    /// <summary>The <c>z</c> of <c>rotate: z 90deg</c>, the one named axis this engine can draw.</summary>
+    readonly int zAxis;
     readonly NameTable values;
     readonly StyleValueParser parser;
 
@@ -119,6 +122,7 @@ sealed partial class TransformReader {
         right = keywords.Intern("right");
         top = keywords.Intern("top");
         bottom = keywords.Intern("bottom");
+        zAxis = keywords.Intern("z");
         parser = new StyleValueParser(values, keywords);
     }
 
@@ -1496,17 +1500,65 @@ sealed partial class TransformReader {
         return keyword == top ? 0f : keyword == bottom ? against : fallback;
     }
 
-    /// <summary>An angle in degrees, or zero for anything unreadable.</summary>
+    /// <summary>A <c>rotate</c> value's angle in the plane, in degrees, or zero for anything unreadable.</summary>
     /// <remarks>
-    ///     ⚠ <b>A list is refused whole rather than having its angle picked out of it.</b> Transforms 2
-    ///     §3 also spells <c>rotate</c> as an axis and an angle — <c>rotate: x 45deg</c> — which is a
-    ///     rotation out of the plane this engine has no depth for. Reading the angle and ignoring the
-    ///     axis would turn every <c>rotate: x 45deg</c> into a <i>z</i> rotation of forty-five degrees,
-    ///     which is not a degraded picture but a different one. Zero leaves the element alone, which
-    ///     is what an engine with no third axis can honestly do.
+    ///     <para>
+    ///         ⚠ <b>An axis out of the plane is refused whole rather than having its angle picked out of
+    ///         it.</b> Transforms 2 §3 also spells <c>rotate</c> as an axis and an angle —
+    ///         <c>rotate: x 45deg</c> — which is a rotation out of the plane this engine has no depth
+    ///         for. Reading the angle and ignoring the axis would turn every <c>rotate: x 45deg</c> into
+    ///         a <i>z</i> rotation of forty-five degrees, which is not a degraded picture but a
+    ///         different one. Zero leaves the element alone, which is what an engine with no third axis
+    ///         can honestly do.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The z axis is the exception, and refusing it too drew <c>rotate: z 90deg</c> and
+    ///         <c>rotate: 0 0 1 90deg</c> unrotated</b> (#1450). Both are the plane rotation
+    ///         <c>rotate: 90deg</c> by definition. A vector is read by direction, not length:
+    ///         <c>0 0 5</c> is z, and <c>0 0 -1</c> is z the other way round, so its <c>θ</c> is the
+    ///         plane's <c>−θ</c>. The grammar is <c>[ x | y | z | &lt;number&gt;{3} ] &amp;&amp;
+    ///         &lt;angle&gt;</c>, so the angle may come first or last. Anything with a non-zero x or y
+    ///         component, or no length at all, is refused as above.
+    ///     </para>
     /// </remarks>
-    static float Degrees(StyleValue value) =>
-        value.Kind == StyleValueKind.Length && value.Unit == StyleUnit.Degrees ? value.Number : 0f;
+    float Degrees(StyleValue value) {
+        if (IsAngle(value)) {
+            return value.Number;
+        }
+
+        if (value.Kind != StyleValueKind.List) {
+            return 0f;
+        }
+
+        var items = value.Items;
+        StyleValue angle;
+        ReadOnlySpan<StyleValue> axis;
+
+        if (IsAngle(items[0])) {
+            angle = items[0];
+            axis = items[1..];
+        } else if (IsAngle(items[^1])) {
+            angle = items[^1];
+            axis = items[..^1];
+        } else {
+            return 0f;
+        }
+
+        if (axis is [{ Kind: StyleValueKind.Keyword } named]) {
+            return named.Keyword == zAxis ? angle.Number : 0f;
+        }
+
+        if (axis is not [{ Kind: StyleValueKind.Number } x, { Kind: StyleValueKind.Number } y, { Kind: StyleValueKind.Number } z]
+            || x.Number != 0f
+            || y.Number != 0f
+            || z.Number == 0f) {
+            return 0f;
+        }
+
+        return z.Number > 0f ? angle.Number : -angle.Number;
+
+        static bool IsAngle(StyleValue part) => part.Kind == StyleValueKind.Length && part.Unit == StyleUnit.Degrees;
+    }
 
     /// <summary>The two scale factors, defaulting to one.</summary>
     /// <remarks>

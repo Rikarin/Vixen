@@ -75,9 +75,11 @@ enum ValueKind : byte {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Non-negative, and the reason is <c>TryNegate</c> rather than CSS.</b>
-    ///         Negation is applied to the resolved declaration and refuses any value that does not
-    ///         begin with a digit — and this kind's value is a whole <c>linear-gradient(…)</c>, so
-    ///         <c>-bg-linear-45</c> cannot be flipped after the fact. Every negative angle has a
+    ///         Negation is applied to the resolved declaration and refuses any value that is not a
+    ///         number or a math function — and this kind's value is a whole
+    ///         <c>linear-gradient(…)</c>, so <c>-bg-linear-45</c> cannot be flipped after the fact.
+    ///         ⚠ Re-decided under #1435 and kept: refused on purpose, pinned by
+    ///         <c>UtilityGenerationTests.A_negated_gradient_angle_is_refused</c>. Every negative angle has a
     ///         positive spelling (<c>bg-linear-315</c>), so the gap is a spelling and not a
     ///         capability; it is recorded on the row rather than papered over by inventing a second
     ///         negation path.
@@ -3662,13 +3664,22 @@ public static class UtilityFamilies {
     ///         family and <c>translate-*</c>.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>So <c>full</c> is no longer here</b> (#1435). It guarded <c>-w-full</c>, which
+    ///         <see cref="Signed" /> now refuses first, and what it still refused was exactly the pair
+    ///         Tailwind v4 <i>does</i> negate: <c>-translate-x-full</c> — the idiom for sliding a drawer
+    ///         its own width off screen, which <c>Translation</c>'s remark names — and
+    ///         <c>-inset-full</c>, both <c>-100%</c>. <c>screen</c> and the viewport keywords stay:
+    ///         Tailwind has no <c>-inset-screen</c>, and minus one viewport tall is still not a value
+    ///         anybody meant.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b><c>none</c> is here because it is never a magnitude</b> (#1409): <c>order-none</c>
     ///         resolves to <c>0</c>, which begins with a digit, so <c>-order-none</c> was
     ///         <c>order: -0</c> — a class Tailwind does not have, spelling a value nobody meant.
     ///     </para>
     /// </remarks>
     static readonly HashSet<string> NotNegatable = new(StringComparer.Ordinal) {
-        "auto", "full", "screen", "min", "max", "fit", "none",
+        "auto", "screen", "min", "max", "fit", "none",
         "svw", "lvw", "dvw", "svh", "lvh", "dvh", "lh"
     };
 
@@ -3680,7 +3691,7 @@ public static class UtilityFamilies {
     ///         <see cref="TryNegate" /> flips any value that begins with a digit — so <c>-p-2</c> was
     ///         <c>padding: -8px</c>, <c>-font-bold</c> was <c>font-weight: -700</c>,
     ///         <c>-border-2</c> a negative width, <c>-duration-300</c> a negative duration and
-    ///         <c>-leading-normal</c> a negative line height. About 130 spellings on the surface
+    ///         <c>-leading-normal</c> a negative line height. 146 spellings on the surface
     ///         resolved to a value neither CSS nor Tailwind has. #1348 had marked the filter slots
     ///         (<c>brightness(-0.5)</c> is a function the executor cannot run, so it dropped the whole
     ///         assembled <c>filter</c>) and #1384 six more roots (<c>opacity</c>, <c>aspect</c>, the
@@ -3698,7 +3709,8 @@ public static class UtilityFamilies {
     ///     <para>
     ///         Being on the list lets a value be negated; it does not make every value negatable.
     ///         <see cref="TryNegate" /> still refuses a keyword in <see cref="NotNegatable" /> and a
-    ///         value that does not begin with a digit (<c>-translate-none</c>, <c>-z-auto</c>).
+    ///         value that is neither a number nor a math function or <c>var()</c>
+    ///         (<c>-translate-none</c>, <c>-z-auto</c>).
     ///     </para>
     /// </remarks>
     static readonly HashSet<string> Signed = new(StringComparer.Ordinal) {
@@ -3735,9 +3747,20 @@ public static class UtilityFamilies {
 
     /// <summary>Flips the sign of everything a utility resolved to.</summary>
     /// <remarks>
-    ///     Only a number can be negated. <c>-w-full</c> is not a hundred per cent to the left and
-    ///     <c>-bg-accent</c> is nothing at all, so both are refused rather than emitted with a stray
-    ///     minus in front of them — a rule that silently means nothing is worse than no rule.
+    ///     <para>
+    ///         Only a number can be negated. <c>-w-full</c> is not a hundred per cent to the left and
+    ///         <c>-bg-accent</c> is nothing at all, so both are refused rather than emitted with a stray
+    ///         minus in front of them — a rule that silently means nothing is worse than no rule.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A number this cannot see is wrapped rather than flipped</b> (#1435). A value
+    ///         beginning with a digit takes a leading minus; one that is a math function or a
+    ///         <c>var()</c> — <c>-mx-[calc(100%_-_2px)]</c>, <c>-mt-(--gap)</c> — is a number too, only
+    ///         not yet, and used to be refused because it did not begin with a digit. It becomes
+    ///         <c>calc(&lt;value&gt; * -1)</c>, which is Tailwind v4's own spelling. Prefixing a minus
+    ///         to it is not an option: <c>-calc(…)</c> is an identifier, and a minus on the first
+    ///         digit <i>inside</i> it negates one term of a sum.
+    ///     </para>
     /// </remarks>
     static bool TryNegate(UtilityCandidate candidate, List<UtilityDeclaration> declarations) {
         if (declarations.Count == 0 || NotNegatable.Contains(candidate.Value)) {
@@ -3747,15 +3770,50 @@ public static class UtilityFamilies {
         for (var i = 0; i < declarations.Count; i++) {
             var value = declarations[i].Value;
 
-            if (value.Length == 0 || !(char.IsAsciiDigit(value[0]) || value[0] == '.')) {
+            if (value.Length > 0 && (char.IsAsciiDigit(value[0]) || value[0] == '.')) {
+                declarations[i] = declarations[i] with { Value = "-" + value };
+                continue;
+            }
+
+            if (!IsNumericFunction(value)) {
                 return false;
             }
 
-            declarations[i] = declarations[i] with { Value = "-" + value };
+            declarations[i] = declarations[i] with { Value = $"calc({value} * -1)" };
         }
 
         return true;
+
+        // One function call spanning the whole value, so `calc(1px) auto` is not wrapped into a
+        // product with a keyword in it.
+        static bool IsNumericFunction(string value) {
+            var open = value.IndexOf('(', StringComparison.Ordinal);
+
+            if (open <= 0 || value[^1] != ')' || !NumericFunctions.Contains(value[..open])) {
+                return false;
+            }
+
+            var depth = 0;
+            for (var i = open; i < value.Length; i++) {
+                depth += value[i] switch {
+                    '(' => 1,
+                    ')' => -1,
+                    _ => 0
+                };
+
+                if (depth == 0 && i < value.Length - 1) {
+                    return false;
+                }
+            }
+
+            return depth == 0;
+        }
     }
+
+    /// <summary>The functions whose value is a number, and so can be negated by wrapping: see <see cref="TryNegate" />.</summary>
+    static readonly HashSet<string> NumericFunctions = new(StringComparer.OrdinalIgnoreCase) {
+        "calc", "var", "min", "max", "clamp"
+    };
 
     /// <summary>A border edge, which is a width or a colour depending on how the value reads.</summary>
     /// <remarks>

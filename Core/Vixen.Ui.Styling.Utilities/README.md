@@ -559,10 +559,10 @@ so a conditional group rule inside another has always loaded and always conjoine
 Conditional 5 § 3 describes. What could not nest was `UtilityGenerator`, which carried one `string?`
 for the whole variant stack and gave up when a second at-rule disagreed with the first. It carries an
 ordered, deduplicated list now, and the emitter is a trie over those chains so that `sm:m-2` and
-`sm:md:p-4` share one `@media (min-width: 640px)` rather than opening two.
+`sm:md:p-4` share one `@media (min-width: 40rem)` rather than opening two.
 
 ⚠ **That is also the prerequisite for `@container`, and it is why the list is a stack and not an
-`and`-joined string.** Flattening `sm:md:` to `@media (min-width: 640px) and (min-width: 768px)` would
+`and`-joined string.** Flattening `sm:md:` to `@media (min-width: 40rem) and (min-width: 48rem)` would
 have worked and would have been a dead end: a container query is a different at-rule and cannot be
 conjoined into a media query, so the moment `@sm:` joins `md:` the flattened form has nowhere to put
 it. Nesting generalises; conjunction does not.

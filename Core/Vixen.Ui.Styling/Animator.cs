@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using Vixen.Core.Mathematics;
 
 namespace Vixen.Ui.Styling;
 
@@ -120,6 +121,17 @@ public sealed class Animator {
     readonly NameTable properties;
     readonly NameTable values;
 
+    /// <summary>The table <see cref="parser" /> interns identifiers in, and so the one a value it parsed is written back with.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <see cref="values" />, and formatting with that one was #1445.</b> A
+    ///     <see cref="StyleValue" />'s keyword is an id in <i>this</i> table; the text it is written
+    ///     back as is then interned in <see cref="values" />, which is what the cascade holds. Writing
+    ///     the keyword against the values table threw out of <c>UiDocument.Update</c> when the id was
+    ///     past its end, and named some other word when it was not — <c>rotate: z 90deg</c> in a
+    ///     keyframe was the first value to reach it.
+    /// </remarks>
+    readonly NameTable keywords;
+
     /// <summary>What a property computes to on an element that never mentioned it.</summary>
     /// <remarks>
     ///     ⚠ Owned by the animator rather than by <c>StyleResolver</c>, because it is the only reader
@@ -167,6 +179,22 @@ public sealed class Animator {
     /// <inheritdoc cref="rotateProperty" />
     readonly int scaleProperty;
 
+    /// <summary>The two filter properties, whose <c>none</c> is the other list at its identity.</summary>
+    /// <remarks>See <see cref="FilterIdentity" />.</remarks>
+    readonly int filterProperty;
+
+    /// <inheritdoc cref="filterProperty" />
+    readonly int backdropFilterProperty;
+
+    /// <summary>The filter functions whose identity is zero, as interned in <see cref="keywords" />.</summary>
+    readonly int[] filterZeroes;
+
+    /// <summary>The filter functions whose identity is one, or <c>100%</c>.</summary>
+    readonly int[] filterOnes;
+
+    /// <summary>The <c>drop-shadow</c> keyword, whose identity is a transparent shadow with no offset.</summary>
+    readonly int dropShadowFunction;
+
     readonly int animationName;
     readonly int animationDuration;
     readonly int animationDelay;
@@ -194,6 +222,7 @@ public sealed class Animator {
 
         this.properties = properties;
         this.values = values;
+        this.keywords = keywords;
         this.keyframes = keyframes;
         parser = new StyleValueParser(values, keywords);
         this.transitions = new TransitionParser(properties);
@@ -219,6 +248,11 @@ public sealed class Animator {
         rotateProperty = properties.Intern("rotate");
         translateProperty = properties.Intern("translate");
         scaleProperty = properties.Intern("scale");
+        filterProperty = properties.Intern("filter");
+        backdropFilterProperty = properties.Intern("backdrop-filter");
+        filterZeroes = [keywords.Intern("blur"), keywords.Intern("hue-rotate"), keywords.Intern("grayscale"), keywords.Intern("invert"), keywords.Intern("sepia")];
+        filterOnes = [keywords.Intern("brightness"), keywords.Intern("contrast"), keywords.Intern("saturate"), keywords.Intern("opacity")];
+        dropShadowFunction = keywords.Intern("drop-shadow");
     }
 
     /// <summary>Whether the user has asked for less movement, and everything therefore snaps.</summary>
@@ -703,8 +737,8 @@ public sealed class Animator {
     }
 
     /// <summary>
-    ///     An individual transform's <c>none</c> as the identity shaped like the value it travels to,
-    ///     and every other value as it is.
+    ///     An individual transform's or a filter's <c>none</c> as the identity shaped like the value it
+    ///     travels to, and every other value as it is.
     /// </summary>
     /// <param name="property">The property the two values belong to.</param>
     /// <param name="value">The end that may be <c>none</c>: undeclared, which is <c>Unknown</c>, or the keyword.</param>
@@ -724,6 +758,10 @@ public sealed class Animator {
     ///         ⚠ <b>An entry in <see cref="InitialValues" /> could not say it</b>, which is why this is
     ///         not one: the identity's shape is the other end's — <c>0deg</c> against an angle,
     ///         <c>0px 0px</c> against a pair — and a fixed initial would fail to pair with half of them.
+    ///     </para>
+    ///     <para>
+    ///         <c>filter</c> and <c>backdrop-filter</c> take the same answer function by function —
+    ///         see <see cref="FilterIdentity" /> (#1439).
     ///     </para>
     ///     <para>
     ///         Both ends <c>none</c>, or the other end unreadable, is left alone: there is nothing to
@@ -753,10 +791,17 @@ public sealed class Animator {
             );
         }
 
+        if (property == filterProperty || property == backdropFilterProperty) {
+            return FilterIdentity(other) ?? value;
+        }
+
         return value;
 
-        // ⚠ Part by part, so a rotation keeps its axis — the numbers in `1 0 0 45deg` — and zeroes only
-        // the angle, and a pair of lengths becomes a pair of zeros `StyleValue.Lerp` can pair.
+        // ⚠ Part by part, so a rotation keeps its axis — the `z` of `z 90deg`, the numbers in
+        // `0 0 1 90deg` — and zeroes only the angle, and a pair of lengths becomes a pair of zeros
+        // `StyleValue.Lerp` can pair. ⚠ Keeping an axis is not drawing it: `TransformReader.Degrees`
+        // draws only the z axis, by keyword or as a vector parallel to it (#1450), so `1 0 0 45deg`
+        // animates here and is drawn unrotated at every frame, as it is at rest.
         static StyleValue IdentityOf(StyleValue shape, Func<StyleValue, StyleValue> identity) {
             if (shape.Kind != StyleValueKind.List) {
                 return identity(shape);
@@ -765,6 +810,80 @@ public sealed class Animator {
             var parts = new StyleValue[shape.Items.Length];
             for (var i = 0; i < parts.Length; i++) {
                 parts[i] = identity(shape.Items[i]);
+            }
+
+            return StyleValue.FromList(parts);
+        }
+    }
+
+    /// <summary>A filter list's identity: the same functions, each at the argument that does nothing.</summary>
+    /// <param name="list">The list to shape the identity after — one function, or a list of them.</param>
+    /// <returns>The identity, or null where a function in it has none this knows.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         Filter Effects 1 § 13: a <c>none</c> end interpolates as the other end's functions at
+    ///         their initial values, so <c>none</c> → <c>blur(8px)</c> is <c>blur(0px)</c> →
+    ///         <c>blur(8px)</c> and fades in rather than holding <c>none</c> and snapping (#1439).
+    ///         <c>blur</c>, <c>hue-rotate</c>, <c>grayscale</c>, <c>invert</c> and <c>sepia</c> are zero
+    ///         in the other end's unit; <c>brightness</c>, <c>contrast</c>, <c>saturate</c> and
+    ///         <c>opacity</c> are one, or <c>100%</c> against a percentage.
+    ///     </para>
+    ///     <para>
+    ///         <c>drop-shadow</c> is a transparent shadow with no offset and no blur. A
+    ///         <c>currentcolor</c> in it stays <c>currentcolor</c>, because this assembly cannot
+    ///         resolve it; the colour then has a keyword at one end and a keyword at the other, which
+    ///         pair, and the shadow grows out of the element's own colour rather than out of nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ A function this does not know answers null, and the caller keeps the <c>none</c>: a
+    ///         list nothing can shape an identity after stays discrete rather than guessing one.
+    ///     </para>
+    /// </remarks>
+    StyleValue? FilterIdentity(StyleValue list) {
+        if (list.Kind != StyleValueKind.List || list.Items.Length == 0) {
+            return null;
+        }
+
+        if (list.Items[0].Kind == StyleValueKind.Keyword) {
+            return Function(list);
+        }
+
+        var functions = new StyleValue[list.Items.Length];
+        for (var i = 0; i < functions.Length; i++) {
+            if (list.Items[i] is not { Kind: StyleValueKind.List, Items: [{ Kind: StyleValueKind.Keyword }, ..] } item
+                || Function(item) is not { } identity) {
+                return null;
+            }
+
+            functions[i] = identity;
+        }
+
+        return StyleValue.FromList(functions);
+
+        StyleValue? Function(StyleValue function) {
+            var name = function.Items[0].Keyword;
+            var parts = new StyleValue[function.Items.Length];
+            parts[0] = function.Items[0];
+
+            for (var i = 1; i < parts.Length; i++) {
+                var part = function.Items[i];
+
+                if (name == dropShadowFunction) {
+                    parts[i] = part.Kind switch {
+                        StyleValueKind.Length => StyleValue.FromLength(0f, part.Unit),
+                        StyleValueKind.Number => StyleValue.FromNumber(0f),
+                        StyleValueKind.Color => StyleValue.FromColor(Color4.Transparent),
+                        _ => part
+                    };
+                } else if (Array.IndexOf(filterZeroes, name) >= 0) {
+                    parts[i] = part.Kind == StyleValueKind.Length ? StyleValue.FromLength(0f, part.Unit) : StyleValue.FromNumber(0f);
+                } else if (Array.IndexOf(filterOnes, name) >= 0) {
+                    parts[i] = part.Kind == StyleValueKind.Length && part.Unit == StyleUnit.Percent
+                        ? StyleValue.FromLength(100f, StyleUnit.Percent)
+                        : StyleValue.FromNumber(1f);
+                } else {
+                    return null;
+                }
             }
 
             return StyleValue.FromList(parts);
@@ -1034,7 +1153,7 @@ public sealed class Animator {
             return false;
         }
 
-        value = values.Intern(current.ToCss(values));
+        value = values.Intern(current.ToCss(keywords));
         return true;
     }
 
@@ -1081,7 +1200,7 @@ public sealed class Animator {
 
             var value = transition.IsMix
                 ? values.Intern(MixText(mixes[property], transition.MixAt(now), transition.MixFrom, transition.MixTo))
-                : values.Intern(transition.ValueAt(now).ToCss(values));
+                : values.Intern(transition.ValueAt(now).ToCss(keywords));
 
             overlaid ??= Copy(style);
             overlaid.Add(new KeyValuePair<int, int>(property, value));

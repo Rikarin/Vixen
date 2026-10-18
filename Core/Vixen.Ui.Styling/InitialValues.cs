@@ -42,9 +42,10 @@ namespace Vixen.Ui.Styling;
 ///             <c>none</c> transform is the identity against the other end, a <c>none</c> filter the
 ///             other list's functions at their initial values, a missing shadow a transparent
 ///             zero-offset one. None of them is a fixed value either, because each is shaped by the
-///             other end, so none belongs in this table: <c>rotate</c>, <c>translate</c> and
-///             <c>scale</c> get their identity from <c>Animator.Travelling</c>, and <c>transform</c>
-///             from its mix.
+///             other end, so none belongs in this table: <c>rotate</c>, <c>translate</c>,
+///             <c>scale</c>, <c>filter</c> and <c>backdrop-filter</c> get their identity from
+///             <c>Animator.Travelling</c> (the filters since #1439), and <c>transform</c> from its mix.
+///             ⚠ <c>box-shadow: none</c> gets none yet: it still jumps.
 ///         </item>
 ///     </list>
 ///     <para>
