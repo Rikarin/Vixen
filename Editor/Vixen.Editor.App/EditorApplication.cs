@@ -2468,7 +2468,7 @@ sealed partial class EditorApplication : IDisposable {
                 panel => {
                     panel.WhenPressedIn(() => Shell.Context = AssetContext);
 
-                    browser = new ProjectBrowser(session, panel, Extensions);
+                    browser = new ProjectBrowser(session, panel, library.Shown, Extensions);
 
                     browser.Activated += Open;
                     browser.Renamed += RenameAsset;
@@ -3583,7 +3583,7 @@ sealed partial class EditorApplication : IDisposable {
                 return;
             }
 
-            library.SaveFilter(name.Trim(), browser.Search, browser.Kind);
+            library.SaveFilter(name.Trim(), library.Shown.Search, library.Shown.Kind);
         }
     }
 

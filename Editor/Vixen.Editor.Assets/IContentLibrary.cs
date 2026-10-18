@@ -31,6 +31,9 @@ public interface IContentLibrary {
     /// <summary>The project whose assets these are.</summary>
     EditorProject Project { get; }
 
+    /// <summary>What the content browser is showing, which outlives the panel that shows it.</summary>
+    LibraryView Shown { get; }
+
     /// <summary>Copies files and folders from the user's disk into the project, then scans and imports.</summary>
     /// <param name="paths">Absolute paths on the user's disk — chosen in a dialog or dropped from the OS.</param>
     /// <param name="folder">The project-relative folder to land them in; empty means <c>Assets</c>.</param>

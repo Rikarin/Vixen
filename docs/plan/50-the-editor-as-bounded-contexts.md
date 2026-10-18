@@ -589,6 +589,14 @@ after P2 the consumers can), `ProjectBrowser.cs` (1,491), `NodeGraphView.cs` (1,
 `ComponentsView.vxml` (1,117). Each is its own issue with its own ceiling in `ApplicationSizeRule`'s
 table, which is renamed `FileSizeRule` the day it gains a second assembly.
 
+**`ProjectBrowser` (#1304), first slice landed:** the folder, collection, search and kind are
+`IContentLibrary.Shown` (`LibraryView`), so they survive the panel being closed and reopened, and
+Save Filter reads them from the library rather than out of the view; the rescan is
+`IProjectSession`'s (#1293). ⚠ *"Its second asset tree"* is refuted: `AssetTree.Build` has exactly
+one production caller, the browser, and the database holds a flat list — the tree is a projection,
+not a second copy of state, and moving it into the service would need a database change signal
+`AssetDatabase` does not have (and would create the second copy the finding warned about).
+
 ### P5 — The gizmo decision (≈ 0.25 EM, a decision before a change)
 
 Doc 36 § Part 6 measured the two options — a recording entry point (`EditProperty.Record(before,
