@@ -330,7 +330,7 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
     ///         false and substitutes its own fallback. The editor does exactly that — its catalog
     ///         resolves <em>less</em> than its import cache, deliberately, so a material excluded from
     ///         the build would otherwise take its geometry off screen. See
-    ///         <c>Vixen.Editor.App.EditorMaterialSource</c>.
+    ///         <see cref="FallbackMaterialSource" />, which both renderers hand their extraction (#509).
     ///     </para>
     ///     <para>
     ///         A predicate rather than a widened <see cref="TryGet" />, because the interface is what

@@ -258,6 +258,89 @@ public sealed class WorldRendererTests : IDisposable {
         Assert.True(material.Parameters.Get(key).IsValid);
     }
 
+    /// <summary>
+    ///     A mesh wearing a material the catalog has refused for good is drawn in the extraction's
+    ///     fallback, not left off screen for ever.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/509">#509</a>.</b>
+    ///         <see cref="IMaterialSource.TryGet" />'s false means "not yet" and
+    ///         <c>MeshExtractionSystem.Painted</c> waits on it, but <see cref="AssetMaterialSource" />
+    ///         also answers false for a reference it has given up on — so one entity naming a material
+    ///         a partial content update did not ship was never added, with every counter but
+    ///         <c>Waiting</c> healthy. Only the editor wrapped its painter; this is the game's path.
+    ///     </para>
+    ///     <para>
+    ///         Both orders, for <see cref="MountingEitherSideOfRegisteringWiresTheSources" />'s reason:
+    ///         <see cref="WorldRenderer.Register" /> and <see cref="WorldRenderer.Mount" /> each hand the
+    ///         extraction its material source on their own line, and a frame exercises only one.
+    ///     </para>
+    /// </remarks>
+    /// <param name="mountFirst">Whether content is mounted before the systems are registered.</param>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AMaterialTheCatalogRefusedIsDrawnInTheFallbackRatherThanNotAtAll(bool mountFirst) {
+        using var loop = new EngineLoop();
+        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+
+        renderer.Host.Builder.Views["Camera"] = new("camera");
+        renderer.Host.Load(YamlSerializer.Parse<GraphicsCompositorAsset>(Document));
+        renderer.Host.FrameSize = new(64, 64);
+
+        var stages = renderer.Host.Builder.Stages.Values.Aggregate(
+            RenderStageMask.None,
+            (mask, stage) => mask | stage.Mask
+        );
+
+        if (mountFirst) {
+            renderer.Mount(Mounted());
+            renderer.Register(loop, stages);
+        } else {
+            renderer.Register(loop, stages);
+            renderer.Mount(Mounted());
+        }
+
+        var fallback = new Material("ForwardPlus");
+
+        renderer.Extraction!.Material = fallback;
+
+        var missing = new AssetReference(new AssetId(Guid.NewGuid()), SubAssetId.Main);
+        var entity = loop.World.Create();
+
+        loop.World.Add(entity, new WorldTransform { Value = Matrix4x4.Identity });
+        loop.World.Add(entity, new MeshRenderable { Mesh = Rock, Material = missing });
+
+        // Ends on the object, or on nothing being outstanding for Settling.Quiet attempts — which is
+        // what the defect looks like: the mesh arrives, the material is refused, and the entity is
+        // asked about every frame for ever.
+        Settling.Until(
+            () => {
+                loop.Frame(TimeSpan.FromMilliseconds(16));
+
+                var frame = device.BeginCommandList();
+
+                renderer.Draw(frame);
+                frame.Finish();
+                device.GraphicsQueue.Submit([frame]);
+            },
+            () => renderer.Extraction.ObjectCount > 0,
+            () => Settling.Working(renderer, Bark),
+            "the mesh wearing a refused material was never drawn"
+        );
+
+        // The instrument: it really was refused, not merely slow.
+        Assert.True(Assert.IsType<AssetMaterialSource>(renderer.Painter).Refused(missing));
+
+        var id = loop.World.Read<RenderHandle>(entity).Object;
+        var index = renderer.Host.System.Objects.Data.Data(renderer.Materials.MaterialIndex)[id.Index];
+
+        Assert.Same(fallback, renderer.Materials.Materials[index]);
+        Assert.Equal(0, renderer.Extraction.Waiting);
+        Assert.Equal(1, renderer.MaterialsFellBack);
+    }
+
     /// <summary>Mounting content before registering the systems wires them, and so does after.</summary>
     /// <remarks>
     ///     <para>

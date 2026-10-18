@@ -635,7 +635,7 @@ warning would toast, log, toast, log.
   mesh at all.** `IMaterialSource.TryGet` is two-valued and its false means "not yet", so
   `MeshExtractionSystem.Painted` leaves the entity unsettled for ever while `AssetMaterialSource` has
   already given up — every counter healthy, the geometry simply absent. `AssetMaterialSource.Refused`
-  separates the two and `EditorMaterialSource` is the only caller; `Degraded` now counts what fell
+  separates the two and `FallbackMaterialSource` (in `Vixen.Engine.Renderer`, shared with the game since #509) is what asks; `Degraded` now counts what fell
   back rather than claiming there is no source.
   Both costs the old paragraph priced in were real and are paid: `LooseContent.Write` runs on
   `ContentTasks`' pool thread through `Cataloged` rather than in `Pump`, and a re-import re-`Mount`s,

@@ -65,6 +65,9 @@ public sealed class WorldRenderer : IDisposable {
     /// </remarks>
     AssetMaterialSource? painting;
 
+    /// <summary>What the extraction actually asks: <see cref="painting" /> with a fallback for refusals.</summary>
+    FallbackMaterialSource? refusals;
+
     /// <summary>The source <see cref="Mount" /> built for the virtualized path, if there is one.</summary>
     AssetVirtualGeometrySource? clustering;
 
@@ -663,11 +666,49 @@ public sealed class WorldRenderer : IDisposable {
 
     /// <summary>Where the material a reference names comes from.</summary>
     /// <remarks>
-    ///     Null until <see cref="Mount" />. A drawable naming a material this cannot supply is drawn in
-    ///     <see cref="MeshExtractionSystem.Material" /> rather than not at all — see that property's
-    ///     remarks for why "no source" and "not yet" are different answers.
+    ///     <para>
+    ///         Null until <see cref="Mount" />. With no source, a drawable naming a material is drawn in
+    ///         <see cref="MeshExtractionSystem.Material" />; one the source has not got <em>yet</em> is
+    ///         waited for — see that property's remarks for why "no source" and "not yet" are different
+    ///         answers.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And one the source <see cref="Mount" /> built has refused for good is drawn in
+    ///         <see cref="MeshExtractionSystem.Material" /> too, but only because the extraction is not
+    ///         handed this property directly</b> (<a href="https://github.com/Rikarin/Vixen/issues/509">#509</a>).
+    ///         This remark used to promise that for every miss while the extraction waited on a refusal
+    ///         for ever; it now asks through a <see cref="FallbackMaterialSource" /> over the mounted
+    ///         source, and <see cref="MaterialsFellBack" /> counts what took it. A source a project sets
+    ///         here itself is handed over as it is: its false means whatever it says it means.
+    ///     </para>
     /// </remarks>
     public IMaterialSource? Painter { get; set; }
+
+    /// <summary>How many distinct material references the mounted catalog refused and were drawn in the fallback.</summary>
+    /// <remarks>
+    ///     Zero with nothing mounted, and zero for a refusal while <see cref="MeshExtractionSystem.Material" />
+    ///     is unset — there is nothing to draw it in, so that one still waits. Non-zero is content
+    ///     built by an older engine or a partial update, which is what
+    ///     <see cref="AssetMaterialSource.Failed" /> says from the other side.
+    /// </remarks>
+    public int MaterialsFellBack => refusals?.FellBack ?? 0;
+
+    /// <summary>What the extraction is handed for <see cref="Painter" />.</summary>
+    /// <returns>
+    ///     The mounted source wrapped so a refusal draws in the extraction's fallback, or
+    ///     <see cref="Painter" /> unchanged when it is not the one <see cref="Mount" /> built.
+    /// </returns>
+    IMaterialSource? ExtractionPainter() {
+        if (painting is null || !ReferenceEquals(Painter, painting)) {
+            return Painter;
+        }
+
+        if (refusals is null || !ReferenceEquals(refusals.Painter, painting)) {
+            refusals = new(painting, () => Extraction?.Material);
+        }
+
+        return refusals;
+    }
 
     /// <summary>The frame's texture table, on a device that has one.</summary>
     /// <remarks>
@@ -919,7 +960,9 @@ public sealed class WorldRenderer : IDisposable {
 
         if (Extraction is { } extraction) {
             extraction.Meshes = Source;
-            extraction.Materials = Painter;
+            // ⚠ Wrapped, not `Painter` itself — a reference the catalog refused would otherwise be
+            // waited on for ever and its mesh never drawn (#509). Register's line below is the twin.
+            extraction.Materials = ExtractionPainter();
             extraction.Virtualized = Clusters?.Feature;
             extraction.Clusters = Hierarchies;
         }
@@ -971,7 +1014,9 @@ public sealed class WorldRenderer : IDisposable {
             StaticStages = staticStages,
             CasterStages = casterStages,
             Meshes = Source,
-            Materials = Painter,
+
+            // ⚠ Wrapped, as in Mount: a refusal is drawn in this extraction's `Material` (#509).
+            Materials = ExtractionPainter(),
             Virtualized = Clusters?.Feature,
             Clusters = Hierarchies,
 
