@@ -235,7 +235,45 @@ public class StyleValueTests {
         Assert.Equal(15f, mixed.Items[1].Number, Tolerance);
 
         Assert.False(StyleValue.CanInterpolate(parser.Parse("0px 10px"), parser.Parse("10px")));
-        Assert.False(StyleValue.CanInterpolate(parser.Parse("0px auto"), parser.Parse("10px auto")));
+        Assert.False(StyleValue.CanInterpolate(parser.Parse("0px auto"), parser.Parse("10px none")));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A keyword that is the same at both ends is carried through, and the rest of the list
+    ///     interpolates</b> (#1439).
+    /// </summary>
+    /// <remarks>
+    ///     This used to assert the opposite for <c>0px auto</c> → <c>10px auto</c>, which was the rule
+    ///     that made every filter discrete: <c>blur(2px)</c> is <c>[blur, 2px]</c>, and a keyword pair
+    ///     was refused even when it was one word. Filter Effects 1 § 13 interpolates two lists of the
+    ///     same functions pairwise; two different keywords are still discrete, above.
+    /// </remarks>
+    [Fact]
+    public void A_list_interpolates_past_a_keyword_that_does_not_change() {
+        var parser = Parser();
+
+        var mixed = StyleValue.Lerp(parser.Parse("0px auto"), parser.Parse("10px auto"), 0.5f);
+
+        Assert.Equal(5f, mixed.Items[0].Number, Tolerance);
+        Assert.Equal(parser.Parse("auto"), mixed.Items[1]);
+
+        var blur = StyleValue.Lerp(parser.Parse("blur(2px)"), parser.Parse("blur(8px)"), 0.5f);
+
+        Assert.Equal(5f, blur.Items[1].Number, Tolerance);
+        Assert.False(StyleValue.CanInterpolate(parser.Parse("grayscale(0)"), parser.Parse("sepia(1)")));
+    }
+
+    /// <summary>A function inside a list is written back as a function, so it parses back to the same list.</summary>
+    [Fact]
+    public void A_list_of_functions_round_trips_through_its_text() {
+        var keywords = new NameTable();
+        var parser = new StyleValueParser(new NameTable(), keywords);
+        var list = parser.Parse("blur(4px) drop-shadow(0px 2px 3px #ff0000) invert(1)");
+
+        var text = list.ToCss(keywords);
+
+        Assert.Equal("blur(4px) drop-shadow(0px 2px 3px rgba(255, 0, 0, 1)) invert(1)", text);
+        Assert.Equal(list, parser.Parse(text));
     }
 
     [Fact]

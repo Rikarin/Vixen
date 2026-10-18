@@ -230,10 +230,20 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
     /// <returns>Whether a midpoint between them means anything.</returns>
     /// <remarks>
     ///     <para>
-    ///         Mismatched kinds, mismatched units and keywords are all <i>discrete</i>: CSS says such
-    ///         a transition flips at the halfway mark rather than not happening. So this is not
-    ///         "may this transition" — every transition is allowed — but "is there a value in
+    ///         Mismatched kinds, mismatched units and two different keywords are all <i>discrete</i>:
+    ///         CSS says such a transition flips at the halfway mark rather than not happening. So this
+    ///         is not "may this transition" — every transition is allowed — but "is there a value in
     ///         between", and where there is not, the animator swaps.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two <i>equal</i> keywords pass, and refusing them made every filter discrete</b>
+    ///         (#1439). A filter function parses as a list headed by its name — <c>[blur, 2px]</c> —
+    ///         and the list is walked part by part, so <c>blur(2px)</c> → <c>blur(8px)</c> met the pair
+    ///         <c>blur</c>/<c>blur</c> and was refused. A keyword has no midpoint, but a keyword that
+    ///         does not change needs none: it is carried through, which is Filter Effects 1 § 13's
+    ///         "same functions in the same order, pairwise" and also what lets
+    ///         <c>rotate: z 0deg</c> → <c>z 90deg</c> and an <c>inset</c> shadow interpolate.
+    ///         <c>blur</c> against <c>brightness</c> is still two keywords and still discrete.
     ///     </para>
     ///     <para>
     ///         Mismatched units are the interesting case: <c>width: 100px</c> to <c>width: 50%</c>
@@ -263,6 +273,7 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
         return from.Kind switch {
             StyleValueKind.Number or StyleValueKind.Color => true,
             StyleValueKind.Length => from.Unit == to.Unit,
+            StyleValueKind.Keyword => from.Keyword == to.Keyword,
             StyleValueKind.List => from.Items.Length == to.Items.Length && EveryPartCan(from, to),
             _ => false
         };
@@ -432,7 +443,17 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
             case StyleValueKind.List: {
                 var parts = new string[Items.Length];
                 for (var i = 0; i < parts.Length; i++) {
-                    parts[i] = Items[i].ToCss(names);
+                    // ⚠ <b>A list inside a list is a function, and is written as one</b> (#1439).
+                    // `StyleValueParser` builds a nested list only out of a function — a filter
+                    // function is `[name, argument…]` — so `blur(4px) invert(1)` is a list of two of
+                    // them. Joined with spaces as the top level is, it came back as
+                    // `blur 4px invert 1`: one four-item list, which the filter reader refuses whole.
+                    // The top level keeps its spaces, because there a keyword-headed list is
+                    // `rotate: z 90deg`, and a lone `blur(4px)` written as `blur 4px` parses back to
+                    // the same two items anyway.
+                    parts[i] = Items[i] is { Kind: StyleValueKind.List, Items: [{ Kind: StyleValueKind.Keyword } head, ..] } function
+                        ? Function(head, function.Items, names)
+                        : Items[i].ToCss(names);
                 }
 
                 return string.Join(' ', parts);
@@ -440,6 +461,15 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
 
             default:
                 return string.Empty;
+        }
+
+        static string Function(StyleValue name, ReadOnlySpan<StyleValue> items, NameTable names) {
+            var arguments = new string[items.Length - 1];
+            for (var i = 0; i < arguments.Length; i++) {
+                arguments[i] = items[i + 1].ToCss(names);
+            }
+
+            return name.ToCss(names) + "(" + string.Join(' ', arguments) + ")";
         }
 
         static string Format(float value) => value.ToString("0.####", CultureInfo.InvariantCulture);

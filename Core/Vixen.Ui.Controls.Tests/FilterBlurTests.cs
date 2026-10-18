@@ -270,4 +270,53 @@ public class FilterBlurTests {
 
         Assert.Equal(4f, Assert.Single(ui.Geometry.Layers).Blur, 3);
     }
+
+    /// <summary>
+    ///     ⚠ <b>Half way through a <c>blur(2px)</c> → <c>blur(8px)</c> transition the picture is a
+    ///     <c>blur(5px)</c>, pixel for pixel</b> — where it used to be the <c>blur(8px)</c> from the
+    ///     first frame (#1439).
+    /// </summary>
+    /// <remarks>
+    ///     The oracle is two static captures of the same fixture rather than a number, so the assertion
+    ///     says "drawn as the midpoint" and nothing about the kernel: equal to the 5px picture across
+    ///     the edge, and different from the 8px one somewhere along it.
+    /// </remarks>
+    [Fact]
+    public void A_blur_transition_is_drawn_as_the_midpoint_blur_half_way_through() {
+        using var midway = UiTest.Create(80f, 80f, new UiTestOptions { FrameDelta = TimeSpan.FromMilliseconds(500) });
+        midway.Document.Compositing = true;
+
+        midway.Load(
+            """
+            root { width: 80px; height: 80px; background-color: #000000; }
+            .box { position: absolute; left: 20px; top: 20px; width: 40px; height: 40px;
+                   background-color: #ffffff; filter: blur(2px);
+                   transition-property: filter; transition-duration: 1s; transition-timing-function: linear; }
+            .box.on { filter: blur(8px); }
+            """
+        );
+
+        var box = midway.Create("div", null, "box", "box");
+        midway.Frame();
+
+        // The frame that sees the class starts the transition; the one after is half a second in.
+        box.AddClass("on");
+        midway.Frame();
+        midway.Frame();
+
+        using var five = Square("filter: blur(5px);");
+        using var eight = Square("filter: blur(8px);");
+
+        var drawn = midway.Capture();
+        var expected = five.Capture();
+        var held = eight.Capture();
+        var differsFromHeld = false;
+
+        for (var x = 4; x < 36; x++) {
+            Assert.Equal(expected.Pixels[expected.Offset(x, 40)], drawn.Pixels[drawn.Offset(x, 40)]);
+            differsFromHeld |= held.Pixels[held.Offset(x, 40)] != drawn.Pixels[drawn.Offset(x, 40)];
+        }
+
+        Assert.True(differsFromHeld, "the midpoint drew the same picture as the end");
+    }
 }
