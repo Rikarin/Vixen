@@ -85,8 +85,8 @@ claim below was re-checked by reading the consumer rather than by the absence of
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
 | Utility **roots** (the unit of this table) | **331** | 328 families |
-| CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **111** (13 of them `--tw-*` fragments) |
-| …of which something in the engine acts on | — | **92** |
+| CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **107** (11 of them `--tw-*` fragments) |
+| …of which something in the engine acts on | — | **90** |
 | Variant keys | **88** | **55** |
 
 ⚠ **The family figure moves every week, which is why it is no longer typed here.** It has been quoted
