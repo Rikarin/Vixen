@@ -208,8 +208,11 @@
                 It routes its nested options into its popover the same way `Select` does — see
                 `ComboBox.ContentHost` — so the nesting below reads as the tree it is and is not
                 where the elements end up.
+
+                `Completes` is AppKit's completion (#666): typing "su" fills in "Subsurface" with the
+                rest selected, so the next keystroke replaces it.
             -->
-            <ComboBox>
+            <ComboBox Completes="true">
                 <Option Value="Standard" Label="Standard" />
                 <Option Value="Unlit" Label="Unlit" />
                 <Option Value="Subsurface" Label="Subsurface" />

@@ -867,7 +867,9 @@ the field and declines a scrub when it meets a control on the way; a version of 
 attached menu (so no pull-down or pop-up button), no repeat-on-hold; ~~`Slider` has no tick
 marks~~ — landed (#666): `RangeBase.TickCount` and `SnapsToTicks`, drawn by `Slider`,
 `RangeSlider` and, since #1444, `LevelIndicator` (over its fill); `ProgressBar` and `Gauge` still
-inherit and ignore them; `SearchBox` has no recents menu or scope bar; `ComboBox` has no completion; `Tabs` has no overflow,
+inherit and ignore them; `SearchBox` has no recents menu or scope bar; ~~`ComboBox` has no completion~~ — landed (#666):
+`ComboBox.Completes` is AppKit's `completes`, the remainder of the first suggestion appended and
+selected, used by `Samples/02-HelloUi`'s gallery; the list is still not filtered as you type; `Tabs` has no overflow,
 close or reorder (`DockingHost` has all three); `ScrollView` has no magnification and no rulers;
 `DataGrid` has no column show/hide menu and no layout autosave.
 
