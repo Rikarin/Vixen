@@ -3,6 +3,7 @@
 
 using Vixen.Core.Reflection;
 using Vixen.Core.Yaml;
+using Vixen.Ui.Reactive;
 
 namespace Vixen.Editor.Core;
 
@@ -31,6 +32,9 @@ public sealed class ProjectSettingsStore {
     public const string Extension = ".vxsettings";
 
     readonly HashSet<Type> changed = [];
+
+    /// <summary><see cref="HasUnsavedChanges" />, as something a computed can depend on (#1310).</summary>
+    readonly Signal<bool> dirty = new(false);
     readonly Dictionary<Type, object> loaded = [];
     readonly ProjectPaths paths;
     readonly List<string> unknownKeys = [];
@@ -95,10 +99,22 @@ public sealed class ProjectSettingsStore {
     ///     own — which is the price of it being the same kind of type as everything else the
     ///     inspector draws.
     /// </remarks>
-    public void MarkChanged<T>() where T : class, new() => changed.Add(typeof(T));
+    public void MarkChanged<T>() where T : class, new() {
+        changed.Add(typeof(T));
+        Restate();
+    }
 
     /// <summary>Whether anything has been marked changed and not yet written.</summary>
     public bool HasUnsavedChanges => changed.Count > 0;
+
+    /// <summary>Whether anything has been marked changed and not yet written, as a signal.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What joins this store to <see cref="EditorProject.HasUnsavedChanges" /></b> (#1310).
+    ///     That gates the close prompt and Save All, and it read open documents only — so a setting
+    ///     typed into the project settings window and not applied was lost on close without a word.
+    ///     A plain <see langword="bool" /> cannot be depended on by a computed; this can.
+    /// </remarks>
+    public IReadOnlySignal<bool> IsDirty => dirty;
 
     /// <summary>Puts one settings type back to its declared defaults, in memory.</summary>
     /// <typeparam name="T">The settings type.</typeparam>
@@ -118,6 +134,7 @@ public sealed class ProjectSettingsStore {
     public void Reset<T>() where T : class, new() {
         loaded[typeof(T)] = new T();
         changed.Add(typeof(T));
+        Restate();
     }
 
     /// <summary>Writes one settings type to disk.</summary>
@@ -128,6 +145,7 @@ public sealed class ProjectSettingsStore {
         Directory.CreateDirectory(paths.ProjectSettings);
         File.WriteAllText(FileFor<T>(), YamlSerializer.ToYaml(value));
         changed.Remove(typeof(T));
+        Restate();
     }
 
     /// <summary>Writes everything that has been marked changed.</summary>
@@ -146,6 +164,7 @@ public sealed class ProjectSettingsStore {
         }
 
         changed.Clear();
+        Restate();
         return written;
     }
 
@@ -158,8 +177,11 @@ public sealed class ProjectSettingsStore {
     public void Reload() {
         loaded.Clear();
         changed.Clear();
+        Restate();
         unknownKeys.Clear();
     }
+
+    void Restate() => dirty.Value = changed.Count > 0;
 
     static string AliasOf(Type type) {
         if (TypeRegistry.TryGet(type, out var descriptor)) {

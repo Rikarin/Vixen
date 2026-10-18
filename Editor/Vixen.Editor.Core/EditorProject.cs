@@ -55,8 +55,8 @@ public sealed class EditorProject {
     /// <summary>Which document has focus, or <see langword="null" /> if none.</summary>
     public IReadOnlySignal<EditorDocument?> ActiveDocument => activeDocument;
 
-    /// <summary>Whether any open document differs from disk.</summary>
-    /// <remarks>What the shell asks before it closes the window.</remarks>
+    /// <summary>Whether any open document, or the project's settings, differs from disk.</summary>
+    /// <remarks>What the shell asks before it closes the window. The settings joined it in #1310.</remarks>
     public IReadOnlySignal<bool> HasUnsavedChanges { get; }
 
     /// <summary>Raised by an open document just before it writes itself back.</summary>
@@ -99,7 +99,16 @@ public sealed class EditorProject {
 
         // Reads every open document's dirty flag, so the dependency set changes as documents come and
         // go — which is exactly what a computed's run-to-discover dependency tracking is for.
+        //
+        // ⚠ And the project settings store's, which is not a document and was not read (#1310): a
+        // setting typed into the project settings window and not applied did not stop the editor
+        // closing, and Save All was greyed with it pending. Read first, so the dependency exists
+        // whatever the documents say.
         HasUnsavedChanges = new Computed<bool>(() => {
+                if (Settings.IsDirty.Value) {
+                    return true;
+                }
+
                 for (var index = 0; index < documents.Count; index++) {
                     if (documents[index].IsDirty.Value) {
                         return true;
@@ -207,8 +216,8 @@ public sealed class EditorProject {
         return true;
     }
 
-    /// <summary>Saves every open document that differs from disk.</summary>
-    /// <returns>How many were written.</returns>
+    /// <summary>Saves every open document that differs from disk, and the project settings marked changed.</summary>
+    /// <returns>How many were written — documents and settings files together.</returns>
     public int SaveAll() {
         var saved = 0;
 
@@ -221,7 +230,9 @@ public sealed class EditorProject {
             }
         }
 
-        return saved;
+        // ⚠ And the project settings, because `HasUnsavedChanges` counts them (#1310) — a Save All
+        // that left them pending would be a prompt that asked about them and a Save that did not.
+        return saved + Settings.SaveAll();
     }
 
     /// <summary>Tells every open document that a file in the project changed.</summary>

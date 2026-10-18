@@ -1469,7 +1469,20 @@ sealed partial class EditorApplication {
     /// <summary>Writes every open document that has changes.</summary>
     void SaveAll() {
         try {
+            // ⚠ Project settings are saved too now (#1310), so what the window's Apply does after a
+            // write — push the content target, retitle, clear its own dirty mark — has to follow, or
+            // the file says one thing and the running editor another until the next launch.
+            var settings = project.Settings.HasUnsavedChanges;
             var written = project.SaveAll();
+
+            if (settings) {
+                ApplyProjectSettings();
+
+                if (projectSettingsView is { } view) {
+                    view.IsDirty = false;
+                }
+            }
+
             Shell.Notifications.Success($"{written} document(s) saved");
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             Shell.Notifications.Show("Could not save everything", NotificationSeverity.Error, exception.Message);
@@ -3028,6 +3041,12 @@ sealed partial class EditorApplication {
             .Where(document => document.IsDirty.Value)
             .Select(document => document.Title.Peek())
             .ToList();
+
+        // Named, because it is counted (#1310): a prompt asking about "unsaved changes" with no
+        // document dirty would send somebody looking through every tab for an edit that is not in one.
+        if (project.Settings.HasUnsavedChanges) {
+            names.Add(EditorStrings.PanelProjectSettings.Text);
+        }
 
         return names.Count switch {
             0 => "There are unsaved changes.",

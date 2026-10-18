@@ -59,6 +59,46 @@ public class SettingsWindowTests {
     }
 
     /// <summary>
+    ///     #1310: a project setting edited and not applied is unsaved work, and closing asks about it —
+    ///     and Save from that prompt writes it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Red before the fix.</b> <c>EditorProject.HasUnsavedChanges</c> read open documents and
+    ///     nothing else, so the editor closed without a word over a typed product name, and Save All
+    ///     was greyed with that edit pending.
+    /// </remarks>
+    [Fact]
+    public void An_unapplied_project_setting_is_what_stops_the_editor_closing() {
+        using var fixture = EditorSession.Start();
+
+        var view = fixture.Control<SettingsView>("project-settings");
+        var file = fixture.Project.Settings.FileFor<ProjectInfoSettings>();
+
+        Assert.False(fixture.Project.HasUnsavedChanges.Value);
+
+        Type(view, "ProductName", "Moonshot");
+        fixture.Settle();
+
+        Assert.True(fixture.Project.HasUnsavedChanges.Value);
+
+        fixture.RequestClose();
+        fixture.Frame();
+
+        Assert.True(fixture.Shell.Dialogs.IsOpen);
+        Assert.False(fixture.IsClosing);
+
+        var dialog = fixture.Shell.Dialogs.Current!;
+        var save = dialog.Footer.Children.OfType<Button>().First(candidate => candidate.Label == "Save");
+
+        fixture.Click(save);
+        fixture.Frames(2);
+
+        Assert.True(fixture.IsClosing);
+        Assert.False(fixture.Project.HasUnsavedChanges.Value);
+        Assert.Contains("Moonshot", File.ReadAllText(file), StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     ⚠ Doc 20's A4: the title bar answers "which project is this window", and the project's
     ///     own name for itself outranks the directory it happens to be in.
     /// </summary>
