@@ -696,6 +696,12 @@ settled by what the pool is:
   element down, under an `@if` at the root, on an `@empty` arm. The flag is not `inLoop`, which an
   `@if` at the root leaves set because its arms' elements need keys; `loopRoots` is taken and cleared
   by `BindContent` the way `rowsHosted` is, and only a brace block passes it through.
+- ⚠ **`key=` is the opposite answer to the same question, because there `VXML2004` was already
+  right** (#1466). The key rule demands a key of every element in an `@if` or `@switch` arm at a loop
+  root, and `BindFor` read one only off the elements directly in the body — so the demanded key was
+  dropped and the loop keyed on the item. The key is now collected exactly where `VXML2004` asks for
+  it (`loopKeys`, one list per loop), and roots that key one loop differently are `VXML2034`, since a
+  loop has one key function and the first used to win silently. Compared as written, whitespace aside.
 
 ⚠ **`@rows` is a keyword only with a `(var` header after it.** `rows` is a legal C# identifier and
 `@rows[0]` is an ordinary interpolation; `@empty` makes the same bargain with the brace. And the index

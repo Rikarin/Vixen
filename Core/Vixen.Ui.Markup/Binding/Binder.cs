@@ -3,6 +3,7 @@
 
 using System.Collections.Immutable;
 using System.Globalization;
+using System.Text;
 using Vixen.Core.Syntax;
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Core.Syntax.Text;
@@ -173,6 +174,18 @@ public sealed class Binder {
     ///     body and nothing else, so an exit is only read where this is true. <c>VXML2033</c>, #1436.
     /// </remarks>
     bool atLoopRoot;
+
+    /// <summary>The keys of the nearest <c>@for</c>'s key-carrying roots, in source order.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Collected where <c>VXML2004</c> asks for them, so the read and the requirement cannot
+    ///     disagree again</b> (#1466). <see cref="BindFor" /> used to read the key off the
+    ///     <see cref="BoundElement" />s directly in its body, while <see cref="inLoop" /> — which an
+    ///     <c>@if</c> or <c>@switch</c> at the root leaves set — made the rule demand one of every
+    ///     element in their arms too; so a key there was required and then dropped, and the loop keyed
+    ///     on the item. One list per loop: an inner <c>@for</c> saves and replaces it, because its
+    ///     roots key that loop and not this one.
+    /// </remarks>
+    List<(BoundExpression Key, TextSpan Span)>? loopKeys;
 
     Binder(SourceText text, string filePath, DiagnosticBag diagnostics) {
         this.text = text;
@@ -495,6 +508,15 @@ public sealed class Binder {
             Report(MarkupDiagnostics.MissingKey, element.StartTag.Name.Span, tag);
         }
 
+        if (inLoop && loopKeys is not null) {
+            foreach (var attribute in attributes) {
+                if (attribute.Kind == BoundAttributeKind.Key && attribute.Expression is { } key) {
+                    loopKeys.Add((key, KeySpan(element)));
+                    break;
+                }
+            }
+        }
+
         var component = SyntaxFacts.IsComponentName(tag);
 
         // Only the roots of a loop body need identity; once inside one, children move with it.
@@ -809,6 +831,29 @@ public sealed class Binder {
         return new(index, Expression(rows.Count), bound, Position(rows.RowsKeyword));
     }
 
+    /// <summary>A key's expression with its whitespace removed, so <c>@x.Id</c> and <c>@x .Id</c> agree.</summary>
+    static string KeyText(BoundExpression key) {
+        var builder = new StringBuilder(key.Text.Length);
+        foreach (var character in key.Text) {
+            if (!char.IsWhiteSpace(character)) {
+                builder.Append(character);
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>Where an element's <c>key</c> attribute is written, or its tag name when it has none.</summary>
+    static TextSpan KeySpan(ElementSyntax element) {
+        foreach (var attribute in element.StartTag.Attributes) {
+            if (string.Equals(attribute.Name.Text, "key", StringComparison.Ordinal)) {
+                return attribute.Name.Span;
+            }
+        }
+
+        return element.StartTag.Name.Span;
+    }
+
     BoundFor BindFor(ForSyntax @for) {
         var variable = @for.Identifier.IsMissing ? "item" : @for.Identifier.Text;
 
@@ -826,17 +871,23 @@ public sealed class Binder {
         loops++;
         RefuseSlotAttributes(@for.Body.Content, "'@for'");
         loopRoots = true;
+        var outerKeys = loopKeys;
+        var keys = new List<(BoundExpression Key, TextSpan Span)>();
+        loopKeys = keys;
         var body = BindContent(@for.Body.Content);
+        loopKeys = outerKeys;
         loops--;
         item = outerVariable;
         inRow = outerRow;
         inLoop = outer;
 
-        BoundExpression? key = null;
-        foreach (var node in body) {
-            if (node is BoundElement { Key: { } found }) {
-                key = found;
-                break;
+        // ⚠ Every element `VXML2004` asked a key of, an `@if` or `@switch` arm's included — see
+        // `loopKeys`. The loop has one key function, so roots that key it differently are refused
+        // rather than the first silently winning over the rest. `MarkupDiagnostics.KeyDisagreement`.
+        var key = keys.Count == 0 ? null : keys[0].Key;
+        for (var i = 1; i < keys.Count; i++) {
+            if (!string.Equals(KeyText(keys[i].Key), KeyText(key!), StringComparison.Ordinal)) {
+                Report(MarkupDiagnostics.KeyDisagreement, keys[i].Span, keys[i].Key.Text, key!.Text);
             }
         }
 

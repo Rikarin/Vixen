@@ -1085,6 +1085,78 @@ public class BinderTests {
         Assert.Equal("fading", inner.ExitClass);
     }
 
+    /// <summary>
+    ///     A <c>key</c> on an element in an arm of an <c>@if</c> or <c>@switch</c> at a loop root is
+    ///     the loop's key — the elements <c>VXML2004</c> demands a key of are the elements it is read
+    ///     from (#1466).
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Each of these bound with <c>BoundFor.Key</c> null until #1466</b>, so the loop keyed
+    ///     on the item itself while the author's key said otherwise: <c>BindFor</c> read the key only
+    ///     off the <c>BoundElement</c>s directly in its body, and an <c>@if</c> there is not one.
+    /// </remarks>
+    [Theory]
+    [InlineData("<ul>@for (var x in Xs) { @if (x.On) { <li key=\"@x.Id\" /> } }</ul>", "x.Id")]
+    [InlineData("<ul>@for (var x in Xs) { @if (x.On) { <li key=\"@x\" /> } else { <li key=\"@x\" class=\"off\" /> } }</ul>", "x")]
+    [InlineData("<ul>@for (var x in Xs) { @if (x.On) { @if (x.Big) { <li key=\"@x\" /> } } }</ul>", "x")]
+    [InlineData("<ul>@for (var x in Xs) { @switch (x.Kind) { case 1: <li key=\"@x\" /> break; default: <li key=\"@x\" /> break; } }</ul>", "x")]
+    public void A_key_in_an_arm_at_a_loop_root_is_the_loops_key(string markup, string expected) {
+        var component = Binder.Bind(Vxml.Parse("@component A\n" + markup), out var diagnostics);
+
+        Assert.Empty(diagnostics.Where(d => d.IsError).Select(d => d.ToString()));
+
+        var ul = Assert.IsType<BoundElement>(Assert.Single(component!.Content));
+        var loop = Assert.Single(ul.Children.OfType<BoundFor>());
+
+        Assert.Equal(expected, loop.Key?.Text);
+    }
+
+    /// <summary>
+    ///     Two key-carrying roots of one loop that key it on different expressions are refused: the loop
+    ///     has one key function, and it would be whichever came first.
+    /// </summary>
+    [Theory]
+    [InlineData("<ul>@for (var x in Xs) { @if (x.On) { <li key=\"@x\" /> } else { <li key=\"@x.Id\" /> } }</ul>")]
+    [InlineData("<ul>@for (var x in Xs) { <li key=\"@x\" /> <li key=\"@x.Name\" /> }</ul>")]
+    public void Roots_of_one_loop_that_disagree_about_its_key_are_refused(string markup) {
+        var ids = Ids("@component A\n" + markup);
+
+        Assert.Contains("VXML2034", ids);
+    }
+
+    /// <summary>
+    ///     <c>VXML2034</c> is not reported for keys that agree, nor for an inner loop's key, which is
+    ///     that loop's and not its row's.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The instrument for the theory above</b>, proved by widening the rule until this went
+    ///     red: one list of keys shared by every loop rather than one per loop compared the inner
+    ///     loop's <c>@y</c> with the outer one's <c>@x</c>.
+    /// </remarks>
+    [Fact]
+    public void VXML2034_is_not_reported_for_keys_that_agree_or_for_an_inner_loops_key() {
+        var component = BindClean(
+            "@component A\n"
+            + "<ul>\n"
+            + "    @for (var x in Xs) {\n"
+            + "        @if (x.On) {\n"
+            + "            <li key=\"@x\">@for (var y in x.Ys) { <b key=\"@y\" /> }</li>\n"
+            + "        } else {\n"
+            + "            <li key=\"@x\" class=\"off\" />\n"
+            + "        }\n"
+            + "    }\n"
+            + "</ul>"
+        );
+
+        var ul = Assert.IsType<BoundElement>(Assert.Single(component.Content));
+        var outer = Assert.Single(ul.Children.OfType<BoundFor>());
+
+        Assert.Equal("x", outer.Key?.Text);
+        Assert.DoesNotContain("VXML2034", Ids(
+            "@component A\n<ul>@for (var x in Xs) { @if (x.On) { <li key=\"@x\">@for (var y in x.Ys) { <b key=\"@y\" /> }</li> } }</ul>"
+        ));
+    }
+
     static ImmutableArray<Diagnostic> Diagnostics(string source) {
         _ = Binder.Bind(Vxml.Parse(source), out var diagnostics);
         return [.. diagnostics];

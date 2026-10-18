@@ -696,6 +696,7 @@ static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.InertElementAttrib
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.InterpolatedProvideType -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.InvalidExitDuration -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.InvalidParameterName -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.KeyDisagreement -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.KeyOnRow -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MismatchedEndTag -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MisplacedSelf -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
