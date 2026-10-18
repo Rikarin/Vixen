@@ -186,6 +186,16 @@ public sealed class Animator {
     /// <inheritdoc cref="filterProperty" />
     readonly int backdropFilterProperty;
 
+    /// <summary><c>box-shadow</c>, whose <c>none</c> is a transparent shadow with every length zero.</summary>
+    /// <remarks>See <see cref="ShadowIdentity" />.</remarks>
+    readonly int boxShadowProperty;
+
+    /// <summary>The <c>inset</c> and <c>currentcolor</c> keywords, the two a single shadow may carry.</summary>
+    readonly int insetKeyword;
+
+    /// <inheritdoc cref="insetKeyword" />
+    readonly int currentColorKeyword;
+
     /// <summary>The filter functions whose identity is zero, as interned in <see cref="keywords" />.</summary>
     readonly int[] filterZeroes;
 
@@ -253,6 +263,9 @@ public sealed class Animator {
         filterZeroes = [keywords.Intern("blur"), keywords.Intern("hue-rotate"), keywords.Intern("grayscale"), keywords.Intern("invert"), keywords.Intern("sepia")];
         filterOnes = [keywords.Intern("brightness"), keywords.Intern("contrast"), keywords.Intern("saturate"), keywords.Intern("opacity")];
         dropShadowFunction = keywords.Intern("drop-shadow");
+        boxShadowProperty = properties.Intern("box-shadow");
+        insetKeyword = keywords.Intern("inset");
+        currentColorKeyword = keywords.Intern("currentcolor");
     }
 
     /// <summary>Whether the user has asked for less movement, and everything therefore snaps.</summary>
@@ -761,7 +774,10 @@ public sealed class Animator {
     ///     </para>
     ///     <para>
     ///         <c>filter</c> and <c>backdrop-filter</c> take the same answer function by function —
-    ///         see <see cref="FilterIdentity" /> (#1439).
+    ///         see <see cref="FilterIdentity" /> (#1439) — and a filter list shorter than the other is
+    ///         padded with the other's remaining functions at their identity, see
+    ///         <see cref="PaddedFilter" /> (#1464). <c>box-shadow</c>'s <c>none</c> is a transparent
+    ///         zero shadow, see <see cref="ShadowIdentity" /> (#1464).
     ///     </para>
     ///     <para>
     ///         Both ends <c>none</c>, or the other end unreadable, is left alone: there is nothing to
@@ -769,6 +785,12 @@ public sealed class Animator {
     ///     </para>
     /// </remarks>
     StyleValue Travelling(int property, StyleValue value, StyleValue other) {
+        if ((property == filterProperty || property == backdropFilterProperty)
+            && value.Kind == StyleValueKind.List
+            && other.Kind == StyleValueKind.List) {
+            return PaddedFilter(value, other) ?? value;
+        }
+
         if (value.Kind is not (StyleValueKind.Unknown or StyleValueKind.Keyword)
             || other.Kind is StyleValueKind.Unknown or StyleValueKind.Keyword) {
             return value;
@@ -793,6 +815,10 @@ public sealed class Animator {
 
         if (property == filterProperty || property == backdropFilterProperty) {
             return FilterIdentity(other) ?? value;
+        }
+
+        if (property == boxShadowProperty) {
+            return ShadowIdentity(other) ?? value;
         }
 
         return value;
@@ -845,13 +871,13 @@ public sealed class Animator {
         }
 
         if (list.Items[0].Kind == StyleValueKind.Keyword) {
-            return Function(list);
+            return FunctionIdentity(list);
         }
 
         var functions = new StyleValue[list.Items.Length];
         for (var i = 0; i < functions.Length; i++) {
             if (list.Items[i] is not { Kind: StyleValueKind.List, Items: [{ Kind: StyleValueKind.Keyword }, ..] } item
-                || Function(item) is not { } identity) {
+                || FunctionIdentity(item) is not { } identity) {
                 return null;
             }
 
@@ -859,35 +885,163 @@ public sealed class Animator {
         }
 
         return StyleValue.FromList(functions);
+    }
 
-        StyleValue? Function(StyleValue function) {
-            var name = function.Items[0].Keyword;
-            var parts = new StyleValue[function.Items.Length];
-            parts[0] = function.Items[0];
+    /// <summary>One filter function at the argument that does nothing, or null where this knows none.</summary>
+    /// <param name="function">The function, as the list headed by its name.</param>
+    /// <returns>The identity, or null.</returns>
+    StyleValue? FunctionIdentity(StyleValue function) {
+        var name = function.Items[0].Keyword;
+        var parts = new StyleValue[function.Items.Length];
+        parts[0] = function.Items[0];
 
-            for (var i = 1; i < parts.Length; i++) {
-                var part = function.Items[i];
+        for (var i = 1; i < parts.Length; i++) {
+            var part = function.Items[i];
 
-                if (name == dropShadowFunction) {
-                    parts[i] = part.Kind switch {
-                        StyleValueKind.Length => StyleValue.FromLength(0f, part.Unit),
-                        StyleValueKind.Number => StyleValue.FromNumber(0f),
-                        StyleValueKind.Color => StyleValue.FromColor(Color4.Transparent),
-                        _ => part
-                    };
-                } else if (Array.IndexOf(filterZeroes, name) >= 0) {
-                    parts[i] = part.Kind == StyleValueKind.Length ? StyleValue.FromLength(0f, part.Unit) : StyleValue.FromNumber(0f);
-                } else if (Array.IndexOf(filterOnes, name) >= 0) {
-                    parts[i] = part.Kind == StyleValueKind.Length && part.Unit == StyleUnit.Percent
-                        ? StyleValue.FromLength(100f, StyleUnit.Percent)
-                        : StyleValue.FromNumber(1f);
-                } else {
-                    return null;
+            if (name == dropShadowFunction) {
+                parts[i] = part.Kind switch {
+                    StyleValueKind.Length => StyleValue.FromLength(0f, part.Unit),
+                    StyleValueKind.Number => StyleValue.FromNumber(0f),
+                    StyleValueKind.Color => StyleValue.FromColor(Color4.Transparent),
+                    _ => part
+                };
+            } else if (Array.IndexOf(filterZeroes, name) >= 0) {
+                parts[i] = part.Kind == StyleValueKind.Length ? StyleValue.FromLength(0f, part.Unit) : StyleValue.FromNumber(0f);
+            } else if (Array.IndexOf(filterOnes, name) >= 0) {
+                parts[i] = part.Kind == StyleValueKind.Length && part.Unit == StyleUnit.Percent
+                    ? StyleValue.FromLength(100f, StyleUnit.Percent)
+                    : StyleValue.FromNumber(1f);
+            } else {
+                return null;
+            }
+        }
+
+        return StyleValue.FromList(parts);
+    }
+
+    /// <summary>
+    ///     A filter list padded to the other end's length with the other end's remaining functions at
+    ///     their identity, or null where it is not the shorter or the two cannot be padded.
+    /// </summary>
+    /// <param name="value">The end that may be the shorter list.</param>
+    /// <param name="other">The other end, whose tail the padding is shaped after.</param>
+    /// <returns>The padded list of functions, or null to leave <paramref name="value" /> as it is.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Filter Effects 1 § 13's third case, and the one #1439 left jumping</b> (#1464):
+    ///         two lists of different lengths whose shared positions name the same functions
+    ///         interpolate after the shorter is padded with the longer's remaining functions at their
+    ///         initial values — so <c>blur(2px)</c> → <c>blur(8px) invert(1)</c> is
+    ///         <c>blur(5px) invert(0.5)</c> half way. The padding is each function's own identity,
+    ///         <see cref="FunctionIdentity" />: zero for <c>blur</c>, one for <c>brightness</c>, a
+    ///         transparent zero shadow for <c>drop-shadow</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A shared position naming a different function leaves both ends alone</b>, and
+    ///         <see cref="StyleValue.Lerp" /> then finds two lists of different lengths and stays
+    ///         discrete, which is the spec's answer and not a gap.
+    ///     </para>
+    /// </remarks>
+    StyleValue? PaddedFilter(StyleValue value, StyleValue other) {
+        var shorter = Count(value);
+        var longer = Count(other);
+
+        // Only the shorter end is padded, so the common case — two lists of one length — leaves here
+        // without allocating.
+        if (shorter <= 0 || shorter >= longer) {
+            return null;
+        }
+
+        var padded = new StyleValue[longer];
+        for (var i = 0; i < shorter; i++) {
+            if (At(value, i).Items[0].Keyword != At(other, i).Items[0].Keyword) {
+                return null;
+            }
+
+            padded[i] = At(value, i);
+        }
+
+        for (var i = shorter; i < longer; i++) {
+            if (FunctionIdentity(At(other, i)) is not { } identity) {
+                return null;
+            }
+
+            padded[i] = identity;
+        }
+
+        return StyleValue.FromList(padded);
+
+        // A lone function is the list headed by its name and a list of them is a list of those; both
+        // read here as a count of functions, and anything else as zero.
+        static int Count(StyleValue list) {
+            if (list.Items.Length == 0) {
+                return 0;
+            }
+
+            if (list.Items[0].Kind == StyleValueKind.Keyword) {
+                return 1;
+            }
+
+            foreach (var item in list.Items) {
+                if (item is not { Kind: StyleValueKind.List, Items: [{ Kind: StyleValueKind.Keyword }, ..] }) {
+                    return 0;
                 }
             }
 
-            return StyleValue.FromList(parts);
+            return list.Items.Length;
         }
+
+        static StyleValue At(StyleValue list, int index) =>
+            list.Items[0].Kind == StyleValueKind.Keyword ? list : list.Items[index];
+    }
+
+    /// <summary>A single shadow's identity: the same shape, transparent, with every length zero.</summary>
+    /// <param name="shadow">The shadow to shape the identity after.</param>
+    /// <returns>The identity, or null where <paramref name="shadow" /> is not one shadow this can read.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>CSS Backgrounds 3 § 7: a missing shadow interpolates as a transparent one whose
+    ///         lengths are zero and whose <c>inset</c> matches the shadow it pairs with</b> (#1464).
+    ///         Treating <c>none</c> as a keyword applied the shadow at once; now
+    ///         <c>none</c> → <c>0 0 8px red</c> is half blurred and half faded at the midpoint. The
+    ///         <c>inset</c> keyword is kept, so an inner shadow grows in as an inner one, and an
+    ///         <c>inset</c> on one declared end and not the other still has no midpoint.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One shadow only.</b> A comma-separated list does not parse to a value whose items
+    ///         are shadows — the comma rides on an item, and a hex list is <c>Unknown</c> whole — so
+    ///         anything but a list of lengths, colours and those two keywords answers null and the
+    ///         <c>none</c> stays a jump rather than guessing a shape (#1472).
+    ///     </para>
+    /// </remarks>
+    StyleValue? ShadowIdentity(StyleValue shadow) {
+        if (shadow.Kind != StyleValueKind.List || shadow.Items.Length == 0) {
+            return null;
+        }
+
+        var parts = new StyleValue[shadow.Items.Length];
+        for (var i = 0; i < parts.Length; i++) {
+            var part = shadow.Items[i];
+
+            switch (part.Kind) {
+                case StyleValueKind.Length:
+                    parts[i] = StyleValue.FromLength(0f, part.Unit);
+                    break;
+                case StyleValueKind.Number:
+                    parts[i] = StyleValue.FromNumber(0f);
+                    break;
+                case StyleValueKind.Color:
+                    parts[i] = StyleValue.FromColor(Color4.Transparent);
+                    break;
+                case StyleValueKind.Keyword when part.Keyword == insetKeyword || part.Keyword == currentColorKeyword:
+                    parts[i] = part;
+                    break;
+                default:
+                    return null;
+            }
+        }
+
+        return StyleValue.FromList(parts);
     }
 
     /// <summary>What a property is under the animation: its cascaded value, or its initial value where there is no style.</summary>

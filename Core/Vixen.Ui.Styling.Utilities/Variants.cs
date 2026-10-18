@@ -585,7 +585,7 @@ public static class Variants {
             var argument = variant[prefix.Length..];
 
             if (argument.Length > 2 && argument[0] == '[' && argument[^1] == ']') {
-                argument = argument[1..^1].Replace('_', ' ');
+                argument = ArbitraryValue.Decode(argument.AsSpan()[1..^1]);
             } else if (!IsChildNumber(argument)) {
                 return false;
             }
@@ -695,7 +695,7 @@ public static class Variants {
             // text size, so `min-[40rem]:` — v4's own unit — is 640 pixels at 100 % and moves with a
             // user's text-size preference. Until then it was a block the loader dropped. The theme's
             // named breakpoints do the same since #1417, which kept their unit — see `Css`.
-            width = rest[1..^1].ToString().Replace('_', ' ');
+            width = ArbitraryValue.Decode(rest[1..^1]);
         } else if (tokens.Screens.TryGetValue(rest.ToString(), out var scale)) {
             width = Css(scale);
         } else {
@@ -782,7 +782,7 @@ public static class Variants {
         if (rest.Length > 2 && rest[0] == '[' && rest[^1] == ']') {
             // The arbitrary form. Verbatim, because the author wrote a length and the units this
             // engine can compare are `MediaQuery.TryLength`'s rather than this table's.
-            width = rest[1..^1].ToString().Replace('_', ' ');
+            width = ArbitraryValue.Decode(rest[1..^1]);
 
             if (width.Length == 0) {
                 return false;
@@ -815,7 +815,7 @@ public static class Variants {
         // `data-[state=open]:` — the arbitrary form is verbatim whatever the family, because the
         // author has written the comparison out.
         if (rest.Length > 1 && rest[0] == '[' && rest[^1] == ']') {
-            return $"[{prefix}{rest[1..^1].Replace('_', ' ')}]";
+            return $"[{prefix}{ArbitraryValue.Decode(rest.AsSpan()[1..^1])}]";
         }
 
         // The shorthand `data-open:`, which means the attribute is present — and `aria-expanded:`,

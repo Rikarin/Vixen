@@ -134,6 +134,66 @@ public class FilterTransitionTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>A shorter list is padded with the longer one's remaining functions at their identity</b>
+    ///     (#1464), so <c>blur(2px)</c> → <c>blur(8px) invert(1)</c> is <c>blur(5px) invert(0.5)</c>
+    ///     half way, where it used to apply the end at once.
+    /// </summary>
+    [Fact]
+    public void A_shorter_list_is_padded_with_the_identity_of_the_longer_ones_tail() {
+        using var document = new UiDocument(200f, 100f);
+        var box = Settled(document, "filter: blur(2px);", "filter: blur(8px) invert(1);");
+
+        Assert.Equal("blur(5px) invert(0.5)", Text(document, box));
+        Assert.Equal(5f, DrawnBlur(document), Tolerance);
+    }
+
+    /// <summary>
+    ///     The padding is each function's own identity — <c>brightness</c> pads with one, not zero —
+    ///     and it works whichever end is the shorter.
+    /// </summary>
+    /// <remarks>
+    ///     A pad of zero for every function would read <c>brightness(1.5)</c> here, half way from
+    ///     three to nothing, and a pad on the start only would apply the end at once.
+    /// </remarks>
+    [Fact]
+    public void A_shorter_end_pads_each_function_with_its_own_identity() {
+        using var document = new UiDocument(200f, 100f);
+        var box = Settled(document, "filter: blur(8px) brightness(3) opacity(50%);", "filter: blur(2px);");
+
+        Assert.Equal("blur(5px) brightness(2) opacity(75%)", Text(document, box));
+    }
+
+    /// <summary>A padded <c>drop-shadow</c> grows out of a transparent shadow with no offset.</summary>
+    [Fact]
+    public void A_padded_drop_shadow_grows_from_a_transparent_zero_shadow() {
+        using var document = new UiDocument(200f, 100f);
+        var box = Settled(document, "filter: blur(2px);", "filter: blur(2px) drop-shadow(4px 8px 2px #ff0000);");
+
+        var value = Filter(document, box);
+        var shadow = value.Items[1];
+
+        Assert.Equal("drop-shadow", document.Styles.Names.NameOf(shadow.Items[0].Keyword));
+        Assert.Equal(2f, shadow.Items[1].Number, Tolerance);
+        Assert.Equal(4f, shadow.Items[2].Number, Tolerance);
+        Assert.Equal(1f, shadow.Items[3].Number, Tolerance);
+        Assert.Equal(0.5f, shadow.Items[4].Color.A, Tolerance);
+        Assert.Equal(1f, shadow.Items[4].Color.R, Tolerance);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Padding needs the common prefix to name the same functions</b>: <c>grayscale(0)</c> →
+    ///     <c>sepia(1) blur(4px)</c> has a different function in the place both lists share, so it
+    ///     stays discrete and is the end half way through (Filter Effects 1 § 13).
+    /// </summary>
+    [Fact]
+    public void A_shorter_list_whose_prefix_differs_does_not_interpolate() {
+        using var document = new UiDocument(200f, 100f);
+        var box = Settled(document, "filter: grayscale(0);", "filter: sepia(1) blur(4px);");
+
+        Assert.Equal("sepia(1) blur(4px)", Text(document, box));
+    }
+
+    /// <summary>
     ///     ⚠ <b>Different functions do not interpolate</b>, which is the half a fix that let every
     ///     keyword pair through would break.
     /// </summary>

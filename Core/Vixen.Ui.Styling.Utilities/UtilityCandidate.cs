@@ -192,11 +192,11 @@ public static class UtilityParser {
                     return false;
                 }
 
-                arbitrary = inside[(split + 1)..].ToString().Replace('_', ' ');
+                arbitrary = ArbitraryValue.Decode(inside[(split + 1)..]);
             } else {
                 // `_` stands for a space, because a class attribute cannot contain one. Tailwind's
                 // convention, and the only workable one: `grid-cols-[1fr_auto]` has to say two things.
-                arbitrary = inside.ToString().Replace('_', ' ');
+                arbitrary = ArbitraryValue.Decode(inside);
             }
         } else if (TryVariableShorthand(text, out var variable, out var before)) {
             // v4's `bg-(--brand)`, which is exactly `bg-[var(--brand)]` and is rewritten into it here
