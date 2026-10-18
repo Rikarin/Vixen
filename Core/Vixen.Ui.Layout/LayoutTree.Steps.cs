@@ -352,6 +352,12 @@ public sealed partial class LayoutTree {
         // `flex_basis_unconstraint_row` and both content-box halves of
         // `padding_border_overrides_size_flex_basis_0_growable`, whose `flex-basis: 0px` row items
         // stop being measured and start being believed. The regression is the rule.
+        // ⚠ Re-run for #1440, on top of the fit-content clause below: relaxing it for both axes now
+        // closes nothing and opens eight,
+        // all four `flex_basis_unconstraint_row` and all four `padding_border_overrides_size_
+        // flex_basis_0_growable` (both box-sizings now, not only content-box), plus
+        // `FlexibleLengthResolutionTests`' shrink-to-fit row. The fit-content clause itself moves
+        // no fixture in either corpus, in either direction.
         //
         // ⚠ The percentage half of the guard stays on both axes, and it is the half that was always
         // load-bearing: §5.2.1 makes a percentage against an indefinite main size behave as
@@ -372,7 +378,23 @@ public sealed partial class LayoutTree {
         // widths. ⚠ It needed §9.2 step 3E's max-content pass to become reachable — that is what
         // asks a container for its max-content size mid-layout — so neither the memo nor the
         // fall-through was wrong on its own.
+        // ⚠ <b>A fit-content offer is the max-content question asked with a ceiling, and for a
+        // GROWABLE item it has the same answer (#1440).</b> §9.9.1 makes a growable item's max-content
+        // contribution its content and lets the base clamp it only when the item is NOT growable, so a
+        // row offered "at most" W takes `flex: 1 0 0` text's content into its size exactly as a
+        // max-content row does. Trusting the declaration because the offer is not NaN made such a row
+        // the width of everything except the text — 88 px in `ZeroBasisWrapHeightTests`, where Chrome
+        // draws 300 — and the text 0 px wide and seven lines tall. The declaration comes back as the
+        // base the moment the row's size is decided: AdoptDeclaredFlexBases, which STEP 5 calls for
+        // this offer as it does for the max-content one. A non-growable item's declaration is a
+        // ceiling on its contribution and stays trusted; a percentage keeps the guard's other reason.
+        var contributesContent = isMainAxisRow
+            && widthMode == SizingMode.FitContent
+            && processedFlexBasis.Unit != LayoutUnit.Percent
+            && StyleResolution.ResolveFlexGrow(in styles[child], links[child].Parent < 0) > 0f;
+
         if (!float.IsNaN(resolvedFlexBasis)
+            && !contributesContent
             && (!float.IsNaN(mainAxisSize) || (!isMainAxisRow && processedFlexBasis.Unit != LayoutUnit.Percent))) {
             var paddingAndBorder = StyleResolution.PaddingAndBorderForAxis(in styles[child], mainAxis, direction, ownerWidth);
             results[child].ComputedFlexBasis = MathF.Max(resolvedFlexBasis, paddingAndBorder);

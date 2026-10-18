@@ -19,7 +19,8 @@ public sealed partial class LayoutTree {
         float availableInnerMainDim,
         float availableInnerCrossDim,
         float availableInnerWidth,
-        bool performLayout
+        bool performLayout,
+        bool flexSkipped
     ) {
         var leadingContentInsetMain = StyleResolution.FlexStartContentInset(in styles[index], mainAxis, direction, ownerWidth);
         var trailingContentInsetMain = StyleResolution.FlexEndContentInset(in styles[index], mainAxis, direction, ownerWidth);
@@ -108,9 +109,14 @@ public sealed partial class LayoutTree {
                 line.MainDim += line.RemainingFreeSpace / line.AutoMarginCount;
             }
 
-            if (!performLayout && sizingModeCrossDim == SizingMode.StretchFit) {
+            if (flexSkipped) {
                 // The flex step was skipped, so the measured sizes were never computed and the
                 // basis is all there is to go on.
+                //
+                // ⚠ The caller's own decision and not the condition re-derived here, which it used to
+                // be: a fit-content row whose line overflows its offer does NOT skip (#1448), and
+                // re-deriving "measuring, cross axis exact" summed the unshrunk bases anyway — the
+                // row came out at its content width while its items had been shrunk to the offer.
                 line.MainDim += StyleResolution.MarginForAxis(in styles[child], mainAxis, availableInnerWidth)
                     + BoundAxisWithinMinAndMax(
                         child,

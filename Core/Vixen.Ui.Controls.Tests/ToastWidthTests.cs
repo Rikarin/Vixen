@@ -20,9 +20,19 @@ namespace Vixen.Ui.Controls.Tests;
 ///         at its containing block — a plain <c>div</c> with <c>left: 16px</c> in the same window is
 ///         1464 px wide — and a row flex item measured "at most" a width reports its content size
 ///         without shrinking its children, so pinning the host on both sides left the toast 1528 px
-///         wide inside a 368 px host. The sheet answers each: <c>left</c> and <c>right</c> on the
-///         host, <c>max-width: 100%</c> on the toast. The layout rules themselves are left alone
+///         wide inside a 368 px host. The sheet answered each: <c>left</c> and <c>right</c> on the
+///         host, <c>max-width: 100%</c> on the toast. The layout rules themselves were left alone
 ///         here, because code positions a great many absolute boxes by <c>left</c> alone.
+///     </para>
+///     <para>
+///         ⚠ <b>The second was fixed in the layout afterwards (#1448), and the toast's cap came out
+///         with it</b>: a row offered "at most" a width is bounded by the offer and shrinks its items.
+///         These facts were red with the cap removed and the engine unchanged, and are green with the
+///         cap removed and the engine fixed, so the toast is now the engine's regression test as well.
+///         ⚠ <b>And so was the first (#1447)</b>: an auto-width absolute box shrinks to its containing
+///         block less its insets under any parent. With the host's <c>left</c> removed the toast now
+///         wraps at 384 px rather than running to 1528 — it fails only the 16 px left gutter, which is
+///         what <c>left</c> is still there for.
 ///     </para>
 ///     <para>
 ///         The oracle is geometric and closed-form: the toast's box inside the window's, less the

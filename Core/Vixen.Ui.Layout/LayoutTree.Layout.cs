@@ -26,6 +26,17 @@ namespace Vixen.Ui.Layout;
 public sealed partial class LayoutTree {
     uint generation;
 
+    /// <summary>How many times the flex algorithm has run on any node — a work counter (#1441).</summary>
+    /// <remarks>
+    ///     Counted where the flex algorithm proper starts, after every early return a cached, measured
+    ///     or fixed-size node takes, so it is work done and not calls made. Never reset: a test reads
+    ///     it before and after the layout it is about.
+    /// </remarks>
+    internal long FlexAlgorithmRuns;
+
+    /// <summary>How many times a content-sized column re-entered itself at its bounded width (#1412).</summary>
+    internal long CrossSizeReentries;
+
     /// <summary>Lays out <paramref name="node" /> and everything under it.</summary>
     /// <param name="node">The root of the subtree to lay out.</param>
     /// <param name="ownerWidth">The width available to it, or NaN.</param>
@@ -553,6 +564,7 @@ public sealed partial class LayoutTree {
             return;
         }
 
+        FlexAlgorithmRuns++;
         results[index].HadOverflow = false;
 
         // STEP 1: CALCULATE VALUES FOR REMAINDER OF ALGORITHM
@@ -690,10 +702,20 @@ public sealed partial class LayoutTree {
 
             startOfLine = line.EndChild;
 
-            var canSkipFlex = !performLayout && sizingModeCrossDim == SizingMode.StretchFit;
+            // The inline axis only: CSS never sizes a block size by shrink-to-fit, so a column's
+            // auto height stays its content's whatever it was offered. See the branch in STEP 5.
+            var fitContentCapsLine = isMainAxisRow
+                && sizingModeMainDim == SizingMode.FitContent
+                && !float.IsNaN(availableInnerMainDim)
+                && line.SizeConsumed > availableInnerMainDim + 0.001f;
+
+            // ⚠ Not when the offer caps the line: skipping the flex step measures the line from the
+            // items' bases, which is the content width the cap exists to refuse.
+            var canSkipFlex = !performLayout && sizingModeCrossDim == SizingMode.StretchFit && !fitContentCapsLine;
 
             // STEP 5: RESOLVING FLEXIBLE LENGTHS ON MAIN AXIS
             var sizeBasedOnContent = false;
+            var cappedByOffer = false;
             if (sizingModeMainDim != SizingMode.StretchFit) {
                 var minInnerWidth = StyleResolution.ResolvedMinDimension(in styles[index], Dimension.Width, ownerWidth, ownerWidth, direction) - contentInsetAxisRow;
                 var maxInnerWidth = StyleResolution.ResolvedMaxDimension(in styles[index], Dimension.Width, ownerWidth, ownerWidth, direction) - contentInsetAxisRow;
@@ -707,6 +729,31 @@ public sealed partial class LayoutTree {
                     availableInnerMainDim = minInnerMainDim;
                 } else if (!float.IsNaN(maxInnerMainDim) && line.SizeConsumed > maxInnerMainDim) {
                     availableInnerMainDim = maxInnerMainDim;
+                } else if (fitContentCapsLine
+                           && MathF.Max(
+                               availableInnerMainDim,
+                               FitContentLineFloor(index, ref line, ownerDirection, direction, mainAxis, ownerWidth, ownerHeight, contentInsetAxisMain, availableInnerMainDim, currentDepth)
+                           ) is var fitContentMainDim
+                           && fitContentMainDim < line.SizeConsumed - 0.001f) {
+                    // ⚠ <b>An offer of "at most W" on the inline axis is a bound, exactly as a
+                    // `max-width` is (#1448).</b> CSS Sizing §5.2 makes a fit-content box
+                    // `min(max-content, max(min-content, available))`, and Flexbox §9.7 lays the items
+                    // out at that size — so a line that overflows the offer keeps the offer as its
+                    // space and its shrinkable items give the difference back. Yoga stopped the line
+                    // only at the container's own maximum and otherwise took `SizeConsumed`, which made
+                    // one long line widen every container above it; the editor capped twelve side
+                    // columns and the toast with `max-width: 100%` to get the bound this branch gives.
+                    //
+                    // ⚠ <b>The `max(min-content, …)` half is NOT the items' §4.5 floors, and reading it
+                    // as them was the first draft's mistake.</b> An item's automatic minimum is how far
+                    // it may SHRINK; its min-content CONTRIBUTION is what the container is at least as
+                    // wide as, and the two part company for a `width: 70px` box with nothing in it —
+                    // its floor is 0 and its contribution is 70. Letting the items shrink to their
+                    // floors turned sixteen of Taffy's `align_items_*_child_*_bigger_than_parent`
+                    // fixtures red, each a 70-point child squeezed into a 50-point offer where Chrome
+                    // keeps it at 70 and overflows.
+                    availableInnerMainDim = fitContentMainDim;
+                    cappedByOffer = true;
                 } else {
                     if (line.TotalFlexGrowFactors == 0f
                         || StyleResolution.ResolveFlexGrow(in styles[index], links[index].Parent < 0) == 0f) {
@@ -722,8 +769,17 @@ public sealed partial class LayoutTree {
             // makes its main size definite — so §9.2's declared flex BASES become owed.</b> The two
             // are one field until here; see AdoptDeclaredFlexBases for why they have to move
             // together and for why a percentage is excluded.
-            if (sizeBasedOnContent
-                && float.IsNaN(gapBasis)
+            //
+            // ⚠ A fit-content ROW was sized from contributions too: ComputeFlexBasisForChild measures
+            // a growable item's content under that offer (#1440). And so was one the offer CAPPED
+            // (#1448) — there the bases are owed even more plainly, because the size is the offer's
+            // and §9.7 has to share out what is left of it from the declared zero, not from the
+            // content the item would have had at max-content.
+            var sizedFromContributions = float.IsNaN(gapBasis)
+                || (isMainAxisRow && sizingModeMainDim == SizingMode.FitContent);
+
+            if ((sizeBasedOnContent || cappedByOffer)
+                && sizedFromContributions
                 && !float.IsNaN(availableInnerMainDim)
                 && AdoptDeclaredFlexBases(index, ref line, direction, mainAxis, ownerWidth, mainAxisOwnerSize)) {
                 sizeBasedOnContent = false;
@@ -824,7 +880,8 @@ public sealed partial class LayoutTree {
                 availableInnerMainDim,
                 availableInnerCrossDim,
                 availableInnerWidth,
-                performLayout
+                performLayout,
+                canSkipFlex
             );
 
             var containerCrossAxis = availableInnerCrossDim;
@@ -854,7 +911,14 @@ public sealed partial class LayoutTree {
                 // where the cross axis is the width a height depends on; a row's minimum height
                 // changes no item's width, and the stretch in STEP 7 already answers it. The
                 // re-entry pins the width, so it cannot happen twice.
+                //
+                // ⚠ What it costs is counted, not argued (#1441): one more flex run per pass and one
+                // more measurement per item on a cold layout, one on a relayout, and nesting does not
+                // compound — `CrossSizeReentryWorkTests`. Since #1440 and #1448 the zero-basis text it
+                // was written for no longer reaches it; a stretched aspect-ratio item still does.
                 if (!isNodeFlexWrap && !isMainAxisRow && containerCrossAxis > line.CrossDim + 0.001f) {
+                    CrossSizeReentries++;
+
                     CalculateLayoutImpl(
                         index,
                         containerCrossAxis + contentInsetAxisCross + marginAxisRow,
@@ -1149,5 +1213,32 @@ public sealed partial class LayoutTree {
                 availableInnerHeight
             );
         }
+    }
+
+    /// <summary>
+    ///     The content-box min-content width of a single-line row, which is the least a fit-content
+    ///     offer can shrink it to (#1448).
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="ComputeMinContentSize" /> sums the items' min-content contributions and their
+    ///     margins and adds the container's own padding and border; it does not add the gutters, which
+    ///     a single line has one of between every two items, so they are added here.
+    /// </remarks>
+    float FitContentLineFloor(
+        int index,
+        ref FlexLine line,
+        Direction ownerDirection,
+        Direction direction,
+        FlexDirection mainAxis,
+        float ownerWidth,
+        float ownerHeight,
+        float contentInsetAxisMain,
+        float availableInnerMainDim,
+        int currentDepth
+    ) {
+        var minContent = ComputeMinContentSize(index, FlexDirection.Row, ownerDirection, ownerWidth, ownerHeight, ownerWidth, currentDepth);
+        var gaps = StyleResolution.GapForAxis(in styles[index], mainAxis, availableInnerMainDim) * int.Max(0, line.ItemCount - 1);
+
+        return float.IsNaN(minContent) ? 0f : MathF.Max(0f, minContent - contentInsetAxisMain + gaps);
     }
 }
