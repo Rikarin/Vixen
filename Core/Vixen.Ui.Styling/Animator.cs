@@ -120,6 +120,17 @@ public sealed class Animator {
     readonly NameTable properties;
     readonly NameTable values;
 
+    /// <summary>The table <see cref="parser" /> interns identifiers in, and so the one a value it parsed is written back with.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <see cref="values" />, and formatting with that one was #1445.</b> A
+    ///     <see cref="StyleValue" />'s keyword is an id in <i>this</i> table; the text it is written
+    ///     back as is then interned in <see cref="values" />, which is what the cascade holds. Writing
+    ///     the keyword against the values table threw out of <c>UiDocument.Update</c> when the id was
+    ///     past its end, and named some other word when it was not — <c>rotate: z 90deg</c> in a
+    ///     keyframe was the first value to reach it.
+    /// </remarks>
+    readonly NameTable keywords;
+
     /// <summary>What a property computes to on an element that never mentioned it.</summary>
     /// <remarks>
     ///     ⚠ Owned by the animator rather than by <c>StyleResolver</c>, because it is the only reader
@@ -194,6 +205,7 @@ public sealed class Animator {
 
         this.properties = properties;
         this.values = values;
+        this.keywords = keywords;
         this.keyframes = keyframes;
         parser = new StyleValueParser(values, keywords);
         this.transitions = new TransitionParser(properties);
@@ -1034,7 +1046,7 @@ public sealed class Animator {
             return false;
         }
 
-        value = values.Intern(current.ToCss(values));
+        value = values.Intern(current.ToCss(keywords));
         return true;
     }
 
@@ -1081,7 +1093,7 @@ public sealed class Animator {
 
             var value = transition.IsMix
                 ? values.Intern(MixText(mixes[property], transition.MixAt(now), transition.MixFrom, transition.MixTo))
-                : values.Intern(transition.ValueAt(now).ToCss(values));
+                : values.Intern(transition.ValueAt(now).ToCss(keywords));
 
             overlaid ??= Copy(style);
             overlaid.Add(new KeyValuePair<int, int>(property, value));
