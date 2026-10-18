@@ -179,6 +179,28 @@ public struct LayoutResult {
     public float MinContentProbeWidth;
 
     /// <summary>
+    ///     The entry <see cref="MinContentSizes" /> held before its key last changed, kept so that a
+    ///     node asked two questions a pass answers both from cache (#1469).
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Every flex item is asked under two percentage bases in one pass</b>: its own §4.5 floor
+    ///     under its container's width, and an ancestor's probe of that container under the container's
+    ///     OWN width — CSS Sizing §5.2.1's zero when that is not a length. A single entry wiped at each
+    ///     key change re-measured every clean leaf on every relayout. Cleared wherever the first entry
+    ///     is, by <c>LayoutTree.ClearMinContentSizes</c>.
+    /// </remarks>
+    internal DimensionValues PreviousMinContentSizes;
+
+    /// <summary>The owner width <see cref="PreviousMinContentSizes" /> was computed against.</summary>
+    internal float PreviousMinContentOwnerWidth;
+
+    /// <summary>The owner height <see cref="PreviousMinContentSizes" /> was computed against.</summary>
+    internal float PreviousMinContentOwnerHeight;
+
+    /// <summary>The probe width <see cref="PreviousMinContentSizes" /> was computed against.</summary>
+    internal float PreviousMinContentProbeWidth;
+
+    /// <summary>
     ///     The vertical margins that escaped past this node's top edge, per CSS 2.1 §8.3.1.
     /// </summary>
     /// <remarks>

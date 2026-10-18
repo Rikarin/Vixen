@@ -22,10 +22,18 @@ namespace Vixen.Ui.Layout.Tests;
 ///         re-entry returns before STEP 7, so there are no first-pass stretched layouts for it to
 ///         reuse; it asks each item one question the first pass never asked — its width EXACTLY 300
 ///         where the first asked AT MOST 300 — and pays one measurement per item for it on a cold
-///         layout. A settled relayout does hit: one dirty item costs one extra measurement, not one per
-///         sibling. And nesting does not compound: an inner <c>min-width: 100%</c> column reports the
-///         full width, so however deep the stack, two columns re-enter and the extra measurements stay
-///         the same.
+///         layout. A settled relayout does hit: one dirty item costs two extra measurements, not one
+///         per sibling. And nesting does not compound: however deep the stack, two columns re-enter
+///         and the extra measurements stay the same.
+///     </para>
+///     <para>
+///         ⚠ <b>The second extra measurement per item is a min-content probe, and it is owed</b>
+///         (#1469). The oracle's column is <c>width: 300px</c>, so an item's own §4.5 floor and the
+///         root's probe of the column ask it under one percentage basis, 300. The widened column's
+///         width is not a length, so the root's probe asks under §5.2.1's zero — a second key, whose
+///         answer differs wherever the item has a percentage edge. Before #1469 the oracle paid that
+///         and more on every pass, because the one-entry cache also keyed on an owner height no leaf
+///         reads; the counts here were differences between two wasteful numbers.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The re-entry is not avoidable by deletion.</b> Since #1440 and #1448 none of the four
@@ -33,8 +41,9 @@ namespace Vixen.Ui.Layout.Tests;
 ///         disabled — so a stretched aspect-ratio item is what pins its purpose now: measured at its
 ///         content width it is 0 tall, and only laying the column out again at its bounded width gives
 ///         it the 150 its ratio implies. Avoiding the double pass where the minimum is at least the
-///         offer would need the column's min-content before its items are measured, which
-///         <c>ComputeMinContentSize</c> answers without gutters — so it was not done.
+///         offer would need the column's min-content before its items are measured, and it was not
+///         done. (The reason first given — that <c>ComputeMinContentSize</c> answers without gutters —
+///         stopped being true with #1468.)
 ///     </para>
 /// </remarks>
 public class CrossSizeReentryWorkTests {
@@ -114,11 +123,11 @@ public class CrossSizeReentryWorkTests {
 
     /// <summary>
     ///     A cold layout: the column re-enters once in the measuring pass and once in the laying-out
-    ///     pass, runs the flex algorithm once more in each, and measures every item once more than the
+    ///     pass, runs the flex algorithm once more in each, and measures every item twice more than the
     ///     oracle — and comes out exactly as the oracle does.
     /// </summary>
     [Fact]
-    public void A_column_its_minimum_widens_runs_once_more_per_pass_and_measures_each_item_once_more() {
+    public void A_column_its_minimum_widens_runs_once_more_per_pass_and_measures_each_item_twice_more() {
         var widened = Build(given: false);
         var oracle = Build(given: true);
 
@@ -130,7 +139,10 @@ public class CrossSizeReentryWorkTests {
         Assert.Equal(2, work.Reentries);
 
         Assert.Equal(oracleWork.Runs + 2, work.Runs);
-        Assert.Equal(oracleWork.Calls + Items, work.Calls);
+
+        // One for the at-most first pass the oracle never makes, one for the probe under the column's
+        // own zero percentage basis — see the remarks.
+        Assert.Equal(oracleWork.Calls + (2 * Items), work.Calls);
 
         for (var i = 0; i < Items; i++) {
             Assert.Equal(oracle.Tree.GetWidth(oracle.Items[i]), widened.Tree.GetWidth(widened.Items[i]));
@@ -140,7 +152,7 @@ public class CrossSizeReentryWorkTests {
 
     /// <summary>
     ///     A settled relayout with one item changed: the re-entry still runs, but the clean siblings'
-    ///     answers at the bounded width are cached, so only the changed item pays the extra measurement.
+    ///     answers at the bounded width are cached, so only the changed item pays the extra measurements.
     /// </summary>
     [Fact]
     public void A_settled_relayout_pays_the_extra_measurement_only_for_what_changed() {
@@ -157,16 +169,16 @@ public class CrossSizeReentryWorkTests {
 
         Assert.Equal(2, work.Reentries);
         Assert.Equal(oracleWork.Runs + 2, work.Runs);
-        Assert.Equal(oracleWork.Calls + 1, work.Calls);
+        Assert.Equal(oracleWork.Calls + 2, work.Calls);
 
         // And a relayout with nothing changed is no work at all, re-entry or not.
         Assert.Equal((0L, 0L, 0), widened.Layout());
     }
 
     /// <summary>
-    ///     ⚠ <b>Nesting does not compound.</b> Each inner <c>min-width: 100%</c> column reports the full
-    ///     width, so at any depth the same two columns re-enter, twice each, and the extra measurements
-    ///     are the same number at depth two as at depth four.
+    ///     ⚠ <b>Nesting does not compound.</b> At any depth the same two columns re-enter, twice each,
+    ///     and the extra measurements are the same number at depth two as at depth four — and, since
+    ///     #1469's two-entry min-content cache, the same number as at depth one.
     /// </summary>
     [Theory]
     [InlineData(2)]
@@ -180,7 +192,7 @@ public class CrossSizeReentryWorkTests {
         var oracleWork = oracle.Layout();
 
         Assert.Equal(4, work.Reentries);
-        Assert.Equal(oracleWork.Calls + (4 * Items), work.Calls);
+        Assert.Equal(oracleWork.Calls + (2 * Items), work.Calls);
         Assert.Equal(oracleWork.Runs + depth + 2, work.Runs);
         Assert.Equal(300f, widened.Tree.GetWidth(widened.Items[0]));
     }

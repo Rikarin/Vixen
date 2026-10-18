@@ -950,6 +950,16 @@ public sealed partial class LayoutTree {
         var wantRow = FlexAxis.IsRow(requestedAxis);
         var axis = wantRow ? 0 : 1;
 
+        // ⚠ <b>The owner HEIGHT is part of the key only where the answer reads it, which is a grid's
+        // track sizing and nothing else</b> (#1469). A leaf measures at `probeWidth` and resolves its
+        // edges against `ownerWidth`; a flex or block box hands its children its OWN content height
+        // (`ProbeContentHeight`, a point length or zero) and never the one it was given. Keying on it
+        // anyway made one clean leaf three questions a pass — its own §4.5 floor under the column's
+        // offered height, an ancestor's recursion under §5.2.1's zero, and the second flex pass under
+        // the column's resolved height — and the one-entry cache, alternating between them, measured
+        // the text again for each, on every relayout, however clean the leaf was.
+        var keyHeight = styles[index].Display == Display.Grid ? ownerHeight : float.NaN;
+
         // Without this the §4.5 probe measures every flex item on every pass, uncached — which is
         // precisely the per-frame text measurement doc 09 says the measure cache exists to prevent.
         // It is keyed on the owner size because percentage margins and padding resolve against it,
@@ -959,26 +969,52 @@ public sealed partial class LayoutTree {
         // happened to be — a node probed as its container's item and the same node probed again from
         // an ancestor's recursion can share an `ownerWidth` and be measured at different widths, and
         // the answer is a different number in each case.
-        if (!float.IsNaN(results[index].MinContentSizes[axis])
-            && Inexact(results[index].MinContentOwnerWidth, ownerWidth)
-            && Inexact(results[index].MinContentOwnerHeight, ownerHeight)
-            && Inexact(results[index].MinContentProbeWidth, probeWidth)) {
-            return results[index].MinContentSizes[axis];
+        ref var entry = ref results[index];
+        var currentKey = Inexact(entry.MinContentOwnerWidth, ownerWidth)
+            && Inexact(entry.MinContentOwnerHeight, keyHeight)
+            && Inexact(entry.MinContentProbeWidth, probeWidth);
+
+        if (currentKey && !float.IsNaN(entry.MinContentSizes[axis])) {
+            return entry.MinContentSizes[axis];
+        }
+
+        var previousKey = !currentKey
+            && Inexact(entry.PreviousMinContentOwnerWidth, ownerWidth)
+            && Inexact(entry.PreviousMinContentOwnerHeight, keyHeight)
+            && Inexact(entry.PreviousMinContentProbeWidth, probeWidth);
+
+        if (previousKey && !float.IsNaN(entry.PreviousMinContentSizes[axis])) {
+            return entry.PreviousMinContentSizes[axis];
         }
 
         var computed = ComputeMinContentSizeUncached(index, requestedAxis, ownerDirection, ownerWidth, ownerHeight, probeWidth, currentDepth);
 
-        if (!Inexact(results[index].MinContentOwnerWidth, ownerWidth)
-            || !Inexact(results[index].MinContentOwnerHeight, ownerHeight)
-            || !Inexact(results[index].MinContentProbeWidth, probeWidth)) {
-            results[index].MinContentSizes[0] = float.NaN;
-            results[index].MinContentSizes[1] = float.NaN;
-            results[index].MinContentOwnerWidth = ownerWidth;
-            results[index].MinContentOwnerHeight = ownerHeight;
-            results[index].MinContentProbeWidth = probeWidth;
+        // The recursion above may have written this node's entries — a probe can reach a node twice
+        // — so the keys are read again rather than trusted from before it.
+        ref var after = ref results[index];
+        if (Inexact(after.MinContentOwnerWidth, ownerWidth)
+            && Inexact(after.MinContentOwnerHeight, keyHeight)
+            && Inexact(after.MinContentProbeWidth, probeWidth)) {
+            after.MinContentSizes[axis] = computed;
+        } else if (Inexact(after.PreviousMinContentOwnerWidth, ownerWidth)
+                   && Inexact(after.PreviousMinContentOwnerHeight, keyHeight)
+                   && Inexact(after.PreviousMinContentProbeWidth, probeWidth)) {
+            after.PreviousMinContentSizes[axis] = computed;
+        } else {
+            // A third key: the older entry goes, the current one becomes the older.
+            after.PreviousMinContentSizes = after.MinContentSizes;
+            after.PreviousMinContentOwnerWidth = after.MinContentOwnerWidth;
+            after.PreviousMinContentOwnerHeight = after.MinContentOwnerHeight;
+            after.PreviousMinContentProbeWidth = after.MinContentProbeWidth;
+
+            after.MinContentSizes[0] = float.NaN;
+            after.MinContentSizes[1] = float.NaN;
+            after.MinContentOwnerWidth = ownerWidth;
+            after.MinContentOwnerHeight = keyHeight;
+            after.MinContentProbeWidth = probeWidth;
+            after.MinContentSizes[axis] = computed;
         }
 
-        results[index].MinContentSizes[axis] = computed;
         return computed;
     }
 
@@ -1376,6 +1412,10 @@ public sealed partial class LayoutTree {
         results[index].GridAreaWidth = float.NaN;
         results[index].FragmentOffset = -1;
         results[index].CachedLayout = cached;
+
+        // ⚠ `default` is a min-content size of ZERO under the key (0, 0, 0), not an empty entry — and
+        // a §5.2.1 probe asks under an owner width of zero. NaN is what "not computed" means here.
+        ClearMinContentSizes(index);
         flags[index] |= LayoutNodeState.HasNewLayout;
         flags[index] &= ~LayoutNodeState.Dirty;
 

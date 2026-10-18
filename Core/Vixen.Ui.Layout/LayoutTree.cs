@@ -112,8 +112,7 @@ public sealed partial class LayoutTree : IDisposable {
         results[index].ComputedFlexBasis = float.NaN;
         results[index].ComputedAutoMinMainSize = float.NaN;
         results[index].GridAreaWidth = float.NaN;
-        results[index].MinContentSizes[0] = float.NaN;
-        results[index].MinContentSizes[1] = float.NaN;
+        ClearMinContentSizes(index);
         results[index].LastOwnerDirection = Direction.Inherit;
 
         // ⚠ `default` above zeroed this, and zero is a perfectly valid arena offset. -1 is the "no
@@ -515,11 +514,23 @@ public sealed partial class LayoutTree : IDisposable {
 
     internal object? ContextOf(int index) => contexts?[index];
 
+    /// <summary>Forgets both of a node's cached min-content entries.</summary>
+    /// <remarks>
+    ///     ⚠ One method for every site that invalidates, because the cache has two entries and a site
+    ///     that cleared only the first would hand the second back as a stale answer the next time its
+    ///     key came round (#1469).
+    /// </remarks>
+    void ClearMinContentSizes(int index) {
+        results[index].MinContentSizes[0] = float.NaN;
+        results[index].MinContentSizes[1] = float.NaN;
+        results[index].PreviousMinContentSizes[0] = float.NaN;
+        results[index].PreviousMinContentSizes[1] = float.NaN;
+    }
+
     void MarkSubtreeDirty(int index) {
         flags[index] |= LayoutNodeState.Dirty;
         results[index].ComputedFlexBasis = float.NaN;
-        results[index].MinContentSizes[0] = float.NaN;
-        results[index].MinContentSizes[1] = float.NaN;
+        ClearMinContentSizes(index);
 
         // Document order: this is reachable from `Invalidate`, which a caller may run before the
         // next pass has rebuilt the sorted blocks.
@@ -534,8 +545,7 @@ public sealed partial class LayoutTree : IDisposable {
         while (index >= 0 && (flags[index] & LayoutNodeState.Dirty) == 0) {
             flags[index] |= LayoutNodeState.Dirty;
             results[index].ComputedFlexBasis = float.NaN;
-            results[index].MinContentSizes[0] = float.NaN;
-            results[index].MinContentSizes[1] = float.NaN;
+            ClearMinContentSizes(index);
             index = links[index].Parent;
         }
     }
