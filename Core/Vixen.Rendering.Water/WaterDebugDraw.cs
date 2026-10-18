@@ -49,6 +49,14 @@ public sealed class WaterDebugDraw {
     /// </remarks>
     public int GridSamples { get; set; } = 16;
 
+    /// <summary>Which of the verbs this draw answers to.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="WaterDebug.Process" /> unless a host says otherwise</b>, which is every game:
+    ///     one console, one set. An editor hands each session's own set, because two editors in one
+    ///     process reading the process's set is one author's checkbox drawing arrows in another's pane.
+    /// </remarks>
+    public WaterDebugFlags Flags { get; set; } = WaterDebug.Process;
+
     /// <summary>How long an arrow one metre a second of flow draws, in metres.</summary>
     public float FlowScale { get; set; } = 1.5f;
 
@@ -73,7 +81,7 @@ public sealed class WaterDebugDraw {
     /// <param name="ripples">A ripple simulation to outline, or null.</param>
     /// <exception cref="ArgumentNullException"><paramref name="into" /> or <paramref name="zones" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>One branch when everything is off</b> — <see cref="WaterDebug.Any" /> — because this is
+    ///     ⚠ <b>One branch when everything is off</b> — <see cref="WaterDebugFlags.Any" /> — because this is
     ///     called once a frame from a host that has no idea whether anybody is looking.
     /// </remarks>
     public void Draw(
@@ -85,23 +93,25 @@ public sealed class WaterDebugDraw {
         ArgumentNullException.ThrowIfNull(into);
         ArgumentNullException.ThrowIfNull(zones);
 
-        if (!WaterDebug.Any) {
+        var flags = Flags;
+
+        if (!flags.Any) {
             return;
         }
 
-        if (mesh is not null && (WaterDebug.ShowTiles || WaterDebug.ShowLod)) {
+        if (mesh is not null && (flags.ShowTiles || flags.ShowLod)) {
             Patches(into, zones, mesh);
         }
 
-        if (WaterDebug.ShowFlow) {
+        if (flags.ShowFlow) {
             Flow(into, zones);
         }
 
-        if (WaterDebug.ShowInfo) {
+        if (flags.ShowInfo) {
             Info(into, zones);
         }
 
-        if (WaterDebug.ShowRipples && ripples is not null) {
+        if (flags.ShowRipples && ripples is not null) {
             Ripples(into, ripples);
         }
     }
@@ -128,11 +138,11 @@ public sealed class WaterDebugDraw {
                 continue;
             }
 
-            if (WaterDebug.ShowTiles) {
+            if (Flags.ShowTiles) {
                 Tiles(into, state, draw.Mesh, draw.Pass.Selected, draw.Pass.FarPatches);
             }
 
-            if (WaterDebug.ShowLod) {
+            if (Flags.ShowLod) {
                 Bands(into, draw.Mesh, zones.View.Position);
             }
         }

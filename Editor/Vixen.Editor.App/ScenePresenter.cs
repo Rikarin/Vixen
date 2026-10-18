@@ -3,6 +3,7 @@
 
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
+using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
@@ -279,6 +280,16 @@ sealed class ScenePresenter : IDisposable {
 
     /// <summary>The water half, for the panel that shows the fold's counts and the tests that assert them.</summary>
     internal WaterPresenter Water => water;
+
+    /// <summary>The editor's contributions, which is where per-session state a module owns is found.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The registry rather than another named property</b>, so a module can hand the pane
+    ///     something without the host learning its name — the water module's debug switches first.
+    /// </remarks>
+    public IEditorRegistry? Extensions {
+        get => water.Extensions;
+        set => water.Extensions = value;
+    }
 
     /// <summary>How many terrains the last <see cref="Upload" /> chose to draw.</summary>
     public int TerrainsDrawn => terrainDraws.Count;

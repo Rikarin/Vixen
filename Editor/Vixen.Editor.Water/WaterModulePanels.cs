@@ -28,9 +28,14 @@ public sealed partial class WaterModule {
     WaterZoneFacts? waterFacts;
     WaterNotice? notice;
 
-    /// <summary>Registers them.</summary>
-    void WaterPanels() {
-        Shell.RegisterPanel(
+    /// <summary>Registers them, through the context so an unload takes both back out.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>context.AddPanel</c> and not <c>Shell.RegisterPanel</c></b>, which is what this was
+    ///     and what #740's audit counted: an unloaded module left both panels and both View-menu
+    ///     commands registered, each holding a build lambda over the module.
+    /// </remarks>
+    void WaterPanels(Vixen.Editor.Plugin.PluginContext context) {
+        context.AddPanel(
             ZonePanel,
             WaterStrings.PanelWaterZone,
             panel => {
@@ -60,7 +65,7 @@ public sealed partial class WaterModule {
             }
         );
 
-        Shell.RegisterPanel(
+        context.AddPanel(
             BodyPanel,
             WaterStrings.PanelWater,
             panel => {

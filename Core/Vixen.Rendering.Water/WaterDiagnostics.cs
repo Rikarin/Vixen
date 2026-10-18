@@ -34,36 +34,57 @@ namespace Vixen.Rendering.Water;
 ///     </para>
 /// </remarks>
 public static class WaterDebug {
+    /// <summary>The process's one set of switches, which is what the console verbs flip.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A game has one console and one frame, so one set is right for it — and an editor has
+    ///     several sessions in one process, so one set is wrong for it.</b> The six properties below
+    ///     are this object's, unchanged for every game and sample that reads them; an editor module
+    ///     holds a <see cref="WaterDebugFlags" /> of its own and hands it to
+    ///     <see cref="WaterDebugDraw.Flags" />, so two editors in one process stop sharing a toggle.
+    /// </remarks>
+    public static WaterDebugFlags Process { get; } = new();
+
     /// <summary>Patch bounds, coloured by body kind, with the LOD level as a label.</summary>
-    public static bool ShowTiles { get; set; }
-
-    /// <summary>The morph bands as rings, which is where a pop is diagnosed.</summary>
-    public static bool ShowLod { get; set; }
-
-    /// <summary>The info field's four channels as an overlay, individually.</summary>
-    public static bool ShowInfo { get; set; }
-
-    /// <summary>Flow vectors on the surface, and the spline velocity arrows.</summary>
-    public static bool ShowFlow { get; set; }
-
-    /// <summary>Pontoons, their submerged fraction, and the forces as arrows.</summary>
-    public static bool ShowBuoyancy { get; set; }
-
-    /// <summary>The ripple window's bounds and the injection count against the budget.</summary>
-    public static bool ShowRipples { get; set; }
-
-    /// <summary>Switches every one of them off.</summary>
-    public static void Reset() {
-        ShowTiles = false;
-        ShowLod = false;
-        ShowInfo = false;
-        ShowFlow = false;
-        ShowBuoyancy = false;
-        ShowRipples = false;
+    public static bool ShowTiles {
+        get => Process.ShowTiles;
+        set => Process.ShowTiles = value;
     }
 
+    /// <summary>The morph bands as rings, which is where a pop is diagnosed.</summary>
+    public static bool ShowLod {
+        get => Process.ShowLod;
+        set => Process.ShowLod = value;
+    }
+
+    /// <summary>The info field's four channels as an overlay, individually.</summary>
+    public static bool ShowInfo {
+        get => Process.ShowInfo;
+        set => Process.ShowInfo = value;
+    }
+
+    /// <summary>Flow vectors on the surface, and the spline velocity arrows.</summary>
+    public static bool ShowFlow {
+        get => Process.ShowFlow;
+        set => Process.ShowFlow = value;
+    }
+
+    /// <summary>Pontoons, their submerged fraction, and the forces as arrows.</summary>
+    public static bool ShowBuoyancy {
+        get => Process.ShowBuoyancy;
+        set => Process.ShowBuoyancy = value;
+    }
+
+    /// <summary>The ripple window's bounds and the injection count against the budget.</summary>
+    public static bool ShowRipples {
+        get => Process.ShowRipples;
+        set => Process.ShowRipples = value;
+    }
+
+    /// <summary>Switches every one of them off.</summary>
+    public static void Reset() => Process.Reset();
+
     /// <summary>Whether anything is being drawn at all — the single branch a renderer takes.</summary>
-    public static bool Any => ShowTiles || ShowLod || ShowInfo || ShowFlow || ShowBuoyancy || ShowRipples;
+    public static bool Any => Process.Any;
 
     // --- The console verbs --------------------------------------------------
 
@@ -190,6 +211,53 @@ static class WaterConsole {
             + "verbs, which is exactly the omission that left six verbs unreachable for a phase."
     )]
     internal static void Register() => ConsoleCommands.Contribute(commands => WaterDebug.Register(commands));
+}
+
+/// <summary>One set of water's six debug switches, owned by whoever reads it.</summary>
+/// <remarks>
+///     <para>
+///         <b>An object rather than six statics, so a host can have more than one.</b>
+///         <see cref="WaterDebug.Process" /> is the set the console verbs flip and a game draws from;
+///         an editor module owns one per session and hands it to <see cref="WaterDebugDraw.Flags" />,
+///         because the test harness opens several editors in one process and a static flag was a
+///         checkbox ticked in one of them and drawn in all of them.
+///     </para>
+///     <para>
+///         ⚠ <b>A class and not a record struct</b>, because the reader holds it across frames: a
+///         presenter that copied the switches once would draw whatever they were when it copied.
+///     </para>
+/// </remarks>
+public sealed class WaterDebugFlags {
+    /// <summary>Patch bounds, coloured by body kind, with the LOD level as a label.</summary>
+    public bool ShowTiles { get; set; }
+
+    /// <summary>The morph bands as rings, which is where a pop is diagnosed.</summary>
+    public bool ShowLod { get; set; }
+
+    /// <summary>The info field's four channels as an overlay, individually.</summary>
+    public bool ShowInfo { get; set; }
+
+    /// <summary>Flow vectors on the surface, and the spline velocity arrows.</summary>
+    public bool ShowFlow { get; set; }
+
+    /// <summary>Pontoons, their submerged fraction, and the forces as arrows.</summary>
+    public bool ShowBuoyancy { get; set; }
+
+    /// <summary>The ripple window's bounds and the injection count against the budget.</summary>
+    public bool ShowRipples { get; set; }
+
+    /// <summary>Whether anything is being drawn at all — the single branch a renderer takes.</summary>
+    public bool Any => ShowTiles || ShowLod || ShowInfo || ShowFlow || ShowBuoyancy || ShowRipples;
+
+    /// <summary>Switches every one of them off.</summary>
+    public void Reset() {
+        ShowTiles = false;
+        ShowLod = false;
+        ShowInfo = false;
+        ShowFlow = false;
+        ShowBuoyancy = false;
+        ShowRipples = false;
+    }
 }
 
 /// <summary>What the water stack did this frame, as numbers only it can know.</summary>

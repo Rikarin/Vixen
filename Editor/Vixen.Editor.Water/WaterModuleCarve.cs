@@ -54,7 +54,7 @@ public sealed partial class WaterModule {
 
     /// <summary>Registers the carve verb and joins the preview flag up to the layer it names.</summary>
     void WaterCarveCommands(PluginContext context) {
-        Shell.Commands.Add(
+        context.AddCommand(
             new EditorCommand(
                 CarveTerrainCommand,
                 WaterStrings.Commands[CarveTerrainCommand],
@@ -68,8 +68,6 @@ public sealed partial class WaterModule {
                 Enablement = () => Terrains().Count > 0
             }
         );
-
-        context.OnUnload(() => Shell.Commands.Remove(CarveTerrainCommand));
 
         Mode.Editing.CarvePreviewChanged += ShowCarve;
 

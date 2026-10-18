@@ -4,7 +4,7 @@ slug: editor/water-mode
 kind: guide
 area: Editor
 summary: One mode and three verbs — draw a body's curve on the ground, drag its profile handles, and preview what its carve did to the terrain — plus the zone panel that turns a resolution into metres.
-api: [T:Vixen.Editor.Water.WaterMode, T:Vixen.Editor.Water.WaterEdit, T:Vixen.Editor.Water.WaterTool, T:Vixen.Editor.Water.WaterHandle, T:Vixen.Editor.Water.WaterZoneSettings, T:Vixen.Editor.Water.WaterBodySettings, T:Vixen.Editor.Water.WaterModule, T:Vixen.Editor.Water.WaterProfileCommand, T:Vixen.Editor.Water.WaterCarveCommand, T:Vixen.Editor.SceneView.IWaterScene, T:Vixen.Rendering.Water.WaterDebug, T:Vixen.Rendering.Water.WaterOverlay, T:Vixen.Rendering.Water.WaterMeshOverlay, T:Vixen.Rendering.Water.WaterStatistics, T:Vixen.Rendering.Water.WaterMeshStatistics, T:Vixen.Editor.Assets.Water.WaterWavesImporter, T:Vixen.Editor.Assets.Water.WaterWavesImportSettings]
+api: [T:Vixen.Editor.Water.WaterMode, T:Vixen.Editor.Water.WaterEdit, T:Vixen.Editor.Water.WaterTool, T:Vixen.Editor.Water.WaterHandle, T:Vixen.Editor.Water.WaterZoneSettings, T:Vixen.Editor.Water.WaterBodySettings, T:Vixen.Editor.Water.WaterModule, T:Vixen.Editor.Water.WaterProfileCommand, T:Vixen.Editor.Water.WaterCarveCommand, T:Vixen.Editor.SceneView.IWaterScene, T:Vixen.Rendering.Water.WaterDebug, T:Vixen.Rendering.Water.WaterDebugFlags, T:Vixen.Rendering.Water.WaterOverlay, T:Vixen.Rendering.Water.WaterMeshOverlay, T:Vixen.Rendering.Water.WaterStatistics, T:Vixen.Rendering.Water.WaterMeshStatistics, T:Vixen.Editor.Assets.Water.WaterWavesImporter, T:Vixen.Editor.Assets.Water.WaterWavesImportSettings]
 tags: [editor, water, mode, river, lake, undo]
 since: 0.1
 status: preview
@@ -219,6 +219,11 @@ finds them — **the command palette is the editor's console**, and a different 
 sentence above matched neither. `WaterDebug.Register(ConsoleCommands)` is the same six for a game,
 without the reflection the `[ConsoleCommand]` attributes would otherwise need.
 
+⚠ **In the editor the switches are per editor, not per process.** A game has one console, so its verbs
+flip `WaterDebug.Process`; the editor's water module owns a `WaterDebugFlags` of its own, contributes it
+to the editor's registry, and the viewport hands that set to `WaterDebugDraw.Flags`. Two editors in one
+process — the test harness opens several — used to share every tick.
+
 ⚠ **`water.showFlow` is the one of the six a pane draws today.** Tiles and LOD bands describe the
 patches a *device* selected and ripples a simulation only a game runs; the editor's preview surface is
 a CPU grid with none of the three. They are registered anyway, so that the set an author sees does not
@@ -247,8 +252,9 @@ one to the other.
 
 ⚠ **The sixth needs a running game, and in this pane it draws nothing.** It reads what the *last fixed
 step* did to a floating body, and an editor viewport runs no physics — so `Show Buoyancy` here is a
-checkbox whose state travels into play mode, exactly as `Show Water Tiles` and `Show Water Ripples`
-are. A game that has added `BuoyancySystem` to its loop is where the pontoons appear.
+checkbox that draws nothing, as `Show Water Tiles` and `Show Water Ripples` are. ⚠ This page used to
+say the state *travels into play mode*; nothing in the editor's play session reads a water flag, so it
+does not. A game that has added `BuoyancySystem` to its loop is where the pontoons appear.
 
 ⚠ **`showTiles` colours a patch by what is under it, using the contribution and not the containment
 test.** `WaterBody.Contains` is an even-odd test on a closed boundary and answers *false* for every

@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
+using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Engine.Diagnostics;
 using Vixen.Graphics;
@@ -151,6 +152,16 @@ sealed class WaterPresenter : IDisposable {
     /// </remarks>
     public IWaterScene? Scene { get; set; }
 
+    /// <summary>Where this editor's contributions are — the <see cref="WaterDebugFlags" /> among them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The session's switches and never the process's.</b> This read <c>WaterDebug</c>'s
+    ///     statics, so two editors in one process drew each other's arrows: the water module now
+    ///     contributes its own set and the presenter draws whichever one this editor's registry holds.
+    ///     Null, or a registry with none in it, is a pane that draws no water diagnostics — an editor
+    ///     with no water module has nobody to switch them on.
+    /// </remarks>
+    public IEditorRegistry? Extensions { get; set; }
+
     /// <summary>The fold, for the panel that shows its counts and the tests that assert them.</summary>
     public WaterZoneSystem Zones => zones;
 
@@ -237,9 +248,12 @@ sealed class WaterPresenter : IDisposable {
     void Diagnose() {
         debug.Clear();
 
-        if (!WaterDebug.Any) {
+        // The last contribution wins, which is `EditorApplication.WaterScene`'s own arrangement.
+        if (Extensions?.All<WaterDebugFlags>() is not [.., { Any: true } flags]) {
             return;
         }
+
+        debugDraw.Flags = flags;
 
         // ⚠ No surface node and no ripple simulation, which is what an editor pane genuinely has:
         // `water.showTiles` and `water.showLod` are about the patches a *device* selected and

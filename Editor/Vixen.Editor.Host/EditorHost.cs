@@ -1046,6 +1046,10 @@ sealed class EditorHost : IDisposable {
             // it and nothing else different.
             presenter.WaterScene = editor.WaterScene;
 
+            // ⚠ And the editor's registry, which is where a module's per-session state is — the water
+            // module's debug switches, which used to be process-wide statics two editors shared.
+            presenter.Extensions = editor.Extensions;
+
             scenes.Add(presenter);
         }
     }

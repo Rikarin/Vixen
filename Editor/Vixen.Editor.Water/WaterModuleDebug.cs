@@ -25,11 +25,14 @@ namespace Vixen.Editor.Water;
 ///         neither. The command palette is the editor's console.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The flags are static, and that is <c>WaterDebug</c>'s design rather than this file's
-///         shortcut.</b> A verb is typed once and read by whatever draws — the viewport presenter
-///         here, a compositor node in a game — and neither can be handed to the other. What it costs
-///         is that two editors in one process share the flags, which for a debug toggle is what
-///         somebody flipping it wants anyway.
+///         ⚠ <b>The flags are this module's, one set per editor, and they used to be the process's.</b>
+///         They were <c>WaterDebug</c>'s six statics, on the argument that two editors in one process
+///         sharing a debug toggle is what somebody flipping it wants anyway — and the harness opens
+///         several editors in one process, so a checkbox ticked in one session was ticked in every
+///         other one, and a test that ticked it decided what an unrelated test's pane drew. The set
+///         is published as a <see cref="WaterDebugFlags" /> contribution, which is how the viewport's
+///         presenter finds it without naming this module, and it goes when the module does.
+///         <c>WaterDebug.Process</c> stays what a game's console flips.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Not gated on the water mode being active</b>, on <c>WaterMode.CreateZoneCommand</c>'s
@@ -62,36 +65,40 @@ public sealed partial class WaterModule {
     ///     <c>water.showTiles</c> and <c>water.showLod</c> describe the patches a device selected and
     ///     <c>water.showRipples</c> a simulation only a game runs — the editor's preview surface is a
     ///     CPU grid and has none of the three. Hiding them would make the set the author sees depend
-    ///     on which host they are in, which is worse than a toggle that draws nothing; what they do
-    ///     get is a checkbox whose state travels into play mode.
+    ///     on which host they are in, which is worse than a toggle that draws nothing.
+    ///     ⚠ <b>Nor does the checkbox travel into play mode, as this used to say it did</b>: nothing in
+    ///     the editor's play session reads a water flag, the process's or a module's.
     /// </remarks>
-    static readonly (string Id, Func<bool> Read, Action Toggle)[] DebugVerbs = [
-        (ShowTilesCommand, () => WaterDebug.ShowTiles, () => WaterDebug.ShowTiles = !WaterDebug.ShowTiles),
-        (ShowLodCommand, () => WaterDebug.ShowLod, () => WaterDebug.ShowLod = !WaterDebug.ShowLod),
-        (ShowInfoCommand, () => WaterDebug.ShowInfo, () => WaterDebug.ShowInfo = !WaterDebug.ShowInfo),
-        (ShowFlowCommand, () => WaterDebug.ShowFlow, () => WaterDebug.ShowFlow = !WaterDebug.ShowFlow),
-        (ShowBuoyancyCommand, () => WaterDebug.ShowBuoyancy, () => WaterDebug.ShowBuoyancy = !WaterDebug.ShowBuoyancy),
-        (ShowRipplesCommand, () => WaterDebug.ShowRipples, () => WaterDebug.ShowRipples = !WaterDebug.ShowRipples)
+    (string Id, Func<bool> Read, Action Toggle)[] DebugVerbs() => [
+        (ShowTilesCommand, () => debug.ShowTiles, () => debug.ShowTiles = !debug.ShowTiles),
+        (ShowLodCommand, () => debug.ShowLod, () => debug.ShowLod = !debug.ShowLod),
+        (ShowInfoCommand, () => debug.ShowInfo, () => debug.ShowInfo = !debug.ShowInfo),
+        (ShowFlowCommand, () => debug.ShowFlow, () => debug.ShowFlow = !debug.ShowFlow),
+        (ShowBuoyancyCommand, () => debug.ShowBuoyancy, () => debug.ShowBuoyancy = !debug.ShowBuoyancy),
+        (ShowRipplesCommand, () => debug.ShowRipples, () => debug.ShowRipples = !debug.ShowRipples)
     ];
 
-    /// <summary>Puts them in the shell, and takes them back out when the module unloads.</summary>
-    void WaterDebugCommands(Vixen.Editor.Plugin.PluginContext context) {
-        foreach (var (id, read, toggle) in DebugVerbs) {
-            var verb = id;
+    /// <summary>This editor's switches — what the six verbs flip and the viewport draws from.</summary>
+    readonly WaterDebugFlags debug = new();
 
-            Shell.Commands.Add(
+    /// <summary>This editor's switches, for a host or a test reading what the verbs flipped.</summary>
+    public WaterDebugFlags Debug => debug;
+
+    /// <summary>Puts the verbs in the shell and the switches in the registry, and takes all of it back out.</summary>
+    void WaterDebugCommands(Vixen.Editor.Plugin.PluginContext context, IEditorRegistry extensions) {
+        foreach (var (id, read, toggle) in DebugVerbs()) {
+            context.AddCommand(
                 new EditorCommand(id, WaterStrings.Commands[id], toggle) {
                     Category = WaterStrings.CategoryWater,
                     Checked = read
                 }
             );
-
-            context.OnUnload(() => Shell.Commands.Remove(verb));
         }
 
-        // ⚠ Switched off when the module goes, because the flags outlive it. A static left true by a
-        // session that ended is a viewport drawing arrows for a toolset that is no longer loaded, and
-        // nothing on screen would say where they came from.
-        context.OnUnload(WaterDebug.Reset);
+        context.Owns(extensions.Add(debug));
+
+        // ⚠ Switched off when the module goes, so a reload starts from nothing drawn — the state a
+        // freshly opened editor is in, rather than arrows somebody turned on before they unloaded it.
+        context.OnUnload(debug.Reset);
     }
 }
