@@ -276,6 +276,17 @@ jobs:
           # leg's skip count for that suite reads zero.
           VIXEN_REQUIRE_SPIRV_CROSS: ${{ matrix.os == 'ubuntu-latest' && '' || '1' }}
 
+          # ⚠ The fourth time, for the editor's golden screenshots (#500). They skip where no
+          # reference applies, and until this they skipped on every leg but macOS with the build
+          # green either way — while the references themselves had gone stale. macOS is the leg on
+          # which every one of them must compare: EditorChromeVisualTests and PickerVisualTests.
+          #
+          # OWED: windows-latest. The chrome tests compare there now (Windows shapes the font as
+          # macOS does, measured), but the picker waits on #1477, and this variable fails any skip
+          # in either file. Add the leg once #1477 lets the picker in. Linux needs references of
+          # its own, recorded on Linux.
+          VIXEN_REQUIRE_SCREENSHOTS: ${{ matrix.os == 'macos-14' && '1' || '' }}
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4

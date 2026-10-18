@@ -76,7 +76,7 @@ public class LayerStackImportedMeshTests {
     ///     project had generated hours earlier.
     /// </remarks>
     [Fact]
-    public async Task An_import_time_unwrap_is_what_a_bound_stack_resolves() {
+    public void An_import_time_unwrap_is_what_a_bound_stack_resolves() {
         using var fixture = new TexturingFixture();
         var stack = Add(fixture, "Hull.obj", Cube, new() { Unwrap = UnwrapMode.Always, UnwrapResolution = 256 });
         var workspace = new ProjectWorkspace(fixture.Paths);
@@ -88,7 +88,7 @@ public class LayerStackImportedMeshTests {
         Assert.Contains("no texture coordinates", before, StringComparison.Ordinal);
         Assert.Contains("never imported", before, StringComparison.Ordinal);
 
-        await Import(fixture, workspace);
+        Import(fixture, workspace);
 
         var mesh = LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], geometry, out var after);
 
@@ -120,7 +120,7 @@ public class LayerStackImportedMeshTests {
     ///     sentence.
     /// </remarks>
     [Fact]
-    public async Task A_set_naming_a_renamed_mesh_gets_that_meshs_islands_and_no_others() {
+    public void A_set_naming_a_renamed_mesh_gets_that_meshs_islands_and_no_others() {
         using var fixture = new TexturingFixture();
 
         var stack = Add(
@@ -133,7 +133,7 @@ public class LayerStackImportedMeshTests {
         var workspace = new ProjectWorkspace(fixture.Paths);
         var geometry = new ProjectMeshSource(workspace);
 
-        await Import(fixture, workspace);
+        Import(fixture, workspace);
 
         var body = Narrowed(fixture, stack, "Body", geometry);
         var upper = Narrowed(fixture, stack, "upper", geometry);
@@ -199,15 +199,15 @@ public class LayerStackImportedMeshTests {
     ///     resolve against it would be reading the sidecar this test is about to assert on through an
     ///     index that predates it.
     /// </remarks>
-    static async Task Import(TexturingFixture fixture, ProjectWorkspace workspace) {
+    static void Import(TexturingFixture fixture, ProjectWorkspace workspace) {
         List<ContentDiagnostic> said = [];
 
-        var summary = await ContentPipeline.ImportAsync(
+        var summary = TexturingFixture.Wait(ContentPipeline.ImportAsync(
             workspace,
             ProjectWorkspace.HostTarget,
             said.Add,
             cancellationToken: TestContext.Current.CancellationToken
-        );
+        ));
 
         Assert.True(
             summary.Failed == 0,

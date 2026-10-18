@@ -199,7 +199,7 @@ public class TextureExternalPassTests : IDisposable {
 
         File.WriteAllBytes(file, [1, 2, 3, 4]);
 
-        var picture = PictureFile.Decode(new SavingDecoder(file), file, ".png");
+        var picture = Vixen.Editor.Assets.Textures.ImageDecoders.DecodeFile(new SavingDecoder(file), file, ".png");
 
         Assert.Equal(2, picture.Width);
         Assert.Equal([5, 6, 7, 8], File.ReadAllBytes(file));

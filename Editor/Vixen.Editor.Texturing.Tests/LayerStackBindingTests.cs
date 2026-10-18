@@ -280,7 +280,7 @@ public class LayerStackBindingTests {
     ///     </para>
     /// </remarks>
     [Fact]
-    public async Task An_import_reaches_a_stack_that_was_open_while_it_ran() {
+    public void An_import_reaches_a_stack_that_was_open_while_it_ran() {
         using var fixture = new TexturingFixture(graphics: true);
         var workspace = new ProjectWorkspace(fixture.Paths);
         var geometry = new ProjectMeshSource(workspace);
@@ -305,12 +305,12 @@ public class LayerStackBindingTests {
 
         List<ContentDiagnostic> said = [];
 
-        var summary = await ContentPipeline.ImportAsync(
+        var summary = TexturingFixture.Wait(ContentPipeline.ImportAsync(
             workspace,
             ProjectWorkspace.HostTarget,
             said.Add,
             cancellationToken: TestContext.Current.CancellationToken
-        );
+        ));
 
         Assert.True(
             summary.Failed == 0,
@@ -381,10 +381,10 @@ public class LayerStackBindingTests {
     ///     </para>
     /// </remarks>
     [Fact]
-    public async Task The_part_picker_narrows_the_set_and_the_islands_follow() {
+    public void The_part_picker_narrows_the_set_and_the_islands_follow() {
         using var fixture = new TexturingFixture(graphics: true);
 
-        await Imported(fixture, "Panels.obj", Quad(0f, 0.4f) + Named("upper", 4, 0.6f, 1f));
+        Imported(fixture, "Panels.obj", Quad(0f, 0.4f) + Named("upper", 4, 0.6f, 1f));
 
         var document = Paintable(fixture, "Hull");
         var panel = Panel(fixture);
@@ -797,18 +797,18 @@ public class LayerStackBindingTests {
     ///     part picker reads them from — so a fixture that only wrote the file would be testing a
     ///     picker with nothing in it.
     /// </remarks>
-    static async Task Imported(TexturingFixture fixture, string file, string obj) {
+    static void Imported(TexturingFixture fixture, string file, string obj) {
         Model(fixture, file, obj);
 
         var workspace = new ProjectWorkspace(fixture.Paths);
         List<ContentDiagnostic> said = [];
 
-        var summary = await ContentPipeline.ImportAsync(
+        var summary = TexturingFixture.Wait(ContentPipeline.ImportAsync(
             workspace,
             ProjectWorkspace.HostTarget,
             said.Add,
             cancellationToken: TestContext.Current.CancellationToken
-        );
+        ));
 
         Assert.True(
             summary.Failed == 0,

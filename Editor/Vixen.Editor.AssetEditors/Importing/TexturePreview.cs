@@ -176,11 +176,19 @@ public static class TextureLadder {
     ///     decoder yet and still has import settings worth editing, so the panel opens and says it
     ///     cannot show the pixels rather than refusing to open.
     /// </remarks>
-    public static TextureData? TryDecode(string path, out string? reason) {
+    public static TextureData? TryDecode(string path, out string? reason) =>
+        TryDecode(path, ImageDecoders.BuiltIn, out reason);
+
+    /// <summary>Decodes a texture's source file through a given set of codecs, or answers why it could not.</summary>
+    /// <param name="path">Where the file is.</param>
+    /// <param name="decoders">The codecs to choose from; production passes <see cref="ImageDecoders.BuiltIn" />.</param>
+    /// <param name="reason">What went wrong, when nothing came back.</param>
+    /// <returns>The pixels, or <see langword="null" />.</returns>
+    internal static TextureData? TryDecode(string path, IReadOnlyList<IImageDecoder> decoders, out string? reason) {
         ArgumentException.ThrowIfNullOrEmpty(path);
 
         var extension = Path.GetExtension(path);
-        var decoder = ImageDecoders.For(ImageDecoders.BuiltIn, extension);
+        var decoder = ImageDecoders.For(decoders, extension);
 
         if (decoder is null) {
             reason = $"Nothing in this build decodes '{extension}', so there is no preview. "
@@ -190,10 +198,13 @@ public static class TextureLadder {
         }
 
         try {
-            using var stream = File.OpenRead(path);
+            // ⚠ Through `ImageDecoders.DecodeFile` (#1471): `File.OpenRead` held a read-only-share
+            // handle across the decode, so an artist saving over the texture while this panel
+            // decoded its preview got a sharing violation in their paint program on Windows.
+            var decoded = ImageDecoders.DecodeFile(decoder, path, extension);
 
             reason = null;
-            return decoder.Decode(stream, extension);
+            return decoded;
         } catch (Exception exception) when (exception is IOException or InvalidDataException
             or NotSupportedException or UnauthorizedAccessException or InvalidOperationException
             or ArgumentException or IndexOutOfRangeException or Ktx2Exception) {

@@ -131,7 +131,7 @@ sealed class EditorWorldRenderer : IDisposable {
     readonly IMeshSource? geometry;
 
     /// <summary>What the last <see cref="Mount" /> left the extraction reading, or null while none has.</summary>
-    EditorMaterialSource? painting;
+    FallbackMaterialSource? painting;
 
     /// <summary>One view per pane, made before the build and never replaced.</summary>
     /// <inheritdoc cref="View" path="/remarks" />
@@ -816,7 +816,7 @@ sealed class EditorWorldRenderer : IDisposable {
     ///     <para>
     ///         ⚠ <b>The material source is wrapped rather than used directly, and without the wrapper
     ///         a mesh whose material is not in the catalog does not draw at all.</b> See
-    ///         <see cref="EditorMaterialSource" />: <c>TryGet</c>'s false means "not yet", so a
+    ///         <see cref="FallbackMaterialSource" />: <c>TryGet</c>'s false means "not yet", so a
     ///         reference the catalog refuses is one the extraction waits on for ever.
     ///     </para>
     ///     <para>
@@ -842,7 +842,7 @@ sealed class EditorWorldRenderer : IDisposable {
         Renderer.Source = geometry;
         Meshes.Meshes = geometry;
 
-        painting = Renderer.Painter is AssetMaterialSource source ? new(source, Fallback) : null;
+        painting = Renderer.Painter is AssetMaterialSource source ? new(source, () => Fallback) : null;
         Meshes.Materials = painting;
     }
 

@@ -120,7 +120,34 @@ sealed class TexturingFixture : IDisposable {
         return entry.Guid;
     }
 
+    /// <summary>Waits for a task on this thread rather than awaiting it, so the test stays where its graph is.</summary>
+    /// <typeparam name="T">What the task produces.</typeparam>
+    /// <param name="work">The task — an import, typically.</param>
+    /// <returns>Its result.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A block, deliberately, and safe here for a reason worth keeping true:</b> xunit gives
+    ///     these tests no synchronisation context, and the awaited work (<c>ContentPipeline</c>) uses
+    ///     <c>ConfigureAwait(false)</c>, so nothing it waits for needs this thread back. See
+    ///     <see cref="Dispose" /> for why an <c>await</c> is the wrong tool while a fixture is alive.
+    /// </remarks>
+    public static T Wait<T>(Task<T> work) => work.GetAwaiter().GetResult();
+
+    /// <summary>The thread the fixture's reactive graph was built on, which is the only one it may be torn down on.</summary>
+    readonly int owner = Environment.CurrentManagedThreadId;
+
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Refuses a fixture disposed on a thread other than the one that built it</b>
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1413">#1413</a>). xunit runs these tests on
+    ///     pool threads with no synchronisation context, so an <c>async</c> test resumes wherever its
+    ///     awaited task completed, and the thread it left is handed the next test. Every label the
+    ///     panel drew is a live consumer of the building thread's <c>Strings</c> node, so tearing the
+    ///     panel down elsewhere removes those consumers from a node that thread is now using for
+    ///     another test's graph — the torn edge array <c>StringsThreadingTests</c> shows, and a reading
+    ///     like a <c>Depth</c> of 0 beside an <c>IsDirty</c> of true. An await inside a test that holds
+    ///     one of these is therefore blocked on rather than awaited; this is what says so if one is
+    ///     added. The fixture is still disposed first, so a refusal leaks nothing.
+    /// </remarks>
     public void Dispose() {
         Shell.Dispose();
 
@@ -130,6 +157,15 @@ sealed class TexturingFixture : IDisposable {
             }
         } catch (IOException) {
             // A temporary directory that would not go is not a test failure.
+        }
+
+        if (Environment.CurrentManagedThreadId != owner) {
+            throw new InvalidOperationException(
+                $"This fixture was built on thread {owner} and disposed on thread "
+                + $"{Environment.CurrentManagedThreadId}: an await moved the test, and its panel's graph went "
+                + "with it while the old thread ran another test on the same Strings node. Block on the "
+                + "task instead of awaiting it while a TexturingFixture is alive (#1413)."
+            );
         }
     }
 }

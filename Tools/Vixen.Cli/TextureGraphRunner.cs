@@ -48,7 +48,7 @@ namespace Vixen.Cli;
 ///         one it can bake; <see cref="TextureProjectImages" /> is what a host that <em>has</em> one
 ///         then calls, and it lives one assembly down precisely so that this is not a second copy of
 ///         the editor's — the copy that forgets a case. All this route supplies is
-///         <see cref="Decoded" />: which decoder reads a <c>.png</c>, which is
+///         <see cref="Decoded(string)" />: which decoder reads a <c>.png</c>, which is
 ///         <c>Vixen.Editor.Assets</c>' question and whose closure is the whole runtime.
 ///     </para>
 ///     <para>
@@ -308,17 +308,25 @@ static class TextureGraphRunner {
     ///         process bakes once and exits; a cache here would hold bytes nothing asks for twice.
     ///     </para>
     /// </remarks>
-    static (TextureData? Picture, string? Unreadable) Decoded(string file) {
+    static (TextureData? Picture, string? Unreadable) Decoded(string file) => Decoded(file, ImageDecoders.BuiltIn);
+
+    /// <summary>Decodes one picture through a given set of codecs, or says why it could not.</summary>
+    /// <param name="file">The picture, absolute.</param>
+    /// <param name="decoders">The codecs to choose from; the bake passes <see cref="ImageDecoders.BuiltIn" />.</param>
+    /// <returns>The pixels, or the sentence that says why there are none.</returns>
+    internal static (TextureData? Picture, string? Unreadable) Decoded(string file, IReadOnlyList<IImageDecoder> decoders) {
         var extension = Path.GetExtension(file);
 
-        if (ImageDecoders.For(ImageDecoders.BuiltIn, extension) is not { } decoder) {
+        if (ImageDecoders.For(decoders, extension) is not { } decoder) {
             return (null, $"nothing here decodes '{extension}'.");
         }
 
+        // ⚠ Through `ImageDecoders.DecodeFile` (#1471), which translates whatever the codec throws
+        // into `InvalidDataException`: StbImageSharp's `InvalidOperationException` for a truncated
+        // PNG went past this filter and out of the bake. It also reads the file whole under a
+        // write-and-delete share and closes it before decoding.
         try {
-            using var stream = File.OpenRead(file);
-
-            return (decoder.Decode(stream, extension), null);
+            return (ImageDecoders.DecodeFile(decoder, file, extension), null);
         } catch (Exception failure) when (failure is IOException
             or InvalidDataException or NotSupportedException or ArgumentException
             or UnauthorizedAccessException) {

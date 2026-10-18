@@ -169,6 +169,15 @@ makes the first run of every screenshot green, which means nobody ever looks at 
 later is measured against. It writes what it drew where a human can open it, says how to accept it,
 and fails.
 
+### A skip is not a comparison
+
+A screenshot whose text is shaped by HarfBuzz is only comparable on a platform whose natives shape it
+the way the reference's did — measured: macOS and Windows agree bit for bit, Linux does not. The
+editor's picture tests therefore skip where no reference applies, and ⚠ **a skip with nothing behind it
+prints success on the day it compares nothing** (#500). `VIXEN_REQUIRE_SCREENSHOTS=1` turns that skip
+into a failure, the way `VIXEN_REQUIRE_VULKAN` does for a missing device; CI sets it on the leg where
+every reference must compare. A new test that skips by platform reads it too.
+
 ## What is different from Cypress, and why
 
 **Commands run eagerly.** Cypress enqueues and returns a chainable promise because it is JavaScript.

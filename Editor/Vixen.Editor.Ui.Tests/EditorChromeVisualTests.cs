@@ -34,40 +34,61 @@ namespace Vixen.Editor.Ui.Tests;
 /// </remarks>
 public class EditorChromeVisualTests {
     /// <summary>
-    ///     Skips where a committed picture cannot be compared, which is every platform but the one
-    ///     that recorded it.
+    ///     Skips where a committed picture cannot be compared — Linux — and fails instead of skipping
+    ///     where <c>VIXEN_REQUIRE_SCREENSHOTS=1</c> says the comparison must happen.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A gate on the comparison, not a claim that the chrome differs.</b> Shaping goes
-    ///         through HarfBuzz, and <c>Vixen.Ui.Text</c> takes a <em>different native package per
-    ///         platform</em> — <c>NativeAssets.macOS</c>, <c>NativeAssets.Linux</c>,
-    ///         <c>NativeAssets.Win32</c>. The glyphs those produce for one font file are the same
-    ///         shapes in slightly different places: rendered side by side the two pictures are
-    ///         indistinguishable, and about eight per cent of the pixels differ, spread over every
-    ///         label rather than concentrated anywhere. No single offset lines them up, so this is
-    ///         per-run text metrics and not a layout bug worth pinning with a tolerance.
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/500">#500</a>: a skip with no
+    ///         counter-guard is a gate that prints success on the day it does not run.</b> CI sets
+    ///         <c>VIXEN_REQUIRE_SCREENSHOTS</c> on the macOS leg — the shape
+    ///         <c>VIXEN_REQUIRE_VULKAN</c> has for the device tests — so a predicate narrowed by
+    ///         accident, or a runner that stops being the platform it was, is a red build rather than
+    ///         four quiet skips. Shared with <c>PickerVisualTests</c>, which says the same thing, and
+    ///         that one is why the Windows leg does not set it yet (#1477).
     ///     </para>
     ///     <para>
-    ///         So the Linux leg reported these four failing on every push, for text that is correct.
-    ///         The alternative to skipping is a reference per platform, and that is only worth
-    ///         building when somebody wants the coverage on that leg — the other hundred and sixty
-    ///         tests in this assembly still run everywhere, and this file's subject is the palette
-    ///         and the layout, which a Mac checks as well as anything.
+    ///         ⚠ <b>Windows compares against the same references as macOS, and that was measured
+    ///         rather than assumed.</b> This gate was macOS-only on the strength of "about eight per
+    ///         cent of the pixels differ, spread over every label" between platforms. Rendered on
+    ///         Windows (2026-10-18) against the macOS references, the differing pixels were 0.11 % in
+    ///         all four — and <em>every one</em> of them sat in two boxes of the console: its
+    ///         empty-detail line, which the references draw in full text colour where today's sheet
+    ///         resolves <c>console-detail.empty</c>'s <c>--text-muted</c>, and the detail pane's
+    ///         scroll thumb. Both are the console #758 and #1390 reworked (2026-09-22 to 24), after the
+    ///         references were last taken (2026-09-10). Every glyph of every other label matched bit
+    ///         for bit, so <c>NativeAssets.Win32</c> and <c>NativeAssets.macOS</c> shape this font
+    ///         identically and the references were stale, not foreign. ⚠ That staleness is the
+    ///         defect this issue predicted: the one leg that could compare these was showing pictures
+    ///         of an interface that no longer existed, and nothing anywhere was red for it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Not a tolerance.</b> Eight per cent of the picture is most of its text; a
-    ///         threshold that admitted it would admit the inspector defect in the class remarks
-    ///         above, which is the entire reason these exist.
+    ///         Linux is the one platform the eight-per-cent claim was observed on (its leg reported
+    ///         these four failing on every push), and it was not re-measured here. A reference per
+    ///         platform is the way to bring it in, and is a recording away.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not a tolerance.</b> A threshold wide enough to admit a platform's glyph placement
+    ///         would admit the inspector defect in the class remarks above, which is the entire reason
+    ///         these exist.
     ///     </para>
     /// </remarks>
-    static void SkipWhereTheReferenceDoesNotApply() =>
-        Assert.SkipUnless(
-            OperatingSystem.IsMacOS(),
-            "the committed screenshots are recorded on macOS, and HarfBuzz's per-platform natives "
-            + "place glyphs differently enough that a pixel comparison against them is meaningless "
-            + "elsewhere."
+    static void SkipWhereTheReferenceDoesNotApply() {
+        if (OperatingSystem.IsMacOS() || OperatingSystem.IsWindows()) {
+            return;
+        }
+
+        const string why = "the committed screenshots are compared on macOS and Windows, which shape "
+            + "this font identically; Linux's HarfBuzz natives place glyphs differently enough that a "
+            + "pixel comparison against them is meaningless there.";
+
+        Assert.False(
+            Environment.GetEnvironmentVariable("VIXEN_REQUIRE_SCREENSHOTS") == "1",
+            $"VIXEN_REQUIRE_SCREENSHOTS=1, and this platform has no references: {why}"
         );
+
+        Assert.Skip(why);
+    }
 
     [Theory]
     [InlineData(ThemeMode.Dark, "editor-chrome-dark")]

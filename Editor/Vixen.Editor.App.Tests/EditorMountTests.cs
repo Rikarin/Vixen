@@ -142,7 +142,7 @@ public sealed class EditorMountTests : IDisposable {
 
         var missing = new AssetReference(new AssetId(Guid.NewGuid()), SubAssetId.Main);
         var grey = Grey();
-        var source = new EditorMaterialSource(painter, grey);
+        var source = new FallbackMaterialSource(painter, () => grey);
 
         // The unwrapped answer, which is the defect: false, for ever, for a reference that will never
         // arrive — indistinguishable to the extraction from one still on its way.
@@ -170,7 +170,7 @@ public sealed class EditorMountTests : IDisposable {
         var content = await Cataloged();
 
         using var painter = new AssetMaterialSource(content.Assets!);
-        var source = new EditorMaterialSource(painter, fallback: null);
+        var source = new FallbackMaterialSource(painter, () => null);
 
         Assert.False(source.TryGet(new(new AssetId(Guid.NewGuid()), SubAssetId.Main), out _));
         Assert.Equal(0, source.FellBack);

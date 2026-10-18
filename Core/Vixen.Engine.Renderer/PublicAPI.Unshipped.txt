@@ -127,6 +127,12 @@ Vixen.Engine.Renderer.DebugView.Right.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Engine.Renderer.DebugView.Right.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Engine.Renderer.DebugView.Up.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Engine.Renderer.DebugView.Up.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Renderer.FallbackMaterialSource -> sealed class
+Vixen.Engine.Renderer.FallbackMaterialSource : Vixen.Rendering.Ecs.IMaterialSource
+Vixen.Engine.Renderer.FallbackMaterialSource.FallbackMaterialSource(Vixen.Engine.Renderer.AssetMaterialSource painter, System.Func<Vixen.Rendering.Material?> fallback) -> void
+Vixen.Engine.Renderer.FallbackMaterialSource.FellBack.get -> int
+Vixen.Engine.Renderer.FallbackMaterialSource.Painter.get -> Vixen.Engine.Renderer.AssetMaterialSource
+Vixen.Engine.Renderer.FallbackMaterialSource.TryGet(Vixen.Core.AssetReference reference, out Vixen.Rendering.Material material) -> bool
 Vixen.Engine.Renderer.GpuOverlay -> sealed class
 Vixen.Engine.Renderer.GpuOverlay : Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay
 Vixen.Engine.Renderer.GpuOverlay.Anchor.get -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
@@ -284,6 +290,7 @@ Vixen.Engine.Renderer.WorldRenderer.Logger.get -> Microsoft.Extensions.Logging.I
 Vixen.Engine.Renderer.WorldRenderer.Logger.set -> Microsoft.Extensions.Logging.ILogger?
 Vixen.Engine.Renderer.WorldRenderer.MaterialDescriptors.get -> Vixen.Graphics.DescriptorAllocator
 Vixen.Engine.Renderer.WorldRenderer.Materials.get -> Vixen.Rendering.Features.MaterialRenderFeature
+Vixen.Engine.Renderer.WorldRenderer.MaterialsFellBack.get -> int
 Vixen.Engine.Renderer.WorldRenderer.MeshParticleMaterial.get -> Vixen.Rendering.Material
 Vixen.Engine.Renderer.WorldRenderer.MeshParticleMaterial.set -> Vixen.Rendering.Material
 Vixen.Engine.Renderer.WorldRenderer.Meshes.get -> Vixen.Rendering.Features.MeshRenderFeature
