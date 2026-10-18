@@ -175,8 +175,10 @@ composite source-over on the GPU. `UiRenderer.Unblended` says so for the first; 
 through the blend, against an interface-only backdrop, so it is `UiRenderFeature.Sceneless` that
 counts it (#1378) — and a frame document that names `!UiCompose` ahead of its interface pass
 composes the HUD after the scene, over it, which removes that exception for the frame. The stock
-host lets that node build since #1419 wherever the backend creates its window sampled — Vulkan and
-OpenGL do, WebGPU does not, and there the node is still refused over the window. A
+host lets that node build since #1419 wherever the backend creates its window sampled — OpenGL and
+an offscreen Vulkan chain always do, a windowed Vulkan chain does where the surface and the chosen
+format both allow it (untested on a windowed chain), WebGPU does not, and there the node is still
+refused over the window. A
 `rotate-*`/`scale-*` group blends since #1379, which found the reason it was declined — no
 fragment-position input in Raven — to be false, and a `filter` group and a `mask-*` group since
 #783's `UiBlend` learnt to apply the colour matrix and the mask list itself. See
