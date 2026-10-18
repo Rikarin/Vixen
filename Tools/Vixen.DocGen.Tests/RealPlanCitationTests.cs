@@ -375,9 +375,10 @@ public class RealPlanCitationTests {
     ///         <c>&lt;summary&gt;</c>. The first measurement found 18 of 40 changed under them.
     ///     </para>
     ///     <para>
-    ///         Resolution, one file, and something on the line: the rules the documents get, less
-    ///         placement, because a comment's prose binds a symbol far less regularly than a plan's. A
-    ///         pin works here too. ⚠ Read the same way the documents are, a citation is its whole
+    ///         Resolution, one file, and something on the line: the rules the documents get. Placement
+    ///         is a looser rule of its own, because a comment's prose binds a symbol far less regularly
+    ///         than a plan's (<see cref="Every_source_comment_citation_is_on_a_line_its_comment_names" />,
+    ///         #1454). A pin works here too. ⚠ Read the same way the documents are, a citation is its whole
     ///         token — <c>&lt;c&gt;File.cs:12&lt;/c&gt;</c> as an <i>example</i> of a format is in
     ///         <see cref="SourceExamples" /> rather than silently skipped.
     ///     </para>
@@ -388,35 +389,13 @@ public class RealPlanCitationTests {
         List<string> failures = [];
         var read = 0;
 
-        foreach (var relative in index.Values.SelectMany(paths => paths).Order(StringComparer.Ordinal)) {
-            if (!SourceExtensions.Contains(Path.GetExtension(relative)) || relative == SelfPath) {
-                continue;
-            }
+        foreach (var (cited, _) in SourceCitations(index)) {
+            read++;
 
-            var number = 0;
-
-            foreach (var line in File.ReadLines(Path.Combine(Root, relative))) {
-                number++;
-
-                foreach (Match match in SourceCitation.Matches(line)) {
-                    var text = match.Groups["text"].Value;
-
-                    if (SourceExamples.Contains((relative, text))) {
-                        continue;
-                    }
-
-                    read++;
-                    var file = (match.Groups["root"].Success ? "./" : "") + match.Groups["file"].Value;
-                    var lines = Regex.Matches(match.Groups["lines"].Value, @"\d+").Select(digits => int.Parse(digits.Value)).ToArray();
-                    var commit = match.Groups["commit"] is { Success: true } pin ? pin.Value : null;
-                    Cited cited = new(relative, number, text, file, lines, Regex.IsMatch(match.Groups["lines"].Value, "[-–]"), null, null, null, commit);
-
-                    if (Resolve(cited, index) is { } problem) {
-                        failures.Add($"{relative}:{number} `{text}` — {problem}");
-                    } else if (!Unverifiable(cited) && !Targets(cited, index).Any(target => Substantial(cited, target.Lines))) {
-                        failures.Add($"{relative}:{number} `{text}` — a blank line or a lone brace");
-                    }
-                }
+            if (Resolve(cited, index) is { } problem) {
+                failures.Add($"{cited.Document}:{cited.Line} `{cited.Text}` — {problem}");
+            } else if (!Unverifiable(cited) && !Targets(cited, index).Any(target => Substantial(cited, target.Lines))) {
+                failures.Add($"{cited.Document}:{cited.Line} `{cited.Text}` — a blank line or a lone brace");
             }
         }
 
@@ -447,6 +426,309 @@ public class RealPlanCitationTests {
         // `Effect(…)`'s origin parameter, documented by the shape a caller formats it in.
         ("Core/Vixen.Ui/Diagnostics.cs", "File.cs:12")
     ];
+
+    /// <summary>
+    ///     Every citation in a source comment, with the comment around it: the contiguous comment
+    ///     lines within <see cref="Reach" /> of it.
+    /// </summary>
+    static IEnumerable<(Cited Cited, string Comment)> SourceCitations(Dictionary<string, List<string>> index) {
+        foreach (var relative in index.Values.SelectMany(paths => paths).Order(StringComparer.Ordinal)) {
+            if (!SourceExtensions.Contains(Path.GetExtension(relative)) || relative == SelfPath) {
+                continue;
+            }
+
+            var source = Lines(relative);
+
+            for (var at = 0; at < source.Length; at++) {
+                foreach (var found in SourceCitationsOn(relative, source, at)) {
+                    yield return found;
+                }
+            }
+        }
+    }
+
+    /// <summary>The citations on one line of a source file, each with its comment.</summary>
+    /// <param name="relative">The source file.</param>
+    /// <param name="source">Its lines.</param>
+    /// <param name="at">The 0-based line.</param>
+    static IEnumerable<(Cited Cited, string Comment)> SourceCitationsOn(string relative, string[] source, int at) {
+        string? comment = null;
+
+        foreach (Match match in SourceCitation.Matches(source[at])) {
+            var text = match.Groups["text"].Value;
+
+            if (SourceExamples.Contains((relative, text))) {
+                continue;
+            }
+
+            var file = (match.Groups["root"].Success ? "./" : "") + match.Groups["file"].Value;
+            var lines = Regex.Matches(match.Groups["lines"].Value, @"\d+").Select(digits => int.Parse(digits.Value)).ToArray();
+            var commit = match.Groups["commit"] is { Success: true } pin ? pin.Value : null;
+            Cited cited = new(relative, at + 1, text, file, lines, Regex.IsMatch(match.Groups["lines"].Value, "[-–]"), null, null, null, commit);
+
+            yield return (cited, comment ??= CommentAround(source, at));
+        }
+    }
+
+    /// <summary>
+    ///     How far a source citation's comment reaches, in lines either way: far enough to take in the
+    ///     <c>&lt;see cref&gt;</c> or the sentence that says what the citation is evidence for, near
+    ///     enough that a long remark does not lend a citation every name it mentions.
+    /// </summary>
+    const int Reach = 8;
+
+    /// <summary>
+    ///     The comment a source citation sits in: its own line and the contiguous comment lines within
+    ///     <see cref="Reach" /> of it, in any of the four languages.
+    /// </summary>
+    static string CommentAround(string[] source, int at) {
+        // Which lines are comment: `//` and `///` lines, and every line of a `/* */` or `<!-- -->`.
+        var comment = new bool[source.Length];
+        var open = false;
+
+        for (var line = 0; line < source.Length; line++) {
+            var text = source[line].TrimStart();
+            comment[line] = open || text.StartsWith("//", StringComparison.Ordinal) || text.StartsWith("/*", StringComparison.Ordinal)
+                            || text.StartsWith("<!--", StringComparison.Ordinal) || text.StartsWith('*');
+
+            var opens = source[line].LastIndexOf("/*", StringComparison.Ordinal) is var a and >= 0
+                ? a : source[line].LastIndexOf("<!--", StringComparison.Ordinal);
+            var closes = Math.Max(source[line].LastIndexOf("*/", StringComparison.Ordinal), source[line].LastIndexOf("-->", StringComparison.Ordinal));
+
+            if (opens > closes) {
+                open = true;
+            } else if (closes >= 0) {
+                open = false;
+            }
+        }
+
+        var from = at;
+        var to = at;
+
+        while (from > 0 && at - from < Reach && comment[from - 1]) {
+            from--;
+        }
+
+        while (to < source.Length - 1 && to - at < Reach && comment[to + 1]) {
+            to++;
+        }
+
+        return string.Join('\n', source[from..(to + 1)]);
+    }
+
+    /// <summary>Code in a comment: <c>&lt;c&gt;…&lt;/c&gt;</c>, backticks, and a <c>cref</c>'s target.</summary>
+    static readonly Regex CodeSpan = new(@"<c>(?<code>.*?)</c>|`(?<code>[^`\n]+)`|cref=""(?:\w:)?(?<code>[^""]+)""", RegexOptions.Compiled);
+
+    /// <summary>A word that is a name in code even in prose: <c>PlatformCursor</c>, <c>in_uv</c>, <c>isLost</c>.</summary>
+    static readonly Regex CodeWord = new(@"\b(?:[A-Z][a-z0-9]+[A-Z]\w*|[a-z][a-z0-9]*[A-Z]\w*|[A-Za-z]\w*_\w+)\b", RegexOptions.Compiled);
+
+    /// <summary>
+    ///     The names a comment uses: every identifier in its code, and every word of prose that is
+    ///     spelled like code. The citations themselves are taken out first, so a file's own name is not
+    ///     a name the line it cites has to carry.
+    /// </summary>
+    static HashSet<string> CommentNames(string comment) {
+        var text = SourceCitation.Replace(comment, " ");
+        HashSet<string> names = new(StringComparer.Ordinal);
+
+        foreach (Match span in CodeSpan.Matches(text)) {
+            foreach (Match name in Regex.Matches(span.Groups["code"].Value, @"[A-Za-z_][A-Za-z0-9_]*")) {
+                if (name.Length >= 2) {
+                    names.Add(name.Value);
+                }
+            }
+        }
+
+        foreach (Match word in CodeWord.Matches(text)) {
+            names.Add(word.Value);
+        }
+
+        return names;
+    }
+
+    /// <summary>
+    ///     Why a source citation is not on a line its comment names, or <see langword="null" /> when
+    ///     it is: a name of the comment's is a whole word on the cited line, on each line of a list, or
+    ///     on some line of a range.
+    /// </summary>
+    static string? Misplaced(Cited cited, string comment, Dictionary<string, List<string>> index) {
+        var names = CommentNames(comment);
+
+        bool Named(string line) =>
+            Regex.Matches(line, @"[A-Za-z_][A-Za-z0-9_]*").Any(word => names.Contains(word.Value));
+
+        bool Holds(string[] lines) {
+            if (!cited.Lines.All(line => line >= 1 && line <= lines.Length)) {
+                return false;
+            }
+
+            return cited.Range
+                ? lines[(cited.Lines[0] - 1)..Math.Min(cited.Lines[1], lines.Length)].Any(Named)
+                : cited.Lines.All(line => Named(lines[line - 1]));
+        }
+
+        var targets = Targets(cited, index);
+
+        if (targets.Any(target => Holds(target.Lines))) {
+            return null;
+        }
+
+        var there = targets
+            .Where(target => cited.Lines.All(line => line >= 1 && line <= target.Lines.Length))
+            .Select(target => string.Join(" / ", cited.Lines.Take(2).Select(line => $"'{target.Lines[line - 1].Trim()}'")));
+
+        return $"is {string.Join("; ", there)}, which uses none of the names its comment does";
+    }
+
+    /// <summary>
+    ///     Source citations the placement rule is wrong about, each with the line it was read
+    ///     against: comment, citation, the cited line's text, why the rule cannot see the binding.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The cited line's text is part of the entry</b>, so an exempt citation is not an
+    ///     unchecked one: the day its line changes under it — drift included — the entry stops
+    ///     matching and the citation is read again. And the list can only shrink: an entry whose
+    ///     citation is gone, or that the rule now places, fails.
+    /// </remarks>
+    static readonly (string Comment, string Text, string Line, string Why)[] SourcePlacementExempt = [
+        // The emitter's two `Reserve` calls, described as "a location" and "`in_uv`/`in_normalWS`" —
+        // the name the line builds, not one it spells.
+        ("Platform/Vixen.Graphics.OpenGL.Tests/GlslTranslatorEsslTests.cs", "GlslEmitter.cs:611,628", "var name = Reserve(\"in_\" + stream.Name);",
+            "names the varying the line builds, \"in_\" + a stream's name, and not anything on it"),
+        ("Raven/Vixen.Raven.Transpile.Tests/CrossCompilationTests.cs", "GlslEmitter.cs:611,628", "var name = Reserve(\"in_\" + stream.Name);",
+            "names the varying the line builds, \"in_\" + a stream's name, and not anything on it"),
+        ("Raven/Vixen.Raven.Transpile/SpirvCrossTranspiler.cs", "GlslEmitter.cs:611,628", "var name = Reserve(\"in_\" + stream.Name);",
+            "names the varying the line builds, \"in_\" + a stream's name, and not anything on it"),
+        ("Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn", "Raven/Library/Core/ColorSpaces.rvn:29", "static func SrgbToLinearChannel(c: float): float {",
+            "a doc comment on the copy, citing the original by what it computes (\"the sRGB EOTF\"), whose name is on the next line"),
+        ("Editor/Vixen.Editor.TextureGraph.Tests/TextureKernelLanguageSeamTests.cs", "Checker.rvn:66", "val value = mod(cell.x + cell.y, 2f)",
+            "\"the live line\" — the comment is about the line's being live, not about what it says"),
+        ("Raven/Vixen.Raven.Tests/DepthTextureTests.cs", "VulkanDevice.Pipelines.cs:404", "if (declared.IsComparisonSampler && !sampler.Compares) {",
+            "\"refuse a mismatch\": the refusal in prose, the comparison in code"),
+        ("Raven/Vixen.Raven.Tests/DepthTextureTests.cs", "WebGpuDevice.Resources.cs:653", "if (declared.Kind == DescriptorKind.Sampler && sampler.Compares != declared.IsComparisonSampler) {",
+            "\"refuse a mismatch\": the refusal in prose, the comparison in code"),
+        ("Samples/02-HelloUi/Shell.vxml", "Vixen.Editor.App/EditorParity.cs:206", "void RecentProjectCommands() {",
+            "an XML comment describing what the method builds — a recent list — and not naming it"),
+        ("Core/Vixen.Ui.Controls/SegmentedControl.cs", "EditorTheme.vcss:289@e57dfa401", "⚠ A segmented control is one box with the seams *inside* it, which is the",
+            "a sheet's own comment cited for what it says, which is prose on both sides")
+    ];
+
+    /// <summary>
+    ///     Every citation in a source comment is on a line that uses a name its comment uses
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1454">#1454</a>).
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Resolution and "not blank" are not placement.</b> #1427's sweep passed
+    ///         <c>PlatformCursorTests</c> citing <c>EditorHost.cs:296</c> — a <c>&lt;summary&gt;</c>
+    ///         line — for a <c>PlatformCursor.Apply</c> call, because a summary has words on it. The
+    ///         drift it was written to find is exactly the drift it could not see.
+    ///     </para>
+    ///     <para>
+    ///         A plan citation binds by the shape of its prose; a comment's prose is too free for that,
+    ///         and a recorded line text for every citation would turn every edit above a cited line
+    ///         red. So the rule is looser and still able to be false: the cited line, each line of a
+    ///         list, or some line of a range has to use, as a whole word, a name the comment around
+    ///         the citation uses — an identifier in its <c>&lt;c&gt;</c>, backticks or
+    ///         <c>cref</c>, or a word of its prose spelled like code. A citation that drifts onto a
+    ///         line about something else stops sharing a name with the comment that cites it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It has false positives, and they are named.</b> A comment that describes its line
+    ///         in prose — "the emitter writes a location" for a line that says <c>Reserve</c> — shares
+    ///         nothing with it. Those are in <see cref="SourcePlacementExempt" /> with the line's text,
+    ///         or are better pinned. A rule with no false positives here would be one the defect
+    ///         satisfies.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_source_comment_citation_is_on_a_line_its_comment_names() {
+        var (_, index, _) = Sweep();
+        List<string> failures = [];
+        HashSet<(string, string)> exemptUsed = [];
+        var placed = 0;
+
+        foreach (var (cited, comment) in SourceCitations(index)) {
+            if (Resolve(cited, index) is not null || Unverifiable(cited)) {
+                continue;
+            }
+
+            var problem = Misplaced(cited, comment, index);
+            var exempt = SourcePlacementExempt.Where(entry => entry.Comment == cited.Document && entry.Text == cited.Text).ToList();
+
+            if (exempt.Count > 0) {
+                exemptUsed.Add((cited.Document, cited.Text));
+                var line = Targets(cited, index).Select(target => target.Lines[cited.Lines[0] - 1].Trim()).FirstOrDefault();
+
+                if (problem is null) {
+                    failures.Add($"{cited.Document}:{cited.Line} `{cited.Text}` is placed now — delete its {nameof(SourcePlacementExempt)} entry");
+                } else if (!exempt.Any(entry => entry.Line == line)) {
+                    failures.Add($"{cited.Document}:{cited.Line} `{cited.Text}` is exempt as '{exempt[0].Line}' and the line is '{line}' now — re-read it");
+                }
+
+                continue;
+            }
+
+            if (problem is not null) {
+                failures.Add($"{cited.Document}:{cited.Line} `{cited.Text}` {problem}");
+            } else {
+                placed++;
+            }
+        }
+
+        failures.AddRange(SourcePlacementExempt
+            .Where(entry => !exemptUsed.Contains((entry.Comment, entry.Text)))
+            .Select(entry => $"{entry.Comment} `{entry.Text}` is no longer cited — delete its {nameof(SourcePlacementExempt)} entry"));
+
+        Assert.True(
+            failures.Count == 0,
+            $"{failures.Count} source comment citation(s) are on a line that uses no name their comment uses, which is what a "
+            + "number that drifted onto another worded line looks like (#1454). Re-point each by reading it, pin it to the commit "
+            + $"it describes (`File.cs:N@sha`), or — where the comment names its line only in prose — add it to {nameof(SourcePlacementExempt)} "
+            + "with the line's text:\n  " + string.Join("\n  ", failures)
+        );
+
+        // The instrument: a rule that places nothing is a rule that is not reading.
+        Assert.True(placed >= 20, $"only {placed} source citation(s) were placed, so the placement rule has stopped reading lines");
+    }
+
+    /// <summary>
+    ///     The drift #1427 reported and its sweep passed: <c>PlatformCursorTests</c>' citation put back
+    ///     on <c>EditorHost.cs:296</c>, a <c>&lt;summary&gt;</c> line, is refused, and the line it
+    ///     means is not (<a href="https://github.com/Rikarin/Vixen/issues/1454">#1454</a>).
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Fed in, not found</b>, so it is red on the old rule's terms too: the old sweep's two
+    ///     checks — resolves, not blank — both pass the drifted line, which is asserted first.
+    ///     <c>EditorHost.cs</c> is read at <c>24d187463</c>, a commit, because the live file moves.
+    /// </remarks>
+    [Fact]
+    public void A_source_citation_drifted_onto_a_worded_line_is_refused() {
+        if (!History.Has("24d187463")) {
+            Assert.Skip("this checkout has no history to read EditorHost.cs at a fixed commit (a shallow clone)");
+        }
+
+        var (_, index, _) = Sweep();
+        var source = Lines("Platform/Vixen.Platform.Ui.Tests/PlatformCursorTests.cs").ToArray();
+        var at = Array.FindIndex(source, line => line.Contains("<c>EditorHost.cs:", StringComparison.Ordinal));
+
+        Assert.True(at > 0, "PlatformCursorTests no longer cites EditorHost.cs, so this fixture needs a new witness");
+
+        (Cited Cited, string Comment) Read(int cited) {
+            source[at] = Regex.Replace(source[at], @"<c>EditorHost\.cs:[^<]*</c>", $"<c>EditorHost.cs:{cited}@24d187463</c>");
+
+            return SourceCitationsOn("Platform/Vixen.Platform.Ui.Tests/PlatformCursorTests.cs", source, at).Single();
+        }
+
+        var drifted = Read(296);
+        var meant = Read(388);
+
+        Assert.Null(Resolve(drifted.Cited, index));
+        Assert.Contains(Targets(drifted.Cited, index), target => Substantial(drifted.Cited, target.Lines));
+        Assert.Contains("uses none of the names", Misplaced(drifted.Cited, drifted.Comment, index));
+
+        Assert.Null(Misplaced(meant.Cited, meant.Comment, index));
+    }
 
     /// <summary>
     ///     Every document holds exactly as many unbound, unpinned citations as <see cref="UnboundPath" />

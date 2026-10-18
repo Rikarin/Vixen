@@ -41,7 +41,7 @@ public sealed partial class Segment : ToggleBase {
 /// <remarks>
 ///     <para>
 ///         <b>What a view switcher, a mode picker and an alignment control are.</b> The editor draws
-///         one out of a bare <c>UiElement</c> and CSS — <c>ToolbarPresenter.cs:212@e57dfa401</c> plus
+///         one out of a bare <c>UiElement</c> and CSS — <c>ToolbarPresenter.cs:212-213@e57dfa401</c> plus
 ///         <c>EditorTheme.vcss:289@e57dfa401</c> — so no application could reach it and the version that
 ///         existed had no keyboard, no exclusivity and no accessible structure.
 ///     </para>
