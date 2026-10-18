@@ -166,8 +166,8 @@ public class ZeroSizedBoxPaintTests {
     ///     </para>
     ///     <para>
     ///         The pointer is not asked here. <c>UiDocument.HitTest</c> reads no mask for any box, zero
-    ///         or not, so a masked-out child is reachable wherever it lies. That is a question about
-    ///         masks and not about zero boxes.
+    ///         or not, so a masked-out child is reachable wherever it lies — which is CSS Masking §7.10
+    ///         (a mask has no effect on hit testing), pinned in <c>MaskHitTestTests</c> (#1408).
     ///     </para>
     /// </remarks>
     [Fact]
