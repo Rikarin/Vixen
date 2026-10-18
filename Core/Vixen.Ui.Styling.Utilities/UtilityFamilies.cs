@@ -3691,7 +3691,7 @@ public static class UtilityFamilies {
     ///         <see cref="TryNegate" /> flips any value that begins with a digit — so <c>-p-2</c> was
     ///         <c>padding: -8px</c>, <c>-font-bold</c> was <c>font-weight: -700</c>,
     ///         <c>-border-2</c> a negative width, <c>-duration-300</c> a negative duration and
-    ///         <c>-leading-normal</c> a negative line height. About 130 spellings on the surface
+    ///         <c>-leading-normal</c> a negative line height. 146 spellings on the surface
     ///         resolved to a value neither CSS nor Tailwind has. #1348 had marked the filter slots
     ///         (<c>brightness(-0.5)</c> is a function the executor cannot run, so it dropped the whole
     ///         assembled <c>filter</c>) and #1384 six more roots (<c>opacity</c>, <c>aspect</c>, the
