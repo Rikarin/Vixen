@@ -141,7 +141,8 @@ partial class Build {
     Target CheckArchitecture => definition => definition
         .Description(
             "Fails on a layer violation, a banned IL-rewriting package, editor-only code in a runtime "
-            + "assembly, or an editor plugin that reaches the editor application"
+            + "assembly, an editor plugin that reaches the editor application, or an EditorApplication part "
+            + "over its ceiling"
         )
         .Executes(() => {
                 // ⚠ The eight layers and the three exclusions live in `PluginReferenceRule` and this
@@ -418,6 +419,32 @@ partial class Build {
                         projects.Select(project => project.ToString())
                     )
                 );
+
+                // Doc 50 § D6: the application's parts may only shrink. Doc 36's "under 800" was
+                // recorded rising seven times and failed nothing; a ceiling at today's size fails
+                // the first commit that grows it, and a row left above a shrunk file fails too.
+                var applicationParts = ApplicationSizeRule.Measure(RootDirectory);
+
+                if (UpdateExemptions) {
+                    var before = ApplicationSizeRule.Read(RootDirectory);
+
+                    System.IO.File.WriteAllText(RootDirectory / ApplicationSizeRule.TableFile, ApplicationSizeRule.Render(applicationParts), new System.Text.UTF8Encoding(false));
+
+                    foreach (var (file, lines) in applicationParts) {
+                        if (before.TryGetValue(file, out var ceiling) && lines > ceiling) {
+                            Log.Warning("{File} went UP, {Ceiling} → {Lines}: the application grew.", file, ceiling, lines);
+                        }
+                    }
+
+                    Log.Warning("{Table} has been rewritten from the tree. Read the diff before committing.", ApplicationSizeRule.TableFile);
+                }
+
+                var applicationCeilings = ApplicationSizeRule.Read(RootDirectory);
+                var sizeVacuity = ApplicationSizeRule.Vacuity(applicationParts, applicationCeilings);
+
+                Assert.True(sizeVacuity is null, sizeVacuity ?? "");
+
+                violations.AddRange(ApplicationSizeRule.Violations(applicationParts, applicationCeilings));
 
                 foreach (var violation in violations) {
                     Log.Error("{Violation}", violation);

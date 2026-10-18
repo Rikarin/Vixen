@@ -1,0 +1,25 @@
+# Line ceilings for every file holding part of `partial class EditorApplication` (doc 50 § D6,
+# #1279). Read by CheckArchitecture through build/ApplicationSizeRule.cs.
+#
+# ⚠ These may only go DOWN. A file over its row fails; a row more than 20 lines above its file
+# fails too, so an extraction lowers its rows in the same commit; a new partial file fails until
+# it has a row, and (total) holds the sum. Lines are `wc -l`, comments included.
+#
+# Regenerate after a merge with `./build.sh CheckArchitecture --update-exemptions` — and read the diff:
+# a row that went UP is the application growing.
+
+EditorApplication.cs     5826
+EditorBuilds.cs          499
+EditorDiagnostics.cs     460
+EditorFrames.cs          476
+EditorParity.cs          3233
+EditorProjects.cs        364
+EditorSelectionVerbs.cs  544
+EditorSettingsPanels.cs  988
+EditorSourceControl.cs   380
+EditorWorlds.cs          1280
+PlayOverlaySwitches.cs   124
+SceneMenus.cs            271
+ShaderGraphPreviews.cs   81
+ViewportCommands.cs      715
+(total)                  15241
