@@ -43,8 +43,9 @@ namespace Vixen.Ui.Renderer;
 ///         <c>GraphicsOptions.Output</c> — by default <c>SceneColour</c>, which is also
 ///         <c>!StandardFrame</c>'s default output — and an import wins over a declaration of the same
 ///         name. It used to import it as <c>TextureUsage.ColourTarget</c> and nothing else, on every
-///         backend; it now declares <c>ISwapChain.Usage</c>, which is sampled on Vulkan wherever the
-///         surface allows it, on OpenGL and on the offscreen chain. WebGPU's surface is not sampled,
+///         backend; it now declares <c>ISwapChain.Usage</c>, which is sampled on a windowed Vulkan
+///         chain wherever the surface and the chosen format both allow it, on OpenGL and on the
+///         offscreen chain. WebGPU's surface is not sampled,
 ///         and this node still refuses to run over it there. <c>HostedInterfaceComposeTests</c> is
 ///         the stock host drawing a multiplied HUD panel over the world through this node.
 ///     </para>
