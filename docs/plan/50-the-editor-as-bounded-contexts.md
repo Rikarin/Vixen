@@ -130,12 +130,12 @@ holds, the reason does not: `ApplyPreferences` writes `project.GlobalStack.Capac
 `scene.Stack.Capacity` (`EditorSettingsPanels.cs:545-548`), which exist from line 633, before any
 command. *"Disabled list before activation"* — true for disk plugins, **false for the built-in
 modules**: they are activated inside `Commands()` → `RegisterModes()` (`EditorParity.cs:1246-1248`,
-called from `EditorApplication.cs:3880`), before `LoadDisabledPlugins` at `:1007`, and
+called from `EditorApplication.cs:3857`), before `LoadDisabledPlugins` at `:1044`, and
 `PluginHost.Activate` (`PluginHost.cs:522`) never consults `suppressed`. **A built-in module cannot
 be disabled**, which the plugin manager's Disable button does not say.
 
 ⚠ **The verbs are private and closed over the fields.** `Group()`, `SnapToFloor()`, `EnterPlay()`,
-`ExportPackage()`, `BringIn()`, `DropIntoScene()` — `EditorParity.cs:684-3032` — are instance
+`ExportPackage()`, `BringIn()`, `DropIntoScene()` — `EditorParity.cs:684-2786` — are instance
 methods that read `scene`, `project`, `browser`, `content`, `play` off `this`. A plugin that wants
 *"group the selection"* cannot call it; a test that wants it has to open a whole `EditorSession`;
 a second surface (a context menu, a palette entry, a script) gets it only by the application
@@ -272,7 +272,7 @@ What *is* doubled is the language, and each pair is two contexts sharing a word:
 | One idea | Vocabulary A | Vocabulary B | Measured |
 |---|---|---|---|
 | **the active scene** | `EditorProject.ActiveDocument` (`EditorProject.cs:56`) | `EditorApplication.scene` (`EditorApplication.cs:109`), whose remarks say *"half the editor holds the active scene"* (`EditorApplication.cs:103-104`), plus `Shown => inspected ?? scene` wrapped as `IActiveScene` | `ActiveDocument` has **3** readers; `scene.` is read **124** times across the partials; `EditorWorlds.cs:499-502` sets both in sequence |
-| **dirty** | `CommandStack.IsDirty` → `EditorDocument.IsDirty` → `EditorProject.HasUnsavedChanges` | `SettingsView.dirty` + `ProjectSettingsStore.HasUnsavedChanges` | `HasUnsavedChanges` gates Save All and close (`EditorParity.cs:136,3111`) and **does not include** the settings store's — project settings edits are non-undoable by construction (`EditorSettingsPanels.cs:747`, `EditedDocument = null`) and can be lost on close |
+| **dirty** | `CommandStack.IsDirty` → `EditorDocument.IsDirty` → `EditorProject.HasUnsavedChanges` | `SettingsView.dirty` + `ProjectSettingsStore.HasUnsavedChanges` | `HasUnsavedChanges` gates Save All and close (`EditorParity.cs:136,2871`) and **does not include** the settings store's — project settings edits are non-undoable by construction (`EditorSettingsPanels.cs:747`, `EditedDocument = null`) and can be lost on close |
 | **selection** | `Selection<T>` — assets on the project, entities on the scene | `HashSet<NodeId>` (`NodeGraphView.cs:109`), `List<FoliageAddress>`, `HashSet<SplineHandle>`, `LayerPath?` | the graph's is read cross-assembly by two `.vxml` views; none of B's is reactive or on `EditorContext` |
 | **a document** | `EditorDocument` (25 subclasses) | `Vixen.Ui.IEditableDocument` (0 implementations under `Editor/`; #656) | the model itemises its own divergence at `EditorDocument.cs:29-61` |
 | **a property** | `EditProperty` (18 uses, the live edit path) | `EditorProperty<T>` / `EditorObject` / `SetPropertyCommand<T>` — **5 uses, all in Core, no subclass of `EditorObject` anywhere under `Editor/`** | `EditProperty.cs:18-19` says it *"is what a `SceneDocument`'s own fields are"*; they are plain dictionaries (`SceneDocument.cs:120-194`). A dead type with a remark that describes the live one |
@@ -335,8 +335,8 @@ architecture rules enforce.
 | | **Content Library** | `AssetDatabase` | browser model, collections, saved filters, thumbnails, import and content build, drag-and-drop, package export — `EditorParity.cs:411-684, 1545-2038`, `EditorApplication.cs:3520-3645, 4868-5052`, `ContentTasks.cs`, `AssetCollections.cs`, `ThumbnailCache.cs` | `Vixen.Editor.Assets` + a service |
 | | **Documents** | `EditorDocument`, `CommandStack` | open, reopen, join to a panel, `AssetEditorRegistry`, `Saved`, `Opened` — `EditorApplication.cs:2696-3060` | `Vixen.Editor.Core` (already) |
 | | **Editing** (shared kernel) | `EditTarget`, `EditProperty`, `IEditProvider` | the one edit path, doc 36 § D1 | `Vixen.Editor.Core` (already) |
-| | **Session** | `PlayModeController` | enter/stop play, snapshot/restore, `PlayPhysics`, play diagnostics — `EditorParity.cs:855-954, 2913-3032`, `PlayPhysics.cs` | `Vixen.Editor.Core` |
-| | **Delivery** | `BuildPlan` | build settings, Build and Run, deploy, `BuildStep` contributions — `EditorBuilds.cs`, `EditorApplication.cs:5276` | `Vixen.Editor.Assets.Content` |
+| | **Session** | `PlayModeController` | enter/stop play, snapshot/restore, `PlayPhysics`, play diagnostics — `EditorParity.cs:855-954, 2671-2786`, `PlayPhysics.cs` | `Vixen.Editor.Core` |
+| | **Delivery** | `BuildPlan` | build settings, Build and Run, deploy, `BuildStep` contributions — `EditorBuilds.cs`, `EditorApplication.cs:5253` | `Vixen.Editor.Assets.Content` |
 | **Application** | **Workspace** | `DockingWorkspace`, `EditorUserStore` | panels, layouts, view bookmarks, what persists — `EditorApplication.cs:1447-1515, 2236-2696, 3657-3734, 5785` | `Vixen.Editor.Ui` (already) |
 | | **Extensibility** | `PluginHost`, `EditorRegistry` | modules, disk plugins, scripts, hot reload, `PluginPoints` — `EditorApplication.cs:3060-3254`, `Vixen.Editor.Scripts` | `Vixen.Editor.Plugin` (already) |
 | | **Composition root** | `EditorApplication` | construct, publish, activate, tick | `Vixen.Editor.App` — **≤ 800 lines** |
@@ -542,7 +542,7 @@ without touching another concern — and then by what a plugin most plausibly wa
 
 | Step | Service | Out of | Moves with it |
 |---|---|---|---|
-| 2a | `IPlaySession` | `EditorParity.cs:855-954, 2913-3032`, `PlayPhysics.cs`, `DrainPlayDiagnostics` | the smallest; proves the shape |
+| 2a | `IPlaySession` | `EditorParity.cs:855-954, 2671-2786`, `PlayPhysics.cs`, `DrainPlayDiagnostics` | the smallest; proves the shape |
 | 2b | `ISceneEditing` | `EditorParity.cs:684-855, 2446-2913`, `EditorSelectionVerbs.cs`, `EditorApplication.cs:4542-5737` | `SceneEntity.cs`; the gizmo recording decision (§ P5); **`Active` is `EditorProject.ActiveDocument` and the 124 reads of the `scene` field become reads of it** (Part 1 § F10's first pair); a visibility command for hidden/locked (#1277) |
 | 2c | `IContentLibrary` | `EditorParity.cs:411-684, 1545-2304`, `EditorApplication.cs:3520-3645, 4868-5052` | `AssetCollections`, `ThumbnailCache`, `ContentTasks`; the `NewAssetKinds` literal becomes `LibraryModule`'s. **First slice landed (#1292):** `IContentLibrary` in `Vixen.Editor.Assets` with import (dialog and OS drop), closure, package export, collections and saved filters; `ContentLibrary` in the App; published through `PluginPoints`. ⚠ The two *files* stay — a collection is per project and a filter per user, both types' documented decision — and what was doubled was the API. Not yet: the browser model (`Shown`), `LibraryModule`, the menu verbs, `ThumbnailCache`/`ContentTasks` |
 | 2d | `IProjectSession` | `EditorProjects.cs`, `EditorApplication.cs:1695-2116` | `ProjectAssemblies`, `ProjectHistory`, the watcher. **First slice landed (#1293):** `IProjectSession` in `Vixen.Editor.Core` with `Rescan`, `RequestProject`/`PendingProject`; `ProjectBrowser` asks it rather than scanning and saving the database itself, and the disk watcher's closed-browser copy of the same three calls is gone. ⚠ The browser never had `EditorProject.Open`'s save-only-if-changed guard and still does not — an in-editor rename changes the database in memory and then rescans, so a guard measuring the scan alone would leave a stale index; that is a decision, not a move. Not yet: the constructor, the watcher, `BuildProjectCode`, recents, scaffold |
@@ -590,7 +590,7 @@ after P2 the consumers can), `ProjectBrowser.cs` (1,491), `NodeGraphView.cs` (1,
 table, which is renamed `FileSizeRule` the day it gains a second assembly.
 
 **`ProjectBrowser` (#1304), first slice landed:** the folder, collection, search and kind are
-`IContentLibrary.Shown` (`LibraryView`), so they survive the panel being closed and reopened, and
+`IContentLibrary.Shown` (`ShownContent`), so they survive the panel being closed and reopened, and
 Save Filter reads them from the library rather than out of the view; the rescan is
 `IProjectSession`'s (#1293). ⚠ *"Its second asset tree"* is refuted: `AssetTree.Build` has exactly
 one production caller, the browser, and the database holds a flat list — the tree is a projection,

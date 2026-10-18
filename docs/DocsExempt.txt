@@ -1206,7 +1206,6 @@ T:Vixen.Editor.Assets.ImportResult sweep-pending
 T:Vixen.Editor.Assets.ImportSeverity sweep-pending
 T:Vixen.Editor.Assets.ImportedArtifact sweep-pending
 T:Vixen.Editor.Assets.InProcessImportExecutor sweep-pending
-T:Vixen.Editor.Assets.LibraryView the content library service page owed by #1311 documents it with IContentLibrary
 T:Vixen.Editor.Assets.Materials.MaterialImportSettings sweep-pending
 T:Vixen.Editor.Assets.Models.ModelCompiler sweep-pending
 T:Vixen.Editor.Assets.Models.ModelFormatException sweep-pending
@@ -1224,6 +1223,7 @@ T:Vixen.Editor.Assets.RawImporter sweep-pending
 T:Vixen.Editor.Assets.Scenes.SceneCompiler sweep-pending
 T:Vixen.Editor.Assets.Scenes.SceneImportSettings sweep-pending
 T:Vixen.Editor.Assets.Scenes.SceneImporter sweep-pending
+T:Vixen.Editor.Assets.ShownContent the content library service page owed by #1311 documents it with IContentLibrary
 T:Vixen.Editor.Assets.StoredArtifact sweep-pending
 T:Vixen.Editor.Assets.Textures.SliceMethod sweep-pending
 T:Vixen.Editor.Assets.Textures.SpriteMode sweep-pending

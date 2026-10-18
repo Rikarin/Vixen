@@ -68,7 +68,7 @@ internal sealed class ContentLibrary : IContentLibrary {
     public EditorProject Project => project;
 
     /// <inheritdoc />
-    public LibraryView Shown { get; } = new();
+    public ShownContent Shown { get; } = new();
 
     /// <inheritdoc />
     public event Action? CollectionsChanged;

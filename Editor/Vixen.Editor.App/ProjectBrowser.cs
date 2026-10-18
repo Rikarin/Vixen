@@ -117,7 +117,7 @@ sealed class ProjectBrowser {
     ///     sits beside the folder rather than instead of it, so leaving a collection puts the grid
     ///     back where it was standing.
     /// </remarks>
-    readonly LibraryView shown;
+    readonly ShownContent shown;
 
     /// <summary>Raised when a row is activated — a double-click, or Enter on the keyboard.</summary>
     /// <remarks>
@@ -257,7 +257,7 @@ sealed class ProjectBrowser {
     ///     assigned afterwards would arrive one panel too late, which is the shape of mistake
     ///     <c>EditorSession</c> already made once with <c>init</c>.
     /// </param>
-    public ProjectBrowser(IProjectSession session, UiElement panel, LibraryView shown, IEditorRegistry extensions) {
+    public ProjectBrowser(IProjectSession session, UiElement panel, ShownContent shown, IEditorRegistry extensions) {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(panel);
         ArgumentNullException.ThrowIfNull(extensions);
@@ -589,7 +589,7 @@ sealed class ProjectBrowser {
 
     /// <summary>Which folder the grid is showing, by path.</summary>
     /// <remarks>
-    ///     ⚠ <b>A path rather than a node, for <see cref="LibraryView.Folder" />'s reason</b>: a rescan rebuilds
+    ///     ⚠ <b>A path rather than a node, for <see cref="ShownContent.Folder" />'s reason</b>: a rescan rebuilds
     ///     every <c>AssetTreeNode</c>, so a held reference names a folder that no longer exists.
     /// </remarks>
     public string Folder => shown.Folder;

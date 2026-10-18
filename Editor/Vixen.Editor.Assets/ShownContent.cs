@@ -20,7 +20,7 @@ namespace Vixen.Editor.Assets;
 ///         standing in is where they are, and it is not carried across a restart.
 ///     </para>
 /// </remarks>
-public sealed class LibraryView {
+public sealed class ShownContent {
     /// <summary>The folder being shown, by project-relative path.</summary>
     /// <remarks>
     ///     By path rather than by node: a rescan rebuilds every <c>AssetTreeNode</c>, so a held

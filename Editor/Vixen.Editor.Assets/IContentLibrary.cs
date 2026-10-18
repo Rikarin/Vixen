@@ -32,7 +32,7 @@ public interface IContentLibrary {
     EditorProject Project { get; }
 
     /// <summary>What the content browser is showing, which outlives the panel that shows it.</summary>
-    LibraryView Shown { get; }
+    ShownContent Shown { get; }
 
     /// <summary>Copies files and folders from the user's disk into the project, then scans and imports.</summary>
     /// <param name="paths">Absolute paths on the user's disk — chosen in a dialog or dropped from the OS.</param>
