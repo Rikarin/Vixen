@@ -281,7 +281,7 @@ public class EditorAffordanceTests {
         var local = space.CurrentTitle.Id;
         var atCentre = pivot.CurrentTitle.Id;
 
-        foreach (var id in (string[]) [world, local, atObject, atCentre, space.Title.Id, pivot.Title.Id]) {
+        foreach (var id in (string[])[world, local, atObject, atCentre, space.Title.Id, pivot.Title.Id]) {
             Assert.True(template.Contains(id), $"'{id}' is shown by a gizmo toggle and is in no translator's template");
         }
 
