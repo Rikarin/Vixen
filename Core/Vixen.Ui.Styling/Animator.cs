@@ -874,9 +874,9 @@ public sealed class Animator {
 
         // ⚠ Part by part, so a rotation keeps its axis — the `z` of `z 90deg`, the numbers in
         // `0 0 1 90deg` — and zeroes only the angle, and a pair of lengths becomes a pair of zeros
-        // `StyleValue.Lerp` can pair. ⚠ Keeping an axis is not drawing it: `TransformReader.Degrees`
-        // draws only the z axis, by keyword or as a vector parallel to it (#1450), so `1 0 0 45deg`
-        // animates here and is drawn unrotated at every frame, as it is at rest.
+        // `StyleValue.Lerp` can pair. Keeping the axis is what draws it: `TransformReader` reads a z
+        // axis as the plane rotation (#1450) and any other as the `rotateX`/`rotateY`/`rotate3d` it
+        // is defined as (#1473), so `1 0 0 45deg` turns about x at every frame of its way in.
         static StyleValue IdentityOf(StyleValue shape, Func<StyleValue, StyleValue> identity) {
             if (shape.Kind != StyleValueKind.List) {
                 return identity(shape);

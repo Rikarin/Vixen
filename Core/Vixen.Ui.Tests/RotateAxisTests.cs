@@ -62,16 +62,35 @@ public class RotateAxisTests {
         Turned(Box(document, rotate), degrees);
     }
 
-    /// <summary>Any other axis is refused and leaves the element alone, and so does an axis of no length.</summary>
-    [Theory]
-    [InlineData("x 30deg")]
-    [InlineData("y 30deg")]
-    [InlineData("1 0 0 30deg")]
-    [InlineData("0 0.001 1 30deg")]
-    [InlineData("0 0 0 30deg")]
-    public void A_rotation_about_any_other_axis_leaves_the_element_alone(string rotate) {
+    /// <summary>An axis of no length is refused and leaves the element alone.</summary>
+    [Fact]
+    public void A_rotation_about_no_axis_leaves_the_element_alone() {
         using var document = new UiDocument(400f, 300f);
 
-        Turned(Box(document, rotate), 0f);
+        Turned(Box(document, "0 0 0 30deg"), 0f);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Any other axis is the rotation it names now, not a refusal</b> (#1473; #1450 pinned the
+    ///     refusal here). With no perspective a turn about y foreshortens x by <c>cos θ</c> and a turn
+    ///     about x leaves a point on the x axis where it was, so the corner at (100, 0) lands at
+    ///     (86.6, 0) and (100, 0). ⚠ <c>0 0.001 1</c> is a hair off z and is read as the 3D rotation it
+    ///     is, which is nearly the plane one — not refused, and not snapped to z.
+    /// </summary>
+    [Theory]
+    [InlineData("y 30deg", 86.6025f, 0f)]
+    [InlineData("0 1 0 30deg", 86.6025f, 0f)]
+    [InlineData("30deg 0 -3 0", 86.6025f, 0f)]
+    [InlineData("x 30deg", 100f, 0f)]
+    [InlineData("1 0 0 30deg", 100f, 0f)]
+    [InlineData("0 0.001 1 30deg", 86.6025f, 50f)]
+    public void A_rotation_about_any_other_axis_is_the_rotation_it_names(string rotate, float x, float y) {
+        using var document = new UiDocument(400f, 300f);
+
+        var box = Box(document, rotate);
+        var tip = Assert.IsType<Vixen.Ui.Rendering.UiTransform>(box.Transform).Apply(new Vector2(100f, 0f));
+
+        Assert.Equal(x, tip.X, Tolerance);
+        Assert.Equal(y, tip.Y, 0.1f);
     }
 }
