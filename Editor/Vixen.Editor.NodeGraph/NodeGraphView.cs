@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
@@ -8,6 +9,7 @@ using Vixen.Input;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
+using Vixen.Ui.Reactive;
 using CanvasGraph = Vixen.Ui.Controls.Advanced.NodeGraph;
 using CanvasGroup = Vixen.Ui.Controls.Advanced.GraphGroup;
 using CanvasNode = Vixen.Ui.Controls.Advanced.GraphNode;
@@ -99,6 +101,14 @@ public readonly record struct ConnectionRefusal(PortRef From, PortRef To, string
 ///         of a sub-graph, or of an asset that is not open for editing, should do.
 ///     </para>
 /// </remarks>
+[SuppressMessage(
+    "Design",
+    "CA1001:Types that own disposable fields should be disposable",
+    Justification =
+        "The one disposable field is the effect that follows the graph's selection, and it is disposed "
+        + "in OnRemoved — the end of a control's life, which is not IDisposable. A view that is never "
+        + "removed lives as long as its document, whose scheduler is what holds the effect."
+)]
 public sealed class NodeGraphView : Control {
     readonly Dictionary<NodeId, CanvasNode> shown = [];
     readonly Dictionary<CanvasNode, NodeId> identities = [];
@@ -106,9 +116,11 @@ public sealed class NodeGraphView : Control {
     readonly Dictionary<Socket, CanvasPort> anchors = [];
     readonly Dictionary<CanvasGroup, GraphGroup> groups = [];
     readonly List<NodeCommentView> notes = [];
-    readonly HashSet<NodeId> selection = [];
 
     NodeGraphModel graph = new();
+
+    /// <summary>Brings the canvas into line when something other than this view selects.</summary>
+    Effect? following;
     NodeTypeRegistry registry = new();
     EditorDocument? edited;
 
@@ -160,9 +172,10 @@ public sealed class NodeGraphView : Control {
 
     /// <summary>The graph being shown.</summary>
     /// <remarks>
-    ///     Settable, because an editor shows one graph and then another. Assigning drops the selection:
-    ///     a selection carried across would name nodes of a graph nobody is looking at, and Delete
-    ///     would then edit it.
+    ///     Settable, because an editor shows one graph and then another. ⚠ The selection comes with the
+    ///     graph rather than being dropped, because it is the graph's now (#1305): it used to be this
+    ///     view's set and was cleared here so that it could not name nodes of a graph nobody was
+    ///     looking at, which a selection owned by the graph cannot do.
     /// </remarks>
     public NodeGraphModel Graph {
         get => graph;
@@ -177,10 +190,10 @@ public sealed class NodeGraphView : Control {
             graph = value;
             graph.Changed += OnGraphChanged;
 
-            selection.Clear();
             SelectedEdge = null;
 
             Project();
+            Follow();
         }
     }
 
@@ -229,8 +242,14 @@ public sealed class NodeGraphView : Control {
     /// <summary>Whether edits are refused because there is nowhere to record them.</summary>
     public bool IsReadOnly => Stack is null;
 
-    /// <summary>What is selected, by identity.</summary>
-    public IReadOnlyCollection<NodeId> Selection => selection;
+    /// <summary>What is selected, by identity — the graph's own <see cref="NodeGraphModel.Selection" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The graph's, so writing it from outside is a selection.</b> A caller that sets it —
+    ///     a palette entry, a script, a panel that only has the model — is followed on the next flush
+    ///     of the document's effects: the canvas is reselected and <see cref="SelectionChanged" /> is
+    ///     raised, as for a click. <see cref="Select" /> is the same thing done at once.
+    /// </remarks>
+    public Selection<NodeId> Selection => graph.Selection;
 
     /// <summary>The connection that is selected, if one is rather than some nodes.</summary>
     /// <remarks>
@@ -289,6 +308,8 @@ public sealed class NodeGraphView : Control {
 
         graph.Changed += OnGraphChanged;
 
+        Follow();
+
         // Capture, so a key this view claims is taken before the canvas acts on it. Delete is the one
         // that matters: the canvas would remove nodes from its own copy of the graph, which is a
         // change nothing recorded and the next reprojection would silently undo.
@@ -325,6 +346,9 @@ public sealed class NodeGraphView : Control {
     /// </remarks>
     protected override void OnRemoved() {
         graph.Changed -= OnGraphChanged;
+
+        following?.Dispose();
+        following = null;
 
         if (Search is { IsRemoved: false } popup) {
             Document.Remove(popup);
@@ -600,7 +624,7 @@ public sealed class NodeGraphView : Control {
     /// <summary>Deletes what is selected, and the wires that touched it.</summary>
     /// <returns>Whether anything went.</returns>
     public bool DeleteSelection() =>
-        selection.Count > 0 && Run(new RemoveNodesCommand(graph, [.. selection], edited));
+        Selection.Count > 0 && Run(new RemoveNodesCommand(graph, [.. Selection], edited));
 
     /// <summary>Deletes the selected connection.</summary>
     /// <returns>Whether one went.</returns>
@@ -624,7 +648,7 @@ public sealed class NodeGraphView : Control {
     /// <param name="title">What the box is called.</param>
     /// <returns>Whether one was made.</returns>
     public bool GroupSelection(string title = "Group") =>
-        selection.Count > 0 && Run(new AddGroupCommand(graph, title, [.. selection], edited));
+        Selection.Count > 0 && Run(new AddGroupCommand(graph, title, [.. Selection], edited));
 
     /// <summary>Removes every group that holds a selected node, leaving the nodes where they are.</summary>
     /// <returns>Whether anything went.</returns>
@@ -633,7 +657,7 @@ public sealed class NodeGraphView : Control {
 
         foreach (var group in graph.Groups) {
             foreach (var id in group.Nodes) {
-                if (selection.Contains(id)) {
+                if (Selection.Contains(id)) {
                     doomed.Add(group);
 
                     break;
@@ -752,7 +776,7 @@ public sealed class NodeGraphView : Control {
 
     /// <summary>Copies what is selected.</summary>
     /// <returns>Whether anything was copied.</returns>
-    public bool CopySelection() => Clipboard.Take(graph, selection);
+    public bool CopySelection() => Clipboard.Take(graph, Selection);
 
     /// <summary>Copies what is selected and deletes it.</summary>
     /// <returns>Whether anything went.</returns>
@@ -794,10 +818,10 @@ public sealed class NodeGraphView : Control {
 
         // Selecting what was pasted is what makes the next gesture — a drag — mean the new nodes
         // rather than the ones they were copied from.
-        selection.Clear();
+        Selection.Clear();
 
         foreach (var node in command.Pasted) {
-            selection.Add(node.Id);
+            Selection.Add(node.Id);
         }
 
         Project();
@@ -839,11 +863,11 @@ public sealed class NodeGraphView : Control {
     public NodeGraphModel? ExtractSelection(string name, string path, SubGraphLibrary library) {
         ArgumentNullException.ThrowIfNull(library);
 
-        if (selection.Count == 0 || Stack is null) {
+        if (Selection.Count == 0 || Stack is null) {
             return null;
         }
 
-        var extraction = SubGraphs.Extract(graph, [.. selection], name, registry);
+        var extraction = SubGraphs.Extract(graph, [.. Selection], name, registry);
         var centre = Centre();
 
         library.Add(path, extraction.Graph, registry);
@@ -871,10 +895,10 @@ public sealed class NodeGraphView : Control {
         // this call is about straight off again — the two are exclusive.
         SelectedEdge = null;
 
-        selection.Clear();
+        Selection.Clear();
 
         foreach (var id in nodes) {
-            selection.Add(id);
+            Selection.Add(id);
         }
 
         projecting = true;
@@ -917,14 +941,14 @@ public sealed class NodeGraphView : Control {
             : point;
 
     Vector2 Centre() {
-        if (selection.Count == 0) {
+        if (Selection.Count == 0) {
             return default;
         }
 
         var total = Vector2.Zero;
         var counted = 0;
 
-        foreach (var id in selection) {
+        foreach (var id in Selection) {
             if (graph.TryGet(id, out var node)) {
                 total += node.Position;
                 counted++;
@@ -949,21 +973,86 @@ public sealed class NodeGraphView : Control {
             return;
         }
 
-        selection.Clear();
+        Selection.Clear();
 
         foreach (var node in Canvas.Selection) {
             if (identities.TryGetValue(node, out var id)) {
-                selection.Add(id);
+                Selection.Add(id);
             }
         }
 
         SelectionChanged?.Invoke(this);
     }
 
+    /// <summary>Watches the graph's selection for a writer that is not this view.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Idempotent rather than guarded by a flag.</b> An effect runs at the document's next
+    ///     flush, long after a click wrote the selection — so a "this view is writing" flag would be
+    ///     down again by then and the view would answer its own click. What it asks instead is whether
+    ///     the canvas already shows what the graph says; for this view's own writes it always does.
+    /// </remarks>
+    void Follow() {
+        following?.Dispose();
+        following = null;
+
+        if (IsRemoved || Canvas is null) {
+            return;
+        }
+
+        following = new Effect(Followed, Document.Effects);
+    }
+
+    void Followed() {
+        // Read through the signal, so a write from anywhere re-runs this.
+        _ = Selection.Count;
+
+        if (projecting || Agrees()) {
+            return;
+        }
+
+        // Exclusive with the edge, for `Select`'s reason.
+        if (Selection.Count > 0) {
+            SelectedEdge = null;
+        }
+
+        projecting = true;
+
+        try {
+            Reselect();
+        } finally {
+            projecting = false;
+        }
+
+        SelectionChanged?.Invoke(this);
+    }
+
+    /// <summary>Whether the canvas shows exactly the graph's selection, over the nodes it draws.</summary>
+    bool Agrees() {
+        var drawn = 0;
+
+        foreach (var node in Canvas.Selection) {
+            if (!identities.TryGetValue(node, out var id) || !Selection.Contains(id)) {
+                return false;
+            }
+
+            drawn++;
+        }
+
+        var wanted = 0;
+
+        foreach (var id in Selection) {
+            if (shown.ContainsKey(id)) {
+                wanted++;
+            }
+        }
+
+        return drawn == wanted;
+    }
+
     void Reselect() {
         Canvas.ClearSelection();
 
-        foreach (var id in selection) {
+        foreach (var id in Selection) {
             if (shown.TryGetValue(id, out var node)) {
                 Canvas.Select(node, ModifierKeys.Shift);
             }
@@ -1343,7 +1432,7 @@ public sealed class NodeGraphView : Control {
         var control = args.Modifiers.HasFlag(ModifierKeys.Control) || args.Modifiers.HasFlag(ModifierKeys.Meta);
 
         switch (args.Key) {
-            case InputKey.Delete or InputKey.Backspace when selection.Count > 0:
+            case InputKey.Delete or InputKey.Backspace when Selection.Count > 0:
                 DeleteSelection();
                 break;
 

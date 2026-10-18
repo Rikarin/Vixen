@@ -4,6 +4,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Editor.Core;
 
 namespace Vixen.Editor.NodeGraph;
 
@@ -199,6 +200,33 @@ public sealed class NodeGraphModel {
 
     /// <summary>Its sticky notes.</summary>
     public List<GraphComment> Comments { get; } = [];
+
+    /// <summary>Which of its nodes are selected, in the editor's one selection vocabulary.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>On the graph and not on the view that draws it, and it was the view's.</b>
+    ///         <c>NodeGraphView</c> held a private <c>HashSet&lt;NodeId&gt;</c> — not a
+    ///         <see cref="Selection{T}" />, not reactive, readable only by whoever held the view — the
+    ///         third selection vocabulary beside the project's assets and the scene's entities (doc 50
+    ///         § F10, #1305). Here it is the same type <c>EditorProject.Selection</c> and
+    ///         <c>SceneDocument.Selection</c> are, so a palette entry or a script that has the graph
+    ///         and no view selects with <see cref="Selection{T}.Set(T)" />, and the view follows.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not undoable and not saved</b>, for <see cref="Selection{T}" />'s own reason:
+    ///         selection is where you are looking. Built on first use, because most graphs are loaded
+    ///         by an importer or a content build that never selects anything — and a reactive
+    ///         collection belongs to the UI thread once touched.
+    ///     </para>
+    ///     <para>
+    ///         It may name a node the graph no longer has — a removal does not prune it, exactly as the
+    ///         view's own set never did — and a reader that acts on it checks with
+    ///         <see cref="TryGet" />, as every command here already does.
+    ///     </para>
+    /// </remarks>
+    public Selection<NodeId> Selection => selection ??= new();
+
+    Selection<NodeId>? selection;
 
     /// <summary>The ports this graph has when another graph contains it as a node.</summary>
     /// <remarks>
