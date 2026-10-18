@@ -13,8 +13,8 @@ So this is the assembly between them: `Vixen.Terrain.Physics`' own arrangement o
 
 It is now two things rather than one. `TerrainColliders` is the adapter — the seam's implementation,
 for any host that has a physics world. `TerrainPhysicsModule` is what makes the **shipped editor** one
-of those hosts: it is named in `EditorModules.Standard`, publishes the `ITerrainColliders` the sculpt
-tools resolve, and contributes an `IPlaySystems` that runs a `TerrainColliderSystem` over the
+of those hosts: it is named in `EditorModules.Standard`, contributes the `ITerrainColliders` the sculpt
+tools follow, and contributes an `IPlaySystems` that runs a `TerrainColliderSystem` over the
 `PhysicsScene` the editor application stands up when Play is pressed.
 
 ```csharp
@@ -23,10 +23,11 @@ var system = new TerrainColliderSystem(physics, placements);
 terrainMode.Editing.Colliders = new TerrainColliders(system);
 ```
 
-Or publish it and let `TerrainModule` do the assignment:
+Or contribute it and let `TerrainModule` do the assignment — owned by the plugin context, so an unload
+takes it back out and the sculpt tools let go of it on the next frame:
 
 ```csharp
-plugins.Add<ITerrainColliders>(new TerrainColliders(system));
+context.Owns(registry.Add<ITerrainColliders>(new TerrainColliders(system)));
 ```
 
 ## ⚠ The "three lines" claim was nearly right, and the missing line is the point
@@ -49,8 +50,10 @@ push adds over the poll is only *when*: the frame the artist let go of the mouse
 
 ## The editor Vixen ships now publishes one, and it is a switch
 
-`TerrainModule.BindColliders` resolves `ITerrainColliders` in its per-frame follow and **keeps the
-first answer**, and `PluginServices` has no removal. The physics world, meanwhile, exists only while a
+`TerrainModule.BindColliders` follows the contributed `ITerrainColliders` once a frame, so the
+published object should live as long as the module rather than change identity per session. ⚠ Until
+#1287 it was put in `PluginServices`, which has no removal and throws on a duplicate — this module could
+not be activated twice in one session. The physics world, meanwhile, exists only while a
 play session does — physics belongs to play, not to editing, because a body that falls while somebody
 drags a gizmo is a scene that edits itself, and because the tile entities a collider system creates
 have to be *inside* what a stop restores rather than something that lands in a person's scene file.
@@ -59,7 +62,7 @@ Two lifetimes, so two objects:
 
 | Lives for | What it is |
 |---|---|
-| the editor | `PlayColliders`, published once — forwards to whatever is simulating, counts strokes that had nothing to rebuild in |
+| the module | `PlayColliders`, contributed once per activation — forwards to whatever is simulating, counts strokes that had nothing to rebuild in |
 | one session | `TerrainColliderSystem` and a `TerrainColliders` over it, created on Play, dropped on Stop |
 
 ⚠ **`Idle` is the editing-half counter and `Missed` is the wiring one.** A stroke while nothing plays

@@ -22,6 +22,21 @@ keymap all follow from it — see the [editor modes guide](../../docs/guide/edit
 binds them to the scene in front of them, and asks the host for the project and the scene through
 `PluginServices.Require`.
 
+⚠ **Every registration is recorded for the unload, and until #1287 none of the panels were.** The five
+panels went through `Shell.RegisterPanel` and the two modes through `Shell.Modes.Add`, so an unloaded
+Terrain left five panels, five View-menu commands and two modes behind, each closing over the module
+(#740) — and a Reload threw "already registered". They now go through `context.AddPanel` and
+`context.AddMode`, the three mode events are unsubscribed on unload (a reload re-runs `Activate` on the
+same instance, so anonymous handlers would have run once per reload), and `TerrainModuleReachTests`
+asserts all of it by effect, with a `WeakReference` probe because `WaitForCollection` is
+unconditionally true for a built-in. ⚠ No `[EditorMenu]` attributes yet: an in-tree attribute does
+nothing until the generator (#1283) exists.
+
+⚠ **The one static it refuses on purpose.** The brush panel's `InspectorView.Extensions` is the
+registry this module was handed, never `EditorRegistry.Default`: the markup brush inspector is
+contributed to the host's registry in `Activate`, and the process-wide default would find whatever
+another editor in the process registered — in a test run, a different session's.
+
 ⚠ **All of that used to be two partials of the editor's application** — `EditorTerrainPanels` and
 `EditorTerrainSession`, 1,340 lines — which meant this toolset could only exist in an editor compiled
 with it. Doc 36 § F2 is the finding; this is the answer for this feature. **The assembly cannot see
@@ -195,9 +210,13 @@ by it, which is the point.
 
 ✅ **And `TerrainEdit.Colliders` is now assigned by the shipped editor, which is the half that was
 missing for longer.** It was set in five test files and nowhere else in the tree, so the seam had a
-double on both ends. `TerrainModule` takes an `ITerrainColliders` from `PluginServices` when the host
-published one, and since 2026-08-21 the host does: `TerrainPhysicsModule` sits in
-`EditorModules.Standard` and publishes a switch that attaches to the play session's `PhysicsScene`.
+double on both ends. `TerrainModule` follows the last `ITerrainColliders` contributed to the editor's
+registry, once a frame, and since 2026-08-21 the host has one: `TerrainPhysicsModule` sits in
+`EditorModules.Standard` and contributes a switch that attaches to the play session's `PhysicsScene`.
+⚠ It used to be published into `PluginServices`, read once and kept — a bag with no removal that throws
+on a duplicate, so the physics module could be activated once per session and an unload left the
+sculpt tools pushing into it (#1287). A `Colliders` a host or a test assigns by hand is still never
+overwritten: the follow only replaces what it put there itself.
 The resolve stays optional, because a scene sculpted before anybody pressed play has no physics
 world — such a stroke rebuilds nothing and is counted on `PlayColliders.Idle` rather than being an
 error.
