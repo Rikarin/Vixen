@@ -336,7 +336,7 @@ public sealed class AnimationGraphView : Control {
 
         var bar = Part("animgraph-bar");
 
-        bar.Add("fact-name").Text = "Layer";
+        bar.Add("bar-label").Text = "Layer";
         Layers = bar.Add<Select>();
 
         AddLayer = Push(bar, "Add Layer");

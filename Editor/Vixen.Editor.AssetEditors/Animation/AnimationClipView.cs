@@ -141,18 +141,18 @@ public sealed class AnimationClipView : Control {
         Delete = Bar.Add<Button>();
         Delete.Label = "Delete";
 
-        Bar.Add("fact-name").Text = "Length";
+        Bar.Add("bar-label").Text = "Length";
         Duration = Bar.Add<NumericInput>();
         Duration.Decimals = 3;
         Duration.Minimum = AnimationClipDocument.MinimumDuration;
 
-        Bar.Add("fact-name").Text = "FPS";
+        Bar.Add("bar-label").Text = "FPS";
         FrameRate = Bar.Add<NumericInput>();
         FrameRate.Decimals = 0;
         FrameRate.Minimum = 1;
         FrameRate.Maximum = 240;
 
-        Bar.Add("fact-name").Text = "Wrap";
+        Bar.Add("bar-label").Text = "Wrap";
         Wrap = Bar.Add<Select>();
 
         foreach (var mode in Enum.GetValues<WrapMode>()) {

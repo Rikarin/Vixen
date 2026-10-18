@@ -94,7 +94,7 @@ public sealed class SequenceView : Control {
         Key = Push(bar, "Key");
         DeleteTrack = Push(bar, "Remove Track");
 
-        bar.Add("fact-name").Text = "Length";
+        bar.Add("bar-label").Text = "Length";
         Duration = bar.Add<NumericInput>();
         Duration.Decimals = 2;
         Duration.Minimum = SequenceDocument.MinimumDuration;
