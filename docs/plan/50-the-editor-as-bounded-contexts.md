@@ -218,9 +218,9 @@ module (the front-door audit, 2026-09-17):
 |---|---|---|
 | `AssetEditors`, `Scripts`, `Texturing` | everything | — |
 | `Blockout` | mode, submenus, four services | `Shell.RegisterPanel` ×2 with no removal (`BlockoutModulePanels.cs:64,115`), `BlockoutTheme.Install` never uninstalled, no `Deactivate` |
-| `Terrain` | registry adds via `Owns`, `Saved` unhooked on unload | `Shell.RegisterPanel` ×5 (`TerrainModulePanels.cs:112-276`, #740), `Shell.Modes.Add` ×2 (`TerrainModulePanels.cs:475-476`) |
-| `Water` | commands paired with `OnUnload` | `Shell.RegisterPanel` ×2 (`WaterModulePanels.cs:33,63`), `Shell.Modes.Add` (`WaterModule.cs:135`), a process-wide `WaterDebug` static |
-| `TerrainPhysics` | `IEditorRegistry` | writes `ITerrainColliders` **into the shared services bag** (`TerrainPhysicsModule.cs:75`) and never removes it — `PluginServices.Add` throws on a duplicate, so a reload of this module fails |
+| `Terrain` | registry adds via `Owns`, `Saved` unhooked on unload | ~~`Shell.RegisterPanel` ×5 (`TerrainModulePanels.cs:112-276`, #740), `Shell.Modes.Add` ×2 (`TerrainModulePanels.cs:475-476`)~~ — `context.AddPanel`/`AddMode` since #1287, and the three mode events unhooked on unload |
+| `Water` | commands paired with `OnUnload` | ~~`Shell.RegisterPanel` ×2 (`WaterModulePanels.cs:33,63`), `Shell.Modes.Add` (`WaterModule.cs:135`), a process-wide `WaterDebug` static~~ — `context.*` since #1286; the switches are a per-module `WaterDebugFlags` contribution, and `WaterDebug.Process` stays the game console's (the static could not go: samples and `BuoyancyDebugSystem` read it) |
+| `TerrainPhysics` | `IEditorRegistry` | ~~writes `ITerrainColliders` **into the shared services bag** (`TerrainPhysicsModule.cs:75`) and never removes it — `PluginServices.Add` throws on a duplicate, so a reload of this module fails~~ — contributed through `Owns` since #1287; `TerrainModule` follows the registry each frame |
 | `Diagnostics` | eight `AddPanel`s | `ProfilerTheme.Install` + `DebuggerTheme.Install` never released (`DiagnosticsModule.cs:327-328`) |
 
 `PluginContext.AddPanel` and `AddMode` exist precisely to record the removal
@@ -488,7 +488,7 @@ exemption list that has become clean fails too.
 | **`DeclaredParityTest`** | the generator and the scan disagreeing on one fixture | § D5 |
 | **`DocumentPairingTest`** | a `DocumentKind` with no `DocumentView` or the reverse | § D4 |
 | **`ServiceReachTest`** | a public method on any `I*Editing`/`I*Library`/… service that no command, menu, context menu or module calls — the *"finished thing nothing calls"* rule applied to the new surface | grep for callers, not for the type |
-| **`ModuleRegistrationRule`** | an `IEditorPlugin` assembly calling `Shell.RegisterPanel`, `Shell.Modes.Add`, `Shell.Commands.Add`, `*Theme.Install` or `Services.Add` directly rather than through `PluginContext` (Part 1 § F7's six leaks are the initial exemption list) | grep; the removal-recording wrappers already exist |
+| **`ModuleRegistrationRule`** | an `IEditorPlugin` assembly calling `Shell.RegisterPanel`, `Shell.Modes.Add`, `Shell.Commands.Add`, `*Theme.Install` or `Services.Add` directly rather than through `PluginContext` (Part 1 § F7's six leaks are the initial exemption list) | grep; the removal-recording wrappers already exist — ⚠ **not for `*Theme.Install`**: `UiDocument` has `Load`, `LoadOnce` and `ReloadStyles` and no way to take a sheet back out, so a theme contribution has nothing to record (measured for #1299) |
 | **`ContributionWriterTest`** | a contribution kind with a reader and no production writer (`SettingsPage`, `AssetPreview`, `BuildStep` today) — a registry nobody writes is a list with a longer name | one test over `IEditorRegistry`'s kinds |
 
 ⚠ **`Docs` is not `CheckDocs`, and each new public service type owes a guide page or a
@@ -572,7 +572,11 @@ the log ring and data directory are published — doc 36 already names both), `N
 `ImporterContributions` like a plugin's — and `BuiltInImporters.cs:57-99`'s hand list of 34 shrinks
 to the kinds the pipeline itself owns, with each feature's importers arriving from its module.
 `Host` stops building `ShaderGraphPreviewRenderer` and loading the terrain stages itself
-(`EditorHost.cs:581, 1033-1047`); both become what the modules publish. The 35 feature string ids
+(`EditorHost.cs:581, 1033-1047`); both become what the modules publish. ⚠ **Partly done**: the pane
+reads the terrain, vegetation and water scenes from the registry every frame rather than the host
+copying them on (#1299's third point — it was also what kept an unloaded module reachable). The stages
+and the preview renderer stay in the host, and `NodeGraphTheme` stays the application's until a sheet
+can be removed from a document; #1299 carries the options. The 35 feature string ids
 in `EditorStrings.cs` move to the `*Strings` class that already exists for each — `CheckStrings`
 fails on an id declared and used nowhere, so the move cannot leave a stale one behind.
 
@@ -586,7 +590,11 @@ through attributes. Targets in order of what a user hits: `SceneViewport.cs` (1,
 tool is handed; doc 36 § Part 5 says narrow it *when a consumer can say which members matter*, and
 after P2 the consumers can), `ProjectBrowser.cs` (1,491), `NodeGraphView.cs` (1,392),
 `LayerStackView.cs` (3,783) and `TexturingModule.cs` (2,381), `BlockoutMode.cs` (1,462),
-`ComponentsView.vxml` (1,117). Each is its own issue with its own ceiling in `ApplicationSizeRule`'s
+`ComponentsView.vxml` (1,117). ⚠ `NodeGraphView`'s selection is `NodeGraphModel.Selection`, a
+`Selection<NodeId>`, since #1305 (the on-node port editors are still owed). ⚠ `ComponentsView`'s
+"one template per authoring kind" does not exist: there is one keyed `@for` over `IComponentBridge`,
+deliberately the same for components and behaviours, and the size is a 945-line `@code` block — so
+"split by component kind" has nothing to split along; #1308 carries the options. Each is its own issue with its own ceiling in `ApplicationSizeRule`'s
 table, which is renamed `FileSizeRule` the day it gains a second assembly.
 
 ### P5 — The gizmo decision (≈ 0.25 EM, a decision before a change)
