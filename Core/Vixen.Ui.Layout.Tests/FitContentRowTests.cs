@@ -49,7 +49,8 @@ public class FitContentRowTests {
         float width,
         int words,
         float textShrink = 1f,
-        FlexDirection rowDirection = FlexDirection.Row
+        FlexDirection rowDirection = FlexDirection.Row,
+        float gap = 0f
     ) {
         var tree = new LayoutTree();
 
@@ -61,6 +62,7 @@ public class FitContentRowTests {
         var row = tree.CreateNode();
         tree.SetFlexDirection(row, rowDirection);
         tree.SetAlignSelf(row, Align.FlexStart);
+        tree.SetGap(row, Gutter.Column, StyleLength.Points(gap));
         tree.AddChild(root, row);
 
         var icon = tree.CreateNode();
@@ -117,6 +119,23 @@ public class FitContentRowTests {
 
         Assert.Equal(34f, tree.GetWidth(row));
         Assert.Equal(10f, tree.GetWidth(text));
+    }
+
+    /// <summary>
+    ///     The same clamp with a 10-point <c>column-gap</c>: the floor is the icon, the gutter and one
+    ///     word, 24 + 10 + 10 = 44, with the gutter counted once.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The floor used to add the gutters itself because <c>ComputeMinContentSize</c> left them
+    ///     out; once the probe counted them (#1468) the compensation would make this 54.
+    /// </remarks>
+    [Fact]
+    public void A_gapped_row_is_never_narrower_than_its_min_content_and_its_gutter_counts_once() {
+        var (tree, _, row, _, text) = Fixture(20f, 20, gap: 10f);
+
+        Assert.Equal(44f, tree.GetWidth(row));
+        Assert.Equal(10f, tree.GetWidth(text));
+        Assert.Equal(34f, tree.GetLeft(text));
     }
 
     /// <summary>

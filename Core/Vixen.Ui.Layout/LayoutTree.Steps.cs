@@ -277,7 +277,7 @@ public sealed partial class LayoutTree {
                     availableInnerWidth,
                     widthSizingMode,
                     availableInnerHeight,
-                    availableInnerWidth,
+                    HasCyclicPercentageMinWidth(index, child, mainAxis, widthSizingMode) ? float.NaN : availableInnerWidth,
                     availableInnerHeight,
                     heightSizingMode,
                     direction,
@@ -286,6 +286,71 @@ public sealed partial class LayoutTree {
             }
 
         }
+    }
+
+    /// <summary>
+    ///     Whether a column item's percentage <c>min-width</c> is cyclic in this pass: a fraction of a
+    ///     container whose width is still being decided from its items (#1470).
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         CSS Sizing §5.2.1 resolves a cyclic percentage in a min size against ZERO while the
+    ///         container's intrinsic size is computed, and against the container's final size after.
+    ///         This store resolved it against the offer — the container's available width, which under
+    ///         a fit-content or max-content offer is the space on offer and not a size — so a
+    ///         <c>min-width: 100%</c> item reported the whole offer and widened its content-sized
+    ///         column to it: 400 where the column's own <c>min-width: 300px</c> and 50 points of
+    ///         content make it 300. Such an item is handed an indefinite percentage basis while the
+    ///         column measures it, and the column then lays its items out again at its decided width
+    ///         (the #1412 re-entry in <c>LayoutTree.Layout</c>), where the percentage resolves.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A column only, single-line only, and the minimum only</b>, because the second half
+    ///         of the rule — resolving against the final size — is the re-entry, and the re-entry is
+    ///         only a non-wrapping column's. An indefinite basis with nothing to resolve it afterwards
+    ///         would trade an item too wide for one too narrow. ⚠ The basis is indefinite for every
+    ///         percentage on that item for the pass — its padding and maximum too — which is also
+    ///         §5.2.1's reading of an intrinsic contribution, and the re-entry resolves them all.
+    ///     </para>
+    /// </remarks>
+    bool HasCyclicPercentageMinWidth(int index, int child, FlexDirection mainAxis, SizingMode widthSizingMode) =>
+        !FlexAxis.IsRow(mainAxis)
+        && widthSizingMode != SizingMode.StretchFit
+        && styles[index].FlexWrap == Wrap.NoWrap
+        && styles[child].MinDimensions[(int) Dimension.Width].Unit == LayoutUnit.Percent;
+
+    /// <summary>Whether any in-flow item of this container has <see cref="HasCyclicPercentageMinWidth" />.</summary>
+    bool HasCyclicPercentageMinWidthItem(int index, FlexDirection mainAxis, SizingMode widthSizingMode) {
+        foreach (var child in ChildIds(index)) {
+            if (IsInFlow(child) && HasCyclicPercentageMinWidth(index, child, mainAxis, widthSizingMode)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     Whether this node is being measured as a <see cref="HasCyclicPercentageMinWidth" /> item —
+    ///     its percentage basis withheld by a parent that will lay it out again at a definite one.
+    /// </summary>
+    /// <remarks>
+    ///     Read from what reached the node rather than from the parent's sizing mode, which the node
+    ///     is not told: a NaN basis, a percentage <c>min-width</c>, and a non-wrapping column parent
+    ///     is exactly the case the parent withholds and re-enters for. A parent that withheld nothing
+    ///     but had no basis to give — a max-content column — is cyclic for the same item and
+    ///     re-enters too.
+    /// </remarks>
+    bool IsCyclicPercentageMinWidthItem(int index, float ownerWidth) {
+        var parent = links[index].Parent;
+        if (parent < 0 || !float.IsNaN(ownerWidth)) {
+            return false;
+        }
+
+        var parentDirection = StyleResolution.ResolveDirection(in styles[parent], Direction.Ltr);
+        var parentMainAxis = FlexAxis.Resolve(styles[parent].FlexDirection, parentDirection);
+        return styles[parent].Display == Display.Flex
+            && HasCyclicPercentageMinWidth(parent, index, parentMainAxis, SizingMode.FitContent);
     }
 
     /// <summary>Works out one child's flex basis, measuring it if nothing else settles it.</summary>
@@ -1293,7 +1358,7 @@ public sealed partial class LayoutTree {
                 results[index].Direction,
                 childWidthSizingMode,
                 childHeightSizingMode,
-                availableInnerWidth,
+                HasCyclicPercentageMinWidth(index, child, mainAxis, sizingModeCrossDim) ? float.NaN : availableInnerWidth,
                 availableInnerHeight,
                 isLayoutPass,
                 currentDepth

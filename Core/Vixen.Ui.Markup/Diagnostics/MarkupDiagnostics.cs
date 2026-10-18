@@ -740,4 +740,29 @@ public static class MarkupDiagnostics {
         BindingCategory,
         DiagnosticSeverity.Error
     );
+
+    /// <summary>Two key-carrying roots of one <c>@for</c> that key it on different expressions.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A loop has one key function</b>, and every element <see cref="MissingKey" /> asks a
+    ///         key of is where it is read from — the elements written directly in the body and those in
+    ///         the arms of an <c>@if</c> or <c>@switch</c> there (#1466). Before that, a key in an arm was
+    ///         required and never read, so the loop keyed on the item; with more than one root the first
+    ///         key silently won. Two roots that disagree leave the loop keyed on whichever came first
+    ///         for every item, including the items the other arm draws, which is not what either says.
+    ///     </para>
+    ///     <para>
+    ///         Compared as written, whitespace aside: the binder does no semantic analysis, so
+    ///         <c>@x.Id</c> and <c>@(x.Id)</c> are two keys to it. Write them the same.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor KeyDisagreement = new(
+        "VXML2034",
+        "@for roots disagree about the key",
+        "This @for is keyed by '{1}' on an earlier root, and this root says '{0}'. A loop has one key, read "
+        + "from every element written directly in its body or in an @if or @switch arm there, so the loop "
+        + "would key every item on '{1}'. Write the same key on each.",
+        BindingCategory,
+        DiagnosticSeverity.Error
+    );
 }

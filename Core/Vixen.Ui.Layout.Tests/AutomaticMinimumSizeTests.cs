@@ -815,6 +815,53 @@ public class AutomaticMinimumSizeTests {
         Assert.Equal(expectedHeight, tree.GetHeight(word), Tolerance);
     }
 
+    /// <summary>
+    ///     A single-line row's min-content width includes its gutters, so §4.5 does not let it shrink
+    ///     through them (#1468).
+    /// </summary>
+    /// <remarks>
+    ///     Two 10-point boxes with a 20-point <c>column-gap</c> between them are 10 + 20 + 10 = 40 at
+    ///     their smallest — CSS Flexbox §9.9.1 sums the items and the gutters between them — so the item
+    ///     stays 40 and overflows its 30-point root. The probe summed the boxes and left the gutter out,
+    ///     floored the item at 20, and the item came out 30 with its second box at x = 30.
+    /// </remarks>
+    [Theory]
+    [InlineData(Wrap.NoWrap, 40f, 30f)]
+    [InlineData(Wrap.Wrap, 30f, 0f)]
+    public void A_gapped_row_is_floored_at_its_items_and_the_gutters_between_them(Wrap wrap, float expectedWidth, float expectedSecondLeft) {
+        using var tree = new LayoutTree();
+
+        var root = tree.CreateNode();
+        tree.SetFlexDirection(root, FlexDirection.Row);
+        tree.SetDimension(root, Dimension.Width, StyleLength.Points(30f));
+        tree.SetDimension(root, Dimension.Height, StyleLength.Points(50f));
+        tree.SetAlignItems(root, Align.FlexStart);
+
+        var row = tree.CreateNode();
+        tree.SetFlexDirection(row, FlexDirection.Row);
+        tree.SetFlexShrink(row, 1f);
+        tree.SetFlexWrap(row, wrap);
+        tree.SetGap(row, Gutter.Column, StyleLength.Points(20f));
+        tree.AddChild(root, row);
+
+        var first = tree.CreateNode();
+        tree.SetDimension(first, Dimension.Width, StyleLength.Points(10f));
+        tree.SetDimension(first, Dimension.Height, StyleLength.Points(10f));
+        tree.AddChild(row, first);
+
+        var second = tree.CreateNode();
+        tree.SetDimension(second, Dimension.Width, StyleLength.Points(10f));
+        tree.SetDimension(second, Dimension.Height, StyleLength.Points(10f));
+        tree.AddChild(row, second);
+
+        tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
+
+        // A wrapping row may break between the two, where no gutter applies, so its floor is one box
+        // and it shrinks to the root — the gutter is counted for a single line only.
+        Assert.Equal(expectedWidth, tree.GetWidth(row), Tolerance);
+        Assert.Equal(expectedSecondLeft, tree.GetLeft(second), Tolerance);
+    }
+
     /// <summary>A leaf whose content is a fixed width however little room it is offered.</summary>
     /// <remarks>
     ///     Standing in for a single unbreakable word, which is the case §4.5 exists for. It answers

@@ -62,7 +62,9 @@ Three zero-sized boxes still paint nothing, because in CSS they paint nothing:
 * `display: none`, whose subtree the layout zeroes with it.
 * A zero axis that the box's own `overflow` clips, such as `height: 0; overflow: hidden`.
 * A box with a `mask-image`, because a mask is clipped to the border box. ⚠ The pointer can still
-  reach those children: the hit test reads no mask, for a zero box or any other.
+  reach those children, and that is CSS too: a mask "has no effect on the geometry or hit-testing"
+  of any box (CSS Masking §7.10), unlike `clip-path`. Use `pointer-events: none` or
+  `visibility: hidden` for a subtree that must stop taking the pointer.
 
 ## What it is for
 
