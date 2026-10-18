@@ -289,8 +289,9 @@ public sealed partial class LayoutTree {
     }
 
     /// <summary>
-    ///     Whether a column item's percentage <c>min-width</c> is cyclic in this pass: a fraction of a
-    ///     container whose width is still being decided from its items (#1470).
+    ///     Whether a flex item's percentage <c>min-width</c> is cyclic in this pass: a fraction of a
+    ///     container whose width is still being decided from its items (#1470 for a column, #1474 for
+    ///     a row).
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -305,17 +306,23 @@ public sealed partial class LayoutTree {
     ///         (the #1412 re-entry in <c>LayoutTree.Layout</c>), where the percentage resolves.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A column only, single-line only, and the minimum only</b>, because the second half
-    ///         of the rule — resolving against the final size — is the re-entry, and the re-entry is
-    ///         only a non-wrapping column's. An indefinite basis with nothing to resolve it afterwards
-    ///         would trade an item too wide for one too narrow. ⚠ The basis is indefinite for every
-    ///         percentage on that item for the pass — its padding and maximum too — which is also
-    ///         §5.2.1's reading of an intrinsic contribution, and the re-entry resolves them all.
+    ///         ⚠ <b>Single-line only, and the minimum only</b>, because the second half of the rule —
+    ///         resolving against the final size — is a re-entry, and only a non-wrapping container has
+    ///         one: the column's in STEP 6 (#1412) and the row's after STEP 9 (#1474). An indefinite
+    ///         basis with nothing to resolve it afterwards would trade an item too wide for one too
+    ///         narrow. ⚠ The basis is indefinite for every percentage on that item for the pass — its
+    ///         padding and maximum too — which is also §5.2.1's reading of an intrinsic contribution,
+    ///         and the re-entry resolves them all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>In a row the minimum is on the MAIN axis, so withholding the item's own basis is
+    ///         not enough</b>: the row clamps its items' hypothetical and final sizes itself, and those
+    ///         clamps read the basis <c>LayoutTree.Layout</c> calls <c>itemMainOwnerSize</c>, which is
+    ///         NaN for the whole pass when this is true of any item.
     ///     </para>
     /// </remarks>
     bool HasCyclicPercentageMinWidth(int index, int child, FlexDirection mainAxis, SizingMode widthSizingMode) =>
-        !FlexAxis.IsRow(mainAxis)
-        && widthSizingMode != SizingMode.StretchFit
+        widthSizingMode != SizingMode.StretchFit
         && styles[index].FlexWrap == Wrap.NoWrap
         && styles[child].MinDimensions[(int) Dimension.Width].Unit == LayoutUnit.Percent;
 
@@ -336,9 +343,9 @@ public sealed partial class LayoutTree {
     /// </summary>
     /// <remarks>
     ///     Read from what reached the node rather than from the parent's sizing mode, which the node
-    ///     is not told: a NaN basis, a percentage <c>min-width</c>, and a non-wrapping column parent
+    ///     is not told: a NaN basis, a percentage <c>min-width</c>, and a non-wrapping flex parent
     ///     is exactly the case the parent withholds and re-enters for. A parent that withheld nothing
-    ///     but had no basis to give — a max-content column — is cyclic for the same item and
+    ///     but had no basis to give — a max-content column or row — is cyclic for the same item and
     ///     re-enters too.
     /// </remarks>
     bool IsCyclicPercentageMinWidthItem(int index, float ownerWidth) {
@@ -1064,6 +1071,7 @@ public sealed partial class LayoutTree {
         float availableInnerHeight,
         bool mainAxisOverflows,
         SizingMode sizingModeCrossDim,
+        SizingMode widthSizingMode,
         bool performLayout,
         int currentDepth
     ) {
@@ -1090,6 +1098,7 @@ public sealed partial class LayoutTree {
             availableInnerHeight,
             mainAxisOverflows,
             sizingModeCrossDim,
+            widthSizingMode,
             performLayout,
             currentDepth
         );
@@ -1227,6 +1236,7 @@ public sealed partial class LayoutTree {
         float availableInnerHeight,
         bool mainAxisOverflows,
         SizingMode sizingModeCrossDim,
+        SizingMode widthSizingMode,
         bool performLayout,
         int currentDepth
     ) {
@@ -1358,7 +1368,7 @@ public sealed partial class LayoutTree {
                 results[index].Direction,
                 childWidthSizingMode,
                 childHeightSizingMode,
-                HasCyclicPercentageMinWidth(index, child, mainAxis, sizingModeCrossDim) ? float.NaN : availableInnerWidth,
+                HasCyclicPercentageMinWidth(index, child, mainAxis, widthSizingMode) ? float.NaN : availableInnerWidth,
                 availableInnerHeight,
                 isLayoutPass,
                 currentDepth
