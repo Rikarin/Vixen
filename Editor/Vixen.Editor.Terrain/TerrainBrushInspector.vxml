@@ -18,6 +18,13 @@
 
     ⚠ And the groups are `Expander`s because that is what the generated inspector's own headings are,
     so this reads as the same panel rearranged rather than as a second kind of inspector.
+
+    ⚠ Shape, Rotation, Angle and the Pattern group are not here, and that is #1098 rather than an
+    oversight. Every one of them acts only through an `IBrushMask`, and no terrain or foliage tool
+    supplies one — `TerrainBrush.WeightAt` paints the plain disc for a null mask — so the four rows
+    were controls an artist could move and watch nothing happen. They come back when a mask source
+    does; `BrushInspectorMarkupTests.Every_row_the_brush_inspector_offers_changes_the_ground_a_stroke_writes`
+    is what refuses a row that moves no ground.
 -->
 @component TerrainBrushInspector
 @namespace Vixen.Editor.Terrain
@@ -29,16 +36,9 @@
     <PropertyField Path="Radius" />
     <PropertyField Path="Falloff" />
     <PropertyField Path="Curve" />
-    <PropertyField Path="Shape" />
 </Expander>
 
 <Expander Label="Stroke" IsExpanded="true">
     <PropertyField Path="Strength" />
     <PropertyField Path="Spacing" />
-    <PropertyField Path="Rotation" />
-    <PropertyField Path="Angle" />
-</Expander>
-
-<Expander Label="Pattern" IsExpanded="true">
-    <PropertyField Path="PatternScale" />
 </Expander>

@@ -330,6 +330,12 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
     /// </remarks>
     public TextureHandle TextureOf(ulong image) => live.TryGetValue(image, out var uploaded) ? uploaded.Texture : default;
 
+    /// <summary>The extent an image's texture was made with, for a reader copying it back.</summary>
+    /// <param name="image">What <see cref="Upload" /> returned.</param>
+    /// <returns>Its width and height, or zeroes if there is no such image.</returns>
+    internal (int Width, int Height) ExtentOf(ulong image) =>
+        live.TryGetValue(image, out var uploaded) ? (uploaded.Width, uploaded.Height) : (0, 0);
+
     /// <inheritdoc />
     public void Dispose() {
         Retire();

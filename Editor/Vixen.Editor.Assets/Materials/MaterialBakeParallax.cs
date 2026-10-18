@@ -54,14 +54,9 @@ namespace Vixen.Editor.Assets.Materials;
 public static class MaterialBakeParallax {
     /// <summary>The YAML tag an author would paste, and what the bake's own warning names.</summary>
     /// <remarks>
-    ///     ⚠ <b>Matched against <see cref="MaterialBakeSet.Warnings" /> because that warning becomes
-    ///     false here, and there is no shared constant to match on.</b>
-    ///     <c>ProjectMaterialBaker.Overpaint</c> exists for exactly this reason one refusal over — a
-    ///     caller has to tell one of that type's messages from the others — and the unfed-height
-    ///     warning has no such anchor yet, so this matches on the actionable half of its text.
-    ///     <c>TextureCommandTests.The_bakers_unfed_height_warning_still_names_the_tag</c> is what turns
-    ///     a reword into a red test rather than into a sentence telling an artist to do something the
-    ///     verb already did.
+    ///     Not what <see cref="Requested" /> matches on: the warning it drops is found by
+    ///     <see cref="ProjectMaterialBaker.Unfed" />, the sentence that warning is built from, so a
+    ///     second warning that merely mentioned the tag would survive (#1127).
     /// </remarks>
     public const string Tag = "!ParallaxOcclusion";
 
@@ -127,6 +122,9 @@ public static class MaterialBakeParallax {
 
         File.WriteAllText(file, YamlSerializer.ToYaml(MaterialBake.Material(set.Maps, asked)));
 
-        return [.. set.Warnings.Where(warning => !warning.Contains(Tag, StringComparison.Ordinal))];
+        return [.. set.Warnings.Where(warning => !Unfed(warning))];
     }
+
+    /// <summary>Whether a warning is the one a parallax feature makes false.</summary>
+    static bool Unfed(string warning) => warning.Contains(ProjectMaterialBaker.Unfed, StringComparison.Ordinal);
 }

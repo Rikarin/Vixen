@@ -86,6 +86,12 @@ hand on the radius slider while the ground being written did not.
 
 ⚠ **The footprint drawn is a circle whatever `BrushShape` says.** An `Alpha` or `Pattern` stamp with a
 mask is a square reaching `radius × √2` into its corners; the cursor does not draw that yet.
+
+⚠ **The panel does not offer `Shape`, `Rotation`, `Angle` or `PatternScale`**, and that is
+[#1098](https://github.com/Rikarin/Vixen/issues/1098): all four act only through an `IBrushMask`, no
+terrain or foliage tool passes one, and `TerrainBrush.WeightAt` paints the plain disc for a null mask.
+They stay on `TerrainBrushSettings` and in `ToBrush`, unoffered, until a mask source exists —
+`BrushInspectorMarkupTests` refuses any row whose change leaves the ground a stroke writes untouched.
 `FoliageMode` has the same hover gap and no cursor at all.
 
 ## The panel is settings objects, not dialog code
