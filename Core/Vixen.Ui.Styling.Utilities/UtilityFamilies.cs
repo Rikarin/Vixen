@@ -4108,7 +4108,7 @@ public static class UtilityFamilies {
         }
 
         if (suffix[0] == '[' && suffix[^1] == ']') {
-            var inside = suffix[1..^1].Replace('_', ' ');
+            var inside = ArbitraryValue.Decode(suffix.AsSpan()[1..^1]);
 
             if (!IsPlausibleValue(inside)) {
                 return false;

@@ -221,7 +221,7 @@ public class ArbitraryPropertyTests {
     /// </remarks>
     [Theory]
     [InlineData("grid-cols-[repeat(3,1fr)]", "repeat(3,1fr)")]
-    [InlineData("w-[calc(100%-2rem)]", "calc(100%-2rem)")]
+    [InlineData("w-[calc(100%-2rem)]", "calc(100% - 2rem)")]
     [InlineData("bg-[var(--brand)]", "var(--brand)")]
     public void An_arbitrary_value_with_parentheses_is_unaffected(string candidate, string arbitrary) {
         Assert.True(UtilityParser.TryParse(candidate, out var parsed));

@@ -363,7 +363,7 @@ public class ThemeAndScannerTests {
     /// </summary>
     [Theory]
     [InlineData("w-[var(--x)]", "width: var(--x)")]
-    [InlineData("w-[calc(100%-2rem)]", "width: calc(100%-2rem)")]
+    [InlineData("w-[calc(100%-2rem)]", "width: calc(100% - 2rem)")]
     [InlineData("border-[#f00]", "border-color: #f00")]
     [InlineData("border-[3px]", "border-width: 3px")]
     [InlineData("w-[50%]", "width: 50%")]
