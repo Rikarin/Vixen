@@ -34,8 +34,10 @@ namespace Vixen.Editor.App;
 ///         publish has already deleted, and start-up cost grows with what is installed. Neither
 ///         applies to one assembly the editor has just loaded off disk or just compiled from a folder
 ///         it is watching — and the plugin loader already enumerates a plugin's types to find its
-///         entry point, so the walk is not even new. In-tree code registers the records directly and
-///         nothing scans it.
+///         entry point, so the walk is not even new. In-tree code is not scanned:
+///         <c>Vixen.Editor.Plugin.Generator</c> writes a module's <c>Declared.Register</c> at compile
+///         time from the same attributes (doc 50 § D5), and <c>DeclaredParityTests</c> compiles one
+///         fixture through both and holds the two registries equal.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Everything is registered through the plugin's own context</b>, so it is in that
@@ -51,11 +53,16 @@ sealed class DeclaredContributions : IContributionScanner {
         ArgumentNullException.ThrowIfNull(assembly);
 
         var registry = context.Services.Require<IEditorRegistry>();
+        var types = Types(assembly).ToList();
 
-        List<(EditorMenuAttribute Item, MethodInfo Method)> menus = [];
+        // ⚠ Collected before any is placed, because `Priority` orders them against each other —
+        // and placed by `DeclaredMenus`, which is what the generator's code calls too, so where a
+        // path lands is decided in one place for both tiers.
+        var menus = new DeclaredMenus(context);
 
-        foreach (var type in Types(assembly)) {
-            Menus(type, menus);
+        foreach (var type in types) {
+            Submenus(types, type, menus);
+            Menus(types, type, menus);
             Inspectors(context, registry, type);
             Drawer(context, type);
             Tool(context, registry, type);
@@ -65,12 +72,7 @@ sealed class DeclaredContributions : IContributionScanner {
             Icons(context, registry, type);
         }
 
-        // ⚠ Collected before any is registered, because `Priority` orders them against each other.
-        // Registering as they are found would make the order the one the runtime happened to
-        // enumerate types in, and the priority a number nothing read.
-        foreach (var (item, method) in menus.OrderBy(entry => entry.Item.Priority)) {
-            Menu(context, item, method);
-        }
+        menus.Apply();
     }
 
     /// <summary>Every type an assembly declares that can be loaded.</summary>
@@ -89,55 +91,173 @@ sealed class DeclaredContributions : IContributionScanner {
 
     // ============================================================== [EditorMenu]
 
-    static void Menus(Type type, List<(EditorMenuAttribute Item, MethodInfo Method)> into) {
+    /// <summary>Every <c>[EditorMenu]</c> one type declares, in the order it declares them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Three shapes, decided by the member.</b> A <c>static void ()</c> is a verb — a command
+    ///         and its line. A <c>static string</c> field is a line for a command something else
+    ///         registers. A <c>static IEnumerable&lt;string&gt; ()</c> is a run of those. Anything else
+    ///         carrying the attribute is a mistake, and refusing the plugin over it is what makes the
+    ///         mistake visible.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Invoked rather than turned into a delegate.</b> The method belongs to a collectible
+    ///         context, and a <c>CreateDelegate</c> held by the command registry would keep that context
+    ///         alive after the assembly was unloaded — the leak this whole arrangement exists to avoid,
+    ///         arriving through the one line that looks like a micro-optimisation.
+    ///     </para>
+    /// </remarks>
+    static void Menus(IReadOnlyList<Type> types, Type type, DeclaredMenus menus) {
         foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Static)) {
             if (method.GetCustomAttribute<EditorMenuAttribute>() is not { } item) {
                 continue;
             }
 
+            var where = $"{type.Name}.{method.Name}";
+
             if (method.GetParameters().Length != 0) {
                 throw new PluginException(
-                    $"'{type.Name}.{method.Name}' carries [EditorMenu] and takes arguments. A menu item "
-                    + "is a verb with nothing to pass it, so the method has to take none."
+                    $"'{where}' carries [EditorMenu] and takes arguments. A menu item is a verb with "
+                    + "nothing to pass it, so the method has to take none."
                 );
             }
 
-            into.Add((item, method));
+            if (method.ReturnType == typeof(void)) {
+                menus.Command(
+                    item.Path,
+                    () => method.Invoke(null, null),
+                    item.Id,
+                    Title(types, item.Title, item.Strings, where),
+                    item.Priority,
+                    item.Separator
+                );
+            } else if (method.ReturnType == typeof(IEnumerable<string>)) {
+                Lineal(item, where);
+
+                menus.Lines(
+                    item.Path,
+                    (IEnumerable<string>) (method.Invoke(null, null) ?? Array.Empty<string>()),
+                    item.Priority,
+                    item.Separator
+                );
+            } else {
+                throw new PluginException(
+                    $"'{where}' carries [EditorMenu] and returns {method.ReturnType.Name}. A verb "
+                    + "returns nothing; a run of lines for commands registered elsewhere returns "
+                    + "IEnumerable<string>."
+                );
+            }
+        }
+
+        foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Static)) {
+            if (field.GetCustomAttribute<EditorMenuAttribute>() is not { } item) {
+                continue;
+            }
+
+            var where = $"{type.Name}.{field.Name}";
+
+            if (field.FieldType != typeof(string)) {
+                throw new PluginException(
+                    $"'{where}' carries [EditorMenu] and is not a string. On a field the attribute puts "
+                    + "a line in a menu for the command whose id the field holds."
+                );
+            }
+
+            Lineal(item, where);
+
+            var id = (string?) (field.IsLiteral ? field.GetRawConstantValue() : field.GetValue(null));
+
+            if (string.IsNullOrEmpty(id)) {
+                throw new PluginException($"'{where}' carries [EditorMenu] and holds no command id.");
+            }
+
+            menus.Line(item.Path, id, item.Priority, item.Separator);
         }
     }
 
-    /// <summary>Puts one menu item's command in the shell and its line in the menu.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The path creates whatever of itself does not exist.</b> <c>"Tools/My Thing/Do It"</c>
-    ///     finds or adds <c>Tools</c>, then <c>My Thing</c> under it, then the line — so two
-    ///     declarations naming one menu land in it together and neither has to know the other exists.
-    ///     Menus compose because nobody owns the tree.
-    /// </remarks>
-    static void Menu(PluginContext context, EditorMenuAttribute item, MethodInfo method) {
-        var parts = item.Path.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        if (parts.Length < 2) {
+    /// <summary>Refuses what only a verb can say, on a line for somebody else's command.</summary>
+    static void Lineal(EditorMenuAttribute item, string where) {
+        if (item.Id.Length != 0 || item.Title.Length != 0 || item.Strings is not null) {
             throw new PluginException(
-                $"'{item.Path}' is not a menu path. It needs at least a menu and a line — \"Tools/Do It\"."
+                $"'{where}' names an Id or a Title on a line for a command registered elsewhere. That "
+                + "command already has both; only a verb, which makes its command, can say them."
             );
         }
+    }
 
-        var id = string.IsNullOrEmpty(item.Id) ? Derive("scripts", item.Path) : item.Id;
+    /// <summary>Every <c>[EditorSubmenu]</c> one type declares.</summary>
+    static void Submenus(IReadOnlyList<Type> types, Type type, DeclaredMenus menus) {
+        foreach (var item in type.GetCustomAttributes<EditorSubmenuAttribute>()) {
+            menus.Submenu(
+                item.Path,
+                Title(types, item.Title, item.Strings, $"[EditorSubmenu(\"{item.Path}\")] on {type.Name}"),
+                item.After,
+                item.Priority
+            );
+        }
+    }
 
-        // ⚠ Invoked rather than turned into a delegate. The method belongs to a collectible context,
-        // and a `CreateDelegate` held by the command registry would keep that context alive after the
-        // assembly was unloaded — the leak this whole arrangement exists to avoid, arriving through
-        // the one line that looks like a micro-optimisation.
-        context.AddCommand(id, new StringId("editor.command." + id, parts[^1]), () => method.Invoke(null, null));
-
-        var top = "editor.menu." + parts[0].ToLowerInvariant();
-        var group = context.FindMenu(top) ?? context.AddMenu(new StringId(top, parts[0]));
-
-        for (var level = 1; level < parts.Length - 1; level++) {
-            group = context.AddSubmenu(group, new StringId($"editor.menu.{id}.{level}", parts[level]));
+    /// <summary>A title, by the name of its declaration, or null for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 50 § D5's rule, and the generator applies the same one</b>: in the class named
+    ///         when one is, otherwise in the one class of the declaring assembly whose name ends in
+    ///         <c>Strings</c> and which has a public static <c>StringId</c> of that name. A name two
+    ///         classes have is refused rather than guessed, because the guess would be whichever the
+    ///         runtime enumerated first.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Never a silent literal.</b> A title that resolved to nothing would otherwise come
+    ///         out as its own member name — <c>MenuGeometry</c> on somebody's menu bar — which looks
+    ///         like a missing translation rather than a broken declaration.
+    ///     </para>
+    /// </remarks>
+    static StringId? Title(IReadOnlyList<Type> types, string name, Type? strings, string where) {
+        if (string.IsNullOrEmpty(name)) {
+            return strings is null
+                ? null
+                : throw new PluginException($"'{where}' names a Strings class and no Title to find in it.");
         }
 
-        context.AddMenuItem(group, id);
+        IEnumerable<Type> candidates = strings is not null
+            ? [strings]
+            : types.Where(static type => type.Name.EndsWith("Strings", StringComparison.Ordinal));
+
+        List<(Type Type, StringId Id)> found = [];
+
+        foreach (var candidate in candidates) {
+            if (Declaration(candidate, name) is { } id) {
+                found.Add((candidate, id));
+            }
+        }
+
+        return found.Count switch {
+            1 => found[0].Id,
+            0 => throw new PluginException(
+                $"'{where}' has Title = \"{name}\", and "
+                + (strings is not null ? strings.Name : "no class of its assembly whose name ends in Strings")
+                + $" declares a public static StringId called {name}."
+            ),
+            _ => throw new PluginException(
+                $"'{where}' has Title = \"{name}\", which "
+                + string.Join(" and ", found.Select(static entry => entry.Type.Name))
+                + " both declare. Say which with Strings = typeof(…)."
+            )
+        };
+    }
+
+    static StringId? Declaration(Type type, string name) {
+        if (type.GetProperty(name, BindingFlags.Public | BindingFlags.Static) is { } property
+            && property.PropertyType == typeof(StringId)) {
+            return (StringId) property.GetValue(null)!;
+        }
+
+        if (type.GetField(name, BindingFlags.Public | BindingFlags.Static) is { } field
+            && field.FieldType == typeof(StringId)) {
+            return (StringId) field.GetValue(null)!;
+        }
+
+        return null;
     }
 
     // ========================================================== [CustomInspector]
@@ -367,12 +487,6 @@ sealed class DeclaredContributions : IContributionScanner {
             ? Activator.CreateInstance(type)
             : null;
 
-    /// <summary>The id something with no declared one gets.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Derived from what a person reads, which means renaming it drops their keybinding.</b>
-    ///     That is the cost of not making every author invent an id, and the <c>Id</c> property on
-    ///     both attributes is how anybody who minds opts out.
-    /// </remarks>
-    static string Derive(string prefix, string text) =>
-        prefix + "." + text.Replace('/', '.').Replace(' ', '-').ToLowerInvariant();
+    /// <summary>The id something with no declared one gets — <see cref="DeclaredMenus.Derive" />, shared.</summary>
+    static string Derive(string prefix, string text) => DeclaredMenus.Derive(prefix, text);
 }

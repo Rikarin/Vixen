@@ -1434,6 +1434,7 @@ T:Vixen.Editor.NodeGraph.SubGraphNode sweep-pending
 T:Vixen.Editor.NodeGraph.SubGraphs sweep-pending
 T:Vixen.Editor.NodeGraph.Texture sweep-pending
 T:Vixen.Editor.Plugin.EditorApi sweep-pending
+T:Vixen.Editor.Plugin.Generator.DeclaredRegistrationGenerator a compiler plugin, public because Roslyn loads it by type; what it reads and writes is documented on editor/writing-a-plugin, which names the attributes and DeclaredMenus
 T:Vixen.Editor.Plugin.LoadedPlugin sweep-pending
 T:Vixen.Editor.Plugin.PluginCatalog sweep-pending
 T:Vixen.Editor.Plugin.PluginDescriptor sweep-pending

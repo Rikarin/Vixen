@@ -37,6 +37,16 @@
         <Compile Include="..\Vixen.Editor.Plugin.Tests\PluginFolder.cs" Link="PluginFolder.cs" />
 
         <!--
+            Doc 50 § D6's parity test compiles one fixture through the in-tree generator and reads it
+            with the scan that lives in this assembly's subject. The fixture is the generator suite's,
+            linked rather than copied for the reason above: two copies would be two fixtures, and the
+            parity would be between them rather than between the readers. The generator itself is a
+            plain reference — constructed and driven by the test, not run over this assembly.
+        -->
+        <Compile Include="..\Vixen.Editor.Plugin.Generator.Tests\DeclaredFixture.cs" Link="DeclaredFixture.cs" />
+        <ProjectReference Include="..\Vixen.Editor.Plugin.Generator\Vixen.Editor.Plugin.Generator.csproj" />
+
+        <!--
             Which whole selectors the sheets spell entirely in tags, linked for the same reason. The
             scoped census here and `CombinatorCensusDriftTests` in `Vixen.Ui.Styling.Tests` both hold
             `ScopedSelectors.txt` against it, and two readers of the question would be two chances to
