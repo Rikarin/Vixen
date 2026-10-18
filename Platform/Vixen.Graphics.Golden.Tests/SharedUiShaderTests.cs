@@ -296,8 +296,8 @@ public partial class SharedUiShaderTests {
                     Assert.True(
                         Reflavouring || string.Equals(was.Flavour, flavour, StringComparison.Ordinal),
                         $"{Path.Combine(Shaders, name)}.spv was built with `glslc {flavour}` and the ledger records "
-                        + $"`glslc {was.Flavour}`. Rebuild it the way its siblings were built: `glslc {was.Flavour} "
-                        + $"Shaders/{name} -o Shaders/{name}.spv`. If changing the flavour is the point, rerun with "
+                        + $"`glslc {was.Flavour}`. Rebuild it the way its siblings were built. {RecipeInstruction}. "
+                        + "If changing the flavour is the point, rerun with "
                         + "`VIXEN_UPDATE_SHADER_FLAVOUR=1` as well -- and read `Reconciled`, because the "
                         + "arithmetic census is calibrated against what glslc folds."
                     );
@@ -331,9 +331,7 @@ public partial class SharedUiShaderTests {
                 string.Equals(pair.Code, code, StringComparison.Ordinal),
                 $"{Path.Combine(Shaders, name)} has changed since its module was built — its code, not its "
                 + $"comments, which are stripped before this digest. The module this suite renders with is "
-                + $"not this source. Regenerate it and the ledger: `glslc {pair.Flavour} Shaders/{name} -o "
-                + $"Shaders/{name}.spv` from this project's directory, then rerun with "
-                + "`VIXEN_UPDATE_SHADER_DIGESTS=1`."
+                + $"not this source. Regenerate it at `{pair.Flavour}` and the ledger. {RecipeInstruction}."
             );
 
             Assert.True(
@@ -1169,14 +1167,21 @@ public partial class SharedUiShaderTests {
     /// <summary>The GLSL copy and the Raven module ask for the same derivatives, instruction for instruction.</summary>
     /// <remarks>
     ///     <para>
-    ///         &#9888; <b><c>fwidth(p)</c> and <c>abs(dFdx(p)) + abs(dFdy(p))</c> are the same formula and not
-    ///         the same instruction, and #1024 is what that cost.</b> The specification defines the
-    ///         first as the second &#8212; and then lets an implementation answer each of the three
-    ///         builtins with either a coarse or a fine derivative, independently of the others. So a
-    ///         copy that reached for <c>fwidth</c> where <c>Ui.rvn</c> spelled <c>Ui.PixelWidth</c>
-    ///         out compiled to <c>OpFwidth</c> against the shipping module's
-    ///         <c>OpDPdx</c>/<c>OpDPdy</c>, and on lavapipe &#8212; the only CI leg with a device &#8212; the
-    ///         two drew a bordered box differently on 24 of 16 384 texels.
+    ///         <b><c>fwidth(p)</c> and <c>abs(dFdx(p)) + abs(dFdy(p))</c> are the same formula and not
+    ///         the same instruction.</b> The specification defines the first as the second &#8212; and
+    ///         then lets an implementation answer each of the three builtins with either a coarse or a
+    ///         fine derivative, independently of the others. So a copy that reaches for <c>fwidth</c>
+    ///         where <c>Ui.rvn</c> spells <c>Ui.PixelWidth</c> out compiles to <c>OpFwidth</c> against
+    ///         the shipping module's <c>OpDPdx</c>/<c>OpDPdy</c>, and is permitted to draw differently.
+    ///     </para>
+    ///     <para>
+    ///         &#9888; <b>Permitted, and not observed: this paragraph used to say it cost #1024, and it
+    ///         did not</b> (#1190). The lavapipe failure it blamed &#8212; 24 of 16 384 texels of a
+    ///         bordered box, 1 of a gradient, worst 1/255 &#8212; is byte-identical in count, magnitude
+    ///         and coordinates on a head before the copy stopped calling <c>fwidth</c> and on one after.
+    ///         So lavapipe drew the two spellings the same, and so do an RTX 4060 Ti and MoltenVK. The
+    ///         check stands because the specification still allows the difference and matching the
+    ///         Raven costs nothing; it is not the check that would have explained that failure.
     ///     </para>
     ///     <para>
     ///         &#9888; <b>"Nothing else in the two modules differed: same constants, same
@@ -1189,11 +1194,10 @@ public partial class SharedUiShaderTests {
     ///         <c>OpDPdx</c> are one operation each either way.
     ///     </para>
     ///     <para>
-    ///         &#9888; <b>This is the check that would have caught it without a device, and that is the
-    ///         point of it.</b> <c>UiRavenAgreementTests</c> can only speak on the one leg that draws,
-    ///         and it took a driver whose two answers happen to differ before it spoke at all &#8212; this
-    ///         Mac's MoltenVK gives <c>OpFwidth</c> and the explicit pair bit-identical results, so
-    ///         the divergence was invisible here in the picture and plain in the bytes.
+    ///         <b>A walk over the bytes rather than a picture, because no driver at hand shows the
+    ///         difference.</b> <c>UiRavenAgreementTests</c> can only speak on a leg that draws, and
+    ///         only through a driver whose two answers happen to differ &#8212; none measured so far does
+    ///         &#8212; so a derivative-flavour drift would be invisible in every picture and plain in the bytes.
     ///     </para>
     ///     <para>
     ///         &#9888; <b>And the empty case is asserted, because two modules that ask for no derivatives
@@ -1226,7 +1230,7 @@ public partial class SharedUiShaderTests {
                     $"{glsl} uses {name} {here.GetValueOrDefault(name)} times and {module} uses it "
                     + $"{there.GetValueOrDefault(name)} times. They are two implementations of one "
                     + "specification and a derivative's flavour is the implementation's choice, so a "
-                    + "difference here is a difference in the picture on some driver -- which is #1024."
+                    + "difference here is allowed to be a difference in the picture on some driver."
                 );
             }
         }
@@ -1515,8 +1519,8 @@ public partial class SharedUiShaderTests {
     ///     <para>
     ///         ⚠ <b>The list shrank from ten to six, and the four that went were the real
     ///         divergences</b> — #1224 and #1225. <c>ui-mask.frag</c> spelled a wrap
-    ///         <c>turns - floor(turns)</c> where <c>UiMask.Progress</c> calls <c>frac</c>, which is
-    ///         the same three lines <c>fwidth</c> cost in #1024; <c>ui-text.frag</c> premultiplied
+    ///         <c>turns - floor(turns)</c> where <c>UiMask.Progress</c> calls <c>frac</c>, a builtin
+    ///         against its own definition; <c>ui-text.frag</c> premultiplied
     ///         <c>(rgb·a)·coverage</c> where <c>UiText</c> computes <c>rgb·(a·coverage)</c>, and
     ///         float multiplication is not associative. Both copies were brought to the module that
     ///         ships and recompiled. What is left here is instruction selection and a rounding that

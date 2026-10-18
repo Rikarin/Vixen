@@ -86,13 +86,19 @@ float box_distance(vec2 point, vec2 half_size, vec2 radius) {
 
 // The screen-space width of one unit of a value, for antialiasing an analytic shape.
 //
-// ⚠ **Spelled out rather than `fwidth`, and that is the whole of #1024.** `fwidth(p)` is *defined*
-// as `abs(dFdx(p)) + abs(dFdy(p))`, so the two read identically — but they are three separate
-// builtins and the specification lets an implementation answer each of them with either a coarse or
-// a fine derivative, independently. `Ui.rvn` has no `fwidth` to reach for (`Ui.PixelWidth` is
-// `abs(ddx) + abs(ddy)`), so this copy compiled to `OpFwidth` where the shipping module compiled to
-// `OpDPdx`/`OpDPdy` — and on lavapipe, the one CI leg with a device, that answered differently for
-// 24 texels of a bordered box.
+// Spelled out rather than `fwidth` so that this copy asks for the same instructions `Ui.rvn` does:
+// Raven has no `fwidth` to reach for (`Ui.PixelWidth` is `abs(ddx) + abs(ddy)`), so a copy that
+// called it compiled to `OpFwidth` where the shipping module compiles to `OpDPdx`/`OpDPdy`. The
+// specification *defines* `fwidth(p)` as `abs(dFdx(p)) + abs(dFdy(p))` and leaves each builtin's
+// coarse-or-fine choice to the implementation, so a driver *may* answer the two differently.
+//
+// ⚠ **But no driver this suite has met does, and this was never #1024's cause** (#1190). The
+// paragraph that stood here said `fwidth` "answered differently for 24 texels" on lavapipe. CI
+// refutes it: the `bordered` and `gradient` failures are byte-identical in count, magnitude and
+// coordinates on a head without this change (`289d7aa90`) and on one with it (`5df00f203`) — so on
+// lavapipe the two spellings drew the same picture. An RTX 4060 Ti and MoltenVK draw the two the
+// same as well. The rewrite is kept because matching the Raven instruction for instruction is cheap
+// and `TheGlslCopiesAskForTheSameDerivativesAsTheRavenModules` holds it, not because it fixed a pixel.
 //
 // ⚠ **The sentence that used to end this paragraph -- "it is the last structural difference
 // between the two modules: with this, every other opcode and every constant in the two matches" --
