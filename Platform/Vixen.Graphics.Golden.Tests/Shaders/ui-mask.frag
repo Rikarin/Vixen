@@ -166,11 +166,12 @@ float mask_progress(vec2 offset, vec2 half_size, vec2 axis, int kind) {
         //
         // ⚠ **And that reasoning stopped one instruction short**, which is #1224. The wrap below
         // was `turns - floor(turns)` where `UiMask.Progress` writes `frac(turns)` — one instruction
-        // against two, of a builtin `GLSL.std.450` *defines* as exactly those two. That is the
-        // sentence that was true of `fwidth(p)` and `abs(dFdx(p)) + abs(dFdy(p))` in #1024, and CI
-        // refuted it there: two spellings of one formula are not two spellings of one result,
-        // because an implementation is free to answer the builtin with a differently-rounded
-        // sequence. `ui-box.frag` beside this one already spelled it `fract`.
+        // against two, of a builtin `GLSL.std.450` *defines* as exactly those two. Two spellings of
+        // one formula are not promised to be two spellings of one result, because an implementation
+        // is free to answer the builtin with a differently-rounded sequence — so the copy spells it
+        // the way the shipping module does. ⚠ This used to cite `fwidth` against
+        // `abs(dFdx) + abs(dFdy)` in #1024 as a case CI had proved; it had not, and #1190 shows that
+        // swap moved no pixel on lavapipe. `ui-box.frag` beside this one already spelled it `fract`.
         float angle = atan(offset.x, -offset.y) - atan(axis.x, -axis.y);
         float turns = (angle * 0.15915494309189535) + 1.0;
 
