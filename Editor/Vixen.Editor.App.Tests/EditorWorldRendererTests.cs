@@ -616,6 +616,119 @@ public sealed class EditorWorldRendererTests : IDisposable {
             declared is ProbeAsset ? probe : null;
     }
 
+    // ------------------------------------------------------------------ the interface's compose
+
+    /// <summary>An editor document naming <c>!UiCompose</c> composes the interface twice, and that is counted (#1461).</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The editor's half of the two-renderers rule.</b> <c>WorldRenderer.ComposesInFrame</c>
+    ///         reads <c>Host.Compositor</c>, which the editor never fills — it builds its panes with
+    ///         <c>Builder.Build</c> — so <see cref="EditorWorldRenderer.Begin" />'s prologue composes, and
+    ///         the node composes again inside the window's graph. The picture is the node's and is right;
+    ///         only the passes are wasted, so <c>UiRenderFeature.Recomposed</c> is the one thing that can
+    ///         say so.
+    ///     </para>
+    ///     <para>
+    ///         The control is the same frame with the node disabled, which composes once: the count is
+    ///         about the node, not about the editor composing at all.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 0)]
+    public void An_editor_document_naming_UiCompose_is_counted_as_a_recompose(bool enabled, int recomposed) {
+        using var device2 = new NullDevice();
+        var project = new Editor.Core.EditorProject(new Editor.Core.ProjectPaths(Temporary()));
+
+        using var effects = new EditorEffects(device2, project);
+        using var frame = new EditorWorldRenderer(device2, effects.System);
+        using var world = new Ecs.World();
+
+        var scene = new Rendering.Compositor.RenderPassAsset { Name = "Scene", ColourTargets = ["SceneColour"] };
+
+        frame.Reload(
+            new() {
+                Resources = [
+                    new Rendering.Compositor.RenderResourceAsset {
+                        Name = "SceneColour",
+                        Format = Graphics.PixelFormat.Bgra8UNorm,
+                        Usage = Graphics.TextureUsage.ColourTarget | Graphics.TextureUsage.Sampled
+                    }
+                ],
+                Stages = [new Rendering.Compositor.RenderStageAsset { Name = "Ui", SortMode = RenderSortMode.ByGroup }],
+                Game = new Rendering.Compositor.SequenceAsset {
+                    Name = "Frame",
+                    Children = [scene, new global::Vixen.Ui.Renderer.UiComposeAsset { Name = "Compose", Enabled = enabled }]
+                }
+            },
+            world
+        );
+
+        using var ui = InterfaceRenderer(device2);
+
+        var feature = frame.Renderer.Ui;
+
+        feature.Renderer = ui;
+
+        var id = feature.Mount(frame.Renderer.Host.Builder.Stages["Ui"].Mask);
+        var atlas = new global::Vixen.Ui.Text.Rasterizing.GlyphAtlas(64, 64);
+
+        feature.Set(id, new(FadedPanel(atlas), atlas, new Int2(64, 64), 0));
+
+        var graph = new Graphics.RenderGraph.RenderGraph(device2);
+        var commands = device2.BeginCommandList(Graphics.QueueKind.Graphics, "frame");
+
+        frame.Begin(commands);
+        frame.Compose(graph, [frame.Compositor.Game!], new Int2(64, 64), device2.WaitIdle);
+        graph.Execute(commands);
+        commands.Finish();
+
+        // The instrument: the node is in the tree the editor built, and ran exactly when enabled.
+        var node = Assert.IsType<global::Vixen.Ui.Renderer.UiComposeRenderer>(
+            global::Vixen.Ui.Renderer.UiComposeRenderer.PathTo(frame.Compositor.Game, feature).LastOrDefault()
+        );
+
+        Assert.Equal(enabled ? 1 : 0, node.ComposeCount);
+        Assert.Equal(recomposed, feature.Recomposed);
+    }
+
+    /// <summary>One half-opaque group, which is what gives a compose something to render.</summary>
+    static global::Vixen.Ui.Rendering.UiGeometry FadedPanel(global::Vixen.Ui.Text.Rasterizing.GlyphAtlas atlas) {
+        var list = new global::Vixen.Ui.DrawList();
+
+        list.BeginFrame();
+        list.Add(new global::Vixen.Ui.DrawCommand(global::Vixen.Ui.DrawCommandKind.LayerPush, 8f, 8f, 40f, 30f, new Color4(1f, 1f, 1f, 0.5f), 0f, 0f));
+        list.Add(new global::Vixen.Ui.DrawCommand(global::Vixen.Ui.DrawCommandKind.Rectangle, 8f, 8f, 40f, 30f, Color4.White, 0f, 0f));
+        list.Add(new global::Vixen.Ui.DrawCommand(global::Vixen.Ui.DrawCommandKind.Rectangle, 12f, 12f, 10f, 8f, new Color4(1f, 0f, 0f, 1f), 0f, 0f));
+        list.Add(new global::Vixen.Ui.DrawCommand(global::Vixen.Ui.DrawCommandKind.LayerPop, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f));
+        list.EndFrame();
+
+        var geometry = new global::Vixen.Ui.Rendering.UiGeometryBuilder().Build(
+            list,
+            new global::Vixen.Ui.Text.Rasterizing.GlyphFieldCache(atlas),
+            new Rectangle(0, 0, 64, 64)
+        );
+
+        // The instrument: there is a group, so a compose has a surface to render.
+        Assert.Single(geometry.Layers);
+
+        return geometry;
+    }
+
+    static global::Vixen.Ui.Renderer.UiRenderer InterfaceRenderer(NullDevice device) =>
+        new(
+            device,
+            new global::Vixen.Ui.Renderer.UiShaders(
+                device.CreateShader(Graphics.ShaderStage.Vertex, [1, 2, 3, 4], "ui vertex"),
+                device.CreateShader(Graphics.ShaderStage.Fragment, [1, 2, 3, 4], "ui box"),
+                device.CreateShader(Graphics.ShaderStage.Fragment, [1, 2, 3, 4], "ui text"),
+                device.CreateShader(Graphics.ShaderStage.Fragment, [1, 2, 3, 4], "ui solid")
+            ) {
+                Image = device.CreateShader(Graphics.ShaderStage.Fragment, [1, 2, 3, 4], "ui image")
+            },
+            new RenderOutput([Graphics.PixelFormat.Bgra8UNorm])
+        );
+
     // ------------------------------------------------------------------ the voice
 
     /// <summary>A degrade in the scene view reaches the panel a person is actually looking at.</summary>

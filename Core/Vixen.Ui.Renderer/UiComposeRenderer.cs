@@ -86,7 +86,8 @@ public sealed record UiComposeAsset : ISceneRendererAsset {
 ///         pass per group, and whichever ran second would decide the picture.
 ///     </para>
 ///     <para>
-///         ⚠ <b>One per frame, and nothing refuses a second.</b> Two nodes composing the same feature
+///         ⚠ <b>One per frame, and nothing refuses a second — <c>UiRenderFeature.Recomposed</c> counts
+///         it</b> (#1461). Two nodes composing the same feature
 ///         both run, each rendering every group's surface again, and the later one decides the
 ///         picture. The same waste happens where the host cannot see the node: <see cref="PathTo" />
 ///         walks <see cref="SceneRenderer.Nested" />, so a node a parent builds through

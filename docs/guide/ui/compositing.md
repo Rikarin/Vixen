@@ -978,7 +978,11 @@ colour target, which lags every blended panel by a frame and still needs a copy 
 seam. A `source` of another size than the interface is resampled under it, and the node says so in
 its `Degraded` — the interface's size being `UiRenderer.Pixels`, the ceiling of its surface times its
 density, which is the size its group surfaces are allocated at. Name one node per frame: a second one
-composes every group again and the later one wins, and nothing refuses it.
+composes every group again and the later one wins. Nothing refuses it, because the picture is right,
+but `UiRenderFeature.Recomposed` counts it (#1461) — and counts the two arrangements that compose
+twice with only one node: a node a parent builds through `BuildChild` without listing it in `Nested`,
+which `UiComposeRenderer.PathTo` cannot see, and any editor document that names the node, because the
+editor's prologue always composes (`WorldRenderer.ComposesInFrame` reads only `Host.Compositor`).
 
 ### Isolating which backdrop a blend reaches
 

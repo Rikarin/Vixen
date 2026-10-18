@@ -126,6 +126,9 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
 
         // And the counter that says a HUD could not see the world reads nothing, because it could.
         Assert.Equal(0, frame.Sceneless);
+
+        // Nor the one that says the interface was composed more than once (#1461).
+        Assert.Equal(0, frame.Recomposed);
     }
 
     /// <summary>The control: with no node the prologue composes, before the scene and blind to it.</summary>
@@ -140,6 +143,89 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
         Assert.True(surface < scene, "the prologue's compose came after the scene: " + string.Join(", ", frame.Passes));
         Assert.False(frame.SceneDrawnUnderTheCapture);
         Assert.Equal(1, frame.Sceneless);
+        Assert.Equal(0, frame.Recomposed);
+    }
+
+    /// <summary>The frame with two nodes composing the same feature, one after the other.</summary>
+    const string Twice = """
+        version: 2
+        resources:
+          - name: SceneColour
+            format: Bgra8UNorm
+            usage: ColourTarget, Sampled
+        stages:
+          - name: Ui
+            sortMode: ByGroup
+        game: !Sequence
+          name: Frame
+          children:
+            - !RenderPass
+              name: Scene
+              colourTargets: [SceneColour]
+            - !UiCompose
+              name: First
+              source: SceneColour
+            - !UiCompose
+              name: Second
+              source: SceneColour
+            - !RenderPass
+              name: Interface
+              colourTargets: [SceneColour]
+              loaded: [SceneColour]
+              children:
+                - !SingleStage
+                  name: HudDraw
+                  view: Camera
+                  stage: Ui
+        """;
+
+    /// <summary>Two <c>!UiCompose</c> nodes in one frame compose the interface twice, and that is counted (#1461).</summary>
+    /// <remarks>
+    ///     ⚠ <b>The picture cannot say it</b>: both run after the scene and the later one decides what
+    ///     the interface pass samples, which is what one node would have produced. So the instrument is
+    ///     the group's surface pass appearing twice in the stream, and the counter has to agree with it.
+    /// </remarks>
+    [Fact]
+    public void TwoComposeNodesInOneFrameAreCountedAsARecompose() {
+        var frame = Frame(Twice);
+
+        // The instrument: two surface passes, both after the scene — the prologue stood aside.
+        Assert.Equal(2, frame.Passes.Count(name => name == "ui layer 0"));
+        Assert.True(frame.Passes.IndexOf("ui layer 0") > frame.Passes.IndexOf("Scene"), string.Join(", ", frame.Passes));
+        Assert.Equal(1, frame.Recomposed);
+    }
+
+    /// <summary>
+    ///     A node a parent builds through <c>BuildChild</c> without listing it in <c>Nested</c> is
+    ///     invisible to <c>PathTo</c>, so the prologue composes as well, and that is counted (#1461).
+    /// </summary>
+    [Fact]
+    public void ANodeHiddenFromPathToIsCountedAsARecompose() {
+        var frame = Frame(
+            Plain,
+            adjust: renderer => {
+                var root = Assert.IsType<SceneRendererSequence>(renderer.Host.Compositor!.Game);
+
+                // Between the scene and the interface pass, where a document would have put it.
+                root.Children.Insert(1, new Hiding(new UiComposeRenderer { Name = "Hidden", Feature = renderer.Ui, Source = "SceneColour" }));
+
+                // The instrument: the walk the prologue asks really cannot see it.
+                Assert.Empty(UiComposeRenderer.PathTo(root, renderer.Ui));
+            }
+        );
+
+        // The prologue's compose before the scene, and the hidden node's after it.
+        var surfaces = frame.Passes.Select((name, index) => (name, index)).Where(pass => pass.name == "ui layer 0").ToList();
+
+        Assert.Equal(2, surfaces.Count);
+        Assert.True(surfaces[0].index < frame.Passes.IndexOf("Scene") && surfaces[1].index > frame.Passes.IndexOf("Scene"), string.Join(", ", frame.Passes));
+        Assert.Equal(1, frame.Recomposed);
+    }
+
+    /// <summary>A parent that builds a child it does not list in <see cref="SceneRenderer.Nested" />.</summary>
+    sealed class Hiding(SceneRenderer child) : SceneRenderer {
+        /// <inheritdoc />
+        protected override void Build(GraphicsCompositor compositor, CompositorFrame frame) => BuildChild(child, compositor, frame);
     }
 
     /// <summary>
@@ -218,7 +304,7 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
     }
 
     /// <summary>What one frame recorded.</summary>
-    sealed record Recorded(List<string> Passes, bool SceneDrawnUnderTheCapture, int Sceneless, int ComposeCount) {
+    sealed record Recorded(List<string> Passes, bool SceneDrawnUnderTheCapture, int Sceneless, int ComposeCount, int Recomposed) {
         /// <summary>The compose node's <c>Degraded</c> after the frame, or null for none or no node.</summary>
         public string? Degraded { get; init; }
 
@@ -232,7 +318,15 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
     /// <param name="scene">The imported target's side, in pixels.</param>
     /// <param name="units">The interface's side, in geometry units.</param>
     /// <param name="scale">The interface's density.</param>
-    Recorded Frame(string document, bool sampled = true, int scene = Side, int units = Side, float scale = 1f) {
+    /// <param name="adjust">Changes the built tree before the frame, or null.</param>
+    Recorded Frame(
+        string document,
+        bool sampled = true,
+        int scene = Side,
+        int units = Side,
+        float scale = 1f,
+        Action<WorldRenderer>? adjust = null
+    ) {
         using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
         using var ui = UiRendererFor(device);
 
@@ -241,6 +335,7 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
         renderer.Host.Builder.Views["Camera"] = view;
         renderer.Host.Load(YamlSerializer.Parse<GraphicsCompositorAsset>(document));
         renderer.Host.FrameSize = new(Side, Side);
+        adjust?.Invoke(renderer);
 
         // The frame's last target belongs to somebody outside the graph, or the graph would be right
         // to cull the interface pass that writes it last.
@@ -312,7 +407,7 @@ public sealed class InterfaceComposedAfterTheSceneTests : IDisposable {
 
         var composer = UiComposeRenderer.PathTo(renderer.Host.Compositor!.Game, renderer.Ui).LastOrDefault() as UiComposeRenderer;
 
-        return new(passes, drawnUnder, renderer.Ui.Sceneless, composer?.ComposeCount ?? 0) {
+        return new(passes, drawnUnder, renderer.Ui.Sceneless, composer?.ComposeCount ?? 0, renderer.Ui.Recomposed) {
             Degraded = composer?.Degraded,
             LayerArea = layerArea
         };
