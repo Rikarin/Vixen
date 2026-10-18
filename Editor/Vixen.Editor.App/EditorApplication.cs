@@ -229,6 +229,12 @@ sealed partial class EditorApplication : IDisposable {
 
     readonly ContentTasks content;
 
+    /// <summary>Doc 50 § P2c's Content Library service. See <see cref="ContentLibrary" />.</summary>
+    readonly ContentLibrary library;
+
+    /// <summary>Doc 50 § P2d's Project service. See <see cref="ProjectSession" />.</summary>
+    readonly ProjectSession session;
+
     /// <summary>The import and build tasks, for the suite that has to substitute the publish.</summary>
     /// <remarks>
     ///     ⚠ <b>Internal and for one thing.</b> Every other question about a build is asked through
@@ -920,6 +926,31 @@ sealed partial class EditorApplication : IDisposable {
         // reads the object being initialized back — `LastBake` is pulled rather than handed over, so
         // that a panel opened *after* a bake can still ask what it produced.
         content.Baked = () => bakeView?.ShowResult(content.LastBake);
+
+        // ⚠ Doc 50 § P2c: import, package export, collections and saved filters as one service, built
+        // after the tasks because its import is theirs and before `PluginPoints`, which publishes it.
+        // The preferences are asked for through a lambda on every call — the settings window's Revert
+        // replaces the object — and the browser is told through events, because it exists only while
+        // its panel is open.
+        library = new ContentLibrary(
+            project,
+            (message, severity, detail) => Shell.Notifications.Show(message, severity, detail),
+            () => preferences.AssetFilters,
+            () => WritePreferences(),
+            content.Import
+        );
+        library.CollectionsChanged += () => browser?.Recollect();
+
+        // ⚠ Doc 50 § P2d: the rescan and the reopen request, before `PluginPoints` publishes it. The
+        // close request and the closing flags are handed in rather than moved — closing is the
+        // application's — and read on every call, because the prompt answers later.
+        session = new ProjectSession(
+            project,
+            (message, severity, detail) => Shell.Notifications.Show(message, severity, detail),
+            RequestClose,
+            () => IsClosing || closing
+        );
+        library.Arrived += () => browser?.Rescan();
 
         // ⚠ Before the panels, because the inspector's asset fields are built by drawers that have
         // to be pointed at a project first. `AssetDrawer` has raised `PickRequested` since it was
@@ -2008,9 +2039,7 @@ sealed partial class EditorApplication : IDisposable {
         if (browser is not null) {
             browser.Rescan();
         } else {
-            project.Assets.Scan();
-            project.Assets.Save();
-            project.References.Build(project.Assets);
+            session.Rescan();
         }
 
         // ⚠ The one event that means "somebody changed the project without going through us", which
@@ -2419,14 +2448,14 @@ sealed partial class EditorApplication : IDisposable {
                 panel => {
                     panel.WhenPressedIn(() => Shell.Context = AssetContext);
 
-                    browser = new ProjectBrowser(project, panel, Extensions);
+                    browser = new ProjectBrowser(session, panel, library.Shown, Extensions);
 
                     browser.Activated += Open;
                     browser.Renamed += RenameAsset;
                     browser.Moved += MoveAssets;
                     browser.DroppedOutside += Dropped;
                     browser.DraggedOutside += Dragging;
-                    browser.FilesDropped += ImportDropped;
+                    browser.FilesDropped += (paths, folder) => library.Import(paths, folder);
 
                     // ⚠ Doc 20 § B7's column, given to the panel as a value. The sweep that fills it
                     // is asked for here rather than at startup: this factory runs when the panel
@@ -2463,17 +2492,10 @@ sealed partial class EditorApplication : IDisposable {
                     // by a restart and by the settings window's Revert, which re-reads the file into
                     // a new object — so a panel handed the list would go on offering the filters
                     // that existed when it was opened, silently, for as long as it stayed open.
-                    browser.SavedFilters = () => preferences.AssetFilters;
+                    browser.SavedFilters = () => library.Filters;
                     browser.FilterSaveRequested += KeepFilter;
 
-                    browser.FilterForgotten += name => {
-                        if (preferences.AssetFilters.RemoveAll(saved =>
-                                string.Equals(saved.Name, name, StringComparison.Ordinal)
-                            )
-                            > 0) {
-                            WritePreferences();
-                        }
-                    };
+                    browser.FilterForgotten += library.ForgetFilter;
 
                     // ⚠ Both views, and the grid was the one that had nothing. The menu was attached to
                     // the tree alone, so switching to tiles — which is the view somebody browses
@@ -2493,7 +2515,7 @@ sealed partial class EditorApplication : IDisposable {
                     // *replaces* the settings object on `Reload` and `Reset` — a branch switch, a
                     // Revert — so a panel handed the list would go on showing the collections that
                     // existed when it was opened.
-                    browser.Collections = () => Collections.Collections;
+                    browser.Collections = () => library.Collections;
 
                     // ⚠ And rebuilt at once, because the constructor has already built the column
                     // from a source it did not have yet. Without this the shelf is empty every time
@@ -2503,9 +2525,9 @@ sealed partial class EditorApplication : IDisposable {
                     browser.Recollect();
 
                     browser.CollectionCreateRequested += MakeCollection;
-                    browser.CollectionAdded += (assets, name) => AddToCollection(name, assets);
-                    browser.CollectionRemoved += (assets, name) => RemoveFromCollection(name, assets);
-                    browser.CollectionForgotten += ForgetCollection;
+                    browser.CollectionAdded += (assets, name) => library.AddToCollection(name, assets);
+                    browser.CollectionRemoved += (assets, name) => library.RemoveFromCollection(name, assets);
+                    browser.CollectionForgotten += library.ForgetCollection;
                 }
             ) {
                 // ⚠ The other half of holding it, and the crash it prevents is not hypothetical.
@@ -3065,6 +3087,15 @@ sealed partial class EditorApplication : IDisposable {
             // out of on each worker's command line and `PluginImporters` loads them there.
             .Add(ImporterContributions.Default)
 
+            // ⚠ Doc 50 § D2: the Content Library's use cases, under the contract, so a module can
+            // import, export a package or file assets into a collection the way the editor's own
+            // menus do — not by re-implementing the copy, the scan and the save beside them.
+            .Add<IContentLibrary>(library)
+
+            // ⚠ And the project's: the rescan every panel and module used to repeat for itself, and
+            // the request to open another project.
+            .Add<IProjectSession>(session)
+
             // ⚠ Doc 36 § D2's registry, and the reason the list above is no longer the extent of what
             // a plugin can reach. Every contribution kind — a Create ▸ entry, a custom inspector, a
             // scene-view tool, a gizmo, a settings page, a preview — goes through this one service,
@@ -3532,34 +3563,17 @@ sealed partial class EditorApplication : IDisposable {
                 return;
             }
 
-            SaveFilter(name.Trim(), browser.Search, browser.Kind);
+            library.SaveFilter(name.Trim(), library.Shown.Search, library.Shown.Kind);
         }
     }
 
-    /// <summary>Keeps one named filter, replacing a saved one of the same name.</summary>
-    /// <param name="name">What to call it.</param>
-    /// <param name="query">What was in the search box.</param>
-    /// <param name="kind">The importer tag, or empty for every kind.</param>
-    public void SaveFilter(string name, string query, string kind) {
-        preferences.AssetFilters.RemoveAll(saved => string.Equals(saved.Name, name, StringComparison.Ordinal));
-
-        preferences.AssetFilters.Add(new SavedAssetFilter { Name = name, Search = query, Kind = kind });
-        WritePreferences();
-    }
-
-    /// <summary>The browser's saved filters, for the harness.</summary>
-    public IReadOnlyList<SavedAssetFilter> AssetFilters => preferences.AssetFilters;
-
-    /// <summary>The project's collections, read through its own settings store.</summary>
+    /// <summary>The content library: import, package export, collections and saved filters — doc 50 § P2c.</summary>
     /// <remarks>
-    ///     ⚠ <b>Asked for rather than held.</b> <c>ProjectSettingsStore.Get</c> caches, so every
-    ///     caller gets the same instance — but <c>Reload</c> and <c>Reset</c> replace it, and a field
-    ///     here would be the detached object those two exist to warn about.
+    ///     Published to plugins under <see cref="IContentLibrary" />; this is the same object, for the
+    ///     harness. What used to be four public verbs here re-declaring <c>AssetCollections</c>' three
+    ///     to add the save, plus the filters' two in the preferences, is that one service now.
     /// </remarks>
-    AssetCollections Collections => project.Settings.Get<AssetCollections>();
-
-    /// <summary>The project's collections, for the harness.</summary>
-    public IReadOnlyList<SavedAssetSet> AssetCollections => Collections.Collections;
+    internal IContentLibrary Library => library;
 
     /// <summary>Asks for a name and puts the assets into a collection under it.</summary>
     /// <param name="assets">What to seed it with, which may be nothing.</param>
@@ -3584,45 +3598,8 @@ sealed partial class EditorApplication : IDisposable {
                 return;
             }
 
-            AddToCollection(name.Trim(), assets);
+            library.AddToCollection(name.Trim(), assets);
         }
-    }
-
-    /// <summary>Puts assets into a collection, making it if it is not there yet.</summary>
-    /// <param name="name">What the collection is called.</param>
-    /// <param name="assets">What goes into it.</param>
-    public void AddToCollection(string name, IReadOnlyList<AssetId> assets) {
-        if (Collections.Add(name, assets)) {
-            WriteCollections();
-        }
-    }
-
-    /// <summary>Takes assets out of a collection, leaving the collection.</summary>
-    /// <param name="name">What the collection is called.</param>
-    /// <param name="assets">What comes out of it.</param>
-    public void RemoveFromCollection(string name, IReadOnlyList<AssetId> assets) {
-        if (Collections.Remove(name, assets)) {
-            WriteCollections();
-        }
-    }
-
-    /// <summary>Forgets a whole collection, which touches no file it named.</summary>
-    /// <param name="name">What it is called.</param>
-    public void ForgetCollection(string name) {
-        if (Collections.Forget(name)) {
-            WriteCollections();
-        }
-    }
-
-    /// <summary>Writes the collections and brings the browser into line with them.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Written on every change rather than on the way out</b>, for the reason the
-    ///     preferences are: closing the panel and closing the editor are both ways the change was
-    ///     being lost, and nothing runs on the first of them.
-    /// </remarks>
-    void WriteCollections() {
-        project.Settings.Save<AssetCollections>();
-        browser?.Recollect();
     }
 
     /// <summary>Brings every open inspector's component section into line with the preferences.</summary>

@@ -3,7 +3,7 @@
 
 using Vixen.Core;
 
-namespace Vixen.Editor.App;
+namespace Vixen.Editor.Assets;
 
 /// <summary>Doc 20 § B1's collections: named sets of assets, kept with the project.</summary>
 /// <remarks>

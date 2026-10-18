@@ -237,14 +237,14 @@ public class ExpiredRefusalTests {
 
         fixture.Project.References.Build(fixture.Project.Assets);
 
-        var closure = fixture.Editor.Closure([root]);
+        var closure = fixture.Library.Closure([root]);
 
         Assert.Contains(leaf, closure);
         Assert.DoesNotContain(loose, closure);
 
-        var package = Path.Combine(fixture.DataDirectory, "exported" + EditorApplication.PackageExtension);
+        var package = Path.Combine(fixture.DataDirectory, "exported" + ContentLibrary.PackageExtension);
 
-        fixture.Editor.WritePackage(package, closure);
+        fixture.Library.ExportPackage(package, closure);
 
         using var archive = ZipFile.OpenRead(package);
         var names = archive.Entries.Select(static entry => entry.FullName).ToList();

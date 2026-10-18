@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Editor.Assets;
 using Vixen.Editor.Core;
 using Vixen.Editor.Ui;
 using Vixen.Ui;
@@ -47,6 +48,7 @@ sealed class ProjectBrowser {
     /// <summary>What the type filter offers when nothing is chosen.</summary>
     const string AnyType = "All types";
 
+    readonly IProjectSession session;
     readonly EditorProject project;
     readonly TreeView tree;
     readonly SearchBox search;
@@ -103,26 +105,19 @@ sealed class ProjectBrowser {
     /// </remarks>
     bool restoring;
 
-    /// <summary>Which collection the grid is showing, or <see langword="null" /> for a folder.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Beside <see cref="folder" /> rather than instead of it</b>, so leaving a collection
-    ///     puts the grid back where it was standing rather than at the root — and because the folder
-    ///     tree's mark has to go back somewhere when the collection is forgotten underneath it.
-    /// </remarks>
-    string? collection;
-
     /// <summary>The collections menu, built on first use — <see cref="filterMenu" />'s bargain.</summary>
     ContextMenu? collectionMenu;
 
     AssetTreeNode root;
 
-    /// <summary>Which folder the grid is in, by path, so it survives a rescan.</summary>
+    /// <summary>What the grid is showing — the folder, the collection, the search and the kind.</summary>
     /// <remarks>
-    ///     ⚠ <b>By path rather than by node.</b> A rescan rebuilds every <c>AssetTreeNode</c>, so a
-    ///     held reference is to a folder that no longer exists — and the grid would come back at the
-    ///     root every time somebody renamed anything.
+    ///     ⚠ <b>The content library's rather than this panel's</b> — doc 50 § D2. This panel is built
+    ///     again on every reopen, and a folder held in a field here was lost with it. The collection
+    ///     sits beside the folder rather than instead of it, so leaving a collection puts the grid
+    ///     back where it was standing.
     /// </remarks>
-    string folder = AssetTree.RootName;
+    readonly ShownContent shown;
 
     /// <summary>Raised when a row is activated — a double-click, or Enter on the keyboard.</summary>
     /// <remarks>
@@ -249,20 +244,27 @@ sealed class ProjectBrowser {
     IEditorRegistry Extensions { get; }
 
     /// <summary>Builds the panel's contents into a container.</summary>
-    /// <param name="project">The project being browsed.</param>
+    /// <param name="session">
+    ///     The project being browsed, through its service. ⚠ The service rather than the project
+    ///     because a rescan is the session's — doc 50 § P2d — and a view that scanned and saved the
+    ///     database itself was the second copy of a sequence the disk watcher also had.
+    /// </param>
     /// <param name="panel">Where to put the rows.</param>
+    /// <param name="shown">What the grid is showing, which outlives this panel — the library's.</param>
     /// <param name="extensions">
     ///     What has been contributed, for the pictures. A constructor argument and not a settable
     ///     property, because this constructor populates both views before it returns — a registry
     ///     assigned afterwards would arrive one panel too late, which is the shape of mistake
     ///     <c>EditorSession</c> already made once with <c>init</c>.
     /// </param>
-    public ProjectBrowser(EditorProject project, UiElement panel, IEditorRegistry extensions) {
-        ArgumentNullException.ThrowIfNull(project);
+    public ProjectBrowser(IProjectSession session, UiElement panel, ShownContent shown, IEditorRegistry extensions) {
+        ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(panel);
         ArgumentNullException.ThrowIfNull(extensions);
 
-        this.project = project;
+        this.session = session;
+        this.shown = shown;
+        project = session.Project;
         Extensions = extensions;
         root = AssetTree.Build(project.Assets.Entries);
 
@@ -315,14 +317,30 @@ sealed class ProjectBrowser {
         // the control that already has them rather than from a panel drawing its own.
         search = bar.Add<SearchBox>();
         search.Placeholder = "Search assets";
-        search.ValueChanged += (_, _) => Populate();
+
+        // ⚠ Restored before the subscription, and written through on every change: what was typed is
+        // the library's, so a reopened panel comes back narrowed the way it was left.
+        search.Value = shown.Search;
+
+        search.ValueChanged += (_, _) => {
+            shown.Search = Search;
+            Populate();
+        };
 
         // ⚠ The importer tag rather than the extension, and the list is what the project actually
         // holds rather than everything the engine can import. A dropdown offering nine formats in a
         // project with two of them is a filter that mostly narrows to nothing, and a filter that
         // narrows to nothing is one people stop using after the second time.
         kinds = bar.Add<Select>();
-        kinds.SelectionChanged += (_, _) => Populate();
+        kinds.SelectionChanged += (_, _) => {
+            // ⚠ Not while the options are being rebuilt: `Refilter` clears the list before it puts
+            // the chosen tag back, and recording the empty moment between would forget the choice.
+            if (!refiltering) {
+                shown.Kind = Kind;
+            }
+
+            Populate();
+        };
 
         // ⚠ A toggle rather than two panels, and the two views share everything behind them: the
         // search box, the type filter, the selection and the verbs. A grid with a filter of its own
@@ -457,8 +475,8 @@ sealed class ProjectBrowser {
             // ⚠ Walking into a folder leaves the collection, and it has to: the grid can only be
             // showing one thing, and a collection whose breadcrumb had walked into a folder would be
             // a view of neither.
-            collection = null;
-            folder = entered.Path;
+            shown.Collection = null;
+            shown.Folder = entered.Path;
             Populate();
         };
 
@@ -497,13 +515,13 @@ sealed class ProjectBrowser {
                     // ⚠ Standing in a folder is the way out of a collection, and there is no other
                     // one. A column with two marks in it — a folder and a collection — would be two
                     // answers to "what is the grid showing".
-                    collection = null;
-                    folder = chosen.Path;
+                    shown.Collection = null;
+                    shown.Folder = chosen.Path;
                     Populate();
                     break;
 
                 case CollectionRow { Name.Length: > 0 } picked:
-                    collection = picked.Name;
+                    shown.Collection = picked.Name;
                     Populate();
                     break;
 
@@ -571,10 +589,10 @@ sealed class ProjectBrowser {
 
     /// <summary>Which folder the grid is showing, by path.</summary>
     /// <remarks>
-    ///     ⚠ <b>A path rather than a node, for <see cref="folder" />'s reason</b>: a rescan rebuilds
+    ///     ⚠ <b>A path rather than a node, for <see cref="ShownContent.Folder" />'s reason</b>: a rescan rebuilds
     ///     every <c>AssetTreeNode</c>, so a held reference names a folder that no longer exists.
     /// </remarks>
-    public string Folder => folder;
+    public string Folder => shown.Folder;
 
     /// <summary>What source control says about a project-relative path, for the column.</summary>
     /// <remarks>
@@ -678,7 +696,7 @@ sealed class ProjectBrowser {
             }
         }
 
-        return string.IsNullOrEmpty(folder) ? AssetTree.RootName : folder;
+        return string.IsNullOrEmpty(shown.Folder) ? AssetTree.RootName : shown.Folder;
     }
 
     /// <summary>Rebuilds the folders-only tree and puts the mark back on the folder being shown.</summary>
@@ -715,7 +733,7 @@ sealed class ProjectBrowser {
             // ⚠ The collection's row wins the mark when one is being shown, because the grid is
             // showing it — a column that marked a folder while the grid showed a collection would be
             // telling somebody they are somewhere they are not.
-            if (collection is { } named) {
+            if (shown.Collection is { } named) {
                 foreach (var node in Descendants(folders.Root)) {
                     if (node.Tag is CollectionRow row && string.Equals(row.Name, named, StringComparison.Ordinal)) {
                         showing = node;
@@ -745,7 +763,7 @@ sealed class ProjectBrowser {
                     folders.Expand(node);
                 }
 
-                if (string.Equals(asset.Path, folder, StringComparison.Ordinal)) {
+                if (string.Equals(asset.Path, shown.Folder, StringComparison.Ordinal)) {
                     showing = node;
                 }
             }
@@ -813,7 +831,7 @@ sealed class ProjectBrowser {
     public Func<IReadOnlyList<SavedAssetSet>>? Collections { get; set; }
 
     /// <summary>Which collection the grid is showing, or <see langword="null" />.</summary>
-    public string? Collection => collection;
+    public string? Collection => shown.Collection;
 
     /// <summary>Which collection row is under a point, or <see langword="null" /> for none.</summary>
     /// <param name="x">Where, in document space.</param>
@@ -897,8 +915,8 @@ sealed class ProjectBrowser {
     ///     into the folder it was standing in, which is the only place there is to go.
     /// </remarks>
     public void Recollect() {
-        if (collection is { } named && Collections?.Invoke().All(one => one.Name != named) != false) {
-            collection = null;
+        if (shown.Collection is { } named && Collections?.Invoke().All(one => one.Name != named) != false) {
+            shown.Collection = null;
         }
 
         Populate();
@@ -1157,20 +1175,14 @@ sealed class ProjectBrowser {
         return false;
     }
 
-    /// <summary>Rescans the project and rebuilds the tree.</summary>
+    /// <summary>Asks the project to rescan, and rebuilds the tree from what it found.</summary>
     /// <returns>What the scan found, for whoever is reporting it.</returns>
     /// <remarks>
-    ///     ⚠ <b>The index is saved after the scan.</b> It lives in <c>Library/</c> and is what makes
-    ///     the <i>next</i> launch skip the walk; a rescan that left the old one on disk would make
-    ///     the editor slower the more often it was refreshed, which is the wrong way round.
+    ///     The scan, the index save and the reference rebuild are <see cref="IProjectSession.Rescan" />'s;
+    ///     what is the panel's is drawing the answer.
     /// </remarks>
     public ScanReport Rescan() {
-        var report = project.Assets.Scan();
-
-        project.Assets.Save();
-        // ⚠ Rebuilt with it. The reverse index is what answers "what would break if I deleted this",
-        // and one built against the previous scan answers it about assets that have moved.
-        project.References.Build(project.Assets);
+        var report = session.Rescan();
 
         Rebuild();
         return report;
@@ -1190,7 +1202,11 @@ sealed class ProjectBrowser {
 
     /// <summary>Brings the type dropdown into line with what the project actually holds.</summary>
     void Refilter() {
-        var chosen = kinds.Value;
+        // ⚠ The library's kind rather than the dropdown's, so the first build — before the dropdown
+        // has any options — restores what a previous panel left.
+        var chosen = shown.Kind.Length > 0 ? shown.Kind : kinds.Value;
+
+        refiltering = true;
 
         kinds.ClearOptions();
         kinds.AddOption(AnyType);
@@ -1207,7 +1223,11 @@ sealed class ProjectBrowser {
         // a filter somebody set — but a filter naming an importer nothing uses any more would hide
         // everything with no way to tell why.
         kinds.Value = chosen is not null && kinds.Options.Any(option => option.Value == chosen) ? chosen : AnyType;
+        refiltering = false;
     }
+
+    /// <summary>Whether <see cref="Refilter" /> is rebuilding the kind dropdown's options.</summary>
+    bool refiltering;
 
     /// <summary>The assets a drag is carrying: the whole selection when it includes the dragged row.</summary>
     /// <remarks>
@@ -1237,7 +1257,7 @@ sealed class ProjectBrowser {
 
     /// <summary>Rebuilds whichever view is showing, from the tree and the two filters.</summary>
     void Populate() {
-        var shown = AssetTree.Filter(root, search.Value);
+        var filtered = AssetTree.Filter(root, search.Value);
         var kind = kinds.Value is { } value && value != AnyType ? value : null;
 
         // ⚠ Before either view, and for both of them. The column is hidden in list mode rather than
@@ -1250,7 +1270,7 @@ sealed class ProjectBrowser {
             tree.AddClass("hidden");
             tiles.RemoveClass("hidden");
 
-            var kept = Prune(shown, kind) ?? shown;
+            var kept = Prune(filtered, kind) ?? filtered;
 
             // ⚠ Falls back to whatever survives rather than showing an empty grid. A folder can go
             // — deleted, renamed, filtered out — and a browser sitting in one that no longer exists
@@ -1259,7 +1279,7 @@ sealed class ProjectBrowser {
             // ⚠ A collection is shown *through* the same two filters rather than beside them, so the
             // search box narrows inside one. A collection with a filter of its own would be the
             // second browser the view toggle's own remark refuses.
-            tiles.Show(collection is { } named ? Gather(named, kept) : AssetTree.Find(kept, folder) ?? kept);
+            tiles.Show(shown.Collection is { } named ? Gather(named, kept) : AssetTree.Find(kept, shown.Folder) ?? kept);
             tiles.Mark(project.Selection);
 
             return;
@@ -1279,7 +1299,7 @@ sealed class ProjectBrowser {
             tree.Root.Remove(tree.Root.Children[^1]);
         }
 
-        Branch(tree.Root, shown, kind);
+        Branch(tree.Root, filtered, kind);
         tree.Refresh();
 
         // ⚠ By path rather than by node, for the reason `folder` is: a rebuild makes a new

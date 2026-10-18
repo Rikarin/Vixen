@@ -4,7 +4,7 @@ slug: editor/collections
 kind: guide
 area: Editor
 summary: A named set of assets kept with the project — why it holds ids rather than paths, and why it lives under ProjectSettings while a saved filter lives beside your keymap.
-api: [T:Vixen.Editor.App.AssetCollections, T:Vixen.Editor.App.SavedAssetSet]
+api: [T:Vixen.Editor.Assets.AssetCollections, T:Vixen.Editor.Assets.SavedAssetSet]
 tags: [editor, project-browser, assets, collections, project-settings]
 since: 0.1
 status: preview
@@ -55,7 +55,14 @@ checkout is worse than one showing fewer tiles than it lists.
 
 ## Using it
 
-From code — a plugin, a test, or the application itself:
+From a plugin, through the editor's Content Library service (doc 50 § P2c) — the same object the
+browser's drop and the Assets menu use, so the file is written and the shelf follows:
+
+```csharp no-compile="a fragment — `context` is the plugin's PluginContext"
+context.Services.Require<IContentLibrary>().AddToCollection("Level art", [meshId, textureId]);
+```
+
+Underneath it, the settings asset itself — which writes nothing until saved and tells no panel:
 
 ```csharp no-compile="a fragment — `collections` is the project's settings asset"
 var collections = project.Settings.Get<AssetCollections>();

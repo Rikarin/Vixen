@@ -4,7 +4,7 @@ slug: editor/saved-filters
 kind: guide
 area: Editor
 summary: A named search of the project, kept beside the layouts and the keymap — and why it stores the query rather than what the query matched.
-api: [T:Vixen.Editor.App.SavedAssetFilter]
+api: [T:Vixen.Editor.Assets.SavedAssetFilter]
 tags: [editor, project-browser, assets, preferences, search]
 since: 0.1
 status: preview
