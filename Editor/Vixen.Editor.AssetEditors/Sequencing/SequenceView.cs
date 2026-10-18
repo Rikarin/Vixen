@@ -321,7 +321,9 @@ public sealed class SequenceView : Control {
 
         Fields.Add("sequence-title").Text = sequence.Sequence.Name;
 
-        Fields.Add("fact-row").Add("fact-name").Text = string.Create(
+        // ⚠ A sentence goes in a `text`, which spans the column, and not in a lone `fact-name`, which
+        // is the 40 %-wide muted label half of a pair: the summary wrapped at 120 px of 300 (#1449).
+        Fields.Add("text").Text = string.Create(
             CultureInfo.InvariantCulture,
             $"{sequence.Sequence.Tracks.Count} track(s) · {sequence.Sequence.Duration:0.00}s"
         );
@@ -329,8 +331,10 @@ public sealed class SequenceView : Control {
         if (sequence.Player is null) {
             var warning = Fields.Add("fact-row");
 
+            // In the value cell, which inherits `fact-row.warning`'s colour. A `fact-name` sets its
+            // own muted colour, so this warning was drawn grey for as long as it was a name.
             warning.AddClass("warning");
-            warning.Add("fact-name").Text = "No scene attached";
+            warning.Add("fact-value").Text = "No scene attached";
         }
 
         if (selected is not { } track) {
@@ -355,7 +359,7 @@ public sealed class SequenceView : Control {
         toggle.IsChecked = track.Muted;
         toggle.CheckedChanged += (_, on) => sequence.SetMuted(track, on);
 
-        Fields.Add("fact-row").Add("fact-name").Text = string.Create(
+        Fields.Add("text").Text = string.Create(
             CultureInfo.InvariantCulture,
             $"{track.Keys.Count} key(s)"
         );
