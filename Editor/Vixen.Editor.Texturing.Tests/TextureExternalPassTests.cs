@@ -163,6 +163,62 @@ public class TextureExternalPassTests : IDisposable {
         Assert.NotNull(store.Picture(file, Decoded));
     }
 
+    /// <summary>⚠ A truncated picture read through the fill's own decode is a refusal, not a throw.</summary>
+    /// <remarks>
+    ///     <b><a href="https://github.com/Rikarin/Vixen/issues/1432">#1432</a>, through the decode
+    ///     callback production hands the pass</b> rather than one written here: the pass filtered on
+    ///     five exception types, StbImageSharp throws <c>InvalidOperationException</c> for a PNG
+    ///     whose header is cut short, and the throw left <c>TextureExternalPass.Picture</c> — out of
+    ///     a preview's fill.
+    /// </remarks>
+    [Fact]
+    public void A_truncated_png_through_the_fills_decode_is_a_refusal() {
+        var file = Path.Combine(folder, "Torn.png");
+
+        File.WriteAllBytes(file, [0x89, 0x50, 0x4E, 0x47, 1, 2]);
+
+        TextureExternalPass pass = new(new PaintCanvasStore());
+
+        var (picture, why) = TextureExternalImages.Decoded(file, pass);
+
+        Assert.Null(picture);
+        Assert.False(string.IsNullOrEmpty(why), "a refusal with no sentence says nothing to the artist.");
+    }
+
+    /// <summary>⚠ Saving over a picture while it is being decoded succeeds.</summary>
+    /// <remarks>
+    ///     <b>#1432's second half, which is #1326 one plugin along.</b> <c>File.OpenRead</c> shares
+    ///     for reading only and its handle was held across the decode, so on Windows a paint
+    ///     program's save during the decode was a sharing violation. The decoder here writes over the
+    ///     file from inside <c>Decode</c>, which is the overlap exactly. Share modes are advisory on
+    ///     Linux and macOS, so there this would pass against the old read too.
+    /// </remarks>
+    [Fact]
+    public void A_save_over_the_file_during_its_decode_is_not_refused() {
+        var file = Path.Combine(folder, "Saved.png");
+
+        File.WriteAllBytes(file, [1, 2, 3, 4]);
+
+        var picture = PictureFile.Decode(new SavingDecoder(file), file, ".png");
+
+        Assert.Equal(2, picture.Width);
+        Assert.Equal([5, 6, 7, 8], File.ReadAllBytes(file));
+    }
+
+    /// <summary>A decoder that saves over its own file mid-decode, as an artist's paint program would.</summary>
+    /// <param name="path">The file to write over.</param>
+    sealed class SavingDecoder(string path) : Vixen.Editor.Assets.Textures.IImageDecoder {
+        /// <inheritdoc />
+        public IReadOnlyList<string> Extensions { get; } = [".png"];
+
+        /// <inheritdoc />
+        public TextureData Decode(Stream stream, string extension) {
+            File.WriteAllBytes(path, [5, 6, 7, 8]);
+
+            return new(PixelFormat.Rgba8UNorm, 2, 2, levelCount: 1);
+        }
+    }
+
     /// <summary>Decodes a two-by-two picture, opening the file the way a real decoder would.</summary>
     static TextureData Decoded(string path) {
         using var stream = File.OpenRead(path);

@@ -178,21 +178,17 @@ static class TextureExternalImages {
     ///     miss costs, and the stamp is taken before it. <c>Picture</c> never holds one it cannot
     ///     invalidate, so a deleted file is decoded — and refused — every time.
     /// </remarks>
-    static (TextureData? Picture, string? Unreadable) Decoded(string file, TextureExternalPass pass) {
+    internal static (TextureData? Picture, string? Unreadable) Decoded(string file, TextureExternalPass pass) {
         var extension = Path.GetExtension(file);
 
         if (ImageDecoders.For(ImageDecoders.BuiltIn, extension) is not { } decoder) {
             return (null, $"nothing here decodes '{extension}'.");
         }
 
-        return pass.Picture(
-            file,
-            path => {
-                using var stream = File.OpenRead(path);
-
-                return decoder.Decode(stream, extension);
-            }
-        );
+        // ⚠ Through `PictureFile` (#1432), which is what makes a truncated file an
+        // `InvalidDataException` the pass refuses rather than the codec's own exception escaping it,
+        // and what keeps the file saveable on Windows while it decodes.
+        return pass.Picture(file, path => PictureFile.Decode(decoder, path, extension));
     }
 
     /// <summary>Reads one channel of a paint layer's canvas and uploads it.</summary>
