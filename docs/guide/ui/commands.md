@@ -274,6 +274,22 @@ is what makes `Ctrl+Z` undo in the scene *and* undo the typing inside a text box
 exceptions anywhere. An unmodified chord is refused while the focus path holds an `ITextInputTarget`,
 which is how a bare `F` for frame-selection stays out of what somebody is typing.
 
+### The six chords every application has, with no keymap
+
+An application that builds no `KeyMap` still gets ⌘C, ⌘X, ⌘V, ⌘A, ⌘Z and redo (⌘⇧Z, or `Ctrl+Y` on
+Windows) through the route: `UiDocument.RoutesEditingChords` sends a chord that nothing took — not
+the focused control, not a responder's `OnKey` — to `CommandRoute` as the id Edit ▸ Copy would send,
+so the chord and the menu item cannot disagree. `UiApplication` turns it on. A focused field with a
+selection still copies its own text; the same chord with nothing focused reaches the document's
+`CommandResponder`; ⌘Z outside a field reaches the `UndoCommands` the host installed on the root.
+
+⚠ **Off by default, and the editor leaves it off.** A host with a keymap of its own must be the only
+reading of a chord — the user may have unbound ⌘C or moved it to another command — so an application
+whose `KeyMap` lets the user rebind those six sets `RoutesEditingChords = false` in `Configure`. The table is
+`EditingKeymap`'s, so ⌃A on a Mac stays the start of the line; only the exact chord counts, and an
+auto-repeat is ignored. ⚠ **A refusal is final here too**: a field with no selection answers
+`edit.copy` and says no, and the window's Copy is not run in its place.
+
 ### A responder in the middle of the walk
 
 The two slots above are the chain's two **ends**. AppKit puts a view controller, a window controller

@@ -272,6 +272,13 @@ public sealed partial class UiDocument {
             args.Handled = OfferToResponders(target, args);
         }
 
+        // ⚠ The standard editing chords, turned into the command the menu sends, once everything
+        // that might have taken the key itself has declined it. Off unless the host turns it on —
+        // see `RoutesEditingChords` for why the editor must not.
+        if (!args.Handled && RoutesEditingChords) {
+            args.Handled = RouteEditingChord(args);
+        }
+
         // ⚠ After the route and only if nothing wanted it, exactly like Tab below. A menu that is
         // open has its own idea of what Alt-S means and must be able to take it; a text field that
         // handles Alt-Left for word movement must not lose it to an access key on a button called

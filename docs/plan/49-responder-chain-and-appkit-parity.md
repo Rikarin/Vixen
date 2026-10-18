@@ -434,6 +434,16 @@ Part 3 lands.
 responder whether it is an `ITextInputTarget` (`Core/Vixen.Ui.Controls/CommandDispatcher.cs:196`),
 which covers `CodeEditor` as well as `TextField`.)
 
+⚠ The move did not by itself make a key equivalent reach the chain in an application that builds no
+keymap, and that is most of them: a chord a text field declined (⌘C with no selection, ⌘Z with nothing
+to take back — both left unhandled *so that* they climb) arrived at the root and stopped, so
+`UiApplication`'s own `UndoCommands.Install` answered Edit ▸ Undo and never ⌘Z. AppKit's
+`performKeyEquivalent:` for the six Edit-menu verbs is now `UiDocument.RoutesEditingChords`
+(`Core/Vixen.Ui/EditingCommands.cs`), asked after the bubble leg and the responders' `OnKey` in
+`UiDocument.Dispatch`, resolved through `CommandRoute` so the chord and the menu item cannot
+disagree, and turned on by `UiApplication` only — the editor's keymap stays the single reading of a
+chord there (#650, #642).
+
 ---
 
 ## Part 5 — The application layer

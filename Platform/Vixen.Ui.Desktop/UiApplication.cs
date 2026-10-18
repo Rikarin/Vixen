@@ -203,6 +203,15 @@ public sealed class UiApplication : IDisposable {
         // these again on itself and outranks this one, which is the route's ordinary rule.
         UndoCommands.Install(Document.Root);
 
+        // ⚠ **And the chords that name them, because a verb only a menu can reach is the other half
+        // missing.** A text field leaves ⌘Z and ⌘C unhandled when it has nothing to do so that they
+        // climb to the application's — and with no keymap in this host nothing past the field ever
+        // turned a chord into an id: the Undo two lines up answered Edit ▸ Undo and not the ⌘Z
+        // printed beside it, the moment the focus was anywhere but a field with history. The editor
+        // leaves this off because its own keymap is the only reading of a chord it allows; an
+        // application that builds one does the same in `Configure`.
+        Document.RoutesEditingChords = true;
+
         // ⚠ After the sheets and the font, before the content. A component's `Build` reads class
         // names against the cascade as it goes and measures text against whatever face is registered,
         // so mounting first would resolve the first frame against an empty stylesheet and a
