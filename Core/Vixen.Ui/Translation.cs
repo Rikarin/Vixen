@@ -12,9 +12,10 @@ namespace Vixen.Ui;
 ///         <b>The whole of the engine's transform stage, and it is deliberately one property wide.</b>
 ///         CSS Transforms 2 §3 splits <c>transform</c> into three independent properties —
 ///         <c>translate</c>, <c>rotate</c> and <c>scale</c> — and Tailwind v4 emits them separately for
-///         the same reason: they compose in a fixed order and each is useful alone. Vixen reads the
-///         first and refuses the other two, and <i>which</i> one it reads is not an arbitrary place to
-///         stop. See the class remarks on <see cref="Of" />.
+///         the same reason: they compose in a fixed order and each is useful alone. This reader takes
+///         the first one's x and y, which are a position; <c>rotate</c>, <c>scale</c> and
+///         <c>translate</c>'s z change the box's shape or depth and are <see cref="TransformReader" />'s.
+///         (This used to say the other two were refused; they have been read for some time.)
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A translation is not layout, and this is what keeps that true.</b> Per §3 a transform
@@ -70,8 +71,11 @@ sealed class TranslationReader {
     ///     </para>
     ///     <para>
     ///         <b>One component means the second is zero</b>, per §3 — <c>translate: 8px</c> moves
-    ///         along x only. A third is <c>translate-z</c>, which this engine has no depth for and
-    ///         ignores rather than mistaking for y.
+    ///         along x only. ⚠ A third is z, and it is not a position: it is
+    ///         <see cref="TransformReader" />'s, which composes it as <c>translateZ</c> in the 4×4 the
+    ///         parent's <c>perspective</c> projects (#1473). It used to be ignored here on the ground
+    ///         that the engine "has no depth", beside a <c>transform</c> that had read
+    ///         <c>translateZ</c> since #550.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Anything unreadable moves by nothing rather than by a guess</b>, and the miss is

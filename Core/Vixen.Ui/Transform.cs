@@ -39,6 +39,12 @@ sealed partial class TransformReader {
     readonly int rotate;
     readonly int scale;
     readonly int list;
+
+    /// <summary>
+    ///     <c>translate</c>, read here for its z component only — x and y are a position and
+    ///     <see cref="TranslationReader" /> adds them to one (#1473).
+    /// </summary>
+    readonly int translate;
     readonly int origin;
 
     /// <summary>The <c>perspective</c> property, which an element establishes for its CHILDREN.</summary>
@@ -73,8 +79,14 @@ sealed partial class TransformReader {
     readonly int top;
     readonly int bottom;
 
-    /// <summary>The <c>z</c> of <c>rotate: z 90deg</c>, the one named axis this engine can draw.</summary>
+    /// <summary>The <c>z</c> of <c>rotate: z 90deg</c>, the named axis that stays in the plane.</summary>
     readonly int zAxis;
+
+    /// <summary>The <c>x</c> and <c>y</c> of <c>rotate: x 45deg</c>, the named axes out of it (#1473).</summary>
+    readonly int xAxis;
+
+    /// <inheritdoc cref="xAxis" />
+    readonly int yAxis;
     readonly NameTable values;
     readonly StyleValueParser parser;
 
@@ -110,6 +122,7 @@ sealed partial class TransformReader {
         rotate = properties.Intern("rotate");
         scale = properties.Intern("scale");
         list = properties.Intern("transform");
+        translate = properties.Intern("translate");
         origin = properties.Intern("transform-origin");
         perspective = properties.Intern("perspective");
         perspectiveOrigin = properties.Intern("perspective-origin");
@@ -123,6 +136,8 @@ sealed partial class TransformReader {
         top = keywords.Intern("top");
         bottom = keywords.Intern("bottom");
         zAxis = keywords.Intern("z");
+        xAxis = keywords.Intern("x");
+        yAxis = keywords.Intern("y");
         parser = new StyleValueParser(values, keywords);
     }
 
@@ -169,8 +184,9 @@ sealed partial class TransformReader {
         var hasRotation = element.Style.TryGet(rotate, out var rotation) && rotation != none;
         var hasScale = element.Style.TryGet(scale, out var scaling) && scaling != none;
         var hasList = element.Style.TryGet(list, out var written) && written != none;
+        var depth = TranslationDepth(element, metrics);
 
-        if (!hasRotation && !hasScale && !hasList) {
+        if (!hasRotation && !hasScale && !hasList && depth == 0f) {
             return null;
         }
 
@@ -229,13 +245,35 @@ sealed partial class TransformReader {
         }
 
         if (hasRotation) {
-            var step = UiTransform.Rotation(Degrees(parser.Parse(rotation)), about);
+            var parsed = parser.Parse(rotation);
 
-            if (spatial) {
-                composition = Matrix4x4.Multiply(composition, Lift(step));
+            // ⚠ <b>An axis out of the plane is the function it is defined as, and joins the 4×4
+            // (#1473)</b> — `rotate: x 45deg` is `rotateX(45deg)` by Transforms 2 § 3, built by the
+            // same `CellsOf` the list uses so the two spellings are one matrix to the bit. The flat
+            // branch is lifted into the spatial one only here, so a plane rotation moves no screenshot.
+            if (OutOfPlane(parsed) is { } turn) {
+                Spatialise();
+                composition = Matrix4x4.Multiply(composition, Fold(CellsOf(turn), about));
             } else {
-                composed = composed.Then(step);
+                var step = UiTransform.Rotation(Degrees(parsed), about);
+
+                if (spatial) {
+                    composition = Matrix4x4.Multiply(composition, Lift(step));
+                } else {
+                    composed = composed.Then(step);
+                }
             }
+        }
+
+        // ⚠ <b>`translate`'s z, outermost of the element's own factors, which is § 3's order — and
+        // only its z, because x and y are already in the position this matrix is folded about</b>
+        // (`UiDocument.Accumulate`). `T(x, y) · T(z)` is `T(x, y, z)`, and the rotation and scale
+        // inside it turn about an origin that moved with the box, so splitting the translation there
+        // changes nothing. Alone it is the identity on the plane until a parent's `perspective`
+        // projects it, exactly as `translateZ` is.
+        if (depth != 0f) {
+            Spatialise();
+            composition = Matrix4x4.Multiply(composition, Translation(0f, 0f, depth));
         }
 
         if (spatial) {
@@ -254,7 +292,92 @@ sealed partial class TransformReader {
         }
 
         return composed.IsIdentity ? null : composed;
+
+        // The flat composition so far, lifted into the 4×4 the spatial branch carries.
+        void Spatialise() {
+            if (!spatial) {
+                composition = Lift(composed);
+                composed = UiTransform.Identity;
+                spatial = true;
+            }
+        }
     }
+
+    /// <summary>The z component of an element's <c>translate</c>, in points, or zero.</summary>
+    /// <remarks>
+    ///     A length only: Transforms 2 § 3 does not allow a percentage along z, which has no box to be
+    ///     a percentage of, so one is refused as zero rather than resolved against anything.
+    /// </remarks>
+    float TranslationDepth(UiElement element, LengthContext metrics) {
+        if (!element.Style.TryGet(translate, out var id) || id == none) {
+            return 0f;
+        }
+
+        var value = parser.Parse(id);
+        if (value.Kind != StyleValueKind.List || value.Items.Length < 3) {
+            return 0f;
+        }
+
+        var length = metrics.ToLength(value.Items[2]);
+        return length.Unit == LayoutUnit.Point ? length.Value : 0f;
+    }
+
+    /// <summary>
+    ///     A <c>rotate</c> value whose axis leaves the plane, as the step its function spelling makes,
+    ///     or null for a plane rotation and for anything unreadable (#1473).
+    /// </summary>
+    /// <remarks>
+    ///     <c>x</c> and <c>y</c> are <c>rotateX</c> and <c>rotateY</c>; a vector with a non-zero x or y
+    ///     component is <c>rotate3d</c> of it, normalised as that function normalises. A vector along
+    ///     z, the <c>z</c> keyword, a bare angle and a zero vector all answer null and are
+    ///     <see cref="Degrees" />' to read.
+    /// </remarks>
+    TransformStep? OutOfPlane(StyleValue value) {
+        if (value.Kind != StyleValueKind.List || !AxisAndAngle(value, out var axis, out var angle)) {
+            return null;
+        }
+
+        if (axis is [{ Kind: StyleValueKind.Keyword } named]) {
+            return named.Keyword == xAxis ? new TransformStep(TransformStepKind.RotateX, 1f, 0f, 0f, angle.Number, true)
+                : named.Keyword == yAxis ? new TransformStep(TransformStepKind.RotateY, 0f, 1f, 0f, angle.Number, true)
+                : null;
+        }
+
+        if (axis is not [{ Kind: StyleValueKind.Number } x, { Kind: StyleValueKind.Number } y, { Kind: StyleValueKind.Number } z]
+            || (x.Number == 0f && y.Number == 0f)) {
+            return null;
+        }
+
+        var length = MathF.Sqrt((x.Number * x.Number) + (y.Number * y.Number) + (z.Number * z.Number));
+
+        return new TransformStep(TransformStepKind.Rotate3d, x.Number / length, y.Number / length, z.Number / length, angle.Number, true);
+    }
+
+    /// <summary>
+    ///     Splits <c>[ x | y | z | &lt;number&gt;{3} ] &amp;&amp; &lt;angle&gt;</c> into its axis and
+    ///     its angle, which may come first or last.
+    /// </summary>
+    static bool AxisAndAngle(StyleValue value, out ReadOnlySpan<StyleValue> axis, out StyleValue angle) {
+        var items = value.Items;
+
+        if (IsAngle(items[0])) {
+            angle = items[0];
+            axis = items[1..];
+            return true;
+        }
+
+        if (IsAngle(items[^1])) {
+            angle = items[^1];
+            axis = items[..^1];
+            return true;
+        }
+
+        angle = default;
+        axis = default;
+        return false;
+    }
+
+    static bool IsAngle(StyleValue part) => part.Kind == StyleValueKind.Length && part.Unit == StyleUnit.Degrees;
 
     /// <summary>Whether a composition leaves the element's plane facing away from the viewer.</summary>
     /// <remarks>
@@ -1504,13 +1627,14 @@ sealed partial class TransformReader {
     /// <summary>A <c>rotate</c> value's angle in the plane, in degrees, or zero for anything unreadable.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>An axis out of the plane is refused whole rather than having its angle picked out of
-    ///         it.</b> Transforms 2 §3 also spells <c>rotate</c> as an axis and an angle —
-    ///         <c>rotate: x 45deg</c> — which is a rotation out of the plane this engine has no depth
-    ///         for. Reading the angle and ignoring the axis would turn every <c>rotate: x 45deg</c> into
-    ///         a <i>z</i> rotation of forty-five degrees, which is not a degraded picture but a
-    ///         different one. Zero leaves the element alone, which is what an engine with no third axis
-    ///         can honestly do.
+    ///         ⚠ <b>An axis out of the plane never has its angle picked out of it here</b> — that would
+    ///         turn every <c>rotate: x 45deg</c> into a <i>z</i> rotation of forty-five degrees, which
+    ///         is not a degraded picture but a different one. Such an axis is
+    ///         <see cref="OutOfPlane" />'s, which <see cref="Of" /> asks first and composes in four
+    ///         dimensions as the function it is defined as (#1473). ⚠ This used to answer zero for it
+    ///         on the ground that the engine "has no depth" — beside a <c>transform</c> reader that had
+    ///         composed <c>rotateX</c> and <c>rotate3d</c> in 4×4 since #550, so the refusal was a
+    ///         choice nobody had made rather than a limit.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The z axis is the exception, and refusing it too drew <c>rotate: z 90deg</c> and
@@ -1531,17 +1655,7 @@ sealed partial class TransformReader {
             return 0f;
         }
 
-        var items = value.Items;
-        StyleValue angle;
-        ReadOnlySpan<StyleValue> axis;
-
-        if (IsAngle(items[0])) {
-            angle = items[0];
-            axis = items[1..];
-        } else if (IsAngle(items[^1])) {
-            angle = items[^1];
-            axis = items[..^1];
-        } else {
+        if (!AxisAndAngle(value, out var axis, out var angle)) {
             return 0f;
         }
 
@@ -1557,8 +1671,6 @@ sealed partial class TransformReader {
         }
 
         return z.Number > 0f ? angle.Number : -angle.Number;
-
-        static bool IsAngle(StyleValue part) => part.Kind == StyleValueKind.Length && part.Unit == StyleUnit.Degrees;
     }
 
     /// <summary>The two scale factors, defaulting to one.</summary>

@@ -642,11 +642,22 @@ than as a note. The desktop trigger for the same refresh is a button, a menu ite
 what `Markup/RefreshableSheet.vxml` writes, and neither trigger knows the other exists because what a
 refresh *is* belongs to `BuildContext.Load`.
 
-⚠ Both rows' remaining work is now the same sentence, and it is smaller than it was: **where the
-widget goes.** Nothing behind either of them is missing, and the shapes are written down — the filter
-recipe in [`ui/markup-panels`](../guide/ui/markup-panels.md) and the re-request in
+⚠ This paragraph used to end both rows on one remaining sentence, **where the widget goes**. Placement
+is settled too, and by the editor rather than by taste: its views put the search field and the
+refresh verb above the list and outside its scroller, and `ConsoleTests`'
+`The_search_field_is_above_the_list_and_outside_its_scroller` pins it. Nothing behind either row is
+missing, and the shapes are written down — the filter recipe in
+[`ui/markup-panels`](../guide/ui/markup-panels.md) and the re-request in
 [`ui/async-loading`](../guide/ui/async-loading.md) — which is what a "spelling" needs in a project
 whose thesis is that markup is the authoring path.
+
+⚠ **What is left is one subscriber, and it is a product decision rather than a gap.**
+`ScrollView.PulledToRefresh` is the one piece of either row that is an API, and nothing outside a
+test subscribes to it — `ScrollViewReachTests` holds that at zero, together with the zero of
+`DragToScroll =`, the only way a mouse can produce the gesture. Every view with a refresh verb is a
+desktop editor panel where the gesture cannot fire, and no touch shell in the tree hosts a list, so a
+subscriber added today would be wired to something that never runs. Which view takes it, if any, is
+[#767](https://github.com/Rikarin/Vixen/issues/767)'s open question.
 | `.draggable` / `.dropDestination` | `on:dragstart/drag/dragend` exist; **no drop target, no payload type, no `AllowDrop`** | ⚠ half |
 
 For a project whose thesis is *markup is the authoring path*, that ❌ column is the parity claim's

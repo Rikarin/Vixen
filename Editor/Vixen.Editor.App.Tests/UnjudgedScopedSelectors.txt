@@ -22,6 +22,11 @@
 #              empty document, a ledger nobody attached, a running task. Live; the ladder is short.
 #   api        A control-sheet rule for a composition the public API offers and nothing in this tree
 #              calls. Not dead: `ControlTheme`/`AdvancedTheme` style what an application builds.
+#              ⚠ Checked, not taken on trust: `ApiCompositionScopedSelectorTests` (in
+#              Core/Vixen.Ui.Controls.Advanced.Tests) builds every `api` row through the API its
+#              reason names and requires the cascade to match it — so a renamed host part or a reason
+#              naming the wrong API is red there. It credits nothing: the harness nests, so the row
+#              stays here.
 #   none       ⚠ An editor-sheet rule nothing in this tree CAN build — no path, not merely no state.
 #              `UnprovedCombinatorPairs.txt` refuses such a row and sends its reader to delete the
 #              rule; here each sits in a selector list styling a family of controls, so whether a

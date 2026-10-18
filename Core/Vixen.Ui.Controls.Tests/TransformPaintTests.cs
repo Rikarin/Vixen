@@ -409,21 +409,33 @@ public class TransformPaintTests {
         Assert.False(Inked(turned, Middle - 10, Middle));
     }
 
-    /// <summary>An axis out of the plane is still drawn unrotated, as <c>Degrees</c>' remark decides.</summary>
+    /// <summary>
+    ///     ⚠ <b>An axis out of the plane is drawn as the rotation it names</b> (#1473) — it used to be
+    ///     drawn unrotated, on the ground that the engine "has no depth".
+    /// </summary>
     /// <remarks>
-    ///     Reading the angle of <c>rotate: x 45deg</c> as a plane rotation would draw a different
-    ///     picture, not a degraded one; the bar stays exactly where it was.
+    ///     With no perspective a 60° turn about y halves the bar's width about its centre — 24 points
+    ///     becomes 12, x ∈ [24, 36] — and one about x halves its height, y ∈ [28, 32]. Each case has a
+    ///     probe the unrotated bar inks and the turned one does not, on the axis that turned, and a
+    ///     probe on the other axis that both ink: a plane rotation of 60° would fail that one.
     /// </remarks>
     [Theory]
-    [InlineData("rotate: x 90deg;")]
-    [InlineData("rotate: y 90deg;")]
-    [InlineData("rotate: 1 0 0 90deg;")]
-    [InlineData("rotate: 0 1 1 90deg;")]
-    public void A_rotation_about_an_axis_out_of_the_plane_is_drawn_unrotated(string rotate) {
+    [InlineData("rotate: y 60deg;", true)]
+    [InlineData("rotate: 0 1 0 60deg;", true)]
+    [InlineData("rotate: x 60deg;", false)]
+    [InlineData("rotate: 1 0 0 60deg;", false)]
+    public void A_rotation_about_an_axis_out_of_the_plane_foreshortens_the_bar_along_that_axis(string rotate, bool aboutY) {
         using var turned = Bar(rotate);
 
-        Assert.True(Inked(turned, Middle - 10, Middle));
-        Assert.False(Inked(turned, Middle, Middle - 10));
+        Assert.True(Inked(turned, Middle, Middle));
+
+        if (aboutY) {
+            Assert.False(Inked(turned, Middle - 10, Middle));
+            Assert.True(Inked(turned, Middle, Middle - 4));
+        } else {
+            Assert.False(Inked(turned, Middle, Middle - 4));
+            Assert.True(Inked(turned, Middle - 10, Middle));
+        }
     }
 
     /// <summary>

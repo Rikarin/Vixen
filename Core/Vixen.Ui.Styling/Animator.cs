@@ -573,10 +573,54 @@ public sealed class Animator {
     /// </remarks>
     StyleValue Computed(ComputedStyle style, int property) {
         if (style.TryGet(property, out var declared)) {
-            return parser.Parse(declared);
+            return Parse(property, declared);
         }
 
-        return initials.TryGet(property, out var initial) ? parser.Parse(initial) : StyleValue.Unknown;
+        return initials.TryGet(property, out var initial) ? Parse(property, initial) : StyleValue.Unknown;
+    }
+
+    /// <summary>Parses one property's interned value, reading a <c>box-shadow</c> shadow by shadow.</summary>
+    /// <param name="property">The property the value belongs to.</param>
+    /// <param name="value">The interned value.</param>
+    /// <returns>The parsed value.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A <c>box-shadow</c> is a comma list here, even a list of one (#1472).</b>
+    ///     <see cref="StyleValueParser" /> splits on whitespace only, so
+    ///     <c>0 0 2px rgb(255, 0, 0), 0 0 2px blue</c> came back as eight items whose fourth was the
+    ///     keyword <c>rgb(255, 0, 0),</c> — two different colours there were two different keywords
+    ///     and the whole list jumped. Each shadow is parsed on its own, between the top-level commas
+    ///     the draw side splits on, and the result is a <see cref="StyleValue.Commas" /> list of
+    ///     shadows. A single shadow is wrapped as a list of one so the two ends of a transition are
+    ///     always the same shape and <see cref="PaddedShadows" /> has one case, not three; it is
+    ///     written back as exactly the text it would have been unwrapped.
+    /// </remarks>
+    StyleValue Parse(int property, int value) {
+        if (property != boxShadowProperty) {
+            return parser.Parse(value);
+        }
+
+        var text = values.NameOf(value).AsSpan().Trim();
+        var shadows = new List<StyleValue>();
+        var depth = 0;
+        var start = 0;
+        for (var i = 0; i <= text.Length; i++) {
+            if (i < text.Length && text[i] == '(') {
+                depth++;
+            } else if (i < text.Length && text[i] == ')') {
+                depth--;
+            } else if (i == text.Length || (text[i] == ',' && depth == 0)) {
+                var shadow = parser.Parse(text[start..i]);
+                if (shadow.Kind != StyleValueKind.List) {
+                    // `none`, an unreadable value, or a lone keyword in a list: not shadows to pair.
+                    return i == text.Length && shadows.Count == 0 ? shadow : StyleValue.Unknown;
+                }
+
+                shadows.Add(shadow);
+                start = i + 1;
+            }
+        }
+
+        return StyleValue.FromCommaList([.. shadows]);
     }
 
     /// <summary>Starts or stops the element's keyframe animations.</summary>
@@ -719,12 +763,12 @@ public sealed class Animator {
 
         if (side == Synthesised.Neither) {
             if (end == NameTable.None) {
-                value = parser.Parse(start);
+                value = Parse(property, start);
                 return true;
             }
 
-            var from = parser.Parse(start);
-            var to = Travelling(property, parser.Parse(end), from);
+            var from = Parse(property, start);
+            var to = Travelling(property, Parse(property, end), from);
 
             value = StyleValue.Lerp(Travelling(property, from, to), to, t);
             return true;
@@ -737,7 +781,7 @@ public sealed class Animator {
         // ⚠ `rotate`, `translate` and `scale` used to be three more (#1410): their initial is `none`,
         // so `to { rotate: 90deg }` read 90deg a quarter of the way through, where CSS reads 22.5deg.
         // Their `none` is the identity now — see `Travelling`.
-        var stop = parser.Parse(side == Synthesised.Start ? end : start);
+        var stop = Parse(property, side == Synthesised.Start ? end : start);
         var underlying = Travelling(property, Underlying(style, property), stop);
 
         value = underlying.Kind == StyleValueKind.Unknown
@@ -776,8 +820,9 @@ public sealed class Animator {
     ///         <c>filter</c> and <c>backdrop-filter</c> take the same answer function by function —
     ///         see <see cref="FilterIdentity" /> (#1439) — and a filter list shorter than the other is
     ///         padded with the other's remaining functions at their identity, see
-    ///         <see cref="PaddedFilter" /> (#1464). <c>box-shadow</c>'s <c>none</c> is a transparent
-    ///         zero shadow, see <see cref="ShadowIdentity" /> (#1464).
+    ///         <see cref="PaddedFilter" /> (#1464). <c>box-shadow</c>'s <c>none</c> is a list of
+    ///         transparent zero shadows and a shorter shadow list is padded with them, see
+    ///         <see cref="ShadowIdentity" /> (#1464) and <see cref="PaddedShadows" /> (#1472).
     ///     </para>
     ///     <para>
     ///         Both ends <c>none</c>, or the other end unreadable, is left alone: there is nothing to
@@ -789,6 +834,10 @@ public sealed class Animator {
             && value.Kind == StyleValueKind.List
             && other.Kind == StyleValueKind.List) {
             return PaddedFilter(value, other) ?? value;
+        }
+
+        if (property == boxShadowProperty && value.Kind == StyleValueKind.List && other.Kind == StyleValueKind.List) {
+            return PaddedShadows(value, other) ?? value;
         }
 
         if (value.Kind is not (StyleValueKind.Unknown or StyleValueKind.Keyword)
@@ -818,16 +867,16 @@ public sealed class Animator {
         }
 
         if (property == boxShadowProperty) {
-            return ShadowIdentity(other) ?? value;
+            return PaddedShadows(StyleValue.FromCommaList([]), other) ?? value;
         }
 
         return value;
 
         // ⚠ Part by part, so a rotation keeps its axis — the `z` of `z 90deg`, the numbers in
         // `0 0 1 90deg` — and zeroes only the angle, and a pair of lengths becomes a pair of zeros
-        // `StyleValue.Lerp` can pair. ⚠ Keeping an axis is not drawing it: `TransformReader.Degrees`
-        // draws only the z axis, by keyword or as a vector parallel to it (#1450), so `1 0 0 45deg`
-        // animates here and is drawn unrotated at every frame, as it is at rest.
+        // `StyleValue.Lerp` can pair. Keeping the axis is what draws it: `TransformReader` reads a z
+        // axis as the plane rotation (#1450) and any other as the `rotateX`/`rotateY`/`rotate3d` it
+        // is defined as (#1473), so `1 0 0 45deg` turns about x at every frame of its way in.
         static StyleValue IdentityOf(StyleValue shape, Func<StyleValue, StyleValue> identity) {
             if (shape.Kind != StyleValueKind.List) {
                 return identity(shape);
@@ -995,6 +1044,49 @@ public sealed class Animator {
             list.Items[0].Kind == StyleValueKind.Keyword ? list : list.Items[index];
     }
 
+    /// <summary>
+    ///     A shadow list padded to the other end's length with transparent zero shadows shaped after
+    ///     the other end's remaining shadows, or null where it is not the shorter or cannot be padded.
+    /// </summary>
+    /// <param name="value">The end that may be the shorter list — empty for <c>none</c>.</param>
+    /// <param name="other">The other end, whose tail the padding is shaped after.</param>
+    /// <returns>The padded list, or null to leave <paramref name="value" /> as it is.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>CSS Backgrounds 3 § 7 for a list (#1472)</b>: two shadow lists interpolate shadow
+    ///         by shadow after the shorter is padded at its end with transparent shadows whose lengths
+    ///         are zero and whose <c>inset</c> matches the longer list's at that position — so
+    ///         <c>none</c> → two shadows is two half-faded ones at the midpoint, and a list of one →
+    ///         a list of two moves the first and fades the second in. Either end may be the shorter,
+    ///         and <c>none</c> is the shorter list of nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An <c>inset</c> on one end and not the other, at any position, is not handled
+    ///         here and does not need to be</b>: the two shadows there have different lengths or a
+    ///         keyword against a length, <see cref="StyleValue.CanInterpolate" /> refuses that pair,
+    ///         and one refused pair makes the whole list discrete — which is the specification's
+    ///         answer for the whole list, not just that shadow.
+    ///     </para>
+    /// </remarks>
+    StyleValue? PaddedShadows(StyleValue value, StyleValue other) {
+        if (!value.Commas || !other.Commas || value.Items.Length >= other.Items.Length) {
+            return null;
+        }
+
+        var padded = new StyleValue[other.Items.Length];
+        value.Items.CopyTo(padded);
+
+        for (var i = value.Items.Length; i < padded.Length; i++) {
+            if (ShadowIdentity(other.Items[i]) is not { } identity) {
+                return null;
+            }
+
+            padded[i] = identity;
+        }
+
+        return StyleValue.FromCommaList(padded);
+    }
+
     /// <summary>A single shadow's identity: the same shape, transparent, with every length zero.</summary>
     /// <param name="shadow">The shadow to shape the identity after.</param>
     /// <returns>The identity, or null where <paramref name="shadow" /> is not one shadow this can read.</returns>
@@ -1008,10 +1100,9 @@ public sealed class Animator {
     ///         <c>inset</c> on one declared end and not the other still has no midpoint.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>One shadow only.</b> A comma-separated list does not parse to a value whose items
-    ///         are shadows — the comma rides on an item, and a hex list is <c>Unknown</c> whole — so
-    ///         anything but a list of lengths, colours and those two keywords answers null and the
-    ///         <c>none</c> stays a jump rather than guessing a shape (#1472).
+    ///         One shadow: a list is padded shadow by shadow by <see cref="PaddedShadows" />, which
+    ///         calls this for each. Anything but lengths, numbers, colours and those two keywords
+    ///         answers null and the transition stays a jump rather than guessing a shape.
     ///     </para>
     /// </remarks>
     StyleValue? ShadowIdentity(StyleValue shadow) {
@@ -1050,7 +1141,7 @@ public sealed class Animator {
             return Computed(style, property);
         }
 
-        return initials.TryGet(property, out var initial) ? parser.Parse(initial) : StyleValue.Unknown;
+        return initials.TryGet(property, out var initial) ? Parse(property, initial) : StyleValue.Unknown;
     }
 
     /// <summary>The same question for a property handed on as a mix, answered as the mix's interned text.</summary>

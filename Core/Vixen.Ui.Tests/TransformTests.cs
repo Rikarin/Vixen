@@ -534,17 +534,17 @@ public class TransformTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>An unreadable <c>rotate</c> or <c>scale</c> leaves the element alone, and the
-    ///     three-axis form of <c>rotate</c> is refused whole rather than half-read.</b> CSS Transforms
-    ///     2 §3 also spells a rotation as an axis and an angle — <c>rotate: x 45deg</c> — which is out
-    ///     of the plane this engine has depth for. Picking the angle out of it and applying it about z
-    ///     would turn every one of those into a forty-five degree spin, which is not a degraded picture
-    ///     but a different one, and is the sort of thing that looks like the feature working.
+    ///     ⚠ <b>An unreadable <c>rotate</c> or <c>scale</c> leaves the element alone, and an axis
+    ///     with no direction is refused whole rather than half-read.</b> Picking the angle out of
+    ///     <c>rotate: 0 0 0 45deg</c> and applying it about z would be a forty-five degree spin nobody
+    ///     wrote. ⚠ <c>rotate: x 45deg</c> used to be a row here, refused as "out of the plane this
+    ///     engine has no depth for"; it is <c>rotateX(45deg)</c> now (#1473) — see
+    ///     <c>IndependentTransformDepthTests</c>.
     /// </summary>
     [Theory]
     [InlineData("rotate: none")]
     [InlineData("rotate: 45")]
-    [InlineData("rotate: x 45deg")]
+    [InlineData("rotate: 0 0 0 45deg")]
     [InlineData("rotate: nonsense")]
     [InlineData("scale: none")]
     [InlineData("scale: nonsense")]

@@ -37,6 +37,9 @@ public sealed partial class LayoutTree {
     /// <summary>How many times a content-sized column re-entered itself at its bounded width (#1412).</summary>
     internal long CrossSizeReentries;
 
+    /// <summary>How many times a content-sized row re-entered itself at its decided width for a cyclic percentage minimum (#1474).</summary>
+    internal long MainSizeReentries;
+
     /// <summary>Lays out <paramref name="node" /> and everything under it.</summary>
     /// <param name="node">The root of the subtree to lay out.</param>
     /// <param name="ownerWidth">The width available to it, or NaN.</param>
@@ -630,6 +633,21 @@ public sealed partial class LayoutTree {
         var availableInnerMainDim = isMainAxisRow ? availableInnerWidth : availableInnerHeight;
         var availableInnerCrossDim = isMainAxisRow ? availableInnerHeight : availableInnerWidth;
 
+        // ⚠ <b>What a row item's main-axis `min-width` and `max-width` percentages resolve against:
+        // this row's content box, and nothing while that box is still being sized from them
+        // (#1474).</b> Yoga resolved them against `mainAxisOwnerSize` — the row's OWN containing
+        // block — so `min-width: 50%` on an item of a 200-point row in a 400-point column came out
+        // 200, half of the grandparent; no fixture in either corpus distinguishes the two, and
+        // moving the basis moved none of them. ⚠ A content-sized single-line row holding a
+        // percentage minimum gets NaN instead — CSS Sizing §5.2.1's zero for the container's
+        // intrinsic size — and re-enters at its decided width after STEP 9, which is where the
+        // percentage resolves. A column's main axis is still on Yoga's basis, with the same defect
+        // (#1475).
+        var cyclicRowMinimum = isMainAxisRow && HasCyclicPercentageMinWidthItem(index, mainAxis, widthSizingMode);
+        var itemMainOwnerSize = !isMainAxisRow ? mainAxisOwnerSize
+            : cyclicRowMinimum ? float.NaN
+            : availableInnerWidth;
+
         // STEP 3: DETERMINE FLEX BASIS FOR EACH ITEM
         ComputeFlexBasisForChildren(
             index,
@@ -667,9 +685,9 @@ public sealed partial class LayoutTree {
             }
 
             results[child].ComputedAutoMinMainSize =
-                ComputeAutoMinMainSize(child, mainAxis, direction, mainAxisOwnerSize, availableInnerWidth, availableInnerHeight, currentDepth);
+                ComputeAutoMinMainSize(child, mainAxis, direction, itemMainOwnerSize, availableInnerWidth, availableInnerHeight, currentDepth);
 
-            totalMainDim += HypotheticalMainSize(child, direction, mainAxis, results[child].ComputedFlexBasis, mainAxisOwnerSize, ownerWidth)
+            totalMainDim += HypotheticalMainSize(child, direction, mainAxis, results[child].ComputedFlexBasis, itemMainOwnerSize, ownerWidth)
                 + StyleResolution.MarginForAxis(in styles[child], mainAxis, availableInnerWidth);
         }
 
@@ -702,7 +720,7 @@ public sealed partial class LayoutTree {
                 index,
                 ownerDirection,
                 ownerWidth,
-                mainAxisOwnerSize,
+                itemMainOwnerSize,
                 availableInnerWidth,
                 availableInnerMainDim,
                 startOfLine,
@@ -790,7 +808,7 @@ public sealed partial class LayoutTree {
             if ((sizeBasedOnContent || cappedByOffer)
                 && sizedFromContributions
                 && !float.IsNaN(availableInnerMainDim)
-                && AdoptDeclaredFlexBases(index, ref line, direction, mainAxis, ownerWidth, mainAxisOwnerSize)) {
+                && AdoptDeclaredFlexBases(index, ref line, direction, mainAxis, ownerWidth, itemMainOwnerSize)) {
                 sizeBasedOnContent = false;
             }
 
@@ -846,7 +864,7 @@ public sealed partial class LayoutTree {
                     direction,
                     mainAxis,
                     ownerWidth,
-                    mainAxisOwnerSize,
+                    itemMainOwnerSize,
                     availableInnerMainDim
                 );
             } else if (line.SizeConsumed < 0f) {
@@ -861,13 +879,14 @@ public sealed partial class LayoutTree {
                     crossAxis,
                     direction,
                     ownerWidth,
-                    mainAxisOwnerSize,
+                    itemMainOwnerSize,
                     availableInnerMainDim,
                     availableInnerCrossDim,
                     availableInnerWidth,
                     availableInnerHeight,
                     mainAxisOverflows,
                     sizingModeCrossDim,
+                    widthSizingMode,
                     performLayout,
                     currentDepth
                 );
@@ -1153,6 +1172,31 @@ public sealed partial class LayoutTree {
             );
 
             SetMeasuredDimension(index, FlexAxis.DimensionOf(mainAxis), scrolledMain, scrolledMain);
+        }
+
+        // ⚠ <b>The second half of §5.2.1 for a ROW's cyclic percentage minimum (#1474)</b> — the
+        // main-axis twin of the column's re-entry in STEP 6. The width just measured was decided with
+        // the items' percentage minimums withheld (see `itemMainOwnerSize`), so the row lays its items
+        // out again with that width pinned, where `min-width: 100%` is 100% of it. Skipped when this
+        // row is itself such an item being measured withheld for its parent, for the reason the
+        // column's skip gives: the parent lays it out again, and resolving here first compounds.
+        if (cyclicRowMinimum && !IsCyclicPercentageMinWidthItem(index, ownerWidth)) {
+            MainSizeReentries++;
+
+            CalculateLayoutImpl(
+                index,
+                results[index].MeasuredDimensions[(int) Dimension.Width] + marginAxisRow,
+                availableHeight,
+                ownerDirection,
+                SizingMode.StretchFit,
+                heightSizingMode,
+                ownerWidth,
+                ownerHeight,
+                performLayout,
+                currentDepth
+            );
+
+            return;
         }
 
         if (sizingModeCrossDim == SizingMode.MaxContent

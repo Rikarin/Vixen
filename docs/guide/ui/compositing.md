@@ -633,7 +633,10 @@ isolation but a change of coordinates:
 CSS Transforms 2 splits the same idea two ways: three independent properties — `translate`, `rotate`,
 `scale` — and one `transform` taking a list of functions. Both are read, and both end up in the same
 `UiTransform`. A list may hold every function Transforms 1 and 2 define, the 3D family and
-`perspective()` included — the whole set is under "`transform` itself is read" below.
+`perspective()` included — the whole set is under "`transform` itself is read" below. The independent
+properties reach the same depth: `rotate: x 45deg` is `rotateX(45deg)`, `rotate: 1 1 0 45deg` is
+`rotate3d(1, 1, 0, 45deg)` and `translate: 0 0 40px` is `translateZ(40px)`, each composed in four
+dimensions and projected by the parent's `perspective` exactly as the function would be (#1473).
 
 ⚠ **Three orderings decide the picture, and none of them is the one a reader guesses.**
 
