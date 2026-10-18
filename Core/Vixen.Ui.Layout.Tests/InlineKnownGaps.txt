@@ -587,8 +587,9 @@ blockification (§2.7)             refused as a measured no-op; `BlockificationT
 a span's own strut                ⚠ LANDED — `ParentStrut`, and the span's line-height seed in
                                   `MeasureLine`. `InlineSpanStrutTests`
 a span's own vertical-align       a flattened span is placed at the line's baseline whatever it
-                                  declares; the boxes inside it follow
+                                  declares; the boxes inside it follow (#1478)
 an empty span's inline box        an empty span is atomic and zero-size, so its line height is lost
+                                  (#1479)
 
 
 # ══ ABSENT, AND THE HONEST REASON IS "NOT YET" ══════════════════════════════════════════════════
