@@ -924,6 +924,9 @@ sealed partial class EditorApplication {
 
         Planned("play.mute-audio", EditorStrings.CommandPlayMuteAudio, EditorStrings.CategoryPlay);
 
+        // One checked line per diagnostic overlay — Play ▸ Overlays (#1263).
+        PlayOverlayCommands();
+
         // ⚠ A tick over the console's own preference rather than a second copy of it. Doc 20's rule
         // for the three navigation preferences applies here for the same reason: two writers to one
         // setting is how a menu tick and a panel's toggle come to disagree.
@@ -1166,6 +1169,9 @@ sealed partial class EditorApplication {
 
         play.AddSubmenu(EditorStrings.MenuPlayOptions)
             .Add("play.maximise", "play.mute-audio", "play.clear-console");
+
+        play.AddSubmenu(EditorStrings.MenuPlayOverlays)
+            .Add(SwitchableOverlays().Select(PlayOverlayCommand).ToArray());
 
         // ⚠ Counted from Window rather than carried on from Play, because Part C puts Window
         // between them: File, Edit, Assets, Entity, Scene, Play, Window, Build, Tools, Help. The

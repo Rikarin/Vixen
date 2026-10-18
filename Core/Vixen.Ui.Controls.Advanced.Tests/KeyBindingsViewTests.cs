@@ -59,12 +59,26 @@ public class KeyBindingsViewTests : IDisposable {
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>The tag the stylesheet names, and the three parts under it.</summary>
+    /// <summary>The tag the stylesheet names, and the three parts under it, in the shell's order.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Spelled out level by level since #459</b>, for <c>SlotProjectionTests</c>' reason: the
+    ///     panel draws through <c>ToolbarGridShell</c>, whose host element and three <c>slot</c>
+    ///     elements are written in neither file and are CSS-initial <c>row</c> unless the theme says
+    ///     otherwise. A test reaching through them would pass for a panel drawn in a strip down the
+    ///     left.
+    /// </remarks>
     [Fact]
     public void The_panel_answers_to_the_tag_its_stylesheet_names() {
         Assert.Equal("keybindings-view", view.Tag);
-        Assert.Equal("keybindings-toolbar", view.Children[0].Tag);
-        Assert.Equal("keybindings-status", view.Children[^1].Tag);
+
+        var shell = Assert.Single(view.Children);
+
+        Assert.Equal("toolbar-grid-shell", shell.Tag);
+        Assert.Equal(["slot", "slot", "slot"], shell.Children.Select(child => child.Tag));
+
+        Assert.Equal("keybindings-toolbar", Assert.Single(shell.Children[0].Children).Tag);
+        Assert.IsType<DataGrid>(Assert.Single(shell.Children[1].Children));
+        Assert.Equal("keybindings-status", Assert.Single(shell.Children[2].Children).Tag);
     }
 
     /// <summary>With nothing chosen the strip is greyed and the line says to choose something.</summary>

@@ -240,176 +240,188 @@ public sealed class KeyBindingsViewDumpTests {
     }
 
     // ── The reference dumps, taken from the panel while it was the editor's ──────
+    //
+    // ⚠ Re-recorded once, for #459, and for one reason only: the panel now draws through
+    // `ToolbarGridShell`, which puts `toolbar-grid-shell` and a `slot` per hole between
+    // `keybindings-view` and its three pieces. Before the constants moved, all five states were
+    // recorded on both sides and compared: every capture pixel-identical, and each tree and flags
+    // dump identical once the wrapper lines are removed and their offsets added back into their
+    // children's (the dump's offsets are parent-relative). The comparison was itself shown to see a
+    // difference — dropping the middle slot's `flex-grow` rule changes the pixels and loses the grid.
 
     const string OpenedTree = """
         <keybindings-view .size-md .variant-default> 3,3 810×359
-          <keybindings-toolbar> 0,0 810×41
-            <search-box .empty .size-md .variant-default> 6,5 192×30
-              <icon .size-md .variant-default> 10,8 14×14
-              <field-placeholder> 29,3 138×22 "Filter commands…"
-              <field-text> 30,5 0×20
-              <icon-button .size-md .variant-subtle> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <label> 0,0 0×0 "Clear"
-            <select .size-sm .variant-default> 202,4 110×32
-              <select-field> 10,5 72×22 "Vixen"
-              <icon .size-md .variant-default> 88,10 12×12
-            <button .size-sm .variant-subtle> 316,4 108×28
-              <label> 10,4 88×20 "Press a Key…"
-            <button .size-sm .variant-subtle> 428,4 70×28
-              <label> 10,4 50×20 "Unbind"
-            <button .size-sm .variant-subtle> 502,4 58×28
-              <label> 10,4 38×20 "Reset"
-            <button .size-sm .variant-subtle> 564,4 78×28
-              <label> 10,4 58×20 "Reset All"
-            <button .size-sm .variant-subtle> 646,4 78×28
-              <label> 10,4 58×20 "Import…"
-            <button .size-sm .variant-subtle> 728,4 76×28
-              <label> 10,4 56×20 "Export…"
-          <data-grid .size-md .variant-default> 0,41 810×290
-            <scroll-view .size-md .variant-default> 0,0 810×290
-              <scroll-content> 0,0 810×314
-                <data-header> 0,0 810×26
-                  <data-header-cell .size-md .unsorted .variant-default> 0,0 240×25
-                    <data-text> 8,1 211×22 "Command"
-                    <icon .size-md .variant-default> 223,8 9×9
-                    <data-resizer> 234,0 6×25
-                  <data-header-cell .size-md .unsorted .variant-default> 240,0 120×25
-                    <data-text> 8,1 91×22 "Category"
-                    <icon .size-md .variant-default> 103,8 9×9
-                    <data-resizer> 114,0 6×25
-                  <data-header-cell .size-md .unsorted .variant-default> 360,0 150×25
-                    <data-text> 8,1 121×22 "Shortcut"
-                    <icon .size-md .variant-default> 133,8 9×9
-                    <data-resizer> 144,0 6×25
-                  <data-header-cell .size-md .unsorted .variant-default> 510,0 90×25
-                    <data-text> 8,1 61×22 "Source"
-                    <icon .size-md .variant-default> 73,8 9×9
-                    <data-resizer> 84,0 6×25
-                <data-row .size-md .variant-default> 0,26 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Search Everywhere…"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "Edit"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+Shift+F"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,50 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Next Mode"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "Mode"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Tab"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,74 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Close Panel"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+W"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,98 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Float Panel"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,122 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Keys"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,146 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Next Tab"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+Tab"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,170 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Command Palette…"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+K"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,194 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Keyboard Shortcuts"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "Panel"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,218 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Message Log"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "Panel"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,242 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Previous Tab"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+Shift+Tab"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,266 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Reset Layout"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,290 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Toggle Dark Theme"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+Alt+D"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-              <scrollbar .size-md .variant-default .vertical> 800,0 10×290
-              <scrollbar .horizontal .size-md .variant-default> 0,280 810×10
-          <keybindings-status> 0,331 810×28
-            <text> 9,5 204×19 "Choose a command to rebind it."
+          <toolbar-grid-shell> 0,0 810×359
+            <slot> 0,0 810×41
+              <keybindings-toolbar> 0,0 810×41
+                <search-box .empty .size-md .variant-default> 6,5 192×30
+                  <icon .size-md .variant-default> 10,8 14×14
+                  <field-placeholder> 29,3 138×22 "Filter commands…"
+                  <field-text> 30,5 0×20
+                  <icon-button .size-md .variant-subtle> 0,0 0×0
+                    <icon .size-md .variant-default> 0,0 0×0
+                    <label> 0,0 0×0 "Clear"
+                <select .size-sm .variant-default> 202,4 110×32
+                  <select-field> 10,5 72×22 "Vixen"
+                  <icon .size-md .variant-default> 88,10 12×12
+                <button .size-sm .variant-subtle> 316,4 108×28
+                  <label> 10,4 88×20 "Press a Key…"
+                <button .size-sm .variant-subtle> 428,4 70×28
+                  <label> 10,4 50×20 "Unbind"
+                <button .size-sm .variant-subtle> 502,4 58×28
+                  <label> 10,4 38×20 "Reset"
+                <button .size-sm .variant-subtle> 564,4 78×28
+                  <label> 10,4 58×20 "Reset All"
+                <button .size-sm .variant-subtle> 646,4 78×28
+                  <label> 10,4 58×20 "Import…"
+                <button .size-sm .variant-subtle> 728,4 76×28
+                  <label> 10,4 56×20 "Export…"
+            <slot> 0,41 810×290
+              <data-grid .size-md .variant-default> 0,0 810×290
+                <scroll-view .size-md .variant-default> 0,0 810×290
+                  <scroll-content> 0,0 810×314
+                    <data-header> 0,0 810×26
+                      <data-header-cell .size-md .unsorted .variant-default> 0,0 240×25
+                        <data-text> 8,1 211×22 "Command"
+                        <icon .size-md .variant-default> 223,8 9×9
+                        <data-resizer> 234,0 6×25
+                      <data-header-cell .size-md .unsorted .variant-default> 240,0 120×25
+                        <data-text> 8,1 91×22 "Category"
+                        <icon .size-md .variant-default> 103,8 9×9
+                        <data-resizer> 114,0 6×25
+                      <data-header-cell .size-md .unsorted .variant-default> 360,0 150×25
+                        <data-text> 8,1 121×22 "Shortcut"
+                        <icon .size-md .variant-default> 133,8 9×9
+                        <data-resizer> 144,0 6×25
+                      <data-header-cell .size-md .unsorted .variant-default> 510,0 90×25
+                        <data-text> 8,1 61×22 "Source"
+                        <icon .size-md .variant-default> 73,8 9×9
+                        <data-resizer> 84,0 6×25
+                    <data-row .size-md .variant-default> 0,26 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Search Everywhere…"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "Edit"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+Shift+F"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,50 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Next Mode"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "Mode"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Tab"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,74 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Close Panel"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+W"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,98 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Float Panel"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,122 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Keys"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,146 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Next Tab"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+Tab"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,170 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Command Palette…"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+K"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,194 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Keyboard Shortcuts"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "Panel"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,218 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Message Log"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "Panel"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,242 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Previous Tab"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+Shift+Tab"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,266 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Reset Layout"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,290 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Toggle Dark Theme"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+Alt+D"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                  <scrollbar .size-md .variant-default .vertical> 800,0 10×290
+                  <scrollbar .horizontal .size-md .variant-default> 0,280 810×10
+            <slot> 0,331 810×28
+              <keybindings-status> 0,0 810×28
+                <text> 9,5 204×19 "Choose a command to rebind it."
         """;
 
     const string OpenedFlags = """
@@ -480,177 +492,182 @@ public sealed class KeyBindingsViewDumpTests {
 
     const string ChosenTree = """
         <keybindings-view .size-md .variant-default> 3,3 810×359
-          <keybindings-toolbar> 0,0 810×41
-            <search-box .empty .size-md .variant-default> 6,5 192×30
-              <icon .size-md .variant-default> 10,8 14×14
-              <field-placeholder> 29,3 138×22 "Filter commands…"
-              <field-text> 30,5 0×20
-              <icon-button .size-md .variant-subtle> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <label> 0,0 0×0 "Clear"
-            <select .size-sm .variant-default> 202,4 110×32
-              <select-field> 10,5 72×22 "Vixen"
-              <icon .size-md .variant-default> 88,10 12×12
-            <button .size-sm .variant-subtle> 316,4 108×28
-              <label> 10,4 88×20 "Press a Key…"
-            <button .size-sm .variant-subtle> 428,4 70×28
-              <label> 10,4 50×20 "Unbind"
-            <button .size-sm .variant-subtle> 502,4 58×28
-              <label> 10,4 38×20 "Reset"
-            <button .size-sm .variant-subtle> 564,4 78×28
-              <label> 10,4 58×20 "Reset All"
-            <button .size-sm .variant-subtle> 646,4 78×28
-              <label> 10,4 58×20 "Import…"
-            <button .size-sm .variant-subtle> 728,4 76×28
-              <label> 10,4 56×20 "Export…"
-          <data-grid .size-md .variant-default> 0,41 810×290
-            <scroll-view .size-md .variant-default> 0,0 810×290
-              <scroll-content> 0,0 810×314
-                <data-header> 0,0 810×26
-                  <data-header-cell .size-md .unsorted .variant-default> 0,0 240×25
-                    <data-text> 8,1 211×22 "Command"
-                    <icon .size-md .variant-default> 223,8 9×9
-                    <data-resizer> 234,0 6×25
-                  <data-header-cell .size-md .unsorted .variant-default> 240,0 120×25
-                    <data-text> 8,1 91×22 "Category"
-                    <icon .size-md .variant-default> 103,8 9×9
-                    <data-resizer> 114,0 6×25
-                  <data-header-cell .size-md .unsorted .variant-default> 360,0 150×25
-                    <data-text> 8,1 121×22 "Shortcut"
-                    <icon .size-md .variant-default> 133,8 9×9
-                    <data-resizer> 144,0 6×25
-                  <data-header-cell .size-md .unsorted .variant-default> 510,0 90×25
-                    <data-text> 8,1 61×22 "Source"
-                    <icon .size-md .variant-default> 73,8 9×9
-                    <data-resizer> 84,0 6×25
-                <data-row .size-md .variant-default> 0,26 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Search Everywhere…"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "Edit"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+Shift+F"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,50 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Next Mode"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "Mode"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Tab"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,74 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Close Panel"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+W"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,98 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Float Panel"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,122 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Keys"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,146 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Next Tab"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+Tab"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,170 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Command Palette…"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+K"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,194 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Keyboard Shortcuts"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "Panel"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,218 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Message Log"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "Panel"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,242 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Previous Tab"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+Shift+Tab"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,266 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Reset Layout"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,290 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Toggle Dark Theme"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+Alt+D"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-              <scrollbar .size-md .variant-default .vertical> 800,0 10×290
-              <scrollbar .horizontal .size-md .variant-default> 0,280 810×10
-          <keybindings-status> 0,331 810×28
-            <text> 9,5 228×19 "Press a Key, or double-click the row."
+          <toolbar-grid-shell> 0,0 810×359
+            <slot> 0,0 810×41
+              <keybindings-toolbar> 0,0 810×41
+                <search-box .empty .size-md .variant-default> 6,5 192×30
+                  <icon .size-md .variant-default> 10,8 14×14
+                  <field-placeholder> 29,3 138×22 "Filter commands…"
+                  <field-text> 30,5 0×20
+                  <icon-button .size-md .variant-subtle> 0,0 0×0
+                    <icon .size-md .variant-default> 0,0 0×0
+                    <label> 0,0 0×0 "Clear"
+                <select .size-sm .variant-default> 202,4 110×32
+                  <select-field> 10,5 72×22 "Vixen"
+                  <icon .size-md .variant-default> 88,10 12×12
+                <button .size-sm .variant-subtle> 316,4 108×28
+                  <label> 10,4 88×20 "Press a Key…"
+                <button .size-sm .variant-subtle> 428,4 70×28
+                  <label> 10,4 50×20 "Unbind"
+                <button .size-sm .variant-subtle> 502,4 58×28
+                  <label> 10,4 38×20 "Reset"
+                <button .size-sm .variant-subtle> 564,4 78×28
+                  <label> 10,4 58×20 "Reset All"
+                <button .size-sm .variant-subtle> 646,4 78×28
+                  <label> 10,4 58×20 "Import…"
+                <button .size-sm .variant-subtle> 728,4 76×28
+                  <label> 10,4 56×20 "Export…"
+            <slot> 0,41 810×290
+              <data-grid .size-md .variant-default> 0,0 810×290
+                <scroll-view .size-md .variant-default> 0,0 810×290
+                  <scroll-content> 0,0 810×314
+                    <data-header> 0,0 810×26
+                      <data-header-cell .size-md .unsorted .variant-default> 0,0 240×25
+                        <data-text> 8,1 211×22 "Command"
+                        <icon .size-md .variant-default> 223,8 9×9
+                        <data-resizer> 234,0 6×25
+                      <data-header-cell .size-md .unsorted .variant-default> 240,0 120×25
+                        <data-text> 8,1 91×22 "Category"
+                        <icon .size-md .variant-default> 103,8 9×9
+                        <data-resizer> 114,0 6×25
+                      <data-header-cell .size-md .unsorted .variant-default> 360,0 150×25
+                        <data-text> 8,1 121×22 "Shortcut"
+                        <icon .size-md .variant-default> 133,8 9×9
+                        <data-resizer> 144,0 6×25
+                      <data-header-cell .size-md .unsorted .variant-default> 510,0 90×25
+                        <data-text> 8,1 61×22 "Source"
+                        <icon .size-md .variant-default> 73,8 9×9
+                        <data-resizer> 84,0 6×25
+                    <data-row .size-md .variant-default> 0,26 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Search Everywhere…"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "Edit"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+Shift+F"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,50 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Next Mode"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "Mode"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Tab"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,74 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Close Panel"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+W"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,98 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Float Panel"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,122 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Keys"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,146 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Next Tab"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+Tab"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,170 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Command Palette…"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+K"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,194 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Keyboard Shortcuts"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "Panel"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,218 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Message Log"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "Panel"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,242 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Previous Tab"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+Shift+Tab"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,266 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Reset Layout"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,290 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Toggle Dark Theme"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+Alt+D"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                  <scrollbar .size-md .variant-default .vertical> 800,0 10×290
+                  <scrollbar .horizontal .size-md .variant-default> 0,280 810×10
+            <slot> 0,331 810×28
+              <keybindings-status> 0,0 810×28
+                <text> 9,5 228×19 "Press a Key, or double-click the row."
         """;
 
     const string ChosenFlags = """
         <keybindings-view .size-md .variant-default> State=Hover, FocusWithin
+        <toolbar-grid-shell> State=Hover, FocusWithin
         <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter commands…"
         <icon-button .size-md .variant-subtle> Label="Clear"
         <select .size-sm .variant-default> State=Valid Value="Vixen"
@@ -660,6 +677,7 @@ public sealed class KeyBindingsViewDumpTests {
         <button .size-sm .variant-subtle> Label="Reset All"
         <button .size-sm .variant-subtle> Label="Import…"
         <button .size-sm .variant-subtle> Label="Export…"
+        <slot> State=Hover, FocusWithin
         <data-grid .size-md .variant-default> State=Hover, Focus, FocusWithin
         <scroll-view .size-md .variant-default> State=Hover
         <scroll-content> State=Hover
@@ -723,177 +741,183 @@ public sealed class KeyBindingsViewDumpTests {
 
     const string CapturingTree = """
         <keybindings-view .size-md .variant-default> 3,3 810×359
-          <keybindings-toolbar> 0,0 810×41
-            <search-box .empty .size-md .variant-default> 6,5 218×30
-              <icon .size-md .variant-default> 10,8 14×14
-              <field-placeholder> 29,3 138×22 "Filter commands…"
-              <field-text> 30,5 0×20
-              <icon-button .size-md .variant-subtle> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <label> 0,0 0×0 "Clear"
-            <select .size-sm .variant-default> 228,4 110×32
-              <select-field> 10,5 72×22 "Vixen"
-              <icon .size-md .variant-default> 88,10 12×12
-            <button .size-sm .variant-subtle> 342,4 82×28
-              <label> 10,4 62×20 "Waiting…"
-            <button .size-sm .variant-subtle> 428,4 70×28
-              <label> 10,4 50×20 "Unbind"
-            <button .size-sm .variant-subtle> 502,4 58×28
-              <label> 10,4 38×20 "Reset"
-            <button .size-sm .variant-subtle> 564,4 78×28
-              <label> 10,4 58×20 "Reset All"
-            <button .size-sm .variant-subtle> 646,4 78×28
-              <label> 10,4 58×20 "Import…"
-            <button .size-sm .variant-subtle> 728,4 76×28
-              <label> 10,4 56×20 "Export…"
-          <data-grid .size-md .variant-default> 0,41 810×290
-            <scroll-view .size-md .variant-default> 0,0 810×290
-              <scroll-content> 0,0 810×314
-                <data-header> 0,0 810×26
-                  <data-header-cell .size-md .unsorted .variant-default> 0,0 240×25
-                    <data-text> 8,1 211×22 "Command"
-                    <icon .size-md .variant-default> 223,8 9×9
-                    <data-resizer> 234,0 6×25
-                  <data-header-cell .size-md .unsorted .variant-default> 240,0 120×25
-                    <data-text> 8,1 91×22 "Category"
-                    <icon .size-md .variant-default> 103,8 9×9
-                    <data-resizer> 114,0 6×25
-                  <data-header-cell .size-md .unsorted .variant-default> 360,0 150×25
-                    <data-text> 8,1 121×22 "Shortcut"
-                    <icon .size-md .variant-default> 133,8 9×9
-                    <data-resizer> 144,0 6×25
-                  <data-header-cell .size-md .unsorted .variant-default> 510,0 90×25
-                    <data-text> 8,1 61×22 "Source"
-                    <icon .size-md .variant-default> 73,8 9×9
-                    <data-resizer> 84,0 6×25
-                <data-row .size-md .variant-default> 0,26 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Search Everywhere…"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "Edit"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+Shift+F"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,50 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Next Mode"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "Mode"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Tab"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,74 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Close Panel"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+W"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,98 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Float Panel"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,122 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Keys"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,146 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Next Tab"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+Tab"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,170 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Command Palette…"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+K"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,194 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Keyboard Shortcuts"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "Panel"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,218 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Message Log"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "Panel"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,242 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Previous Tab"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+Shift+Tab"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,266 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Reset Layout"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,290 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Toggle Dark Theme"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+Alt+D"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-              <scrollbar .size-md .variant-default .vertical> 800,0 10×290
-              <scrollbar .horizontal .size-md .variant-default> 0,280 810×10
-          <keybindings-status> 0,331 810×28
-            <text> 9,5 282×19 "Press the shortcut you want. Escape cancels."
+          <toolbar-grid-shell> 0,0 810×359
+            <slot> 0,0 810×41
+              <keybindings-toolbar> 0,0 810×41
+                <search-box .empty .size-md .variant-default> 6,5 218×30
+                  <icon .size-md .variant-default> 10,8 14×14
+                  <field-placeholder> 29,3 138×22 "Filter commands…"
+                  <field-text> 30,5 0×20
+                  <icon-button .size-md .variant-subtle> 0,0 0×0
+                    <icon .size-md .variant-default> 0,0 0×0
+                    <label> 0,0 0×0 "Clear"
+                <select .size-sm .variant-default> 228,4 110×32
+                  <select-field> 10,5 72×22 "Vixen"
+                  <icon .size-md .variant-default> 88,10 12×12
+                <button .size-sm .variant-subtle> 342,4 82×28
+                  <label> 10,4 62×20 "Waiting…"
+                <button .size-sm .variant-subtle> 428,4 70×28
+                  <label> 10,4 50×20 "Unbind"
+                <button .size-sm .variant-subtle> 502,4 58×28
+                  <label> 10,4 38×20 "Reset"
+                <button .size-sm .variant-subtle> 564,4 78×28
+                  <label> 10,4 58×20 "Reset All"
+                <button .size-sm .variant-subtle> 646,4 78×28
+                  <label> 10,4 58×20 "Import…"
+                <button .size-sm .variant-subtle> 728,4 76×28
+                  <label> 10,4 56×20 "Export…"
+            <slot> 0,41 810×290
+              <data-grid .size-md .variant-default> 0,0 810×290
+                <scroll-view .size-md .variant-default> 0,0 810×290
+                  <scroll-content> 0,0 810×314
+                    <data-header> 0,0 810×26
+                      <data-header-cell .size-md .unsorted .variant-default> 0,0 240×25
+                        <data-text> 8,1 211×22 "Command"
+                        <icon .size-md .variant-default> 223,8 9×9
+                        <data-resizer> 234,0 6×25
+                      <data-header-cell .size-md .unsorted .variant-default> 240,0 120×25
+                        <data-text> 8,1 91×22 "Category"
+                        <icon .size-md .variant-default> 103,8 9×9
+                        <data-resizer> 114,0 6×25
+                      <data-header-cell .size-md .unsorted .variant-default> 360,0 150×25
+                        <data-text> 8,1 121×22 "Shortcut"
+                        <icon .size-md .variant-default> 133,8 9×9
+                        <data-resizer> 144,0 6×25
+                      <data-header-cell .size-md .unsorted .variant-default> 510,0 90×25
+                        <data-text> 8,1 61×22 "Source"
+                        <icon .size-md .variant-default> 73,8 9×9
+                        <data-resizer> 84,0 6×25
+                    <data-row .size-md .variant-default> 0,26 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Search Everywhere…"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "Edit"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+Shift+F"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,50 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Next Mode"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "Mode"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Tab"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,74 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Close Panel"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+W"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,98 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Float Panel"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,122 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Keys"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,146 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Next Tab"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+Tab"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,170 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Command Palette…"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+K"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,194 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Keyboard Shortcuts"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "Panel"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,218 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Message Log"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "Panel"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,242 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Previous Tab"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+Shift+Tab"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,266 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Reset Layout"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,290 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Toggle Dark Theme"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+Alt+D"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                  <scrollbar .size-md .variant-default .vertical> 800,0 10×290
+                  <scrollbar .horizontal .size-md .variant-default> 0,280 810×10
+            <slot> 0,331 810×28
+              <keybindings-status> 0,0 810×28
+                <text> 9,5 282×19 "Press the shortcut you want. Escape cancels."
         """;
 
     const string CapturingFlags = """
         <keybindings-view .size-md .variant-default> State=Hover, Focus, FocusWithin
+        <toolbar-grid-shell> State=Hover
+        <slot> State=Hover
         <keybindings-toolbar> State=Hover
         <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter commands…"
         <icon-button .size-md .variant-subtle> Label="Clear"
@@ -964,177 +988,182 @@ public sealed class KeyBindingsViewDumpTests {
 
     const string ConflictTree = """
         <keybindings-view .size-md .variant-default> 3,3 810×359
-          <keybindings-toolbar> 0,0 810×41
-            <search-box .empty .size-md .variant-default> 6,5 192×30
-              <icon .size-md .variant-default> 10,8 14×14
-              <field-placeholder> 29,3 138×22 "Filter commands…"
-              <field-text> 30,5 0×20
-              <icon-button .size-md .variant-subtle> 0,0 0×0
-                <icon .size-md .variant-default> 0,0 0×0
-                <label> 0,0 0×0 "Clear"
-            <select .size-sm .variant-default> 202,4 110×32
-              <select-field> 10,5 72×22 "Vixen"
-              <icon .size-md .variant-default> 88,10 12×12
-            <button .size-sm .variant-subtle> 316,4 108×28
-              <label> 10,4 88×20 "Press a Key…"
-            <button .size-sm .variant-subtle> 428,4 70×28
-              <label> 10,4 50×20 "Unbind"
-            <button .size-sm .variant-subtle> 502,4 58×28
-              <label> 10,4 38×20 "Reset"
-            <button .size-sm .variant-subtle> 564,4 78×28
-              <label> 10,4 58×20 "Reset All"
-            <button .size-sm .variant-subtle> 646,4 78×28
-              <label> 10,4 58×20 "Import…"
-            <button .size-sm .variant-subtle> 728,4 76×28
-              <label> 10,4 56×20 "Export…"
-          <data-grid .size-md .variant-default> 0,41 810×290
-            <scroll-view .size-md .variant-default> 0,0 810×290
-              <scroll-content> 0,0 810×314
-                <data-header> 0,0 810×26
-                  <data-header-cell .size-md .unsorted .variant-default> 0,0 240×25
-                    <data-text> 8,1 211×22 "Command"
-                    <icon .size-md .variant-default> 223,8 9×9
-                    <data-resizer> 234,0 6×25
-                  <data-header-cell .size-md .unsorted .variant-default> 240,0 120×25
-                    <data-text> 8,1 91×22 "Category"
-                    <icon .size-md .variant-default> 103,8 9×9
-                    <data-resizer> 114,0 6×25
-                  <data-header-cell .size-md .unsorted .variant-default> 360,0 150×25
-                    <data-text> 8,1 121×22 "Shortcut"
-                    <icon .size-md .variant-default> 133,8 9×9
-                    <data-resizer> 144,0 6×25
-                  <data-header-cell .size-md .unsorted .variant-default> 510,0 90×25
-                    <data-text> 8,1 61×22 "Source"
-                    <icon .size-md .variant-default> 73,8 9×9
-                    <data-resizer> 84,0 6×25
-                <data-row .size-md .variant-default> 0,26 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Search Everywhere…"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "Edit"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+Shift+F"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,50 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Next Mode"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "Mode"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Tab"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,74 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Close Panel"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+W"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,98 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Float Panel"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,122 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Keys"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,146 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Next Tab"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+Tab"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,170 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Command Palette…"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+K"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,194 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Keyboard Shortcuts"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "Panel"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,218 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Message Log"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "Panel"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,242 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Previous Tab"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+Shift+Tab"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,266 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Reset Layout"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,290 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Toggle Dark Theme"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+Alt+D"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-              <scrollbar .size-md .variant-default .vertical> 800,0 10×290
-              <scrollbar .horizontal .size-md .variant-default> 0,280 810×10
-          <keybindings-status .conflict> 0,331 810×28
-            <text> 9,5 426×19 "Ctrl+Shift+F is already Search Everywhere…. Press it again to take it."
+          <toolbar-grid-shell> 0,0 810×359
+            <slot> 0,0 810×41
+              <keybindings-toolbar> 0,0 810×41
+                <search-box .empty .size-md .variant-default> 6,5 192×30
+                  <icon .size-md .variant-default> 10,8 14×14
+                  <field-placeholder> 29,3 138×22 "Filter commands…"
+                  <field-text> 30,5 0×20
+                  <icon-button .size-md .variant-subtle> 0,0 0×0
+                    <icon .size-md .variant-default> 0,0 0×0
+                    <label> 0,0 0×0 "Clear"
+                <select .size-sm .variant-default> 202,4 110×32
+                  <select-field> 10,5 72×22 "Vixen"
+                  <icon .size-md .variant-default> 88,10 12×12
+                <button .size-sm .variant-subtle> 316,4 108×28
+                  <label> 10,4 88×20 "Press a Key…"
+                <button .size-sm .variant-subtle> 428,4 70×28
+                  <label> 10,4 50×20 "Unbind"
+                <button .size-sm .variant-subtle> 502,4 58×28
+                  <label> 10,4 38×20 "Reset"
+                <button .size-sm .variant-subtle> 564,4 78×28
+                  <label> 10,4 58×20 "Reset All"
+                <button .size-sm .variant-subtle> 646,4 78×28
+                  <label> 10,4 58×20 "Import…"
+                <button .size-sm .variant-subtle> 728,4 76×28
+                  <label> 10,4 56×20 "Export…"
+            <slot> 0,41 810×290
+              <data-grid .size-md .variant-default> 0,0 810×290
+                <scroll-view .size-md .variant-default> 0,0 810×290
+                  <scroll-content> 0,0 810×314
+                    <data-header> 0,0 810×26
+                      <data-header-cell .size-md .unsorted .variant-default> 0,0 240×25
+                        <data-text> 8,1 211×22 "Command"
+                        <icon .size-md .variant-default> 223,8 9×9
+                        <data-resizer> 234,0 6×25
+                      <data-header-cell .size-md .unsorted .variant-default> 240,0 120×25
+                        <data-text> 8,1 91×22 "Category"
+                        <icon .size-md .variant-default> 103,8 9×9
+                        <data-resizer> 114,0 6×25
+                      <data-header-cell .size-md .unsorted .variant-default> 360,0 150×25
+                        <data-text> 8,1 121×22 "Shortcut"
+                        <icon .size-md .variant-default> 133,8 9×9
+                        <data-resizer> 144,0 6×25
+                      <data-header-cell .size-md .unsorted .variant-default> 510,0 90×25
+                        <data-text> 8,1 61×22 "Source"
+                        <icon .size-md .variant-default> 73,8 9×9
+                        <data-resizer> 84,0 6×25
+                    <data-row .size-md .variant-default> 0,26 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Search Everywhere…"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "Edit"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+Shift+F"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,50 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Next Mode"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "Mode"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Tab"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,74 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Close Panel"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+W"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,98 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Float Panel"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,122 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Keys"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,146 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Next Tab"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+Tab"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,170 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Command Palette…"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+K"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,194 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Keyboard Shortcuts"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "Panel"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,218 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Message Log"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "Panel"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,242 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Previous Tab"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+Shift+Tab"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,266 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Reset Layout"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,290 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Toggle Dark Theme"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+Alt+D"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                  <scrollbar .size-md .variant-default .vertical> 800,0 10×290
+                  <scrollbar .horizontal .size-md .variant-default> 0,280 810×10
+            <slot> 0,331 810×28
+              <keybindings-status .conflict> 0,0 810×28
+                <text> 9,5 426×19 "Ctrl+Shift+F is already Search Everywhere…. Press it again to take it."
         """;
 
     const string ConflictFlags = """
         <keybindings-view .size-md .variant-default> State=Hover, FocusWithin
+        <toolbar-grid-shell> State=Hover, FocusWithin
         <search-box .empty .size-md .variant-default> State=PlaceholderShown, Valid Placeholder="Filter commands…"
         <icon-button .size-md .variant-subtle> Label="Clear"
         <select .size-sm .variant-default> State=Valid Value="Vixen"
@@ -1144,6 +1173,7 @@ public sealed class KeyBindingsViewDumpTests {
         <button .size-sm .variant-subtle> Label="Reset All"
         <button .size-sm .variant-subtle> Label="Import…"
         <button .size-sm .variant-subtle> Label="Export…"
+        <slot> State=Hover, FocusWithin
         <data-grid .size-md .variant-default> State=Hover, Focus, FocusWithin
         <scroll-view .size-md .variant-default> State=Hover
         <scroll-content> State=Hover
@@ -1207,173 +1237,177 @@ public sealed class KeyBindingsViewDumpTests {
 
     const string FilteredTree = """
         <keybindings-view .size-md .variant-default> 3,3 810×359
-          <keybindings-toolbar> 0,0 810×45
-            <search-box .size-md .variant-default> 6,4 192×36
-              <icon .size-md .variant-default> 10,11 14×14
-              <field-placeholder> 0,0 0×0 "Filter commands…"
-              <field-text> 30,7 42×22 "panel"
-              <icon-button .size-md .variant-subtle> 78,5 26×26
-                <icon .size-md .variant-default> 6,6 14×14
-                <label> 0,0 0×0 "Clear"
-            <select .size-sm .variant-default> 202,6 110×32
-              <select-field> 10,5 72×22 "Vixen"
-              <icon .size-md .variant-default> 88,10 12×12
-            <button .size-sm .variant-subtle> 316,4 108×28
-              <label> 10,4 88×20 "Press a Key…"
-            <button .size-sm .variant-subtle> 428,4 70×28
-              <label> 10,4 50×20 "Unbind"
-            <button .size-sm .variant-subtle> 502,4 58×28
-              <label> 10,4 38×20 "Reset"
-            <button .size-sm .variant-subtle> 564,4 78×28
-              <label> 10,4 58×20 "Reset All"
-            <button .size-sm .variant-subtle> 646,4 78×28
-              <label> 10,4 58×20 "Import…"
-            <button .size-sm .variant-subtle> 728,4 76×28
-              <label> 10,4 56×20 "Export…"
-          <data-grid .size-md .variant-default> 0,45 810×286
-            <scroll-view .size-md .variant-default> 0,0 810×286
-              <scroll-content> 0,0 810×122
-                <data-header> 0,0 810×26
-                  <data-header-cell .size-md .unsorted .variant-default> 0,0 240×25
-                    <data-text> 8,1 211×22 "Command"
-                    <icon .size-md .variant-default> 223,8 9×9
-                    <data-resizer> 234,0 6×25
-                  <data-header-cell .size-md .unsorted .variant-default> 240,0 120×25
-                    <data-text> 8,1 91×22 "Category"
-                    <icon .size-md .variant-default> 103,8 9×9
-                    <data-resizer> 114,0 6×25
-                  <data-header-cell .size-md .unsorted .variant-default> 360,0 150×25
-                    <data-text> 8,1 121×22 "Shortcut"
-                    <icon .size-md .variant-default> 133,8 9×9
-                    <data-resizer> 144,0 6×25
-                  <data-header-cell .size-md .unsorted .variant-default> 510,0 90×25
-                    <data-text> 8,1 61×22 "Source"
-                    <icon .size-md .variant-default> 73,8 9×9
-                    <data-resizer> 84,0 6×25
-                <data-row .size-md .variant-default> 0,26 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Close Panel"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "Ctrl+W"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,50 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Float Panel"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "View"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,74 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Keyboard Shortcuts"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "Panel"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .size-md .variant-default> 0,98 600×24
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 240×24
-                    <data-text> 8,1 224×22 "Message Log"
-                  <data-cell .size-md .variant-default> 240,0 120×24
-                    <data-text> 8,1 104×22 "Panel"
-                  <data-cell .size-md .variant-default> 360,0 150×24
-                    <data-text> 8,1 134×22 "—"
-                  <data-cell .size-md .variant-default> 510,0 90×24
-                    <data-text> 8,1 74×22 "Default"
-                <data-row .parked .size-md .variant-default> 0,0 0×0
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Keys"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "View"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "—"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Default"
-                <data-row .parked .size-md .variant-default> 0,0 0×0
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Next Tab"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "View"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Ctrl+Tab"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Default"
-                <data-row .parked .size-md .variant-default> 0,0 0×0
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Command Palette…"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "View"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Ctrl+K"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Default"
-                <data-row .parked .size-md .variant-default> 0,0 0×0
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Keyboard Shortcuts"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Panel"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "—"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Default"
-                <data-row .parked .size-md .variant-default> 0,0 0×0
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Message Log"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Panel"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "—"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Default"
-                <data-row .parked .size-md .variant-default> 0,0 0×0
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Previous Tab"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "View"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Ctrl+Shift+Tab"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Default"
-                <data-row .parked .size-md .variant-default> 0,0 0×0
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Reset Layout"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "View"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "—"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Default"
-                <data-row .parked .size-md .variant-default> 0,0 0×0
-                  <data-group-label .hidden> 0,0 0×0
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Toggle Dark Theme"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "View"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Ctrl+Alt+D"
-                  <data-cell .size-md .variant-default> 0,0 0×0
-                    <data-text> 0,0 0×0 "Default"
-              <scrollbar .size-md .variant-default .vertical> 800,0 10×286
-              <scrollbar .horizontal .size-md .variant-default> 0,276 810×10
-          <keybindings-status> 0,331 810×28
-            <text> 9,5 204×19 "Choose a command to rebind it."
+          <toolbar-grid-shell> 0,0 810×359
+            <slot> 0,0 810×45
+              <keybindings-toolbar> 0,0 810×45
+                <search-box .size-md .variant-default> 6,4 192×36
+                  <icon .size-md .variant-default> 10,11 14×14
+                  <field-placeholder> 0,0 0×0 "Filter commands…"
+                  <field-text> 30,7 42×22 "panel"
+                  <icon-button .size-md .variant-subtle> 78,5 26×26
+                    <icon .size-md .variant-default> 6,6 14×14
+                    <label> 0,0 0×0 "Clear"
+                <select .size-sm .variant-default> 202,6 110×32
+                  <select-field> 10,5 72×22 "Vixen"
+                  <icon .size-md .variant-default> 88,10 12×12
+                <button .size-sm .variant-subtle> 316,4 108×28
+                  <label> 10,4 88×20 "Press a Key…"
+                <button .size-sm .variant-subtle> 428,4 70×28
+                  <label> 10,4 50×20 "Unbind"
+                <button .size-sm .variant-subtle> 502,4 58×28
+                  <label> 10,4 38×20 "Reset"
+                <button .size-sm .variant-subtle> 564,4 78×28
+                  <label> 10,4 58×20 "Reset All"
+                <button .size-sm .variant-subtle> 646,4 78×28
+                  <label> 10,4 58×20 "Import…"
+                <button .size-sm .variant-subtle> 728,4 76×28
+                  <label> 10,4 56×20 "Export…"
+            <slot> 0,45 810×286
+              <data-grid .size-md .variant-default> 0,0 810×286
+                <scroll-view .size-md .variant-default> 0,0 810×286
+                  <scroll-content> 0,0 810×122
+                    <data-header> 0,0 810×26
+                      <data-header-cell .size-md .unsorted .variant-default> 0,0 240×25
+                        <data-text> 8,1 211×22 "Command"
+                        <icon .size-md .variant-default> 223,8 9×9
+                        <data-resizer> 234,0 6×25
+                      <data-header-cell .size-md .unsorted .variant-default> 240,0 120×25
+                        <data-text> 8,1 91×22 "Category"
+                        <icon .size-md .variant-default> 103,8 9×9
+                        <data-resizer> 114,0 6×25
+                      <data-header-cell .size-md .unsorted .variant-default> 360,0 150×25
+                        <data-text> 8,1 121×22 "Shortcut"
+                        <icon .size-md .variant-default> 133,8 9×9
+                        <data-resizer> 144,0 6×25
+                      <data-header-cell .size-md .unsorted .variant-default> 510,0 90×25
+                        <data-text> 8,1 61×22 "Source"
+                        <icon .size-md .variant-default> 73,8 9×9
+                        <data-resizer> 84,0 6×25
+                    <data-row .size-md .variant-default> 0,26 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Close Panel"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "Ctrl+W"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,50 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Float Panel"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "View"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,74 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Keyboard Shortcuts"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "Panel"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .size-md .variant-default> 0,98 600×24
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 240×24
+                        <data-text> 8,1 224×22 "Message Log"
+                      <data-cell .size-md .variant-default> 240,0 120×24
+                        <data-text> 8,1 104×22 "Panel"
+                      <data-cell .size-md .variant-default> 360,0 150×24
+                        <data-text> 8,1 134×22 "—"
+                      <data-cell .size-md .variant-default> 510,0 90×24
+                        <data-text> 8,1 74×22 "Default"
+                    <data-row .parked .size-md .variant-default> 0,0 0×0
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Keys"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "View"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "—"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Default"
+                    <data-row .parked .size-md .variant-default> 0,0 0×0
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Next Tab"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "View"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Ctrl+Tab"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Default"
+                    <data-row .parked .size-md .variant-default> 0,0 0×0
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Command Palette…"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "View"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Ctrl+K"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Default"
+                    <data-row .parked .size-md .variant-default> 0,0 0×0
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Keyboard Shortcuts"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Panel"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "—"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Default"
+                    <data-row .parked .size-md .variant-default> 0,0 0×0
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Message Log"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Panel"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "—"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Default"
+                    <data-row .parked .size-md .variant-default> 0,0 0×0
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Previous Tab"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "View"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Ctrl+Shift+Tab"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Default"
+                    <data-row .parked .size-md .variant-default> 0,0 0×0
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Reset Layout"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "View"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "—"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Default"
+                    <data-row .parked .size-md .variant-default> 0,0 0×0
+                      <data-group-label .hidden> 0,0 0×0
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Toggle Dark Theme"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "View"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Ctrl+Alt+D"
+                      <data-cell .size-md .variant-default> 0,0 0×0
+                        <data-text> 0,0 0×0 "Default"
+                  <scrollbar .size-md .variant-default .vertical> 800,0 10×286
+                  <scrollbar .horizontal .size-md .variant-default> 0,276 810×10
+            <slot> 0,331 810×28
+              <keybindings-status> 0,0 810×28
+                <text> 9,5 204×19 "Choose a command to rebind it."
         """;
 
     const string FilteredFlags = """

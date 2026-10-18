@@ -844,6 +844,33 @@ public static class EditorStrings {
     /// <summary>The <c>Options</c> menu.</summary>
     public static StringId MenuPlayOptions { get; } = new("editor.menu.play-options", "Options");
 
+    /// <summary>The <c>Overlays</c> menu — a play session's diagnostic overlays, one line each.</summary>
+    public static StringId MenuPlayOverlays { get; } = new("editor.menu.play-overlays", "Overlays");
+
+    /// <summary>The switch for each diagnostic overlay a play session registers, keyed by its name.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Keyed by <c>IDiagnosticOverlay.Name</c></b>, which is what <c>overlay physics on</c>
+    ///         types at a game's console, so the command id is <c>play.overlay.</c> followed by the
+    ///         name the documentation already uses (#1263).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A family rather than a label built from the name.</b> The overlay set is open —
+    ///         a plugin can register one — and the obvious label,
+    ///         <c>new StringId("editor.command.play.overlay." + name, …)</c>, is in no translator's
+    ///         template and invisible to <c>CheckStrings</c>. An overlay this does not cover gets no
+    ///         palette line until its word is declared here; the registry still switches it.
+    ///     </para>
+    /// </remarks>
+    public static StringFamily PlayOverlays { get; } = new(
+        "editor.command.play.overlay.",
+        [
+            // `PhysicsDebugDrawSystem.OverlayName`, written out because this assembly does not
+            // reference physics; `PlayOverlayTests` holds the two together.
+            new("physics", "Physics Overlay")
+        ]
+    );
+
     /// <summary>The <c>Measure</c> menu.</summary>
     public static StringId MenuPrecision { get; } = new("editor.menu.precision", "Measure");
 
@@ -1312,6 +1339,7 @@ public static class EditorStrings {
         MenuPanes,
         MenuPlayMode,
         MenuPlayOptions,
+        MenuPlayOverlays,
         MenuPrecision,
         MenuScene,
         MenuShow,
@@ -1352,7 +1380,8 @@ public static class EditorStrings {
         // ⚠ Spread, which is what puts every member of a family in a translator's template. A family
         // left out of this list hides seventeen sentences rather than one, which is why VXS0310
         // counts a StringFamily property as a declaration.
-        .. PlannedReasons.All
+        .. PlannedReasons.All,
+        .. PlayOverlays.All
     ];
 
     /// <summary>A catalog holding every string the editor declares, for a translator to start from.</summary>
