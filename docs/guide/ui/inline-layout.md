@@ -133,6 +133,12 @@ tree.SetStrut(panel, new StrutMetrics(21f, 9f, 16f, 4f, XHeight: 10f, SubOffset:
 exactly as this store did before the type existed: a line is as tall as the boxes on it, and the five
 font-relative `vertical-align` values below fall back to `Baseline`.
 
+A flattened `display: inline` span's strut is read too. It is an inline box on every line it reaches,
+so its own line height grows that line, and it is the *parent inline box* the five font-relative
+values measure against for the boxes inside it. A span whose strut is all-zero falls back to the
+nearest span above it that has one, and finally to the container's. ⚠ A span's own `vertical-align`
+is still not read, so its baseline is taken to be the line's.
+
 ### `vertical-align`
 
 All nine values are implemented, and the split that used to divide them is now a question about the
@@ -228,7 +234,7 @@ the union's inline start rather than after its in-flow siblings. What is still l
 a span with a **floated child**, which is a limit of the walk rather than of the representation and is
 written up in `Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt`.
 
-Also absent, each with its reason in the same file: generated `::before`/`::after` boxes, the strut,
+Also absent, each with its reason in the same file: generated `::before`/`::after` boxes,
 `white-space`, `text-overflow: ellipsis`, `line-clamp` and bidirectional reordering.
 ⚠ A generated box is the *opposite* direction from fragmentation — a box with no node behind it —
 and the fragment arena does not help. Anonymous block boxes were the other half of that direction
