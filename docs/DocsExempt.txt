@@ -1255,6 +1255,7 @@ T:Vixen.Editor.Core.EditorProject sweep-pending
 T:Vixen.Editor.Core.EditorProperty`1 sweep-pending
 T:Vixen.Editor.Core.IEditorCommand sweep-pending
 T:Vixen.Editor.Core.IEditorProperty sweep-pending
+T:Vixen.Editor.Core.IProjectSession service guide page owed by #1311 (doc 50 § D6: seven services, nine pages)
 T:Vixen.Editor.Core.PlayerBuildSettings sweep-pending
 T:Vixen.Editor.Core.ProjectMarker sweep-pending
 T:Vixen.Editor.Core.ProjectMarkerFile sweep-pending

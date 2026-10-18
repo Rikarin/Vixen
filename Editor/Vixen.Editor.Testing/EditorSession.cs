@@ -223,6 +223,10 @@ public sealed class EditorSession : IDisposable {
     /// </remarks>
     public IContentLibrary Library => editor.PluginHost.Services.Require<IContentLibrary>();
 
+    /// <summary>The project service the editor publishes to plugins — doc 50 § P2d.</summary>
+    /// <remarks>Read out of the plugin services, for <see cref="Library" />'s reason.</remarks>
+    public IProjectSession ProjectSession => editor.PluginHost.Services.Require<IProjectSession>();
+
     /// <summary>The focused pane, or <see langword="null" /> while the scene panel is closed.</summary>
     public SceneViewport? Viewport => editor.Viewport;
 
@@ -778,7 +782,7 @@ public sealed class EditorSession : IDisposable {
     ///     — which is the case doc 20's A2 names beside closing the window.
     /// </remarks>
     public EditorSession RequestProject(string root) {
-        editor.RequestProject(root);
+        editor.Session.RequestProject(root);
         return Settle();
     }
 

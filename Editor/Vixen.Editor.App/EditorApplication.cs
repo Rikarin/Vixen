@@ -233,6 +233,9 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>Doc 50 § P2c's Content Library service. See <see cref="ContentLibrary" />.</summary>
     readonly ContentLibrary library;
 
+    /// <summary>Doc 50 § P2d's Project service. See <see cref="ProjectSession" />.</summary>
+    readonly ProjectSession session;
+
     /// <summary>The import and build tasks, for the suite that has to substitute the publish.</summary>
     /// <remarks>
     ///     ⚠ <b>Internal and for one thing.</b> Every other question about a build is asked through
@@ -938,6 +941,16 @@ sealed partial class EditorApplication : IDisposable {
             content.Import
         );
         library.CollectionsChanged += () => browser?.Recollect();
+
+        // ⚠ Doc 50 § P2d: the rescan and the reopen request, before `PluginPoints` publishes it. The
+        // close request and the closing flags are handed in rather than moved — closing is the
+        // application's — and read on every call, because the prompt answers later.
+        session = new ProjectSession(
+            project,
+            (message, severity, detail) => Shell.Notifications.Show(message, severity, detail),
+            RequestClose,
+            () => IsClosing || closing
+        );
         library.Arrived += () => browser?.Rescan();
 
         // ⚠ Before the panels, because the inspector's asset fields are built by drawers that have
@@ -2046,9 +2059,7 @@ sealed partial class EditorApplication : IDisposable {
         if (browser is not null) {
             browser.Rescan();
         } else {
-            project.Assets.Scan();
-            project.Assets.Save();
-            project.References.Build(project.Assets);
+            session.Rescan();
         }
 
         // ⚠ The one event that means "somebody changed the project without going through us", which
@@ -2457,7 +2468,7 @@ sealed partial class EditorApplication : IDisposable {
                 panel => {
                     panel.WhenPressedIn(() => Shell.Context = AssetContext);
 
-                    browser = new ProjectBrowser(project, panel, Extensions);
+                    browser = new ProjectBrowser(session, panel, Extensions);
 
                     browser.Activated += Open;
                     browser.Renamed += RenameAsset;
@@ -3100,6 +3111,10 @@ sealed partial class EditorApplication : IDisposable {
             // import, export a package or file assets into a collection the way the editor's own
             // menus do — not by re-implementing the copy, the scan and the save beside them.
             .Add<IContentLibrary>(library)
+
+            // ⚠ And the project's: the rescan every panel and module used to repeat for itself, and
+            // the request to open another project.
+            .Add<IProjectSession>(session)
 
             // ⚠ Doc 36 § D2's registry, and the reason the list above is no longer the extent of what
             // a plugin can reach. Every contribution kind — a Create ▸ entry, a custom inspector, a

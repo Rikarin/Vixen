@@ -38,40 +38,16 @@ namespace Vixen.Editor.App;
 sealed partial class EditorApplication {
     /// <summary>Where the editor should reopen, or <see langword="null" /> to stay closed.</summary>
     /// <remarks>
-    ///     Read by the host after <see cref="RequestClose" /> has done its work. Null is the ordinary
-    ///     case and means the user is quitting.
+    ///     Read by the host after <see cref="RequestClose" /> has done its work — the reopen loop is the
+    ///     composition root's. The answer is <see cref="IProjectSession.PendingProject" />'s.
     /// </remarks>
-    public string? PendingProject { get; private set; }
+    public string? PendingProject => session.PendingProject;
+
+    /// <summary>The project service — doc 50 § P2d. Published to plugins under <see cref="IProjectSession" />.</summary>
+    internal IProjectSession Session => session;
 
     /// <summary>What the editor has opened before, newest first.</summary>
     public ProjectHistory Recent { get; }
-
-    /// <summary>Closes this project and reopens the editor over another.</summary>
-    /// <param name="root">The new project's root directory, which need not exist yet.</param>
-    /// <remarks>
-    ///     Asks about unsaved work first, through the same prompt the window's close button uses —
-    ///     which is why it is a request rather than a call.
-    /// </remarks>
-    public void RequestProject(string root) {
-        ArgumentException.ThrowIfNullOrEmpty(root);
-
-        var full = Path.GetFullPath(root);
-
-        if (string.Equals(full, project.Paths.Root, StringComparison.Ordinal)) {
-            Shell.Notifications.Show(project.Name, NotificationSeverity.Info, "That project is already open.");
-            return;
-        }
-
-        PendingProject = full;
-        RequestClose();
-
-        // ⚠ Cleared when the prompt was declined, which `RequestClose` reports by leaving
-        // `IsClosing` false. Without this, backing out of "save your changes?" would leave a pending
-        // root that the *next* close — the one where they meant to quit — would silently act on.
-        if (!IsClosing && !closing) {
-            PendingProject = null;
-        }
-    }
 
     /// <summary>The startup Project Browser: recent projects, Browse, and New.</summary>
     /// <remarks>
@@ -128,7 +104,7 @@ sealed partial class EditorApplication {
                     return;
 
                 case BrowseToken:
-                    PickProjectDirectory("Open Project", root => RequestProject(root));
+                    PickProjectDirectory("Open Project", root => session.RequestProject(root));
                     break;
 
                 case CreateToken:
@@ -136,7 +112,7 @@ sealed partial class EditorApplication {
                     break;
 
                 default:
-                    RequestProject(chosen);
+                    session.RequestProject(chosen);
                     break;
             }
         }
@@ -320,7 +296,7 @@ sealed partial class EditorApplication {
             return;
         }
 
-        RequestProject(root);
+        session.RequestProject(root);
     }
 
     /// <summary>Says so when the project was made by an engine newer than this one.</summary>

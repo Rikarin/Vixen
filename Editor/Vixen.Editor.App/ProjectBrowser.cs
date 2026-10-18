@@ -48,6 +48,7 @@ sealed class ProjectBrowser {
     /// <summary>What the type filter offers when nothing is chosen.</summary>
     const string AnyType = "All types";
 
+    readonly IProjectSession session;
     readonly EditorProject project;
     readonly TreeView tree;
     readonly SearchBox search;
@@ -250,7 +251,11 @@ sealed class ProjectBrowser {
     IEditorRegistry Extensions { get; }
 
     /// <summary>Builds the panel's contents into a container.</summary>
-    /// <param name="project">The project being browsed.</param>
+    /// <param name="session">
+    ///     The project being browsed, through its service. ⚠ The service rather than the project
+    ///     because a rescan is the session's — doc 50 § P2d — and a view that scanned and saved the
+    ///     database itself was the second copy of a sequence the disk watcher also had.
+    /// </param>
     /// <param name="panel">Where to put the rows.</param>
     /// <param name="extensions">
     ///     What has been contributed, for the pictures. A constructor argument and not a settable
@@ -258,12 +263,13 @@ sealed class ProjectBrowser {
     ///     assigned afterwards would arrive one panel too late, which is the shape of mistake
     ///     <c>EditorSession</c> already made once with <c>init</c>.
     /// </param>
-    public ProjectBrowser(EditorProject project, UiElement panel, IEditorRegistry extensions) {
-        ArgumentNullException.ThrowIfNull(project);
+    public ProjectBrowser(IProjectSession session, UiElement panel, IEditorRegistry extensions) {
+        ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(panel);
         ArgumentNullException.ThrowIfNull(extensions);
 
-        this.project = project;
+        this.session = session;
+        project = session.Project;
         Extensions = extensions;
         root = AssetTree.Build(project.Assets.Entries);
 
@@ -1158,20 +1164,14 @@ sealed class ProjectBrowser {
         return false;
     }
 
-    /// <summary>Rescans the project and rebuilds the tree.</summary>
+    /// <summary>Asks the project to rescan, and rebuilds the tree from what it found.</summary>
     /// <returns>What the scan found, for whoever is reporting it.</returns>
     /// <remarks>
-    ///     ⚠ <b>The index is saved after the scan.</b> It lives in <c>Library/</c> and is what makes
-    ///     the <i>next</i> launch skip the walk; a rescan that left the old one on disk would make
-    ///     the editor slower the more often it was refreshed, which is the wrong way round.
+    ///     The scan, the index save and the reference rebuild are <see cref="IProjectSession.Rescan" />'s;
+    ///     what is the panel's is drawing the answer.
     /// </remarks>
     public ScanReport Rescan() {
-        var report = project.Assets.Scan();
-
-        project.Assets.Save();
-        // ⚠ Rebuilt with it. The reverse index is what answers "what would break if I deleted this",
-        // and one built against the previous scan answers it about assets that have moved.
-        project.References.Build(project.Assets);
+        var report = session.Rescan();
 
         Rebuild();
         return report;

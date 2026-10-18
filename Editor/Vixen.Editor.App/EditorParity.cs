@@ -194,7 +194,7 @@ sealed partial class EditorApplication {
     ///     <para>
     ///         ⚠ <b>Registered once, because the list only changes when the editor reopens.</b>
     ///         Opening another project closes this editor and builds a new one — see
-    ///         <see cref="RequestProject" /> — so there is no moment at which the history changes
+    ///         <see cref="IProjectSession.RequestProject" /> — so there is no moment at which the history changes
     ///         under a live menu, and registering from inside the menu's own builder would be a
     ///         registration that rebuilds the menu it is being built for.
     ///     </para>
@@ -226,7 +226,7 @@ sealed partial class EditorApplication {
                 // opened into the localisation vocabulary.
                 new StringId(null!, entry.Name),
                 EditorStrings.CategoryFile,
-                () => RequestProject(path),
+                () => session.RequestProject(path),
 
                 // A project on a volume that is not mounted is greyed rather than absent, for
                 // `ProjectHistory`'s reason: forgetting it is the one thing there is no way back
@@ -2903,7 +2903,7 @@ sealed partial class EditorApplication {
                     // a pending root before asking, and leaving it set would make the *next* close —
                     // the one where they meant to quit — silently reopen the editor over a project
                     // they backed out of choosing.
-                    PendingProject = null;
+                    session.Decline();
                     break;
             }
         }
