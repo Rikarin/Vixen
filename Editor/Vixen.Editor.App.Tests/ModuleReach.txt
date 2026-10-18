@@ -1,0 +1,430 @@
+# What the editor a user launches reaches, by module (doc 50 § D6, #1280). Measured by ModuleReachTests
+# from an EditorSession opened the way EditorHost opens one, and attributed by unloading each standard
+# module in turn: `<owner> <kind> <id>`. A line owned by `editor` that names a feature is one its module
+# left behind on unload. Regenerate with VIXEN_REGENERATE=1 on that test, and read the diff.
+
+editor create assets.create-addressable-group
+editor create assets.create-animation
+editor create assets.create-animation-graph
+editor create assets.create-constraint-template
+editor create assets.create-foliage
+editor create assets.create-font
+editor create assets.create-frame
+editor create assets.create-grass
+editor create assets.create-harness
+editor create assets.create-input
+editor create assets.create-material
+editor create assets.create-mixer
+editor create assets.create-move-set
+editor create assets.create-priorities
+editor create assets.create-proxy-shapes
+editor create assets.create-scene
+editor create assets.create-sequence
+editor create assets.create-shader-graph
+editor create assets.create-shape-vocabulary
+editor create assets.create-spline
+editor create assets.create-terrain-layer
+editor create assets.create-vfx
+editor menu editor.menu.assets assets.bake-mesh-maps
+editor menu editor.menu.assets assets.build
+editor menu editor.menu.assets assets.delete
+editor menu editor.menu.assets assets.find-references
+editor menu editor.menu.assets assets.history
+editor menu editor.menu.assets assets.import
+editor menu editor.menu.assets assets.move-to
+editor menu editor.menu.assets assets.open
+editor menu editor.menu.assets assets.refresh
+editor menu editor.menu.assets assets.reimport
+editor menu editor.menu.assets assets.reimport-all
+editor menu editor.menu.assets assets.rename
+editor menu editor.menu.assets assets.revert
+editor menu editor.menu.assets assets.select-dependencies
+editor menu editor.menu.assets assets.show-in-explorer
+editor menu editor.menu.assets view.panel.addressables
+editor menu editor.menu.assets/editor.menu.create assets.create
+editor menu editor.menu.assets/editor.menu.create assets.create-addressable-group
+editor menu editor.menu.assets/editor.menu.create assets.create-animation
+editor menu editor.menu.assets/editor.menu.create assets.create-animation-graph
+editor menu editor.menu.assets/editor.menu.create assets.create-constraint-template
+editor menu editor.menu.assets/editor.menu.create assets.create-foliage
+editor menu editor.menu.assets/editor.menu.create assets.create-font
+editor menu editor.menu.assets/editor.menu.create assets.create-frame
+editor menu editor.menu.assets/editor.menu.create assets.create-grass
+editor menu editor.menu.assets/editor.menu.create assets.create-harness
+editor menu editor.menu.assets/editor.menu.create assets.create-input
+editor menu editor.menu.assets/editor.menu.create assets.create-material
+editor menu editor.menu.assets/editor.menu.create assets.create-mixer
+editor menu editor.menu.assets/editor.menu.create assets.create-move-set
+editor menu editor.menu.assets/editor.menu.create assets.create-priorities
+editor menu editor.menu.assets/editor.menu.create assets.create-proxy-shapes
+editor menu editor.menu.assets/editor.menu.create assets.create-scene
+editor menu editor.menu.assets/editor.menu.create assets.create-sequence
+editor menu editor.menu.assets/editor.menu.create assets.create-shader-graph
+editor menu editor.menu.assets/editor.menu.create assets.create-shape-vocabulary
+editor menu editor.menu.assets/editor.menu.create assets.create-spline
+editor menu editor.menu.assets/editor.menu.create assets.create-terrain-layer
+editor menu editor.menu.assets/editor.menu.create assets.create-vfx
+editor menu editor.menu.assets/editor.menu.create assets.new-folder
+editor menu editor.menu.build assets.build
+editor menu editor.menu.build build.clean-library
+editor menu editor.menu.build build.rebuild-shaders
+editor menu editor.menu.build build.run
+editor menu editor.menu.build build.settings
+editor menu editor.menu.build/editor.menu.build-configuration build.configuration-debug
+editor menu editor.menu.build/editor.menu.build-configuration build.configuration-development
+editor menu editor.menu.build/editor.menu.build-configuration build.configuration-release
+editor menu editor.menu.build/editor.menu.build-configuration build.configuration-server
+editor menu editor.menu.build/editor.menu.build-deploy build.deploy
+editor menu editor.menu.build/editor.menu.build-target build.target-android
+editor menu editor.menu.build/editor.menu.build-target build.target-host
+editor menu editor.menu.build/editor.menu.build-target build.target-ios
+editor menu editor.menu.build/editor.menu.build-target build.target-linux
+editor menu editor.menu.build/editor.menu.build-target build.target-macos
+editor menu editor.menu.build/editor.menu.build-target build.target-web
+editor menu editor.menu.build/editor.menu.build-target build.target-windows
+editor menu editor.menu.edit edit.copy
+editor menu editor.menu.edit edit.cut
+editor menu editor.menu.edit edit.delete
+editor menu editor.menu.edit edit.deselect-all
+editor menu editor.menu.edit edit.duplicate
+editor menu editor.menu.edit edit.find-references
+editor menu editor.menu.edit edit.invert-selection
+editor menu editor.menu.edit edit.isolate
+editor menu editor.menu.edit edit.keybindings
+editor menu editor.menu.edit edit.paste
+editor menu editor.menu.edit edit.paste-as-child
+editor menu editor.menu.edit edit.preferences
+editor menu editor.menu.edit edit.recall-selection-set
+editor menu editor.menu.edit edit.redo
+editor menu editor.menu.edit edit.rename
+editor menu editor.menu.edit edit.save-selection-set
+editor menu editor.menu.edit edit.search-everywhere
+editor menu editor.menu.edit edit.select-all
+editor menu editor.menu.edit edit.select-by-name
+editor menu editor.menu.edit edit.select-by-type
+editor menu editor.menu.edit edit.select-children
+editor menu editor.menu.edit edit.select-parent
+editor menu editor.menu.edit edit.undo
+editor menu editor.menu.edit edit.undo-history
+editor menu editor.menu.entity entity.align
+editor menu editor.menu.entity entity.align-with-view
+editor menu editor.menu.entity entity.apply-overrides
+editor menu editor.menu.entity entity.clear-parent
+editor menu editor.menu.entity entity.copy-transform
+editor menu editor.menu.entity entity.create-audio
+editor menu editor.menu.entity entity.create-child
+editor menu editor.menu.entity entity.create-ui
+editor menu editor.menu.entity entity.create-vfx
+editor menu editor.menu.entity entity.distribute
+editor menu editor.menu.entity entity.group
+editor menu editor.menu.entity entity.group-lod
+editor menu editor.menu.entity entity.make-prefab
+editor menu editor.menu.entity entity.move-to-view
+editor menu editor.menu.entity entity.paste-transform
+editor menu editor.menu.entity entity.relative-transform
+editor menu editor.menu.entity entity.reset-transform
+editor menu editor.menu.entity entity.set-parent
+editor menu editor.menu.entity entity.snap-to-floor
+editor menu editor.menu.entity entity.toggle-active
+editor menu editor.menu.entity entity.toggle-hidden
+editor menu editor.menu.entity entity.toggle-lock
+editor menu editor.menu.entity entity.ungroup
+editor menu editor.menu.entity entity.unpack-prefab
+editor menu editor.menu.entity scene.create-camera
+editor menu editor.menu.entity scene.create-entity
+editor menu editor.menu.entity scene.focus
+editor menu editor.menu.entity/editor.menu.create-light scene.create-light-directional
+editor menu editor.menu.entity/editor.menu.create-light scene.create-light-point
+editor menu editor.menu.entity/editor.menu.create-light scene.create-light-rect
+editor menu editor.menu.entity/editor.menu.create-light scene.create-light-spot
+editor menu editor.menu.entity/editor.menu.create-light scene.create-light-tube
+editor menu editor.menu.entity/editor.menu.create-shape scene.create-capsule
+editor menu editor.menu.entity/editor.menu.create-shape scene.create-cone
+editor menu editor.menu.entity/editor.menu.create-shape scene.create-cube
+editor menu editor.menu.entity/editor.menu.create-shape scene.create-cylinder
+editor menu editor.menu.entity/editor.menu.create-shape scene.create-plane
+editor menu editor.menu.entity/editor.menu.create-shape scene.create-quad
+editor menu editor.menu.entity/editor.menu.create-shape scene.create-sphere
+editor menu editor.menu.entity/editor.menu.create-shape scene.create-torus
+editor menu editor.menu.file assets.import-files
+editor menu editor.menu.file file.exit
+editor menu editor.menu.file file.export-package
+editor menu editor.menu.file file.new-project
+editor menu editor.menu.file file.new-scene
+editor menu editor.menu.file file.open-project
+editor menu editor.menu.file file.open-scene
+editor menu editor.menu.file file.project-settings
+editor menu editor.menu.file file.revert
+editor menu editor.menu.file file.save
+editor menu editor.menu.file file.save-all
+editor menu editor.menu.file file.save-as
+editor menu editor.menu.file/editor.menu.recent file.no-recent
+editor menu editor.menu.help help.about
+editor menu editor.menu.help help.api-reference
+editor menu editor.menu.help help.documentation
+editor menu editor.menu.help help.release-notes
+editor menu editor.menu.help help.report-bug
+editor menu editor.menu.help help.show-log-folder
+editor menu editor.menu.play play.pause
+editor menu editor.menu.play play.play
+editor menu editor.menu.play play.step
+editor menu editor.menu.play play.stop
+editor menu editor.menu.play/editor.menu.play-mode play.mode-in-editor
+editor menu editor.menu.play/editor.menu.play-mode play.mode-server
+editor menu editor.menu.play/editor.menu.play-mode play.mode-standalone
+editor menu editor.menu.play/editor.menu.play-options play.clear-console
+editor menu editor.menu.play/editor.menu.play-options play.maximise
+editor menu editor.menu.play/editor.menu.play-options play.mute-audio
+editor menu editor.menu.play/editor.menu.play-overlays play.overlay.physics
+editor menu editor.menu.scene edit.delete
+editor menu editor.menu.scene edit.rename
+editor menu editor.menu.scene scene.create-camera
+editor menu editor.menu.scene scene.create-entity
+editor menu editor.menu.scene scene.focus
+editor menu editor.menu.scene scene.frame-all
+editor menu editor.menu.scene scene.layers
+editor menu editor.menu.scene scene.lighting
+editor menu editor.menu.scene scene.maximise
+editor menu editor.menu.scene scene.navigation
+editor menu editor.menu.scene scene.open-additive
+editor menu editor.menu.scene scene.save-all-scenes
+editor menu editor.menu.scene scene.scenes
+editor menu editor.menu.scene scene.world-settings
+editor menu editor.menu.scene/editor.menu.bookmarks scene.bookmark-go-1
+editor menu editor.menu.scene/editor.menu.bookmarks scene.bookmark-go-2
+editor menu editor.menu.scene/editor.menu.bookmarks scene.bookmark-go-3
+editor menu editor.menu.scene/editor.menu.bookmarks scene.bookmark-go-4
+editor menu editor.menu.scene/editor.menu.bookmarks scene.bookmark-go-5
+editor menu editor.menu.scene/editor.menu.bookmarks scene.bookmark-go-6
+editor menu editor.menu.scene/editor.menu.bookmarks scene.bookmark-go-7
+editor menu editor.menu.scene/editor.menu.bookmarks scene.bookmark-go-8
+editor menu editor.menu.scene/editor.menu.bookmarks scene.bookmark-go-9
+editor menu editor.menu.scene/editor.menu.bookmarks scene.bookmark-set-1
+editor menu editor.menu.scene/editor.menu.bookmarks scene.bookmark-set-2
+editor menu editor.menu.scene/editor.menu.bookmarks scene.bookmark-set-3
+editor menu editor.menu.scene/editor.menu.bookmarks scene.bookmark-set-4
+editor menu editor.menu.scene/editor.menu.bookmarks scene.bookmark-set-5
+editor menu editor.menu.scene/editor.menu.bookmarks scene.bookmark-set-6
+editor menu editor.menu.scene/editor.menu.bookmarks scene.bookmark-set-7
+editor menu editor.menu.scene/editor.menu.bookmarks scene.bookmark-set-8
+editor menu editor.menu.scene/editor.menu.bookmarks scene.bookmark-set-9
+editor menu editor.menu.scene/editor.menu.camera scene.toggle-projection
+editor menu editor.menu.scene/editor.menu.camera scene.view-back
+editor menu editor.menu.scene/editor.menu.camera scene.view-bottom
+editor menu editor.menu.scene/editor.menu.camera scene.view-front
+editor menu editor.menu.scene/editor.menu.camera scene.view-left
+editor menu editor.menu.scene/editor.menu.camera scene.view-right
+editor menu editor.menu.scene/editor.menu.camera scene.view-top
+editor menu editor.menu.scene/editor.menu.create-light scene.create-light-directional
+editor menu editor.menu.scene/editor.menu.create-light scene.create-light-point
+editor menu editor.menu.scene/editor.menu.create-light scene.create-light-rect
+editor menu editor.menu.scene/editor.menu.create-light scene.create-light-spot
+editor menu editor.menu.scene/editor.menu.create-light scene.create-light-tube
+editor menu editor.menu.scene/editor.menu.create-shape scene.create-capsule
+editor menu editor.menu.scene/editor.menu.create-shape scene.create-cone
+editor menu editor.menu.scene/editor.menu.create-shape scene.create-cube
+editor menu editor.menu.scene/editor.menu.create-shape scene.create-cylinder
+editor menu editor.menu.scene/editor.menu.create-shape scene.create-plane
+editor menu editor.menu.scene/editor.menu.create-shape scene.create-quad
+editor menu editor.menu.scene/editor.menu.create-shape scene.create-sphere
+editor menu editor.menu.scene/editor.menu.create-shape scene.create-torus
+editor menu editor.menu.scene/editor.menu.gizmo scene.rotate
+editor menu editor.menu.scene/editor.menu.gizmo scene.scale
+editor menu editor.menu.scene/editor.menu.gizmo scene.toggle-pivot
+editor menu editor.menu.scene/editor.menu.gizmo scene.toggle-snap
+editor menu editor.menu.scene/editor.menu.gizmo scene.toggle-space
+editor menu editor.menu.scene/editor.menu.gizmo scene.translate
+editor menu editor.menu.scene/editor.menu.navigation scene.invert-orbit-y
+editor menu editor.menu.scene/editor.menu.navigation scene.orbit-around-selection
+editor menu editor.menu.scene/editor.menu.navigation scene.orbit-down
+editor menu editor.menu.scene/editor.menu.navigation scene.orbit-left
+editor menu editor.menu.scene/editor.menu.navigation scene.orbit-right
+editor menu editor.menu.scene/editor.menu.navigation scene.orbit-up
+editor menu editor.menu.scene/editor.menu.navigation scene.zoom-to-cursor
+editor menu editor.menu.scene/editor.menu.panes scene.panes-quad
+editor menu editor.menu.scene/editor.menu.panes scene.panes-side-by-side
+editor menu editor.menu.scene/editor.menu.panes scene.panes-single
+editor menu editor.menu.scene/editor.menu.panes scene.panes-stacked
+editor menu editor.menu.scene/editor.menu.precision scene.measure
+editor menu editor.menu.scene/editor.menu.precision scene.measure-clear
+editor menu editor.menu.scene/editor.menu.precision scene.reference-clear
+editor menu editor.menu.scene/editor.menu.precision scene.reference-corridor
+editor menu editor.menu.scene/editor.menu.precision scene.reference-door
+editor menu editor.menu.scene/editor.menu.precision scene.reference-person
+editor menu editor.menu.scene/editor.menu.precision scene.reference-vehicle
+editor menu editor.menu.scene/editor.menu.show scene.show-bounds
+editor menu editor.menu.scene/editor.menu.show scene.show-component-gizmos
+editor menu editor.menu.scene/editor.menu.show scene.show-gizmos
+editor menu editor.menu.scene/editor.menu.show scene.show-lights
+editor menu editor.menu.scene/editor.menu.show scene.show-markers
+editor menu editor.menu.scene/editor.menu.show scene.show-meshes
+editor menu editor.menu.scene/editor.menu.show scene.show-parents
+editor menu editor.menu.scene/editor.menu.show scene.show-volumes
+editor menu editor.menu.scene/editor.menu.show scene.toggle-grid
+editor menu editor.menu.scene/editor.menu.snap scene.snap-align
+editor menu editor.menu.scene/editor.menu.snap scene.snap-edge
+editor menu editor.menu.scene/editor.menu.snap scene.snap-edge-centre
+editor menu editor.menu.scene/editor.menu.snap scene.snap-from-active
+editor menu editor.menu.scene/editor.menu.snap scene.snap-from-centre
+editor menu editor.menu.scene/editor.menu.snap scene.snap-from-origin
+editor menu editor.menu.scene/editor.menu.snap scene.snap-from-pointer
+editor menu editor.menu.scene/editor.menu.snap scene.snap-ignore-self
+editor menu editor.menu.scene/editor.menu.snap scene.snap-project
+editor menu editor.menu.scene/editor.menu.snap scene.snap-surface
+editor menu editor.menu.scene/editor.menu.snap scene.snap-vertex
+editor menu editor.menu.scene/editor.menu.snap scene.toggle-snap
+editor menu editor.menu.scene/editor.menu.speed scene.speed-fast
+editor menu editor.menu.scene/editor.menu.speed scene.speed-fastest
+editor menu editor.menu.scene/editor.menu.speed scene.speed-normal
+editor menu editor.menu.scene/editor.menu.speed scene.speed-slow
+editor menu editor.menu.scene/editor.menu.speed scene.speed-slowest
+editor menu editor.menu.scene/editor.menu.view-mode scene.view-mode-albedo
+editor menu editor.menu.scene/editor.menu.view-mode scene.view-mode-light-complexity
+editor menu editor.menu.scene/editor.menu.view-mode scene.view-mode-normal
+editor menu editor.menu.scene/editor.menu.view-mode scene.view-mode-overdraw
+editor menu editor.menu.scene/editor.menu.view-mode scene.view-mode-roughness
+editor menu editor.menu.scene/editor.menu.view-mode scene.view-mode-shaded
+editor menu editor.menu.scene/editor.menu.view-mode scene.view-mode-shaded-wireframe
+editor menu editor.menu.scene/editor.menu.view-mode scene.view-mode-unlit
+editor menu editor.menu.scene/editor.menu.view-mode scene.view-mode-wireframe
+editor menu editor.menu.scene/editor.menu.work-plane scene.grid-step-auto
+editor menu editor.menu.scene/editor.menu.work-plane scene.grid-step-double
+editor menu editor.menu.scene/editor.menu.work-plane scene.grid-step-halve
+editor menu editor.menu.scene/editor.menu.work-plane scene.work-plane-lower
+editor menu editor.menu.scene/editor.menu.work-plane scene.work-plane-raise
+editor menu editor.menu.scene/editor.menu.work-plane scene.work-plane-to-face
+editor menu editor.menu.scene/editor.menu.work-plane scene.work-plane-to-selection
+editor menu editor.menu.scene/editor.menu.work-plane scene.work-plane-to-world
+editor menu editor.menu.tools plugins.reload
+editor menu editor.menu.tools tools.diagnostics-report
+editor menu editor.menu.tools tools.export-strings
+editor menu editor.menu.tools tools.frame-debugger
+editor menu editor.menu.tools tools.gpu
+editor menu editor.menu.tools tools.memory
+editor menu editor.menu.tools tools.network
+editor menu editor.menu.tools tools.plugins
+editor menu editor.menu.tools tools.profiler
+editor menu editor.menu.tools tools.reload-shaders
+editor menu editor.menu.tools tools.reload-styles
+editor menu editor.menu.tools tools.remote-inspector
+editor menu editor.menu.tools tools.statistics
+editor menu editor.menu.tools view.clear-console
+editor menu editor.menu.window view.close-panel
+editor menu editor.menu.window view.float-panel
+editor menu editor.menu.window view.full-screen
+editor menu editor.menu.window view.next-tab
+editor menu editor.menu.window view.palette
+editor menu editor.menu.window view.previous-tab
+editor menu editor.menu.window view.toggle-theme
+editor menu editor.menu.window/editor.menu.layout view.layout.Animation
+editor menu editor.menu.window/editor.menu.layout view.layout.Debug
+editor menu editor.menu.window/editor.menu.layout view.layout.Default
+editor menu editor.menu.window/editor.menu.layout view.layout.Profiling
+editor menu editor.menu.window/editor.menu.layout view.layout.Scene
+editor menu editor.menu.window/editor.menu.layout view.layout.Sequencing
+editor menu editor.menu.window/editor.menu.layout view.layout.Shading
+editor menu editor.menu.window/editor.menu.layout view.reset-layout
+editor menu editor.menu.window/editor.menu.layout view.save-layout
+editor menu editor.menu.window/editor.menu.panels view.panel.addressables
+editor menu editor.menu.window/editor.menu.panels view.panel.blockout.panel
+editor menu editor.menu.window/editor.menu.panels view.panel.blockout.uv
+editor menu editor.menu.window/editor.menu.panels view.panel.build-settings
+editor menu editor.menu.window/editor.menu.panels view.panel.console
+editor menu editor.menu.window/editor.menu.panels view.panel.foliage.panel
+editor menu editor.menu.window/editor.menu.panels view.panel.hierarchy
+editor menu editor.menu.window/editor.menu.panels view.panel.history
+editor menu editor.menu.window/editor.menu.panels view.panel.inspector
+editor menu editor.menu.window/editor.menu.panels view.panel.inspector-2
+editor menu editor.menu.window/editor.menu.panels view.panel.keybindings
+editor menu editor.menu.window/editor.menu.panels view.panel.lighting
+editor menu editor.menu.window/editor.menu.panels view.panel.mesh-map-bake
+editor menu editor.menu.window/editor.menu.panels view.panel.messages
+editor menu editor.menu.window/editor.menu.panels view.panel.navigation
+editor menu editor.menu.window/editor.menu.panels view.panel.plugins
+editor menu editor.menu.window/editor.menu.panels view.panel.preferences
+editor menu editor.menu.window/editor.menu.panels view.panel.project
+editor menu editor.menu.window/editor.menu.panels view.panel.project-settings
+editor menu editor.menu.window/editor.menu.panels view.panel.revisions
+editor menu editor.menu.window/editor.menu.panels view.panel.scene
+editor menu editor.menu.window/editor.menu.panels view.panel.scenes
+editor menu editor.menu.window/editor.menu.panels view.panel.terrain.grass
+editor menu editor.menu.window/editor.menu.panels view.panel.terrain.growth
+editor menu editor.menu.window/editor.menu.panels view.panel.terrain.panel
+editor menu editor.menu.window/editor.menu.panels view.panel.terrain.splines
+editor menu editor.menu.window/editor.menu.panels view.panel.ui-diagnostics
+editor menu editor.menu.window/editor.menu.panels view.panel.water.panel
+editor menu editor.menu.window/editor.menu.panels view.panel.water.zone
+editor menu editor.menu.window/editor.menu.panels view.panel.world-settings
+editor mode foliage
+editor mode select
+editor mode terrain
+editor mode water
+editor panel addressables
+editor panel blockout.panel
+editor panel blockout.uv
+editor panel build-settings
+editor panel console
+editor panel foliage.panel
+editor panel hierarchy
+editor panel history
+editor panel inspector
+editor panel inspector-2
+editor panel keybindings
+editor panel lighting
+editor panel mesh-map-bake
+editor panel messages
+editor panel navigation
+editor panel plugins
+editor panel preferences
+editor panel project
+editor panel project-settings
+editor panel revisions
+editor panel scene
+editor panel scenes
+editor panel terrain.grass
+editor panel terrain.growth
+editor panel terrain.panel
+editor panel terrain.splines
+editor panel ui-diagnostics
+editor panel water.panel
+editor panel water.zone
+editor panel world-settings
+editor scene-menu edit.delete
+editor scene-menu edit.duplicate
+editor scene-menu edit.rename
+editor scene-menu entity.move-to-view
+editor scene-menu entity.snap-to-floor
+editor scene-menu scene.create-entity
+editor scene-menu scene.focus
+editor scene-menu scene.frame-all
+editor scene-menu scene.maximise
+editor scene-menu scene.rotate
+editor scene-menu scene.scale
+editor scene-menu scene.toggle-grid
+editor scene-menu scene.toggle-projection
+editor scene-menu scene.translate
+vixen.asset-editors menu editor.menu.window/editor.menu.panels view.panel.ai-debugger
+vixen.asset-editors menu editor.menu.window/editor.menu.panels view.panel.input-debug
+vixen.asset-editors panel ai-debugger
+vixen.asset-editors panel input-debug
+vixen.blockout mode blockout
+vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.devices
+vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.frame-debugger
+vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.gpu
+vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.memory
+vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.network
+vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.profiler
+vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.remote-inspector
+vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.statistics
+vixen.diagnostics panel devices
+vixen.diagnostics panel frame-debugger
+vixen.diagnostics panel gpu
+vixen.diagnostics panel memory
+vixen.diagnostics panel network
+vixen.diagnostics panel profiler
+vixen.diagnostics panel remote-inspector
+vixen.diagnostics panel statistics
+vixen.scripts menu editor.menu.window/editor.menu.panels view.panel.scripts
+vixen.scripts panel scripts
+vixen.water create water.create-waves
+vixen.water menu editor.menu.assets/editor.menu.create water.create-waves
