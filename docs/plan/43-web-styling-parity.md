@@ -84,9 +84,9 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **331** | 325 families |
-| CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **108** (11 of them `--tw-*` fragments) |
-| …of which something in the engine acts on | — | **91** |
+| Utility **roots** (the unit of this table) | **331** | 328 families |
+| CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **111** (13 of them `--tw-*` fragments) |
+| …of which something in the engine acts on | — | **92** |
 | Variant keys | **88** | **55** |
 
 ⚠ **The family figure moves every week, which is why it is no longer typed here.** It has been quoted
@@ -107,10 +107,10 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **261** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **264** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **23** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **43** |
+| **absent** | not emitted at all | **40** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 
 ⚠ **There was a sixth, `unknown`, and it described a row rather than a state.** Exactly one row held
@@ -504,7 +504,7 @@ refusal block, which already says so for the same reason.
 |---|--:|--:|--:|--:|--:|--:|
 | Layout | 49 | 37 | 2 | 0 | 7 | 3 |
 | Interactivity | 40 | 31 | 0 | 1 | 8 | 0 |
-| Borders | 34 | 28 | 2 | 0 | 4 | 0 |
+| Borders | 34 | 31 | 2 | 0 | 1 | 0 |
 | Effects | 35 | 30 | 2 | 0 | 3 | 0 |
 | Flexbox and Grid | 34 | 30 | 2 | 0 | 2 | 0 |
 | Typography | 34 | 24 | 2 | 0 | 8 | 0 |
@@ -517,7 +517,7 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 1 | 0 | 0 | 1 | 0 |
 | Accessibility | 1 | 1 | 0 | 0 | 0 | 0 |
-| **Total** | **331** | **261** | **23** | **1** | **43** | **3** |
+| **Total** | **331** | **264** | **23** | **1** | **40** | **3** |
 
 Flexbox and Grid leads at 30 of 34, with only two absent roots left and both of those refused on
 policy rather than owed; then Layout at 36 of 49, Interactivity at 31 of 40, Borders at 28 of 34,
@@ -1430,7 +1430,7 @@ does mirror that one.
 **The twenty-nine refusals are four shapes, and only the first is one the consumption gate can see.**
 
 1. *The property is inert, and a registration turns the gate red.* `border-spacing-*` and its two
-   axes (there is no table layout at all), `font-stretch-*` (interned by `InheritedProperties`, read
+   axes (there was no table layout at all — ⚠ **closed by #258**: `LayoutTree.Table.cs` reads the property and all three roots are registered and `works`), `font-stretch-*` (interned by `InheritedProperties`, read
    by nothing — the gate keeps a control for exactly this), `text-shadow-*`, the four `bg` keyword
    sets, and `content-none`, which additionally has nothing to apply to since F6 refused
    pseudo-elements rather than building them.

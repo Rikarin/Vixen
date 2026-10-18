@@ -120,6 +120,8 @@ const Vixen.Ui.Styling.Utilities.UtilityComposition.BackdropOpacity = "--tw-back
 const Vixen.Ui.Styling.Utilities.UtilityComposition.BackdropSaturate = "--tw-backdrop-saturate" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.BackdropSepia = "--tw-backdrop-sepia" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Blur = "--tw-blur" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.BorderSpacingX = "--tw-border-spacing-x" -> string
+const Vixen.Ui.Styling.Utilities.UtilityComposition.BorderSpacingY = "--tw-border-spacing-y" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Brightness = "--tw-brightness" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.Contrast = "--tw-contrast" -> string
 const Vixen.Ui.Styling.Utilities.UtilityComposition.DropShadow = "--tw-drop-shadow" -> string
@@ -181,6 +183,7 @@ static Vixen.Ui.Styling.Utilities.ThemeTokens.CreateDefault() -> Vixen.Ui.Stylin
 static Vixen.Ui.Styling.Utilities.ThemeTokens.Parse(string css) -> Vixen.Ui.Styling.Utilities.ThemeTokens
 static Vixen.Ui.Styling.Utilities.ThemeTokens.Strip(string css) -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.BackdropFilter() -> string
+static Vixen.Ui.Styling.Utilities.UtilityComposition.BorderSpacing() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Filter() -> string
 static Vixen.Ui.Styling.Utilities.UtilityComposition.Fragments.get -> System.Collections.Generic.IReadOnlyList<string>
 static Vixen.Ui.Styling.Utilities.UtilityComposition.InitialValueOf(string fragment) -> string

@@ -875,6 +875,31 @@ public static class UtilityFamilies {
         Spacing("gap-x", "column-gap");
         Spacing("gap-y", "row-gap");
 
+        // ⚠ <b>A table's gap, and v4 spells it as two fragments and an assembly</b> — `translate`'s
+        // shape, because `border-spacing` takes both axes in one declaration and `border-spacing-x-2
+        // border-spacing-y-4` must compose rather than fight. `Depth` and not `Spacing`, for v4's own
+        // grammar: a number of spacing units, `px` or an arbitrary length, and no keyword or fraction
+        // — `auto` and `1/2` are not lengths `border-spacing` can take, and the bridge would drop the
+        // whole declaration for them. Read by `LayoutTree.Table.cs` on a table (#258).
+        Register(new Family(
+            "border-spacing",
+            ValueKind.Depth,
+            [UtilityComposition.BorderSpacingX, UtilityComposition.BorderSpacingY],
+            Alongside: [new UtilityDeclaration("border-spacing", UtilityComposition.BorderSpacing())]
+        ));
+        Register(new Family(
+            "border-spacing-x",
+            ValueKind.Depth,
+            [UtilityComposition.BorderSpacingX],
+            Alongside: [new UtilityDeclaration("border-spacing", UtilityComposition.BorderSpacing())]
+        ));
+        Register(new Family(
+            "border-spacing-y",
+            ValueKind.Depth,
+            [UtilityComposition.BorderSpacingY],
+            Alongside: [new UtilityDeclaration("border-spacing", UtilityComposition.BorderSpacing())]
+        ));
+
         Spacing("p", "padding");
         Spacing("px", "padding-left", "padding-right");
         Spacing("py", "padding-top", "padding-bottom");

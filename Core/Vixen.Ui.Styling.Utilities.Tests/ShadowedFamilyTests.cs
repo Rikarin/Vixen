@@ -22,7 +22,7 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         <see cref="A_shorter_prefix_would_rescue_nothing" /> sweeps every nesting pair the
 ///         registry contains against every token key both shipped themes contain, and asserts that no
 ///         class exists which the longest-first rule refuses and a shorter prefix would answer. The
-///         shadowed roots — <c>border-spacing-*</c>, <c>bg-blend-*</c>, <c>text-shadow-*</c> and the
+///         shadowed roots — <c>bg-blend-*</c>, <c>text-shadow-*</c> and the
 ///         rest — are shadowed by a family that is the <i>only</i> registered prefix they have, so
 ///         there is nothing shorter to retry: whatever closes them, it is not the retry, and the
 ///         retry is a separate question with the answer "no".
@@ -208,6 +208,13 @@ public class ShadowedFamilyTests {
     ///         no-op.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b><c>border-spacing-0</c> left the same way, and it waited on an ALGORITHM.</b> The
+    ///         registration was one call; what it stood on was a table layout in
+    ///         <c>Vixen.Ui.Layout</c> for the property to be read in, which is what #258's first slice
+    ///         is. Registered before that, the three families would have resolved, cascaded and moved
+    ///         nothing — the gate's refusal, recorded in the ledger as measured.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b><c>inset-ring-0</c> and <c>inset-shadow-2xs</c> left the same way, and they are
     ///         the pair this remark's prediction is worth reading against.</b> Neither was waiting on
     ///         a registration either: both were waiting on <c>DrawListBuilder.EmitShadow</c> learning
@@ -228,7 +235,6 @@ public class ShadowedFamilyTests {
     ///     </para>
     /// </remarks>
     [Theory]
-    [InlineData("border-spacing-0", "border")]
     [InlineData("flex-shrink-0", "flex")]
     [InlineData("flex-grow-0", "flex")]
     [InlineData("max-w-screen-md", "max-w")]
