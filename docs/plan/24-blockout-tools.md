@@ -975,11 +975,14 @@ flight that reaches the upper slab; cuts a stairwell through the first floor, wh
 in the building that demotes; and asserts that the scene round-trips to byte-identical YAML with five
 of its seven entities still parametric.
 
-⚠ **What is not here: the cube grid's hover preview.** Unreal draws the candidate cell under the
-pointer before you commit to it, and that is most of what makes the tool feel like a tool rather than
-like a dialog. It is a drawing job on `SceneLines`' overlay rather than a modelling one — the same
-shape of work as [P2](#p2--selection-10-em-)'s element highlight — and it is owed, alongside
-[P3](#p3--the-verbs-20-em-)'s knife, rather than quietly dropped.
+**The cube grid's hover preview is built** (#374): `BlockoutMode.Hovering` casts the pointer's ray
+against the work plane, `BlockoutHover.CubeGrid` draws the candidate cell on `SceneLines`' overlay
+through `SceneViewport.Cursor`, and `Cube Grid Box` builds at the hovered cell. The loop cut's preview
+shares the delegate (`BlockoutHover.LoopCut`, one segment per crossed quad). ⚠ **Still owed:** the
+cube grid's *face* pick — pushing whichever face of a box the pointer is over is a pick against the
+box, not the plane — the loop cut's modality (scroll for the count, drag to slide: the numbers exist
+as `LoopCuts`/`LoopSlide` and nothing owns the pointer while they move), and the golden images, which
+are [20 § Part F](20-editor-parity.md)'s suite.
 
 **If you stop here** you have a level-design tool rather than a modelling one, which is
 [the row this document overturns](#the-row-this-overturns).
@@ -1171,11 +1174,11 @@ modelling history it had, and saying so is what stops it being reported as a bug
 | P1 — The mesh ✅ | 1.5 | — |
 | ~~P2 — Selection~~ | 1.0 | ✅ Done. The drawing arrived with it, which is B1's own follow-up; the marquee is [E2](20-editor-parity.md#e2--the-viewport-20-em)'s one band answering a second question |
 | ~~P3 — The verbs~~ | 2.0 | ✅ Done, less the knife — see [P3](#p3--the-verbs-20-em-) |
-| ~~P4 — Creation~~ | 1.5 | ✅ Done, less the cube grid's hover preview — see [P4](#p4--creation-15-em-) |
+| ~~P4 — Creation~~ | 1.5 | ✅ Done, hover preview included; the cube grid's face pick is owed — see [P4](#p4--creation-15-em-) |
 | ~~P5 — Surfaces~~ | 1.0 | ✅ Done, less vertex colours. The gate moved: `ISurfaceSource` had already landed, so what was left was the per-face half and a procedural checker. ⚠ The vertex-colour channel has a second caller — foliage carries wind weights in it — so it lands once, with the change that draws it, rather than twice. ⚠ **It was tried and did not take**: [31 § T0](31-terrain-grass-and-trees.md#t0--unblockers--10-em---built) put the channel on `MeshData` and landed the per-instance record without the vertex layout to draw it, T5 closed without one too, and the carried-and-dropped members were removed — see [31 § B4](31-terrain-grass-and-trees.md#b4-meshdata-has-one-uv-set-and-no-colour-channel-), which has the measurement that the per-vertex cost was never the obstacle. This row is owed, still |
 | ~~P6 — CSG~~ | 2.0 | ✅ Done. Ten thousand randomised operand pairs, no hole — see [P6](#p6--csg-20-em-) |
 | ~~P7 — Handoff~~ | 1.0 | ✅ Done, and the bake writes an OBJ rather than a format of its own — see [P7](#p7--handoff-10-em-) |
-| | **11.0** | **All of it, less the knife, the cube grid's preview and vertex colours** |
+| | **11.0** | **All of it, less the knife, the cube grid's face pick and vertex colours** |
 
 **And one cost that was not in the table and has been paid.**
 [B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-) — drawing meshes from
