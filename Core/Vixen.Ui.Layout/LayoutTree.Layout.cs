@@ -732,7 +732,7 @@ public sealed partial class LayoutTree {
                 } else if (fitContentCapsLine
                            && MathF.Max(
                                availableInnerMainDim,
-                               FitContentLineFloor(index, ref line, ownerDirection, direction, mainAxis, ownerWidth, ownerHeight, contentInsetAxisMain, availableInnerMainDim, currentDepth)
+                               FitContentLineFloor(index, ownerDirection, ownerWidth, ownerHeight, contentInsetAxisMain, currentDepth)
                            ) is var fitContentMainDim
                            && fitContentMainDim < line.SizeConsumed - 0.001f) {
                     // ⚠ <b>An offer of "at most W" on the inline axis is a bound, exactly as a
@@ -1220,25 +1220,21 @@ public sealed partial class LayoutTree {
     ///     offer can shrink it to (#1448).
     /// </summary>
     /// <remarks>
-    ///     <see cref="ComputeMinContentSize" /> sums the items' min-content contributions and their
-    ///     margins and adds the container's own padding and border; it does not add the gutters, which
-    ///     a single line has one of between every two items, so they are added here.
+    ///     <see cref="ComputeMinContentSize" /> sums the items' min-content contributions, their
+    ///     margins and the gutters between them, and adds the container's own padding and border, which
+    ///     come off here. ⚠ It used to leave the gutters out and this method added them back; once the
+    ///     probe counted them (#1468) that compensation counted them twice.
     /// </remarks>
     float FitContentLineFloor(
         int index,
-        ref FlexLine line,
         Direction ownerDirection,
-        Direction direction,
-        FlexDirection mainAxis,
         float ownerWidth,
         float ownerHeight,
         float contentInsetAxisMain,
-        float availableInnerMainDim,
         int currentDepth
     ) {
         var minContent = ComputeMinContentSize(index, FlexDirection.Row, ownerDirection, ownerWidth, ownerHeight, ownerWidth, currentDepth);
-        var gaps = StyleResolution.GapForAxis(in styles[index], mainAxis, availableInnerMainDim) * int.Max(0, line.ItemCount - 1);
 
-        return float.IsNaN(minContent) ? 0f : MathF.Max(0f, minContent - contentInsetAxisMain + gaps);
+        return float.IsNaN(minContent) ? 0f : MathF.Max(0f, minContent - contentInsetAxisMain);
     }
 }

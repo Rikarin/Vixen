@@ -1254,10 +1254,14 @@ public sealed partial class LayoutTree {
         var innerHeight = ProbeContentHeight(index, direction, ownerWidth, ownerHeight);
         var innerProbe = ProbeInlineSize(index, direction, ownerWidth, probeWidth);
 
+        var inFlowCount = 0;
+
         foreach (var child in ChildIds(index)) {
             if (!IsInFlow(child)) {
                 continue;
             }
+
+            inFlowCount++;
 
             var childMain = MinContentContribution(child, nodeMainAxis, direction, innerWidth, innerHeight, innerProbe, currentDepth)
                 + StyleResolution.MarginForAxis(in styles[child], nodeMainAxis, innerWidth);
@@ -1266,6 +1270,19 @@ public sealed partial class LayoutTree {
 
             mainTotal = wraps ? MathF.Max(mainTotal, childMain) : mainTotal + childMain;
             crossMax = MathF.Max(crossMax, childCross);
+        }
+
+        // ⚠ <b>A single line holds a gutter between every two of its items, and its min-content size
+        // is the items AND those gutters</b> — CSS Flexbox §9.9.1 (#1468). Leaving them out made a
+        // gapped row's §4.5 floor short by its gaps, so a `column-gap: 20px` row of two 10-point boxes
+        // shrank to 30 in a 30-point root, its second box at x = 30, where Chrome keeps it at 40 and
+        // overflows. A wrapping container's answer is its widest item, between which no gutter
+        // applies, so only the sum takes them; a block container has none at all. A percentage
+        // gutter resolves against this box's own definite content size, which §5.2.1 makes zero for
+        // a box whose size is not a length — the basis `ProbeContentWidth` gives its descendants.
+        if (!wraps && inFlowCount > 1 && styles[index].Display == Display.Flex) {
+            var gapBasis = FlexAxis.IsRow(nodeMainAxis) ? innerWidth : innerHeight;
+            mainTotal += StyleResolution.GapForAxis(in styles[index], nodeMainAxis, gapBasis) * (inFlowCount - 1);
         }
 
         mainTotal += StyleResolution.FlexStartContentInset(in styles[index], nodeMainAxis, direction, ownerWidth)
