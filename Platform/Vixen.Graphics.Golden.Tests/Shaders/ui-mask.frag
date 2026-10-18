@@ -95,7 +95,8 @@ layout(push_constant) uniform Mask {
     vec4 blue;
 
     // `x` the first entry's index in `masks`, `y` how many entries, `z` framebuffer pixels per
-    // document pixel. `w` unused.
+    // document pixel. `w` the frame's white level, which `composite_filter` normalises by (#1418);
+    // zero is read as one.
     //
     // ⚠ Floats holding integers, because the whole fragment range is `vec4`s and a mixed block would
     // have to be laid out by hand on both sides of the wire. Rounded rather than truncated on the
@@ -116,6 +117,11 @@ layout(push_constant) uniform Mask {
     // scales it, so that this box and `MaskEntry.box` — which is *not* scaled — deliberately arrive
     // in two different spaces. See `main`, which evaluates one in each.
     vec4 box;
+
+    // `x` the radius, and `z` one when the draw carries a colour matrix and zero when it does not —
+    // `ui-colour.frag`'s `corner` lane for lane but for `y`, since the white rides `list.w` here.
+    // ⚠ A mask alone is the commoner case by far, and without the flag the identity ran through the
+    // clamp: a masked glass panel over an HDR world capped the world at the frame's white (#1458).
     vec4 corner;
 } push;
 
@@ -296,6 +302,26 @@ float box_distance(vec2 point, vec2 half_size, vec2 radius) {
     return (length(q / r) - 1.0) * min(r.x, r.y);
 }
 
+// The colour matrix on premultiplied colour, with the offset scaled by alpha, clamped to `[0, a·w]`.
+// `UiComposite.Filter` in `Ui.rvn`, transcribed; `ui-colour.frag` carries the same copy.
+//
+// ⚠ <b>At the frame's white, and "`[0, a]`" is the white-of-one case of it</b> (#1418, #1458). A
+// surface on a float pass holds colour scaled by `UiGeometry.WhiteLevel`, so the matrix is applied to
+// colour normalised by it and the answer re-lit: `clamp(M·c + o·a·w, 0, a·w)`, which is the same thing
+// because the coefficients are linear. Clamped to the bare alpha, every filtered pixel of an HDR HUD
+// is capped at one candela. Zero or less is read as one, the host's own fallback.
+vec3 composite_filter(vec4 sampled, float white) {
+    float lit = sampled.a * (white > 0.0 ? white : 1.0);
+
+    vec3 filtered = vec3(
+        dot(push.red.rgb, sampled.rgb) + (push.red.w * lit),
+        dot(push.green.rgb, sampled.rgb) + (push.green.w * lit),
+        dot(push.blue.rgb, sampled.rgb) + (push.blue.w * lit)
+    );
+
+    return clamp(filtered, vec3(0.0), vec3(lit));
+}
+
 // The border box's own rounding, one where there is no radius.
 //
 // ⚠ It multiplies the mask's coverage rather than replacing it. An element may carry a `mask-image`
@@ -316,15 +342,9 @@ void main() {
     // straight-alpha texture can never arrive and the flag would be a branch on a constant.
     vec4 sampled = texture(sampler2D(source, source_sampler), varying_texcoord);
 
-    // The colour matrix, on premultiplied colour with the offset scaled by alpha, clamped to `[0, a]`.
-    // See `ui-colour.frag`, which argues every line of this.
-    vec3 filtered = vec3(
-        dot(push.red.rgb, sampled.rgb) + (push.red.w * sampled.a),
-        dot(push.green.rgb, sampled.rgb) + (push.green.w * sampled.a),
-        dot(push.blue.rgb, sampled.rgb) + (push.blue.w * sampled.a)
-    );
-
-    filtered = clamp(filtered, vec3(0.0), vec3(sampled.a));
+    // The colour matrix, on premultiplied colour with the offset scaled by alpha, clamped to
+    // `[0, a·w]`, and only when the draw carries one. See `ui-colour.frag`, which argues every line.
+    vec3 filtered = push.corner.z > 0.5 ? composite_filter(sampled, push.list.w) : sampled.rgb;
 
     // ⚠ <b>The texture coordinate times the surface size is a <i>target texel</i>, and the sentence
     // that used to stand here said it was a document pixel.</b> The two claims were in one paragraph

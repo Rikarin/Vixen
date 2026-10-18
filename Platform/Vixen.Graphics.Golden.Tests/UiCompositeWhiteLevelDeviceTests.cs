@@ -304,6 +304,122 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
         }
     }
 
+    public static TheoryData<string> TwinArrangements() => ["filter", "mask"];
+
+    /// <summary>
+    ///     The GLSL twins <c>ui-colour.frag</c> and <c>ui-mask.frag</c> light a filtered or masked group
+    ///     once at a white of 203, as the Raven modules do (#1458).
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The twins' own modules, compiled from the GLSL beside this project, and not a C#
+    ///         reading of them.</b> Every other fixture that draws through a twin is built at a white of
+    ///         one, where <c>UiComposite.Filter</c>'s ceiling of the alpha times the white is the bare
+    ///         alpha — so a twin that clamped to the bare alpha drew the same picture as the Raven
+    ///         module, and the census recorded the difference as reconciled rather than as a defect.
+    ///         At 203 the bare-alpha ceiling caps every filtered pixel at one candela.
+    ///     </para>
+    ///     <para>
+    ///         The <c>mask</c> arrangement carries no matrix, so through <c>ui-mask.frag</c> the clamp
+    ///         is reached only by a twin that ignores the has-a-matrix flag, and then at the bare alpha
+    ///         it caps the group too. The glass test below is the one that separates the flag from
+    ///         the white.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(TwinArrangements))]
+    public void TheGlslTwinsLightAFilteredOrMaskedGroupOnce(string arrangement) {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var list = Group(arrangement);
+
+        var (one, _) = Frame(owned, list, 1f, $"twin-white-1-{arrangement}", twins: true);
+        var (lit, renderer) = Frame(owned, list, DiffuseWhite, $"twin-white-203-{arrangement}", twins: true);
+
+        // The instrument: the draw went to the twin the arrangement names.
+        Assert.Equal(1, renderer.Composited);
+        Assert.Equal(arrangement == "filter" ? 1 : 0, renderer.Filtered);
+        Assert.Equal(arrangement == "mask" ? 1 : 0, renderer.Masked);
+
+        var middle = At(one, Side / 2, Side / 2);
+
+        Assert.True(middle.X + middle.Y + middle.Z > 0.05f, $"{arrangement}: the twin's middle is black at a white of one");
+
+        AssertScaled(arrangement, "the GLSL twins", one, lit);
+    }
+
+    /// <summary>
+    ///     A glass panel with no matrix passes a scene above the frame's white through the GLSL twins,
+    ///     as it does through the Raven modules (#1458).
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The has-a-matrix flag's fixture.</b> The rounded panel reaches <c>ui-colour.frag</c> for
+    ///     its box and the masked one <c>ui-mask.frag</c> for its ramp, neither with a matrix. A twin
+    ///     that ignores <c>corner.z</c> runs the identity through the clamp, which at the frame's white
+    ///     caps a 650 cd/m² scene at 203; one that also clamps at the bare alpha caps it at one. The
+    ///     oracle is <see cref="AGlassPanelWithNoMatrixPassesASceneAboveTheWhite" />'s: the closed form
+    ///     for the rounded panel's middle, and the software executor across both panels' middles.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(GlassArrangements))]
+    public void TheGlslTwinsPassASceneAboveTheWhiteThroughAGlassPanelWithNoMatrix(string arrangement) {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var (glass, renderer) = Frame(owned, Glass(arrangement), DiffuseWhite, $"twin-glass-{arrangement}", Scene, twins: true);
+
+        Assert.Equal(1, renderer.Backdropped);
+        Assert.Equal(0, renderer.Filtered);
+        Assert.Equal(0, renderer.SquareBackdrops);
+        Assert.Equal(arrangement == "masked" ? 2 : 0, renderer.Masked);
+
+        var expected = new Vector3(
+            (0.125f * DiffuseWhite) + (0.75f * Scene.R),
+            (0.125f * DiffuseWhite) + (0.75f * Scene.G),
+            (0.125f * DiffuseWhite) + (0.75f * Scene.B)
+        );
+
+        var geometry = Build(Glass(arrangement), DiffuseWhite, out var atlas);
+        var software = ToPixels(SoftwareUiRasterizer.RenderLinear(geometry, atlas, Side, Side, Scene));
+
+        if (arrangement == "rounded") {
+            AssertTwinNear("the rounded panel through ui-colour.frag", At(glass, Side / 2, Side / 2), expected);
+        }
+
+        Assert.True(
+            At(glass, Side / 2, Side / 2).X > DiffuseWhite * 1.5f,
+            $"{arrangement}: the twin's middle {At(glass, Side / 2, Side / 2)} is not above the white"
+        );
+
+        for (var y = 44; y < 84; y++) {
+            for (var x = 44; x < 84; x++) {
+                var reference = At(software, x, y);
+
+                AssertTwinNear(
+                    $"{arrangement} through the twin against the software executor at ({x}, {y})",
+                    At(glass, x, y),
+                    new(reference.X, reference.Y, reference.Z)
+                );
+            }
+        }
+
+        static void AssertTwinNear(string what, Vector4 actual, Vector3 expected) {
+            var error = MathF.Max(
+                MathF.Abs(actual.X - expected.X) / expected.X,
+                MathF.Max(MathF.Abs(actual.Y - expected.Y) / expected.Y, MathF.Abs(actual.Z - expected.Z) / expected.Z)
+            );
+
+            Assert.True(error <= 0.02f, $"{what}: {actual} where {expected} was expected (relative error {error:0.###})");
+        }
+    }
+
     /// <summary>A glass panel — <c>backdrop-filter: blur(2px)</c>, no matrix — square, rounded by sixteen, or square with a mask.</summary>
     static DrawList Glass(string arrangement) {
         var radius = arrangement == "rounded" ? 16 : 0;
@@ -442,7 +558,14 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
     }
 
     /// <summary>One frame at one white level, through the Raven table into a float target.</summary>
-    static (Vector4[] Pixels, UiRenderer Renderer) Frame(Fixture fixture, DrawList list, float white, string name, Color4? ground = null) {
+    static (Vector4[] Pixels, UiRenderer Renderer) Frame(
+        Fixture fixture,
+        DrawList list,
+        float white,
+        string name,
+        Color4? ground = null,
+        bool twins = false
+    ) {
         var under = ground ?? Clear;
 
         var device = fixture.Device;
@@ -466,7 +589,7 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
 
         var renderer = new UiRenderer(
             device,
-            UiShaderLibrary.Load(device),
+            twins ? Twins(fixture) : UiShaderLibrary.Load(device),
             new Rendering.RenderOutput([PixelFormat.Rgba32Float])
         );
 
@@ -505,6 +628,20 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
 
         return (ToPixels(floats), renderer);
     }
+
+    /// <summary>The hand-written GLSL modules beside this project, in place of the Raven table.</summary>
+    static UiShaders Twins(Fixture fixture) =>
+        new(
+            fixture.Shader("ui.vert.spv", ShaderStage.Vertex),
+            fixture.Shader("ui-box.frag.spv", ShaderStage.Fragment),
+            fixture.Shader("ui-text.frag.spv", ShaderStage.Fragment),
+            fixture.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
+        ) {
+            Image = fixture.Shader("ui-image.frag.spv", ShaderStage.Fragment),
+            Blur = fixture.Shader("ui-blur.frag.spv", ShaderStage.Fragment),
+            Colour = fixture.Shader("ui-colour.frag.spv", ShaderStage.Fragment),
+            Mask = fixture.Shader("ui-mask.frag.spv", ShaderStage.Fragment)
+        };
 
     static Vector4[] ToPixels(float[] floats) {
         var pixels = new Vector4[floats.Length / 4];

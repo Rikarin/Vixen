@@ -45,7 +45,14 @@ layout(push_constant) uniform Filter {
     vec4 box;
 
     // `x` the corner radius, in target texels, uniform across the four corners or zero —
-    // `UiLayer.BackdropRadius` times the frame's scale.
+    // `UiLayer.BackdropRadius` times the frame's scale. `y` the frame's white level,
+    // `UiGeometry.WhiteLevel`, which `composite_filter` normalises by (#1418); zero is read as one.
+    // `z` one when the draw carries a colour matrix and zero when it does not.
+    //
+    // ⚠ <b>A flag and not an identity matrix, because the filter is not the identity on an identity
+    // matrix</b> (#1458). It clamps to `[0, a·w]`, and a rounded glass panel with no matrix — which is
+    // here for its box and nothing else — would be clamped by it: every highlight of an HDR world
+    // behind it capped at the frame's white. `UiColour.corner` in `Ui.rvn` argues it.
     //
     // ⚠ Zero is the whole of the "this draw is not a rounded backdrop" test, and it has to be a
     // number rather than an absent push. This pipeline also serves every filtered group, and one of
@@ -90,6 +97,26 @@ float box_distance(vec2 point, vec2 half_size, vec2 radius) {
     return (length(q / r) - 1.0) * min(r.x, r.y);
 }
 
+// The colour matrix on premultiplied colour, with the offset scaled by alpha, clamped to `[0, a·w]`.
+// `UiComposite.Filter` in `Ui.rvn`, transcribed.
+//
+// ⚠ <b>At the frame's white, and "`[0, a]`" is the white-of-one case of it</b> (#1418, #1458). A
+// surface on a float pass holds colour scaled by `UiGeometry.WhiteLevel`, so the matrix is applied to
+// colour normalised by it and the answer re-lit: `clamp(M·c + o·a·w, 0, a·w)`, which is the same thing
+// because the coefficients are linear. Clamped to the bare alpha, every filtered pixel of an HDR HUD
+// is capped at one candela. Zero or less is read as one, the host's own fallback.
+vec3 composite_filter(vec4 sampled, float white) {
+    float lit = sampled.a * (white > 0.0 ? white : 1.0);
+
+    vec3 filtered = vec3(
+        dot(push.red.rgb, sampled.rgb) + (push.red.w * lit),
+        dot(push.green.rgb, sampled.rgb) + (push.green.w * lit),
+        dot(push.blue.rgb, sampled.rgb) + (push.blue.w * lit)
+    );
+
+    return clamp(filtered, vec3(0.0), vec3(lit));
+}
+
 // How much of this pixel the border box covers — one where there is no radius, so the multiply at
 // the end of `main` is the identity on every other draw this pipeline serves.
 //
@@ -121,19 +148,15 @@ void main() {
     // Dividing the alpha out to transform "the colour" and multiplying it back is the same mistake
     // `ui-blur.frag` refuses for the same reason: the colour under a zero alpha is not a colour, and
     // an `invert(1)` would turn every transparent texel of a viewport-sized surface opaque white.
-    vec3 filtered = vec3(
-        dot(push.red.rgb, sampled.rgb) + (push.red.w * sampled.a),
-        dot(push.green.rgb, sampled.rgb) + (push.green.w * sampled.a),
-        dot(push.blue.rgb, sampled.rgb) + (push.blue.w * sampled.a)
-    );
-
-    // ⚠ Clamped to `[0, a]` and not to `[0, 1]`. Premultiplied colour is valid only up to its own
+    //
+    // ⚠ Clamped to `[0, a·w]` and not to `[0, 1]`. Premultiplied colour is valid only up to its own
     // alpha, and clamping there is exactly clamping the un-premultiplied colour to `[0, 1]`, which is
     // what CSS specifies. It is also what makes `brightness(2)` the same picture as the software
     // renderer's: the attachment would clamp to one on the way out anyway and a float buffer would
     // not, so an unclamped shader and an unclamped CPU port would part company on the brightest
-    // pixels alone. `UiColorMatrix.Apply` does this, once, in the same place.
-    filtered = clamp(filtered, vec3(0.0), vec3(sampled.a));
+    // pixels alone. `UiColorMatrix.Apply` does this, once, in the same place. Only when the draw
+    // carries a matrix — see `corner`.
+    vec3 filtered = push.corner.z > 0.5 ? composite_filter(sampled, push.corner.y) : sampled.rgb;
 
     // ⚠ The point comes from the texture coordinate times the surface size, which is a <i>target
     // texel</i> — `ui-mask.frag` argues it at length and this is the same expression for the same
