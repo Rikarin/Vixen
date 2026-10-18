@@ -127,6 +127,9 @@ sealed partial class EditorApplication : IDisposable {
     /// <remarks>Published as <see cref="IPlaySession" />; <c>PlayModule</c> registers the transport over it (#1289).</remarks>
     readonly EditorPlaySession play;
 
+    /// <summary>The entity and hierarchy verbs, as the service a plugin can <c>Require</c> (#1290).</summary>
+    readonly SceneEditing sceneEditing;
+
     /// <summary>The ring the console reads, and what puts the editor's own messages in it.</summary>
     readonly EditorLog log = new();
 
@@ -665,6 +668,12 @@ sealed partial class EditorApplication : IDisposable {
         // so it follows the session rather than living inside it. See `PlayEntered`, `PlayLeft`.
         play.Entered += _ => PlayEntered();
         play.Left += _ => PlayLeft();
+
+        // ⚠ The active scene, the focused pane's camera and the probe are asked for at each call,
+        // because all three change under the service — a second scene activated, a pane split, a
+        // probe rebuilt for the new scene. See `SceneEditing`.
+        sceneEditing = new SceneEditing(() => scene, () => Viewport?.Camera, () => probe);
+        sceneEditing.HierarchyChanged += _ => hierarchyStale = true;
 
         // ⚠ And every other open scene's, because the store above is the *first* document's and a
         // behaviour authored into an additively opened scene used to be named in `Unsupported`
@@ -3080,6 +3089,10 @@ sealed partial class EditorApplication : IDisposable {
             // ⚠ And the verbs, under the wider contract (#1289): what `PlayModule` registers the
             // transport over, and what a plugin asks for to enter play the way F5 does.
             .Add<IPlaySession>(play)
+
+            // ⚠ And the scene's verbs (#1290): what `SceneModule` registers the Entity menu over, and
+            // what a plugin asks for to group the selection the way Ctrl+G does.
+            .Add<ISceneEditing>(sceneEditing)
 
             // ⚠ And which eye it is showing it through, which is a separate question with a separate
             // answer: doc 39's resolved volume stack is per camera, because the volume fold weighs

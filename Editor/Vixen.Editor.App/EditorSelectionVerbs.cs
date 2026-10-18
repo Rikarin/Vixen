@@ -462,7 +462,7 @@ sealed partial class EditorApplication {
         var to = world.Read<WorldTransform>(anchor).Value.Translation;
 
         Axis("Align on which axis?", (targets, axis) => {
-            Displace(
+            sceneEditing.Displace(
                 "Align",
                 targets,
                 entity => Along(axis, Component(to, axis) - Component(WorldPositionOf(entity), axis))
@@ -496,7 +496,7 @@ sealed partial class EditorApplication {
                 wanted[ordered[index].Entity] = first + (step * index);
             }
 
-            Displace(
+            sceneEditing.Displace(
                 "Distribute",
                 targets,
                 entity => Along(axis, wanted[entity] - Component(WorldPositionOf(entity), axis))

@@ -43,6 +43,7 @@ static class EditorModules {
         // ⚠ The application's own verbs first (doc 50 § D3, #1289): a feature module may add to a menu
         // the application's modules fill, and none adds a mode, so the mode bar's order is untouched.
         (PlayModule.ModuleId, PlayModule.ModuleName, new PlayModule()),
+        (SceneModule.ModuleId, SceneModule.ModuleName, new SceneModule()),
         (BlockoutModule.ModuleId, BlockoutModule.ModuleName, new BlockoutModule()),
         (TerrainModule.ModuleId, TerrainModule.ModuleName, new TerrainModule()),
         (TerrainPhysicsModule.ModuleId, TerrainPhysicsModule.ModuleName, new TerrainPhysicsModule()),
