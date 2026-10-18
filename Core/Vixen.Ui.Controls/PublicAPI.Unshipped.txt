@@ -144,6 +144,8 @@ Vixen.Ui.Controls.ComboBox -> sealed class
 Vixen.Ui.Controls.ComboBox : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.ComboBox.AddOption(string value, string? label = null) -> Vixen.Ui.Controls.Option
 Vixen.Ui.Controls.ComboBox.ComboBox() -> void
+Vixen.Ui.Controls.ComboBox.Completes.get -> bool
+Vixen.Ui.Controls.ComboBox.Completes.set -> bool
 Vixen.Ui.Controls.ComboBox.Editor.get -> Vixen.Ui.Controls.TextBox
 Vixen.Ui.Controls.ComboBox.IsValid.get -> bool
 Vixen.Ui.Controls.ComboBox.List.get -> Vixen.Ui.Controls.Popover

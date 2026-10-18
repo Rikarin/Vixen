@@ -19,7 +19,9 @@ namespace Vixen.Ui.Layout;
 ///         things people put in the same sentence as this invariant are not the same problem.
 ///         Fragmentation is one node to many boxes and lives here. An <b>anonymous</b> block box
 ///         (§9.2.1.1) and a <b>generated</b> box (<c>::before</c>, doc 43's A12) are the other
-///         direction — a box with no node behind it — and neither is served by this file. The
+///         direction — a box with no <i>element</i> behind it — and neither is served by this file.
+///         (A generated box did turn out to want a layout node: <c>UiDocument.Generate</c> gives it
+///         one under the originating element's, so this arena never sees it either.) The
 ///         difference is not pedantry, and it is what let one of the two land without touching this
 ///         arena at all: an anonymous block box takes initial values for every non-inherited
 ///         property, so it has no background, no border and no event target and never needs to be

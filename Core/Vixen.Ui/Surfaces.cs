@@ -354,7 +354,10 @@ public sealed partial class UiDocument {
     /// </remarks>
     static int LayoutIndexOf(UiElement parent, int index) {
         var children = parent.ChildList;
-        var layout = 0;
+
+        // ⚠ A `::before` is the parent's first layout child and is in no element list, so every
+        // element index is one further along in the layout tree than the surface roots alone say.
+        var layout = parent.GeneratedBefore is null ? 0 : 1;
 
         for (var i = 0; i < index; i++) {
             if (children[i].SurfaceRoot is null) {

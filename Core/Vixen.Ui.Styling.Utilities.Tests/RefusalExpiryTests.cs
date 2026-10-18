@@ -220,8 +220,15 @@ public class RefusalExpiryTests {
     ///         decided, wrote the family, and left the engine not reading it.
     ///     </para>
     ///     <para>
-    ///         ⚠ And the set is asserted non-empty first, for this file's standing reason: a rule
-    ///         applied to no rows passes vacuously, and today the set is exactly one row.
+    ///         ⚠ <b>The ledger holds no <c>inert</c> row today, and the rule stays.</b> Its one
+    ///         subject was <c>select</c>, which went <c>partial</c> on 2026-10-18 when
+    ///         <c>TextField</c> started reading <c>user-select</c> (#225). The anti-vacuity assertion
+    ///         this test used to open with said to delete the test when that happened, and that was
+    ///         the wrong instruction: <c>inert</c> is not a state the table has left behind but one any
+    ///         new family registered ahead of its reader re-enters, and that is the moment this rule is
+    ///         for. So the vacuity guard is now on the two things it was really about — that the ledger
+    ///         is being read, and that the predicate fails a bare <c>inert</c> row when it meets one,
+    ///         proved on a row built here rather than borrowed from whatever the ledger happens to hold.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -229,22 +236,14 @@ public class RefusalExpiryTests {
         var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
         var clauses = RefusalExpiry.All(rows, RefusalExpiry.Root());
 
-        var inert = rows
-            .Where(row => string.Equals(row.State, "inert", StringComparison.Ordinal))
-            .ToList();
+        Assert.True(rows.Count > 0, "the ledger read no rows, so this rule has nothing to apply to.");
 
-        Assert.True(
-            inert.Count > 0,
-            "no ledger row reads `inert`, so this rule has no subjects. That is either a state the "
-            + "table has left behind — in which case delete this and say so — or the ledger is not "
-            + "being read, which is what every anti-vacuity assertion in this suite is about."
-        );
+        // The instrument, on a subject it must reject: an inert row whose note names no condition.
+        var probe = Row("probe-inert-root", "emits something nothing reads, and says nothing about when that ends");
+        probe.State = "inert";
+        Assert.Equal(["probe-inert-root"], Bare([probe], RefusalExpiry.All([probe], RefusalExpiry.Root())));
 
-        var bare = inert
-            .Where(row => !clauses.Any(clause => !clause.Prose && string.Equals(clause.Root, row.Root, StringComparison.Ordinal)))
-            .Select(row => row.Root)
-            .Order(StringComparer.Ordinal)
-            .ToList();
+        var bare = Bare(rows, clauses);
 
         Assert.True(
             bare.Count == 0,
@@ -262,6 +261,15 @@ public class RefusalExpiryTests {
              """
         );
     }
+
+    /// <summary>The <c>inert</c> rows no clause names, by root.</summary>
+    static List<string> Bare(IEnumerable<ParityRow> rows, IReadOnlyList<ExpiryClause> clauses) =>
+        rows
+            .Where(row => string.Equals(row.State, "inert", StringComparison.Ordinal))
+            .Where(row => !clauses.Any(clause => !clause.Prose && string.Equals(clause.Root, row.Root, StringComparison.Ordinal)))
+            .Select(row => row.Root)
+            .Order(StringComparer.Ordinal)
+            .ToList();
 
     /// <summary>Every clause that opened parsed, so a mistyped one is a failure and not an exemption.</summary>
     /// <remarks>

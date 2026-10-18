@@ -52,8 +52,8 @@
 # ⚠ And the return edge, which is this file's own citations read backwards: a ledger note whose refusal
 # rests on a line *here* ends with `[expires-when-read <property>]`, so the run in which the property
 # gains a reader fails that note as well as this line. `border-s-*` and `border-e-*` name the two
-# colours below under #21 and `select` names `user-select` under #24 — the three that had been citing
-# this file in English since they were written. That is #288's "one dependency edge out", in the
+# colours below under #21 and `select` named `user-select` under #24 until that line closed (#225) —
+# the three that had been citing this file in English since they were written. That is #288's "one dependency edge out", in the
 # direction this file is the dependency.
 #
 # What it took, and every clause survives inside it. A transform opens a composited group — the fifth
@@ -277,19 +277,23 @@ border-inline-start-color    #21  ditto
 # fourth border edge, and no new draw path. What it did need was `currentcolor`, so that a bare
 # `ring-2` is the text colour instead of some default nobody chose — see `UtilityComposition.Ring`.
 #
-# ⚠ The remaining line is the one that is *not* waiting for a reader, and the reason it stays is
-# worth more than the line. A selection model does exist — `TextField` has `CaretIndex`,
-# `SelectionAnchor`, `SelectWord`, drag-to-select and a highlight it draws in its own `OnDraw`, and
-# `CodeEditor` has its own — so the old wording here, "no selection model", was disprovable in five
-# minutes and invited exactly the cheap close it was meant to prevent. What is absent is the
-# *document-wide* selection CSS is talking about. Both models are per-control: each captures the
-# pointer for the duration of its own drag, gates its highlight on focus, and hit-tests only its own
-# `TextLayout`. Nothing can drag a selection across a `TextBlock`, a label or two sibling elements,
-# and `select-none` on a button — the overwhelmingly commonest way the class is written, to stop a
-# double-click selecting the caption — has nothing to suppress because nothing would have selected.
-# Teaching `TextField.Pointed` to refuse a drag under `user-select: none` would make this line expire
-# while leaving that promise unkept, which is why it was not done.
-user-select                  #24  selection is per-control; the document-wide model `user-select` governs does not exist
+# ⚠ The last line here was `user-select`, and it left on 2026-10-18 (#225) by a route this paragraph
+# used to refuse — so what follows records both the refusal and why it was overruled, not just the
+# deletion. The refusal said: a selection model exists twice and both are per-control (`TextField`'s
+# `CaretIndex`/`SelectionAnchor`/drag-to-select, and `CodeEditor`'s), what is absent is the
+# *document-wide* selection CSS means, `select-none` on a button has nothing to suppress, and teaching
+# `TextField.Pointed` to refuse a drag under `user-select: none` would expire this line while leaving
+# that promise unkept. Every clause of that is still true.
+#
+# What changed is the batch plan, which asked for that reader explicitly, with this file's line to go
+# only when a test proved it. `TextField.StartsUnselectable` refuses a selection drag that STARTS on a
+# `user-select: none` part inside the field (the walk stops at the field: CSS UI 4 makes an editable
+# element's own value `contain`); `ControlTheme.vcss` declares it on a search box's magnifier, which is
+# where a drag used to select the first word; and the probe's `selected` scene starts a mouse drag on
+# `#probe` inside a text box, so the gate measured the property read by paint and expired this line by
+# itself. ⚠ The promise the refusal guarded is kept honest elsewhere rather than here: the ledger's
+# `select` row is `partial`, not `works`, with a value gap naming the document-wide model and its
+# `[expires-on Vixen.Ui.UiDocument.Selection]` clause intact.
 
 # ── Grid — B2. CLOSED. `grid-column` and `grid-template-columns` were here until the bridge landed;
 # both are read now, and the `gridded` scene in UtilityConsumptionProbe is what observes them. Note

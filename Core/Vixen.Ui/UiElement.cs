@@ -436,6 +436,20 @@ public partial class UiElement : Composition.IComposable {
                 children[i].paintKey = i;
             }
 
+            // ⚠ The generated boxes sit outside the children at both ends — CSS Pseudo-Elements 4
+            // § 4 makes `::before` the first child BOX and `::after` the last — and they sort by
+            // `z-index` like any child, which is what lets a `::before` with `z-index: -1` sit under
+            // its siblings.
+            if (GeneratedBefore is { } before) {
+                before.paintKey = -1;
+                ordered.Insert(0, before);
+            }
+
+            if (GeneratedAfter is { } after) {
+                after.paintKey = children.Count;
+                ordered.Add(after);
+            }
+
             // Stable by construction: equal keys keep document order, which is what makes `z-10` on
             // one child leave every other child exactly where it was.
             //
@@ -461,6 +475,13 @@ public partial class UiElement : Composition.IComposable {
     ///     half-implemented shape the utilities inventory exists to catch.
     /// </remarks>
     bool AnyChildIsReordered() {
+        // ⚠ A generated box is not in `children`, so an element that has one cannot hand that list
+        // out as its paint order — the box would be laid out and never drawn or hit. The sorted path
+        // is the one that can add it, and an element generating a box takes it.
+        if (GeneratedBefore is not null || GeneratedAfter is not null) {
+            return true;
+        }
+
         foreach (var child in children) {
             if (child.zIndex != 0 || child.flexOrder != 0) {
                 return true;
@@ -471,6 +492,32 @@ public partial class UiElement : Composition.IComposable {
     }
 
     internal void InvalidateOrder() => orderDirty = true;
+
+    /// <summary>The box this element's <c>::before</c> rule generated, if one did.</summary>
+    /// <remarks>
+    ///     ⚠ Not a child: see <see cref="GeneratedBox" />. <c>UiDocument.Generate</c> is the only
+    ///     writer, through <see cref="SetGenerated" />.
+    /// </remarks>
+    internal GeneratedBox? GeneratedBefore { get; private set; }
+
+    /// <summary>The box this element's <c>::after</c> rule generated, if one did.</summary>
+    internal GeneratedBox? GeneratedAfter { get; private set; }
+
+    /// <summary>Records a generated box arriving or leaving.</summary>
+    /// <remarks>
+    ///     The paint order is rebuilt because the box is in it, and the accessibility flag is raised
+    ///     because the box's words are part of this element's name — see <see cref="AccessibleName" />.
+    /// </remarks>
+    internal void SetGenerated(PseudoElement kind, GeneratedBox? box) {
+        if (kind == PseudoElement.Before) {
+            GeneratedBefore = box;
+        } else {
+            GeneratedAfter = box;
+        }
+
+        orderDirty = true;
+        document?.InvalidateAccessibility();
+    }
 
     /// <summary>What the cascade decided. Interned, so two alike elements share one object.</summary>
     public ComputedStyle Style { get; internal set; }
@@ -573,7 +620,7 @@ public partial class UiElement : Composition.IComposable {
     /// <summary>Whether it carries a class.</summary>
     /// <param name="className">The class.</param>
     /// <returns>Whether it does.</returns>
-    public bool HasClass(string className) => Document.Styles.Tree.HasClass(StyleNode, className);
+    public bool HasClass(string className) => StyleNode.IsValid && Document.Styles.Tree.HasClass(StyleNode, className);
 
     /// <summary>An attribute's value, if it has one.</summary>
     /// <param name="name">The attribute name.</param>
@@ -584,7 +631,7 @@ public partial class UiElement : Composition.IComposable {
     ///     <c>binding-path</c> — which names a member of an editing target and is joined to it after
     ///     the tree is built, so something has to be able to walk the tree and ask. See doc 36 § P4.
     /// </remarks>
-    public string? Attribute(string name) => Document.Styles.Tree.GetAttribute(StyleNode, name);
+    public string? Attribute(string name) => StyleNode.IsValid ? Document.Styles.Tree.GetAttribute(StyleNode, name) : null;
 
     /// <summary>Sets an attribute.</summary>
     /// <param name="name">The attribute name.</param>
@@ -637,7 +684,9 @@ public partial class UiElement : Composition.IComposable {
     ///     </para>
     /// </remarks>
     public string? Language {
-        get => Document.Styles.Tree.GetAttribute(StyleNode, LanguageAttribute) is { Length: > 0 } tag ? tag : null;
+        // ⚠ A generated box has no slot and declares no language; it reads its originating
+        // element's through `ResolvedLanguage`, as CSS has it inherit everything else.
+        get => StyleNode.IsValid && Document.Styles.Tree.GetAttribute(StyleNode, LanguageAttribute) is { Length: > 0 } tag ? tag : null;
         set => SetAttribute(LanguageAttribute, value ?? string.Empty);
     }
 
@@ -699,7 +748,7 @@ public partial class UiElement : Composition.IComposable {
 
     /// <summary>Its interaction state — hover, focus, active — which selectors match on.</summary>
     public ElementState State {
-        get => Document.Styles.Tree.GetState(StyleNode);
+        get => StyleNode.IsValid ? Document.Styles.Tree.GetState(StyleNode) : ElementState.None;
         set {
             var previous = Document.Styles.Tree.GetState(StyleNode);
 
@@ -2346,6 +2395,13 @@ public partial class UiElement : Composition.IComposable {
             );
         }
 
+        // ⚠ A generated box is a layout child, and a node that measures itself may have none — so an
+        // element taking text on drops its `::before` and `::after` first. `UiDocument.Generate` will
+        // not build them again while the text is there; see its remarks for why.
+        if (!string.IsNullOrEmpty(current) && (GeneratedBefore is not null || GeneratedAfter is not null)) {
+            Document.Ungenerate(this);
+        }
+
         // ⚠ The measure function is attached and detached rather than left in place answering zero.
         // The layout algorithm asks a node with one whether it is a leaf and refuses to lay out its
         // children — so an element that once had text and now has none would silently stop laying
@@ -2361,6 +2417,14 @@ public partial class UiElement : Composition.IComposable {
             // load-bearing rather than tidy: null and "" are both "no text", so setting one to the
             // other reaches here with no measure function attached and throws.
             Document.Layout.MarkDirty(LayoutNode);
+        }
+
+        // ⚠ A generated box stops here. It has no style slot for `:empty` to read, and its text is
+        // written by the style pass itself — so the invalidation below would ask for the pass that is
+        // already running, and a document generating one box would never settle. The two layout
+        // calls above are all its text change needs.
+        if (this is GeneratedBox) {
+            return;
         }
 
         // The cascade's half of the same fact, and what makes `:empty` mean what CSS means by it —

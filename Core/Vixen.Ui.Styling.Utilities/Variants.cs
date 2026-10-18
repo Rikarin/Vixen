@@ -194,8 +194,9 @@ public static class Variants {
         ["open"] = ":open"
 
         // ⚠ <b>`placeholder` and `selection` are NOT here, and the reason is not the one A12's audit
-        // trail records.</b> `Rikarin/Vixen#233` is refused as a whole on the generated box — nothing
-        // materialises `::before`, `::after` or `::marker` — and its last pass offers these two as
+        // trail records.</b> `Rikarin/Vixen#233` was refused as a whole on the generated box — nothing
+        // materialised `::before`, `::after` or `::marker` until the box landed for the first two —
+        // and its last pass offered these two as
         // the lead that could land without that machinery, because each "names a box or a run that
         // already exists". Measured at HEAD, they are two different problems and only one of them is
         // a selector problem at all:

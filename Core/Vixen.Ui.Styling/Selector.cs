@@ -5,6 +5,27 @@ using System.Globalization;
 
 namespace Vixen.Ui.Styling;
 
+/// <summary>Which generated box a rule styles, if it styles one at all.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Two members and not the seven CSS spells.</b> <c>::before</c> and <c>::after</c> are
+///         the pair that generate a box from <c>content</c> alone; <c>::marker</c>, <c>::file-selector-button</c>,
+///         <c>::first-letter</c> and <c>::first-line</c> each need a box or a run of a kind nothing
+///         here builds, and <see cref="SelectorCompiler" /> still refuses them with a reason rather
+///         than compiling a member for them that nothing reads — the defect doc 43's F6 removed.
+///     </para>
+/// </remarks>
+public enum PseudoElement : byte {
+    /// <summary>The rule styles the element its selector matches.</summary>
+    None,
+
+    /// <summary><c>::before</c>: a box generated as the element's first child.</summary>
+    Before,
+
+    /// <summary><c>::after</c>: a box generated as the element's last child.</summary>
+    After
+}
+
 /// <summary>What joins two compound selectors.</summary>
 public enum Combinator : byte {
     /// <summary>Nothing — this is the first compound in the selector.</summary>
@@ -240,15 +261,30 @@ public readonly record struct Specificity(int Ids, int Classes, int Types) : ICo
 /// <param name="Count">How many compounds it has.</param>
 /// <param name="Specificity">How specific it is.</param>
 /// <remarks>
-///     ⚠ <b>There is no pseudo-element here, and there used to be.</b> A fourth field held the
-///     interned name of a <c>::before</c> or <c>::after</c>, and nothing in the matcher, the rule set
-///     or the resolver ever read it — so the rule matched the originating element and coloured
-///     <i>it</i>. A field written and never read is not a partial feature; it is a rule that means
-///     something else. <see cref="SelectorCompiler" /> now refuses the selector with a diagnostic,
-///     and the field is gone so that nothing can be built on top of a value that is always absent.
-///     Doc 43's A12 is where generated boxes are planned. ⚠ It is <i>not</i> blocked on the
-///     one-node-one-box invariant, which is what this used to say: that invariant has moved twice
-///     since — inline fragmentation, then anonymous block boxes — and neither move reached this.
-///     What A12 needs is a second <i>style</i> slot, not a second rectangle.
+///     ⚠ <b>The pseudo-element is back, and this time it has readers.</b> A field holding the name
+///     of a <c>::before</c> used to be written here and read by nothing, so <c>p::before</c> matched
+///     the paragraph and coloured <i>it</i> — doc 43's F6, which deleted the field rather than leave
+///     a rule meaning something else. <see cref="PseudoElement" /> is the field returning with the
+///     two readers it never had: <see cref="StyleResolver" /> skips a pseudo-element rule in an
+///     element's own cascade and takes only those in <see cref="StyleResolver.ResolvePseudo" />, and
+///     <c>UiDocument</c> builds the box from what that answers. See doc 43's A12.
 /// </remarks>
-public readonly record struct Selector(int Start, int Count, Specificity Specificity);
+public readonly record struct Selector(int Start, int Count, Specificity Specificity) {
+    /// <summary>The generated box this selector styles, or <see cref="Styling.PseudoElement.None" />.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The compounds still describe the originating element.</b> <c>p:hover::before</c>
+    ///         compiles to the selector <c>p:hover</c> with this set to <see cref="Styling.PseudoElement.Before" />:
+    ///         the matcher answers whether the paragraph is the one, and the cascade that consumes
+    ///         the answer is a different cascade. Anything that runs <see cref="SelectorMatcher" />
+    ///         over a selector without looking here matches the paragraph — which is F6 again, one
+    ///         consumer along. Every consumer in the repository asks; a new one must.
+    ///     </para>
+    ///     <para>
+    ///         An init property rather than a fourth positional member, so that the compiled form of
+    ///         every selector that names no pseudo-element — all of them, until now — is constructed
+    ///         exactly as it was.
+    ///     </para>
+    /// </remarks>
+    public PseudoElement PseudoElement { get; init; }
+}

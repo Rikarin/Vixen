@@ -538,23 +538,30 @@ too — see the section above.) Anything else
 Vixen does not understand is dropped with a diagnostic naming the selector, never approximated. A rule that silently matches more than it says produces a UI that is
 wrong everywhere nobody looked; a rule that does not load produces a message.
 
-⚠ **Pseudo-elements — `::before`, `::after` and the rest — are refused, and this is the one place the
-paragraph above was not true.** `SelectorCompiler` used to intern the pseudo-element's name onto the
+⚠ **Pseudo-elements were refused for a reason, and two of them now compile because the reason was
+answered rather than relaxed.** `SelectorCompiler` used to intern the pseudo-element's name onto the
 compiled `Selector` and compile the rest of the compound as though it were absent. Nothing read the
 field, so `p::before { content: "→"; color: red }` matched the paragraph and turned **the paragraph**
 red: not a partial implementation, a rule quietly meaning something else, and
 [doc 43](../../docs/plan/43-web-styling-parity.md)'s F6 calls it the worst of the three states a
 half-built feature can be in.
 
-The blocker is not the cascade. A pseudo-element is a **generated box** — a box in the layout tree
-with no element behind it — and that is doc 43's A12 rather than a change here.
+`::before` and `::after` compile again (doc 43's A12, #233) because `Selector.PseudoElement` now has
+two readers. `StyleResolver` keeps a pseudo-element rule out of the element's own cascade — that one
+`continue` is F6's whole fix — and `ResolvePseudo` runs a second cascade of the **originating** element
+over only the rules naming the box, inheriting from the element. `StyleUpdater` keeps that answer
+beside the element's own style (`PseudoStyleOf`) and recomputes it whenever the element is resolved,
+which is enough: every rule styling the box matches the element, so the invalidator already reaches it.
 
-⚠ **It is not blocked on the one-node-one-box invariant, which is what this used to say.** That
-invariant has moved twice since: inline fragmentation gave a node *more* boxes, and anonymous block
-boxes turned out to need *no* box stored at all. Neither reached this feature.
-`Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt` now records what is actually left, and it is the
-half that was always A12's own — a generated box carries a **style** of its own, so it needs a second
-style slot rather than a second rectangle. Until then the author gets the message.
+⚠ **The "second style slot" this used to say A12 needed is not a slot.** A generated box is never
+matched against — its rules are about the element — so it needs no tag, no classes and no place among
+siblings, and giving it a `StyleTree` slot would have put it in front of `:first-child` and `:empty`,
+which must not see it. `UiDocument` builds the box from the answer; see the
+[generated content guide](../../docs/guide/ui/generated-content.md).
+
+Every other pseudo-element — `::marker`, `::first-letter`, `::first-line`, `::selection`,
+`::placeholder`, `::backdrop`, `::file-selector-button` — is still refused with F6's message, and so is
+a pseudo-element anywhere but the end of a selector or inside a `:not()`/`:is()`/`:has()` argument.
 
 Licensed under Apache-2.0.
 

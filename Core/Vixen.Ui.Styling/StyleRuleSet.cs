@@ -103,6 +103,15 @@ public sealed class StyleRuleSet {
     /// <summary>How many rules there are.</summary>
     public int Count => rules.Count;
 
+    /// <summary>Whether any rule in the set styles a generated box rather than an element.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What keeps <c>::before</c> free for a document that never writes one.</b> A generated
+    ///     box's style is a second cascade per element, run by <see cref="StyleResolver.ResolvePseudo" />;
+    ///     <c>StyleUpdater</c> asks this before running it, so the editor's twelve sheets — none of
+    ///     which names a pseudo-element — pay one boolean per resolved element and no cascade.
+    /// </remarks>
+    public bool HasPseudoElementRules { get; private set; }
+
     /// <summary>
     ///     Whether the style-sharing cache may be used at all with this rule set, on one surface.
     /// </summary>
@@ -225,6 +234,10 @@ public sealed class StyleRuleSet {
             } else {
                 conditionalBlockers.Add((conditions, containers));
             }
+        }
+
+        if (selector.PseudoElement != PseudoElement.None) {
+            HasPseudoElementRules = true;
         }
 
         var order = Index.Add(selector);

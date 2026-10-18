@@ -44,7 +44,7 @@ open rows where there is one.
 | `UiElement.CommandScope` (`Commands.cs:699`) | the derived scope 45 § G2 was written to build | **0** | 2 — `Hierarchy.vxml:84`, `Inspector.vxml:63` |
 | `CommandRoute.ScopeOf` (`Commands.cs:418`) | reads it | **0** | 1 — `Shell.vxml:311` |
 | `UiDocument.CommandResponder` (`Commands.cs:537`) | `NSDocument`'s slot | **0** | 1 — `Shell.vxml:323` |
-| `UiElement.AccessKey` (`UiElement.cs:739`) | Alt-mnemonics | **0** | 1 — `Shell.vxml:591` |
+| `UiElement.AccessKey` (`UiElement.cs:788`) | Alt-mnemonics | **0** | 1 — `Shell.vxml:591` |
 | `UiDocument.MoveFocus(NavigationDirection)` (`Vixen.Ui/Navigation.cs:48`) | arrow/D-pad navigation | **0** | 1 — `Shell.vxml:549` |
 
 ⚠ **Two halves of the "now" column are gated and a third is not, and the difference matters to a
@@ -124,7 +124,7 @@ same object by construction.
 **1.2 — The chain cannot be extended anywhere but its two ends.** The complete extensibility surface
 is `UiDocument.CommandResponder` and `UiDocument.ApplicationCommandResponder`. `UiElement`'s virtual
 surface is `TagName`, `ContentHost`, `NamedHost`, `OnCreated`, `OnChildAdded`, `OnRemoved`,
-`OnPropertyChanged`, `OnDraw` (`UiElement.cs:123,145,173,2395,2444,2476,2488,2533`) — there is no
+`OnPropertyChanged`, `OnDraw` (`UiElement.cs:123,145,173,2459,2508,2540,2552,2597`) — there is no
 `OnKeyDown`, no `AcceptsFirstResponder`, no `ValidateCommand`. A view controller, a window
 controller, or a document cannot sit *in the middle* of the walk, which is exactly where AppKit puts
 all three.
@@ -140,7 +140,7 @@ command system exists to make identical.
 
 **1.4 — There is no window level, and no seam for one.** `UiDocument.Focused` is a single
 document-global field (`Focus.cs:35@10523d70f`). `Dispatch(KeyEvent)` takes no surface (`Keyboard.cs:191`),
-unlike `Dispatch(UiSurface, PointerEvent)` (`UiDocument.cs:2149`) and
+unlike `Dispatch(UiSurface, PointerEvent)` (`UiDocument.cs:2176`) and
 `Dispatch(UiSurface, WheelEvent)` (`Hover.cs:103`); `Platform/Vixen.Platform.Ui/PlatformInput.cs:173`
 says so outright. With nothing focused, keys land on the **primary** surface's root
 (`Keyboard.cs:196@10523d70f` + `Surfaces.cs:29`) — so a keystroke aimed at a torn-off inspector executes
@@ -196,8 +196,8 @@ place where Vixen is **ahead of AppKit**, and each survives Part 3 unchanged.
 3. **A real capture phase over a snapshotted route** (`EventRouter.cs:39-42`). AppKit has no capture
    phase, and walks `nextResponder` live.
 4. **Pointer fall-through is free.** Hit test → target → bubble:
-   `UiDocument.Dispatch(UiSurface, PointerEvent)` (`UiDocument.cs:2149`) takes its target from
-   `HitTest` (`UiDocument.cs:2162`) and bubbles through `Raise` (`UiDocument.cs:2172`). In AppKit
+   `UiDocument.Dispatch(UiSurface, PointerEvent)` (`UiDocument.cs:2176`) takes its target from
+   `HitTest` (`UiDocument.cs:2189`) and bubbles through `Raise` (`UiDocument.cs:2199`). In AppKit
    every `mouseDown:` that wants to pass the event on must remember to call `super`.
 5. **`Defocus`** (`Focus.cs:343-391`): a press that lands on nothing focusable clears the focus, on
    the whole ancestor chain, with a pointer-capture exemption. AppKit has no rule for this and every
@@ -205,7 +205,7 @@ place where Vixen is **ahead of AppKit**, and each survives Part 3 unchanged.
 6. **Coalesced command invalidation.** `InvalidateCommands` (`Commands.cs:656`) sets a flag,
    `RaiseCommandsInvalidated` (`Commands.cs:666-674`) raises the event at most once a frame,
    `CommandsInvalidated` (`Commands.cs:640`), and `Tick` is what calls it,
-   `RaiseCommandsInvalidated()` (`UiDocument.cs:1424`); a button's `Watch` (`ButtonBase.cs:100-108`)
+   `RaiseCommandsInvalidated()` (`UiDocument.cs:1431`); a button's `Watch` (`ButtonBase.cs:100-108`)
    consumes it. AppKit's answer is polling `validateUserInterfaceItem:` per item per menu-open plus
    an `NSToolbar` revalidation timer. Vixen's is strictly better.
 7. **`CommandFocus` surviving a menu close** (`Focus.cs:135-151`). AppKit gets this free from a nested
@@ -295,7 +295,7 @@ exists today, now stated once.
   ```
 
   ⚠ **The veto is asked on a user-initiated move only** — never on removal (`UiDocument.Release`,
-  `UiDocument.cs:896`), never on document teardown, never on `Defocus` from a press that captured the
+  `UiDocument.cs:903`), never on document teardown, never on `Defocus` from a press that captured the
   pointer. A refusal that could survive its own element being deleted is how an application becomes
   permanently unfocusable, which is the failure mode this feature has in every framework that ships
   it. `UiDocument.Focus(element, force: true)` is the escape hatch the shutdown paths use.
@@ -369,7 +369,7 @@ platform it is on (`TextField.cs:1067-1070@10523d70f`), while `CodeEditor` tests
 
 (✅ Closed since `7d18b415c` ([#648](https://github.com/Rikarin/Vixen/issues/648)): both controls
 resolve a chord through one table: `TextField`'s key handler calls `EditingCommands.Resolve`
-(`TextField.cs:1610`), and so does `CodeEditor`'s, `EditingCommands.Resolve` (`CodeEditor.cs:1692`), so the
+(`TextField.cs:1661`), and so does `CodeEditor`'s, `EditingCommands.Resolve` (`CodeEditor.cs:1692`), so the
 paragraph above is pinned to the tree it describes. ⚠ It cited CodeEditor's modifier test as a bare
 continuation, line 1375, after a `TextField.cs` citation, which the sweep read as TextField's line; at
 `10523d70f` it was CodeEditor's line 1374.)
@@ -382,7 +382,7 @@ handlers for the ids rather than for the keys.
 
 ⚠ **`CodeEditor` needs the semantic ids anyway** for an unrelated reason: `CodeBuffer.WordStart` /
 `WordEnd` (`CodeBuffer.cs:252-310`) are `char.IsWhiteSpace`-based, so ⌃← in Japanese or Thai jumps a
-whole clause, while `TextField` gets it right through `WordBreaker` (UAX #29, `TextField.cs:1922`).
+whole clause, while `TextField` gets it right through `WordBreaker` (UAX #29, `TextField.cs:1973`).
 (✅ That half is closed: since `53bde2fe9` a run of the word class is subdivided by `WordBreaker`
 (`CodeBuffer.cs:241`). The semantic ids are still owed for the other reason.)
 One table, one word-breaker.
@@ -877,7 +877,9 @@ the field and declines a scrub when it meets a control on the way; a version of 
 attached menu (so no pull-down or pop-up button), no repeat-on-hold; ~~`Slider` has no tick
 marks~~ — landed (#666): `RangeBase.TickCount` and `SnapsToTicks`, drawn by `Slider`,
 `RangeSlider` and, since #1444, `LevelIndicator` (over its fill); `ProgressBar` and `Gauge` still
-inherit and ignore them; `SearchBox` has no recents menu or scope bar; `ComboBox` has no completion; `Tabs` has no overflow,
+inherit and ignore them; `SearchBox` has no recents menu or scope bar; ~~`ComboBox` has no completion~~ — landed (#666):
+`ComboBox.Completes` is AppKit's `completes`, the remainder of the first suggestion appended and
+selected, used by `Samples/02-HelloUi`'s gallery; the list is still not filtered as you type; `Tabs` has no overflow,
 close or reorder (`DockingHost` has all three); `ScrollView` has no magnification and no rulers;
 `DataGrid` has no column show/hide menu and no layout autosave.
 
@@ -928,7 +930,7 @@ gaps below as a criticism of that layer; they are all in the controls above it.
 - No spell check, substitution, dictation or system font/colour panels; no drag-select autoscroll; no
   undo in `TextField` (§ 4.1).
 
-Two performance notes found in passing: `TextField.Step` (`TextField.cs:1845-1873`) allocates a list
+Two performance notes found in passing: `TextField.Step` (`TextField.cs:1896-1924`) allocates a list
 and re-runs the grapheme breaker over the **entire value** on every arrow keypress, and
 `CodeEditor.RowOf` (`CodeEditor.cs:1206`) is a linear `IndexOf` called per caret move and per draw.
 

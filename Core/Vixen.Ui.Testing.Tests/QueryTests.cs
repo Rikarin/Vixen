@@ -131,6 +131,17 @@ public class QueryTests {
     }
 
     [Fact]
+    public void A_pseudo_element_selector_is_refused_rather_than_finding_the_element_behind_it() {
+        using var ui = Fixture();
+
+        // ⚠ `::before` compiles since doc 43's A12, and its compounds describe the ORIGINATING
+        // element — so a query that ran them would find the element and call it the box, which is
+        // doc 43's F6 one consumer along. Whatever the fixture holds, the answer is a refusal.
+        var failure = Assert.Throws<UiTestException>(() => ui.Get("div::before"));
+        Assert.Contains("pseudo-element", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Where_is_the_escape_hatch_for_what_no_selector_reaches() {
         using var ui = Fixture();
 

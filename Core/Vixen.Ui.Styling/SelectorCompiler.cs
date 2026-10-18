@@ -387,9 +387,19 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
         // an empty delimiter. Vixen records it on the compound it *precedes*, because the matcher
         // walks right to left and wants to know how to get from here to the previous one.
         var pending = Combinator.None;
+        var pseudo = PseudoElement.None;
 
         foreach (var (part, delimiter) in Parts(selector)) {
-            if (!TryCompileCompound(part, pending, ref specificity, out var compound)) {
+            // ⚠ A pseudo-element ends the selector. One already read in an earlier compound means a
+            // combinator follows it — `p::before span` — and that names a child of a box that is not
+            // an element, which nothing can match.
+            if (pseudo != PseudoElement.None) {
+                Refuse(selector.Text, "a pseudo-element must be the last thing in a selector, and something follows it");
+                compiled = default;
+                return false;
+            }
+
+            if (!TryCompileCompound(part, pending, ref specificity, out var compound, out pseudo)) {
                 compiled = default;
                 return false;
             }
@@ -429,7 +439,7 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
             table.AddCompound(compound);
         }
 
-        compiled = new Selector(start, count, specificity);
+        compiled = new Selector(start, count, specificity) { PseudoElement = pseudo };
         return true;
     }
 
@@ -445,15 +455,34 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
         ISelector part,
         Combinator combinator,
         ref Specificity specificity,
-        out CompoundSelector compound
+        out CompoundSelector compound,
+        out PseudoElement pseudo
     ) {
         compound = default;
+        pseudo = PseudoElement.None;
 
         // Buffered for the same reason the compounds are: a nested selector writes its own simples
         // into this table while this compound is still being built.
         var buffered = new List<SimpleSelector>();
 
         foreach (var simple in Flatten(part)) {
+            // ⚠ Nothing may follow the pseudo-element inside its compound either. CSS allows a few
+            // user-action pseudo-classes there (`::before:hover`) and they would be asking about the
+            // generated box's own state, which no input system sets — so they are refused rather than
+            // compiled against the originating element, which is the misreading F6 was about.
+            if (pseudo != PseudoElement.None) {
+                Refuse(simple.Text, $"'{simple.Text}' follows a pseudo-element, and a generated box has no state of its own to test");
+                return false;
+            }
+
+            if (simple is PseudoElementSelector element) {
+                if (!TryCompilePseudoElement(element, ref specificity, out pseudo)) {
+                    return false;
+                }
+
+                continue;
+            }
+
             if (!TryCompileSimple(simple, ref specificity, out var compiled)) {
                 return false;
             }
@@ -646,38 +675,12 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
                 return true;
             }
 
-            // ⚠ Refused, and the refusal is the whole of doc 43's F6. `::before` used to compile:
-            // the name was interned onto `Selector.PseudoElement`, the compound carried on without
-            // it, and the rule then matched — and applied — to the ORIGINATING element. So
-            // `p::before { color: red }` turned the paragraph red. Nothing anywhere read the field,
-            // so that was not a partial implementation; it was the rule quietly meaning something
-            // else. Generating the box it asks for needs a box with no node behind it.
-            // ⚠ Both of the things that used to be named here as sharing that blocker have since
-            // landed and neither unblocked this: inline fragmentation gave a node MORE boxes, and an
-            // anonymous block box needs no box stored at all. `InlineKnownGaps.txt` now says what is
-            // actually left, and it is the half that was always this feature's own — a generated box
-            // carries a STYLE of its own, so it needs a second style slot rather than a second
-            // rectangle. Until doc 43's A12, the author gets a message instead of a surprise.
-            //
-            // ⚠ <b>Three ledger rows rest on this one refusal and until 2026-09-05 not one of them
-            // declared it, which is the exact shape `RefusalExpiry.txt`'s header warns about.</b>
-            // `list-*`, `list-image-*` and `list-style-position` are all `absent` and all say
-            // "blocked on F6" in English; the day a generated box exists they rot together and
-            // nothing would have said so. The condition is written here, where the refusal is, and
-            // on the one row that does not sit behind another. ⚠ There were four: `placeholder-*`
-            // hung here too, and it never needed this — `::placeholder` names a box `TextField`
-            // already builds as a child with its own tag, so the root is a child-scoped family and
-            // the variant a child combinator, neither of which is a pseudo-element. The anchor is the
-            // field this compiler deleted: a rule that really generates a box has to carry WHICH
-            // pseudo-element it names, and `Selector` is where that lived. ⚠ It is walked around by
-            // anyone who spells the returning thing differently — move the clause with it.
-            // [expires-on Vixen.Ui.Styling.Selector.PseudoElement]
+            // ⚠ Unreachable from a stylesheet: `TryCompileCompound` takes every pseudo-element before
+            // it gets here, so that the two it accepts can set the selector's `PseudoElement` and the
+            // rest can be refused with their own reasons. Kept so that a caller compiling one simple
+            // selector on its own is refused rather than handed a match against the element.
             case PseudoElementSelector:
-                Refuse(
-                    selector.Text,
-                    "a pseudo-element generates a box of its own, and Vixen has no box without an element behind it"
-                );
-
+                Refuse(selector.Text, $"'{selector.Text}' is a pseudo-element, and only a whole selector can name one");
                 return false;
 
             case PseudoClassSelector pseudo:
@@ -879,6 +882,59 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
         return new Selector(compoundStart, 1, new Specificity(0, 1, 0));
     }
 
+    /// <summary>Reads a pseudo-element, accepting the two that generate a box from <c>content</c>.</summary>
+    /// <param name="selector">The pseudo-element, as ExCSS parsed it.</param>
+    /// <param name="specificity">Charged one type, as Selectors 4 § 17 charges a pseudo-element.</param>
+    /// <param name="pseudo">Which one, when it is accepted.</param>
+    /// <returns>Whether it was accepted.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is where doc 43's F6 refusal used to stand, and half of it still does.</b>
+    ///         <c>::before</c> once compiled into a field nothing read, so <c>p::before { color: red }</c>
+    ///         turned the paragraph red. It compiles again because <see cref="Selector.PseudoElement" />
+    ///         now has readers: <see cref="StyleResolver" /> keeps the rule out of the paragraph's own
+    ///         cascade, and <c>UiDocument</c> generates the box the rule's own cascade describes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every other pseudo-element is refused, with F6's own message.</b> What is missing
+    ///         differs per name: <c>::marker</c> is a box only a list item generates, and there is no list item;
+    ///         <c>::first-letter</c> and <c>::first-line</c> style a run of an element's own text,
+    ///         and a run cannot carry a style of its own; <c>::placeholder</c>, <c>::selection</c>
+    ///         and <c>::backdrop</c> are reached through parts and properties that already exist
+    ///         (see <c>Variants.cs</c>), never through this. Three ledger rows — <c>list-*</c>,
+    ///         <c>list-image-*</c> and <c>list-style-position</c> — rest on the <c>::marker</c>
+    ///         refusal, and the condition is carried here, where the refusal is:
+    ///         [expires-on Vixen.Ui.Styling.PseudoElement.Marker]
+    ///     </para>
+    ///     <para>
+    ///         The legacy one-colon spelling (<c>:before</c>) is CSS 2's and means the same box;
+    ///         ExCSS hands both spellings here.
+    ///     </para>
+    /// </remarks>
+    bool TryCompilePseudoElement(PseudoElementSelector selector, ref Specificity specificity, out PseudoElement pseudo) {
+        var name = selector.Text.TrimStart(':');
+
+        pseudo = name.ToLowerInvariant() switch {
+            "before" => PseudoElement.Before,
+            "after" => PseudoElement.After,
+            _ => PseudoElement.None
+        };
+
+        if (pseudo == PseudoElement.None) {
+            // ⚠ The reason F6 wrote, word for word, because it is still the true one for every member
+            // of this set and three suites and the editor's console already quote it.
+            Refuse(
+                selector.Text,
+                "a pseudo-element generates a box of its own, and Vixen has no box without an element behind it"
+            );
+
+            return false;
+        }
+
+        specificity = specificity with { Types = specificity.Types + 1 };
+        return true;
+    }
+
     bool TryCompileNested(ISelector inner, SimpleSelectorKind kind, string text, out SimpleSelector compiled) {
         compiled = default;
 
@@ -889,6 +945,18 @@ public sealed class SelectorCompiler(SelectorTable table, NameTable names) {
         if (parts.Count == 0 || diagnostics.Count != before) {
             Refuse(text, "its argument could not be compiled");
             return false;
+        }
+
+        // ⚠ An argument is matched against elements, and a pseudo-element is not one. `:not(::before)`
+        // and `:is(p::after)` compile cleanly through the same path a top-level selector takes, and a
+        // nested selector carries no cascade of its own to read `PseudoElement` — the matcher would
+        // run the compounds and the flag would be dropped on the floor, which is F6's failure in a
+        // smaller room. Selectors 4 makes these invalid; so does this.
+        foreach (var part in parts) {
+            if (part.PseudoElement != PseudoElement.None) {
+                Refuse(text, $"'{text}' names a pseudo-element in its argument, and an argument is matched against elements");
+                return false;
+            }
         }
 
         var start = table.NestedCount;

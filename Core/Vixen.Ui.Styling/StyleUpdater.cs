@@ -151,6 +151,7 @@ public sealed class StyleUpdater {
             // put in the sharing cache under a key describing a tree it is no longer part of.
             var before = styles[i];
             styles[i] = engine.Tree.IsAliveAt(i) ? Resolve(i) : null;
+            ResolvePseudos(i);
 
             if (styles[i] is { } after) {
                 Announce(i, before, after);
@@ -279,6 +280,7 @@ public sealed class StyleUpdater {
             var after = Resolve(index);
 
             styles[index] = after;
+            ResolvePseudos(index);
             LastPassResolved++;
             Announce(index, before, after);
 
@@ -364,6 +366,14 @@ public sealed class StyleUpdater {
 
             if (to >= 0) {
                 styles[to] = styles[i];
+
+                // ⚠ The generated boxes' styles are indexed by their ORIGINATING slot, so they move
+                // with it. Left behind, an element would generate the box of whichever element
+                // used to be several slots along.
+                if (i < befores.Length) {
+                    befores[to] = befores[i];
+                    afters[to] = afters[i];
+                }
             }
         }
 
@@ -384,6 +394,67 @@ public sealed class StyleUpdater {
         // `StyleOf` for a slot the tree has not handed out yet, which reads as an element that was
         // styled before it existed.
         Array.Clear(styles, live, styles.Length - live);
+
+        var pseudoLive = Math.Min(live, befores.Length);
+        Array.Clear(befores, pseudoLive, befores.Length - pseudoLive);
+        Array.Clear(afters, pseudoLive, afters.Length - pseudoLive);
+    }
+
+    /// <summary>The style of a box an element generates, or <see langword="null" /> if no rule styles one.</summary>
+    /// <param name="element">The originating element.</param>
+    /// <param name="pseudo">Which box.</param>
+    /// <returns>
+    ///     What <see cref="StyleResolver.ResolvePseudo" /> answered the last time the element was
+    ///     resolved. Whether there <i>is</i> a box is <c>content</c>'s to say, which is the reader's
+    ///     business; <see langword="null" /> only says that no rule naming the box matched.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>Recomputed whenever the originating element is, and only then — which is enough.</b>
+    ///     Every rule that styles a box is a rule whose selector matches the element, so the
+    ///     invalidator already re-resolves the element for any change such a rule can see; the box
+    ///     inherits from the element and from nothing else. What this deliberately does not do is
+    ///     animate: a transition on a generated box is announced to nobody, so it jumps.
+    /// </remarks>
+    public ComputedStyle? PseudoStyleOf(StyleNodeId element, PseudoElement pseudo) {
+        var index = element.Index;
+
+        return pseudo switch {
+            PseudoElement.Before when (uint) index < (uint) befores.Length => befores[index],
+            PseudoElement.After when (uint) index < (uint) afters.Length => afters[index],
+            _ => null
+        };
+    }
+
+    // ⚠ Two arrays beside `styles` rather than slots in the tree — see `StyleResolver.ResolvePseudo`
+    // for why a generated box has no node. Empty until a rule set names a pseudo-element, and never
+    // grown before then, so a document without one carries nothing for it.
+    ComputedStyle?[] befores = [];
+    ComputedStyle?[] afters = [];
+
+    void ResolvePseudos(int index) {
+        if (!engine.Rules.HasPseudoElementRules) {
+            if (index < befores.Length) {
+                befores[index] = null;
+                afters[index] = null;
+            }
+
+            return;
+        }
+
+        if (befores.Length < styles.Length) {
+            Array.Resize(ref befores, styles.Length);
+            Array.Resize(ref afters, styles.Length);
+        }
+
+        if (styles[index] is not { } originating) {
+            befores[index] = null;
+            afters[index] = null;
+            return;
+        }
+
+        var node = new StyleNodeId(index);
+        befores[index] = engine.Resolver.ResolvePseudo(engine.Tree, node, PseudoElement.Before, originating);
+        afters[index] = engine.Resolver.ResolvePseudo(engine.Tree, node, PseudoElement.After, originating);
     }
 
     /// <remarks>

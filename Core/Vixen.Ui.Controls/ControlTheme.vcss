@@ -542,8 +542,11 @@ search-box field-placeholder { left: 28px; }
    the harder failure to read: the magnifying glass is the only thing that says the box is a
    search box, the placeholder beside it is absolutely positioned and therefore weightless,
    so a narrow row squeezed the glass to `0×14` and left an empty rounded rectangle. Measured
-   in the editor's outliner, whose filter row is 161 px holding a 132 px sort dropdown. */
-search-box icon { width: 14px; height: 14px; flex-shrink: 0; color: var(--text-muted); }
+   in the editor's outliner, whose filter row is 161 px holding a 132 px sort dropdown.
+   ⚠ `user-select: none` because a drag that starts on the glass is not the start of a text
+   selection — `TextField.StartsUnselectable` is the reader (#225). The rule reaches the clear
+   button's glyph too, which is the same answer for the same reason. */
+search-box icon { width: 14px; height: 14px; flex-shrink: 0; color: var(--text-muted); user-select: none; }
 search-box.empty icon-button { display: none; }
 
 /* ⚠ `margin-left: auto` rather than a `flex-grow` on the text, because `field-text` is

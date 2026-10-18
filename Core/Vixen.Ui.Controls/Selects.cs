@@ -800,6 +800,23 @@ public sealed partial class ComboBox : Control, IValidated {
         set => Editor.Value = value;
     }
 
+    /// <summary>Whether typing the start of a suggestion fills in the rest of it, selected.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         AppKit's <c>completes</c>, and off by default as AppKit's is: a field whose text
+    ///         rewrites itself under the typist is a surprise unless the application asked for it.
+    ///         The appended part is selected, so the next keystroke replaces it and Backspace removes
+    ///         it — see <c>ComboEditor.Complete</c> for the exact conditions.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It closes doc 49's named gap "<c>ComboBox</c> has no completion" and nothing
+    ///         else.</b> There is no filtering of the list as you type, and no
+    ///         <c>aria-autocomplete</c> on the editor, because <see cref="AccessibleStates" /> has no
+    ///         member for it — a screen reader hears the value change, not why.
+    ///     </para>
+    /// </remarks>
+    public bool Completes { get; set; }
+
     /// <summary>Whether something has to be typed or chosen.</summary>
     /// <remarks>
     ///     ⚠ <b>The editor's flag, forwarded rather than copied.</b> ARIA puts the combo box on the
@@ -1023,5 +1040,71 @@ public sealed partial class ComboBox : Control, IValidated {
             base.NativeAccessibleState
             | AccessibleStates.Expandable
             | (Owner?.List is { IsOpen: true } ? AccessibleStates.Expanded : AccessibleStates.None);
+
+        /// <inheritdoc />
+        protected override void OnCreated() {
+            base.OnCreated();
+
+            // ⚠ `handledEventsToo`, because the field's own handler — registered by the base above —
+            // has already inserted the character and marked the event handled. Completion is what
+            // happens AFTER the keystroke landed, so it must hear a handled one.
+            AddHandler<TextInputEvent>(
+                static (element, args) => ((ComboEditor) element).Complete(args),
+                handledEventsToo: true
+            );
+        }
+
+        /// <summary>Finishes what was typed with the first suggestion it begins, selected so the next keystroke replaces it.</summary>
+        /// <remarks>
+        ///     <para>
+        ///         AppKit's <c>NSComboBox.completes</c>, and the three conditions are its own: only on
+        ///         text arriving (Backspace and Delete are not <see cref="TextInputEvent" />s, so
+        ///         deleting the suggestion does not bring it straight back), only with the caret at the
+        ///         end of the value and nothing selected (completing the middle of a word would splice
+        ///         a suggestion into it), and only once a composition has committed — the field clears
+        ///         the pre-edit before this runs.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>The completion is the suggestion's <see cref="Option.Value" />, not its label</b>,
+        ///         because picking it from the list writes the value — completing the label would put
+        ///         a string in the field that choosing the same suggestion never would. The typed prefix
+        ///         is kept as typed and only the remainder is appended; matching ignores case.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>Two changes, not one.</b> The keystroke and the completion are two
+        ///         <see cref="TextField.Replace" /> calls, so <see cref="ComboBox.ValueChanged" />
+        ///         hears the typed prefix and then the completed value, and an undo takes back the
+        ///         completion before the keystroke.
+        ///     </para>
+        /// </remarks>
+        void Complete(TextInputEvent args) {
+            if (Owner is not { Completes: true } owner || string.IsNullOrEmpty(args.Text) || HasSelection || IsComposing) {
+                return;
+            }
+
+            var typed = Value ?? string.Empty;
+
+            if (typed.Length == 0 || CaretIndex != typed.Length) {
+                return;
+            }
+
+            foreach (var option in owner.Options) {
+                var suggestion = option.Value;
+
+                if (suggestion is null
+                    || suggestion.Length <= typed.Length
+                    || !suggestion.StartsWith(typed, StringComparison.OrdinalIgnoreCase)) {
+                    continue;
+                }
+
+                Replace(suggestion[typed.Length..]);
+
+                // Selected back to where the typing stopped, so the next character replaces the
+                // suggestion rather than following it — which is what makes completion skippable.
+                MoveCaret(typed.Length);
+                MoveCaret(Value?.Length ?? typed.Length, extend: true);
+                return;
+            }
+        }
     }
 }

@@ -744,7 +744,14 @@ public sealed partial class UiDocument : IDisposable {
 
         if (parent is not null) {
             parent.Attach(element);
-            Layout.AddChild(parent.LayoutNode, layoutNode);
+
+            // ⚠ Ahead of an `::after` rather than behind it: the generated box is the parent's last
+            // layout child by definition, and appending would lay the new child out after it.
+            if (parent.GeneratedAfter is not null) {
+                Layout.InsertChild(parent.LayoutNode, layoutNode, Layout.GetChildCount(parent.LayoutNode) - 1);
+            } else {
+                Layout.AddChild(parent.LayoutNode, layoutNode);
+            }
         }
 
         Invalidate();
@@ -1608,8 +1615,14 @@ public sealed partial class UiDocument : IDisposable {
         //
         // Free when nothing is running — `Animator.Apply` returns the same instance — which is what
         // lets it sit in the hot walk of every element of every frame.
-        var cascaded = Restyler.StyleOf(element.StyleNode);
-        var style = Styles.Animations.Apply(element.StyleNode, cascaded, seconds);
+        //
+        // ⚠ A generated box has no slot, so its style is its originating element's pseudo cascade and
+        // nothing animates it. See `GeneratedBox`.
+        var generated = element as GeneratedBox;
+        var cascaded = generated is null
+            ? Restyler.StyleOf(element.StyleNode)
+            : Restyler.PseudoStyleOf(generated.Parent!.StyleNode, generated.Kind) ?? ComputedStyle.Empty;
+        var style = generated is null ? Styles.Animations.Apply(element.StyleNode, cascaded, seconds) : cascaded;
 
         // ⚠ <b>And the second half of that tier, which is inheritance — because the cascade this is
         // laid over resolved every child against the parent's <i>destination</i>.</b>
@@ -1797,10 +1810,24 @@ public sealed partial class UiDocument : IDisposable {
         // width defined in terms of itself.
         var childMetrics = WithContainerOf(element, style, metrics);
 
+        // ⚠ The generated boxes are decided here, once the element's own style is in and before
+        // anything below it reads one: whether a `::before` exists is its `content`'s computed value.
+        // They are styled at the two ends of the walk, in box-tree order, inheriting exactly as a
+        // child would. See `Generate`.
+        Generate(element);
+
+        if (element.GeneratedBefore is { } first) {
+            Apply(first, element.FontSize, text, childMetrics, cascaded, style);
+        }
+
         // ⚠ `ChildList` rather than `Children`, here and in `Accumulate`, and it is worth forty bytes
         // per element with children per frame. See the remarks on it.
         foreach (var child in element.ChildList) {
             Apply(child, element.FontSize, text, childMetrics, cascaded, style);
+        }
+
+        if (element.GeneratedAfter is { } last) {
+            Apply(last, element.FontSize, text, childMetrics, cascaded, style);
         }
     }
 
@@ -2925,8 +2952,12 @@ public sealed partial class UiDocument : IDisposable {
                 continue;
             }
 
+            // ⚠ A generated box is never a target: UI Events dispatch to the originating element, and
+            // a box with no element behind it has no handlers, no focus and no place in the route. So
+            // a point on a `::before` — including the part of one hanging outside its element's box —
+            // is a point on the element. Anything under the box stays under it, as it is drawn.
             if (HitTest(order[i], x, y) is { } hit) {
-                return hit;
+                return hit is GeneratedBox ? element : hit;
             }
         }
 
@@ -3162,6 +3193,16 @@ public sealed partial class UiDocument : IDisposable {
             }
 
             Accumulate(child, element.AbsoluteLeft, element.AbsoluteTop, metrics, in inner);
+        }
+
+        // ⚠ The generated boxes are laid out and painted, so they need a position too — and the
+        // paint walk reads `AbsoluteLeft`, which nothing else would ever write for them.
+        if (element.GeneratedBefore is { } first) {
+            Accumulate(first, element.AbsoluteLeft, element.AbsoluteTop, metrics, in inner);
+        }
+
+        if (element.GeneratedAfter is { } last) {
+            Accumulate(last, element.AbsoluteLeft, element.AbsoluteTop, metrics, in inner);
         }
     }
 
