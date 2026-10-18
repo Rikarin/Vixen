@@ -124,6 +124,7 @@ tab-panels > tab-panel
 tabs > tab-panels
 task-center > text
 toolbar > segmented-control
+toolbar-grid-shell > slot
 vector-component > text
 vfx-editor > node-graph
 vfx-side > scroll-content

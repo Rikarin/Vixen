@@ -70,5 +70,6 @@ settings-rail > scroll-content
 status-bar > status-trailing
 task-center > text
 toolbar > segmented-control
+toolbar-grid-shell > slot
 vector-component > text
 viewport-bar > toolbar

@@ -130,6 +130,7 @@ tabs > tab-panels	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 task-center > text	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 task-row > task-line	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 toolbar > segmented-control	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+toolbar-grid-shell > slot	Core/Vixen.Ui.Controls.Advanced/AdvancedTheme.vcss
 vector-component > text	Editor/Vixen.Editor.Inspector/InspectorTheme.vcss
 vfx-editor > node-graph	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 vfx-side > scroll-content	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss

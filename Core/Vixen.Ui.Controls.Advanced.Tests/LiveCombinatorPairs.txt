@@ -36,3 +36,4 @@ segmented-control > segment
 split-view > split-bar
 status-bar > status-trailing
 tabs > tab-panels
+toolbar-grid-shell > slot
