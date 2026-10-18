@@ -36,7 +36,8 @@ Three properties follow from the pair, and they are the whole design:
 * **`Strings.Missing` is the worklist.** Every id asked for that the current catalogue did not have,
   in id order — gathered rather than logged, because a warning per missing string is a warning per
   menu rebuild. It is not recorded against the source catalogue, where every id is missing by
-  construction.
+  construction. ⚠ Reading it returns a copy, so walking it while strings are resolved — on any
+  thread — is safe, and a miss recorded afterwards is not in a list already taken.
 
 ## What it is for
 
