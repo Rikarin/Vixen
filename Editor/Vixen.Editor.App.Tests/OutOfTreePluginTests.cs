@@ -221,6 +221,55 @@ public class OutOfTreePluginTests {
         }
     }
 
+    /// <summary>
+    ///     Doc 50 § P2a's exit (#1289): a plugin built outside the solution <c>Require</c>s
+    ///     <see cref="Vixen.Editor.SceneView.IPlaySession" /> and enters play through it — the same
+    ///     verb F5 is a name for — and the transport's own Stop leaves it.
+    /// </summary>
+    [Fact]
+    public void A_plugin_built_outside_the_solution_enters_play_through_the_service() {
+        const string Player = """
+            using Vixen.Editor.Plugin;
+            using Vixen.Editor.SceneView;
+            using Vixen.Ui;
+
+            namespace Sample;
+
+            public sealed class Player : IEditorPlugin {
+                public void Activate(PluginContext context) {
+                    var play = context.Services.Require<IPlaySession>();
+
+                    context.AddCommand("sample.play", new StringId("sample.play", "Play from a plugin"), () => play.Enter());
+                }
+            }
+            """;
+
+        var data = Path.Combine(Path.GetTempPath(), "vixen-plugin-play", Guid.NewGuid().ToString("N"));
+        using var folder = new PluginFolder(Path.Combine(data, "Plugins"));
+
+        folder.Write("player", Player);
+
+        try {
+            using var editor = EditorSession.Start(new() { DataDirectory = data });
+
+            Assert.Equal(Vixen.Editor.SceneView.PlayState.Editing, editor.Editor.PlayMode.State);
+
+            editor.Run("sample.play");
+
+            Assert.Equal(Vixen.Editor.SceneView.PlayState.Playing, editor.Editor.PlayMode.State);
+
+            editor.Run("play.stop");
+
+            Assert.Equal(Vixen.Editor.SceneView.PlayState.Editing, editor.Editor.PlayMode.State);
+        } finally {
+            try {
+                Directory.Delete(data, recursive: true);
+            } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+                // A temp directory that would not go is not a failed test.
+            }
+        }
+    }
+
     /// <summary>Something with a decimal on it, so the plugin's drawer has a member to be resolved for.</summary>
     sealed class Probe {
         public decimal Amount;

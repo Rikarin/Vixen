@@ -71,7 +71,7 @@ sealed partial class EditorApplication {
 
     /// <summary>Whether an overlay is on: the live one if a session has it, the wish if not.</summary>
     bool OverlayOn(string name) =>
-        playOverlays.Find(name) is { } live ? live.Enabled : overlayWishes.Contains(name);
+        play.Overlays.Find(name) is { } live ? live.Enabled : overlayWishes.Contains(name);
 
     /// <summary>Flips the wish, and the live overlay with it if a session is running one.</summary>
     void SwitchOverlay(string name) {
@@ -83,7 +83,7 @@ sealed partial class EditorApplication {
             overlayWishes.Remove(name);
         }
 
-        playOverlays.Set(name, on);
+        play.Overlays.Set(name, on);
     }
 
     /// <summary>Applies the wishes to overlays a session has just registered, and learns from the rest.</summary>
@@ -101,7 +101,7 @@ sealed partial class EditorApplication {
     ///     </para>
     /// </remarks>
     void FollowPlayOverlays() {
-        foreach (var overlay in playOverlays.Registered) {
+        foreach (var overlay in play.Overlays.Registered) {
             var name = overlay.Name;
 
             if (overlaysSeen.TryGetValue(name, out var seen) && ReferenceEquals(seen, overlay)) {

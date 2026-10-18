@@ -26,7 +26,6 @@ using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Behaviors;
 using Vixen.Engine.Cameras;
-using Vixen.Engine.Diagnostics;
 using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
@@ -124,8 +123,9 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>Where the user's layouts, keymap and preferences live.</summary>
     readonly string dataDirectory;
 
-    /// <summary>Snapshot, restore, and what state the transport is in.</summary>
-    readonly PlayModeController play;
+    /// <summary>Play mode as a service: the transport's verbs, its diagnostics, and the controller under them.</summary>
+    /// <remarks>Published as <see cref="IPlaySession" />; <c>PlayModule</c> registers the transport over it (#1289).</remarks>
+    readonly EditorPlaySession play;
 
     /// <summary>The ring the console reads, and what puts the editor's own messages in it.</summary>
     readonly EditorLog log = new();
@@ -367,31 +367,6 @@ sealed partial class EditorApplication : IDisposable {
     ///     blockout tool.
     /// </remarks>
     readonly SnapContext snap = new();
-
-    /// <summary>Where a running play session's overlays put their world geometry.</summary>
-    /// <remarks>
-    ///     ⚠ <b>One per editor and it outlives the session</b>
-    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1247">#1247</a>). It is emptied before
-    ///     the loop steps and read after, so what a pane draws is this frame's — see
-    ///     <see cref="DrainPlayDiagnostics" />. <c>WaterPresenter</c> owns a second one for the same
-    ///     reason one layer down: nothing in this tree constructs a <c>DebugDraw</c> in a running
-    ///     program, so every subsystem's gizmos were written into an accumulator that did not exist.
-    /// </remarks>
-    readonly DebugDraw playDebug = new();
-
-    /// <summary>The overlays a play session registers, and what switches them on by name.</summary>
-    /// <remarks>
-    ///     Also one per editor. ⚠ <b>That alone does not carry a toggle across Stop, and this used to
-    ///     say it did.</b> <c>Enabled</c> lives on the overlay object, which is per session —
-    ///     <see cref="PlayPhysics" /> registers it and takes it back out, because it holds a
-    ///     <c>PhysicsScene</c> that Stop destroys — so the next Play's overlay arrived switched off.
-    ///     What outlives the session is <see cref="overlayWishes" />, which
-    ///     <see cref="FollowPlayOverlays" /> applies to each new one (#1263).
-    /// </remarks>
-    readonly DiagnosticOverlays playOverlays = new();
-
-    /// <summary>This frame's overlay geometry as segment pairs, which is what a pane consumes.</summary>
-    readonly List<LineVertex> playDebugLines = [];
 
     /// <summary>Where the designer is building: the grid every pane draws and everything lands on.</summary>
     /// <remarks>
@@ -681,13 +656,21 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ Handed the document's behaviour store, and a `PlayModeController(world)` would be a Play
         // button that steps the graph and runs none of the scripts — the failure this whole wiring
         // exists to remove, in its quietest form.
-        play = new PlayModeController(world, scene.Behaviors, Extensions);
+        // ⚠ The selection Stop translates back is asked for at Stop, because it is the active
+        // scene's and that is this class's answer — see `EditorPlaySession`.
+        play = new EditorPlaySession(new PlayModeController(world, scene.Behaviors, Extensions), () => scene.Selection);
+
+        // ⚠ What play does to the rest of the editor — maximise, the console, the notification, the
+        // outliner, the arrangement — is the workspace's and the diagnostics' and not the session's,
+        // so it follows the session rather than living inside it. See `PlayEntered`, `PlayLeft`.
+        play.Entered += _ => PlayEntered();
+        play.Left += _ => PlayLeft();
 
         // ⚠ And every other open scene's, because the store above is the *first* document's and a
         // behaviour authored into an additively opened scene used to be named in `Unsupported`
         // rather than run. Honest, and not whole: a designer was told about something the editor
         // should be able to do. Read at every Play, so a scene opened after this line still plays.
-        play.Stores = () => openScenes.Select(open => open.Document.Behaviors);
+        play.Controller.Stores = () => openScenes.Select(open => open.Document.Behaviors);
 
         // ⚠ And the statistics panel is told how to count behaviours, which is a question no world
         // walk can answer: a `BehaviorStore` is not in the world. #1216 — `BehaviorStore.Population`
@@ -708,7 +691,7 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ First, and ordered by `[Provides]` rather than by being written first — see
         // `PlayDiagnostics`. Until this a `PlaySession` seeded two services, the loop and the world,
         // so `PhysicsSystems.AddPhysicsOverlay` had nothing in an editor to be handed (#1247).
-        contributions.Add(Extensions.Add<IPlaySystems>(new PlayDiagnostics(playDebug, playOverlays)));
+        contributions.Add(Extensions.Add<IPlaySystems>(new PlayDiagnostics(play.Debug, play.Overlays)));
 
         contributions.Add(Extensions.Add<IPlaySystems>(new PlayPhysics()));
 
@@ -728,9 +711,9 @@ sealed partial class EditorApplication : IDisposable {
         // document's name and stable-id tables — both keyed by handle — name nothing at all
         // afterwards. `SceneDocument.Remap` was written for exactly this and nothing called it: the
         // outliner came back from play mode as a list of blank rows, which reads as the scene having
-        // been lost. Subscribed here rather than in `LeavePlay` so that it also covers a restore the
+        // been lost. Subscribed here rather than in `PlayLeft` so that it also covers a restore the
         // controller performs for any other reason.
-        play.Restored += (_, translation) => {
+        play.Controller.Restored += (_, translation) => {
             scene.Remap(translation);
             hierarchyStale = true;
         };
@@ -1092,7 +1075,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     neighbours; what needs the object is the question "did physics actually attach", whose
     ///     honest answer is <c>PlayModeController.Session</c> and not a notification's wording.
     /// </remarks>
-    internal PlayModeController PlayMode => play;
+    internal PlayModeController PlayMode => play.Controller;
 
     /// <summary>What the viewport draws the painted foliage from, if a module contributed one.</summary>
     /// <remarks><see cref="TerrainScene" />'s arrangement exactly, and the last contribution wins.</remarks>
@@ -1355,16 +1338,14 @@ sealed partial class EditorApplication : IDisposable {
         // frame's colliders: `PhysicsDebugDrawSystem` runs in `PreRender`, inside `Tick`. Clearing
         // afterwards would draw nothing at all and clearing nowhere would accumulate every frame of
         // the session into one solid mass of lines.
-        playDebug.Clear();
-
+        // `EditorPlaySession.Tick` empties the overlays' draw before the step and drains it after.
+        //
         // Before the step, which is the frame a session registered on Play first draws in.
         FollowPlayOverlays();
 
         if (!play.Tick(delta)) {
             ResolveTransforms();
         }
-
-        DrainPlayDiagnostics();
 
         // ⚠ Immediately after them and not later in this method. Both extraction queries want
         // `WorldTransform` and neither writes one — in a game the phase and the declared access are
@@ -1682,7 +1663,7 @@ sealed partial class EditorApplication : IDisposable {
 
         // Before the world, because it holds a snapshot of it: a controller disposed after the world
         // would be releasing chunks into a world that had already released its own.
-        play.Dispose();
+        play.Controller.Dispose();
 
         Shell.Dispose();
         world.Dispose();
@@ -2189,48 +2170,15 @@ sealed partial class EditorApplication : IDisposable {
     ///     ordinary answer: an editing frame runs no session, and a session runs no overlay until
     ///     somebody switches one on.
     /// </remarks>
-    internal IReadOnlyList<LineVertex> PlayDiagnosticLines => playDebugLines;
+    internal IReadOnlyList<LineVertex> PlayDiagnosticLines => play.DiagnosticLines;
 
     /// <summary>The registry a play session's overlays are registered in and switched on through.</summary>
     /// <remarks>
-    ///     ⚠ <b>The editor's, not a session's</b> — see <see cref="playOverlays" /> for why it has to
-    ///     outlive one. <c>DiagnosticOverlays.Set("physics", true)</c> switches the live overlay;
-    ///     the person-facing switch is <c>play.overlay.physics</c>, Play ▸ Overlays.
+    ///     ⚠ <b>The editor's, not a session's</b> — see <see cref="EditorPlaySession.Overlays" /> for
+    ///     why it has to outlive one. <c>DiagnosticOverlays.Set("physics", true)</c> switches the live
+    ///     overlay; the person-facing switch is <c>play.overlay.physics</c>, Play ▸ Overlays.
     /// </remarks>
-    internal DiagnosticOverlays PlayOverlays => playOverlays;
-
-    /// <summary>Turns what the session's overlays drew into segments a pane's line pass takes.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>World lines only, and the other two kinds are honestly absent</b> — the same
-    ///         boundary <c>WaterPresenter.DebugLines</c> draws and for the same reason. A
-    ///         <c>DebugDraw</c> also carries screen-space segments and world labels, and a pane has
-    ///         no screen-space line pass and no world text pass to drain them into. The physics
-    ///         overlay's wireframes, contact points, constraint anchors, broad-phase bounds and body
-    ///         axes are all world lines, so all of it arrives.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>What does <em>not</em> arrive is the counts panel.</b>
-    ///         <c>PhysicsDebugDrawSystem.Draw</c> writes "bodies awake/all" into an
-    ///         <c>OverlaySurface</c>, which is a game's HUD and not a pane — and the awake count is
-    ///         the number that tells "every body is asleep" from "nothing is being stepped" apart. It
-    ///         is a real gap and it is stated here rather than left to be discovered from an editor
-    ///         showing wireframes and no numbers.
-    ///     </para>
-    ///     <para>
-    ///         Run every frame rather than only while playing, because the frame after Stop has to
-    ///         empty the list — a pane that kept the last session's lines would show a set of
-    ///         colliders standing where the bodies were.
-    ///     </para>
-    /// </remarks>
-    void DrainPlayDiagnostics() {
-        playDebugLines.Clear();
-
-        foreach (var line in playDebug.Lines) {
-            playDebugLines.Add(new(line.From, line.Colour));
-            playDebugLines.Add(new(line.To, line.Colour));
-        }
-    }
+    internal DiagnosticOverlays PlayOverlays => play.Overlays;
 
     /// <summary>Gives every pane of a rearranged layout what only this application can supply.</summary>
     /// <remarks>
@@ -2272,7 +2220,7 @@ sealed partial class EditorApplication : IDisposable {
             // ⚠ The one list, handed to every pane. What a play session's overlays drew is produced
             // once per frame by the loop, which does not know how many panes there are — so four
             // panes each asking a producer would draw a frame apiece. See `SceneViewport.Diagnostics`.
-            pane.Diagnostics = playDebugLines;
+            pane.Diagnostics = play.DiagnosticLines;
 
             // ⚠ This editor's registry, not the process-wide default the pane falls back to. A pane
             // reading a different registry from the one plugins were handed is a pane whose tool
@@ -3123,11 +3071,15 @@ sealed partial class EditorApplication : IDisposable {
             // one at activation would hold the scene that was open when it loaded.
             .Add<IActiveScene>(new ShownScene(this))
 
-            // ⚠ And the play session, if one is running — the controller itself under the
+            // ⚠ And the play session, if one is running — the service itself under the
             // contract, so what is published once outlives every session and the answer moves under
             // it. A session's own services are `Provide`d to it and die with it; publishing *them*
             // here would leave every reader after the first Stop holding a torn-down world. #470.
             .Add<IActivePlaySession>(play)
+
+            // ⚠ And the verbs, under the wider contract (#1289): what `PlayModule` registers the
+            // transport over, and what a plugin asks for to enter play the way F5 does.
+            .Add<IPlaySession>(play)
 
             // ⚠ And which eye it is showing it through, which is a separate question with a separate
             // answer: doc 39's resolved volume stack is per camera, because the volume fold weighs

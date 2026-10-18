@@ -2,14 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.IO.Compression;
-using System.Reflection;
 using Microsoft.Extensions.Logging;
 using Vixen.Core;
 using Vixen.Core.Diagnostics;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
-using Vixen.Ecs.Systems;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.Models;
 using Vixen.Editor.Core;
@@ -853,51 +851,11 @@ sealed partial class EditorApplication {
     ///     </para>
     /// </remarks>
     void PlayCommands() {
-        // ⚠ The four carry an icon and a colour class, and the transport is the one strip where that
-        // is not decoration. It is the most-clicked control in either reference editor, it is read at
-        // a glance rather than looked at, and — the part that matters most — "am I in play mode" has
-        // to be answerable without reading anything. A row of identical grey glyphs answers none of
-        // those. The theme fills the button when the command is on, so Play is a green button with a
-        // white triangle while the game is running and a green triangle when it is not.
-        Transport(
-            "play.play",
-            EditorStrings.CommandPlayPlay,
-            EditorIcons.Play,
-            EnterPlay,
-            () => !play.IsPlaying,
-            () => play.IsPlaying
-        );
-
-        Transport(
-            "play.pause",
-            EditorStrings.CommandPlayPause,
-            EditorIcons.Pause,
-            () => {
-                if (play.State == PlayState.Paused) {
-                    play.Resume();
-                } else {
-                    play.Pause();
-                }
-            },
-            () => play.IsPlaying,
-            () => play.State == PlayState.Paused
-        );
-
-        Transport(
-            "play.step",
-            EditorStrings.CommandPlayStep,
-            EditorIcons.Step,
-            () => play.Step(),
-            () => play.State == PlayState.Paused
-        );
-
-        Transport("play.stop", EditorStrings.CommandPlayStop, EditorIcons.Stop, LeavePlay, () => play.IsPlaying);
-
-        Shell.Keys.SetDefault("play.play", new KeyChord(InputKey.F5, ModifierKeys.None));
-        Shell.Keys.SetDefault("play.pause", new KeyChord(InputKey.P, ModifierKeys.Control | ModifierKeys.Shift));
-        Shell.Keys.SetDefault("play.step", new KeyChord(InputKey.F10, ModifierKeys.None));
-        Shell.Keys.SetDefault("play.stop", new KeyChord(InputKey.F5, ModifierKeys.Shift));
-
+        // ⚠ Play, Pause, Step and Stop are not here any more (#1289). They are names for
+        // `IPlaySession`'s verbs and `PlayModule` registers them through `PluginContext`, the door a
+        // third party uses — so a plugin reaches the same four verbs the transport does. What is left
+        // here is the Play menu's options, which are this editor's preferences rather than the
+        // session's verbs.
         Planned("play.mode-in-editor", EditorStrings.CommandPlayModeInEditor, EditorStrings.CategoryPlay);
 
         // ⚠ Both of these named milestone E6, and E6 has shipped — `build.settings` is a window and
@@ -1325,30 +1283,6 @@ sealed partial class EditorApplication {
         Shell.Commands.Add(
             new EditorCommand(id, title, run) {
                 Category = category,
-                Enablement = enabled,
-                Checked = on
-            }
-        );
-
-    /// <summary>Registers one of the four transport verbs: an icon, a colour, and a state.</summary>
-    /// <remarks>
-    ///     The class is the command's and the rules are the theme's — see
-    ///     <see cref="EditorCommand.ClassName" /> — so the toolbar stays a view over ids and does not
-    ///     acquire a list of which buttons are green.
-    /// </remarks>
-    void Transport(
-        string id,
-        StringId title,
-        PathBuilder icon,
-        Action run,
-        Func<bool>? enabled = null,
-        Func<bool>? on = null
-    ) =>
-        Shell.Commands.Add(
-            new EditorCommand(id, title, run) {
-                Category = EditorStrings.CategoryPlay,
-                Icon = icon,
-                ClassName = "transport-" + id["play.".Length..],
                 Enablement = enabled,
                 Checked = on
             }
@@ -2916,11 +2850,14 @@ sealed partial class EditorApplication {
 
     // ── Play mode ───────────────────────────────────────────────────────────────────────────────
 
-    void EnterPlay() {
-        if (!play.Play()) {
-            return;
-        }
-
+    /// <summary>What entering play does to the rest of the editor, after the session has started.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The verb is <see cref="EditorPlaySession.Enter" /> (#1289); this is what follows it.</b>
+    ///     The arrangement, the console and the notification are the workspace's and the
+    ///     diagnostics' concerns, and until those are services of their own the composition root is
+    ///     where they meet — doc 50 § P2a's "a callback the composition root supplies".
+    /// </remarks>
+    void PlayEntered() {
         // ⚠ Through the same pair maximise itself uses, so stopping restores whatever arrangement the
         // user had rather than an arrangement this remembered separately. Skipped when the panel is
         // already single, because `Remember` would then record Single and stopping would leave the
@@ -2950,139 +2887,24 @@ sealed partial class EditorApplication {
 
     /// <summary>Says what this session runs, and names anything it is not running.</summary>
     /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Doc 20's first bar applied to a frame rather than to a menu line: a thing that
-    ///         does not happen must be <i>visibly</i> not happening.</b> An in-editor session steps
-    ///         an <c>EngineLoop</c>'s default graph — behaviours, coroutines, transforms — and
-    ///         nothing else, because every other system a game runs is registered by that game's own
-    ///         <c>OnInitialise</c> against a <c>PhysicsScene</c>, an <c>AudioEngine</c>, an
-    ///         <c>InputService</c> or a <c>RenderView</c> that an editor either does not have or
-    ///         already has a second, differently-aimed one of. A Play button that ran most of a frame
-    ///         and said nothing would make the missing part read as a gameplay bug, which is the one
-    ///         outcome worse than not stepping at all.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The project's own systems are named, not counted.</b> "Some systems did not run"
-    ///         sends somebody looking through their whole game; a list of three type names sends them
-    ///         to the three files. They are found by reflection over the assembly
-    ///         <c>ProjectAssemblies</c> already built and loaded, so the list is what this project
-    ///         declares rather than what the engine ships.
-    ///     </para>
+    ///     The wording is the session's — <see cref="EditorPlaySession.DescribeRunning" /> and
+    ///     <see cref="EditorPlaySession.DescribeMissing" /> carry the reasons — and where it is said
+    ///     is this editor's: its log and its notifications.
     /// </remarks>
     void ReportPlayGaps() {
-        // ⚠ Read off the session rather than written out here, and that is the point of the list
-        // existing. This sentence used to name physics as a thing an in-editor session does not run,
-        // and an `IPlaySystems` contribution has since made that false for the editor Vixen ships —
-        // a fixed sentence would now be a report that lies in the safe direction, which is the one
-        // that costs somebody a day.
-        var added = play.Session?.Running ?? [];
+        log.Write(LogLevel.Information, play.DescribeRunning());
 
-        log.Write(
-            LogLevel.Information,
-            $"Play mode runs behaviours, coroutines and transforms{Also(added)}. Anything else a game "
-            + "registers imperatively in its own OnInitialise — rather than declaring with "
-            + "[GameSystem] — takes a host service the editor was never handed, so an in-editor "
-            + "session does not run it."
-        );
-
-        // ⚠ The project's systems minus the ones that just ran, and the subtraction is the whole
-        // point of #320. This list used to be every `ISystem` the project's assembly declared,
-        // because none of them could run; a system that carries `[GameSystem]` and found its
-        // services is now in the frame, and naming it as missing would be a report that lies.
-        var systems = ProjectSystems().Except(play.Declared.Running, StringComparer.Ordinal).ToArray();
-        var unsatisfied = play.Declared.Missing;
-        var behaviors = play.Unsupported;
-        var refused = play.Refused;
-
-        if (systems.Length == 0 && unsatisfied.Count == 0 && behaviors.Count == 0 && refused.Count == 0) {
+        if (play.DescribeMissing(code.Loaded) is not { } said) {
             return;
         }
-
-        List<string> lines = [];
-
-        // ⚠ Two different failures, said differently. An undeclared system is one nobody asked the
-        // editor to run — the fix is `[GameSystem]`, and saying so is worth more than the list. An
-        // unsatisfied one *was* declared and could not be built, which is a service the editor does
-        // not have and a much narrower thing to go and look at.
-        if (systems.Length > 0) {
-            lines.Add(
-                $"{systems.Length} system(s) this project declares but does not mark [GameSystem]: "
-                + $"{string.Join(", ", systems)}."
-            );
-        }
-
-        if (unsatisfied.Count > 0) {
-            lines.Add($"{unsatisfied.Count} declared system(s) whose services are not here: {string.Join("; ", unsatisfied)}.");
-        }
-
-        if (behaviors.Count > 0) {
-            lines.Add($"{behaviors.Count} behaviour(s) the session could not take over: {string.Join(", ", behaviors)}.");
-        }
-
-        // ⚠ A contribution that threw is the loudest of the three, because it is the editor's own
-        // wiring failing rather than a gap the editor never claimed to fill. A session with no
-        // physics after this editor started publishing one is a difference somebody will otherwise
-        // spend the afternoon looking for in their game.
-        if (refused.Count > 0) {
-            lines.Add($"{refused.Count} contribution(s) that failed to start: {string.Join(", ", refused)}.");
-        }
-
-        var said = "Not running — " + string.Join(" ", lines);
 
         log.Write(LogLevel.Warning, said);
 
         Shell.Notifications.Show("Play mode is not running everything", NotificationSeverity.Warning, said);
     }
 
-    /// <summary>", plus physics and terrain collision" — or nothing, for a session with no additions.</summary>
-    static string Also(IReadOnlyList<string> added) => added.Count == 0 ? string.Empty : $", plus {Join(added)}";
-
-    /// <summary>A list a person reads: "a", "a and b", "a, b and c".</summary>
-    static string Join(IReadOnlyList<string> parts) =>
-        parts.Count == 1
-            ? parts[0]
-            : string.Join(", ", parts.Take(parts.Count - 1)) + " and " + parts[^1];
-
-    /// <summary>The <c>ISystem</c> types the project's own assembly declares.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Every <c>ISystem</c> in the assembly, including the ones that just ran.</b> The
-    ///     caller subtracts <c>PlayModeController.Declared.Running</c>, so what is left is the set a
-    ///     project still registers by hand in its <c>Game.OnInitialise</c> — code no editor runs.
-    ///     Until <c>[GameSystem]</c> that was all of them, and this list was the closest true
-    ///     statement available; it is now a list of systems whose author has not opted in yet, which
-    ///     is a thing they can act on.
-    /// </remarks>
-    IReadOnlyList<string> ProjectSystems() {
-        List<string> found = [];
-
-        if (code.Loaded is not { } assembly) {
-            return found;
-        }
-
-        Type?[] declared;
-
-        try {
-            declared = assembly.GetTypes();
-        } catch (ReflectionTypeLoadException partial) {
-            // A project referencing something that did not load still has the types that did, and a
-            // partial list is a better answer here than none: this is a report, not a gate.
-            declared = partial.Types;
-        }
-
-        foreach (var type in declared) {
-            if (type is { IsClass: true, IsAbstract: false } && typeof(ISystem).IsAssignableFrom(type)) {
-                found.Add(type.Name);
-            }
-        }
-
-        found.Sort(StringComparer.Ordinal);
-        return found;
-    }
-
-    void LeavePlay() {
-        var restored = play.Stop(scene.Selection);
-
-        scene.Selection.Set(restored);
+    /// <summary>What leaving play does to the rest of the editor, after the scene has been restored.</summary>
+    void PlayLeft() {
         hierarchyStale = true;
 
         // Whatever the panel was split into before Play maximised it. Null when it was not, which is
