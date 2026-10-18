@@ -44,8 +44,8 @@ namespace Vixen.Ui.Styling;
 ///             zero-offset one. None of them is a fixed value either, because each is shaped by the
 ///             other end, so none belongs in this table: <c>rotate</c>, <c>translate</c>,
 ///             <c>scale</c>, <c>filter</c>, <c>backdrop-filter</c> and <c>box-shadow</c> get their
-///             identity from <c>Animator.Travelling</c> (the filters since #1439, a single shadow
-///             since #1464), and <c>transform</c> from its mix.
+///             identity from <c>Animator.Travelling</c> (the filters since #1439, a shadow list
+///             since #1472), and <c>transform</c> from its mix.
 ///         </item>
 ///     </list>
 ///     <para>

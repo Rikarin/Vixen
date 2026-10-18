@@ -161,13 +161,14 @@ public enum StyleUnit : byte {
 public readonly struct StyleValue : IEquatable<StyleValue> {
     readonly StyleValue[]? items;
 
-    StyleValue(StyleValueKind kind, float number, StyleUnit unit, Color4 colour, int keyword, StyleValue[]? items) {
+    StyleValue(StyleValueKind kind, float number, StyleUnit unit, Color4 colour, int keyword, StyleValue[]? items, bool commas = false) {
         Kind = kind;
         Number = number;
         Unit = unit;
         Color = colour;
         Keyword = keyword;
         this.items = items;
+        Commas = commas;
     }
 
     /// <summary>What kind of value it is.</summary>
@@ -187,6 +188,19 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
 
     /// <summary>The parts, for <see cref="StyleValueKind.List" />.</summary>
     public ReadOnlySpan<StyleValue> Items => items ?? [];
+
+    /// <summary>Whether this list's parts are separated by commas rather than by spaces.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Internal, and built only by the animator, for <c>box-shadow</c> (#1472).</b>
+    ///     <see cref="StyleValueParser" /> splits on whitespace only, so a comma list read through it
+    ///     comes back flat with the comma riding on the item before it — which made a non-last shadow
+    ///     colour a keyword. Teaching the parser commas would change what every comma-carrying
+    ///     declaration parses to for every reader of a <see cref="StyleValue" />; the shadow list is
+    ///     the one place that needs the structure, so it is built there, and the only thing the rest of
+    ///     this type has to know is that the parts are written back with commas and are a different
+    ///     value from the same parts with spaces.
+    /// </remarks>
+    internal bool Commas { get; }
 
     /// <summary>The value nothing could be made of.</summary>
     public static StyleValue Unknown => default;
@@ -222,6 +236,14 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
     public static StyleValue FromList(StyleValue[] parts) {
         ArgumentNullException.ThrowIfNull(parts);
         return new StyleValue(StyleValueKind.List, 0f, StyleUnit.None, default, NameTable.None, parts);
+    }
+
+    /// <summary>A comma-separated sequence of values — see <see cref="Commas" />.</summary>
+    /// <param name="parts">The parts.</param>
+    /// <returns>The value.</returns>
+    internal static StyleValue FromCommaList(StyleValue[] parts) {
+        ArgumentNullException.ThrowIfNull(parts);
+        return new StyleValue(StyleValueKind.List, 0f, StyleUnit.None, default, NameTable.None, parts, commas: true);
     }
 
     /// <summary>Whether two values can be interpolated between.</summary>
@@ -274,7 +296,7 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
             StyleValueKind.Number or StyleValueKind.Color => true,
             StyleValueKind.Length => from.Unit == to.Unit,
             StyleValueKind.Keyword => from.Keyword == to.Keyword,
-            StyleValueKind.List => from.Items.Length == to.Items.Length && EveryPartCan(from, to),
+            StyleValueKind.List => from.Commas == to.Commas && from.Items.Length == to.Items.Length && EveryPartCan(from, to),
             _ => false
         };
 
@@ -339,7 +361,7 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
                     parts[i] = Lerp(from.Items[i], to.Items[i], amount);
                 }
 
-                return FromList(parts);
+                return from.Commas ? FromCommaList(parts) : FromList(parts);
             }
 
             default:
@@ -361,7 +383,7 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
             StyleValueKind.Length => Number.Equals(other.Number) && Unit == other.Unit,
             StyleValueKind.Color => Color.Equals(other.Color),
             StyleValueKind.Keyword => Keyword == other.Keyword,
-            StyleValueKind.List => Items.SequenceEqual(other.Items),
+            StyleValueKind.List => Commas == other.Commas && Items.SequenceEqual(other.Items),
             _ => true
         };
     }
@@ -450,13 +472,14 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
                     // `blur 4px invert 1`: one four-item list, which the filter reader refuses whole.
                     // The top level keeps its spaces, because there a keyword-headed list is
                     // `rotate: z 90deg`, and a lone `blur(4px)` written as `blur 4px` parses back to
-                    // the same two items anyway.
-                    parts[i] = Items[i] is { Kind: StyleValueKind.List, Items: [{ Kind: StyleValueKind.Keyword } head, ..] } function
+                    // the same two items anyway. ⚠ Not in a comma list, whose parts are each a whole
+                    // value: `inset 0 0 8px red` is a shadow headed by a keyword, not `inset(…)`.
+                    parts[i] = !Commas && Items[i] is { Kind: StyleValueKind.List, Items: [{ Kind: StyleValueKind.Keyword } head, ..] } function
                         ? Function(head, function.Items, names)
                         : Items[i].ToCss(names);
                 }
 
-                return string.Join(' ', parts);
+                return string.Join(Commas ? ", " : " ", parts);
             }
 
             default:
