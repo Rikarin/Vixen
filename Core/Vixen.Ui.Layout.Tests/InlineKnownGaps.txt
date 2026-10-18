@@ -550,19 +550,46 @@ blockification (§2.7)             refused as a measured no-op; `BlockificationT
                                   context (#258) or a writing mode (#952) would be that day
 
 
-# ══ DELIBERATELY ABSENT — the store still cannot represent it ═══════════════════════════════════
+# ══ A SPAN'S OWN STRUT — LANDED, and the section that held it is empty ═════════════════════════
 #
-# ⚠ THIS SECTION IS NOW SHORTER THAN ITS HEADING SUGGESTS, and what is left of it is one item: a
-# strut belongs to the block container, and a `span` that changes the font inside one is flattened
-# here and carries no metrics of its own. So a `vertical-align: middle` on a box inside such a span
-# is measured against the container's x-height rather than the span's — right whenever the span does
-# not change the font, and wrong by the difference when it does. Refusing the value inside a span
-# instead would be worse. ⚠ This sentence used to end "it needs the same thing nested non-atomic
-# inline boxes need", and that is no longer a pointer to anything: nesting landed and did not bring
-# a per-span strut with it. What this needs is a font on a span, which is `Vixen.Ui`'s to supply —
-# `UiDocument.StrutOf` already resolves one from an element's own face — and not a producer change.
+# ⚠ THIS WAS THE LAST ITEM UNDER "DELIBERATELY ABSENT — the store still cannot represent it", and
+# the store could represent it all along. The row said a flattened span "has no font of its own"
+# and that supplying one was `Vixen.Ui`'s job — and its own last clause named why that was already
+# done: `UiDocument` writes `StrutOf` onto EVERY element's layout node after `SetStyle`, a span's
+# included. What was missing was a READER, so the whole change is in this walk (#249):
+#
+#   · `ParentStrut` is §10.8.1's PARENT INLINE BOX for an atomic item — the nearest flattened span
+#     between it and the container that was given a font, else the container's own. `middle`,
+#     `text-top`, `text-bottom`, `sub` and `super` measure against it in BOTH `MeasureLine` and
+#     `PlaceLine`, which have to agree or a box lands outside the line it was measured into.
+#   · Every span with a fragment on a line is an inline box ON that line, exactly its line height
+#     about the baseline, so it seeds the line's ascent and descent beside the container's strut.
+#     ⚠ Found from each item's ANCESTRY rather than from the `Open` items in the line's range,
+#     because a span whose `Open` was on an earlier line still has a fragment here and no entry.
+#   · An all-zero strut on a span still means no font, and falls through to the nearest one above.
+#     A span whose font and line height are its container's changes nothing, which is why no label
+#     in the tree moved.
+#
+# Covered by `InlineSpanStrutTests` (seven closed-form tests) and by
+# `InlineStrutWiringTests.A_spans_own_line_height_grows_its_line` for the document half. Sabotaged
+# three ways, each compiling: dropping the line-height seed reddens the two growth tests (and the
+# wiring test, 30 for 60); measuring against the container's strut reddens the three parent-box
+# tests; treating a fontless span's empty strut as a refusal reddens the two fallback tests.
+#
+# STILL OWED beside it, and recorded rather than smuggled in:
+#   · A flattened span's own `vertical-align` is not read at all — neither for its own box nor as
+#     the baseline the boxes inside it hang from — so a box inside a `super` span measures against
+#     the right font from the wrong baseline. It was this before the change too.
+#   · An EMPTY span is not flattened (`IsNonAtomicInline` wants a child that participates), so it is
+#     an atomic zero-size box and its strut is inert, where CSS would still give it an inline box
+#     that can grow the line.
 
-a span's own strut                a flattened span has no font of its own; the container's is used
+a span's own strut                ⚠ LANDED — `ParentStrut`, and the span's line-height seed in
+                                  `MeasureLine`. `InlineSpanStrutTests`
+a span's own vertical-align       a flattened span is placed at the line's baseline whatever it
+                                  declares; the boxes inside it follow (#1478)
+an empty span's inline box        an empty span is atomic and zero-size, so its line height is lost
+                                  (#1479)
 
 
 # ══ ABSENT, AND THE HONEST REASON IS "NOT YET" ══════════════════════════════════════════════════

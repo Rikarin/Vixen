@@ -96,6 +96,43 @@ public class InlineStrutWiringTests {
         Assert.Equal(30f, Box(document).Parent!.Height, Tolerance);
     }
 
+    /// <summary>⚠ A span's own <c>line-height</c> reaches the line it is on (#249).</summary>
+    /// <remarks>
+    ///     The layout store reads a flattened span's strut now, and this is the half that says
+    ///     anything WRITES one for a span: <c>UiDocument</c> calls <c>SetStrut</c> for every element,
+    ///     so a <c>display: inline</c> wrapper declaring <c>line-height: 60px</c> around the chip makes
+    ///     the panel's single line 60 tall. The control is the same wrapper inheriting the panel's 30,
+    ///     which must leave the line at 30 — a span whose font and line height are its container's
+    ///     changes nothing, which is what kept this from moving a single label.
+    /// </remarks>
+    [Fact]
+    public void A_spans_own_line_height_grows_its_line() {
+        using var tall = Wrapped("line-height: 60px;");
+        using var same = Wrapped("");
+
+        Assert.Equal(60f, tall.Root.Children[0].Height, Tolerance);
+        Assert.Equal(30f, same.Root.Children[0].Height, Tolerance);
+    }
+
+    static UiDocument Wrapped(string spanExtra) {
+        var document = new UiDocument(400f, 200f);
+        document.Fonts.Register("Test", Lana);
+
+        document.Load(
+            $$"""
+              root { width: 400px; height: 200px; align-items: flex-start; }
+              panel { display: block; width: 200px; font-family: Test; font-size: 20px; line-height: 30px; }
+              wrap { display: inline; {{spanExtra}} }
+              chip { display: inline-block; width: 40px; height: 10px; }
+              """
+        );
+
+        document.Root.Add("panel").Add("wrap").Add("chip");
+        document.Update();
+
+        return document;
+    }
+
     static UiDocument Documented(bool registerFont, string extra = "") {
         var document = new UiDocument(400f, 200f);
 

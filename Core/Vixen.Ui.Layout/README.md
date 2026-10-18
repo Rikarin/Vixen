@@ -66,7 +66,10 @@ predicate is only ever asked by a parent that is *already* walking lines — so 
 item, a grid item, or the node `CalculateLayout` was called on is never offered for flattening at all.
 That is also a box no browser can produce: CSS Display §2.7 blockifies every one of those contexts and
 this store does not blockify anywhere (#1149).
-What is still owed is generated boxes, a span with a FLOATED child, and a span's own strut. See
+What is still owed is generated boxes, a span with a FLOATED child, and a flattened span's own
+`vertical-align`. ⚠ A span's own strut is no longer owed: `UiDocument` had always written one onto every
+element, and the walk now reads it — as §10.8.1's parent inline box and as an inline box on each line
+the span reaches (#249). See
 [the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down) and
 `InlineKnownGaps.txt`.
 

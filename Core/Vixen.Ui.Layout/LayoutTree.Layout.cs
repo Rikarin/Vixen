@@ -641,18 +641,36 @@ public sealed partial class LayoutTree {
         // moving the basis moved none of them. ⚠ A content-sized single-line row holding a
         // percentage minimum gets NaN instead — CSS Sizing §5.2.1's zero for the container's
         // intrinsic size — and re-enters at its decided width after STEP 9, which is where the
-        // percentage resolves. A column's main axis is still on Yoga's basis, with the same defect
-        // (#1475).
+        // percentage resolves.
+        //
+        // ⚠ <b>A column's `min-height` and `max-height` percentages resolve against its content box
+        // where its height is DEFINITE, and against nothing where it is not (#1475).</b> Definite is
+        // a StretchFit height — stated, stretched or flexed, Flexbox §9.8 — or a stated height when
+        // the column is being measured under an offer; anything else is the offer, which is no basis.
+        // ⚠ This is deliberately not the row's rule: a block-axis percentage against an indefinite
+        // height is not resolved later (CSS 2.1 §10.7: zero for `min-height`, `none` for
+        // `max-height`), so a content-sized column withholds and never re-enters.
         var cyclicRowMinimum = isMainAxisRow && HasCyclicPercentageMinWidthItem(index, mainAxis, widthSizingMode);
-        var itemMainOwnerSize = !isMainAxisRow ? mainAxisOwnerSize
-            : cyclicRowMinimum ? float.NaN
-            : availableInnerWidth;
+        var itemMainOwnerSize = isMainAxisRow
+            ? cyclicRowMinimum ? float.NaN : availableInnerWidth
+            : heightSizingMode == SizingMode.StretchFit || float.IsNaN(offeredHeight)
+                ? availableInnerHeight
+                : AvailableInnerDimension(
+                    index,
+                    direction,
+                    Dimension.Height,
+                    ResolvedDimension(index, Dimension.Height, ownerHeight, ownerWidth, direction),
+                    contentInsetAxisColumn,
+                    ownerHeight,
+                    ownerWidth
+                );
 
         // STEP 3: DETERMINE FLEX BASIS FOR EACH ITEM
         ComputeFlexBasisForChildren(
             index,
             availableInnerWidth,
             availableInnerHeight,
+            itemMainOwnerSize,
             widthSizingMode,
             heightSizingMode,
             direction,
@@ -1060,7 +1078,7 @@ public sealed partial class LayoutTree {
                                 childWidthSizingMode,
                                 childHeightSizingMode,
                                 availableInnerWidth,
-                                availableInnerHeight,
+                                ItemOwnerHeight(child, mainAxis, itemMainOwnerSize, availableInnerHeight),
                                 performLayout: true,
                                 currentDepth
                             );

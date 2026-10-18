@@ -499,7 +499,7 @@ public sealed partial class LayoutTree {
                         break;
                     }
 
-                    metrics = MeasureLine(lineStart, lineEnd, direction, innerWidth, in strut);
+                    metrics = MeasureLine(index, lineStart, lineEnd, direction, innerWidth, in strut);
                 } else {
                     // ── §9.5's main clause ──────────────────────────────────────────────────────
                     // ⚠ <b>The band a line gets depends on how tall the line is, and how tall the
@@ -543,7 +543,7 @@ public sealed partial class LayoutTree {
                         // still leaves a height belonging to the range `lineEnd` names. Placing a
                         // float cannot change what is on the line without a re-break, and a re-break
                         // measures again.
-                        metrics = MeasureLine(lineStart, lineEnd, direction, innerWidth, in strut);
+                        metrics = MeasureLine(index, lineStart, lineEnd, direction, innerWidth, in strut);
 
                         // ── §9.5.1's rules 5 and 6 ──────────────────────────────────────────────
                         // A float written between two items may not start above the top of the line
@@ -583,6 +583,7 @@ public sealed partial class LayoutTree {
 
                 if (performLayout) {
                     PlaceLine(
+                        index,
                         lineStart,
                         lineEnd,
                         direction,
@@ -1121,7 +1122,7 @@ public sealed partial class LayoutTree {
     ///         method measured before the field existed. See <see cref="StrutMetrics" />.
     ///     </para>
     /// </remarks>
-    LineMetrics MeasureLine(int lineStart, int lineEnd, Direction direction, float innerWidth, in StrutMetrics strut) {
+    LineMetrics MeasureLine(int container, int lineStart, int lineEnd, Direction direction, float innerWidth, in StrutMetrics strut) {
         // ⚠ The strut is an ordinary baseline-aligned participant and not a floor applied afterwards,
         // which matters for exactly one case and it is the common one: a box TALLER than the strut but
         // hanging LOWER than it — an image with a big descender's worth of margin — must grow the line
@@ -1130,17 +1131,45 @@ public sealed partial class LayoutTree {
         var ascent = strut.Ascent;
         var descent = strut.Descent;
 
+        // ⚠ <b>Every flattened span with a fragment on this line is an inline box on it, and §10.8.1
+        // makes a non-replaced inline box exactly its `line-height` tall about the baseline</b> — so a
+        // span with a bigger font or line height grows the line even around a small box (#249). Found
+        // from each item's ANCESTRY rather than from the `Open` items in the range, because a span
+        // whose `Open` was on an earlier line still has a fragment here and no entry of its own. Max
+        // is idempotent, so a span seen once per item it encloses costs nothing but the walk. A span
+        // whose strut is all-zero was given no font and contributes nothing; the nearest one that was
+        // given one, or the container's above, already has.
+        for (var i = lineStart; i < lineEnd; i++) {
+            var item = inlineItems[i];
+            if (item.Kind is not (InlineItemKind.Atomic or InlineItemKind.Open or InlineItemKind.Close)) {
+                continue;
+            }
+
+            var span = item.Kind == InlineItemKind.Atomic ? links[item.Node].Parent : item.Node;
+
+            for (; span >= 0 && span != container; span = links[span].Parent) {
+                var spanStrut = styles[span].Strut;
+
+                if (spanStrut.HasFont) {
+                    ascent = MathF.Max(ascent, spanStrut.Ascent);
+                    descent = MathF.Max(descent, spanStrut.Descent);
+                }
+            }
+        }
+
         // ⚠ Only the atomic entries. An inline box's own edges are horizontal — border, padding and
         // margin on the left and right — and CSS 2.1 §10.8 is explicit that a non-replaced inline
         // box's vertical padding and border do not affect the height of the line box it is on. So an
-        // Open or a Close contributes nothing here, which is the one place that rule shows up.
+        // Open or a Close contributes nothing here beyond its strut above, which is the one place that
+        // rule shows up.
         for (var i = lineStart; i < lineEnd; i++) {
             var item = inlineItems[i];
             if (item.Kind != InlineItemKind.Atomic) {
                 continue;
             }
 
-            var alignment = EffectiveVerticalAlign(item.Node, in strut);
+            var parentStrut = ParentStrut(item.Node, container, in strut);
+            var alignment = EffectiveVerticalAlign(item.Node, in parentStrut);
             if (alignment is VerticalAlign.Top or VerticalAlign.Bottom) {
                 continue;
             }
@@ -1155,7 +1184,7 @@ public sealed partial class LayoutTree {
             // all put a box's own baseline somewhere OTHER than the line's, and none of them changes
             // which side of the baseline the box's two halves are on. So the box still contributes an
             // ascent and a descent — moved by the shift, in opposite directions.
-            var shift = BaselineShift(alignment, in strut, in styles[child], top + baseline, height - baseline + bottom);
+            var shift = BaselineShift(alignment, in parentStrut, in styles[child], top + baseline, height - baseline + bottom);
 
             ascent = MathF.Max(ascent, top + baseline - shift);
             descent = MathF.Max(descent, height - baseline + bottom + shift);
@@ -1169,7 +1198,7 @@ public sealed partial class LayoutTree {
             }
 
             var child = item.Node;
-            var alignment = EffectiveVerticalAlign(child, in strut);
+            var alignment = EffectiveVerticalAlign(child, ParentStrut(child, container, in strut));
             if (alignment is not (VerticalAlign.Top or VerticalAlign.Bottom)) {
                 continue;
             }
@@ -1303,6 +1332,7 @@ public sealed partial class LayoutTree {
     ///     from the right in RTL without a second branch — see <see cref="InlineBandForLine" />.
     /// </remarks>
     void PlaceLine(
+        int container,
         int lineStart,
         int lineEnd,
         Direction direction,
@@ -1404,7 +1434,8 @@ public sealed partial class LayoutTree {
             var width = results[child].MeasuredDimensions[(int) Dimension.Width];
             var height = results[child].MeasuredDimensions[(int) Dimension.Height];
 
-            var alignment = EffectiveVerticalAlign(child, in strut);
+            var parentStrut = ParentStrut(child, container, in strut);
+            var alignment = EffectiveVerticalAlign(child, in parentStrut);
             var itemBaseline = InlineItemBaseline(child);
 
             var top = alignment switch {
@@ -1421,7 +1452,7 @@ public sealed partial class LayoutTree {
                     - itemBaseline
                     + BaselineShift(
                         alignment,
-                        in strut,
+                        in parentStrut,
                         in styles[child],
                         marginTop + itemBaseline,
                         height - itemBaseline + marginBottom
@@ -1527,6 +1558,41 @@ public sealed partial class LayoutTree {
     );
 
     /// <summary>
+    ///     The strut of an atomic item's <i>parent inline box</i> — CSS 2.1 §10.8.1's reference for
+    ///     <c>middle</c>, <c>text-top</c>, <c>text-bottom</c>, <c>sub</c> and <c>super</c>.
+    /// </summary>
+    /// <param name="child">The atomic item.</param>
+    /// <param name="container">The block container whose line walk the item is on.</param>
+    /// <param name="containerStrut">That container's strut, already copied out.</param>
+    /// <remarks>
+    ///     <para>
+    ///         The nearest flattened span between the item and the container that was given a font,
+    ///         else the container's own. ⚠ <b>The span was always given one</b>: <c>UiDocument</c>
+    ///         writes <c>StrutOf</c> onto every element's node after <c>SetStyle</c>, a span's
+    ///         included, so the refusal recorded in <c>InlineKnownGaps.txt</c> — "a flattened span has
+    ///         no font of its own" — was about a reader and not a producer (#249). An all-zero strut
+    ///         still means no font, and falls through rather than refusing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The span's own baseline is taken to be the line's</b>, which is what it is while the
+    ///         span is baseline-aligned. A flattened span's own <c>vertical-align</c> is not read by
+    ///         this walk at all, so a box inside a <c>super</c> span measures against the right font
+    ///         from the wrong baseline — a separate gap, and the same one it was before.
+    ///     </para>
+    /// </remarks>
+    StrutMetrics ParentStrut(int child, int container, in StrutMetrics containerStrut) {
+        for (var span = links[child].Parent; span >= 0 && span != container; span = links[span].Parent) {
+            var spanStrut = styles[span].Strut;
+
+            if (spanStrut.HasFont) {
+                return spanStrut;
+            }
+        }
+
+        return containerStrut;
+    }
+
+    /// <summary>
     ///     Which <c>vertical-align</c> this box is actually laid out with.
     /// </summary>
     /// <remarks>
@@ -1542,6 +1608,8 @@ public sealed partial class LayoutTree {
     ///     nothing. See <see cref="VerticalAlign" /> and <c>InlineKnownGaps.txt</c>.
     /// </remarks>
     VerticalAlign EffectiveVerticalAlign(int child, in StrutMetrics strut) {
+        // ⚠ `strut` is the PARENT inline box's — see `ParentStrut` — so a span with no font of its
+        // own falls through to the nearest one above it rather than refusing the value.
         var requested = styles[child].VerticalAlign;
 
         return requested switch {
@@ -1556,7 +1624,7 @@ public sealed partial class LayoutTree {
     /// </summary>
     /// <param name="alignment">The resolved alignment. Never <c>top</c> or <c>bottom</c>, which are
     ///     defined against the line box's edges rather than against its baseline.</param>
-    /// <param name="strut">The container's strut.</param>
+    /// <param name="strut">The parent inline box's strut, from <see cref="ParentStrut" />.</param>
     /// <param name="style">The item's own style, for <see cref="VerticalAlign.Offset" />.</param>
     /// <param name="itemAscent">The item's margin-box top to its own baseline.</param>
     /// <param name="itemDescent">Its own baseline to its margin-box bottom.</param>
@@ -1569,13 +1637,11 @@ public sealed partial class LayoutTree {
     ///         cheaper than an axis that changes direction halfway through a method.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The parent is the block container in every case, and where CSS says otherwise this
-    ///         store cannot.</b> §10.8.1 measures each of these against the <i>parent inline box</i>,
-    ///         which for a box directly inside the block container is the strut. A box inside a
-    ///         <c>span</c> should measure against that span's font — but a span is flattened here and
-    ///         carries no metrics of its own, so it inherits the container's answer. That is exactly
-    ///         right whenever the span does not change the font and wrong by the difference when it
-    ///         does; the alternative is refusing the value inside a span, which is worse.
+    ///         ⚠ <b>The strut passed is the <i>parent inline box</i>'s, which is not always the
+    ///         container's</b> — see <see cref="ParentStrut" />. This remark used to say a flattened
+    ///         span "carries no metrics of its own" and so inherited the container's answer; the span
+    ///         had carried them all along, because <c>UiDocument</c> writes a strut onto every element,
+    ///         and nothing here read it (#249).
     ///     </para>
     /// </remarks>
     static float BaselineShift(
