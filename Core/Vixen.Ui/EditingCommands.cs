@@ -362,4 +362,78 @@ public sealed partial class UiDocument {
     ///     a test — assigns the other.
     /// </remarks>
     public EditingKeymap EditingKeymap { get; set; } = EditingCommands.Current;
+
+    /// <summary>Whether ⌘C, ⌘X, ⌘V, ⌘A, ⌘Z and redo that nothing took are sent along the command route.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Without it a chord that climbed out of a text field reached nothing.</b>
+    ///         <c>TextField</c> deliberately leaves ⌘C unhandled when it has no selection and ⌘Z
+    ///         when its manager has nothing to take back, "so the chord climbs to whatever else was
+    ///         listening" — and in an application with no keymap nothing was. The verbs were
+    ///         answered (<see cref="UndoCommands.Install" /> on the root, a list's own
+    ///         <c>edit.copy</c>, <see cref="CommandResponder" />), Edit ▸ Copy reached them, and
+    ///         the chord printed beside the item did not: only an application that built a
+    ///         <c>KeyMap</c> and a <c>CommandDispatcher</c> by hand ever turned a keystroke into
+    ///         a command id. This is AppKit's <c>performKeyEquivalent:</c> for the six verbs every
+    ///         application's Edit menu has.
+    ///     </para>
+    ///     <para>
+    ///         <b>Through <see cref="CommandRoute" />, so the chord and the menu item cannot
+    ///         disagree.</b> The nearest responder that answers wins and its refusal is final — a
+    ///         focused field with no selection that answers <c>edit.copy</c> and says no is not then
+    ///         passed over for the document's Copy, because Edit ▸ Copy would not be either. A
+    ///         refused chord is still marked handled, for <c>CommandDispatcher</c>'s reason: it
+    ///         <i>was</i> this verb's chord. A chord nothing answers is left unhandled.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Off by default, and on in <c>UiApplication</c>.</b> An application with a keymap
+    ///         of its own — the editor, whose user can unbind ⌘C or put it on another command — must
+    ///         be the only thing deciding what a chord means; a second, hard-wired reading underneath
+    ///         it would run Copy for a chord the user had deliberately unbound. A host with no keymap
+    ///         turns this on.
+    ///     </para>
+    ///     <para>
+    ///         The table is <see cref="EditingKeymap" />'s, so ⌃A on a Mac stays the start of the line
+    ///         and never becomes Select All. Only the exact chord counts — ⌃⇧C is not Copy here,
+    ///         though <see cref="EditingCommands.Resolve" /> lets Shift fall away for a motion —
+    ///         and an auto-repeat is ignored, as <c>CommandDispatcher</c> ignores one.
+    ///     </para>
+    /// </remarks>
+    public bool RoutesEditingChords { get; set; }
+
+    /// <summary>Runs the edit command a chord means, if anything on the route answers it.</summary>
+    /// <returns>Whether the chord was this verb's and something answered it.</returns>
+    bool RouteEditingChord(KeyEvent args) {
+        if (args is not { Action: KeyAction.Pressed, IsRepeat: false }) {
+            return false;
+        }
+
+        var command = EditingCommands.Resolve(args.Key, args.Modifiers, EditingKeymap);
+
+        if (command is not (EditingCommand.Cut
+            or EditingCommand.Copy
+            or EditingCommand.Paste
+            or EditingCommand.SelectAll
+            or EditingCommand.Undo
+            or EditingCommand.Redo)) {
+            return false;
+        }
+
+        // ⚠ `Resolve` retries with Shift dropped, which is right for a caret and wrong for a verb: a
+        // chord that only matched once Shift was ignored is somebody else's chord.
+        if ((args.Modifiers & ModifierKeys.Shift) != 0
+            && EditingCommands.Resolve(args.Key, args.Modifiers & ~ModifierKeys.Shift, EditingKeymap) == command) {
+            return false;
+        }
+
+        if (EditingCommands.Id(command) is not { } id || CommandRoute.Resolve(this, id) is not { } handler) {
+            return false;
+        }
+
+        if (handler.CanExecute) {
+            handler.Run();
+        }
+
+        return true;
+    }
 }

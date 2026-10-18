@@ -150,6 +150,24 @@ public class ResponderReachTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>A host turns the editing chords into commands, and it is the host with no keymap.</b>
+    ///     <see cref="UiDocument.RoutesEditingChords" /> is off by default so that the editor's keymap
+    ///     stays the only reading of a chord — which means a flag nothing sets is the whole feature
+    ///     absent, with every test of the mechanism still green. <c>UiApplication</c> is the caller.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The leading dot and the <c>= true</c>: the bare name appears in the remarks explaining
+    ///     why the editor leaves it alone, and an assignment of <c>false</c> is not a caller.
+    /// </remarks>
+    [Fact]
+    public void Something_outside_a_test_project_routes_the_editing_chords() {
+        var callers = ProductionCallers(".RoutesEditingChords = true");
+
+        Assert.Contains(callers, path => path.EndsWith("UiApplication.cs", StringComparison.Ordinal));
+        Assert.DoesNotContain(callers, path => path.Contains("Editor" + Path.DirectorySeparatorChar, StringComparison.Ordinal));
+    }
+
+    /// <summary>
     ///     ⚠ <b>A non-editor application draws a shortcut beside a menu item and pressing it does
     ///     something.</b> That sentence is the opening of #650, negated. <c>MenuItem.ShowShortcut</c>
     ///     has always been able to draw "⌘S"; the keymap, the registry and the dispatcher behind it
