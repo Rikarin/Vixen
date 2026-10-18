@@ -443,7 +443,7 @@ provider references an AT retains for as long as it likes, AT-SPI hands out bus 
 frame ended. So a snapshot node carries a stable id allocated once per element and kept across
 republishes, and the map from id back to a live element for the *action* path is weak — a request
 against an id whose element is gone answers "no longer valid" rather than resurrecting it or
-crashing. `ReleaseAccessibilitySubscribers` (`Accessibility.cs:907`) exists for the mirror image of
+crashing. `ReleaseAccessibilitySubscribers` (`Accessibility.cs:964`) exists for the mirror image of
 this leak and is the precedent for taking it seriously.
 
 **Three things the model owes a bridge and does not have yet, in the order a bridge needs them.**
@@ -1837,7 +1837,7 @@ property at a time, across the `UiDocument` partials that produce it.
 | Doc 13 asks for | What is here | Where |
 |---|---|---|
 | layout-node count | `LayoutTree.NodeCount` | `Vixen.Ui.Layout/LayoutTree.cs:81` |
-| the frame's work | `StylesResolved`, `StylesApplied`, `ContainerScopesEntered`, `StyleCompactions`, `SettlingPasses`, `Settled`, `LastPassWasCold` | `Restyle.cs:76`, `UiDocument.cs:507`, `Vixen.Ui/Containers.cs:180`, `UiDocument.cs:979`, `UiDocument.cs:1259` |
+| the frame's work | `StylesResolved`, `StylesApplied`, `ContainerScopesEntered`, `StyleCompactions`, `SettlingPasses`, `Settled`, `LastPassWasCold` | `Restyle.cs:76`, `UiDocument.cs:507`, `Vixen.Ui/Containers.cs:180`, `UiDocument.cs:986`, `UiDocument.cs:1266` |
 | element bounds, box model | `UiElement.AbsoluteLeft`/`Top`/`Width`/`Height`, and the layout node behind them | `UiElement.cs` |
 | the hovered element | `UiDocument.HitTest(x, y)`, and `HitTest(surface, x, y)` | `UiDocument.cs` |
 | style origin for it | `StyleOrigin`, `CascadePrecedence`, `StyleRuleSet.Origin` — the cascade carries provenance because it needs it | `Vixen.Ui.Styling` |

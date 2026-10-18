@@ -192,7 +192,8 @@ public sealed class StyleResolver {
                     new StyleNodeId(index),
                     parent,
                     tree.InlineAt(index),
-                    new ArraySegment<ComputedStyle>(styles, i + 1, count - i - 1)
+                    new ArraySegment<ComputedStyle>(styles, i + 1, count - i - 1),
+                    PseudoElement.None
                 );
         }
 
@@ -268,7 +269,67 @@ public sealed class StyleResolver {
     ) {
         ArgumentNullException.ThrowIfNull(tree);
 
-        return CascadeCore(tree, element, parent, inline, default);
+        return CascadeCore(tree, element, parent, inline, default, PseudoElement.None);
+    }
+
+    /// <summary>Resolves the style of a box an element generates, from the rules that name it.</summary>
+    /// <param name="tree">The element store.</param>
+    /// <param name="element">The originating element — the one the rule's selector matches.</param>
+    /// <param name="pseudo">Which generated box.</param>
+    /// <param name="originating">The originating element's resolved style, which the box inherits from.</param>
+    /// <returns>
+    ///     The box's interned style, or <see langword="null" /> when no rule naming
+    ///     <paramref name="pseudo" /> matched the element — the overwhelmingly common answer, and the
+    ///     one that says there is no box without reading a property.
+    /// </returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A cascade of the originating element, not of a node of its own.</b> The rule
+    ///         <c>p:hover::before</c> asks about the paragraph, so the paragraph is what is matched
+    ///         — against the pseudo-element's rules only — and the box inherits from the paragraph,
+    ///         which is CSS Pseudo-Elements 4 § 5's whole account of where its style comes from. That
+    ///         is why there is no second <see cref="StyleTree" /> slot: nothing ever matches against
+    ///         the box, so nothing needs its tag, its classes or its place among siblings, and a slot
+    ///         would have put it in front of <c>:first-child</c> and <c>:empty</c>, which must not see it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Never shared and never inline.</b> The sharing cache is keyed on the element and
+    ///         would hand a box the element's own style; and there is no way to write a
+    ///         <c>style</c> attribute on a box that has no element.
+    ///     </para>
+    /// </remarks>
+    public ComputedStyle? ResolvePseudo(StyleTree tree, StyleNodeId element, PseudoElement pseudo, ComputedStyle originating) {
+        ArgumentNullException.ThrowIfNull(tree);
+        ArgumentNullException.ThrowIfNull(originating);
+
+        if (pseudo == PseudoElement.None) {
+            throw new ArgumentOutOfRangeException(nameof(pseudo), "an element's own style is Resolve's, not this.");
+        }
+
+        if (!rules.HasPseudoElementRules) {
+            return null;
+        }
+
+        // ⚠ The common answer, found before a cascade is counted or built. A sheet with one
+        // `::before` in it would otherwise run two whole cascades for every element of the document
+        // on every pass, to arrive at "no box" for all but a handful.
+        rules.Index.Collect(tree, element, candidates);
+
+        var named = false;
+
+        foreach (var rule in candidates) {
+            if (rules[rule].Selector.PseudoElement == pseudo) {
+                named = true;
+                break;
+            }
+        }
+
+        if (!named) {
+            return null;
+        }
+
+        var style = CascadeCore(tree, element, originating, null, default, pseudo);
+        return winners.Count == 0 ? null : style;
     }
 
     /// <summary><see cref="Cascade" />, with the ancestors' styles supplied when the caller already has them.</summary>
@@ -280,12 +341,17 @@ public sealed class StyleResolver {
     ///     The ancestors' styles, nearest first, or <c>default</c> — a segment with no array — to have
     ///     them collected here if a candidate needs them.
     /// </param>
+    /// <param name="pseudo">
+    ///     Which box's cascade this is: <see cref="PseudoElement.None" /> for the element's own, else
+    ///     the generated box whose rules alone are taken.
+    /// </param>
     ComputedStyle CascadeCore(
         StyleTree tree,
         StyleNodeId element,
         ComputedStyle? parent,
         InlineStyleId? inline,
-        ArraySegment<ComputedStyle> ancestors
+        ArraySegment<ComputedStyle> ancestors,
+        PseudoElement pseudo
     ) {
         rules.Index.Collect(tree, element, candidates);
 
@@ -343,6 +409,14 @@ public sealed class StyleResolver {
             if (styleQueries
                 && candidate.Containers != ContainerConditions.Unconditional
                 && !containers.Conditions.StyleHolds(candidate.Containers, parent, ancestors, contained, rules.Properties, rules.Values)) {
+                continue;
+            }
+
+            // ⚠ Before the matcher, and in both directions. A `p::before` rule's compounds describe
+            // the PARAGRAPH, so the matcher says yes to the paragraph — and the rule offered here
+            // would turn the paragraph red, which is doc 43's F6 exactly. The element's own cascade
+            // takes only rules naming no pseudo-element, and a generated box's takes only its own.
+            if (candidate.Selector.PseudoElement != pseudo) {
                 continue;
             }
 

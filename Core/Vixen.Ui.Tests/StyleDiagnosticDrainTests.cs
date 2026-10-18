@@ -226,7 +226,11 @@ public class StyleDiagnosticDrainTests {
         var (document, sink) = Watched();
         using var owned = document;
 
-        document.Load("p::before { content: '>'; color: rgb(255, 0, 0) } p { color: rgb(0, 255, 0) }");
+        // ⚠ Two pseudo-element rules and they now part ways. `::before` compiles — doc 43's A12 —
+        // and styles a box of its own; `::marker` is still refused. Neither may reach the paragraph.
+        document.Load(
+            "p::before { content: '>'; color: rgb(255, 0, 0) } p::marker { color: rgb(255, 0, 0) } p { color: rgb(0, 255, 0) }"
+        );
 
         var paragraph = document.Root.Add("p");
         document.Update();
@@ -235,16 +239,20 @@ public class StyleDiagnosticDrainTests {
         // endpoints, because a colour is decoded to linear on the way in and 128 is not one there.
         Assert.Equal(new Color4(0f, 1f, 0f, 1f), document.ColorOf(paragraph.Style, document.PropertyId("color")));
 
-        // `content` is not a Vixen property, and the refused rule is the only thing that set one.
+        // `content` is the generated box's, and the paragraph's own style never saw the rule.
         Assert.False(paragraph.Style.TryGet(document.PropertyId("content"), out _));
+
+        // And the red went where it was written: on the box.
+        var box = Assert.IsType<GeneratedBox>(paragraph.GeneratedBefore);
+        Assert.Equal(new Color4(1f, 0f, 0f, 1f), document.ColorOf(box.Style, document.PropertyId("color")));
 
         var warning = Assert.Single(Warnings(sink));
 
-        // 7006 rather than 7004: the fragment is `::before` and the rule is `p::before`, so the
+        // 7006 rather than 7004: the fragment is `::marker` and the rule is `p::marker`, so the
         // refusal has an enclosing rule to name. See the two tests below.
         Assert.Equal(7006, warning.EventId.Id);
         Assert.Contains("The selector compiler", warning.Message, StringComparison.Ordinal);
-        Assert.Contains("::before", warning.Message, StringComparison.Ordinal);
+        Assert.Contains("::marker", warning.Message, StringComparison.Ordinal);
         Assert.Contains("no box without an element behind it", warning.Message, StringComparison.Ordinal);
     }
 
@@ -276,7 +284,9 @@ public class StyleDiagnosticDrainTests {
         var (document, sink) = Watched();
         using var owned = document;
 
-        document.Load(".card::before { color: red } .badge::before { color: blue }");
+        // `::marker` rather than the `::before` this was written with: a `::before` compiles now (doc
+        // 43's A12), and the refusal this test is about is still issued for every other one.
+        document.Load(".card::marker { color: red } .badge::marker { color: blue }");
 
         var warnings = Warnings(sink);
         Assert.Equal(2, warnings.Count);
@@ -286,15 +296,15 @@ public class StyleDiagnosticDrainTests {
 
         // Each names its own rule and only its own — which is the fact that fails the moment the
         // rule stops being threaded and both lines collapse back into the same text.
-        Assert.Contains(".card::before", card.Message, StringComparison.Ordinal);
+        Assert.Contains(".card::marker", card.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(".badge", card.Message, StringComparison.Ordinal);
-        Assert.Contains(".badge::before", badge.Message, StringComparison.Ordinal);
+        Assert.Contains(".badge::marker", badge.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(".card", badge.Message, StringComparison.Ordinal);
 
         // And both still say what was refused and why: the rule is an addition, not a replacement.
         foreach (var warning in warnings) {
             Assert.Equal(7006, warning.EventId.Id);
-            Assert.Contains("::before", warning.Message, StringComparison.Ordinal);
+            Assert.Contains("::marker", warning.Message, StringComparison.Ordinal);
             Assert.Contains("no box without an element behind it", warning.Message, StringComparison.Ordinal);
         }
     }
@@ -359,7 +369,7 @@ public class StyleDiagnosticDrainTests {
     ///     ⚠ <b>A comma-separated selector is attributed per part, because the cascade splits it.</b>
     /// </summary>
     /// <remarks>
-    ///     <c>a::before, b::before</c> is one rule to ExCSS and two to the cascade, and the one a
+    ///     <c>a::marker, b::marker</c> is one rule to ExCSS and two to the cascade, and the one a
     ///     reader has to change is the part. Naming the whole list on both lines would put them back
     ///     to being indistinguishable, which is the defect this set of tests is about.
     /// </remarks>
@@ -368,7 +378,7 @@ public class StyleDiagnosticDrainTests {
         var (document, sink) = Watched();
         using var owned = document;
 
-        document.Load(".card::before, .badge::before { color: red }");
+        document.Load(".card::marker, .badge::marker { color: red }");
 
         var warnings = Warnings(sink);
         Assert.Equal(2, warnings.Count);

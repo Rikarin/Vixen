@@ -300,25 +300,22 @@ public class SelectorMatchingTests {
         Assert.False(fixture.Matches(":is(.row, .column):not(.selected)", selected));
     }
 
-    /// <summary>A pseudo-element is refused, because the alternative was matching the wrong thing.</summary>
+    /// <summary>A pseudo-element the engine cannot build is refused, because the alternative was matching the wrong thing.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>This test is an inversion, and the thing it used to assert is the defect.</b> It
-    ///         was called <c>A_pseudo_element_says_which_box_a_rule_targets_rather_than_filtering_the_element</c>
-    ///         and it asserted that <c>.tooltip::before</c> matched a <c>.tooltip</c> and that the
-    ///         name <c>before</c> had been interned onto the compiled selector. Both were true. The
-    ///         part nobody asserted is that <i>nothing read the field</i> — not
-    ///         <see cref="SelectorMatcher" />, not <c>StyleRuleSet</c>, not <c>StyleResolver</c> — so
-    ///         the only observable behaviour of <c>p::before { color: red }</c> was a red paragraph.
-    ///         Doc 43 records it as F6 and calls it the worst of the three possible states, because
-    ///         the rule looked like it worked.
+    ///         ⚠ <b>This test has been inverted twice, and each version asserted the defect of the one
+    ///         before.</b> It was first called <c>A_pseudo_element_says_which_box_a_rule_targets_rather_than_filtering_the_element</c>
+    ///         and asserted that <c>.tooltip::before</c> matched a <c>.tooltip</c> with the name
+    ///         interned onto the compiled selector — true, and read by nothing, so
+    ///         <c>p::before { color: red }</c> was a red paragraph (doc 43's F6). It then asserted the
+    ///         refusal F6 put in. Doc 43's A12 built the box, so <c>::before</c> and <c>::after</c>
+    ///         compile again — and the assertion that matters is no longer here but in
+    ///         <c>PseudoElementCascadeTests</c> and <c>Vixen.Ui.Tests.GeneratedContentTests</c>, which
+    ///         read the cascade and the frame rather than the compiler's output.
     ///     </para>
     ///     <para>
-    ///         <b>Refused rather than matched-and-inert.</b> A selector that matches and contributes
-    ///         nothing is this codebase's recurring defect, and it would leave an author staring at a
-    ///         rule with no output and no message. The compiler's own contract — see its remarks —
-    ///         already says an unsupported selector is dropped with a diagnostic; until this change
-    ///         the pseudo-element was the one thing that broke it.
+    ///         <b>Refused rather than matched-and-inert</b>, for every pseudo-element nothing builds:
+    ///         a selector that matches and contributes nothing is this codebase's recurring defect.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -326,7 +323,7 @@ public class SelectorMatchingTests {
         var fixture = new StyleFixture();
         var element = fixture.Tree.CreateElement("p", classNames: ["tooltip"]);
 
-        var compiled = fixture.Load("p::before { color: red } .tooltip::after { color: blue } p { color: green }");
+        var compiled = fixture.Load("p::marker { color: red } .tooltip::first-line { color: blue } p { color: green }");
 
         // Only the rule with no pseudo-element survived, and it is the one that matches.
         var survivor = Assert.Single(compiled);
@@ -336,8 +333,8 @@ public class SelectorMatchingTests {
 
         // Naming what the author wrote, not what ExCSS calls it — the `:has()` lesson, and the
         // reason two refusals in one sheet stay tellable apart.
-        Assert.Equal("::before", fixture.Compiler.Diagnostics[0].Text);
-        Assert.Equal("::after", fixture.Compiler.Diagnostics[1].Text);
+        Assert.Equal("::marker", fixture.Compiler.Diagnostics[0].Text);
+        Assert.Equal("::first-line", fixture.Compiler.Diagnostics[1].Text);
 
         Assert.Contains("generates a box", fixture.Compiler.Diagnostics[0].Reason, StringComparison.Ordinal);
         Assert.DoesNotContain("Selector", fixture.Compiler.Diagnostics[0].Reason, StringComparison.Ordinal);
@@ -365,7 +362,7 @@ public class SelectorMatchingTests {
 
         var compiled = fixture.Load(
             "div.row > span.cell { color: red }"
-                + " p:is(.x, .y)::before { color: blue }"
+                + " p:is(.x, .y)::marker { color: blue }"
                 + " .row .cell { color: green }"
         );
 
@@ -426,11 +423,11 @@ public class SelectorMatchingTests {
         Assert.DoesNotContain("Selector", diagnostic.Reason, StringComparison.Ordinal);
 
         // And the pseudo-element refusal, which is the other half of the same rule and is the one
-        // that has to keep working — F6 exists because `p::before` used to compile and style the
-        // paragraph.
+        // that has to keep working for every box nothing builds — F6 exists because `p::before`
+        // used to compile and style the paragraph. `::before` itself compiles since doc 43's A12.
         var second = new StyleFixture();
 
-        Assert.Empty(second.Load("p::before { color: red }"));
+        Assert.Empty(second.Load("p::marker { color: red }"));
         Assert.Single(second.Compiler.Diagnostics);
     }
 

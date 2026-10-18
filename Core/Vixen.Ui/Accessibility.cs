@@ -485,7 +485,9 @@ public partial class UiElement {
                 return labelled;
             }
 
-            return NativeAccessibleName;
+            return GeneratedBefore is null && GeneratedAfter is null
+                ? NativeAccessibleName
+                : WithGeneratedContent(NativeAccessibleName);
         }
         set {
             if (accessible is null && value is null) {
@@ -500,6 +502,61 @@ public partial class UiElement {
             InvalidateAccessibility();
         }
     }
+
+    /// <summary>A name from content, with this element's generated boxes' words around it.</summary>
+    /// <param name="native">What the element's own content names it.</param>
+    /// <returns>The joined name, or <paramref name="native" /> where the role takes no name from content.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The words join the element's name; the box never becomes a node.</b> CSS Generated
+    ///         Content 3 § 1 and accname 1.2 step 2F.ii put a <c>::before</c>'s text in front of the
+    ///         element's own content when that content is its name, and a <see cref="GeneratedBox" />
+    ///         is not in <see cref="Children" />, so the accessibility tree — which walks
+    ///         <see cref="Children" /> — never shows one as an element of its own. A screen reader
+    ///         hears "★ Favourites" from one button, not a button and a text.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only for the roles ARIA names from content.</b> A text box, a slider and a dialog
+    ///         are never named by what is inside them, and a decorative icon a theme puts in front of
+    ///         a field must not become that field's name — the field's honest <see langword="null" />
+    ///         is what lets a gate find it unlabelled. A box with no role is not in the tree at all,
+    ///         so it is not asked.
+    ///     </para>
+    ///     <para>
+    ///         Joined with nothing between, because a <c>::before</c> is inline content and its
+    ///         author writes the space they want into the string — <c>"★ "</c> — as they would on the
+    ///         web.
+    ///     </para>
+    /// </remarks>
+    string? WithGeneratedContent(string? native) {
+        if (!NamesFromContent(Role)) {
+            return native;
+        }
+
+        var joined = string.Concat(GeneratedBefore?.Text, native, GeneratedAfter?.Text).Trim();
+        return joined.Length == 0 ? native : joined;
+    }
+
+    /// <summary>Whether ARIA 1.2 lets a role take its name from its content.</summary>
+    static bool NamesFromContent(AccessibleRole role) =>
+        role is AccessibleRole.Button
+            or AccessibleRole.Cell
+            or AccessibleRole.CheckBox
+            or AccessibleRole.ColumnHeader
+            or AccessibleRole.GridCell
+            or AccessibleRole.Heading
+            or AccessibleRole.Link
+            or AccessibleRole.MenuItem
+            or AccessibleRole.MenuItemCheckBox
+            or AccessibleRole.MenuItemRadio
+            or AccessibleRole.Option
+            or AccessibleRole.Radio
+            or AccessibleRole.Row
+            or AccessibleRole.RowHeader
+            or AccessibleRole.Switch
+            or AccessibleRole.Tab
+            or AccessibleRole.Tooltip
+            or AccessibleRole.TreeItem;
 
     /// <summary>The longer sentence a screen reader reads after the name, if there is one.</summary>
     /// <remarks>

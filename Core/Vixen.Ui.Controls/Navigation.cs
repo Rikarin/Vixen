@@ -26,10 +26,10 @@ public sealed partial class BreadcrumbItem : ButtonBase {
 
 /// <summary>The path to where the user is.</summary>
 /// <remarks>
-///     ⚠ <b>The separators are elements rather than a <c>::before</c>.</b> There are no generated
-///     boxes in this styling engine — no pseudo-elements — so the chevron between two steps has to
-///     be something. Making it a real <see cref="Icon" /> also means the last step does not have
-///     one, which a <c>::before</c> on every item would have to undo with a <c>:last-child</c> rule.
+///     ⚠ <b>The separators are elements rather than a <c>::before</c>.</b> Written before generated
+///     boxes existed; they do now (#233), and the separators stay elements because a chevron is an
+///     <see cref="Icon" />, which a string <c>content</c> cannot draw — and a real element lets the
+///     last step simply not have one, where a <c>::before</c> would be undone by a <c>:last-child</c> rule.
 /// </remarks>
 public sealed partial class Breadcrumb : Control {
     /// <inheritdoc />

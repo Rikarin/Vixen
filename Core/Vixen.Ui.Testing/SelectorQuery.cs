@@ -95,6 +95,16 @@ sealed class SelectorQuery {
             );
         }
 
+        // ⚠ A `::before` compiles now, and its compounds describe the ORIGINATING element — so a
+        // query that ran them would answer "the paragraph" to `p::before`, which is doc 43's F6 in a
+        // test helper. A generated box is not an element and cannot be what a query finds.
+        if (compiled.Any(part => part.PseudoElement != PseudoElement.None)) {
+            throw new UiTestException(
+                $"\"{selector}\" names a pseudo-element, and a generated box is not an element a query can "
+                + "find. Query the element that generates it."
+            );
+        }
+
         return new(selector, compiled);
     }
 

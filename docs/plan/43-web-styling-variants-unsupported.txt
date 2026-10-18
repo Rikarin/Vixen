@@ -13,11 +13,13 @@
 
 # ── Pseudo-elements: A12, #233 ────────────────────────────────────────────────────────────────────
 #
-# `SelectorCompiler` refuses every `PseudoElementSelector` — "a pseudo-element generates a box of its
-# own, and Vixen has no box without an element behind it" — and `Selector` carries no field saying
-# WHICH one a rule names, which is the `[expires-on Vixen.Ui.Styling.Selector.PseudoElement]` anchor.
-# Registering any of these ahead of the generated box would emit selectors the compiler refuses,
-# which is F6's own failure mode.
+# ⚠ `::before` and `::after` COMPILE since 2026-10-18 (#233): `Selector.PseudoElement` came back with
+# readers and `UiDocument` generates the box from a string `content`. So `before` and `after` below are
+# now owed rather than blocked — registering them is the variant half plus a `content-*` root, and
+# their lines go when TWP009 says so. Every other `PseudoElementSelector` is still refused with F6's
+# message — "a pseudo-element generates a box of its own, and Vixen has no box without an element
+# behind it" — so `marker`, `file`, `first-letter` and `first-line` stay blocked for the reason this
+# used to give for all of them: registering one would emit a selector the compiler refuses.
 #
 # ⚠ `placeholder` and `selection` are NOT here, and neither needed the box. `TextField` builds the
 # prompt as `Part("field-placeholder")`, a real child with its own tag, so `placeholder:` landed as a
