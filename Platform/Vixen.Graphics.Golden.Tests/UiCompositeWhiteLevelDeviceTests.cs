@@ -211,6 +211,98 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
         AssertScaled(mode.ToString(), "the software renderer", softOne, ToPixels(SoftwareUiRasterizer.RenderLinear(geometry, atlas, Side, Side, Clear)), Edge);
     }
 
+    public static TheoryData<UiBlendMode> NonSeparable() => [UiBlendMode.Hue, UiBlendMode.Saturation, UiBlendMode.Color];
+
+    /// <summary>
+    ///     On a float target, a <c>hue</c>, <c>saturation</c> or <c>color</c> group agrees with the
+    ///     software executor at its edges as well as its middle (#1457).
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The pixels <see cref="EveryBlendModeAtAWhiteAboveOneIsLitOnce" /> skips.</b> CSS
+    ///         Compositing § 5.3's <c>SetSat</c> gives any source with non-zero saturation the
+    ///         backdrop's whole saturation, so <c>hue</c> is discontinuous at a grey source: a grey
+    ///         texel beside the paint that picks up a trace of it comes out in the paint's hue at full
+    ///         strength. <c>SoftwareUiRasterizer</c> samples a 1:1 composite texel-exact; the device
+    ///         must too, or every group edge on a float pass carries a one-pixel fringe.
+    ///     </para>
+    ///     <para>
+    ///         The oracle is closed-form where it can be: the column just right of the paint is the
+    ///         grey under the group's opacity, and a <c>hue</c> blend of a grey source is achromatic —
+    ///         the backdrop's luminosity, with saturation exactly zero — so that pixel is
+    ///         <c>0.8·Lum(field) + 0.2·field</c>. And the software executor everywhere else, edges
+    ///         included, at a white of one. <c>saturation</c> and <c>color</c> are well conditioned at
+    ///         a grey source and are here for completeness.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Skipped because it is red, and the cause #1457 named is not the cause.</b> Measured
+    ///         on the RTX 4060 Ti, the same three rectangles drawn flat — no group, no composite, no
+    ///         sampler anywhere — already put a trace of the paint into column 88: (0.49999827,
+    ///         0.50000226, 0.49999943) where the grey is 0.5. So the trace is <c>UiBox</c>'s edge
+    ///         coverage, <c>saturate(0.5 - d / w)</c> on an interpolated position a few ulps inside
+    ///         the paint's edge, and not the composite's bilinear tap: snapping <c>UiBlend</c>'s taps
+    ///         to texel centres left column 88 bit-identical. Unskip with the fix.
+    ///     </para>
+    /// </remarks>
+    [Theory(Skip = "#1457: red on the device — the fringe's trace comes from UiBox's edge coverage, not the composite's sampler; see the remarks")]
+    [MemberData(nameof(NonSeparable))]
+    public void ANonSeparableBlendOverAGreySourceHasNoFringeAtTheGroupsEdges(UiBlendMode mode) {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var list = Group($"blend-{mode}");
+        var (device, renderer) = Frame(owned, list, 1f, $"fringe-{mode}");
+
+        Assert.Equal(1, renderer.Blended);
+        Assert.Equal(0, renderer.Unblended);
+
+        var software = ToPixels(SoftwareUiRasterizer.RenderLinear(Build(list, 1f, out var atlas), atlas, Side, Side, Clear));
+
+        if (mode == UiBlendMode.Hue) {
+            // The closed form at the first grey column right of the paint, mid-height.
+            var luminosity = (0.3f * Field.R) + (0.59f * Field.G) + (0.11f * Field.B);
+            var expected = new Vector3(
+                (Opacity * luminosity) + ((1f - Opacity) * Field.R),
+                (Opacity * luminosity) + ((1f - Opacity) * Field.G),
+                (Opacity * luminosity) + ((1f - Opacity) * Field.B)
+            );
+
+            foreach (var (name, frame) in new[] { ("the software executor", software), ("the device", device) }) {
+                var edge = At(frame, 88, Side / 2);
+
+                Assert.True(
+                    MathF.Max(MathF.Abs(edge.X - expected.X), MathF.Max(MathF.Abs(edge.Y - expected.Y), MathF.Abs(edge.Z - expected.Z))) <= 0.01f,
+                    $"{name}'s grey column beside the paint is {edge} where a hue blend of a grey source is {expected}"
+                );
+            }
+        }
+
+        var worst = 0f;
+        var worstAt = (0, 0);
+
+        for (var y = 0; y < Side; y++) {
+            for (var x = 0; x < Side; x++) {
+                var a = At(device, x, y);
+                var b = At(software, x, y);
+                var error = MathF.Max(MathF.Abs(a.X - b.X), MathF.Max(MathF.Abs(a.Y - b.Y), MathF.Abs(a.Z - b.Z)));
+
+                if (error > worst) {
+                    worst = error;
+                    worstAt = (x, y);
+                }
+            }
+        }
+
+        Assert.True(
+            worst <= 0.01f,
+            $"{mode}: the device is {worst:0.###} from the software executor at {worstAt}: "
+            + $"{At(device, worstAt.Item1, worstAt.Item2)} against {At(software, worstAt.Item1, worstAt.Item2)}"
+        );
+    }
+
     public static TheoryData<string> GlassArrangements() => ["rounded", "masked"];
 
     /// <summary>
