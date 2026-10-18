@@ -369,6 +369,19 @@ public struct CachedMeasurement {
     ///     a few points off, incrementally only. See <see cref="LayoutResult.InlineBaseline" />.
     /// </remarks>
     internal float InlineBaseline;
+
+    /// <summary>Whether this answer was computed with the node's percentage <c>min-width</c> withheld.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Part of the key, because the rest of the key cannot see it (#1470).</b> The cache is
+    ///     keyed on what the node was offered, which is Yoga's assumption that a node's percentage
+    ///     basis follows from its offer. A column item whose <c>min-width</c> is a percentage of a
+    ///     content-sized column breaks it: it is measured at "at most 300" with its basis withheld while
+    ///     the column sizes itself, and laid out at "at most 300" again with the basis given once the
+    ///     column re-enters — the same offer, two answers, and without this the second is the first
+    ///     served back. Set only for a node that has a percentage <c>min-width</c>, so no other entry's
+    ///     key changes.
+    /// </remarks>
+    internal bool WithheldPercentageMinimum;
 }
 
 /// <summary>The per-node measurement cache.</summary>

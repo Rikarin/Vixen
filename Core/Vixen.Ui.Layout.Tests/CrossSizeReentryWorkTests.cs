@@ -23,8 +23,8 @@ namespace Vixen.Ui.Layout.Tests;
 ///         reuse; it asks each item one question the first pass never asked — its width EXACTLY 300
 ///         where the first asked AT MOST 300 — and pays one measurement per item for it on a cold
 ///         layout. A settled relayout does hit: one dirty item costs two extra measurements, not one
-///         per sibling. And nesting does not compound: however deep the stack, two columns re-enter
-///         and the extra measurements stay the same.
+///         per sibling. And nesting does not compound the measurements: however deep the stack,
+///         the text is measured as often as at depth one (#1470 changed why — see the nested fact).
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The second extra measurement per item is a min-content probe, and it is owed</b>
@@ -69,7 +69,7 @@ public class CrossSizeReentryWorkTests {
             };
     }
 
-    sealed record Fixture(LayoutTree Tree, LayoutNodeId Root, LayoutNodeId[] Items, Counter Counter) {
+    sealed record Fixture(LayoutTree Tree, LayoutNodeId Root, LayoutNodeId[] Columns, LayoutNodeId[] Items, Counter Counter) {
         public (long Runs, long Reentries, int Calls) Work => (Tree.FlexAlgorithmRuns, Tree.CrossSizeReentries, Counter.Calls);
 
         public (long Runs, long Reentries, int Calls) Layout() {
@@ -96,8 +96,10 @@ public class CrossSizeReentryWorkTests {
         tree.SetDimension(root, Dimension.Height, StyleLength.Points(1000f));
 
         var parent = root;
+        var columns = new LayoutNodeId[depth];
         for (var level = 0; level < depth; level++) {
             var column = tree.CreateNode();
+            columns[level] = column;
             tree.SetFlexDirection(column, FlexDirection.Column);
             tree.SetAlignSelf(column, Align.FlexStart);
             tree.SetFlexShrink(column, 0f);
@@ -118,7 +120,7 @@ public class CrossSizeReentryWorkTests {
             tree.AddChild(parent, nodes[i]);
         }
 
-        return new Fixture(tree, root, nodes, counter);
+        return new Fixture(tree, root, columns, nodes, counter);
     }
 
     /// <summary>
@@ -176,10 +178,28 @@ public class CrossSizeReentryWorkTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Nesting does not compound.</b> At any depth the same two columns re-enter, twice each,
-    ///     and the extra measurements are the same number at depth two as at depth four — and, since
-    ///     #1469's two-entry min-content cache, the same number as at depth one.
+    ///     ⚠ <b>Nesting does not compound the measurements</b>, and every column in the stack is the
+    ///     root's 300.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The old reason it did not compound was #1470's defect.</b> Each inner
+    ///     <c>min-width: 100%</c> column resolved its percentage against the space it was OFFERED and
+    ///     reported the full width, so its parent's content was already 300 and two columns re-entered
+    ///     at any depth. Now an inner column's percentage is cyclic while its parent is content-sized —
+    ///     zero for the parent's sizing, its final width after — and the outer column's minimum is what
+    ///     makes it 300. Re-entering wherever a cyclic item sat made the stack compound, 2, 6 and 13
+    ///     re-entries at depths two to four; a column being measured as such an item no longer re-enters
+    ///     for its own items, because its parent is about to lay it out again.
+    ///     <para>
+    ///         What is left grows by a constant per level, and only in flex runs: each inner column is
+    ///         measured once with its minimum withheld and once with it given, two different questions
+    ///         under one offer, and re-enters when its minimum then outvotes its content — three
+    ///         re-entries and seven flex runs a level. The text, which is the cost that matters, is
+    ///         measured exactly as often at depth four as at depth two. (A stack of
+    ///         <c>min-width: 300px</c> columns is measured the same number of times too; it re-enters
+    ///         less because its minimum is not withheld from anything.)
+    ///     </para>
+    /// </remarks>
     [Theory]
     [InlineData(2)]
     [InlineData(3)]
@@ -191,10 +211,18 @@ public class CrossSizeReentryWorkTests {
         var work = widened.Layout();
         var oracleWork = oracle.Layout();
 
-        Assert.Equal(4, work.Reentries);
+        Assert.Equal((3 * depth) - 1, work.Reentries);
+        Assert.Equal(oracleWork.Runs + (7 * depth) - 5, work.Runs);
         Assert.Equal(oracleWork.Calls + (2 * Items), work.Calls);
-        Assert.Equal(oracleWork.Runs + depth + 2, work.Runs);
-        Assert.Equal(300f, widened.Tree.GetWidth(widened.Items[0]));
+
+        for (var level = 0; level < depth; level++) {
+            Assert.Equal(300f, widened.Tree.GetWidth(widened.Columns[level]));
+        }
+
+        for (var i = 0; i < Items; i++) {
+            Assert.Equal(oracle.Tree.GetWidth(oracle.Items[i]), widened.Tree.GetWidth(widened.Items[i]));
+            Assert.Equal(oracle.Tree.GetHeight(oracle.Items[i]), widened.Tree.GetHeight(widened.Items[i]));
+        }
     }
 
     /// <summary>

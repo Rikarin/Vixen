@@ -194,11 +194,16 @@ public sealed partial class LayoutTree {
         var cached = -1;
         var cachedIsLayout = false;
 
+        // See CachedMeasurement.WithheldPercentageMinimum: the one input to this node's answer that
+        // its offer does not carry.
+        var withheld = float.IsNaN(ownerWidth) && styles[index].MinDimensions[(int) Dimension.Width].Unit == LayoutUnit.Percent;
+
         if ((flags[index] & LayoutNodeState.HasMeasureFunction) != 0) {
             var marginRow = StyleResolution.MarginForAxis(in styles[index], FlexDirection.Row, ownerWidth);
             var marginColumn = StyleResolution.MarginForAxis(in styles[index], FlexDirection.Column, ownerWidth);
 
-            if (CanUseCachedMeasurement(
+            if (layout.CachedLayout.WithheldPercentageMinimum == withheld
+                && CanUseCachedMeasurement(
                     widthSizingMode,
                     availableWidth,
                     heightSizingMode,
@@ -211,7 +216,8 @@ public sealed partial class LayoutTree {
                 cached = 0;
             } else {
                 for (var i = 0; i < layout.NextCachedMeasurementsIndex; i++) {
-                    if (CanUseCachedMeasurement(
+                    if (layout.CachedMeasurements[i].WithheldPercentageMinimum == withheld
+                        && CanUseCachedMeasurement(
                             widthSizingMode,
                             availableWidth,
                             heightSizingMode,
@@ -230,6 +236,7 @@ public sealed partial class LayoutTree {
                 && Inexact(layout.CachedLayout.AvailableHeight, availableHeight)
                 && layout.CachedLayout.WidthMeasureMode == MeasureModeOf(widthSizingMode)
                 && layout.CachedLayout.HeightMeasureMode == MeasureModeOf(heightSizingMode)
+                && layout.CachedLayout.WithheldPercentageMinimum == withheld
                 && layout.CachedLayout.IsPopulated) {
                 cachedIsLayout = true;
                 cached = 0;
@@ -240,7 +247,8 @@ public sealed partial class LayoutTree {
                 if (Inexact(entry.AvailableWidth, availableWidth)
                     && Inexact(entry.AvailableHeight, availableHeight)
                     && entry.WidthMeasureMode == MeasureModeOf(widthSizingMode)
-                    && entry.HeightMeasureMode == MeasureModeOf(heightSizingMode)) {
+                    && entry.HeightMeasureMode == MeasureModeOf(heightSizingMode)
+                    && entry.WithheldPercentageMinimum == withheld) {
                     cached = i;
                     break;
                 }
@@ -308,7 +316,8 @@ public sealed partial class LayoutTree {
                     TopCollapsibleMargin = layout.TopCollapsibleMargin,
                     BottomCollapsibleMargin = layout.BottomCollapsibleMargin,
                     MarginsCollapseThrough = layout.MarginsCollapseThrough,
-                    InlineBaseline = layout.InlineBaseline
+                    InlineBaseline = layout.InlineBaseline,
+                    WithheldPercentageMinimum = withheld
                 };
 
                 if (performLayout) {
@@ -912,11 +921,24 @@ public sealed partial class LayoutTree {
                 // changes no item's width, and the stretch in STEP 7 already answers it. The
                 // re-entry pins the width, so it cannot happen twice.
                 //
-                // ⚠ What it costs is counted, not argued (#1441): one more flex run per pass and one
-                // more measurement per item on a cold layout, one on a relayout, and nesting does not
-                // compound — `CrossSizeReentryWorkTests`. Since #1440 and #1448 the zero-basis text it
-                // was written for no longer reaches it; a stretched aspect-ratio item still does.
-                if (!isNodeFlexWrap && !isMainAxisRow && containerCrossAxis > line.CrossDim + 0.001f) {
+                // ⚠ What it costs is counted, not argued (#1441): one more flex run per pass and two
+                // more measurements per item on a cold layout (#1469 says why two), two for a dirty
+                // item on a relayout, and nesting does not compound — `CrossSizeReentryWorkTests`.
+                // Since #1440 and #1448 the zero-basis text it was written for no longer reaches it; a
+                // stretched aspect-ratio item still does.
+                //
+                // ⚠ <b>And it is the second half of §5.2.1 for a cyclic percentage minimum (#1470)</b>:
+                // an item whose `min-width` is a percentage of this column was measured against an
+                // indefinite basis — see HasCyclicPercentageMinWidth — so the column re-enters at its
+                // decided width even when nothing widened it, which is where the percentage resolves.
+                // ⚠ Not when this column is itself such an item being measured for its parent: the
+                // parent re-enters and lays it out again at a definite basis, so resolving here first
+                // is work thrown away — and doing it anyway made nested `min-width: 100%` columns
+                // compound, 2, 6 and 13 re-entries at depths two to four.
+                if (!isNodeFlexWrap
+                    && !isMainAxisRow
+                    && (containerCrossAxis > line.CrossDim + 0.001f
+                        || (HasCyclicPercentageMinWidthItem(index, mainAxis, widthSizingMode) && !IsCyclicPercentageMinWidthItem(index, ownerWidth)))) {
                     CrossSizeReentries++;
 
                     CalculateLayoutImpl(
