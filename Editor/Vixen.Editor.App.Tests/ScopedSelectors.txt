@@ -136,7 +136,6 @@ import-settings > scroll-view > scroll-content	Documents
 input-body > tree-view	Documents
 input-side > scroll-content	Documents
 inspector > scroll-view	Started
-inspector combo-box	-
 inspector expander	Panels
 inspector expander-content	Panels
 inspector expander-header	Panels
@@ -149,8 +148,6 @@ inspector select	Panels
 inspector textarea	-
 inspector textbox	Panels
 inspector-editor asset-field	Documents
-inspector-editor color-picker	-
-inspector-editor combo-box	-
 inspector-editor curve-editor	-
 inspector-editor multi-select	Panels
 inspector-editor numeric-input	Panels
@@ -269,10 +266,8 @@ toolbar icon-button	Started
 toolbar segment	Started
 toolbar segmented-control	Started
 toolbar separator	Started
-toolbar toggle-button	-
 toolbar-group button	-
 toolbar-group icon-button	Started
-toolbar-group toggle-button	-
 tree-row icon	Started
 tree-view scroll-content	Started
 tree-view scroll-view	Started
