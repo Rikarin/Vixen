@@ -197,6 +197,131 @@ public class StringsThreadingTests {
     }
 
     /// <summary>
+    ///     ⚠ <b><see cref="Strings.Missing" /> is a snapshot</b>, so a string asked for while a reader
+    ///     walks the list cannot pull the list out from under it (#1433).
+    /// </summary>
+    /// <remarks>
+    ///     The deterministic half of #1433: it needs no second thread. The live set's enumerator
+    ///     checks its version, so a <c>Get</c> that recorded a new missing id between two
+    ///     <c>MoveNext</c> calls threw "collection was modified" — and a <c>Get</c> is what drawing a
+    ///     label does, so the reader and the writer are the same frame.
+    /// </remarks>
+    [Fact]
+    public void A_missing_string_asked_for_mid_enumeration_does_not_break_the_reader() {
+        try {
+            Strings.Use(new StringCatalog("xx"));
+
+            _ = new StringId("tests.strings.missing.a", "A").Text;
+            _ = new StringId("tests.strings.missing.b", "B").Text;
+
+            var walked = 0;
+
+            foreach (var id in Strings.Missing) {
+                _ = new StringId("tests.strings.missing.c" + walked, "C").Text;
+                walked++;
+            }
+
+            Assert.Equal(2, walked);
+            Assert.Equal(4, Strings.Missing.Count);
+        } finally {
+            Strings.Use(null);
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Missing strings recorded from many threads at once are all recorded</b>, with a
+    ///     reader walking the list the whole time (#1433).
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="Strings" /> kept the missing ids in one static <c>SortedSet</c> that every
+    ///         <c>Get</c> wrote with no lock — the last process-wide mutable state #1413 left. A
+    ///         red-black tree written by two threads at once loses inserts, corrupts its count, or
+    ///         throws from inside a rotation.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A race, so red by overwhelming odds rather than by construction</b>; the
+    ///         deterministic statement is the snapshot test above. The barrier is what makes the
+    ///         odds overwhelming: every writer is released into the set at the same instant rather
+    ///         than one finishing before the next has started. The oracle is closed-form — every id
+    ///         each thread asked for, exactly once.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Missing_strings_recorded_on_many_threads_at_once_are_all_recorded() {
+        const int Writers = 8;
+        const int Each = 4_000;
+
+        var failures = 0;
+        string? first = null;
+        var done = 0;
+        using var start = new Barrier(Writers + 1);
+        List<Thread> threads = [];
+
+        try {
+            Strings.Use(new StringCatalog("xx"));
+
+            for (var t = 0; t < Writers; t++) {
+                var writer = t;
+
+                threads.Add(new Thread(() => {
+                    try {
+                        start.SignalAndWait();
+
+                        for (var i = 0; i < Each; i++) {
+                            _ = new StringId($"tests.strings.race.{writer}.{i}", "x").Text;
+                        }
+                    } catch (Exception failure) {
+                        if (Interlocked.Increment(ref failures) == 1) {
+                            first = failure.GetType().Name + ": " + failure.Message;
+                        }
+                    } finally {
+                        Interlocked.Increment(ref done);
+                    }
+                }));
+            }
+
+            threads.Add(new Thread(() => {
+                try {
+                    start.SignalAndWait();
+
+                    while (Volatile.Read(ref done) < Writers) {
+                        foreach (var id in Strings.Missing) {
+                            _ = id.Length;
+                        }
+                    }
+                } catch (Exception failure) {
+                    if (Interlocked.Increment(ref failures) == 1) {
+                        first = "reader: " + failure.GetType().Name + ": " + failure.Message;
+                    }
+                }
+            }));
+
+            foreach (var thread in threads) {
+                thread.Start();
+            }
+
+            foreach (var thread in threads) {
+                thread.Join();
+            }
+
+            Assert.True(failures == 0, $"{failures} threads threw; the first: {first}");
+
+            var missing = Strings.Missing;
+
+            Assert.Equal(Writers * Each, missing.Count);
+            Assert.Equal(Writers * Each, missing.Distinct(StringComparer.Ordinal).Count());
+
+            for (var t = 0; t < Writers; t++) {
+                Assert.Contains($"tests.strings.race.{t}.0", missing);
+                Assert.Contains($"tests.strings.race.{t}.{Each - 1}", missing);
+            }
+        } finally {
+            Strings.Use(null);
+        }
+    }
+
+    /// <summary>
     ///     And the damage itself: effects over the language, made and dropped on several threads at
     ///     once, leave every thread's graph intact.
     /// </summary>

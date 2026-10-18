@@ -691,6 +691,11 @@ settled by what the pool is:
   a row has a reconciler that does remove items — so `BindFor` clears the flag for its body and the
   row sets it for its own. Before it, `VXML2024` sent a row's author to an `@for`, and with the
   `@rows` inside an `@for` body the exit bound silently.
+- ⚠ **Inside an `@for` is necessary for an `exit` and not sufficient** (#1436): `BindFor` reads the
+  exit off the `BoundElement`s directly in its body, so `VXML2033` refuses one anywhere else — one
+  element down, under an `@if` at the root, on an `@empty` arm. The flag is not `inLoop`, which an
+  `@if` at the root leaves set because its arms' elements need keys; `loopRoots` is taken and cleared
+  by `BindContent` the way `rowsHosted` is, and only a brace block passes it through.
 
 ⚠ **`@rows` is a keyword only with a `(var` header after it.** `rows` is a legal C# identifier and
 `@rows[0]` is an ordinary interpolation; `@empty` makes the same bargain with the brace. And the index

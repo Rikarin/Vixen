@@ -109,6 +109,18 @@ anywhere near a boundary reads one block low for as long as it rests there. The 
 `--segment-gap` and is taken *out of* each block rather than added between them, so a segmented
 indicator and a continuous one of the same width end in the same place.
 
+Set `TickCount` to draw a ruler across the bar — AppKit's `numberOfTickMarks`, counted the same way, so
+five ticks mark the quarters with the first and last at the ends:
+
+```vxml
+<LevelIndicator Value="@Used" TickCount="5" />
+```
+
+⚠ **The ticks are drawn over the fill, not under it**, the opposite of a `Slider`. A slider's thumb
+stands where the value is; a level indicator has no thumb, so the marks are read against the fill and a
+fill that covered them would hide every tick the reading has passed. The last tick sits on the bar's
+last pixel column rather than the one after it, which would be outside the element and clipped.
+
 ### From C&#35;
 
 ```csharp no-compile="a fragment; `panel` is the caller's own"

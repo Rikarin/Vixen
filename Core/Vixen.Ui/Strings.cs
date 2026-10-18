@@ -65,6 +65,16 @@ public readonly record struct StringId(string Id, string Source) {
 ///     </para>
 /// </remarks>
 public static class Strings {
+    /// <summary>The ids asked for that the catalog in use lacks. Every touch holds its lock.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Locked, because it is the one piece of process-wide mutable state here that is not a
+    ///     single reference</b> (#1433). <see cref="inUse" /> is one volatile write and the node is
+    ///     per thread, but this is a red-black tree that <see cref="Get" /> writes from whatever
+    ///     thread resolves a string: two writers at once lost ids and threw from inside a rotation, and
+    ///     a reader walking the live set threw "collection was modified" — even on one thread, when
+    ///     drawing a label recorded an id mid-walk. A lock rather than a concurrent set because the
+    ///     list is read in id order, and nothing concurrent in the BCL is sorted.
+    /// </remarks>
     static readonly SortedSet<string> MissingIds = new(StringComparer.Ordinal);
 
     /// <summary>The catalog in use, for the whole process.</summary>
@@ -143,11 +153,24 @@ public static class Strings {
     ///     Ids asked for that the current catalog does not have, in id order.
     /// </summary>
     /// <remarks>
-    ///     The list a translator works from, and the thing a test asserts is empty for a language
-    ///     that claims to be complete. It is gathered rather than reported because an application
-    ///     that logged a warning per missing string would log one per menu rebuild.
+    ///     <para>
+    ///         The list a translator works from, and the thing a test asserts is empty for a language
+    ///         that claims to be complete. It is gathered rather than reported because an application
+    ///         that logged a warning per missing string would log one per menu rebuild.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A copy taken when it is read, not the live set</b> (#1433). Walking it while a
+    ///         string is resolved — on this thread or another — cannot throw, and a later miss does not
+    ///         appear in a list already taken: read it again for that.
+    ///     </para>
     /// </remarks>
-    public static IReadOnlyCollection<string> Missing => MissingIds;
+    public static IReadOnlyCollection<string> Missing {
+        get {
+            lock (MissingIds) {
+                return [.. MissingIds];
+            }
+        }
+    }
 
     /// <summary>Shows the interface in a language.</summary>
     /// <param name="catalog">The catalog, or <c>null</c> for the source strings.</param>
@@ -173,7 +196,9 @@ public static class Strings {
             node.Invalidate();
         }
 
-        MissingIds.Clear();
+        lock (MissingIds) {
+            MissingIds.Clear();
+        }
 
         Changed?.Invoke(chosen);
     }
@@ -198,7 +223,9 @@ public static class Strings {
         // every id is "missing" by construction, and a list of every string in the application is
         // not a list of anything.
         if (!ReferenceEquals(catalog, StringCatalog.Source)) {
-            MissingIds.Add(id.Id);
+            lock (MissingIds) {
+                MissingIds.Add(id.Id);
+            }
         }
 
         return id.Source;

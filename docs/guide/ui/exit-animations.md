@@ -107,7 +107,7 @@ written the same way and read when the file is compiled:
 | `exit="200"` | **VXML2025** — a bare number is refused, on CSS's rule |
 | `exit="@Duration"` | **VXML2025** — there is nothing per-row for an expression to read |
 
-Two more refusals, each of which would otherwise be silence or the wrong advice:
+Three more refusals, each of which would otherwise be silence or the wrong advice:
 
 - **`VXML2024` — `exit` outside an `@for`.** The interval is the reconciler's, and an `@if` arm that
   is swapped out is cleared rather than reconciled. Left as an ordinary attribute the word `exit`
@@ -118,6 +118,11 @@ Two more refusals, each of which would otherwise be silence or the wrong advice:
   nothing reads the interval. It is decided by the *nearest* iteration: an `@for` nested inside a row
   removes its own items and reads an `exit` on its row as usual, and an `@rows` inside an `@for` body
   no longer lets an `exit` in its row through on the outer loop's account.
+- **`VXML2033` — `exit` not on a root of its `@for`.** The loop reads the interval off the elements
+  written directly in its braces, because what leaves is the row. An `exit` one element down, on an
+  element inside an `@if` at the root, or on an inner loop's `@empty` arm was inside a loop, so
+  `VXML2024` passed it — and nothing read it, so the row went at once (#1436). An inner `@for`'s own
+  roots are that loop's rows and are read by it.
 
 ⚠ **`VXML2026` is gone, and its premise was wrong rather than merely inconvenient.** It refused an
 `exit` in a loop that also declares an index, on the grounds that what a leaving row's index signal

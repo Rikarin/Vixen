@@ -13,7 +13,8 @@ namespace Vixen.Ui.Controls.Tests;
 ///         ⚠ <b>The marks are asserted in the picture, against a closed form.</b> The rail is inset by
 ///         half a thumb, so over a 214-pixel slider with the theme's 14-pixel thumb it runs from column
 ///         7 for 200 pixels, and tick <c>i</c> of <c>n</c> is the column
-///         <c>floor(7 + 200 · i / (n − 1))</c>. A scan of one pixel row just above the rail — inside a
+///         <c>min(floor(7 + 200 · i / (n − 1)), 206)</c> — the last column <i>of</i> the rail, not the
+///         one after it, which is where an unclamped floor put the maximum's tick (#1444). A scan of one pixel row just above the rail — inside a
 ///         tick's reach and outside the rail, the fill and, away from the value, the thumb — must find
 ///         exactly those columns dark and nothing else. A tick drawn off by a pixel, a tick drawn
 ///         twice or a tick not drawn all fail it, and a slider with no ticks is the empty row that
@@ -138,9 +139,62 @@ public class SliderTickTests {
         Assert.Equal(0.75f, slider.Value);
     }
 
+    /// <summary>
+    ///     ⚠ <b>A vertical slider's ticks run up the rail, the minimum's at the bottom</b> — the branch
+    ///     of <c>DrawTicks</c> nothing exercised until #1444.
+    /// </summary>
+    /// <remarks>
+    ///     The same slider stood on end: 20 wide and 214 tall, so the rail runs from row 7 for 200
+    ///     rows and is ~7.9 to ~12.1 across. Tick <c>i</c> is row
+    ///     <c>min(floor(7 + 200 · (1 − i / (n − 1))), 206)</c>, scanned down column 6 — inside a
+    ///     tick's reach and outside the rail. A branch with its axes swapped draws columns where rows
+    ///     belong and finds none of them; one that forgot the flip puts the minimum's tick at the top.
+    /// </remarks>
+    [Fact]
+    public void A_vertical_slider_marks_its_rail_from_the_bottom_up() {
+        using var ui = ControlHarness.Open(Height, Width, Css.Replace($"width: {Width}px; height: {Height}px", $"width: {Height}px; height: {Width}px", StringComparison.Ordinal));
+        var slider = ui.Add<Slider>("fader");
+
+        slider.Orientation = Orientation.Vertical;
+        slider.TickCount = 5;
+        slider.Value = slider.Maximum;
+        ui.Frame();
+
+        // At the maximum the thumb sits at the top and covers the last tick; the bottom one, the
+        // minimum's, is the last row of the rail and not the row below it.
+        int[] expected = [
+            .. Enumerable.Range(0, 5)
+                .Select(index => (int)MathF.Min(MathF.Floor(RailStart + (RailLength * (1f - (index / 4f)))), RailStart + RailLength - 1))
+                .Order()
+        ];
+        Assert.Equal([57, 107, 157, 206], expected.Skip(1));
+        Assert.Equal(expected.Skip(1), DarkRows(ui));
+    }
+
     /// <summary>The columns tick <c>i</c> of <paramref name="count" /> must occupy.</summary>
     static int[] Expected(int count) =>
-        [.. Enumerable.Range(0, count).Select(index => (int)MathF.Floor(RailStart + (RailLength * index / (count - 1))))];
+        [.. Enumerable.Range(0, count).Select(index => (int)MathF.Min(MathF.Floor(RailStart + (RailLength * index / (count - 1))), RailStart + RailLength - 1))];
+
+    /// <summary>The rows of column <see cref="Row" /> drawn much darker than the surface, on a vertical slider.</summary>
+    static List<int> DarkRows(UiTest ui) {
+        var image = ui.Capture();
+        var rows = new List<int>();
+        var value = ((Slider)ui.Document.Root.Children[0]).Value;
+
+        for (var y = 0; y < image.Height; y++) {
+            if (MathF.Abs(y - (RailStart + (RailLength * (1f - value)))) <= 8f) {
+                continue;
+            }
+
+            var at = image.Offset(Row, y);
+
+            if (image.Pixels[at] < 200 && image.Pixels[at + 1] < 200 && image.Pixels[at + 2] < 200) {
+                rows.Add(y);
+            }
+        }
+
+        return rows;
+    }
 
     /// <summary>The columns of <see cref="Row" /> drawn much darker than the surface.</summary>
     /// <remarks>

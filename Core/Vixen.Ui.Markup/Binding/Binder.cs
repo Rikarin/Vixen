@@ -156,6 +156,24 @@ public sealed class Binder {
     /// </remarks>
     bool inRow;
 
+    /// <summary>Whether the content about to be bound is the roots of an <c>@for</c> body.</summary>
+    /// <remarks>
+    ///     Taken and cleared by <see cref="BindContent(IEnumerable{MarkupSyntax})" /> on the way in,
+    ///     <see cref="rowsHosted" />'s shape, so an <c>@if</c>, an element or an <c>@empty</c> arm one
+    ///     level down sees it false. A brace block passes it through, because its content is still
+    ///     the body's.
+    /// </remarks>
+    bool loopRoots;
+
+    /// <summary>Whether the element whose attributes are being bound is a root of its nearest <c>@for</c> body.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <see cref="inLoop" />, which an <c>@if</c> at the root leaves set</b> — the
+    ///     elements in its arms need keys, so the key rule is right to see them as roots. But
+    ///     <see cref="BindFor" /> reads the exit off the <see cref="BoundElement" />s directly in its
+    ///     body and nothing else, so an exit is only read where this is true. <c>VXML2033</c>, #1436.
+    /// </remarks>
+    bool atLoopRoot;
+
     Binder(SourceText text, string filePath, DiagnosticBag diagnostics) {
         this.text = text;
         this.filePath = filePath;
@@ -357,6 +375,10 @@ public sealed class Binder {
         var hosted = rowsHosted;
         rowsHosted = false;
 
+        // And the same for whether this level is an `@for` body's roots — see `loopRoots`.
+        var roots = loopRoots;
+        loopRoots = false;
+
         // Whether an `@rows` at this level has already claimed the control.
         var pooled = false;
 
@@ -374,7 +396,9 @@ public sealed class Binder {
                     break;
 
                 case ElementSyntax element:
+                    atLoopRoot = roots;
                     bound.Add(BindElement(element));
+                    atLoopRoot = false;
                     break;
 
                 case IfSyntax @if:
@@ -403,6 +427,8 @@ public sealed class Binder {
                     break;
 
                 case MarkupBlockSyntax block:
+                    // Flattened into this level, so its elements are roots wherever this level's are.
+                    loopRoots = roots;
                     bound.AddRange(BindContent(block.Content));
                     break;
 
@@ -440,6 +466,10 @@ public sealed class Binder {
 #pragma warning restore CA1859
         var tag = element.StartTag.Name.Text;
         var attributes = BindAttributes(element.StartTag);
+
+        // The only reader of `atLoopRoot` is the attribute binder above; nothing under this element
+        // is a root of anything this element is a root of.
+        atLoopRoot = false;
 
         if (string.Equals(tag, "slot", StringComparison.Ordinal)) {
             return BindSlot(element, attributes);
@@ -795,6 +825,7 @@ public sealed class Binder {
         item = variable;
         loops++;
         RefuseSlotAttributes(@for.Body.Content, "'@for'");
+        loopRoots = true;
         var body = BindContent(@for.Body.Content);
         loops--;
         item = outerVariable;
@@ -1041,6 +1072,14 @@ public sealed class Binder {
         // reconciler out here.
         if (kind == BoundAttributeKind.Exit && loops == 0) {
             Report(MarkupDiagnostics.ExitOutsideLoop, attribute.Name.Span);
+            return null;
+        }
+
+        // ⚠ After the loop rule, because inside a loop is necessary and not sufficient: the loop
+        // reads its exit off the elements directly in its body, so one anywhere else was accepted
+        // and never read. See `MarkupDiagnostics.ExitNotOnLoopRoot`.
+        if (kind == BoundAttributeKind.Exit && !atLoopRoot) {
+            Report(MarkupDiagnostics.ExitNotOnLoopRoot, attribute.Name.Span);
             return null;
         }
 

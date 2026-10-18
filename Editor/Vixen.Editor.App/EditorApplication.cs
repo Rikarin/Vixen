@@ -1246,8 +1246,10 @@ sealed partial class EditorApplication : IDisposable {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And nothing given work on it may touch a <c>Signal</c>.</b> <c>Vixen.Ui</c>'s
-    ///         reactive graph is single-threaded by contract and it is process-wide in one place
-    ///         (<c>Strings</c>). The two seams wired from here are the compositor builder's — whose
+    ///         reactive graph is single-threaded by contract, and the editor's sets
+    ///         <c>OwningThread</c>, so a read off the UI thread throws. (<c>Strings</c> is no longer
+    ///         an exception: since #1413 the node announcing a language change is per thread, and
+    ///         only the language itself — a plain volatile field — is process-wide.) The two seams wired from here are the compositor builder's — whose
     ///         one consumer is the distance-field clipmap composite — and the render system's cull;
     ///         neither is anywhere near the interface.
     ///     </para>
