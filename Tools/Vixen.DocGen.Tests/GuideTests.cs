@@ -232,6 +232,59 @@ public class GuideTests : IDisposable {
         Assert.False(example.Fragment);
     }
 
+    /// <summary>
+    ///     ⚠ A fence's line is a line of the <em>file</em> — #1453. It used to be counted in the body
+    ///     after the front matter was stripped and the snippets expanded, so every
+    ///     <c>{page}:{line}</c> DocGen printed was early by the front matter's height, and early or
+    ///     late again by every snippet above the fence. A fixed offset is not the fix: the snippet
+    ///     here expands one line into seven, so subtracting the front matter alone still misses.
+    /// </summary>
+    [Fact]
+    public void AFenceIsNumberedByItsLineInTheFileBelowFrontMatterAndAnExpandedSnippet() {
+        Write("Samples/Thing/Program.cs",
+            """
+            public static class Program {
+                public static void Main() {
+                    // #region docs:query
+                    var a = 1;
+                    var b = 2;
+                    var c = 3;
+                    var d = 4;
+                    var e = 5;
+                    // #endregion
+                }
+            }
+            """);
+
+        var text = (Front + Body)
+            .Replace("Describe the set, then iterate.",
+                "Describe the set, then iterate.\n\n{{ snippet Samples/Thing/Program.cs#docs:query }}",
+                StringComparison.Ordinal)
+            .Replace("Nothing yet.\n\n## See also",
+                "```csharp compile\npublic sealed class Thing;\n```\n\n## See also", StringComparison.Ordinal);
+
+        Write("docs/guide/ecs/queries.md", text);
+
+        var lines = text.Split('\n');
+        var include = Array.FindIndex(lines, line => line.StartsWith("{{ snippet", StringComparison.Ordinal)) + 1;
+        var fence = Array.FindIndex(lines, line => line == "```csharp compile") + 1;
+
+        var (pages, errors) = Read();
+
+        Assert.Empty(errors);
+
+        var examples = Assert.Single(pages).Examples;
+
+        Assert.Equal(2, examples.Count);
+        Assert.Equal((include, "snippet"), (examples[0].Line, examples[0].Code.Contains("var e = 5;") ? "snippet" : "?"));
+        Assert.Equal(fence, examples[1].Line);
+
+        // And the problems that print a line print the same one.
+        Write("docs/guide/ecs/queries.md", text.Replace("```csharp compile", "```csharp", StringComparison.Ordinal));
+
+        Assert.Contains(Read().Errors, error => error.Contains($"the C# fence at line {fence} ", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void TwoPagesCannotClaimOneSlug() {
         Write("docs/guide/ecs/queries.md", Front + Body);
