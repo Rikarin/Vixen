@@ -24,7 +24,7 @@ namespace Vixen.Ui;
 ///         what guarantees it.
 ///     </para>
 /// </remarks>
-public sealed class DrawListBuilder {
+public sealed partial class DrawListBuilder {
     /// <summary>How far past a viewport an edge is pushed when its axis is not clipped.</summary>
     /// <remarks>
     ///     ⚠ <b>A stand-in for infinity, chosen so that the sums stay exact.</b> A million pixels is
@@ -556,7 +556,18 @@ public sealed class DrawListBuilder {
     ///         test suite turned it on would have built that hazard deliberately.
     ///     </para>
     /// </remarks>
-    public bool Compositing { get; set; } = true;
+    public bool Compositing {
+        get;
+        set {
+            // A retained subtree was emitted under the old setting, so none of them is the picture
+            // the new one draws. See `DrawListBuilder.Retained.cs`.
+            if (field != value) {
+                generation++;
+            }
+
+            field = value;
+        }
+    } = true;
 
     /// <summary>What this builder could not draw, and why.</summary>
     /// <remarks>
@@ -590,7 +601,14 @@ public sealed class DrawListBuilder {
     ///     frame, so a caller that watches the list — a hot reload comparing before with after — has
     ///     to be able to say "from here".
     /// </remarks>
-    public void ClearDiagnostics() => diagnostics.Clear();
+    public void ClearDiagnostics() {
+        diagnostics.Clear();
+
+        // ⚠ A retained subtree re-emits nothing, so it re-refuses nothing either: a caller that
+        // cleared this list to see every refusal reproduced would read the reused part of the frame
+        // as refusing nothing. Forgetting the retained drawing makes the next pass emit everything.
+        generation++;
+    }
 
     /// <summary>Records a declaration that reached this file and could not be drawn.</summary>
     /// <remarks>
@@ -651,7 +669,9 @@ public sealed class DrawListBuilder {
         forced = document.SurfaceOf(root)?.Preferences.ForcedColors ?? false;
 
         into.BeginFrame();
+        BeginRetaining(into);
         Emit(document, root, into, 1f);
+        EndRetaining(into);
         return into.EndFrame();
     }
 
@@ -697,7 +717,7 @@ public sealed class DrawListBuilder {
     ///         contents twice.
     ///     </para>
     /// </remarks>
-    void Emit(UiDocument document, UiElement element, DrawList into, float inherited) {
+    void EmitFresh(UiDocument document, UiElement element, DrawList into, float inherited) {
         var width = element.Width;
         var height = element.Height;
 
@@ -906,6 +926,10 @@ public sealed class DrawListBuilder {
         // runs for every element in the frame — see its own remark on the four hundred allocations a
         // frame it used to cost. A group is the rare case; `EmitBody` computes it again for the
         // common one.
+        // Which retained entries this group's subtree records: a collapse or a discard below rewrites
+        // the commands they name, so it has to take them back. See `Unrecord`.
+        var recordedBefore = Recorded;
+
         if (group >= 0) {
             var groupRadius = Corners(element).IsUniformCircular(out var groupUniform) ? groupUniform : 0f;
 
@@ -978,6 +1002,7 @@ public sealed class DrawListBuilder {
             //
             // So a bare `backdrop-blur-md` div now gets its backdrop, which is what a browser draws.
             into.Discard(group);
+            Unrecord(recordedBefore);
             return;
         }
 
@@ -1019,6 +1044,7 @@ public sealed class DrawListBuilder {
             && drawn == 1
             && DrawList.Fadeable(into.Commands[group + 1])) {
             into.Collapse(group, inherited * own);
+            Unrecord(recordedBefore);
             return;
         }
 
@@ -1205,6 +1231,8 @@ public sealed class DrawListBuilder {
         // Paint order rather than document order, which are the same list unless some child carries
         // a `z-index`. Hit testing walks the same property backwards, and that is the whole reason
         // it is a property of the element rather than a loop written twice.
+        Descending(element, alpha);
+
         foreach (var child in element.PaintOrder) {
             // Another window's tree, which this frame is not. It is walked by its own surface's
             // build, against its own size and its own pixel grid.

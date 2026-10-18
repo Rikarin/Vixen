@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Ui.Rendering;
 using Vixen.Ui.Text;
@@ -552,7 +553,8 @@ public sealed class DrawList {
     List<BoxStyle> previousBoxes = [];
     List<UiMask> masks = [];
     List<UiMask> previousMasks = [];
-    readonly List<FontFace> fonts = [];
+    List<FontFace> fonts = [];
+    List<FontFace> previousFonts = [];
     readonly List<DrawBatch> batches = [];
 
     /// <summary>The commands, in the order they are drawn.</summary>
@@ -654,12 +656,175 @@ public sealed class DrawList {
         Swap(ref previousBoxes, ref boxes);
         Swap(ref previousMasks, ref masks);
 
-        // The fonts are not kept for comparison, because a command referring to a different face
-        // refers to it by a different index and the commands are compared. Rebuilt each frame so
-        // that a face nothing draws with any more is not held alive by the list that stopped using
-        // it.
+        // The fonts are not compared, because a command referring to a different face refers to it
+        // by a different index and the commands are compared. They are rebuilt each frame, and kept
+        // for exactly one frame more: `Replay` reads a retained text command's face out of the
+        // previous frame's table, since the index it carries is an index into that one. A face
+        // nothing draws with any more is let go one frame later than it used to be, and no more.
+        (previousFonts, fonts) = (fonts, previousFonts);
         fonts.Clear();
+
+        Frames++;
     }
+
+    /// <summary>How many frames this list has begun, which names the one <c>previous</c> holds.</summary>
+    /// <remarks>
+    ///     A retained subtree records the frame its ranges are in; they can be replayed only out of
+    ///     the frame immediately before this one, because that is the only one still held.
+    /// </remarks>
+    internal int Frames { get; private set; }
+
+    /// <summary>Where every buffer of the frame being built has reached.</summary>
+    internal DrawListMark Mark => new(commands.Count, glyphs.Count, segments.Count, boxes.Count, masks.Count);
+
+    /// <summary>
+    ///     Appends what the previous frame held between two marks, pointing each command at the copy
+    ///     of its side-buffer entries rather than at the originals.
+    /// </summary>
+    /// <param name="from">Where the range started in the previous frame.</param>
+    /// <param name="to">Where it ended.</param>
+    /// <returns>
+    ///     <see langword="false" />, with nothing appended, when the range holds a command whose side
+    ///     buffer this cannot say — which no command the builder writes itself is.
+    /// </returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The whole range of every side buffer is copied, not the entries the commands
+    ///         name.</b> A group taken back by <see cref="DrawListBuilder" /> leaves its mask entries
+    ///         behind unreferenced, and a fresh emission leaves them too; copying only what is named
+    ///         would make a replayed frame differ from a rebuilt one in exactly those entries, which
+    ///         the diff reads. A range is contiguous in every buffer because emission only appends.
+    ///     </para>
+    ///     <para>
+    ///         So each command's offset moves by its own buffer's delta, chosen by kind, and a text
+    ///         command's font is re-added by face — which reproduces the first-use order a fresh
+    ///         emission would have assigned, since the commands arrive in the same order.
+    ///     </para>
+    /// </remarks>
+    internal bool Replay(DrawListMark from, DrawListMark to) {
+        var at = Mark;
+        var fontsAt = fonts.Count;
+
+        for (var i = from.Commands; i < to.Commands; i++) {
+            var command = previous[i];
+            var offset = command.Offset;
+            var font = command.Font;
+
+            switch (command.Kind) {
+                case DrawCommandKind.Text:
+                    offset += at.Glyphs - from.Glyphs;
+                    font = AddFont(previousFonts[command.Font]);
+                    break;
+
+                case DrawCommandKind.Path or DrawCommandKind.PathStroke:
+                    offset += at.Segments - from.Segments;
+                    break;
+
+                case DrawCommandKind.Rectangle or DrawCommandKind.Border or DrawCommandKind.Shadow:
+                    offset += command.Length > 0 ? at.Boxes - from.Boxes : 0;
+                    break;
+
+                case DrawCommandKind.LayerPush or DrawCommandKind.LayerPop:
+                    offset += command.Length > 0 ? at.Masks - from.Masks : 0;
+                    break;
+
+                case DrawCommandKind.ClipPush or DrawCommandKind.ClipPop:
+                    break;
+
+                // An image or a field is only ever written by a control's own `OnDraw`, which never
+                // retains — so meeting one here means a range nobody should have offered.
+                default:
+                    Truncate(at, fontsAt);
+                    return false;
+            }
+
+            commands.Add(command with { Offset = offset, Font = font });
+        }
+
+        glyphs.AddRange(CollectionsMarshal.AsSpan(previousGlyphs)[from.Glyphs..to.Glyphs]);
+        segments.AddRange(CollectionsMarshal.AsSpan(previousSegments)[from.Segments..to.Segments]);
+        boxes.AddRange(CollectionsMarshal.AsSpan(previousBoxes)[from.Boxes..to.Boxes]);
+        masks.AddRange(CollectionsMarshal.AsSpan(previousMasks)[from.Masks..to.Masks]);
+
+        return true;
+    }
+
+    /// <summary>Whether two ranges of this frame hold the same drawing, wherever each one starts.</summary>
+    /// <param name="first">Where the first range starts.</param>
+    /// <param name="second">Where the second starts, which is also where the first ends.</param>
+    /// <param name="end">Where the second ends.</param>
+    /// <returns>The index of the first command that differs, relative to each range, or -1.</returns>
+    internal int FirstDifference(DrawListMark first, DrawListMark second, DrawListMark end) {
+        var length = second.Commands - first.Commands;
+
+        if (end.Commands - second.Commands != length
+            || end.Glyphs - second.Glyphs != second.Glyphs - first.Glyphs
+            || end.Segments - second.Segments != second.Segments - first.Segments
+            || end.Boxes - second.Boxes != second.Boxes - first.Boxes
+            || end.Masks - second.Masks != second.Masks - first.Masks) {
+            return Math.Min(length, end.Commands - second.Commands);
+        }
+
+        for (var i = 0; i < length; i++) {
+            var a = commands[first.Commands + i];
+            var b = commands[second.Commands + i];
+
+            if (a.Kind == DrawCommandKind.Text && b.Kind == DrawCommandKind.Text && fonts[a.Font] != fonts[b.Font]) {
+                return i;
+            }
+
+            if (Normal(a, first) != Normal(b, second)) {
+                return i;
+            }
+        }
+
+        if (!Same(glyphs, first.Glyphs, second.Glyphs, second.Glyphs - first.Glyphs)
+            || !Same(segments, first.Segments, second.Segments, second.Segments - first.Segments)
+            || !Same(boxes, first.Boxes, second.Boxes, second.Boxes - first.Boxes)
+            || !Same(masks, first.Masks, second.Masks, second.Masks - first.Masks)) {
+            return length;
+        }
+
+        return -1;
+
+        static DrawCommand Normal(DrawCommand command, DrawListMark start) => command with {
+            Font = 0,
+            Offset = command.Kind switch {
+                DrawCommandKind.Text => command.Offset - start.Glyphs,
+                DrawCommandKind.Path or DrawCommandKind.PathStroke => command.Offset - start.Segments,
+                DrawCommandKind.Rectangle or DrawCommandKind.Border or DrawCommandKind.Shadow
+                    when command.Length > 0 => command.Offset - start.Boxes,
+                DrawCommandKind.LayerPush or DrawCommandKind.LayerPop
+                    when command.Length > 0 => command.Offset - start.Masks,
+                _ => command.Offset
+            }
+        };
+
+        static bool Same<T>(List<T> buffer, int a, int b, int count) where T : IEquatable<T> {
+            for (var i = 0; i < count; i++) {
+                if (!buffer[a + i].Equals(buffer[b + i])) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    /// <summary>Takes every buffer of this frame back to a mark.</summary>
+    /// <param name="mark">Where to cut.</param>
+    /// <param name="fontCount">How many fonts to keep.</param>
+    internal void Truncate(DrawListMark mark, int fontCount) {
+        commands.RemoveRange(mark.Commands, commands.Count - mark.Commands);
+        glyphs.RemoveRange(mark.Glyphs, glyphs.Count - mark.Glyphs);
+        segments.RemoveRange(mark.Segments, segments.Count - mark.Segments);
+        boxes.RemoveRange(mark.Boxes, boxes.Count - mark.Boxes);
+        masks.RemoveRange(mark.Masks, masks.Count - mark.Masks);
+        fonts.RemoveRange(fontCount, fonts.Count - fontCount);
+    }
+
+    /// <summary>How many fonts the frame has so far.</summary>
+    internal int FontCount => fonts.Count;
 
     /// <summary>Exchanges a buffer with its previous-frame twin and empties it for this frame.</summary>
     /// <remarks>
@@ -874,4 +1039,23 @@ public sealed class DrawList {
 
         return false;
     }
+}
+
+/// <summary>Where each buffer of a <see cref="DrawList" /> had reached at one moment of a build.</summary>
+/// <param name="Commands">The command count.</param>
+/// <param name="Glyphs">The glyph count.</param>
+/// <param name="Segments">The path segment count.</param>
+/// <param name="Boxes">The box style count.</param>
+/// <param name="Masks">The mask count.</param>
+readonly record struct DrawListMark(int Commands, int Glyphs, int Segments, int Boxes, int Masks) {
+    /// <summary>The same mark moved by the distance between two others, buffer by buffer.</summary>
+    /// <param name="from">Where the distance starts.</param>
+    /// <param name="to">Where it ends.</param>
+    public DrawListMark Moved(DrawListMark from, DrawListMark to) => new(
+        Commands + to.Commands - from.Commands,
+        Glyphs + to.Glyphs - from.Glyphs,
+        Segments + to.Segments - from.Segments,
+        Boxes + to.Boxes - from.Boxes,
+        Masks + to.Masks - from.Masks
+    );
 }

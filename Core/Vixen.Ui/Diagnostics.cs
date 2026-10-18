@@ -203,6 +203,20 @@ public readonly struct UiDiagnostics(UiDocument document) {
     /// </remarks>
     public long DrawCommandsEmitted => document.DrawCommandsEmitted;
 
+    /// <summary>
+    ///     How many of <see cref="DrawCommandsEmitted" /> were replayed from the frame before rather
+    ///     than built, because nothing their element's drawing reads had changed (#671).
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The difference between the two is the work an idle frame still does</b>, which is the
+    ///     differential doc 49 § 7.3 asks for: on a still window of plain boxes and text it is zero
+    ///     after the first frame, and on one that changed it is what changed. An element whose type
+    ///     draws itself — anything overriding <c>OnDraw</c> — is never replayed and neither is anything
+    ///     above it, so the gap that stays on a real interface is the custom-drawn controls' ancestry.
+    ///     A <see cref="long" /> and compiled everywhere, for <see cref="DrawCommandsEmitted" />'s reasons.
+    /// </remarks>
+    public long DrawCommandsReplayed => document.DrawCommandsReplayed;
+
     /// <summary>How many times a binding in this document has thrown and been suspended.</summary>
     /// <remarks>
     ///     <para>

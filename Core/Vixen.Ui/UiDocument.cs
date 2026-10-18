@@ -483,6 +483,22 @@ public sealed partial class UiDocument : IDisposable {
         set => drawings.Compositing = value;
     }
 
+    /// <summary>Whether an unchanged subtree's drawing is replayed rather than rebuilt (#671).</summary>
+    /// <remarks>See <c>DrawListBuilder.Retained.cs</c>. Off is a full rebuild every frame.</remarks>
+    internal bool RetainsDrawing {
+        get => drawings.Retaining;
+        set => drawings.Retaining = value;
+    }
+
+    /// <summary>Whether each replay is checked against a fresh emission — on in a Debug build.</summary>
+    internal bool VerifiesRetainedDrawing {
+        get => drawings.Verifying;
+        set => drawings.Verifying = value;
+    }
+
+    /// <summary>How many draw commands were replayed rather than built, over every window and frame.</summary>
+    internal long DrawCommandsReplayed => drawings.CommandsReplayed;
+
     /// <summary>The primary surface's size and root font size.</summary>
     /// <remarks>
     ///     The <i>primary</i> one, now that there can be more than one — see <see cref="Surfaces" />.

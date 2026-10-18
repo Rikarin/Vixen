@@ -2820,6 +2820,9 @@ public partial class UiElement : Composition.IComposable {
     /// </remarks>
     internal ComputedStyle? AppliedStyle { get; set; }
 
+    /// <summary>What this element drew last, for <see cref="DrawListBuilder" /> to replay unchanged.</summary>
+    internal DrawListBuilder.RetainedDrawing? Drawn { get; set; }
+
     /// <summary>The font size that went with it.</summary>
     internal float AppliedFontSize { get; set; } = float.NaN;
 
