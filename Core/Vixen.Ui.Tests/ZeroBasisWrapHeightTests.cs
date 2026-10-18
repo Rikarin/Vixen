@@ -20,7 +20,7 @@ namespace Vixen.Ui.Tests;
 ///         contribution is its content — and since #1448 a row offered "at most" a width is capped
 ///         there, so the column is 300 from its content and the offer before the minimum is read. The
 ///         two tests below that assert 300 still hold; what they guard is now reached by a different
-///         road, and the #1412 re-entry no longer fires for this tree.
+///         road: all four are green with the #1412 re-entry disabled (#1441).
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The cause was not the zero basis and not the max-content pass</b>, which is what the

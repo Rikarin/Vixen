@@ -26,6 +26,17 @@ namespace Vixen.Ui.Layout;
 public sealed partial class LayoutTree {
     uint generation;
 
+    /// <summary>How many times the flex algorithm has run on any node — a work counter (#1441).</summary>
+    /// <remarks>
+    ///     Counted where the flex algorithm proper starts, after every early return a cached, measured
+    ///     or fixed-size node takes, so it is work done and not calls made. Never reset: a test reads
+    ///     it before and after the layout it is about.
+    /// </remarks>
+    internal long FlexAlgorithmRuns;
+
+    /// <summary>How many times a content-sized column re-entered itself at its bounded width (#1412).</summary>
+    internal long CrossSizeReentries;
+
     /// <summary>Lays out <paramref name="node" /> and everything under it.</summary>
     /// <param name="node">The root of the subtree to lay out.</param>
     /// <param name="ownerWidth">The width available to it, or NaN.</param>
@@ -553,6 +564,7 @@ public sealed partial class LayoutTree {
             return;
         }
 
+        FlexAlgorithmRuns++;
         results[index].HadOverflow = false;
 
         // STEP 1: CALCULATE VALUES FOR REMAINDER OF ALGORITHM
@@ -899,7 +911,14 @@ public sealed partial class LayoutTree {
                 // where the cross axis is the width a height depends on; a row's minimum height
                 // changes no item's width, and the stretch in STEP 7 already answers it. The
                 // re-entry pins the width, so it cannot happen twice.
+                //
+                // ⚠ What it costs is counted, not argued (#1441): one more flex run per pass and one
+                // more measurement per item on a cold layout, one on a relayout, and nesting does not
+                // compound — `CrossSizeReentryWorkTests`. Since #1440 and #1448 the zero-basis text it
+                // was written for no longer reaches it; a stretched aspect-ratio item still does.
                 if (!isNodeFlexWrap && !isMainAxisRow && containerCrossAxis > line.CrossDim + 0.001f) {
+                    CrossSizeReentries++;
+
                     CalculateLayoutImpl(
                         index,
                         containerCrossAxis + contentInsetAxisCross + marginAxisRow,
