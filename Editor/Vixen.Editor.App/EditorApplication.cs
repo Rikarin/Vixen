@@ -381,11 +381,12 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>The overlays a play session registers, and what switches them on by name.</summary>
     /// <remarks>
-    ///     ⚠ <b>Also one per editor, and that is the half that has to outlive a session.</b> An
-    ///     overlay switched on and then forgotten by pressing Stop is a diagnostic you have to switch
-    ///     on again for every attempt at the thing you are diagnosing. What is per session is the
-    ///     overlay object — <see cref="PlayPhysics" /> registers it and takes it back out, because it
-    ///     holds a <c>PhysicsScene</c> that Stop destroys.
+    ///     Also one per editor. ⚠ <b>That alone does not carry a toggle across Stop, and this used to
+    ///     say it did.</b> <c>Enabled</c> lives on the overlay object, which is per session —
+    ///     <see cref="PlayPhysics" /> registers it and takes it back out, because it holds a
+    ///     <c>PhysicsScene</c> that Stop destroys — so the next Play's overlay arrived switched off.
+    ///     What outlives the session is <see cref="overlayWishes" />, which
+    ///     <see cref="FollowPlayOverlays" /> applies to each new one (#1263).
     /// </remarks>
     readonly DiagnosticOverlays playOverlays = new();
 
@@ -1347,6 +1348,9 @@ sealed partial class EditorApplication : IDisposable {
         // the session into one solid mass of lines.
         playDebug.Clear();
 
+        // Before the step, which is the frame a session registered on Play first draws in.
+        FollowPlayOverlays();
+
         if (!play.Tick(delta)) {
             ResolveTransforms();
         }
@@ -2181,8 +2185,8 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>The registry a play session's overlays are registered in and switched on through.</summary>
     /// <remarks>
     ///     ⚠ <b>The editor's, not a session's</b> — see <see cref="playOverlays" /> for why it has to
-    ///     outlive one. <c>DiagnosticOverlays.Set("physics", true)</c> is the whole of switching the
-    ///     collider wireframes on, and it is what a menu item or a console verb would call.
+    ///     outlive one. <c>DiagnosticOverlays.Set("physics", true)</c> switches the live overlay;
+    ///     the person-facing switch is <c>play.overlay.physics</c>, Play ▸ Overlays.
     /// </remarks>
     internal DiagnosticOverlays PlayOverlays => playOverlays;
 

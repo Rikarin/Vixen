@@ -153,4 +153,106 @@ public class PlayOverlayTests {
         Assert.Empty(session.Editor.PlayMode.Refused);
         Assert.Single(session.Editor.PlayOverlays.Registered);
     }
+
+    /// <summary>Play ▸ Overlays ▸ Physics Overlay is what switches the wireframes on, by the pointer.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Through the menu bar, not the registry</b>
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1263">#1263</a>). Until this the only
+    ///     caller of <c>PlayOverlays.Set</c> was this suite, so the overlay was on in tests and in no
+    ///     editor anybody had open. A differential in one run: empty with it off, lines after the
+    ///     click, and the menu line checked.
+    /// </remarks>
+    [Fact]
+    public void The_play_menu_switches_the_collider_overlay_on() {
+        using var session = EditorSession.Start();
+
+        session.Run("play.play");
+        session.Frames(2);
+
+        AddCrate(session);
+        session.Frames(2);
+
+        Assert.Empty(session.Editor.PlayDiagnosticLines);
+
+        session.Menu("Play", "Overlays", "Physics Overlay");
+        session.Frames(2);
+
+        Assert.NotEmpty(session.Editor.PlayDiagnosticLines);
+        Assert.True(session.Shell.Commands.TryGet(EditorApplication.PlayOverlayCommand("physics"), out var command));
+        Assert.True(command.IsChecked);
+
+        // And off again by the same line, which is what makes it a switch rather than a door.
+        session.Menu("Play", "Overlays", "Physics Overlay");
+        session.Frames(2);
+
+        Assert.Empty(session.Editor.PlayDiagnosticLines);
+        Assert.False(command.IsChecked);
+    }
+
+    /// <summary>A switch flipped before Play is honoured by the session Play starts.</summary>
+    /// <remarks>
+    ///     The overlay object does not exist while editing — <c>PlayPhysics</c> registers it on Play —
+    ///     so a switch that only reached a registered overlay would be a menu line that does nothing
+    ///     at exactly the moment somebody sets up what they are about to watch.
+    /// </remarks>
+    [Fact]
+    public void A_switch_flipped_while_editing_reaches_the_next_session() {
+        using var session = EditorSession.Start();
+
+        Assert.Empty(session.Editor.PlayOverlays.Registered);
+
+        session.Run(EditorApplication.PlayOverlayCommand("physics"));
+        session.Run("play.play");
+        session.Frames(2);
+
+        var overlay = Assert.Single(session.Editor.PlayOverlays.Registered);
+
+        Assert.True(overlay.Enabled);
+    }
+
+    /// <summary>And it survives Stop and a second Play, which the registry alone never did.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Refutes a claim this assembly made about itself.</b> <c>PlayDiagnostics</c>' and
+    ///     <c>playOverlays</c>' remarks said the editor-wide registry "has to keep a toggle across a
+    ///     Stop and a second Play", and it kept nothing: <c>Enabled</c> lives on the overlay object,
+    ///     <c>PlayPhysics</c> removes that object on Stop because it holds a destroyed
+    ///     <c>PhysicsScene</c>, and the next Play registers a new one switched off. What outlives the
+    ///     session has to be the person's wish, held by the editor and applied to each new overlay.
+    /// </remarks>
+    [Fact]
+    public void The_switch_survives_stop_and_a_second_play() {
+        using var session = EditorSession.Start();
+
+        session.Run("play.play");
+        session.Frames(2);
+        session.Run(EditorApplication.PlayOverlayCommand("physics"));
+        session.Frames(1);
+        session.Run("play.stop");
+        session.Frames(2);
+
+        session.Run("play.play");
+        session.Frames(2);
+
+        var overlay = Assert.Single(session.Editor.PlayOverlays.Registered);
+
+        Assert.True(overlay.Enabled);
+    }
+
+    /// <summary>Every overlay the editor's own Play registers has a declared word to be listed under.</summary>
+    [Fact]
+    public void The_physics_overlay_has_a_declared_label() =>
+        Assert.True(Vixen.Editor.Ui.EditorStrings.PlayOverlays.Covers(PhysicsDebugDrawSystem.OverlayName));
+
+    static void AddCrate(EditorSession session) {
+        var play = session.Editor.PlayMode.Session;
+
+        Assert.NotNull(play);
+        Assert.True(play.TryGet<PhysicsScene>(out var physics));
+        Assert.NotNull(physics);
+
+        var crate = physics.Entities.Create(LocalTransform.At(new Vector3(0f, 5f, 0f)));
+
+        physics.Entities.Add(crate, Collider.Of(physics.Shapes.Box(0.5f)));
+        physics.Entities.Add(crate, RigidBody.Dynamic());
+    }
 }
