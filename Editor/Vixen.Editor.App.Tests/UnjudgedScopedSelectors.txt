@@ -30,10 +30,12 @@
 #
 # Traced at `b162d5632` (2026-09-24).
 field-content combo-box	api	`LabeledContent.Content` (Core/Vixen.Ui.Controls/Forms.cs:71), which a markup child reaches through `ContentHost` (Forms.cs:88). No `LabeledContent` in the editor, and the sample's three (Samples/02-HelloUi/Panels/Gallery.vxml:104, :135, :158) hold none.
+field-content date-picker	unreached	Samples/02-HelloUi/Panels/Gallery.vxml:159, the sample's Due row — the case #1438 measured at 94 px between 575 px text fields. No sweep builds a sample, and no editor panel holds a `LabeledContent`.
 field-content level-indicator	api	`LabeledContent.Content` (Forms.cs:71) or a markup child through `ContentHost` (Forms.cs:88); no row in the tree holds one.
 field-content multi-select	api	`LabeledContent.Content` (Forms.cs:71) or a markup child through `ContentHost` (Forms.cs:88); no row in the tree holds one.
 field-content numeric-input	api	`LabeledContent.Content` (Forms.cs:71) or a markup child through `ContentHost` (Forms.cs:88); the sample's numeric input (Gallery.vxml:163) stands outside any row.
 field-content progress-bar	api	`LabeledContent.Content` (Forms.cs:71) or a markup child through `ContentHost` (Forms.cs:88); no row in the tree holds one.
+field-content range-slider	api	`LabeledContent.Content` (Forms.cs:71) or a markup child through `ContentHost` (Forms.cs:88); the sample's range slider (Samples/02-HelloUi/Panels/Gallery.vxml:224) stands outside any row.
 field-content search-box	api	`LabeledContent.Content` (Forms.cs:71) or a markup child through `ContentHost` (Forms.cs:88); the sample's search box (Gallery.vxml:162) stands outside any row.
 field-content secure-textbox	unreached	Samples/02-HelloUi/Panels/Gallery.vxml:105, the sample's Password row — the case #1404 measured at 18 px. No sweep builds a sample, and no editor panel holds a `LabeledContent`.
 field-content select	api	`LabeledContent.Content` (Forms.cs:71) or a markup child through `ContentHost` (Forms.cs:88); no row in the tree holds one.
@@ -49,10 +51,12 @@ inspector-editor curve-editor	unreached	`CurveDrawer` builds it (Editor/Vixen.Ed
 inspector-editor textarea	unreached	`MultilineDrawer` (ScalarDrawers.cs:221) into `InspectorView`'s slot (InspectorView.cs:41), for a `[Multiline]` string — none outside Fixtures.cs:124.
 key-value-row progress-bar	unreached	NetworkView.vxml:85, the "Sent as a difference" row, which the panel builds only in the branch where a bandwidth ledger is attached (NetworkView.vxml:69); a started editor attaches none.
 key-value-value combo-box	api	`KeyValueRow.Content<T>()` (Core/Vixen.Ui.Controls/KeyValueList.cs:82) or a child written inside the row in markup (`ContentHost`, KeyValueList.cs:72). No row in the tree holds a combo box.
+key-value-value date-picker	api	`KeyValueRow.Content<T>()` (KeyValueList.cs:82) or a markup child (KeyValueList.cs:72); the tree's one date picker (Samples/02-HelloUi/Panels/Gallery.vxml:159) is in a `LabeledContent`, not a key-value row.
 key-value-value level-indicator	api	`KeyValueRow.Content<T>()` (KeyValueList.cs:82) or a markup child (KeyValueList.cs:72); no row in the tree holds a level indicator.
 key-value-value multi-select	api	`KeyValueRow.Content<T>()` (KeyValueList.cs:82) or a markup child (KeyValueList.cs:72); no row in the tree holds one.
 key-value-value numeric-input	unreached	CompositorView.vxml:217, one row per field of the node the author CHOSE; an empty compositor document has no node to choose.
 key-value-value progress-bar	unreached	NetworkView.vxml:85, built only with a bandwidth ledger attached (the branch at NetworkView.vxml:69).
+key-value-value range-slider	api	`KeyValueRow.Content<T>()` (KeyValueList.cs:82) or a markup child (KeyValueList.cs:72); the sample's range slider (Samples/02-HelloUi/Panels/Gallery.vxml:224) stands outside any row.
 key-value-value search-box	api	`KeyValueRow.Content<T>()` (KeyValueList.cs:82) or a markup child (KeyValueList.cs:72); no row in the tree holds one.
 key-value-value secure-textbox	api	`KeyValueRow.Content<T>()` (KeyValueList.cs:82) or a markup child (KeyValueList.cs:72); no row in the tree holds one.
 key-value-value select	unreached	CompositorView.vxml:227, a choice field of the chosen node; an empty compositor document has none.

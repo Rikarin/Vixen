@@ -758,7 +758,7 @@ field-content { flex-direction: row; align-items: center; gap: 6px; }
 field-content textbox, field-content textarea, field-content numeric-input, field-content stepper,
 field-content secure-textbox, field-content search-box, field-content select, field-content multi-select,
 field-content combo-box, field-content slider, field-content progress-bar,
-field-content level-indicator {
+field-content level-indicator, field-content date-picker, field-content range-slider {
     flex-grow: 1;
     min-width: 0px;
 }
@@ -995,11 +995,14 @@ key-value-row.heading key-value-key, key-value-row.heading key-value-value { col
 /* Which editors fill the half they are dropped into, listed rather than
    `> *`: a checkbox, a switch and a badge are all the size they are, and
    stretching one across a settings panel is how a tick box ends up eight
-   inches from its label. Same list and same argument as `property-editor`. */
+   inches from its label. Same list and same argument as `field-content`;
+   `property-editor`'s is narrower, three fields, and is its own question.
+   ⚠ `date-picker` and `range-slider` were missing from both lists, so a Due
+   field sat at 98 px between 575 px text fields (#1438). */
 key-value-value textbox, key-value-value textarea, key-value-value numeric-input, key-value-value stepper,
 key-value-value secure-textbox, key-value-value search-box, key-value-value select, key-value-value multi-select,
 key-value-value combo-box, key-value-value slider, key-value-value progress-bar,
-key-value-value level-indicator {
+key-value-value level-indicator, key-value-value date-picker, key-value-value range-slider {
     flex-grow: 1;
     min-width: 0px;
 }
