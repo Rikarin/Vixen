@@ -3,6 +3,7 @@
 
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
+using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
@@ -246,7 +247,17 @@ sealed class ScenePresenter : IDisposable {
     ///     application's — it owns the asset database and the read-back cache. What a presenter can
     ///     do is draw what it is handed.
     /// </remarks>
-    public ITerrainScene? TerrainScene { get; set; }
+    /// <remarks>
+    ///     ⚠ <b>Set by hand, or the last one contributed to <see cref="Extensions" /> — asked every
+    ///     time, never copied.</b> The host used to copy the contribution onto the pane when it made
+    ///     the pane, so a pane went on drawing an unloaded module's terrain and holding the module.
+    /// </remarks>
+    public ITerrainScene? TerrainScene {
+        get => terrainScene ?? Latest<ITerrainScene>();
+        set => terrainScene = value;
+    }
+
+    ITerrainScene? terrainScene;
 
     /// <summary>Where the painted foliage comes from, or null while nothing supplies it.</summary>
     /// <remarks>
@@ -254,7 +265,16 @@ sealed class ScenePresenter : IDisposable {
     ///     contributes an implementation and the host hands it over. Null is a viewport with no
     ///     vegetation in it and nothing else different.
     /// </remarks>
-    public IVegetationScene? VegetationScene { get; set; }
+    /// <remarks><see cref="TerrainScene" />'s arrangement: set by hand, or the registry's last.</remarks>
+    public IVegetationScene? VegetationScene {
+        get => vegetationScene ?? Latest<IVegetationScene>();
+        set => vegetationScene = value;
+    }
+
+    IVegetationScene? vegetationScene;
+
+    /// <summary>The last contribution of a kind, which is the ordinary override rule.</summary>
+    T? Latest<T>() where T : class => Extensions?.All<T>() is [.., var last] ? last : null;
 
     /// <summary>The grass modules, or default while <c>CheckShaders</c> has not produced them.</summary>
     /// <remarks><see cref="TerrainStages" />'s rule: absent draws no grass and breaks nothing.</remarks>
@@ -279,6 +299,16 @@ sealed class ScenePresenter : IDisposable {
 
     /// <summary>The water half, for the panel that shows the fold's counts and the tests that assert them.</summary>
     internal WaterPresenter Water => water;
+
+    /// <summary>The editor's contributions, which is where per-session state a module owns is found.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The registry rather than another named property</b>, so a module can hand the pane
+    ///     something without the host learning its name — the water module's debug switches first.
+    /// </remarks>
+    public IEditorRegistry? Extensions {
+        get => water.Extensions;
+        set => water.Extensions = value;
+    }
 
     /// <summary>How many terrains the last <see cref="Upload" /> chose to draw.</summary>
     public int TerrainsDrawn => terrainDraws.Count;

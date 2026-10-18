@@ -6,6 +6,7 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
+using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
@@ -107,9 +108,15 @@ public sealed partial class TerrainModule {
     /// <summary>And the growth report's.</summary>
     FactBlock? growthReport;
 
-    /// <summary>The four panels doc 31's Part 2 describes.</summary>
-    void TerrainPanels() {
-        Shell.RegisterPanel(
+    /// <summary>The five panels doc 31's Part 2 describes, through the context so an unload takes them out.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>context.AddPanel</c>, and until #1287 it was <c>Shell.RegisterPanel</c> five times</b>
+    ///     with no removal anywhere (#740): an unloaded Terrain left five panels and five View-menu
+    ///     commands, each a build lambda over the module — and this is the module every other one was
+    ///     written from, so the shape had been copied.
+    /// </remarks>
+    void TerrainPanels(PluginContext context) {
+        context.AddPanel(
             TerrainPanel,
             TerrainStrings.PanelTerrain,
             panel => {
@@ -185,7 +192,7 @@ public sealed partial class TerrainModule {
             }
         );
 
-        Shell.RegisterPanel(
+        context.AddPanel(
             FoliagePanel,
             TerrainStrings.PanelFoliage,
             panel => {
@@ -225,7 +232,7 @@ public sealed partial class TerrainModule {
             }
         );
 
-        Shell.RegisterPanel(
+        context.AddPanel(
             GrassPanel,
             TerrainStrings.PanelGrass,
             panel => {
@@ -249,7 +256,7 @@ public sealed partial class TerrainModule {
             }
         );
 
-        Shell.RegisterPanel(
+        context.AddPanel(
             GrowthPanel,
             TerrainStrings.PanelGrowth,
             panel => {
@@ -273,7 +280,7 @@ public sealed partial class TerrainModule {
             }
         );
 
-        Shell.RegisterPanel(
+        context.AddPanel(
             SplinePanel,
             TerrainStrings.PanelSplines,
             panel => {
@@ -450,30 +457,45 @@ public sealed partial class TerrainModule {
     ///     needs from the application is where to push an undo record, and that is a property of the
     ///     Scene rather than of the tool.
     /// </remarks>
-    void RegisterTerrainModes() {
+    void RegisterTerrainModes(PluginContext context) {
         terrain.Document = Scene;
         foliage.Document = Scene;
 
         // The layer stack is what the panel draws, so a verb that changed it has to redraw it.
         // Polling would be a rebuild of the list every frame for a change that happens twice a day.
-        terrain.Committed += _ => {
-            RefreshTerrainLayers();
-
-            // ⚠ Marked here rather than by comparing bytes on save. A heightfield has no cheap
-            // "is dirty" question — the composite is rebuilt from layers, so equality is a compare of
-            // the whole field — and a stroke is the only thing that changes one through the editor.
-            TerrainEdited();
-        };
-
+        terrain.Committed += TerrainCommitted;
         terrain.Created += Placed;
+        foliage.Committed += FoliageCommitted;
 
-        foliage.Committed += _ => {
-            RefreshPalette();
-            FoliageEditedHere();
-        };
+        // ⚠ Unsubscribed, because the modes are fields and a reload re-runs `Activate` on this same
+        // instance: three anonymous handlers that were never removed would have run twice per stroke
+        // after one Reload, three times after two.
+        context.OnUnload(
+            () => {
+                terrain.Committed -= TerrainCommitted;
+                terrain.Created -= Placed;
+                foliage.Committed -= FoliageCommitted;
+            }
+        );
 
-        Shell.Modes.Add(terrain);
-        Shell.Modes.Add(foliage);
+        // ⚠ Through the context, so an unload takes both off the bar with their commands. On
+        // `Shell.Modes.Add` the modes outlived the module and a reload threw "already registered".
+        context.AddMode(terrain);
+        context.AddMode(foliage);
+    }
+
+    void TerrainCommitted(IEditorCommand stroke) {
+        RefreshTerrainLayers();
+
+        // ⚠ Marked here rather than by comparing bytes on save. A heightfield has no cheap "is dirty"
+        // question — the composite is rebuilt from layers, so equality is a compare of the whole
+        // field — and a stroke is the only thing that changes one through the editor.
+        TerrainEdited();
+    }
+
+    void FoliageCommitted(IEditorCommand stroke) {
+        RefreshPalette();
+        FoliageEditedHere();
     }
 
     /// <summary>What the create form's numbers cost, derived and labelled as derived.</summary>

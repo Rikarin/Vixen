@@ -40,4 +40,4 @@
 2 docs/plan/47-prefab-overrides-and-nested-prefabs.md
 11 docs/plan/48-material-authoring.md
 106 docs/plan/49-responder-chain-and-appkit-parity.md
-68 docs/plan/50-the-editor-as-bounded-contexts.md
+64 docs/plan/50-the-editor-as-bounded-contexts.md

@@ -170,15 +170,17 @@ A module that publishes a long-lived seam and a per-session implementation of it
 public void Activate(PluginContext context) {
     var extensions = context.Services.Require<IEditorRegistry>();
 
-    context.Services.Add<ITerrainColliders>(colliders);
+    context.Owns(extensions.Add<ITerrainColliders>(colliders));
     context.Owns(extensions.Add<IPlaySystems>(new PlayTerrainColliders(colliders, extensions)));
 }
 ```
 
-⚠ **The published object has to outlive every session.** `TerrainModule` resolves `ITerrainColliders`
-in its per-frame follow and keeps the first answer, and `PluginServices` has no removal — so a
-per-session adapter published there would leave the sculpt tools holding a disposed Jolt world for
-every stroke after the first Stop. The service is a switch; what it points at is the session's.
+⚠ **The published object should outlive every session.** `TerrainModule` follows the contributed
+`ITerrainColliders` once a frame, so a per-session adapter would be rebound on every Play and Stop
+and a stroke between the two would reach whichever was current. The contribution is a switch; what it
+points at is the session's. ⚠ It is contributed through `Owns` rather than put in `PluginServices`,
+which this page used to show: that bag has no removal and throws on a duplicate, so the module could
+not be activated twice in one session and an unload left the sculpt tools pushing into it.
 
 ⚠ **What a contribution `Provide`s is also what a project's declared systems are resolved against.**
 `PlaySession` is an `IServiceProvider`, and `PlayModeController.Contribute` builds the project's

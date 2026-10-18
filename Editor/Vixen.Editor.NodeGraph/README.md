@@ -237,6 +237,16 @@ keeps them exclusive rather than every consumer remembering to. The cue is *thic
 already drawn in the active colour when either end's node is selected, which is very often the wire
 about to be clicked.
 
+**⚠ The node selection is the graph's, not the view's** — `NodeGraphModel.Selection`, a
+`Selection<NodeId>`, the same type `EditorProject.Selection` and `SceneDocument.Selection` are. It was a
+private `HashSet<NodeId>` on `NodeGraphView`, readable only through the view, not reactive, and a third
+selection vocabulary (#1305). A palette entry or a script that has the graph selects with
+`graph.Selection.Set(id)`, and the view follows on the next effect flush: it reselects the canvas and
+raises `SelectionChanged`, exactly as for a click. It asks whether the canvas already agrees rather than
+setting a "this is me writing" flag, because the effect runs long after the click that wrote it.
+`GraphSelectionTests` holds all three halves. Still owed from the same issue: the on-node port editors
+are built by hand rather than through `NodePortEditProvider`.
+
 **A note is edited by double-clicking it, and the blur is what commits.** `SetCommentCommand` does not
 merge — unlike `SetPortValueCommand`, which folds a scrub into one entry — so writing per keystroke
 would be a paragraph's worth of undo entries. A note has no OK button and its Enter key is a line

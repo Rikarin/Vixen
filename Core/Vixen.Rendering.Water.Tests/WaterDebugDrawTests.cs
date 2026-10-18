@@ -136,6 +136,40 @@ public sealed class WaterDebugDrawTests : IDisposable {
         Assert.True(wet > 0, "every flow arrow was drawn away from the surface");
     }
 
+    /// <summary>A draw handed a set of its own reads that set, whatever the process's says.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What lets two editors in one process stop sharing a checkbox</b> (#1286). The editor's
+    ///     water module owns a <see cref="WaterDebugFlags" /> per session and the viewport hands it
+    ///     here; a draw that still read the statics would draw one session's arrows in every pane.
+    /// </remarks>
+    [Fact]
+    public void A_draw_handed_its_own_flags_answers_to_those_and_not_the_process() {
+        var zones = Folded(velocity: 3f);
+        var session = new WaterDebugFlags();
+
+        // The process's set on and this draw's off: an editor session whose author never touched the
+        // verb, in a process where somebody else did.
+        WaterDebug.ShowFlow = true;
+
+        new WaterDebugDraw { Flags = session }.Draw(draw, zones);
+
+        Assert.Equal(0, draw.Count);
+
+        // And the other way round, which is the half that proves the draw reads its own set at all.
+        WaterDebug.Reset();
+        session.ShowFlow = true;
+
+        new WaterDebugDraw { Flags = session }.Draw(draw, zones);
+
+        Assert.True(draw.Count > 0, "a draw whose own flags say showFlow drew no lines");
+    }
+
+    /// <summary>A draw nobody handed flags to is a game's, and reads the process's set.</summary>
+    [Fact]
+    public void A_draw_with_no_flags_of_its_own_reads_the_process() {
+        Assert.Same(WaterDebug.Process, new WaterDebugDraw().Flags);
+    }
+
     /// <summary>A still body draws no flow arrows, which is the negative control for the above.</summary>
     /// <remarks>
     ///     A lake with a velocity is not a thing water does — <c>WaterBodySettings.Validate</c>

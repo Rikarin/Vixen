@@ -152,9 +152,13 @@ public sealed partial class TerrainModule {
     ///         from referencing <c>Editor/</c> and this toolset has no business linking Jolt.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Once, and then never again.</b> Re-reading every frame would overwrite a
-    ///         <c>Colliders</c> a host or a test set directly, which is the assignment
-    ///         <c>TerrainMode.Editing</c> being public exists to allow.
+    ///         ⚠ <b>Followed every frame, and only while it is still the one this bound.</b> It used
+    ///         to be read once out of <c>PluginServices</c> and never again — which held an unloaded
+    ///         collision module's object for the rest of the session, pushing every stroke into it and
+    ///         keeping it reachable (#1287). Now the published one is read out of the registry each
+    ///         frame, so an unload unbinds and a reload binds the new one; and a <c>Colliders</c> a
+    ///         host or a test set directly is still never overwritten, because this only replaces what
+    ///         it put there itself.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Which is exactly why the editor publishes a switch and not a session's
@@ -165,10 +169,21 @@ public sealed partial class TerrainModule {
     ///     </para>
     /// </remarks>
     void BindColliders() {
-        if (terrain.Editing.Colliders is null && services.TryGet<ITerrainColliders>(out var colliders)) {
-            terrain.Editing.Colliders = colliders;
+        var current = terrain.Editing.Colliders;
+
+        if (current is not null && !ReferenceEquals(current, boundColliders)) {
+            return;
         }
+
+        // The last contribution wins, which is `TerrainScene`'s own arrangement.
+        var published = Extensions.All<ITerrainColliders>() is [.., var last] ? last : null;
+
+        terrain.Editing.Colliders = published;
+        boundColliders = published;
     }
+
+    /// <summary>What <see cref="BindColliders" /> put on the tools, so it never replaces anything else.</summary>
+    ITerrainColliders? boundColliders;
 
     /// <summary>Which terrain the tools should be pointed at, and through which entity.</summary>
     (Entity Entity, string Reference) Bound() {

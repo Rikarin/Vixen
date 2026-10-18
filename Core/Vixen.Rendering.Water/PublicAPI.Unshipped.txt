@@ -840,3 +840,22 @@ static readonly Vixen.Shaders.Generated.WaterTilesKeys.TargetSize -> Vixen.Shade
 static readonly Vixen.Shaders.Generated.WaterTilesKeys.TileCount -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Int2>
 static readonly Vixen.Shaders.Generated.WaterTilesKeys.Tiles -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.WaterTilesKeys.WaterSurface -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static Vixen.Rendering.Water.WaterDebug.Process.get -> Vixen.Rendering.Water.WaterDebugFlags
+Vixen.Rendering.Water.WaterDebugDraw.Flags.get -> Vixen.Rendering.Water.WaterDebugFlags
+Vixen.Rendering.Water.WaterDebugDraw.Flags.set -> Vixen.Rendering.Water.WaterDebugFlags
+Vixen.Rendering.Water.WaterDebugFlags -> sealed class
+Vixen.Rendering.Water.WaterDebugFlags.Any.get -> bool
+Vixen.Rendering.Water.WaterDebugFlags.Reset() -> void
+Vixen.Rendering.Water.WaterDebugFlags.ShowBuoyancy.get -> bool
+Vixen.Rendering.Water.WaterDebugFlags.ShowBuoyancy.set -> bool
+Vixen.Rendering.Water.WaterDebugFlags.ShowFlow.get -> bool
+Vixen.Rendering.Water.WaterDebugFlags.ShowFlow.set -> bool
+Vixen.Rendering.Water.WaterDebugFlags.ShowInfo.get -> bool
+Vixen.Rendering.Water.WaterDebugFlags.ShowInfo.set -> bool
+Vixen.Rendering.Water.WaterDebugFlags.ShowLod.get -> bool
+Vixen.Rendering.Water.WaterDebugFlags.ShowLod.set -> bool
+Vixen.Rendering.Water.WaterDebugFlags.ShowRipples.get -> bool
+Vixen.Rendering.Water.WaterDebugFlags.ShowRipples.set -> bool
+Vixen.Rendering.Water.WaterDebugFlags.ShowTiles.get -> bool
+Vixen.Rendering.Water.WaterDebugFlags.ShowTiles.set -> bool
+Vixen.Rendering.Water.WaterDebugFlags.WaterDebugFlags() -> void

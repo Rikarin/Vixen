@@ -64,14 +64,15 @@ public class GraphDocumentTests {
     /// <summary>What it deliberately does not carry, and why.</summary>
     /// <remarks>
     ///     ⚠ <b>A reason each, because an exemption with no reason is how a roll call becomes a
-    ///     rubber stamp.</b> Both of these are what the callers of a document copy exist to rewrite:
+    ///     rubber stamp.</b> The first two are what the callers of a document copy exist to rewrite:
     ///     an inlining renumbers node identities as it copies and traces every edge through the
     ///     boundary nodes it is deleting, so a copy that brought them along would be the inlining
     ///     with an opinion about which half to keep.
     /// </remarks>
     static readonly Dictionary<string, string> Exempt = new(StringComparer.Ordinal) {
         ["Nodes"] = "the copy's whole purpose is to rewrite these — an inlining renumbers them",
-        ["Edges"] = "traced through the boundary nodes the inlining removes, not copied"
+        ["Edges"] = "traced through the boundary nodes the inlining removes, not copied",
+        ["Selection"] = "where an author is looking, not what the document holds — never saved or flattened (#1305)"
     };
 
     /// <summary>Every public table of the model is either carried by a copy or exempt with a reason.</summary>

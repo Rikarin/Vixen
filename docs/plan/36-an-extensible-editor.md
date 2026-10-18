@@ -105,7 +105,7 @@ path either. **There is no `[CustomEditor]` equivalent available to anyone outsi
 
 **F6 — Modes are added imperatively from application code.**
 `EditorParity.cs:1231` — `Shell.Modes.Add(new SelectMode())`.
-`Editor/Vixen.Editor.Terrain/TerrainModulePanels.cs:475` — `Shell.Modes.Add(terrain)`. (It was the app's `EditorTerrainPanels.cs:451` when this was surveyed; `81f9e68ec` moved it into the terrain module, and it is still an imperative add.)
+`Editor/Vixen.Editor.Terrain/TerrainModulePanels.cs:475@0d7dda4a9` — `Shell.Modes.Add(terrain)`. (It was the app's `EditorTerrainPanels.cs:451` when this was surveyed; `81f9e68ec` moved it into the terrain module, and since #1287 it is `context.AddMode(terrain)`, removed on unload.)
 The mode list is code in the app, not a registry the app reads.
 
 🟡 **F7 is answered and not closed.** [P4](#p4--vxml-becomes-the-authoring-path-) makes the path

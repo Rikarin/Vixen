@@ -128,11 +128,15 @@ public sealed partial class WaterModule : IEditorPlugin {
         // same door for the same reason — see `WaterModuleScene`.
         context.Owns(registry.Add(WaterScene));
 
-        WaterPanels();
-        WaterDebugCommands(context);
+        WaterPanels(context);
+        WaterDebugCommands(context, registry);
         WaterCarveCommands(context);
 
-        Shell.Modes.Add(water);
+        // ⚠ Through the context, so unloading takes the mode back off the bar and its commands out
+        // with it. `Shell.Modes.Add` here left the mode registered after an unload — so a reload threw
+        // "already registered" and failed the module, and the mode's `Drawn` handler kept the whole
+        // module reachable for the life of the shell (#740's audit, #1286).
+        context.AddMode(water);
     }
 
     /// <summary>Turns a drawn curve into a spline asset and an entity that names it.</summary>

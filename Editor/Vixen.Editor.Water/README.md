@@ -160,5 +160,25 @@ device selected and ripples a simulation only a game runs; a preview surface is 
 the three. They are registered anyway, so the set an author sees does not depend on which host they are
 in.
 
+⚠ **The switches are the module's, one set per editor, and they used to be the process's.** They were
+`WaterDebug`'s six statics, so two editors in one process — which the test harness opens routinely —
+shared every tick: Show Flow in one session drew arrows in the other's pane. The module now owns a
+`WaterDebugFlags`, contributes it to the registry (the presenter reads it from there, so the host never
+learns its name), and resets it on unload. `WaterDebug.Process` stays what a game's console flips.
+
+## Everything goes back out on unload
+
+Both panels, the mode, and the seven verbs the module adds itself register through `PluginContext` —
+`AddPanel`, `AddMode`, `AddCommand` — so an unload takes them out and a reload puts each back exactly
+once. Until #1286 the panels and the mode went through `Shell.*` directly, so an unload left them
+registered (a View-menu line that built a panel out of an unloaded module), a reload threw "already
+registered", and the mode's `Drawn` handler kept the module reachable for the life of the shell.
+`WaterModuleReachTests` asserts all three by effect, and its `WeakReference` probe is the one that can
+see a leak: `WaitForCollection` is unconditionally true for a built-in, which has no load context
+(#740).
+
+⚠ **No `[EditorMenu]` attributes yet**, and deliberately: an in-tree attribute does nothing until the
+generator (#1283) exists — `DeclaredContributions` scans only disk plugins and project scripts.
+
 [§ D6]: ../../docs/plan/35-water.md#d6-a-water-body-is-a-spline-and-a-profile-and-there-is-no-new-spline
 [§ Part 4]: ../../docs/plan/35-water.md#part-4--testing

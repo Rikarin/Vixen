@@ -25,10 +25,9 @@ namespace Vixen.Editor.Terrain.Physics;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Two contributions with two different lifetimes, and confusing them is the trap.</b>
-///         The <see cref="ITerrainColliders" /> published into <c>PluginServices</c> lives as long as
-///         the editor, because <c>TerrainModule.BindColliders</c> binds the first one it finds and
-///         never re-reads — so a per-session adapter would leave the sculpt tools holding a disposed
-///         Jolt world for every stroke after the first Stop. The <see cref="TerrainColliderSystem" />
+///         The <see cref="ITerrainColliders" /> contributed to the registry lives as long as this
+///         module, and <c>TerrainModule.BindColliders</c> follows it — so a per-session adapter would
+///         be rebound every Play and Stop for no reason. The <see cref="TerrainColliderSystem" />
 ///         behind it lives for one play session, because that is when there is a
 ///         <c>PhysicsScene</c> to build bodies in. The published object is a switch between the two.
 ///     </para>
@@ -69,18 +68,21 @@ public sealed class TerrainPhysicsModule : IEditorPlugin {
 
         var extensions = context.Services.Require<IEditorRegistry>();
 
-        // ⚠ Published once, under the interface. `TerrainModule` resolves it in its per-frame follow
-        // and keeps the first answer, so this has to be the object that outlives every session rather
-        // than the one that owns this session's bodies.
-        context.Services.Add<ITerrainColliders>(colliders);
+        // ⚠ A contribution the context owns, and it was `context.Services.Add` — into a bag with no
+        // removal that throws on a duplicate, so this module could not be activated twice in one
+        // session and an unload left the sculpt tools pushing into it (#1287). `TerrainModule` follows
+        // the registry once a frame, so an unload unbinds and the next activation binds the new one.
+        context.Owns(extensions.Add<ITerrainColliders>(colliders));
 
         context.Owns(extensions.Add<IPlaySystems>(new PlayTerrainColliders(colliders, extensions)));
     }
 
     /// <inheritdoc />
     public void Deactivate() {
-        // Nothing outside the registration scope: the session's own teardown drops the collider
-        // system, and `PluginServices` has no removal to call.
+        // ⚠ Detached, so a module unloaded mid-play does not leave this play session's collider system
+        // reachable through a switch nothing can reach any more. Everything else it registered was in
+        // the registration scope; `session.OnStop` detaching it too is harmless.
+        colliders.Detach();
     }
 }
 
@@ -106,7 +108,7 @@ sealed class PlayTerrainColliders(PlayColliders colliders, IEditorRegistry exten
             return;
         }
 
-        // ⚠ The last contribution wins, which is `EditorApplication.TerrainScene`'s own arrangement:
+        // ⚠ The last contribution wins, which is the viewport pane's own arrangement:
         // a second editor terrain source in one process is a test's, and a test's is the one that
         // should answer. No source at all is a session with no ground placed, which runs physics and
         // no collider system rather than throwing.
@@ -160,10 +162,10 @@ sealed class PlayTerrainColliders(PlayColliders colliders, IEditorRegistry exten
 /// <summary>The editor's <c>ITerrainColliders</c>: whatever is simulating, or nothing at all.</summary>
 /// <remarks>
 ///     ⚠ <b>A switch rather than an implementation, because the two ends have different
-///     lifetimes.</b> <c>TerrainModule.BindColliders</c> resolves the service once and keeps it; the
-///     <see cref="TerrainColliderSystem" /> behind it exists only while a play session does. Nothing
-///     else can be true at once: a service that changed identity per session would be one the toolset
-///     had already bound the previous value of.
+///     lifetimes.</b> <c>TerrainModule.BindColliders</c> follows the contribution, which lives as long
+///     as the module; the <see cref="TerrainColliderSystem" /> behind it exists only while a play
+///     session does. A contribution that changed identity per session would be rebound on every Play
+///     and Stop, and a stroke landing between the two would reach whichever was current.
 /// </remarks>
 sealed class PlayColliders : ITerrainColliders {
     TerrainColliders? current;
