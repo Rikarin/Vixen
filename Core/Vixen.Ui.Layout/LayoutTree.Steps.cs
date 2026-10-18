@@ -218,6 +218,7 @@ public sealed partial class LayoutTree {
         int index,
         float availableInnerWidth,
         float availableInnerHeight,
+        float itemMainOwnerSize,
         SizingMode widthSizingMode,
         SizingMode heightSizingMode,
         Direction direction,
@@ -278,7 +279,7 @@ public sealed partial class LayoutTree {
                     widthSizingMode,
                     availableInnerHeight,
                     HasCyclicPercentageMinWidth(index, child, mainAxis, widthSizingMode) ? float.NaN : availableInnerWidth,
-                    availableInnerHeight,
+                    ItemOwnerHeight(child, mainAxis, itemMainOwnerSize, availableInnerHeight),
                     heightSizingMode,
                     direction,
                     currentDepth
@@ -325,6 +326,25 @@ public sealed partial class LayoutTree {
         widthSizingMode != SizingMode.StretchFit
         && styles[index].FlexWrap == Wrap.NoWrap
         && styles[child].MinDimensions[(int) Dimension.Width].Unit == LayoutUnit.Percent;
+
+    /// <summary>
+    ///     The owner height a flex item is laid out with: the container's available inner height, except
+    ///     for a COLUMN item with a percentage <c>min-height</c> or <c>max-height</c>, which gets the basis
+    ///     the column clamps it against (<c>itemMainOwnerSize</c> in <c>LayoutTree.Layout</c>, #1475).
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The column's own clamp is not enough, because a leaf item clamps itself too, against the
+    ///     owner height it is handed — and in a content-sized column that is the OFFER, so a
+    ///     <c>min-height: 50%</c> item measured half the offer and the column grew to fit it. Only an
+    ///     item with such a percentage is handed the narrower basis, so a percentage <c>height</c> on any
+    ///     other item keeps Yoga's reading; that is a separate question this does not answer.
+    /// </remarks>
+    float ItemOwnerHeight(int child, FlexDirection mainAxis, float itemMainOwnerSize, float availableInnerHeight) =>
+        !FlexAxis.IsRow(mainAxis)
+        && (styles[child].MinDimensions[(int) Dimension.Height].Unit == LayoutUnit.Percent
+            || styles[child].MaxDimensions[(int) Dimension.Height].Unit == LayoutUnit.Percent)
+            ? itemMainOwnerSize
+            : availableInnerHeight;
 
     /// <summary>Whether any in-flow item of this container has <see cref="HasCyclicPercentageMinWidth" />.</summary>
     bool HasCyclicPercentageMinWidthItem(int index, FlexDirection mainAxis, SizingMode widthSizingMode) {
@@ -1369,7 +1389,7 @@ public sealed partial class LayoutTree {
                 childWidthSizingMode,
                 childHeightSizingMode,
                 HasCyclicPercentageMinWidth(index, child, mainAxis, widthSizingMode) ? float.NaN : availableInnerWidth,
-                availableInnerHeight,
+                ItemOwnerHeight(child, mainAxis, mainAxisOwnerSize, availableInnerHeight),
                 isLayoutPass,
                 currentDepth
             );
