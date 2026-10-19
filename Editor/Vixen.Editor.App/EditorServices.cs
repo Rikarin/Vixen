@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Concurrent;
+using Vixen.Editor.Core;
+using Vixen.Editor.Ui;
 using Vixen.Platform;
 
 namespace Vixen.Editor.App;
@@ -40,6 +42,24 @@ sealed record EditorServices(INativeDialogs? Dialogs, Func<string, bool>? OpenUr
     /// <summary>Whether there is a file picker to open.</summary>
     /// <remarks>What every dialog-backed command's enablement reads.</remarks>
     public bool CanPick => Dialogs is not null;
+}
+
+/// <summary>The editor's <see cref="IExternalLinks" />: the platform's URL opener, and the sentence when it fails.</summary>
+/// <remarks>
+///     <b>Moved, not rewritten</b> — this was <c>EditorParity.Browse</c>, which every Help line, Show in
+///     Explorer and a console line's reveal called. It is an object because <c>HelpModule</c> needed it
+///     through the front door (#1296), and the application's own callers go through the same one.
+/// </remarks>
+sealed class ExternalLinks(EditorServices services, NotificationCenter notifications) : IExternalLinks {
+    /// <inheritdoc />
+    public bool CanOpen => services.OpenUrl is not null;
+
+    /// <inheritdoc />
+    public void Open(string url) {
+        if (services.OpenUrl is not { } open || !open(url)) {
+            notifications.Show("Could not open the link", NotificationSeverity.Warning, url);
+        }
+    }
 }
 
 /// <summary>Work that finished somewhere else, waiting for the frame thread to apply it.</summary>

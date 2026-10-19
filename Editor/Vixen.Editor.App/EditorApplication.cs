@@ -17,7 +17,6 @@ using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.MeshMaps;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
-using Vixen.Editor.Debugger;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.Inspector.Drawers;
 using Vixen.Editor.Plugin;
@@ -236,6 +235,12 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>Doc 50 § P2d's Project service. See <see cref="ProjectSession" />.</summary>
     readonly ProjectSession session;
+
+    /// <summary>Doc 50 § P2f's Delivery service. See <see cref="PlayerDelivery" />.</summary>
+    readonly PlayerDelivery delivery;
+
+    /// <summary>The platform's link opener, as <c>HelpModule</c> is handed it. Set by <see cref="PluginPoints" />.</summary>
+    ExternalLinks links = null!;
 
     /// <summary>The import and build tasks, for the suite that has to substitute the publish.</summary>
     /// <remarks>
@@ -564,7 +569,6 @@ sealed partial class EditorApplication : IDisposable {
 
         // ⚠ The registered module, not one of our own. See EditorDiagnostics for what a second
         // instance costs.
-        diagnostics = FindDiagnostics(this.modules);
         assetEditors = FindModule<AssetEditorsModule>(this.modules);
 
         IsScratch = projectRoot is null;
@@ -665,13 +669,6 @@ sealed partial class EditorApplication : IDisposable {
         // rather than run. Honest, and not whole: a designer was told about something the editor
         // should be able to do. Read at every Play, so a scene opened after this line still plays.
         play.Controller.Stores = () => openScenes.Select(open => open.Document.Behaviors);
-
-        // ⚠ And the statistics panel is told how to count behaviours, which is a question no world
-        // walk can answer: a `BehaviorStore` is not in the world. #1216 — `BehaviorStore.Population`
-        // had one reader, `vixen doctor behaviors`, and what that counts is what a scene *authors*,
-        // which is zero in every committed scene here. Which store is live is this class's answer
-        // and nothing below it can have one.
-        diagnostics.SceneFacts = BehaviorFacts;
 
         // ⚠ The editor's own contribution to the frame a session runs, and the one service this
         // application can honestly own. Doc 31 § D10 said an embedding host would have to add the
@@ -864,7 +861,7 @@ sealed partial class EditorApplication : IDisposable {
             // scene that arrived in an import belongs in the list of what can be put in a build.
             Rescan = () => {
                 browser?.Rescan();
-                RefreshBuildPanel();
+                delivery?.Restate();
 
                 // ⚠ And the viewport's own content, which is the frame-thread half of what
                 // `Cataloged` began on the pool. A mount hands the renderer a whole new material and
@@ -882,9 +879,8 @@ sealed partial class EditorApplication : IDisposable {
             Cataloged = () => projectContent.Rebuild()
         };
 
-        // And its two buttons are greyed while anything is running, which is a fact about the task
-        // rather than about anything the panel did.
-        content.BusyChanged += RefreshBuildPanel;
+        // Doc 50 § P2f: built before `PluginPoints` publishes it; it follows `BusyChanged` itself.
+        delivery = new PlayerDelivery(project, content, Shell.Notifications, log, Extensions);
 
         // ⚠ And the toolbar, which is the other half of doc 45 step 4. `assets.build`'s enablement
         // reads `content.IsBusy` — a counter a worker thread moves, with no notification of its own —
@@ -964,7 +960,6 @@ sealed partial class EditorApplication : IDisposable {
         Panels();
 
         SettingsPanels();
-        BuildPanels();
         RevisionsPanel();
 
         // And doc 48 § D12's, which is where a mesh-map bake is set up and where what it produced is
@@ -1014,7 +1009,6 @@ sealed partial class EditorApplication : IDisposable {
         // exactly the one whose Activate must not run, whichever door it comes through.
         LoadDisabledPlugins();
 
-        Layouts();
         Commands();
 
         // ⚠ After every command is registered, because the entries name command ids and one that
@@ -1114,7 +1108,7 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>The registered asset-editors module, or null when this editor was built without it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The registered one, for <see cref="diagnostics" />' reason.</b> A second instance
+    ///     ⚠ <b>The registered one, for <see cref="FindModule{T}" />'s reason.</b> A second instance
     ///     compiles, activates nothing, and hands every freshly-opened AI editor a debug model no
     ///     panel is showing — which looks exactly like the wiring working.
     /// </remarks>
@@ -1737,7 +1731,7 @@ sealed partial class EditorApplication : IDisposable {
                 section.Rebuild();
             }
 
-            RefreshBuildPanel();
+            delivery.Restate();
         }
     }
 
@@ -2038,7 +2032,7 @@ sealed partial class EditorApplication : IDisposable {
         // right on average and wrong exactly when it mattered.
         Sweep();
 
-        RefreshBuildPanel();
+        delivery.Restate();
 
         // ⚠ And the pictures, which nothing invalidated at all until #1187: an entry left the cache
         // on capacity and on nothing else, so a texture repainted in another program kept the
@@ -3009,8 +3003,8 @@ sealed partial class EditorApplication : IDisposable {
     ///         been made — saying so here rather than leaving the reader to notice the asymmetry.
     ///     </para>
     /// </remarks>
-    PluginServices PluginPoints() =>
-        new PluginServices()
+    PluginServices PluginPoints() {
+        var published = new PluginServices()
             .Add(project)
             .Add(scene)
 
@@ -3089,8 +3083,14 @@ sealed partial class EditorApplication : IDisposable {
             // only answer for the origin, which is a place nobody is standing.
             .Add<IActiveView>(new ShownView(this))
 
-            // And what Deploy means, for the half of the editor that can build a player.
-            .Add<IDeviceDeploy>(new PlayerDeploy(this))
+            // And building a player (#1295): what `DeliveryModule` and Deploy are names for.
+            .Add<IPlayerDelivery>(delivery)
+
+            // And the log ring and the data directory, the two facts that kept the diagnostics report
+            // on this class (#1298).
+            .Add(log.Sink)
+            .Add(new EditorDataDirectory(dataDirectory))
+            .Add<IExternalLinks>(links = new ExternalLinks(services, Shell.Notifications))
 
             // ⚠ And the graphics, which until now were the one thing a plugin could not get at all —
             // doc 36 § F2's gap, found by the first plugin that draws, and #737.
@@ -3111,6 +3111,14 @@ sealed partial class EditorApplication : IDisposable {
             // declarative path was reloadable in principle and not in this application, which is F7
             // with an extra step.
             .Add(hotReload);
+
+        // And the OS's pickers where there are any — a module that writes a file asks for them (#1298).
+        if (services.Dialogs is { } pickers) {
+            published.Add(pickers);
+        }
+
+        return published;
+    }
 
     /// <summary>Finds and starts the plugins, and says what it found.</summary>
     /// <param name="directory">The user's data directory, which holds the second plugin folder.</param>
@@ -3575,83 +3583,6 @@ sealed partial class EditorApplication : IDisposable {
         }
     }
 
-    void Layouts() {
-        // The five doc 11 names. They differ in which panels they show and how the middle is split,
-        // which is the whole of what a layout preset is — the shapes come from `LayoutPresets` and
-        // the panel lists are this application's.
-        // ⚠ Project is a tab *behind* the console rather than under the hierarchy, and the two halves
-        // of that are one decision. A content browser is read in tiles — a grid of thumbnails wants
-        // width, and a quarter-width left column gives it two tiles a row — while the hierarchy is a
-        // list of names and wants height. Stacking them in the left column made each of them the
-        // other's problem. The console keeps the front tab because it is the one that has something
-        // to say without being asked.
-        Shell.RegisterLayout(
-            "Default",
-            EditorStrings.LayoutDefault,
-            () => LayoutPresets.Standard(
-                ["hierarchy"],
-                ["scene"],
-                // ⚠ Build Settings beside the inspector rather than in the middle. It is a form that
-                // is read down, which is the shape the right-hand column already has — and it is
-                // opened *against* a scene rather than instead of one, so a preset that gave it the
-                // centre would put the viewport behind a tab.
-                ["inspector", BuildPanel],
-                ["console", "project"]
-            )
-        );
-
-        Shell.RegisterLayout(
-            "Scene",
-            EditorStrings.LayoutScene,
-            () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"])
-        );
-
-        Shell.RegisterLayout(
-            "Shading",
-            EditorStrings.LayoutShading,
-            () => LayoutPresets.Standard(["project"], ["scene"], ["inspector"], ["console"])
-        );
-
-        Shell.RegisterLayout(
-            "Animation",
-            EditorStrings.LayoutAnimation,
-            () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"], ["console"])
-        );
-
-        Shell.RegisterLayout(
-            "Debug",
-            EditorStrings.LayoutDebug,
-            () => LayoutPresets.Split(["scene"], ["console"], 0.6f)
-        );
-
-        // ⚠ Doc 20's A6 owes two more presets, "once Parts B4 and B5 exist". B4 exists now, so this
-        // one does. The shape is deliberate and is not the Default's: profiling is a reading rather
-        // than an edit, so the viewport is the *narrow* column and the numbers get the width — a
-        // flame chart squeezed into a right-hand inspector slot is one where every bar is a pixel.
-        Shell.RegisterLayout(
-            "Profiling",
-            EditorStrings.LayoutProfiling,
-            () => LayoutPresets.Standard(
-                ["scene"],
-                ["profiler", "gpu", "frame-debugger"],
-                ["statistics", "memory"],
-                ["console"]
-            )
-        );
-
-        // ⚠ And the second of the two A6 owes, now that B5 exists. Its shape is the Profiling
-        // preset's argument turned round: a cinematic is authored *against* the viewport, so the
-        // scene keeps the width and the tracks get a wide, short strip under it — a timeline in a
-        // right-hand slot is one where a two-second shot is forty pixels.
-        Shell.RegisterLayout(
-            "Sequencing",
-            EditorStrings.LayoutSequencing,
-            () => LayoutPresets.Standard(["hierarchy", "scenes"], ["scene"], ["inspector"], ["console"])
-        );
-
-        Shell.Workspace.DefaultPreset = "Default";
-    }
-
     void Commands() {
         Shell.Commands.Add(
             // Through the same request the window's close button goes through, so the menu, the
@@ -3737,12 +3668,6 @@ sealed partial class EditorApplication : IDisposable {
 
         Shell.Keys.SetDefault("assets.build", new KeyChord(InputKey.B, ModifierKeys.Control | ModifierKeys.Shift));
 
-        Shell.Commands.Add(
-            new EditorCommand("help.about", EditorStrings.CommandAbout, About) {
-                Category = EditorStrings.CategoryHelp
-            }
-        );
-
         // The plugin-development loop, reachable from the palette. Enabled only when there is
         // something to reload, so an editor with no plugins does not offer it.
         Shell.Commands.Add(
@@ -3765,15 +3690,9 @@ sealed partial class EditorApplication : IDisposable {
         // of these to exist.
         ParityCommands();
 
-        // ⚠ A separate method rather than seven more lines inside `ParityCommands`, because these
-        // are the ids that were declared-and-disabled there until E4 built the panels behind them.
-        // Keeping them together is what makes "which verbs does the diagnostics milestone own"
-        // answerable by reading one method.
-
-        // ⚠ And E5's, for the same reason and on the same terms: these are the ids that were
-        // declared-and-disabled until this milestone built the panels behind them.
+        // ⚠ E5's: the ids that were declared-and-disabled until this milestone built the panels
+        // behind them. E4's are the diagnostics module's, report included (#1298).
         WorldCommands();
-        DiagnosticsCommands();
 
         Shell.Keys.SetDefault("file.exit", new KeyChord(InputKey.Q, ModifierKeys.Control));
 
@@ -5726,11 +5645,4 @@ sealed partial class EditorApplication : IDisposable {
         store.SaveLayout(name, Shell.Workspace.Save());
         Shell.Notifications.Success(name);
     }
-
-    void About() =>
-        Shell.Notifications.Show(
-            "Vixen Editor",
-            NotificationSeverity.Info,
-            typeof(EditorApplication).Assembly.GetName().Version?.ToString() ?? "development build"
-        );
 }

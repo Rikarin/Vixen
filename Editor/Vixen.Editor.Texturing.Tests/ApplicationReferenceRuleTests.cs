@@ -53,7 +53,7 @@ public class ApplicationReferenceRuleTests {
     ///     produces "no violations" and means nothing, so each is refused by name.
     /// </remarks>
     [Fact]
-    public void The_editor_application_references_no_feature_assembly_beyond_the_five_still_owed() {
+    public void The_editor_application_references_no_feature_assembly_beyond_those_still_owed() {
         var root = Repository();
         var projects = Projects();
 
@@ -79,9 +79,10 @@ public class ApplicationReferenceRuleTests {
         Assert.Contains("Vixen.Editor.Ui", referenced);
 
         // And the other half of the instrument: a feature reference is something this walk can find.
-        // The profiler is one, it is still there, and a rule that could not see it would be clean for
-        // the wrong reason.
-        Assert.Contains("Vixen.Editor.Profiler", referenced);
+        // The node graph is one, it is still there, and a rule that could not see it would be clean for
+        // the wrong reason. ⚠ This named the profiler until #1298 took it off; the day the node graph
+        // goes too (#1299) this half needs a feature reference made for it, not a deleted line.
+        Assert.Contains("Vixen.Editor.NodeGraph", referenced);
 
         // ⚠ The generator is not in the list, and that is the one exclusion the rule makes.
         // `Vixen.Editor.Inspector.Generator` is an `OutputItemType="Analyzer"` reference under

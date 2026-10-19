@@ -47,6 +47,9 @@ sealed class PluginGraphics : IEditorGraphics {
     public IGraphicsDevice? Device => application.GraphicsDevice;
 
     /// <inheritdoc />
+    public GpuFrame Frame => application.GpuFrame;
+
+    /// <inheritdoc />
     public IEditorImage? Upload(int width, int height, ReadOnlySpan<byte> rgba) {
         if (application.ThumbnailSurface is not { } surface) {
             return null;

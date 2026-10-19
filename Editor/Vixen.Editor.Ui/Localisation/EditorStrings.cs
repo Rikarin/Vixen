@@ -846,10 +846,6 @@ public static class EditorStrings {
     /// <summary>The <c>Orbit Down</c> command.</summary>
     public static StringId CommandSceneOrbitDown { get; } = new("editor.command.scene.orbit-down", "Orbit Down");
 
-    /// <summary>The <c>Generate Diagnostics Report…</c> command.</summary>
-    public static StringId CommandToolsDiagnosticsReport { get; } =
-        new("editor.command.tools.diagnostics-report", "Generate Diagnostics Report…");
-
     /// <summary>The <c>Export String Template…</c> command.</summary>
     public static StringId CommandToolsExportStrings { get; } =
         new("editor.command.tools.export-strings", "Export String Template…");
@@ -879,9 +875,6 @@ public static class EditorStrings {
 
     /// <summary>The <c>Default</c> workspace layout.</summary>
     public static StringId LayoutDefault { get; } = new("editor.layout.default", "Default");
-
-    /// <summary>The <c>Profiling</c> workspace layout.</summary>
-    public static StringId LayoutProfiling { get; } = new("editor.layout.profiling", "Profiling");
 
     /// <summary>The <c>Scene</c> workspace layout.</summary>
     public static StringId LayoutScene { get; } = new("editor.layout.scene", "Scene");
@@ -1487,7 +1480,6 @@ public static class EditorStrings {
         CommandSceneOrbitRight,
         CommandSceneOrbitUp,
         CommandSceneOrbitDown,
-        CommandToolsDiagnosticsReport,
         CommandToolsExportStrings,
         CommandToolsPlugins,
         CommandToolsReloadShaders,
@@ -1497,7 +1489,6 @@ public static class EditorStrings {
         LayoutAnimation,
         LayoutDebug,
         LayoutDefault,
-        LayoutProfiling,
         LayoutScene,
         LayoutSequencing,
         LayoutShading,

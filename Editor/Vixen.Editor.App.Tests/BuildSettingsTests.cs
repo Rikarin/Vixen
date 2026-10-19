@@ -86,13 +86,13 @@ public class BuildSettingsTests {
 
         session.Run("build.target-macos");
 
-        var ticked = EditorApplication.BuildIds.Targets
+        var ticked = DeliveryModule.BuildIds.Targets
             .Where(id => session.Shell.Commands[id]!.IsChecked)
             .ToList();
 
         Assert.Equal(["build.target-macos"], ticked);
 
-        foreach (var id in EditorApplication.BuildIds.Targets) {
+        foreach (var id in DeliveryModule.BuildIds.Targets) {
             Assert.Equal("build.target", session.Shell.Commands[id]!.RadioGroup);
         }
     }
@@ -102,13 +102,13 @@ public class BuildSettingsTests {
     public void The_configuration_menu_is_the_four_variants() {
         using var session = EditorSession.Start();
 
-        Assert.Equal(4, EditorApplication.BuildIds.Variants.Length);
+        Assert.Equal(4, DeliveryModule.BuildIds.Variants.Length);
 
         session.Run("build.configuration-release");
 
         Assert.Equal("Release", session.Project.Settings.Get<PlayerBuildSettings>().Variant);
 
-        var ticked = EditorApplication.BuildIds.Variants
+        var ticked = DeliveryModule.BuildIds.Variants
             .Where(id => session.Shell.Commands[id]!.IsChecked)
             .ToList();
 

@@ -48,6 +48,9 @@ static class EditorModules {
         // ⚠ Before every feature module, because it is the editor's own Create ▸ kinds (#1292) and
         // Create ▸ keeps registration order among equal `Order`s: a feature's kind follows them.
         (LibraryModule.ModuleId, LibraryModule.ModuleName, new LibraryModule()),
+        (DeliveryModule.ModuleId, DeliveryModule.ModuleName, new DeliveryModule()),
+        (HelpModule.ModuleId, HelpModule.ModuleName, new HelpModule()),
+        (WorkspaceModule.ModuleId, WorkspaceModule.ModuleName, new WorkspaceModule()),
         (BlockoutModule.ModuleId, BlockoutModule.ModuleName, new BlockoutModule()),
         (TerrainModule.ModuleId, TerrainModule.ModuleName, new TerrainModule()),
         (TerrainPhysicsModule.ModuleId, TerrainPhysicsModule.ModuleName, new TerrainPhysicsModule()),

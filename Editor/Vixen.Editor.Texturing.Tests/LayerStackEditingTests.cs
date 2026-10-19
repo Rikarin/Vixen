@@ -2438,6 +2438,130 @@ public class LayerStackEditingTests {
         );
     }
 
+    /// <summary>⚠ A set chosen on the document moves the panel and the module's preview, not only the stroke.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>#1306: the chosen set is the document's, and nothing else holds a copy.</b> The panel
+    ///         kept its own <c>SetName</c>, adopted from <c>PaintSet</c> only when the document changed,
+    ///         and the module compiled its preview from the <em>view's</em> copy — so a write to
+    ///         <c>PaintSet</c> that did not come through this panel's picker (a double-click tab of the
+    ///         same file, a plugin) moved the stroke and left the rows, the picker and the picture on
+    ///         the old set.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The second set does not compile, and that is the instrument for the preview.</b>
+    ///         With graphics and no device the first set's status is the "no device" sentence and the
+    ///         second's is the compiler's refusal of an id two layers share, so the status line under
+    ///         the picture says which set the module compiled without anything reading the view.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_set_chosen_on_the_document_moves_the_panel_and_the_preview() {
+        using var fixture = new TexturingFixture(graphics: true);
+
+        var stack = TwoSets();
+
+        stack.Sets[1].Layers.Add(Fill("head", "Head twin", 0.5f));
+
+        var document = Open(fixture, stack);
+        var panel = Panel(fixture);
+        var before = Texts(panel, "layer-stack-status");
+
+        Assert.Equal("Body", Find<Select>(panel, "layer-stack-set").Value);
+
+        // The write a second view or a plugin makes: the document's, and nothing of the panel's.
+        document.PaintSet = "Head";
+        panel.Document.Effects.Flush();
+
+        Assert.Equal("Head", Find<Select>(panel, "layer-stack-set").Value);
+        Assert.Contains(Texts(panel, "layer-stack-row-name"), row => row.Contains("Head twin", StringComparison.Ordinal));
+        Assert.NotEqual(before, Texts(panel, "layer-stack-status"));
+    }
+
+    /// <summary>⚠ A layer selected on the document is the panel's selection and the brush's aim.</summary>
+    /// <remarks>
+    ///     <b>#1306: the selected layer is the document's <c>LayerSelection</c>.</b> It was the view's
+    ///     own field, so nothing without the view could say which layer the brush should paint — and
+    ///     the brush is the module's, so the assertion that it moved is read off the module's own
+    ///     <c>TogglePaint</c> sentence through <see cref="ITexturing" />, not off the view.
+    /// </remarks>
+    [Fact]
+    public void A_layer_selected_on_the_document_is_the_panels_and_aims_the_brush() {
+        using var fixture = new TexturingFixture();
+
+        var document = Open(
+            fixture,
+            Stack(
+                [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
+                new LayerAsset { Id = "lower", Name = "Lower", Kind = LayerKind.Paint },
+                new LayerAsset { Id = "upper", Name = "Upper", Kind = LayerKind.Paint }
+            )
+        );
+
+        var panel = Panel(fixture);
+
+        document.LayerSelection.Set(new LayerPath("S", "lower"));
+        panel.Document.Effects.Flush();
+
+        Assert.Contains(Texts(panel, "layer-stack-row-name"), row => row.StartsWith("● Lower", StringComparison.Ordinal));
+        Assert.DoesNotContain(Texts(panel, "layer-stack-row-name"), row => row.StartsWith("● Upper", StringComparison.Ordinal));
+
+        fixture.Services.Require<ITexturing>().TogglePaint();
+
+        Assert.Contains("the layer 'lower'", fixture.Shell.Notifications.History[^1].Detail, StringComparison.Ordinal);
+    }
+
+    /// <summary>⚠ A row click is answered once, though the follow wakes on the write it makes.</summary>
+    /// <remarks>
+    ///     The click writes the document's selection, and the view's own follow is an effect that
+    ///     depends on it — so the effect runs at the next flush, long after the click, and would raise
+    ///     <c>SelectionChanged</c> a second time (re-aiming the paint pane twice) unless the click
+    ///     recorded what it drew. #1305 found the same shape in <c>NodeGraphView</c>.
+    /// </remarks>
+    [Fact]
+    public void A_row_click_raises_the_selection_change_once() {
+        using var fixture = new TexturingFixture();
+        using UiDocument ui = new(1280f, 800f);
+
+        var document = Open(fixture, TwoPaintLayers());
+        LayerStackView view = new(ui.Root, new PaintTool());
+        var raised = 0;
+
+        view.Show(document);
+        view.SelectionChanged = () => raised++;
+
+        Buttons(view.Root, "layer-stack-select")[1].Activate();
+        ui.Effects.Flush();
+
+        Assert.Equal(1, raised);
+    }
+
+    /// <summary>⚠ A second view of the same stack, with no brush, does not take the selection away.</summary>
+    /// <remarks>
+    ///     The selection is the document's since #1306, and a double-click tab is a
+    ///     <see cref="LayerStackView" /> with no brush. Its build used to clear its own copy, which
+    ///     was harmless; clearing the document's would drop the panel's chosen layer — and, through the
+    ///     panel's follow, the brush's aim — whenever the tab was opened.
+    /// </remarks>
+    [Fact]
+    public void A_second_view_without_a_brush_keeps_the_documents_selection() {
+        using var fixture = new TexturingFixture();
+        using UiDocument ui = new(1280f, 800f);
+
+        var document = Open(fixture, TwoPaintLayers());
+
+        Buttons(Panel(fixture), "layer-stack-select")[1].Activate();
+
+        Assert.Equal("lower", document.LayerSelection.Primary.Id);
+
+        LayerStackView tab = new(ui.Root);
+
+        tab.Show(document);
+
+        Assert.False(document.LayerSelection.IsEmpty);
+        Assert.Equal("lower", document.LayerSelection.Primary.Id);
+    }
+
     /// <summary>⚠ Two sets that differ in every single thing the panel reads off one.</summary>
     /// <remarks>
     ///     ⚠ <b>A different channel list, a different layer id and a different <c>Mesh</c>.</b> Two

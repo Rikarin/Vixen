@@ -838,6 +838,7 @@ Vixen.Ui.Controls.Advanced.NodeCanvas.Pan.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Controls.Advanced.NodeCanvas.Pan.set -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Controls.Advanced.NodeCanvas.PendingPoint.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Controls.Advanced.NodeCanvas.PendingPort.get -> Vixen.Ui.Controls.Advanced.GraphPort?
+Vixen.Ui.Controls.Advanced.NodeCanvas.PortCommitted -> System.Action<Vixen.Ui.Controls.Advanced.NodeCanvas, Vixen.Ui.Controls.Advanced.GraphPort>?
 Vixen.Ui.Controls.Advanced.NodeCanvas.PortEdited -> System.Action<Vixen.Ui.Controls.Advanced.NodeCanvas, Vixen.Ui.Controls.Advanced.GraphPort>?
 Vixen.Ui.Controls.Advanced.NodeCanvas.PortPitch.get -> float
 Vixen.Ui.Controls.Advanced.NodeCanvas.RectOf(Vixen.Ui.Controls.Advanced.GraphGroup group) -> Vixen.Core.Mathematics.Rectangle

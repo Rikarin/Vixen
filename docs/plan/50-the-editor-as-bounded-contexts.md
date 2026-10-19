@@ -231,7 +231,7 @@ module (the front-door audit, 2026-09-17):
 `PluginContext.AddPanel` and `AddMode` exist precisely to record the removal
 (`PluginContext.cs:35-51`); three of the seven modules do not use them. And the application holds
 **typed fields to two modules** — `FindModule<DiagnosticsModule>` and `FindModule<AssetEditorsModule>`
-(`EditorDiagnostics.cs:67-94`, `EditorApplication.cs:567,568`) — forwarding the device, the GPU
+(`EditorDiagnostics.cs:67-94@28c44db26`, `EditorApplication.cs:568@28c44db26`, `:569@28c44db26`) — forwarding the device, the GPU
 frame, the capture source, the profiler model and the deploy status into one and `Follow(view)` into
 the other. A module the host has a field for is not a module.
 
@@ -336,13 +336,13 @@ architecture rules enforce.
 | Tier | Context | Aggregate root(s) | Owns today (measured) | Lives in |
 |---|---|---|---|---|
 | **Domain** | **Project** | `EditorProject` | paths, recents, scaffold, disk watch, project assemblies, external-edit announcement — `EditorProjects.cs`, `Watch`/`FollowDisk`/`BuildProjectCode` (`EditorApplication.cs:1691-2112`), `ProjectAssemblies.cs`, `ProjectHistory.cs` | `Vixen.Editor.Core` (already) |
-| | **Scene Authoring** | `SceneDocument`, `Selection<Entity>` | hierarchy, entity verbs (create, group, parent, duplicate, align, snap, LOD), marks, bounds — `EditorParity.cs:684-855, 2446-2913@0d7dda4a9`, `EditorSelectionVerbs.cs`, `EditorApplication.cs:4542-5737` | `Vixen.Editor.SceneView` + a service |
+| | **Scene Authoring** | `SceneDocument`, `Selection<Entity>` | hierarchy, entity verbs (create, group, parent, duplicate, align, snap, LOD), marks, bounds — `EditorParity.cs:684-855, 2446-2913@0d7dda4a9`, `EditorSelectionVerbs.cs`, `EditorApplication.cs:4542-5737@28c44db26` | `Vixen.Editor.SceneView` + a service |
 | | **Content Library** | `AssetDatabase` | browser model, collections, saved filters, thumbnails, import and content build, drag-and-drop, package export — `EditorParity.cs:411-684, 1545-2038`, `EditorApplication.cs:3520-3645, 4868-5052`, `ContentTasks.cs`, `AssetCollections.cs`, `ThumbnailCache.cs` | `Vixen.Editor.Assets` + a service |
 | | **Documents** | `EditorDocument`, `CommandStack` | open, reopen, join to a panel, `AssetEditorRegistry`, `Saved`, `Opened` — `EditorApplication.cs:2696-3060` | `Vixen.Editor.Core` (already) |
 | | **Editing** (shared kernel) | `EditTarget`, `EditProperty`, `IEditProvider` | the one edit path, doc 36 § D1 | `Vixen.Editor.Core` (already) |
 | | **Session** | `PlayModeController` | enter/stop play, snapshot/restore, `PlayPhysics`, play diagnostics — `EditorParity.cs:855-954, 2913-3032@0d7dda4a9`, `PlayPhysics.cs` | `Vixen.Editor.Core` |
 | | **Delivery** | `BuildPlan` | build settings, Build and Run, deploy, `BuildStep` contributions — `EditorBuilds.cs`, `EditorApplication.cs:5276` | `Vixen.Editor.Assets.Content` |
-| **Application** | **Workspace** | `DockingWorkspace`, `EditorUserStore` | panels, layouts, view bookmarks, what persists — `EditorApplication.cs:1446-1514, 2200-2653, 3583-3660, 5725` | `Vixen.Editor.Ui` (already) |
+| **Application** | **Workspace** | `DockingWorkspace`, `EditorUserStore` | panels, layouts, view bookmarks, what persists — `EditorApplication.cs:1463-1531, 2217-2670, 3600-3677, 5742@28c44db26` | `Vixen.Editor.Ui` (already) |
 | | **Extensibility** | `PluginHost`, `EditorRegistry` | modules, disk plugins, scripts, hot reload, `PluginPoints` — `EditorApplication.cs:3060-3254`, `Vixen.Editor.Scripts` | `Vixen.Editor.Plugin` (already) |
 | | **Composition root** | `EditorApplication` | construct, publish, activate, tick | `Vixen.Editor.App` — **≤ 800 lines** |
 | **Supporting** | Diagnostics, Source control, Preferences | `EditorLog`, `SourceControl`, `EditorSettings` | `EditorDiagnostics.cs`, `EditorSourceControl.cs`, `EditorSettingsPanels.cs` | modules |
@@ -596,7 +596,7 @@ without touching another concern — and then by what a plugin most plausibly wa
 | 2c | `IContentLibrary` | `EditorParity.cs:411-684, 1545-2304@28c44db26`, `EditorApplication.cs:3520-3645, 4868-5052` | `AssetCollections`, `ThumbnailCache`, `ContentTasks`; the `NewAssetKinds` literal becomes `LibraryModule`'s. **First slice landed (#1292):** `IContentLibrary` in `Vixen.Editor.Assets` with import (dialog and OS drop), closure, package export, collections and saved filters; `ContentLibrary` in the App; published through `PluginPoints`. ⚠ The two *files* stay — a collection is per project and a filter per user, both types' documented decision — and what was doubled was the API. **Second slice (#1292):** `LibraryModule` (in `Vixen.Editor.App`, activated by `EditorModules.Standard()` before the feature modules) registers the 22 built-in kinds through `PluginContext` and the three reference walks (`assets.find-references`, `edit.find-references`, `assets.select-dependencies`) over `IContentLibrary.Referrers`/`Dependencies`; `CreateAsset` is `IContentLibrary.Create`. `ModuleReach.txt` moved 47 lines from `editor` to `vixen.library` and lost none. ⚠ The `FeatureNameRule` rows *moved* with the literal rather than leaving the shell — the module is still in App, as § D3 says modules start. Not yet: Open/Show/Rename/Delete/Move To/Revert/History (they need the document host, the drawn chooser or the browser panel), `ThumbnailCache`/`ContentTasks` |
 | 2d | `IProjectSession` | `EditorProjects.cs`, `EditorApplication.cs:1695-2116` | `ProjectAssemblies`, `ProjectHistory`, the watcher. **First slice landed (#1293):** `IProjectSession` in `Vixen.Editor.Core` with `Rescan`, `RequestProject`/`PendingProject`; `ProjectBrowser` asks it rather than scanning and saving the database itself, and the disk watcher's closed-browser copy of the same three calls is gone. ⚠ The browser never had `EditorProject.Open`'s save-only-if-changed guard and still does not — an in-editor rename changes the database in memory and then rescans, so a guard measuring the scan alone would leave a stale index; that is a decision, not a move. **Second slice (#1293):** `Recent` (a `RecentProject` list — the record moved into Core), `CreateProject` (New Project's scaffold) and the newer-engine warning are the session's, and the constructor records the open project through `ProjectSession.Opened`; `EditorApplication.Recent` is gone. Not yet: the constructor, the watcher, `BuildProjectCode`, `ProjectAssemblies`, the startup chooser's dialog (`ShowProjectBrowser`, `ChooseAsync`, `Picked` — this editor's drawn dialogs, which keep `EditorProjects.cs` alive) |
 | 2e | `IDocumentHost` + `IWorkspace` | `EditorApplication.cs:1447-1515, 2236-3060, 3657-3734` | § D4's two registries; `Inspecting` |
-| 2f | `IPlayerDelivery` | `EditorBuilds.cs`, `AnalyseContent` | the deploy contribution (frees `Debugger`) |
+| 2f | `IPlayerDelivery` | `EditorBuilds.cs`, `AnalyseContent` | the deploy contribution (frees `Debugger`). *Landed (#1295): `IPlayerDelivery` in `Vixen.Editor.Core` (beside `PlayerBuildSettings`, not `Assets.Content` — nothing in it is a pipeline type and the deploying module does not reference the pipeline); `PlayerDelivery` is `EditorBuilds.cs` moved, which is deleted; `DeliveryModule` registers the Build menu and panel. ⚠ Refuted: the device records did not need rehoming. Deploy's per-kind switch is the device manager's vocabulary, so it moved into `DiagnosticsModule` and `IDeviceDeploy` was deleted rather than moved — the application names no device type. ⚠ Found: Deploy had been refused on every buildable project (`deployer?.Refuse(d) ?? "cannot build"`). Not moved: `AnalyseContent`, which is the content library's* |
 
 Each step: the service, its tests without a window, its line in `PluginPoints()`, its
 `ApplicationSizeRule` ceilings lowered in the same commit, and the module (§ D3) that registers its
@@ -644,7 +644,9 @@ tool is handed; doc 36 § Part 5 says narrow it *when a consumer can say which m
 after P2 the consumers can), `ProjectBrowser.cs` (1,491), `NodeGraphView.cs` (1,392),
 `LayerStackView.cs` (3,783) and `TexturingModule.cs` (2,381), `BlockoutMode.cs` (1,462),
 `ComponentsView.vxml` (1,117). ⚠ `NodeGraphView`'s selection is `NodeGraphModel.Selection`, a
-`Selection<NodeId>`, since #1305 (the on-node port editors are still owed). ⚠ `ComponentsView`'s
+`Selection<NodeId>`, since #1305, and its on-node port editors write through
+`NodePortEditProvider`'s `InspectorField` as the side panel does (the row is still the canvas's
+`PortEditor`, not a drawer). ⚠ `ComponentsView`'s
 "one template per authoring kind" does not exist: there is one keyed `@for` over `IComponentBridge`,
 deliberately the same for components and behaviours, and the size is a 945-line `@code` block — so
 "split by component kind" has nothing to split along; #1308 carries the options. Each is its own issue with its own ceiling in `ApplicationSizeRule`'s
@@ -657,6 +659,20 @@ Save Filter reads them from the library rather than out of the view; the rescan 
 one production caller, the browser, and the database holds a flat list — the tree is a projection,
 not a second copy of state, and moving it into the service would need a database change signal
 `AssetDatabase` does not have (and would create the second copy the finding warned about). **Second slice:** the grid toggle and the tile size are `Shown.Grid`/`Shown.TileSize` too — read from and written to the preferences through delegates `ShownContent` is built over, asked on every read because Revert replaces the preferences object — so `ProjectBrowser.ViewChanged`/`TileSizeChanged` and the factory's restore are gone. ⚠ A first version copied the two in one setter at a time and wrote a half-restored view back (the toggle's change fired while the size still held its default); the restart half of `BrowserShownTests` caught it, and the copy is gone rather than ordered. Still owed: the verbs still leave the panel as events the application handles.
+
+**`LayerStackView` + `TexturingModule` (#1306), the three moves:** the ten Tools verbs are
+`ITexturing`, which the module publishes as itself with `PluginContext.Publish` — itself rather than a
+class beside it, because the verbs read the open documents, the baker, the brush and the armed force-bake,
+which are the module's state; the bodies moved unchanged into `TexturingVerbs.cs` (`TexturingModule.cs`
+2,381 → 1,744 with the declared lines; `LayerStackView.cs` grew 3,783 → 3,861 with the follow). The Tools lines are `[EditorMenu]` on the command ids, registered by the generated
+`Declared.Register` only when the descriptor has no assembly path, so the module holds whether #1276
+makes it a `Standard()` module or a scanned disk plugin. The chosen set (`PaintSet`, now a signal) and
+the selected layer (`LayerSelection`, a `Selection<LayerPath>`) are the document's; the view reads them,
+follows a write it did not make, and the module evaluates `stack.PaintSet` rather than asking the view.
+⚠ *"Four `LayerStackDocument?` copies"* is three-quarters refuted: `framed` was `built` under another
+name and is gone, but `bound` survives an empty show that `built` does not and `watched` is the
+subscription's. ⚠ *"The 26 registration sites"* were already through `PluginContext` — what was left
+round the side is the three `TexturingTheme.Install` calls, which no wrapper can record (§ D6).
 
 ### P5 — The gizmo decision (≈ 0.25 EM, a decision before a change)
 
@@ -712,15 +728,15 @@ Waves follow the phases; a wave is five worktrees, merged as each lands, gates o
 | [#1292](https://github.com/Rikarin/Vixen/issues/1292) | `IContentLibrary`: browser model, collections + filters in one store, import, drop; `LibraryModule` owns `BuiltInAssetKinds` | P2c | 4 |
 | [#1293](https://github.com/Rikarin/Vixen/issues/1293) | `IProjectSession`: open/recents/scaffold/watch/build; `ProjectBrowser` stops calling `Scan`/`Save` | P2d | 4 |
 | [#1294](https://github.com/Rikarin/Vixen/issues/1294) | `DocumentKind` / `DocumentView` split + `DocumentPairingTest`; `IDocumentHost`, `IWorkspace`; panel state moves to models | P2e | 5 |
-| [#1295](https://github.com/Rikarin/Vixen/issues/1295) | `IPlayerDelivery`; deploy as a contribution; `IDeviceDeploy` records rehomed | P2f | 5 |
-| [#1296](https://github.com/Rikarin/Vixen/issues/1296) | `HelpModule`, `WorkspaceModule`; `EditorParity.cs` deleted | P2 | 5 |
+| [#1295](https://github.com/Rikarin/Vixen/issues/1295) | `IPlayerDelivery`; deploy as a contribution; `IDeviceDeploy` records rehomed | P2f | 5 · ✅ `IPlayerDelivery` + `DeliveryModule`; ⚠ the records stayed — the per-kind switch moved to the module and `IDeviceDeploy` was deleted |
+| [#1296](https://github.com/Rikarin/Vixen/issues/1296) | `HelpModule`, `WorkspaceModule`; `EditorParity.cs` deleted | P2 | 5 · 🟡 `HelpModule` (the six Help lines over a published `IExternalLinks`) and `WorkspaceModule` (six layout presets through `AddLayout`; Profiling moved to `DiagnosticsModule`, whose panels it names) landed. ⚠ `EditorParity.cs` is not empty and is not deleted — file, edit, asset, entity, play-option and tool verbs, the menus and the toolbar are the other P2 steps' — and Save Layout / Reload Styles wait on #1294's `IWorkspace`; the issue carries the list |
 | [#1297](https://github.com/Rikarin/Vixen/issues/1297) | `AssetEditors` off `NotYetMoved` through 17 | P3 | 6 |
-| [#1298](https://github.com/Rikarin/Vixen/issues/1298) | `Profiler` + `Debugger` + `Diagnostics` off: report into the module, log ring and data dir published; typed module fields gone | P3 | 6 |
+| [#1298](https://github.com/Rikarin/Vixen/issues/1298) | `Profiler` + `Debugger` + `Diagnostics` off: report into the module, log ring and data dir published; typed module fields gone | P3 | 6 · ✅ all three off `NotYetMoved`; the device and GPU frame through `IEditorGraphics.Frame`, the ring as `RingBufferSink`, the directory as `EditorDataDirectory`, the pickers as `INativeDialogs`. ⚠ "Asserted by the existing report tests" — there were none; `Report` had never been read by a test. `FindModule` stays for the asset editors (#1297) |
 | [#1299](https://github.com/Rikarin/Vixen/issues/1299) | `NodeGraph` off: theme as a contribution (#917); `Host` stops building the shader-graph preview and terrain stages | P3 | 6 · 🟡 theme ✅ (`AssetEditorsModule`, through `context.AddStyleSheet`; `NodeGraph` off `NotYetMoved`), pane reads the scene seams ✅; the preview renderer and the terrain stages still the host's — a contract decision |
 | [#1300](https://github.com/Rikarin/Vixen/issues/1300) | `Assets` drops `ShaderGraph`/`VfxGraph`; `BuiltInImporters` shrinks to the pipeline's own | P3 | 6 |
 | [#1301](https://github.com/Rikarin/Vixen/issues/1301) | 35 feature string ids out of `EditorStrings` | P3 | 6 |
 | [#1302](https://github.com/Rikarin/Vixen/issues/1302) | `NotYetMoved` deleted; `ApplicationReferenceRule` is `Allowed` only | P3 | 6 |
-| [#1303](https://github.com/Rikarin/Vixen/issues/1303)–[#1309](https://github.com/Rikarin/Vixen/issues/1309) | One per feature god file: `SceneViewport`, `ProjectBrowser`, `NodeGraphView`, `LayerStackView` + `TexturingModule`, `BlockoutMode`, `ComponentsView.vxml`, `EditorHost` | P4 | 7–8 · #1307 (`BlockoutMode`) ✅ the verbs are `IBlockout`, published with `PluginContext.Publish` · #1303 (`SceneViewport`) partial: a tool is handed `IViewportPane`, the eight members its consumers read; bookmarks, `Extensions` and the overlay signature are owed |
+| [#1303](https://github.com/Rikarin/Vixen/issues/1303)–[#1309](https://github.com/Rikarin/Vixen/issues/1309) | One per feature god file: `SceneViewport`, `ProjectBrowser`, `NodeGraphView`, `LayerStackView` + `TexturingModule`, `BlockoutMode`, `ComponentsView.vxml`, `EditorHost` | P4 | 7–8 · #1307 (`BlockoutMode`) ✅ the verbs are `IBlockout`, published with `PluginContext.Publish` · #1303 (`SceneViewport`) partial: a tool is handed `IViewportPane`, the eight members its consumers read; bookmarks, `Extensions` and the overlay signature are owed · #1306 (`LayerStackView` + `TexturingModule`) 🟡 all three moves landed — `ITexturing`, declared Tools lines, the chosen set and selected layer on the document — and the three view theme installs stay (#917) |
 | [#1310](https://github.com/Rikarin/Vixen/issues/1310) | Settings dirty joins `HasUnsavedChanges`; settings edits through `EditProperty` with a document (#1162's provider) | P2e | 5 · first half landed (the join); the document half waits on #1294 |
 | [#1311](https://github.com/Rikarin/Vixen/issues/1311) | Guide pages for the seven services and two records (`CheckDocs`, not `Docs`) | each | with its phase |
 

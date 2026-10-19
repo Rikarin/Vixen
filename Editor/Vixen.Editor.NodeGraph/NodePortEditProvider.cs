@@ -76,8 +76,18 @@ public sealed class NodePortMember : InspectorMember {
     public override object? GetBoxed(object owner) {
         ArgumentNullException.ThrowIfNull(owner);
 
-        var lanes = Lanes((GraphNode) owner);
+        return Decode(Lanes((GraphNode) owner));
+    }
 
+    /// <summary>What a port's lanes are worth as the value a row edits.</summary>
+    /// <param name="lanes">The lanes, at least as many as the port has.</param>
+    /// <returns>A <see cref="MemberType" />, boxed.</returns>
+    /// <remarks>
+    ///     <see cref="GetBoxed" />'s half of the conversion, separate because the boxes drawn on the
+    ///     node hold lanes too — see <c>NodeGraphView.Inline</c> — and a second copy of this switch there
+    ///     is how the two surfaces came to read one value two ways.
+    /// </remarks>
+    internal object Decode(ReadOnlySpan<float> lanes) {
         return Port.Kind switch {
             PortKind.Bool => lanes[0] != 0f,
             PortKind.Int => (int) lanes[0],
@@ -145,7 +155,7 @@ public sealed class NodePortMember : InspectorMember {
     };
 
     /// <summary>The lanes a value is stored as.</summary>
-    float[] Encode(object? value) {
+    internal float[] Encode(object? value) {
         var lanes = new float[PortKinds.Fields(Port.Kind)];
 
         switch (value) {
@@ -184,10 +194,18 @@ public sealed class NodePortMember : InspectorMember {
 
     /// <summary>What the port holds on a node, falling back to the type's default a lane at a time.</summary>
     /// <remarks>
-    ///     ⚠ <b>A short default fills the lanes it has and no more</b> — the rule
-    ///     <see cref="NodeInspector" /> had first. A one-number default on a three-lane port leaves
-    ///     the other two at zero here, where a person is being shown three boxes; the compiler's
-    ///     splat is what the same default means when it reaches a <c>float3</c> as one value.
+    ///     <para>
+    ///         ⚠ <b>A one-number default fills every lane, which is what the compiler reads.</b>
+    ///         <c>NodeGraphCompiler.Value</c> splats it, so a <c>float3</c> declared <c>[0.5]</c>
+    ///         compiles as a grey. This used to fill the one lane and leave the rest at zero — the
+    ///         remark here called that "the rule <see cref="NodeInspector" /> had first" — and a row
+    ///         showing a red the shader never used was the smaller half of it: a vector row writes the
+    ///         whole vector, so nudging X wrote those two zeros into Y and Z (#1305).
+    ///     </para>
+    ///     <para>
+    ///         A longer default that is still short fills the lanes it has, as before; nothing in the
+    ///         compiler splats that, and nothing declares one.
+    ///     </para>
     /// </remarks>
     float[] Lanes(GraphNode node) {
         var fields = PortKinds.Fields(Port.Kind);
@@ -195,6 +213,12 @@ public sealed class NodePortMember : InspectorMember {
 
         var stored = node.Values.TryGetValue(Port.Name, out var written) ? written : [];
         var fallback = Port.Default;
+
+        if (stored.Length == 0 && fallback.Length == 1) {
+            Array.Fill(lanes, fallback[0]);
+
+            return lanes;
+        }
 
         for (var index = 0; index < fields; index++) {
             lanes[index] = index < stored.Length ? stored[index]

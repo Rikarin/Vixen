@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
+using Vixen.Editor.Inspector;
 using Vixen.Input;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -115,6 +116,10 @@ public sealed class NodeGraphView : Control {
     readonly Dictionary<CanvasPort, Socket> sockets = [];
     readonly Dictionary<Socket, CanvasPort> anchors = [];
     readonly Dictionary<CanvasGroup, GraphGroup> groups = [];
+
+    /// <summary>The field behind each box on a node, which is what an edit there is written through.</summary>
+    readonly Dictionary<Socket, InspectorField> fields = [];
+
     readonly List<NodeCommentView> notes = [];
 
     NodeGraphModel graph = new();
@@ -295,6 +300,7 @@ public sealed class NodeGraphView : Control {
         Canvas.Connected += (_, wire) => Wired(wire);
         Canvas.Activated += (_, node) => Opened(node);
         Canvas.PortEdited += (_, port) => Typed(port);
+        Canvas.PortCommitted += (_, port) => Finished(port);
 
         // A child of the canvas rather than of its surface, so it is drawn after the node elements.
         // See NodePreviewLayer for what that costs and why it is the arrangement that works.
@@ -413,6 +419,11 @@ public sealed class NodeGraphView : Control {
         sockets.Clear();
         anchors.Clear();
         groups.Clear();
+        fields.Clear();
+
+        // One provider per node type per projection rather than per node: built against no node,
+        // so every input is a member — see Inline for why the wiring is not this side's question.
+        Dictionary<NodeTypeDefinition, NodePortEditProvider> providers = [];
 
         foreach (var node in graph.Nodes) {
             var definition = Definition(node.Type);
@@ -425,8 +436,13 @@ public sealed class NodeGraphView : Control {
             identities[view] = node.Id;
 
             if (definition is not null) {
+                if (!providers.TryGetValue(definition, out var provider)) {
+                    provider = NodePortEditProvider.For(graph, definition, NodeId.None, IsReadOnly);
+                    providers[definition] = provider;
+                }
+
                 foreach (var port in definition.Ports) {
-                    Anchor(view, node.Id, port.Name, port.Direction, node, port);
+                    Anchor(view, node.Id, port.Name, port.Direction, node, port, provider);
                 }
 
                 continue;
@@ -488,7 +504,8 @@ public sealed class NodeGraphView : Control {
         string port,
         PortDirection direction,
         GraphNode? node = null,
-        PortDefinition? definition = null
+        PortDefinition? definition = null,
+        NodePortEditProvider? provider = null
     ) {
         var key = new Socket(id, port, direction);
 
@@ -498,8 +515,8 @@ public sealed class NodeGraphView : Control {
 
         var socket = direction == PortDirection.Input ? view.AddInput(port) : view.AddOutput(port);
 
-        if (node is not null && definition is not null) {
-            socket.Editor = Inline(node, definition);
+        if (node is not null && definition is not null && provider is not null) {
+            socket.Editor = Inline(key, node, definition, provider);
         }
 
         anchors[key] = socket;
@@ -509,12 +526,30 @@ public sealed class NodeGraphView : Control {
     /// <summary>What an unconnected input takes, as the canvas shows it, or null for a port that takes nothing.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The author's value or the type's default, and the difference is not written
-    ///         down here.</b> A port with nothing typed into it shows its type's default, which is
-    ///         also what the compiler reads — see <c>NodeGraphCompiler.Value</c> — so the picture and
-    ///         the emitted source agree without the projection having to say which of the two it was
-    ///         showing. What records the difference is <see cref="SetPortValueCommand" />, because an
-    ///         undo has to be able to put a port back to having no value at all.
+    ///         ⚠ <b>The panel's field, in the node's shape (#1305, doc 36 § Part 6).</b> This used to
+    ///         build the box by hand — its own lane count, its own reading of the default, its own
+    ///         <see cref="SetPortValueCommand" /> in <see cref="Typed" /> — beside a panel that reached
+    ///         the same value through <see cref="NodePortEditProvider" /> and an
+    ///         <see cref="InspectorField" />. Two constructions of one number disagreed twice: the
+    ///         panel read a one-number default on a wide port as one lane and zeros, and an Enter on
+    ///         the node ended nothing, so two separate edits of one port were one undo entry. Now the
+    ///         member, the field and the write are the panel's, and what is left here is the shape.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The shape is still the canvas's and not a drawer's, deliberately.</b> A node's
+    ///         elements are pooled and rebound on every pan — see <c>NodeItem</c> — and removal is
+    ///         final in this framework, so a drawer's <c>Build</c> per rebind would be a fresh set of
+    ///         elements per frame of a pan. <see cref="PortEditor" /> is the row shape that fits a
+    ///         node that clips its own contents; it is filled from the member's value and written
+    ///         back through the member's field, which is where the two surfaces could disagree.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Built for every input, wired or not.</b> The provider is asked about no node, so
+    ///         a connected input still has a member here — unlike the panel's, which says "from a
+    ///         connection" instead. The canvas hides the box while a wire arrives, because it knows a
+    ///         wire was dropped a frame before anything is recorded (<c>GraphPort.Editor</c>), and a
+    ///         box that survived the connection is what brings the number back when the wire is
+    ///         pulled off.
     ///     </para>
     ///     <para>
     ///         <b>An unregistered node type gets none.</b> Its ports come off its edges, so nothing
@@ -522,24 +557,25 @@ public sealed class NodeGraphView : Control {
     ///         cannot type is a number that would be written into a file the missing plugin owns.
     ///     </para>
     /// </remarks>
-    PortEditor? Inline(GraphNode node, PortDefinition port) {
-        if (port.Direction != PortDirection.Input) {
+    PortEditor? Inline(Socket key, GraphNode node, PortDefinition port, NodePortEditProvider provider) {
+        if (port.Direction != PortDirection.Input
+            || !provider.Descriptor.TryGetMember(port.Name, out var found)
+            || found is not NodePortMember member) {
             return null;
         }
 
-        var fields = PortKinds.Fields(port.Kind);
+        var field = new InspectorField(provider.Descriptor, member, [node], edited);
+        var type = member.MemberType;
+        var lanes = member.Encode(field.Read().Value);
 
-        if (fields <= 0) {
-            return null;
-        }
-
-        var editor = new PortEditor(port.Kind == PortKind.Bool ? PortEditorKind.Toggle : PortEditorKind.Number, fields) {
-            Decimals = port.Kind is PortKind.Int ? 0 : Decimals,
-            ReadOnly = IsReadOnly,
-            LaneNames = fields > 1 ? "XYZW" : ""
+        var editor = new PortEditor(type == typeof(bool) ? PortEditorKind.Toggle : PortEditorKind.Number, lanes.Length) {
+            Decimals = type == typeof(int) ? 0 : Decimals,
+            ReadOnly = !field.CanWrite,
+            LaneNames = lanes.Length > 1 ? "XYZW" : ""
         };
 
-        editor.Set(node.Values.TryGetValue(port.Name, out var written) ? written : port.Default.AsSpan());
+        editor.Set(lanes);
+        fields[key] = field;
 
         return editor;
     }
@@ -1192,39 +1228,45 @@ public sealed class NodeGraphView : Control {
     ///         nothing for a reprojection to correct.
     ///     </para>
     ///     <para>
-    ///         <b>Merging is what makes a scrub one undo entry.</b> <see cref="SetPortValueCommand" />
-    ///         folds the run into one and keeps the first "before" — including whether the port had a
-    ///         value at all.
+    ///         <b>Written through the port's <see cref="InspectorField" />, which is the panel's
+    ///         path.</b> So the command is the member's — a <see cref="SetPortValueCommand" /> that
+    ///         merges a scrub into one entry and keeps the first "before", including whether the port
+    ///         had a value at all — an unchanged value records nothing, and a view with no stack has
+    ///         read-only members and writes nothing, exactly as the panel beside it does.
     ///     </para>
     /// </remarks>
     void Typed(CanvasPort port) {
-        if (projecting || port.Editor is not { } editor || !sockets.TryGetValue(port, out var key)) {
+        if (projecting
+            || port.Editor is not { } editor
+            || !sockets.TryGetValue(port, out var key)
+            || !fields.TryGetValue(key, out var field)) {
             return;
         }
 
-        if (!graph.TryGet(key.Node, out var node)) {
-            return;
-        }
+        typing = true;
 
-        var value = editor.ToArray();
+        try {
+            var written = field.Write(((NodePortMember)field.Member).Decode(editor.ToArray()));
 
-        if (Stack is { } stack) {
-            typing = true;
-
-            try {
-                stack.Execute(new SetPortValueCommand(graph, key.Node, key.Port, value, edited));
-            } finally {
-                typing = false;
+            // A tick is a whole edit in one click, which is how the panel's checkbox treats it too.
+            if (written && editor.Kind == PortEditorKind.Toggle) {
+                field.Seal();
             }
-
-            return;
+        } finally {
+            typing = false;
         }
+    }
 
-        // ⚠ A view with no stack marks its editors read-only — see Inline — so this is unreachable
-        // through the canvas. It is here for the same reason NodeInspector's is: a caller driving the
-        // projection directly should write to the model rather than to a picture of it.
-        node.SetValue(key.Port, value);
-        graph.Touch();
+    /// <summary>Ends the run of edits a box on a node was merging into one undo entry.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Enter, as in the panel's number field.</b> Without it every edit of one port merged
+    ///     with the last until something else was done, so an undo after the second of two separate
+    ///     edits went back past the first.
+    /// </remarks>
+    void Finished(CanvasPort port) {
+        if (sockets.TryGetValue(port, out var key) && fields.TryGetValue(key, out var field)) {
+            field.Seal();
+        }
     }
 
     void Opened(CanvasNode node) {

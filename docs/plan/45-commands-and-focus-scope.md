@@ -50,7 +50,7 @@ pushed. The pull is one level too shallow, and every new panel is a new chance t
 > `DockPanel` — `EditorApplication.Contextual` (`EditorApplication.cs:1774@4e61970ee`) and
 > `ContextualViewport` (`:1801`), plus four verbatim copies of the same eight lines in
 > `BlockoutModulePanels.cs:93@3dcb392ad`, `TerrainModule.cs:181`, `WaterModule.cs:231@3dcb392ad` and
-> `DiagnosticsModule.cs:439`. (⚠ The six line numbers are as of this amendment: `9c32e744f` (2026-09-02)
+> `DiagnosticsModule.cs:439@3dcb392ad`. (⚠ The six line numbers are as of this amendment: `9c32e744f` (2026-09-02)
 > replaced all six copies with `DockPanel.WhenPressedIn`, and `docs/PlanCitationExempt.txt`
 > records the ones that no longer hold.)
 >

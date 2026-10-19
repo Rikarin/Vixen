@@ -124,7 +124,7 @@ public class ToolbarPollTests {
 
         Assert.False(build.Disabled, "Build was greyed before anything was running");
 
-        var view = fixture.Control<BuildSettingsView>(EditorApplication.BuildPanel);
+        var view = fixture.Control<BuildSettingsView>(DeliveryModule.BuildPanel);
 
         view.Rebuild();
         fixture.Click(view.BuildButton);

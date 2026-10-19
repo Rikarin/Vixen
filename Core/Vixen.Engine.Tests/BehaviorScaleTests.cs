@@ -57,7 +57,7 @@ public class BehaviorScaleTests {
     /// </remarks>
     static readonly string[] Readers = [
         Path.Combine("Tools", "Vixen.Cli", "BehaviorsRunner.cs"),
-        Path.Combine("Editor", "Vixen.Editor.App", "EditorDiagnostics.cs")
+        Path.Combine("Editor", "Vixen.Editor.Diagnostics", "DiagnosticsModule.cs")
     ];
 
     /// <summary>The checkout this assembly was compiled in.</summary>

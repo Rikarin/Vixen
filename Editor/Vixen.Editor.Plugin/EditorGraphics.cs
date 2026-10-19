@@ -92,6 +92,21 @@ public interface IEditorGraphics {
     /// </remarks>
     IGraphicsDevice? Device { get; }
 
+    /// <summary>The last frame's GPU regions, as the host resolved them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Empty while there is no device, and on a device that cannot time its queue. The object
+    ///         that records the timestamps has to be the one recording the frame, which is the host —
+    ///         so a profiler is handed the result rather than a profiler to run.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Defaulted to empty, so a host that times nothing implements nothing</b> (#1298). It
+    ///         is here because the diagnostics module used to be handed this by the application
+    ///         writing into a typed field to the module, which is the reference doc 50 § P3 removes.
+    ///     </para>
+    /// </remarks>
+    GpuFrame Frame => GpuFrame.Empty;
+
     /// <summary>Puts pixels where the interface can draw them.</summary>
     /// <param name="width">How wide, in texels.</param>
     /// <param name="height">How tall.</param>

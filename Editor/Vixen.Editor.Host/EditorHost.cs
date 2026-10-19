@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.Reflection;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Threading;
-using Vixen.Editor.Profiler;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.ShaderGraph;
 using Vixen.Graphics;

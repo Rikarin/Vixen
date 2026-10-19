@@ -887,7 +887,7 @@ asking for the interface.
 |---|---|---|
 | ~~Blockout~~ | ✅ `BlockoutModule` | done — 120 lines out of the app, its mode already took `IMeshBaker`/`IMeshSource` so its assembly needed no new reference |
 | ~~Terrain~~ | ✅ `TerrainModule` | done — 1,340 lines out of the app, plus the two extension points above |
-| Profiler + Debugger | 🟡 `Vixen.Editor.Diagnostics` | the panels are out — seven of them and their commands — but ⚠ **the references are not, and calling this done was wrong**. The **report** stayed in the application because it aggregates the project's name, the scene's counts, the log ring and the memory arenas, and only the last is the module's; `Debugger` is additionally kept by device deploy in `EditorBuilds`. The app now names `Profiler`, `Debugger` *and* `Diagnostics` where it named two |
+| Profiler + Debugger | ✅ `Vixen.Editor.Diagnostics` | ✅ **Done by doc 50 § P3 ([#1298](https://github.com/Rikarin/Vixen/issues/1298), [#1295](https://github.com/Rikarin/Vixen/issues/1295)): the report, its verb and the behaviour rows moved into the module once the log ring and the data directory were published, the device and GPU frame reach it through `IEditorGraphics`, Deploy is the module's over `IPlayerDelivery`, and all three references and `FindModule<DiagnosticsModule>` are gone.** What follows is the state before that: the panels are out — seven of them and their commands — but ⚠ **the references are not, and calling this done was wrong**. The **report** stayed in the application because it aggregates the project's name, the scene's counts, the log ring and the memory arenas, and only the last is the module's; `Debugger` is additionally kept by device deploy in `EditorBuilds`. The app now names `Profiler`, `Debugger` *and* `Diagnostics` where it named two |
 | Asset editors | 🟡 `AssetEditorsModule` | the binder is out — `AnimationBinder`, 341 lines, plus `EditorApplication.Bound`. ⚠ **The rest stays and should**: which scene a sequence drives, what analyses an addressable group, and opening a shader graph from a material are the *application's* arbitration, and each file already says so. ⚠⚠ **This row used to say the dereference needed only `AssetEditorRegistry` to move. That is refuted — see below** |
 | ~~Split the executable~~ | ✅ `Editor/Vixen.Editor.Host` | done — `EditorHost`, `Program`, `EditorPane`, `WindowPlacement`, the SPIR-V and the font. `Vixen.Editor.App` is a library that takes its modules as a constructor argument and knows only that some `IEditorPlugin`s exist and what they are called |
 | `Vixen.Editor.Assets` | 8 files | ⚠ **Not a feature, and the exit list is wrong to omit it.** It is the import pipeline, and an editor that cannot import without a plugin is not an editor. F2's own inventory names it beside `Core`. Proposed: it stays, and the criterion is corrected to `Core`, `Ui`, `Plugin`, `Inspector`, `SceneView`, `Assets` |
@@ -1225,10 +1225,15 @@ three is worth keeping:
 ⚠ **This was recorded as done once, and then over-counted when the correction was written.** Both
 mistakes have the same shape — the section was measured against the phase list rather than the tree.
 
-⚠ **Still owed inside the node graph itself:** the port fields drawn *on* the node in
-`NodeGraphView` are built by hand and are now the only place in that assembly that constructs an
-editor for a port. They are a different surface with a different constraint — a row has to fit inside
-a node that clips its own contents — so they are their own task rather than an oversight.
+✅ **The port fields drawn *on* the node have moved onto the provider** ([#1305](https://github.com/Rikarin/Vixen/issues/1305)).
+`NodeGraphView.Inline` binds an `InspectorField` over the port's `NodePortMember` and writes through
+it, so the member, the value encoding, the command and the read-only rule match the panel's. While
+the field was built by hand the two disagreed twice. The panel read a one-number default on a
+`float3` as one lane and two zeros, although the compiler splats it, and a vector edit wrote those
+zeros. Enter on the node ended no undo run, so two separate edits of one port became one entry.
+⚠ **The row's shape is still the canvas's `PortEditor` rather than a drawer.** The node's elements
+are pooled and rebound on every pan, so a drawer's `Build` per rebind would create elements on every
+frame of a pan. That means a drawer registered for a port's type reaches the panel and not the node.
 
 #### What routing the gizmo through the pipeline costs
 

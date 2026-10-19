@@ -83,35 +83,10 @@ static class ApplicationReferenceRule {
     ///             arbitration the other names carry is what P3 says belongs in the application.
     ///             <a href="https://github.com/Rikarin/Vixen/issues/88">#88</a>.
     ///         </item>
-    ///         <item>
-    ///             <c>Vixen.Editor.Profiler</c> — the diagnostics report, which aggregates the
-    ///             project, the scene, the log ring and the last capture. Moving it needs the log ring
-    ///             and the data directory published through <c>PluginServices</c>.
-    ///         </item>
-    ///         <item>
-    ///             <c>Vixen.Editor.Debugger</c> — the report, <b>and</b> device deploy in
-    ///             <c>EditorBuilds</c>. ⚠ <b>This bullet used to say the deploy was waiting on a
-    ///             build-step contribution point that does not exist; it exists now</b> —
-    ///             <c>BuildStep</c> in <c>Vixen.Editor.Assets.Content</c>, D4's last row — so what is
-    ///             left is the move rather than the mechanism. The names that keep the reference are
-    ///             <c>IDeviceDeploy</c>, <c>DeviceEntry</c>, <c>DeviceKind</c> and
-    ///             <c>DeviceStatus</c>, and a deploy expressed as a contribution still has to say
-    ///             <i>which device</i>.
-    ///             <a href="https://github.com/Rikarin/Vixen/issues/400">#400</a>,
-    ///             <a href="https://github.com/Rikarin/Vixen/issues/399">#399</a>.
-    ///         </item>
-    ///         <item>
-    ///             <c>Vixen.Editor.Diagnostics</c> — the module that joins the two above to a project,
-    ///             a scene and a device. Its reference <i>is</i> the <c>Activate</c> call, so it goes
-    ///             when the two above do and not before.
-    ///         </item>
     ///     </list>
     /// </remarks>
     public static readonly string[] NotYetMoved = [
-        "Vixen.Editor.AssetEditors",
-        "Vixen.Editor.Profiler",
-        "Vixen.Editor.Debugger",
-        "Vixen.Editor.Diagnostics"
+        "Vixen.Editor.AssetEditors"
     ];
 
     /// <summary>The <c>Editor/</c> assemblies one project references, analyzers excluded.</summary>

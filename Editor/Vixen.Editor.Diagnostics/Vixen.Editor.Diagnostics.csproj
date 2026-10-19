@@ -55,5 +55,12 @@
             break the build here rather than silently taking the network panel's plumbing with it.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Net\Vixen.Net.csproj" />
+
+        <!--
+            The platform's picker contract, for the diagnostics report's save dialog (#1298). A
+            contract and not an implementation: the host publishes whichever `INativeDialogs` it has,
+            and a host with none greys the report rather than refusing the module.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Platform\Vixen.Platform.csproj" />
     </ItemGroup>
 </Project>

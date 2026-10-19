@@ -20,6 +20,7 @@ and `Vixen.Editor.TextureGraph`, and it **does not reference `Vixen.Editor.App`*
 | | |
 |---|---|
 | `TexturingModule` | `IEditorPlugin`. The command, the panel, the Create ▸ entry, and the Tools entry. |
+| `ITexturing` | The Tools ▸ verbs as a service the module publishes (#1306). `TexturingVerbs.cs` holds their bodies. |
 | `TextureGraphDocument` | A `.vxtexgraph`: a `NodeGraphAsset`, exactly as a `.vxshadergraph` is. |
 | `TextureGraphView` | The panel: `NodeGraphView` over the graph, `ImageView` beside it. |
 | `TextureNodeLibrary` | One line over the generated `NodeTypes.Register`. |
@@ -36,6 +37,25 @@ for a device, fill the externals, dispatch through the evaluator both panes alre
 **every** output rather than the first, and hand `ProjectMaterialBaker` the pictures. Of the three narrower routes that
 were owed beside it, two landed on 2026-09-08 and are below; the CLI's `--graph`
 ([#1020](https://github.com/Rikarin/Vixen/issues/1020)) is the one that stays owed.
+
+⚠ **The verbs are a service, and the service is the module** ([#1306](https://github.com/Rikarin/Vixen/issues/1306),
+doc 50 § D2). Every Tools ▸ command is a name for a public method of `ITexturing`, which `Activate`
+publishes with `PluginContext.Publish` — so another plugin's `Require<ITexturing>().BakeStackMaterial()`
+is the menu's bake, and it is withdrawn on unload (`TexturingCollectionTests` goes red if it is
+published with `Services.Add` instead, because the bag then pins the module and its load context).
+Unlike `IBlockout`, the implementation did not move to a second object: these verbs read the open
+documents, the baker, the brush and the armed force-bake, which *are* the module's state, so they moved
+into `TexturingVerbs.cs` — a partial of the module — rather than into a class that would reach back for
+every field.
+
+⚠ **The Tools lines are declared, not built** (doc 50 § D5): each command id carries
+`[EditorMenu("Tools")]` and `Vixen.Editor.Plugin.Generator` writes `Declared.Register`, which `Activate`
+calls only when the module was activated in-process — a copy loaded off disk is scanned by the host
+after `Activate`, and reading the attributes twice would put every line on the menu twice
+(`docs/GeneratorPackagingExempt.txt` states the same hazard for any plugin). So the module holds
+whichever way [#1276](https://github.com/Rikarin/Vixen/issues/1276) is decided. What still goes round
+`PluginContext` is the three `TexturingTheme.Install` calls in the views, and that is not this module's
+to fix: `UiDocument` cannot take a sheet back out, so there is nothing to record (doc 50 § D6, #917).
 
 ### A stack bakes too, one material per texture set
 
@@ -259,8 +279,12 @@ and never once runs. Capture is also the only leg on which a paint drag can win 
 wants: in Select mode nothing is swallowed and the pane pans as it always did.
 
 **What the brush is aimed at is chosen in the layers panel.** A row's *Select* button writes
-`LayerStackView.Selected` and mirrors it into `PaintTool.LayerId`, which the paint pane reads at every
-refresh — [#910](https://github.com/Rikarin/Vixen/issues/910). ⚠ Selecting a layer that is not a
+`LayerStackDocument.LayerSelection` and mirrors it into `PaintTool.LayerId`, which the paint pane reads
+at every refresh — [#910](https://github.com/Rikarin/Vixen/issues/910). ⚠ The selection and the
+chosen set (`PaintSet`) are the **document's** since [#1306](https://github.com/Rikarin/Vixen/issues/1306),
+not the view's: `LayerStackView.Selected` and `SetName` read them, and the view's undo-depth effect
+follows a write made anywhere else — a double-click tab of the same file, a plugin — by redrawing and
+re-aiming the brush, so the module no longer asks the view which set its preview should compile. ⚠ Selecting a layer that is not a
 `Paint` layer is allowed and the brush then refuses it **by name**; silently painting into some other
 layer is the defect the issue is about. Clicking the selected row again clears the selection, which
 puts the brush back on "the first paint layer in composite order" — a state with its own meaning that

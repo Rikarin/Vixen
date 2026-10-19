@@ -199,7 +199,7 @@ What `Vixen.Editor.App` publishes today is `EditorProject`, `SceneDocument`, `Dr
 `ImporterContributions`, `IContentLibrary`, `IProjectSession`, `IEditorRegistry`, the editing state
 (`MeshEdit`), the work plane (`WorkPlane`), `IMeshBaker`, `IMeshMapBaker`, `IMeshSource`,
 `IActiveScene`, `IActivePlaySession`, `IPlaySession`, `ISceneEditing`, `IActiveView`,
-`IDeviceDeploy`, `AssetEditorRegistry`, `HotReloadHost`, `IEditorGraphics` and the `PluginHost`
+`IPlayerDelivery`, `AssetEditorRegistry`, `HotReloadHost`, `IEditorGraphics`, the log ring (`RingBufferSink`), `EditorDataDirectory`, `INativeDialogs` where the platform has pickers (#1298), `IExternalLinks` and the `PluginHost`
 itself. ⚠ Five of those — the doc 50 context services — were published by three batches before this
 sentence named them; `PublishedServicesReadmeTests` now compares it with what the editor publishes,
 and the context services each have a guide page: [the content library](../../docs/guide/editor/content-library.md),
@@ -215,7 +215,7 @@ names the assemblies its contributed importers came out of and `Tools/Vixen.Asse
 ~~**Build steps really are not published**, and that one is a missing mechanism rather than an
 unpublished registry.~~ — **the mechanism exists now, and it is a record rather than a service.**
 `BuildStep(id, stage, run)` is in `Vixen.Editor.Assets.Content`, added through `IEditorRegistry` like
-a settings page, and `EditorBuilds` reads the registry when Build is pressed. ⚠ **The list is read on
+a settings page, and `PlayerDelivery` reads the registry when Build is pressed. ⚠ **The list is read on
 the frame thread and handed to the task**, for the reason the target and the variant are: a plugin can
 be unloaded while its build runs, so a list read on the pool two minutes in is a list that may name a
 delegate over an assembly that has gone. Two stages, `BeforeBuild` and `AfterBuild`; a step answers

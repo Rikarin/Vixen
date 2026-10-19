@@ -1247,10 +1247,12 @@ T:Vixen.Editor.Core.CommandTransaction sweep-pending
 T:Vixen.Editor.Core.CompositeCommand sweep-pending
 T:Vixen.Editor.Core.DelegateCommand sweep-pending
 T:Vixen.Editor.Core.EditorContext sweep-pending
+T:Vixen.Editor.Core.EditorDataDirectory a published host fact, not a service — #1311's context pages document what publishes it (doc 50 § P3, #1298)
 T:Vixen.Editor.Core.EditorDocument sweep-pending
 T:Vixen.Editor.Core.EditorNames sweep-pending
 T:Vixen.Editor.Core.EditorProject sweep-pending
 T:Vixen.Editor.Core.IEditorCommand sweep-pending
+T:Vixen.Editor.Core.IExternalLinks a published host fact, not a context service — #1311's pages document what publishes it (doc 50 § D3, #1296)
 T:Vixen.Editor.Core.PlayerBuildSettings sweep-pending
 T:Vixen.Editor.Core.ProjectMarker sweep-pending
 T:Vixen.Editor.Core.ProjectMarkerFile sweep-pending
