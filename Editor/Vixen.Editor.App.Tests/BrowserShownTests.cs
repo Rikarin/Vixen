@@ -43,6 +43,47 @@ public sealed class BrowserShownTests {
         Assert.Equal("bark", browser.Search);
     }
 
+    /// <summary>The kind the dropdown is on comes back with a reopened panel, and the grid is filtered by it (#1304).</summary>
+    /// <remarks>
+    ///     ⚠ <b>The restore with no test of its own until now</b>, and it is the subtle one of the four: the
+    ///     dropdown's options are rebuilt from what the project holds on every build, so a panel that read
+    ///     its own empty dropdown rather than <c>Shown.Kind</c> would come back on every kind — which is the
+    ///     sabotage that turns this red. A real kind is chosen, never "every kind", which would restore
+    ///     trivially.
+    /// </remarks>
+    [Fact]
+    public void The_kind_survives_closing_the_panel() {
+        using var editor = EditorSession.Start();
+
+        // Sidecars written by hand, naming their importers, so the kinds exist without waiting on an
+        // import: the dropdown offers the tags the database read off the .meta files at scan.
+        const string Tag = "MoveSetImporter";
+
+        File.WriteAllText(Path.Combine(editor.Project.Paths.Assets, "walk.vxmoveset"), "name: walk\n");
+        File.WriteAllText(
+            Path.Combine(editor.Project.Paths.Assets, "walk.vxmoveset.meta"),
+            "guid: 6c6aec0b818e4563ad780eb9fe6a47d7\nmetaVersion: 1\nimporter: !" + Tag + "\n"
+        );
+
+        editor.Open("project").Run("assets.refresh").Settle();
+
+        var tag = editor.Project.Assets.TryGetByPath("Assets/walk.vxmoveset", out var walk) && walk.ImporterTag == Tag
+            ? Tag
+            : throw editor.Fail("the database did not read walk.vxmoveset's importer off its sidecar");
+
+        Kinds(editor, tag).Value = tag;
+        editor.Settle();
+
+        Assert.Equal(tag, editor.Library.Shown.Kind);
+
+        editor.Close("project").Open("project");
+
+        var browser = editor.Application.Browser ?? throw editor.Fail("the browser did not reopen");
+
+        Assert.Equal(tag, browser.Kind);
+        Assert.Equal(tag, Kinds(editor, tag).Value);
+    }
+
     /// <summary>Tiles-or-tree and the tile size live in the model, come back with a reopened panel, and survive a restart.</summary>
     /// <remarks>
     ///     ⚠ <b>Two lifetimes, asserted separately.</b> The reopen proves the panel reads
@@ -86,6 +127,10 @@ public sealed class BrowserShownTests {
     static Select Sizes(EditorSession editor) =>
         Descendants(editor.Panel("project")).OfType<Select>().FirstOrDefault(select => select.HasClass("browser-tile-size"))
         ?? throw editor.Fail("the browser has no tile-size picker");
+
+    static Select Kinds(EditorSession editor, string tag) =>
+        Descendants(editor.Panel("project")).OfType<Select>().FirstOrDefault(select => select.Options.Any(option => option.Value == tag))
+        ?? throw editor.Fail($"the browser has no kind dropdown offering '{tag}'");
 
     static SearchBox Search(EditorSession editor) =>
         Descendants(editor.Panel("project")).OfType<SearchBox>().FirstOrDefault()
