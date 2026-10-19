@@ -5,6 +5,8 @@ using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Input;
+using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 
@@ -125,7 +127,92 @@ sealed class SceneModule : IEditorPlugin {
 
         // ── Part D's verbs that ask first (#1290's third slice) ─────────────────────────────────
         new SceneQuestions(context, editing).Register();
+
+        // ── The create verbs (#1290's third slice) ──────────────────────────────────────────────
+        // Enabled from the selection, so the menu item greys itself out with nothing here polling.
+        context.AddCommand(
+            new EditorCommand(
+                "scene.create-entity",
+                EditorStrings.CommandCreateEntity,
+                () => editing.CreateEntity()
+            ) {
+                Category = EditorStrings.CategoryEdit
+            }
+        );
+
+        context.AddDefaultBinding("scene.create-entity", new KeyChord(InputKey.N, ModifierKeys.Control | ModifierKeys.Shift));
+
+        ShapeCommands(context, editing);
+        ObjectCommands(context, editing);
     }
+
+    /// <summary>One command per built-in shape, so that spawning one is not the menu's private trick.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Eight commands rather than one that takes an argument.</b> The registry's unit is a
+    ///     command with an id, a title and an enablement — that is what the palette searches, what the
+    ///     keymap binds and what a menu line is built from — so "Create Cube" being findable in the
+    ///     palette and bindable to a key means it has to be its own entry. Generated from
+    ///     <see cref="PrimitiveShapes.All" />, so a shape added there appears everywhere without anything
+    ///     here being edited.
+    /// </remarks>
+    static void ShapeCommands(PluginContext context, ISceneEditing editing) {
+        foreach (var kind in PrimitiveShapes.All) {
+            var shape = kind;
+            var name = PrimitiveShapes.NameOf(shape);
+
+            context.AddCommand(
+                new EditorCommand(
+                    ShapeCommandId(shape),
+                    EditorStrings.CreateShapes[name.ToLowerInvariant()],
+                    () => editing.CreateShape(shape)
+                ) {
+                    Category = EditorStrings.CategoryCreate
+                }
+            );
+        }
+    }
+
+    /// <summary>What a shape's create command is called in the registry.</summary>
+    internal static string ShapeCommandId(PrimitiveKind kind) =>
+        "scene.create-" + PrimitiveShapes.NameOf(kind).ToLowerInvariant();
+
+    /// <summary>One command per kind of light, and one for a camera.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Commands rather than menu lines, which is <see cref="ShapeCommands" />' argument
+    ///     applied to the other half of a Create menu.</b> "Create Point Light" being findable in the
+    ///     palette and bindable to a key is what makes it a thing the editor can do, rather than a
+    ///     thing one menu happens to offer — and it is why the Scene menu and the hierarchy's context
+    ///     menu can both name it without either of them owning it.
+    /// </remarks>
+    static void ObjectCommands(PluginContext context, ISceneEditing editing) {
+        foreach (var kind in Lights.All) {
+            var light = kind;
+
+            context.AddCommand(
+                new EditorCommand(
+                    LightCommandId(light),
+                    EditorStrings.CreateLights[Lights.NameOf(light).ToLowerInvariant()],
+                    () => editing.CreateLight(light)
+                ) {
+                    Category = EditorStrings.CategoryCreate
+                }
+            );
+        }
+
+        context.AddCommand(
+            new EditorCommand(
+                "scene.create-camera",
+                EditorStrings.CommandCreateCamera,
+                () => editing.CreateCamera()
+            ) {
+                Category = EditorStrings.CategoryCreate
+            }
+        );
+    }
+
+    /// <summary>What a light's create command is called in the registry.</summary>
+    internal static string LightCommandId(LightKind kind) =>
+        "scene.create-light-" + Lights.NameOf(kind).ToLowerInvariant();
 
     static void Verb(PluginContext context, string id, StringId title, Action run, Func<bool> enabled) =>
         context.AddCommand(

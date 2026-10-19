@@ -2133,7 +2133,7 @@ sealed partial class EditorApplication : IDisposable {
         // Camera" that is not a camera was invisible while nothing drew what was on an entity; it is
         // the first thing somebody clicking those two rows now sees.
         var sun = scene.Add("Directional Light", LocalTransform.At(new Vector3(0f, 3f, 0f)) with {
-            Rotation = Aimed.Rotation
+            Rotation = SceneEditing.Aimed.Rotation
         }, root);
 
         Lights.Attach(world, sun, LightKind.Directional);
@@ -3805,24 +3805,14 @@ sealed partial class EditorApplication : IDisposable {
     ///     <c>SceneViewport</c> has no bindings of its own.
     /// </remarks>
     void SceneCommands() {
-        // Enabled from the selection, so the menu item greys itself out with nothing here polling.
-        Shell.Commands.Add(
-            new EditorCommand(
-                "scene.create-entity",
-                EditorStrings.CommandCreateEntity,
-                CreateEntity
-            ) {
-                Category = EditorStrings.CategoryEdit
-            }
-        );
-
         // ⚠ Delete and Rename are `edit.delete` and `edit.rename`, registered in `EditingCommands`
         // and scoped to the outliner. They used to be `scene.*` ids with the Delete key and F2 on
         // them; the move is what lets the content browser's twins claim the same keys, and it is why
         // this menu, the Edit menu and the hierarchy's context menu now all name the one pair rather
         // than two commands with the same label.
-        ShapeCommands();
-        ObjectCommands();
+        //
+        // ⚠ Create Empty and the Create ▸ Shape/Light/Camera lines are `SceneModule`'s (#1290's third
+        // slice), names for `ISceneEditing`'s create verbs. The menus below still place them by id.
 
         // ⚠ Ticked, and that is what makes the three modes read as one choice rather than as three
         // buttons. A menu of Translate, Rotate and Scale with nothing saying which is current is one
@@ -4154,74 +4144,6 @@ sealed partial class EditorApplication : IDisposable {
         return Shell.Menus.Menus.Count - 1;
     }
 
-    /// <summary>One command per built-in shape, so that spawning one is not the menu's private trick.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Eight commands rather than one that takes an argument.</b> The registry's unit is a
-    ///     command with an id, a title and an enablement — that is what the palette searches, what the
-    ///     keymap binds and what a menu line is built from — so "Create Cube" being findable in the
-    ///     palette and bindable to a key means it has to be its own entry. Generated from
-    ///     <see cref="PrimitiveShapes.All" />, so a shape added there appears everywhere without anything
-    ///     here being edited.
-    /// </remarks>
-    void ShapeCommands() {
-        foreach (var kind in PrimitiveShapes.All) {
-            var shape = kind;
-            var name = PrimitiveShapes.NameOf(shape);
-
-            Shell.Commands.Add(
-                new EditorCommand(
-                    ShapeCommandId(shape),
-                    EditorStrings.CreateShapes[name.ToLowerInvariant()],
-                    () => CreateShape(shape)
-                ) {
-                    Category = EditorStrings.CategoryCreate
-                }
-            );
-        }
-    }
-
-    /// <summary>What a shape's create command is called in the registry.</summary>
-    static string ShapeCommandId(PrimitiveKind kind) =>
-        "scene.create-" + PrimitiveShapes.NameOf(kind).ToLowerInvariant();
-
-    /// <summary>One command per kind of light, and one for a camera.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Commands rather than menu lines, which is <see cref="ShapeCommands" />' argument
-    ///     applied to the other half of a Create menu.</b> "Create Point Light" being findable in the
-    ///     palette and bindable to a key is what makes it a thing the editor can do, rather than a
-    ///     thing one menu happens to offer — and it is why the Scene menu and the hierarchy's context
-    ///     menu can both name it without either of them owning it.
-    /// </remarks>
-    void ObjectCommands() {
-        foreach (var kind in Lights.All) {
-            var light = kind;
-
-            Shell.Commands.Add(
-                new EditorCommand(
-                    LightCommandId(light),
-                    EditorStrings.CreateLights[Lights.NameOf(light).ToLowerInvariant()],
-                    () => CreateLight(light)
-                ) {
-                    Category = EditorStrings.CategoryCreate
-                }
-            );
-        }
-
-        Shell.Commands.Add(
-            new EditorCommand(
-                "scene.create-camera",
-                EditorStrings.CommandCreateCamera,
-                CreateCamera
-            ) {
-                Category = EditorStrings.CategoryCreate
-            }
-        );
-    }
-
-    /// <summary>What a light's create command is called in the registry.</summary>
-    static string LightCommandId(LightKind kind) =>
-        "scene.create-light-" + Lights.NameOf(kind).ToLowerInvariant();
-
     /// <summary>Everything a Create menu offers, written once for the two menus that offer it.</summary>
     /// <remarks>
     ///     <para>
@@ -4248,13 +4170,13 @@ sealed partial class EditorApplication : IDisposable {
         var shapes = menu.AddSubmenu(EditorStrings.MenuCreateShape);
 
         foreach (var kind in PrimitiveShapes.All) {
-            shapes.Add(ShapeCommandId(kind));
+            shapes.Add(SceneModule.ShapeCommandId(kind));
         }
 
         var lights = menu.AddSubmenu(EditorStrings.MenuCreateLight);
 
         foreach (var kind in Lights.All) {
-            lights.Add(LightCommandId(kind));
+            lights.Add(SceneModule.LightCommandId(kind));
         }
 
         menu.Add("scene.create-camera");
@@ -5523,72 +5445,6 @@ sealed partial class EditorApplication : IDisposable {
             Shell.Notifications.Show("Could not save the scene", NotificationSeverity.Error, exception.Message);
         }
     }
-
-    /// <summary>Creates an empty entity under the selection, and selects it.</summary>
-    /// <remarks>
-    ///     Under the first selected entity rather than at the root, which is what every editor does
-    ///     and what somebody who has just clicked a parent means. Selecting the new one is what makes
-    ///     the next thing they do — rename it, drag it — land on the thing they just made.
-    /// </remarks>
-    void CreateEntity() {
-        var created = scene.Create("Entity", LocalTransform.Identity, Under());
-        scene.Selection.Set([created]);
-    }
-
-    /// <summary>Creates one of the built-in shapes under the selection, and selects it.</summary>
-    /// <remarks>
-    ///     ⚠ <b>At the parent's origin rather than in front of the camera.</b> Placing new geometry
-    ///     where the viewport is looking is what Unity does with a preference turned on, and it needs
-    ///     the camera's pivot taken back through the parent's inverse — which is a different answer
-    ///     for a spawn from the hierarchy, where there may be no viewport open at all. The identity is
-    ///     the one placement that means the same thing from both, and it is what Create Empty already
-    ///     does.
-    /// </remarks>
-    void CreateShape(PrimitiveKind kind) {
-        var created = scene.CreateShape(kind, LocalTransform.Identity, Under());
-        scene.Selection.Set([created]);
-    }
-
-    /// <summary>Creates a light under the selection, and selects it.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Aimed downwards rather than left at the identity, and only this one is.</b> A shape at
-    ///     the identity is a shape; a directional or a spot light at the identity points along +Z,
-    ///     which for a sun means the horizon and for a spot means a cone lying flat in the floor —
-    ///     both of which look like the command having done nothing. Every other kind ignores the
-    ///     rotation, so the same placement is right for all five.
-    /// </remarks>
-    void CreateLight(LightKind kind) {
-        var created = scene.CreateLight(kind, Aimed, Under());
-        scene.Selection.Set([created]);
-    }
-
-    /// <summary>Creates a camera under the selection, and selects it.</summary>
-    /// <remarks>
-    ///     Level and facing the way a directional light points, for the same reason: a camera looking
-    ///     along +Z from the origin is a camera looking at the inside of whatever is at the origin.
-    /// </remarks>
-    void CreateCamera() {
-        var created = scene.CreateCamera(LocalTransform.Identity, Under());
-        scene.Selection.Set([created]);
-    }
-
-    /// <summary>Pointing down and forward, the way a key light is hung.</summary>
-    static LocalTransform Aimed =>
-        LocalTransform.Identity with {
-            Rotation = Quaternion.FromYawPitchRoll(
-                MathUtil.DegreesToRadians(-30f),
-                MathUtil.DegreesToRadians(50f),
-                0f
-            )
-        };
-
-    /// <summary>What a newly created entity hangs from.</summary>
-    /// <remarks>
-    ///     The first selected entity rather than the root, which is what every editor does and what
-    ///     somebody who has just clicked a parent means. Selecting the new one afterwards is what
-    ///     makes the next thing they do — rename it, drag it — land on the thing they just made.
-    /// </remarks>
-    Entity Under() => scene.Selection.Count > 0 ? scene.Selection[0] : Entity.Null;
 
     /// <summary>Rescans the project and says what changed.</summary>
     /// <remarks>

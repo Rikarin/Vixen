@@ -25,6 +25,7 @@ related: [editor/index, editor/writing-a-plugin, editor/content-library, editor/
 | `AlignWithView()` / `MoveToView()` | Puts the selection where the focused viewport's camera (`View`) is, looking where it looks — or moves it, keeping its shape, to the view's pivot. |
 | `SnapToFloor()` | Drops each selected entity straight down onto whatever is under it, or onto Y = 0. |
 | `InvertSelection()` / `SelectChildren()` / `SelectParent()` | The selection walks. |
+| `CreateEntity()` / `CreateShape(kind)` / `CreateLight(kind)` / `CreateCamera()` | Creates an empty entity, a built-in shape, a light (aimed down and forward) or a camera under the first selected entity, selects it and returns it. |
 
 `HierarchyChanged` is raised after a verb changed the hierarchy in a way an outliner redraws for.
 
@@ -44,9 +45,12 @@ scene rather than whichever document was last focused.
 
 What it deliberately does **not** do:
 
-- **Ask.** Set Parent's chooser is the editor's; the service takes the answer. `WhyNotParent` is
-  there so a plugin's own chooser can grey a row with the reason.
-- **Create primitives or prefabs.** The Create ▸ entity lines are still the application's.
+- **Ask.** Every verb takes the answer — an axis, a name, a set, a parent. The questions are the
+  editor's dialogs, asked through `EditorShell.ChooseAsync`, which a plugin reaches through
+  `context.Shell` too; `SceneModule` asks Align's axis and Select By Type's component that way.
+  `WhyNotParent` is there so a chooser can grey a row with the reason.
+- **Create prefabs.** The Create ▸ Shape/Light/Camera lines and Create Empty are `SceneModule`'s,
+  over the create verbs above; a prefab is not one of them.
 
 ## Using it
 

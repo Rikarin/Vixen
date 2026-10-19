@@ -9,6 +9,7 @@ using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
+using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 
 namespace Vixen.Editor.App;
@@ -858,6 +859,88 @@ sealed class SceneEditing : ISceneEditing {
             )
         );
     }
+
+    // ── The create verbs (#1290's third slice) ──────────────────────────────────────────────
+    // Moved from EditorApplication.cs, bodies unchanged but for reading the active scene and
+    // answering with what they made.
+
+    /// <summary>Creates an empty entity under the selection, and selects it.</summary>
+    /// <remarks>
+    ///     Under the first selected entity rather than at the root, which is what every editor does
+    ///     and what somebody who has just clicked a parent means. Selecting the new one is what makes
+    ///     the next thing they do — rename it, drag it — land on the thing they just made.
+    /// </remarks>
+    public Entity CreateEntity() {
+        var scene = Active;
+        var created = scene.Create("Entity", LocalTransform.Identity, Under());
+        scene.Selection.Set([created]);
+
+        return created;
+    }
+
+    /// <summary>Creates one of the built-in shapes under the selection, and selects it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>At the parent's origin rather than in front of the camera.</b> Placing new geometry
+    ///     where the viewport is looking is what Unity does with a preference turned on, and it needs
+    ///     the camera's pivot taken back through the parent's inverse — which is a different answer
+    ///     for a spawn from the hierarchy, where there may be no viewport open at all. The identity is
+    ///     the one placement that means the same thing from both, and it is what Create Empty already
+    ///     does.
+    /// </remarks>
+    public Entity CreateShape(PrimitiveKind kind) {
+        var scene = Active;
+        var created = scene.CreateShape(kind, LocalTransform.Identity, Under());
+        scene.Selection.Set([created]);
+
+        return created;
+    }
+
+    /// <summary>Creates a light under the selection, and selects it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Aimed downwards rather than left at the identity, and only this one is.</b> A shape at
+    ///     the identity is a shape; a directional or a spot light at the identity points along +Z,
+    ///     which for a sun means the horizon and for a spot means a cone lying flat in the floor —
+    ///     both of which look like the command having done nothing. Every other kind ignores the
+    ///     rotation, so the same placement is right for all five.
+    /// </remarks>
+    public Entity CreateLight(LightKind kind) {
+        var scene = Active;
+        var created = scene.CreateLight(kind, Aimed, Under());
+        scene.Selection.Set([created]);
+
+        return created;
+    }
+
+    /// <summary>Creates a camera under the selection, and selects it.</summary>
+    /// <remarks>
+    ///     Level and facing the way a directional light points, for the same reason: a camera looking
+    ///     along +Z from the origin is a camera looking at the inside of whatever is at the origin.
+    /// </remarks>
+    public Entity CreateCamera() {
+        var scene = Active;
+        var created = scene.CreateCamera(LocalTransform.Identity, Under());
+        scene.Selection.Set([created]);
+
+        return created;
+    }
+
+    /// <summary>Pointing down and forward, the way a key light is hung.</summary>
+    internal static LocalTransform Aimed =>
+        LocalTransform.Identity with {
+            Rotation = Quaternion.FromYawPitchRoll(
+                MathUtil.DegreesToRadians(-30f),
+                MathUtil.DegreesToRadians(50f),
+                0f
+            )
+        };
+
+    /// <summary>What a newly created entity hangs from.</summary>
+    /// <remarks>
+    ///     The first selected entity rather than the root, which is what every editor does and what
+    ///     somebody who has just clicked a parent means. Selecting the new one afterwards is what
+    ///     makes the next thing they do — rename it, drag it — land on the thing they just made.
+    /// </remarks>
+    Entity Under() => Active.Selection.Count > 0 ? Active.Selection[0] : Entity.Null;
 
     /// <summary>A world-space offset in the space an entity's <c>LocalTransform</c> is written in.</summary>
     Vector3 Local(Entity entity, Vector3 offset) {
