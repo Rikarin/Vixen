@@ -2310,6 +2310,16 @@ sealed partial class EditorApplication : IDisposable {
                             // workspace's construction). ⚠ Only a document's close: a quit raised at
                             // the focus bubbles through here too, and closing the tab under it would
                             // answer a question the window asked.
+                            //
+                            // ⚠ #1501: a dirty document is asked about first, through the framework's
+                            // prompt, which refuses the request so the handler below leaves the tab
+                            // alone. Installed first for that reason — the handlers run in order. The
+                            // editor's own scenes are not asked about: closing a tab over one hides
+                            // nothing, because the Scene view still shows it and still saves it.
+                            if (!sceneEditing.Scenes.Any(scene => ReferenceEquals(scene, open))) {
+                                DocumentClosePrompt.Install(panel, Shell.Dialogs, () => CloseDocumentTab(id, open));
+                            }
+
                             panel.AddHandler<CloseRequestEvent>((_, args) => {
                                 if (args.Reason == UiCloseReason.DocumentClosed && !args.IsCancelled) {
                                     Shell.Workspace.Close(id);
@@ -2331,6 +2341,31 @@ sealed partial class EditorApplication : IDisposable {
         project.Activate(document);
 
         return true;
+    }
+
+    /// <summary>Closes an asset tab the close prompt allowed to go, and the document it showed.</summary>
+    /// <param name="id">The tab's panel id.</param>
+    /// <param name="document">What it showed.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The document closes with the tab, on this path only</b> (#1501). The prompt calls
+    ///         this after Save or Don't Save, and a document left in the project after Don't Save
+    ///         would still hold the edits the user just discarded — with no tab showing them, and
+    ///         Save All and the quit prompt still offering to write them. A clean tab closed without
+    ///         a question keeps its document, so reopening it finds the same undo history.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Called frames after the request</b>, when the dialog is answered, so it checks
+    ///         rather than assumes: the tab may have been closed and the document closed some other
+    ///         way while the question was on screen.
+    ///     </para>
+    /// </remarks>
+    void CloseDocumentTab(string id, EditorDocument document) {
+        Shell.Workspace.Close(id);
+
+        if (document.IsOpen) {
+            document.Close();
+        }
     }
 
     /// <summary>Finds the scene this editor already has open over an asset's file.</summary>

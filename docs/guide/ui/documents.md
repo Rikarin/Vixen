@@ -277,6 +277,13 @@ notification — and answers `false`, and with nobody subscribed it throws on ra
 failure. ⚠ `Location` is the asset database's path, or for a document opened with `AssetId.Empty` —
 the editor's own scenes — the file its writer names, once that file exists (#1493).
 
+**Each editor asset tab installs `DocumentClosePrompt`** (#1501), so Ctrl+W or File ▸ Close on a tab
+with unsaved changes asks Save / Don't Save / Cancel. Cancel keeps the tab and its edits. Save or
+Don't Save closes the tab *and its document*: a document left in the project after Don't Save would
+still hold the edits the user discarded, with no tab showing them. A clean tab still closes without
+a question and keeps its document, so reopening it finds the same undo history. A tab over one of the
+editor's own scenes is not asked about, because the Scene view still shows that scene and saves it.
+
 **Undo is not owned by the document.** An element finds a manager with `FindUndoManager`, and a
 document that wants to be where one lives sets `UndoManager` on the element that hosts it. Marking
 clean when the undo stack returns to its loaded state is the document's own job — `MarkClean` is
