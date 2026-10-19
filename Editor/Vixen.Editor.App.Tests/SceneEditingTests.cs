@@ -279,8 +279,15 @@ public sealed class SceneEditingTests : IDisposable {
         Assert.Null(editor.Shell.Commands["entity.copy-transform"]);
         Assert.Null(editor.Shell.Commands["entity.paste-transform"]);
 
-        // The ones that ask through the application's chooser stay the application's.
-        Assert.NotNull(editor.Shell.Commands["entity.align"]);
+        // And the six that ask first, through the shell's chooser since #1290's third slice — plus
+        // the Planned line declared beside them.
+        Assert.Null(editor.Shell.Commands["entity.align"]);
+        Assert.Null(editor.Shell.Commands["entity.distribute"]);
+        Assert.Null(editor.Shell.Commands["edit.select-by-name"]);
+        Assert.Null(editor.Shell.Commands["edit.select-by-type"]);
+        Assert.Null(editor.Shell.Commands["edit.save-selection-set"]);
+        Assert.Null(editor.Shell.Commands["edit.recall-selection-set"]);
+        Assert.Null(editor.Shell.Commands["entity.relative-transform"]);
 
         // The Edit menu's selection verbs are still the application's, over the same service.
         Assert.NotNull(editor.Shell.Commands["edit.duplicate"]);

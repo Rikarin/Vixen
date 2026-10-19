@@ -28,9 +28,10 @@ namespace Vixen.Editor.App;
 ///     </para>
 ///     <para>
 ///         <b>The second slice added Part D's four verbs that ask nothing</b> — Isolate and Reset, Copy
-///         and Paste Transform. Their six neighbours that ask an axis, a name or a set (Align,
-///         Distribute, Select By Name/Type, the selection sets) are service methods too, and stay
-///         registered by the application for Set Parent's reason: the chooser is its.
+///         and Paste Transform. <b>The third added their six neighbours that ask</b> an axis, a name
+///         or a set (Align, Distribute, Select By Name/Type, the selection sets), through
+///         <see cref="SceneQuestions" />: the chooser they ask with is the shell's now, not the
+///         application's.
 ///     </para>
 /// </remarks>
 sealed class SceneModule : IEditorPlugin {
@@ -90,8 +91,6 @@ sealed class SceneModule : IEditorPlugin {
         context.AddDefaultBinding("entity.snap-to-floor", new KeyChord(InputKey.End, ModifierKeys.None));
 
         // ── Part D's verbs that ask nothing (#1290's second slice) ──────────────────────────────
-        // The ones that ask an axis, a name or a set stay with the application's chooser — see
-        // `EditorSelectionVerbs`.
         context.AddCommand(
             new EditorCommand("edit.isolate", EditorStrings.CommandEditIsolate, editing.Isolate) {
                 Category = EditorStrings.CategoryEdit,
@@ -123,6 +122,9 @@ sealed class SceneModule : IEditorPlugin {
             editing.PasteTransform,
             () => editing.HasCopiedTransform && Selected()
         );
+
+        // ── Part D's verbs that ask first (#1290's third slice) ─────────────────────────────────
+        new SceneQuestions(context, editing).Register();
     }
 
     static void Verb(PluginContext context, string id, StringId title, Action run, Func<bool> enabled) =>

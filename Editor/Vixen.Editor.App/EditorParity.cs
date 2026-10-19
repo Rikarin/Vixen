@@ -68,7 +68,6 @@ sealed partial class EditorApplication {
         EditingCommands();
         AssetCommands();
         EntityCommands();
-        SelectionAndTransformCommands();
         PlayCommands();
         BuildAndToolCommands();
     }
@@ -562,7 +561,7 @@ sealed partial class EditorApplication {
         _ = Ask();
 
         async Task Ask() {
-            var destination = await ChooseAsync(
+            var destination = await Shell.ChooseAsync(
                 assets.Count == 1 ? "Move to which folder?" : $"Move {assets.Count} assets to which folder?",
                 folders,
                 folder => folder
@@ -1340,7 +1339,7 @@ sealed partial class EditorApplication {
         _ = Ask();
 
         async Task Ask() {
-            var chosen = await ChooseAsync(
+            var chosen = await Shell.ChooseAsync(
                 "What kind of asset?",
                 kinds,
                 static kind => kind.Title,
@@ -1997,7 +1996,7 @@ sealed partial class EditorApplication {
         _ = Ask();
 
         async Task Ask() {
-            var chosen = await ChooseAsync(
+            var chosen = await Shell.ChooseAsync(
                 moving.Count == 1 ? "Hang it from what?" : $"Hang {moving.Count} entities from what?",
                 choices,
                 static choice => choice.Label,
