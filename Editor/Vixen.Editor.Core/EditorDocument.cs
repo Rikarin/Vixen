@@ -47,13 +47,13 @@ namespace Vixen.Editor.Core;
 ///         nobody to hear it is exactly the swallow that remark forbids.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The location is the asset database's path, so a document with no asset has
-///         none.</b> <see cref="Asset" /> is immutable, and <c>EditorApplication</c> opens its scenes
-///         as <c>new SceneDocument(project, world, AssetId.Empty, …)</c> with the real path held by a
-///         <c>Writer</c> — so those report <c>Location</c> null, which in
-///         <see cref="IEditableDocument" />'s vocabulary means "never saved". Nothing reads
-///         <c>Location</c> yet (no recent-documents list, no proxy icon), which is why that is
-///         recorded rather than invented.
+///         <b>The location is the asset database's path, or else the file the document says it
+///         writes</b> (#1493). <see cref="Asset" /> is immutable, and <c>EditorApplication</c> opens
+///         its scenes as <c>new SceneDocument(project, world, AssetId.Empty, …)</c> with the real
+///         path held by a <c>Writer</c> — because Save As moves that path under the document — so a
+///         deriving type names the file with <see cref="WritesTo" /> and the location follows it.
+///         ⚠ <b>Only once the file exists</b>: <see cref="IEditableDocument" />'s null means "never
+///         saved", and a scene whose writer points at a file nothing has written yet is exactly that.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>And <see cref="IsStale" /> is not <see cref="ExternallyModified" /></b>: stale is
@@ -63,6 +63,7 @@ namespace Vixen.Editor.Core;
 /// </remarks>
 public abstract class EditorDocument : IEditableDocument {
     readonly Signal<string?> location = new(null);
+    string? file;
     readonly Signal<bool> modifiedExternally = new(false);
     readonly Signal<bool> stale = new(false);
     readonly Signal<string> title;
@@ -242,10 +243,34 @@ public abstract class EditorDocument : IEditableDocument {
     /// <inheritdoc />
     bool IEditableDocument.Revert() => Reload();
 
-    string? Locate() =>
-        !Asset.IsEmpty && Project.Assets.TryGetByGuid(Asset, out var entry) && !entry.IsFolder
-            ? Project.Paths.Absolute(entry.Path)
-            : null;
+    /// <summary>Names the file this document writes when no asset names it, and asks its location again.</summary>
+    /// <param name="path">The file, or <see langword="null" /> for none.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>For a document over <see cref="AssetId.Empty" /> only</b> (#1493) — the editor's own
+    ///         scenes, whose file is chosen by the shell and moved by Save As. A document with an asset
+    ///         answers the asset database's path, which a rename keeps right, and this is not
+    ///         consulted.
+    ///     </para>
+    ///     <para>
+    ///         The location is the file only once it exists: a path nothing has written yet is a
+    ///         document that has never been saved, and <see cref="Save" /> asks again.
+    ///     </para>
+    /// </remarks>
+    protected void WritesTo(string? path) {
+        file = path;
+        location.Value = Locate();
+    }
+
+    string? Locate() {
+        if (!Asset.IsEmpty) {
+            return Project.Assets.TryGetByGuid(Asset, out var entry) && !entry.IsFolder
+                ? Project.Paths.Absolute(entry.Path)
+                : null;
+        }
+
+        return file is not null && File.Exists(file) ? Path.GetFullPath(file) : null;
+    }
 
     /// <summary>Whether this document knows how to read its file again.</summary>
     /// <remarks>

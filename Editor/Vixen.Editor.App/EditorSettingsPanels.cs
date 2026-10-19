@@ -931,8 +931,7 @@ sealed partial class EditorApplication {
         // ⚠ Read once and kept, because this factory runs on every visit to the page — and the
         // search box alone can bounce between two pages, which would make typing in it a sequence of
         // synchronous disk reads.
-        tokens ??= store.Read(ThemeFile) ?? string.Empty;
-        editor.Value = pendingTokens ?? tokens;
+        editor.Value = pendingTokens ?? documentViews.ThemeTokens;
 
         // ⚠ Recorded on this object rather than closed over by a handler on `view.Applied`. A page's
         // factory runs again every time it is selected — the search box alone can bounce between two
@@ -947,12 +946,6 @@ sealed partial class EditorApplication {
     /// <summary>Theme tokens typed into the Appearance page and not yet applied.</summary>
     string? pendingTokens;
 
-    /// <summary>What is on disk, read once.</summary>
-    string? tokens;
-
-    /// <summary>Where the user's theme overrides live, which two commands and one page all name.</summary>
-    internal const string ThemeFile = "theme.yaml";
-
     /// <summary>Writes the theme tokens, if any were typed, and restyles the editor.</summary>
     void SaveTokens() {
         if (pendingTokens is not { } text) {
@@ -960,16 +953,7 @@ sealed partial class EditorApplication {
         }
 
         pendingTokens = null;
-        tokens = text;
-
-        try {
-            store.Write(ThemeFile, text);
-        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
-            Shell.Notifications.Show("Could not save the theme", NotificationSeverity.Error, exception.Message);
-            return;
-        }
-
-        Shell.Theme.LoadTokens(text.Length == 0 ? null : text);
+        documentViews.ApplyThemeTokens(text);
     }
 
     // ── Which plugins the user has switched off ─────────────────────────────────────────────────

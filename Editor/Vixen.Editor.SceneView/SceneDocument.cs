@@ -118,6 +118,7 @@ public sealed class RenameEntityCommand : IEditorCommand {
 /// </remarks>
 public sealed class SceneDocument : EditorDocument {
     readonly Dictionary<Entity, string> names = [];
+    ISceneWriter? writer;
     readonly Dictionary<Entity, EntityId> ids = [];
 
     /// <summary>The entities the editor is not drawing, and the ones it will not let be picked.</summary>
@@ -251,7 +252,19 @@ public sealed class SceneDocument : EditorDocument {
     public PrefabReconcileReport? Reconciled { get; set; }
 
     /// <summary>Writes the scene back, or <see langword="null" /> while nothing can.</summary>
-    public ISceneWriter? Writer { get; set; }
+    /// <remarks>
+    ///     ⚠ <b>A <see cref="SceneFileWriter" /> is also where the scene is</b> (#1493): the editor's
+    ///     own scenes are documents over <see cref="AssetId.Empty" />, so their file is named here and
+    ///     <c>IEditableDocument.Location</c> follows it — through Save As and Open Scene, which change
+    ///     the writer and not the asset.
+    /// </remarks>
+    public ISceneWriter? Writer {
+        get => writer;
+        set {
+            writer = value;
+            WritesTo((value as SceneFileWriter)?.Path);
+        }
+    }
 
     /// <summary>Raised when entities appear, disappear or change parent.</summary>
     /// <remarks>

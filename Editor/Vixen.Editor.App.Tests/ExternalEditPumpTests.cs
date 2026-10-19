@@ -262,6 +262,31 @@ public sealed class ExternalEditPumpTests : IDisposable {
     ///     open it again"; <c>file.revert</c> is the same operation with a name, and it asks first
     ///     because it is the destructive one.
     /// </summary>
+    /// <summary>
+    ///     ⚠ <b>#656: the window says the file changed on disk, apart from the asterisk.</b> The
+    ///     asterisk is "saving writes something"; a file that moved on underneath a kept document is
+    ///     the other direction, and before this nothing on screen said so once the notification went.
+    /// </summary>
+    [Fact]
+    public void The_window_title_says_a_kept_document_changed_on_disk() {
+        var (session, document, path) = Editing();
+
+        document.Stack.Execute(new DelegateCommand("Turn a knob", _ => { }, _ => { }));
+        session.Frames(1);
+
+        var name = document.Title.Peek();
+
+        Assert.StartsWith(name + "* — ", session.Shell.Title, StringComparison.Ordinal);
+        Assert.DoesNotContain("changed on disk", session.Shell.Title, StringComparison.Ordinal);
+
+        File.WriteAllText(path, Changed);
+
+        Assert.True(Pump(session, () => document.IsStale.Value, Budget), "the file change never arrived");
+        session.Frames(1);
+
+        Assert.StartsWith(name + "* (changed on disk) — ", session.Shell.Title, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Reverting_a_stale_document_takes_the_version_on_disk_and_asks_first() {
         var (session, document, path) = Editing();

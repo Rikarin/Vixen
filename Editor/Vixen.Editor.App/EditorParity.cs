@@ -136,6 +136,18 @@ sealed partial class EditorApplication {
                 && (document.HasUnsavedChanges.Value || document.IsStale.Value)
         );
 
+        // ⚠ The route's id with `file.revert` as its fallback (#1494): an asset tab answers
+        // `document.revert` itself — see `Open`, which hands it `Revert(EditorDocument)` so the
+        // question is still asked — and this runs only when the focus is in no document's panel.
+        Verb(
+            DocumentCommands.Revert,
+            EditorStrings.CommandDocumentRevert,
+            EditorStrings.CategoryFile,
+            Revert,
+            enabled: () => project.ActiveDocument.Value is { CanReload: true } document
+                && (document.HasUnsavedChanges.Value || document.IsStale.Value)
+        );
+
         Verb(
             "assets.import-files",
             EditorStrings.CommandAssetsImportFiles,
@@ -211,11 +223,8 @@ sealed partial class EditorApplication {
             Verb(
                 RecentCommand(path),
 
-                // ⚠ A null id, which `Strings.Get` answers with the source text. A directory the
-                // user happens to have called "Prototype" is not a string a translator should ever
-                // be shown, and giving it a catalogue id would put every project name they have
-                // opened into the localisation vocabulary.
-                new StringId(null!, entry.Name),
+                // ⚠ The user's name for it, never a translator's word — see `Untranslated`.
+                Untranslated.Title(entry.Name),
                 EditorStrings.CategoryFile,
                 () => session.RequestProject(path),
 
@@ -759,13 +768,6 @@ sealed partial class EditorApplication {
             EditorStrings.CategoryTools,
             ReloadShadersNow,
             enabled: () => Effects is not null
-        );
-
-        Verb(
-            "tools.reload-styles",
-            EditorStrings.CommandToolsReloadStyles,
-            EditorStrings.CategoryTools,
-            ReloadStyles
         );
 
         // ⚠ The producer end of a chain every other link of which was finished and called by nothing.
@@ -1667,21 +1669,6 @@ sealed partial class EditorApplication {
         }
     }
 
-    /// <summary>Loads the five user-agent sheets again, so a theme edit shows without a restart.</summary>
-    /// <remarks>
-    ///     The one Tools verb that is genuinely free: the sheets are strings in this process and
-    ///     <c>Install</c> is idempotent, so re-running the five is a restyle rather than a reload.
-    /// </remarks>
-    void ReloadStyles() {
-        // ⚠ Re-read, and the cached copy the Appearance page seeds from is dropped with it — that
-        // page exists to edit this file, so a hot reload that left it showing the old text would be
-        // an editor disagreeing with itself about what the theme is.
-        tokens = null;
-
-        Shell.Theme.LoadTokens(store.Read(ThemeFile));
-        Shell.Notifications.Success("Styles reloaded");
-    }
-
     /// <summary>Recompiles every shader source, whether or not a file was seen to change.</summary>
     /// <remarks>
     ///     ⚠ <b>It reports the refusal rather than swallowing it.</b> The watcher's path writes a
@@ -1998,7 +1985,21 @@ sealed partial class EditorApplication {
     ///     </para>
     /// </remarks>
     void Revert() {
-        if (project.ActiveDocument.Value is not { CanReload: true } document) {
+        if (project.ActiveDocument.Value is { } document) {
+            Revert(document);
+        }
+    }
+
+    /// <summary>Reads one document's file again, asking first when that throws edits away.</summary>
+    /// <param name="document">The document.</param>
+    /// <remarks>
+    ///     ⚠ <b>What an asset tab answers <c>document.revert</c> with (#1494)</b> — the workspace's
+    ///     <c>Reverting</c> — in place of the document's own revert, which does not ask: right for a
+    ///     framework that has no dialog, and a regression here, where Revert to Saved has always asked
+    ///     before it threw away the only copy of somebody's edits.
+    /// </remarks>
+    void Revert(EditorDocument document) {
+        if (!document.CanReload) {
             return;
         }
 

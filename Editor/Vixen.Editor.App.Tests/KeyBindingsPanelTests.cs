@@ -19,10 +19,10 @@ public class KeyBindingsPanelTests {
 
         Assert.Equal(fixture.Shell.Commands.Commands.Count, view.Grid.Items.Count);
 
-        var row = Row(view, "file.save");
+        var row = Row(view, "document.save");
 
-        Assert.Equal("Save Scene", row.Title);
-        Assert.Equal(BindingSource.Default, fixture.Shell.Keys.SourceOf("file.save"));
+        Assert.Equal("Save", row.Title);
+        Assert.Equal(BindingSource.Default, fixture.Shell.Keys.SourceOf("document.save"));
     }
 
     [Fact]
@@ -85,14 +85,14 @@ public class KeyBindingsPanelTests {
 
         Press(fixture, InputKey.S, ModifierKeys.Control);
 
-        Assert.Equal("file.save", view.Conflict);
+        Assert.Equal("document.save", view.Conflict);
         Assert.True(view.IsCapturing);
-        Assert.Equal(new KeyChord(InputKey.S, ModifierKeys.Control), fixture.Shell.Keys.ChordFor("file.save"));
+        Assert.Equal(new KeyChord(InputKey.S, ModifierKeys.Control), fixture.Shell.Keys.ChordFor("document.save"));
 
         Press(fixture, InputKey.S, ModifierKeys.Control);
 
         Assert.Equal(new KeyChord(InputKey.S, ModifierKeys.Control), fixture.Shell.Keys.ChordFor("scene.frame-all"));
-        Assert.False(fixture.Shell.Keys.ChordFor("file.save").IsBound);
+        Assert.False(fixture.Shell.Keys.ChordFor("document.save").IsBound);
     }
 
     [Fact]

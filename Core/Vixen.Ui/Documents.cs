@@ -46,21 +46,17 @@ public interface IEditableDocument {
     ///         whose ⌘S silently does nothing the first time it is pressed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Nothing in this repository reads one</b>
-    ///         (<a href="https://github.com/Rikarin/Vixen/issues/656">#656</a>), and the one
-    ///         production writer is <c>EditorDocument</c>, which answers from its asset's path in the
-    ///         asset database — so the editor's <c>AssetId.Empty</c> scenes answer null for a file
-    ///         they have. <see cref="UiWindowTitle.Bind" /> — the one thing that takes an
-    ///         <see cref="IEditableDocument" /> and shows it — reads <see cref="Name" /> and the two
-    ///         unsaved flags and not this. <c>Samples/02-HelloUi</c>'s save is in memory and says so.
+    ///         <b>Read by <see cref="RecentDocuments" /></b> (#656), which is keyed on it and on nothing
+    ///         else, and written in production by <c>EditorDocument</c> — its asset's path, or for the
+    ///         editor's <c>AssetId.Empty</c> scenes the file their writer names once it exists (#1493).
+    ///         <see cref="UiWindowTitle.Bind" /> reads <see cref="Name" /> and the two unsaved flags
+    ///         and not this. <c>Samples/02-HelloUi</c>'s save is in memory and says so.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>That is one blocker wearing three hats, and doc 49 § 5 lists it as three jobs.</b>
-    ///         A recent-documents list is keyed on this. A proxy icon <i>is</i> this — a represented
-    ///         file is a path, so the missing <c>IUiWindow</c> member is the second obstacle and not
-    ///         the first. And half of "nothing in the editor implements
-    ///         <see cref="IEditableDocument" />" is the question of what an <c>AssetId</c>'s location
-    ///         is. Whoever gives one document a real location discharges the larger part of all three.
+    ///         ⚠ <b>A proxy icon <i>is</i> this and still waits on a seam.</b> A represented file
+    ///         is a path, and <c>IUiWindow</c> has <c>Title</c> and nothing like
+    ///         <c>NSWindow.representedURL</c>, which no platform implements either — so there is
+    ///         somewhere to read the path from now and nowhere to put it.
     ///     </para>
     /// </remarks>
     IReadOnlySignal<string?> Location { get; }
@@ -255,7 +251,23 @@ public static class DocumentCommands {
     ///         looks exactly like Save being broken.
     ///     </para>
     /// </remarks>
-    public static void Install(UiElement element) {
+    public static void Install(UiElement element) => Install(element, revert: null);
+
+    /// <summary>Makes an element answer the three ids for the document it hosts, reverting it the host's way.</summary>
+    /// <param name="element">The element hosting the document.</param>
+    /// <param name="revert">
+    ///     What <see cref="Revert" /> runs instead of <see cref="IEditableDocument.Revert" />, or
+    ///     <see langword="null" /> for that.
+    /// </param>
+    /// <exception cref="InvalidOperationException"><paramref name="element" /> hosts no document.</exception>
+    /// <remarks>
+    ///     ⚠ <b>For a host whose revert asks first</b> (#1494). This framework has no dialog, so its
+    ///     answer reverts outright; an application that has always asked before throwing away the only
+    ///     copy of somebody's edits — the editor's Revert to Saved — would otherwise have to install
+    ///     this and then withdraw the handler it did not want, and a withdrawal is not what
+    ///     <c>RemoveCommandHandler</c> is waiting for. The enablement is the same either way.
+    /// </remarks>
+    public static void Install(UiElement element, Action? revert) {
         ArgumentNullException.ThrowIfNull(element);
 
         if (element.HostedDocument is not { } document) {
@@ -267,7 +279,7 @@ public static class DocumentCommands {
         // ⚠ Both halves of "unsaved" (#656): a document only changed from outside still has
         // something to write and something to throw away.
         element.AddCommandHandler(Save, () => document.Save(), () => HasUnsavedChanges(document));
-        element.AddCommandHandler(Revert, () => document.Revert(), () => HasUnsavedChanges(document));
+        element.AddCommandHandler(Revert, revert ?? (() => document.Revert()), () => HasUnsavedChanges(document));
 
         // ⚠ Raised on the hosting element and not on the UiDocument, which is what makes the close
         // be about THIS document: the route picked this handler because this element is the nearest

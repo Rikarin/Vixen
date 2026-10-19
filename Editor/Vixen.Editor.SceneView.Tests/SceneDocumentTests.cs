@@ -33,6 +33,46 @@ public class SceneDocumentTests : IDisposable {
         GC.SuppressFinalize(this);
     }
 
+    /// <summary>
+    ///     ⚠ <b>#1493: a scene over <see cref="AssetId.Empty" /> has its writer's file as its location
+    ///     — once that file exists.</b> The editor's own scenes are such documents, so before this a
+    ///     saved scene answered null, which <see cref="Vixen.Ui.IEditableDocument" /> reads as "never
+    ///     saved".
+    /// </summary>
+    [Fact]
+    public void An_unsaved_scene_has_no_location_and_saving_it_gives_it_the_file_it_wrote() {
+        Vixen.Ui.IEditableDocument document = scene;
+        var path = Path.Combine(root, "Assets", "Level.vxscene");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        scene.Writer = new SceneFileWriter(path);
+
+        Assert.Null(document.Location.Value);
+
+        scene.Save();
+
+        Assert.Equal(Path.GetFullPath(path), document.Location.Value);
+    }
+
+    /// <summary>Save As moves the writer and not the asset, and the location goes with the writer.</summary>
+    [Fact]
+    public void A_scene_whose_writer_moves_to_a_written_file_answers_that_file() {
+        Vixen.Ui.IEditableDocument document = scene;
+        var first = Path.Combine(root, "First.vxscene");
+        var second = Path.Combine(root, "Second.vxscene");
+
+        scene.Writer = new SceneFileWriter(first);
+        scene.Save();
+        File.WriteAllText(second, File.ReadAllText(first));
+
+        scene.Writer = new SceneFileWriter(second);
+        Assert.Equal(Path.GetFullPath(second), document.Location.Value);
+
+        // A writer that names no file is no location at all, not the last one it had.
+        scene.Writer = null;
+        Assert.Null(document.Location.Value);
+    }
+
     [Fact]
     public void An_entity_with_no_name_reads_as_something_a_person_can_tell_apart() {
         var entity = scene.Add("Crate", LocalTransform.Identity);

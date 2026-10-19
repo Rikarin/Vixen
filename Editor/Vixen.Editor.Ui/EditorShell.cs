@@ -616,15 +616,26 @@ public sealed class EditorShell : IDisposable {
     /// <param name="document">The open document's name, or <see langword="null" /> for none.</param>
     /// <param name="dirty">Whether it has unsaved changes.</param>
     /// <param name="project">The project's name, or <see langword="null" />.</param>
+    /// <param name="changedOnDisk">Whether its file changed on disk and it has not caught up.</param>
     /// <remarks>
-    ///     <c>&lt;scene&gt;* — &lt;project&gt; — Vixen</c>, dropping whichever parts are absent so a
-    ///     shell with no project open is titled "Vixen" rather than " —  — Vixen".
+    ///     <para>
+    ///         <c>&lt;scene&gt;* — &lt;project&gt; — Vixen</c>, dropping whichever parts are absent so a
+    ///         shell with no project open is titled "Vixen" rather than " —  — Vixen".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The file changing on disk is said apart from the asterisk</b> (#656). The
+    ///         asterisk is "saving would write something" — the user's edits or a change that reached
+    ///         the document from outside, which is why it reads both. A file that moved on underneath
+    ///         the document is the other direction, disk ahead of memory, and saving would overwrite
+    ///         it; folding it into the asterisk would make the one mark mean "save" and "do not save".
+    ///     </para>
     /// </remarks>
-    public void Describe(string? document, bool dirty, string? project) {
+    public void Describe(string? document, bool dirty, string? project, bool changedOnDisk = false) {
         var parts = new List<string>(3);
 
         if (!string.IsNullOrEmpty(document)) {
-            parts.Add(dirty ? document + "*" : document);
+            var name = dirty ? document + "*" : document;
+            parts.Add(changedOnDisk ? $"{name} ({EditorStrings.TitleChangedOnDisk.Text})" : name);
         }
 
         if (!string.IsNullOrEmpty(project)) {
@@ -973,7 +984,10 @@ public sealed class EditorShell : IDisposable {
         file.AddSubmenu(EditorStrings.MenuRecent).AddDynamic(() => Recent?.Invoke() ?? []);
 
         file.AddSeparator()
-            .Add("file.new-scene", "file.open-scene", "file.save", "file.save-as", "file.save-all", "file.revert")
+            // ⚠ Save, Revert and Close are the route's ids (#1494): the line answers for the document
+            // the focus is in, and the registry's command of the same id is only the fallback.
+            .Add("file.new-scene", "file.open-scene")
+            .Add(DocumentCommands.Save, "file.save", "file.save-as", "file.save-all", DocumentCommands.Revert, DocumentCommands.Close)
             .AddSeparator()
             .Add("assets.import-files", "file.export-package")
             .AddSeparator()

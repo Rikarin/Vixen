@@ -721,10 +721,18 @@ sealed partial class EditorApplication : IDisposable {
 
         // ⚠ Empty here: every kind and view is a module's contribution (#1297), registered through
         // `PluginServices` — the asset editors module registers this build's twenty-six. The
-        // workspace opens an asset in a tab through this class, which is the panel half #1294 has
-        // still to move.
+        // workspace opens an asset in a tab through this class, because resolving the document is
+        // `IDocumentHost`'s and the editor's open scenes', which `Vixen.Editor.Ui` cannot name; the
+        // panel id, its placement, the layouts and the theme are the workspace's own (#1294).
         documentHost = new DocumentHost(project);
-        documentViews = new EditorWorkspace(Open);
+        documentViews = new EditorWorkspace(Shell, store, Open) {
+            // ⚠ #1494: `document.revert` in a tab is Revert to Saved, which asks first.
+            Reverting = document => {
+                if (document is EditorDocument edited) {
+                    Revert(edited);
+                }
+            }
+        };
 
         // ⚠ The one document kind the *viewport* is a view of, so opening it points the panes at it
         // and every edit after that reaches them without a restart. Through `Opened` rather than a
@@ -976,7 +984,7 @@ sealed partial class EditorApplication : IDisposable {
             KeyMapYaml.Read(Shell.Keys, keymap);
         }
 
-        Shell.Theme.LoadTokens(store.Read(ThemeFile));
+        documentViews.LoadStyles();
 
         // ⚠ Doc 20's A6: the panels a saved arrangement names include the asset editors that were
         // open, which nothing has registered yet because they are registered on demand. This is the
@@ -1865,7 +1873,17 @@ sealed partial class EditorApplication : IDisposable {
     ///     <c>EditorShell.Describe</c> raises nothing unless the composed string actually differs, so
     ///     the host is told only when there is something to tell it.
     /// </remarks>
-    void Retitle() => Shell.Describe(scene.Title.Peek(), scene.HasUnsavedChanges.Value, ProductName);
+    /// <remarks>
+    ///     ⚠ <b>The active document, not the scene</b> (#656): the window says what the user is
+    ///     editing, and with a material tab in front that is the material. Its asterisk reads both
+    ///     halves of unsaved — its own edits and <c>ExternallyModified</c> — and a file that changed on
+    ///     disk underneath it (<c>IsStale</c>) is said beside the name, apart from the asterisk.
+    /// </remarks>
+    void Retitle() {
+        var shown = project.ActiveDocument.Peek() ?? scene;
+
+        Shell.Describe(shown.Title.Peek(), shown.HasUnsavedChanges.Value, ProductName, shown.IsStale.Value);
+    }
 
     /// <summary>A scene with something in it, for a project that has none yet.</summary>
     /// <remarks>
@@ -2312,7 +2330,7 @@ sealed partial class EditorApplication : IDisposable {
             return false;
         }
 
-        var id = AssetPanel(asset);
+        var id = EditorWorkspace.PanelOf(asset);
 
         if (assetPanels.Add(id)) {
             var title = document.Title.Peek();
@@ -2328,6 +2346,18 @@ sealed partial class EditorApplication : IDisposable {
                             && documentViews.TryGetView(open, out _)) {
                             tabDocuments[id] = open;
                             documentViews.Show(open, panel);
+
+                            // ⚠ #1494: the panel answers the route's three ids now, and the close
+                            // `document.close` raises on it is this tab's, which nothing in the
+                            // editor heard until now (Revert asking first is `Reverting`, below the
+                            // workspace's construction). ⚠ Only a document's close: a quit raised at
+                            // the focus bubbles through here too, and closing the tab under it would
+                            // answer a question the window asked.
+                            panel.AddHandler<CloseRequestEvent>((_, args) => {
+                                if (args.Reason == UiCloseReason.DocumentClosed && !args.IsCancelled) {
+                                    Shell.Workspace.Close(id);
+                                }
+                            });
                         }
                     }
                 ) {
@@ -2339,7 +2369,7 @@ sealed partial class EditorApplication : IDisposable {
             );
         }
 
-        Place(id);
+        documentViews.Place(id);
         Shell.Workspace.Open(id);
         project.Activate(document);
 
@@ -2452,7 +2482,7 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>Whether an asset tab the user can see is showing a document.</summary>
     bool InATab(EditorDocument document) =>
-        !document.Asset.IsEmpty && Shell.Workspace.IsOpen(AssetPanel(document.Asset));
+        !document.Asset.IsEmpty && Shell.Workspace.IsOpen(EditorWorkspace.PanelOf(document.Asset));
 
     /// <summary>Says why a scene was not pointed at a file another document already edits.</summary>
     /// <remarks>
@@ -2496,78 +2526,13 @@ sealed partial class EditorApplication : IDisposable {
                 continue;
             }
 
-            if (TryReadAssetPanel(id, out var asset) && TryGetOpenScene(asset, out var now) && ReferenceEquals(now, moved)) {
+            if (EditorWorkspace.TryReadPanel(id, out var asset) && TryGetOpenScene(asset, out var now) && ReferenceEquals(now, moved)) {
                 continue;
             }
 
             tabDocuments.Remove(id);
             Shell.Workspace.Close(id);
         }
-    }
-
-    /// <summary>Puts a document panel where the documents are, before it is first opened.</summary>
-    /// <param name="id">The panel's id.</param>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Without this a shader graph opens into the browser column and its canvas is zero
-    ///         pixels wide</b> — <a href="https://github.com/Rikarin/Vixen/issues/939">#939</a>.
-    ///         <c>DockingHost.Rekey</c> put a panel the arrangement does not mention into
-    ///         <c>Layout.Groups()[0]</c>, and in every <c>LayoutPresets.Standard</c> preset the first
-    ///         group is the <em>left browser</em>, at <c>0.2</c> of the width. 320 px is less than
-    ///         <c>shadergraph-side</c>'s own 300 px column, so the graph — which is the one child
-    ///         with <c>flex-grow</c> and <c>min-width: 0</c> — shrinks to nothing and the panel shows
-    ///         its side strip with an empty space where the nodes should be.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The cause is the placement and not the stylesheet, which is worth saying because
-    ///         the <c>min-width: 0</c> looks like the culprit.</b> Giving the graph a minimum would
-    ///         make it overflow a 320 px column instead of vanishing from it; the panel would still
-    ///         be in the wrong place. A document belongs where the viewport is, which is what every
-    ///         preset's <em>centre</em> means, so that is where it is put.
-    ///     </para>
-    ///     <para>
-    ///         Before <c>Open</c>, because the placement happens the moment <c>Id</c> is assigned
-    ///         inside <c>AddPanel</c> — a group named in the layout is one <c>Rekey</c> leaves alone.
-    ///         An arrangement with no scene panel in it keeps the host's own answer rather than
-    ///         guessing — and since #969 that answer is <c>DockLayout.LargestGroup</c>, the group
-    ///         with the most room, which in every standard preset is the one this puts the document
-    ///         in anyway. This stays because it says <i>why</i>: a document belongs with the
-    ///         documents, whether or not that is the biggest box.
-    ///     </para>
-    /// </remarks>
-    void Place(string id) {
-        var layout = Shell.Workspace.Host.Layout;
-
-        if (layout.Find(id) is not null || layout.Find("scene") is not { } scene) {
-            return;
-        }
-
-        scene.Group.Add(id);
-    }
-
-
-    /// <summary>What a panel showing an asset's editor is called in an arrangement.</summary>
-    /// <remarks>
-    ///     The GUID rather than the path, so that moving the file does not leave a panel nobody can
-    ///     reopen — the identity is a GUID precisely so that it does not.
-    /// </remarks>
-    const string AssetPrefix = "asset.";
-
-    /// <inheritdoc cref="AssetPrefix" />
-    static string AssetPanel(AssetId asset) => AssetPrefix + asset;
-
-    /// <summary>Reads an asset panel's id back, which is what restoring an arrangement needs.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Beside the formatter, because a format written in one place and parsed in another is
-    ///     a format with two owners.</b> The parse is the half a saved layout depends on, and it was
-    ///     the half that could drift silently: a mismatch does not fail, it just never restores a
-    ///     document.
-    /// </remarks>
-    static bool TryReadAssetPanel(string id, out AssetId asset) {
-        asset = default;
-
-        return id.StartsWith(AssetPrefix, StringComparison.Ordinal)
-            && AssetId.TryParse(id[AssetPrefix.Length..], out asset);
     }
 
     /// <summary>Reopens the document a restored arrangement names, so the panel can be built.</summary>
@@ -2595,7 +2560,7 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     bool ReopenDocument(string id) {
         if (!preferences.RestoreOpenDocuments
-            || !TryReadAssetPanel(id, out var asset)
+            || !EditorWorkspace.TryReadPanel(id, out var asset)
             || !project.Assets.TryGetByGuid(asset, out _)) {
             return false;
         }
@@ -3212,12 +3177,6 @@ sealed partial class EditorApplication : IDisposable {
             }
         );
 
-        Shell.Commands.Add(
-            new EditorCommand("view.save-layout", EditorStrings.CommandSaveLayout, SaveLayout) {
-                Category = EditorStrings.CategoryView
-            }
-        );
-
         // Enabled only when there is something to write, so the menu item greys itself out from the
         // document's own dirty signal rather than from anything here deciding when.
         Shell.Commands.Add(
@@ -3227,7 +3186,34 @@ sealed partial class EditorApplication : IDisposable {
             }
         );
 
-        Shell.Keys.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
+        // ⚠ **Ctrl+S is `document.save`'s and not `file.save`'s (#1494).** Every asset tab answers
+        // `document.save` on the route — `IWorkspace.Show` installs `DocumentCommands` on its panel —
+        // and the dispatcher asks the focus before it asks this registry, so the chord saves the
+        // document whose tab the focus is in. This registration is the fallback for a focus in no
+        // document's panel, and there it is the scene's save, which is what Ctrl+S always did.
+        Shell.Commands.Add(
+            new EditorCommand(DocumentCommands.Save, EditorStrings.CommandDocumentSave, SaveScene) {
+                Category = EditorStrings.CategoryFile,
+                Enablement = () => scene.HasUnsavedChanges.Value
+            }
+        );
+
+        Shell.Keys.SetDefault(DocumentCommands.Save, new KeyChord(InputKey.S, ModifierKeys.Control));
+
+        // ⚠ And Ctrl+W is `document.close`'s, for the same reason: an asset tab answers the route's
+        // id with its own close (`Open` closes the tab on it), and with the focus in no document's
+        // panel this fallback is what Close Panel always was. The shell gives the chord to Close
+        // Panel, which a bare shell keeps; this application takes it back first, since a chord held
+        // by another command refuses a second default rather than sharing it.
+        Shell.Commands.Add(
+            new EditorCommand(DocumentCommands.Close, EditorStrings.CommandDocumentClose, () => Shell.Workspace.CloseActive()) {
+                Category = EditorStrings.CategoryFile,
+                Enablement = () => Shell.Workspace.Host.Active is not null
+            }
+        );
+
+        Shell.Keys.SetDefault("view.close-panel", KeyChord.None);
+        Shell.Keys.SetDefault(DocumentCommands.Close, new KeyChord(InputKey.W, ModifierKeys.Control));
 
         // ⚠ **The other predicate that kept the toolbar polled, and it always had a signal to hang
         // this on.** `IsDirty` is an `IReadOnlySignal<bool>` on the scene's command stack — the
@@ -4659,13 +4645,4 @@ sealed partial class EditorApplication : IDisposable {
         }
     }
 
-    void SaveLayout() {
-        // Named after the preset it came from until there is a dialog to ask. A "Save Layout…" that
-        // silently overwrote the arrangement the user is looking at would be worse than one that
-        // has an obvious placeholder name.
-        var name = Shell.Workspace.DefaultPreset + " (custom)";
-
-        store.SaveLayout(name, Shell.Workspace.Save());
-        Shell.Notifications.Success(name);
-    }
 }

@@ -52,6 +52,12 @@ public static class EditorStrings {
     /// <summary>The <c>Open Recent</c> submenu.</summary>
     public static StringId MenuRecent { get; } = new("editor.menu.recent", "Open Recent");
 
+    /// <summary>The <c>Recent Documents</c> submenu: documents of this project, by where they live (#656).</summary>
+    public static StringId MenuRecentDocuments { get; } = new("editor.menu.recent-documents", "Recent Documents");
+
+    /// <summary>What the window title says after a document whose file changed on disk and has not caught up (#656).</summary>
+    public static StringId TitleChangedOnDisk { get; } = new("editor.title.changed-on-disk", "changed on disk");
+
     /// <summary>The <c>Create</c> submenu, under Assets.</summary>
     public static StringId MenuCreate { get; } = new("editor.menu.create", "Create");
 
@@ -96,6 +102,15 @@ public static class EditorStrings {
     ///     only measured ids nothing declared.
     /// </remarks>
     public static StringId CommandSave { get; } = new("editor.command.file.save", "Save Scene");
+
+    /// <summary>Saves the document the focus is in — an asset tab's, or the scene's when the focus is in none (#1494).</summary>
+    public static StringId CommandDocumentSave { get; } = new("editor.command.document.save", "Save");
+
+    /// <summary>Throws away the unsaved changes of the document the focus is in, asking first (#1494).</summary>
+    public static StringId CommandDocumentRevert { get; } = new("editor.command.document.revert", "Revert");
+
+    /// <summary>Closes the document tab the focus is in, or the active panel when the focus is in none (#1494).</summary>
+    public static StringId CommandDocumentClose { get; } = new("editor.command.document.close", "Close");
 
     /// <summary>Saves all of them.</summary>
     public static StringId CommandSaveAll { get; } = new("editor.command.file.save-all", "Save All");
@@ -644,6 +659,10 @@ public static class EditorStrings {
 
     /// <summary>The <c>No Recent Projects</c> command.</summary>
     public static StringId CommandFileNoRecent { get; } = new("editor.command.file.no-recent", "No Recent Projects");
+
+    /// <summary>What an empty Recent Documents submenu shows, so that it reads as empty rather than broken.</summary>
+    public static StringId CommandFileNoRecentDocuments { get; } =
+        new("editor.command.file.no-recent-documents", "No Recent Documents");
 
     /// <summary>The <c>Open Scene…</c> command.</summary>
     public static StringId CommandFileOpenScene { get; } = new("editor.command.file.open-scene", "Open Scene…");
@@ -1285,6 +1304,8 @@ public static class EditorStrings {
         MenuBuild,
         MenuTools,
         MenuRecent,
+        MenuRecentDocuments,
+        TitleChangedOnDisk,
         MenuCreate,
         MenuLayout,
         MenuPanels,
@@ -1299,6 +1320,9 @@ public static class EditorStrings {
         CommandNewProject,
         CommandOpenProject,
         CommandSave,
+        CommandDocumentSave,
+        CommandDocumentRevert,
+        CommandDocumentClose,
         CommandSaveAll,
         CommandExit,
         CommandUndo,
@@ -1455,6 +1479,7 @@ public static class EditorStrings {
         CommandFileExportPackage,
         CommandFileNewScene,
         CommandFileNoRecent,
+        CommandFileNoRecentDocuments,
         CommandFileOpenScene,
         CommandFileProjectSettings,
         CommandFileRevert,

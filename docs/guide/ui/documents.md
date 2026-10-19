@@ -4,7 +4,7 @@ slug: ui/documents
 kind: guide
 area: Core
 summary: A document below the editor — dirty, name and location as signals, save and revert answered through the command route by the nearest panel that hosts one, and a window title that follows both.
-api: [T:Vixen.Ui.IEditableDocument, T:Vixen.Ui.EditableDocument, T:Vixen.Ui.DocumentCommands, T:Vixen.Ui.UiWindowTitle, T:Vixen.Ui.Controls.DocumentClosePrompt, T:Vixen.Ui.Controls.DocumentCloseAnswer]
+api: [T:Vixen.Ui.IEditableDocument, T:Vixen.Ui.EditableDocument, T:Vixen.Ui.DocumentCommands, T:Vixen.Ui.UiWindowTitle, T:Vixen.Ui.RecentDocuments, T:Vixen.Ui.Controls.DocumentClosePrompt, T:Vixen.Ui.Controls.DocumentCloseAnswer]
 tags: [ui, documents, commands, save, windows]
 since: 0.2
 status: preview
@@ -222,34 +222,33 @@ raised on the element that holds the document, so the prompt's walk finds *that*
 as for a quit could not tell the two apart. `UiCloseReason.DocumentClosed` is its default reason, and
 `Samples/02-HelloUi`'s File ▸ Close is the first caller either has had.
 
-⚠ **The three entries below are one blocker wearing three hats, which is worth saying before reading
-them as three jobs.** `IEditableDocument.Location` has no reader anywhere in this repository, and
-until #656's port it had no production writer either. `EditorDocument` now answers it from the asset
-database — so an editor asset has a real location and the editor's `AssetId.Empty` scenes still do
-not. And
-`UiWindowTitle.Bind` — the one thing that takes an `IEditableDocument` and shows it — reads `Name` and
-`IsDirty` and not the location. A recent list is *keyed* on it; a proxy icon *is* it, because a
-represented file is a path; and half of the editor port is the question of what an `AssetId`'s
-location is. Whoever gives one document a real location discharges the larger part of all three, and
-anyone taking one of them on its own will find the same wall.
+⚠ **The blocker the next three entries shared was one missing location, and it is gone.**
+`IEditableDocument.Location` had no reader anywhere and no production writer. `EditorDocument` now
+answers it from the asset database, and the editor's `AssetId.Empty` scenes from the file their
+writer names once that file exists (#1493) — and `RecentDocuments` reads it.
 
-**A proxy icon.** A platform seam with no interface here — ⚠ and that is the *second* obstacle rather
-than the first. `IUiWindow` has `Title` and nothing like `NSWindow.representedURL`; but a represented
-file is a path, so even with the member there would be nothing to put in it until a document sets a
-`Location`.
+**A proxy icon** still waits, and now only on a seam. `IUiWindow` has `Title` and nothing like
+`NSWindow.representedURL`, and no platform implements one — so there is a path to show and nowhere to
+put it.
 
-⚠ **A recent-documents list, and both halves of that entry were wrong.** It is not a platform seam —
-`Vixen.Editor.App` has a complete one in ordinary C#: `ProjectHistory` keeps a most-recent-first
-deduplicated list, and `EditorParity.RecentProjectCommands` turns it into a live submenu with a
-command id derived from each *path* rather than from its position in the list (a positional id names
-a different project every time the order changes, so a keybinding on it would silently move), a
-greyed line for a path on an unmounted volume, and a `file.no-recent` placeholder so that an empty
-submenu reads as empty rather than broken. And it is not absent from the framework for want of
-writing: a recent list is keyed on `IEditableDocument.Location`, and **no document in this repository
-ever sets one** — `Samples/02-HelloUi`'s save is in memory and says so, and an editor document's
-identity is an `AssetId`. The same list one level down is worth having; ⚠ what it needs first is a
-document with a location, not a data structure. Until then a menu built on it is always empty, which
-is exactly what the sample's two invented file names were, and they are gone.
+**A recent-documents list is here: `RecentDocuments`**, the list one level below the editor's
+`ProjectHistory`, keyed on `Location` and on nothing else. `Note` puts a location at the front once,
+`Restore` takes back a list a host kept, and `Track(document, scheduler)` follows a document's
+location — so an untitled document arrives the first time it is saved, and a Save As moves it. It
+compares locations ordinally, because whether two spellings are one file is the host's question, and
+it never forgets a location for being missing: a file on an unmounted volume is the entry somebody
+most wants back.
+
+```csharp no-compile="a fragment; `saved`, `document`, `ui` and `Save` are the host's own"
+var recent = new RecentDocuments(capacity: 10);
+recent.Restore(saved);                                   // the host's own persistence
+using var tracking = recent.Track(document, ui.Effects); // noted when it has a location, and again when it moves
+recent.Changed += list => Save(list.Locations);
+```
+
+The editor's File ▸ Recent Documents is the first consumer: its workspace notes every document it
+shows, `WorkspaceModule` tracks the scene, the list is kept in the user's store, and each location is
+a command whose id is derived from its path — so a keybinding on one never moves to another file.
 
 ⚠ **A window title bound to a document from inside a component is no longer missing, and this entry
 was the last thing still saying it was.** The obstacle was real when it was written — `UiWindowTitle.Bind`
@@ -261,10 +260,12 @@ has no window to name — so the call sits behind a pattern match rather than a 
 dereference.
 
 **A file changed on disk.** `EditorDocument.IsStale` has it against an asset database; the
-framework has no file watcher and does not want one in `Core/`. ⚠ It is *not* `ExternallyModified`:
-stale is disk ahead of memory, which saving would overwrite, and externally modified is memory ahead
-of disk, which saving writes. `IEditableDocument` still has no signal for the first, so a host cannot
-ask it.
+framework has no file watcher and does not want one in `Core/`, so `IEditableDocument` still has no
+signal for it. ⚠ It is *not* `ExternallyModified`: stale is disk ahead of memory, which saving would
+overwrite, and externally modified is memory ahead of disk, which saving writes. The editor's window
+says both and keeps them apart (#656): the asterisk reads `HasUnsavedChanges` — the user's edits and
+`ExternallyModified` — and a document kept over a file that moved on says *(changed on disk)* beside
+its name.
 
 **The editor implements `IEditableDocument`** (#656), explicitly, on the decision made there.
 `Name` is `EditorDocument.Title` and `Revert` is `Reload`. `IsDirty` is the command stack's position
@@ -273,8 +274,8 @@ and nothing else; a global operation that touched the document is `ExternallyMod
 question read. ⚠ `EditorDocument.Save` keeps its void-and-throw contract; the interface's `Save`
 catches a disk's failure, raises `EditorProject.SaveFailed` — which the editor turns into a
 notification — and answers `false`, and with nobody subscribed it throws on rather than lose the
-failure. ⚠ `Location` is the asset database's path, so a document opened with `AssetId.Empty` —
-the editor's own scenes — still reports `null` for a file it has; nothing reads `Location` yet.
+failure. ⚠ `Location` is the asset database's path, or for a document opened with `AssetId.Empty` —
+the editor's own scenes — the file its writer names, once that file exists (#1493).
 
 **Undo is not owned by the document.** An element finds a manager with `FindUndoManager`, and a
 document that wants to be where one lives sets `UndoManager` on the element that hosts it. Marking
