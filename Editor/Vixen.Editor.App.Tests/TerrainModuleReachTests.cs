@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Runtime.CompilerServices;
+using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Terrain;
@@ -40,6 +41,12 @@ public sealed class TerrainModuleReachTests {
 
     static readonly string[] Modes = [TerrainMode.ModeId, FoliageMode.ModeId];
 
+    /// <summary>
+    ///     The three Create ▸ kinds <c>TerrainAssetKinds</c> declares (#1287), which were rows of the
+    ///     application's own list and so outlived an unload.
+    /// </summary>
+    static readonly string[] Creatable = ["assets.create-terrain-layer", "assets.create-foliage", "assets.create-grass"];
+
     /// <summary>A session opened the way the host opens one has every piece of both modules, once.</summary>
     [Fact]
     public void A_session_has_the_terrain_panels_modes_and_collision() {
@@ -70,6 +77,10 @@ public sealed class TerrainModuleReachTests {
         Assert.Empty(session.Extensions.All<ITerrainScene>());
         Assert.Empty(session.Extensions.All<IVegetationScene>());
         Assert.Empty(session.Extensions.All<ITerrainColliders>());
+
+        foreach (var id in Creatable) {
+            Assert.DoesNotContain(session.Extensions.All<NewAssetKind>(), kind => kind.Id == id);
+        }
 
         Assert.Equal(
             PluginState.Active,
@@ -204,6 +215,10 @@ public sealed class TerrainModuleReachTests {
         Assert.Single(session.Extensions.All<ITerrainScene>());
         Assert.Single(session.Extensions.All<IVegetationScene>());
         Assert.Single(session.Extensions.All<ITerrainColliders>());
+
+        foreach (var id in Creatable) {
+            Assert.Single(session.Extensions.All<NewAssetKind>(), kind => kind.Id == id);
+        }
     }
 
     static TerrainMode Mode(EditorSession session) =>

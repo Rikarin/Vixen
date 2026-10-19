@@ -7,10 +7,8 @@ editor create assets.create-addressable-group
 editor create assets.create-animation
 editor create assets.create-animation-graph
 editor create assets.create-constraint-template
-editor create assets.create-foliage
 editor create assets.create-font
 editor create assets.create-frame
-editor create assets.create-grass
 editor create assets.create-harness
 editor create assets.create-input
 editor create assets.create-material
@@ -23,7 +21,6 @@ editor create assets.create-sequence
 editor create assets.create-shader-graph
 editor create assets.create-shape-vocabulary
 editor create assets.create-spline
-editor create assets.create-terrain-layer
 editor create assets.create-vfx
 editor menu editor.menu.assets assets.bake-mesh-maps
 editor menu editor.menu.assets assets.build
@@ -46,10 +43,8 @@ editor menu editor.menu.assets/editor.menu.create assets.create-addressable-grou
 editor menu editor.menu.assets/editor.menu.create assets.create-animation
 editor menu editor.menu.assets/editor.menu.create assets.create-animation-graph
 editor menu editor.menu.assets/editor.menu.create assets.create-constraint-template
-editor menu editor.menu.assets/editor.menu.create assets.create-foliage
 editor menu editor.menu.assets/editor.menu.create assets.create-font
 editor menu editor.menu.assets/editor.menu.create assets.create-frame
-editor menu editor.menu.assets/editor.menu.create assets.create-grass
 editor menu editor.menu.assets/editor.menu.create assets.create-harness
 editor menu editor.menu.assets/editor.menu.create assets.create-input
 editor menu editor.menu.assets/editor.menu.create assets.create-material
@@ -62,7 +57,6 @@ editor menu editor.menu.assets/editor.menu.create assets.create-sequence
 editor menu editor.menu.assets/editor.menu.create assets.create-shader-graph
 editor menu editor.menu.assets/editor.menu.create assets.create-shape-vocabulary
 editor menu editor.menu.assets/editor.menu.create assets.create-spline
-editor menu editor.menu.assets/editor.menu.create assets.create-terrain-layer
 editor menu editor.menu.assets/editor.menu.create assets.create-vfx
 editor menu editor.menu.assets/editor.menu.create assets.new-folder
 editor menu editor.menu.build assets.build
@@ -472,6 +466,12 @@ vixen.scene menu editor.menu.entity entity.move-to-view
 vixen.scene menu editor.menu.entity entity.snap-to-floor
 vixen.scripts menu editor.menu.window/editor.menu.panels view.panel.scripts
 vixen.scripts panel scripts
+vixen.terrain create assets.create-foliage
+vixen.terrain create assets.create-grass
+vixen.terrain create assets.create-terrain-layer
+vixen.terrain menu editor.menu.assets/editor.menu.create assets.create-foliage
+vixen.terrain menu editor.menu.assets/editor.menu.create assets.create-grass
+vixen.terrain menu editor.menu.assets/editor.menu.create assets.create-terrain-layer
 vixen.terrain menu editor.menu.window/editor.menu.panels view.panel.foliage.panel
 vixen.terrain menu editor.menu.window/editor.menu.panels view.panel.terrain.grass
 vixen.terrain menu editor.menu.window/editor.menu.panels view.panel.terrain.growth

@@ -49,10 +49,7 @@ Editor/Vixen.Editor.App/EditorDiagnostics.cs Vixen.Editor.Profiler 1
 Editor/Vixen.Editor.App/EditorFrames.cs StandardFrameDocument 3
 Editor/Vixen.Editor.App/EditorFrames.cs Vixen.Editor.AssetEditors 1
 Editor/Vixen.Editor.App/EditorWorlds.cs .vxanimgraph 1
-Editor/Vixen.Editor.App/EditorWorlds.cs .vxfoliage 1
 Editor/Vixen.Editor.App/EditorWorlds.cs .vxfont 1
-Editor/Vixen.Editor.App/EditorWorlds.cs .vxgrass 1
-Editor/Vixen.Editor.App/EditorWorlds.cs .vxlayer 1
 Editor/Vixen.Editor.App/EditorWorlds.cs .vxmixer 1
 Editor/Vixen.Editor.App/EditorWorlds.cs .vxseq 1
 Editor/Vixen.Editor.App/EditorWorlds.cs .vxshadergraph 1

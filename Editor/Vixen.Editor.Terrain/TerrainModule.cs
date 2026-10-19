@@ -130,6 +130,11 @@ public sealed partial class TerrainModule : IEditorPlugin {
             context.Owns(registry.Add(icon));
         }
 
+        // And the Create ▸ lines for three of those kinds, declared on `TerrainAssetKinds` and turned
+        // into this call by `Vixen.Editor.Plugin.Generator` (doc 50 § D5, #1287). They were rows of
+        // the application's own list, so an unloaded Terrain left them in the menu.
+        Declared.Register(context);
+
         // ⚠ Doc 36 § P4, and F7's answer. `TerrainBrushInspector` is a `.vxml` file with no `@code`
         // block: every row in it is a `<PropertyField Path="…" />`, resolved against the edit target
         // the inspector hands over and drawn by whatever drawer claims the member. What the markup

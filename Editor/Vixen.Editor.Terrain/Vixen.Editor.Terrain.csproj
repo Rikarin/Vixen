@@ -64,6 +64,16 @@
                           ReferenceOutputAssembly="false" />
 
         <!--
+            Doc 50 § D5: the [CreateAssetMenu] declarations in TerrainAssetKinds become
+            `Declared.Register`, which TerrainModule.Activate calls. An in-tree module is activated by
+            name and never scanned, so without the generator the attributes would compile and register
+            nothing — and for the transitivity reason above, it is named here.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Plugin.Generator\Vixen.Editor.Plugin.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
             The VXML compiler, by the same route and for the same reason: a PackageReference to
             Vixen.Ui would bring it and a ProjectReference does not. Doc 36 § P4 — this module's brush
             panel is written in the markup language the UI framework is for, which is the claim F7

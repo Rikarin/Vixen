@@ -29,8 +29,15 @@ Terrain left five panels, five View-menu commands and two modes behind, each clo
 `context.AddMode`, the three mode events are unsubscribed on unload (a reload re-runs `Activate` on the
 same instance, so anonymous handlers would have run once per reload), and `TerrainModuleReachTests`
 asserts all of it by effect, with a `WeakReference` probe because `WaitForCollection` is
-unconditionally true for a built-in. ⚠ No `[EditorMenu]` attributes yet: an in-tree attribute does
-nothing until the generator (#1283) exists.
+unconditionally true for a built-in.
+
+⚠ **The attributes this module can use, it uses; there is no menu for them to move.** The module has
+never built a menu: its verbs are the modes' own commands (enablement, a context, a chord — which no
+attribute shape carries) and its panels and modes have no attribute at all. What was attribute-shaped
+was three Create ▸ lines — layer, foliage type, grass type — held as rows of the *application's* list.
+They are `[CreateAssetMenu]` on `TerrainAssetKinds` now, read by `Vixen.Editor.Plugin.Generator` into
+`Declared.Register`, which `Activate` calls; `ModuleReach.txt` attributes them to `vixen.terrain`, and
+`TerrainModuleReachTests` asserts each is present once and gone after an unload (#1287).
 
 ⚠ **The one static it refuses on purpose.** The brush panel's `InspectorView.Extensions` is the
 registry this module was handed, never `EditorRegistry.Default`: the markup brush inspector is
