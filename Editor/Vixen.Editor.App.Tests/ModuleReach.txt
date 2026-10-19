@@ -235,9 +235,6 @@ editor panel world-settings
 editor scene-menu edit.delete
 editor scene-menu edit.duplicate
 editor scene-menu edit.rename
-editor scene-menu entity.move-to-view
-editor scene-menu entity.snap-to-floor
-editor scene-menu scene.create-entity
 editor scene-menu scene.focus
 editor scene-menu scene.frame-all
 editor scene-menu scene.maximise
@@ -458,6 +455,9 @@ vixen.scene menu editor.menu.scene/editor.menu.create-shape scene.create-plane
 vixen.scene menu editor.menu.scene/editor.menu.create-shape scene.create-quad
 vixen.scene menu editor.menu.scene/editor.menu.create-shape scene.create-sphere
 vixen.scene menu editor.menu.scene/editor.menu.create-shape scene.create-torus
+vixen.scene scene-menu entity.move-to-view
+vixen.scene scene-menu entity.snap-to-floor
+vixen.scene scene-menu scene.create-entity
 vixen.scripts menu editor.menu.window/editor.menu.panels view.panel.scripts
 vixen.scripts panel scripts
 vixen.terrain create assets.create-foliage

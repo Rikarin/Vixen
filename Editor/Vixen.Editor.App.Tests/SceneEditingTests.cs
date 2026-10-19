@@ -303,6 +303,7 @@ public sealed class SceneEditingTests : IDisposable {
         using var editor = EditorSession.Start();
 
         Assert.NotNull(editor.Shell.Commands["entity.group"]);
+        Assert.Contains(editor.Extensions.All<SceneMenuItem>(), item => item.CommandId == "scene.create-entity");
 
         editor.Plugins.Disable(SceneModule.ModuleId);
 
@@ -330,6 +331,13 @@ public sealed class SceneEditingTests : IDisposable {
         Assert.Null(editor.Shell.Commands[SceneModule.ShapeCommandId(PrimitiveKind.Cube)]);
         Assert.Null(editor.Shell.Commands[SceneModule.LightCommandId(LightKind.Point)]);
         Assert.Null(editor.Shell.Commands["scene.create-camera"]);
+
+        // And the viewport list's lines for those commands (#1489), which the application used to
+        // offer — leaving greyed lines naming nothing once the module was gone.
+        Assert.DoesNotContain(
+            editor.Extensions.All<SceneMenuItem>(),
+            item => item.CommandId is "scene.create-entity" or "entity.snap-to-floor" or "entity.move-to-view"
+        );
 
         // The Edit menu's selection verbs are still the application's, over the same service.
         Assert.NotNull(editor.Shell.Commands["edit.duplicate"]);

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
@@ -144,6 +145,15 @@ sealed class SceneModule : IEditorPlugin {
 
         ShapeCommands(context, editing);
         ObjectCommands(context, editing);
+
+        // ── The viewport's context list (#1489) ─────────────────────────────────────────────────
+        // Its lines for this module's commands, offered by this module, so they leave with it. The
+        // orders are the slots `SceneMenus.RegisterSceneMenus` gave them beside the application's.
+        var registry = context.Services.Require<IEditorRegistry>();
+
+        context.Owns(registry.Add(new SceneMenuItem("entity.snap-to-floor", SceneMenuSurface.Context) { Order = 4 }));
+        context.Owns(registry.Add(new SceneMenuItem("entity.move-to-view", SceneMenuSurface.Context) { Order = 5 }));
+        context.Owns(registry.Add(new SceneMenuItem("scene.create-entity", SceneMenuSurface.Context) { Order = 6 }));
     }
 
     /// <summary>One command per built-in shape, so that spawning one is not the menu's private trick.</summary>

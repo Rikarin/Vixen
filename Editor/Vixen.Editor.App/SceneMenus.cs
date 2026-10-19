@@ -249,9 +249,9 @@ sealed partial class EditorApplication {
         Context("edit.delete", 1);
         Context("edit.rename", 2);
         Context("scene.focus", 3);
-        Context("entity.snap-to-floor", 4);
-        Context("entity.move-to-view", 5);
-        Context("scene.create-entity", 6);
+
+        // ⚠ 4–6 (Snap To Floor, Move To View, Create Empty) are `SceneModule`'s, so they leave with it
+        // rather than staying as greyed lines naming nothing (#1489).
 
         void Radial(string command, int order) => Offer(command, SceneMenuSurface.Radial, order);
 
