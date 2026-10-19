@@ -395,16 +395,16 @@ sealed class DeclaredContributions : IContributionScanner {
             if (method.ReturnType != typeof(void)
                 || parameters.Length != 2
                 || parameters[0].ParameterType != typeof(UiElement)
-                || parameters[1].ParameterType != typeof(SceneViewport)) {
+                || parameters[1].ParameterType != typeof(IViewportPane)) {
                 throw new PluginException(
                     $"'{type.Name}.{method.Name}' carries [Overlay] and is not a "
-                    + "`static void (UiElement host, SceneViewport pane)`. That is what an overlay is: it "
+                    + "`static void (UiElement host, IViewportPane pane)`. That is what an overlay is: it "
                     + "fills the host for one pane."
                 );
             }
 
             var id = string.IsNullOrEmpty(declared.Id) ? Derive("overlays", declared.Title) : declared.Id;
-            var build = method.CreateDelegate<Action<UiElement, SceneViewport>>();
+            var build = method.CreateDelegate<Action<UiElement, IViewportPane>>();
 
             context.Owns(
                 registry.Add(new SceneOverlay(id, declared.Title, build, declared.Corner, declared.Order))
