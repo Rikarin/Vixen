@@ -761,12 +761,6 @@ sealed partial class EditorApplication : IDisposable {
                 Author(authoredFrame);
             }
 
-            // The other document kind that needs something only the host has. A graph opened before
-            // there is a device gets it from `ShaderGraphPreviews`' setter instead.
-            if (document is AssetEditors.Shading.ShaderGraphDocument shader) {
-                Preview(shader);
-            }
-
             // ⚠ A scene reconciles itself against its prefabs as it is read — `SceneSerializer.Open`
             // — and has nobody to tell. Everything a reconcile could not settle is a *report* and
             // never a deletion, which is exactly why it has to reach a person: the entity the template

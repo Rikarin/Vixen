@@ -436,6 +436,46 @@ public sealed class ImportPipelineTests : IDisposable {
         Assert.True(second.Succeeded);
     }
 
+    /// <summary>⚠ A sidecar naming an importer this host lacks is refused, not handed to the fallback.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>#1300's loud half.</b> The VFX and shader-graph importers reach a registry because each
+    ///         host links them at start-up, so a host that forgot — or a registry built before the link,
+    ///         like <c>AssetPicker</c>'s field initializer — has no importer for a <c>.vxvfx</c>. The
+    ///         sidecar's named importer was disregarded when the registry lacked it, the extension fell
+    ///         through to <c>RawImporter</c>, and the effect shipped as a byte blob with nothing said.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Keyed on the sidecar rather than on a table of extensions</b>, so the pipeline names
+    ///         no feature's format: the file says whose it is, and a host that has no such importer
+    ///         and nothing else claiming the file says so. A sidecar naming the fallback is still
+    ///         disregarded (<see cref="AnImporterThatShipsLaterTakesOverFromTheFallback" />), and one
+    ///         naming a renamed importer still reaches whatever claims the extension now.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task ASidecarNamingAnImporterThisHostLacksIsRefusedRatherThanImportedAsBytes() {
+        Write("Assets/hero.pal", "palette bytes");
+
+        var database = Database();
+        var entry = Entry(database, "Assets/hero.pal");
+        var withPalette = new ImportPipeline(database, Registry(new PaletteImporter()), Artifacts(), Files());
+
+        Assert.Equal("PaletteImporter", (await withPalette.ImportAsync(entry, TestContext.Current.CancellationToken)).Importer);
+
+        var lacking = new ImportPipeline(
+            database,
+            new ImporterRegistry().Add(new FolderImporter()).AddFallback(new RawImporter()),
+            Artifacts(),
+            Files()
+        );
+
+        var outcome = await lacking.ImportAsync(entry, TestContext.Current.CancellationToken);
+
+        Assert.False(outcome.Succeeded, "a file whose sidecar names PaletteImporter was imported by " + outcome.Importer);
+        Assert.Contains(outcome.Diagnostics, diagnostic => diagnostic.Message.Contains("PaletteImporter", StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task ASidecarNamingARealImporterStillWinsOverTheExtension() {
         // The other half of the rule, and the one the narrowing protects: choosing a specific importer

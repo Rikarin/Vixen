@@ -184,13 +184,9 @@ sealed class PaintUvView {
 
         DockPanel.Fills(host);
 
-        // ⚠ Here as well as in `LayerStackView`, and finding out why is what #1106 cost. The sheet
-        // was installed by the layers panel alone, which was invisible while these panes styled
-        // their own hosts inline — and became a pane laid out as a strip the moment the layout moved
-        // into the sheet. A docked workspace restoring this panel without the layers one is a real
-        // state, and `Install` is idempotent per document, so the honest fix is for every view that
-        // depends on the sheet to ask for it.
-        TexturingTheme.Install(host.Document);
+        // ⚠ The sheet is the module's, loaded at activation (#1486) — so this pane has it whether or
+        // not the layers panel was ever built, which is what #1106 cost to find out when the sheet
+        // was the layers panel's alone.
 
         // ⚠ Styled by `TexturingTheme.vcss` and not from here — #1106. See `PaintMeshView`: the
         // two panes were in the same position and are fixed on the same pass.

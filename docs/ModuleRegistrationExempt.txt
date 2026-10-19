@@ -28,7 +28,4 @@ Editor/Vixen.Editor.Diagnostics/DiagnosticsModule.cs DebuggerTheme.Install 1 Not
 Editor/Vixen.Editor.Diagnostics/DiagnosticsModule.cs ProfilerTheme.Install 1 Not released in Release() (#917).
 Editor/Vixen.Editor.Terrain/FoliageMode.cs Shell.Commands.Add 6 A front door, decided (#1285): a mode registers its own verbs in IEditorMode.Register, which context.AddMode invokes, and EditorModes.Remove calls its Unregister when the context's recorded removal runs (#1287).
 Editor/Vixen.Editor.Terrain/TerrainMode.cs Shell.Commands.Add 9 A front door, decided (#1285): a mode registers its own verbs in IEditorMode.Register, which context.AddMode invokes, and EditorModes.Remove calls its Unregister when the context's recorded removal runs (#1287).
-Editor/Vixen.Editor.Texturing/LayerStackView.cs TexturingTheme.Install 1 A view installing its module's sheet when built; nothing removes it (#917).
-Editor/Vixen.Editor.Texturing/Painting/PaintMeshView.cs TexturingTheme.Install 1 A view installing its module's sheet when built; nothing removes it (#917).
-Editor/Vixen.Editor.Texturing/Painting/PaintUvView.cs TexturingTheme.Install 1 A view installing its module's sheet when built; nothing removes it (#917).
 Editor/Vixen.Editor.Water/WaterMode.cs Shell.Commands.Add 6 A front door, decided (#1285): a mode registers its own verbs in IEditorMode.Register, which context.AddMode invokes, and EditorModes.Remove calls its Unregister when the context's recorded removal runs (#1286).

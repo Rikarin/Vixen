@@ -400,6 +400,33 @@ public sealed class PluginContext {
         Registrations.Add(() => Registrations.DeviceLost.Remove(release));
     }
 
+    /// <summary>Asks to be called inside the host's frame, with the device the frame is on.</summary>
+    /// <param name="record">What to record and submit. Handed the device the frame is on.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Found by moving the shader graph's preview renderer out of the host (#1299).</b>
+    ///         <see cref="OnUpdate" /> runs from the editor's update, which is <i>outside</i> the host's
+    ///         <c>BeginFrame</c>/<c>EndFrame</c> pair — and a command list recorded there is allocated
+    ///         from the pool of the slot the next <c>BeginFrame</c> resets, so submitting it races
+    ///         that reset (<c>EditorHost.Present</c>'s remark on the thumbnails' flush). Work that draws
+    ///         something the interface samples this frame has to be recorded in here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Before the panes record, and on the same queue</b>, so a target drawn here is
+    ///         finished by the time the interface's lists read it. Never call <c>BeginFrame</c>,
+    ///         <c>EndFrame</c> or <c>WaitIdle</c> from here, and keep it short: it is on the frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A throw takes the plugin down</b>, on <see cref="OnUpdate" />'s terms.
+    ///     </para>
+    /// </remarks>
+    public void OnFrame(Action<IGraphicsDevice> record) {
+        ArgumentNullException.ThrowIfNull(record);
+
+        Registrations.Frames.Add(record);
+        Registrations.Add(() => Registrations.Frames.Remove(record));
+    }
+
     /// <summary>Records something to undo when the plugin is unloaded.</summary>
     /// <param name="action">How to undo it.</param>
     /// <remarks>

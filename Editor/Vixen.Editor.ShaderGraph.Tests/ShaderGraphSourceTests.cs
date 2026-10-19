@@ -3,12 +3,11 @@
 
 using Vixen.Core.Yaml;
 using Vixen.Editor.Assets;
-using Vixen.Editor.Assets.Shading;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
 using Xunit;
 
-namespace Vixen.Editor.Assets.Tests;
+namespace Tests;
 
 /// <summary>
 ///     A project's shader graphs, as the Raven the two shader compilations are handed.
@@ -64,6 +63,34 @@ public class ShaderGraphSourceTests : IDisposable {
         Assert.Empty(compiled.Diagnostics);
         Assert.Contains("IMaterialSurface", compiled.Text, StringComparison.Ordinal);
     }
+
+    /// <summary>⚠ What a graph compiles to is pinned, so moving the compiler's caller cannot change it (#1300).</summary>
+    /// <remarks>
+    ///     <b>The shader graph's content bytes.</b> <c>ShaderGraphImporter</c> writes no chunk — what a
+    ///     graph ships as is this Raven text, which <c>EditorEffects</c> and <c>vixen content build</c>
+    ///     compile. The digest was captured on master at 5f03c9b80, before <c>ShaderGraphSources</c>
+    ///     left <c>Vixen.Editor.Assets</c>; a change to the emitter changes it, and says so in the same
+    ///     commit.
+    /// </remarks>
+    [Fact]
+    public void The_raven_a_surface_graph_compiles_to_is_pinned() {
+        Write("Painted", graph => {
+            var uv = graph.Add("Input/UV");
+            var tiling = graph.Add("Vector/Tiling and Offset");
+            var master = graph.Add("Master/Surface");
+
+            graph.Connect(new(uv.Id, "UV"), new(tiling.Id, "UV"));
+            graph.Connect(new(tiling.Id, "Out"), new(master.Id, "Base Color"));
+        });
+
+        var compiled = Assert.Single(ShaderGraphSources.All(root));
+        var digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(compiled.Text)));
+
+        Assert.True(compiled.Compiled, string.Join("; ", compiled.Diagnostics));
+        Assert.True(digest == PaintedDigest, $"Painted compiled to {digest}, and to {PaintedDigest} before the move.\n{compiled.Text}");
+    }
+
+    const string PaintedDigest = "D2DBA6CF094F670EEA8C6B4F2D25EF8F3F5CB053D89C6C57A0341326DC583A11";
 
     /// <summary>A standalone graph is skipped rather than refused.</summary>
     /// <remarks>
@@ -155,13 +182,18 @@ public class ShaderGraphSourceTests : IDisposable {
     /// <remarks>
     ///     ⚠ One of the five kinds the editor's own Create menu wrote, opened and saved with no
     ///     importer at all — <c>RawImporter</c> took it as a <c>Blob</c> no typed reader resolves.
+    ///     ⚠ Through a host's link since #1300: the importer lives here, and the pipeline's own
+    ///     registry no longer has it.
     /// </remarks>
     [Fact]
     public void The_registry_claims_a_shader_graph() {
-        Assert.True(
-            BuiltInImporters.Create().TryGetForFile("Painted" + ShaderGraphSources.Extension, out var importer)
-        );
+        var linked = new ImporterContributions();
 
+        ShaderGraphImporters.Link(linked);
+
+        var registry = BuiltInImporters.Create(linked, new ImporterContributions());
+
+        Assert.True(registry.TryGetForFile("Painted" + ShaderGraphSources.Extension, out var importer));
         Assert.IsType<ShaderGraphImporter>(importer);
     }
 }

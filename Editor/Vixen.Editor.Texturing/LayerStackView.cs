@@ -379,11 +379,8 @@ sealed class LayerStackView : IDisposable {
 
         DockPanel.Fills(host);
 
-        // ⚠ Before the first element, because a sheet loaded after them still restyles them and the
-        // ordering only looks harmless — #881. `TexturingTheme` is guarded against a second load
-        // into the same document, which this constructor really does provoke: a panel's factory
-        // re-runs whenever the workspace relays out.
-        TexturingTheme.Install(host.Document);
+        // ⚠ No sheet is installed here any more: `TexturingModule.Activate` loads `TexturingTheme`
+        // through `PluginContext.AddStyleSheet`, so an unload takes it back out (#1486).
 
         // ⚠ The tree is `LayerStackChrome.vxml` now — #881's second half, for the part of the panel
         // that is a fixed tree. The element flavour of a markup component *is* the `layer-stack`

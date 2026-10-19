@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Vixen.Core.Diagnostics;
 using Vixen.Core.IO.Watch;
 using Vixen.Editor.AssetEditors.Frame;
+using Vixen.Editor.Plugin;
 using Vixen.Graphics;
 using Vixen.Rendering.Compositor;
 
@@ -94,7 +95,13 @@ sealed partial class EditorApplication {
         }
 
         try {
-            effects = new EditorEffects(device, project);
+            // The project's own Raven-producing assets come from whichever module publishes them —
+            // the shader graph's, `AssetEditorsModule` — asked on every rebuild (#1300).
+            effects = new EditorEffects(
+                device,
+                project,
+                () => plugins.Services.TryGet<IEffectSourceProvider>(out var graphs) ? graphs : null
+            );
 
             // ⚠ Under `Vixen.Rendering` rather than `EditorLog.Category`, and that is what makes it
             // useful rather than tidy: the ids that arrive here are that assembly's — the 4 000 range

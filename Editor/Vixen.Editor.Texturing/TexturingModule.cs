@@ -573,6 +573,11 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
         // `StringFamily` exists to end one level down (#1202).
         context.AddStrings(TexturingStrings.All);
 
+        // ⚠ The panels' sheet, loaded here so an unload takes it back out — #1486. The three views
+        // used to install it themselves, guarded once per document, and nothing removed it. Here
+        // it is loaded once per activation whatever the panels do, and before any of them is built.
+        context.AddStyleSheet(TexturingTheme.Css);
+
         // ⚠ Asked here and *read* on every show, and the difference is the finding. This used to
         // resolve to a `TexturePreviewBlocker` once, on the grounds that a host does not start
         // publishing a device halfway through a session — and the editor does exactly that: it
@@ -1737,8 +1742,13 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
         // set at all, which is the honest answer and is not the starter stack; this line indexed
         // `Sets[0]` and threw, so running `Open Layer Stack` on a `.vxlayers` naming a blend mode
         // this build lacks took the command handler down before the panel that was to explain it had
-        // been built. The other `Sets[0]` in this file already asks the question this way.
-        var mesh = stack.Document.Sets.Count > 0 ? stack.Document.Sets[0].Mesh : "";
+        // been built.
+        //
+        // ⚠ **And it is the chosen set's mesh, not the first one's** — #1487. The key read
+        // `Sets[0].Mesh` while `Mesh()` resolves `PaintSet` and the part picker narrows the shown
+        // set, so narrowing a chosen second set moved nothing the key held and the pane kept the
+        // old islands. `SetFor` falls back to the first set, and answers null for a stack with none.
+        var mesh = LayerStackEdit.SetFor(stack.Document, stack.PaintSet)?.Mesh ?? "";
         var binding = (stack.Document.Model, mesh, tool.LayerId, tool.Channel);
 
         if (binding != paintBinding) {

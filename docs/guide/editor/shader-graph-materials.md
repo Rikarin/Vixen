@@ -4,7 +4,7 @@ slug: editor/shader-graph-materials
 kind: guide
 area: Editor
 summary: A graph emits a material feature rather than a whole shader, which is why the engine's existing draw can put one on a mesh.
-api: [T:Vixen.Editor.ShaderGraph.ShaderGraphKind, T:Vixen.Editor.ShaderGraph.ShaderGraphMap, T:Vixen.Editor.ShaderGraph.ShaderGraphMaterial, T:Vixen.Editor.ShaderGraph.Nodes.SurfaceMasterNode, T:Vixen.Editor.Assets.Shading.ShaderGraphImporter, T:Vixen.Editor.Assets.Shading.ShaderGraphImportSettings, T:Vixen.Editor.Assets.Shading.ShaderGraphSources, T:Vixen.Editor.Assets.Shading.ShaderGraphSourceFile]
+api: [T:Vixen.Editor.ShaderGraph.ShaderGraphKind, T:Vixen.Editor.ShaderGraph.ShaderGraphMap, T:Vixen.Editor.ShaderGraph.ShaderGraphMaterial, T:Vixen.Editor.ShaderGraph.Nodes.SurfaceMasterNode, T:Vixen.Editor.ShaderGraph.ShaderGraphImporter, T:Vixen.Editor.ShaderGraph.ShaderGraphImportSettings, T:Vixen.Editor.ShaderGraph.ShaderGraphSources, T:Vixen.Editor.ShaderGraph.ShaderGraphSourceFile, T:Vixen.Editor.ShaderGraph.ShaderGraphImporters, T:Vixen.Editor.Plugin.IEffectSourceProvider]
 tags: [editor, shader-graph, materials, raven, assets]
 since: 0.1
 status: preview
@@ -54,6 +54,13 @@ Add a `Master/Surface` node, wire the channels, and save. Then name the graph as
 `ShaderBuildRunner` in `vixen build`. ⚠ Nothing is written to disk. A generated `.rvn` beside its
 graph would acquire a `.meta`, an address and a place in the browser, be committed by somebody, and
 then be silently overwritten by the next import.
+
+⚠ **Both live beside the compiler, in `Vixen.Editor.ShaderGraph`, and not in the import pipeline**
+(#1300). Each host that links that assembly — the editor, `vixen` and the asset-compiler worker —
+calls `ShaderGraphImporters.Link` at start-up, and the editor's own effect compilation does not call
+`ShaderGraphSources` by name: `AssetEditorsModule` publishes an `IEffectSourceProvider`, which
+`EditorEffects` asks on every rebuild. A tool of your own that imports a project links the importer
+the same way, or its graphs are refused by name rather than compiled.
 
 `ShaderGraphImporter` claims the extension and writes **no artefact**. What a graph produces is
 source, and source is not content; the importer exists to compile the graph and report its
@@ -115,7 +122,7 @@ var feature = ShaderGraphMaterial.Feature(
 
 And read a project's graphs the way both shader compilations do:
 
-```csharp no-compile="quoted from EditorEffects.Build, whose `project` and `sources` are its own"
+```csharp no-compile="the shape of ShaderBuildRunner.Sources, whose `project` and `sources` are its own"
 foreach (var compiled in ShaderGraphSources.All(project.Paths.Assets)) {
     foreach (var diagnostic in compiled.Diagnostics) {
         Report(compiled.Path, diagnostic);

@@ -2,13 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.AssetEditors;
+using Vixen.Editor.Assets;
 using Vixen.Editor.Blockout;
 using Vixen.Editor.Diagnostics;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Scripts;
+using Vixen.Editor.ShaderGraph;
 using Vixen.Editor.Terrain;
 using Vixen.Editor.Terrain.Physics;
 using Vixen.Editor.Texturing;
+using Vixen.Editor.VfxGraph;
 using Vixen.Editor.Water;
 
 namespace Vixen.Editor.App;
@@ -38,6 +41,27 @@ namespace Vixen.Editor.App;
 ///     </para>
 /// </remarks>
 static class EditorModules {
+    // ⚠ Before anything reads the list, which is before the application exists — every host that
+    // opens the editor (`EditorHost`, `EditorSession`) evaluates `Standard()` as an argument to
+    // `EditorApplication`'s constructor, and that constructor builds `AssetPicker`, whose field
+    // initializer builds an importer registry. A link made any later would leave that registry
+    // importing the linked formats as byte blobs (#1300).
+    static EditorModules() => LinkImporters(ImporterContributions.Linked);
+
+    /// <summary>Puts the importers out of the assemblies this editor links into a set.</summary>
+    /// <param name="linked">The set — <see cref="ImporterContributions.Linked" />, or a test's own.</param>
+    /// <remarks>
+    ///     <b>#1300's option A.</b> The CLI (<c>VixenCommand</c>) and the compiler worker
+    ///     (<c>WorkerHost</c>) each say the same thing for themselves, and
+    ///     <c>HostImporterMapTests</c> holds all three to one literal extension → importer map.
+    /// </remarks>
+    internal static void LinkImporters(ImporterContributions linked) {
+        ArgumentNullException.ThrowIfNull(linked);
+
+        VfxGraphImporters.Link(linked);
+        ShaderGraphImporters.Link(linked);
+    }
+
     /// <summary>What the editor ships with, in the order it registers them.</summary>
     /// <returns>The modules, freshly constructed.</returns>
     public static IReadOnlyList<(string Id, string Name, IEditorPlugin Module)> Standard() => [

@@ -63,6 +63,19 @@
         <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
 
         <!--
+          The import pipeline, for ShaderGraphImporter and ShaderGraphSources (#1300). They lived in
+          Vixen.Editor.Assets, which therefore referenced this assembly; the reference runs the other
+          way now, a host links the importer at start-up through ShaderGraphImporters, and the editor's
+          effects reach the sources through IEffectSourceProvider rather than by name.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
+
+        <!-- ShaderGraphImportSettings is a [DataContract]: the importer's name is its alias. -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
           The node generator, over this assembly's own [Node] classes. Analyzers do not flow through
           a ProjectReference, so every assembly declaring nodes references it directly — which is
           also what a third-party plugin does, and the reason the arrangement is worth keeping plain.
@@ -115,6 +128,9 @@
         -->
         <InternalsVisibleTo Include="Vixen.Editor.AssetEditors" />
         <InternalsVisibleTo Include="Vixen.Editor.AssetEditors.Tests" />
+
+        <!-- `TextureOf`, for the editor-level preview test that reads a node's picture back (#1299). -->
+        <InternalsVisibleTo Include="Vixen.Editor.App.Tests" />
     </ItemGroup>
 
 </Project>

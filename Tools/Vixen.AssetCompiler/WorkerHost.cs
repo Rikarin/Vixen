@@ -6,6 +6,8 @@ using Vixen.Core.IO;
 using Vixen.Core.Serialization;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Core;
+using Vixen.Editor.ShaderGraph;
+using Vixen.Editor.VfxGraph;
 
 namespace Vixen.AssetCompiler;
 
@@ -53,12 +55,35 @@ public sealed class WorkerHost {
     /// </param>
     /// <exception cref="InvalidOperationException">A named plugin assembly could not be loaded.</exception>
     public WorkerHost(string projectRoot, IReadOnlyList<string>? pluginAssemblies = null)
-        : this(
-            projectRoot,
-            BuiltInImporters.Create(
-                pluginAssemblies is { Count: > 0 } ? PluginImporters.Load(pluginAssemblies) : new ImporterContributions()
-            )
-        ) { }
+        : this(projectRoot, Registry(pluginAssemblies)) { }
+
+    /// <summary>Puts the importers out of the assemblies a worker links into a set.</summary>
+    /// <param name="linked">The set — <see cref="ImporterContributions.Linked" />, or a test's own.</param>
+    /// <remarks>
+    ///     <b>#1300's option A</b>, said once per host: the editor's is <c>EditorModules</c>' and the
+    ///     CLI's is <c>VixenCommand</c>'s. ⚠ The worker links these itself and is never handed them as
+    ///     <c>--plugin</c>: its coordinator forwards <see cref="ImporterContributions.Default" /> only,
+    ///     and an in-tree assembly loaded a second time through <see cref="PluginImporters" /> would be
+    ///     a second importer claiming the same extension, which <see cref="ImporterRegistry.Add" />
+    ///     refuses.
+    /// </remarks>
+    internal static void LinkImporters(ImporterContributions linked) {
+        ArgumentNullException.ThrowIfNull(linked);
+
+        VfxGraphImporters.Link(linked);
+        ShaderGraphImporters.Link(linked);
+    }
+
+    /// <summary>The registry a worker serves with: what it links, and what its coordinator named.</summary>
+    /// <param name="pluginAssemblies">The assemblies the coordinator's contributed importers came out of.</param>
+    /// <returns>The registry.</returns>
+    static ImporterRegistry Registry(IReadOnlyList<string>? pluginAssemblies) {
+        LinkImporters(ImporterContributions.Linked);
+
+        return BuiltInImporters.Create(
+            pluginAssemblies is { Count: > 0 } ? PluginImporters.Load(pluginAssemblies) : new ImporterContributions()
+        );
+    }
 
     /// <summary>Serves imports out of a project directory with a given importer set.</summary>
     /// <param name="projectRoot">The project. Importer paths are relative to it.</param>

@@ -85,6 +85,22 @@ sealed class PluginGraphics : IEditorGraphics {
     ///     the same number back to the surface's free list, and the number after it would then be
     ///     handed out to two owners.
     /// </remarks>
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Over the same surface <see cref="Upload" /> uses, so the number is registered with the
+    ///     renderer that draws the editor's panes (#1299). Its width and height are zero: the view's
+    ///     extent is its owner's to know, and nothing here could ask the device for it.
+    /// </remarks>
+    public IEditorImage? Show(TextureViewHandle view) {
+        if (application.ThumbnailSurface is not { } surface) {
+            return null;
+        }
+
+        var image = surface.Show(view);
+
+        return image == 0 ? null : new Handle(surface, image, 0, 0);
+    }
+
     sealed class Handle : IEditorImage {
         bool released;
 

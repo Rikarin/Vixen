@@ -16,6 +16,14 @@
           the same importer set as its coordinator by construction — see BuiltInImporters.
         -->
         <ProjectReference Include="..\..\Editor\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
+
+        <!--
+          The importers a worker links itself at start-up (#1300): they live beside their graphs rather
+          than in the pipeline, and a coordinator never forwards them as plugins — see
+          WorkerHost.LinkImporters.
+        -->
+        <ProjectReference Include="..\..\Editor\Vixen.Editor.VfxGraph\Vixen.Editor.VfxGraph.csproj" />
+        <ProjectReference Include="..\..\Editor\Vixen.Editor.ShaderGraph\Vixen.Editor.ShaderGraph.csproj" />
     </ItemGroup>
 
     <ItemGroup>

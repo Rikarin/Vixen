@@ -44,8 +44,17 @@ interface IThumbnailSurface {
     bool Update(ulong image, int x, int y, int width, int height, ReadOnlySpan<byte> rgba);
 
     /// <summary>Gives up an image, so its texture can go.</summary>
-    /// <param name="image">What <see cref="Upload" /> returned.</param>
+    /// <param name="image">What <see cref="Upload" /> or <see cref="Show" /> returned.</param>
     void Release(ulong image);
+
+    /// <summary>Names somebody else's texture view, and returns the number an <c>Image</c> draws it by.</summary>
+    /// <param name="view">The view. Not the surface's: releasing the number destroys nothing.</param>
+    /// <returns>The image number, or zero if it could not be named.</returns>
+    /// <remarks>
+    ///     <c>IEditorGraphics.Show</c>'s half (#1299). ⚠ Defaulted to zero, so a recording surface that
+    ///     only counts uploads answers "cannot show" without implementing it.
+    /// </remarks>
+    ulong Show(TextureViewHandle view) => 0;
 }
 
 /// <summary>Pictures of assets, decoded off the frame thread and uploaded on it.</summary>

@@ -52,8 +52,22 @@ public static class BuiltInImporters {
     ///     suite that mutated it would race every other test in the assembly that builds a registry.
     /// </remarks>
     public static ImporterRegistry Create(ImporterContributions contributed) =>
+        Create(ImporterContributions.Linked, contributed);
+
+    /// <summary>Builds the registry over a particular linked set and a particular set of contributions.</summary>
+    /// <param name="linked">The importers the host links — <see cref="ImporterContributions.Linked" /> in a real one.</param>
+    /// <param name="contributed">What a plugin or a project script added.</param>
+    /// <returns>The registry.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The linked set is folded after the built-ins and before the contributions</b>, so a plugin
+    ///     claiming a linked importer's extension is refused with both names, on the built-ins' terms.
+    ///     A test hands a set of its own here for <see cref="Create(ImporterContributions)" />'s reason:
+    ///     the linked set is process-wide, and a map asserted over it would see whatever any other
+    ///     host in the test process linked.
+    /// </remarks>
+    public static ImporterRegistry Create(ImporterContributions linked, ImporterContributions contributed) =>
         (contributed ?? throw new ArgumentNullException(nameof(contributed))).ApplyTo(
-            new ImporterRegistry()
+            (linked ?? throw new ArgumentNullException(nameof(linked))).ApplyTo(new ImporterRegistry()
                 .Add(new TextureImporter())
                 .Add(new CubeLutImporter())
                 .Add(new ModelImporter())
@@ -62,8 +76,6 @@ public static class BuiltInImporters {
                 .Add(new VideoImporter())
                 .Add(new SceneImporter())
                 .Add(new MaterialImporter())
-                .Add(new Vfx.VfxImporter())
-                .Add(new Shading.ShaderGraphImporter())
                 .Add(new Compositors.CompositorImporter())
                 .Add(new Terrain.TerrainAssetImporter())
                 .Add(new Terrain.HeightmapImporter())
@@ -97,6 +109,7 @@ public static class BuiltInImporters {
                 .Add(new Audio.MixerImporter())
                 .Add(new NativeFormatImporter())
                 .Add(new FolderImporter())
+            )
         ).AddFallback(new RawImporter());
 }
 

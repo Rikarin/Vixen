@@ -4,8 +4,9 @@
 using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
+using Vixen.Editor.Assets;
 
-namespace Vixen.Editor.Assets.Shading;
+namespace Vixen.Editor.ShaderGraph;
 
 /// <summary>How a shader graph is compiled.</summary>
 /// <remarks>

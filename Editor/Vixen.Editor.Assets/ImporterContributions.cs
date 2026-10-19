@@ -58,6 +58,32 @@ public sealed class ImporterContributions {
     /// </remarks>
     public static ImporterContributions Default { get; } = new();
 
+    /// <summary>The importers out of assemblies this process <i>links</i>, which its host fills at start-up.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>#1300's option A, and a second set rather than <see cref="Default" /> on purpose.</b>
+    ///         A feature's importer — the VFX graph's, the shader graph's — lives beside its documents
+    ///         rather than in the import pipeline, so the pipeline cannot name it; each host that links
+    ///         that assembly (the editor, <c>vixen</c>, the asset-compiler worker) puts it here before it
+    ///         builds a registry, and <see cref="BuiltInImporters.Create()" /> folds it in.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Never forwarded to a compiler worker</b>, which is the difference from
+    ///         <see cref="Default" />. <c>CompilerPool</c> names the files behind <see cref="Default" /> on
+    ///         a worker's command line and the worker loads them into a plugin load context. A worker
+    ///         links the same assemblies itself, so forwarding these would hand it a second copy of an
+    ///         in-tree assembly and two importers claiming one extension, which
+    ///         <see cref="ImporterRegistry.Add" /> refuses — every worker would fail to start.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Filled with <see cref="Link" />, which is idempotent by type</b>, because a host's
+    ///         start-up runs once per editor a test harness opens and once per in-process <c>vixen</c>
+    ///         invocation, and there is nothing to withdraw: an assembly a process links is in it for the
+    ///         life of the process.
+    ///     </para>
+    /// </remarks>
+    public static ImporterContributions Linked { get; } = new();
+
     /// <summary>Everything contributed, oldest first.</summary>
     public IReadOnlyList<IAssetImporter> All {
         get {
@@ -85,6 +111,27 @@ public sealed class ImporterContributions {
         }
 
         return new Removal(this, importer);
+    }
+
+    /// <summary>Adds an importer a host links, unless one of its type is already here.</summary>
+    /// <param name="importer">The importer.</param>
+    /// <returns>Whether this call added it.</returns>
+    /// <remarks>
+    ///     For <see cref="Linked" />. Compared by type rather than by instance, so a host's start-up can
+    ///     run as often as the process opens a host and the set still holds one importer per format.
+    /// </remarks>
+    public bool Link(IAssetImporter importer) {
+        ArgumentNullException.ThrowIfNull(importer);
+
+        lock (gate) {
+            if (importers.Exists(held => held.GetType() == importer.GetType())) {
+                return false;
+            }
+
+            importers.Add(importer);
+
+            return true;
+        }
     }
 
     /// <summary>Forgets everything contributed. For a test that wants a clean process.</summary>
