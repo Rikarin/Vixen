@@ -10,7 +10,7 @@
 
 EditorApplication.cs     5642
 EditorDiagnostics.cs     169
-EditorFrames.cs          476
+EditorFrames.cs          483
 EditorParity.cs          2224
 EditorProjects.cs        257
 EditorSelectionVerbs.cs  249
@@ -20,4 +20,4 @@ EditorWorlds.cs          918
 PlayOverlaySwitches.cs   124
 SceneMenus.cs            271
 ViewportCommands.cs      715
-(total)                  12413
+(total)                  12420

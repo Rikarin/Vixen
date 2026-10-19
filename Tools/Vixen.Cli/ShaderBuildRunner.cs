@@ -4,7 +4,7 @@
 using System.Globalization;
 using Vixen.Core.Serialization;
 using Vixen.Editor.Assets;
-using Vixen.Editor.Assets.Shading;
+using Vixen.Editor.ShaderGraph;
 using Vixen.Rendering.Materials;
 using Vixen.ShaderCompiler;
 using Vixen.Shaders;

@@ -7,6 +7,7 @@ using Vixen.Editor.Blockout;
 using Vixen.Editor.Diagnostics;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Scripts;
+using Vixen.Editor.ShaderGraph;
 using Vixen.Editor.Terrain;
 using Vixen.Editor.Terrain.Physics;
 using Vixen.Editor.VfxGraph;
@@ -57,6 +58,7 @@ static class EditorModules {
         ArgumentNullException.ThrowIfNull(linked);
 
         VfxGraphImporters.Link(linked);
+        ShaderGraphImporters.Link(linked);
     }
 
     /// <summary>What the editor ships with, in the order it registers them.</summary>

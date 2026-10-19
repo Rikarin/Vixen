@@ -23,6 +23,7 @@
           WorkerHost.LinkImporters.
         -->
         <ProjectReference Include="..\..\Editor\Vixen.Editor.VfxGraph\Vixen.Editor.VfxGraph.csproj" />
+        <ProjectReference Include="..\..\Editor\Vixen.Editor.ShaderGraph\Vixen.Editor.ShaderGraph.csproj" />
     </ItemGroup>
 
     <ItemGroup>

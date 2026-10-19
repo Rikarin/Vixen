@@ -10,6 +10,7 @@ using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.Gameplay;
 using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.Core;
+using Vixen.Editor.ShaderGraph;
 using Vixen.Editor.VfxGraph;
 using Vixen.Live;
 
@@ -47,6 +48,7 @@ public static class VixenCommand {
         ArgumentNullException.ThrowIfNull(linked);
 
         VfxGraphImporters.Link(linked);
+        ShaderGraphImporters.Link(linked);
     }
 
     /// <summary>Builds the command line.</summary>

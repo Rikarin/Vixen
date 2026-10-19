@@ -3,9 +3,8 @@
 
 using Vixen.Core.Yaml;
 using Vixen.Editor.NodeGraph;
-using Vixen.Editor.ShaderGraph;
 
-namespace Vixen.Editor.Assets.Shading;
+namespace Vixen.Editor.ShaderGraph;
 
 /// <summary>One graph's Raven, or the reason there is none.</summary>
 /// <param name="Path">The <c>.vxshadergraph</c> it came from.</param>

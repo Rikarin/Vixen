@@ -57,8 +57,10 @@ public sealed partial class AssetEditorsModule : IEditorPlugin {
 
         Frames(context, editors);
 
-        // The shader graph's node previews, which the host used to build (#1299).
+        // The shader graph's node previews, which the host used to build (#1299), and its Raven,
+        // which the editor's effects used to fetch by name (#1300).
         ShaderGraphPreviews(context, editors);
+        context.Publish<IEffectSourceProvider>(new ShaderGraphEffectSources());
 
         // ⚠ The graph panels' sheet, which the application installed by name and never released
         // (#917, #1299). Three of the four panels hosting a `NodeGraphView` are this module's — the

@@ -3,12 +3,11 @@
 
 using Vixen.Core.Yaml;
 using Vixen.Editor.Assets;
-using Vixen.Editor.Assets.Shading;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
 using Xunit;
 
-namespace Vixen.Editor.Assets.Tests;
+namespace Tests;
 
 /// <summary>
 ///     A project's shader graphs, as the Raven the two shader compilations are handed.
@@ -183,13 +182,18 @@ public class ShaderGraphSourceTests : IDisposable {
     /// <remarks>
     ///     ⚠ One of the five kinds the editor's own Create menu wrote, opened and saved with no
     ///     importer at all — <c>RawImporter</c> took it as a <c>Blob</c> no typed reader resolves.
+    ///     ⚠ Through a host's link since #1300: the importer lives here, and the pipeline's own
+    ///     registry no longer has it.
     /// </remarks>
     [Fact]
     public void The_registry_claims_a_shader_graph() {
-        Assert.True(
-            BuiltInImporters.Create().TryGetForFile("Painted" + ShaderGraphSources.Extension, out var importer)
-        );
+        var linked = new ImporterContributions();
 
+        ShaderGraphImporters.Link(linked);
+
+        var registry = BuiltInImporters.Create(linked, new ImporterContributions());
+
+        Assert.True(registry.TryGetForFile("Painted" + ShaderGraphSources.Extension, out var importer));
         Assert.IsType<ShaderGraphImporter>(importer);
     }
 }

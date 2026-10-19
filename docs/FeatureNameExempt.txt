@@ -62,16 +62,6 @@ Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.set 1
 Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.source 1
 Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.splat.at 1
 Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.splat.source 1
-Editor/Vixen.Editor.Assets/Shading/ShaderGraphSources.cs .vxshadergraph 1
-Editor/Vixen.Editor.Assets/Shading/ShaderGraphSources.cs NodeGraphAsset 1
-Editor/Vixen.Editor.Assets/Shading/ShaderGraphSources.cs NodeGraphDocument 1
-Editor/Vixen.Editor.Assets/Shading/ShaderGraphSources.cs NodeGraphModel 2
-Editor/Vixen.Editor.Assets/Shading/ShaderGraphSources.cs NodeTypeRegistry 6
-Editor/Vixen.Editor.Assets/Shading/ShaderGraphSources.cs ShaderGraphCompiler 1
-Editor/Vixen.Editor.Assets/Shading/ShaderGraphSources.cs ShaderGraphKind 1
-Editor/Vixen.Editor.Assets/Shading/ShaderGraphSources.cs ShaderGraphSource 1
-Editor/Vixen.Editor.Assets/Shading/ShaderGraphSources.cs Vixen.Editor.NodeGraph 1
-Editor/Vixen.Editor.Assets/Shading/ShaderGraphSources.cs Vixen.Editor.ShaderGraph 1
 Editor/Vixen.Editor.Assets/Terrain/TerrainAssetImporter.cs .vxfol 1
 Editor/Vixen.Editor.Assets/Terrain/TerrainAssetImporter.cs .vxfoliage 1
 Editor/Vixen.Editor.Assets/Terrain/TerrainAssetImporter.cs .vxgrass 1

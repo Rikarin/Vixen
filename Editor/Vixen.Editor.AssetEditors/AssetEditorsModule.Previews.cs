@@ -87,6 +87,30 @@ public sealed partial class AssetEditorsModule {
         });
     }
 
+    /// <summary>A project's shader graphs, as Raven for the editor's effect compilation (#1300).</summary>
+    /// <remarks>
+    ///     What <c>EditorEffects</c> did by calling <see cref="ShaderGraphSources.All" /> itself, which
+    ///     put this compiler in the application's closure. A graph that did not compile is a refusal
+    ///     and not a source: unparseable text in a shared compilation is every material in the project
+    ///     refused, under a message about the library.
+    /// </remarks>
+    sealed class ShaderGraphEffectSources : IEffectSourceProvider {
+        public void Collect(string assets, ICollection<(string Path, string Text)> sources, ICollection<string> refusals) {
+            ArgumentNullException.ThrowIfNull(sources);
+            ArgumentNullException.ThrowIfNull(refusals);
+
+            foreach (var graph in ShaderGraphSources.All(assets)) {
+                if (graph.Compiled) {
+                    sources.Add((graph.Path, graph.Text));
+                }
+
+                if (graph.Diagnostics.Count > 0) {
+                    refusals.Add($"{Path.GetFileName(graph.Path)}: {string.Join("; ", graph.Diagnostics)}");
+                }
+            }
+        }
+    }
+
     /// <summary>A preview target's number, from <see cref="IEditorGraphics.Show" />.</summary>
     /// <remarks>
     ///     Zero while the host cannot show a view — before its surface exists — which the renderer

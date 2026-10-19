@@ -35,6 +35,8 @@ Vixen.Editor.Plugin.EditorSubmenuAttribute.Title.get -> string
 Vixen.Editor.Plugin.EditorSubmenuAttribute.Title.init -> string
 Vixen.Editor.Plugin.IContributionScanner -> interface
 Vixen.Editor.Plugin.IContributionScanner.Scan(Vixen.Editor.Plugin.PluginContext context, System.Reflection.Assembly assembly) -> void
+Vixen.Editor.Plugin.IEffectSourceProvider -> interface
+Vixen.Editor.Plugin.IEffectSourceProvider.Collect(string assets, System.Collections.Generic.ICollection<(string Path, string Text)> sources, System.Collections.Generic.ICollection<string> refusals) -> void
 Vixen.Editor.Plugin.IEditorGraphics -> interface
 Vixen.Editor.Plugin.IEditorGraphics.Device.get -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Editor.Plugin.IEditorGraphics.Frame.get -> Vixen.Graphics.GpuFrame

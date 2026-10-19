@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Editor.Assets.Shading;
 using Vixen.Editor.Core;
+using Vixen.Editor.Plugin;
 using Vixen.Graphics;
 using Vixen.Rendering.Materials;
 using Vixen.ShaderCompiler;
@@ -97,17 +97,24 @@ sealed class EditorEffects : IDisposable {
     /// </remarks>
     readonly EffectLoader loader;
 
+    readonly Func<IEffectSourceProvider?>? contributed;
+
     bool disposed;
 
     /// <summary>Builds the chain over a project.</summary>
     /// <param name="device">The device the effects are created on.</param>
     /// <param name="project">Whose <c>Assets/</c> are searched and whose <c>Library/</c> caches.</param>
+    /// <param name="contributed">
+    ///     What turns a project's other assets into Raven — the shader graph's, published by
+    ///     <c>AssetEditorsModule</c> — asked on every build, or <see langword="null" /> for none.
+    /// </param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public EditorEffects(IGraphicsDevice device, EditorProject project) {
+    public EditorEffects(IGraphicsDevice device, EditorProject project, Func<IEffectSourceProvider?>? contributed = null) {
         ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(project);
 
         this.project = project;
+        this.contributed = contributed;
         loader = new(device);
 
         System.AddProvider(provider);
@@ -177,33 +184,28 @@ sealed class EditorEffects : IDisposable {
     void Build() {
         var files = Sources().ToList();
 
-        // ⚠ The project's shader graphs, compiled to Raven and handed over as text. Without this a
-        // graph emitted a perfectly good `IMaterialSurface` that no compilation in the process had
-        // ever seen, so a material naming it resolved to an effect miss — a draw that does not
-        // happen, with nothing on screen and nothing in the log about a material.
-        var graphs = ShaderGraphSources.All(project.Paths.Assets);
-
         List<(string Name, string Text)> sources = [];
 
         foreach (var file in files) {
             sources.Add((file, File.ReadAllText(file)));
         }
 
-        foreach (var graph in graphs) {
-            if (graph.Compiled) {
-                sources.Add((graph.Path, graph.Text));
-            }
-        }
+        // ⚠ The project's shader graphs, compiled to Raven and handed over as text. Without this a
+        // graph emitted a perfectly good `IMaterialSurface` that no compilation in the process had
+        // ever seen, so a material naming it resolved to an effect miss — a draw that does not
+        // happen, with nothing on screen and nothing in the log about a material. ⚠ Asked of the
+        // module that owns the compiler (#1300) rather than by calling it, and asked on every build,
+        // so an unloaded module stops contributing. A graph that did not compile is a refusal and
+        // not a source: unparseable text in a shared compilation is every material in the project
+        // refused, under a message about the library.
+        List<(string Path, string Text)> graphs = [];
+        List<string> refusals = [];
+
+        contributed?.Invoke()?.Collect(project.Paths.Assets, graphs, refusals);
+        sources.AddRange(graphs);
 
         SourceCount = sources.Count;
-
-        // A graph that did not compile is reported and skipped rather than added, for the reason
-        // `ShaderGraphSources` gives: unparseable text in a shared compilation is every material in
-        // the project refused, under a message about the library.
-        GraphRefusals = [
-            .. graphs.Where(graph => graph.Diagnostics.Count > 0)
-                .Select(graph => $"{Path.GetFileName(graph.Path)}: {string.Join("; ", graph.Diagnostics)}")
-        ];
+        GraphRefusals = refusals;
 
         // ⚠ Cleared before the compilation rather than after it, and both lines are needed. Dropping
         // the provider is what stops a variant asked for during the rebuild being answered out of the

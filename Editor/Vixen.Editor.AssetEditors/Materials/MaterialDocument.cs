@@ -5,7 +5,6 @@ using System.Diagnostics.CodeAnalysis;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
-using Vixen.Editor.Assets.Shading;
 using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.ShaderGraph;
