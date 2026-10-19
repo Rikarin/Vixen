@@ -3,29 +3,9 @@
 # module in turn: `<owner> <kind> <id>`. A line owned by `editor` that names a feature is one its module
 # left behind on unload. Regenerate with VIXEN_REGENERATE=1 on that test, and read the diff.
 
-editor create assets.create-addressable-group
-editor create assets.create-animation
-editor create assets.create-animation-graph
-editor create assets.create-constraint-template
-editor create assets.create-font
-editor create assets.create-frame
-editor create assets.create-harness
-editor create assets.create-input
-editor create assets.create-material
-editor create assets.create-mixer
-editor create assets.create-move-set
-editor create assets.create-priorities
-editor create assets.create-proxy-shapes
-editor create assets.create-scene
-editor create assets.create-sequence
-editor create assets.create-shader-graph
-editor create assets.create-shape-vocabulary
-editor create assets.create-spline
-editor create assets.create-vfx
 editor menu editor.menu.assets assets.bake-mesh-maps
 editor menu editor.menu.assets assets.build
 editor menu editor.menu.assets assets.delete
-editor menu editor.menu.assets assets.find-references
 editor menu editor.menu.assets assets.history
 editor menu editor.menu.assets assets.import
 editor menu editor.menu.assets assets.move-to
@@ -35,29 +15,9 @@ editor menu editor.menu.assets assets.reimport
 editor menu editor.menu.assets assets.reimport-all
 editor menu editor.menu.assets assets.rename
 editor menu editor.menu.assets assets.revert
-editor menu editor.menu.assets assets.select-dependencies
 editor menu editor.menu.assets assets.show-in-explorer
 editor menu editor.menu.assets view.panel.addressables
 editor menu editor.menu.assets/editor.menu.create assets.create
-editor menu editor.menu.assets/editor.menu.create assets.create-addressable-group
-editor menu editor.menu.assets/editor.menu.create assets.create-animation
-editor menu editor.menu.assets/editor.menu.create assets.create-animation-graph
-editor menu editor.menu.assets/editor.menu.create assets.create-constraint-template
-editor menu editor.menu.assets/editor.menu.create assets.create-font
-editor menu editor.menu.assets/editor.menu.create assets.create-frame
-editor menu editor.menu.assets/editor.menu.create assets.create-harness
-editor menu editor.menu.assets/editor.menu.create assets.create-input
-editor menu editor.menu.assets/editor.menu.create assets.create-material
-editor menu editor.menu.assets/editor.menu.create assets.create-mixer
-editor menu editor.menu.assets/editor.menu.create assets.create-move-set
-editor menu editor.menu.assets/editor.menu.create assets.create-priorities
-editor menu editor.menu.assets/editor.menu.create assets.create-proxy-shapes
-editor menu editor.menu.assets/editor.menu.create assets.create-scene
-editor menu editor.menu.assets/editor.menu.create assets.create-sequence
-editor menu editor.menu.assets/editor.menu.create assets.create-shader-graph
-editor menu editor.menu.assets/editor.menu.create assets.create-shape-vocabulary
-editor menu editor.menu.assets/editor.menu.create assets.create-spline
-editor menu editor.menu.assets/editor.menu.create assets.create-vfx
 editor menu editor.menu.assets/editor.menu.create assets.new-folder
 editor menu editor.menu.build assets.build
 editor menu editor.menu.build build.clean-library
@@ -67,7 +27,6 @@ editor menu editor.menu.edit edit.cut
 editor menu editor.menu.edit edit.delete
 editor menu editor.menu.edit edit.deselect-all
 editor menu editor.menu.edit edit.duplicate
-editor menu editor.menu.edit edit.find-references
 editor menu editor.menu.edit edit.invert-selection
 editor menu editor.menu.edit edit.keybindings
 editor menu editor.menu.edit edit.paste
@@ -443,6 +402,47 @@ vixen.help menu editor.menu.help help.documentation
 vixen.help menu editor.menu.help help.release-notes
 vixen.help menu editor.menu.help help.report-bug
 vixen.help menu editor.menu.help help.show-log-folder
+vixen.library create assets.create-addressable-group
+vixen.library create assets.create-animation
+vixen.library create assets.create-animation-graph
+vixen.library create assets.create-constraint-template
+vixen.library create assets.create-font
+vixen.library create assets.create-frame
+vixen.library create assets.create-harness
+vixen.library create assets.create-input
+vixen.library create assets.create-material
+vixen.library create assets.create-mixer
+vixen.library create assets.create-move-set
+vixen.library create assets.create-priorities
+vixen.library create assets.create-proxy-shapes
+vixen.library create assets.create-scene
+vixen.library create assets.create-sequence
+vixen.library create assets.create-shader-graph
+vixen.library create assets.create-shape-vocabulary
+vixen.library create assets.create-spline
+vixen.library create assets.create-vfx
+vixen.library menu editor.menu.assets assets.find-references
+vixen.library menu editor.menu.assets assets.select-dependencies
+vixen.library menu editor.menu.assets/editor.menu.create assets.create-addressable-group
+vixen.library menu editor.menu.assets/editor.menu.create assets.create-animation
+vixen.library menu editor.menu.assets/editor.menu.create assets.create-animation-graph
+vixen.library menu editor.menu.assets/editor.menu.create assets.create-constraint-template
+vixen.library menu editor.menu.assets/editor.menu.create assets.create-font
+vixen.library menu editor.menu.assets/editor.menu.create assets.create-frame
+vixen.library menu editor.menu.assets/editor.menu.create assets.create-harness
+vixen.library menu editor.menu.assets/editor.menu.create assets.create-input
+vixen.library menu editor.menu.assets/editor.menu.create assets.create-material
+vixen.library menu editor.menu.assets/editor.menu.create assets.create-mixer
+vixen.library menu editor.menu.assets/editor.menu.create assets.create-move-set
+vixen.library menu editor.menu.assets/editor.menu.create assets.create-priorities
+vixen.library menu editor.menu.assets/editor.menu.create assets.create-proxy-shapes
+vixen.library menu editor.menu.assets/editor.menu.create assets.create-scene
+vixen.library menu editor.menu.assets/editor.menu.create assets.create-sequence
+vixen.library menu editor.menu.assets/editor.menu.create assets.create-shader-graph
+vixen.library menu editor.menu.assets/editor.menu.create assets.create-shape-vocabulary
+vixen.library menu editor.menu.assets/editor.menu.create assets.create-spline
+vixen.library menu editor.menu.assets/editor.menu.create assets.create-vfx
+vixen.library menu editor.menu.edit edit.find-references
 vixen.play menu editor.menu.play play.pause
 vixen.play menu editor.menu.play play.play
 vixen.play menu editor.menu.play play.step
