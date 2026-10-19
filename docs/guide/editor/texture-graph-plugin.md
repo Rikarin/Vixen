@@ -4,7 +4,7 @@ slug: editor/texture-graph-plugin
 kind: guide
 area: Editor
 summary: The .vxtexgraph document, the panel that edits one, and the module that registers both through the plugin contract — plus the three things a plugin could not do when this module was written, each with the change that closed it.
-api: [T:Vixen.Editor.Texturing.TexturingModule, T:Vixen.Editor.Texturing.TextureGraphDocument]
+api: [T:Vixen.Editor.Texturing.TexturingModule, T:Vixen.Editor.Texturing.ITexturing, T:Vixen.Editor.Texturing.TextureGraphDocument]
 tags: [editor, plugin, texture-graph, material-authoring, node-graph]
 since: 0.1
 status: preview
@@ -47,6 +47,20 @@ own `Activate`.
 An author then makes a graph from **Create ▸ Texture Graph**, selects it in the Project panel, and
 runs **Tools ▸ Open Texture Graph**. The panel is the node canvas with the whole texture node library
 in it, and an `ImageView` beside it showing what the bake would write.
+
+Every **Tools ▸** verb this module registers is also a method of `ITexturing`, which the module
+publishes with `PluginContext.Publish` and withdraws on unload — so another plugin runs the same bake
+the menu runs, with no command id:
+
+```csharp no-compile="a fragment of another plugin's Activate"
+var texturing = context.Services.Require<ITexturing>();
+
+texturing.OpenStack();          // the .vxlayers selected in the Project panel
+texturing.BakeStackMaterial();  // one material per texture set, answered in a notification
+```
+
+⚠ **A verb with nothing open says so in a notification rather than throwing**, exactly as the
+command does from a palette.
 
 ## Examples
 

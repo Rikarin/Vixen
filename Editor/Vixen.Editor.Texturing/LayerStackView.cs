@@ -315,9 +315,6 @@ sealed class LayerStackView : IDisposable {
     /// <summary>The last picture, so an edit this view made can redraw without one being handed back.</summary>
     LayerStackPicture? shown;
 
-    /// <summary>Which document the preview was last framed for. See <see cref="Show" />.</summary>
-    LayerStackDocument? framed;
-
     /// <summary>The width it was framed at.</summary>
     int framedWidth;
 
@@ -348,6 +345,18 @@ sealed class LayerStackView : IDisposable {
     ///     did <em>not</em> make — which is the whole of what it is for.
     /// </remarks>
     int watchedDepth;
+
+    /// <summary>The set these rows were last drawn for, on <see cref="watchedDepth" />'s terms.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A record of what is on the screen, not a copy of the choice — #1306.</b> The choice is
+    ///     <see cref="LayerStackDocument.PaintSet" /> and <see cref="SetName" /> reads it; this is
+    ///     only what lets the follow in <see cref="Watch" /> tell a write this view made, which it
+    ///     has already drawn, from one made somewhere else, which it has to answer.
+    /// </remarks>
+    string watchedSet = "";
+
+    /// <summary>The layer these rows last showed as selected, on the same terms.</summary>
+    LayerPath? watchedSelection;
 
     /// <summary>Whether a control is being written to rather than read from.</summary>
     /// <remarks>
@@ -487,36 +496,24 @@ sealed class LayerStackView : IDisposable {
     ///         decision rather than seven edits.</b> Sets are independent — a set is a material slot
     ///         with its own atlas, its own channels and its own <c>.vxpaint</c> files — so the editor
     ///         works on one at a time and everything reads the same choice.
-    ///         <c>LayerStackEdit.SetFor</c> is that rule; this is the panel's copy of the answer.
+    ///         <c>LayerStackEdit.SetFor</c> is that rule, and this is the shown document's answer.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The paint half is wired now, and this is the panel's copy rather than the
-    ///         durable one.</b> <c>ChooseSet</c> writes <see cref="LayerStackDocument.PaintSet" />
-    ///         and <c>PaintSurface.Open</c> resolves it, so a row of any set can be selected and the
-    ///         stroke lands where the artist is looking — the disarm and the sentence that used to
-    ///         stand here for that are gone. The choice lives on the <em>document</em> and not on
-    ///         <c>PaintTool</c>, which is what this remark used to predict: a set name means
-    ///         something only inside one stack, and the tool outlives documents.
+    ///         ⚠ <b>Read from <see cref="LayerStackDocument.PaintSet" />, and no longer a copy of it —
+    ///         #1306.</b> It was the panel's own field, adopted from the document when the document
+    ///         changed and written back when the picker moved, and <c>TexturingModule</c> read it to
+    ///         choose the set its preview compiled. A write to <c>PaintSet</c> that did not come
+    ///         through this view's picker — a second view of the same file, a plugin — therefore moved
+    ///         the stroke and left the rows, the picker and the preview where they were. The picker
+    ///         still writes the document, and <see cref="Watch" /> follows a write made anywhere else.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which is why an empty one is recovered from the document at the next show.</b>
-    ///         This panel's factory re-runs on any workspace relayout, and a copy that reset while
-    ///         the durable one did not is two answers to one question.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>What still takes <c>Sets[0]</c> is <c>TexturingModule.Mesh</c>, and it is a
-    ///         finding rather than a decision</b> — that file belongs to another slice. A stack whose
-    ///         chosen set narrows to a different mesh gets the first set's coverage map, so a stroke
-    ///         outside the shown set's islands is accepted or refused by the wrong geometry.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Empty is a real state and not "not yet initialised".</b> It means the panel has
-    ///         made no choice, which is what a stack with one set stays in forever — and
-    ///         <c>SetFor</c>'s fallback is what makes that a no-op rather than a special case at
-    ///         every reader.
+    ///         ⚠ <b>Empty is a real state and not "not yet initialised".</b> It means nobody has
+    ///         chosen, which is what a stack with one set stays in forever — and <c>SetFor</c>'s
+    ///         fallback is what makes that a no-op rather than a special case at every reader.
     ///     </para>
     /// </remarks>
-    public string SetName { get; private set; } = "";
+    public string SetName => Document?.PaintSet ?? "";
 
     /// <summary>What the status line under the preview says.</summary>
     public string Status => status.Text ?? string.Empty;
@@ -612,8 +609,15 @@ sealed class LayerStackView : IDisposable {
     ///         selected a fill and reached for the brush needs to read. Silently painting somewhere
     ///         else is the defect the whole issue is about.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The shown document's <see cref="LayerStackDocument.LayerSelection" />, read — #1306.</b>
+    ///         It was this view's own field, so which layer the brush was aimed at was something only
+    ///         the holder of the view could ask. A row click writes the document now, and
+    ///         <see cref="Watch" /> follows a write made anywhere else by re-aiming the brush and
+    ///         raising <see cref="SelectionChanged" /> as a click does.
+    ///     </para>
     /// </remarks>
-    public LayerPath? Selected { get; private set; }
+    public LayerPath? Selected => Document?.LayerSelection is { IsEmpty: false } selection ? selection.Primary : null;
 
     /// <summary>Told when the selected layer changed, so a paint pane can re-aim.</summary>
     /// <remarks>
@@ -706,31 +710,23 @@ sealed class LayerStackView : IDisposable {
             Preview.ImageHeight = 0;
 
             // Taking the stack out of the panel ends the picture the zoom was about, so putting one
-            // back in — the same document included — is a new subject and is framed afresh.
-            framed = null;
-
+            // back in — the same document included — is a new subject and is framed afresh: `Clear`
+            // above dropped `built`, which is what the framing below asks.
             return;
         }
 
-        // ⚠ Adopted from the document whenever the document changes, rather than recovered only
-        // when the panel's copy is empty — #927. Two things sit behind that.
-        //
-        // The panel's factory re-runs whenever the workspace relays out, so a fresh view that
-        // started at "" every time would put the artist back on the first set while the *brush*
-        // stayed on the one they chose. That is the case a recovery covers.
-        //
-        // ⚠ What a recovery does *not* cover is a second stack opened into the same panel. This
-        // view outlives the document it shows, so a non-empty `SetName` carried across the switch is
-        // the previous stack's choice pointed at this one — and because two stacks made from
-        // `LayerStackDocument.Starter` carry the same set names, `SetFor` resolves it rather than
-        // refusing it. The picker would then read "Body" while `PaintSet` was still "" and the
-        // stroke landed in the first set: #927's exact mis-aim, in the one window the `OtherSet`
-        // disarm used to cover, and with no way to correct it from the picker because choosing the
-        // set it already shows returns at the equality above in `ChooseSet`.
-        if (!ReferenceEquals(built, document)) {
-            SetName = document.PaintSet;
-        }
+        // ⚠ No adoption step here any more — #1306. `SetName` *is* the document's `PaintSet`, so the
+        // two windows #927 found a copy could go stale in — a relayout that rebuilt the view at "",
+        // and a second stack opened into the same panel carrying the first one's choice — cannot
+        // happen: there is nothing to carry. `A_second_stack_opened_into_the_panel_starts_at_its_own_set`
+        // still holds the second.
 
+        // ⚠ Asked before the build moves `built`, and it is what a `framed` field used to hold — #1306.
+        // That field was set to the shown document on every pass and to null exactly where `Clear`
+        // nulls `built`, so it was `built` under a second name: the one of this view's four document
+        // references that was a copy. `bound` survives an empty show that `built` does not, and
+        // `watched` is the subscription's, which `Dispose` ends without touching either.
+        var same = ReferenceEquals(built, document);
         var wanted = Shape(document, SetName);
 
         if (!ReferenceEquals(built, document) || !string.Equals(wanted, shape, StringComparison.Ordinal)) {
@@ -782,13 +778,12 @@ sealed class LayerStackView : IDisposable {
         // they were looking at it. A different stack, or the same one at a different extent, is a
         // different picture and is framed; the same stack recompiled is left where they put it.
         if (fitted
-            && ReferenceEquals(framed, document)
+            && same
             && framedWidth == Preview.ImageWidth
             && framedHeight == Preview.ImageHeight) {
             return;
         }
 
-        framed = document;
         framedWidth = Preview.ImageWidth;
         framedHeight = Preview.ImageHeight;
         fitted = Preview.Fit();
@@ -1059,9 +1054,12 @@ sealed class LayerStackView : IDisposable {
         // half-loaded stack rather than a bug in a panel.
         Clear();
 
-        Selected = null;
+        var selection = document.LayerSelection;
 
         if (LayerStackEdit.SetFor(document.Document, SetName) is not { } set) {
+            selection.Clear();
+            watchedSelection = null;
+
             if (tool is not null) {
                 tool.LayerId = "";
             }
@@ -1085,13 +1083,36 @@ sealed class LayerStackView : IDisposable {
         // ⚠ And an ambiguous id is not recovered either: the brush would be aimed at whichever of
         // the layers sharing it the walk reaches first, which is the same wrong answer the rows are
         // refusing to give.
-        if (tool is { LayerId.Length: > 0 }
-            && !ambiguous.Contains(tool.LayerId)
-            && LayerStackEdit.Find(document.Document, new(set.Name, tool.LayerId)) is not null) {
-            Selected = new LayerPath(set.Name, tool.LayerId);
-        } else if (tool is not null) {
-            tool.LayerId = "";
+        // ⚠ And a view with no brush keeps the document's own selection when it still names a layer
+        // of this set — #1306. The selection is the document's now and a double-click tab is a
+        // second view of it, so a tab that cleared it on every build would take the panel's chosen
+        // layer away, and through the follow in `Watch` the brush's aim with it.
+        LayerPath? kept = null;
+
+        if (tool is not null) {
+            if (tool.LayerId.Length > 0
+                && !ambiguous.Contains(tool.LayerId)
+                && LayerStackEdit.Find(document.Document, new(set.Name, tool.LayerId)) is not null) {
+                kept = new LayerPath(set.Name, tool.LayerId);
+            } else {
+                tool.LayerId = "";
+            }
+        } else if (selection is { IsEmpty: false, Primary: var held }
+                   && string.Equals(held.Set, set.Name, StringComparison.Ordinal)
+                   && !ambiguous.Contains(held.Id)
+                   && LayerStackEdit.Find(document.Document, held) is not null) {
+            kept = held;
         }
+
+        if (kept is { } chosen) {
+            selection.Set(chosen);
+        } else {
+            selection.Clear();
+        }
+
+        // What the rows are about to be drawn with, so the follow in `Watch` does not answer this
+        // build's own write with a second `SelectionChanged`.
+        watchedSelection = kept;
 
         Walk(set.Layers, 0);
 
@@ -3506,17 +3527,32 @@ sealed class LayerStackView : IDisposable {
             return;
         }
 
-        SetName = value;
-        Selected = null;
-
         // ⚠ And the brush goes with it — #927. This is the one write that makes the picker mean
         // anything to a stroke: `PaintSurface.Open` resolves `LayerStackDocument.PaintSet` through
         // the same `SetFor` this view does, so "the set I am looking at" and "the set I am painting
         // into" stopped being two answers. Written unconditionally rather than only when the panel
         // has a brush, because the preview and the pane are two panels and either may be closed.
-        if (Document is { } document) {
-            document.PaintSet = value;
+        // ⚠ And it is the only write now (#1306): `SetName` reads it back rather than keeping a copy.
+        if (Document is not { } document) {
+            return;
         }
+
+        document.PaintSet = value;
+
+        SetMoved(document);
+    }
+
+    /// <summary>Everything a change of set owes, whoever made it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Shared by the picker and by the follow in <see cref="Watch" /> — #1306.</b> A set
+    ///     chosen by a second view or by a plugin writes <see cref="LayerStackDocument.PaintSet" />
+    ///     and nothing else, and this panel has to answer it exactly as it answers its own picker:
+    ///     the selection goes, because a <see cref="LayerPath" /> carries a set name, and the brush
+    ///     goes with the selection.
+    /// </remarks>
+    void SetMoved(LayerStackDocument document) {
+        document.LayerSelection.Clear();
+        watchedSelection = null;
 
         if (tool is not null) {
             tool.LayerId = "";
@@ -3534,7 +3570,18 @@ sealed class LayerStackView : IDisposable {
     ///     the first click of a session.
     /// </remarks>
     void Choose(LayerPath path) {
-        Selected = Selected == path ? null : path;
+        if (Document is not { } document) {
+            return;
+        }
+
+        if (Selected == path) {
+            document.LayerSelection.Clear();
+        } else {
+            document.LayerSelection.Set(path);
+        }
+
+        // Recorded before the follow in `Watch` can wake on this write, so it is not answered twice.
+        watchedSelection = Selected;
 
         // ⚠ The mirror, and it is the whole of what #910 asked for: `PaintTool.LayerId` was the only
         // writer of "which layer" and had no reader that a person could reach. An id that names no
@@ -3667,7 +3714,8 @@ sealed class LayerStackView : IDisposable {
         }
 
         if (Selected == path) {
-            Selected = null;
+            document.LayerSelection.Clear();
+            watchedSelection = null;
 
             if (tool is not null) {
                 tool.LayerId = "";
@@ -3732,6 +3780,7 @@ sealed class LayerStackView : IDisposable {
         if (ReferenceEquals(watched, document)) {
             // Every refresh comes through here, so this is where "what is on the screen" is recorded.
             watchedDepth = document?.Stack.Depth.Peek() ?? 0;
+            watchedSet = document?.PeekPaintSet() ?? "";
 
             return;
         }
@@ -3745,6 +3794,7 @@ sealed class LayerStackView : IDisposable {
         }
 
         watchedDepth = document.Stack.Depth.Peek();
+        watchedSet = document.PeekPaintSet();
 
         watch = new Effect(
             () => {
@@ -3752,14 +3802,42 @@ sealed class LayerStackView : IDisposable {
                     return;
                 }
 
+                // ⚠ All three read before any is answered, so the effect depends on all three
+                // whichever of them moved — #1306 added the set and the selection, which are the
+                // document's now, beside the undo depth.
                 var depth = document.Stack.Depth.Value;
+                var set = document.PaintSet;
+                var selected = Selected;
 
-                if (depth == watchedDepth) {
+                if (!string.Equals(set, watchedSet, StringComparison.Ordinal)) {
+                    // A set chosen somewhere else: answered as the picker answers its own choice,
+                    // which redraws everything and so settles the depth and the selection too.
+                    watchedSet = set;
+                    SetMoved(document);
+
                     return;
                 }
 
-                watchedDepth = depth;
-                Refresh();
+                if (depth != watchedDepth) {
+                    watchedDepth = depth;
+                    Refresh();
+
+                    // A rebuild re-derives the selection and records it, so it is read again.
+                    selected = Selected;
+                }
+
+                if (selected != watchedSelection) {
+                    // A layer selected somewhere else: the brush is re-aimed and the pane told, as a
+                    // row click does. The rows restate rather than rebuild — a selection is not a shape.
+                    watchedSelection = selected;
+
+                    if (tool is not null) {
+                        tool.LayerId = selected?.Id ?? "";
+                    }
+
+                    Restate();
+                    SelectionChanged?.Invoke();
+                }
             },
             root.Document.Effects
         );

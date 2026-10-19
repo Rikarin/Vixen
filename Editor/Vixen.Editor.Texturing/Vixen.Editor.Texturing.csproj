@@ -233,5 +233,17 @@
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false"
                           PrivateAssets="all" />
+
+        <!--
+            Doc 50 § D5 (#1306): the Tools-menu lines are `[EditorMenu]` declarations on the command
+            ids in `TexturingModule`, and this generator writes them into `Declared.Register`, which
+            `Activate` calls when it is activated in-process. Named here for the transitivity reason
+            above — without it the attributes compile and register nothing. It emits a static method
+            and no module initializer, so it adds nothing a second, collectible load of this assembly
+            could trip over (the `[DataContract]` remark above).
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Plugin.Generator\Vixen.Editor.Plugin.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 </Project>

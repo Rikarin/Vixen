@@ -62,6 +62,42 @@ public class TexturingModuleTests {
         Assert.All(fixture.Extensions.All<NewAssetKind>(), kind => Assert.False(kind.Opens));
     }
 
+    /// <summary>Every verb has exactly one line on the Tools menu, in the order written, and unloading takes them out.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Exactly one, which is the half a disk load could get wrong (#1306).</b> The lines are
+    ///     <c>[EditorMenu]</c> declarations now, and a declaration can be read twice — by the generated
+    ///     <c>Declared.Register</c> and by the host's scan of an assembly it loaded off disk — so a
+    ///     count of one is what says only one reader ran.
+    /// </remarks>
+    [Fact]
+    public void Each_verb_is_on_the_tools_menu_once_and_goes_with_the_module() {
+        using var fixture = new TexturingFixture();
+
+        var tools = fixture.Shell.Menus.AddMenu(EditorStrings.MenuTools);
+
+        fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
+
+        Assert.Equal(
+            [
+                TexturingModule.OpenCommand,
+                TexturingModule.OpenStackCommand,
+                TexturingModule.PaintCommand,
+                TexturingModule.BakeCommand,
+                TexturingModule.BakeStackCommand,
+                TexturingModule.BakeSplatCommand,
+                TexturingModule.ForceBakeCommand,
+                TexturingModule.ParallaxBakeCommand,
+                TexturingModule.SaveSmartCommand,
+                TexturingModule.ApplySmartCommand
+            ],
+            tools.Entries.OfType<MenuCommand>().Select(line => line.CommandId)
+        );
+
+        Assert.True(fixture.Host.Unload(TexturingModule.ModuleId));
+
+        Assert.Empty(tools.Entries);
+    }
+
     /// <summary>
     ///     ⚠ The one a host that publishes nothing must see: refused by name, not a null reference.
     /// </summary>
