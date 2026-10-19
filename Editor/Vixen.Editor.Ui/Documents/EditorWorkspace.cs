@@ -17,9 +17,19 @@ namespace Vixen.Editor.Ui.Documents;
 ///         without the application naming either.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Views only, so far.</b> Doc 50 also gives this the panels, the layouts and the
-///         panel state the application parks on itself (§ F1's 25 fields); those are still
-///         <c>EditorApplication</c>'s, and #1294 says what is left.
+///         <b>And the arrangement's own verbs</b> (#1294): where a document's panel goes
+///         (<see cref="Place" />), keeping the arrangement (<see cref="SaveLayout" />) and the theme
+///         the user has written over the shipped one (<see cref="ThemeTokens" />,
+///         <see cref="ReloadStyles" />). Those were <c>EditorApplication</c>'s, and they are the
+///         Workspace context's words — a panel id, a layout, a stylesheet — so this is their home.
+///     </para>
+///     <para>
+///         ⚠ <b>Not § F1's other parked fields, and not for want of moving them.</b> This assembly
+///         refuses <c>Vixen.Editor.Core</c> on purpose, and the browser, the outliner, the inspectors
+///         and the viewport's cameras are types of <c>Vixen.Editor.App</c>,
+///         <c>.Inspector</c> and <c>.SceneView</c>, which a Workspace interface here cannot name. Doc
+///         50 gives each its own context's model (<c>IContentLibrary.Shown</c>,
+///         <c>IDiagnostics.Console</c>, the viewport's views) rather than this one.
 ///     </para>
 /// </remarks>
 public interface IWorkspace {
@@ -72,20 +82,121 @@ public interface IWorkspace {
     ///     lands in is the host's.
     /// </remarks>
     bool Open(AssetId asset);
+
+    /// <summary>Puts a document's panel where documents go — beside the scene — before it is opened.</summary>
+    /// <param name="panelId">The panel.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The cause of a graph vanishing into a 320 px column was the placement and not the
+    ///         stylesheet.</b> A panel the arrangement does not name went wherever the host put new
+    ///         panels; a document belongs where the viewport is, which is what every preset's
+    ///         <em>centre</em> means. An arrangement already naming the panel, or with no scene panel
+    ///         in it, keeps the host's own answer.
+    ///     </para>
+    ///     <para>
+    ///         Before the panel is opened, because the placement happens the moment its id is
+    ///         assigned — a group named in the layout is one the host leaves alone.
+    ///     </para>
+    /// </remarks>
+    void Place(string panelId);
+
+    /// <summary>Keeps the arrangement on screen in the user's store, named after the preset it came from.</summary>
+    /// <returns>The name it was kept under.</returns>
+    string SaveLayout();
+
+    /// <summary>The theme tokens the user has written over the shipped palette, as the YAML they are kept in.</summary>
+    /// <remarks>
+    ///     Read once and kept, because the Appearance page that shows it is built again on every
+    ///     visit — and its search box alone can bounce between two pages, which would make typing in
+    ///     it a sequence of synchronous disk reads. <see cref="ReloadStyles" /> drops the copy.
+    /// </remarks>
+    string ThemeTokens { get; }
+
+    /// <summary>Keeps new theme tokens and restyles the editor with them; an empty text is the shipped palette.</summary>
+    /// <param name="text">The tokens.</param>
+    /// <returns>Whether they could be written; a host that could not says why on screen.</returns>
+    bool ApplyThemeTokens(string text);
+
+    /// <summary>Reads the theme tokens again and restyles the editor, so a hand edit of the file shows without a restart.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The kept copy is dropped with it.</b> The Appearance page exists to edit that file, so
+    ///     a reload that left it showing the old text would be an editor disagreeing with itself about
+    ///     what the theme is.
+    /// </remarks>
+    void ReloadStyles();
 }
 
-/// <summary>The editor's <see cref="IWorkspace" />: a view list keyed by document type.</summary>
-/// <param name="open">
-///     How the host puts an asset in a panel of its own, or <see langword="null" /> for one with no
-///     panels — whose <see cref="Open" /> then answers <see langword="false" />.
-/// </param>
+/// <summary>The editor's <see cref="IWorkspace" />: a view list keyed by document type, and the shell's arrangement.</summary>
 /// <remarks>
-///     ⚠ <b>The panel half is the host's, handed in.</b> Opening an asset in a tab is docking, layout
-///     and the asset-panel id, which are still <c>EditorApplication</c>'s (#1294 records the move as
-///     owed), so this holds the call rather than the logic.
+///     ⚠ <b>Opening an asset in a tab is still the host's, handed in.</b> It resolves the document
+///     through <c>IDocumentHost</c> and the editor's open scenes, which are <c>Vixen.Editor.Core</c>'s
+///     words this assembly refuses; the panel id, its placement and the arrangement are here.
 /// </remarks>
-public sealed class EditorWorkspace(Func<AssetId, bool>? open = null) : IWorkspace {
+public sealed class EditorWorkspace : IWorkspace {
+    /// <summary>What a panel showing an asset's editor is called in an arrangement.</summary>
+    /// <remarks>
+    ///     The GUID rather than the path, so that moving the file does not leave a panel nobody can
+    ///     reopen — the identity is a GUID precisely so that it does not.
+    /// </remarks>
+    public const string AssetPrefix = "asset.";
+
+    /// <summary>Where the user's theme overrides live, in the user's store.</summary>
+    public const string ThemeFile = "theme.yaml";
+
     readonly List<DocumentView> views = [];
+    readonly Func<AssetId, bool>? open;
+    readonly EditorShell? shell;
+    readonly EditorUserStore? store;
+    string? tokens;
+
+    /// <summary>A view list with no shell behind it — what a test or a sweep over the standard views builds.</summary>
+    /// <param name="open">
+    ///     How the host puts an asset in a panel of its own, or <see langword="null" /> for one with no
+    ///     panels — whose <see cref="Open" /> then answers <see langword="false" />.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ The arrangement's verbs need a shell and a store, and throw
+    ///     <see cref="InvalidOperationException" /> here rather than answer as if they had one.
+    /// </remarks>
+    public EditorWorkspace(Func<AssetId, bool>? open = null) {
+        this.open = open;
+    }
+
+    /// <summary>The workspace of a running editor.</summary>
+    /// <param name="shell">The shell whose arrangement this is.</param>
+    /// <param name="store">The user's store, which keeps layouts and the theme.</param>
+    /// <param name="open">How the host puts an asset in a panel of its own.</param>
+    public EditorWorkspace(EditorShell shell, EditorUserStore store, Func<AssetId, bool>? open = null) : this(open) {
+        ArgumentNullException.ThrowIfNull(shell);
+        ArgumentNullException.ThrowIfNull(store);
+
+        this.shell = shell;
+        this.store = store;
+    }
+
+    /// <summary>The id of the panel an asset's editor is shown in.</summary>
+    /// <param name="asset">The asset.</param>
+    /// <returns>Its panel id.</returns>
+    public static string PanelOf(AssetId asset) => AssetPrefix + asset;
+
+    /// <summary>Reads an asset panel's id back, which is what restoring an arrangement needs.</summary>
+    /// <param name="id">A panel id.</param>
+    /// <param name="asset">The asset it shows.</param>
+    /// <returns>Whether it is an asset panel's id.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Beside the formatter, because a format written in one place and parsed in another is
+    ///     a format with two owners.</b> The parse is the half a saved layout depends on, and it was
+    ///     the half that could drift silently: a mismatch does not fail, it just never restores a
+    ///     document.
+    /// </remarks>
+    public static bool TryReadPanel(string id, out AssetId asset) {
+        ArgumentNullException.ThrowIfNull(id);
+
+        asset = default;
+
+        return id.StartsWith(AssetPrefix, StringComparison.Ordinal)
+            && AssetId.TryParse(id[AssetPrefix.Length..], out asset);
+    }
 
     /// <inheritdoc />
     public IReadOnlyList<DocumentView> Views => views;
@@ -161,6 +272,68 @@ public sealed class EditorWorkspace(Func<AssetId, bool>? open = null) : IWorkspa
 
     /// <inheritdoc />
     public bool Open(AssetId asset) => open?.Invoke(asset) ?? false;
+
+    /// <inheritdoc />
+    public void Place(string panelId) {
+        ArgumentException.ThrowIfNullOrEmpty(panelId);
+
+        var layout = Shell.Workspace.Host.Layout;
+
+        if (layout.Find(panelId) is not null || layout.Find("scene") is not { } scene) {
+            return;
+        }
+
+        scene.Group.Add(panelId);
+    }
+
+    /// <inheritdoc />
+    public string SaveLayout() {
+        // Named after the preset it came from until there is a dialog to ask. A "Save Layout…" that
+        // silently overwrote the arrangement the user is looking at would be worse than one that
+        // has an obvious placeholder name.
+        var name = Shell.Workspace.DefaultPreset + " (custom)";
+
+        Store.SaveLayout(name, Shell.Workspace.Save());
+        Shell.Notifications.Success(name);
+
+        return name;
+    }
+
+    /// <inheritdoc />
+    public string ThemeTokens => tokens ??= Store.Read(ThemeFile) ?? string.Empty;
+
+    /// <inheritdoc />
+    public bool ApplyThemeTokens(string text) {
+        ArgumentNullException.ThrowIfNull(text);
+
+        tokens = text;
+
+        try {
+            Store.Write(ThemeFile, text);
+        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+            Shell.Notifications.Show("Could not save the theme", NotificationSeverity.Error, exception.Message);
+            return false;
+        }
+
+        Shell.Theme.LoadTokens(text.Length == 0 ? null : text);
+        return true;
+    }
+
+    /// <inheritdoc />
+    public void ReloadStyles() {
+        LoadStyles();
+        Shell.Notifications.Success("Styles reloaded");
+    }
+
+    /// <summary>Reads the theme tokens and restyles the editor with them, without saying so — what start-up does.</summary>
+    public void LoadStyles() {
+        tokens = null;
+        Shell.Theme.LoadTokens(Store.Read(ThemeFile));
+    }
+
+    EditorShell Shell => shell ?? throw new InvalidOperationException("This workspace has no shell: it was built as a view list only.");
+
+    EditorUserStore Store => store ?? throw new InvalidOperationException("This workspace has no user store: it was built as a view list only.");
 
     sealed class Removal(EditorWorkspace workspace, DocumentView view) : IDisposable {
         bool done;

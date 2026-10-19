@@ -751,10 +751,11 @@ sealed partial class EditorApplication : IDisposable {
 
         // ⚠ Empty here: every kind and view is a module's contribution (#1297), registered through
         // `PluginServices` — the asset editors module registers this build's twenty-six. The
-        // workspace opens an asset in a tab through this class, which is the panel half #1294 has
-        // still to move.
+        // workspace opens an asset in a tab through this class, because resolving the document is
+        // `IDocumentHost`'s and the editor's open scenes', which `Vixen.Editor.Ui` cannot name; the
+        // panel id, its placement, the layouts and the theme are the workspace's own (#1294).
         documentHost = new DocumentHost(project);
-        documentViews = new EditorWorkspace(Open);
+        documentViews = new EditorWorkspace(Shell, store, Open);
 
         // ⚠ The one document kind the *viewport* is a view of, so opening it points the panes at it
         // and every edit after that reaches them without a restart. Through `Opened` rather than a
@@ -1006,7 +1007,7 @@ sealed partial class EditorApplication : IDisposable {
             KeyMapYaml.Read(Shell.Keys, keymap);
         }
 
-        Shell.Theme.LoadTokens(store.Read(ThemeFile));
+        documentViews.LoadStyles();
 
         // ⚠ Doc 20's A6: the panels a saved arrangement names include the asset editors that were
         // open, which nothing has registered yet because they are registered on demand. This is the
@@ -2430,7 +2431,7 @@ sealed partial class EditorApplication : IDisposable {
             return false;
         }
 
-        var id = AssetPanel(asset);
+        var id = EditorWorkspace.PanelOf(asset);
 
         if (assetPanels.Add(id)) {
             var title = document.Title.Peek();
@@ -2472,7 +2473,7 @@ sealed partial class EditorApplication : IDisposable {
             );
         }
 
-        Place(id);
+        documentViews.Place(id);
         Shell.Workspace.Open(id);
         project.Activate(document);
 
@@ -2585,7 +2586,7 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>Whether an asset tab the user can see is showing a document.</summary>
     bool InATab(EditorDocument document) =>
-        !document.Asset.IsEmpty && Shell.Workspace.IsOpen(AssetPanel(document.Asset));
+        !document.Asset.IsEmpty && Shell.Workspace.IsOpen(EditorWorkspace.PanelOf(document.Asset));
 
     /// <summary>Says why a scene was not pointed at a file another document already edits.</summary>
     /// <remarks>
@@ -2629,78 +2630,13 @@ sealed partial class EditorApplication : IDisposable {
                 continue;
             }
 
-            if (TryReadAssetPanel(id, out var asset) && TryGetOpenScene(asset, out var now) && ReferenceEquals(now, moved)) {
+            if (EditorWorkspace.TryReadPanel(id, out var asset) && TryGetOpenScene(asset, out var now) && ReferenceEquals(now, moved)) {
                 continue;
             }
 
             tabDocuments.Remove(id);
             Shell.Workspace.Close(id);
         }
-    }
-
-    /// <summary>Puts a document panel where the documents are, before it is first opened.</summary>
-    /// <param name="id">The panel's id.</param>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Without this a shader graph opens into the browser column and its canvas is zero
-    ///         pixels wide</b> — <a href="https://github.com/Rikarin/Vixen/issues/939">#939</a>.
-    ///         <c>DockingHost.Rekey</c> put a panel the arrangement does not mention into
-    ///         <c>Layout.Groups()[0]</c>, and in every <c>LayoutPresets.Standard</c> preset the first
-    ///         group is the <em>left browser</em>, at <c>0.2</c> of the width. 320 px is less than
-    ///         <c>shadergraph-side</c>'s own 300 px column, so the graph — which is the one child
-    ///         with <c>flex-grow</c> and <c>min-width: 0</c> — shrinks to nothing and the panel shows
-    ///         its side strip with an empty space where the nodes should be.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The cause is the placement and not the stylesheet, which is worth saying because
-    ///         the <c>min-width: 0</c> looks like the culprit.</b> Giving the graph a minimum would
-    ///         make it overflow a 320 px column instead of vanishing from it; the panel would still
-    ///         be in the wrong place. A document belongs where the viewport is, which is what every
-    ///         preset's <em>centre</em> means, so that is where it is put.
-    ///     </para>
-    ///     <para>
-    ///         Before <c>Open</c>, because the placement happens the moment <c>Id</c> is assigned
-    ///         inside <c>AddPanel</c> — a group named in the layout is one <c>Rekey</c> leaves alone.
-    ///         An arrangement with no scene panel in it keeps the host's own answer rather than
-    ///         guessing — and since #969 that answer is <c>DockLayout.LargestGroup</c>, the group
-    ///         with the most room, which in every standard preset is the one this puts the document
-    ///         in anyway. This stays because it says <i>why</i>: a document belongs with the
-    ///         documents, whether or not that is the biggest box.
-    ///     </para>
-    /// </remarks>
-    void Place(string id) {
-        var layout = Shell.Workspace.Host.Layout;
-
-        if (layout.Find(id) is not null || layout.Find("scene") is not { } scene) {
-            return;
-        }
-
-        scene.Group.Add(id);
-    }
-
-
-    /// <summary>What a panel showing an asset's editor is called in an arrangement.</summary>
-    /// <remarks>
-    ///     The GUID rather than the path, so that moving the file does not leave a panel nobody can
-    ///     reopen — the identity is a GUID precisely so that it does not.
-    /// </remarks>
-    const string AssetPrefix = "asset.";
-
-    /// <inheritdoc cref="AssetPrefix" />
-    static string AssetPanel(AssetId asset) => AssetPrefix + asset;
-
-    /// <summary>Reads an asset panel's id back, which is what restoring an arrangement needs.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Beside the formatter, because a format written in one place and parsed in another is
-    ///     a format with two owners.</b> The parse is the half a saved layout depends on, and it was
-    ///     the half that could drift silently: a mismatch does not fail, it just never restores a
-    ///     document.
-    /// </remarks>
-    static bool TryReadAssetPanel(string id, out AssetId asset) {
-        asset = default;
-
-        return id.StartsWith(AssetPrefix, StringComparison.Ordinal)
-            && AssetId.TryParse(id[AssetPrefix.Length..], out asset);
     }
 
     /// <summary>Reopens the document a restored arrangement names, so the panel can be built.</summary>
@@ -2728,7 +2664,7 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     bool ReopenDocument(string id) {
         if (!preferences.RestoreOpenDocuments
-            || !TryReadAssetPanel(id, out var asset)
+            || !EditorWorkspace.TryReadPanel(id, out var asset)
             || !project.Assets.TryGetByGuid(asset, out _)) {
             return false;
         }
@@ -3346,7 +3282,7 @@ sealed partial class EditorApplication : IDisposable {
         );
 
         Shell.Commands.Add(
-            new EditorCommand("view.save-layout", EditorStrings.CommandSaveLayout, SaveLayout) {
+            new EditorCommand("view.save-layout", EditorStrings.CommandSaveLayout, () => documentViews.SaveLayout()) {
                 Category = EditorStrings.CategoryView
             }
         );
@@ -5254,13 +5190,4 @@ sealed partial class EditorApplication : IDisposable {
         }
     }
 
-    void SaveLayout() {
-        // Named after the preset it came from until there is a dialog to ask. A "Save Layout…" that
-        // silently overwrote the arrangement the user is looking at would be worse than one that
-        // has an obvious placeholder name.
-        var name = Shell.Workspace.DefaultPreset + " (custom)";
-
-        store.SaveLayout(name, Shell.Workspace.Save());
-        Shell.Notifications.Success(name);
-    }
 }

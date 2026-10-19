@@ -781,7 +781,7 @@ sealed partial class EditorApplication {
             "tools.reload-styles",
             EditorStrings.CommandToolsReloadStyles,
             EditorStrings.CategoryTools,
-            ReloadStyles
+            () => documentViews.ReloadStyles()
         );
 
         // ⚠ The producer end of a chain every other link of which was finished and called by nothing.
@@ -1687,21 +1687,6 @@ sealed partial class EditorApplication {
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             Shell.Notifications.Show("Could not clear Library", NotificationSeverity.Error, exception.Message);
         }
-    }
-
-    /// <summary>Loads the five user-agent sheets again, so a theme edit shows without a restart.</summary>
-    /// <remarks>
-    ///     The one Tools verb that is genuinely free: the sheets are strings in this process and
-    ///     <c>Install</c> is idempotent, so re-running the five is a restyle rather than a reload.
-    /// </remarks>
-    void ReloadStyles() {
-        // ⚠ Re-read, and the cached copy the Appearance page seeds from is dropped with it — that
-        // page exists to edit this file, so a hot reload that left it showing the old text would be
-        // an editor disagreeing with itself about what the theme is.
-        tokens = null;
-
-        Shell.Theme.LoadTokens(store.Read(ThemeFile));
-        Shell.Notifications.Success("Styles reloaded");
     }
 
     /// <summary>Recompiles every shader source, whether or not a file was seen to change.</summary>
