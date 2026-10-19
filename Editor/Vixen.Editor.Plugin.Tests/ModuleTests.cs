@@ -123,6 +123,31 @@ public class ModuleTests {
     }
 
     /// <summary>
+    ///     #1484: a module's stylesheet leaves the cascade with it, and a reload adds no second copy.
+    ///     The oracle is the loaded-sheet count against the shell's own baseline, and the rule's text
+    ///     present exactly once while the module runs.
+    /// </summary>
+    [Fact]
+    public void A_modules_stylesheet_leaves_with_it_and_comes_back_once() {
+        using var shell = new EditorShell(1280f, 800f);
+        var host = new PluginHost(shell);
+        var styles = shell.Document.Styles;
+        var baseline = styles.LoadedSheetCount;
+        const string Css = "terrain-brush { width: 7px; }";
+
+        host.Activate("terrain", "Terrain", new Module(context => context.AddStyleSheet(Css)));
+        Assert.Equal(baseline + 1, styles.LoadedSheetCount);
+
+        host.Reload("terrain");
+        Assert.Equal(baseline + 1, styles.LoadedSheetCount);
+        Assert.Equal(1, Enumerable.Range(0, styles.SheetCount).Count(sheet => styles.SheetText(sheet) == Css));
+
+        Assert.True(host.Unload("terrain"));
+        Assert.Equal(baseline, styles.LoadedSheetCount);
+        Assert.Equal(0, Enumerable.Range(0, styles.SheetCount).Count(sheet => styles.SheetText(sheet) == Css));
+    }
+
+    /// <summary>
     ///     #1288: the user's switch means the same thing for a module the editor ships as for a plugin
     ///     off a disk. It used to be consulted by <c>Load</c> alone, so a built-in disabled in the
     ///     manager came back on at the next launch.

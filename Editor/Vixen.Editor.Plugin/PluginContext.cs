@@ -6,6 +6,7 @@ using Vixen.Graphics;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
+using Vixen.Ui.Styling;
 
 namespace Vixen.Editor.Plugin;
 
@@ -119,6 +120,33 @@ public sealed class PluginContext {
 
         StringContributions.Declare(declarations);
         Registrations.Add(() => StringContributions.Withdraw(declarations));
+    }
+
+    /// <summary>Loads a stylesheet into the editor's document, and takes it back out on unload.</summary>
+    /// <param name="css">Its text.</param>
+    /// <param name="origin">Who it came from. A module's own look is a user-agent sheet.</param>
+    /// <returns>The sheet's index in <c>Shell.Document</c>, for a hot reload.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The removal-recording wrapper for a <c>*Theme.Install</c>, which until #1484 had nothing
+    ///         to record: <c>UiDocument</c> could load and replace a sheet and not remove one, so a
+    ///         module's rules stayed in the cascade after the module was gone.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Loaded where the module activates, which is after every sheet the shell and the
+    ///         application installed.</b> A rule here of the same specificity as one of theirs wins.
+    ///         That is what a module's own elements want, and it is the reason a sheet that used to be
+    ///         installed between two of the application's is worth a picture when it moves here.
+    ///     </para>
+    /// </remarks>
+    public int AddStyleSheet(string css, StyleOrigin origin = StyleOrigin.UserAgent) {
+        ArgumentNullException.ThrowIfNull(css);
+
+        var document = Shell.Document;
+        var sheet = document.Load(css, origin);
+        Registrations.Add(() => document.Unload(sheet));
+
+        return sheet;
     }
 
     /// <summary>Adds a panel from its parts.</summary>

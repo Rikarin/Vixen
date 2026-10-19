@@ -102,9 +102,9 @@ sealed class TextureGraphView {
         Canvas = left.Add<NodeGraphView>();
 
         // ⚠ Inline, and it is belt and braces rather than the only thing holding the graph open.
-        // `node-graph { flex-grow: 1 }` is in `NodeGraphTheme.vcss`, which the editor host installs
-        // as of #917 — but this line predates that and stays, because a plugin's panel should not
-        // depend on a host stylesheet it does not own. The other three graph
+        // `node-graph { flex-grow: 1 }` is in `NodeGraphTheme.vcss`, which the asset editors module
+        // installs (#917, #1299) — but this line predates that and stays, because a plugin's panel
+        // should not depend on a stylesheet it does not own. The other three graph
         // panels get it from `AssetEditorTheme.vcss`'s `<x>-editor > node-graph` rules, and no rule
         // anywhere names this one: the canvas measured 990×0 in a shell with the panel open, which
         // is a graph an author can neither see nor click, let alone double-click a compound in.

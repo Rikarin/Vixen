@@ -17,14 +17,14 @@ namespace Vixen.Editor.Texturing;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Installed by the view rather than by the editor, and that is the difference between
-///         a plugin's sheet and the editor's five.</b> <c>EditorApplication</c> names
-///         <c>NodeGraphTheme</c>, <c>InspectorTheme</c>, <c>AssetEditorTheme</c>,
-///         <c>BrowserTheme</c> and <c>WorldTheme</c> one by one — a plugin is not in that list and
-///         must not be, since doc 48 § D14's claim is that a third party could have written this
-///         assembly. <c>PluginContext</c> has no stylesheet seam either. What it does have is a
-///         panel element, and <c>UiElement.Document</c> reaches the document that element is in, so
-///         a view can load its own sheet. ⚠ That was checked before it was written down: a finding
-///         saying "a plugin cannot ship a stylesheet" would have been wrong.
+///         a plugin's sheet and the editor's four.</b> <c>EditorApplication</c> names
+///         <c>InspectorTheme</c>, <c>AssetEditorTheme</c>, <c>BrowserTheme</c> and
+///         <c>WorldTheme</c> one by one — a plugin is not in that list and must not be, since doc 48
+///         § D14's claim is that a third party could have written this assembly. A panel element's
+///         <c>UiElement.Document</c> reaches the document that element is in, so a view can load its
+///         own sheet. ⚠ <c>PluginContext.AddStyleSheet</c> exists since #1484 and is the seam that
+///         also takes a sheet back out on unload; this view-installed sheet predates it and is never
+///         removed (<c>docs/ModuleRegistrationExempt.txt</c> carries the rows).
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Once per document, and the guard is not politeness.</b> A panel's factory re-runs

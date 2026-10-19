@@ -607,6 +607,38 @@ public sealed partial class UiDocument : IDisposable {
         Forget();
     }
 
+    /// <summary>Takes a loaded stylesheet back out of the document.</summary>
+    /// <param name="sheet">The index <see cref="Load" /> returned.</param>
+    /// <remarks>
+    ///     <para>
+    ///         What a module that installed a sheet calls when it unloads. Every element the sheet
+    ///         styled is restyled from what remains, the merged <c>@theme</c> is rebuilt without its
+    ///         tokens, and every <c>@apply</c> is expanded again against that — the same reload
+    ///         <see cref="ReloadStyles" /> performs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every other index stays valid.</b> The removed sheet keeps an empty slot, so
+    ///         <c>Styles.SheetCount</c> does not go down; <c>Styles.LoadedSheetCount</c> is the count
+    ///         that does. <c>StyleEngine.Remove</c> says why a slot is never reused.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not for a sheet <see cref="LoadOnce" /> loaded.</b> That method returns no index
+    ///         and remembers its key for the document's lifetime, so a component's sheet is not
+    ///         something a caller can release.
+    ///     </para>
+    /// </remarks>
+    public void Unload(int sheet) {
+        ThrowIfDisposed();
+
+        // Before the removal, for the reason `ReloadStyles` gives: the reload re-expands every
+        // `@apply`, and it must do that against a merge without the removed sheet's tokens.
+        theme = null;
+
+        Styles.Remove(sheet);
+        DrainStyleDiagnostics();
+        Forget();
+    }
+
     /// <summary>Changes the surface's size.</summary>
     /// <param name="width">The new width.</param>
     /// <param name="height">The new height.</param>

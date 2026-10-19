@@ -59,8 +59,11 @@ public sealed partial class WaterModule {
     /// <summary>Draws the ripple simulation only a game runs.</summary>
     public const string ShowRipplesCommand = "water.showRipples";
 
-    /// <summary>The six verbs, in the order the mode's menu lists them.</summary>
+    /// <summary>The six verbs, in the order doc 35's debugging table lists them.</summary>
     /// <remarks>
+    ///     ⚠ <b>No menu lists them, though this summary said one did from the commit that added it.</b>
+    ///     They are reached through the command palette, under <c>WaterStrings.CategoryWater</c>; no
+    ///     <c>MenuGroup</c> in the editor names a <c>water.show*</c> id (#1286).
     ///     ⚠ <b>Two of them are inert in a pane and are registered anyway.</b>
     ///     <c>water.showTiles</c> and <c>water.showLod</c> describe the patches a device selected and
     ///     <c>water.showRipples</c> a simulation only a game runs — the editor's preview surface is a

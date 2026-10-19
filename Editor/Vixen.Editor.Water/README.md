@@ -177,8 +177,13 @@ registered", and the mode's `Drawn` handler kept the module reachable for the li
 see a leak: `WaitForCollection` is unconditionally true for a built-in, which has no load context
 (#740).
 
-⚠ **No `[EditorMenu]` attributes yet**, and deliberately: an in-tree attribute does nothing until the
-generator (#1283) exists — `DeclaredContributions` scans only disk plugins and project scripts.
+⚠ **No attributes, and since the generator exists (#1283) that is a finding rather than a wait.** The
+module builds no menu, so there is no hand menu registration to replace. Its seven verbs carry state no
+attribute shape can — the carve's enablement, the six switches' `Checked` over this module's
+`WaterDebugFlags` — and are reached through the command palette only; "the order the mode's menu lists
+them" was never true. The one attribute-shaped registration, the sea state's Create ▸ line, builds its
+file from the panel's *current* sea state, which a `static string ()` behind `[CreateAssetMenu]` cannot
+read. Giving the switches menu lines is a placement decision, carried on #1286.
 
 [§ D6]: ../../docs/plan/35-water.md#d6-a-water-body-is-a-spline-and-a-profile-and-there-is-no-new-spline
 [§ Part 4]: ../../docs/plan/35-water.md#part-4--testing

@@ -34,7 +34,11 @@ public sealed class StyleEngine {
     ///         evaluated against a window that does not exist and every one of them was false.
     ///     </para>
     /// </param>
-    readonly record struct Sheet(string Css, StyleOrigin Origin, MediaContext? Media);
+    /// <param name="Removed">
+    ///     Whether <see cref="StyleEngine.Remove" /> took it out. A removed sheet keeps its slot, with no
+    ///     text, so that every index handed out after it still names the sheet it named.
+    /// </param>
+    readonly record struct Sheet(string Css, StyleOrigin Origin, MediaContext? Media, bool Removed = false);
 
     readonly List<Sheet> sheets = [];
 
@@ -60,8 +64,15 @@ public sealed class StyleEngine {
         Build();
     }
 
-    /// <summary>How many stylesheets have been loaded.</summary>
+    /// <summary>How many stylesheets have been loaded, removed ones included.</summary>
+    /// <remarks>
+    ///     The bound of an index, not the number in the cascade: a sheet <see cref="Remove" /> took out
+    ///     keeps its slot. <see cref="LoadedSheetCount" /> is the number in the cascade.
+    /// </remarks>
     public int SheetCount => sheets.Count;
+
+    /// <summary>How many stylesheets are in the cascade: loaded and not removed.</summary>
+    public int LoadedSheetCount { get; private set; }
 
     /// <summary>The table selector names are interned in.</summary>
     public NameTable Names { get; }
@@ -274,6 +285,7 @@ public sealed class StyleEngine {
         // whole document declares — which is exactly what `@apply` needs — reads `SheetText`, and a
         // sheet that is not in the list yet is a sheet whose own `@theme` it cannot see.
         sheets.Add(new(css, origin, media));
+        LoadedSheetCount++;
         Loader.Load(Preprocess(css), origin, media);
         return sheets.Count - 1;
     }
@@ -306,9 +318,55 @@ public sealed class StyleEngine {
         ArgumentNullException.ThrowIfNull(css);
         ArgumentOutOfRangeException.ThrowIfNegative(sheet);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(sheet, sheets.Count);
+        ThrowIfRemoved(sheet);
 
         sheets[sheet] = sheets[sheet] with { Css = css };
         Reload();
+    }
+
+    /// <summary>Takes a loaded sheet out of the cascade.</summary>
+    /// <param name="sheet">The index <see cref="Load" /> returned.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The slot stays, empty, and is never handed out again.</b> An index is a position
+    ///         in load order and load order is cascade order, so compacting the list would move every
+    ///         later sheet's index under whoever holds it, and refilling the hole would put a new sheet
+    ///         ahead of ones loaded before it. What a removed sheet costs is one empty record;
+    ///         <see cref="SheetText" /> answers the empty string for it, so a loop over
+    ///         <see cref="SheetCount" /> reads it as a sheet that declares nothing.
+    ///     </para>
+    ///     <para>
+    ///         Everything reloads, for the reason <see cref="Replace" /> gives: rules cannot be lifted
+    ///         out of the middle of a set, and replaying the remaining texts is what makes a removed
+    ///         rule stop applying. ⚠ Removing a sheet twice throws — a second release is a bookkeeping
+    ///         defect in the caller, and answering it quietly would hide the one that released
+    ///         somebody else's sheet.
+    ///     </para>
+    /// </remarks>
+    public void Remove(int sheet) {
+        ArgumentOutOfRangeException.ThrowIfNegative(sheet);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(sheet, sheets.Count);
+        ThrowIfRemoved(sheet);
+
+        sheets[sheet] = sheets[sheet] with { Css = string.Empty, Removed = true };
+        LoadedSheetCount--;
+        Reload();
+    }
+
+    /// <summary>Whether <see cref="Remove" /> has taken a sheet out.</summary>
+    /// <param name="sheet">The index <see cref="Load" /> returned.</param>
+    /// <returns>Whether that sheet is out of the cascade.</returns>
+    public bool IsRemoved(int sheet) {
+        ArgumentOutOfRangeException.ThrowIfNegative(sheet);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(sheet, sheets.Count);
+
+        return sheets[sheet].Removed;
+    }
+
+    void ThrowIfRemoved(int sheet) {
+        if (sheets[sheet].Removed) {
+            throw new InvalidOperationException($"Stylesheet {sheet} has been removed.");
+        }
     }
 
     /// <summary>The text a sheet was loaded from.</summary>
@@ -327,7 +385,9 @@ public sealed class StyleEngine {
         Build();
 
         foreach (var sheet in sheets) {
-            Loader.Load(Preprocess(sheet.Css), sheet.Origin, sheet.Media);
+            if (!sheet.Removed) {
+                Loader.Load(Preprocess(sheet.Css), sheet.Origin, sheet.Media);
+            }
         }
 
         // ⚠ After every sheet, not per sheet. A load registers groups one at a time and every scope's

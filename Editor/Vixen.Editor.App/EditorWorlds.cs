@@ -732,25 +732,13 @@ sealed partial class EditorApplication {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Doc 31's four are the exception to the empty-file bargain, and they have to
-    ///         be.</b> Those documents open a zero-byte file as a sensible new one; a
-    ///         <c>.vxlayer</c> is read by <c>TerrainAssetImporter</c>, which deserialises it and runs
-    ///         the type's own <c>Validate()</c> — so an empty one imports as a layer with no name and
-    ///         reports itself as incomplete beside the file. Starter text costs four literals and is
-    ///         the difference between "created" and "created, with a warning".
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>And they do not open, because nothing claims them.</b> There is no asset editor
-    ///         for a layer or a foliage type — they are edited in the inspector and in the terrain
-    ///         panels — so opening one would put "No editor claims that file" on screen every time
-    ///         somebody made one.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b><c>.vxterrain</c> is deliberately not on this list.</b> A terrain is a size, a
-    ///         tile count and a height range before it is a file, and an empty one of those is eight
-    ///         gigabytes as easily as eight megabytes — which is what the Terrain panel's create form
-    ///         and its derived-cost readout exist for. A Create ▸ line making a default-sized one
-    ///         would be the one asset in the menu whose default is a guess about the size of
-    ///         somebody's world.
+    ///         be.</b> Those documents open a zero-byte file as a sensible new one; a file read by
+    ///         <c>TerrainAssetImporter</c> is deserialised and its type's own <c>Validate()</c> run —
+    ///         so an empty one imports incomplete and says so beside the file. Starter text is the
+    ///         difference between "created" and "created, with a warning". ⚠ Three of the four — the
+    ///         layer, the foliage type and the grass type — are declared by the terrain module now
+    ///         (<c>TerrainAssetKinds</c>, #1287), and arrive and leave with it; the spline stays here,
+    ///         because a curve is not terrain's alone. It does not open: nothing claims it.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>These are registered, not read.</b> F3 reported this as a literal array in the
@@ -786,9 +774,6 @@ sealed partial class EditorApplication {
         new("assets.create-mixer", "Audio Mixer", ".vxmixer", "New Mixer"),
         new("assets.create-font", "Font", ".vxfont", "New Font"),
 
-        new("assets.create-terrain-layer", "Terrain Layer", ".vxlayer", "New Terrain Layer", NewLayer, false),
-        new("assets.create-foliage", "Foliage Type", ".vxfoliage", "New Foliage Type", NewFoliage, false),
-        new("assets.create-grass", "Grass Type", ".vxgrass", "New Grass Type", NewGrass, false),
         new("assets.create-spline", "Spline", ".vxspline", "New Spline", NewSpline, false),
 
         new("assets.create-move-set", "Move Set", ".vxmoveset", "New Move Set", NewMoveSet),
@@ -984,37 +969,6 @@ sealed partial class EditorApplication {
         bodies: [0.85, 1.0, 1.2]
         thresholds:
           residual: 0.02
-        """;
-
-    /// <summary>A paint layer with a tiling somebody can see, and no texture yet.</summary>
-    /// <remarks>
-    ///     Four metres, because a ground texture tiled at one metre reads as noise from standing
-    ///     height and one tiled at sixteen reads as a blur — and the number an author changes first is
-    ///     the one they can already see the effect of.
-    /// </remarks>
-    const string NewLayer = """
-        name: New Layer
-        tilingMetres: 4
-        """;
-
-    /// <summary>A stored foliage type with a spacing, and no mesh yet.</summary>
-    const string NewFoliage = """
-        name: New Foliage
-        radius: 2
-        storage: Stored
-        """;
-
-    /// <summary>A derived grass type over a layer that has to be renamed to one that exists.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The layer name is the one field with no defensible default</b>, so it names the
-    ///     conventional one and the importer's own <c>Validate()</c> is what says when it does not
-    ///     match the terrain — which is a message beside the file rather than an empty hillside.
-    /// </remarks>
-    const string NewGrass = """
-        name: New Grass
-        layer: Grass
-        density: 8
-        jitter: 0.8
         """;
 
     /// <summary>Two control points, which is the fewest a curve can be built from.</summary>

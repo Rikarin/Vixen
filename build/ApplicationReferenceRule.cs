@@ -84,12 +84,6 @@ static class ApplicationReferenceRule {
     ///             <a href="https://github.com/Rikarin/Vixen/issues/88">#88</a>.
     ///         </item>
     ///         <item>
-    ///             <c>Vixen.Editor.NodeGraph</c> — one call, <c>NodeGraphTheme.Install</c>, the
-    ///             user-agent sheet the four graph panels are drawn with
-    ///             (<a href="https://github.com/Rikarin/Vixen/issues/917">#917</a>). ⚠ It is not in
-    ///             doc 36's table, which lists four names and not five.
-    ///         </item>
-    ///         <item>
     ///             <c>Vixen.Editor.Profiler</c> — the diagnostics report, which aggregates the
     ///             project, the scene, the log ring and the last capture. Moving it needs the log ring
     ///             and the data directory published through <c>PluginServices</c>.
@@ -115,7 +109,6 @@ static class ApplicationReferenceRule {
     /// </remarks>
     public static readonly string[] NotYetMoved = [
         "Vixen.Editor.AssetEditors",
-        "Vixen.Editor.NodeGraph",
         "Vixen.Editor.Profiler",
         "Vixen.Editor.Debugger",
         "Vixen.Editor.Diagnostics"

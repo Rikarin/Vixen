@@ -470,8 +470,11 @@ Vixen.Ui.Styling.StyleEngine.Names.get -> Vixen.Ui.Styling.NameTable
 Vixen.Ui.Styling.StyleEngine.Preprocessor.get -> System.Func<string, string>?
 Vixen.Ui.Styling.StyleEngine.Preprocessor.set -> System.Func<string, string>?
 Vixen.Ui.Styling.StyleEngine.Properties.get -> Vixen.Ui.Styling.NameTable
+Vixen.Ui.Styling.StyleEngine.IsRemoved(int sheet) -> bool
+Vixen.Ui.Styling.StyleEngine.LoadedSheetCount.get -> int
 Vixen.Ui.Styling.StyleEngine.Reload() -> void
 Vixen.Ui.Styling.StyleEngine.Replace(int sheet, string css) -> void
+Vixen.Ui.Styling.StyleEngine.Remove(int sheet) -> void
 Vixen.Ui.Styling.StyleEngine.ResolveAll() -> Vixen.Ui.Styling.ComputedStyle[]
 Vixen.Ui.Styling.StyleEngine.Resolver.get -> Vixen.Ui.Styling.StyleResolver
 Vixen.Ui.Styling.StyleEngine.Rules.get -> Vixen.Ui.Styling.StyleRuleSet
