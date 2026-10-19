@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.RegularExpressions;
+using Vixen.Testing.Importers;
 using Xunit;
 
 namespace Vixen.Editor.Assets.Tests;
@@ -83,9 +84,16 @@ public sealed class Doc08ImporterSetTests {
     /// <summary>Whether a type of that name is an importer this build has.</summary>
     /// <remarks>
     ///     Matched on the name before the arity tick, so the table's <c>AssetImporter</c> row finds
-    ///     <see cref="AssetImporter{TSettings}" />.
+    ///     <see cref="AssetImporter{TSettings}" />; and on <see cref="HostImporterMap.LinkedOnly" /> for an
+    ///     importer a host links rather than this assembly declaring it.
     /// </remarks>
     static bool Exists(string importer) {
+        // ⚠ An importer that left this assembly for its feature (#1300) still exists — every host links
+        // it — so the map every host is held to answers for it; the assembly walk below cannot see it.
+        if (HostImporterMap.LinkedOnly.Any(row => row.EndsWith(" " + importer, StringComparison.Ordinal))) {
+            return true;
+        }
+
         foreach (var type in typeof(RawImporter).Assembly.GetTypes()) {
             var name = type.Name;
             var tick = name.IndexOf('`', StringComparison.Ordinal);

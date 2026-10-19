@@ -6,8 +6,9 @@ using Vixen.Core;
 using Vixen.Core.Serialization;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
+using Vixen.Editor.Assets;
 
-namespace Vixen.Editor.Assets.Ai;
+namespace Vixen.Editor.Ai;
 
 /// <summary>Settings for the importer that takes an environment query.</summary>
 [DataContract("QueryImporter")]

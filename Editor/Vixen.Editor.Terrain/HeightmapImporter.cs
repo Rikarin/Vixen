@@ -4,9 +4,10 @@
 using Vixen.Core;
 using Vixen.Core.Serialization;
 using Vixen.Core.Yaml.Meta;
+using Vixen.Editor.Assets;
 using Vixen.Terrain;
 
-namespace Vixen.Editor.Assets.Terrain;
+namespace Vixen.Editor.Terrain;
 
 /// <summary>How a raw heightmap is read.</summary>
 /// <remarks>

@@ -5,9 +5,10 @@ using Vixen.Core;
 using Vixen.Core.Serialization;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
+using Vixen.Editor.Assets;
 using Vixen.Water;
 
-namespace Vixen.Editor.Assets.Water;
+namespace Vixen.Editor.Water;
 
 /// <summary>How a sea state is imported.</summary>
 /// <remarks>

@@ -11,12 +11,13 @@
 EditorApplication.cs     5224
 EditorDiagnostics.cs     151
 EditorFrames.cs          483
-EditorParity.cs          2076
+EditorParity.cs          2065
 EditorProjects.cs        201
 EditorSettingsPanels.cs  1017
 EditorSourceControl.cs   380
 EditorWorlds.cs          913
 PlayOverlaySwitches.cs   124
+ProjectBrowser.cs        1438
 SceneMenus.cs            271
 ViewportCommands.cs      715
-(total)                  11555
+(total)                  11544

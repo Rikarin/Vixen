@@ -70,6 +70,24 @@
         <ProjectReference Include="..\..\Core\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
 
         <!--
+            The import pipeline, for WaterWavesImporter, which lives beside the toolset since #1300 and
+            reaches every host through WaterImporters.Link rather than BuiltInImporters' list.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
+
+        <!--
+            And both registration generators, for the importer's settings record: a `.meta` names it by
+            alias (`!WaterWavesImporter`), and `WaterContractTests` holds this assembly to both registries.
+            Analyzers do not flow through a ProjectReference (#989).
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
             Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
             [Inspector] members of its own — which both settings types here do — has to name the
             generator.

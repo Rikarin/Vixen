@@ -55,6 +55,13 @@
         <ProjectReference Include="..\..\Core\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
 
         <!--
+            The import pipeline, for the two importers that live beside the toolset since #1300 —
+            TerrainAssetImporter and HeightmapImporter, which every host links through
+            TerrainImporters.Link rather than finding in BuiltInImporters' list.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
+
+        <!--
             Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
             [Inspector] members of its own — which every settings type here does — has to name the
             generator.
@@ -94,7 +101,20 @@
                           ReferenceOutputAssembly="false" />
 
         <!--
-            ⚠ **Vixen.Core.Reflection.Generator and Vixen.Core.Serialization.Generator are absent on
+            ⚠ **Both generators arrived with the importers (#1300)**: their settings records are
+            `[DataContract]`s a `.meta` names by alias (`!TerrainAssetImporter`), so the registration is
+            the whole point of them — and `TerrainContractTests` holds this assembly to both registries,
+            not one. What follows was true until then, and its rule still holds for everything else here.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
+            ⚠ **Vixen.Core.Reflection.Generator and Vixen.Core.Serialization.Generator were absent on
             purpose, and eight `[DataContract]` attributes used to hide that** —
             [#989](https://github.com/Rikarin/Vixen/issues/989). `DataContractAttribute` lives in
             `Vixen.Core` and arrives transitively, so the attribute compiled; the generators that

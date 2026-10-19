@@ -149,7 +149,7 @@ public sealed class EveryAttributedImporterTests {
         var missing = Unregistered(crippled);
 
         Assert.Contains(typeof(CubeLutImporter), missing);
-        Assert.Contains(typeof(Ai.BehaviorTreeImporter), missing);
+        Assert.Contains(typeof(Materials.MaterialImporter), missing);
         Assert.DoesNotContain(typeof(TextureImporter), missing);
         Assert.DoesNotContain(typeof(RawImporter), missing);
     }

@@ -5,13 +5,16 @@ using System.CommandLine;
 using System.Globalization;
 using Vixen.ContentServer;
 using Vixen.Core.IO;
+using Vixen.Editor.Ai;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.Gameplay;
 using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.Core;
 using Vixen.Editor.ShaderGraph;
+using Vixen.Editor.Terrain;
 using Vixen.Editor.VfxGraph;
+using Vixen.Editor.Water;
 using Vixen.Live;
 
 namespace Vixen.Cli;
@@ -49,6 +52,9 @@ public static class VixenCommand {
 
         VfxGraphImporters.Link(linked);
         ShaderGraphImporters.Link(linked);
+        TerrainImporters.Link(linked);
+        WaterImporters.Link(linked);
+        AiImporters.Link(linked);
     }
 
     /// <summary>Builds the command line.</summary>

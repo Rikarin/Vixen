@@ -4,7 +4,7 @@ slug: rendering/impostors
 kind: guide
 area: Rendering
 summary: A tree photographed from a hemi-octahedral grid of directions once, offline, and drawn as two triangles for ever after.
-api: [T:Vixen.Rendering.ImpostorGrid, T:Vixen.Rendering.ImpostorAtlas, T:Vixen.Rendering.ImpostorCell, T:Vixen.Rendering.ImpostorSample, T:Vixen.Rendering.ImpostorView, T:Vixen.Editor.Assets.Terrain.TerrainAssetImporter, T:Vixen.Editor.Assets.Terrain.TerrainAssetImportSettings, T:Vixen.Editor.Assets.Terrain.HeightmapImporter, T:Vixen.Editor.Assets.Terrain.HeightmapImportSettings, T:Vixen.Shaders.Generated.ImpostorKeys, T:Vixen.Shaders.Generated.ImpostorConstants, R:Terrain/Impostor, T:Vixen.Rendering.ImpostorBake, T:Vixen.Rendering.ImpostorBakeCell, T:Vixen.Shaders.Generated.ImpostorFinishKeys, T:Vixen.Shaders.Generated.ImpostorFinishConstants, R:Terrain/ImpostorFinish, T:Vixen.Rendering.ImpostorCapturePass, T:Vixen.Rendering.ImpostorMesh, T:Vixen.Shaders.Generated.ImpostorCaptureKeys, T:Vixen.Shaders.Generated.ImpostorCaptureConstants, R:Terrain/ImpostorCapture]
+api: [T:Vixen.Rendering.ImpostorGrid, T:Vixen.Rendering.ImpostorAtlas, T:Vixen.Rendering.ImpostorCell, T:Vixen.Rendering.ImpostorSample, T:Vixen.Rendering.ImpostorView, T:Vixen.Editor.Terrain.TerrainAssetImporter, T:Vixen.Editor.Terrain.TerrainAssetImportSettings, T:Vixen.Editor.Terrain.HeightmapImporter, T:Vixen.Editor.Terrain.HeightmapImportSettings, T:Vixen.Editor.Terrain.TerrainImporters, T:Vixen.Shaders.Generated.ImpostorKeys, T:Vixen.Shaders.Generated.ImpostorConstants, R:Terrain/Impostor, T:Vixen.Rendering.ImpostorBake, T:Vixen.Rendering.ImpostorBakeCell, T:Vixen.Shaders.Generated.ImpostorFinishKeys, T:Vixen.Shaders.Generated.ImpostorFinishConstants, R:Terrain/ImpostorFinish, T:Vixen.Rendering.ImpostorCapturePass, T:Vixen.Rendering.ImpostorMesh, T:Vixen.Shaders.Generated.ImpostorCaptureKeys, T:Vixen.Shaders.Generated.ImpostorCaptureConstants, R:Terrain/ImpostorCapture]
 tags: [impostors, billboards, foliage, lod, far-field, importers]
 since: 0.1
 status: preview
@@ -91,6 +91,11 @@ produces a NaN for the one view a top-down camera never leaves.
 
 The same page covers `TerrainAssetImporter` and `HeightmapImporter`, because they are what turn the
 rest of this toolset's authored files into assets.
+
+⚠ **They live in `Vixen.Editor.Terrain`, beside the toolset, not in the import pipeline** (#1300). A
+host reaches them because it calls `TerrainImporters.Link` at start-up — the editor, `vixen` and the
+compiler worker each do — so a tool of your own that imports a project has to do the same, or the
+five terrain formats arrive at the fallback and are written as bytes with a warning naming them.
 
 ⚠ **Their real work is validation, not conversion.** A `.vxlayer`, `.vxfoliage`, `.vxgrass` and
 `.vxspline` are already YAML in the engine's own dialect. What the generic native importer cannot do

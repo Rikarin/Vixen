@@ -4,7 +4,7 @@ slug: editor/material-baking
 kind: guide
 area: Editor
 summary: How a texture graph's outputs become files the engine already understands — the nine usages and the seven files they land in, the ORM packing, PNG or KTX2, the .vxmat, the GUID dance, and the provenance block that stops a painted-over map being regenerated.
-api: [T:Vixen.Editor.Assets.Materials.MaterialMapUsage, T:Vixen.Editor.Assets.Materials.MaterialMapTarget, T:Vixen.Editor.Assets.Materials.MaterialMapNaming, T:Vixen.Editor.Assets.Materials.MaterialMapImage, T:Vixen.Editor.Assets.Materials.MaterialBake, T:Vixen.Editor.Assets.Materials.MaterialBakeRecord, T:Vixen.Editor.Assets.Materials.MaterialProvenance, T:Vixen.Editor.Assets.Materials.MaterialBakeSet, T:Vixen.Editor.Assets.Materials.MaterialBakeParallax, T:Vixen.Editor.Assets.Materials.ProjectMaterialBaker, T:Vixen.Cli.TextureRunner]
+api: [T:Vixen.Editor.Assets.EditorOnlyImporter, T:Vixen.Editor.Assets.EditorOnlyImportSettings, T:Vixen.Editor.Assets.Materials.MaterialMapUsage, T:Vixen.Editor.Assets.Materials.MaterialMapTarget, T:Vixen.Editor.Assets.Materials.MaterialMapNaming, T:Vixen.Editor.Assets.Materials.MaterialMapImage, T:Vixen.Editor.Assets.Materials.MaterialBake, T:Vixen.Editor.Assets.Materials.MaterialBakeRecord, T:Vixen.Editor.Assets.Materials.MaterialProvenance, T:Vixen.Editor.Assets.Materials.MaterialBakeSet, T:Vixen.Editor.Assets.Materials.MaterialBakeParallax, T:Vixen.Editor.Assets.Materials.ProjectMaterialBaker, T:Vixen.Cli.TextureRunner]
 tags: [editor, bake, materials, textures, material-authoring, texture-graph, cli]
 since: 0.1
 status: preview
@@ -290,6 +290,21 @@ strictly better failure than one the bake deletes for them.
 ⚠ **`--force` does not widen the removal.** Forcing says "overwrite what I painted", not "delete what
 I painted", and a painted file's bytes are by definition not the ones the bake wrote — so a painted
 output the bake has stopped producing survives a forced run, with a warning.
+
+## The recipe itself ships nothing
+
+⚠ **A `.vxtexgraph` or a `.vxlayers` is a recipe, and the content build treats it as one** (#1491).
+Nothing at run time reads either; what a game loads is what the bake wrote. `EditorOnlyImporter`
+claims both extensions in every host — the editor, `vixen` and a compiler worker alike — writes no
+artefact, so the recipe is in no bundle, and says so in one line beside the file. Before it, the
+fallback shipped every recipe as a chunk called `Blob` no reader resolves. Mark the maps and the
+`.vxmat` addressable, not the graph: a recipe marked addressable on purpose is the build planner's
+error, "its importer produced nothing".
+
+It lives in the import pipeline rather than beside the texturing features because neither can be
+linked by every host — `Vixen.Editor.TextureGraph` refuses the pipeline reference and `vixen`
+refuses `Vixen.Editor.Texturing` — and an answer only the editor gave would be the editor and the
+command line disagreeing about what a project ships.
 
 ## From the command line
 

@@ -77,8 +77,6 @@ public static class BuiltInImporters {
                 .Add(new SceneImporter())
                 .Add(new MaterialImporter())
                 .Add(new Compositors.CompositorImporter())
-                .Add(new Terrain.TerrainAssetImporter())
-                .Add(new Terrain.HeightmapImporter())
 
                 // ⚠ [Importer] is a declaration nothing scans for, so an importer absent from this
                 // list is not an error anywhere — a .vxwaves fell through to RawImporter and became a
@@ -92,11 +90,11 @@ public static class BuiltInImporters {
                 // the registry. A warning is not a gate; the gate is
                 // EveryAttributedImporterTests.EveryImporterInThisAssemblyIsRegistered, which walks
                 // this assembly's [Importer] types and fails on the one that is not here.
-                .Add(new Water.WaterWavesImporter())
-                .Add(new Ai.BehaviorTreeImporter())
-                .Add(new Ai.UtilitySetImporter())
-                .Add(new Ai.QueryImporter())
-                .Add(new Ai.GoapDomainImporter())
+                //
+                // ⚠ Water and the four AI importers have since left this list for their features
+                // (#1300), with the terrain's and the two graphs': each host links them, and the gate
+                // for those is HostImporterMap, which holds every host to one literal map. What is
+                // still here past the pipeline's own kinds is waiting on a decision about its home (#1499).
                 .Add(new Animation.AnimationClipImporter())
                 .Add(new Animation.ShapeVocabularyImporter())
                 .Add(new Animation.ProxyShapeSetImporter())
@@ -107,6 +105,7 @@ public static class BuiltInImporters {
                 .Add(new Gameplay.DefinitionImporter())
                 .Add(new Net.NetworkRulesImporter())
                 .Add(new Audio.MixerImporter())
+                .Add(new EditorOnlyImporter())
                 .Add(new NativeFormatImporter())
                 .Add(new FolderImporter())
             )
@@ -204,6 +203,12 @@ static class UnimportedFormats {
                 "The editor creates and opens a .vxseq and nothing imports one, so an authored sequence cannot be "
                 + "loaded by address at run time."),
 
+            // ── Claimed by an importer a host links (#1300), so the fallback sees one only in a host
+            //    that forgot the link. A .vx… format needs no row — IsEngineShaped speaks for every one —
+            //    and these are the linked formats whose extension does not carry the prefix.
+            [".r16"] = (ImportSeverity.Warning, "A .r16 " + HeightmapReason),
+            [".hmpng"] = (ImportSeverity.Warning, "A .hmpng " + HeightmapReason),
+
             [".vxplacement"] = (ImportSeverity.Warning,
                 "Nothing imports a .vxplacement. The extension belongs to Live/Vixen.Live.Orchestrator, which "
                 + "CheckArchitecture refuses to let Editor/ reference — see docs/overview.md § 1.13 for the two "
@@ -214,6 +219,12 @@ static class UnimportedFormats {
         "A font is loaded straight from its bytes by FontFace.Load, so this blob is readable. What is missing is "
         + "the bake: doc 08's table names a FontImporter producing an MSDF atlas, metrics and kerning, and there "
         + "is none, so every consumer shapes from the raw face at run time.";
+
+    const string HeightmapReason =
+        "is a terrain heightmap, imported by HeightmapImporter, which lives beside the terrain toolset and reaches a "
+        + "registry only because the host links it at start-up (TerrainImporters.Link into "
+        + "ImporterContributions.Linked, #1300). This process did not, so the file ships as a chunk called Blob "
+        + "that no terrain reads.";
 
     /// <summary>Every extension the table has something to say about.</summary>
     internal static IEnumerable<string> Extensions => Known.Keys;
@@ -234,6 +245,26 @@ static class UnimportedFormats {
         severity = ImportSeverity.Information;
         reason = string.Empty;
         return false;
+    }
+
+    /// <summary>Whether a file the table says nothing about carries the engine's own <c>.vx</c> prefix.</summary>
+    /// <param name="path">The source path.</param>
+    /// <param name="extension">Its extension.</param>
+    /// <returns>Whether the fallback should say it took one.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The prefix rather than a list, and that is #1300's constraint, not a shortcut.</b> Since the
+    ///     feature importers left this assembly, a host that forgot to link one hands the format to the
+    ///     fallback, and a file with no <c>.meta</c> yet has no sidecar for <c>ImportPipeline</c> to refuse
+    ///     on. A list of the linked formats here would name every feature's extension in the pipeline,
+    ///     which <c>FeatureNameRule</c> refuses; the prefix names none and still separates a format
+    ///     somebody meant something by from a CSV.
+    /// </remarks>
+    internal static bool IsEngineShaped(string path, out string extension) {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+
+        extension = Path.GetExtension(path);
+
+        return extension.Length > 3 && extension.StartsWith(".vx", StringComparison.OrdinalIgnoreCase);
     }
 }
 
@@ -274,6 +305,15 @@ public sealed class RawImporter : AssetImporter<RawImportSettings> {
         // away.
         if (UnimportedFormats.TryExplain(context.SourcePath.ToString(), out var severity, out var reason)) {
             context.Report(severity, reason);
+        } else if (UnimportedFormats.IsEngineShaped(context.SourcePath.ToString(), out var extension)) {
+            context.Report(
+                ImportSeverity.Warning,
+                $"Nothing in this process claims {extension}, which is spelled like one of the engine's own formats, "
+                + "so it is imported as a chunk called Blob that no typed reader resolves. A feature's importer "
+                + "reaches a registry only because the host links it at start-up (ImporterContributions.Linked, "
+                + "#1300), and a plugin's only because the plugin is loaded — a host missing either imports the "
+                + "file as bytes."
+            );
         }
 
         context.Write(SubAssetId.Main, "Blob", buffer.ToArray());

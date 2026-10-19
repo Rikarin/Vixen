@@ -39,6 +39,23 @@
             them. What is shared is everything above the model, which is the canvas.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
+
+        <!--
+            The import pipeline, for the four AI importers (.vxbt, .vxutility, .vxquery, .vxgoap), which
+            live here since #1300 and reach every host through AiImporters.Link rather than
+            BuiltInImporters' list.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
+
+        <!--
+            And the reflection generator, for their settings records: a `.meta` names each by alias
+            (`!BehaviorTreeImporter`), which is a TypeRegistry lookup — the one registry the pipeline
+            itself asked for when the importers lived there. Analyzers do not flow through a
+            ProjectReference (#989).
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>

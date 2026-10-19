@@ -4,11 +4,11 @@
 using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Core.Serialization;
-using Vixen.Editor.Assets.Water;
+using Vixen.Editor.Assets;
 using Vixen.Water;
 using Xunit;
 
-namespace Vixen.Editor.Assets.Tests;
+namespace Vixen.Editor.Water.Tests;
 
 /// <summary>The one asset kind water adds — [docs/plan/35 § D6], and its importer.</summary>
 /// <remarks>
@@ -43,12 +43,22 @@ public sealed class WaterWavesImporterTests {
     ///         The importer that claimed it is what is asserted, and not that an artefact appeared —
     ///         <c>RawImporter</c> produces one of those too.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Since #1300 the registry is the pipeline's plus what a host links</b>, and the importer
+    ///         lives here: what reaches it is <see cref="WaterImporters.Link" />, which each host calls.
+    ///         So the registry is built over a set that call filled — the editor's, the CLI's and the
+    ///         worker's calls are <c>HostImporterMapTests</c>' to hold.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void TheBuildsOwnRegistryHandsAWavesFileToIt() {
-        // ⚠ A contribution set of its own, not ImporterContributions.Default: the default is
-        // process-wide and ImporterContributionTests mutates it, so reading it here would race.
-        var registry = BuiltInImporters.Create(new ImporterContributions());
+        var linked = new ImporterContributions();
+
+        WaterImporters.Link(linked);
+
+        // ⚠ Sets of its own, not the process-wide ones: ImporterContributionTests mutates Default, and
+        // Linked holds whatever any host in this process linked.
+        var registry = BuiltInImporters.Create(linked, new ImporterContributions());
 
         Assert.True(registry.TryGetForFile("Assets/Seas/northsea.vxwaves", out var importer));
         Assert.Equal("WaterWavesImporter", importer.Name);

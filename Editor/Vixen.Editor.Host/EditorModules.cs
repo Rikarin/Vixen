@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Editor.Ai;
 using Vixen.Editor.AssetEditors;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Blockout;
@@ -60,6 +61,9 @@ static class EditorModules {
 
         VfxGraphImporters.Link(linked);
         ShaderGraphImporters.Link(linked);
+        TerrainImporters.Link(linked);
+        WaterImporters.Link(linked);
+        AiImporters.Link(linked);
     }
 
     /// <summary>What the editor ships with, in the order it registers them.</summary>

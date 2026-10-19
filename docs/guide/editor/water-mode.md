@@ -4,7 +4,7 @@ slug: editor/water-mode
 kind: guide
 area: Editor
 summary: One mode and three verbs — draw a body's curve on the ground, drag its profile handles, and preview what its carve did to the terrain — plus the zone panel that turns a resolution into metres.
-api: [T:Vixen.Editor.Water.WaterMode, T:Vixen.Editor.Water.WaterEdit, T:Vixen.Editor.Water.WaterTool, T:Vixen.Editor.Water.WaterHandle, T:Vixen.Editor.Water.WaterZoneSettings, T:Vixen.Editor.Water.WaterBodySettings, T:Vixen.Editor.Water.WaterModule, T:Vixen.Editor.Water.WaterProfileCommand, T:Vixen.Editor.Water.WaterCarveCommand, T:Vixen.Editor.SceneView.IWaterScene, T:Vixen.Rendering.Water.WaterDebug, T:Vixen.Rendering.Water.WaterDebugFlags, T:Vixen.Rendering.Water.WaterOverlay, T:Vixen.Rendering.Water.WaterMeshOverlay, T:Vixen.Rendering.Water.WaterStatistics, T:Vixen.Rendering.Water.WaterMeshStatistics, T:Vixen.Editor.Assets.Water.WaterWavesImporter, T:Vixen.Editor.Assets.Water.WaterWavesImportSettings]
+api: [T:Vixen.Editor.Water.WaterMode, T:Vixen.Editor.Water.WaterEdit, T:Vixen.Editor.Water.WaterTool, T:Vixen.Editor.Water.WaterHandle, T:Vixen.Editor.Water.WaterZoneSettings, T:Vixen.Editor.Water.WaterBodySettings, T:Vixen.Editor.Water.WaterModule, T:Vixen.Editor.Water.WaterProfileCommand, T:Vixen.Editor.Water.WaterCarveCommand, T:Vixen.Editor.SceneView.IWaterScene, T:Vixen.Rendering.Water.WaterDebug, T:Vixen.Rendering.Water.WaterDebugFlags, T:Vixen.Rendering.Water.WaterOverlay, T:Vixen.Rendering.Water.WaterMeshOverlay, T:Vixen.Rendering.Water.WaterStatistics, T:Vixen.Rendering.Water.WaterMeshStatistics, T:Vixen.Editor.Water.WaterWavesImporter, T:Vixen.Editor.Water.WaterWavesImportSettings, T:Vixen.Editor.Water.WaterImporters]
 tags: [editor, water, mode, river, lake, undo]
 since: 0.1
 status: preview
@@ -156,6 +156,11 @@ in *warning* rather than in red, because that water is drawing — is what says 
 ⚠ **Create ▸ Sea state writes the panel's current spectrum, not the default one.** An author who has
 spent a minute finding a sea they like and then presses it means *that* sea; a template that threw it
 away would make the shared asset the slower route to the thing they already had.
+
+⚠ **`WaterWavesImporter` lives here, beside the toolset, not in the import pipeline** (#1300). A host
+reaches it because it calls `WaterImporters.Link` at start-up — the editor, `vixen` and the compiler
+worker each do — so a tool of your own that imports a project has to do the same, or a `.vxwaves`
+arrives at the fallback and is written as bytes with a warning naming it.
 
 ⚠ **The arithmetic is the kernel's.** `WaterZone.MetresPerTexel`, `Bytes` and `HeightQuantum` are the
 same properties the renderer sizes its texture from, and `Validate` is the same rule it refuses by —

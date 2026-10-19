@@ -6,10 +6,11 @@ using Vixen.Core.Mathematics;
 using Vixen.Core.Serialization;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
+using Vixen.Editor.Assets;
 using Vixen.Foliage;
 using Vixen.Terrain;
 
-namespace Vixen.Editor.Assets.Terrain;
+namespace Vixen.Editor.Terrain;
 
 /// <summary>How one of the terrain toolset's assets is imported.</summary>
 /// <remarks>

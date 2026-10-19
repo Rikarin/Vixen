@@ -243,12 +243,10 @@ public class CreateMenuTests {
     static readonly string[] AuthoredAndUnimported = [
         ".vxanimgraph",
         ".vxseq",
-        ".vxfont",
+        ".vxfont"
 
-        // ⚠ Texturing's two, offered by the shipped editor since #1276 made the module standard;
-        // the module registers no importer for either (#1491).
-        ".vxlayers",
-        ".vxtexgraph"
+        // ⚠ Texturing's two (.vxlayers, .vxtexgraph) were here from #1276 until #1491: they are recipes
+        // nothing at run time reads, and EditorOnlyImporter claims both and ships neither.
     ];
 
     /// <summary>Every kind the Create menu offers is a kind the build can read back.</summary>

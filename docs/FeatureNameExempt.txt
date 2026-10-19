@@ -29,6 +29,8 @@ Editor/Vixen.Editor.Assets/BuiltInImporters.cs .vxanimgraph 1
 Editor/Vixen.Editor.Assets/BuiltInImporters.cs .vxfont 1
 Editor/Vixen.Editor.Assets/BuiltInImporters.cs .vxseq 1
 Editor/Vixen.Editor.Assets/Compositors/CompositorImporter.cs .vxcompositor 1
+Editor/Vixen.Editor.Assets/EditorOnlyImporter.cs .vxlayers 1
+Editor/Vixen.Editor.Assets/EditorOnlyImporter.cs .vxtexgraph 1
 Editor/Vixen.Editor.Assets/Materials/MaterialImporter.cs .vxmat 1
 Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.adapter 1
 Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.at 1
@@ -42,9 +44,4 @@ Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.set 1
 Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.source 1
 Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.splat.at 1
 Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.splat.source 1
-Editor/Vixen.Editor.Assets/Terrain/TerrainAssetImporter.cs .vxfol 1
-Editor/Vixen.Editor.Assets/Terrain/TerrainAssetImporter.cs .vxfoliage 1
-Editor/Vixen.Editor.Assets/Terrain/TerrainAssetImporter.cs .vxgrass 1
-Editor/Vixen.Editor.Assets/Terrain/TerrainAssetImporter.cs .vxlayer 1
-Editor/Vixen.Editor.Assets/Terrain/TerrainAssetImporter.cs .vxspline 1
 Editor/Vixen.Editor.Ui/Menus/EditorIcons.cs profiler 1

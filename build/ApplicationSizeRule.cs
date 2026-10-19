@@ -59,7 +59,21 @@ static class ApplicationSizeRule {
     /// <summary>The command that rewrites the table from the tree.</summary>
     public const string Regenerate = "./build.sh CheckArchitecture --update-exemptions";
 
-    static readonly Regex Declaration = new(@"\bpartial\s+class\s+EditorApplication\b", RegexOptions.CultureInvariant);
+    /// <summary>Files under <see cref="Directory" /> that hold no part of the class and still have a ceiling.</summary>
+    /// <remarks>
+    ///     <b>Doc 50 § P4's god files that live in this assembly</b>, each of which "has its own ceiling in
+    ///     <c>ApplicationSizeRule</c>'s table" — <c>ProjectBrowser.cs</c> first (#1304), which had none
+    ///     because the rule measured only <c>partial class EditorApplication</c>. Held to its own row by
+    ///     the same shrink-only terms and kept out of <see cref="Total" />: the browser's lines are not
+    ///     the composition root's, and counting them there would let an extraction from one hide growth in
+    ///     the other. A file in another assembly is the day this becomes <c>FileSizeRule</c>.
+    /// </remarks>
+    public static readonly string[] Named = ["ProjectBrowser.cs"];
+
+    /// <summary>The class's lines: every measured file but the <see cref="Named" /> ones.</summary>
+    static int Sum(IReadOnlyDictionary<string, int> parts) => parts.Where(part => !Named.Contains(part.Key)).Sum(part => part.Value);
+
+    static readonly Regex Declaration =new(@"\bpartial\s+class\s+EditorApplication\b", RegexOptions.CultureInvariant);
 
     /// <summary>Every part of the class, by path under <see cref="Directory" />, with its line count.</summary>
     /// <param name="root">The repository root.</param>
@@ -84,7 +98,7 @@ static class ApplicationSizeRule {
 
             var text = File.ReadAllText(file);
 
-            if (Declaration.IsMatch(text)) {
+            if (Declaration.IsMatch(text) || Named.Contains(relative)) {
                 parts[relative] = Lines(text);
             }
         }
@@ -156,7 +170,7 @@ static class ApplicationSizeRule {
         ArgumentNullException.ThrowIfNull(parts);
         ArgumentNullException.ThrowIfNull(ceilings);
 
-        if (parts.Count == 0) {
+        if (!parts.Keys.Any(part => !Named.Contains(part))) {
             return $"No file under {Directory} declares partial class EditorApplication, so the size rule is "
                 + "checking nothing. If the class has really gone, delete the rule and its table in the same "
                 + "commit — doc 50 § P2's exit is that day.";
@@ -175,10 +189,12 @@ static class ApplicationSizeRule {
 
         var violations = new List<string>();
 
-        foreach (var (file, lines) in parts.Append(new(Total, parts.Values.Sum()))) {
+        foreach (var (file, lines) in parts.Append(new(Total, Sum(parts)))) {
             if (!ceilings.TryGetValue(file, out var ceiling)) {
                 violations.Add(
-                    $"{Directory}/{file} holds part of EditorApplication and has no row in {TableFile}. A new "
+                    $"{Directory}/{file} "
+                    + (Named.Contains(file) ? "is named in ApplicationSizeRule.Named" : "holds part of EditorApplication")
+                    + $" and has no row in {TableFile}. A new "
                     + "partial file moves lines rather than removing them — move the verb out of the class "
                     + $"(doc 50 § D2), or, if the file is genuinely new state, add its row with `{Regenerate}` "
                     + "and say why in the commit."
@@ -205,7 +221,9 @@ static class ApplicationSizeRule {
 
         foreach (var row in ceilings.Keys.Where(row => row != Total && !parts.ContainsKey(row))) {
             violations.Add(
-                $"{TableFile} has a row for {row}, which no longer holds part of EditorApplication. Delete the "
+                $"{TableFile} has a row for {row}, which "
+                + (Named.Contains(row) ? "is no longer there" : "no longer holds part of EditorApplication")
+                + ". Delete the "
                 + "row — a ceiling for a file that is gone is a rule asserting nothing."
             );
         }
@@ -239,7 +257,7 @@ static class ApplicationSizeRule {
             text.Append(file.PadRight(width)).Append(lines).Append('\n');
         }
 
-        text.Append(Total.PadRight(width)).Append(parts.Values.Sum()).Append('\n');
+        text.Append(Total.PadRight(width)).Append(Sum(parts)).Append('\n');
 
         return text.ToString();
     }

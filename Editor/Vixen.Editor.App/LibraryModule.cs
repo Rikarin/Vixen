@@ -7,6 +7,7 @@ using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 
@@ -29,8 +30,10 @@ namespace Vixen.Editor.App;
 ///         and Delete asks through the shell's own confirmation, which a module is handed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Not yet the whole Assets menu the issue names.</b> Open and History need the document
-///         host (#1294); Rename starts the browser panel's inline editor and Move To asks through this
+///         ⚠ <b>Not yet the whole Assets menu the issue names.</b> Open is here, over the published
+///         <see cref="IWorkspace" /> (whose open asks <see cref="IDocumentHost" />). History is not, and the
+///         document host was never what it needed: it opens the revisions panel over the source-control
+///         provider, both the application's and neither a service. Rename starts the browser panel's inline editor and Move To asks through this
 ///         editor's drawn chooser, so both still register in the application — and both end in
 ///         <see cref="IContentLibrary.Rename" /> and <see cref="IContentLibrary.Move" />. Revert reads the
 ///         source-control provider. The menu layout — which lines appear where — is the application's
@@ -111,6 +114,26 @@ sealed class LibraryModule : IEditorPlugin {
             ) {
                 Category = EditorStrings.CategoryAssets,
                 Enablement = () => selection.Count > 0 && links.CanOpen
+            }
+        );
+
+        // ⚠ Through the published workspace, not the application (#1292): its open is the one a
+        // double-click takes, asks `IDocumentHost.TryOpen` for the document and puts it in a panel of its
+        // own — the panel half is still the application's, behind the delegate `EditorWorkspace` holds.
+        var workspace = context.Services.Require<IWorkspace>();
+
+        context.AddCommand(
+            new EditorCommand(
+                "assets.open",
+                EditorStrings.CommandAssetsOpen,
+                () => {
+                    if (selection.Count > 0) {
+                        workspace.Open(selection[0]);
+                    }
+                }
+            ) {
+                Category = EditorStrings.CategoryAssets,
+                Enablement = () => selection.Count > 0
             }
         );
 
