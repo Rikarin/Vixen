@@ -567,7 +567,6 @@ sealed partial class EditorApplication : IDisposable {
 
         // ⚠ The registered module, not one of our own. See EditorDiagnostics for what a second
         // instance costs.
-        diagnostics = FindDiagnostics(this.modules);
         assetEditors = FindModule<AssetEditorsModule>(this.modules);
 
         // ⚠ Before the project, because whether this run is a first one — no history at all — is
@@ -687,13 +686,6 @@ sealed partial class EditorApplication : IDisposable {
         // rather than run. Honest, and not whole: a designer was told about something the editor
         // should be able to do. Read at every Play, so a scene opened after this line still plays.
         play.Controller.Stores = () => openScenes.Select(open => open.Document.Behaviors);
-
-        // ⚠ And the statistics panel is told how to count behaviours, which is a question no world
-        // walk can answer: a `BehaviorStore` is not in the world. #1216 — `BehaviorStore.Population`
-        // had one reader, `vixen doctor behaviors`, and what that counts is what a scene *authors*,
-        // which is zero in every committed scene here. Which store is live is this class's answer
-        // and nothing below it can have one.
-        diagnostics.SceneFacts = BehaviorFacts;
 
         // ⚠ The editor's own contribution to the frame a session runs, and the one service this
         // application can honestly own. Doc 31 § D10 said an embedding host would have to add the
@@ -1118,7 +1110,7 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>The registered asset-editors module, or null when this editor was built without it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The registered one, for <see cref="diagnostics" />' reason.</b> A second instance
+    ///     ⚠ <b>The registered one, for <see cref="FindModule{T}" />'s reason.</b> A second instance
     ///     compiles, activates nothing, and hands every freshly-opened AI editor a debug model no
     ///     panel is showing — which looks exactly like the wiring working.
     /// </remarks>
@@ -3031,8 +3023,8 @@ sealed partial class EditorApplication : IDisposable {
     ///         been made — saying so here rather than leaving the reader to notice the asymmetry.
     ///     </para>
     /// </remarks>
-    PluginServices PluginPoints() =>
-        new PluginServices()
+    PluginServices PluginPoints() {
+        var published = new PluginServices()
             .Add(project)
             .Add(scene)
 
@@ -3114,6 +3106,11 @@ sealed partial class EditorApplication : IDisposable {
             // And building a player (#1295): what `DeliveryModule` and Deploy are names for.
             .Add<IPlayerDelivery>(delivery)
 
+            // And the log ring and the data directory, the two facts that kept the diagnostics report
+            // on this class (#1298).
+            .Add(log.Sink)
+            .Add(new EditorDataDirectory(dataDirectory))
+
             // ⚠ And the graphics, which until now were the one thing a plugin could not get at all —
             // doc 36 § F2's gap, found by the first plugin that draws, and #737.
             // ⚠ A *view* of the device rather than the device, and #737's own "smallest honest fix is
@@ -3133,6 +3130,14 @@ sealed partial class EditorApplication : IDisposable {
             // declarative path was reloadable in principle and not in this application, which is F7
             // with an extra step.
             .Add(hotReload);
+
+        // And the OS's pickers where there are any — a module that writes a file asks for them (#1298).
+        if (services.Dialogs is { } pickers) {
+            published.Add(pickers);
+        }
+
+        return published;
+    }
 
     /// <summary>Finds and starts the plugins, and says what it found.</summary>
     /// <param name="directory">The user's data directory, which holds the second plugin folder.</param>
@@ -3787,15 +3792,9 @@ sealed partial class EditorApplication : IDisposable {
         // of these to exist.
         ParityCommands();
 
-        // ⚠ A separate method rather than seven more lines inside `ParityCommands`, because these
-        // are the ids that were declared-and-disabled there until E4 built the panels behind them.
-        // Keeping them together is what makes "which verbs does the diagnostics milestone own"
-        // answerable by reading one method.
-
-        // ⚠ And E5's, for the same reason and on the same terms: these are the ids that were
-        // declared-and-disabled until this milestone built the panels behind them.
+        // ⚠ E5's: the ids that were declared-and-disabled until this milestone built the panels
+        // behind them. E4's are the diagnostics module's, report included (#1298).
         WorldCommands();
-        DiagnosticsCommands();
 
         Shell.Keys.SetDefault("file.exit", new KeyChord(InputKey.Q, ModifierKeys.Control));
 

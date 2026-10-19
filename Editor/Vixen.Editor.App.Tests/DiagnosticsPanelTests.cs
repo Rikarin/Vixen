@@ -3,8 +3,10 @@
 
 using Vixen.Core.Diagnostics;
 using Vixen.Editor.Debugger;
+using Vixen.Editor.Diagnostics;
 using Vixen.Editor.Profiler;
 using Vixen.Editor.Testing;
+using Vixen.Editor.Ui;
 using Vixen.Engine.Behaviors;
 using Vixen.Engine.Transforms;
 using Vixen.Graphics.Null;
@@ -344,7 +346,7 @@ public class DiagnosticsPanelTests {
             new(RecordedCommandKind.EndRenderPass, 3)
         ];
 
-        session.Editor.FrameCaptureSource = () => NullFrameCapture.From(stream, "Editor frame");
+        Diagnostics(session).FrameCaptureSource = () => NullFrameCapture.From(stream, "Editor frame");
         session.Frames(2);
 
         Assert.NotNull(view.Source);
@@ -467,6 +469,61 @@ public class DiagnosticsPanelTests {
         Assert.Equal("3 of them enabled, in this play session", live.Detail);
     }
 
+    /// <summary>The report is the module's, and carries every one of its five sources.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The test #1298's exit named and which did not exist.</b> The issue asks for "the
+    ///         diagnostics report still contains the scene's counts and the memory arenas, asserted by
+    ///         the existing report tests" — and there were none: <c>Report</c> was a private method
+    ///         behind a save picker no headless session has, so nothing had ever read its output.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Each source is asserted by something only that source can put there.</b> The
+    ///         project's name and the scene's title are the two services; "Indexed assets" is the
+    ///         module's own memory row; the behaviour row is <c>BehaviorFacts</c>, which used to be the
+    ///         application's delegate; and the marker is a notification the editor mirrors into its log
+    ///         ring, which reaches the module only because the ring is published. A report assembled
+    ///         from a ring nobody published would still say "Log" and list nothing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_report_is_the_modules_and_carries_the_project_the_scene_the_memory_and_the_log() {
+        SceneBehaviorRegistry.Register<Drifter>();
+
+        using var session = EditorSession.Start();
+
+        for (var index = 0; index < 3; index++) {
+            session.Scene.Behaviors.Add(
+                session.Scene.Add("Drifting" + index, LocalTransform.Identity),
+                new Drifter()
+            );
+        }
+
+        session.Shell.Notifications.Show("report-marker", NotificationSeverity.Warning, "seen by the ring");
+        session.Frames(2);
+
+        var report = Diagnostics(session).Report();
+
+        Assert.Contains("Project: " + session.Project.Name, report, StringComparison.Ordinal);
+        Assert.Contains("Scene: " + session.Scene.Title.Value, report, StringComparison.Ordinal);
+        Assert.Contains("Indexed assets", report, StringComparison.Ordinal);
+        Assert.Contains("Entities: ", report, StringComparison.Ordinal);
+        Assert.Contains("Behaviours · Drifter: 3", report, StringComparison.Ordinal);
+        Assert.Contains("report-marker", report, StringComparison.Ordinal);
+    }
+
+    /// <summary>The report's verb is the module's, and greyed where there is no picker to save with.</summary>
+    [Fact]
+    public void The_report_verb_is_registered_and_waits_for_a_picker() {
+        using var session = EditorSession.Start();
+
+        Assert.NotNull(session.Shell.Commands["tools.diagnostics-report"]);
+
+        // A headless session has no OS picker, which is the state `EditorServices.CanPick` greyed it
+        // in before it moved.
+        Assert.False(session.CanRun("tools.diagnostics-report"));
+    }
+
     [Fact]
     public void The_memory_panel_has_a_reading_as_soon_as_it_opens() {
         using var session = EditorSession.Start();
@@ -516,7 +573,7 @@ public class DiagnosticsPanelTests {
         // host says otherwise. `play.mode-standalone` is the producer, and it is declared planned.
         Assert.All(before.Devices.Items.Cast<DeviceEntry>(), device => Assert.Null(device.Endpoint));
 
-        session.Editor.InspectorEndpoint = "127.0.0.1:34567";
+        Diagnostics(session).InspectorEndpoint = "127.0.0.1:34567";
         session.Frames(2);
 
         Assert.Contains(
@@ -524,6 +581,16 @@ public class DiagnosticsPanelTests {
             device => string.Equals(device.Endpoint, "127.0.0.1:34567", StringComparison.Ordinal)
         );
     }
+
+    /// <summary>The session's diagnostics module, for a test that plays the host's part.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Reached through the module list and not through the application</b> (#1298). The
+    ///     application forwarded <c>FrameCaptureSource</c> and <c>InspectorEndpoint</c> into a typed
+    ///     field to the module, and no host in this tree set either; the module's own properties are
+    ///     the seam a producer writes into.
+    /// </remarks>
+    static DiagnosticsModule Diagnostics(EditorSession session) =>
+        session.Editor.Modules.Select(entry => entry.Module).OfType<DiagnosticsModule>().Single();
 
     static T Find<T>(EditorSession session, string panel) where T : UiElement {
         session.Open(panel);

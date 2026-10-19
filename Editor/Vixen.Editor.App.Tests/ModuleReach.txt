@@ -271,7 +271,6 @@ editor menu editor.menu.scene/editor.menu.work-plane scene.work-plane-to-face
 editor menu editor.menu.scene/editor.menu.work-plane scene.work-plane-to-selection
 editor menu editor.menu.scene/editor.menu.work-plane scene.work-plane-to-world
 editor menu editor.menu.tools plugins.reload
-editor menu editor.menu.tools tools.diagnostics-report
 editor menu editor.menu.tools tools.export-strings
 editor menu editor.menu.tools tools.plugins
 editor menu editor.menu.tools tools.reload-shaders
@@ -436,6 +435,7 @@ vixen.delivery menu editor.menu.build/editor.menu.build-target build.target-wind
 vixen.delivery menu editor.menu.window/editor.menu.panels view.panel.build-settings
 vixen.delivery panel build-settings
 vixen.diagnostics menu editor.menu.build/editor.menu.build-deploy build.deploy
+vixen.diagnostics menu editor.menu.tools tools.diagnostics-report
 vixen.diagnostics menu editor.menu.tools tools.frame-debugger
 vixen.diagnostics menu editor.menu.tools tools.gpu
 vixen.diagnostics menu editor.menu.tools tools.memory

@@ -32,7 +32,8 @@ public static class DiagnosticsStrings {
             new("tools.statistics", "Statistics"),
             new("tools.network", "Network"),
             new("tools.remote-inspector", "Remote Inspector"),
-            new("build.deploy", "Deploy…")
+            new("build.deploy", "Deploy…"),
+            new("tools.diagnostics-report", "Generate Diagnostics Report…")
         ]
     );
 

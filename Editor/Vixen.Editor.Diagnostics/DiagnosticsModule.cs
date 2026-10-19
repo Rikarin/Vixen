@@ -10,14 +10,17 @@ using Vixen.Editor.Plugin;
 using Vixen.Editor.Profiler;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
+using Vixen.Engine.Behaviors;
 using Vixen.Engine.Transforms;
 using Vixen.Graphics;
 using Vixen.Net.Diagnostics;
 using Vixen.Net.Replication;
 using Vixen.Net.Sessions;
 using Vixen.Net.Transport.Local;
+using Vixen.Platform;
 using Vixen.Ui;
 using Vixen.Ui.Composition;
+using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
 
 namespace Vixen.Editor.Diagnostics;
@@ -78,6 +81,20 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     EditorShell shell = null!;
     EditorProject project = null!;
     IActiveScene scenes = null!;
+    ISceneEditing editing = null!;
+    IActivePlaySession play = null!;
+
+    /// <summary>The log ring the console reads, which the report carries.</summary>
+    RingBufferSink? log;
+
+    /// <summary>The OS's own pickers, or <see langword="null" /> where there are none.</summary>
+    INativeDialogs? dialogs;
+
+    /// <summary>Where the report's picker starts.</summary>
+    EditorDataDirectory? dataDirectory;
+
+    /// <summary>The report waiting on its save picker, composed before the picker opened.</summary>
+    (string Report, Task<string?> Path)? pendingReport;
 
     /// <summary>Whoever in this editor can build a player, which is what Deploy is for this machine.</summary>
     /// <remarks>
@@ -129,7 +146,22 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     /// </remarks>
     GpuTimelineView? timeline;
 
-    IGraphicsDevice? graphicsDevice;
+    /// <summary>The host's graphics, which is where the device and the resolved GPU frame come from.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asked for rather than written into</b> (#1298). The host used to push the device and
+    ///     the frame through two properties on this module, which meant holding a typed field to the
+    ///     module — <c>FindModule&lt;DiagnosticsModule&gt;</c> — and naming this assembly from the
+    ///     application. They are <see cref="IEditorGraphics" />'s now, which every plugin is handed.
+    /// </remarks>
+    IEditorGraphics? graphics;
+
+    /// <summary>The device the GPU timeline was last told about.</summary>
+    /// <remarks>
+    ///     Compared every frame, because a device is set by the host and nothing tells a plugin it
+    ///     arrived — only that it went (<c>OnDeviceLost</c>). A reference comparison a frame is what
+    ///     the setter used to do on assignment.
+    /// </remarks>
+    IGraphicsDevice? stated;
 
     /// <summary>The device the GPU timeline reads, when the host has one.</summary>
     /// <remarks>
@@ -139,31 +171,25 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     ///         be timed rather than drawing an empty chart.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And "several frames after" is why this is not an auto-property</b>
+    ///         ⚠ <b>And "several frames after" is why the panel is restated when it changes</b>
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/1231">#1231</a>). The panel's factory
     ///         read it once, at build, and a restored layout opens the Profiling group — which names
     ///         <c>gpu</c> — before <c>EditorHost.EnsureDevice</c> has one to give. So every session
     ///         kept "No graphics device" beside a window Vulkan was plainly drawing, and it is not
     ///         cosmetic: <c>GpuTimelineView</c> returns <c>GpuChart.Empty</c> from its measure while
-    ///         <c>Unavailable</c> is non-null, so the timeline drew nothing at all. The setter
-    ///         restates the panel, and because <c>EditorDiagnostics.GraphicsDevice</c> is also the one
-    ///         place a device is <em>lost</em>, the sentence comes back on its own when it goes.
+    ///         <c>Unavailable</c> is non-null, so the timeline drew nothing at all. The frame's update
+    ///         restates the panel when the device is not the one it was last told about, so the
+    ///         sentence comes back on its own when the device goes.
     ///     </para>
     /// </remarks>
-    public IGraphicsDevice? GraphicsDevice {
-        get => graphicsDevice;
-        set {
-            graphicsDevice = value;
-            Restate(timeline);
-        }
-    }
+    IGraphicsDevice? GraphicsDevice => graphics?.Device;
 
     /// <summary>The frame's GPU regions, as the host resolved them.</summary>
     /// <remarks>
-    ///     A property rather than a <c>GpuProfiler</c> this class owns, because the object that
+    ///     The host's rather than a <c>GpuProfiler</c> this class owns, because the object that
     ///     records the timestamps has to be the one recording the frame — which is the host.
     /// </remarks>
-    public GpuFrame GpuFrame { get; set; } = GpuFrame.Empty;
+    GpuFrame GpuFrame => graphics?.Frame ?? GpuFrame.Empty;
 
     /// <summary>What a frame capture is taken from, when the host can take one.</summary>
     /// <remarks>
@@ -196,28 +222,6 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
             Restate(frames);
         }
     }
-
-    /// <summary>Rows the statistics panel shows that a world walk cannot produce.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         <b>Read at every <c>Refresh</c>, like every other source here, so what it answers with
-    ///         is whatever is true when the button is pressed.</b> Empty is the ordinary answer for a
-    ///         host that counts nothing of its own, and the panel then shows exactly the traversal it
-    ///         always did.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>What it exists for is the behaviour population</b>
-    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1216">#1216</a>).
-    ///         <c>BehaviorStore.Population</c> answers doc 04's authoring rule — "one instance, or a
-    ///         handful" against "many instances, the same operation over all of them" — and its only
-    ///         reader was <c>vixen doctor behaviors</c>, which counts what a <em>scene authors</em>
-    ///         and is therefore zero in every committed scene in this repository. The number the rule
-    ///         is about is a run-time one, and the two things that can honestly produce it — which
-    ///         store is live, and whether a play session is running — are both the application's and
-    ///         neither is this module's.
-    ///     </para>
-    /// </remarks>
-    public Func<IReadOnlyList<StatisticRow>>? SceneFacts { get; set; }
 
     /// <summary>Where a standalone play-mode process would listen for an inspector.</summary>
     /// <remarks>
@@ -325,6 +329,15 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
         shell = context.Shell;
         project = context.Services.Require<EditorProject>();
         scenes = context.Services.Require<IActiveScene>();
+        editing = context.Services.Require<ISceneEditing>();
+        play = context.Services.Require<IActivePlaySession>();
+
+        // ⚠ Each optional, for the reason `IPlayerDelivery` is: a host with no log ring, no picker
+        // or no data directory greys the report rather than refusing the module (#1298).
+        context.Services.TryGet(out graphics);
+        context.Services.TryGet(out log);
+        context.Services.TryGet(out dialogs);
+        context.Services.TryGet(out dataDirectory);
 
         // ⚠ The toolset's own words, handed over the way its panels and its commands are. An
         // `All` list nothing walks is in no translator's template, which is the state
@@ -354,6 +367,13 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
             delta => {
                 profiler.Tick();
                 remoteInspector?.Poll(delta);
+
+                if (!ReferenceEquals(GraphicsDevice, stated)) {
+                    stated = GraphicsDevice;
+                    Restate(timeline);
+                }
+
+                FinishReport();
             }
         );
 
@@ -466,13 +486,12 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
                 // Whichever scene the editor is showing, so opening a prefab and pressing Refresh
                 // counts the prefab rather than the level behind it.
                 //
-                // ⚠ Plus whatever the host counts that a world walk cannot — the behaviour
-                // population, which is a property of a `BehaviorStore` and not of the world. See
-                // `SceneFacts`.
+                // ⚠ Plus what a world walk cannot count — the behaviour population, which is a
+                // property of a `BehaviorStore` and not of the world. See `BehaviorFacts`.
                 statistics.Source = () => SceneStatistics.Collect(
                     scenes.Current.World,
                     depth: Deepest(),
-                    counted: SceneFacts?.Invoke()
+                    counted: BehaviorFacts()
                 );
                 statistics.Take();
             }
@@ -589,6 +608,254 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
         // ⚠ On the Build menu, where doc 20's Part C puts it, and it is the same window. A separate
         // "Deploy" dialog that listed the same devices would be a second list to keep in step.
         Panel(context, "build.deploy", "devices");
+
+        context.AddCommand(
+            new EditorCommand(
+                "tools.diagnostics-report",
+                DiagnosticsStrings.Commands["tools.diagnostics-report"],
+                WriteReport
+            ) {
+                Category = EditorStrings.CategoryTools,
+                Enablement = () => dialogs is not null
+            }
+        );
+    }
+
+    /// <summary>How many behaviour types the statistics panel names before it stops listing them.</summary>
+    /// <remarks>
+    ///     A panel is read at a glance, and <c>Population</c> is sorted most-numerous-first — so the
+    ///     rows that answer doc 04's question are the early ones by construction. What is dropped is
+    ///     counted rather than silently missing.
+    /// </remarks>
+    const int ListedBehaviorTypes = 10;
+
+    /// <summary>How many scopes the report lists before it stops being a report.</summary>
+    const int ReportedScopes = 40;
+
+    /// <summary>The behaviour population, as rows for the statistics panel.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The editor half of <see cref="BehaviorStore.Population" /></b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1216">#1216</a>). Its only reader was
+    ///         <c>vixen doctor behaviors</c>, which counts what a scene <em>authors</em> — and every
+    ///         committed <c>.vxscene</c> in this repository authors none, because every behaviour
+    ///         instance in the samples is attached from code. So the number doc 04's authoring rule
+    ///         is about is a run-time one, and the place a run-time number is visible to an author is
+    ///         here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The running session's store when there is one, and the authored store when there
+    ///         is not — and the row says which.</b> Those are two different questions with the same
+    ///         units: a play session has made whatever the level's code attached, and an editing
+    ///         session holds only what somebody wrote into the scene file. Showing the second while
+    ///         calling it the first is exactly the mistake the CLI verb refuses to make.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Enabled</c> is only shown for a live session, because outside one it is
+    ///         zero.</b> The bucket's enabled prefix is a property of the loop rather than of the
+    ///         authoring — a behaviour attached since the last lifecycle drain has not been activated
+    ///         — so an editing store reports every behaviour disabled, which would be a lie about the
+    ///         scene. <c>BehaviorStore.Population</c>'s own remarks say so and ask a reader to say it
+    ///         rather than print the number.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Moved from the application, which pushed it in as a delegate</b> (#1298). Both
+    ///         halves it reads — the live session and the open scene — are services a module is handed,
+    ///         so the delegate was only ever the application holding a typed field to this module.
+    ///     </para>
+    /// </remarks>
+    IReadOnlyList<StatisticRow> BehaviorFacts() {
+        var live = play.Current?.Loop.Behaviors;
+        var population = (live ?? editing.Active.Behaviors).Population;
+
+        if (population.Count == 0) {
+            return [
+                new(
+                    "Behaviours",
+                    0,
+                    Detail: live is null
+                        ? "the scene authors none — attaching from code is what a sample does, and this "
+                        + "counts a store"
+                        : "this session has attached none"
+                )
+            ];
+        }
+
+        List<StatisticRow> rows = new(Math.Min(population.Count, ListedBehaviorTypes) + 1);
+
+        foreach (var bucket in population.Take(ListedBehaviorTypes)) {
+            rows.Add(
+                new(
+                    "Behaviours · " + bucket.BehaviorType.Name,
+                    bucket.Total,
+                    BehaviorScale.Many,
+                    live is null
+                        ? "authored in this scene; a running level's count is not this one"
+                        : bucket.Enabled + " of them enabled, in this play session"
+                )
+            );
+        }
+
+        if (population.Count > ListedBehaviorTypes) {
+            rows.Add(
+                new(
+                    "Behaviours · other types",
+                    population.Skip(ListedBehaviorTypes).Sum(bucket => (long)bucket.Total),
+                    Detail: population.Count - ListedBehaviorTypes + " more type(s), each with fewer than the above"
+                )
+            );
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    ///     Writes what the editor knows about itself to a file: the log ring, the last capture's
+    ///     summary, the memory arenas and the scene's counts.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 20 said this needed "the profiler and the crash reporter", and half of that is
+    ///         now true.</b> What a report can carry today is everything E4 built plus the ring the
+    ///         console reads; the crash reporter's minidump and undo history are E6's and are named as
+    ///         absent in the file rather than left out silently — a report that does not say what it is
+    ///         missing is one somebody reads as complete.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Here and not on the application any more</b> (#1298). It stayed there because four
+    ///         of its five sources — the project's name, the open scene's counts, the log ring and the
+    ///         data directory — were the application's; with the ring and the directory published,
+    ///         every one is something a module is handed, and the fifth was always this module's.
+    ///     </para>
+    /// </remarks>
+    void WriteReport() {
+        if (dialogs is null || pendingReport is not null) {
+            return;
+        }
+
+        // ⚠ Composed *before* the picker opens rather than in the continuation. A report is a
+        // snapshot of what the editor looked like when somebody asked for it, and a picker is on
+        // screen for as long as it takes to choose a folder — during which a background import can
+        // change every number in it.
+        var report = Report();
+
+        pendingReport = (
+            report,
+            dialogs.SaveFileAsync(
+                new FileDialogOptions {
+                    Title = "Generate Diagnostics Report",
+                    InitialDirectory = dataDirectory?.Path,
+                    SuggestedFileName = "vixen-diagnostics.txt",
+                    Filters = [new FileFilter("Text", "txt")]
+                }
+            ).AsTask()
+        );
+    }
+
+    /// <summary>Writes the report once its picker has answered, on the frame thread.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Polled from the module's own update rather than continued on whatever thread the
+    ///     picker finishes on.</b> The platform runs its own event loop while a picker is up, and the
+    ///     toast this writes is a document touch — the application's <c>Deferred</c> exists for the
+    ///     same reason, and this is that queue with one slot.
+    /// </remarks>
+    void FinishReport() {
+        if (pendingReport is not ({ } report, { IsCompleted: true } picked)) {
+            return;
+        }
+
+        pendingReport = null;
+
+        if (!picked.IsCompletedSuccessfully) {
+            shell.Notifications.Show(
+                "Could not write the report",
+                NotificationSeverity.Error,
+                picked.Exception?.GetBaseException().Message
+            );
+
+            return;
+        }
+
+        if (picked.Result is not { } path) {
+            return;
+        }
+
+        try {
+            File.WriteAllText(path, report);
+            shell.Notifications.Success(Path.GetFileName(path) + " written");
+        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+            shell.Notifications.Show(
+                "Could not write the report",
+                NotificationSeverity.Error,
+                exception.Message
+            );
+        }
+    }
+
+    /// <summary>The report's text: the project, the scene, the memory, the statistics, the profile and the log.</summary>
+    /// <returns>What a report file holds.</returns>
+    public string Report() {
+        var builder = new System.Text.StringBuilder();
+        var scene = editing.Active;
+
+        builder.AppendLine("Vixen diagnostics report")
+            .AppendLine("========================")
+            .Append("Project: ").AppendLine(project.Name)
+            .Append("Scene: ").AppendLine(scene.Title.Value)
+            .AppendLine();
+
+        builder.AppendLine("Memory").AppendLine("------");
+
+        foreach (var row in MemorySnapshot.Take(new() { Assets = AssetResidency }).Rows) {
+            builder.Append("  ")
+                .Append(row.Arena)
+                .Append(" · ")
+                .Append(row.Label)
+                .Append(": ")
+                .AppendLine(row.IsCount ? row.Bytes.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) : MemoryView.Bytes(row.Bytes));
+        }
+
+        builder.AppendLine().AppendLine("Statistics").AppendLine("----------");
+
+        // ⚠ The behaviour rows come with it, so a report and the panel answer doc 04's question the
+        // same way. A report that counted entities and not behaviours would be the same gap #1216 is
+        // about, one file over.
+        var statistics = SceneStatistics.Collect(scene.World, depth: Deepest(), counted: BehaviorFacts());
+
+        foreach (var row in statistics.Rows) {
+            builder.Append("  ").Append(row.Label).Append(": ")
+                .AppendLine(row.Value.ToString("N0", System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        foreach (var warning in statistics.Warnings) {
+            builder.Append("  ⚠ ").AppendLine(warning);
+        }
+
+        builder.AppendLine().AppendLine("Profile").AppendLine("-------");
+
+        if (profiler.Capture.IsEmpty) {
+            builder.AppendLine("  Nothing captured. Open the profiler and press Record.");
+        } else {
+            foreach (var entry in profiler.Capture.Summary.Take(ReportedScopes)) {
+                builder.Append("  ").Append(entry.Name).Append(": ")
+                    .Append(entry.TotalMilliseconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))
+                    .Append(" ms over ")
+                    .Append(entry.Calls.ToString("N0", System.Globalization.CultureInfo.InvariantCulture))
+                    .AppendLine(" call(s)");
+            }
+        }
+
+        builder.AppendLine().AppendLine("Log").AppendLine("---");
+
+        foreach (var record in log?.Snapshot() ?? []) {
+            builder.Append("  [").Append(record.Level).Append("] ").Append(record.Category).Append(": ")
+                .AppendLine(record.Message);
+        }
+
+        builder.AppendLine()
+            .AppendLine("Not in this report: a minidump and the undo history, which are milestone E6.");
+
+        return builder.ToString();
     }
 
     void Panel(PluginContext context, string id, string panel) =>
@@ -768,7 +1035,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     /// <summary>Tells the GPU timeline why it has nothing to show, or that it now has.</summary>
     /// <param name="view">The panel, or <see langword="null" /> when none is open.</param>
     /// <remarks>
-    ///     ⚠ <b>Called from the panel's factory <em>and</em> from the device's setter, and it has to
+    ///     ⚠ <b>Called from the panel's factory <em>and</em> from the frame that sees a new device, and it has to
     ///     be both.</b> Neither order is the one that happens: a cold start builds the panel first
     ///     and a reopened panel finds a device already there. The same torn-down guard as the frame
     ///     debugger's, for the same reason — a held view outlives the panel it was drawn into.

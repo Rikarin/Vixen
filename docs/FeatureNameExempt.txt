@@ -31,15 +31,6 @@ Editor/Vixen.Editor.App/EditorApplication.cs gpu 1
 Editor/Vixen.Editor.App/EditorApplication.cs memory 1
 Editor/Vixen.Editor.App/EditorApplication.cs profiler 1
 Editor/Vixen.Editor.App/EditorApplication.cs statistics 1
-Editor/Vixen.Editor.App/EditorDiagnostics.cs DiagnosticsModule 3
-Editor/Vixen.Editor.App/EditorDiagnostics.cs MemorySnapshot 1
-Editor/Vixen.Editor.App/EditorDiagnostics.cs MemoryView 1
-Editor/Vixen.Editor.App/EditorDiagnostics.cs ProfilerModel 1
-Editor/Vixen.Editor.App/EditorDiagnostics.cs SceneStatistics 1
-Editor/Vixen.Editor.App/EditorDiagnostics.cs StatisticRow 2
-Editor/Vixen.Editor.App/EditorDiagnostics.cs Vixen.Editor.Debugger 1
-Editor/Vixen.Editor.App/EditorDiagnostics.cs Vixen.Editor.Diagnostics 1
-Editor/Vixen.Editor.App/EditorDiagnostics.cs Vixen.Editor.Profiler 1
 Editor/Vixen.Editor.App/EditorFrames.cs StandardFrameDocument 3
 Editor/Vixen.Editor.App/EditorFrames.cs Vixen.Editor.AssetEditors 1
 Editor/Vixen.Editor.App/EditorWorlds.cs .vxanimgraph 1

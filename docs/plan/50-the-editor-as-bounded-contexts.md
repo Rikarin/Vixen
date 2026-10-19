@@ -710,10 +710,10 @@ Waves follow the phases; a wave is five worktrees, merged as each lands, gates o
 | [#1292](https://github.com/Rikarin/Vixen/issues/1292) | `IContentLibrary`: browser model, collections + filters in one store, import, drop; `LibraryModule` owns `BuiltInAssetKinds` | P2c | 4 |
 | [#1293](https://github.com/Rikarin/Vixen/issues/1293) | `IProjectSession`: open/recents/scaffold/watch/build; `ProjectBrowser` stops calling `Scan`/`Save` | P2d | 4 |
 | [#1294](https://github.com/Rikarin/Vixen/issues/1294) | `DocumentKind` / `DocumentView` split + `DocumentPairingTest`; `IDocumentHost`, `IWorkspace`; panel state moves to models | P2e | 5 |
-| [#1295](https://github.com/Rikarin/Vixen/issues/1295) | `IPlayerDelivery`; deploy as a contribution; `IDeviceDeploy` records rehomed | P2f | 5 |
+| [#1295](https://github.com/Rikarin/Vixen/issues/1295) | `IPlayerDelivery`; deploy as a contribution; `IDeviceDeploy` records rehomed | P2f | 5 · ✅ `IPlayerDelivery` + `DeliveryModule`; ⚠ the records stayed — the per-kind switch moved to the module and `IDeviceDeploy` was deleted |
 | [#1296](https://github.com/Rikarin/Vixen/issues/1296) | `HelpModule`, `WorkspaceModule`; `EditorParity.cs` deleted | P2 | 5 |
 | [#1297](https://github.com/Rikarin/Vixen/issues/1297) | `AssetEditors` off `NotYetMoved` through 17 | P3 | 6 |
-| [#1298](https://github.com/Rikarin/Vixen/issues/1298) | `Profiler` + `Debugger` + `Diagnostics` off: report into the module, log ring and data dir published; typed module fields gone | P3 | 6 |
+| [#1298](https://github.com/Rikarin/Vixen/issues/1298) | `Profiler` + `Debugger` + `Diagnostics` off: report into the module, log ring and data dir published; typed module fields gone | P3 | 6 · ✅ all three off `NotYetMoved`; the device and GPU frame through `IEditorGraphics.Frame`, the ring as `RingBufferSink`, the directory as `EditorDataDirectory`, the pickers as `INativeDialogs`. ⚠ "Asserted by the existing report tests" — there were none; `Report` had never been read by a test. `FindModule` stays for the asset editors (#1297) |
 | [#1299](https://github.com/Rikarin/Vixen/issues/1299) | `NodeGraph` off: theme as a contribution (#917); `Host` stops building the shader-graph preview and terrain stages | P3 | 6 |
 | [#1300](https://github.com/Rikarin/Vixen/issues/1300) | `Assets` drops `ShaderGraph`/`VfxGraph`; `BuiltInImporters` shrinks to the pipeline's own | P3 | 6 |
 | [#1301](https://github.com/Rikarin/Vixen/issues/1301) | 35 feature string ids out of `EditorStrings` | P3 | 6 |

@@ -198,7 +198,7 @@ written once rather than once per plugin.
 What `Vixen.Editor.App` publishes today is `EditorProject`, `SceneDocument`, `DrawerRegistry`,
 `ImporterContributions`, `IEditorRegistry`, the editing state, the work plane, `IMeshBaker`,
 `IMeshMapBaker`, `IMeshSource`, `IActiveScene`, `IActiveView`, `IPlayerDelivery`,
-`AssetEditorRegistry`, `HotReloadHost`, `IEditorGraphics` and the `PluginHost` itself.
+`AssetEditorRegistry`, `HotReloadHost`, `IEditorGraphics`, the log ring (`RingBufferSink`), `EditorDataDirectory`, `INativeDialogs` where the platform has pickers (#1298) and the `PluginHost` itself.
 ⚠ **This paragraph used to end "importers and build steps are not published", which contradicted the
 list two lines above it.** `ImporterContributions` is published, and has been since doc 36 § F8: the
 reason it could not be — `ContentPipeline` builds its `ImporterRegistry` per run, deliberately, so
