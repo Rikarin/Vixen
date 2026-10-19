@@ -104,7 +104,7 @@ out-of-tree plugin cannot obtain a generated descriptor, and there is no attribu
 path either. **There is no `[CustomEditor]` equivalent available to anyone outside this repository.**
 
 **F6 — Modes are added imperatively from application code.**
-`EditorParity.cs:1122` — `Shell.Modes.Add(new SelectMode())`.
+`EditorParity.cs:1042` — `Shell.Modes.Add(new SelectMode())`.
 `Editor/Vixen.Editor.Terrain/TerrainModulePanels.cs:475@0d7dda4a9` — `Shell.Modes.Add(terrain)`. (It was the app's `EditorTerrainPanels.cs:451` when this was surveyed; `81f9e68ec` moved it into the terrain module, and since #1287 it is `context.AddMode(terrain)`, removed on unload.)
 The mode list is code in the app, not a registry the app reads.
 
@@ -910,7 +910,7 @@ whole of it was `AssetEditorRegistry` moving somewhere both ends could see:
 | `ShaderGraphPreviews.cs:4,5,27,56,66,80` | `IPreviewImages`, `ShaderGraphPreviewRenderer`, `ShaderGraphDocument`, and `Vixen.Editor.ShaderGraph` itself |
 
 ⚠⚠ **And the compiler under-reports, so "remove the reference and count the errors" is a floor on the
-dependency list and never the list.** `EditorWorlds.cs:1185,1189` name
+dependency list and never the list.** `EditorWorlds.cs:823,827` name
 `Vixen.Editor.AssetEditors.Vfx.VfxGraphView` and `…Sequencing.SequenceView` fully qualified, in live
 `case` patterns, and produce **no diagnostic at all** — confirmed independently by both agents, the
 second by checking that the file is compiled (a deliberate syntax error in it *is* reported) and that a
