@@ -675,8 +675,10 @@ after P2 the consumers can), `ProjectBrowser.cs` (1,491), `NodeGraphView.cs` (1,
 `LayerStackView.cs` (3,783) and `TexturingModule.cs` (2,381), `BlockoutMode.cs` (1,462),
 `ComponentsView.vxml` (1,117). ⚠ `NodeGraphView`'s selection is `NodeGraphModel.Selection`, a
 `Selection<NodeId>`, since #1305, and its on-node port editors write through
-`NodePortEditProvider`'s `InspectorField` as the side panel does (the row is still the canvas's
-`PortEditor`, not a drawer). ⚠ `ComponentsView`'s
+`NodePortEditProvider`'s `InspectorField` as the side panel does; the row is the canvas's
+`PortEditor` unless `DrawerRegistry` resolves the port to a drawer the built-in set would not, which
+is then hosted on the node (`PortEditorKind.Hosted`, decision (b)) — a graph with no custom drawers
+builds nothing during a pan (`PortDrawerTests`). ⚠ `ComponentsView`'s
 "one template per authoring kind" does not exist: there is one keyed `@for` over `IComponentBridge`,
 deliberately the same for components and behaviours, and the size is a 945-line `@code` block — so
 "split by component kind" has nothing to split along. #1308 decided (c) then (d): `IPrefabSource` gained `Link`/`Unlink` as default no-ops and `Pair` takes the interface, so `ComponentsView` names no `Vixen.Editor.AssetEditors` type (four `FeatureNameExempt` rows gone, the dumps unchanged); the size is closed as decided-not-to, because the only split is by concern. Each is its own issue with its own ceiling in `ApplicationSizeRule`'s

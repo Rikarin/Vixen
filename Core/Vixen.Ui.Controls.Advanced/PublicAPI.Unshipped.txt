@@ -679,6 +679,9 @@ Vixen.Ui.Controls.Advanced.Hsv.V.init -> float
 Vixen.Ui.Controls.Advanced.ICodeTokenizer -> interface
 Vixen.Ui.Controls.Advanced.ICodeTokenizer.InitialState.get -> int
 Vixen.Ui.Controls.Advanced.ICodeTokenizer.Tokenize(string line, int state, System.Collections.Generic.List<Vixen.Ui.Controls.Advanced.CodeToken> into) -> int
+Vixen.Ui.Controls.Advanced.IPortContent -> interface
+Vixen.Ui.Controls.Advanced.IPortContent.Build(Vixen.Ui.UiElement parent) -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.IPortContent.Show(Vixen.Ui.UiElement built) -> void
 Vixen.Ui.Controls.Advanced.ImageChannels -> enum : int
 Vixen.Ui.Controls.Advanced.ImageChannels.Alpha = 4 -> Vixen.Ui.Controls.Advanced.ImageChannels
 Vixen.Ui.Controls.Advanced.ImageChannels.Blue = 3 -> Vixen.Ui.Controls.Advanced.ImageChannels
@@ -925,6 +928,7 @@ Vixen.Ui.Controls.Advanced.NodePortEditor.Boxes.get -> System.Collections.Generi
 Vixen.Ui.Controls.Advanced.NodePortEditor.NodePortEditor() -> void
 Vixen.Ui.Controls.Advanced.NodePortEditor.Port.get -> Vixen.Ui.Controls.Advanced.GraphPort?
 Vixen.Ui.Controls.Advanced.NodePortEditor.Tick.get -> Vixen.Ui.Controls.CheckBox?
+Vixen.Ui.Controls.Advanced.NodePortEditor.Hosted.get -> Vixen.Ui.UiElement?
 Vixen.Ui.Controls.Advanced.NodePortView -> sealed class
 Vixen.Ui.Controls.Advanced.NodePortView : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.Advanced.NodePortView.Dot.get -> Vixen.Ui.UiElement
@@ -962,10 +966,12 @@ Vixen.Ui.Controls.Advanced.PortEditor.Decimals.set -> int
 Vixen.Ui.Controls.Advanced.PortEditor.IsOn.get -> bool
 Vixen.Ui.Controls.Advanced.PortEditor.IsOn.set -> bool
 Vixen.Ui.Controls.Advanced.PortEditor.Kind.get -> Vixen.Ui.Controls.Advanced.PortEditorKind
+Vixen.Ui.Controls.Advanced.PortEditor.Content.get -> Vixen.Ui.Controls.Advanced.IPortContent?
 Vixen.Ui.Controls.Advanced.PortEditor.LaneNames.get -> string
 Vixen.Ui.Controls.Advanced.PortEditor.LaneNames.set -> string
 Vixen.Ui.Controls.Advanced.PortEditor.Lanes.get -> int
 Vixen.Ui.Controls.Advanced.PortEditor.PortEditor(Vixen.Ui.Controls.Advanced.PortEditorKind kind, int lanes = 1) -> void
+Vixen.Ui.Controls.Advanced.PortEditor.PortEditor(Vixen.Ui.Controls.Advanced.IPortContent content) -> void
 Vixen.Ui.Controls.Advanced.PortEditor.ReadOnly.get -> bool
 Vixen.Ui.Controls.Advanced.PortEditor.ReadOnly.set -> bool
 Vixen.Ui.Controls.Advanced.PortEditor.Set(System.ReadOnlySpan<float> lanes) -> void
@@ -977,6 +983,7 @@ Vixen.Ui.Controls.Advanced.PortEditorKind.None = 0 -> Vixen.Ui.Controls.Advanced
 Vixen.Ui.Controls.Advanced.PortEditorKind.Number = 1 -> Vixen.Ui.Controls.Advanced.PortEditorKind
 Vixen.Ui.Controls.Advanced.PortEditorKind.PortEditorKind() -> void
 Vixen.Ui.Controls.Advanced.PortEditorKind.Toggle = 2 -> Vixen.Ui.Controls.Advanced.PortEditorKind
+Vixen.Ui.Controls.Advanced.PortEditorKind.Hosted = 3 -> Vixen.Ui.Controls.Advanced.PortEditorKind
 Vixen.Ui.Controls.Advanced.PropertyGrid -> sealed class
 Vixen.Ui.Controls.Advanced.PropertyGrid : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.Advanced.PropertyGrid.Body.get -> Vixen.Ui.UiElement

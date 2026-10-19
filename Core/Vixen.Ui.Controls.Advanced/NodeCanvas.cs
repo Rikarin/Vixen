@@ -73,6 +73,12 @@ public sealed partial class NodePortEditor : Control {
     CheckBox? tick;
     bool binding;
 
+    /// <summary>What holds a hosted element, and the content it was built for.</summary>
+    UiElement? hosted;
+
+    IPortContent? hostedFor;
+    UiElement? built;
+
     /// <inheritdoc />
     protected override string TagName => "node-port-editor";
 
@@ -87,6 +93,9 @@ public sealed partial class NodePortEditor : Control {
 
     /// <summary>The tick, once something has needed one.</summary>
     public CheckBox? Tick => tick;
+
+    /// <summary>What holds a <see cref="PortEditorKind.Hosted" /> port's element, once something has needed one.</summary>
+    public UiElement? Hosted => hosted;
 
     /// <summary>Told when the person at the keyboard changed a value. Set by the canvas.</summary>
     internal Action<GraphPort>? Edited { get; set; }
@@ -116,6 +125,16 @@ public sealed partial class NodePortEditor : Control {
 
         try {
             Port = port;
+
+            if (editor.Kind == PortEditorKind.Hosted) {
+                Lanes(0);
+                tick?.AddClass("parked");
+                Host(editor.Content!);
+
+                return;
+            }
+
+            hosted?.AddClass("parked");
 
             if (editor.Kind == PortEditorKind.Toggle) {
                 Lanes(0);
@@ -148,6 +167,30 @@ public sealed partial class NodePortEditor : Control {
         } finally {
             binding = false;
         }
+    }
+
+    /// <remarks>
+    ///     ⚠ <b>Built when the row changes content, shown on every bind.</b> A drawer's element writes
+    ///     to the one port it was built over, so it cannot be rebound to another the way the boxes are
+    ///     — and the old one is removed with its holder rather than parked, because parking it would
+    ///     grow every row by one element per port it ever passed over. A pan that keeps a node on
+    ///     screen keeps its row on the same port and builds nothing.
+    /// </remarks>
+    void Host(IPortContent content) {
+        if (hosted is null || !ReferenceEquals(hostedFor, content)) {
+            hosted?.Remove();
+            hosted = Add("node-port-hosted");
+            hostedFor = content;
+            built = content.Build(hosted);
+        } else if ((hosted.State & ElementState.FocusWithin) != 0) {
+            // Mid-edit: what the element holds is what is being typed, and the value a reprojection
+            // would put back is the one it just wrote — a caret moved under somebody is all it adds.
+            hosted.RemoveClass("parked");
+            return;
+        }
+
+        hosted.RemoveClass("parked");
+        content.Show(built!);
     }
 
     void Lanes(int lanes) {

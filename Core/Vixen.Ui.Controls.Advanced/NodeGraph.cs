@@ -24,7 +24,41 @@ public enum PortEditorKind : byte {
     Number,
 
     /// <summary>A tick.</summary>
-    Toggle
+    Toggle,
+
+    /// <summary>An element somebody else builds — a property drawer's, on a port whose type has one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only for what the two shapes above cannot say (#1305, decision (b)).</b> A number and a
+    ///     tick are pooled with the row and rebound for free on every pan; a hosted element is bound to
+    ///     the one port it was built for, so a row moved to another port builds again. A graph that
+    ///     never asks for one keeps the pooled cost exactly.
+    /// </remarks>
+    Hosted
+}
+
+/// <summary>What a <see cref="PortEditorKind.Hosted" /> port shows, built by whoever knows how.</summary>
+/// <remarks>
+///     <para>
+///         <b>The canvas's seam for a property drawer, without knowing what one is.</b> This assembly is
+///         below the editor's inspector, so the row is handed two calls rather than a drawer: make the
+///         element once, and put the current value into it.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="Build" /> is called when a row starts showing this content, not on every
+///         rebind.</b> A row rebound to the same content — a pan that leaves the node on screen — only
+///         calls <see cref="Show" />. A row moved to another port drops what it built and builds again,
+///         because what a drawer builds writes to the one target it was built over.
+///     </para>
+/// </remarks>
+public interface IPortContent {
+    /// <summary>Makes the element.</summary>
+    /// <param name="parent">Where it goes.</param>
+    /// <returns>The element <see cref="Show" /> is handed back.</returns>
+    UiElement Build(UiElement parent);
+
+    /// <summary>Puts the current value into what <see cref="Build" /> made.</summary>
+    /// <param name="built">What it made.</param>
+    void Show(UiElement built);
 }
 
 /// <summary>The value a port takes when nothing is wired to it, as the canvas shows it.</summary>
@@ -51,16 +85,34 @@ public sealed class PortEditor {
     /// <param name="kind">What it looks like.</param>
     /// <param name="lanes">How many numbers it holds. One for a toggle.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="lanes" /> is not one to four.</exception>
+    /// <exception cref="ArgumentException"><paramref name="kind" /> is <see cref="PortEditorKind.Hosted" />, which is made with its content.</exception>
     public PortEditor(PortEditorKind kind, int lanes = 1) {
         ArgumentOutOfRangeException.ThrowIfLessThan(lanes, 1);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(lanes, 4);
+
+        if (kind == PortEditorKind.Hosted) {
+            throw new ArgumentException("A hosted editor is made with the content it hosts.", nameof(kind));
+        }
 
         Kind = kind;
         value = new float[lanes];
     }
 
+    /// <summary>Creates one that hosts an element somebody else builds.</summary>
+    /// <param name="content">What builds it.</param>
+    public PortEditor(IPortContent content) {
+        ArgumentNullException.ThrowIfNull(content);
+
+        Kind = PortEditorKind.Hosted;
+        Content = content;
+        value = new float[1];
+    }
+
     /// <summary>What it looks like.</summary>
     public PortEditorKind Kind { get; }
+
+    /// <summary>What builds the element, for a <see cref="PortEditorKind.Hosted" /> one.</summary>
+    public IPortContent? Content { get; }
 
     /// <summary>How many numbers it holds.</summary>
     public int Lanes => value.Length;

@@ -327,12 +327,19 @@ the box was built by hand the two surfaces disagreed twice:
 
 `OnNodeFieldTests` asserts both on both surfaces.
 
-**⚠ The row's shape is still the canvas's `PortEditor` and not a drawer.** A node's elements are
-pooled and rebound on every pan, and removal is final in this framework. So a drawer's `Build` per
-rebind would create a fresh set of elements for every frame of a pan. A node also clips its own
-contents, so a row wider than 240 units is a box nobody can type into. The value and the write are
-the pipeline's. Which `IPropertyDrawer` draws the row is not, which means a drawer registered for a
-port's type reaches the panel and not the node.
+**⚠ The row's shape is the canvas's `PortEditor` unless a custom drawer is registered for the port
+(#1305, decision (b)).** A node's elements are pooled and rebound on every pan, and removal is final
+in this framework, so a drawer's `Build` per rebind would create a fresh set of elements for every
+frame of a pan. So `NodeGraphView.Drawers` (the panel's `DrawerRegistry.Default` unless handed
+another) is asked per port, and only a drawer the built-in set would *not* have chosen — not the
+number, vector or tick drawer, whose shapes the canvas already draws pooled — is hosted on the node,
+as `PortEditorKind.Hosted`. The row builds a hosted drawer's element when it starts showing that
+port and only shows the value again on a rebind to the same port; it builds again when a pan moves
+the row to another port, because a drawer's element writes to the one target it was built over.
+The content is kept across projections, because a drawer's own write reprojects the graph and a
+rebuilt element would drop the control being typed into. `PortDrawerTests` counts element slots over
+a pan sweep: nought for a graph with no custom drawers (red when every port is hosted), more than
+nought for the same sweep with one.
 
 ## The compiler does the parts that are the same everywhere
 
