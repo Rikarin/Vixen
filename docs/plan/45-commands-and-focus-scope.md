@@ -50,7 +50,7 @@ pushed. The pull is one level too shallow, and every new panel is a new chance t
 > `DockPanel` — `EditorApplication.Contextual` (`EditorApplication.cs:1774@4e61970ee`) and
 > `ContextualViewport` (`:1801`), plus four verbatim copies of the same eight lines in
 > `BlockoutModulePanels.cs:93@3dcb392ad`, `TerrainModule.cs:181`, `WaterModule.cs:231@3dcb392ad` and
-> `DiagnosticsModule.cs:439`. (⚠ The six line numbers are as of this amendment: `9c32e744f` (2026-09-02)
+> `DiagnosticsModule.cs:439@3dcb392ad`. (⚠ The six line numbers are as of this amendment: `9c32e744f` (2026-09-02)
 > replaced all six copies with `DockPanel.WhenPressedIn`, and `docs/PlanCitationExempt.txt`
 > records the ones that no longer hold.)
 >
@@ -94,7 +94,7 @@ pushed. The pull is one level too shallow, and every new panel is a new chance t
 >
 > **Four of the nine contexts are not places at all.** `blockout`, `terrain`, `water` and `foliage`
 > are *modes* — "a statement about what the viewport's input means right now" — claimed by
-> `Shell.Modes.Changed` (`EditorParity.cs:1150`) without any pointer or focus event. There is no
+> `Shell.Modes.Changed` (`EditorParity.cs:1105`) without any pointer or focus event. There is no
 > element the focus could be on that would derive them. Hanging a `CommandScope` on the viewport and
 > rewriting it on mode change is a push wearing the new API's clothes, which is not what G2 asked
 > for.

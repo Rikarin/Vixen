@@ -21,7 +21,7 @@ namespace Vixen.Platform.Ui.Tests;
 ///         OTHER IS NOT, AND THE EXPOSURE IS BIGGER THAN THE CALL.</b> The call sites are
 ///         <c>UiApplication.cs:802</c>, covered by
 ///         <c>UiApplicationTests.TheLoopTellsTheWindowWhatThePointerIsOver</c>, and
-///         <c>EditorHost.cs:388</c>, covered by nothing. They are textually identical, which is an
+///         <c>EditorHost.cs:387</c>, covered by nothing. They are textually identical, which is an
 ///         argument rather than a measurement.
 ///     </para>
 ///     <para>
