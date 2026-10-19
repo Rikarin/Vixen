@@ -48,6 +48,15 @@ documents, the baker, the brush and the armed force-bake, which *are* the module
 into `TexturingVerbs.cs` — a partial of the module — rather than into a class that would reach back for
 every field.
 
+⚠ **The Tools lines are declared, not built** (doc 50 § D5): each command id carries
+`[EditorMenu("Tools")]` and `Vixen.Editor.Plugin.Generator` writes `Declared.Register`, which `Activate`
+calls only when the module was activated in-process — a copy loaded off disk is scanned by the host
+after `Activate`, and reading the attributes twice would put every line on the menu twice
+(`docs/GeneratorPackagingExempt.txt` states the same hazard for any plugin). So the module holds
+whichever way [#1276](https://github.com/Rikarin/Vixen/issues/1276) is decided. What still goes round
+`PluginContext` is the three `TexturingTheme.Install` calls in the views, and that is not this module's
+to fix: `UiDocument` cannot take a sheet back out, so there is nothing to record (doc 50 § D6, #917).
+
 ### A stack bakes too, one material per texture set
 
 [#1029](https://github.com/Rikarin/Vixen/issues/1029). *Bake Material from Layers* takes the open

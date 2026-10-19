@@ -89,13 +89,26 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     /// <summary>What a plugin-management panel calls it.</summary>
     public const string ModuleName = "Texturing";
 
+    /// <summary>The menu every verb's line is declared in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Where the verbs belong rather than a menu of their own</b> — doc 36, and
+    ///     <c>PluginContext.FindMenu</c> says why. The path's first part resolves to the editor's
+    ///     <c>editor.menu.tools</c>, so the lines join the Tools menu the application builds; a host with
+    ///     none gets one made in this module's registration scope and taken out with it. The lines come in
+    ///     the order the ids are declared below, which puts the force verb under the two bakes it answers,
+    ///     where #1019 asks for it.
+    /// </remarks>
+    const string ToolsMenu = "Tools";
+
     /// <summary>The verb that opens the selected <c>.vxtexgraph</c>.</summary>
+    [EditorMenu(ToolsMenu)]
     public const string OpenCommand = "texturing.open-graph";
 
     /// <summary>The panel a graph is edited in.</summary>
     public const string GraphPanel = "texturing.graph";
 
     /// <summary>The verb that opens the selected <c>.vxlayers</c>.</summary>
+    [EditorMenu(ToolsMenu)]
     public const string OpenStackCommand = "texturing.open-stack";
 
     /// <summary>The panel a layer stack is shown in.</summary>
@@ -115,6 +128,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     ///     inspector is a second writer of the same state, which is why
     ///     <see cref="PaintBrushInspector.Refresh" /> exists and is called from here.
     /// </remarks>
+    [EditorMenu(ToolsMenu)]
     public const string PaintCommand = "texturing.toggle-paint";
 
     /// <summary>The verb that turns the open <c>.vxtexgraph</c> into a <c>.vxmat</c>.</summary>
@@ -135,6 +149,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     ///         panel is whatever they last clicked, which after a bake is usually one of the maps.
     ///     </para>
     /// </remarks>
+    [EditorMenu(ToolsMenu)]
     public const string BakeCommand = "texturing.bake-material";
 
     /// <summary>The verb that turns the open <c>.vxlayers</c> into one <c>.vxmat</c> per texture set.</summary>
@@ -155,6 +170,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     ///         name.
     ///     </para>
     /// </remarks>
+    [EditorMenu(ToolsMenu)]
     public const string BakeStackCommand = "texturing.bake-stack-material";
 
     /// <summary>Packs the open stack's painted layer weights into a splat map.</summary>
@@ -175,6 +191,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     ///         material is not there yet.
     ///     </para>
     /// </remarks>
+    [EditorMenu(ToolsMenu)]
     public const string BakeSplatCommand = "texturing.bake-splat-map";
 
     /// <summary>The verb that re-runs the last bake a painted-over map refused.</summary>
@@ -204,6 +221,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     ///         changes nothing.
     ///     </para>
     /// </remarks>
+    [EditorMenu(ToolsMenu)]
     public const string ForceBakeCommand = "texturing.bake-material-force";
 
     /// <summary>The verb that bakes the graph and turns the height march on.</summary>
@@ -230,6 +248,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     ///         place.
     ///     </para>
     /// </remarks>
+    [EditorMenu(ToolsMenu)]
     public const string ParallaxBakeCommand = "texturing.bake-material-parallax";
 
     /// <summary>The verb that saves the open stack's chosen texture set as a <c>.vxsmartmat</c>.</summary>
@@ -240,6 +259,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     ///     (<see cref="SmartMaterial.ShelfFolder" />) rather than beside the stack, because a smart
     ///     material's whole point is that it is applied to something else.
     /// </remarks>
+    [EditorMenu(ToolsMenu)]
     public const string SaveSmartCommand = "texturing.save-smart-material";
 
     /// <summary>The verb that puts the selected <c>.vxsmartmat</c> on top of the open stack's set.</summary>
@@ -249,6 +269,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     ///     the stack they are looking at, so the two halves come from the two places an artist is
     ///     already pointing.
     /// </remarks>
+    [EditorMenu(ToolsMenu)]
     public const string ApplySmartCommand = "texturing.apply-smart-material";
 
     /// <summary>The pane a stroke is made in: doc 48 § D13's 2D UV view.</summary>
@@ -832,23 +853,17 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
         // the module be reloaded and what keeps the services bag from pinning it afterwards.
         context.Publish<ITexturing>(this);
 
-        // Where the verb belongs rather than a menu of its own — doc 36, and `PluginContext.FindMenu`
-        // says why. A host with no Tools menu gets the command in the palette and the keymap, which
-        // is the whole of what a menu entry adds.
-        if (context.FindMenu(EditorStrings.MenuTools.Id) is { } tools) {
-            context.AddMenuItem(tools, OpenCommand);
-            context.AddMenuItem(tools, OpenStackCommand);
-            context.AddMenuItem(tools, PaintCommand);
-            context.AddMenuItem(tools, BakeCommand);
-            context.AddMenuItem(tools, BakeStackCommand);
-            context.AddMenuItem(tools, BakeSplatCommand);
-
-            // ⚠ Under the two it answers, which is where #1019 asks for it: an artist reads a refusal
-            // naming a file they painted over and looks for the control in the menu they just used.
-            context.AddMenuItem(tools, ForceBakeCommand);
-            context.AddMenuItem(tools, ParallaxBakeCommand);
-            context.AddMenuItem(tools, SaveSmartCommand);
-            context.AddMenuItem(tools, ApplySmartCommand);
+        // The Tools lines are the `[EditorMenu(ToolsMenu)]` on each command id above (doc 50 § D5,
+        // #1306), registered last because every line names a command made above.
+        //
+        // ⚠ **Only when nothing else will read them, and the descriptor is what says so.** A module the
+        // editor activates in-process (`PluginHost.Activate`, `EditorModules.Standard()`) has no
+        // assembly path and is never scanned, so the generated `Declared.Register` is the only reader.
+        // Loaded off disk with a `plugin.yaml` — #1276's other option — the host scans the assembly after
+        // `Activate` returns (`PluginHost`'s `Declared(scope, assembly)`), and the same attributes read
+        // twice would put every line on the menu twice. One condition keeps both options true.
+        if (context.Descriptor.AssemblyPath.Length == 0) {
+            Declared.Register(context);
         }
     }
 
