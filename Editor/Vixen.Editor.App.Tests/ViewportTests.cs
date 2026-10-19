@@ -196,6 +196,57 @@ public class ViewportTests {
         Assert.Equal(new Vector3(7f, 1f, 2f), pane.Camera.Pivot);
     }
 
+    /// <remarks>
+    ///     ⚠ <b>#1303: the nine slots were the pane's own array</b>, and a pane is built afresh every time
+    ///     the Scene panel is opened — so closing the panel threw every saved view away while the camera
+    ///     beside them, parked on the application, came back. They are the workspace's per-view state
+    ///     now, which is what outlives the panel.
+    /// </remarks>
+    [Fact]
+    public void A_bookmark_outlives_the_scene_panel_being_closed_and_reopened() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Open("scene");
+        fixture.Frames(1);
+
+        fixture.Viewport!.Camera.Pivot = new Vector3(7f, 1f, 2f);
+        fixture.Run("scene.bookmark-set-1");
+
+        fixture.Close("scene");
+        fixture.Open("scene");
+        fixture.Frames(1);
+
+        Assert.True(fixture.CanRun("scene.bookmark-go-1"));
+
+        fixture.Viewport!.Camera.Pivot = Vector3.Zero;
+        fixture.Run("scene.bookmark-go-1");
+
+        Assert.Equal(new Vector3(7f, 1f, 2f), fixture.Viewport.Camera.Pivot);
+
+        // Where it is kept: the published workspace's per-view state, which a module reaches too.
+        var state = fixture.Plugins.Services.Require<Vixen.Editor.Ui.Documents.IWorkspace>().ViewState<SceneViewState>("scene");
+
+        Assert.Equal(new Vector3(7f, 1f, 2f), state.Panes[0].Bookmarks[0]?.Pivot);
+        Assert.Same(state.Panes[0].Bookmarks, fixture.Viewport.Bookmarks);
+    }
+
+    [Fact]
+    public void The_split_outlives_the_scene_panel_and_is_the_workspaces() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Open("scene");
+        fixture.Run("scene.panes-quad");
+        fixture.Close("scene");
+        fixture.Open("scene");
+        fixture.Frames(2);
+
+        Assert.Equal(4, fixture.Viewports.Count);
+        Assert.Equal(
+            ViewportArrangement.Quad,
+            fixture.Plugins.Services.Require<Vixen.Editor.Ui.Documents.IWorkspace>().ViewState<SceneViewState>("scene").Arrangement
+        );
+    }
+
     [Fact]
     public void Snap_to_floor_drops_the_selection_onto_what_is_under_it_and_undoes() {
         using var fixture = EditorSession.Start();

@@ -79,9 +79,10 @@ namespace Vixen.Editor.App;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A panel's factory runs again when it is reopened</b>, so nothing durable may live in
-///         one. The camera is kept as a <see cref="ViewBookmark" /> on this object and restored when
-///         the scene panel is rebuilt; without that, closing and reopening the viewport would put the
-///         user back at the origin.
+///         one. The camera, the split and the saved views are the workspace's
+///         <see cref="Vixen.Editor.SceneView.SceneViewState" /> (#1303) and are restored when the scene
+///         panel is rebuilt; without that, closing and reopening the viewport would put the user back at
+///         the origin.
 ///     </para>
 /// </remarks>
 sealed partial class EditorApplication : IDisposable {
@@ -326,18 +327,13 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>The panes the scene is drawn in, or <see langword="null" /> while the panel is closed.</summary>
     ViewportLayout? viewports;
 
-    /// <summary>How the scene panel is split, kept across a panel rebuild.</summary>
-    ViewportArrangement arrangement = ViewportArrangement.Single;
-
-    /// <summary>Where each pane's camera was, so reopening the panel does not go back to the origin.</summary>
+    /// <summary>How the scene panel is split, and each pane's camera and saved views, kept across a panel rebuild.</summary>
     /// <remarks>
-    ///     ⚠ <b>One per pane and cleared when the arrangement changes.</b> A saved camera restored
-    ///     into a freshly-split layout would overwrite <c>ViewportLayout</c>'s top/front/side presets
-    ///     with three copies of wherever the single pane happened to be looking — which is a four-pane
-    ///     layout that comes up as four identical perspective views, the exact thing the presets exist
-    ///     to prevent.
+    ///     The workspace's per-view state (#1303) rather than two fields here: the arrangement and the
+    ///     cameras were parked on this class and the nine bookmarks on the pane, which a reopened panel
+    ///     rebuilt empty. See <see cref="SceneViewState" />.
     /// </remarks>
-    readonly ViewBookmark?[] cameras = new ViewBookmark?[4];
+    SceneViewState SceneViewState => documentViews.ViewState<SceneViewState>("scene");
 
     /// <summary>What answers "what is under this ray" for placement and snapping.</summary>
     /// <remarks>
@@ -1144,20 +1140,20 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>How the scene panel is split.</summary>
     public ViewportArrangement Arrangement {
-        get => arrangement;
+        get => SceneViewState.Arrangement;
 
         set {
-            if (arrangement == value) {
+            if (SceneViewState.Arrangement == value) {
                 return;
             }
 
-            arrangement = value;
+            SceneViewState.Arrangement = value;
 
             // ⚠ Forgotten before the rebuild, not after. `ViewportLayout` raises `Rearranged` from
             // inside the setter below, and the handler is what restores these — so clearing
             // afterwards would restore last arrangement's cameras into this one's panes and then
             // throw the record away.
-            Array.Clear(cameras);
+            SceneViewState.ForgetCameras();
 
             if (viewports is not null) {
                 viewports.Arrangement = value;
@@ -1374,8 +1370,8 @@ sealed partial class EditorApplication : IDisposable {
             // reopened and the SceneViewport goes with the old one, so there is no teardown hook to
             // read the camera in — and a bookmark taken once at startup would restore the origin
             // every time.
-            if (index < cameras.Length) {
-                cameras[index] = pane.Camera.Bookmark("current");
+            if (index < SceneViewState.MaxPanes) {
+                SceneViewState.Panes[index].Camera = pane.Camera.Bookmark("current");
             }
 
             RememberView(index, pane);
@@ -2052,8 +2048,16 @@ sealed partial class EditorApplication : IDisposable {
             // ⚠ Restored, because this runs again every time the panel is reopened and a fresh
             // SceneViewport starts at the origin looking down −Z. Absent for a pane of an
             // arrangement nobody has looked at yet, which is what leaves the quad presets alone.
-            if (index < cameras.Length && cameras[index] is { } saved) {
-                pane.Camera.Restore(saved);
+            if (index < SceneViewState.MaxPanes) {
+                var remembered = SceneViewState.Panes[index];
+
+                if (remembered.Camera is { } saved) {
+                    pane.Camera.Restore(saved);
+                }
+
+                // ⚠ The workspace's slots, not the pane's own: a pane is rebuilt with the panel, and the
+                // nine views saved in the last one went with it (#1303).
+                pane.Bookmarks = remembered.Bookmarks;
             }
 
             // ⚠ And what it was drawing, which is the same restore one shelf along: the camera
@@ -2276,7 +2280,7 @@ sealed partial class EditorApplication : IDisposable {
                             editing.IsActive && !editing.Selection.IsEmpty
                                 ? [new MeshGizmoTarget(scene, editing)]
                                 : EntityGizmoTarget.For(world, scene.Selection),
-                        Arrangement = arrangement
+                        Arrangement = SceneViewState.Arrangement
                     };
 
                     // ⚠ Subscribed after the constructor and then called by hand, because the

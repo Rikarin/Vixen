@@ -1875,7 +1875,7 @@ sealed partial class EditorApplication {
         // user had rather than an arrangement this remembered separately. Skipped when the panel is
         // already single, because `Remember` would then record Single and stopping would leave the
         // toggle claiming the viewport is maximised when nothing was ever changed.
-        if (maximiseOnPlay && arrangement != ViewportArrangement.Single) {
+        if (maximiseOnPlay && Arrangement != ViewportArrangement.Single) {
             Arrangement = Remember();
         }
 

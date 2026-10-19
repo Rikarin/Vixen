@@ -1524,6 +1524,7 @@ T:Vixen.Editor.SceneView.Marquee sweep-pending
 T:Vixen.Editor.SceneView.MarqueeOverlay sweep-pending
 T:Vixen.Editor.SceneView.NavigationAction sweep-pending
 T:Vixen.Editor.SceneView.OrbitPivot sweep-pending
+T:Vixen.Editor.SceneView.PaneState sweep-pending — one pane's slice of SceneViewState, the workspace's per-view state for the Scene panel (#1303); what it keeps and why is on SceneViewState's remarks
 T:Vixen.Editor.SceneView.PickRequest sweep-pending
 T:Vixen.Editor.SceneView.PickResult sweep-pending
 T:Vixen.Editor.SceneView.PickingBuffer sweep-pending
@@ -1554,6 +1555,7 @@ T:Vixen.Editor.SceneView.SceneSerializer sweep-pending
 T:Vixen.Editor.SceneView.SceneShape sweep-pending
 T:Vixen.Editor.SceneView.SceneShow sweep-pending
 T:Vixen.Editor.SceneView.SceneViewport sweep-pending
+T:Vixen.Editor.SceneView.SceneViewState sweep-pending — the workspace's per-view state for the Scene panel (#1303), reached as IWorkspace.ViewState; what it keeps and why is on its remarks
 T:Vixen.Editor.SceneView.SetComponentCommand sweep-pending
 T:Vixen.Editor.SceneView.ShapeBatch sweep-pending
 T:Vixen.Editor.SceneView.ShowFlags sweep-pending
@@ -1561,6 +1563,7 @@ T:Vixen.Editor.SceneView.SurfaceHit sweep-pending
 T:Vixen.Editor.SceneView.TransformGizmo sweep-pending
 T:Vixen.Editor.SceneView.TransformTargetsCommand sweep-pending
 T:Vixen.Editor.SceneView.ViewBookmark sweep-pending
+T:Vixen.Editor.SceneView.ViewBookmarks sweep-pending — a pane's nine numbered views, kept in SceneViewState so they outlive the Scene panel (#1303)
 T:Vixen.Editor.SceneView.ViewDirection sweep-pending
 T:Vixen.Editor.SceneView.ViewMode sweep-pending
 T:Vixen.Editor.SceneView.ViewModes sweep-pending
