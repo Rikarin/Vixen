@@ -1,0 +1,28 @@
+# Registrations an editor module makes round the side of PluginContext (doc 50 § D6, #1281). Read by
+# CheckArchitecture through build/ModuleRegistrationRule.cs. `<file> <door> <count> [reason]`.
+#
+# ⚠ This list can only SHRINK: a new door fails, a count above its row fails, and a row above its file's
+# count, or for a door the file no longer opens, fails too. Subjects are every non-test project holding a
+# class that implements IEditorPlugin; the doors are Shell.RegisterPanel / RegisterLayout / Modes.Add /
+# Commands.Add, any *Theme.Install, and Services.Add.
+#
+# Regenerate after a merge with `./build.sh CheckArchitecture --update-exemptions`, and read the diff.
+
+Editor/Vixen.Editor.Blockout/BlockoutMode.cs Shell.Commands.Add 4 A mode registering its own verbs in Register(shell), removed by its own Unregister rather than recorded by the contract (#1285).
+Editor/Vixen.Editor.Blockout/BlockoutModulePanels.cs BlockoutTheme.Install 1 Never uninstalled; no contract wrapper for a sheet exists yet (#917).
+Editor/Vixen.Editor.Blockout/BlockoutModulePanels.cs Shell.RegisterPanel 2 No removal on unload; context.AddPanel records it (#1285).
+Editor/Vixen.Editor.Diagnostics/DiagnosticsModule.cs DebuggerTheme.Install 1 Not released in Release() (#917).
+Editor/Vixen.Editor.Diagnostics/DiagnosticsModule.cs ProfilerTheme.Install 1 Not released in Release() (#917).
+Editor/Vixen.Editor.Terrain.Physics/TerrainPhysicsModule.cs Services.Add 1 Never removed, and PluginServices.Add throws on a duplicate, so a reload of this module fails (#1287).
+Editor/Vixen.Editor.Terrain/FoliageMode.cs Shell.Commands.Add 6 A mode registering its own verbs in Register(shell), removed by its own Unregister rather than recorded by the contract (#1287).
+Editor/Vixen.Editor.Terrain/TerrainMode.cs Shell.Commands.Add 9 A mode registering its own verbs in Register(shell), removed by its own Unregister rather than recorded by the contract (#1287).
+Editor/Vixen.Editor.Terrain/TerrainModulePanels.cs Shell.Modes.Add 2 context.AddMode records the removal (#1287).
+Editor/Vixen.Editor.Terrain/TerrainModulePanels.cs Shell.RegisterPanel 5 No removal on unload (#740, #1287).
+Editor/Vixen.Editor.Texturing/LayerStackView.cs TexturingTheme.Install 1 A view installing its module's sheet when built; nothing removes it (#917).
+Editor/Vixen.Editor.Texturing/Painting/PaintMeshView.cs TexturingTheme.Install 1 A view installing its module's sheet when built; nothing removes it (#917).
+Editor/Vixen.Editor.Texturing/Painting/PaintUvView.cs TexturingTheme.Install 1 A view installing its module's sheet when built; nothing removes it (#917).
+Editor/Vixen.Editor.Water/WaterMode.cs Shell.Commands.Add 6 A mode registering its own verbs in Register(shell), removed by its own Unregister rather than recorded by the contract (#1286).
+Editor/Vixen.Editor.Water/WaterModule.cs Shell.Modes.Add 1 context.AddMode records the removal (#1286).
+Editor/Vixen.Editor.Water/WaterModuleCarve.cs Shell.Commands.Add 1 Paired with context.OnUnload: correct, and a second spelling of context.AddCommand (#1286).
+Editor/Vixen.Editor.Water/WaterModuleDebug.cs Shell.Commands.Add 1 Paired with context.OnUnload: correct, and a second spelling of context.AddCommand (#1286).
+Editor/Vixen.Editor.Water/WaterModulePanels.cs Shell.RegisterPanel 2 No removal on unload (#1286).

@@ -1246,7 +1246,7 @@ and the command owns the history, which is the division `CommandTransaction` mak
 targets, each with its own before *and* after triple, named `"Move (3)"` —
 `TransformTargetsCommand.cs:59-72`. Through the pipeline a drag gives each target a *different*
 value, so `EditProperty.Write` (one command, N objects, one value) does not apply and `WriteEach`
-does; `WriteEach` executes one command **per target** (`EditProperty.cs:171`), and position, rotation
+does; `WriteEach` executes one command **per target** (`EditProperty.cs:173`), and position, rotation
 and scale are three members, so one entry becomes a `CompositeCommand` of 3N.
 
 ⚠ **And the blocker: the pipeline has no way to record a change that has already been applied.**
@@ -1254,7 +1254,7 @@ and scale are three members, so one entry becomes a `CompositeCommand` of 3N.
 reads it at construction (`ReflectedDescriptor.cs:121`), and after a drag what it reads *is* the after
 state, so the entry undoes to where the drag ended. Restoring the captured pose first does not defeat
 that either, because `EditProperty.Write` and `WriteEach` both skip a target whose current value
-already equals the one being written (`EditProperty.cs:115`, `:167`) — and
+already equals the one being written (`EditProperty.cs:117`, `:169`) — and
 `IGizmoTarget.Position`/`Rotation` read `WorldTransform` while their setters write `LocalTransform`
 (`Core/Vixen.Engine/Transforms/Transform.cs:68-69`, `:86-94`), so a read taken immediately after a
 restoring write still returns the value the drag left. Measured: the first shape records **nothing**

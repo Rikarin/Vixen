@@ -1,0 +1,124 @@
+# Feature names the editor's shell still holds (doc 50 § D6, #1278). Read by CheckArchitecture through
+# build/FeatureNameRule.cs. One row per shell file and name: `<file> <name> <count> [reason]`.
+#
+# ⚠ This list can only SHRINK. A shell file naming a feature name with no row fails, a count above its
+# row fails, and a row whose count is above the file's — or whose file no longer names it — fails too,
+# so every doc 50 phase deletes lines from here in the commit that moves the name.
+#
+# Shell: Vixen.Editor.{App,Ui,Host,Core,SceneView,Inspector,Assets}. A feature is every other Editor/
+# project but Plugin, Testing, tests and generators. The vocabulary — namespaces, types declared only in
+# features, .vx extension literals no runtime source spells, panel ids features register, and command-id
+# prefixes — is derived by the rule; see its remarks. Comments are not read.
+#
+# Regenerate after a merge with `./build.sh CheckArchitecture --update-exemptions` — and read the
+# diff: a row that appeared or grew is the shell learning a feature's name.
+
+Editor/Vixen.Editor.App/ComponentsView.cs PrefabSource 1
+Editor/Vixen.Editor.App/ComponentsView.cs Vixen.Editor.AssetEditors 1
+Editor/Vixen.Editor.App/ComponentsView.vxml PrefabSource 2
+Editor/Vixen.Editor.App/ComponentsView.vxml Vixen.Editor.AssetEditors 1
+Editor/Vixen.Editor.App/DeclaredContributions.cs scripts 1
+Editor/Vixen.Editor.App/EditorApplication.cs AddressableGroupEditorFactory 1
+Editor/Vixen.Editor.App/EditorApplication.cs AssetEditorRegistry 2
+Editor/Vixen.Editor.App/EditorApplication.cs AssetEditorTheme 1
+Editor/Vixen.Editor.App/EditorApplication.cs AssetEditorsModule 2
+Editor/Vixen.Editor.App/EditorApplication.cs IDeviceDeploy 1
+Editor/Vixen.Editor.App/EditorApplication.cs NodeGraphTheme 1
+Editor/Vixen.Editor.App/EditorApplication.cs PrefabSource 2
+Editor/Vixen.Editor.App/EditorApplication.cs StandardEditors 1
+Editor/Vixen.Editor.App/EditorApplication.cs Vixen.Editor.AssetEditors 4
+Editor/Vixen.Editor.App/EditorApplication.cs Vixen.Editor.Debugger 1
+Editor/Vixen.Editor.App/EditorApplication.cs Vixen.Editor.NodeGraph 1
+Editor/Vixen.Editor.App/EditorApplication.cs frame-debugger 1
+Editor/Vixen.Editor.App/EditorApplication.cs gpu 1
+Editor/Vixen.Editor.App/EditorApplication.cs memory 1
+Editor/Vixen.Editor.App/EditorApplication.cs profiler 1
+Editor/Vixen.Editor.App/EditorApplication.cs statistics 1
+Editor/Vixen.Editor.App/EditorBuilds.cs DeviceEntry 3
+Editor/Vixen.Editor.App/EditorBuilds.cs DeviceKind 5
+Editor/Vixen.Editor.App/EditorBuilds.cs DeviceStatus 2
+Editor/Vixen.Editor.App/EditorBuilds.cs Vixen.Editor.Debugger 1
+Editor/Vixen.Editor.App/EditorDiagnostics.cs DeviceEntry 2
+Editor/Vixen.Editor.App/EditorDiagnostics.cs DiagnosticsModule 3
+Editor/Vixen.Editor.App/EditorDiagnostics.cs IDeviceDeploy 1
+Editor/Vixen.Editor.App/EditorDiagnostics.cs MemorySnapshot 1
+Editor/Vixen.Editor.App/EditorDiagnostics.cs MemoryView 1
+Editor/Vixen.Editor.App/EditorDiagnostics.cs ProfilerModel 1
+Editor/Vixen.Editor.App/EditorDiagnostics.cs SceneStatistics 1
+Editor/Vixen.Editor.App/EditorDiagnostics.cs StatisticRow 2
+Editor/Vixen.Editor.App/EditorDiagnostics.cs Vixen.Editor.Debugger 1
+Editor/Vixen.Editor.App/EditorDiagnostics.cs Vixen.Editor.Diagnostics 1
+Editor/Vixen.Editor.App/EditorDiagnostics.cs Vixen.Editor.Profiler 1
+Editor/Vixen.Editor.App/EditorFrames.cs StandardFrameDocument 3
+Editor/Vixen.Editor.App/EditorFrames.cs Vixen.Editor.AssetEditors 1
+Editor/Vixen.Editor.App/EditorWorlds.cs .vxanimgraph 1
+Editor/Vixen.Editor.App/EditorWorlds.cs .vxfoliage 1
+Editor/Vixen.Editor.App/EditorWorlds.cs .vxfont 1
+Editor/Vixen.Editor.App/EditorWorlds.cs .vxgrass 1
+Editor/Vixen.Editor.App/EditorWorlds.cs .vxlayer 1
+Editor/Vixen.Editor.App/EditorWorlds.cs .vxmixer 1
+Editor/Vixen.Editor.App/EditorWorlds.cs .vxseq 1
+Editor/Vixen.Editor.App/EditorWorlds.cs .vxshadergraph 1
+Editor/Vixen.Editor.App/EditorWorlds.cs .vxspline 1
+Editor/Vixen.Editor.App/EditorWorlds.cs .vxvfx 1
+Editor/Vixen.Editor.App/EditorWorlds.cs AddressableGroupDocument 1
+Editor/Vixen.Editor.App/EditorWorlds.cs MaterialAsset 1
+Editor/Vixen.Editor.App/EditorWorlds.cs StandardFrameDocument 1
+Editor/Vixen.Editor.App/EditorWorlds.cs Vixen.Editor.AssetEditors 5
+Editor/Vixen.Editor.App/ShaderGraphPreviews.cs IPreviewImages 1
+Editor/Vixen.Editor.App/ShaderGraphPreviews.cs ShaderGraphDocument 2
+Editor/Vixen.Editor.App/ShaderGraphPreviews.cs ShaderGraphPreviewRenderer 2
+Editor/Vixen.Editor.App/ShaderGraphPreviews.cs Vixen.Editor.AssetEditors 1
+Editor/Vixen.Editor.App/ShaderGraphPreviews.cs Vixen.Editor.ShaderGraph 1
+Editor/Vixen.Editor.App/StandardIcons.cs .vxmat 1
+Editor/Vixen.Editor.App/TexturePreviewImages.cs TextureChannels 12
+Editor/Vixen.Editor.App/TexturePreviewImages.cs TextureImportDocument 4
+Editor/Vixen.Editor.App/TexturePreviewImages.cs TextureImportEdits 1
+Editor/Vixen.Editor.App/TexturePreviewImages.cs TextureImportView 3
+Editor/Vixen.Editor.App/TexturePreviewImages.cs Vixen.Editor.AssetEditors 1
+Editor/Vixen.Editor.Assets/Audio/MixerImporter.cs .vxmixer 1
+Editor/Vixen.Editor.Assets/BuiltInImporters.cs .vxanimgraph 1
+Editor/Vixen.Editor.Assets/BuiltInImporters.cs .vxfont 1
+Editor/Vixen.Editor.Assets/BuiltInImporters.cs .vxseq 1
+Editor/Vixen.Editor.Assets/Compositors/CompositorImporter.cs .vxcompositor 1
+Editor/Vixen.Editor.Assets/Materials/MaterialImporter.cs .vxmat 1
+Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.adapter 1
+Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.at 1
+Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.digest. 1
+Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.map 1
+Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.material 1
+Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.outputs 1
+Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.parameter. 1
+Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.resolution 1
+Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.set 1
+Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.source 1
+Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.splat.at 1
+Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.splat.source 1
+Editor/Vixen.Editor.Assets/Shading/ShaderGraphSources.cs .vxshadergraph 1
+Editor/Vixen.Editor.Assets/Shading/ShaderGraphSources.cs NodeGraphAsset 1
+Editor/Vixen.Editor.Assets/Shading/ShaderGraphSources.cs NodeGraphDocument 1
+Editor/Vixen.Editor.Assets/Shading/ShaderGraphSources.cs NodeGraphModel 2
+Editor/Vixen.Editor.Assets/Shading/ShaderGraphSources.cs NodeTypeRegistry 6
+Editor/Vixen.Editor.Assets/Shading/ShaderGraphSources.cs ShaderGraphCompiler 1
+Editor/Vixen.Editor.Assets/Shading/ShaderGraphSources.cs ShaderGraphKind 1
+Editor/Vixen.Editor.Assets/Shading/ShaderGraphSources.cs ShaderGraphSource 1
+Editor/Vixen.Editor.Assets/Shading/ShaderGraphSources.cs Vixen.Editor.NodeGraph 1
+Editor/Vixen.Editor.Assets/Shading/ShaderGraphSources.cs Vixen.Editor.ShaderGraph 1
+Editor/Vixen.Editor.Assets/Terrain/TerrainAssetImporter.cs .vxfol 1
+Editor/Vixen.Editor.Assets/Terrain/TerrainAssetImporter.cs .vxfoliage 1
+Editor/Vixen.Editor.Assets/Terrain/TerrainAssetImporter.cs .vxgrass 1
+Editor/Vixen.Editor.Assets/Terrain/TerrainAssetImporter.cs .vxlayer 1
+Editor/Vixen.Editor.Assets/Terrain/TerrainAssetImporter.cs .vxspline 1
+Editor/Vixen.Editor.Assets/Vfx/VfxImporter.cs .vxvfx 1
+Editor/Vixen.Editor.Assets/Vfx/VfxImporter.cs NodeGraphAsset 2
+Editor/Vixen.Editor.Assets/Vfx/VfxImporter.cs NodeGraphDocument 1
+Editor/Vixen.Editor.Assets/Vfx/VfxImporter.cs NodeGraphModel 1
+Editor/Vixen.Editor.Assets/Vfx/VfxImporter.cs VfxGraphCompiler 1
+Editor/Vixen.Editor.Assets/Vfx/VfxImporter.cs VfxNodeLibrary 1
+Editor/Vixen.Editor.Assets/Vfx/VfxImporter.cs Vixen.Editor.NodeGraph 1
+Editor/Vixen.Editor.Assets/Vfx/VfxImporter.cs Vixen.Editor.VfxGraph 1
+Editor/Vixen.Editor.Host/EditorHost.cs ShaderGraphPreviewRenderer 2
+Editor/Vixen.Editor.Host/EditorHost.cs ShaderNodeLibrary 1
+Editor/Vixen.Editor.Host/EditorHost.cs Vixen.Editor.Profiler 1
+Editor/Vixen.Editor.Host/EditorHost.cs Vixen.Editor.ShaderGraph 1
+Editor/Vixen.Editor.Ui/Menus/EditorIcons.cs profiler 1

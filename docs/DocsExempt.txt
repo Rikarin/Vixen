@@ -1251,11 +1251,8 @@ T:Vixen.Editor.Core.DelegateCommand sweep-pending
 T:Vixen.Editor.Core.EditorContext sweep-pending
 T:Vixen.Editor.Core.EditorDocument sweep-pending
 T:Vixen.Editor.Core.EditorNames sweep-pending
-T:Vixen.Editor.Core.EditorObject sweep-pending
 T:Vixen.Editor.Core.EditorProject sweep-pending
-T:Vixen.Editor.Core.EditorProperty`1 sweep-pending
 T:Vixen.Editor.Core.IEditorCommand sweep-pending
-T:Vixen.Editor.Core.IEditorProperty sweep-pending
 T:Vixen.Editor.Core.IProjectSession service guide page owed by #1311 (doc 50 § D6: seven services, nine pages)
 T:Vixen.Editor.Core.PlayerBuildSettings sweep-pending
 T:Vixen.Editor.Core.ProjectMarker sweep-pending
@@ -1274,7 +1271,6 @@ T:Vixen.Editor.Core.Scenes.SceneFile sweep-pending
 T:Vixen.Editor.Core.Scenes.SceneLightData sweep-pending
 T:Vixen.Editor.Core.Scenes.SceneScalars sweep-pending
 T:Vixen.Editor.Core.Selection`1 sweep-pending
-T:Vixen.Editor.Core.SetPropertyCommand`1 sweep-pending
 T:Vixen.Editor.Core.TemplateCatalog sweep-pending
 T:Vixen.Editor.Core.TemplateFile sweep-pending
 T:Vixen.Editor.Debugger.CaptureCommandKind sweep-pending

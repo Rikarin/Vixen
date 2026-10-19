@@ -147,7 +147,7 @@ public class EditingTests : IDisposable {
         field.Write(SurfaceKind.Mixed);
 
         // Two decisions, two undos. Merging a dropdown would take away an undo the user is entitled
-        // to — the same rule EditorProperty.CoalescesEdits states.
+        // to — the same rule IEditMember.CoalescesEdits states.
         Assert.Equal(2, document.Stack.Depth.Value);
     }
 

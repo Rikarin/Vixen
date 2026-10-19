@@ -103,14 +103,24 @@ layout over the one the user spent the afternoon arranging.
 
 ## Load order, which is not arbitrary
 
-1. Register panels, layouts and commands.
-2. Load the preferences — **after** the commands, because the undo depth is pushed into stacks that
-   exist by then, and because the Preferences panel the previous step registered can write them back.
+1. Register panels, layouts and commands. ⚠ **This step also activates the built-in modules**
+   (`EditorModules.Standard()`): `Commands()` → `RegisterModes()` runs `PluginHost.Activate` for each,
+   so that the mode bar comes up in the order the editor ships it.
+2. Load the preferences. ⚠ **The order is real and the reason this list used to give was not.** It
+   said the undo depth "is pushed into stacks that exist by then" — but `ApplyPreferences` writes only
+   the project's global stack, the scene's stack and the open documents', all of which exist from the
+   constructor's first lines, before any command; nothing it touches is made by step 1. The hazard
+   worth knowing is the other way round: `LoadPreferences` **replaces** the `preferences` object, so
+   anything that captured the object rather than reading the field goes stale — which is why the
+   content browser's saved filters are read through a lambda over the field.
 3. Load the plugins — **after** the editor's own commands, so a plugin naming one that already
    exists is refused rather than shadowing it, and **before** the two steps below, because a
    plugin's commands own keymap defaults and a plugin's panels are named by saved layouts. The
-   user's list of switched-off plugins is read **before** anything is activated, because a plugin
-   somebody disabled because it broke the editor is the one whose `Activate` must not run.
+   user's list of switched-off plugins is read before any **disk** plugin is activated, because a
+   plugin somebody disabled because it broke the editor is the one whose `Activate` must not run.
+   ⚠ **Not before the built-in modules**: step 1 activated those already, and
+   `PluginHost.Activate` never consults the suppressed list in any case — so a built-in module
+   cannot be disabled today, whatever the plugin manager's Disable button suggests (#1288).
 4. Load the keymap — **after** the commands that own its defaults, or every override in the file
    lands on a command with no default and the file rewrites itself with the whole map in it.
 5. Load the theme tokens.

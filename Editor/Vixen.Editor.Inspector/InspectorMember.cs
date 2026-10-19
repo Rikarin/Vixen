@@ -125,7 +125,7 @@ public abstract class InspectorMember : Core.IEditMember {
     /// <summary>Whether consecutive edits to it collapse into one undo step.</summary>
     /// <remarks>
     ///     On for anything with a range, because a bounded number is a slider and a slider drag is
-    ///     one edit. Off otherwise, matching <c>EditorProperty</c>'s reasoning: two edits to a
+    ///     one edit. Off otherwise, matching <c>IEditMember.CoalescesEdits</c>' reasoning: two edits to a
     ///     dropdown are two decisions and collapsing them takes away an undo the user is entitled to.
     /// </remarks>
     public bool CoalescesEdits => Range is not null || Color is not null;

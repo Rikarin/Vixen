@@ -109,7 +109,7 @@ current folder, and the clock.
 
 | Gap | What it actually needs |
 |---|---|
-| **Commands have no wire form** | [`SetPropertyCommand<T>`](../../Editor/Vixen.Editor.Core/SetPropertyCommand.cs) holds an `EditorProperty<T>` *reference*; `RenameEntityCommand` holds an `Entity`, which is a slot and a version in one world and names nothing off-machine. The wire form addresses `(AssetId document, EntityId entity, string property)` and resolves through `SceneDocument`'s existing id table |
+| **Commands have no wire form** | [`SetValuesCommand`](../../Editor/Vixen.Editor.Core/SetValuesCommand.cs) holds an `IEditMember` and its targets *by reference* (its predecessor in this row, `SetPropertyCommand<T>`, was deleted unused — #1282); `RenameEntityCommand` holds an `Entity`, which is a slot and a version in one world and names nothing off-machine. The wire form addresses `(AssetId document, EntityId entity, string property)` and resolves through `SceneDocument`'s existing id table |
 | **`DelegateCommand` cannot be replicated at all** | It is a closure. It must be *detectably* local rather than silently local — the session says so, and CI catches new ones |
 | **Nothing in `Editor/` references `Vixen.Net`** | Layering permits it (the rules run one way and the editor is above `Vixen.Engine`); what is needed is a `Poll` site in the editor frame, which is the same "nothing is delivered outside `Poll`" contract the game gets |
 | **No authority model for documents** | `NetworkRules` is a policy over game entities. The collaboration equivalent is a lock table and a join policy, and it belongs in the new assembly rather than in `Vixen.Net` |

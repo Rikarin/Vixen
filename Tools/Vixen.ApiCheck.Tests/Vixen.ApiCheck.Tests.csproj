@@ -121,6 +121,17 @@
         <Compile Include="..\..\build\PathCaseRule.cs" Link="PathCaseRule.cs" />
 
         <!--
+            ⚠ And doc 50 § D6's instruments (#1278, #1279, #1281), linked for the reason every rule
+            above is: each is new code with no history of producing an answer, and each has an
+            exemption list or ceiling table whose shrink-only half answers "nothing" on a tree that
+            agrees with it. The tests here make every half fire against a fixture and then read this
+            checkout, so the gate is one caller of this source and these are the other.
+        -->
+        <Compile Include="..\..\build\ApplicationSizeRule.cs" Link="ApplicationSizeRule.cs" />
+        <Compile Include="..\..\build\FeatureNameRule.cs" Link="FeatureNameRule.cs" />
+        <Compile Include="..\..\build\ModuleRegistrationRule.cs" Link="ModuleRegistrationRule.cs" />
+
+        <!--
             ⚠ And `CheckStrings`' pattern set (#1203), where the argument is the case rule's exactly
             once removed: its true answer on this tree is "no object-initialiser id", so the gate
             alone cannot distinguish a clean repository from a pattern that stopped matching — and

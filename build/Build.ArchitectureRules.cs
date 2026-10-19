@@ -141,7 +141,10 @@ partial class Build {
     Target CheckArchitecture => definition => definition
         .Description(
             "Fails on a layer violation, a banned IL-rewriting package, editor-only code in a runtime "
-            + "assembly, or an editor plugin that reaches the editor application"
+            + "assembly, an editor plugin that reaches the editor application, a shell assembly naming a feature, a "
+            + "module registering round PluginContext, "
+            + "or an EditorApplication part "
+            + "over its ceiling"
         )
         .Executes(() => {
                 // ⚠ The eight layers and the three exclusions live in `PluginReferenceRule` and this
@@ -417,6 +420,100 @@ partial class Build {
                         RootDirectory,
                         projects.Select(project => project.ToString())
                     )
+                );
+
+                // Doc 50 § D6: the application's parts may only shrink. Doc 36's "under 800" was
+                // recorded rising seven times and failed nothing; a ceiling at today's size fails
+                // the first commit that grows it, and a row left above a shrunk file fails too.
+                var applicationParts = ApplicationSizeRule.Measure(RootDirectory);
+
+                if (UpdateExemptions) {
+                    var before = ApplicationSizeRule.Read(RootDirectory);
+
+                    System.IO.File.WriteAllText(RootDirectory / ApplicationSizeRule.TableFile, ApplicationSizeRule.Render(applicationParts), new System.Text.UTF8Encoding(false));
+
+                    foreach (var (file, lines) in applicationParts) {
+                        if (before.TryGetValue(file, out var ceiling) && lines > ceiling) {
+                            Log.Warning("{File} went UP, {Ceiling} → {Lines}: the application grew.", file, ceiling, lines);
+                        }
+                    }
+
+                    Log.Warning("{Table} has been rewritten from the tree. Read the diff before committing.", ApplicationSizeRule.TableFile);
+                }
+
+                var applicationCeilings = ApplicationSizeRule.Read(RootDirectory);
+                var sizeVacuity = ApplicationSizeRule.Vacuity(applicationParts, applicationCeilings);
+
+                Assert.True(sizeVacuity is null, sizeVacuity ?? "");
+
+                violations.AddRange(ApplicationSizeRule.Violations(applicationParts, applicationCeilings));
+
+                // Doc 50 § D6: a shell assembly naming what a feature owns. Project references cannot
+                // see an extension literal, a panel id or a command id, and doc 36 § P3 recorded a
+                // fully-qualified `case` pattern compiling with no diagnostic once the reference went —
+                // so this reads source, `.cs` and `.vxml`, against a list that may only shrink.
+                var featureVocabulary = FeatureNameRule.Measure(RootDirectory);
+                var featureVacuity = FeatureNameRule.Vacuity(featureVocabulary);
+
+                Assert.True(featureVacuity is null, featureVacuity ?? "");
+
+                var featureFindings = FeatureNameRule.Scan(RootDirectory, featureVocabulary);
+
+                if (UpdateExemptions) {
+                    var before = FeatureNameRule.Exempt(RootDirectory);
+
+                    System.IO.File.WriteAllText(
+                        RootDirectory / FeatureNameRule.ExemptionFile,
+                        FeatureNameRule.Render(featureFindings, before),
+                        new System.Text.UTF8Encoding(false)
+                    );
+
+                    foreach (var finding in featureFindings.Where(finding =>
+                                 !before.TryGetValue(finding.Key, out var row) || finding.Count > row.Count)) {
+                        Log.Warning("The shell learned a feature name: {File} {Name} {Count}", finding.File, finding.Name, finding.Count);
+                    }
+
+                    Log.Warning("{File} has been rewritten from the tree. Read the diff before committing.", FeatureNameRule.ExemptionFile);
+                }
+
+                violations.AddRange(FeatureNameRule.Violations(featureFindings, FeatureNameRule.Exempt(RootDirectory)));
+
+                // Doc 50 § D6 and § F7: a module registering straight into the shell, a theme or the
+                // services bag rather than through PluginContext, whose wrappers record the removal.
+                var moduleSubjects = ModuleRegistrationRule.Subjects(RootDirectory);
+                var moduleVacuity = ModuleRegistrationRule.Vacuity(moduleSubjects);
+
+                Assert.True(moduleVacuity is null, moduleVacuity ?? "");
+
+                var moduleFindings = ModuleRegistrationRule.Scan(RootDirectory, moduleSubjects);
+
+                if (UpdateExemptions) {
+                    System.IO.File.WriteAllText(
+                        RootDirectory / ModuleRegistrationRule.ExemptionFile,
+                        ModuleRegistrationRule.Render(moduleFindings, ModuleRegistrationRule.Exempt(RootDirectory)),
+                        new System.Text.UTF8Encoding(false)
+                    );
+
+                    Log.Warning("{File} has been rewritten from the tree. Read the diff before committing.", ModuleRegistrationRule.ExemptionFile);
+                }
+
+                violations.AddRange(ModuleRegistrationRule.Violations(moduleFindings, ModuleRegistrationRule.Exempt(RootDirectory)));
+
+                Log.Information(
+                    "Module registration: {Subjects} projects declare a module; {Rows} rows go round PluginContext.",
+                    moduleSubjects.Count,
+                    moduleFindings.Count
+                );
+
+                Log.Information(
+                    "Feature names: {Features} feature assemblies own {Types} types, {Extensions} extensions, {Panels} panel ids "
+                    + "and {Prefixes} command prefixes; the shell holds {Rows} exempt rows.",
+                    featureVocabulary.Features.Count,
+                    featureVocabulary.Types.Count,
+                    featureVocabulary.Extensions.Count,
+                    featureVocabulary.PanelIds.Count,
+                    featureVocabulary.Prefixes.Count,
+                    featureFindings.Count
                 );
 
                 foreach (var violation in violations) {

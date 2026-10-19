@@ -110,7 +110,7 @@ public sealed class TransformTargetsCommand : IEditorCommand {
     /// <remarks>
     ///     Two drags of the same objects do not merge. Each is a complete gesture that ended when the
     ///     button came up, and collapsing two of them would take away an undo the user is entitled to
-    ///     — the same reasoning <c>EditorProperty.CoalescesEdits</c> gives for a dropdown.
+    ///     — the same reasoning <c>IEditMember.CoalescesEdits</c> gives for a dropdown.
     /// </remarks>
     public bool TryMergeWith(IEditorCommand previous, [NotNullWhen(true)] out IEditorCommand? merged) {
         merged = null;
