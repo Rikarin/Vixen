@@ -90,7 +90,6 @@ public static class BuiltInImporters {
                 // the registry. A warning is not a gate; the gate is
                 // EveryAttributedImporterTests.EveryImporterInThisAssemblyIsRegistered, which walks
                 // this assembly's [Importer] types and fails on the one that is not here.
-                .Add(new Water.WaterWavesImporter())
                 .Add(new Ai.BehaviorTreeImporter())
                 .Add(new Ai.UtilitySetImporter())
                 .Add(new Ai.QueryImporter())

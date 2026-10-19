@@ -13,6 +13,7 @@ using Vixen.Editor.Core;
 using Vixen.Editor.ShaderGraph;
 using Vixen.Editor.Terrain;
 using Vixen.Editor.VfxGraph;
+using Vixen.Editor.Water;
 using Vixen.Live;
 
 namespace Vixen.Cli;
@@ -51,6 +52,7 @@ public static class VixenCommand {
         VfxGraphImporters.Link(linked);
         ShaderGraphImporters.Link(linked);
         TerrainImporters.Link(linked);
+        WaterImporters.Link(linked);
     }
 
     /// <summary>Builds the command line.</summary>

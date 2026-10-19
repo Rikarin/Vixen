@@ -118,7 +118,8 @@ static class HostImporterMap {
         ".vxlayer TerrainAssetImporter",
         ".vxshadergraph ShaderGraphImporter",
         ".vxspline TerrainAssetImporter",
-        ".vxvfx VfxImporter"
+        ".vxvfx VfxImporter",
+        ".vxwaves WaterWavesImporter"
     ];
 
     /// <summary>A registry's map, in <see cref="Expected" />'s form and order.</summary>

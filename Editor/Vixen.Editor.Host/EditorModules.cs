@@ -61,6 +61,7 @@ static class EditorModules {
         VfxGraphImporters.Link(linked);
         ShaderGraphImporters.Link(linked);
         TerrainImporters.Link(linked);
+        WaterImporters.Link(linked);
     }
 
     /// <summary>What the editor ships with, in the order it registers them.</summary>

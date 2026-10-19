@@ -25,6 +25,7 @@
         <ProjectReference Include="..\..\Editor\Vixen.Editor.VfxGraph\Vixen.Editor.VfxGraph.csproj" />
         <ProjectReference Include="..\..\Editor\Vixen.Editor.ShaderGraph\Vixen.Editor.ShaderGraph.csproj" />
         <ProjectReference Include="..\..\Editor\Vixen.Editor.Terrain\Vixen.Editor.Terrain.csproj" />
+        <ProjectReference Include="..\..\Editor\Vixen.Editor.Water\Vixen.Editor.Water.csproj" />
     </ItemGroup>
 
     <ItemGroup>
