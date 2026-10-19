@@ -1025,7 +1025,6 @@ T:Vixen.Editor.AssetEditors.Animation.ShapeVocabularyView sweep-pending
 T:Vixen.Editor.AssetEditors.Animation.StateMapView sweep-pending
 T:Vixen.Editor.AssetEditors.Animation.VariationHarnessView sweep-pending
 T:Vixen.Editor.AssetEditors.Animation.VocabularyMember sweep-pending
-T:Vixen.Editor.AssetEditors.AssetEditorRequest sweep-pending
 T:Vixen.Editor.AssetEditors.AssetEditorTheme sweep-pending
 T:Vixen.Editor.AssetEditors.AssetFile sweep-pending
 T:Vixen.Editor.AssetEditors.Audio.AudioMixerDocument sweep-pending

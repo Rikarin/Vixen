@@ -4,7 +4,7 @@ slug: editor/documents-and-views
 kind: guide
 area: Editor
 summary: Opening an asset is two registrations — a DocumentKind with IDocumentHost says which files and how a document opens, a DocumentView with IWorkspace says what shows it — joined by the document's type and held together by a pairing test.
-api: [T:Vixen.Editor.Core.IDocumentHost, T:Vixen.Editor.Core.DocumentHost, T:Vixen.Editor.Core.DocumentKind, T:Vixen.Editor.Core.DocumentRequest, T:Vixen.Editor.Ui.Documents.IWorkspace, T:Vixen.Editor.Ui.Documents.EditorWorkspace, T:Vixen.Editor.Ui.Documents.DocumentView, T:Vixen.Editor.Ui.Documents.DocumentView`1]
+api: [T:Vixen.Editor.Core.IDocumentHost, T:Vixen.Editor.Core.DocumentHost, T:Vixen.Editor.Core.DocumentKind, T:Vixen.Editor.Core.DocumentRequest, T:Vixen.Editor.Ui.Documents.IWorkspace, T:Vixen.Editor.Ui.Documents.EditorWorkspace, T:Vixen.Editor.Ui.Documents.DocumentView, T:Vixen.Editor.Ui.Documents.DocumentView`1, T:Vixen.Editor.Ui.Documents.ITickingView, T:Vixen.Editor.SceneView.IViewportFrame]
 tags: [editor, documents, plugins, services, panels]
 since: 0.1
 status: preview
@@ -82,6 +82,17 @@ focus is in — the editor's documents are `IEditableDocument`s since #656 — a
 
 ⚠ **`Opened` is not raised for a document that was already open**, and not from the document's own
 constructor, which would hand a subscriber a half-built document.
+
+**Two contracts the application reads instead of naming a type** (#1297). A document the viewport
+can draw through implements `IViewportFrame` — its expanded compositor and a `FrameChanged` — and
+opening one points the panes at it. A view that moves by itself — a playing timeline, a simulating
+effect — implements `ITickingView`, and the application steps every one it finds in the tree once a
+frame. Both were type tests on the asset editors' own classes, and the two `case` patterns for the
+VFX graph and the sequence were the names doc 36 found the compiler never reports when the
+reference goes.
+
+**A view that links to another asset asks `IWorkspace.Open`** — a material's "Open shader graph", a
+group picked from the Addressables list — and the host puts the asset in a tab of its own.
 
 ## Still owed
 
