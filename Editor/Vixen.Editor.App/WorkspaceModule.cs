@@ -179,9 +179,8 @@ sealed class WorkspaceModule : IEditorPlugin {
                         new EditorCommand(
                             id,
 
-                            // ⚠ A null id, which `Strings.Get` answers with the source text: a file
-                            // name is not a string a translator should ever be shown.
-                            new StringId(null!, Path.GetFileName(location)),
+                            // ⚠ A file name, never a translator's word — see `Untranslated`.
+                            Untranslated.Title(Path.GetFileName(location)),
                             () => {
                                 if (Find(project, location) is { } entry) {
                                     workspace.Open(entry.Guid);

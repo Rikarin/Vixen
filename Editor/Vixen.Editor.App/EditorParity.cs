@@ -223,11 +223,8 @@ sealed partial class EditorApplication {
             Verb(
                 RecentCommand(path),
 
-                // ⚠ A null id, which `Strings.Get` answers with the source text. A directory the
-                // user happens to have called "Prototype" is not a string a translator should ever
-                // be shown, and giving it a catalogue id would put every project name they have
-                // opened into the localisation vocabulary.
-                new StringId(null!, entry.Name),
+                // ⚠ The user's name for it, never a translator's word — see `Untranslated`.
+                Untranslated.Title(entry.Name),
                 EditorStrings.CategoryFile,
                 () => session.RequestProject(path),
 
