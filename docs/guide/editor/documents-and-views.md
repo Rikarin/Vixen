@@ -35,6 +35,15 @@ document is a control with nothing behind it". That is right as a *product* rule
 could live in no assembly the application did not have to reference by name. The rule is now a test,
 `DocumentPairingTests`, over a running editor's registries — modules included.
 
+What the two deliberately do **not** do:
+
+- **`IDocumentHost` builds no element.** It knows the project and the document; what shows one is
+  the workspace's. Nor does it open what is not an asset — it opens by asset id, so the project
+  settings window opens its `SettingsDocument` itself.
+- **`IWorkspace` knows no file.** It finds a view by the document's *type*, never by extension; which
+  file becomes which document is the host's question.
+- **Neither holds the panels or the layouts yet** — see Still owed.
+
 ## Using it
 
 A kind declares every type it may open; a view is found for each by that type.

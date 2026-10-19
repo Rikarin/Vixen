@@ -346,10 +346,11 @@ context.Owns(importers.Add(new WidgetImporter()));
 rather than when you contribute — so a plugin does not fail to load because of an importer that has
 already been withdrawn. Contributions are folded in after the built-ins and before the fallback.
 
-⚠ **A contributed importer does not reach an out-of-process compiler worker.** The asset compiler
-starts workers for crash isolation and each builds its own registry; a worker has not loaded your
-plugin, so an asset only your importer claims fails there. In the editor, and in the CLI's in-process
-path, it works.
+⚠ **A contributed importer reaches an out-of-process compiler worker too**, which this page used to
+deny. The asset compiler starts workers for crash isolation and each builds its own registry; the
+pool names the files your importers came out of on each worker's command line, and the worker loads
+them. The one importer that cannot cross is one whose assembly has no file. See
+[contributing an importer](importer-contributions.md).
 
 ⚠ **This is one thing a project script cannot do.** An importer is named by its settings type's
 `[DataContract]` alias, which a source generator writes — and [editor scripts](editor-scripts.md) are
