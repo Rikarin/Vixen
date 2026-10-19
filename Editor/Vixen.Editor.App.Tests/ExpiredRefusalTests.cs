@@ -196,9 +196,9 @@ public class ExpiredRefusalTests {
         var rows = Buttons(fixture).Where(static button => button.HasClass("choice")).Select(static button => button.Label).ToList();
 
         Assert.True(rows.Count > 6, $"only {rows.Count} kinds are listed, so nothing here is below the fold and this proves nothing");
-        Assert.Equal(last.Title, rows[^1]);
+        Assert.Equal(last.Title.Text, rows[^1]);
 
-        fixture.Answer(last.Title);
+        fixture.Answer(last.Title.Text);
         fixture.Settle();
 
         Assert.Contains(

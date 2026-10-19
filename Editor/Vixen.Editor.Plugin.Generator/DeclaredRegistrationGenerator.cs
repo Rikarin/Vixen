@@ -381,7 +381,7 @@ public sealed class DeclaredRegistrationGenerator : IIncrementalGenerator {
                 && method.Parameters.Length == 2
                 && Is(method.Parameters[0].Type, "Vixen.Ui.UiElement")
                 && Is(method.Parameters[1].Type, "Vixen.Editor.Core.EditTarget"),
-            static (_, target) =>
+            static (_, target, _) =>
                 $"context.Owns(registry.Add(new global::Vixen.Editor.Inspector.CustomInspector(declared.Target, {target}, declared.Order)));"
         );
 
@@ -433,10 +433,11 @@ public sealed class DeclaredRegistrationGenerator : IIncrementalGenerator {
             "[CreateAssetMenu]",
             "`static string ()`. It returns what to write into the new file, which is the one thing the menu line cannot say for itself.",
             static method => method.ReturnType.SpecialType == SpecialType.System_String && method.Parameters.Length == 0,
-            static (_, target) =>
-                "var id = string.IsNullOrEmpty(declared.Id) ? global::Vixen.Editor.Plugin.DeclaredMenus.Derive(\"assets.create\", declared.Title) : declared.Id;\n"
-                + "var name = string.IsNullOrEmpty(declared.DefaultName) ? declared.Title : declared.DefaultName;\n"
-                + "context.Owns(registry.Add(new global::Vixen.Editor.Core.NewAssetKind(id, declared.Title, declared.Extension, name, Opens: declared.Opens, Order: declared.Order) {\n"
+            static (_, target, title) =>
+                "var id = string.IsNullOrEmpty(declared.Id) ? global::Vixen.Editor.Plugin.DeclaredMenus.Derive(\"assets.create\", declared.Text) : declared.Id;\n"
+                + "var name = string.IsNullOrEmpty(declared.DefaultName) ? declared.Text : declared.DefaultName;\n"
+                + $"var title = {title ?? "new global::Vixen.Ui.StringId(\"editor.command.\" + id, declared.Text)"};\n"
+                + "context.Owns(registry.Add(new global::Vixen.Editor.Core.NewAssetKind(id, title, declared.Extension, name, Opens: declared.Opens, Order: declared.Order) {\n"
                 + $"    Build = static () => {target}() ?? string.Empty\n"
                 + "}));",
 
@@ -445,7 +446,8 @@ public sealed class DeclaredRegistrationGenerator : IIncrementalGenerator {
             static attribute => Text(attribute.ConstructorArguments, 1) is var extension
                 && !extension.StartsWith('.')
                     ? $"'{extension}' is not an extension. It is what the new file is called after the dot, including it — \".dialogue\"."
-                    : null
+                    : null,
+            titled: true
         );
 
     // ================================================================= [Overlay]
@@ -460,9 +462,11 @@ public sealed class DeclaredRegistrationGenerator : IIncrementalGenerator {
                 && method.Parameters.Length == 2
                 && Is(method.Parameters[0].Type, "Vixen.Ui.UiElement")
                 && Is(method.Parameters[1].Type, "Vixen.Editor.SceneView.SceneViewport"),
-            static (_, target) =>
-                "var id = string.IsNullOrEmpty(declared.Id) ? global::Vixen.Editor.Plugin.DeclaredMenus.Derive(\"overlays\", declared.Title) : declared.Id;\n"
-                + $"context.Owns(registry.Add(new global::Vixen.Editor.SceneView.SceneOverlay(id, declared.Title, {target}, declared.Corner, declared.Order)));"
+            static (_, target, title) =>
+                "var id = string.IsNullOrEmpty(declared.Id) ? global::Vixen.Editor.Plugin.DeclaredMenus.Derive(\"overlays\", declared.Text) : declared.Id;\n"
+                + $"var title = {title ?? "new global::Vixen.Ui.StringId(\"editor.overlay.\" + id, declared.Text)"};\n"
+                + $"context.Owns(registry.Add(new global::Vixen.Editor.SceneView.SceneOverlay(id, title, {target}, declared.Corner, declared.Order)));",
+            titled: true
         );
 
     // ============================================================== [DrawGizmo]
@@ -479,7 +483,7 @@ public sealed class DeclaredRegistrationGenerator : IIncrementalGenerator {
                 && method.Parameters[1].Type.SpecialType == SpecialType.System_Object
                 && Is(method.Parameters[2].Type, "Vixen.Editor.SceneView.GizmoPlacement")
                 && method.Parameters[3].Type.SpecialType == SpecialType.System_Boolean,
-            static (_, target) =>
+            static (_, target, _) =>
                 $"context.Owns(registry.Add(new global::Vixen.Editor.SceneView.ComponentGizmo(declared.Target, {target}, declared.SelectedOnly, declared.Order)));"
         );
 
@@ -529,8 +533,9 @@ public sealed class DeclaredRegistrationGenerator : IIncrementalGenerator {
         string attributeName,
         string shape,
         Func<IMethodSymbol, bool> fits,
-        Func<IMethodSymbol, string, string> register,
-        Func<AttributeData, string?>? invalid = null
+        Func<IMethodSymbol, string, string?, string> register,
+        Func<AttributeData, string?>? invalid = null,
+        bool titled = false
     ) {
         if (syntax.TargetSymbol is not IMethodSymbol method) {
             return ImmutableArray<Declaration>.Empty;
@@ -556,7 +561,20 @@ public sealed class DeclaredRegistrationGenerator : IIncrementalGenerator {
                 problems.Add(Problem(Unreachable, where,
                     $"'{name}' carries {attributeName}, and the generated Declared class cannot name it or the type it names. Make every type involved at least internal."));
             } else {
-                statement = $"var declared = {Construct(attribute)};\n{register(method, Qualified(method.ContainingType) + "." + method.Name)}";
+                // ⚠ The title is resolved by the scan's rule — `EditorMenu`'s (#1284) — so a name that
+                // reaches no StringId is VXP0003 here and a refused plugin there, never a literal.
+                var title = titled
+                    ? Title(
+                        Named(attribute, "Title") as string ?? "",
+                        Named(attribute, "Strings") as ITypeSymbol,
+                        syntax.SemanticModel.Compilation,
+                        name,
+                        where,
+                        problems
+                    )
+                    : null;
+
+                statement = $"var declared = {Construct(attribute)};\n{register(method, Qualified(method.ContainingType) + "." + method.Name, title)}";
             }
 
             builder.Add(Make(method.ContainingType, group, method, attribute, statement, problems));

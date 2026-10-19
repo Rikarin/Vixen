@@ -143,6 +143,19 @@ public static class TerrainStrings {
     /// <summary>The <c>Splines</c> panel.</summary>
     public static StringId PanelSplines { get; } = new("editor.panel.splines", "Splines");
 
+    // The three Create ▸ lines `TerrainAssetKinds` declares, named by `[CreateAssetMenu(Title = …)]`
+    // since #1284. The ids are the ones the editor built round the command id before, so a catalogue
+    // written against those still finds them.
+
+    /// <summary>Create ▸ Terrain Layer.</summary>
+    public static StringId CreateTerrainLayer { get; } = new("editor.command.assets.create-terrain-layer", "Terrain Layer");
+
+    /// <summary>Create ▸ Foliage Type.</summary>
+    public static StringId CreateFoliageType { get; } = new("editor.command.assets.create-foliage", "Foliage Type");
+
+    /// <summary>Create ▸ Grass Type.</summary>
+    public static StringId CreateGrassType { get; } = new("editor.command.assets.create-grass", "Grass Type");
+
     /// <summary>What a translator's template for these two toolsets holds.</summary>
     /// <remarks>
     ///     Spread from both families, which is what puts every member of them in the template. A
@@ -161,6 +174,9 @@ public static class TerrainStrings {
         PanelFoliage,
         PanelGrass,
         PanelGrowth,
-        PanelSplines
+        PanelSplines,
+        CreateTerrainLayer,
+        CreateFoliageType,
+        CreateGrassType
     ];
 }

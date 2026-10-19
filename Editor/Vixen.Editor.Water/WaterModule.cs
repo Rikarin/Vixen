@@ -112,7 +112,7 @@ public sealed partial class WaterModule : IEditorPlugin {
             registry.Add(
                 new NewAssetKind(
                     CreateWavesCommand,
-                    "Sea state",
+                    WaterStrings.Commands[CreateWavesCommand],
                     WaterWavesAsset.Extension,
                     "New Sea State",
                     Opens: false

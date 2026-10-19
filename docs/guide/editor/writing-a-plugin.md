@@ -200,7 +200,9 @@ once. `Separator = true` puts a separator above a line, and `Title = nameof(MySt
 line's title in a declaration class, so a localised verb can be declared at all — resolved in the class
 `Strings = typeof(…)` names, or else in the one class of your assembly whose name ends in `Strings`
 that declares it. A title that resolves to nothing refuses the plugin with a diagnostic rather than
-showing the member's name.
+showing the member's name. `[CreateAssetMenu]` and `[Overlay]` take the same `Title` and `Strings`,
+by the same rule; their first argument is then only what a derived id is made from, and the line or
+header follows a language switch while the editor runs.
 
 `[EditorSubmenu("Scene/Geometry", Title = …, After = "editor.menu.elements")]`, on any class, declares
 a submenu: its translated title and where among its siblings it goes. Without one, a path makes the

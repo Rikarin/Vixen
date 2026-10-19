@@ -16,7 +16,8 @@ namespace Vixen.Editor.Plugin.Generator.Tests;
 ///         title and an explicit id, a verb whose id is derived, a line for a command registered
 ///         elsewhere, a computed run of lines, a declared submenu with a title, a placement and a
 ///         priority, an undeclared submenu under a declared one, a separator, the seven contribution
-///         kinds with a non-default named argument each, and an icon.
+///         kinds with a non-default named argument each, an icon, and a Create ▸ line and an overlay
+///         whose titles are declarations (#1284) beside the two whose titles are text.
 ///     </para>
 /// </remarks>
 public static class DeclaredFixture {
@@ -38,6 +39,10 @@ public static class DeclaredFixture {
             public static StringId MenuThings { get; } = new("fixture.menu.things", "Things");
 
             public static StringId CommandBake { get; } = new("fixture.command.bake", "Bake It");
+
+            public static StringId CreateLedger { get; } = new("fixture.create.ledger", "Ledger Book");
+
+            public static StringId OverlayCompass { get; } = new("fixture.overlay.compass", "Compass Rose");
         }
 
         [EditorIcon("M0 0 L10 0 L10 10 Z", Tint = "#ff0000", ViewBox = 10f, Order = 2)]
@@ -74,6 +79,12 @@ public static class DeclaredFixture {
 
             [Overlay("Declared Overlay", Corner = OverlayCorner.BottomLeft)]
             public static void BuildOverlay(UiElement host, SceneViewport pane) { }
+
+            [CreateAssetMenu("Ledger", ".ledger", Title = nameof(FixtureStrings.CreateLedger))]
+            public static string NewLedger() => "rows: []\n";
+
+            [Overlay("Compass", Title = nameof(FixtureStrings.OverlayCompass), Id = "fixture.compass")]
+            public static void BuildCompass(UiElement host, SceneViewport pane) { }
 
             [DrawGizmo(typeof(Widget), SelectedOnly = true, Order = 5)]
             public static void DrawWidgetGizmo(GizmoDraw draw, object component, GizmoPlacement placement, bool selected) { }

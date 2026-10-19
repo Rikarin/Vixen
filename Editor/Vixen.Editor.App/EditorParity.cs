@@ -1343,7 +1343,7 @@ sealed partial class EditorApplication {
             var chosen = await ChooseAsync(
                 "What kind of asset?",
                 kinds,
-                static kind => kind.Title,
+                static kind => kind.Title.Text,
                 static kind => kind.Extension
             ).ConfigureAwait(true);
 

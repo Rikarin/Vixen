@@ -66,8 +66,8 @@ sealed class DeclaredContributions : IContributionScanner {
             Inspectors(context, registry, type);
             Drawer(context, type);
             Tool(context, registry, type);
-            AssetKinds(context, registry, type);
-            Overlays(context, registry, type);
+            AssetKinds(types, context, registry, type);
+            Overlays(types, context, registry, type);
             Gizmos(context, registry, type);
             Icons(context, registry, type);
         }
@@ -341,7 +341,7 @@ sealed class DeclaredContributions : IContributionScanner {
 
     // ========================================================= [CreateAssetMenu]
 
-    static void AssetKinds(PluginContext context, IEditorRegistry registry, Type type) {
+    static void AssetKinds(IReadOnlyList<Type> types, PluginContext context, IEditorRegistry registry, Type type) {
         foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Static)) {
             if (method.GetCustomAttribute<CreateAssetMenuAttribute>() is not { } declared) {
                 continue;
@@ -363,10 +363,16 @@ sealed class DeclaredContributions : IContributionScanner {
             }
 
             var id = string.IsNullOrEmpty(declared.Id)
-                ? Derive("assets.create", declared.Title)
+                ? Derive("assets.create", declared.Text)
                 : declared.Id;
 
-            var name = string.IsNullOrEmpty(declared.DefaultName) ? declared.Title : declared.DefaultName;
+            var name = string.IsNullOrEmpty(declared.DefaultName) ? declared.Text : declared.DefaultName;
+
+            // ⚠ A declaration when it names one, so the line follows a live language switch (#1284);
+            // otherwise the text under the id the command's title always had, which is what a script
+            // with no catalogue means. The generator writes the same two branches.
+            var title = Title(types, declared.Title, declared.Strings, $"{type.Name}.{method.Name}")
+                ?? Untranslated("editor.command.", id, declared.Text);
 
             // ⚠ A delegate rather than the string it returns, so the method runs per file rather than
             // once when the plugin loaded — see `NewAssetKind.Build`. Invoked rather than turned into
@@ -374,7 +380,7 @@ sealed class DeclaredContributions : IContributionScanner {
             // outlive the collectible context the method belongs to.
             context.Owns(
                 registry.Add(
-                    new NewAssetKind(id, declared.Title, declared.Extension, name, Opens: declared.Opens, Order: declared.Order) {
+                    new NewAssetKind(id, title, declared.Extension, name, Opens: declared.Opens, Order: declared.Order) {
                         Build = () => (string?) method.Invoke(null, null) ?? string.Empty
                     }
                 )
@@ -384,7 +390,7 @@ sealed class DeclaredContributions : IContributionScanner {
 
     // ================================================================= [Overlay]
 
-    static void Overlays(PluginContext context, IEditorRegistry registry, Type type) {
+    static void Overlays(IReadOnlyList<Type> types, PluginContext context, IEditorRegistry registry, Type type) {
         foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Static)) {
             if (method.GetCustomAttribute<OverlayAttribute>() is not { } declared) {
                 continue;
@@ -403,11 +409,13 @@ sealed class DeclaredContributions : IContributionScanner {
                 );
             }
 
-            var id = string.IsNullOrEmpty(declared.Id) ? Derive("overlays", declared.Title) : declared.Id;
+            var id = string.IsNullOrEmpty(declared.Id) ? Derive("overlays", declared.Text) : declared.Id;
+            var title = Title(types, declared.Title, declared.Strings, $"{type.Name}.{method.Name}")
+                ?? Untranslated("editor.overlay.", id, declared.Text);
             var build = method.CreateDelegate<Action<UiElement, SceneViewport>>();
 
             context.Owns(
-                registry.Add(new SceneOverlay(id, declared.Title, build, declared.Corner, declared.Order))
+                registry.Add(new SceneOverlay(id, title, build, declared.Corner, declared.Order))
             );
         }
     }
@@ -486,6 +494,15 @@ sealed class DeclaredContributions : IContributionScanner {
         type is { IsClass: true, IsAbstract: false } && type.GetConstructor(Type.EmptyTypes) is not null
             ? Activator.CreateInstance(type)
             : null;
+
+    /// <summary>A title for a declaration that names no <c>StringId</c>: its text, under an id built from the contribution's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A run-time id on purpose, and in one place so <c>CheckStrings</c> counts it once.</b> It
+    ///     is what a script with no catalogue means — the words it wrote, which no template can hold —
+    ///     and <c>DeclaredMenus</c> builds a verb's the same way. A catalogue that wants the line
+    ///     translated names a declaration with <c>Title</c> instead (#1284).
+    /// </remarks>
+    static StringId Untranslated(string prefix, string id, string text) => new StringId(prefix + id, text);
 
     /// <summary>The id something with no declared one gets — <see cref="DeclaredMenus.Derive" />, shared.</summary>
     static string Derive(string prefix, string text) => DeclaredMenus.Derive(prefix, text);

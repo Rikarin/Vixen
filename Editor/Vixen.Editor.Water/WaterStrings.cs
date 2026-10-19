@@ -60,7 +60,10 @@ public static class WaterStrings {
             new("water.showInfo", "Show Water Info Channels"),
             new("water.showFlow", "Show Water Flow"),
             new("water.showBuoyancy", "Show Buoyancy"),
-            new("water.showRipples", "Show Water Ripples")
+            new("water.showRipples", "Show Water Ripples"),
+
+            // The sea state's Create ▸ line, a declaration since #1284.
+            new(WaterModule.CreateWavesCommand, "Sea state")
         ]
     );
 

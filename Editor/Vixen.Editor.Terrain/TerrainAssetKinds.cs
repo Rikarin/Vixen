@@ -41,7 +41,14 @@ static class TerrainAssetKinds {
     ///     height and one tiled at sixteen reads as a blur — and the number an author changes first is
     ///     the one they can already see the effect of.
     /// </remarks>
-    [CreateAssetMenu("Terrain Layer", ".vxlayer", DefaultName = "New Terrain Layer", Opens = false, Id = "assets.create-terrain-layer")]
+    [CreateAssetMenu(
+        "Terrain Layer",
+        ".vxlayer",
+        Title = nameof(TerrainStrings.CreateTerrainLayer),
+        DefaultName = "New Terrain Layer",
+        Opens = false,
+        Id = "assets.create-terrain-layer"
+    )]
     public static string NewLayer() => """
         name: New Layer
         tilingMetres: 4
@@ -49,7 +56,14 @@ static class TerrainAssetKinds {
 
     /// <summary>A stored foliage type with a spacing, and no mesh yet.</summary>
     /// <returns>The new file's text.</returns>
-    [CreateAssetMenu("Foliage Type", ".vxfoliage", DefaultName = "New Foliage Type", Opens = false, Id = "assets.create-foliage")]
+    [CreateAssetMenu(
+        "Foliage Type",
+        ".vxfoliage",
+        Title = nameof(TerrainStrings.CreateFoliageType),
+        DefaultName = "New Foliage Type",
+        Opens = false,
+        Id = "assets.create-foliage"
+    )]
     public static string NewFoliage() => """
         name: New Foliage
         radius: 2
@@ -63,7 +77,14 @@ static class TerrainAssetKinds {
     ///     conventional one and the importer's own <c>Validate()</c> is what says when it does not
     ///     match the terrain — which is a message beside the file rather than an empty hillside.
     /// </remarks>
-    [CreateAssetMenu("Grass Type", ".vxgrass", DefaultName = "New Grass Type", Opens = false, Id = "assets.create-grass")]
+    [CreateAssetMenu(
+        "Grass Type",
+        ".vxgrass",
+        Title = nameof(TerrainStrings.CreateGrassType),
+        DefaultName = "New Grass Type",
+        Opens = false,
+        Id = "assets.create-grass"
+    )]
     public static string NewGrass() => """
         name: New Grass
         layer: Grass

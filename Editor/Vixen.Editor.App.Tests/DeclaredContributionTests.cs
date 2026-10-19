@@ -222,7 +222,7 @@ public class DeclaredContributionTests {
         // ── Six: the overlay, asserted on the pane rather than in the registry. ─────────────────
         var overlay = Assert.Single(registry.All<SceneOverlay>(), entry => entry.Id == "declared.overlay");
 
-        Assert.Equal("Declared Overlay", overlay.Title);
+        Assert.Equal("Declared Overlay", overlay.Title.Source);
         Assert.Equal(OverlayCorner.BottomLeft, overlay.Corner);
 
         // ⚠ The registry entry alone would pass with `ViewportChrome` never reading it — which is

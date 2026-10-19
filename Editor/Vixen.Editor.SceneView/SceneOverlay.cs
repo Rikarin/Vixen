@@ -28,7 +28,7 @@ public enum OverlayCorner : byte {
 
 /// <summary>A panel floating over a scene pane.</summary>
 /// <param name="Id">What everything refers to it by. Prefix a plugin's with the plugin's own id.</param>
-/// <param name="Title">What its header says.</param>
+/// <param name="Title">What its header says, as a declaration — read in the current language on every frame (#1284).</param>
 /// <param name="Build">Fills a host element for one pane. Called once per pane.</param>
 /// <param name="Corner">Where it sits.</param>
 /// <param name="Order">Where among the overlays sharing a corner, low first.</param>
@@ -54,7 +54,7 @@ public enum OverlayCorner : byte {
 /// </remarks>
 public sealed record SceneOverlay(
     string Id,
-    string Title,
+    StringId Title,
     Action<UiElement, SceneViewport> Build,
     OverlayCorner Corner = OverlayCorner.TopRight,
     int Order = 0
@@ -79,25 +79,38 @@ public sealed record SceneOverlay(
 ///         <c>CustomInspectorAttribute</c>, and it matches the rest of the set.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Read by a scan of the assembly that declared it, and only for a plugin or a project
-///         script</b> — see <c>CustomInspectorAttribute</c> for why that is bounded rather than the
-///         assembly scanning ADR-002 refuses. In-tree code registers a <see cref="SceneOverlay" />
-///         directly.
+///         ⚠ <b>Read two ways</b>: by a scan of the assembly that declared it, for a plugin or a
+///         project script — see <c>CustomInspectorAttribute</c> for why that is bounded rather than
+///         the assembly scanning ADR-002 refuses — and, in-tree, by the generated
+///         <c>Declared.Register</c>.
+///     </para>
+///     <para>
+///         <b>The header's words are a declaration when there is a catalogue</b> (#1284):
+///         <see cref="Title" /> names a <c>StringId</c> exactly as <c>EditorMenuAttribute.Title</c>
+///         does, and without one the header says <see cref="Text" />.
 ///     </para>
 /// </remarks>
-/// <param name="title">What its header says.</param>
+/// <param name="text">What its header says when <see cref="Title" /> names no declaration.</param>
 [AttributeUsage(AttributeTargets.Method)]
-public sealed class OverlayAttribute(string title) : Attribute {
-    /// <summary>What its header says.</summary>
-    public string Title { get; } = title;
+public sealed class OverlayAttribute(string text) : Attribute {
+    /// <summary>What its header says when <see cref="Title" /> names no declaration.</summary>
+    /// <remarks>Also what a derived <see cref="Id" /> is made from, so translating it moves nothing.</remarks>
+    public string Text { get; } = text;
+
+    /// <summary>The header's words, as the name of a <c>StringId</c> in a declaration class, or empty.</summary>
+    /// <remarks>The rule is <c>EditorMenuAttribute.Title</c>'s, read by both readers.</remarks>
+    public string Title { get; init; } = string.Empty;
+
+    /// <summary>The declaration class <see cref="Title" /> is in, when it is not this assembly's.</summary>
+    public Type? Strings { get; init; }
 
     /// <summary>Where it sits.</summary>
     public OverlayCorner Corner { get; init; } = OverlayCorner.TopRight;
 
-    /// <summary>Its id, or empty to derive one from the title.</summary>
+    /// <summary>Its id, or empty to derive one from <see cref="Text" />.</summary>
     /// <remarks>
     ///     ⚠ <b>Worth setting for anything whose visibility should be remembered.</b> A derived id
-    ///     changes when the title does, so renaming the overlay forgets whether it was open.
+    ///     changes when the text does, so renaming the overlay forgets whether it was open.
     /// </remarks>
     public string Id { get; init; } = string.Empty;
 

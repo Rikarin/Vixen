@@ -424,7 +424,7 @@ public sealed class PluginContext {
     ///     <code language="csharp">
     ///     var registry = context.Services.Require&lt;IEditorRegistry&gt;();
     ///
-    ///     context.Owns(registry.Add(new NewAssetKind("mine.create-thing", "Thing", ".thing", "New Thing")));
+    ///     context.Owns(registry.Add(new NewAssetKind("mine.create-thing", MineStrings.CreateThing, ".thing", "New Thing")));
     ///     context.Owns(registry.Add(new CustomInspector(typeof(Thing), BuildThing)));
     ///     context.Owns(registry.Add(new SceneTool("mine.paint", "Paint", input)));
     ///     </code>
