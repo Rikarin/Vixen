@@ -29,9 +29,9 @@ namespace Vixen.Editor.App;
 ///     <para>
 ///         ⚠ <b>Rebuilt on demand, and the demand now also comes from the disk.</b> Nothing
 ///         <i>here</i> has a file-system watcher and nothing here should: what a watcher reports is a
-///         fact about the project, not about a panel that may be closed. <c>EditorApplication</c>
+///         fact about the project, not about a panel that may be closed. <c>ProjectSession</c>
 ///         owns one — see its <c>FollowDisk</c> — and drains it on the frame thread into the same
-///         <see cref="Rescan" /> the Refresh command calls. The three things that used to be the
+///         <see cref="IProjectSession.Rescan" /> the Refresh command calls. The three things that used to be the
 ///         argument against having one are all <c>Vixen.Core.IO</c>'s and were before this panel
 ///         existed: <c>FileChangeCoalescer</c> debounces, collapses an atomic save's four events into
 ///         one, and can be told to ignore a write this program is about to make.

@@ -1,7 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
+using System.Reflection;
 using Vixen.Core;
+using Vixen.Core.IO.Watch;
 using Vixen.Editor.Core;
 using Vixen.Editor.Testing;
 using Xunit;
@@ -140,6 +143,155 @@ public sealed class ProjectSessionTests : IDisposable {
 
         Assert.True(editor.IsClosing);
         Assert.Equal(Path.GetFullPath(next), editor.PendingProject);
+    }
+
+    /// <summary>
+    ///     A file written behind the editor's back reaches the published session once, after the
+    ///     rescan it caused, and the panels follow without a second scan.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The watcher was the application's, in its constructor and frame loop (#1293).</b> It
+    ///         is the session's now, so a module that wants to hear the disk asks
+    ///         <c>Require&lt;IProjectSession&gt;()</c> rather than not being able to at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The assertion is a count; the waits are a hang check and a quiet period.</b> The
+    ///         thing waited on is the watcher's debounce, which is measured in real time; what is
+    ///         asserted is how many times the session spoke and how many scans it took. The quiet
+    ///         period is <c>ExternalEditPumpTests.Quiet</c>'s, inside the coalescer's suppression
+    ///         window, so "once" is not asserted past what the design promises.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_file_changed_on_disk_reaches_the_published_session_once() {
+        using var editor = EditorSession.Start(new() { WatchAssets = true });
+        editor.Open("project");
+
+        var service = editor.Plugins.Services.Require<IProjectSession>();
+
+        // The instrument first: a session that came up without a watcher would make the wait below
+        // time out for a reason that has nothing to do with the session.
+        Assert.True(service.IsWatching, "the session is not watching, so nothing below can be heard");
+        Assert.True(editor.Editor.IsWatchingAssets);
+
+        // Anything the harness wrote while starting is drained before the counting begins.
+        Pump(editor, () => false, TimeSpan.FromSeconds(1));
+
+        const string Written = "/from-outside.txt";
+        var bursts = 0;
+        var heard = 0;
+        var scans = 0;
+        var indexedWhenHeard = false;
+
+        service.Rescanned += _ => scans++;
+
+        service.ChangedOnDisk += (changes, _) => {
+            bursts++;
+
+            if (changes.Any(change => change.Path.ToString() == Written)) {
+                heard++;
+                indexedWhenHeard = editor.Project.Assets.Entries.Any(entry => entry.Name == "from-outside.txt");
+            }
+        };
+
+        File.WriteAllText(Path.Combine(editor.Project.Paths.Assets, "from-outside.txt"), "hello");
+
+        Assert.True(Pump(editor, () => heard > 0, TimeSpan.FromSeconds(20)), "the change on disk never reached the session");
+
+        // A hang check would stop here; "once" needs the quiet period after it.
+        Pump(editor, () => false, TimeSpan.FromSeconds(1.5));
+
+        Assert.Equal(1, heard);
+        Assert.True(indexedWhenHeard, "the session spoke before its rescan had indexed the file");
+
+        // ⚠ One rescan per burst — the application's panels follow the session's scan rather than
+        // making one of their own. And ⚠ two bursts rather than one, which is #1488: the first scan
+        // writes the file's `.meta` into `Assets/`, and the watcher hears the database's own write as
+        // somebody else's. Tighten to one when that is fixed.
+        Assert.Equal(bursts, scans);
+        Assert.InRange(bursts, 1, 2);
+    }
+
+    /// <summary>The project's watcher and its code have one owner, and it is not the application.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A move that left a copy behind is the failure this rules out.</b> The application held the
+    ///     watcher and the <c>ProjectAssemblies</c> in fields of its own; a second watcher would drain
+    ///     the same directory into a second rescan, and a second loader would hold a second context.
+    /// </remarks>
+    [Fact]
+    public void The_watcher_and_the_projects_code_are_the_sessions_alone() {
+        var application = Held(typeof(EditorApplication));
+
+        Assert.DoesNotContain(application, type => typeof(IFileWatcher).IsAssignableFrom(type));
+        Assert.DoesNotContain(typeof(ProjectAssemblies), application);
+
+        var session = Held(typeof(ProjectSession));
+
+        Assert.Contains(typeof(IFileWatcher), session);
+        Assert.Contains(typeof(ProjectAssemblies), session);
+
+        static List<Type> Held(Type type) => [
+            .. type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
+                .Select(field => field.FieldType)
+        ];
+    }
+
+    /// <summary>A project with no code builds as nothing — with no window — and announces no reload.</summary>
+    [Fact]
+    public void Building_a_project_with_no_code_succeeds_and_loads_nothing_without_a_window() {
+        var (session, reported, _) = Bare();
+        var built = 0;
+
+        session.CodeBuilt += () => built++;
+
+        Assert.True(session.BuildCode());
+        Assert.Null(session.Code.Loaded);
+        Assert.Equal(0, built);
+        Assert.Empty(reported);
+    }
+
+    /// <summary>A project whose code does not build says so through the published session, and is still open.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A failed build is a notification and not a refusal</b> — the remark that moved with the
+    ///     method. Reached through <c>Require&lt;IProjectSession&gt;()</c>, which is what a module
+    ///     wanting to rebuild the game's code after writing a script would call.
+    /// </remarks>
+    [Fact]
+    public void A_build_that_fails_is_reported_through_the_published_session() {
+        using var editor = EditorSession.Start();
+
+        var service = editor.Plugins.Services.Require<IProjectSession>();
+        var built = 0;
+        List<string> said = [];
+
+        service.CodeBuilt += () => built++;
+        editor.Editor.Shell.Notifications.Shown += notification => said.Add(notification.Message);
+
+        File.WriteAllText(Path.Combine(editor.ProjectRoot, "Broken.csproj"), "<Project><this is not xml");
+
+        Assert.False(service.BuildCode());
+        Assert.Equal(0, built);
+        Assert.Contains("The project's code did not build", said);
+        Assert.Same(editor.Project, service.Project);
+    }
+
+    /// <summary>Frames until a condition holds or the budget runs out, sleeping between so the watcher's debounce can pass.</summary>
+    static bool Pump(EditorSession editor, Func<bool> until, TimeSpan budget) {
+        var clock = Stopwatch.StartNew();
+
+        while (clock.Elapsed < budget) {
+            editor.Frames(1);
+
+            if (until()) {
+                return true;
+            }
+
+            // ⚠ Real time, because the thing being waited on is a debounce measured in it.
+            Thread.Sleep(25);
+        }
+
+        return until();
     }
 
     (ProjectSession Session, List<string> Reported, Func<int> Closes) Bare() {

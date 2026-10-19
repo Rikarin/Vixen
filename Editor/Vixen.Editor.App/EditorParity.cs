@@ -2057,7 +2057,7 @@ sealed partial class EditorApplication {
     void ReportPlayGaps() {
         log.Write(LogLevel.Information, play.DescribeRunning());
 
-        if (play.DescribeMissing(code.Loaded) is not { } said) {
+        if (play.DescribeMissing(session.Code.Loaded) is not { } said) {
             return;
         }
 

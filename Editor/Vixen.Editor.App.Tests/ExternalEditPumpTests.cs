@@ -16,7 +16,7 @@ namespace Vixen.Editor.App.Tests;
 ///     <para>
 ///         ⚠ <b>The whole path or nothing.</b> The unit suites in <c>Vixen.Editor.Core.Tests</c> drive
 ///         <c>ExternalEdits</c> with a stub watcher and hand-written changes; this drives a real
-///         <c>FileWatcher</c> over a real project through <c>EditorApplication.FollowDisk</c>, on the
+///         <c>FileWatcher</c> over a real project through <c>ProjectSession.FollowDisk</c>, on the
 ///         frame, which is the only place the ordering — drain, rescan, route — actually exists. A
 ///         seam that is built and never fed is this tree's commonest defect, and the two suites
 ///         together are what say it is fed.
