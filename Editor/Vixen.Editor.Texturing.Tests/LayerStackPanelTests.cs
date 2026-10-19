@@ -213,11 +213,11 @@ public class LayerStackPanelTests {
             fixture.Editors.TryGetForFile("Assets/Hull" + LayerStackDocument.Extension, out var editor)
         );
 
-        Assert.True(fixture.Editors.TryOpen(fixture.Project, asset, out var document));
+        Assert.True(fixture.Editors.TryOpen(asset, out var document));
 
         var host = fixture.Shell.Document.Root.Add<UiElement>();
 
-        editor.CreateView(document, host);
+        Assert.NotNull(fixture.Views.Show(document, host));
 
         var status = Status(host);
 

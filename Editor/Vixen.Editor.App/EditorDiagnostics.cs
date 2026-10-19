@@ -30,24 +30,6 @@ namespace Vixen.Editor.App;
 ///     </para>
 /// </remarks>
 sealed partial class EditorApplication {
-    /// <summary>The registered module of a kind, or null when the host did not name one.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Null rather than a fresh one.</b> A second module that owns a panel's state is one the
-    ///     host never activated, so every hook it hands out is joined to nothing and looks joined —
-    ///     which is how the GPU panel once read "No graphics device" beside a window Vulkan was drawing:
-    ///     the host wrote into a <c>new DiagnosticsModule()</c> nothing had registered. ⚠ The asset
-    ///     editors' is the one typed module field left (#1297); the diagnostics one went with #1298.
-    /// </remarks>
-    static T? FindModule<T>(IReadOnlyList<(string Id, string Name, IEditorPlugin Module)> modules)
-        where T : class, IEditorPlugin {
-        foreach (var (_, _, module) in modules) {
-            if (module is T found) {
-                return found;
-            }
-        }
-
-        return null;
-    }
 
     /// <summary>The graphics device, when the host has one.</summary>
     IGraphicsDevice? graphicsDevice;

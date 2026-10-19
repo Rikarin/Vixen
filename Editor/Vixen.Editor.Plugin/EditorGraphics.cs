@@ -107,6 +107,27 @@ public interface IEditorGraphics {
     /// </remarks>
     GpuFrame Frame => GpuFrame.Empty;
 
+    /// <summary>Raised when what <see cref="Upload" /> can reach changed: the host gained, lost or replaced the surface it draws images on.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The moment to draw again</b> (#1297). The editor is constructed before its window
+    ///         has a surface, and a session restore opens documents before the first frame — so a
+    ///         preview asked for then got <see langword="null" /> from <see cref="Upload" />, and the
+    ///         pictures that matter most are exactly those. The application fed its own texture
+    ///         previews by restating them when its surface arrived; a module feeding the same
+    ///         previews needs to hear the same moment, and polling <see cref="Device" /> cannot hear
+    ///         it, because the device and the surface arrive on different frames.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Defaulted to an event that never fires</b>, so a host with one surface for life —
+    ///         or none — implements nothing.
+    ///     </para>
+    /// </remarks>
+    event Action? SurfaceChanged {
+        add { }
+        remove { }
+    }
+
     /// <summary>Puts pixels where the interface can draw them.</summary>
     /// <param name="width">How wide, in texels.</param>
     /// <param name="height">How tall.</param>

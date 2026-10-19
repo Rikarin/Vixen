@@ -53,10 +53,12 @@ rebased, which is a research project and not a feature.
 A command declares what it reached through `EditorContext.Touch`, so the blast radius is stated by
 the operation that knows it rather than guessed at by the stack.
 
-## Dirty has two sources, and only a save clears both
+## Unsaved has two sources, and they are two signals
 
-The stack's position covers edits made inside the document. A change that arrived from outside it is
-tracked separately, because no amount of undoing inside the document takes it back.
+The stack's position covers edits made inside the document — that is `IsDirty`, and since #656 it is
+nothing else. A change that arrived from outside it is `ExternallyModified`, because no amount of
+undoing inside the document takes it back. `HasUnsavedChanges` is the two together and is what Save
+All, the project's close question and the tab markers read; a save or a reload clears both.
 
 The position is compared against where the last save was, and that comparison has one case worth
 naming: undoing past the save point and then editing produces a stack of the same *depth* holding
@@ -74,17 +76,18 @@ An application may reference it today.
 reference is there for exactly one thing — `IUndoManager`, the six-member interface `CommandStack`
 implements so that a text field finds the editor's stack on the responder chain — and
 `CommandStack.cs` is the only file here that imports the `Vixen.Ui` namespace. The csproj's remark
-says why the interface could not move. Anything else from `Vixen.Ui` reaching this project is a new
-coupling, and the domain-kernel claim doc 50 § F9 rests on is that there is none.
+says why the interface could not move. ⚠ **#656 made it two**: `EditorDocument` implements
+`Vixen.Ui`'s `IEditableDocument`, by the decision recorded on that issue, so that a panel hosting one
+answers the framework's `document.save` and its close prompt with no editor copy of either. Both are
+interfaces of the same kind — a signal-shaped contract with no element in it — and anything from
+`Vixen.Ui` beyond those two is a new coupling: doc 50 § D4 is explicit that this assembly knows no
+`UiElement`, which is why `DocumentKind` is here and `DocumentView` is in `Vixen.Editor.Ui`.
 
-What it cannot do is *construct* one. `EditorDocument`'s only constructor takes an `EditorProject` and
-an `AssetId`, and it calls `project.Register(this)` from the base constructor — so a document does not
-exist outside a project, and a project is a directory on disk with an asset database and a
-reverse-reference index in it. A text editor with one file open would have to invent a project to hold
-it. That coupling is right for the editor and is exactly what a framework-level model must not have:
-the `Vixen.Ui` shape is a dirty signal, save and revert as commands answered through the responder
-chain, and a window title bound to the two, with the *file* as the only thing it knows about. Both of
-those dependencies are unbuilt, and that is what actually blocks it.
+What a `Vixen.Ui` application cannot do is *construct* one. `EditorDocument`'s only constructor takes
+an `EditorProject` and an `AssetId`, and it calls `project.Register(this)` from the base constructor —
+so a document does not exist outside a project, and a project is a directory on disk with an asset
+database and a reverse-reference index in it. That is why the framework's model is the interface and
+`EditableDocument` rather than this class.
 
 ## One editing pipeline, and it is not the object model
 

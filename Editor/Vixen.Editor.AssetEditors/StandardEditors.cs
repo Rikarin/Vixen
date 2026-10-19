@@ -17,120 +17,176 @@ using Vixen.Editor.AssetEditors.Scenes;
 using Vixen.Editor.AssetEditors.Sequencing;
 using Vixen.Editor.AssetEditors.Shading;
 using Vixen.Editor.AssetEditors.Vfx;
+using Vixen.Editor.Core;
+using Vixen.Editor.Ui.Documents;
 
 namespace Vixen.Editor.AssetEditors;
 
-/// <summary>The editors this assembly ships, as a set a host can register in one line.</summary>
+/// <summary>The document kinds and views this assembly ships, as two lists a host can register.</summary>
 /// <remarks>
 ///     <para>
-///         Registration stays explicit — see <see cref="AssetEditorRegistry" /> for why nothing is
-///         discovered — and this is the list, in one place, rather than nine lines every host has to
-///         keep in step. A host that wants a different set builds its own registry and adds what it
-///         wants; a plugin adds to whichever registry it was handed.
+///         Registration stays explicit — see <see cref="DocumentHost" /> for why nothing is
+///         discovered — and these are the lists, in one place. Since #1294 they are two lists
+///         rather than one, because a kind (<c>Vixen.Editor.Core</c>) and a view
+///         (<c>Vixen.Editor.Ui</c>) are registered with two different registries; that each kind's
+///         documents have a view and each view a kind is held by <c>DocumentPairingTests</c> rather
+///         than by a type.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The scene and the prefab editors need a world and this cannot decide where from.</b>
-///         Whether two open scenes share one world is an application's decision with consequences for
-///         play mode and for how much memory ten open scenes cost — so the suppliers are arguments,
-///         and they are two arguments rather than one because a prefab is edited in isolation and
-///         sharing the scene's world would silently take that away.
+///         ⚠ <b>The scene and the prefab kinds need a world and this cannot decide where from.</b>
+///         Whether two open scenes share one world is an application's decision, so the suppliers
+///         are arguments — two of them, because a prefab is edited in isolation and sharing the
+///         scene's world would silently take that away.
 ///     </para>
 /// </remarks>
 public static class StandardEditors {
-    /// <summary>Every editor this assembly ships, registered into a fresh registry.</summary>
+    /// <summary>Every kind this assembly ships.</summary>
     /// <param name="scenes">Where an opened scene's world comes from.</param>
     /// <param name="prefabs">Where an opened prefab's own world comes from.</param>
-    /// <returns>The registry.</returns>
-    public static AssetEditorRegistry CreateDefault(
-        Func<AssetEditorRequest, World> scenes,
-        Func<AssetEditorRequest, World> prefabs
+    /// <returns>The kinds, fresh.</returns>
+    public static IReadOnlyList<DocumentKind> Kinds(
+        Func<DocumentRequest, World> scenes,
+        Func<DocumentRequest, World> prefabs
     ) {
         ArgumentNullException.ThrowIfNull(scenes);
         ArgumentNullException.ThrowIfNull(prefabs);
 
-        return Fill(
-            new AssetEditorRegistry(),
-            new TextureEditorFactory(),
-            new ModelEditorFactory(),
-            new MaterialEditorFactory(),
+        return [
+            .. WorldlessKinds(),
             new SceneEditorFactory(scenes),
-            new PrefabEditorFactory(prefabs),
-            new ShaderEditorFactory(),
-            new MarkupEditorFactory(),
-            new AddressableGroupEditorFactory(),
-            new CompositorEditorFactory(),
-            new StandardFrameEditorFactory(),
-            new ShaderGraphEditorFactory(),
-            new VfxEditorFactory(),
-            new AnimationClipEditorFactory(),
-            new AnimationGraphEditorFactory(),
-            new BehaviorTreeEditorFactory(),
-            new UtilitySetEditorFactory(),
-            new GoapDomainEditorFactory(),
-            new QueryEditorFactory(),
-            new MoveSetEditorFactory(),
-            new ProxyShapeEditorFactory(),
-            new HarnessEditorFactory(),
-            new ShapeVocabularyEditorFactory(),
-            new SequenceEditorFactory(),
-            new AudioMixerEditorFactory(),
-            new InputActionsEditorFactory(),
-            new FontEditorFactory()
-        );
+            new PrefabEditorFactory(prefabs)
+        ];
     }
 
-    /// <summary>The editors that need nothing from the host, for a test or a headless tool.</summary>
-    /// <returns>The registry.</returns>
-    /// <remarks>
-    ///     Everything except the scene and prefab editors, which need a world. Useful precisely
-    ///     because it is the set that can be built with no ECS in the way — which is what makes the
-    ///     registry testable without one.
-    /// </remarks>
-    public static AssetEditorRegistry CreateWorldless() =>
-        Fill(
-            new AssetEditorRegistry(),
-            new TextureEditorFactory(),
-            new ModelEditorFactory(),
-            new MaterialEditorFactory(),
-            new ShaderEditorFactory(),
-            new MarkupEditorFactory(),
-            new AddressableGroupEditorFactory(),
-            new CompositorEditorFactory(),
-            new StandardFrameEditorFactory(),
-            new ShaderGraphEditorFactory(),
-            new VfxEditorFactory(),
-            new AnimationClipEditorFactory(),
-            new AnimationGraphEditorFactory(),
-            new BehaviorTreeEditorFactory(),
-            new UtilitySetEditorFactory(),
-            new GoapDomainEditorFactory(),
-            new QueryEditorFactory(),
-            new MoveSetEditorFactory(),
-            new ProxyShapeEditorFactory(),
-            new HarnessEditorFactory(),
-            new ShapeVocabularyEditorFactory(),
-            new SequenceEditorFactory(),
-            new AudioMixerEditorFactory(),
-            new InputActionsEditorFactory(),
-            new FontEditorFactory()
-        );
+    /// <summary>The kinds that need nothing from the host, for a test or a headless tool.</summary>
+    /// <returns>Everything except the scene and prefab kinds, which need a world.</returns>
+    public static IReadOnlyList<DocumentKind> WorldlessKinds() => [
+        new TextureEditorFactory(),
+        new ModelEditorFactory(),
+        new MaterialEditorFactory(),
+        new ShaderEditorFactory(),
+        new MarkupEditorFactory(),
+        new AddressableGroupEditorFactory(),
+        new CompositorEditorFactory(),
+        new StandardFrameEditorFactory(),
+        new ShaderGraphEditorFactory(),
+        new VfxEditorFactory(),
+        new AnimationClipEditorFactory(),
+        new AnimationGraphEditorFactory(),
+        new BehaviorTreeEditorFactory(),
+        new UtilitySetEditorFactory(),
+        new GoapDomainEditorFactory(),
+        new QueryEditorFactory(),
+        new MoveSetEditorFactory(),
+        new ProxyShapeEditorFactory(),
+        new HarnessEditorFactory(),
+        new ShapeVocabularyEditorFactory(),
+        new SequenceEditorFactory(),
+        new AudioMixerEditorFactory(),
+        new InputActionsEditorFactory(),
+        new FontEditorFactory()
+    ];
 
-    /// <summary>Registers a set into a registry and hands it back.</summary>
-    /// <param name="registry">Where they go.</param>
-    /// <param name="editors">The editors.</param>
-    /// <returns>The registry.</returns>
-    /// <remarks>
-    ///     ⚠ <b>A loop rather than a chain, because <see cref="AssetEditorRegistry.Add" /> now hands
-    ///     back the removal instead of itself</b> — <a href="https://github.com/Rikarin/Vixen/issues/739">#739</a>.
-    ///     The removals are dropped here on purpose and only here: this is the set the build ships,
-    ///     registered once into a registry that lives as long as the process. The case that keeps
-    ///     them is a plugin's, which is what the change was for.
-    /// </remarks>
-    static AssetEditorRegistry Fill(AssetEditorRegistry registry, params IAssetEditorFactory[] editors) {
-        foreach (var editor in editors) {
-            registry.Add(editor);
+    /// <summary>Every view this assembly ships, one or more per kind.</summary>
+    /// <returns>The views, fresh.</returns>
+    public static IReadOnlyList<DocumentView> Views() => [
+        new TextureEditorView(),
+        new ModelEditorView(),
+        new MaterialEditorView(),
+        new ShaderEditorView(),
+        new MarkupEditorView(),
+        new StyleSheetEditorView(),
+        new AddressableGroupEditorView(),
+        new CompositorEditorView(),
+        new StandardFrameEditorView(),
+        new ShaderGraphEditorView(),
+        new VfxEditorView(),
+        new AnimationClipEditorView(),
+        new AnimationGraphEditorView(),
+        new BehaviorTreeEditorView(),
+        new UtilitySetEditorView(),
+        new GoapDomainEditorView(),
+        new QueryEditorView(),
+        new MoveSetEditorView(),
+        new ProxyShapeEditorView(),
+        new HarnessEditorView(),
+        new ShapeVocabularyEditorView(),
+        new SequenceEditorView(),
+        new AudioMixerEditorView(),
+        new InputActionsEditorView(),
+        new FontEditorView(),
+        new SceneEditorView(),
+        new PrefabEditorView()
+    ];
+
+    /// <summary>A host over a project with every kind registered.</summary>
+    /// <param name="project">The project.</param>
+    /// <param name="scenes">Where an opened scene's world comes from.</param>
+    /// <param name="prefabs">Where an opened prefab's own world comes from.</param>
+    /// <returns>The host.</returns>
+    public static DocumentHost CreateDefault(
+        EditorProject project,
+        Func<DocumentRequest, World> scenes,
+        Func<DocumentRequest, World> prefabs
+    ) =>
+        Fill(new DocumentHost(project), Kinds(scenes, prefabs));
+
+    /// <summary>A host over a project with every kind that needs no world.</summary>
+    /// <param name="project">The project.</param>
+    /// <returns>The host.</returns>
+    public static DocumentHost CreateWorldless(EditorProject project) =>
+        Fill(new DocumentHost(project), WorldlessKinds());
+
+    /// <summary>A workspace with every view registered.</summary>
+    /// <returns>The workspace.</returns>
+    public static EditorWorkspace CreateWorkspace() {
+        var workspace = new EditorWorkspace();
+
+        foreach (var view in Views()) {
+            workspace.Add(view);
         }
 
-        return registry;
+        return workspace;
+    }
+
+    /// <summary>Registers every kind and view into an editor's own registries, and hands back the removals.</summary>
+    /// <param name="host">Where the kinds go.</param>
+    /// <param name="workspace">Where the views go.</param>
+    /// <param name="scenes">Where an opened scene's world comes from.</param>
+    /// <param name="prefabs">Where an opened prefab's own world comes from.</param>
+    /// <returns>One removal per registration.</returns>
+    public static IReadOnlyList<IDisposable> Register(
+        IDocumentHost host,
+        IWorkspace workspace,
+        Func<DocumentRequest, World> scenes,
+        Func<DocumentRequest, World> prefabs
+    ) {
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(workspace);
+
+        var removals = new List<IDisposable>();
+
+        foreach (var kind in Kinds(scenes, prefabs)) {
+            removals.Add(host.Add(kind));
+        }
+
+        foreach (var view in Views()) {
+            removals.Add(workspace.Add(view));
+        }
+
+        return removals;
+    }
+
+    /// <remarks>
+    ///     ⚠ <b>The removals are dropped here on purpose and only here</b> (#739): this is a set
+    ///     registered once into a host built for it. The case that keeps them is
+    ///     <see cref="Register" />'s.
+    /// </remarks>
+    static DocumentHost Fill(DocumentHost host, IReadOnlyList<DocumentKind> kinds) {
+        foreach (var kind in kinds) {
+            host.Add(kind);
+        }
+
+        return host;
     }
 }

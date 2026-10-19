@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Assets.Compositors;
 using Vixen.Editor.Core;
+using Vixen.Editor.SceneView;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.PostFx;
@@ -39,7 +40,7 @@ namespace Vixen.Editor.AssetEditors.Frame;
 ///         callable again for exactly this.
 ///     </para>
 /// </remarks>
-public sealed class StandardFrameDocument : EditorDocument {
+public sealed class StandardFrameDocument : EditorDocument, IViewportFrame {
     /// <summary>What a frame document is written as.</summary>
     public const string Extension = ".vxcompositor";
 
@@ -290,6 +291,26 @@ public sealed class StandardFrameDocument : EditorDocument {
 
         Diagnostics = complaints;
         Changed?.Invoke(this);
+        frameChanged?.Invoke(this);
+    }
+
+    Action<IViewportFrame>? frameChanged;
+
+    /// <inheritdoc />
+    string IViewportFrame.FrameName => Title.Value;
+
+    /// <inheritdoc />
+    GraphicsCompositorAsset IViewportFrame.Frame => Expanded;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Raised beside <see cref="Changed" />, from the same place, so the viewport follows the
+    ///     inspector's writes and a reload from disk by one path — and the application, which points
+    ///     the panes at a frame, names no type of this assembly to do it (#1297).
+    /// </remarks>
+    event Action<IViewportFrame>? IViewportFrame.FrameChanged {
+        add => frameChanged += value;
+        remove => frameChanged -= value;
     }
 
     /// <summary>Reads the project's quality preset, which is the waterfall's middle layer.</summary>

@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -82,25 +83,29 @@ public sealed partial class MaterialView;
 internal readonly record struct MaterialGraphLink(string Class, bool Missing, string Label);
 
 /// <summary>Opens a material.</summary>
-public sealed class MaterialEditorFactory : IAssetEditorFactory {
+public sealed class MaterialEditorFactory : DocumentKind {
     /// <inheritdoc />
-    public string Name => "Material";
+    public override string Name => "Material";
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [MaterialAsset.Extension];
+    public override IReadOnlyList<string> Extensions { get; } = [MaterialAsset.Extension];
 
     /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(MaterialDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
         ArgumentNullException.ThrowIfNull(request);
         return new MaterialDocument(request.Project, request.Asset, request.Path);
     }
+}
 
+/// <summary>What <see cref="MaterialEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+public sealed class MaterialEditorView : DocumentView<MaterialDocument> {
     /// <inheritdoc />
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(panel);
-
+    protected override UiElement Build(MaterialDocument document, UiElement panel) {
         var view = panel.Add<MaterialView>();
-        view.Show((MaterialDocument) document);
+        view.Show(document);
 
         return view;
     }

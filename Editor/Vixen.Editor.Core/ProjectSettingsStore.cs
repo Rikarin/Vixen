@@ -102,6 +102,7 @@ public sealed class ProjectSettingsStore {
     public void MarkChanged<T>() where T : class, new() {
         changed.Add(typeof(T));
         Restate();
+        Marked?.Invoke();
     }
 
     /// <summary>Whether anything has been marked changed and not yet written.</summary>
@@ -135,6 +136,29 @@ public sealed class ProjectSettingsStore {
         loaded[typeof(T)] = new T();
         changed.Add(typeof(T));
         Restate();
+        Marked?.Invoke();
+    }
+
+    /// <summary>Raised when something marks a settings type changed — <see cref="MarkChanged{T}" /> or <see cref="Reset{T}" />.</summary>
+    /// <remarks>
+    ///     <b>What <see cref="SettingsDocument" /> hears as a change from outside its own history</b>
+    ///     (#1310). An edit made through the settings window goes through that document's command
+    ///     stack and is undoable; a reset, or a plugin writing a settings object and marking it, does
+    ///     not, so it is the document's <see cref="EditorDocument.ExternallyModified" /> — still saved
+    ///     by Save, still asked about on close, and not taken back by Ctrl+Z.
+    /// </remarks>
+    public event Action? Marked;
+
+    /// <summary>Puts a type in the set the next <see cref="SaveAll" /> writes, without calling it a change.</summary>
+    /// <param name="type">A settings type that has been loaded.</param>
+    /// <remarks>
+    ///     For <see cref="SettingsDocument" />'s save: the types its stack touched are written, and
+    ///     whether there is anything to write is the stack's question rather than this store's.
+    /// </remarks>
+    internal void Include(Type type) {
+        if (loaded.ContainsKey(type)) {
+            changed.Add(type);
+        }
     }
 
     /// <summary>Writes one settings type to disk.</summary>

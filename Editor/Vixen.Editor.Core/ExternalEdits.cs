@@ -205,7 +205,7 @@ public sealed class ExternalEdits : IDisposable {
         for (var index = 0; index < documents.Length; index++) {
             var document = documents[index];
 
-            if (!document.IsOpen || !document.CanReload || document.IsDirty.Value) {
+            if (!document.IsOpen || !document.CanReload || document.HasUnsavedChanges.Value) {
                 continue;
             }
 
@@ -274,7 +274,7 @@ public sealed class ExternalEdits : IDisposable {
             return;
         }
 
-        if (document.IsDirty.Value) {
+        if (document.HasUnsavedChanges.Value) {
             document.MarkStale();
             Applied?.Invoke(new(document, ExternalEditOutcome.Kept));
 

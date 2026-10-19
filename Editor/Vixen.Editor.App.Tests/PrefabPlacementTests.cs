@@ -4,8 +4,8 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
-using Vixen.Editor.AssetEditors.Prefabs;
 using Vixen.Editor.AssetEditors.Scenes;
+using Vixen.Editor.AssetEditors.Tests;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.SceneView;
 using Vixen.Engine.Transforms;
@@ -13,7 +13,7 @@ using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 using Xunit;
 
-namespace Vixen.Editor.AssetEditors.Tests;
+namespace Vixen.Editor.App.Tests;
 
 /// <summary>
 ///     Placing a prefab into a scene, and what a scene does when the prefab has changed underneath it.

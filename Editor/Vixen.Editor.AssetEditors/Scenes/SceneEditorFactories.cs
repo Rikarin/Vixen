@@ -6,6 +6,7 @@ using Vixen.Editor.AssetEditors.Prefabs;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.SceneView;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 
@@ -58,18 +59,21 @@ public sealed class PrefabFileWriter(string path) : ISceneWriter {
 ///     </para>
 /// </remarks>
 /// <param name="worlds">Where an opened scene's world comes from.</param>
-public sealed class SceneEditorFactory(Func<AssetEditorRequest, World> worlds) : IAssetEditorFactory {
-    readonly Func<AssetEditorRequest, World> supply =
+public sealed class SceneEditorFactory(Func<DocumentRequest, World> worlds) : DocumentKind {
+    readonly Func<DocumentRequest, World> supply =
         worlds ?? throw new ArgumentNullException(nameof(worlds));
 
     /// <inheritdoc />
-    public string Name => "Scene";
+    public override string Name => "Scene";
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [SceneFile.Extension];
+    public override IReadOnlyList<string> Extensions { get; } = [SceneFile.Extension];
 
     /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(SceneDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
         ArgumentNullException.ThrowIfNull(request);
 
         var document = new SceneDocument(
@@ -88,18 +92,21 @@ public sealed class SceneEditorFactory(Func<AssetEditorRequest, World> worlds) :
         SceneSerializer.Open(document, request.Path);
         return document;
     }
+}
+
+/// <summary>What <see cref="SceneEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+/// <remarks>
+///     ⚠ <b>One of two views over a <see cref="SceneDocument" /></b>, which is sealed: what makes a
+///     scene a prefab is the writer it was opened with, so <see cref="Owns" /> asks that. Every
+///     scene that is not a prefab is this view's — the editor's own scenes, whose writer is the
+///     application's, included.
+/// </remarks>
+public sealed class SceneEditorView : DocumentView<SceneDocument> {
+    /// <inheritdoc />
+    protected override bool Owns(SceneDocument document) => document.Writer is not PrefabFileWriter;
 
     /// <inheritdoc />
-    /// <remarks>
-    ///     ⚠ <b>Two tabs over one document, not two documents.</b> The compiled pane reads the same
-    ///     entities the tree does and writes nothing, so it shares this document's undo stack and its
-    ///     dirty flag by not having any of its own — the rule <c>AssetEditorRegistry</c> states, that
-    ///     two documents over one file are two undo histories over one set of bytes.
-    /// </remarks>
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(panel);
-
-        var scene = (SceneDocument) document;
+    protected override UiElement Build(SceneDocument document, UiElement panel) {
         var tabs = panel.Add<Tabs>();
 
         // ⚠ **The class is load-bearing and not decoration.** `tabs` carries no `flex-grow` in
@@ -116,9 +123,9 @@ public sealed class SceneEditorFactory(Func<AssetEditorRequest, World> worlds) :
         // to call — and a hierarchy left subscribed does not merely rebuild a tree nobody can see,
         // it throws out of the next `SceneDocument.Add` when `Refresh` asks a removed panel for a
         // row height.
-        tabs.AddTab("Hierarchy").Panel.Add<SceneHierarchyView>().Show(scene);
+        tabs.AddTab("Hierarchy").Panel.Add<SceneHierarchyView>().Show(document);
 
-        tabs.AddTab("Compiled").Panel.Add<CompiledSceneView>().Show(scene);
+        tabs.AddTab("Compiled").Panel.Add<CompiledSceneView>().Show(document);
 
         return tabs;
     }
@@ -141,18 +148,21 @@ public sealed class SceneEditorFactory(Func<AssetEditorRequest, World> worlds) :
 ///     </para>
 /// </remarks>
 /// <param name="worlds">Where an opened prefab's own world comes from.</param>
-public sealed class PrefabEditorFactory(Func<AssetEditorRequest, World> worlds) : IAssetEditorFactory {
-    readonly Func<AssetEditorRequest, World> supply =
+public sealed class PrefabEditorFactory(Func<DocumentRequest, World> worlds) : DocumentKind {
+    readonly Func<DocumentRequest, World> supply =
         worlds ?? throw new ArgumentNullException(nameof(worlds));
 
     /// <inheritdoc />
-    public string Name => "Prefab";
+    public override string Name => "Prefab";
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [Prefab.Extension];
+    public override IReadOnlyList<string> Extensions { get; } = [SceneFile.PrefabExtension];
 
     /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(SceneDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
         ArgumentNullException.ThrowIfNull(request);
 
         var document = new SceneDocument(
@@ -170,21 +180,19 @@ public sealed class PrefabEditorFactory(Func<AssetEditorRequest, World> worlds) 
         SceneSerializer.Open(document, request.Path);
         return document;
     }
+}
+
+/// <summary>What <see cref="PrefabEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+/// <remarks>The other view over a <see cref="SceneDocument" /> — see <see cref="SceneEditorView" />.</remarks>
+public sealed class PrefabEditorView : DocumentView<SceneDocument> {
+    /// <inheritdoc />
+    protected override bool Owns(SceneDocument document) => document.Writer is PrefabFileWriter;
 
     /// <inheritdoc />
-    /// <remarks>
-    ///     ⚠ <b>The banner stays outside the tabs.</b> It exists to say "this is a prefab and not a
-    ///     level" at every moment, and a banner that disappeared when the author looked at the
-    ///     compiled tab would be absent from exactly the pane where a prefab's own rule — one root —
-    ///     is being checked.
-    /// </remarks>
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(panel);
-
-        var prefab = (SceneDocument) document;
+    protected override UiElement Build(SceneDocument document, UiElement panel) {
         var view = panel.Add<PrefabView>();
 
-        view.Show(prefab);
+        view.Show(document);
 
         return view;
     }

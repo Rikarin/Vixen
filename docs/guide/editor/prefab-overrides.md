@@ -4,7 +4,7 @@ slug: editor/prefab-overrides
 kind: guide
 area: Editor
 summary: How a scene records that an entity came from a prefab and which of its members it has changed, and what happens when the prefab changes underneath it.
-api: [T:Vixen.Editor.Core.Scenes.PrefabOverrides, T:Vixen.Editor.Core.Scenes.PrefabReport, T:Vixen.Editor.Core.Scenes.PrefabReportKind, T:Vixen.Editor.Core.Scenes.PrefabReconcile, T:Vixen.Editor.Core.Scenes.PrefabReconcileReport, T:Vixen.Editor.Core.Scenes.PrefabUnresolved, T:Vixen.Editor.Core.Scenes.PrefabUnresolvedKind, T:Vixen.Editor.AssetEditors.Prefabs.PrefabSource, T:Vixen.Editor.Inspector.IPrefabSource]
+api: [T:Vixen.Editor.Core.Scenes.PrefabOverrides, T:Vixen.Editor.Core.Scenes.PrefabReport, T:Vixen.Editor.Core.Scenes.PrefabReportKind, T:Vixen.Editor.Core.Scenes.PrefabReconcile, T:Vixen.Editor.Core.Scenes.PrefabReconcileReport, T:Vixen.Editor.Core.Scenes.PrefabUnresolved, T:Vixen.Editor.Core.Scenes.PrefabUnresolvedKind, T:Vixen.Editor.App.PrefabSource, T:Vixen.Editor.Inspector.IPrefabSource]
 tags: [editor, scenes, prefabs, overrides, asset-pipeline]
 since: 0.1
 status: preview

@@ -133,7 +133,7 @@ sealed partial class EditorApplication {
             EditorStrings.CategoryFile,
             Revert,
             enabled: () => project.ActiveDocument.Value is { CanReload: true } document
-                && (document.IsDirty.Value || document.IsStale.Value)
+                && (document.HasUnsavedChanges.Value || document.IsStale.Value)
         );
 
         Verb(
@@ -1086,7 +1086,7 @@ sealed partial class EditorApplication {
     /// <summary>Empties the scene and starts again, asking first if there is anything to lose.</summary>
     void NewScene() =>
         Confirm(
-            scene.IsDirty.Value,
+            scene.HasUnsavedChanges.Value,
             "Discard unsaved changes?",
             Path.GetFileName(scenePath) + " has changes that have not been written.",
             () => {
@@ -1113,7 +1113,7 @@ sealed partial class EditorApplication {
         }
 
         Confirm(
-            scene.IsDirty.Value,
+            scene.HasUnsavedChanges.Value,
             "Discard unsaved changes?",
             Path.GetFileName(scenePath) + " has changes that have not been written.",
             () => deferred.When(
@@ -1234,15 +1234,14 @@ sealed partial class EditorApplication {
             // ⚠ Project settings are saved too now (#1310), so what the window's Apply does after a
             // write — push the content target, retitle, clear its own dirty mark — has to follow, or
             // the file says one thing and the running editor another until the next launch.
-            var settings = project.Settings.HasUnsavedChanges;
+            // ⚠ The settings document's answer once the window has made one (#1310), and the store's
+            // before: the window's own dirty flag follows the document by itself now, so there is
+            // nothing here to clear.
+            var settings = settingsDocument?.HasUnsavedChanges.Peek() ?? project.Settings.HasUnsavedChanges;
             var written = project.SaveAll();
 
             if (settings) {
                 ApplyProjectSettings();
-
-                if (projectSettingsView is { } view) {
-                    view.IsDirty = false;
-                }
             }
 
             Shell.Notifications.Success($"{written} document(s) saved");
@@ -2017,7 +2016,7 @@ sealed partial class EditorApplication {
         var title = document.Title.Peek();
 
         Confirm(
-            document.IsDirty.Value,
+            document.HasUnsavedChanges.Value,
             $"Revert '{title}'?",
             "Its unsaved changes and its undo history are discarded, and the file on disk is read "
             + "again. This cannot be undone.",
@@ -2039,13 +2038,15 @@ sealed partial class EditorApplication {
     /// <summary>What has changes in it, named, for the prompt to show.</summary>
     string Unsaved() {
         var names = project.Documents
-            .Where(document => document.IsDirty.Value)
+            .Where(document => document.HasUnsavedChanges.Value)
             .Select(document => document.Title.Peek())
             .ToList();
 
         // Named, because it is counted (#1310): a prompt asking about "unsaved changes" with no
         // document dirty would send somebody looking through every tab for an edit that is not in one.
-        if (project.Settings.HasUnsavedChanges) {
+        // ⚠ Once the window has made a settings document it is one of the documents above, under the
+        // same name, so the store is asked only before that.
+        if (settingsDocument is null && project.Settings.HasUnsavedChanges) {
             names.Add(EditorStrings.PanelProjectSettings.Text);
         }
 

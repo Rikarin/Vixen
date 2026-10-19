@@ -100,7 +100,8 @@ public static class DocumentClosePrompt {
             // where a close request always ends up — and a walk that started there would find the
             // *document's* fallback and answer for it in a window holding two panels and two
             // documents. `Source` is where the request was raised, which is the focus.
-            if ((args.Source ?? reached).FindHostedDocument() is not { } document || !document.IsDirty.Value) {
+            if ((args.Source ?? reached).FindHostedDocument() is not { } document
+                || !DocumentCommands.HasUnsavedChanges(document)) {
                 return;
             }
 

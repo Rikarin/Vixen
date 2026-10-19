@@ -68,6 +68,26 @@ public class DocumentClosePromptTests : IDisposable {
         protected override bool OnRevert() => true;
     }
 
+    /// <summary>A document changed only from outside is still asked about (#656).</summary>
+    /// <remarks>
+    ///     ⚠ Dirty is the document's own edits since #656's decision; a prompt that read dirty alone
+    ///     would let the editor close over a rename that rewrote a document nobody typed in.
+    /// </remarks>
+    [Fact]
+    public void A_document_changed_only_from_outside_refuses_the_request_and_asks() {
+        var (note, prompt) = Installed();
+
+        using (prompt) {
+            note.MarkExternallyModified();
+
+            Assert.False(note.IsDirty.Value);
+            Assert.False(document.RequestClose());
+
+            dialogs.Pump();
+            Assert.True(dialogs.IsOpen);
+        }
+    }
+
     [Fact]
     public void A_clean_document_is_not_asked_about_and_does_not_stop_the_close() {
         var (_, prompt) = Installed();

@@ -654,7 +654,7 @@
     /// <summary>The inserts this editor offers, by the name a menu shows.</summary>
     /// <remarks>
     ///     ⚠ <b>A table rather than a reflection scan over <see cref="IAudioEffectAsset" />.</b> The
-    ///     same argument <c>AssetEditorRegistry</c> makes about being told rather than discovering:
+    ///     same argument <c>IDocumentHost</c> makes about being told rather than discovering:
     ///     a scan makes "which effects does this build have" a question with a different answer in a
     ///     trimmed publish, and a plugin's effect would appear in the menu with no way to configure it.
     /// </remarks>

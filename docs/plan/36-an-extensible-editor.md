@@ -902,7 +902,7 @@ whole of it was `AssetEditorRegistry` moving somewhere both ends could see:
 
 | File | Names |
 |---|---|
-| `EditorApplication.cs:338` | `AssetEditorRegistry` |
+| `EditorApplication.cs:338@5f03c9b80` | `AssetEditorRegistry` |
 | `EditorApplication.cs:1115` | `AssetEditorsModule` |
 | `EditorApplication.cs:13,14,43,44` | the `Vixen.Editor.AssetEditors` and `.Content` namespaces, and the `EditorPrefab` / `PrefabSource` aliases |
 | `ComponentsView.cs:21@5f03c9b80` | `PrefabSource` (gone since #1308: `Pair` takes `IPrefabSource`) |
@@ -1169,7 +1169,7 @@ Deliberately open, and named so the first project that needs one does not fork.
 
   ⚠ **The two things terrain surfaced were answered by naming them, not by a context.**
   `PluginContext.OnUpdate` (`Editor/Vixen.Editor.Plugin/PluginContext.cs:345`) and
-  `EditorDocument.Saved` (`Editor/Vixen.Editor.Core/EditorDocument.cs:156`) both exist. A tool
+  `EditorDocument.Saved` (`Editor/Vixen.Editor.Core/EditorDocument.cs:198`) both exist. A tool
   context would have been a third place to put them.
 
   **What is genuinely left is a different, smaller question**, and it is not this one: `SceneViewport`
@@ -1278,7 +1278,14 @@ been — `OneEditPathTests` proves a drag and a field edit interleave correctly 
 invariant § D1 actually asked for. What it is not on is `EditProperty`, and the distance between
 those two is the table above rather than an afternoon.
 
-### P3's three exit criteria, none met
+### P3's three exit criteria — the reference rule and the dereference met, the line count not
+
+⚠ **Corrected 2026-10-19 (#1302).** This heading said "none met". The `CheckArchitecture` rule is
+`ApplicationReferenceRule`; `AssetEditors`, `Profiler`, `Debugger`, `Diagnostics` and `NodeGraph` have
+all left `Vixen.Editor.App.csproj` (#1297, #1298, #1299), so the rule's `NotYetMoved` list is
+deleted and what remains is `Allowed` and the rule that anything else fails. The table below is the
+state it recorded when it was written; the `AssetEditors` row's "decided not to" was reopened by doc 50
+§ D4 and met through its two registries. `EditorApplication.cs` under 800 lines is still owed.
 
 | Owed | State |
 |---|---|

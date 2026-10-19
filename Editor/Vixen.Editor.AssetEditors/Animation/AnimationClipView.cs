@@ -7,6 +7,7 @@ using Vixen.Animation.Constraints;
 using Vixen.Core.Curves;
 using Vixen.Editor.Assets.Animation;
 using Vixen.Editor.Core;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -781,30 +782,34 @@ public sealed class AnimationClipView : Control {
 }
 
 /// <summary>Opens an authored animation clip.</summary>
-public sealed class AnimationClipEditorFactory : IAssetEditorFactory {
+public sealed class AnimationClipEditorFactory : DocumentKind {
     /// <inheritdoc />
-    public string Name => "Animation Clip";
+    public override string Name => "Animation Clip";
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [AnimationClipDocument.Extension];
+    public override IReadOnlyList<string> Extensions { get; } = [AnimationClipDocument.Extension];
 
     /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(AnimationClipDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
         ArgumentNullException.ThrowIfNull(request);
 
         return new AnimationClipDocument(request.Project, request.Asset, request.Path);
     }
+}
 
+/// <summary>What <see cref="AnimationClipEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+public sealed class AnimationClipEditorView : DocumentView<AnimationClipDocument> {
     /// <inheritdoc />
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(panel);
-
+    protected override UiElement Build(AnimationClipDocument document, UiElement panel) {
         // A `Timeline` and a `CurveEditor`, both of which scroll and pan themselves — see
         // `SequenceView.CreateView`.
         DockPanel.Fills(panel);
 
         var view = panel.Add<AnimationClipView>();
-        view.Show((AnimationClipDocument) document);
+        view.Show(document);
 
         return view;
     }

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Ui;
 using Vixen.Ui.Reactive;
 
 namespace Vixen.Editor.Core;
@@ -14,10 +15,13 @@ namespace Vixen.Editor.Core;
 ///         a title, an undo stack, and an honest answer to whether it differs from disk.
 ///     </para>
 ///     <para>
-///         <b>Dirty has two sources.</b> The stack's own position covers the edits made in this
-///         document. The other is a change that arrived from outside it — a global rename that
-///         rewrote a reference this document holds — which no amount of undoing inside the document
-///         can take back, so it is tracked separately and only <see cref="Save" /> clears it.
+///         <b>Unsaved has two sources, and since #656 they are two signals.</b> <see cref="IsDirty" />
+///         is the stack's own position — the edits made in this document, which undoing back to the
+///         save point takes away. <see cref="ExternallyModified" /> is a change that arrived from
+///         outside it — a global rename that rewrote a reference this document holds — which no
+///         amount of undoing inside the document can take back. <see cref="HasUnsavedChanges" /> is
+///         the two together, and it is what Save All, the project's close question and the tab
+///         markers read. <see cref="Save" /> and <see cref="Reload" /> clear both.
 ///     </para>
 ///     <para>
 ///         <b><see cref="IsStale" /> is the opposite question and is deliberately not part of that
@@ -26,41 +30,39 @@ namespace Vixen.Editor.Core;
 ///         edit somebody else made to its file. <see cref="ExternalEdits" /> is what sets it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is not <c>Vixen.Ui</c>'s <c>IEditableDocument</c>, and #656 asks for the port.
-///         Measured, the two disagree in two places and only two.</b> <c>Name</c> is
-///         <see cref="Title" /> under another name, and <c>Revert</c> is <see cref="Reload" />
-///         exactly — including the promise that <see langword="false" /> leaves the document dirty
-///         and covers both "cannot" and "tried and declined". Neither needs a decision.
+///         <b>It is <c>Vixen.Ui</c>'s <see cref="IEditableDocument" /> (#656), explicitly</b>, so a
+///         panel hosting one answers <c>document.save</c>, its tab can be asked about on close and a
+///         window title can follow it — the framework surfaces, with no editor copy of each.
+///         <c>Name</c> is <see cref="Title" />; <c>Revert</c> is <see cref="Reload" />, including the
+///         promise that <see langword="false" /> leaves the document dirty and covers both "cannot"
+///         and "tried and declined".
 ///     </para>
 ///     <para>
-///         ⚠ <b>The first real disagreement is what a failed save is.</b>
-///         <c>IEditableDocument.Save</c> returns <see langword="bool" /> and its <see langword="false" />
-///         means "not written, still dirty". <see cref="Save" /> here returns nothing and
-///         <i>throws through</i> — deliberately, because "a subscriber that cannot write its file is
-///         a failed save, and the caller's own error handling is what turns that into a
-///         notification". Catching that to answer <see langword="false" /> is the swallow that remark
-///         forbids; letting it propagate means an editor document's <c>Save</c> never answers
-///         <see langword="false" /> at all, so <c>document.save</c>'s failure leg is unreachable
-///         here. One of the two has to move, and which is a decision about error reporting rather
-///         than a line of glue.
+///         ⚠ <b>A failed save is reported, not swallowed</b> — the decision on #656.
+///         <see cref="Save" /> keeps its void-and-throw contract, because "a subscriber that cannot
+///         write its file is a failed save, and the caller's own error handling is what turns that
+///         into a notification". The interface's <see langword="bool" /> is reached by catching a
+///         write failure, handing it to <see cref="EditorProject.SaveFailed" /> and answering
+///         <see langword="false" />; with nobody subscribed it is thrown on, because a failure with
+///         nobody to hear it is exactly the swallow that remark forbids.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The second is that this model has no location.</b> A document's identity is
-///         <see cref="Asset" />, and the only route from one to a path is
-///         <c>AssetDatabase.TryGetByGuid</c> plus <c>AssetEntry.Path</c>. <see cref="Asset" /> is
-///         immutable, and <c>EditorApplication</c> opens the main scene as
-///         <c>new SceneDocument(project, world, AssetId.Empty, "Main")</c> with the real path held by
-///         its <c>Writer</c> — so a straight mapping would have the editor's own scene report
-///         <c>Location</c> null, which in <c>IEditableDocument</c>'s vocabulary means "never saved"
-///         and is what makes Save mean Save As.
+///         ⚠ <b>The location is the asset database's path, so a document with no asset has
+///         none.</b> <see cref="Asset" /> is immutable, and <c>EditorApplication</c> opens its scenes
+///         as <c>new SceneDocument(project, world, AssetId.Empty, …)</c> with the real path held by a
+///         <c>Writer</c> — so those report <c>Location</c> null, which in
+///         <see cref="IEditableDocument" />'s vocabulary means "never saved". Nothing reads
+///         <c>Location</c> yet (no recent-documents list, no proxy icon), which is why that is
+///         recorded rather than invented.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And <see cref="IsStale" /> has no counterpart there at all</b>, which is the same
-///         gap as <c>documents.md</c>'s owed "external-modification detection" seen from this side:
-///         the mechanism exists here and the framework model has nowhere to put the answer.
+///         ⚠ <b>And <see cref="IsStale" /> is not <see cref="ExternallyModified" /></b>: stale is
+///         disk ahead of memory, which saving would overwrite; externally modified is memory ahead of
+///         disk, which saving writes.
 ///     </para>
 /// </remarks>
-public abstract class EditorDocument {
+public abstract class EditorDocument : IEditableDocument {
+    readonly Signal<string?> location = new(null);
     readonly Signal<bool> modifiedExternally = new(false);
     readonly Signal<bool> stale = new(false);
     readonly Signal<string> title;
@@ -80,8 +82,30 @@ public abstract class EditorDocument {
     /// <summary>What the tab says.</summary>
     public IReadOnlySignal<string> Title => title;
 
-    /// <summary>Whether it differs from what is on disk.</summary>
-    public IReadOnlySignal<bool> IsDirty { get; }
+    /// <summary>Whether it has edits of its own that are not on disk: the stack's position.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only this document's own edits since #656.</b> A change that reached it from
+    ///     outside is <see cref="ExternallyModified" />, and "differs from disk at all" is
+    ///     <see cref="HasUnsavedChanges" />.
+    /// </remarks>
+    public IReadOnlySignal<bool> IsDirty => Stack.IsDirty;
+
+    /// <summary>Whether a command on another stack changed it — a global rename that rewrote a reference in it.</summary>
+    /// <remarks>
+    ///     No undo inside this document takes it back, so walking the history to the save point
+    ///     leaves it set; <see cref="Save" /> and <see cref="Reload" /> clear it.
+    /// </remarks>
+    public IReadOnlySignal<bool> ExternallyModified => modifiedExternally;
+
+    /// <summary>Whether it differs from what is on disk for either reason: <see cref="IsDirty" /> or <see cref="ExternallyModified" />.</summary>
+    /// <remarks>What saving would write, so what Save All writes and what the close prompt asks about.</remarks>
+    public IReadOnlySignal<bool> HasUnsavedChanges { get; }
+
+    /// <inheritdoc />
+    IReadOnlySignal<string> IEditableDocument.Name => title;
+
+    /// <inheritdoc />
+    IReadOnlySignal<string?> IEditableDocument.Location => location;
 
     /// <summary>Whether its file changed underneath it and it has not caught up.</summary>
     /// <remarks>
@@ -112,7 +136,21 @@ public abstract class EditorDocument {
     /// <param name="project">The project.</param>
     /// <param name="asset">The asset it edits, or <see cref="AssetId.Empty" />.</param>
     /// <param name="title">What the tab says.</param>
-    protected EditorDocument(EditorProject project, AssetId asset, string title) {
+    protected EditorDocument(EditorProject project, AssetId asset, string title)
+        : this(project, asset, title, activate: true) {
+    }
+
+    /// <summary>Opens a document in a project, choosing whether it takes the focus.</summary>
+    /// <param name="project">The project.</param>
+    /// <param name="asset">The asset it edits, or <see cref="AssetId.Empty" />.</param>
+    /// <param name="title">What the tab says.</param>
+    /// <param name="activate">
+    ///     Whether it becomes <see cref="EditorProject.ActiveDocument" />. ⚠ <see langword="false" />
+    ///     only for <see cref="SettingsDocument" /> (#1310): the active document is what Ctrl+Z
+    ///     reaches when nothing nearer the focus owns a history, so a settings document that took it
+    ///     would be the viewport's Ctrl+Z undoing a project setting.
+    /// </param>
+    private protected EditorDocument(EditorProject project, AssetId asset, string title, bool activate) {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentException.ThrowIfNullOrEmpty(title);
 
@@ -121,12 +159,16 @@ public abstract class EditorDocument {
         this.title = new(title);
         Context = new(project, this);
         Stack = new(Context);
-        IsDirty = new Computed<bool>(() => Stack.IsDirty.Value || modifiedExternally.Value);
+
+        // ⚠ Both read every time, never short-circuited, so the computed depends on both however
+        // the first one answers.
+        HasUnsavedChanges = new Computed<bool>(() => Stack.IsDirty.Value | modifiedExternally.Value);
+        location.Value = Locate();
 
         // Registering from the base constructor means every document is in the project by
         // construction rather than by whoever created it remembering to add it. Nothing virtual is
         // called and the project only stores the reference, so the half-built instance is not used.
-        project.Register(this);
+        project.Register(this, activate);
     }
 
     /// <summary>Changes what the tab says.</summary>
@@ -172,7 +214,38 @@ public abstract class EditorDocument {
         // other half of the answer to a stale document — "keep mine" — and it is the same two lines
         // as any other save, which is what makes it an answer rather than a mode.
         stale.Value = false;
+
+        // A rename since it was opened moved the file; the save is the moment the path is asked again.
+        location.Value = Locate();
     }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Reports a failed write and answers <see langword="false" /></b>; see the class remarks
+    ///     for why this is the one place the throw becomes a <see langword="bool" />. Only the
+    ///     failures a disk produces are caught — a bug in a <see cref="SaveCore" /> is not a full
+    ///     disk and still throws.
+    /// </remarks>
+    bool IEditableDocument.Save() {
+        try {
+            Save();
+            return true;
+        } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
+            if (!Project.ReportSaveFailed(this, failure)) {
+                throw;
+            }
+
+            return false;
+        }
+    }
+
+    /// <inheritdoc />
+    bool IEditableDocument.Revert() => Reload();
+
+    string? Locate() =>
+        !Asset.IsEmpty && Project.Assets.TryGetByGuid(Asset, out var entry) && !entry.IsFolder
+            ? Project.Paths.Absolute(entry.Path)
+            : null;
 
     /// <summary>Whether this document knows how to read its file again.</summary>
     /// <remarks>

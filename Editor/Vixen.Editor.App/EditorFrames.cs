@@ -4,8 +4,8 @@
 using Microsoft.Extensions.Logging;
 using Vixen.Core.Diagnostics;
 using Vixen.Core.IO.Watch;
-using Vixen.Editor.AssetEditors.Frame;
 using Vixen.Editor.Plugin;
+using Vixen.Editor.SceneView;
 using Vixen.Graphics;
 using Vixen.Rendering.Compositor;
 
@@ -403,17 +403,17 @@ sealed partial class EditorApplication {
     }
 
     /// <summary>The frame document the viewport is drawing, or null for the editor's own.</summary>
-    StandardFrameDocument? authored;
+    IViewportFrame? authored;
 
     /// <summary>Starts drawing the panes through a frame document somebody opened, and keeps up with it.</summary>
     /// <param name="document">The document.</param>
     /// <remarks>
     ///     ⚠ <b>Subscribed on open rather than polled, and the event is the document's own.</b>
-    ///     <c>StandardFrameDocument.Changed</c> fires from <c>Restate</c>, which both the inspector's
+    ///     <c>IViewportFrame.FrameChanged</c> fires from the frame document's <c>Restate</c>, which both the inspector's
     ///     writes and a reload from disk go through — so a knob turned in the panel and a file saved
     ///     underneath the editor reach the pane by the same path, and neither needs a restart.
     /// </remarks>
-    internal void Author(StandardFrameDocument document) {
+    internal void Author(IViewportFrame document) {
         ArgumentNullException.ThrowIfNull(document);
 
         if (ReferenceEquals(authored, document)) {
@@ -421,11 +421,11 @@ sealed partial class EditorApplication {
         }
 
         if (authored is not null) {
-            authored.Changed -= Reframe;
+            authored.FrameChanged -= Reframe;
         }
 
         authored = document;
-        document.Changed += Reframe;
+        document.FrameChanged += Reframe;
 
         Reframe(document);
     }
@@ -438,22 +438,22 @@ sealed partial class EditorApplication {
     ///     document rewrite and the builder applies the same transformer seam either way, so handing
     ///     over the un-expanded form would be a second opinion of it.
     /// </remarks>
-    void Reframe(StandardFrameDocument document) {
+    void Reframe(IViewportFrame document) {
         if (frame is null) {
             return;
         }
 
         try {
-            frame.Reload(document.Expanded, scene.World);
+            frame.Reload(document.Frame, scene.World);
             // ⚠ `NotSupportedException` is in this list because it is the one a *file* causes rather
             // than a bug: `CompositorBuilder.Build` throws it for a document written by another
             // version of the engine, and without it a double-click on an old `.vxcompositor` comes
-            // out of `AssetEditorRegistry.Opened` and takes the editor down.
+            // out of `IDocumentHost.Opened` and takes the editor down.
         } catch (Exception failure)
             when (failure is InvalidOperationException or CompositorBindingException or NotSupportedException) {
             log.Write(
                 LogLevel.Warning,
-                $"The viewport kept its own frame: '{document.Title.Value}' would not build. {failure.Message}"
+                $"The viewport kept its own frame: '{document.FrameName}' would not build. {failure.Message}"
             );
 
             return;
@@ -464,13 +464,13 @@ sealed partial class EditorApplication {
         // compositor nothing else in the editor still refers to.
         RegisterViewModes();
 
-        log.Write(LogLevel.Information, $"The viewport is drawing '{document.Title.Value}'.");
+        log.Write(LogLevel.Information, $"The viewport is drawing '{document.FrameName}'.");
     }
 
     /// <summary>Drops everything device-shaped, for the application going down.</summary>
     void DisposeFrames() {
         if (authored is not null) {
-            authored.Changed -= Reframe;
+            authored.FrameChanged -= Reframe;
             authored = null;
         }
 

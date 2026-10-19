@@ -10,6 +10,7 @@ using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Engine.Transforms;
 using Vixen.Navigation;
 using Vixen.Navigation.Baking;
@@ -435,7 +436,7 @@ sealed partial class EditorApplication {
     ///     <para>
     ///         ⚠ <b>A scene already open is activated rather than loaded twice.</b> Two documents over
     ///         one file are two undo histories over one set of bytes, and whichever saved last wins —
-    ///         which is <c>AssetEditorRegistry.TryOpen</c>'s argument, restated for scenes.
+    ///         which is <c>IDocumentHost.TryOpen</c>'s argument, restated for scenes.
     ///     </para>
     /// </remarks>
     internal SceneDocument? OpenSceneAdditively(string path) {
@@ -541,7 +542,7 @@ sealed partial class EditorApplication {
         var open = openScenes[index];
 
         Confirm(
-            open.Document.IsDirty.Value,
+            open.Document.HasUnsavedChanges.Value,
             "Discard unsaved changes?",
             Path.GetFileName(open.Path) + " has changes that have not been written.",
             () => {
@@ -585,7 +586,7 @@ sealed partial class EditorApplication {
             }
 
             var name = row.Add("scene-name");
-            name.Text = Path.GetFileNameWithoutExtension(open.Path) + (open.Document.IsDirty.Value ? " *" : string.Empty);
+            name.Text = Path.GetFileNameWithoutExtension(open.Path) + (open.Document.HasUnsavedChanges.Value ? " *" : string.Empty);
 
             var visible = row.Add<CheckBox>();
             visible.IsChecked = open.IsVisible;
@@ -656,7 +657,7 @@ sealed partial class EditorApplication {
             EditorStrings.CommandSceneSaveAllScenes,
             EditorStrings.CategoryScene,
             SaveAllScenes,
-            enabled: () => openScenes.Exists(open => open.Document.IsDirty.Value)
+            enabled: () => openScenes.Exists(open => open.Document.HasUnsavedChanges.Value)
         );
 
         Planned("scene.layers", EditorStrings.CommandSceneLayers, EditorStrings.CategoryScene);
@@ -688,7 +689,7 @@ sealed partial class EditorApplication {
         var written = 0;
 
         foreach (var open in openScenes) {
-            if (!open.Document.IsDirty.Value) {
+            if (!open.Document.HasUnsavedChanges.Value) {
                 continue;
             }
 
@@ -819,17 +820,11 @@ sealed partial class EditorApplication {
     /// </remarks>
     void AuthoringUpdate(TimeSpan delta) {
         foreach (var element in Moving(Shell.Document.Root)) {
-            switch (element) {
-                case Vixen.Editor.AssetEditors.Vfx.VfxGraphView effect:
-                    effect.Tick(delta);
-                    break;
-
-                case Vixen.Editor.AssetEditors.Sequencing.SequenceView sequence:
-                    sequence.Tick(delta);
-                    break;
-
-                default:
-                    break;
+            // ⚠ By the contract and not by name (#1297): the VFX graph and the sequence were two
+            // `case` patterns on the asset editors' types, which doc 36 § P3 counted as the two names
+            // the compiler does not report when the reference goes.
+            if (element is ITickingView ticking) {
+                ticking.Tick(delta);
             }
         }
     }

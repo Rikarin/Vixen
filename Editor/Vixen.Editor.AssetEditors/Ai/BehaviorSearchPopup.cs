@@ -3,6 +3,7 @@
 
 using Vixen.Ai;
 using Vixen.Editor.Core;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 
@@ -92,30 +93,34 @@ internal sealed class BehaviorSearchCategory : UiElement {
 ///     nothing about a project, a document or a panel — the same split every other graph editor in
 ///     this repository makes, and the reason the model can be tested with no editor in the way.
 /// </remarks>
-public sealed class BehaviorTreeEditorFactory : IAssetEditorFactory {
+public sealed class BehaviorTreeEditorFactory : DocumentKind {
     /// <inheritdoc />
-    public string Name => "Behaviour Tree";
+    public override string Name => "Behaviour Tree";
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [BehaviorTreeDocument.Extension];
+    public override IReadOnlyList<string> Extensions { get; } = [BehaviorTreeDocument.Extension];
 
     /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(BehaviorTreeDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
         ArgumentNullException.ThrowIfNull(request);
 
         return new BehaviorTreeDocument(request.Project, request.Asset, request.Path);
     }
+}
 
+/// <summary>What <see cref="BehaviorTreeEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+public sealed class BehaviorTreeEditorView : DocumentView<BehaviorTreeDocument> {
     /// <inheritdoc />
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(panel);
-
+    protected override UiElement Build(BehaviorTreeDocument document, UiElement panel) {
         // A node canvas with its own pan and zoom — see `ShaderGraphView.CreateView`.
         DockPanel.Fills(panel);
 
         var view = panel.Add<BehaviorTreeView>();
 
-        view.Show((BehaviorTreeDocument) document);
+        view.Show(document);
 
         return view;
     }

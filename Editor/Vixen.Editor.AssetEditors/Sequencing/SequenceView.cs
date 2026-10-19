@@ -4,6 +4,7 @@
 using System.Globalization;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Engine.Transforms;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -32,7 +33,7 @@ namespace Vixen.Editor.AssetEditors.Sequencing;
 ///         writes the actors where frame 47 left them.
 ///     </para>
 /// </remarks>
-public sealed class SequenceView : Control {
+public sealed class SequenceView : Control, ITickingView {
     SequenceDocument? document;
     SequenceTrackData? selected;
     float previous = -1f;
@@ -493,18 +494,21 @@ public sealed class SequenceView : Control {
 ///     scene goes into — and a factory that reached for one would be a factory that knows what the
 ///     editor has open.
 /// </remarks>
-public sealed class SequenceEditorFactory : IAssetEditorFactory {
+public sealed class SequenceEditorFactory : DocumentKind {
     /// <summary>Where the scene a sequence drives comes from, or <see langword="null" /> for none.</summary>
     public Func<SceneDocument?>? Scene { get; set; }
 
     /// <inheritdoc />
-    public string Name => "Sequence";
+    public override string Name => "Sequence";
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [SequenceDocument.Extension];
+    public override IReadOnlyList<string> Extensions { get; } = [SequenceDocument.Extension];
 
     /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(SequenceDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
         ArgumentNullException.ThrowIfNull(request);
 
         var document = new SequenceDocument(request.Project, request.Asset, request.Path);
@@ -512,11 +516,12 @@ public sealed class SequenceEditorFactory : IAssetEditorFactory {
         document.Attach(Scene?.Invoke());
         return document;
     }
+}
 
+/// <summary>What <see cref="SequenceEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+public sealed class SequenceEditorView : DocumentView<SequenceDocument> {
     /// <inheritdoc />
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(panel);
-
+    protected override UiElement Build(SequenceDocument document, UiElement panel) {
         // ⚠ A `Timeline` already scrolls its lanes vertically, and it does so by hand: it keeps its own
         // `ScrollTop`, virtualises the rows against it, counter-offsets the headers, and turns a
         // pointer into a track with `(y - Lanes.AbsoluteTop + ScrollTop) / height`. A panel offset on
@@ -524,7 +529,7 @@ public sealed class SequenceEditorFactory : IAssetEditorFactory {
         DockPanel.Fills(panel);
 
         var view = panel.Add<SequenceView>();
-        view.Show((SequenceDocument) document);
+        view.Show(document);
 
         return view;
     }

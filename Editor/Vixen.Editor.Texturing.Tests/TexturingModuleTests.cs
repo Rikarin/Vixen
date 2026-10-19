@@ -55,7 +55,7 @@ public class TexturingModuleTests {
             fixture.Extensions.All<NewAssetKind>().Select(kind => kind.Extension).Order(StringComparer.Ordinal)
         );
 
-        // ⚠ And neither opens, which is not a nicety: this fixture publishes no `AssetEditorRegistry`,
+        // ⚠ And neither opens, which is not a nicety: this fixture publishes no `IDocumentHost`,
         // and `Opens` is derived from whether there is one to claim the extension in. A kind with
         // `Opens: true` here would put "No editor claims that file" on screen every time somebody
         // made one.

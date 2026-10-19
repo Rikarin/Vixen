@@ -10,7 +10,7 @@ namespace Vixen.Editor.Texturing.Tests;
 /// <remarks>
 ///     ⚠ <b>The first asset editor in this build registered by anything other than the
 ///     application.</b> <c>StandardEditors.CreateDefault</c> builds the registry once for the life of
-///     the process, so nothing had ever needed <c>AssetEditorRegistry.Add</c> to hand back a removal
+///     the process, so nothing had ever needed <c>IDocumentHost.Add</c> to hand back a removal
 ///     — and a plugin that registered there without one leaked its whole assembly, permanently and
 ///     with no error anywhere.
 /// </remarks>
@@ -56,7 +56,7 @@ public class TexturingClaimTests {
                 Layers.SmartMaterial.Extension,
                 TextureGraphDocument.Extension
             ],
-            fixture.Editors.Editors
+            fixture.Editors.Kinds
                 .SelectMany(editor => editor.Extensions)
                 .Order(StringComparer.Ordinal)
                 .ToArray()
@@ -82,7 +82,7 @@ public class TexturingClaimTests {
 
         var asset = fixture.AddGraph("Bricks");
 
-        Assert.True(fixture.Editors.TryOpen(fixture.Project, asset, out var document));
+        Assert.True(fixture.Editors.TryOpen(asset, out var document));
 
         var graph = Assert.IsType<TextureGraphDocument>(document);
 

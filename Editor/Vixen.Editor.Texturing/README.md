@@ -190,7 +190,7 @@ does not compile.
 
 ### 3. An asset-editor registration could not be undone ✅ *not predicted* — [#739](https://github.com/Rikarin/Vixen/issues/739)
 
-`AssetEditorRegistry.Add` hands back an `IDisposable` now, the way `IEditorRegistry.Add` already did.
+`AssetEditorRegistry.Add` (since #1294 `IDocumentHost.Add` and `IWorkspace.Add`) hands back an `IDisposable` now, the way `IEditorRegistry.Add` already did.
 So `TextureGraphEditorFactory` claims `.vxtexgraph` inside this module's registration scope and gives
 it back — the name **and** the extension, together — when the module unloads.
 

@@ -8,7 +8,6 @@
 #
 # Regenerate after a merge with `./build.sh CheckArchitecture --update-exemptions`, and read the diff.
 
-Editor/Vixen.Editor.App/EditorApplication.cs AssetEditorTheme.Install 1 The application itself, in scope since PlayModule and SceneModule made Vixen.Editor.App a plugin assembly (#1289, #1290); its own verbs go through the front door with doc 50 § D3 (#1296).
 Editor/Vixen.Editor.App/EditorApplication.cs BrowserTheme.Install 1 The application itself, in scope since PlayModule and SceneModule made Vixen.Editor.App a plugin assembly (#1289, #1290); its own verbs go through the front door with doc 50 § D3 (#1296).
 Editor/Vixen.Editor.App/EditorApplication.cs InspectorTheme.Install 1 The application itself, in scope since PlayModule and SceneModule made Vixen.Editor.App a plugin assembly (#1289, #1290); its own verbs go through the front door with doc 50 § D3 (#1296).
 Editor/Vixen.Editor.App/EditorApplication.cs Services.Add 1 The application itself, in scope since PlayModule and SceneModule made Vixen.Editor.App a plugin assembly (#1289, #1290); its own verbs go through the front door with doc 50 § D3 (#1296).
@@ -18,7 +17,7 @@ Editor/Vixen.Editor.App/EditorApplication.cs WorldTheme.Install 1 The applicatio
 Editor/Vixen.Editor.App/EditorParity.cs Shell.Commands.Add 3 The application itself, in scope since PlayModule and SceneModule made Vixen.Editor.App a plugin assembly (#1289, #1290); its own verbs go through the front door with doc 50 § D3 (#1296).
 Editor/Vixen.Editor.App/EditorParity.cs Shell.Modes.Add 1 The application itself, in scope since PlayModule and SceneModule made Vixen.Editor.App a plugin assembly (#1289, #1290); its own verbs go through the front door with doc 50 § D3 (#1296).
 Editor/Vixen.Editor.App/EditorParity.cs Shell.RegisterPanel 1 The application itself, in scope since PlayModule and SceneModule made Vixen.Editor.App a plugin assembly (#1289, #1290); its own verbs go through the front door with doc 50 § D3 (#1296).
-Editor/Vixen.Editor.App/EditorSettingsPanels.cs Shell.RegisterPanel 5 The application itself, in scope since PlayModule and SceneModule made Vixen.Editor.App a plugin assembly (#1289, #1290); its own verbs go through the front door with doc 50 § D3 (#1296).
+Editor/Vixen.Editor.App/EditorSettingsPanels.cs Shell.RegisterPanel 4 The application itself, in scope since PlayModule and SceneModule made Vixen.Editor.App a plugin assembly (#1289, #1290); its own verbs go through the front door with doc 50 § D3 (#1296).
 Editor/Vixen.Editor.App/EditorSourceControl.cs Shell.RegisterPanel 1 The application itself, in scope since PlayModule and SceneModule made Vixen.Editor.App a plugin assembly (#1289, #1290); its own verbs go through the front door with doc 50 § D3 (#1296).
 Editor/Vixen.Editor.App/EditorWorlds.cs Shell.RegisterPanel 4 The application itself, in scope since PlayModule and SceneModule made Vixen.Editor.App a plugin assembly (#1289, #1290); its own verbs go through the front door with doc 50 § D3 (#1296).
 Editor/Vixen.Editor.App/SceneMenus.cs Shell.Commands.Add 2 The application itself, in scope since PlayModule and SceneModule made Vixen.Editor.App a plugin assembly (#1289, #1290); its own verbs go through the front door with doc 50 § D3 (#1296).

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Core;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Ui;
 
 namespace Vixen.Editor.AssetEditors.Input;
@@ -55,26 +56,30 @@ public readonly record struct InputRow(string? Map, string? Action = null, int B
 public sealed partial class InputActionsView;
 
 /// <summary>Opens an input action asset.</summary>
-public sealed class InputActionsEditorFactory : IAssetEditorFactory {
+public sealed class InputActionsEditorFactory : DocumentKind {
     /// <inheritdoc />
-    public string Name => "Input Actions";
+    public override string Name => "Input Actions";
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [InputActionsDocument.Extension];
+    public override IReadOnlyList<string> Extensions { get; } = [InputActionsDocument.Extension];
 
     /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(InputActionsDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
         ArgumentNullException.ThrowIfNull(request);
 
         return new InputActionsDocument(request.Project, request.Asset, request.Path);
     }
+}
 
+/// <summary>What <see cref="InputActionsEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+public sealed class InputActionsEditorView : DocumentView<InputActionsDocument> {
     /// <inheritdoc />
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(panel);
-
+    protected override UiElement Build(InputActionsDocument document, UiElement panel) {
         var view = panel.Add<InputActionsView>();
-        view.Show((InputActionsDocument) document);
+        view.Show(document);
 
         return view;
     }

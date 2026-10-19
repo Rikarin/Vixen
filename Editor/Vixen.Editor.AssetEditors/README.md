@@ -53,7 +53,7 @@ layout is what lets the overlay be asserted without a frame having been drawn.
 
 ## Told, never discovered — and no fallback
 
-`AssetEditorRegistry` is `ImporterRegistry`'s rule restated: registration is a line of code, two
+`DocumentHost` (in `Vixen.Editor.Core` since #1294 — this assembly registers kinds into it and views into `IWorkspace`, joined by document type; see `docs/guide/editor/documents-and-views.md`) is `ImporterRegistry`'s rule restated: registration is a line of code, two
 editors claiming one extension is an error naming both, and an assembly scan would make "which
 editors does this build have" a question with a different answer in a trimmed publish.
 
@@ -203,7 +203,7 @@ prefab nested. A `.vxprefab` may hold an instance of another one; its nodes arri
 the inner link, and recording the outer one over the top would flatten a level of nesting on every
 placement — silently, with the subtree still there and answering to the wrong template.
 
-⚠ **`Vixen.Engine.Scenes.Prefab` and `Vixen.Editor.AssetEditors.Prefabs.Prefab` are two unrelated
+⚠ **`Vixen.Engine.Scenes.Prefab` and `Vixen.Editor.App.Prefab` (in the application since #1297) are two unrelated
 things with one name.** A file that names both gets CS0104; `EditorApplication` aliases the editor's.
 Doc 47 § 1 opens by saying that conflating them is the first way to get prefabs wrong here, and the
 compiler says the same thing at the call site.

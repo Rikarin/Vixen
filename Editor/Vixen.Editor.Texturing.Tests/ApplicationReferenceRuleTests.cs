@@ -16,9 +16,18 @@ namespace Vixen.Editor.Texturing.Tests;
 ///     <para>
 ///         <b>The criterion had never been written at all.</b> Blockout and Terrain were decoupled at
 ///         real cost, and nothing failed the build when either was referenced again — which for F2,
-///         the finding doc 36 says matters most, is the difference between a fix and a tidy-up. What
-///         is asserted here is not that the application is clean (it is not: five feature assemblies
-///         are still named) but that the list of five can only shrink.
+///         the finding doc 36 says matters most, is the difference between a fix and a tidy-up.
+///     </para>
+///     <para>
+///         ⚠ <b>One half now, and there is no second half to sabotage</b> (#1302). The rule had a
+///         shrink-only list of what the application still named — five feature assemblies once — and
+///         its tests proved the list could only shrink. The asset editors were its last name (#1297),
+///         and the list was deleted rather than emptied, because an empty shrink-only list asserts
+///         nothing. The sabotage that reaches what is left is the one
+///         <see cref="A_feature_assembly_referenced_again_is_a_violation" /> runs on a fixture and that
+///         also holds on the real tree: put <c>Vixen.Editor.Terrain</c> back in
+///         <c>Vixen.Editor.App.csproj</c> and <see cref="The_editor_application_references_no_feature_assembly" />
+///         goes red.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Beside <c>PluginReferenceRuleTests</c> for its reason, not for tidiness.</b> A rule
@@ -53,7 +62,7 @@ public class ApplicationReferenceRuleTests {
     ///     produces "no violations" and means nothing, so each is refused by name.
     /// </remarks>
     [Fact]
-    public void The_editor_application_references_no_feature_assembly_beyond_those_still_owed() {
+    public void The_editor_application_references_no_feature_assembly() {
         var root = Repository();
         var projects = Projects();
 
@@ -79,12 +88,22 @@ public class ApplicationReferenceRuleTests {
         Assert.Contains("Vixen.Editor.Ui", referenced);
 
         // And the other half of the instrument: a feature reference is something this walk can find.
-        // The asset editors are one, the last `NotYetMoved` names, and a rule that could not see them
-        // would be clean for the wrong reason. ⚠ This named the profiler until #1298 and the node graph
-        // until #1299 took each off; the day the asset editors go too (#1297) this half needs a feature
-        // reference made for it — a fixture project — not a deleted line, because then the real tree
-        // holds none left to point at.
-        Assert.Contains("Vixen.Editor.AssetEditors", referenced);
+        // ⚠ The real tree has none left to point at since #1297 took the asset editors off — this
+        // named the profiler until #1298, the node graph until #1299 and the asset editors until then
+        // — so the walk is shown one on a project made for it, through the same `EditorReferences`
+        // the assertions above read the tree with. A walk that could not see a feature reference
+        // would make the tree's empty violation list mean nothing.
+        using (var fixture = new Fixture()) {
+            fixture.Application([.. ApplicationReferenceRule.Allowed, "Vixen.Editor.AssetEditors"]);
+
+            Assert.Contains(
+                "Vixen.Editor.AssetEditors",
+                ApplicationReferenceRule.EditorReferences(fixture.Root, fixture.Projects[0])
+            );
+        }
+
+        // And the tree's own list no longer carries it — the reference #1297 removed.
+        Assert.DoesNotContain("Vixen.Editor.AssetEditors", referenced);
 
         // ⚠ The generator is not in the list, and that is the one exclusion the rule makes.
         // `Vixen.Editor.Inspector.Generator` is an `OutputItemType="Analyzer"` reference under
@@ -95,41 +114,6 @@ public class ApplicationReferenceRuleTests {
         Assert.Equal([], ApplicationReferenceRule.Violations(root, projects));
     }
 
-    /// <summary>
-    ///     Every name still owed is genuinely still referenced, which is what stops the list from
-    ///     becoming a description of history.
-    /// </summary>
-    /// <remarks>
-    ///     ⚠ <b>This is the half that makes the criterion move.</b> A list of exceptions that may
-    ///     grow, or that may keep a name after the reference has gone, records intent rather than
-    ///     state — and the rule reports "no violations" for both an application that is clean and one
-    ///     that never got cleaner. <c>CheckWhitespace</c>'s exemption file made the same call for the
-    ///     same reason.
-    /// </remarks>
-    [Fact]
-    public void Nothing_in_the_still_owed_list_has_already_been_dereferenced() {
-        var root = Repository();
-        var projects = Projects();
-
-        var referenced = ApplicationReferenceRule.EditorReferences(
-            root,
-            projects.Single(path =>
-                Path.GetFileNameWithoutExtension(path) == ApplicationReferenceRule.Application
-            )
-        );
-
-        Assert.NotEmpty(ApplicationReferenceRule.NotYetMoved);
-
-        Assert.All(
-            ApplicationReferenceRule.NotYetMoved,
-            name => Assert.Contains(name, referenced)
-        );
-
-        // And the two lists are disjoint, because a name in both is a name whose removal the rule
-        // would demand and permit at once.
-        Assert.Empty(ApplicationReferenceRule.Allowed.Intersect(ApplicationReferenceRule.NotYetMoved, StringComparer.Ordinal));
-    }
-
     /// <summary>A feature assembly referenced again fails, which is the whole criterion.</summary>
     [Fact]
     public void A_feature_assembly_referenced_again_is_a_violation() {
@@ -138,7 +122,6 @@ public class ApplicationReferenceRuleTests {
         // Everything the application is entitled to today, plus one that moved out and came back.
         fixture.Application([
             .. ApplicationReferenceRule.Allowed,
-            .. ApplicationReferenceRule.NotYetMoved,
             "Vixen.Editor.Blockout"
         ]);
 
@@ -147,31 +130,12 @@ public class ApplicationReferenceRuleTests {
         Assert.Contains("Vixen.Editor.Blockout", violation, StringComparison.Ordinal);
     }
 
-    /// <summary>And a name still owed that has become clean fails too, so the list only shrinks.</summary>
-    [Fact]
-    public void A_still_owed_name_that_is_no_longer_referenced_is_a_violation() {
-        using var fixture = new Fixture();
-
-        // Everything permitted, and nothing owed — which is the day P3's exit is met and the day the
-        // list has to be emptied in the same commit.
-        fixture.Application([.. ApplicationReferenceRule.Allowed]);
-
-        var violations = ApplicationReferenceRule.Violations(fixture.Root, fixture.Projects);
-
-        Assert.Equal(ApplicationReferenceRule.NotYetMoved.Length, violations.Count);
-
-        Assert.All(
-            ApplicationReferenceRule.NotYetMoved,
-            name => Assert.Contains(violations, violation => violation.Contains(name, StringComparison.Ordinal))
-        );
-    }
-
     /// <summary>An analyzer reference is not a feature reference.</summary>
     [Fact]
     public void An_analyzer_reference_under_Editor_is_not_counted() {
         using var fixture = new Fixture();
 
-        fixture.Application([.. ApplicationReferenceRule.Allowed, .. ApplicationReferenceRule.NotYetMoved]);
+        fixture.Application([.. ApplicationReferenceRule.Allowed]);
         fixture.AddAnalyzer("Vixen.Editor.Inspector.Generator");
 
         Assert.DoesNotContain(

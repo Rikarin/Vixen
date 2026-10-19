@@ -4,14 +4,14 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
-using Vixen.Editor.AssetEditors.Prefabs;
 using Vixen.Editor.AssetEditors.Scenes;
+using Vixen.Editor.AssetEditors.Tests;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.SceneView;
 using Vixen.Engine.Transforms;
 using Xunit;
 
-namespace Vixen.Editor.AssetEditors.Tests;
+namespace Vixen.Editor.App.Tests;
 
 /// <summary>Placing a prefab in a scene, and knowing afterwards where each entity came from.</summary>
 public class PrefabInstanceTests {

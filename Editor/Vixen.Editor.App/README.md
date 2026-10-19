@@ -178,9 +178,9 @@ breaks here is the line *between* two pieces that each have tests of their own. 
 did nothing for exactly that reason: every part of the path worked and one of the joins was missing.
 
 **Double-clicking an asset opens it in a panel of its own.** `ProjectBrowser` raises `Activated`,
-`AssetEditorRegistry` says which of the nine editors in
+`IDocumentHost` says which document kind in
 [`Vixen.Editor.AssetEditors`](../Vixen.Editor.AssetEditors/README.md) claims the file, and the
-document lands in a dock panel registered on demand.
+document lands in a dock panel registered on demand, built by the `DocumentView` `IWorkspace` finds for its type (#1294).
 
 - ⚠ **The panel is named after the asset's GUID.** A path would be shorter and would leave a panel
   nobody can reopen the moment the file moved; the GUID is the identity precisely so that it does not.
@@ -663,7 +663,7 @@ warning would toast, log, toast, log.
   visibility writes the documents' own hidden sets**, so it is editor state and is not saved — the
   rule `entity.toggle-hidden` already follows.
 - ⚠ **Double-clicking the scene that is already open loads it a second time.** The editor opens its
-  own scene by *path*, as a `SceneDocument` carrying `AssetId.Empty`, so `AssetEditorRegistry` has no
+  own scene by *path*, as a `SceneDocument` carrying `AssetId.Empty`, so `IDocumentHost` has no
   way to know that the GUID being opened is the document already on screen — and both share one
   world, so the entity count doubles. Opening the scene as an asset from the start is the fix, and it
   is a change to how the editor decides what it is editing rather than a check to add here.

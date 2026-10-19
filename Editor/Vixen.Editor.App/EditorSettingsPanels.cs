@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Core.Yaml;
+using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.Ui;
 using Vixen.Platform;
@@ -10,6 +11,7 @@ using Vixen.Ui;
 using Vixen.Ui.Composition;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
+using Vixen.Ui.Reactive;
 
 namespace Vixen.Editor.App;
 
@@ -74,6 +76,16 @@ sealed partial class EditorApplication {
 
     /// <summary>And the Project Settings window, on the same terms.</summary>
     SettingsView? projectSettingsView;
+
+    /// <summary>The project's settings as a document, from the first time the window is built (#1310).</summary>
+    /// <remarks>
+    ///     Kept for the session rather than closed with the window, like an asset tab's document: the
+    ///     project keeps the edits and the undo history, so reopening the window finds both.
+    /// </remarks>
+    SettingsDocument? settingsDocument;
+
+    /// <summary>What keeps the project window's Apply in step with the document, while the window is open.</summary>
+    Effect? settingsDirty;
 
     /// <summary>The contributed page ids in each window, so a withdrawal can find them again.</summary>
     /// <remarks>
@@ -154,9 +166,22 @@ sealed partial class EditorApplication {
             EditorStrings.PanelProjectSettings,
             panel => {
                 var view = panel.Add<SettingsView>();
+                var document = settingsDocument ??= new SettingsDocument(project, EditorStrings.PanelProjectSettings.Text);
+
+                // ⚠ The window hosts the document's history (#1310, decision (a)): Ctrl+Z with the
+                // focus anywhere in it undoes a setting, because `FindUndoManager` walks from the focus
+                // and finds this before the document's `ActiveDocumentUndo`. Nowhere else does —
+                // `SettingsDocument` never becomes the active document, so the viewport's Ctrl+Z
+                // reaches the scene it always did.
+                panel.UndoManager = document.Stack;
+
+                // ⚠ One vocabulary for "unsaved": the window's Apply is the document's answer, read
+                // live, rather than a flag the rows set and the store kept a second copy of.
+                settingsDirty?.Dispose();
+                settingsDirty = new Effect(() => view.IsDirty = document.HasUnsavedChanges.Value, Shell.Document.Effects);
 
                 view.Applied += _ => {
-                    project.Settings.SaveAll();
+                    document.Save();
                     Shell.Notifications.Success(EditorStrings.PanelProjectSettings.Text);
 
                     // The content target is read from the settings every time a build runs, so this
@@ -165,7 +190,7 @@ sealed partial class EditorApplication {
                 };
 
                 view.Reverted += _ => {
-                    project.Settings.Reload();
+                    document.Reload();
                     ApplyProjectSettings();
                 };
 
@@ -181,34 +206,9 @@ sealed partial class EditorApplication {
             }
         );
 
-        // ⚠ A panel of its own, and the view behind it already existed. `AddressableGroupsView` is
-        // the group list, the per-group policy and doc 08's analysis — all of it built, and reachable
-        // only by finding a `.vxgroup` in the project and double-clicking it. An asset editor is the
-        // right home for editing *one* group's file; it is the wrong front door for the feature,
-        // because a project that has never made a group has nothing to double-click, which is what
-        // "there is no addressables UI" meant. Nothing here is new behaviour: it is the same control
-        // over the same project, with a way in.
-        Shell.RegisterPanel(
-            AddressablesPanel,
-            EditorStrings.PanelAddressables,
-            panel => {
-                var view = panel.Add<AssetEditors.Content.AddressableGroupsView>();
-
-                // ⚠ The same analyser the `.vxgroup` editor is given — see `AnalyseContent`. Two
-                // panels asking two different planners would be two answers to "what would a build
-                // do", and the one nobody is looking at would be the one that is right.
-                view.Show(project, AnalyseContent);
-
-                // Opening a group from the list goes through the ordinary asset-editor path, so the
-                // panel that appears is the same document a double-click in the browser opens rather
-                // than a second view over the same file.
-                view.GroupOpened += (_, document) => {
-                    if (document.Asset != AssetId.Empty) {
-                        Open(document.Asset);
-                    }
-                };
-            }
-        );
+        // ⚠ The Addressables panel is the asset editors module's since #1297 — it is
+        // `AddressableGroupsView`, which only that module can name — and the module registers it
+        // under this id, so the Assets menu's line below still finds it.
 
         Shell.RegisterPanel(
             PluginsPanel,
@@ -324,6 +324,8 @@ sealed partial class EditorApplication {
             preferencesView = null;
         } else {
             projectSettingsView = null;
+            settingsDirty?.Dispose();
+            settingsDirty = null;
         }
 
         contributedPages[scope].Clear();
@@ -689,7 +691,7 @@ sealed partial class EditorApplication {
             new SettingsCategory(
                 "project",
                 EditorStrings.SettingsProject,
-                pane => Draw(pane, view, project.Settings.Get<ProjectInfoSettings>(), project.Settings.MarkChanged<ProjectInfoSettings>)
+                pane => Draw(pane, view, project.Settings.Get<ProjectInfoSettings>(), Recorded<ProjectInfoSettings>, settingsDocument)
             ) {
                 Reset = project.Settings.Reset<ProjectInfoSettings>,
                 Keywords = () => Members<ProjectInfoSettings>()
@@ -701,7 +703,7 @@ sealed partial class EditorApplication {
                 "content",
                 EditorStrings.SettingsContent,
                 pane => {
-                    Draw(pane, view, project.Settings.Get<ContentBuildSettings>(), project.Settings.MarkChanged<ContentBuildSettings>);
+                    Draw(pane, view, project.Settings.Get<ContentBuildSettings>(), Recorded<ContentBuildSettings>, settingsDocument);
 
                     pane.Add<TextBlock>().Text =
                         $"Empty builds for this machine, which is {ProjectWorkspaceTarget}.";
@@ -711,6 +713,19 @@ sealed partial class EditorApplication {
                 Keywords = () => Members<ContentBuildSettings>()
             }
         );
+    }
+
+    /// <summary>Tells the settings document an edit reached one settings type, so its save writes that file.</summary>
+    /// <remarks>
+    ///     Before the document exists — a page drawn by a host that never built the window — the store
+    ///     is marked, which is what every edit did before #1310.
+    /// </remarks>
+    void Recorded<T>() where T : class, new() {
+        if (settingsDocument is { } document) {
+            document.Record(typeof(T));
+        } else {
+            project.Settings.MarkChanged<T>();
+        }
     }
 
     /// <summary>Pushes the project's settings into the things that read them.</summary>
@@ -737,16 +752,25 @@ sealed partial class EditorApplication {
 
     /// <summary>Draws a settings object as inspector rows.</summary>
     /// <remarks>
-    ///     ⚠ <b>No document, so the writes are direct and are not undoable.</b>
-    ///     <see cref="InspectorField" /> says that is the case where the inspector is previewing
-    ///     something nobody is editing, and a settings window is the other one: the undo history
-    ///     belongs to a scene, and a Ctrl+Z aimed at the viewport that silently changed a project
-    ///     setting would be worse than no undo at all. Revert is the verb here.
+    ///     <para>
+    ///         ⚠ <b>With a document, edits are commands on its stack; without one they are direct.</b>
+    ///         The project window passes its <see cref="SettingsDocument" /> (#1310), so a setting is
+    ///         edited through <c>EditProperty</c> like any other member and Ctrl+Z inside the window
+    ///         undoes it. The preferences window passes none: preferences are the user's, not the
+    ///         project's, and nothing saves them as a document — so their rows write directly, which
+    ///         <see cref="InspectorField" /> calls previewing something nobody is editing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The remark this replaced refused undo here</b> because "a Ctrl+Z aimed at the
+    ///         viewport that silently changed a project setting would be worse than no undo at all".
+    ///         That hazard is real and is why the settings document never becomes the active document;
+    ///         the window hosts its stack instead, so the viewport's Ctrl+Z never reaches it.
+    ///     </para>
     /// </remarks>
-    static void Draw(UiElement pane, SettingsView view, object settings, Action? edited = null) {
+    static void Draw(UiElement pane, SettingsView view, object settings, Action? edited = null, EditorDocument? document = null) {
         var inspector = pane.Add<InspectorView>();
 
-        inspector.EditedDocument = null;
+        inspector.EditedDocument = document;
 
         // ⚠ Its own header goes, because the window has one. Two search boxes over the same rows is
         // two filters that can disagree, and the one in the panel's own strip is the one somebody
@@ -758,12 +782,17 @@ sealed partial class EditorApplication {
         inspector.Inspect(settings);
 
         inspector.ValueChanged += (_, _) => {
-            view.IsDirty = true;
+            // ⚠ With a document the window's dirty flag is the document's, bound where the window is
+            // built — setting it here too would be a second writer that an undo back to clean could
+            // not take back.
+            if (document is null) {
+                view.IsDirty = true;
+            }
 
             // ⚠ A settings object is a plain [DataContract] with no change notification of its own,
-            // so the store has to be told — `ProjectSettingsStore.MarkChanged` is explicit for
-            // exactly that reason, and `SaveAll` writes only what has been marked. Without this the
-            // Apply button would clear the dirty flag and write nothing at all.
+            // so whoever saves it has to be told which file the edit reached — the document's
+            // `Record`, or the store's `MarkChanged` for a page with no document. Without this the
+            // Apply would write nothing at all.
             edited?.Invoke();
         };
     }

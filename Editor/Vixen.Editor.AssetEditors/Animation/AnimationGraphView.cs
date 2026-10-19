@@ -7,6 +7,7 @@ using Vixen.Animation.StateMachine;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.AnimationGraph;
 using Vixen.Editor.Core;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -819,31 +820,35 @@ public sealed class AnimationGraphView : Control {
 }
 
 /// <summary>Opens an animation graph.</summary>
-public sealed class AnimationGraphEditorFactory : IAssetEditorFactory {
+public sealed class AnimationGraphEditorFactory : DocumentKind {
     /// <inheritdoc />
-    public string Name => "Animation Graph";
+    public override string Name => "Animation Graph";
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [AnimationGraphDocument.Extension];
+    public override IReadOnlyList<string> Extensions { get; } = [AnimationGraphDocument.Extension];
 
     /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(AnimationGraphDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
         ArgumentNullException.ThrowIfNull(request);
 
         return new AnimationGraphDocument(request.Project, request.Asset, request.Path);
     }
+}
 
+/// <summary>What <see cref="AnimationGraphEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+public sealed class AnimationGraphEditorView : DocumentView<AnimationGraphDocument> {
     /// <inheritdoc />
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(panel);
-
+    protected override UiElement Build(AnimationGraphDocument document, UiElement panel) {
         // ⚠ `StateMapView` places its boxes absolutely inside a clipped box and hit-tests them with
         // `args.X - AbsoluteLeft`, so it fails the same way a node canvas would even though it has no
         // pan of its own: a scroll offset it does not know about moves every state under the cursor.
         DockPanel.Fills(panel);
 
         var view = panel.Add<AnimationGraphView>();
-        view.Show((AnimationGraphDocument) document);
+        view.Show(document);
 
         return view;
     }

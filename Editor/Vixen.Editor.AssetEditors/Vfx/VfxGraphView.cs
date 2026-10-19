@@ -4,6 +4,7 @@
 using System.Globalization;
 using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Editor.VfxGraph;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -29,10 +30,10 @@ namespace Vixen.Editor.AssetEditors.Vfx;
 ///         The panel is <c>VfxGraphView.vxml</c>; this file is the accessibility modifier and the
 ///         factory, on the arrangement <c>FactRow</c>, <c>NodeInspector</c> and <c>CodeEditorView</c>
 ///         use. The emitter's partial carries no modifier and this type is handed out by
-///         <see cref="VfxEditorFactory.CreateView" />.
+///         <see cref="VfxEditorView" />.
 ///     </para>
 /// </remarks>
-public sealed partial class VfxGraphView;
+public sealed partial class VfxGraphView : ITickingView;
 
 /// <summary>Opens a VFX graph.</summary>
 /// <remarks>
@@ -42,33 +43,37 @@ public sealed partial class VfxGraphView;
 ///     graph with no editor in the way. The document and the view are the same shape every other row
 ///     of doc 11's asset-editor table has, and this is the assembly that holds them.
 /// </remarks>
-public sealed class VfxEditorFactory : IAssetEditorFactory {
+public sealed class VfxEditorFactory : DocumentKind {
     readonly NodeTypeRegistry registry = VfxNodeLibrary.Create();
 
     /// <inheritdoc />
-    public string Name => "VFX Graph";
+    public override string Name => "VFX Graph";
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [VfxDocument.Extension];
+    public override IReadOnlyList<string> Extensions { get; } = [VfxDocument.Extension];
 
     /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(VfxDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
         ArgumentNullException.ThrowIfNull(request);
 
         // One registry for every effect this editor opens, for `VfxNodeLibrary`'s reason.
         return new VfxDocument(request.Project, request.Asset, request.Path, registry);
     }
+}
 
+/// <summary>What <see cref="VfxEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+public sealed class VfxEditorView : DocumentView<VfxDocument> {
     /// <inheritdoc />
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(panel);
-
+    protected override UiElement Build(VfxDocument document, UiElement panel) {
         // A node canvas with its own pan and zoom — see `ShaderGraphView.CreateView`. The editor also
         // lays out as a row, so a vertical scroll over it would have nothing to say.
         DockPanel.Fills(panel);
 
         var view = panel.Add<VfxGraphView>();
-        view.Show((VfxDocument) document);
+        view.Show(document);
 
         return view;
     }

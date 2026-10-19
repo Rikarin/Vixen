@@ -128,7 +128,7 @@ sealed class ProjectBrowser {
     /// <summary>Raised when a row is activated — a double-click, or Enter on the keyboard.</summary>
     /// <remarks>
     ///     What opens an asset. The browser deliberately does not open it itself: which editor claims
-    ///     a file is <c>AssetEditorRegistry</c>'s and where the resulting document goes is the
+    ///     a file is <c>IDocumentHost</c>'s and where the resulting document goes is the
     ///     workspace's, and a browser that knew both would be the third thing that has to be told
     ///     when either changes.
     /// </remarks>

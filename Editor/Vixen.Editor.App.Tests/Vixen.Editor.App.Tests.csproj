@@ -91,6 +91,20 @@
             it agrees with itself by construction.
         -->
         <Compile Include="..\Vixen.Editor.Assets.Tests\MinimalPng.cs" Link="MinimalPng.cs" />
+
+        <!--
+            Doc 50 § D4's pairing invariant (#1294), the one function both test projects ask: the
+            asset editors' tests about the lists that assembly ships, and DocumentPairingTests here
+            about a running editor's registries, modules included. One source, two callers.
+        -->
+        <Compile Include="..\Vixen.Editor.AssetEditors.Tests\DocumentPairing.cs" Link="DocumentPairing.cs" />
+
+        <!--
+            The project-on-disk fixture the prefab tests were written against, which came with them
+            when Prefab and PrefabSource moved into the application (#1297): placing a prefab and
+            pairing the inspector with an instance are the application's, not the asset editors'.
+        -->
+        <Compile Include="..\Vixen.Editor.AssetEditors.Tests\EditorFixture.cs" Link="EditorFixture.cs" />
     </ItemGroup>
 
     <ItemGroup>

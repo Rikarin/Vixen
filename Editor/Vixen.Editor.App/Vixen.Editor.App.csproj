@@ -60,21 +60,14 @@
         <ProjectReference Include="..\..\Tools\Vixen.ShaderCompiler\Vixen.ShaderCompiler.csproj" />
 
         <!--
-            The nine per-asset editors from doc 11's table. This is the assembly that turns a
-            double-click in the project browser into a document and a panel; which editor claims a
-            file and what its view is made of are AssetEditors' business, and where the panel lands
-            is this one's.
-
-            ⚠ Doc 36 § P3 used to say this line was waiting on `AssetEditorRegistry` moving somewhere
-            both ends could see. Measured twice, by deleting the line and compiling: ten names across
-            seven files — the registry, `AssetEditorsModule`, `StandardFrameDocument`,
-            `ShaderGraphDocument`, `ShaderGraphPreviewRenderer`, `IPreviewImages`,
-            `Prefab`/`PrefabSource`, the `.Content` namespace, and `VfxGraphView`/`SequenceView` at
-            `EditorWorlds.cs:1082,1086`, which produce *no diagnostic at all* under cascading-error
-            suppression. The registry is one tenth of it, and the arbitration the other names carry is
-            what § P3 itself says belongs here. The doc is corrected; the line stays.
+            ⚠ No asset editors assembly is referenced any more (#1297). Which kind claims a file and
+            what its view is made of arrive through IDocumentHost and IWorkspace, registered by the
+            asset editors module; the frame, the shader graph and texture previews and the
+            Addressables panel are that module's contributions, and Prefab/PrefabSource moved here.
+            Doc 36 § P3 counted ten names in seven files, two of them invisible to the compiler;
+            deleting this line is what proves every one is gone, and
+            ApplicationReferenceRule.NotYetMoved lost its last name in the same commit.
         -->
-        <ProjectReference Include="..\Vixen.Editor.AssetEditors\Vixen.Editor.AssetEditors.csproj" />
 
         <!--
             ⚠ No diagnostics assembly is referenced any more (#1298). The panels, the report and

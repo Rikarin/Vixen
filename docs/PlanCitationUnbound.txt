@@ -28,7 +28,6 @@
 1 Tools/Vixen.AotProbe/README.md
 5 Tools/Vixen.Sdk/README.md
 2 docs/guide/editor/texture-graph-generators.md
-1 docs/guide/ui/documents.md
 1 docs/guide/ui/drag-and-drop.md
 31 docs/overview.md
 5 docs/plan/04-ecs-and-scripting.md

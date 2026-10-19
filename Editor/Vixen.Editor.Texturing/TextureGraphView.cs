@@ -212,7 +212,7 @@ sealed class TextureGraphView {
     /// <param name="document">The graph, or <see langword="null" /> for none.</param>
     /// <param name="blocker">What stands between this host — or this view — and a picture.</param>
     /// <remarks>
-    ///     What an <c>IAssetEditorFactory</c>'s tab uses: it holds no evaluator, so the only thing it
+    ///     What a <c>DocumentKind/DocumentView pair</c>'s tab uses: it holds no evaluator, so the only thing it
     ///     has to say is which pane does. See the other overload for why that is a separate question
     ///     from what a compile said.
     /// </remarks>

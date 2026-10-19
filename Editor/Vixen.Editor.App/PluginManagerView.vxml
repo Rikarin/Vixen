@@ -68,7 +68,7 @@
     /// <summary>What the strip and the line under the grid say, as one value.</summary>
     /// <remarks>
     ///     ⚠ <b>One snapshot rather than four signals, and
-    ///     <see cref="Vixen.Editor.AssetEditors.Prefabs.PrefabView" />'s argument
+    ///     <c>PrefabView</c>'s argument
     ///     applies unchanged.</b> Every field of it comes from one reading of the host and the
     ///     selection together — whether a plugin is chosen, whether the user switched it off, whether
     ///     it failed — so splitting them would mean reading the host four times, or writing them in
