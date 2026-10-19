@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Editor.AssetEditors.Shading;
 using Vixen.Editor.ShaderGraph;
 using Vixen.Graphics;
 using Vixen.Ui.Renderer;
@@ -50,32 +49,4 @@ sealed class UiPreviewImages(UiRenderer renderer) : IPreviewImages {
     ///     number out twice, so no draw list can still carry one.
     /// </remarks>
     public void Release(ulong image) { }
-}
-
-sealed partial class EditorApplication {
-    ShaderGraphPreviewRenderer? previews;
-
-    /// <summary>What draws a shader graph's preview thumbnails, once the host has a device.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Owned by the host and only held here.</b> It is made when the device and the main
-    ///     window's renderer both exist and destroyed before the device goes, which is
-    ///     <c>EditorHost</c>'s ordering and not this class's. Setting it reaches every shader graph
-    ///     that is <i>already</i> open as well as the ones opened afterwards: a session restore opens
-    ///     documents before the first frame, so the ones that matter most are always the early ones.
-    /// </remarks>
-    public ShaderGraphPreviewRenderer? ShaderGraphPreviews {
-        get => previews;
-        set {
-            previews = value;
-
-            foreach (var document in project.Documents) {
-                if (document is ShaderGraphDocument shader) {
-                    shader.PreviewSource = value;
-                }
-            }
-        }
-    }
-
-    /// <summary>Hands a newly opened shader graph whatever renders its previews.</summary>
-    void Preview(ShaderGraphDocument shader) => shader.PreviewSource = previews;
 }

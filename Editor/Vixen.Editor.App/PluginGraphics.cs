@@ -50,6 +50,12 @@ sealed class PluginGraphics : IEditorGraphics {
     public GpuFrame Frame => application.GpuFrame;
 
     /// <inheritdoc />
+    public event Action? SurfaceChanged;
+
+    /// <summary>Says the application's thumbnail surface was set, which is where <see cref="Upload" /> goes.</summary>
+    internal void Restate() => SurfaceChanged?.Invoke();
+
+    /// <inheritdoc />
     public IEditorImage? Upload(int width, int height, ReadOnlySpan<byte> rgba) {
         if (application.ThumbnailSurface is not { } surface) {
             return null;

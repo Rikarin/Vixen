@@ -76,18 +76,9 @@ static class ApplicationReferenceRule {
     ///     may only shrink: a name here that is no longer referenced fails too.
     /// </summary>
     /// <remarks>
-    ///     <list type="bullet">
-    ///         <item>
-    ///             <c>Vixen.Editor.AssetEditors</c> — ten names across seven files, measured twice by
-    ///             deleting the line and compiling. The registry is one tenth of it and the
-    ///             arbitration the other names carry is what P3 says belongs in the application.
-    ///             <a href="https://github.com/Rikarin/Vixen/issues/88">#88</a>.
-    ///         </item>
-    ///     </list>
+    ///     Empty since #1297 took the asset editors off, the last name it held; #1302 deletes it.
     /// </remarks>
-    public static readonly string[] NotYetMoved = [
-        "Vixen.Editor.AssetEditors"
-    ];
+    public static readonly string[] NotYetMoved = [];
 
     /// <summary>The <c>Editor/</c> assemblies one project references, analyzers excluded.</summary>
     /// <param name="root">The repository root.</param>

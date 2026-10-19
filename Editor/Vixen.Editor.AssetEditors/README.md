@@ -203,7 +203,7 @@ prefab nested. A `.vxprefab` may hold an instance of another one; its nodes arri
 the inner link, and recording the outer one over the top would flatten a level of nesting on every
 placement — silently, with the subtree still there and answering to the wrong template.
 
-⚠ **`Vixen.Engine.Scenes.Prefab` and `Vixen.Editor.AssetEditors.Prefabs.Prefab` are two unrelated
+⚠ **`Vixen.Engine.Scenes.Prefab` and `Vixen.Editor.App.Prefab` (in the application since #1297) are two unrelated
 things with one name.** A file that names both gets CS0104; `EditorApplication` aliases the editor's.
 Doc 47 § 1 opens by saying that conflating them is the first way to get prefabs wrong here, and the
 compiler says the same thing at the call site.

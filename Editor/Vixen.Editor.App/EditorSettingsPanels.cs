@@ -181,34 +181,9 @@ sealed partial class EditorApplication {
             }
         );
 
-        // ⚠ A panel of its own, and the view behind it already existed. `AddressableGroupsView` is
-        // the group list, the per-group policy and doc 08's analysis — all of it built, and reachable
-        // only by finding a `.vxgroup` in the project and double-clicking it. An asset editor is the
-        // right home for editing *one* group's file; it is the wrong front door for the feature,
-        // because a project that has never made a group has nothing to double-click, which is what
-        // "there is no addressables UI" meant. Nothing here is new behaviour: it is the same control
-        // over the same project, with a way in.
-        Shell.RegisterPanel(
-            AddressablesPanel,
-            EditorStrings.PanelAddressables,
-            panel => {
-                var view = panel.Add<AssetEditors.Content.AddressableGroupsView>();
-
-                // ⚠ The same analyser the `.vxgroup` editor is given — see `AnalyseContent`. Two
-                // panels asking two different planners would be two answers to "what would a build
-                // do", and the one nobody is looking at would be the one that is right.
-                view.Show(project, AnalyseContent);
-
-                // Opening a group from the list goes through the ordinary asset-editor path, so the
-                // panel that appears is the same document a double-click in the browser opens rather
-                // than a second view over the same file.
-                view.GroupOpened += (_, document) => {
-                    if (document.Asset != AssetId.Empty) {
-                        Open(document.Asset);
-                    }
-                };
-            }
-        );
+        // ⚠ The Addressables panel is the asset editors module's since #1297 — it is
+        // `AddressableGroupsView`, which only that module can name — and the module registers it
+        // under this id, so the Assets menu's line below still finds it.
 
         Shell.RegisterPanel(
             PluginsPanel,

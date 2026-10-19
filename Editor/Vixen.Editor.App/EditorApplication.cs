@@ -10,8 +10,6 @@ using Vixen.Core.IO.Watch;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Threading;
 using Vixen.Ecs;
-using Vixen.Editor.AssetEditors;
-using Vixen.Editor.AssetEditors.Content;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.MeshMaps;
@@ -41,8 +39,7 @@ using Vixen.Ui.Reactive;
 // `World`, which shares a word with the editor's prefab and is not related to it. Doc 47 § 1 opens by
 // saying that conflating the two is the first way to get prefabs wrong here; the compiler says the
 // same thing as CS0104 the moment both usings are in one file.
-using EditorPrefab = Vixen.Editor.AssetEditors.Prefabs.Prefab;
-using PrefabSource = Vixen.Editor.AssetEditors.Prefabs.PrefabSource;
+using EditorPrefab = Vixen.Editor.App.Prefab;
 using ViewportControl = Vixen.Ui.Controls.Advanced.Viewport;
 
 namespace Vixen.Editor.App;
@@ -340,7 +337,10 @@ sealed partial class EditorApplication : IDisposable {
     readonly DocumentHost documentHost;
 
     /// <inheritdoc cref="documentHost" />
-    readonly EditorWorkspace documentViews = new();
+    readonly EditorWorkspace documentViews;
+
+    /// <summary>The graphics view plugins are handed, told when the thumbnail surface arrives.</summary>
+    PluginGraphics? graphicsView;
 
     readonly HashSet<string> assetPanels = new(StringComparer.Ordinal);
 
@@ -573,10 +573,6 @@ sealed partial class EditorApplication : IDisposable {
         Extensions = extensions ?? EditorRegistry.Default;
         this.modules = modules ?? [];
 
-        // ⚠ The registered module, not one of our own. See EditorDiagnostics for what a second
-        // instance costs.
-        assetEditors = FindModule<AssetEditorsModule>(this.modules);
-
         IsScratch = projectRoot is null;
 
         // ⚠ The logger is the point of the third argument: `UiDocument` reports every stylesheet rule
@@ -598,13 +594,6 @@ sealed partial class EditorApplication : IDisposable {
         // three, so a rule of the same specificity here wins — which is what lets it narrow
         // `expander-content`'s indent and a field's background without out-specifying them.
         InspectorTheme.Install(Shell.Document);
-
-        // ⚠ And the fifth, after it, for the same reason: the asset editors' own elements are styled
-        // against the tokens the four below declare, and a rule of equal specificity here has to win
-        // — an override matrix's cell is a row inside an inspector-shaped panel. Its three
-        // `<x>-editor > node-graph` rules stay: they carry `min-width: 0`, which `NodeGraphTheme`
-        // (the asset editors module's, #1299) does not, and they out-specify it rather than repeat it.
-        AssetEditorTheme.Install(Shell.Document);
 
         // And the browser's two rules, which are this assembly's panel and nobody else's business.
         BrowserTheme.Install(Shell.Document);
@@ -772,27 +761,21 @@ sealed partial class EditorApplication : IDisposable {
         scene.StructureChanged += _ => hierarchyStale = true;
         scene.Renamed += (_, _) => hierarchyStale = true;
 
-        // ⚠ One world for every scene this editor opens and a fresh one per prefab. Sharing the
-        // editor's world between scenes is what makes an entity handle mean one thing across the
-        // application; a prefab must not share it, because "isolated" is exactly the claim that its
-        // entities are not in the level — see PrefabEditorFactory.
+        // ⚠ Empty here: every kind and view is a module's contribution (#1297), registered through
+        // `PluginServices` — the asset editors module registers this build's twenty-six. The
+        // workspace opens an asset in a tab through this class, which is the panel half #1294 has
+        // still to move.
         documentHost = new DocumentHost(project);
-        StandardEditors.Register(documentHost, documentViews, _ => world, _ => new World("Prefab"));
+        documentViews = new EditorWorkspace(Open);
 
         // ⚠ The one document kind the *viewport* is a view of, so opening it points the panes at it
         // and every edit after that reaches them without a restart. Through `Opened` rather than a
         // line in `Open`, because that event is already the seam a module hears a document on — and
         // it deliberately does not fire for a document that was already open, which is right here:
-        // re-authoring is what `StandardFrameDocument.Changed` is for.
+        // re-authoring is what `IViewportFrame.FrameChanged` is for. By the contract, not the type.
         documentHost.Opened += document => {
-            if (document is AssetEditors.Frame.StandardFrameDocument authoredFrame) {
+            if (document is IViewportFrame authoredFrame) {
                 Author(authoredFrame);
-            }
-
-            // The other document kind that needs something only the host has. A graph opened before
-            // there is a device gets it from `ShaderGraphPreviews`' setter instead.
-            if (document is AssetEditors.Shading.ShaderGraphDocument shader) {
-                Preview(shader);
             }
 
             // ⚠ A scene reconciles itself against its prefabs as it is read — `SceneSerializer.Open`
@@ -812,33 +795,10 @@ sealed partial class EditorApplication : IDisposable {
         openScenes.Add(new(scene, scenePath) { Settings = WorldSettings.Load(scenePath) });
         world0 = openScenes[0].Settings;
 
-        if (documentViews.TryGetView(typeof(AddressableGroupDocument), out var groups)
-            && groups is AddressableGroupEditorView addressable) {
-            // The real planner, run against a workspace of its own. `ProjectWorkspace` opens the four
-            // stores that have to agree about which directory they are looking at, and it must not
-            // share the editor's database — `Scan` clears and repopulates its dictionaries, which is
-            // the race ContentTasks already documents.
-            addressable.Analyser = AnalyseContent;
-        }
-
-        // ⚠ A sequence drives the scene the editor has open, and which scene that is is this class's
-        // arbitration in the way every other panel's subject is — see `EditorWorlds`. A factory that
-        // reached for one would be a factory that knows what the editor has open.
-        if (documentHost.TryGetByName("Sequence", out var sequences)
-            && sequences is AssetEditors.Sequencing.SequenceEditorFactory sequencer) {
-            sequencer.Scene = () => scene;
-        }
-
         // ⚠ With the registry, which is doc 36 § D4's `AddPreview` row: a module or a plugin owning
         // its own file format is the one thing that can draw a picture of it, and without this the
         // grid shows its files the generic glyph for ever.
         thumbnails = new ThumbnailCache(project, Extensions);
-
-        // ⚠ The surface is read through a lambda rather than handed over, because there is none yet:
-        // the window has to be up before a Vulkan surface exists, so the host sets it after this
-        // constructor has run — and a texture editor opened by a session restore is opened before
-        // that. See `ThumbnailSurface`, which restates the open ones when it arrives.
-        texturePreviews = new TexturePreviewImages(() => thumbnails.Surface);
 
         // ⚠ 80–95 ms of a session, measured on this machine, and it is the platform's rather than
         // ours: `FileSystemWatcher.EnableRaisingEvents = true` starts an FSEvents stream. A test
@@ -1122,17 +1082,6 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     readonly IReadOnlyList<(string Id, string Name, IEditorPlugin Module)> modules;
 
-    /// <summary>The registered asset-editors module, or null when this editor was built without it.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The registered one, for <see cref="FindModule{T}" />'s reason.</b> A second instance
-    ///     compiles, activates nothing, and hands every freshly-opened AI editor a debug model no
-    ///     panel is showing — which looks exactly like the wiring working.
-    /// </remarks>
-    readonly AssetEditorsModule? assetEditors;
-
-    /// <summary>What puts pixels in an open texture editor's preview. See <see cref="TexturePreviewImages" />.</summary>
-    readonly TexturePreviewImages texturePreviews;
-
     /// <summary>What this editor put in <see cref="Extensions" />, so shutting down takes it back out.</summary>
     readonly List<IDisposable> contributions = [];
 
@@ -1171,10 +1120,11 @@ sealed partial class EditorApplication : IDisposable {
         set {
             thumbnails.Surface = value;
 
-            // ⚠ And every texture editor already open, which on a session restore is all of them:
-            // documents are reopened before the first frame, so the previews that matter most were
-            // drawn while there was nothing to draw them with.
-            texturePreviews.Restate();
+            // ⚠ And every preview a module feeds through `IEditorGraphics` — the texture editors',
+            // which on a session restore is all of them: documents are reopened before the first
+            // frame, so the previews that matter most were drawn while there was nothing to draw them
+            // with. This class fed them itself until #1297; it says the moment now and the module draws.
+            graphicsView?.Restate();
         }
     }
 
@@ -1657,9 +1607,7 @@ sealed partial class EditorApplication : IDisposable {
         contributions.Clear();
 
         // Before the shell, because the images it releases are registered with the renderer the
-        // shell's document draws through. The texture editors' previews go first, since they are
-        // registered with the same renderer and released through the same surface.
-        texturePreviews.Release();
+        // shell's document draws through.
         thumbnails.Dispose();
 
         // ⚠ Early, so that nothing arrives during the rest of this. A watcher left running holds a
@@ -2417,7 +2365,7 @@ sealed partial class EditorApplication : IDisposable {
 
                     browser = new ProjectBrowser(session, panel, library.Shown, Extensions);
 
-                    browser.Activated += Open;
+                    browser.Activated += asset => Open(asset);
                     browser.Renamed += RenameAsset;
                     browser.Moved += MoveAssets;
                     browser.DroppedOutside += Dropped;
@@ -2662,6 +2610,7 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>Opens an asset in whatever editor claims it, in a panel of its own.</summary>
     /// <param name="asset">Which asset.</param>
+    /// <returns>Whether anything claims it; <see langword="false" /> has said so in a notification.</returns>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>A panel per document, registered on demand and named after the asset's GUID.</b> A
@@ -2680,11 +2629,11 @@ sealed partial class EditorApplication : IDisposable {
     ///         editor claims it is one sentence and is true.
     ///     </para>
     /// </remarks>
-    void Open(AssetId asset) {
+    bool Open(AssetId asset) {
         if (!TryGetOpenScene(asset, out var document) && !documentHost.TryOpen(asset, out document)) {
             Shell.Notifications.Show("No editor claims that file.");
 
-            return;
+            return false;
         }
 
         var id = AssetPanel(asset);
@@ -2702,7 +2651,7 @@ sealed partial class EditorApplication : IDisposable {
                         if ((TryGetOpenScene(asset, out var open) || project.TryGetDocument(asset, out open))
                             && documentViews.TryGetView(open, out _)) {
                             tabDocuments[id] = open;
-                            Joined(documentViews.Show(open, panel)!, open);
+                            documentViews.Show(open, panel);
                         }
                     }
                 ) {
@@ -2717,6 +2666,8 @@ sealed partial class EditorApplication : IDisposable {
         Place(id);
         Shell.Workspace.Open(id);
         project.Activate(document);
+
+        return true;
     }
 
     /// <summary>Finds the scene this editor already has open over an asset's file.</summary>
@@ -2918,35 +2869,6 @@ sealed partial class EditorApplication : IDisposable {
         scene.Group.Add(id);
     }
 
-    /// <summary>Connects an asset editor's view to the things only this assembly can answer.</summary>
-    /// <param name="view">Whatever the factory built.</param>
-    /// <param name="document">The document it was built over.</param>
-    /// <remarks>
-    ///     ⚠ <b>Here rather than in the factory, because the request is for another document.</b> A
-    ///     material's "Open shader graph" carries an <c>AssetId</c> and stops —
-    ///     <c>Vixen.Editor.AssetEditors</c> has a registry but no panels, no docking and no way to
-    ///     bring a tab forward — so the button raised an event nothing listened to until a shader
-    ///     graph editor existed to open. Every asset editor's factory runs again on a reopen, so this
-    ///     runs again with it and subscribes the new view rather than a dead one.
-    /// </remarks>
-    void Joined(UiElement view, EditorDocument document) {
-        if (view is AssetEditors.Materials.MaterialView material) {
-            material.OpenGraphRequested += (_, graph) => Open(graph);
-        }
-
-        // ⚠ And the texture editor's preview, which had no picture in it at all — `Image.Texture` is
-        // a number only this assembly can hand out, so the panel's four channel buttons and its mip
-        // ladder moved state nothing turned into pixels. See `TexturePreviewImages`.
-        if (view is AssetEditors.Importing.TextureImportView texture
-            && document is AssetEditors.Importing.TextureImportDocument imported) {
-            texturePreviews.Follow(texture, imported);
-        }
-
-        // ⚠ And the three AI editors, whose `Follow` methods had no non-test caller at all. The
-        // model belongs to the module that owns the agent debugger — see `AgentDebuggerPanel.Follow`
-        // for why the joining is there and the trigger is here.
-        assetEditors?.Follow(view);
-    }
 
     /// <summary>What a panel showing an asset's editor is called in an arrangement.</summary>
     /// <remarks>
@@ -3120,7 +3042,7 @@ sealed partial class EditorApplication : IDisposable {
             // `GraphicsDevice` is set by the host afterwards, so `.Add(device)` here would publish
             // null for the life of the process — and `PluginServices.Add` throws on a second publish,
             // so there is no later moment to correct it in. See `PluginGraphics`.
-            .Add<IEditorGraphics>(new PluginGraphics(this))
+            .Add<IEditorGraphics>(graphicsView = new PluginGraphics(this))
 
             // ⚠ And the asset-editor registry, so a module can hear that a document was opened. That
             // used to be `Bound`, a line in this class — see `AssetEditorsModule`.
@@ -5112,24 +5034,6 @@ sealed partial class EditorApplication : IDisposable {
         }
     }
 
-    /// <summary>Runs the real content planner, for whoever wants to know what a build would say.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The planner, not a reimplementation of its rules.</b> A panel that worked out for
-    ///     itself which assets land in which group would be a second set of rules, and the way that
-    ///     drift shows up is a panel saying a project is fine and the build refusing it.
-    ///     <para>
-    ///         ⚠ <b>Against a workspace of its own.</b> <c>ProjectWorkspace</c> opens the four stores
-    ///         that have to agree about which directory they are looking at, and it must not share
-    ///         the editor's database — <c>Scan</c> clears and repopulates its dictionaries, which is
-    ///         the race <c>ContentTasks</c> already documents.
-    ///     </para>
-    /// </remarks>
-    BuildPlan AnalyseContent() {
-        var workspace = new ProjectWorkspace(project.Paths);
-
-        workspace.Database.Scan();
-        return ContentPipeline.Analyse(workspace, _ => { });
-    }
 
     /// <summary>The registered icons that have a binder, most characteristic first.</summary>
     /// <remarks>

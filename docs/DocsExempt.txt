@@ -976,6 +976,7 @@ T:Vixen.Editor.App.EnvironmentSettings sweep-pending
 T:Vixen.Editor.App.LightingSettings sweep-pending
 T:Vixen.Editor.App.NavigationSettings sweep-pending
 T:Vixen.Editor.App.PhysicsSettings sweep-pending
+T:Vixen.Editor.App.Prefab sweep-pending
 T:Vixen.Editor.App.ProjectAssemblies sweep-pending
 T:Vixen.Editor.App.ProjectAsset sweep-pending
 T:Vixen.Editor.App.ProjectBuild sweep-pending
@@ -1125,7 +1126,6 @@ T:Vixen.Editor.AssetEditors.Materials.ScalarParameter sweep-pending
 T:Vixen.Editor.AssetEditors.Materials.TextureParameter sweep-pending
 T:Vixen.Editor.AssetEditors.Materials.VectorParameter sweep-pending
 T:Vixen.Editor.AssetEditors.NodeTypes sweep-pending
-T:Vixen.Editor.AssetEditors.Prefabs.Prefab sweep-pending
 T:Vixen.Editor.AssetEditors.Prefabs.PrefabView sweep-pending
 T:Vixen.Editor.AssetEditors.Scenes.CompiledSceneView sweep-with-the-asset-editors — a pane, and every other pane in this assembly is exempt on the same terms; the argument for it is in Vixen.Editor.AssetEditors/README.md § The compiled tab is the other half of a scene
 T:Vixen.Editor.AssetEditors.Scenes.PrefabEditorFactory sweep-pending

@@ -11,7 +11,7 @@ using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
 using Vixen.Engine.Transforms;
 
-namespace Vixen.Editor.AssetEditors.Prefabs;
+namespace Vixen.Editor.App;
 
 /// <summary>What an inspected object was made from, answered out of the instance's own claims.</summary>
 /// <remarks>

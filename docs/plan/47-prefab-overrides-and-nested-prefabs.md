@@ -24,7 +24,7 @@ way to get this wrong.
 
 | | `Prefab` (runtime) | `PrefabInstances` / `Prefab` (editor) |
 |---|---|---|
-| Where | `Core/Vixen.Engine/Scenes/Prefab.cs` | `Editor/Vixen.Editor.SceneView/PrefabInstances.cs`, and `Prefab` in `Editor/Vixen.Editor.AssetEditors/Prefabs/Prefabs.cs` |
+| Where | `Core/Vixen.Engine/Scenes/Prefab.cs` | `Editor/Vixen.Editor.SceneView/PrefabInstances.cs`, and `Prefab` in `Editor/Vixen.Editor.App/Prefabs.cs` (moved from the asset editors by #1297) |
 | What it is | A captured `World`, stamped out with one `CreateMany` per archetype | A dictionary from `Entity` to `PrefabLink(AssetId, EntityId)` |
 | Source link | **None.** `CaptureFrom` is a copy; the doc comment says so in as many words | The link, and only for the editing session |
 | Serialised | Never. `PrefabAsset` is the compiled chunk, already flattened | The `prefab`, `source`, `overrides` and `removed` keys, since slice 2 |
@@ -44,7 +44,7 @@ What is already built and must not be duplicated:
   template into a document *without* adopting its ids, filling a map of entity → the id the file
   gave it. Its remarks already say this "is also exactly what an override comparison needs".
 - **`IPrefabSource`** (`Editor/Vixen.Editor.Inspector/InspectorField.cs`), `PrefabSource`
-  (`Editor/Vixen.Editor.AssetEditors/Prefabs/PrefabSource.cs`), `InspectorField.IsOverridden` /
+  (`Editor/Vixen.Editor.App/PrefabSource.cs`), `InspectorField.IsOverridden` /
   `RevertToPrefab` and the revert item (`InspectorView.cs`) — the inspector's whole override
   *presentation* exists and works at **member** granularity, which constrains the format: anything
   coarser than a member would be a file that cannot express what the UI already shows. ⚠ **What it
@@ -63,7 +63,7 @@ type also moved: it is `Vixen.Editor.SceneView`'s now, because `SceneSerializer`
 writer cannot see is a link that cannot be written down.
 
 ⚠ **Note also the collision the table above is about.** `Vixen.Engine.Scenes.Prefab` and
-`Vixen.Editor.AssetEditors.Prefabs.Prefab` are both called `Prefab`, so a file naming both gets
+`Vixen.Editor.App.Prefab` are both called `Prefab`, so a file naming both gets
 CS0104 — which is how `EditorApplication` came to alias the editor's one. The compiler says, at the
 call site, exactly what this section says in prose.
 

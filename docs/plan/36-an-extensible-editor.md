@@ -904,10 +904,10 @@ whole of it was `AssetEditorRegistry` moving somewhere both ends could see:
 |---|---|
 | `EditorApplication.cs:338@5f03c9b80` | `AssetEditorRegistry` |
 | `EditorApplication.cs:1115` | `AssetEditorsModule` |
-| `EditorApplication.cs:13,14,43,44` | the `Vixen.Editor.AssetEditors` and `.Content` namespaces, and the `EditorPrefab` / `PrefabSource` aliases |
-| `ComponentsView.cs:21` | `PrefabSource` |
-| `EditorFrames.cs:7,399,409,434` | `StandardFrameDocument` |
-| `ShaderGraphPreviews.cs:4,5,27,56,66,80` | `IPreviewImages`, `ShaderGraphPreviewRenderer`, `ShaderGraphDocument`, and `Vixen.Editor.ShaderGraph` itself |
+| `EditorApplication.cs:13,14,43,44@5f03c9b80` | the `Vixen.Editor.AssetEditors` and `.Content` namespaces, and the `EditorPrefab` / `PrefabSource` aliases |
+| `ComponentsView.cs:21@5f03c9b80` | `PrefabSource` |
+| `EditorFrames.cs:7,399,409,434@5f03c9b80` | `StandardFrameDocument` |
+| `ShaderGraphPreviews.cs:4,5,27,56,66,80@5f03c9b80` | `IPreviewImages`, `ShaderGraphPreviewRenderer`, `ShaderGraphDocument`, and `Vixen.Editor.ShaderGraph` itself |
 
 ⚠⚠ **And the compiler under-reports, so "remove the reference and count the errors" is a floor on the
 dependency list and never the list.** `EditorWorlds.cs:823,827` name
@@ -1278,7 +1278,14 @@ been — `OneEditPathTests` proves a drag and a field edit interleave correctly 
 invariant § D1 actually asked for. What it is not on is `EditProperty`, and the distance between
 those two is the table above rather than an afternoon.
 
-### P3's three exit criteria, none met
+### P3's three exit criteria — the reference rule and the dereference met, the line count not
+
+⚠ **Corrected 2026-10-19 (#1302).** This heading said "none met". The `CheckArchitecture` rule is
+`ApplicationReferenceRule`; `AssetEditors`, `Profiler`, `Debugger`, `Diagnostics` and `NodeGraph` have
+all left `Vixen.Editor.App.csproj` (#1297, #1298, #1299), so the rule's `NotYetMoved` list is
+deleted and what remains is `Allowed` and the rule that anything else fails. The table below is the
+state it recorded when it was written; the `AssetEditors` row's "decided not to" was reopened by doc 50
+§ D4 and met through its two registries. `EditorApplication.cs` under 800 lines is still owed.
 
 | Owed | State |
 |---|---|

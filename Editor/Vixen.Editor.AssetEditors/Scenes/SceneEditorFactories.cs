@@ -156,7 +156,7 @@ public sealed class PrefabEditorFactory(Func<DocumentRequest, World> worlds) : D
     public override string Name => "Prefab";
 
     /// <inheritdoc />
-    public override IReadOnlyList<string> Extensions { get; } = [Prefab.Extension];
+    public override IReadOnlyList<string> Extensions { get; } = [SceneFile.PrefabExtension];
 
     /// <inheritdoc />
     public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(SceneDocument)];

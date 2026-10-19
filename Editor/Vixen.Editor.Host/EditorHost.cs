@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Reflection;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Threading;
+using Vixen.Editor.AssetEditors;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.ShaderGraph;
 using Vixen.Graphics;
@@ -132,6 +133,9 @@ sealed class EditorHost : IDisposable {
 
     /// <summary>What draws a shader graph's node previews, once there is a device and a renderer.</summary>
     ShaderGraphPreviewRenderer? previews;
+
+    /// <summary>The asset editors module the editor was built with, which is who the previews go to.</summary>
+    readonly AssetEditorsModule? assetEditors;
     UiShaders shaders;
 
     /// <summary>What writes the frame's timestamps, once there is a device that can be timed.</summary>
@@ -195,6 +199,14 @@ sealed class EditorHost : IDisposable {
         // see `EditorApplication.Jobs`, whose one consumer is `AttachRenderer`.
         jobs = new JobScheduler(Math.Max(1, platform.Processors.AvailableProcessors - 1));
 
+        var modules = EditorModules.Standard();
+
+        // ⚠ The registered instance, not one of our own (#1297): the shader graph's previews are
+        // handed to the module that opens the graphs, which until then was a property of the
+        // application naming the document type. A second `new AssetEditorsModule()` here would be one
+        // nothing activated, holding a renderer no graph ever hears about.
+        assetEditors = modules.Select(entry => entry.Module).OfType<AssetEditorsModule>().FirstOrDefault();
+
         editor = new EditorApplication(
             window.FramebufferSize.X / Scale,
             window.FramebufferSize.Y / Scale,
@@ -202,7 +214,7 @@ sealed class EditorHost : IDisposable {
             projectRoot,
             EditorServices.Of(platform),
             extensions: null,
-            modules: EditorModules.Standard()
+            modules: modules
         ) {
             RenderScale = Scale,
             Jobs = jobs
@@ -578,7 +590,7 @@ sealed class EditorHost : IDisposable {
             // a renderer to be named by. Handing it over reaches the graphs that are already open —
             // a restored session opens its tabs before the first frame — as well as the later ones.
             previews = new ShaderGraphPreviewRenderer(ready, ShaderNodeLibrary.Create(), new UiPreviewImages(renderer));
-            editor.ShaderGraphPreviews = previews;
+            assetEditors?.ShaderGraphPreviews = previews;
         }
 
         // ⚠ NOT after a wait, and the comment that claimed otherwise cost task #364. The only
@@ -1297,7 +1309,7 @@ sealed class EditorHost : IDisposable {
 
         // The same rule again: the previews hold targets the interface's registry names, and every
         // open graph is told they are gone before they go.
-        editor.ShaderGraphPreviews = null;
+        assetEditors?.ShaderGraphPreviews = null;
         previews?.Dispose();
         previews = null;
 

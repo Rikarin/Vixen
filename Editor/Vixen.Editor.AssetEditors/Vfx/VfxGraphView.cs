@@ -33,7 +33,7 @@ namespace Vixen.Editor.AssetEditors.Vfx;
 ///         <see cref="VfxEditorView" />.
 ///     </para>
 /// </remarks>
-public sealed partial class VfxGraphView;
+public sealed partial class VfxGraphView : ITickingView;
 
 /// <summary>Opens a VFX graph.</summary>
 /// <remarks>

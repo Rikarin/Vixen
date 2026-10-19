@@ -180,17 +180,25 @@ public class NodeGraphThemeTests {
 
         Assert.Equal(1, Copies(styles));
 
+        Assert.Equal(1, Copies(styles, AssetEditorTheme.Css));
+
+        // ⚠ Four, not two, since #1297: the asset editors' own theme is the module's too now — the
+        // application installed it by name — so its two sheets leave and come back with the graph's.
         Assert.True(host.Unload(AssetEditorsModule.ModuleId));
         Assert.Equal(0, Copies(styles));
-        Assert.Equal(loaded - 2, styles.LoadedSheetCount);
+        Assert.Equal(0, Copies(styles, AssetEditorTheme.Css));
+        Assert.Equal(loaded - 4, styles.LoadedSheetCount);
 
         var again = host.Activate(AssetEditorsModule.ModuleId, AssetEditorsModule.ModuleName, new AssetEditorsModule());
 
         Assert.Equal(PluginState.Active, again.State);
         Assert.Equal(1, Copies(styles));
+        Assert.Equal(1, Copies(styles, AssetEditorTheme.Css));
         Assert.Equal(loaded, styles.LoadedSheetCount);
     }
 
-    static int Copies(StyleEngine styles) =>
-        Enumerable.Range(0, styles.SheetCount).Count(sheet => styles.SheetText(sheet) == NodeGraphTheme.Css);
+    static int Copies(StyleEngine styles) => Copies(styles, NodeGraphTheme.Css);
+
+    static int Copies(StyleEngine styles, string css) =>
+        Enumerable.Range(0, styles.SheetCount).Count(sheet => styles.SheetText(sheet) == css);
 }

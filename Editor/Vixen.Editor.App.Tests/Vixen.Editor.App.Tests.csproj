@@ -98,6 +98,13 @@
             about a running editor's registries, modules included. One source, two callers.
         -->
         <Compile Include="..\Vixen.Editor.AssetEditors.Tests\DocumentPairing.cs" Link="DocumentPairing.cs" />
+
+        <!--
+            The project-on-disk fixture the prefab tests were written against, which came with them
+            when Prefab and PrefabSource moved into the application (#1297): placing a prefab and
+            pairing the inspector with an instance are the application's, not the asset editors'.
+        -->
+        <Compile Include="..\Vixen.Editor.AssetEditors.Tests\EditorFixture.cs" Link="EditorFixture.cs" />
     </ItemGroup>
 
     <ItemGroup>

@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
-using Vixen.Editor.AssetEditors.Importing;
 using Vixen.Editor.Assets.Textures;
+using Vixen.Editor.Plugin;
 using Vixen.Graphics;
 using Vixen.Ui;
 
-namespace Vixen.Editor.App;
+namespace Vixen.Editor.AssetEditors.Importing;
 
 /// <summary>What puts pixels in a texture editor's preview, for the channels and level it asks for.</summary>
 /// <remarks>
@@ -20,11 +20,13 @@ namespace Vixen.Editor.App;
 ///         <see href="https://github.com/Rikarin/Vixen/issues/610">#610</see>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Here rather than in the panel, for the reason <c>ThumbnailSurface</c> exists.</b>
-///         <c>Image.Texture</c> is a number <c>UiRenderer.RegisterImage</c> hands out, which needs a
-///         texture, which needs the device — and <c>Vixen.Editor.AssetEditors</c> has no device and
-///         must not acquire one. So the view says what it wants to see and this says it in pixels,
-///         through the same <see cref="IThumbnailSurface" /> the browser's grid uploads through.
+///         ⚠ <b>Beside the panel and not in it, and through <see cref="IEditorGraphics" /> rather than
+///         a device.</b> <c>Image.Texture</c> is a number the host's renderer hands out, which needs a
+///         texture, which needs the device — and this assembly has no device and must not acquire
+///         one. So the view says what it wants to see and this says it in pixels through the
+///         graphics the plugin contract lends, which is the same surface the browser's grid uploads
+///         through. ⚠ <b>It was the application's until #1297</b>, holding that surface directly and
+///         naming <see cref="TextureImportView" /> to do it — one of the names doc 36 § P3 counted.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The isolate is a CPU pass and not a tint.</b> A draw-list tint multiplies; showing
@@ -47,8 +49,8 @@ namespace Vixen.Editor.App;
 ///         editor holds a GPU texture for the life of the session.
 ///     </para>
 /// </remarks>
-sealed class TexturePreviewImages(Func<IThumbnailSurface?> surface) {
-    readonly Func<IThumbnailSurface?> surface = surface ?? throw new ArgumentNullException(nameof(surface));
+sealed class TexturePreviewFeed(IEditorGraphics graphics) {
+    readonly IEditorGraphics graphics = graphics ?? throw new ArgumentNullException(nameof(graphics));
     readonly List<Followed> followers = [];
 
     /// <summary>How many editors are being kept fed.</summary>
@@ -80,7 +82,7 @@ sealed class TexturePreviewImages(Func<IThumbnailSurface?> surface) {
     /// <remarks>
     ///     The application is built before the window has a Vulkan surface, and a session restore
     ///     opens documents early — so the editors that matter most are exactly the ones opened while
-    ///     <see cref="IThumbnailSurface" /> was still null.
+    ///     <see cref="IEditorGraphics.Upload" /> had nowhere to put a picture — which is what <see cref="IEditorGraphics.SurfaceChanged" /> calls this for.
     /// </remarks>
     public void Restate() {
         Sweep();
@@ -92,16 +94,9 @@ sealed class TexturePreviewImages(Func<IThumbnailSurface?> surface) {
 
     /// <summary>Gives up every image, for a session that is going away.</summary>
     public void Release() {
-        if (surface() is { } images) {
-            foreach (var followed in followers) {
-                if (followed.Image != 0) {
-                    images.Release(followed.Image);
-                }
-
-                if (followed.Sliced != 0) {
-                    images.Release(followed.Sliced);
-                }
-            }
+        foreach (var followed in followers) {
+            followed.Image?.Dispose();
+            followed.Sliced?.Dispose();
         }
 
         followers.Clear();
@@ -109,21 +104,13 @@ sealed class TexturePreviewImages(Func<IThumbnailSurface?> surface) {
 
     /// <summary>Drops the editors that have been closed, releasing what they were showing.</summary>
     void Sweep() {
-        var images = surface();
-
         for (var index = followers.Count - 1; index >= 0; index--) {
             if (!followers[index].View.IsRemoved) {
                 continue;
             }
 
-            if (followers[index].Image != 0) {
-                images?.Release(followers[index].Image);
-            }
-
-            if (followers[index].Sliced != 0) {
-                images?.Release(followers[index].Sliced);
-            }
-
+            followers[index].Image?.Dispose();
+            followers[index].Sliced?.Dispose();
             followers.RemoveAt(index);
         }
     }
@@ -136,16 +123,16 @@ sealed class TexturePreviewImages(Func<IThumbnailSurface?> surface) {
     ///     the other's picture. See <see cref="Slices" />.
     /// </remarks>
     void Draw(Followed followed) {
-        if (followed.View.IsRemoved || surface() is not { } images) {
+        if (followed.View.IsRemoved) {
             return;
         }
 
-        Ladder(followed, images);
-        Slices(followed, images);
+        Ladder(followed, graphics);
+        Slices(followed, graphics);
     }
 
     /// <summary>Puts the level and channels the mip inspector is asking for into the top pane.</summary>
-    static void Ladder(Followed followed, IThumbnailSurface images) {
+    static void Ladder(Followed followed, IEditorGraphics images) {
         // ⚠ Only the eight-bit form, the same limit `ThumbnailCache` states: an `.hdr` decodes to
         // `Rgba32Float`, and reducing that to something a UI texture can hold is a tone map rather
         // than a copy. The panel already says why there is no preview when nothing decoded at all.
@@ -171,26 +158,21 @@ sealed class TexturePreviewImages(Func<IThumbnailSurface?> surface) {
         // ⚠ The comparison is what keeps a settings keystroke from being an upload. `Refresh` runs on
         // every edit in the inspector beside the picture, and re-uploading the same texels for each
         // one would make typing a size limit cost a GPU texture per character.
-        if (followed.Image != 0 && followed.Level == level && followed.Channels == channels) {
+        if (followed.Image is not null && followed.Level == level && followed.Channels == channels) {
             return;
         }
 
         var described = chain.Levels[level];
-        var image = images.Upload(described.Width, described.Height, Prepared(chain.Level(level), channels));
-
-        if (image == 0) {
+        if (images.Upload(described.Width, described.Height, Prepared(chain.Level(level), channels)) is not { } image) {
             return;
         }
 
-        if (followed.Image != 0) {
-            images.Release(followed.Image);
-        }
-
+        followed.Image?.Dispose();
         followed.Image = image;
         followed.Level = level;
         followed.Channels = channels;
 
-        followed.View.Preview.Texture = image;
+        followed.View.Preview.Texture = image.Image;
 
         // The level's own extent, so `object-fit` letterboxes a mip by the shape it actually is.
         followed.View.Preview.IntrinsicSize = new(described.Width, described.Height);
@@ -220,31 +202,26 @@ sealed class TexturePreviewImages(Func<IThumbnailSurface?> surface) {
     ///         above and say nothing about the sheet.
     ///     </para>
     /// </remarks>
-    static void Slices(Followed followed, IThumbnailSurface images) {
+    static void Slices(Followed followed, IEditorGraphics images) {
         var sprites = followed.View.Sprites;
 
         if (sprites.Source is not { Format: PixelFormat.Rgba8UNorm, Width: > 0, Height: > 0 } sheet) {
             return;
         }
 
-        if (followed.Sliced != 0 && ReferenceEquals(followed.Sheet, sheet)) {
+        if (followed.Sliced is not null && ReferenceEquals(followed.Sheet, sheet)) {
             return;
         }
 
-        var image = images.Upload(sheet.Width, sheet.Height, sheet.Level(0));
-
-        if (image == 0) {
+        if (images.Upload(sheet.Width, sheet.Height, sheet.Level(0)) is not { } image) {
             return;
         }
 
-        if (followed.Sliced != 0) {
-            images.Release(followed.Sliced);
-        }
-
+        followed.Sliced?.Dispose();
         followed.Sliced = image;
         followed.Sheet = sheet;
 
-        sprites.Preview.Texture = image;
+        sprites.Preview.Texture = image.Image;
         sprites.Preview.IntrinsicSize = new(sheet.Width, sheet.Height);
     }
 
@@ -362,11 +339,11 @@ sealed class TexturePreviewImages(Func<IThumbnailSurface?> surface) {
         /// <summary>That source with every level filled in.</summary>
         public TextureData? Chain { get; set; }
 
-        /// <summary>What the preview is showing, or zero.</summary>
-        public ulong Image { get; set; }
+        /// <summary>What the preview is showing, or null.</summary>
+        public IEditorImage? Image { get; set; }
 
-        /// <summary>What the sprite pane is showing, or zero.</summary>
-        public ulong Sliced { get; set; }
+        /// <summary>What the sprite pane is showing, or null.</summary>
+        public IEditorImage? Sliced { get; set; }
 
         /// <summary>The sheet that image was made from, compared by reference.</summary>
         public TextureData? Sheet { get; set; }

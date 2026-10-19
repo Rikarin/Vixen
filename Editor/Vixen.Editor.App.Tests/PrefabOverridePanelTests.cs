@@ -7,7 +7,7 @@ using Vixen.Editor.Inspector;
 using Vixen.Editor.Testing;
 using Vixen.Ui.Controls;
 using Xunit;
-using EditorPrefab = Vixen.Editor.AssetEditors.Prefabs.Prefab;
+using EditorPrefab = Vixen.Editor.App.Prefab;
 
 namespace Vixen.Editor.App.Tests;
 

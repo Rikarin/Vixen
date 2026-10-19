@@ -67,7 +67,6 @@
 @using Vixen.Ui.Composition
 @using Vixen.Ui.Controls
 @using Vixen.Ui.Reactive
-@using Vixen.Editor.AssetEditors.Prefabs
 
 <!--
     ⚠ Doc 20 § B1's "debug (raw) mode", and the diagnostic argument behind it is that an undrawn

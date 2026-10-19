@@ -2,9 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Editor.AssetEditors.Content;
-using Vixen.Editor.AssetEditors.Frame;
-using Vixen.Editor.AssetEditors.Materials;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
@@ -36,9 +33,10 @@ namespace Vixen.Editor.App;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Inside <c>Vixen.Editor.App</c> on purpose, as doc 50 § D3 says modules start.</b> The
-///         kinds name four types the asset editors own, so this file carries the feature-name rows
-///         <c>EditorWorlds.cs</c> did; they leave the shell when the module moves to an assembly
-///         whose reference set is clean.
+///         kinds spell their extensions as literals — the three that named an asset editor type's
+///         constant were rewritten when the application stopped referencing that assembly (#1297) —
+///         so this file carries feature-name rows for the extensions; they leave the shell when the
+///         module moves to an assembly whose reference set is clean.
 ///     </para>
 /// </remarks>
 sealed class LibraryModule : IEditorPlugin {
@@ -208,14 +206,16 @@ sealed class LibraryModule : IEditorPlugin {
         // it was the only way. Both are registered first so they lead the menu; the sort below is
         // stable, so position here is order there.
         new("assets.create-scene", "Scene", SceneFile.Extension, "New Scene", NewSceneFile),
-        new("assets.create-material", "Material", MaterialAsset.Extension, "New Material", NewMaterial),
+        new("assets.create-material", "Material", ".vxmat", "New Material", NewMaterial),
 
         new("assets.create-shader-graph", "Shader Graph", ".vxshadergraph", "New Shader Graph"),
 
         // The project's frame, as the game template ships it — one !StandardFrame node whose knobs
         // are semantic — and an addressable group. Both are claimed by an importer and both open.
-        new("assets.create-frame", "Frame", StandardFrameDocument.Extension, "New Frame", NewFrame),
-        new("assets.create-addressable-group", "Addressable Group", AddressableGroupDocument.Extension, "New Group", NewGroup),
+        // ⚠ Spelled as literals since #1297, like every other line here: the three constants were
+        // the asset editors' types, and naming them was this file's whole reference to that assembly.
+        new("assets.create-frame", "Frame", ".vxcompositor", "New Frame", NewFrame),
+        new("assets.create-addressable-group", "Addressable Group", ".vxgroup", "New Group", NewGroup),
 
         new("assets.create-vfx", "VFX Graph", ".vxvfx", "New Effect"),
         new("assets.create-animation", "Animation Clip", ".vxanim", "New Clip"),

@@ -9,7 +9,7 @@ using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
 
-namespace Vixen.Editor.AssetEditors.Prefabs;
+namespace Vixen.Editor.App;
 
 /// <summary>Placing a prefab in a scene, and finding the template an instance came from.</summary>
 public static class Prefab {

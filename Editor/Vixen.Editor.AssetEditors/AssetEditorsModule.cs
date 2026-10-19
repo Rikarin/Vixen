@@ -50,13 +50,26 @@ public sealed partial class AssetEditorsModule : IEditorPlugin {
         ArgumentNullException.ThrowIfNull(context);
 
         var editors = context.Services.Require<IDocumentHost>();
+        var workspace = context.Services.Require<IWorkspace>();
+        var project = context.Services.Require<EditorProject>();
 
-        binder = new AnimationBinder(context.Services.Require<EditorProject>());
+        // ⚠ The asset editors' own elements are styled against the tokens the inspector theme
+        // declares, and a rule of equal specificity here has to win — so this sheet comes after it,
+        // which a module's sheet always does. The application installed it before its browser and
+        // world sheets until #1297; none of their selectors names an element this one styles — the
+        // only bare control names here, `tabs` and `scroll-view`, are qualified by classes neither
+        // sheet uses — so loading it after them changes no computed value. Its three
+        // `<x>-editor > node-graph` rules carry `min-width: 0`, which `NodeGraphTheme` below does not.
+        context.AddStyleSheet(AssetEditorTheme.Css);
+        context.AddStyleSheet(AssetEditorTheme.Utilities);
+
+        binder = new AnimationBinder(project);
 
         editors.Opened += binder.Bind;
         context.OnUnload(() => editors.Opened -= binder.Bind);
 
-        Frames(context, context.Services.Require<IWorkspace>());
+        Documents(context, editors, workspace, project);
+        Frames(context, workspace);
 
         // ⚠ The graph panels' sheet, which the application installed by name and never released
         // (#917, #1299). Three of the four panels hosting a `NodeGraphView` are this module's — the

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
+using Vixen.Core;
 using Vixen.Ui;
 
 namespace Vixen.Editor.Ui.Documents;
@@ -60,10 +61,30 @@ public interface IWorkspace {
     ///     the editor. A panel is built fresh each time it opens, so installing on it once is right.
     /// </remarks>
     UiElement? Show(IEditableDocument document, UiElement panel);
+
+    /// <summary>Opens an asset in a panel of its own — the document a double-click opens, in the tab a double-click brings forward.</summary>
+    /// <param name="asset">Which asset.</param>
+    /// <returns>Whether anything opened it; a host that could not says why on screen.</returns>
+    /// <remarks>
+    ///     <b>What a view asks when it links to another asset</b> — a material's "Open shader graph",
+    ///     a group picked from the Addressables list (#1297). Each used to be an event the application
+    ///     subscribed to by naming the view's type; a module answers it now, and the panel the asset
+    ///     lands in is the host's.
+    /// </remarks>
+    bool Open(AssetId asset);
 }
 
 /// <summary>The editor's <see cref="IWorkspace" />: a view list keyed by document type.</summary>
-public sealed class EditorWorkspace : IWorkspace {
+/// <param name="open">
+///     How the host puts an asset in a panel of its own, or <see langword="null" /> for one with no
+///     panels — whose <see cref="Open" /> then answers <see langword="false" />.
+/// </param>
+/// <remarks>
+///     ⚠ <b>The panel half is the host's, handed in.</b> Opening an asset in a tab is docking, layout
+///     and the asset-panel id, which are still <c>EditorApplication</c>'s (#1294 records the move as
+///     owed), so this holds the call rather than the logic.
+/// </remarks>
+public sealed class EditorWorkspace(Func<AssetId, bool>? open = null) : IWorkspace {
     readonly List<DocumentView> views = [];
 
     /// <inheritdoc />
@@ -137,6 +158,9 @@ public sealed class EditorWorkspace : IWorkspace {
 
         return root;
     }
+
+    /// <inheritdoc />
+    public bool Open(AssetId asset) => open?.Invoke(asset) ?? false;
 
     sealed class Removal(EditorWorkspace workspace, DocumentView view) : IDisposable {
         bool done;

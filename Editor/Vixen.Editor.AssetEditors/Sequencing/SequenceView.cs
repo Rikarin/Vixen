@@ -33,7 +33,7 @@ namespace Vixen.Editor.AssetEditors.Sequencing;
 ///         writes the actors where frame 47 left them.
 ///     </para>
 /// </remarks>
-public sealed class SequenceView : Control {
+public sealed class SequenceView : Control, ITickingView {
     SequenceDocument? document;
     SequenceTrackData? selected;
     float previous = -1f;
