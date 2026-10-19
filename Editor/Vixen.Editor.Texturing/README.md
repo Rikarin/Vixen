@@ -20,6 +20,7 @@ and `Vixen.Editor.TextureGraph`, and it **does not reference `Vixen.Editor.App`*
 | | |
 |---|---|
 | `TexturingModule` | `IEditorPlugin`. The command, the panel, the Create ▸ entry, and the Tools entry. |
+| `ITexturing` | The Tools ▸ verbs as a service the module publishes (#1306). `TexturingVerbs.cs` holds their bodies. |
 | `TextureGraphDocument` | A `.vxtexgraph`: a `NodeGraphAsset`, exactly as a `.vxshadergraph` is. |
 | `TextureGraphView` | The panel: `NodeGraphView` over the graph, `ImageView` beside it. |
 | `TextureNodeLibrary` | One line over the generated `NodeTypes.Register`. |
@@ -36,6 +37,16 @@ for a device, fill the externals, dispatch through the evaluator both panes alre
 **every** output rather than the first, and hand `ProjectMaterialBaker` the pictures. Of the three narrower routes that
 were owed beside it, two landed on 2026-09-08 and are below; the CLI's `--graph`
 ([#1020](https://github.com/Rikarin/Vixen/issues/1020)) is the one that stays owed.
+
+⚠ **The verbs are a service, and the service is the module** ([#1306](https://github.com/Rikarin/Vixen/issues/1306),
+doc 50 § D2). Every Tools ▸ command is a name for a public method of `ITexturing`, which `Activate`
+publishes with `PluginContext.Publish` — so another plugin's `Require<ITexturing>().BakeStackMaterial()`
+is the menu's bake, and it is withdrawn on unload (`TexturingCollectionTests` goes red if it is
+published with `Services.Add` instead, because the bag then pins the module and its load context).
+Unlike `IBlockout`, the implementation did not move to a second object: these verbs read the open
+documents, the baker, the brush and the armed force-bake, which *are* the module's state, so they moved
+into `TexturingVerbs.cs` — a partial of the module — rather than into a class that would reach back for
+every field.
 
 ### A stack bakes too, one material per texture set
 
