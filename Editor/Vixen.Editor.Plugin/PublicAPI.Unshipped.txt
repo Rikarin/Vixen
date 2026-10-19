@@ -1,4 +1,11 @@
 #nullable enable
+Vixen.Editor.Plugin.DeclaredMenus -> sealed class
+Vixen.Editor.Plugin.DeclaredMenus.Apply() -> void
+Vixen.Editor.Plugin.DeclaredMenus.Command(string path, System.Action run, string? id = null, Vixen.Ui.StringId? title = null, int priority = 0, bool separator = false) -> void
+Vixen.Editor.Plugin.DeclaredMenus.DeclaredMenus(Vixen.Editor.Plugin.PluginContext context) -> void
+Vixen.Editor.Plugin.DeclaredMenus.Line(string path, string commandId, int priority = 0, bool separator = false) -> void
+Vixen.Editor.Plugin.DeclaredMenus.Lines(string path, System.Collections.Generic.IEnumerable<string> commandIds, int priority = 0, bool separator = false) -> void
+Vixen.Editor.Plugin.DeclaredMenus.Submenu(string path, Vixen.Ui.StringId? title = null, string? after = null, int priority = 0) -> void
 Vixen.Editor.Plugin.EditorApi -> static class
 Vixen.Editor.Plugin.EditorMenuAttribute -> sealed class
 Vixen.Editor.Plugin.EditorMenuAttribute : System.Attribute
@@ -8,6 +15,24 @@ Vixen.Editor.Plugin.EditorMenuAttribute.Id.init -> string
 Vixen.Editor.Plugin.EditorMenuAttribute.Path.get -> string
 Vixen.Editor.Plugin.EditorMenuAttribute.Priority.get -> int
 Vixen.Editor.Plugin.EditorMenuAttribute.Priority.init -> int
+Vixen.Editor.Plugin.EditorMenuAttribute.Separator.get -> bool
+Vixen.Editor.Plugin.EditorMenuAttribute.Separator.init -> bool
+Vixen.Editor.Plugin.EditorMenuAttribute.Strings.get -> System.Type?
+Vixen.Editor.Plugin.EditorMenuAttribute.Strings.init -> System.Type?
+Vixen.Editor.Plugin.EditorMenuAttribute.Title.get -> string
+Vixen.Editor.Plugin.EditorMenuAttribute.Title.init -> string
+Vixen.Editor.Plugin.EditorSubmenuAttribute -> sealed class
+Vixen.Editor.Plugin.EditorSubmenuAttribute : System.Attribute
+Vixen.Editor.Plugin.EditorSubmenuAttribute.After.get -> string
+Vixen.Editor.Plugin.EditorSubmenuAttribute.After.init -> string
+Vixen.Editor.Plugin.EditorSubmenuAttribute.EditorSubmenuAttribute(string path) -> void
+Vixen.Editor.Plugin.EditorSubmenuAttribute.Path.get -> string
+Vixen.Editor.Plugin.EditorSubmenuAttribute.Priority.get -> int
+Vixen.Editor.Plugin.EditorSubmenuAttribute.Priority.init -> int
+Vixen.Editor.Plugin.EditorSubmenuAttribute.Strings.get -> System.Type?
+Vixen.Editor.Plugin.EditorSubmenuAttribute.Strings.init -> System.Type?
+Vixen.Editor.Plugin.EditorSubmenuAttribute.Title.get -> string
+Vixen.Editor.Plugin.EditorSubmenuAttribute.Title.init -> string
 Vixen.Editor.Plugin.IContributionScanner -> interface
 Vixen.Editor.Plugin.IContributionScanner.Scan(Vixen.Editor.Plugin.PluginContext context, System.Reflection.Assembly assembly) -> void
 Vixen.Editor.Plugin.IEditorGraphics -> interface
@@ -58,6 +83,7 @@ Vixen.Editor.Plugin.PluginContext.OnDeviceLost(System.Action<Vixen.Graphics.IGra
 Vixen.Editor.Plugin.PluginContext.OnUnload(System.Action action) -> void
 Vixen.Editor.Plugin.PluginContext.OnUpdate(System.Action<System.TimeSpan> update) -> void
 Vixen.Editor.Plugin.PluginContext.Owns<T>(T scope) -> T
+Vixen.Editor.Plugin.PluginContext.Publish<T>(T service) -> T
 Vixen.Editor.Plugin.PluginContext.Registrations.get -> Vixen.Editor.Plugin.PluginRegistrations
 Vixen.Editor.Plugin.PluginContext.Services.get -> Vixen.Editor.Plugin.PluginServices
 Vixen.Editor.Plugin.PluginContext.Shell.get -> Vixen.Editor.Ui.EditorShell
@@ -179,6 +205,7 @@ Vixen.Editor.Plugin.PluginState.Disabled = 0 -> Vixen.Editor.Plugin.PluginState
 Vixen.Editor.Plugin.PluginState.Failed = 2 -> Vixen.Editor.Plugin.PluginState
 Vixen.Editor.Plugin.PluginState.PluginState() -> void
 Vixen.Editor.Plugin.PluginState.Unloaded = 3 -> Vixen.Editor.Plugin.PluginState
+const Vixen.Editor.Plugin.DeclaredMenus.DerivedCommandPrefix = "scripts" -> string
 const Vixen.Editor.Plugin.PluginLoadContext.SharedPrefix = "Vixen." -> string
 const Vixen.Editor.Plugin.PluginManifest.FileName = "plugin.yaml" -> string
 override Vixen.Editor.Plugin.LoadedPlugin.ToString() -> string
@@ -188,6 +215,7 @@ override Vixen.Editor.Plugin.PluginLoadContext.Load(System.Reflection.AssemblyNa
 override Vixen.Editor.Plugin.PluginLoadContext.LoadUnmanagedDll(string unmanagedDllName) -> nint
 override Vixen.Editor.Plugin.PluginManifest.ToString() -> string
 override Vixen.Editor.Plugin.PluginReport.ToString() -> string
+static Vixen.Editor.Plugin.DeclaredMenus.Derive(string prefix, string text) -> string
 static Vixen.Editor.Plugin.EditorApi.Explain(System.Version built) -> string?
 static Vixen.Editor.Plugin.EditorApi.IsCompatible(System.Version built) -> bool
 static Vixen.Editor.Plugin.EditorApi.Version.get -> System.Version

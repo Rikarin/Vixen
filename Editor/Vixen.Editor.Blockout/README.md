@@ -16,12 +16,13 @@ plugins.Activate(BlockoutModule.ModuleId, BlockoutModule.ModuleName, new Blockou
 ```
 
 That is the whole of the registration, from the editor's side. The mode bar, the palette entries, the
-radio state, the keymap and doc 24's five Scene submenus all follow from it — see the
+radio state, the keymap and doc 24's six Scene submenus all follow from it — see the
 [editor modes guide](../../docs/guide/editor/modes.md).
 
 ## It registers itself, through the door a third party uses
 
-`BlockoutModule` is an `IEditorPlugin`. It adds the mode and the menus through `PluginContext` and
+`BlockoutModule` is an `IEditorPlugin`. It adds the mode and its two panels through `PluginContext` —
+`AddMode`, `AddPanel`, so an unload or a reload takes them back — declares its menus, and
 asks the host for the four things it needs — the shared mesh-editing state, the work plane, an
 `IMeshBaker` and an `IMeshSource` — through `PluginServices.Require`. A host that has not got one
 refuses the module with a sentence naming it, rather than throwing a null reference from inside
@@ -34,10 +35,43 @@ line. What has already gone is the coupling: **this assembly cannot see `Vixen.E
 so everything above could be a folder on somebody's disk without changing a line, and the compiler is
 what says so rather than a convention.
 
-⚠ **The mode's five submenus go into the Scene menu at a stated position**, after Measure, using
-`MenuGroup.IndexOfSubmenu` rather than a number. A module that could only append would have moved
-doc 24's geometry verbs below the camera bookmarks the day it stopped being compiled in — a visible
-change to somebody's editor caused by a refactor they cannot see.
+⚠ **The menus are declared, and it is the first in-tree author of the attributes (doc 50 § P1).**
+Each of the six Scene submenus is an `[EditorSubmenu]` on `BlockoutModule`, with its translated title
+and the sibling it goes after; each line is an `[EditorMenu]` on the command constant it names in
+`BlockoutMode`, with its priority and, where doc 24's tables group, a separator. The mode still
+registers the commands themselves — their enablement, their context and their keys are the mode's —
+and the attributes say where they appear. `Vixen.Editor.Plugin.Generator` writes `Declared.Register`
+from them, and `Activate` calls it last.
+
+⚠ **They go into the Scene menu at a stated position**, after Measure, named by id rather than by a
+number. A module that could only append would have moved doc 24's geometry verbs below the camera
+bookmarks the day it stopped being compiled in — a visible change to somebody's editor caused by a
+refactor they cannot see.
+
+⚠ **And until #1285 they were in no shipped editor.** The application activated its modules before it
+built the Scene menu, so the module found no menu and returned early in the one host that is not a
+test; every test that looked at the submenus stood a shell up for the module rather than opening the
+editor. `BlockoutReachTests` opens the editor the executable builds and holds the six submenus, entry
+by entry, to doc 24's order.
+
+⚠ **Its stylesheet leaves with it.** `UiDocument` can empty a sheet and cannot remove one, so unloading
+empties `BlockoutTheme`'s and the next activation refills the same slot; before, every reload left
+another copy of the rules in the cascade.
+
+## The verbs are a service; the mode keeps the pointer
+
+`IBlockout` is every verb doc 24's tables name — selection, geometry, surfaces, creation, the
+booleans, the handoff — as a method, and `BlockoutVerbs` implements it over the mode's editing state
+and dials. Those bodies were closures in `BlockoutMode.Register` until #1307 moved them; the mode's
+commands are now names for the methods, and the module publishes the same instance with
+`context.Publish`, so a menu line, a key and another plugin's `Require<IBlockout>()` are one
+implementation. ⚠ The guards moved in too: a method a plugin calls has no command around it to check
+for a scene first, so each verb answers `false`, zero or `Entity.Null` with nothing to act on.
+
+What stayed on the mode is what is about a gesture in a pane: arming the shape tool or the knife,
+which shape kind is chosen, which lattice cell is under the cursor (`CubeGrid` takes it as an
+argument), the handles and the drawing. `BlockoutVerbTests` holds both halves — a verb run with no
+shell at all, and every `IBlockout` method reached by some command, by reflection over the interface.
 
 ## The settings panel
 

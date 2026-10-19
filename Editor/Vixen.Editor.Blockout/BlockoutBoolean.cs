@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
+using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Engine.Transforms;
 using Vixen.Geometry;
@@ -68,9 +69,13 @@ public static class BlockoutBoolean {
 
             for (var index = operands.Count - 1; index >= 0; index--) {
                 document.Reparent(operands[index], result);
-                document.SetHidden(operands[index], true);
             }
 
+            // ⚠ A command, and inside the transaction with the rest (#1277). This was
+            // `document.SetHidden` straight onto the document, which the stack never saw — so one
+            // undo restored the reparents and the node and left both operands hidden: the designer
+            // got their solids back and could not see them.
+            document.Stack.Execute(new HideOperandsCommand(document, operands));
             document.Stack.Execute(new BooleanCommand(document, result, new(operation, 0), label));
             document.Selection.Set(result);
 
@@ -258,5 +263,60 @@ public static class BlockoutBoolean {
         return Matrix4x4.Invert(world.Read<WorldTransform>(target).Value, out var inverse)
             ? world.Read<WorldTransform>(other).Value * inverse
             : Matrix4x4.Identity;
+    }
+}
+
+/// <summary>Hides a boolean's operands as one undoable step, and gives each its own state back on undo.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Hidden is editor state with no command of its own anywhere</b>, and that is fine for a
+///         click on an outliner eye, which is not in a transaction. It is not fine here: a write
+///         inside <c>BeginTransaction</c> that the stack does not record is a transaction that lies
+///         about what its undo restores (#1277).
+///     </para>
+///     <para>
+///         ⚠ <b>The undo restores what each operand was, not "visible".</b> An operand the designer
+///         had already switched off before the subtract stays off when the subtract is undone.
+///     </para>
+///     <para>
+///         Here rather than as a general visibility command in the scene assembly, because the
+///         general one is doc 50 § P2b's — the outliner's eye, its lock and <c>Isolate</c> write the
+///         same marks directly and moving them is that phase's change, not this one.
+///     </para>
+/// </remarks>
+sealed class HideOperandsCommand : IEditorCommand {
+    readonly SceneDocument document;
+    readonly Entity[] operands;
+    readonly bool[] before;
+
+    public HideOperandsCommand(SceneDocument document, IReadOnlyList<Entity> operands) {
+        this.document = document;
+        this.operands = [.. operands];
+        before = [.. operands.Select(document.IsHiddenDirectly)];
+    }
+
+    /// <inheritdoc />
+    public string Name => "Hide Operands";
+
+    /// <inheritdoc />
+    public void Do(EditorContext context) {
+        ArgumentNullException.ThrowIfNull(context);
+
+        foreach (var operand in operands) {
+            document.SetHidden(operand, true);
+        }
+
+        context.Touch(document);
+    }
+
+    /// <inheritdoc />
+    public void Undo(EditorContext context) {
+        ArgumentNullException.ThrowIfNull(context);
+
+        for (var index = 0; index < operands.Length; index++) {
+            document.SetHidden(operands[index], before[index]);
+        }
+
+        context.Touch(document);
     }
 }

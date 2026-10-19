@@ -91,6 +91,16 @@
         <ProjectReference Include="..\Vixen.Editor.Inspector.Generator\Vixen.Editor.Inspector.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+            Doc 50 § D5: this assembly's [EditorMenu] and [EditorSubmenu] declarations become
+            `Declared.Register`, which BlockoutModule.Activate calls. An in-tree module is activated by
+            name and never scanned, so without the generator the attributes would compile and register
+            nothing — and for the same transitivity reason as the reference above, it is named here.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Plugin.Generator\Vixen.Editor.Plugin.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>

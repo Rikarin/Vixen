@@ -3803,6 +3803,14 @@ sealed partial class EditorApplication : IDisposable {
         // Asked of the plane on demand rather than copied into `GridStep` when it changes.
         snap.Plane = plane;
 
+        // ⚠ The bar before the modules, and it was the other way round. `RegisterModes` activates
+        // the built-in modules, and a module puts its lines into menus the application owns —
+        // Blockout's six submenus go into Scene, after Measure — by finding them. With `SceneMenu`
+        // last, `FindMenu("editor.menu.scene")` answered null inside the one host that is not a test,
+        // the module took its "no Scene menu, so no scene panel" early return, and doc 24's
+        // submenus were in no shipped editor. `BlockoutReachTests` is what saw it.
+        SceneMenu();
+
         RegisterModes();
         ParityToolbar();
 
@@ -3820,8 +3828,6 @@ sealed partial class EditorApplication : IDisposable {
                 }
             )
         );
-
-        SceneMenu();
     }
 
     /// <summary>The undo manager these two verbs mean right now.</summary>

@@ -4,7 +4,7 @@ slug: editor/writing-a-plugin
 kind: guide
 area: Editor
 summary: What a plugin can contribute to the editor, how it registers, and how everything it added is taken back out when it unloads.
-api: [T:Vixen.Editor.Plugin.PluginHost, T:Vixen.Editor.Blockout.BlockoutModule, T:Vixen.Editor.Terrain.TerrainModule, T:Vixen.Editor.Diagnostics.DiagnosticsModule, T:Vixen.Editor.AssetEditors.AssetEditorsModule, T:Vixen.Editor.SceneView.IActiveScene, T:Vixen.Editor.Debugger.IDeviceDeploy, T:Vixen.Rendering.Terrain.ITerrainScene, T:Vixen.Editor.Core.EditorRegistry, T:Vixen.Editor.Core.IEditorRegistry, T:Vixen.Editor.Core.NewAssetKind, T:Vixen.Editor.Inspector.CustomInspector, T:Vixen.Editor.SceneView.SceneTool, T:Vixen.Editor.Ui.TypeIcon, T:Vixen.Editor.Ui.AssetIcon, T:Vixen.Editor.Ui.EditorArt, T:Vixen.Editor.Scripts.ScriptsStrings, T:Vixen.Editor.AssetEditors.AssetEditorStrings, T:Vixen.Editor.Core.AuthoringAssembly, T:Vixen.Editor.SceneView.AuthoringKind, T:Vixen.Editor.Plugin.IEditorPlugin, T:Vixen.Editor.Plugin.PluginContext, T:Vixen.Editor.Plugin.PluginServices, T:Vixen.Editor.Plugin.IEditorGraphics, T:Vixen.Editor.Plugin.IEditorImage, T:Vixen.Editor.AssetEditors.AssetEditorRegistry, T:Vixen.Editor.AssetEditors.IAssetEditorFactory, T:Vixen.Editor.Assets.ImporterContributions, T:Vixen.Editor.Assets.ImporterRegistry, T:Vixen.Editor.Assets.ImporterAttribute, T:Vixen.Editor.Plugin.IContributionScanner, T:Vixen.Editor.Inspector.CustomInspectorAttribute, T:Vixen.Editor.Inspector.CustomDrawerAttribute, T:Vixen.Editor.SceneView.EditorToolAttribute, T:Vixen.Editor.Core.CreateAssetMenuAttribute, T:Vixen.Editor.SceneView.OverlayAttribute, T:Vixen.Editor.SceneView.DrawGizmoAttribute, T:Vixen.Editor.SceneView.SceneOverlay, T:Vixen.Editor.SceneView.ComponentGizmo, T:Vixen.Editor.SceneView.GizmoDraw, T:Vixen.Editor.SceneView.GizmoPlacement, T:Vixen.Editor.SceneView.OverlayCorner]
+api: [T:Vixen.Editor.Plugin.PluginHost, T:Vixen.Editor.Plugin.DeclaredMenus, T:Vixen.Editor.Plugin.EditorSubmenuAttribute, T:Vixen.Editor.Blockout.BlockoutModule, T:Vixen.Editor.Blockout.IBlockout, T:Vixen.Editor.Blockout.BlockoutVerbs, T:Vixen.Editor.Terrain.TerrainModule, T:Vixen.Editor.Diagnostics.DiagnosticsModule, T:Vixen.Editor.AssetEditors.AssetEditorsModule, T:Vixen.Editor.SceneView.IActiveScene, T:Vixen.Editor.Debugger.IDeviceDeploy, T:Vixen.Rendering.Terrain.ITerrainScene, T:Vixen.Editor.Core.EditorRegistry, T:Vixen.Editor.Core.IEditorRegistry, T:Vixen.Editor.Core.NewAssetKind, T:Vixen.Editor.Inspector.CustomInspector, T:Vixen.Editor.SceneView.SceneTool, T:Vixen.Editor.Ui.TypeIcon, T:Vixen.Editor.Ui.AssetIcon, T:Vixen.Editor.Ui.EditorArt, T:Vixen.Editor.Scripts.ScriptsStrings, T:Vixen.Editor.AssetEditors.AssetEditorStrings, T:Vixen.Editor.Core.AuthoringAssembly, T:Vixen.Editor.SceneView.AuthoringKind, T:Vixen.Editor.Plugin.IEditorPlugin, T:Vixen.Editor.Plugin.PluginContext, T:Vixen.Editor.Plugin.PluginServices, T:Vixen.Editor.Plugin.IEditorGraphics, T:Vixen.Editor.Plugin.IEditorImage, T:Vixen.Editor.AssetEditors.AssetEditorRegistry, T:Vixen.Editor.AssetEditors.IAssetEditorFactory, T:Vixen.Editor.Assets.ImporterContributions, T:Vixen.Editor.Assets.ImporterRegistry, T:Vixen.Editor.Assets.ImporterAttribute, T:Vixen.Editor.Plugin.IContributionScanner, T:Vixen.Editor.Inspector.CustomInspectorAttribute, T:Vixen.Editor.Inspector.CustomDrawerAttribute, T:Vixen.Editor.SceneView.EditorToolAttribute, T:Vixen.Editor.Core.CreateAssetMenuAttribute, T:Vixen.Editor.SceneView.OverlayAttribute, T:Vixen.Editor.SceneView.DrawGizmoAttribute, T:Vixen.Editor.SceneView.SceneOverlay, T:Vixen.Editor.SceneView.ComponentGizmo, T:Vixen.Editor.SceneView.GizmoDraw, T:Vixen.Editor.SceneView.GizmoPlacement, T:Vixen.Editor.SceneView.OverlayCorner]
 tags: [editor, plugins, extensibility, registry]
 since: 0.1
 status: preview
@@ -192,6 +192,44 @@ scope as everything `Activate` adds. An unload takes both out.
 ⚠ **Declarations are read after `Activate`**, so a hand-written registration for the same type wins
 over an attribute. If you want the attribute to win, do not also register it.
 
+`[EditorMenu]` has two more shapes than the verb above. On a public static `string` field — a `const`
+command id — it is a **line for a command something else registers**, and every part of the path is a
+menu: that is how a mode, whose commands are its own because their enablement and their keys are,
+still declares where they appear. On a `static IEnumerable<string> ()` it is a run of such lines, read
+once. `Separator = true` puts a separator above a line, and `Title = nameof(MyStrings.Thing)` names the
+line's title in a declaration class, so a localised verb can be declared at all — resolved in the class
+`Strings = typeof(…)` names, or else in the one class of your assembly whose name ends in `Strings`
+that declares it. A title that resolves to nothing refuses the plugin with a diagnostic rather than
+showing the member's name.
+
+`[EditorSubmenu("Scene/Geometry", Title = …, After = "editor.menu.elements")]`, on any class, declares
+a submenu: its translated title and where among its siblings it goes. Without one, a path makes the
+submenu it names, titled with the path's own text and appended. Both readers hand what they find to
+`DeclaredMenus`, which decides placement — lines in `Priority` order, a path that finds before it
+creates, so two declarations under `Tools/My Thing` share one submenu — and takes all of it back out on
+unload.
+
+### In the editor's own tree, a generator instead of the scan
+
+An in-tree module is not scanned: it is compiled in and activated by name. It references
+`Vixen.Editor.Plugin.Generator` as an analyzer, which writes a `Declared.Register(PluginContext)` for
+its assembly at compile time — the scan's code with the reflection taken out, ADR-002 intact — and the
+module's `Activate` calls it, last:
+
+```xml
+<ProjectReference Include="..\Vixen.Editor.Plugin.Generator\Vixen.Editor.Plugin.Generator.csproj"
+                  OutputItemType="Analyzer"
+                  ReferenceOutputAssembly="false" />
+```
+
+⚠ **One reader per assembly, never both.** A disk plugin is scanned after its `Activate`; one that also
+called a generated `Register` would register everything twice, and the second command would throw. So
+the generator does not ship in `Vixen.Editor.Plugin`'s package, and a declaration the scan would pass
+over silently — a private method, a member of a type the generated class cannot name — is a compile
+error (`VXP0001`–`VXP0005`) rather than a line that is quietly not there. `DeclaredParityTests`
+compiles one fixture through the generator, registers it both ways and compares everything the two
+hosts end up holding.
+
 ## Examples
 
 **A Create ▸ entry that writes a starter document.** An empty file is right for a kind whose editor
@@ -327,9 +365,26 @@ no assembly loading and no `AssemblyLoadContext`, because a compiled-in module i
 default one, but the same `PluginContext`, the same registration scope, the same rollback when
 `Activate` throws and the same unload.
 
-`BlockoutModule` is the worked example: it registers an editor mode and five submenus of the Scene
-menu, and asks for the four things it needs of the host — the shared mesh-editing state, the work
-plane, a mesh baker and a mesh source — through `Services.Require`.
+`BlockoutModule` is the worked example: it registers an editor mode and two panels, declares six
+submenus of the Scene menu and every line in them with `[EditorSubmenu]` and `[EditorMenu]` — which
+the in-tree generator turns into the `Declared.Register` its `Activate` calls last — and asks for the
+four things it needs of the host — the shared mesh-editing state, the work plane, a mesh baker and a
+mesh source — through `Services.Require`.
+
+It also publishes something: its verbs. `IBlockout` is doc 24's tables as methods — `Subtract()`,
+`Extrude()`, `CubeGrid()` — implemented by `BlockoutVerbs` over the mode's dials, and the mode's commands
+are names for them. `context.Publish(mode.Verbs)` puts the same instance where another plugin's
+`Require<IBlockout>()` finds it, and withdraws it on unload:
+
+```csharp no-compile="a second plugin, using a first one's use case"
+var blockout = context.Services.Require<IBlockout>();
+
+blockout.Subtract();   // undoably, exactly as Scene ▸ Boolean ▸ Subtract does
+```
+
+⚠ **`Publish`, not `Services.Add`.** The bag has no removal, so a service added straight into it
+outlives its module, and since a second publish of one type throws, the module's own reload then
+fails.
 
 ⚠ **It exists because an API whose own authors bypass it is a guess.** A feature wired into the
 application through internals proves nothing about whether a third party could have written it; one

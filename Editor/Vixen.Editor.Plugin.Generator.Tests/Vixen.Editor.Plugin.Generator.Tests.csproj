@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            A reference and deliberately NOT an analyzer. The generator is constructed directly and
+            driven over a string of C# through CSharpGeneratorDriver, which is the only way to read a
+            diagnostic back rather than have it fail the build — Vixen.Engine.Generators.Tests' note,
+            and the same arrangement.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Plugin.Generator\Vixen.Editor.Plugin.Generator.csproj" />
+
+        <!--
+            ⚠ The real assemblies whose types the generated code names, not a preamble of stubs. The
+            emission test's whole claim is that what the generator writes compiles against the shipped
+            PluginContext, DeclaredMenus, IEditorRegistry and the five contribution records — a
+            double of any of them would be more permissive than the thing it stands for.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Plugin\Vixen.Editor.Plugin.csproj" />
+        <ProjectReference Include="..\Vixen.Editor.Inspector\Vixen.Editor.Inspector.csproj" />
+        <ProjectReference Include="..\Vixen.Editor.SceneView\Vixen.Editor.SceneView.csproj" />
+    </ItemGroup>
+</Project>

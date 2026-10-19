@@ -51,6 +51,19 @@ public sealed class PluginServices {
         return this;
     }
 
+    /// <summary>Withdraws a service, if it is still the one published under that type.</summary>
+    /// <typeparam name="T">The type it was published as.</typeparam>
+    /// <param name="service">The instance that was published.</param>
+    /// <returns>Whether it was withdrawn.</returns>
+    /// <remarks>
+    ///     Internal, and reached through <see cref="PluginContext.Publish{T}" />'s recorded removal: a
+    ///     public removal would let any plugin take away a service another one published.
+    /// </remarks>
+    internal bool Remove<T>(T service) where T : class =>
+        services.TryGetValue(typeof(T), out var published)
+        && ReferenceEquals(published, service)
+        && services.Remove(typeof(T));
+
     /// <summary>Whether a service is published.</summary>
     /// <typeparam name="T">The type.</typeparam>
     /// <returns>Whether it is.</returns>

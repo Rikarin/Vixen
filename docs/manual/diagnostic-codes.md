@@ -18,6 +18,7 @@ step. Where to look:
 | `VXIN` | `Vixen.Input.Generators` |
 | `VXN` | `Vixen.Editor.NodeGraph.Generator` |
 | `VXI` | `Vixen.Editor.Inspector.Generator` |
+| `VXP` | `Vixen.Editor.Plugin.Generator` — an in-tree module's declaration attributes |
 | `VXIO` | `Vixen.Core.IO.Analyzers` — the `System.IO.Path` ban |
 | `VXHP` | `Vixen.Core.Analyzers` — the `[HotPath]` allocation ban |
 | `VXLG` | `Vixen.Core.Diagnostics.Analyzers` — the silent-catch ban |

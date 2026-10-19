@@ -408,16 +408,17 @@ partial class Build {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The ceiling cannot honestly be zero, and one of the survivors says why.</b>
-    ///         <c>DeclaredContributions</c> builds a label for a command a *plugin* declared with an
+    ///         <c>DeclaredMenus</c> builds a label for a command a *plugin* declared with an
     ///         attribute; the id is in an assembly this build has never seen, so no declaration in
     ///         this tree can cover it and a family is the wrong answer as well. That one wants
     ///         <c>Strings.Template</c> to take a plugin's own declarations, which is a different
     ///         piece of work.
     ///     </para>
     ///     <para>
-    ///         <b>What the eight are.</b> All of them are <c>Vixen.Editor.App</c>'s, and every one
-    ///         needs a decision rather than a migration: <c>DeclaredContributions</c> (3, a
-    ///         plugin's command), <c>EditorApplication</c> (1, a panel titled by a document — user
+    ///         <b>What the eight are.</b> Every one needs a decision rather than a migration:
+    ///         <c>DeclaredMenus</c> in <c>Vixen.Editor.Plugin</c> (3, a plugin's command, its top
+    ///         menu and an undeclared submenu — moved out of <c>DeclaredContributions</c> by #1283,
+    ///         where they were the same three, so both readers of the attributes share them), <c>EditorApplication</c> (1, a panel titled by a document — user
     ///         data), <c>EditorParity</c> (1, a recent project's directory name — user data),
     ///         <c>EditorBuilds</c> (2, "This Machine (rid)" — machine data — and
     ///         <c>PlayerBuild.WhyNotPublishable</c>'s prose, which another assembly owns) and

@@ -416,6 +416,35 @@ public sealed class PluginContext {
         return scope;
     }
 
+    /// <summary>Publishes a service of this plugin's for other plugins to <c>Require</c>, and withdraws it on unload.</summary>
+    /// <typeparam name="T">What other plugins will ask for — an interface, as a rule.</typeparam>
+    /// <param name="service">The service.</param>
+    /// <returns>The same service.</returns>
+    /// <exception cref="ArgumentException">Something is already published under that type.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 50 § D2's other direction.</b> The host publishes its use cases through
+    ///         <see cref="PluginServices" />; a module that owns use cases of its own — Blockout's verbs,
+    ///         as <c>IBlockout</c> — publishes them here, so a second plugin reaches them by
+    ///         <c>Require</c> exactly as it reaches the host's.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Rather than <c>Services.Add</c>, which has no removal.</b> A module that published
+    ///         straight into the bag left its service behind on unload, and since a second publish of
+    ///         one type throws, its own reload then failed — doc 50 § F7 found that shape in
+    ///         <c>TerrainPhysicsModule</c>. This records the withdrawal, and withdraws only the instance
+    ///         it published.
+    ///     </para>
+    /// </remarks>
+    public T Publish<T>(T service) where T : class {
+        ArgumentNullException.ThrowIfNull(service);
+
+        Services.Add(service);
+        Registrations.Add(() => Services.Remove(service));
+
+        return service;
+    }
+
     /// <summary>Registers with one of the host's own registries, and takes it back out on unload.</summary>
     /// <typeparam name="TService">The registry's type, as <see cref="PluginServices" /> published it.</typeparam>
     /// <param name="register">What to add.</param>

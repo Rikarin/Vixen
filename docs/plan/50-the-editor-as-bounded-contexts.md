@@ -480,6 +480,18 @@ id used nowhere, so a title the generator stops referencing is caught.
 goes red on the missing menu line. Comment out the `Declared.Register` call; every line of that
 module's goes red at once.
 
+✅ **Built for Blockout (#1283–#1285), with three corrections to this section.** (1) A built-in's
+menus are mostly lines for commands its *mode* registers — with enablement, a context and a chord —
+so `[EditorMenu]` also goes on a `const string` command id (a line, every path part a menu) and on a
+`static IEnumerable<string> ()` (a run of lines), and `[EditorSubmenu]` gives a submenu its translated
+title and a place after a named sibling; the verb shape alone could not have expressed one Blockout
+line. (2) "Both tiers must agree" is half enforced by construction: placement moved into
+`DeclaredMenus`, which both readers call, and the generated code constructs each attribute as written,
+so only *what was found* can differ — which `DeclaredParityTests` compares. (3) The `Title` rule is
+"the class `Strings` names, or the one `*Strings` class of the declaring assembly that declares it";
+`nameof` alone loses the class. Both sabotages above were run against `BlockoutModule`: one
+`[EditorMenu]` removed → 62 of 63 lines; `Register` commented out → 0.
+
 ### D6 — The instruments, before the moves
 
 Every rule below is shrink-only, in the `CheckWhitespace` / `NotYetMoved` shape: a line in the
@@ -683,10 +695,10 @@ Waves follow the phases; a wave is five worktrees, merged as each lands, gates o
 | [#1281](https://github.com/Rikarin/Vixen/issues/1281) | `ModuleRegistrationRule` + `ContributionWriterTest` | P0 | 1 · landed |
 | [#1282](https://github.com/Rikarin/Vixen/issues/1282) | Three README/dead-type corrections (Core `Vixen.Ui` line; App load-order reasons; delete `EditorObject` family) | P0 | 1 · landed |
 | — | [#1276](https://github.com/Rikarin/Vixen/issues/1276) `TexturingModule` reaches nothing — decide and close | P0 | 1 · filed |
-| — | [#1277](https://github.com/Rikarin/Vixen/issues/1277) Blockout boolean undo leaves operands hidden | P2b | 1 · filed |
-| [#1283](https://github.com/Rikarin/Vixen/issues/1283) | `Vixen.Editor.Plugin.Generator`: the eight attributes → `Declared.Register` | P1 | 2 |
-| [#1284](https://github.com/Rikarin/Vixen/issues/1284) | `EditorMenuAttribute.Title` as a `*Strings` member name; `DeclaredParityTest` | P1 | 2 |
-| [#1285](https://github.com/Rikarin/Vixen/issues/1285) | Blockout → attributes, and through `context.AddPanel`/`AddMode` | P1 | 2 |
+| — | [#1277](https://github.com/Rikarin/Vixen/issues/1277) Blockout boolean undo leaves operands hidden | P2b | 1 · filed · ✅ the hide is a recorded command in the transaction; the delete-undo half of the same shape is [#1482](https://github.com/Rikarin/Vixen/issues/1482) |
+| [#1283](https://github.com/Rikarin/Vixen/issues/1283) | `Vixen.Editor.Plugin.Generator`: the eight attributes → `Declared.Register` | P1 | 2 · ✅ nine attributes (with `[EditorSubmenu]` and `[EditorIcon]`; `[Importer]` stays the pipeline's); placement shared through `DeclaredMenus`; not packed — a disk plugin gets the scan |
+| [#1284](https://github.com/Rikarin/Vixen/issues/1284) | `EditorMenuAttribute.Title` as a `*Strings` member name; `DeclaredParityTest` | P1 | 2 · 🟡 `[EditorMenu]`/`[EditorSubmenu]` and `DeclaredParityTests` ✅; `[CreateAssetMenu]`/`[Overlay]` titles owed — their records carry strings |
+| [#1285](https://github.com/Rikarin/Vixen/issues/1285) | Blockout → attributes, and through `context.AddPanel`/`AddMode` | P1 | 2 · 🟡 menus declared, panels and theme through the context; ⚠ its submenus had been absent from the shipped editor (modules activated before the Scene menu existed). The mode's own commands are still `IEditorMode.Register`'s — a contract decision |
 | [#1286](https://github.com/Rikarin/Vixen/issues/1286) | Water → attributes, `WaterDebug` static becomes module state | P1 | 2 |
 | [#1287](https://github.com/Rikarin/Vixen/issues/1287) | Terrain → attributes; #740 closed; `TerrainPhysics` publishes via `Owns` | P1 | 2 |
 | [#1288](https://github.com/Rikarin/Vixen/issues/1288) | `PluginHost.Activate` honours `suppressed`; Disable works for built-ins | P1 | 2 |
@@ -704,7 +716,7 @@ Waves follow the phases; a wave is five worktrees, merged as each lands, gates o
 | [#1300](https://github.com/Rikarin/Vixen/issues/1300) | `Assets` drops `ShaderGraph`/`VfxGraph`; `BuiltInImporters` shrinks to the pipeline's own | P3 | 6 |
 | [#1301](https://github.com/Rikarin/Vixen/issues/1301) | 35 feature string ids out of `EditorStrings` | P3 | 6 |
 | [#1302](https://github.com/Rikarin/Vixen/issues/1302) | `NotYetMoved` deleted; `ApplicationReferenceRule` is `Allowed` only | P3 | 6 |
-| [#1303](https://github.com/Rikarin/Vixen/issues/1303)–[#1309](https://github.com/Rikarin/Vixen/issues/1309) | One per feature god file: `SceneViewport`, `ProjectBrowser`, `NodeGraphView`, `LayerStackView` + `TexturingModule`, `BlockoutMode`, `ComponentsView.vxml`, `EditorHost` | P4 | 7–8 |
+| [#1303](https://github.com/Rikarin/Vixen/issues/1303)–[#1309](https://github.com/Rikarin/Vixen/issues/1309) | One per feature god file: `SceneViewport`, `ProjectBrowser`, `NodeGraphView`, `LayerStackView` + `TexturingModule`, `BlockoutMode`, `ComponentsView.vxml`, `EditorHost` | P4 | 7–8 · #1307 (`BlockoutMode`) ✅ the verbs are `IBlockout`, published with `PluginContext.Publish` |
 | [#1310](https://github.com/Rikarin/Vixen/issues/1310) | Settings dirty joins `HasUnsavedChanges`; settings edits through `EditProperty` with a document (#1162's provider) | P2e | 5 · first half landed (the join); the document half waits on #1294 |
 | [#1311](https://github.com/Rikarin/Vixen/issues/1311) | Guide pages for the seven services and two records (`CheckDocs`, not `Docs`) | each | with its phase |
 

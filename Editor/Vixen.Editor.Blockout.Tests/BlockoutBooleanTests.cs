@@ -399,6 +399,65 @@ public class BlockoutBooleanTests : IDisposable {
         Assert.Contains("\"max\":", text);
     }
 
+    /// <summary>#1277: the hide is part of the boolean, so one undo takes it back with the rest.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Red before the fix, and not by a little.</b> <c>Combine</c> wrote
+    ///     <c>SetHidden</c> straight to the document inside its transaction, so the stack recorded the
+    ///     create, the reparents and the node and not the hide — and the undo handed the designer back
+    ///     two solids the editor would not draw.
+    /// </remarks>
+    [Fact]
+    public void Undoing_a_boolean_shows_its_operands_again_and_redoing_hides_them() {
+        var wall = Box(new(4f, 3f, 0.5f));
+        var hole = Box(new(1f, 2f, 2f));
+
+        scene.Selection.Set([wall, hole]);
+
+        var result = BlockoutBoolean.Subtract(scene);
+
+        Settle();
+
+        Assert.True(scene.IsHiddenDirectly(wall));
+        Assert.True(scene.IsHiddenDirectly(hole));
+
+        // One undo, because a subtract is one thing somebody did.
+        Assert.True(scene.Stack.Undo());
+        Settle();
+
+        Assert.False(world.IsAlive(result));
+        Assert.False(scene.IsHidden(wall));
+        Assert.False(scene.IsHidden(hole));
+
+        Assert.True(scene.Stack.Redo());
+        Settle();
+
+        Assert.True(scene.IsHiddenDirectly(wall));
+        Assert.True(scene.IsHiddenDirectly(hole));
+    }
+
+    /// <summary>An operand the designer had already hidden stays hidden when the boolean is undone.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The undo restores what was there, not "visible".</b> A command that unhid on undo
+    ///     would turn back on a solid somebody had switched off before they ever ran the subtract.
+    /// </remarks>
+    [Fact]
+    public void Undoing_a_boolean_leaves_an_operand_hidden_that_was_hidden_before_it() {
+        var wall = Box(new(4f, 3f, 0.5f));
+        var hole = Box(new(1f, 2f, 2f));
+
+        scene.SetHidden(hole, true);
+        scene.Selection.Set([wall, hole]);
+
+        BlockoutBoolean.Subtract(scene);
+        Settle();
+
+        Assert.True(scene.Stack.Undo());
+        Settle();
+
+        Assert.False(scene.IsHidden(wall));
+        Assert.True(scene.IsHiddenDirectly(hole));
+    }
+
     [Fact]
     public void Collision_is_a_box_per_shell_and_the_mesh_when_that_is_not_enough() {
         var one = Box(new(2f, 2f, 2f));
