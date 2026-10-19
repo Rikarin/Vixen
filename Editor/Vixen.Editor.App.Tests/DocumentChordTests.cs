@@ -7,6 +7,7 @@ using Vixen.Editor.Testing;
 using Vixen.Input;
 using Vixen.Rendering.PostFx;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -84,6 +85,75 @@ public sealed class DocumentChordTests {
         session.Settle();
 
         Assert.False(session.Shell.Workspace.IsOpen(tab), "Ctrl+W in the tab left it open");
+    }
+
+    /// <summary>Ctrl+W in a dirty tab asks first, and Cancel keeps the tab and every edit in it (#1501).</summary>
+    /// <remarks>
+    ///     ⚠ The tab used to close on the request and leave its document dirty in the project with
+    ///     nothing showing it — Save All and the quit prompt still named it, but the person who closed
+    ///     the tab could not see which of keeping or discarding they had chosen.
+    /// </remarks>
+    [Fact]
+    public void Ctrl_w_in_a_dirty_asset_tab_asks_and_cancel_keeps_the_tab_and_its_edits() {
+        using var session = EditorSession.Start();
+
+        var (document, path, tab) = Editing(session);
+
+        Dirty(document);
+        FocusIn(session, tab);
+        Chord(session, InputKey.W);
+
+        Assert.True(session.IsAsking, "Ctrl+W in a tab with unsaved edits did not ask");
+        Assert.True(session.Shell.Workspace.IsOpen(tab), "the tab closed before the question was answered");
+
+        session.Answer(ControlStrings.DialogCancel.Text);
+
+        Assert.True(session.Shell.Workspace.IsOpen(tab), "Cancel closed the tab");
+        Assert.True(document.IsOpen);
+        Assert.True(document.IsDirty.Value, "Cancel threw the edits away");
+        Assert.Equal(AntialiasingMode.Off, document.Settings.Antialiasing);
+        Assert.Equal(Knobs, File.ReadAllText(path));
+    }
+
+    /// <summary>Don't Save closes the tab and the document, and the file is what it was (#1501).</summary>
+    [Fact]
+    public void Dont_save_closes_the_tab_and_its_document_and_leaves_the_file_alone() {
+        using var session = EditorSession.Start();
+
+        var (document, path, tab) = Editing(session);
+
+        Dirty(document);
+        FocusIn(session, tab);
+        Chord(session, InputKey.W);
+
+        Assert.True(session.IsAsking, "Ctrl+W in a tab with unsaved edits did not ask");
+
+        session.Answer(ControlStrings.DocumentDiscard.Text);
+
+        Assert.False(session.Shell.Workspace.IsOpen(tab), "Don't Save left the tab open");
+        Assert.False(document.IsOpen, "Don't Save left the dirty document open with no tab showing it");
+        Assert.DoesNotContain(document, session.Project.Documents);
+        Assert.Equal(Knobs, File.ReadAllText(path));
+    }
+
+    /// <summary>Save writes the file and then closes the tab (#1501).</summary>
+    [Fact]
+    public void Save_writes_the_file_and_closes_the_tab() {
+        using var session = EditorSession.Start();
+
+        var (document, path, tab) = Editing(session);
+
+        Dirty(document);
+        FocusIn(session, tab);
+        Chord(session, InputKey.W);
+
+        Assert.True(session.IsAsking, "Ctrl+W in a tab with unsaved edits did not ask");
+
+        session.Answer(ControlStrings.DocumentSave.Text);
+
+        Assert.NotEqual(Knobs, File.ReadAllText(path));
+        Assert.False(session.Shell.Workspace.IsOpen(tab), "Save left the tab open");
+        Assert.False(document.IsOpen);
     }
 
     /// <summary>

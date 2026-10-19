@@ -743,12 +743,6 @@ sealed partial class EditorApplication {
         // one. What would close this is a compiler service the editor talks to rather than links.
         Planned("build.rebuild-shaders", EditorStrings.CommandBuildRebuildShaders, EditorStrings.CategoryBuild);
 
-        // ⚠ On the Window menu, which the shell owns and which names it — so the shell would have a
-        // dangling id if this were left out. It is registered here rather than there because full
-        // screen is a property of an OS window and `EditorShell` is deliberately a document with no
-        // window: what is missing is a way for the application to reach one, not the verb itself.
-        Planned("view.full-screen", EditorStrings.CommandViewFullScreen, EditorStrings.CategoryView);
-
         Verb(
             "tools.plugins",
             EditorStrings.CommandToolsPlugins,
@@ -1720,7 +1714,7 @@ sealed partial class EditorApplication {
             return;
         }
 
-        Browse(new Uri(project.Paths.Root).AbsoluteUri);
+        links.Open(new Uri(project.Paths.Root).AbsoluteUri);
     }
 
     /// <summary>Runs the configured external tool over a file.</summary>
@@ -1775,8 +1769,6 @@ sealed partial class EditorApplication {
 
         sceneEditing.Restructured();
     }
-
-    void Browse(string url) => links.Open(url);
 
     // ── Selection and hierarchy verbs ───────────────────────────────────────────────────────────
 

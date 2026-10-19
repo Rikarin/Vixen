@@ -180,7 +180,6 @@ editor menu editor.menu.tools tools.reload-shaders
 editor menu editor.menu.tools view.clear-console
 editor menu editor.menu.window view.close-panel
 editor menu editor.menu.window view.float-panel
-editor menu editor.menu.window view.full-screen
 editor menu editor.menu.window view.next-tab
 editor menu editor.menu.window view.palette
 editor menu editor.menu.window view.previous-tab
@@ -515,6 +514,7 @@ vixen.water panel water.panel
 vixen.water panel water.zone
 vixen.workspace menu editor.menu.file/editor.menu.recent-documents file.recent-document.*
 vixen.workspace menu editor.menu.tools tools.reload-styles
+vixen.workspace menu editor.menu.window view.full-screen
 vixen.workspace menu editor.menu.window/editor.menu.layout view.layout.Animation
 vixen.workspace menu editor.menu.window/editor.menu.layout view.layout.Debug
 vixen.workspace menu editor.menu.window/editor.menu.layout view.layout.Default
