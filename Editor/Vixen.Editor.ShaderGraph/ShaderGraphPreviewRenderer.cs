@@ -259,8 +259,19 @@ public sealed class ShaderGraphPreviewRenderer : INodePreviewSource, IDisposable
     }
 
     /// <summary>What a node's preview is, once it is known there is nothing to recompute.</summary>
-    static bool Answer(Entry entry, out NodePreview preview) {
+    /// <remarks>
+    ///     ⚠ <b>A target the sink could not name when it was made is named now</b> (#1299). The sink
+    ///     answers zero while its host cannot show a view — <c>IEditorGraphics.Show</c> before the
+    ///     window's surface exists — and a number asked for only once, at creation, stayed zero for
+    ///     the life of the target. Asked again only for a target that has been drawn, so the interface
+    ///     is never handed one in an undefined layout.
+    /// </remarks>
+    bool Answer(Entry entry, out NodePreview preview) {
         preview = default;
+
+        if (entry.Image == 0 && images is not null && entry.View.IsValid && entry.State != ResourceState.Undefined) {
+            entry.Image = images.Register(entry.View);
+        }
 
         if (entry.Image == 0) {
             return false;

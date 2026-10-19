@@ -163,4 +163,28 @@ public interface IEditorGraphics {
     ///     </para>
     /// </remarks>
     bool Update(IEditorImage image, int x, int y, int width, int height, ReadOnlySpan<byte> rgba);
+
+    /// <summary>Names a texture view the plugin drew into, so the interface can draw it.</summary>
+    /// <param name="view">
+    ///     The view. Still the plugin's: it must be created with <c>TextureUsage.Sampled</c>, be in
+    ///     <c>ShaderRead</c> whenever a frame samples it, and outlive the returned image.
+    /// </param>
+    /// <returns>The image, or <c>null</c> when this host cannot show one.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>#1299's decision (a).</b> <see cref="Upload" /> takes pixels, which is right for a
+    ///         plugin that computes them, and costs a GPU → CPU → GPU round trip for one that renders
+    ///         them: the shader graph's node previews draw straight into render targets, so the host
+    ///         used to build their renderer itself and register its views with the interface renderer
+    ///         behind every plugin's back. This is that registration, published.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Disposing the image unregisters it and destroys nothing</b>, which is the difference
+    ///         from <see cref="Upload" />'s: the texture is the plugin's. Dispose it before destroying
+    ///         the texture, because a registered number whose texture has gone is a descriptor set
+    ///         pointing at freed memory. ⚠ Defaulted to <c>null</c>, so a host that cannot show a
+    ///         view implements nothing.
+    ///     </para>
+    /// </remarks>
+    IEditorImage? Show(TextureViewHandle view) => null;
 }

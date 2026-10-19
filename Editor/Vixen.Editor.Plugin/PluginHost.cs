@@ -445,6 +445,39 @@ public sealed class PluginHost {
         }
     }
 
+    /// <summary>Runs every active plugin's in-frame work, once.</summary>
+    /// <param name="device">The device the host's frame is on, between its <c>BeginFrame</c> and its panes.</param>
+    /// <remarks>
+    ///     See <see cref="PluginContext.OnFrame" />. ⚠ A plugin that throws here is unloaded, on
+    ///     <see cref="Update" />'s terms: it runs once a frame.
+    /// </remarks>
+    public void Frame(IGraphicsDevice device) {
+        ArgumentNullException.ThrowIfNull(device);
+
+        foreach (var plugin in plugins.Where(static entry => entry.State == PluginState.Active).ToList()) {
+            foreach (var record in plugin.Scope.Frames.ToList()) {
+                try {
+                    record(device);
+                } catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException) {
+                    diagnostics.Add(
+                        new PluginDiagnostic(
+                            PluginSeverity.Error,
+                            plugin.Id,
+                            $"threw from its in-frame work and has been unloaded: {exception.Message}"
+                        )
+                    );
+
+                    plugin.Failure = exception;
+                    Deactivate(plugin);
+                    plugin.State = PluginState.Failed;
+
+                    Changed?.Invoke(plugin);
+                    break;
+                }
+            }
+        }
+    }
+
     /// <summary>Tells every active plugin that the device it is holding is about to go.</summary>
     /// <param name="device">The device that is ending. Still valid for the length of this call.</param>
     /// <remarks>

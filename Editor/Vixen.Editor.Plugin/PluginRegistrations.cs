@@ -58,6 +58,10 @@ public sealed class PluginRegistrations : IDisposable {
     /// </remarks>
     public List<Action<IGraphicsDevice>> DeviceLost { get; } = [];
 
+    /// <summary>What to run inside the host's frame, between its <c>BeginFrame</c> and its panes.</summary>
+    /// <remarks>Filled by <see cref="PluginContext.OnFrame" />; held here for <see cref="Updates" />' reason.</remarks>
+    public List<Action<IGraphicsDevice>> Frames { get; } = [];
+
     /// <summary>What went wrong while undoing, if anything.</summary>
     public IReadOnlyList<Exception> Failures => failures;
 
@@ -84,6 +88,7 @@ public sealed class PluginRegistrations : IDisposable {
         // test green. What it covers is the route neither method owns: these lists are public and a
         // host that appends to one directly gets the same guarantee.
         DeviceLost.Clear();
+        Frames.Clear();
 
         for (var index = undo.Count - 1; index >= 0; index--) {
             try {

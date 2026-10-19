@@ -418,13 +418,50 @@ public class ShaderGraphPreviewDeviceTests {
         }
     }
 
+    /// <summary>⚠ A target its sink could not name when it was made is named once the sink can.</summary>
+    /// <remarks>
+    ///     <b>#1299.</b> The renderer is built by <c>AssetEditorsModule</c> once there is a device, and
+    ///     its sink is <c>IEditorGraphics.Show</c>, which answers nothing until the host's surface
+    ///     exists. The number was asked for once, when the target was made, so a preview built in
+    ///     that window stayed a swatch for the life of its target. ⚠ Red without the retry in
+    ///     <c>Answer</c>: the second ask returned false.
+    /// </remarks>
+    [Fact]
+    public void A_target_made_before_the_sink_could_name_it_is_named_on_a_later_ask() {
+        using (var device = Open()) {
+            var registry = Library();
+            var (graph, node) = Gradient();
+            var definition = registry.Get(node.Type);
+            var images = new CountingImages { Refusing = true };
+
+            using var renderer = new ShaderGraphPreviewRenderer(device, registry, images);
+
+            Render(device, renderer, graph, node, definition);
+
+            Assert.False(renderer.TryGet(graph, node, definition, out _));
+
+            images.Refusing = false;
+
+            Assert.True(renderer.TryGet(graph, node, definition, out var preview));
+            Assert.NotEqual(0ul, preview.Image);
+            Assert.Equal(1, renderer.Compilations);
+        }
+    }
+
     sealed class CountingImages : IPreviewImages {
         ulong next = 0x9000;
 
         public int Registered { get; private set; }
         public int Released { get; private set; }
 
+        /// <summary>Answers zero, as a sink whose host cannot show a view yet does.</summary>
+        public bool Refusing { get; set; }
+
         public ulong Register(TextureViewHandle view) {
+            if (Refusing) {
+                return 0;
+            }
+
             Registered++;
 
             return next++;

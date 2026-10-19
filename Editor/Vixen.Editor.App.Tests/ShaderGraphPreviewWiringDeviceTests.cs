@@ -49,7 +49,7 @@ public sealed class ShaderGraphPreviewWiringDeviceTests {
 
         using var surface = new ThumbnailSurface(device, renderer);
         using var session = EditorSession.Start();
-        using var host = new Host(session, device, renderer, surface);
+        using var host = new Host(session, device, surface);
 
         var document = Opened(session);
         var node = document.Graph.Nodes.Single(candidate => candidate.Type == "Vector/Tiling and Offset");
@@ -96,40 +96,47 @@ public sealed class ShaderGraphPreviewWiringDeviceTests {
 
     /// <summary>What a real host does about previews, and nothing else: the part of this test that moves.</summary>
     /// <remarks>
-    ///     Mirrors <c>EditorHost.Sync</c>, <c>Present</c> and <c>Release</c> as they are written today:
-    ///     the host builds the preview renderer once there is a device and a renderer, updates it inside
-    ///     its frame ahead of the thumbnails' flush, and disposes it on the way down.
+    ///     <para>
+    ///         Mirrors <c>EditorHost.Sync</c>, <c>Present</c> and <c>Release</c>. ⚠ Since #1299 that is no
+    ///         preview code at all: the host hands over its surface and its device, runs the plugins'
+    ///         in-frame work where it used to update the preview renderer by name, and takes both back
+    ///         on the way down. The renderer is <c>AssetEditorsModule</c>'s.
+    ///     </para>
+    ///     <para>
+    ///         Before #1299 this class built a <c>ShaderGraphPreviewRenderer</c> over the application's
+    ///         <c>UiPreviewImages</c>, set <c>EditorApplication.ShaderGraphPreviews</c> and called
+    ///         <c>Update</c> inside the frame — and the test above was green against that, on the same
+    ///         device, before anything moved.
+    ///     </para>
     /// </remarks>
     sealed class Host : IDisposable {
         readonly VulkanDevice device;
         readonly ThumbnailSurface surface;
         readonly EditorSession session;
-        readonly ShaderGraphPreviewRenderer previews;
 
-        public Host(EditorSession session, VulkanDevice device, UiRenderer renderer, ThumbnailSurface surface) {
+        public Host(EditorSession session, VulkanDevice device, ThumbnailSurface surface) {
             this.session = session;
             this.device = device;
             this.surface = surface;
 
             session.Editor.ThumbnailSurface = surface;
-            previews = new ShaderGraphPreviewRenderer(device, ShaderNodeLibrary.Create(), new UiPreviewImages(renderer));
-            session.Editor.ShaderGraphPreviews = previews;
+            session.Editor.GraphicsDevice = device;
         }
 
         public void Frame() {
             session.Frames(1);
 
             device.BeginFrame();
-            previews.Update();
+            session.Editor.RecordFrame(device);
             surface.Flush();
             device.EndFrame();
             device.WaitIdle();
         }
 
         public void Dispose() {
-            session.Editor.ShaderGraphPreviews = null;
-            previews.Dispose();
+            device.WaitIdle();
             session.Editor.ThumbnailSurface = null;
+            session.Editor.GraphicsDevice = null;
         }
     }
 

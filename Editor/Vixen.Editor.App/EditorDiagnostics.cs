@@ -94,6 +94,15 @@ sealed partial class EditorApplication {
     /// </remarks>
     public GpuFrame GpuFrame { get; set; } = GpuFrame.Empty;
 
+    /// <summary>Runs every plugin's in-frame work; the host calls it between <c>BeginFrame</c> and its panes.</summary>
+    /// <param name="device">The device the frame is on.</param>
+    /// <remarks>
+    ///     ⚠ <b>Where the host used to update the shader graph's preview renderer by name</b> (#1299):
+    ///     that renderer is <c>AssetEditorsModule</c>'s now and records through
+    ///     <c>PluginContext.OnFrame</c>, so the host names no feature here.
+    /// </remarks>
+    public void RecordFrame(IGraphicsDevice device) => plugins.Frame(device);
+
     /// <summary>Registers a command that brings a panel up.</summary>
     /// <remarks>
     ///     ⚠ <b>Each one opens its panel rather than doing the thing.</b> "Profiler" is not a verb

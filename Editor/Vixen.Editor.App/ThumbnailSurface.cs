@@ -74,6 +74,10 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
     /// </remarks>
     readonly List<BufferHandle> spent = [];
 
+    // Numbers naming views this surface does not own (#1299): unregistered on release, never destroyed.
+    readonly HashSet<ulong> shown = [];
+    readonly List<ulong> unshowing = [];
+
     ulong next = ThumbnailCache.FirstImage;
 
     /// <summary>How many copies have been submitted, over the life of this surface.</summary>
@@ -158,6 +162,27 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
     ///         own rectangle rather than of the picture.
     ///     </para>
     /// </remarks>
+    /// <summary>Names a view somebody else drew into, for <c>IEditorGraphics.Show</c> (#1299).</summary>
+    /// <param name="view">The view. Its owner destroys it, after releasing the number.</param>
+    /// <returns>The number, or zero for a view that is not one.</returns>
+    /// <remarks>
+    ///     ⚠ <b>From the same counter as an upload's</b>, so a shown number can never collide with a
+    ///     thumbnail's. The shader graph's previews used to take numbers from a range of their own,
+    ///     registered by a sink in the application and never unregistered at all.
+    /// </remarks>
+    public ulong Show(TextureViewHandle view) {
+        if (!view.IsValid) {
+            return 0;
+        }
+
+        var image = next++;
+
+        renderer.RegisterImage(image, view);
+        shown.Add(image);
+
+        return image;
+    }
+
     public bool Update(ulong image, int x, int y, int width, int height, ReadOnlySpan<byte> rgba) {
         if (!live.TryGetValue(image, out var uploaded)) {
             return false;
@@ -275,6 +300,11 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
             retiring.Add(uploaded);
         }
 
+        // A shown number is unregistered between frames like an upload's, and its view is left alone.
+        if (shown.Remove(image)) {
+            unshowing.Add(image);
+        }
+
         waiting.RemoveAll(pending => pending.Image == image);
 
         // ⚠ And the queued patches, for the same reason and with one more step: a patch owns its
@@ -313,6 +343,12 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
         }
 
         retiring.Clear();
+
+        foreach (var image in unshowing) {
+            renderer.UnregisterImage(image);
+        }
+
+        unshowing.Clear();
 
         foreach (var staging in spent) {
             device.Destroy(staging);
@@ -357,6 +393,12 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
         }
 
         live.Clear();
+
+        foreach (var image in shown) {
+            renderer.UnregisterImage(image);
+        }
+
+        shown.Clear();
     }
 
     /// <summary>Takes the number back and then frees what it named.</summary>

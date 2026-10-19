@@ -6,7 +6,6 @@ using System.Reflection;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Threading;
 using Vixen.Editor.SceneView;
-using Vixen.Editor.ShaderGraph;
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Graphics.Vulkan;
@@ -129,9 +128,6 @@ sealed class EditorHost : IDisposable {
 
     /// <summary>What turns a decoded thumbnail into a texture, once there is a device and a renderer.</summary>
     ThumbnailSurface? thumbnails;
-
-    /// <summary>What draws a shader graph's node previews, once there is a device and a renderer.</summary>
-    ShaderGraphPreviewRenderer? previews;
     UiShaders shaders;
 
     /// <summary>What writes the frame's timestamps, once there is a device that can be timed.</summary>
@@ -574,11 +570,10 @@ sealed class EditorHost : IDisposable {
             thumbnails = new ThumbnailSurface(ready, renderer);
             editor.ThumbnailSurface = thumbnails;
 
-            // ⚠ The same moment and for the same two reasons: a preview needs a device to draw on and
-            // a renderer to be named by. Handing it over reaches the graphs that are already open —
-            // a restored session opens its tabs before the first frame — as well as the later ones.
-            previews = new ShaderGraphPreviewRenderer(ready, ShaderNodeLibrary.Create(), new UiPreviewImages(renderer));
-            editor.ShaderGraphPreviews = previews;
+            // ⚠ The shader graph's node previews used to be built here, at the same moment and for the
+            // same two reasons. They are `AssetEditorsModule`'s since #1299: it builds the renderer
+            // once `IEditorGraphics` has a device and names each target through
+            // `IEditorGraphics.Show`, which is this surface — so this host names no feature here.
         }
 
         // ⚠ NOT after a wait, and the comment that claimed otherwise cost task #364. The only
@@ -651,11 +646,12 @@ sealed class EditorHost : IDisposable {
 
         device!.BeginFrame();
 
-        // ⚠ Inside the frame and before anything records, because a preview draws into a target the
+        // ⚠ Inside the frame and before anything records, because a plugin may draw into a target the
         // interface samples in this same frame — submits on one queue run in order, so the pass has
-        // finished by the time the panes' lists read it. `RebuildsPerUpdate` is what stops a graph
-        // that was just pasted into compiling twenty shaders between two frames.
-        previews?.Update();
+        // finished by the time the panes' lists read it. The shader graph's node previews are drawn
+        // from here (`AssetEditorsModule`, through `PluginContext.OnFrame`, #1299); a command list
+        // recorded from the editor's update instead would race the next `BeginFrame`'s pool reset.
+        editor.RecordFrame(device);
 
         // ⚠ Here for the same reason, and it is the reason the upload is split in two.
         // `ThumbnailCache.Pump` runs from `editor.Update` above, which is outside this pair — a
@@ -1295,11 +1291,9 @@ sealed class EditorHost : IDisposable {
         thumbnails?.Dispose();
         thumbnails = null;
 
-        // The same rule again: the previews hold targets the interface's registry names, and every
-        // open graph is told they are gone before they go.
-        editor.ShaderGraphPreviews = null;
-        previews?.Dispose();
-        previews = null;
+        // ⚠ The shader graph's previews are no longer released here (#1299): `AssetEditorsModule`
+        // gives them back when `GraphicsDevice` is cleared below, which `PluginHost.DeviceLost` runs
+        // while the device is still valid. Their numbers went with the surface above.
 
         // The same rule, for the same reason: the query pools are the device's resources, and the
         // wait above is what makes it safe to take them back — a frame still in flight is one whose
