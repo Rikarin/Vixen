@@ -72,13 +72,37 @@ public class ContributionWriterTests {
                 continue;
             }
 
-            foreach (Match match in Reader.Matches(File.ReadAllText(file))) {
-                kinds.Add(match.Groups[1].Value);
+            var text = File.ReadAllText(file);
+
+            // ⚠ A generic forwarder reads through its own type parameter — `ScenePresenter.Latest<T>()`
+            // is `.All<T>()` (#1299) — so its `T` is not a kind, and its call sites are the readers.
+            // Taking `T` at its word failed the census on "resolves to 0 types"; skipping it alone
+            // would have dropped IVegetationScene, which nothing else reads.
+            var forwarders = Forwarder.Matches(text).Select(match => (Name: match.Groups[1].Value, Parameter: match.Groups[2].Value)).ToList();
+
+            foreach (Match match in Reader.Matches(text)) {
+                if (!forwarders.Any(forwarder => forwarder.Parameter == match.Groups[1].Value)) {
+                    kinds.Add(match.Groups[1].Value);
+                }
+            }
+
+            foreach (var (name, parameter) in forwarders) {
+                foreach (Match match in new Regex($@"\b{name}<([A-Z][A-Za-z0-9_]*)>\(\)", RegexOptions.CultureInvariant).Matches(text)) {
+                    if (match.Groups[1].Value != parameter) {
+                        kinds.Add(match.Groups[1].Value);
+                    }
+                }
             }
         }
 
         return kinds;
     }
+
+    /// <summary>A generic method whose expression body reads the registry through its own type parameter.</summary>
+    static readonly Regex Forwarder = new(
+        @"\b([A-Z][A-Za-z0-9_]*)<([A-Z][A-Za-z0-9_]*)>\(\)[^;{]*=>[^;]*\.All<\2>\(\)",
+        RegexOptions.CultureInvariant
+    );
 
     /// <summary>Every editor assembly beside this one loaded, and every Vixen type, so a kind can be found by name.</summary>
     static List<Type> EditorTypes() {
@@ -146,6 +170,10 @@ public class ContributionWriterTests {
         Assert.True(census.Count >= 12, $"Only {census.Count} contribution kinds were read: {string.Join(", ", census.Keys)}.");
         Assert.True(census.GetValueOrDefault("NewAssetKind") > 0, "NewAssetKind read as empty — the census is reading the wrong registry.");
         Assert.True(census.GetValueOrDefault("CustomInspector") > 0, "CustomInspector read as empty — the census is reading the wrong registry.");
+
+        // And a kind read only through a generic forwarder, `ScenePresenter.Latest<IVegetationScene>()`,
+        // so a forwarder the grep stopped following is a red rather than a kind quietly dropped.
+        Assert.True(census.ContainsKey("IVegetationScene"), "IVegetationScene was not read — the grep no longer follows ScenePresenter.Latest<T>.");
 
         var unwritten = census.Where(row => row.Value == 0).Select(row => row.Key).ToList();
 
