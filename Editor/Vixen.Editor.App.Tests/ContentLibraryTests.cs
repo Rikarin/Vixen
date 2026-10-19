@@ -147,6 +147,61 @@ public sealed class ContentLibraryTests : IDisposable {
         );
     }
 
+    /// <summary>Create writes a kind's starter file beside the selection, scans it in and announces it — with no window.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The returned identity is the database's</b>, which is what the command opens the new
+    ///     document under; a create that wrote the file and did not scan would return null here.
+    /// </remarks>
+    [Fact]
+    public void Create_writes_scans_and_announces_without_a_window() {
+        var (library, project, _) = Bare();
+        var arrived = 0;
+
+        library.Arrived += () => arrived++;
+
+        Directory.CreateDirectory(Path.Combine(project.Paths.Assets, "Props"));
+        File.WriteAllText(Path.Combine(project.Paths.Assets, "Props", "Crate.yaml"), "name: crate\n");
+        project.Assets.Scan();
+        project.Selection.Set([project.Assets.Entries.Single(entry => entry.Name == "Crate.yaml").Guid]);
+
+        var kind = new NewAssetKind("test.create-thing", "Thing", ".thing", "New Thing", "name: thing\n");
+
+        var first = library.Create(kind);
+        var second = library.Create(kind);
+
+        Assert.Equal("name: thing\n", File.ReadAllText(Path.Combine(project.Paths.Assets, "Props", "New Thing.thing")));
+        Assert.True(project.Assets.TryGetByGuid(Assert.NotNull(first), out var made));
+        Assert.Equal("Assets/Props/New Thing.thing", made.Path);
+        Assert.True(project.Assets.TryGetByGuid(Assert.NotNull(second), out var again));
+        Assert.Equal("Assets/Props/New Thing 2.thing", again.Path);
+        Assert.Equal(2, arrived);
+    }
+
+    /// <summary>Referrers and dependencies walk one edge each way, which the closure does not.</summary>
+    [Fact]
+    public void Referrers_and_dependencies_walk_one_edge_without_a_window() {
+        var (library, project, _) = Bare();
+
+        File.WriteAllText(Path.Combine(project.Paths.Assets, "Leaf.yaml"), "name: leaf\n");
+        File.WriteAllText(Path.Combine(project.Paths.Assets, "Middle.yaml"), "name: middle\n");
+        File.WriteAllText(Path.Combine(project.Paths.Assets, "Top.yaml"), "name: top\n");
+        project.Assets.Scan();
+
+        AssetId Id(string name) => project.Assets.Entries.Single(entry => entry.Name == name).Guid;
+
+        var (leaf, middle, top) = (Id("Leaf.yaml"), Id("Middle.yaml"), Id("Top.yaml"));
+
+        File.WriteAllText(Path.Combine(project.Paths.Assets, "Middle.yaml"), "uses: " + new AssetReference(leaf) + "\n");
+        File.WriteAllText(Path.Combine(project.Paths.Assets, "Top.yaml"), "uses: " + new AssetReference(middle) + "\n");
+        project.References.Build(project.Assets);
+
+        Assert.Equal([middle], library.Referrers([leaf]));
+        Assert.Equal([middle], library.Dependencies([top]));
+        Assert.Equal([top], library.Referrers([middle, middle]));
+        Assert.Empty(library.Referrers([top]));
+        Assert.Equal([top, middle, leaf], library.Closure([top]));
+    }
+
     /// <summary>The OS drop the platform delivers reaches the published service, and nothing beside it.</summary>
     /// <remarks>
     ///     ⚠ <b>By effect, through <c>PlatformInput.Dispatch</c></b> — the bridge the host feeds — and

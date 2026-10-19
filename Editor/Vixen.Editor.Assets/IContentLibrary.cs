@@ -40,6 +40,24 @@ public interface IContentLibrary {
     /// <returns>How many of the paths were copied in. Each one refused has said why.</returns>
     int Import(IReadOnlyList<string> paths, string folder);
 
+    /// <summary>Makes a new asset of a kind in the selected folder, scans it in and says so.</summary>
+    /// <param name="kind">What to make — a Create ▸ line's kind, whoever contributed it.</param>
+    /// <returns>
+    ///     The new asset, or <see langword="null" /> when the file could not be written. Opening it is the
+    ///     caller's: a document is the Documents context's, not this one's.
+    /// </returns>
+    AssetId? Create(NewAssetKind kind);
+
+    /// <summary>Everything that points at some assets, one step back along the reference graph.</summary>
+    /// <param name="assets">What is pointed at — usually the selection.</param>
+    /// <returns>The referrers, in the order found and each once; empty when nothing points at them.</returns>
+    IReadOnlyList<AssetId> Referrers(IEnumerable<AssetId> assets);
+
+    /// <summary>Everything some assets point at, one step forward along the reference graph.</summary>
+    /// <param name="assets">Where to start — usually the selection.</param>
+    /// <returns>The dependencies, in the order found and each once; empty when there are none.</returns>
+    IReadOnlyList<AssetId> Dependencies(IEnumerable<AssetId> assets);
+
     /// <summary>Everything some assets reach through the reference graph, themselves included.</summary>
     /// <param name="roots">Where to start.</param>
     /// <returns>The closure, roots first and each asset once.</returns>
@@ -84,6 +102,6 @@ public interface IContentLibrary {
     /// <summary>Raised after the collections changed and were written.</summary>
     event Action? CollectionsChanged;
 
-    /// <summary>Raised after an import copied something in and the database has been rescanned.</summary>
+    /// <summary>Raised after an import or a <see cref="Create" /> put something in and the database has been rescanned.</summary>
     event Action? Arrived;
 }

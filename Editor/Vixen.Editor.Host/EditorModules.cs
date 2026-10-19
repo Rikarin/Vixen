@@ -44,6 +44,10 @@ static class EditorModules {
         // the application's modules fill, and none adds a mode, so the mode bar's order is untouched.
         (PlayModule.ModuleId, PlayModule.ModuleName, new PlayModule()),
         (SceneModule.ModuleId, SceneModule.ModuleName, new SceneModule()),
+
+        // ⚠ Before every feature module, because it is the editor's own Create ▸ kinds (#1292) and
+        // Create ▸ keeps registration order among equal `Order`s: a feature's kind follows them.
+        (LibraryModule.ModuleId, LibraryModule.ModuleName, new LibraryModule()),
         (BlockoutModule.ModuleId, BlockoutModule.ModuleName, new BlockoutModule()),
         (TerrainModule.ModuleId, TerrainModule.ModuleName, new TerrainModule()),
         (TerrainPhysicsModule.ModuleId, TerrainPhysicsModule.ModuleName, new TerrainPhysicsModule()),

@@ -377,13 +377,7 @@ sealed partial class EditorApplication {
             }
         );
 
-        Verb(
-            "edit.find-references",
-            EditorStrings.CommandEditFindReferences,
-            EditorStrings.CategoryEdit,
-            FindReferences,
-            enabled: () => project.Selection.Count > 0
-        );
+        // `edit.find-references` is `LibraryModule`'s (#1292), over the same walk as the Assets menu's.
 
         Verb(
             "edit.preferences",
@@ -537,82 +531,8 @@ sealed partial class EditorApplication {
             enabled: () => !content.IsBusy
         );
 
-        // ⚠ Doc 20's A8: "Find References is the same query and belongs in three places at once."
-        // Two of the three are these — the browser's context menu and the Assets menu — and they are
-        // the *same command* rather than two, which is what stops them disagreeing. The third,
-        // an asset field's own menu, is the inspector's and is not built.
-        Verb(
-            "assets.find-references",
-            EditorStrings.CommandAssetsFindReferences,
-            EditorStrings.CategoryAssets,
-            FindReferences,
-            enabled: () => project.Selection.Count > 0
-        );
-
-        Verb(
-            "assets.select-dependencies",
-            EditorStrings.CommandAssetsSelectDependencies,
-            EditorStrings.CategoryAssets,
-            SelectDependencies,
-            enabled: () => project.Selection.Count > 0
-        );
-    }
-
-    /// <summary>Selects everything that points at what is selected, and says how much.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>The answer is a selection rather than a list, and that is the useful shape.</b>
-    ///         <c>ReferenceIndex</c> answers "who points at this" in one lookup; what somebody does
-    ///         with the answer is open one of them, delete the lot, or look at what they have in
-    ///         common — all three of which are things the browser already does to a selection.
-    ///         A read-only list would be a fourth panel that can only be read.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>A selection of nothing is left alone and reported.</b> Replacing the selection
-    ///         with an empty one would look exactly like the command having failed, and "nothing
-    ///         references this" is the answer people are usually checking for.
-    ///     </para>
-    /// </remarks>
-    void FindReferences() =>
-        Gather(project.References.ReferrersOf, "Nothing references that.", "referrer");
-
-    /// <summary>Selects everything the selection points at.</summary>
-    void SelectDependencies() =>
-        Gather(
-            asset => project.References.ReferencesFrom(asset).Select(reference => reference.Asset),
-            "That does not reference anything.",
-            "dependency"
-        );
-
-    /// <summary>Walks one edge of the reference graph from the selection, and shows what it found.</summary>
-    /// <param name="edge">Which way to walk: what points at an asset, or what it points at.</param>
-    /// <param name="empty">What to say when the answer is nothing.</param>
-    /// <param name="noun">What one result is called.</param>
-    /// <remarks>
-    ///     ⚠ <b>A set for membership and a list for order.</b> The two verbs differ only in which
-    ///     direction they walk, and both can reach the same asset from several selected ones — a
-    ///     linear <c>Contains</c> per hit is quadratic in the answer, which a select-all over a
-    ///     heavily cross-referenced project is exactly the shape of.
-    /// </remarks>
-    void Gather(Func<AssetId, IEnumerable<AssetId>> edge, string empty, string noun) {
-        List<AssetId> found = [];
-        HashSet<AssetId> seen = [];
-
-        foreach (var asset in project.Selection) {
-            foreach (var reached in edge(asset)) {
-                if (seen.Add(reached)) {
-                    found.Add(reached);
-                }
-            }
-        }
-
-        if (found.Count == 0) {
-            Shell.Notifications.Show(empty, NotificationSeverity.Info);
-            return;
-        }
-
-        Select(found);
-        Shell.Notifications.Success(found.Count == 1 ? $"1 {noun}" : $"{found.Count} {noun}s");
+        // Find References and Select Dependencies are `LibraryModule`'s now (#1292): names for
+        // `IContentLibrary.Referrers` and `Dependencies`, registered through `PluginContext`.
     }
 
     /// <summary>Selects some assets and puts the editor in the browser's context.</summary>

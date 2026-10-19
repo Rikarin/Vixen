@@ -5,9 +5,6 @@ using System.Globalization;
 using Vixen.Core;
 using Vixen.Core.Diagnostics;
 using Vixen.Core.Mathematics;
-using Vixen.Editor.AssetEditors.Content;
-using Vixen.Editor.AssetEditors.Frame;
-using Vixen.Editor.AssetEditors.Materials;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Inspector;
@@ -715,321 +712,6 @@ sealed partial class EditorApplication {
 
     // ── Making one of the new assets ────────────────────────────────────────────────────────────
 
-    /// <summary>The asset kinds the authoring surfaces add, and what an empty one of each is called.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>An empty file, not a template.</b> Every one of these documents opens a zero-byte
-    ///         file as a sensible new one — a VFX graph with a spawner and an output, a shader graph
-    ///         with a colour property and a master, an animation graph with one layer and one state,
-    ///         an input asset with <c>Player/Move</c> — which is <c>AssetFile.Read</c>'s own bargain
-    ///         and is why creating one is a <c>File.Create</c> rather than a copy of something in a
-    ///         templates folder that would then be a second place the defaults live.
-    ///     </para>
-    ///     <para>
-    ///         Seven of these are E5's and the shader graph is the eighth, added when its panel was:
-    ///         doc 20's Create ▸ names it, and until this line existed the only way to reach the
-    ///         editor was to make the file outside the editor.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Doc 31's four are the exception to the empty-file bargain, and they have to
-    ///         be.</b> Those documents open a zero-byte file as a sensible new one; a
-    ///         <c>.vxlayer</c> is read by <c>TerrainAssetImporter</c>, which deserialises it and runs
-    ///         the type's own <c>Validate()</c> — so an empty one imports as a layer with no name and
-    ///         reports itself as incomplete beside the file. Starter text costs four literals and is
-    ///         the difference between "created" and "created, with a warning".
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>And they do not open, because nothing claims them.</b> There is no asset editor
-    ///         for a layer or a foliage type — they are edited in the inspector and in the terrain
-    ///         panels — so opening one would put "No editor claims that file" on screen every time
-    ///         somebody made one.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b><c>.vxterrain</c> is deliberately not on this list.</b> A terrain is a size, a
-    ///         tile count and a height range before it is a file, and an empty one of those is eight
-    ///         gigabytes as easily as eight megabytes — which is what the Terrain panel's create form
-    ///         and its derived-cost readout exist for. A Create ▸ line making a default-sized one
-    ///         would be the one asset in the menu whose default is a guess about the size of
-    ///         somebody's world.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>These are registered, not read.</b> F3 reported this as a literal array in the
-    ///         application, which is why a plugin introducing an asset type could not put it in
-    ///         Create ▸ at all. It is still a literal — the application is where the application's own
-    ///         kinds belong — but it goes into <c>EditorRegistry</c> at start-up and the menu is built
-    ///         from the registry, so a contributed kind and a built-in one are the same thing to
-    ///         everything downstream.
-    ///     </para>
-    /// </remarks>
-    static readonly NewAssetKind[] BuiltInAssetKinds = [
-        // ⚠ The two an editor is *for*, and neither had a line here until 2026-09-17. A scene could
-        // be reset in memory by File ▸ New Scene and never written as a second file, and a material
-        // — the asset the whole of doc 48 is about — could only be made by creating the file by
-        // hand and opening it, which AssetFile.Read's remarks describe as "the ordinary way" because
-        // it was the only way. Both are registered first so they lead the menu; the sort below is
-        // stable, so position here is order there.
-        new("assets.create-scene", "Scene", SceneFile.Extension, "New Scene", NewSceneFile),
-        new("assets.create-material", "Material", MaterialAsset.Extension, "New Material", NewMaterial),
-
-        new("assets.create-shader-graph", "Shader Graph", ".vxshadergraph", "New Shader Graph"),
-
-        // The project's frame, as the game template ships it — one !StandardFrame node whose knobs
-        // are semantic — and an addressable group. Both are claimed by an importer and both open.
-        new("assets.create-frame", "Frame", StandardFrameDocument.Extension, "New Frame", NewFrame),
-        new("assets.create-addressable-group", "Addressable Group", AddressableGroupDocument.Extension, "New Group", NewGroup),
-
-        new("assets.create-vfx", "VFX Graph", ".vxvfx", "New Effect"),
-        new("assets.create-animation", "Animation Clip", ".vxanim", "New Clip"),
-        new("assets.create-animation-graph", "Animation Graph", ".vxanimgraph", "New Animation Graph"),
-        new("assets.create-sequence", "Sequence", ".vxseq", "New Sequence"),
-        new("assets.create-input", "Input Actions", ".vxinput", "New Input Actions"),
-        new("assets.create-mixer", "Audio Mixer", ".vxmixer", "New Mixer"),
-        new("assets.create-font", "Font", ".vxfont", "New Font"),
-
-        new("assets.create-terrain-layer", "Terrain Layer", ".vxlayer", "New Terrain Layer", NewLayer, false),
-        new("assets.create-foliage", "Foliage Type", ".vxfoliage", "New Foliage Type", NewFoliage, false),
-        new("assets.create-grass", "Grass Type", ".vxgrass", "New Grass Type", NewGrass, false),
-        new("assets.create-spline", "Spline", ".vxspline", "New Spline", NewSpline, false),
-
-        new("assets.create-move-set", "Move Set", ".vxmoveset", "New Move Set", NewMoveSet),
-        new("assets.create-proxy-shapes", "Proxy Shapes", ".vxproxyshapes", "New Proxy Shapes", NewProxyShapes),
-        new("assets.create-shape-vocabulary", "Shape Vocabulary", ".vxshapevocab", "New Shape Vocabulary", NewVocabulary),
-        new("assets.create-priorities", "Priority Ladder", ".vxpriorities", "New Priority Ladder", NewPriorities, false),
-        new("assets.create-constraint-template", "Constraint Template", ".vxconstraints", "New Constraint Template", NewTemplate, false),
-        new("assets.create-harness", "Variation Harness", ".vxharness", "New Harness", NewHarness)
-    ];
-
-    /// <summary>A scene with one root, which is what File ▸ New Scene builds in memory.</summary>
-    /// <remarks>
-    ///     ⚠ <b>One root rather than none, on purpose.</b> <c>NewScene</c> adds "Scene Root" at
-    ///     identity, so a file made from the menu and a scene made from the File menu are the same
-    ///     scene — and an author who has only ever seen one of them meets no surprise in the other.
-    /// </remarks>
-    const string NewSceneFile = """
-        version: 1
-        name: New Scene
-        roots:
-          - name: Scene Root
-            position: 0 0 0
-        """;
-
-    /// <summary>A neutral dielectric, which is the material an object has before anyone chooses one.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>One feature rather than none, because the importer questions a material with
-    ///         none.</b> <c>MaterialImporterTests.AMaterialWithNoFeaturesIsBuiltAndQuestioned</c>
-    ///         pins that a featureless material builds with a <em>warning</em> — right for a block-out
-    ///         somebody left, and wrong as the first thing the Create menu greets an author with.
-    ///         <c>!MetalRoughness</c> with constants is the smallest feature that samples nothing, so
-    ///         the file imports clean before a single texture exists in the project.
-    ///     </para>
-    ///     <para>
-    ///         Grey at 0.8 rather than white, because the renderer works in cd/m² and an albedo of one
-    ///         returns every photon it receives — a surface no real material is.
-    ///     </para>
-    /// </remarks>
-    const string NewMaterial = """
-        shader: ForwardPlus
-        shading: StandardShading
-        features:
-          - !MetalRoughness
-            baseColor: 0.8 0.8 0.8
-            metalness: 0
-            roughness: 0.5
-        """;
-
-    /// <summary>The frame the game template ships, verbatim.</summary>
-    /// <remarks>
-    ///     Kept identical to <c>Tools/Vixen.Templates/templates/vixen-game/Assets/Frame.vxcompositor</c>
-    ///     rather than abbreviated, because the comments are the point: they name the guide, say what
-    ///     each knob may be, and say what <c>vixen frame explode</c> costs before anyone runs it.
-    /// </remarks>
-    const string NewFrame = """
-        # The project's whole frame, as one node. The knobs are semantic on purpose: they say
-        # what the game wants, never how the frame is wired — the node expands at build time
-        # into the same graph a hand-authored document would contain. Guide:
-        # docs/guide/rendering/standard-frame and docs/guide/rendering/choosing-a-frame.
-        # When the knobs stop being enough, eject with
-        # `vixen frame explode Assets/Frame.vxcompositor` — one-way, and the file will say so.
-        #
-        # `gi:` above Off and `reflections: Screen` also need their host halves — the shading
-        # permutations and the builder's field slots — before they do more than nothing;
-        # Samples/03-PbrShowcase is the smallest complete example of paying for them.
-        version: 2
-        game: !StandardFrame
-          quality: High          # Low | Medium | High | Epic — or delete this line and GraphicsOptions.Quality decides
-          shadows: Cascades      # Off | Cascades | Virtual
-          gi: Off                # Off | Ambient | Probes
-          reflections: Off       # Off | Probe | Screen
-          antialiasing: Taa      # Off | Fxaa | Taa | TaaFxaa
-          exposure: Automatic    # Fixed | Automatic
-          output: SceneColour
-        """;
-
-    /// <summary>An addressable group with the defaults every sample's <c>Default.vxgroup</c> has.</summary>
-    const string NewGroup = """
-        name: New Group
-        loadPath: Local
-        packing: PackTogether
-        bundleNaming: FilenameHash
-        """;
-
-    /// <summary>An empty movement vocabulary.</summary>
-    /// <remarks>
-    ///     No rows, because a row with no clip is an import error and a row naming a clip that does
-    ///     not exist is a worse one: the first says "fill this in" beside the file, and the second
-    ///     says nothing at all until somebody plays it.
-    /// </remarks>
-    const string NewMoveSet = """
-        name: New Move Set
-        entries: []
-        rules: []
-        """;
-
-    /// <summary>An empty shape set that names neither a vocabulary nor a rig yet.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Both reference lines are absent rather than pointing at a conventional path.</b> A set
-    ///     naming a file that does not exist fails its import — the importer declares the dependency
-    ///     and refuses — where one naming none imports clean and unchecked, which is the right state
-    ///     for a file somebody made ten seconds ago. The panel has a row for each, so the first thing
-    ///     it says about a new set is which one to fill in.
-    /// </remarks>
-    const string NewProxyShapes = """
-        name: New Proxy Shapes
-        shapes: []
-        """;
-
-    /// <summary>A vocabulary with the two terms almost every humanoid set uses.</summary>
-    /// <remarks>
-    ///     Two rather than none, because the file's whole purpose is a list somebody adds to — and an
-    ///     empty list gives no clue what a term looks like, or that the meaning is the useful half.
-    /// </remarks>
-    const string NewVocabulary = """
-        name: New Vocabulary
-        shapes:
-          - name: belly
-            meaning: The front of the torso, where a hand rests or leans.
-          - name: right-palm
-            meaning: The gripping face of the right hand.
-        tags: []
-        classes: []
-        """;
-
-    /// <summary>The conventional ladder, spelled out in the file.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The rungs are in the file and not defaulted by the reader.</b> A priority is a name a
-    ///     project agrees on, and the agreement has to be somewhere two people can read and edit it;
-    ///     a ladder that came from a constant would be one nobody knew they were allowed to change.
-    ///     A hundred apart, because a sub-step is clamped to ±99 and the importer warns about any two
-    ///     rungs closer than that.
-    /// </remarks>
-    const string NewPriorities = """
-        name: New Priority Ladder
-        step: 100
-        rungs:
-          - name: flourish
-            value: 0
-            meaning: A secondary motion. Anything may override it.
-          - name: look
-            value: 100
-            meaning: Where the head is pointed.
-          - name: aim
-            value: 200
-            meaning: Where a weapon is pointed.
-          - name: balance
-            value: 300
-            meaning: Keeping the body over its feet.
-          - name: interaction
-            value: 400
-            meaning: A deliberate reach for something.
-          - name: contact
-            value: 500
-            meaning: A hand or a foot that must not slide.
-        """;
-
-    /// <summary>A named template with no tags in it yet.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The name is why this is not an empty file.</b> The importer refuses a nameless
-    ///     template: the name is written into every tag it produces and is how a re-apply finds them
-    ///     again, so a nameless one can be applied once and never maintained.
-    /// </remarks>
-    const string NewTemplate = """
-        name: New Template
-        revision: 1
-        meaning: What this bundle of constraints is for.
-        tags: []
-        """;
-
-    /// <summary>A run that names nothing yet, and one threshold so that it is a gate.</summary>
-    /// <remarks>
-    ///     ⚠ <b>This one imports with an error on purpose, and the error is the instructions.</b> A
-    ///     harness refuses a plan with no clip and no rig, because a build step that always passes is
-    ///     worse than one that says what it is missing — so the two lines an author has to fill in are
-    ///     the two the importer complains about, beside the file, the moment it is created.
-    ///     <para>
-    ///         ⚠ <b><c>''</c> rather than a bare <c>clip:</c>, and the quotes are load-bearing.</b> An
-    ///         empty scalar is the document's null, and
-    ///         <see cref="Vixen.Animation.Constraints.HarnessPlanContent.Clip" /> is
-    ///         declared <c>string</c> — so a bare key is refused by the binder before the importer can
-    ///         reach it, and the author gets a schema complaint instead of the sentence written for
-    ///         them. The error this file is *for* is the importer's, which needs the plan to bind
-    ///         first.
-    ///     </para>
-    /// </remarks>
-    const string NewHarness = """
-        name: New Harness
-        clip: ''
-        rig: ''
-        samples: 32
-        bodies: [0.85, 1.0, 1.2]
-        thresholds:
-          residual: 0.02
-        """;
-
-    /// <summary>A paint layer with a tiling somebody can see, and no texture yet.</summary>
-    /// <remarks>
-    ///     Four metres, because a ground texture tiled at one metre reads as noise from standing
-    ///     height and one tiled at sixteen reads as a blur — and the number an author changes first is
-    ///     the one they can already see the effect of.
-    /// </remarks>
-    const string NewLayer = """
-        name: New Layer
-        tilingMetres: 4
-        """;
-
-    /// <summary>A stored foliage type with a spacing, and no mesh yet.</summary>
-    const string NewFoliage = """
-        name: New Foliage
-        radius: 2
-        storage: Stored
-        """;
-
-    /// <summary>A derived grass type over a layer that has to be renamed to one that exists.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The layer name is the one field with no defensible default</b>, so it names the
-    ///     conventional one and the importer's own <c>Validate()</c> is what says when it does not
-    ///     match the terrain — which is a message beside the file rather than an empty hillside.
-    /// </remarks>
-    const string NewGrass = """
-        name: New Grass
-        layer: Grass
-        density: 8
-        jitter: 0.8
-        """;
-
-    /// <summary>Two control points, which is the fewest a curve can be built from.</summary>
-    /// <remarks>
-    ///     ⚠ <b>One point is an error rather than a warning</b> — <c>SplineAsset.Build</c> throws for
-    ///     it, and <c>TerrainAssetImporter</c> fails the import on that. So a created spline has two,
-    ///     ten metres apart, and is a road somebody can drag rather than a file that arrives broken.
-    /// </remarks>
-    const string NewSpline = """
-        name: New Spline
-        points:
-          - position: {x: 0, y: 0, z: 0}
-          - position: {x: 10, y: 0, z: 0}
-        """;
-
     /// <summary>Every asset kind Create ▸ offers, in the order it offers them.</summary>
     internal IReadOnlyList<NewAssetKind> AssetKinds =>
         [.. Extensions.All<NewAssetKind>().OrderBy(static kind => kind.Order)];
@@ -1053,9 +735,8 @@ sealed partial class EditorApplication {
     ///     </para>
     /// </remarks>
     void CreateAssetCommands() {
-        foreach (var kind in BuiltInAssetKinds) {
-            contributions.Add(Extensions.Add(kind));
-        }
+        // ⚠ The editor's own kinds are not added here any more: `LibraryModule` registers them through
+        // `PluginContext` (doc 50 § D3, #1292), so they reach this menu by the door a plugin's do.
 
         // Producer 1, on the same terms and for the same reason. See `StandardIcons`.
         foreach (var icon in StandardIcons.Assets) {
@@ -1085,6 +766,10 @@ sealed partial class EditorApplication {
     void RefreshOverlays(Type kind) => chrome?.Refreshed(kind);
 
     /// <summary>Puts a kind's command in the registry, if it is not already there.</summary>
+    /// <remarks>
+    ///     The making is <c>IContentLibrary.Create</c>'s; the opening is this editor's, because a
+    ///     document is the Documents context's and needs an asset editor that claims the extension.
+    /// </remarks>
     void CreateAssetCommand(NewAssetKind kind) {
         if (Shell.Commands[kind.Id] is not null) {
             return;
@@ -1094,7 +779,11 @@ sealed partial class EditorApplication {
             kind.Id,
             new StringId("editor.command." + kind.Id, kind.Title),
             EditorStrings.CategoryAssets,
-            () => CreateAsset(kind.Extension, kind.DefaultName, kind.NewContents(), kind.Opens)
+            () => {
+                if (library.Create(kind) is { } created && kind.Opens) {
+                    Open(created);
+                }
+            }
         );
     }
 
@@ -1118,57 +807,6 @@ sealed partial class EditorApplication {
         // are decided when the bar is built rather than when it was described. This is what makes it
         // build again.
         Shell.MenuBar.Rebuild();
-    }
-
-    /// <summary>Makes an empty asset in the browser's folder and opens it.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Scanned before it is opened, because a document is found by its GUID.</b> The file
-    ///     has to be in the asset database for <c>AssetEditorRegistry.TryOpen</c> to have an identity
-    ///     to open it under — and without the sidecar the scan mints, a second scan would give it a
-    ///     new one and every reference to it would dangle.
-    /// </remarks>
-    /// <param name="extension">What the file is called after the dot.</param>
-    /// <param name="name">What it is called before it.</param>
-    /// <param name="contents">
-    ///     What to write into it. Empty is the zero-byte file the remark above describes; anything
-    ///     else is a starter document, which the four kinds that are read by an importer rather than
-    ///     by a document need.
-    /// </param>
-    /// <param name="opens">Whether to open it, which needs an asset editor that claims the extension.</param>
-    void CreateAsset(string extension, string name, string contents = "", bool opens = true) {
-        var folder = "Assets";
-
-        if (project.Selection.Count > 0 && project.Assets.TryGetByGuid(project.Selection[0], out var entry)) {
-            folder = entry.IsFolder ? entry.Path : Path.GetDirectoryName(entry.Path)?.Replace('\\', '/') ?? "Assets";
-        }
-
-        var directory = project.Paths.Absolute(folder);
-        var path = Path.Combine(directory, name + extension);
-        var attempt = 2;
-
-        while (File.Exists(path)) {
-            path = Path.Combine(directory, $"{name} {attempt++}{extension}");
-        }
-
-        try {
-            Directory.CreateDirectory(directory);
-            File.WriteAllText(path, contents);
-        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
-            Shell.Notifications.Show("Could not create the asset", NotificationSeverity.Error, exception.Message);
-
-            return;
-        }
-
-        project.Assets.Scan();
-        browser?.Rescan();
-
-        var relative = project.Paths.Relative(path);
-
-        if (opens && project.Assets.TryGetByPath(relative, out var created)) {
-            Open(created.Guid);
-        }
-
-        Shell.Notifications.Success(Path.GetFileName(path) + " created");
     }
 
     /// <summary>Steps the authoring surfaces that move by themselves, once a frame.</summary>
