@@ -4,6 +4,7 @@
 using System.Text;
 using Vixen.Core;
 using Vixen.Core.IO;
+using Vixen.Testing.Importers;
 using Xunit;
 
 namespace Vixen.Editor.Assets.Tests;
@@ -142,6 +143,52 @@ public sealed class UnimportedFormatTests {
 
         Assert.Equal(ImportSeverity.Warning, diagnostic.Severity);
         Assert.Contains(extension, diagnostic.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ A format a host links, imported for the first time — no sidecar yet — by a registry that
+    ///     lacks the link, is a warning naming the format rather than a silent blob (#1300).
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half the sidecar refusal cannot see.</b> <c>ImportPipeline</c> refuses a
+    ///         <c>.meta</c> that names an importer the registry lacks; a file nobody has imported yet has
+    ///         no such <c>.meta</c>, so the fallback took it and said nothing — the exact shape of the
+    ///         seven formats that shipped unreachable. The pipeline cannot list the linked formats
+    ///         without naming every feature's extension (<c>FeatureNameRule</c>), so the fallback speaks
+    ///         about the engine's own prefix instead: a <c>.vx…</c> file nothing claims is a format
+    ///         somebody meant something by.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Driven by <see cref="HostImporterMap.LinkedOnly" />, not a list of its own</b>, so every
+    ///         importer that leaves the pipeline joins this theory in the commit that moves it. Built
+    ///         over a pipeline-only registry, because that is what a host that forgot its link has.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task A_linked_format_a_host_did_not_link_is_a_warning_on_first_import() {
+        var registry = BuiltInImporters.Create(new ImporterContributions(), new ImporterContributions());
+
+        foreach (var extension in HostImporterMap.LinkedOnly.Select(row => row.Split(' ')[0])) {
+            var path = new VirtualPath("/Assets/Thing" + extension);
+            var files = new MemoryFileProvider();
+
+            files.Seed(path, "whatever is in it");
+
+            Assert.True(registry.TryGetForFile(path.ToString(), out var importer));
+            Assert.IsType<RawImporter>(importer);
+
+            var result = await importer.ImportAsync(
+                new ImportContext(AssetId.New(), path, importer.CreateSettings(), files, importer.Name, "Windows"),
+                TestContext.Current.CancellationToken
+            );
+
+            var diagnostic = Assert.Single(result.Diagnostics);
+
+            Assert.Equal(ImportSeverity.Warning, diagnostic.Severity);
+            Assert.Contains(extension, diagnostic.Message, StringComparison.Ordinal);
+            Assert.Contains("ImporterContributions.Linked", diagnostic.Message, StringComparison.Ordinal);
+        }
     }
 
     /// <summary>And the fallback is still a shrug for a format nobody declared.</summary>

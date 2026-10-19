@@ -235,6 +235,26 @@ static class UnimportedFormats {
         reason = string.Empty;
         return false;
     }
+
+    /// <summary>Whether a file the table says nothing about carries the engine's own <c>.vx</c> prefix.</summary>
+    /// <param name="path">The source path.</param>
+    /// <param name="extension">Its extension.</param>
+    /// <returns>Whether the fallback should say it took one.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The prefix rather than a list, and that is #1300's constraint, not a shortcut.</b> Since the
+    ///     feature importers left this assembly, a host that forgot to link one hands the format to the
+    ///     fallback, and a file with no <c>.meta</c> yet has no sidecar for <c>ImportPipeline</c> to refuse
+    ///     on. A list of the linked formats here would name every feature's extension in the pipeline,
+    ///     which <c>FeatureNameRule</c> refuses; the prefix names none and still separates a format
+    ///     somebody meant something by from a CSV.
+    /// </remarks>
+    internal static bool IsEngineShaped(string path, out string extension) {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+
+        extension = Path.GetExtension(path);
+
+        return extension.Length > 3 && extension.StartsWith(".vx", StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 /// <summary>Copies a file verbatim, so that anything at all can be addressable as a byte blob.</summary>
@@ -274,6 +294,15 @@ public sealed class RawImporter : AssetImporter<RawImportSettings> {
         // away.
         if (UnimportedFormats.TryExplain(context.SourcePath.ToString(), out var severity, out var reason)) {
             context.Report(severity, reason);
+        } else if (UnimportedFormats.IsEngineShaped(context.SourcePath.ToString(), out var extension)) {
+            context.Report(
+                ImportSeverity.Warning,
+                $"Nothing in this process claims {extension}, which is spelled like one of the engine's own formats, "
+                + "so it is imported as a chunk called Blob that no typed reader resolves. A feature's importer "
+                + "reaches a registry only because the host links it at start-up (ImporterContributions.Linked, "
+                + "#1300), and a plugin's only because the plugin is loaded — a host missing either imports the "
+                + "file as bytes."
+            );
         }
 
         context.Write(SubAssetId.Main, "Blob", buffer.ToArray());
