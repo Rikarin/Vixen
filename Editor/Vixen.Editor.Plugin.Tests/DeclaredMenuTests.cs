@@ -22,12 +22,12 @@ public class DeclaredMenuTests {
 
     /// <summary>A Scene menu shaped like the application's: two submenus, the second being Measure.</summary>
     static MenuGroup Scene(EditorShell shell) {
-        var scene = shell.Menus.AddMenu(new StringId("editor.menu.scene", "Scene"));
+        var scene = shell.Menus.AddMenu(EditorStrings.MenuScene);
 
         scene.Add("scene.create-entity");
-        scene.AddSubmenu(new StringId("editor.menu.snap", "Snap")).Add("scene.toggle-snap");
-        scene.AddSubmenu(new StringId("editor.menu.precision", "Measure")).Add("scene.measure");
-        scene.AddSubmenu(new StringId("editor.menu.camera", "Camera")).Add("scene.view-front");
+        scene.AddSubmenu(EditorStrings.MenuSnap).Add("scene.toggle-snap");
+        scene.AddSubmenu(EditorStrings.MenuPrecision).Add("scene.measure");
+        scene.AddSubmenu(EditorStrings.MenuCamera).Add("scene.view-front");
 
         return scene;
     }
@@ -50,7 +50,7 @@ public class DeclaredMenuTests {
     [Fact]
     public void Two_lines_under_one_undeclared_submenu_share_it() {
         using var shell = new EditorShell(1280f, 800f);
-        var tools = shell.Menus.AddMenu(new StringId("editor.menu.tools", "Tools"));
+        var tools = shell.Menus.AddMenu(EditorStrings.MenuTools);
         var host = new PluginHost(shell);
 
         host.Activate(
@@ -167,7 +167,7 @@ public class DeclaredMenuTests {
                 context => {
                     var menus = new DeclaredMenus(context);
 
-                    menus.Submenu("Scene/Measure", new StringId("editor.menu.precision", "Measure"));
+                    menus.Submenu("Scene/Measure", EditorStrings.MenuPrecision);
                     menus.Line("Scene/Measure", "mine.ruler", separator: true);
                     menus.Apply();
                 }

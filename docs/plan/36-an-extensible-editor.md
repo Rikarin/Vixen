@@ -1152,7 +1152,7 @@ Deliberately open, and named so the first project that needs one does not fork.
   the premise under this bullet is wrong.** It read "terrain's brushes and blockout's handles should
   be two implementations of the same thing; today they are two subsystems". Measured: they are
   already two implementations of one interface, and there are four —
-  `BlockoutMode` (`Editor/Vixen.Editor.Blockout/BlockoutMode.cs:43`), `TerrainMode`
+  `BlockoutMode` (`Editor/Vixen.Editor.Blockout/BlockoutMode.cs:44`), `TerrainMode`
   (`Editor/Vixen.Editor.Terrain/TerrainMode.cs:40`), `FoliageMode`
   (`…/FoliageMode.cs:37`) and `WaterMode` (`Editor/Vixen.Editor.Water/WaterMode.cs:50`) are each
   `IEditorMode, IViewportInput`.

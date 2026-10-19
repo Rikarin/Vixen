@@ -146,8 +146,7 @@ public sealed class DeclaredMenus(PluginContext context) {
                      .ThenBy(static item => item.Priority)
                      .ThenBy(static item => item.Sequence)) {
             var parent = Resolve(declared.Parts, declared.Parts.Length - 1, known, added);
-            var segment = declared.Parts[^1];
-            var title = declared.Title ?? new StringId(DerivedSubmenuId(declared.Parts), segment);
+            var title = declared.Title ?? Derived(declared.Parts);
 
             // A declared submenu joins one already there only by its title id. Matching it by text
             // would put Blockout's "Create" into whatever other "Create" the menu already has.
@@ -239,11 +238,10 @@ public sealed class DeclaredMenus(PluginContext context) {
                 continue;
             }
 
-            var id = DerivedSubmenuId(parts[..(level + 1)]);
-            var segment = parts[level];
+            var title = Derived(parts[..(level + 1)]);
 
-            if ((Child(group, id) ?? Child(group, segment, byText: true)) is not { } child) {
-                child = group.AddSubmenu(new StringId(id, segment));
+            if ((Child(group, title.Id) ?? Child(group, title.Source, byText: true)) is not { } child) {
+                child = group.AddSubmenu(title);
                 added.Add((group, group.Entries[^1]));
             }
 
@@ -265,7 +263,14 @@ public sealed class DeclaredMenus(PluginContext context) {
         return null;
     }
 
-    static string DerivedSubmenuId(string[] parts) => Derive("editor.menu", string.Join('/', parts));
+    /// <summary>The title a submenu nobody gave one gets: an id from its path, and its own segment as text.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A run-time id on purpose, and one construction site for both callers.</b> The path is a
+    ///     plugin's or a script's, in an assembly this build has never seen, so no declaration in this
+    ///     tree can cover it — the reason <c>CheckStrings</c>' <c>ConstructedCeiling</c> counts the
+    ///     sites here rather than refusing them.
+    /// </remarks>
+    static StringId Derived(string[] parts) => new StringId(Derive("editor.menu", string.Join('/', parts)), parts[^1]);
 
     static string Key(string[] parts, int count) => string.Join('/', parts, 0, count);
 
