@@ -178,7 +178,6 @@ editor menu editor.menu.tools plugins.reload
 editor menu editor.menu.tools tools.export-strings
 editor menu editor.menu.tools tools.plugins
 editor menu editor.menu.tools tools.reload-shaders
-editor menu editor.menu.tools tools.reload-styles
 editor menu editor.menu.tools view.clear-console
 editor menu editor.menu.window view.close-panel
 editor menu editor.menu.window view.float-panel
@@ -188,7 +187,6 @@ editor menu editor.menu.window view.palette
 editor menu editor.menu.window view.previous-tab
 editor menu editor.menu.window view.toggle-theme
 editor menu editor.menu.window/editor.menu.layout view.reset-layout
-editor menu editor.menu.window/editor.menu.layout view.save-layout
 editor menu editor.menu.window/editor.menu.panels view.panel.console
 editor menu editor.menu.window/editor.menu.panels view.panel.hierarchy
 editor menu editor.menu.window/editor.menu.panels view.panel.history
@@ -515,9 +513,11 @@ vixen.water menu editor.menu.window/editor.menu.panels view.panel.water.zone
 vixen.water mode water
 vixen.water panel water.panel
 vixen.water panel water.zone
+vixen.workspace menu editor.menu.tools tools.reload-styles
 vixen.workspace menu editor.menu.window/editor.menu.layout view.layout.Animation
 vixen.workspace menu editor.menu.window/editor.menu.layout view.layout.Debug
 vixen.workspace menu editor.menu.window/editor.menu.layout view.layout.Default
 vixen.workspace menu editor.menu.window/editor.menu.layout view.layout.Scene
 vixen.workspace menu editor.menu.window/editor.menu.layout view.layout.Sequencing
 vixen.workspace menu editor.menu.window/editor.menu.layout view.layout.Shading
+vixen.workspace menu editor.menu.window/editor.menu.layout view.save-layout

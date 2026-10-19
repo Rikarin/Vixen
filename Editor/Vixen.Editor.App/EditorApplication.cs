@@ -3281,12 +3281,6 @@ sealed partial class EditorApplication : IDisposable {
             }
         );
 
-        Shell.Commands.Add(
-            new EditorCommand("view.save-layout", EditorStrings.CommandSaveLayout, () => documentViews.SaveLayout()) {
-                Category = EditorStrings.CategoryView
-            }
-        );
-
         // Enabled only when there is something to write, so the menu item greys itself out from the
         // document's own dirty signal rather than from anything here deciding when.
         Shell.Commands.Add(

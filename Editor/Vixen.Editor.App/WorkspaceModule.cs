@@ -3,6 +3,8 @@
 
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
+using Vixen.Editor.Ui.Documents;
+using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.App;
 
@@ -15,10 +17,10 @@ namespace Vixen.Editor.App;
 ///         one preset made of another feature's panels — Profiling — is that feature's module's.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Not yet the rest of the Workspace context.</b> Save Layout and Reload Styles read the
-///         user store and the theme cache the application holds, and the panels' durable state is
-///         doc 50 § D2's <c>IWorkspace</c> — #1294's, not this module's. Moving them here before that
-///         service exists would be a module reaching back into the application, which moves nothing.
+///         <b>And Save Layout and Reload Styles</b> (#1296), which waited on <see cref="IWorkspace" />:
+///         they read the user store and the theme the application used to hold, and since #1294 the
+///         workspace holds both — so the module names the service's verbs and reaches nothing of the
+///         application's. Switching the module off takes both lines off the menus with it.
 ///     </para>
 /// </remarks>
 sealed class WorkspaceModule : IEditorPlugin {
@@ -31,6 +33,20 @@ sealed class WorkspaceModule : IEditorPlugin {
     /// <inheritdoc />
     public void Activate(PluginContext context) {
         ArgumentNullException.ThrowIfNull(context);
+
+        var workspace = context.Services.Require<IWorkspace>();
+
+        context.AddCommand(
+            new EditorCommand("view.save-layout", EditorStrings.CommandSaveLayout, () => workspace.SaveLayout()) {
+                Category = EditorStrings.CategoryView
+            }
+        );
+
+        context.AddCommand(
+            new EditorCommand("tools.reload-styles", EditorStrings.CommandToolsReloadStyles, workspace.ReloadStyles) {
+                Category = EditorStrings.CategoryTools
+            }
+        );
 
         // The five doc 11 names. They differ in which panels they show and how the middle is split,
         // which is the whole of what a layout preset is — the shapes come from `LayoutPresets` and

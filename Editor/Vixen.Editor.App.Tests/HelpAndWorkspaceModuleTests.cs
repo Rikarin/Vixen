@@ -3,6 +3,8 @@
 
 using Vixen.Editor.Core;
 using Vixen.Editor.Testing;
+using Vixen.Editor.Ui;
+using Vixen.Editor.Ui.Documents;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -43,6 +45,8 @@ public class HelpAndWorkspaceModuleTests {
     [InlineData(HelpModule.ModuleId, "help.about")]
     [InlineData(WorkspaceModule.ModuleId, "view.layout.Default")]
     [InlineData(WorkspaceModule.ModuleId, "view.layout.Sequencing")]
+    [InlineData(WorkspaceModule.ModuleId, "view.save-layout")]
+    [InlineData(WorkspaceModule.ModuleId, "tools.reload-styles")]
     public void Disabling_the_module_takes_its_lines_away(string module, string command) {
         using var session = EditorSession.Start();
 
@@ -55,6 +59,29 @@ public class HelpAndWorkspaceModuleTests {
         session.Plugins.Enable(module);
 
         Assert.NotNull(session.Shell.Commands[command]);
+    }
+
+    /// <summary>
+    ///     Save Layout and Reload Styles are the module's names for <see cref="IWorkspace" />'s verbs
+    ///     (#1296), and they reach the user's store — the arrangement kept, the theme read again.
+    /// </summary>
+    [Fact]
+    public void Save_layout_and_reload_styles_reach_the_users_store_through_the_workspace() {
+        using var session = EditorSession.Start();
+
+        var store = new EditorUserStore(session.DataDirectory);
+        var workspace = session.Plugins.Services.Require<IWorkspace>();
+
+        session.Run("view.save-layout");
+
+        Assert.Contains(session.Shell.Workspace.DefaultPreset + " (custom)", store.Layouts());
+
+        Assert.Equal(string.Empty, workspace.ThemeTokens);
+        store.Write(EditorWorkspace.ThemeFile, "root { --accent: #3f7fd8; }");
+
+        session.Run("tools.reload-styles");
+
+        Assert.Equal("root { --accent: #3f7fd8; }", workspace.ThemeTokens);
     }
 
     /// <summary>The Profiling preset is the diagnostics module's, because its panels are.</summary>

@@ -777,13 +777,6 @@ sealed partial class EditorApplication {
             enabled: () => Effects is not null
         );
 
-        Verb(
-            "tools.reload-styles",
-            EditorStrings.CommandToolsReloadStyles,
-            EditorStrings.CategoryTools,
-            () => documentViews.ReloadStyles()
-        );
-
         // ⚠ The producer end of a chain every other link of which was finished and called by nothing.
         // `EditorStrings.Template`, `StringCatalogYaml.Save`, `StringCatalogYaml.Load` and
         // `Strings.Use` existed, were tested end to end inside one test method, and had no production
