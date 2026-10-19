@@ -123,7 +123,7 @@ worth keeping from the paragraph this replaces: a number stays put while what it
 and a reader who trusts it inherits a gap that no longer exists. Resolve every issue number against
 `gh issue view` before repeating it.
 
-**An asset-editor registration could not be undone — closed.** `AssetEditorRegistry.Add` hands back
+**An asset-editor registration could not be undone — closed.** `AssetEditorRegistry.Add` (since #1294 `IDocumentHost.Add` and `IWorkspace.Add`) hands back
 an `IDisposable` now, the way `IEditorRegistry.Add` already did, and it gives up the editor's name
 *and* every extension it claimed. So `.vxtexgraph` has a double-click, registered inside the module's
 scope and gone when the module unloads, and the Create ▸ entry's `Opens` is derived from whether the

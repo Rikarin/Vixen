@@ -4,6 +4,7 @@
 using System.Globalization;
 using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 
@@ -29,23 +30,26 @@ namespace Vixen.Editor.AssetEditors.Compositor;
 ///     <para>
 ///         The panel is <c>CompositorView.vxml</c>; this file is the accessibility modifier and the
 ///         factory. The emitter's partial carries no modifier and this type is handed out by
-///         <see cref="CompositorEditorFactory.CreateView" />.
+///         <see cref="CompositorEditorView" />.
 ///     </para>
 /// </remarks>
 public sealed partial class CompositorView;
 
 /// <summary>Opens a graphics compositor.</summary>
-public sealed class CompositorEditorFactory : IAssetEditorFactory {
+public sealed class CompositorEditorFactory : DocumentKind {
     readonly NodeTypeRegistry registry = CompositorGraphCompiler.CreateRegistry();
 
     /// <inheritdoc />
-    public string Name => "Graphics Compositor";
+    public override string Name => "Graphics Compositor";
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [CompositorDocument.Extension];
+    public override IReadOnlyList<string> Extensions { get; } = [CompositorDocument.Extension];
 
     /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(CompositorDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
         ArgumentNullException.ThrowIfNull(request);
 
         // One registry for every compositor this editor opens, because a node library is a property
@@ -53,13 +57,14 @@ public sealed class CompositorEditorFactory : IAssetEditorFactory {
         // compositors disagreeing about what a node type is.
         return new CompositorDocument(request.Project, request.Asset, request.Path, registry);
     }
+}
 
+/// <summary>What <see cref="CompositorEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+public sealed class CompositorEditorView : DocumentView<CompositorDocument> {
     /// <inheritdoc />
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(panel);
-
+    protected override UiElement Build(CompositorDocument document, UiElement panel) {
         var view = panel.Add<CompositorView>();
-        view.Show((CompositorDocument) document);
+        view.Show(document);
 
         return view;
     }

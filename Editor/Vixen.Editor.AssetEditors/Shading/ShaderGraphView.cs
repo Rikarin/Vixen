@@ -5,6 +5,7 @@ using System.Globalization;
 using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -43,7 +44,7 @@ namespace Vixen.Editor.AssetEditors.Shading;
 ///     <para>
 ///         The panel is <c>ShaderGraphView.vxml</c>; this file is the accessibility modifier and
 ///         the factory. The emitter's partial carries no modifier and this type is handed out by
-///         <see cref="ShaderGraphEditorFactory.CreateView" />.
+///         <see cref="ShaderGraphEditorView" />.
 ///     </para>
 /// </remarks>
 public sealed partial class ShaderGraphView;
@@ -56,27 +57,31 @@ public sealed partial class ShaderGraphView;
 ///     <c>VfxEditorFactory</c> states, and the reason the graph compiler can be tested with no editor
 ///     in the way.
 /// </remarks>
-public sealed class ShaderGraphEditorFactory : IAssetEditorFactory {
+public sealed class ShaderGraphEditorFactory : DocumentKind {
     readonly NodeTypeRegistry registry = ShaderNodeLibrary.Create();
 
     /// <inheritdoc />
-    public string Name => "Shader Graph";
+    public override string Name => "Shader Graph";
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [ShaderGraphDocument.Extension];
+    public override IReadOnlyList<string> Extensions { get; } = [ShaderGraphDocument.Extension];
 
     /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(ShaderGraphDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
         ArgumentNullException.ThrowIfNull(request);
 
         // One registry for every graph this editor opens, for `ShaderNodeLibrary`'s reason.
         return new ShaderGraphDocument(request.Project, request.Asset, request.Path, registry);
     }
+}
 
+/// <summary>What <see cref="ShaderGraphEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+public sealed class ShaderGraphEditorView : DocumentView<ShaderGraphDocument> {
     /// <inheritdoc />
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(panel);
-
+    protected override UiElement Build(ShaderGraphDocument document, UiElement panel) {
         // ⚠ A node canvas pans and zooms in a space of its own and converts a pointer with
         // `Surface.AbsoluteLeft`, so a panel that also scrolled would be a second, invisible transform
         // between the cursor and the graph. The generated-source pane beside it is a `CodeEditor`,
@@ -84,7 +89,7 @@ public sealed class ShaderGraphEditorFactory : IAssetEditorFactory {
         DockPanel.Fills(panel);
 
         var view = panel.Add<ShaderGraphView>();
-        view.Show((ShaderGraphDocument) document);
+        view.Show(document);
 
         return view;
     }

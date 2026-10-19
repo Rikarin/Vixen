@@ -51,7 +51,7 @@ enum TexturePreviewBlocker {
     ///     <para>
     ///         ⚠ <b>The one member <see cref="TexturePreview.Blocking(PluginServices)" /> never
     ///         returns, because it is not a fact about the host.</b> A view built by an
-    ///         <c>IAssetEditorFactory</c> for a double-click has no <see cref="IEditorGraphics" /> of
+    ///         <c>DocumentKind/DocumentView pair</c> for a double-click has no <see cref="IEditorGraphics" /> of
     ///         its own — the evaluator is the module's, and two of them over one device would be two
     ///         pipeline caches — so the tab lists what is in the file and the plugin's own panel is
     ///         where the map appears. It is chosen by the caller that knows that, and there is no

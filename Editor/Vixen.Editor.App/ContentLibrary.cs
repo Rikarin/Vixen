@@ -237,7 +237,7 @@ internal sealed class ContentLibrary : IContentLibrary {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Scanned before it is returned, because a document is found by its GUID.</b> The file
-    ///         has to be in the asset database for <c>AssetEditorRegistry.TryOpen</c> to have an
+    ///         has to be in the asset database for <c>IDocumentHost.TryOpen</c> to have an
     ///         identity to open it under — and without the sidecar the scan mints, a second scan would
     ///         give it a new one and every reference to it would dangle.
     ///     </para>

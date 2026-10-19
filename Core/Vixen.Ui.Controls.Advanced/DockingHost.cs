@@ -37,7 +37,7 @@ namespace Vixen.Ui.Controls.Advanced;
 ///         fills it with <c>panel.Add&lt;T&gt;()</c> — which is <see cref="UiElement.Add{T}" />, not
 ///         virtual, straight to <c>UiDocument.Create</c>. Worse, a couple of dozen asset editors are
 ///         handed the panel typed as a bare <see cref="UiElement" /> through
-///         <c>IAssetEditorFactory.CreateView</c>, so even an override on this type would be bypassed
+///         <c>DocumentView.Create</c>, so even an override on this type would be bypassed
 ///         by every one of them. A redirect could not be made transparent; it could only be made
 ///         <i>inconsistently</i> transparent, which is worse than not doing it. Nothing here moves a
 ///         builder's children: <see cref="UiElement.Children" /> means exactly what it always meant.

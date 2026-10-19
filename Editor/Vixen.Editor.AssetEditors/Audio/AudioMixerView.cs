@@ -3,6 +3,7 @@
 
 using System.Collections.Immutable;
 using Vixen.Editor.Core;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -209,24 +210,28 @@ internal sealed class OptionCell : UiElement {
 }
 
 /// <summary>Opens an audio mixer.</summary>
-public sealed class AudioMixerEditorFactory : IAssetEditorFactory {
+public sealed class AudioMixerEditorFactory : DocumentKind {
     /// <inheritdoc />
-    public string Name => "Audio Mixer";
+    public override string Name => "Audio Mixer";
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [AudioMixerDocument.Extension];
+    public override IReadOnlyList<string> Extensions { get; } = [AudioMixerDocument.Extension];
 
     /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(AudioMixerDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
         ArgumentNullException.ThrowIfNull(request);
 
         return new AudioMixerDocument(request.Project, request.Asset, request.Path);
     }
+}
 
+/// <summary>What <see cref="AudioMixerEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+public sealed class AudioMixerEditorView : DocumentView<AudioMixerDocument> {
     /// <inheritdoc />
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(panel);
-
+    protected override UiElement Build(AudioMixerDocument document, UiElement panel) {
         // ⚠ A mixer is a row of strips that scrolls sideways, and its faders fill whatever height they
         // are given. Let the panel scroll and the faders stretch to their content instead of to the
         // window — which is a mixer with no bounded height at all, and a horizontal strip that has
@@ -234,7 +239,7 @@ public sealed class AudioMixerEditorFactory : IAssetEditorFactory {
         DockPanel.Fills(panel);
 
         var view = panel.Add<AudioMixerView>();
-        view.Show((AudioMixerDocument) document);
+        view.Show(document);
 
         return view;
     }

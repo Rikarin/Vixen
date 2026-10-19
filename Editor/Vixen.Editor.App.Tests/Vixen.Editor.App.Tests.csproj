@@ -91,6 +91,13 @@
             it agrees with itself by construction.
         -->
         <Compile Include="..\Vixen.Editor.Assets.Tests\MinimalPng.cs" Link="MinimalPng.cs" />
+
+        <!--
+            Doc 50 § D4's pairing invariant (#1294), the one function both test projects ask: the
+            asset editors' tests about the lists that assembly ships, and DocumentPairingTests here
+            about a running editor's registries, modules included. One source, two callers.
+        -->
+        <Compile Include="..\Vixen.Editor.AssetEditors.Tests\DocumentPairing.cs" Link="DocumentPairing.cs" />
     </ItemGroup>
 
     <ItemGroup>

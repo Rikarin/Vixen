@@ -7,6 +7,7 @@ using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Ui;
@@ -146,50 +147,23 @@ internal sealed class TextLine : UiElement {
 ///         whole job is exactly this kind of binding.
 ///     </para>
 /// </remarks>
-public sealed class StandardFrameEditorFactory : IAssetEditorFactory {
+public sealed class StandardFrameEditorFactory : DocumentKind {
     /// <summary>What this editor is called, which is how the module finds it to bind it.</summary>
     public const string EditorName = "Frame";
 
     /// <inheritdoc />
-    public string Name => EditorName;
+    public override string Name => EditorName;
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [StandardFrameDocument.Extension];
-
-    /// <summary>Where the markup inspectors are registered, or null for the generated rows.</summary>
-    public IEditorRegistry? Contributions { get; set; }
-
-    /// <summary>The scene whose volumes the stack panel folds.</summary>
-    public IActiveScene? Scene { get; set; }
-
-    /// <summary>The view the editor is looking through.</summary>
-    public IActiveView? Eye { get; set; }
+    public override IReadOnlyList<string> Extensions { get; } = [StandardFrameDocument.Extension];
 
     /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(StandardFrameDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
         ArgumentNullException.ThrowIfNull(request);
         return new StandardFrameDocument(request.Project, request.Asset, request.Path);
-    }
-
-    /// <inheritdoc />
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(panel);
-
-        // ⚠ This view owns the scroller and keeps its banner outside it, and it is also the view whose
-        // remarks record what nesting one scroll region in another did to it: the inner content became
-        // `align-self: flex-start` against its own width, and the fixed-width provenance column
-        // resolved to nothing. A panel that scrolled would rebuild that arrangement from the outside.
-        DockPanel.Fills(panel);
-
-        var view = panel.Add<StandardFrameView>();
-
-        view.Extensions = Contributions;
-        view.Scene = Scene;
-        view.Eye = Eye;
-
-        view.Show((StandardFrameDocument) document);
-
-        return view;
     }
 
     /// <summary>The two markup forms, contributed to a registry.</summary>
@@ -216,5 +190,37 @@ public sealed class StandardFrameEditorFactory : IAssetEditorFactory {
                 new CustomInspector(typeof(LookSettings), MarkupInspector.Of<LookInspector>(reload))
             )
         ];
+    }
+}
+
+/// <summary>What <see cref="StandardFrameEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+public sealed class StandardFrameEditorView : DocumentView<StandardFrameDocument> {
+    /// <summary>Where the markup inspectors are registered, or null for the generated rows.</summary>
+    /// <remarks>On the view since #1294: the kind opens a document and never read any of these three.</remarks>
+    public IEditorRegistry? Contributions { get; set; }
+
+    /// <summary>The scene whose volumes the stack panel folds.</summary>
+    public IActiveScene? Scene { get; set; }
+
+    /// <summary>The view the editor is looking through.</summary>
+    public IActiveView? Eye { get; set; }
+
+    /// <inheritdoc />
+    protected override UiElement Build(StandardFrameDocument document, UiElement panel) {
+        // ⚠ This view owns the scroller and keeps its banner outside it, and it is also the view whose
+        // remarks record what nesting one scroll region in another did to it: the inner content became
+        // `align-self: flex-start` against its own width, and the fixed-width provenance column
+        // resolved to nothing. A panel that scrolled would rebuild that arrangement from the outside.
+        DockPanel.Fills(panel);
+
+        var view = panel.Add<StandardFrameView>();
+
+        view.Extensions = Contributions;
+        view.Scene = Scene;
+        view.Eye = Eye;
+
+        view.Show(document);
+
+        return view;
     }
 }

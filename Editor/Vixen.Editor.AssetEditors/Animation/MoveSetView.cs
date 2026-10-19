@@ -5,6 +5,7 @@ using System.Globalization;
 using Vixen.Animation.Moves;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 
@@ -470,26 +471,30 @@ public sealed class MoveSetView : Control {
 }
 
 /// <summary>Opens an authored move set.</summary>
-public sealed class MoveSetEditorFactory : IAssetEditorFactory {
+public sealed class MoveSetEditorFactory : DocumentKind {
     /// <inheritdoc />
-    public string Name => "Move Set";
+    public override string Name => "Move Set";
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [MoveSetDocument.Extension];
+    public override IReadOnlyList<string> Extensions { get; } = [MoveSetDocument.Extension];
 
     /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(MoveSetDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
         ArgumentNullException.ThrowIfNull(request);
 
         return new MoveSetDocument(request.Project, request.Asset, request.Path);
     }
+}
 
+/// <summary>What <see cref="MoveSetEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+public sealed class MoveSetEditorView : DocumentView<MoveSetDocument> {
     /// <inheritdoc />
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(panel);
-
+    protected override UiElement Build(MoveSetDocument document, UiElement panel) {
         var view = panel.Add<MoveSetView>();
-        view.Show((MoveSetDocument) document);
+        view.Show(document);
 
         return view;
     }

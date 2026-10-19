@@ -6,6 +6,7 @@ using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Ui.HotReload;
 
 namespace Vixen.Editor.AssetEditors;
@@ -29,7 +30,7 @@ namespace Vixen.Editor.AssetEditors;
 ///         ⚠ <b>It was a line in the editor's application, and that is the finding.</b> Doc 36 § F2:
 ///         binding a freshly-opened document to the project it belongs to was
 ///         <c>EditorApplication.Bound</c>, which meant a second feature with resolvers would have
-///         been a second line in a class that already had too many. `AssetEditorRegistry.Opened` is
+///         been a second line in a class that already had too many. `IDocumentHost.Opened` is
 ///         the seam that replaces it — and it is on the registry rather than on the project, because
 ///         <c>EditorProject.Register</c> runs from a document's base constructor and would hand a
 ///         subscriber a half-built one.
@@ -48,14 +49,14 @@ public sealed partial class AssetEditorsModule : IEditorPlugin {
     public void Activate(PluginContext context) {
         ArgumentNullException.ThrowIfNull(context);
 
-        var editors = context.Services.Require<AssetEditorRegistry>();
+        var editors = context.Services.Require<IDocumentHost>();
 
         binder = new AnimationBinder(context.Services.Require<EditorProject>());
 
         editors.Opened += binder.Bind;
         context.OnUnload(() => editors.Opened -= binder.Bind);
 
-        Frames(context, editors);
+        Frames(context, context.Services.Require<IWorkspace>());
 
         // ⚠ The graph panels' sheet, which the application installed by name and never released
         // (#917, #1299). Three of the four panels hosting a `NodeGraphView` are this module's — the
@@ -94,7 +95,7 @@ public sealed partial class AssetEditorsModule : IEditorPlugin {
     ///         arguments there.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Found by name rather than constructed here, because a host may have built its own
+    ///         ⚠ <b>Found in the workspace by document type rather than constructed here, because a host may have built its own
     ///         registry.</b> An editor assembled from a different set of factories should get the
     ///         binding for the frame editor it has, or no binding at all — not a second frame editor
     ///         that clashes with the first over <c>.vxcompositor</c>.
@@ -107,9 +108,9 @@ public sealed partial class AssetEditorsModule : IEditorPlugin {
     ///         whole editor refuse to start in a host that has three of them.
     ///     </para>
     /// </remarks>
-    static void Frames(PluginContext context, AssetEditorRegistry editors) {
-        if (!editors.TryGetByName(StandardFrameEditorFactory.EditorName, out var found)
-            || found is not StandardFrameEditorFactory frames) {
+    static void Frames(PluginContext context, IWorkspace workspace) {
+        if (!workspace.TryGetView(typeof(StandardFrameDocument), out var found)
+            || found is not StandardFrameEditorView frames) {
             return;
         }
 

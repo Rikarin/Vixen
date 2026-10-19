@@ -882,7 +882,7 @@ public partial class EditorCombinatorPairTests {
     static int Author(EditorSession fixture) {
         var made = 0;
 
-        foreach (var factory in fixture.Editor.Editors.Editors) {
+        foreach (var factory in fixture.Editor.Documents.Kinds) {
             foreach (var extension in factory.Extensions) {
                 var path = Path.Combine(fixture.Project.Paths.Assets, "CombinatorProbe" + made + extension);
 

@@ -10,6 +10,7 @@ using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
 using Vixen.Editor.Ui;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Graphics;
 using Vixen.Rendering.Ecs;
 
@@ -48,7 +49,7 @@ namespace Vixen.Editor.Texturing;
 ///         </item>
 ///         <item>
 ///             <description>
-///                 <b>A double-click — closed.</b> <c>AssetEditorRegistry.Add</c> hands back the
+///                 <b>A double-click — closed.</b> <c>IDocumentHost.Add</c> hands back the
 ///                 removal now, so <see cref="TextureGraphEditorFactory" /> claims
 ///                 <c>.vxtexgraph</c> inside this module's registration scope and gives it back on
 ///                 unload. The Create ▸ entry says <c>Opens: true</c> exactly when a host published
@@ -421,7 +422,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     /// <summary>The view, once the panel has been opened at least once.</summary>
     /// <remarks>
     ///     ⚠ <b>Null until then, and replaced every time the panel is reopened.</b> A dock panel's
-    ///     factory runs again on reopen — <c>AssetEditorRegistry</c> states the same rule for a
+    ///     factory runs again on reopen — <c>IDocumentHost</c> states the same rule for a
     ///     document's view — so nothing durable may live here, and the document it shows is held by
     ///     the module rather than by the view.
     /// </remarks>
@@ -584,7 +585,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
         //
         // ⚠ **And the scan is the half that makes any of that true.** A plugin activates *after* the
         // project has been indexed, so five files written here are on the disk and not in the asset
-        // database — `project.Selection.Primary` can never name one and `AssetEditorRegistry` can
+        // database — `project.Selection.Primary` can never name one and `IDocumentHost` can
         // never open one — until the editor is restarted. Writing them was the visible half of the
         // work and reaching them was the whole point of it.
         if (SmartMaterial.Install(project.Paths.Assets).Count > 0) {
@@ -650,15 +651,22 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
 
         var registry = context.Services.Require<IEditorRegistry>();
 
-        // ⚠ Registered inside the scope, which is what #739 made possible: `AssetEditorRegistry.Add`
-        // hands back the removal, so the factory and every document it opened go when this module
-        // does. Optional, because a host may publish no registry — and then the Create ▸ entry below
-        // says `Opens: false` rather than promising a double-click nothing answers.
-        var editors = context.Services.TryGet<AssetEditorRegistry>(out var found) ? found : null;
+        // ⚠ Registered inside the scope, which is what #739 made possible: `IDocumentHost.Add` and
+        // `IWorkspace.Add` hand back the removal, so the kind, the view and every document opened go
+        // when this module does. Optional, because a host may publish neither — and then the Create ▸
+        // entry below says `Opens: false` rather than promising a double-click nothing answers.
+        // ⚠ Both or neither (#1294): a kind registered with no view would open a document nothing
+        // can show, which is the pairing `DocumentPairingTests` holds for the whole editor.
+        var editors = context.Services.TryGet<IDocumentHost>(out var host)
+            && context.Services.TryGet<IWorkspace>(out var workspace)
+                ? (host, workspace)
+                : default;
 
-        if (editors is not null) {
-            context.Owns(editors.Add(new TextureGraphEditorFactory()));
-            context.Owns(editors.Add(new LayerStackEditorFactory()));
+        if (editors.host is not null) {
+            context.Owns(editors.host.Add(new TextureGraphEditorFactory()));
+            context.Owns(editors.workspace!.Add(new TextureGraphEditorView()));
+            context.Owns(editors.host.Add(new LayerStackEditorFactory()));
+            context.Owns(editors.workspace.Add(new LayerStackEditorView()));
         }
 
         // ⚠ `Opens` is derived rather than declared. A kind that opens needs an editor claiming the
@@ -673,7 +681,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
                     TextureGraphDocument.Extension,
                     "New Texture Graph",
                     TextureGraphDocument.NewContents,
-                    editors is not null
+                    editors.host is not null
                 )
             )
         );
@@ -690,7 +698,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
                     LayerStackDocument.Extension,
                     "New Layer Stack",
                     LayerStackDocument.NewContents,
-                    editors is not null
+                    editors.host is not null
                 )
             )
         );

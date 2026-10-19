@@ -37,7 +37,7 @@ public sealed class SceneHierarchyViewTests {
 
         scene.Add("Root", LocalTransform.At(Vector3.Zero));
 
-        var tabs = new SceneEditorFactory(_ => world).CreateView(scene, harness.Ui.Document.Root);
+        var tabs = new SceneEditorView().Create(scene, harness.Ui.Document.Root);
 
         harness.Ui.Frames(2);
 

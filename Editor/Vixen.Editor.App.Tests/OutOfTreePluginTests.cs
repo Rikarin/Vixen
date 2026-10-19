@@ -201,9 +201,9 @@ public class OutOfTreePluginTests {
     /// <summary>
     ///     ⚠ <b>And somewhere for a plugin to add an asset <i>editor</i>, which is the other half of
     ///     the same seam and the half nothing outside the assembly had ever asked for.</b>
-    ///     <c>AssetEditorRegistry</c> is published here; the contract-side proof that a module can
+    ///     <c>IDocumentHost</c> is published here; the contract-side proof that a module can
     ///     claim an extension through <c>PluginContext</c> alone and have it withdrawn on unload is
-    ///     <c>AssetEditorRegistryTests.APluginRegistersAnAssetEditorThroughTheContractAlone</c>.
+    ///     <c>DocumentHostTests.APluginRegistersAKindAndAViewThroughTheContractAlone</c>.
     ///     Neither test can see the other's half, which is why there are two (#489).
     /// </summary>
     [Fact]
@@ -213,7 +213,8 @@ public class OutOfTreePluginTests {
         try {
             using var editor = EditorSession.Start(new() { DataDirectory = data });
 
-            Assert.True(editor.Plugins.Services.Contains<Vixen.Editor.AssetEditors.AssetEditorRegistry>());
+            Assert.True(editor.Plugins.Services.Contains<Vixen.Editor.Core.IDocumentHost>());
+            Assert.True(editor.Plugins.Services.Contains<Vixen.Editor.Ui.Documents.IWorkspace>());
         } finally {
             if (Directory.Exists(data)) {
                 Directory.Delete(data, recursive: true);

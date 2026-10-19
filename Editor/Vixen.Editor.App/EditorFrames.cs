@@ -441,7 +441,7 @@ sealed partial class EditorApplication {
             // ⚠ `NotSupportedException` is in this list because it is the one a *file* causes rather
             // than a bug: `CompositorBuilder.Build` throws it for a document written by another
             // version of the engine, and without it a double-click on an old `.vxcompositor` comes
-            // out of `AssetEditorRegistry.Opened` and takes the editor down.
+            // out of `IDocumentHost.Opened` and takes the editor down.
         } catch (Exception failure)
             when (failure is InvalidOperationException or CompositorBindingException or NotSupportedException) {
             log.Write(

@@ -46,7 +46,7 @@ public class TextureGraphPanelTests {
     /// <remarks>
     ///     <para>
     ///         <b><a href="https://github.com/Rikarin/Vixen/issues/841">#841</a>, and nothing had ever
-    ///         called <see cref="TextureGraphEditorFactory.CreateView" /> from a test.</b> It passed
+    ///         called <see cref="TextureGraphEditorView" /> from a test.</b> It passed
     ///         <c>TexturePreviewBlocker.NoGraphics</c>, whose sentence is "this host publishes no
     ///         IEditorGraphics to plugins" — and a double-click happens in the editor, which publishes
     ///         one. So the sentence was false in the only host that ever renders it, and it sent the
@@ -72,11 +72,11 @@ public class TextureGraphPanelTests {
             fixture.Editors.TryGetForFile("Assets/Bricks" + TextureGraphDocument.Extension, out var editor)
         );
 
-        Assert.True(fixture.Editors.TryOpen(fixture.Project, asset, out var document));
+        Assert.True(fixture.Editors.TryOpen(asset, out var document));
 
         var host = fixture.Shell.Document.Root.Add<UiElement>();
 
-        editor.CreateView(document, host);
+        Assert.NotNull(fixture.Views.Show(document, host));
 
         var status = Status(host);
 
@@ -154,7 +154,7 @@ public class TextureGraphPanelTests {
 
     /// <summary>The verb, which is one of the two ways into the panel.</summary>
     /// <remarks>
-    ///     ⚠ <b>It used to be the only one</b>, because <c>AssetEditorRegistry.Add</c> had no
+    ///     ⚠ <b>It used to be the only one</b>, because <c>IDocumentHost.Add</c> had no
     ///     matching removal and a plugin that claimed an extension could never give it back. The
     ///     other is now the double-click — see <c>TexturingClaimTests</c> — and this one stays,
     ///     because it is what a host with no asset-editor registry offers.

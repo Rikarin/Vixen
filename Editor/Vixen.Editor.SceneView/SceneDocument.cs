@@ -241,7 +241,7 @@ public sealed class SceneDocument : EditorDocument {
     ///         could not resolve is a <i>report</i> and never a deletion: an entity the template no
     ///         longer has, an override naming a member nothing has, a prefab that could not be opened
     ///         at all. Somebody has to be told, and only the shell can tell them, so it is left here
-    ///         for whoever subscribes to <c>AssetEditorRegistry.Opened</c>.
+    ///         for whoever subscribes to <c>IDocumentHost.Opened</c>.
     ///     </para>
     ///     <para>
     ///         <see langword="null" /> for a document that was never filled from a file — a new scene,

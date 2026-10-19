@@ -12,7 +12,7 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>Opening, from the project, the scene file the editor already has open.</summary>
 /// <remarks>
 ///     ⚠ <b>#1395.</b> The editor's own scene is a <c>SceneDocument</c> with <c>AssetId.Empty</c> and
-///     the file held by its writer, and <c>AssetEditorRegistry.TryOpen</c>'s guard against two
+///     the file held by its writer, and <c>IDocumentHost.TryOpen</c>'s guard against two
 ///     documents over one file is keyed on the id. So opening <c>Main.vxscene</c> from the project
 ///     built a second document over it — its own world, its own undo history, its own writer on the
 ///     same path — and its Compiled tab compiled a copy the Scene view's edits never reached.

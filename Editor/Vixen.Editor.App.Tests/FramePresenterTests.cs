@@ -297,7 +297,7 @@ public sealed class FramePresenterTests : IDisposable {
     ///     ⚠ <b>Found by writing the test above with the wrong version number in it, which is the only
     ///     reason it is here.</b> <c>CompositorBuilder.Build</c> throws <c>NotSupportedException</c> for
     ///     a document written by another version of the engine — a <em>file's</em> fault rather than a
-    ///     bug — and the rebuild is reached from <c>AssetEditorRegistry.Opened</c>, which is reached
+    ///     bug — and the rebuild is reached from <c>IDocumentHost.Opened</c>, which is reached
     ///     from a double-click in the project browser. Uncaught, opening an old <c>.vxcompositor</c>
     ///     takes the editor down, and the state it leaves is a compositor half-swapped.
     /// </remarks>

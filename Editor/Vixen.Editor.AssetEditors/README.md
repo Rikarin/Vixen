@@ -53,7 +53,7 @@ layout is what lets the overlay be asserted without a frame having been drawn.
 
 ## Told, never discovered — and no fallback
 
-`AssetEditorRegistry` is `ImporterRegistry`'s rule restated: registration is a line of code, two
+`DocumentHost` (in `Vixen.Editor.Core` since #1294 — this assembly registers kinds into it and views into `IWorkspace`, joined by document type; see `docs/guide/editor/documents-and-views.md`) is `ImporterRegistry`'s rule restated: registration is a line of code, two
 editors claiming one extension is an error naming both, and an assembly scan would make "which
 editors does this build have" a question with a different answer in a trimmed publish.
 

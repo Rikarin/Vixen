@@ -22,6 +22,7 @@ using Vixen.Editor.Inspector.Drawers;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Engine.Behaviors;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Diagnostics.Overlays;
@@ -335,7 +336,12 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>The open scenes, rebuilt in place once a frame rather than allocated.</summary>
     readonly List<SceneDocument> scenes = [];
 
-    readonly AssetEditorRegistry editors;
+    /// <summary>Doc 50 § D4's two registries (#1294): which kind opens a file, and which view shows the document.</summary>
+    readonly DocumentHost documentHost;
+
+    /// <inheritdoc cref="documentHost" />
+    readonly EditorWorkspace documentViews = new();
+
     readonly HashSet<string> assetPanels = new(StringComparer.Ordinal);
 
     /// <summary>The document each asset tab was last built over, which is what closing it after a move reads.</summary>
@@ -770,14 +776,15 @@ sealed partial class EditorApplication : IDisposable {
         // editor's world between scenes is what makes an entity handle mean one thing across the
         // application; a prefab must not share it, because "isolated" is exactly the claim that its
         // entities are not in the level — see PrefabEditorFactory.
-        editors = StandardEditors.CreateDefault(_ => world, _ => new World("Prefab"));
+        documentHost = new DocumentHost(project);
+        StandardEditors.Register(documentHost, documentViews, _ => world, _ => new World("Prefab"));
 
         // ⚠ The one document kind the *viewport* is a view of, so opening it points the panes at it
         // and every edit after that reaches them without a restart. Through `Opened` rather than a
         // line in `Open`, because that event is already the seam a module hears a document on — and
         // it deliberately does not fire for a document that was already open, which is right here:
         // re-authoring is what `StandardFrameDocument.Changed` is for.
-        editors.Opened += document => {
+        documentHost.Opened += document => {
             if (document is AssetEditors.Frame.StandardFrameDocument authoredFrame) {
                 Author(authoredFrame);
             }
@@ -805,8 +812,8 @@ sealed partial class EditorApplication : IDisposable {
         openScenes.Add(new(scene, scenePath) { Settings = WorldSettings.Load(scenePath) });
         world0 = openScenes[0].Settings;
 
-        if (editors.TryGetByName("Addressable Group", out var groups)
-            && groups is AddressableGroupEditorFactory addressable) {
+        if (documentViews.TryGetView(typeof(AddressableGroupDocument), out var groups)
+            && groups is AddressableGroupEditorView addressable) {
             // The real planner, run against a workspace of its own. `ProjectWorkspace` opens the four
             // stores that have to agree about which directory they are looking at, and it must not
             // share the editor's database — `Scan` clears and repopulates its dictionaries, which is
@@ -817,7 +824,7 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ A sequence drives the scene the editor has open, and which scene that is is this class's
         // arbitration in the way every other panel's subject is — see `EditorWorlds`. A factory that
         // reached for one would be a factory that knows what the editor has open.
-        if (editors.TryGetByName("Sequence", out var sequences)
+        if (documentHost.TryGetByName("Sequence", out var sequences)
             && sequences is AssetEditors.Sequencing.SequenceEditorFactory sequencer) {
             sequencer.Scene = () => scene;
         }
@@ -2641,7 +2648,10 @@ sealed partial class EditorApplication : IDisposable {
     ///     <c>StandardEditors.CreateWorldless()</c> would agree with itself on the day this editor
     ///     stopped registering an editor, and say nothing about it.
     /// </remarks>
-    internal AssetEditorRegistry Editors => editors;
+    internal IDocumentHost Documents => documentHost;
+
+    /// <summary>The document views this editor registered, for a caller outside this class.</summary>
+    internal IWorkspace Workspace => documentViews;
 
     /// <summary>Opens an asset in whatever editor claims it, for a caller outside this class.</summary>
     /// <remarks>
@@ -2661,7 +2671,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     <para>
     ///         ⚠ <b>Registered once and reopened afterwards.</b> The workspace refuses a second
     ///         registration under one id, and the document is already found by
-    ///         <c>AssetEditorRegistry.TryOpen</c> — so the second double-click brings the tab forward
+    ///         <c>IDocumentHost.TryOpen</c> — so the second double-click brings the tab forward
     ///         rather than building a second view over the same undo stack.
     ///     </para>
     ///     <para>
@@ -2671,7 +2681,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     </para>
     /// </remarks>
     void Open(AssetId asset) {
-        if (!TryGetOpenScene(asset, out var document) && !editors.TryOpen(project, asset, out document)) {
+        if (!TryGetOpenScene(asset, out var document) && !documentHost.TryOpen(asset, out document)) {
             Shell.Notifications.Show("No editor claims that file.");
 
             return;
@@ -2687,10 +2697,12 @@ sealed partial class EditorApplication : IDisposable {
                     id,
                     new StringId("editor.panel." + id, title),
                     panel => {
+                        // ⚠ The view by the document's type and not by the file's extension (#1294): the
+                        // kind and the view are two registrations now, joined by the type the kind declares.
                         if ((TryGetOpenScene(asset, out var open) || project.TryGetDocument(asset, out open))
-                            && editors.TryGetForFile(project.Assets.TryGetByGuid(asset, out var entry) ? entry.Path : title, out var editor)) {
+                            && documentViews.TryGetView(open, out _)) {
                             tabDocuments[id] = open;
-                            Joined(editor.CreateView(open, panel), open);
+                            Joined(documentViews.Show(open, panel)!, open);
                         }
                     }
                 ) {
@@ -2717,7 +2729,7 @@ sealed partial class EditorApplication : IDisposable {
     ///         main scene and every additively opened one are built as
     ///         <c>new SceneDocument(project, world, AssetId.Empty, …)</c> — the path can change under
     ///         them with Save As, so it is held by the writer rather than fixed as an identity — and
-    ///         <c>AssetEditorRegistry.TryOpen</c>'s guard against a second document over one file is
+    ///         <c>IDocumentHost.TryOpen</c>'s guard against a second document over one file is
     ///         keyed on the id. So double-clicking <c>Main.vxscene</c> in the browser built a second
     ///         <c>SceneDocument</c> over the file the Scene view writes: its own world, its own undo
     ///         history, and a writer of its own on the same path, whichever saved last winning.
@@ -3112,7 +3124,8 @@ sealed partial class EditorApplication : IDisposable {
 
             // ⚠ And the asset-editor registry, so a module can hear that a document was opened. That
             // used to be `Bound`, a line in this class — see `AssetEditorsModule`.
-            .Add(editors)
+            .Add<IDocumentHost>(documentHost)
+            .Add<IWorkspace>(documentViews)
 
             // ⚠ Doc 36 § P4: the reload host, so a module's markup panel follows an edit to its
             // `.vxml` without the editor being restarted. The host existed in

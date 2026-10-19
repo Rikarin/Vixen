@@ -3,6 +3,7 @@
 
 using Vixen.Editor.Ai;
 using Vixen.Editor.Core;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Ui;
 
 namespace Vixen.Editor.AssetEditors.Ai;
@@ -158,27 +159,31 @@ internal sealed class UtilityValue : UiElement {
 }
 
 /// <summary>Opens a <c>.vxutility</c>.</summary>
-public sealed class UtilitySetEditorFactory : IAssetEditorFactory {
+public sealed class UtilitySetEditorFactory : DocumentKind {
     /// <inheritdoc />
-    public string Name => "Utility Set";
+    public override string Name => "Utility Set";
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [UtilitySetDocument.Extension];
+    public override IReadOnlyList<string> Extensions { get; } = [UtilitySetDocument.Extension];
 
     /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(UtilitySetDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
         ArgumentNullException.ThrowIfNull(request);
 
         return new UtilitySetDocument(request.Project, request.Asset, request.Path);
     }
+}
 
+/// <summary>What <see cref="UtilitySetEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+public sealed class UtilitySetEditorView : DocumentView<UtilitySetDocument> {
     /// <inheritdoc />
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(panel);
-
+    protected override UiElement Build(UtilitySetDocument document, UiElement panel) {
         var view = panel.Add<UtilitySetView>();
 
-        view.Show((UtilitySetDocument) document);
+        view.Show(document);
 
         return view;
     }

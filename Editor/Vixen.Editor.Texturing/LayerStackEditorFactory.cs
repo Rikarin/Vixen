@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Editor.AssetEditors;
 using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Layers;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Ui;
 
 namespace Vixen.Editor.Texturing;
@@ -22,11 +22,11 @@ namespace Vixen.Editor.Texturing;
 ///         ⚠ <b>Registered inside the module's scope and given back on unload</b>, exactly as
 ///         <see cref="TextureGraphEditorFactory" /> is and for
 ///         <a href="https://github.com/Rikarin/Vixen/issues/739">#739</a>'s reason: an
-///         <c>IAssetEditorFactory</c> the host cannot take out again is a reference from the editor
+///         <c>DocumentKind/DocumentView pair</c> the host cannot take out again is a reference from the editor
 ///         into the plugin with no way to remove it — not a leaked entry, a leaked assembly.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="CreateView" /> shows the rows and no picture, and until
+///         ⚠ <b><see cref="LayerStackEditorView" /> shows the rows and no picture, and until
 ///         <a href="https://github.com/Rikarin/Vixen/issues/831">#831</a> the sentence above was the
 ///         opposite of what the code did.</b> It said "lists the stack and says so" and the call was
 ///         <c>view.Show(stack)</c> with no picture at all — so <c>LayerStackView</c> set
@@ -45,9 +45,9 @@ namespace Vixen.Editor.Texturing;
 ///         <a href="https://github.com/Rikarin/Vixen/issues/841">#841</a>, closed.
 ///     </para>
 /// </remarks>
-sealed class LayerStackEditorFactory : IAssetEditorFactory {
+sealed class LayerStackEditorFactory : DocumentKind {
     /// <inheritdoc />
-    public string Name => "Layer Stack";
+    public override string Name => "Layer Stack";
 
     /// <inheritdoc />
     /// <remarks>
@@ -67,34 +67,31 @@ sealed class LayerStackEditorFactory : IAssetEditorFactory {
     ///         names no model" is the honest answer for a file that by construction has none.
     ///     </para>
     /// </remarks>
-    public IReadOnlyList<string> Extensions { get; } = [
+    public override IReadOnlyList<string> Extensions { get; } = [
         LayerStackDocument.Extension,
         SmartMaterial.Extension
     ];
 
     /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(LayerStackDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
         ArgumentNullException.ThrowIfNull(request);
 
         return new LayerStackDocument(request.Project, request.Asset, request.Path);
     }
+}
 
+/// <summary>What <see cref="LayerStackEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+/// <remarks>
+///     The type check this used to make by hand — "a mismatch here means the two halves of one
+///     registration have drifted apart" — is <c>DocumentView&lt;T&gt;</c>'s now, and the drift it
+///     guarded against is <c>DocumentPairingTests</c>'.
+/// </remarks>
+sealed class LayerStackEditorView : DocumentView<LayerStackDocument> {
     /// <inheritdoc />
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(document);
-        ArgumentNullException.ThrowIfNull(panel);
-
-        if (document is not LayerStackDocument stack) {
-            // Not a defence against a caller, a defence against this factory: the registry hands back
-            // whatever `Open` returned, so a mismatch here means the two halves of one registration
-            // have drifted apart — which is what `IAssetEditorFactory` puts them in one type to
-            // prevent.
-            throw new ArgumentException(
-                $"A {nameof(LayerStackEditorFactory)} was handed a {document.GetType().Name} to build a view over.",
-                nameof(document)
-            );
-        }
-
+    protected override UiElement Build(LayerStackDocument stack, UiElement panel) {
         var view = new LayerStackView(panel);
 
         // ⚠ A picture and not `Show(stack)`. `LayerStackView` writes `picture?.Status ?? ""` under the

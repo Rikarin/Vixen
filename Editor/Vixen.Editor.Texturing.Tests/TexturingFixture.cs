@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
-using Vixen.Editor.AssetEditors;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Ui;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Graphics;
 using Xunit;
 
@@ -42,7 +42,10 @@ sealed class TexturingFixture : IDisposable {
     public EditorRegistry Extensions { get; } = new();
 
     /// <summary>Where an editor claiming a file extension goes, when the test publishes one.</summary>
-    public AssetEditorRegistry Editors { get; } = new();
+    public DocumentHost Editors { get; }
+
+    /// <summary>Where the view showing a claimed file goes, published with <see cref="Editors" /> (#1294).</summary>
+    public EditorWorkspace Views { get; } = new();
 
     /// <summary>The loader the module is activated through.</summary>
     public PluginHost Host { get; }
@@ -55,12 +58,13 @@ sealed class TexturingFixture : IDisposable {
     ///     <paramref name="graphics" /> rather than inferred from this.
     /// </param>
     /// <param name="graphics">Whether to publish graphics at all. Defaults to "when there is a device".</param>
-    /// <param name="editors">Whether to publish an <see cref="AssetEditorRegistry" />.</param>
+    /// <param name="editors">Whether to publish an <see cref="IDocumentHost" /> and an <see cref="IWorkspace" />.</param>
     public TexturingFixture(IGraphicsDevice? device = null, bool? graphics = null, bool editors = false) {
         Paths = new(Path.Combine(Path.GetTempPath(), "vixen-tests", Guid.NewGuid().ToString("N")));
         Directory.CreateDirectory(Paths.Assets);
 
         Project = new EditorProject(Paths);
+        Editors = new DocumentHost(Project);
 
         Services.Add(Project);
         Services.Add<IEditorRegistry>(Extensions);
@@ -71,7 +75,8 @@ sealed class TexturingFixture : IDisposable {
         }
 
         if (editors) {
-            Services.Add(Editors);
+            Services.Add<IDocumentHost>(Editors);
+            Services.Add<IWorkspace>(Views);
         }
 
         Host = new PluginHost(Shell, Services);

@@ -7,6 +7,7 @@ using Vixen.Animation.Constraints;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Engine.Diagnostics;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -536,26 +537,30 @@ public sealed class ProxyShapeView : Control, IDisposable {
 }
 
 /// <summary>Opens a body's proxy shapes.</summary>
-public sealed class ProxyShapeEditorFactory : IAssetEditorFactory {
+public sealed class ProxyShapeEditorFactory : DocumentKind {
     /// <inheritdoc />
-    public string Name => "Proxy Shapes";
+    public override string Name => "Proxy Shapes";
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [ProxyShapeDocument.Extension];
+    public override IReadOnlyList<string> Extensions { get; } = [ProxyShapeDocument.Extension];
 
     /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(ProxyShapeDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
         ArgumentNullException.ThrowIfNull(request);
 
         return new ProxyShapeDocument(request.Project, request.Asset, request.Path);
     }
+}
 
+/// <summary>What <see cref="ProxyShapeEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+public sealed class ProxyShapeEditorView : DocumentView<ProxyShapeDocument> {
     /// <inheritdoc />
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(panel);
-
+    protected override UiElement Build(ProxyShapeDocument document, UiElement panel) {
         var view = panel.Add<ProxyShapeView>();
-        view.Show((ProxyShapeDocument) document);
+        view.Show(document);
 
         return view;
     }

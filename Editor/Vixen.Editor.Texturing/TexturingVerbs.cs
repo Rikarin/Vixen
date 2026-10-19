@@ -584,7 +584,7 @@ public sealed partial class TexturingModule {
     /// <remarks>
     ///     ⚠ <b>Reuses the document the project already has for that asset.</b> Two documents over one
     ///     file are two undo histories and two dirty flags, and the second save silently discards the
-    ///     first — which is <c>AssetEditorRegistry.TryOpen</c>'s rule, restated because this module
+    ///     first — which is <c>IDocumentHost.TryOpen</c>'s rule, restated because this module
     ///     cannot use that registry.
     /// </remarks>
     public void OpenGraph() {

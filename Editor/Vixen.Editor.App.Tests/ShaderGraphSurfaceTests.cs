@@ -21,7 +21,7 @@ public class ShaderGraphSurfaceTests {
     /// <summary>The row is registered under the name doc 11's table calls it.</summary>
     [Fact]
     public void The_registry_has_a_shader_graph_row() {
-        var registry = StandardEditors.CreateWorldless();
+        var registry = StandardEditors.CreateWorldless(new Core.EditorProject(new Core.ProjectPaths(Path.GetTempPath())));
 
         Assert.True(registry.TryGetByName("Shader Graph", out var editor));
         Assert.Contains(ShaderGraphDocument.Extension, editor!.Extensions);

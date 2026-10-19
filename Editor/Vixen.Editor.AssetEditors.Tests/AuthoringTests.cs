@@ -818,7 +818,7 @@ public class AuthoringTests {
 
     [Fact]
     public void EveryNewExtensionIsClaimedByExactlyOneEditor() {
-        var registry = StandardEditors.CreateWorldless();
+        var registry = StandardEditors.CreateWorldless(new Core.EditorProject(new Core.ProjectPaths(Path.GetTempPath())));
 
         foreach (var extension in (string[]) [".vxvfx", ".vxanim", ".vxanimgraph", ".vxseq", ".vxinput", ".vxmixer", ".vxfont"]) {
             Assert.True(registry.TryGetForFile("Thing" + extension, out var editor), extension);

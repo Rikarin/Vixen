@@ -165,19 +165,17 @@ in the build of every plugin that only wanted to add a menu item. A plugin that 
 importer references that assembly itself, gets the real `IAssetImporter`, and hands the typed
 registry to `Require<T>` — one weakly-typed line at the top of `Activate` and nothing after it.
 
-⚠ **An asset editor is that same shape, and the question of moving `IAssetEditorFactory` here is
-answered no.** A plugin claiming an extension, opening a document for it and building its view does
-so through the contract's own door today — `Require<AssetEditorRegistry>()`, `Add`, `Owns` — and
-`AssetEditorRegistryTests.APluginRegistersAnAssetEditorThroughTheContractAlone` is the caller that
-proves it, because until it was written the only `Require<AssetEditorRegistry>` in the tree was
-`AssetEditorsModule`, inside the assembly that owns the registry. What the plugin references is
-`Vixen.Editor.AssetEditors`, and that is one line in its own csproj rather than a line in everybody
-else's. ⚠ Stating the interface *here* is what cannot be done: `IAssetEditorFactory.Open` returns an
-`EditorDocument` and takes an `EditorProject`, so it would drag `Vixen.Editor.Core` — the document
-model, the command stack, the asset database and a hundred and thirty kilobytes of embedded
-`dotnet new` templates — into the build of a plugin that only wanted a menu item. Splitting `Open`
-from `CreateView` to dodge that is refused by `IAssetEditorFactory`'s own remarks: a document with no
-view is a model nobody can reach.
+⚠ **An asset editor is two registrations, neither of them here.** Since doc 50 § D4
+([#1294](https://github.com/Rikarin/Vixen/issues/1294)) a plugin claiming an extension registers a
+`DocumentKind` with `Require<IDocumentHost>()` (`Vixen.Editor.Core`: which files, how a document
+opens) and a `DocumentView` with `Require<IWorkspace>()` (`Vixen.Editor.Ui`: the element), each
+`Add` handing back the removal `Owns` wants — `DocumentHostTests.APluginRegistersAKindAndAViewThroughTheContractAlone`
+is the caller that proves the route. Neither type is stated here, for the reason this paragraph
+always gave: a kind returns an `EditorDocument` and takes an `EditorProject`, which would drag
+`Vixen.Editor.Core` into the build of a plugin that only wanted a menu item. ⚠ The split this
+paragraph used to call refused — "a document with no view is a model nobody can reach" — is right as
+a *product* invariant and was wrong as a *type*; `DocumentPairingTests` holds it over a running
+editor's registries, modules included. See [documents and views](../../docs/guide/editor/documents-and-views.md).
 ([#489](https://github.com/Rikarin/Vixen/issues/489))
 
 **`IEditorGraphics` is the one exception, and it is declared here.** A plugin that draws needs a
@@ -199,7 +197,7 @@ What `Vixen.Editor.App` publishes today is `EditorProject`, `SceneDocument`, `Dr
 `ImporterContributions`, `IContentLibrary`, `IProjectSession`, `IEditorRegistry`, the editing state
 (`MeshEdit`), the work plane (`WorkPlane`), `IMeshBaker`, `IMeshMapBaker`, `IMeshSource`,
 `IActiveScene`, `IActivePlaySession`, `IPlaySession`, `ISceneEditing`, `IActiveView`,
-`IPlayerDelivery`, `AssetEditorRegistry`, `HotReloadHost`, `IEditorGraphics`, the log ring (`RingBufferSink`), `EditorDataDirectory`, `IExternalLinks` and the `PluginHost`
+`IPlayerDelivery`, `IDocumentHost`, `IWorkspace`, `HotReloadHost`, `IEditorGraphics`, the log ring (`RingBufferSink`), `EditorDataDirectory`, `IExternalLinks` and the `PluginHost`
 itself. Where the platform has native pickers it publishes `INativeDialogs` too (#1298) — on a head with none, nothing, which is why it is named outside the list above. ⚠ Five of those — the doc 50 context services — were published by three batches before this
 sentence named them; `PublishedServicesReadmeTests` now compares it with what the editor publishes,
 and the context services each have a guide page: [the content library](../../docs/guide/editor/content-library.md),

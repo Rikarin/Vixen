@@ -57,7 +57,7 @@
 <!--
     ⚠ Two tabs over one document, not two documents. The sprite editor edits the same `.meta` the
     settings do — a slice is rects written into the texture's import settings — so it shares this
-    document's undo stack and its dirty flag rather than opening a second one. `AssetEditorRegistry`'s
+    document's undo stack and its dirty flag rather than opening a second one. `IDocumentHost`'s
     own rule: two documents over one file are two undo histories over one set of bytes, and whichever
     saves last wins.
 -->

@@ -40,7 +40,7 @@ public class MilestoneE5Tests {
     [InlineData("Input Actions")]
     [InlineData("Font")]
     public void Doc_11s_asset_editor_table_has_a_row_that_opens(string editor) {
-        var registry = StandardEditors.CreateWorldless();
+        var registry = StandardEditors.CreateWorldless(new Core.EditorProject(new Core.ProjectPaths(Path.GetTempPath())));
 
         // The two that need a world are not in the worldless set, and are the two the fixture below
         // proves by opening a scene at all.

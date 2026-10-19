@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Core;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Ui;
 
 namespace Vixen.Editor.AssetEditors.Ai;
@@ -119,27 +120,31 @@ internal sealed class GoapSource : UiElement {
 }
 
 /// <summary>Opens a <c>.vxgoap</c>.</summary>
-public sealed class GoapDomainEditorFactory : IAssetEditorFactory {
+public sealed class GoapDomainEditorFactory : DocumentKind {
     /// <inheritdoc />
-    public string Name => "GOAP Domain";
+    public override string Name => "GOAP Domain";
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [GoapDomainDocument.Extension];
+    public override IReadOnlyList<string> Extensions { get; } = [GoapDomainDocument.Extension];
 
     /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(GoapDomainDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
         ArgumentNullException.ThrowIfNull(request);
 
         return new GoapDomainDocument(request.Project, request.Asset, request.Path);
     }
+}
 
+/// <summary>What <see cref="GoapDomainEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+public sealed class GoapDomainEditorView : DocumentView<GoapDomainDocument> {
     /// <inheritdoc />
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(panel);
-
+    protected override UiElement Build(GoapDomainDocument document, UiElement panel) {
         var view = panel.Add<GoapDomainView>();
 
-        view.Show((GoapDomainDocument) document);
+        view.Show(document);
 
         return view;
     }

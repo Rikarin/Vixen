@@ -4,7 +4,7 @@ slug: editor/writing-a-plugin
 kind: guide
 area: Editor
 summary: What a plugin can contribute to the editor, how it registers, and how everything it added is taken back out when it unloads.
-api: [T:Vixen.Editor.Plugin.PluginHost, T:Vixen.Editor.Plugin.DeclaredMenus, T:Vixen.Editor.Plugin.EditorSubmenuAttribute, T:Vixen.Editor.Blockout.BlockoutModule, T:Vixen.Editor.Blockout.IBlockout, T:Vixen.Editor.Blockout.BlockoutVerbs, T:Vixen.Editor.Terrain.TerrainModule, T:Vixen.Editor.Diagnostics.DiagnosticsModule, T:Vixen.Editor.AssetEditors.AssetEditorsModule, T:Vixen.Editor.SceneView.IActiveScene, T:Vixen.Editor.Core.IPlayerDelivery, T:Vixen.Rendering.Terrain.ITerrainScene, T:Vixen.Editor.Core.EditorRegistry, T:Vixen.Editor.Core.IEditorRegistry, T:Vixen.Editor.Core.NewAssetKind, T:Vixen.Editor.Inspector.CustomInspector, T:Vixen.Editor.SceneView.SceneTool, T:Vixen.Editor.Ui.TypeIcon, T:Vixen.Editor.Ui.AssetIcon, T:Vixen.Editor.Ui.EditorArt, T:Vixen.Editor.Scripts.ScriptsStrings, T:Vixen.Editor.AssetEditors.AssetEditorStrings, T:Vixen.Editor.Core.AuthoringAssembly, T:Vixen.Editor.SceneView.AuthoringKind, T:Vixen.Editor.Plugin.IEditorPlugin, T:Vixen.Editor.Plugin.PluginContext, T:Vixen.Editor.Plugin.PluginServices, T:Vixen.Editor.Plugin.IEditorGraphics, T:Vixen.Editor.Plugin.IEditorImage, T:Vixen.Editor.AssetEditors.AssetEditorRegistry, T:Vixen.Editor.AssetEditors.IAssetEditorFactory, T:Vixen.Editor.Assets.ImporterContributions, T:Vixen.Editor.Assets.ImporterRegistry, T:Vixen.Editor.Assets.ImporterAttribute, T:Vixen.Editor.Plugin.IContributionScanner, T:Vixen.Editor.Inspector.CustomInspectorAttribute, T:Vixen.Editor.Inspector.CustomDrawerAttribute, T:Vixen.Editor.SceneView.EditorToolAttribute, T:Vixen.Editor.Core.CreateAssetMenuAttribute, T:Vixen.Editor.SceneView.OverlayAttribute, T:Vixen.Editor.SceneView.DrawGizmoAttribute, T:Vixen.Editor.SceneView.SceneOverlay, T:Vixen.Editor.SceneView.ComponentGizmo, T:Vixen.Editor.SceneView.GizmoDraw, T:Vixen.Editor.SceneView.GizmoPlacement, T:Vixen.Editor.SceneView.OverlayCorner]
+api: [T:Vixen.Editor.Plugin.PluginHost, T:Vixen.Editor.Plugin.DeclaredMenus, T:Vixen.Editor.Plugin.EditorSubmenuAttribute, T:Vixen.Editor.Blockout.BlockoutModule, T:Vixen.Editor.Blockout.IBlockout, T:Vixen.Editor.Blockout.BlockoutVerbs, T:Vixen.Editor.Terrain.TerrainModule, T:Vixen.Editor.Diagnostics.DiagnosticsModule, T:Vixen.Editor.AssetEditors.AssetEditorsModule, T:Vixen.Editor.SceneView.IActiveScene, T:Vixen.Editor.Core.IPlayerDelivery, T:Vixen.Rendering.Terrain.ITerrainScene, T:Vixen.Editor.Core.EditorRegistry, T:Vixen.Editor.Core.IEditorRegistry, T:Vixen.Editor.Core.NewAssetKind, T:Vixen.Editor.Inspector.CustomInspector, T:Vixen.Editor.SceneView.SceneTool, T:Vixen.Editor.Ui.TypeIcon, T:Vixen.Editor.Ui.AssetIcon, T:Vixen.Editor.Ui.EditorArt, T:Vixen.Editor.Scripts.ScriptsStrings, T:Vixen.Editor.AssetEditors.AssetEditorStrings, T:Vixen.Editor.Core.AuthoringAssembly, T:Vixen.Editor.SceneView.AuthoringKind, T:Vixen.Editor.Plugin.IEditorPlugin, T:Vixen.Editor.Plugin.PluginContext, T:Vixen.Editor.Plugin.PluginServices, T:Vixen.Editor.Plugin.IEditorGraphics, T:Vixen.Editor.Plugin.IEditorImage, T:Vixen.Editor.Assets.ImporterContributions, T:Vixen.Editor.Assets.ImporterRegistry, T:Vixen.Editor.Assets.ImporterAttribute, T:Vixen.Editor.Plugin.IContributionScanner, T:Vixen.Editor.Inspector.CustomInspectorAttribute, T:Vixen.Editor.Inspector.CustomDrawerAttribute, T:Vixen.Editor.SceneView.EditorToolAttribute, T:Vixen.Editor.Core.CreateAssetMenuAttribute, T:Vixen.Editor.SceneView.OverlayAttribute, T:Vixen.Editor.SceneView.DrawGizmoAttribute, T:Vixen.Editor.SceneView.SceneOverlay, T:Vixen.Editor.SceneView.ComponentGizmo, T:Vixen.Editor.SceneView.GizmoDraw, T:Vixen.Editor.SceneView.GizmoPlacement, T:Vixen.Editor.SceneView.OverlayCorner]
 tags: [editor, plugins, extensibility, registry]
 since: 0.1
 status: preview
@@ -139,13 +139,16 @@ var image = graphics.Upload(picture.Width, picture.Height, picture.Pixels);
 view.Image = image?.Image ?? 0;
 ```
 
-**A file extension comes through `AssetEditorRegistry`**, whose `Add` hands back the removal the way
-`IEditorRegistry.Add` does — the editor's name and every extension it claimed, given up together, so
-a reload finds both free.
+**A file extension comes through `IDocumentHost`, and its view through `IWorkspace`** — two
+registrations since #1294, each of whose `Add` hands back the removal the way `IEditorRegistry.Add`
+does. Register both or neither: a kind with no view opens a document nothing can show. See
+[documents and views](documents-and-views.md).
 
-```csharp no-compile="a plugin's own Activate, over an editor factory of its own"
-if (context.Services.TryGet<AssetEditorRegistry>(out var editors)) {
-    context.Owns(editors.Add(new MyEditorFactory()));
+```csharp no-compile="a plugin's own Activate, over a kind and a view of its own"
+if (context.Services.TryGet<IDocumentHost>(out var documents)
+    && context.Services.TryGet<IWorkspace>(out var workspace)) {
+    context.Owns(documents.Add(new MyDocumentKind()));
+    context.Owns(workspace.Add(new MyDocumentView()));
 }
 ```
 

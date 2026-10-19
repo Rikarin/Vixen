@@ -56,7 +56,9 @@ Editor/Vixen.Editor.AssetEditors/Animation/AnimationClipView.cs canvas — a tim
 Editor/Vixen.Editor.AssetEditors/Animation/AnimationGraphView.cs canvas
 Editor/Vixen.Editor.AssetEditors/Animation/MoveSetView.cs pending — a form over a document; live model
 Editor/Vixen.Editor.AssetEditors/Animation/ProxyShapeView.cs pending — a form over a document; live model
+Editor/Vixen.Editor.AssetEditors/Importing/ImportEditorFactories.cs not-a-view — TextureEditorView and ModelEditorView are DocumentViews (#1294): each adds its import panel, which has its .vxml, and draws nothing itself
 Editor/Vixen.Editor.AssetEditors/Importing/SpriteSheetView.cs canvas — slices are hit-tested in image pixels
+Editor/Vixen.Editor.AssetEditors/Scenes/SceneEditorFactories.cs not-a-view — SceneEditorView and PrefabEditorView are DocumentViews (#1294) that add the hierarchy tabs and PrefabView.vxml
 Editor/Vixen.Editor.AssetEditors/Sequencing/SequenceView.cs canvas — a timeline
 Editor/Vixen.Editor.AssetEditors/Vfx/VfxPreviewView.cs canvas — OnDraw projects every particle through a fixed orbit camera
 Editor/Vixen.Editor.Blockout/BlockoutUvPanel.cs not-a-view — computes island layouts for the panel that draws them; it adds no element
@@ -66,8 +68,11 @@ Editor/Vixen.Editor.Inspector/MarkupInspector.cs machinery — is the markup ins
 Editor/Vixen.Editor.NodeGraph/NodeGraphView.cs canvas — #1305 is its own issue and is not a port
 Editor/Vixen.Editor.Profiler/FlameChartView.cs canvas
 Editor/Vixen.Editor.Profiler/ProfilerView.cs pending — a per-scope table beside a FlameChartView, rebuilt when the capture changes; the table is the candidate
+Editor/Vixen.Editor.Texturing/LayerStackEditorFactory.cs not-a-view — LayerStackEditorView is a DocumentView (#1294) that builds a LayerStackView into the panel
 Editor/Vixen.Editor.Texturing/LayerStackView.cs pending — #881, the layers panel has grown a form
 Editor/Vixen.Editor.Texturing/Painting/PaintBrushInspector.cs pending — a brush settings form; live model
 Editor/Vixen.Editor.Texturing/Painting/PaintMeshView.cs canvas — paints onto a mesh through a raster
 Editor/Vixen.Editor.Texturing/Painting/PaintUvView.cs canvas
+Editor/Vixen.Editor.Texturing/TextureGraphEditorFactory.cs not-a-view — TextureGraphEditorView is a DocumentView (#1294) that builds a TextureGraphView into the panel
 Editor/Vixen.Editor.Texturing/TextureGraphView.cs canvas
+Editor/Vixen.Editor.Ui/Documents/DocumentView.cs not-a-view — the Workspace contribution type (#1294): a document type and a factory, no element of its own

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Core;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -63,23 +64,27 @@ public partial class CodeEditorView;
 public sealed partial class PreviewCodeEditorView;
 
 /// <summary>Opens a Raven shader.</summary>
-public sealed class ShaderEditorFactory : IAssetEditorFactory {
+public sealed class ShaderEditorFactory : DocumentKind {
     /// <inheritdoc />
-    public string Name => "Shader";
+    public override string Name => "Shader";
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [ShaderDocument.Extension];
+    public override IReadOnlyList<string> Extensions { get; } = [ShaderDocument.Extension];
 
     /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(ShaderDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
         ArgumentNullException.ThrowIfNull(request);
         return new ShaderDocument(request.Project, request.Asset, request.Path);
     }
+}
 
+/// <summary>What <see cref="ShaderEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+public sealed class ShaderEditorView : DocumentView<ShaderDocument> {
     /// <inheritdoc />
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(panel);
-
+    protected override UiElement Build(ShaderDocument document, UiElement panel) {
         // ⚠ `CodeEditor` virtualises: it computes the first visible line from its own `ScrollTop`,
         // how many rows to build from its own height, and where the caret goes from
         // `Scroller.Content.AbsoluteLeft`. A panel that scrolled it would slide a window that has
@@ -87,22 +92,25 @@ public sealed class ShaderEditorFactory : IAssetEditorFactory {
         DockPanel.Fills(panel);
 
         var view = panel.Add<CodeEditorView>();
-        view.Show((CodeDocument) document);
+        view.Show(document);
 
         return view;
     }
 }
 
 /// <summary>Opens a VXML component or a VCSS stylesheet, with the preview pane beside it.</summary>
-public sealed class MarkupEditorFactory : IAssetEditorFactory {
+public sealed class MarkupEditorFactory : DocumentKind {
     /// <inheritdoc />
-    public string Name => "UI";
+    public override string Name => "UI";
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [MarkupDocument.Extension, StyleSheetDocument.Extension];
+    public override IReadOnlyList<string> Extensions { get; } = [MarkupDocument.Extension, StyleSheetDocument.Extension];
 
     /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(StyleSheetDocument), typeof(MarkupDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
         ArgumentNullException.ThrowIfNull(request);
 
         return string.Equals(
@@ -113,17 +121,32 @@ public sealed class MarkupEditorFactory : IAssetEditorFactory {
             ? new StyleSheetDocument(request.Project, request.Asset, request.Path)
             : new MarkupDocument(request.Project, request.Asset, request.Path);
     }
+}
 
+/// <summary>What <see cref="MarkupEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+/// <remarks>
+///     ⚠ <b>Two views over one control</b>, because the kind opens two types and a view is found by
+///     type: one keyed by <see cref="CodeDocument" /> would also be found for a
+///     <see cref="ShaderDocument" />, and which of the two won would be registration order.
+/// </remarks>
+public sealed class MarkupEditorView : DocumentView<MarkupDocument> {
     /// <inheritdoc />
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(panel);
+    protected override UiElement Build(MarkupDocument document, UiElement panel) => Preview(document, panel);
 
-        // A `CodeEditor` with a preview beside it — see `CodeEditorFactory.CreateView`.
+    /// <summary>A <c>CodeEditor</c> with a preview beside it — see <see cref="ShaderEditorView" />.</summary>
+    internal static UiElement Preview(CodeDocument document, UiElement panel) {
         DockPanel.Fills(panel);
 
         var view = panel.Add<PreviewCodeEditorView>();
-        view.Show((CodeDocument) document);
+        view.Show(document);
 
         return view;
     }
+}
+
+/// <summary>What <see cref="MarkupEditorFactory" />'s stylesheets are shown in: the same control as <see cref="MarkupEditorView" />.</summary>
+public sealed class StyleSheetEditorView : DocumentView<StyleSheetDocument> {
+    /// <inheritdoc />
+    protected override UiElement Build(StyleSheetDocument document, UiElement panel) =>
+        MarkupEditorView.Preview(document, panel);
 }

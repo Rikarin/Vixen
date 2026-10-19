@@ -435,7 +435,7 @@ sealed partial class EditorApplication {
     ///     <para>
     ///         ⚠ <b>A scene already open is activated rather than loaded twice.</b> Two documents over
     ///         one file are two undo histories over one set of bytes, and whichever saved last wins —
-    ///         which is <c>AssetEditorRegistry.TryOpen</c>'s argument, restated for scenes.
+    ///         which is <c>IDocumentHost.TryOpen</c>'s argument, restated for scenes.
     ///     </para>
     /// </remarks>
     internal SceneDocument? OpenSceneAdditively(string path) {

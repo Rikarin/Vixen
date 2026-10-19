@@ -51,7 +51,7 @@ public class SmartMaterialShelfTests {
 
     /// <summary>⚠ The registry opens a shelf entry as a layer stack, which is what the file is.</summary>
     /// <remarks>
-    ///     <b>Through <c>AssetEditorRegistry.TryOpen</c> — the double-click's own route — rather than
+    ///     <b>Through <c>IDocumentHost.TryOpen</c> — the double-click's own route — rather than
     ///     by constructing the document.</b> The claim is that the factory answers for the extension;
     ///     a test that built a <c>LayerStackDocument</c> over a <c>.vxsmartmat</c> would have passed
     ///     before this change, because the document never cared what the file was called.
@@ -64,7 +64,7 @@ public class SmartMaterialShelfTests {
 
         var asset = Entry(fixture);
 
-        Assert.True(fixture.Editors.TryOpen(fixture.Project, asset, out var opened));
+        Assert.True(fixture.Editors.TryOpen(asset, out var opened));
 
         var document = Assert.IsType<LayerStackDocument>(opened);
 

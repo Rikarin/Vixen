@@ -3,6 +3,7 @@
 
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Core;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Ui;
 
 namespace Vixen.Editor.AssetEditors.Content;
@@ -44,31 +45,35 @@ public sealed partial class AddressableGroupsView;
 ///     list with that group selected. The document is still one file's, which is what keeps Ctrl+S
 ///     meaning something specific.
 /// </remarks>
-public sealed class AddressableGroupEditorFactory : IAssetEditorFactory {
+public sealed class AddressableGroupEditorFactory : DocumentKind {
+    /// <inheritdoc />
+    public override string Name => "Addressable Group";
+
+    /// <inheritdoc />
+    public override IReadOnlyList<string> Extensions { get; } = [AddressableGroupDocument.Extension];
+
+    /// <inheritdoc />
+    public override IReadOnlyList<Type> DocumentTypes { get; } = [typeof(AddressableGroupDocument)];
+
+    /// <inheritdoc />
+    public override EditorDocument Open(DocumentRequest request) {
+        ArgumentNullException.ThrowIfNull(request);
+        return new AddressableGroupDocument(request.Project, request.Asset, request.Path);
+    }
+}
+
+/// <summary>What <see cref="AddressableGroupEditorFactory" />'s documents are shown in: the Workspace half of the pair (#1294).</summary>
+public sealed class AddressableGroupEditorView : DocumentView<AddressableGroupDocument> {
     /// <summary>What produces a build plan for the analysis, or <see langword="null" />.</summary>
     /// <remarks>
     ///     Settable rather than a constructor argument, because the application wires it once it has
-    ///     a workspace — which is later than the moment the editors are registered.
+    ///     a workspace — which is later than the moment the editors are registered. On the view since
+    ///     #1294, because the view is the only half that reads it.
     /// </remarks>
     public Func<BuildPlan>? Analyser { get; set; }
 
     /// <inheritdoc />
-    public string Name => "Addressable Group";
-
-    /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [AddressableGroupDocument.Extension];
-
-    /// <inheritdoc />
-    public EditorDocument Open(AssetEditorRequest request) {
-        ArgumentNullException.ThrowIfNull(request);
-        return new AddressableGroupDocument(request.Project, request.Asset, request.Path);
-    }
-
-    /// <inheritdoc />
-    public UiElement CreateView(EditorDocument document, UiElement panel) {
-        ArgumentNullException.ThrowIfNull(document);
-        ArgumentNullException.ThrowIfNull(panel);
-
+    protected override UiElement Build(AddressableGroupDocument document, UiElement panel) {
         var view = panel.Add<AddressableGroupsView>();
         view.Show(document.Project, Analyser);
 
