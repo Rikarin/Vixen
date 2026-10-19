@@ -567,10 +567,6 @@ sealed partial class EditorApplication : IDisposable {
         diagnostics = FindDiagnostics(this.modules);
         assetEditors = FindModule<AssetEditorsModule>(this.modules);
 
-        // ⚠ Before the project, because whether this run is a first one — no history at all — is
-        // what decides whether the startup Project Browser has anything to offer, and opening the
-        // project is what adds this one to the list.
-        Recent = new ProjectHistory(directory);
         IsScratch = projectRoot is null;
 
         // ⚠ The logger is the point of the third argument: `UiDocument` reports every stylesheet rule
@@ -913,9 +909,22 @@ sealed partial class EditorApplication : IDisposable {
             (message, severity, detail) => Shell.Notifications.Show(message, severity, detail),
             () => preferences.AssetFilters,
             () => WritePreferences(),
-            content.Import
+            content.Import,
+
+            // ⚠ The browser's tiles-or-tree and tile size (#1304): the model's, kept in the preferences
+            // and asked for on every read — Revert replaces the object — and written on change rather
+            // than on the way down, because closing the *panel* is a way the choice was being lost.
+            new ShownContent(
+                () => preferences.ProjectGridView,
+                () => preferences.ProjectTileSize,
+                (grid, size) => {
+                    (preferences.ProjectGridView, preferences.ProjectTileSize) = (grid, size);
+                    WritePreferences();
+                }
+            )
         );
         library.CollectionsChanged += () => browser?.Recollect();
+
 
         // ⚠ Doc 50 § P2d: the rescan and the reopen request, before `PluginPoints` publishes it. The
         // close request and the closing flags are handed in rather than moved — closing is the
@@ -924,7 +933,12 @@ sealed partial class EditorApplication : IDisposable {
             project,
             (message, severity, detail) => Shell.Notifications.Show(message, severity, detail),
             RequestClose,
-            () => IsClosing || closing
+            () => IsClosing || closing,
+
+            // ⚠ The recent list is read here and written by `Opened` at the end of this constructor:
+            // whether this run is a first one — no history at all — decides whether the startup
+            // Project Browser has anything to offer, and opening the project adds this one to it.
+            new ProjectHistory(directory)
         );
         library.Arrived += () => browser?.Rescan();
 
@@ -1053,9 +1067,7 @@ sealed partial class EditorApplication : IDisposable {
 
         // ⚠ Recorded after the project has opened rather than before, so a root that turned out to
         // be unreadable is not offered as the first thing to try again next time.
-        Recent.Record(project.Paths.Root, DateTime.UtcNow);
-
-        WarnIfNewerEngine();
+        session.Opened(DateTime.UtcNow);
 
         Shell.Status = ProductName;
 
@@ -1290,7 +1302,7 @@ sealed partial class EditorApplication : IDisposable {
 
             BuildProjectCode();
 
-            if (IsScratch && Recent.Entries.Count <= 1) {
+            if (IsScratch && session.Recent.Count <= 1) {
                 ShowProjectBrowser();
             }
         }
@@ -2410,24 +2422,6 @@ sealed partial class EditorApplication : IDisposable {
                     Sweep();
                     browser.Grabbing += down => grabbingAssets = down;
                     browser.Thumbnails = thumbnails;
-
-                    // ⚠ Restored before the subscription, so putting the toggle back where the user
-                    // left it is not itself recorded as the user having moved it — and written on
-                    // change rather than on the way down, because closing the *panel* is one of the two
-                    // ways the choice was being lost and nothing runs on that.
-                    browser.IsGrid = preferences.ProjectGridView;
-
-                    browser.ViewChanged += grid => {
-                        preferences.ProjectGridView = grid;
-                        WritePreferences();
-                    };
-
-                    browser.TileSize = preferences.ProjectTileSize;
-
-                    browser.TileSizeChanged += size => {
-                        preferences.ProjectTileSize = size;
-                        WritePreferences();
-                    };
 
                     // ⚠ Doc 20 § B1's saved filters. The list is given to the panel rather than held
                     // by it for `IsGrid`'s reason — a panel's factory runs again on every reopen, and

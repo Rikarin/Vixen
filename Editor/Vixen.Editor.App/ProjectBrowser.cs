@@ -131,16 +131,6 @@ sealed class ProjectBrowser {
     /// <summary>Raised when a row's inline editor is committed.</summary>
     public event Action<AssetId, string>? Renamed;
 
-    /// <summary>Raised when the user switches between the tree and the grid.</summary>
-    /// <remarks>
-    ///     ⚠ <b>What makes the choice outlive the panel.</b> A panel's factory runs again every time
-    ///     it is reopened, so the toggle is a fresh unchecked button on every visit — and the
-    ///     application is the only thing that can hold the answer, because it is the only thing that
-    ///     owns a preferences file. Reported rather than written here for the browser's own rule:
-    ///     every verb goes out as an event.
-    /// </remarks>
-    public event Action<bool>? ViewChanged;
-
     /// <summary>Raised when the user asks to keep the filter that is set, under a name.</summary>
     /// <remarks>
     ///     ⚠ <b>The request rather than the filter, for the browser's own rule: every verb goes out
@@ -351,10 +341,15 @@ sealed class ProjectBrowser {
         grid.Variant = ControlVariant.Subtle;
         grid.AddClass("browser-view");
 
+        // ⚠ Read from the model before the subscription, so putting the toggle back where the user
+        // left it is not itself recorded as the user having moved it. A panel's factory runs again
+        // on every reopen; the answer outlives it in `IContentLibrary.Shown` (#1304), not here.
+        grid.IsChecked = shown.Grid;
+
         grid.CheckedChanged += (_, on) => {
             Populate();
             Restate();
-            ViewChanged?.Invoke(on);
+            shown.Grid = on;
         };
 
         // ⚠ In the bar and not in the assets' context menu, because a filter is a property of the
@@ -551,6 +546,10 @@ sealed class ProjectBrowser {
             sizes.AddOption(size.Name, size.Name);
         }
 
+        if (shown.TileSize is { Length: > 0 } kept) {
+            tiles.TileSize = kept;
+        }
+
         sizes.Value = tiles.TileSize;
 
         sizes.SelectionChanged += (_, value) => {
@@ -559,7 +558,7 @@ sealed class ProjectBrowser {
             }
 
             tiles.TileSize = chosen;
-            TileSizeChanged?.Invoke(chosen);
+            shown.TileSize = chosen;
         };
 
         Refilter();
@@ -949,29 +948,13 @@ sealed class ProjectBrowser {
     }
 
     /// <summary>Whether the grid is showing rather than the tree.</summary>
+    /// <remarks>
+    ///     Setting it presses the toggle, so it is the user's choice and lands in
+    ///     <see cref="ShownContent.Grid" /> the way a click does — which is where the answer lives.
+    /// </remarks>
     public bool IsGrid {
         get => grid.IsChecked;
         set => grid.IsChecked = value;
-    }
-
-    /// <summary>How big the grid's tiles are, by the name the dropdown shows.</summary>
-    /// <remarks>
-    ///     ⚠ <b>A name rather than a number, for the reason the layout presets are names.</b> A tile
-    ///     is a width, a height, a glyph size and a caption height that have to agree — a free number
-    ///     would let somebody ask for a 40-pixel tile with a 40-pixel glyph in it — and a name is
-    ///     what a preferences file can hold across a version that changes the sizes.
-    /// </remarks>
-    public string TileSize {
-        get => tiles.TileSize;
-
-        set {
-            tiles.TileSize = value;
-
-            // ⚠ Through the control, so the dropdown shows what was restored. Assigning `Value`
-            // raises `SelectionChanged`, which writes it back to the same place — harmlessly, and
-            // it is why the grid is set first rather than left to that round trip.
-            sizes.Value = tiles.TileSize;
-        }
     }
 
     /// <summary>What is in the search box.</summary>
@@ -1081,10 +1064,6 @@ sealed class ProjectBrowser {
 
         menu.OpenAt(bounds.X, bounds.Y + bounds.Height);
     }
-
-    /// <summary>Raised when the tile size is changed, so that the choice can outlive the panel.</summary>
-    /// <inheritdoc cref="ViewChanged" select="remarks" />
-    public event Action<string>? TileSizeChanged;
 
     /// <summary>The grid, for the panel that holds it.</summary>
     public AssetGrid Grid => tiles;

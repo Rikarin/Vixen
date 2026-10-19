@@ -1193,7 +1193,6 @@ T:Vixen.Editor.Assets.FolderImportSettings sweep-pending
 T:Vixen.Editor.Assets.FolderImporter sweep-pending
 T:Vixen.Editor.Assets.IAssetImporter sweep-pending
 T:Vixen.Editor.Assets.IAssetSources sweep-pending
-T:Vixen.Editor.Assets.IContentLibrary service guide page owed by #1311 (doc 50 § D6: seven services, nine pages)
 T:Vixen.Editor.Assets.IImportExecutor sweep-pending
 T:Vixen.Editor.Assets.ImportCache sweep-pending
 T:Vixen.Editor.Assets.ImportContext sweep-pending
@@ -1223,7 +1222,6 @@ T:Vixen.Editor.Assets.RawImporter sweep-pending
 T:Vixen.Editor.Assets.Scenes.SceneCompiler sweep-pending
 T:Vixen.Editor.Assets.Scenes.SceneImportSettings sweep-pending
 T:Vixen.Editor.Assets.Scenes.SceneImporter sweep-pending
-T:Vixen.Editor.Assets.ShownContent the content library service page owed by #1311 documents it with IContentLibrary
 T:Vixen.Editor.Assets.StoredArtifact sweep-pending
 T:Vixen.Editor.Assets.Textures.SliceMethod sweep-pending
 T:Vixen.Editor.Assets.Textures.SpriteMode sweep-pending
@@ -1253,7 +1251,6 @@ T:Vixen.Editor.Core.EditorDocument sweep-pending
 T:Vixen.Editor.Core.EditorNames sweep-pending
 T:Vixen.Editor.Core.EditorProject sweep-pending
 T:Vixen.Editor.Core.IEditorCommand sweep-pending
-T:Vixen.Editor.Core.IProjectSession service guide page owed by #1311 (doc 50 § D6: seven services, nine pages)
 T:Vixen.Editor.Core.PlayerBuildSettings sweep-pending
 T:Vixen.Editor.Core.ProjectMarker sweep-pending
 T:Vixen.Editor.Core.ProjectMarkerFile sweep-pending
@@ -1490,7 +1487,6 @@ T:Vixen.Editor.SceneView.GizmoSpace sweep-pending
 T:Vixen.Editor.SceneView.GridLine sweep-pending
 T:Vixen.Editor.SceneView.IComponentBridge sweep-pending
 T:Vixen.Editor.SceneView.IGizmoTarget sweep-pending
-T:Vixen.Editor.SceneView.ISceneEditing doc 50 service — its guide page is #1311 (the context-service pages), and the verbs it carries are documented on the type
 T:Vixen.Editor.SceneView.IScenePicker sweep-pending
 T:Vixen.Editor.SceneView.ISceneProbe sweep-pending
 T:Vixen.Editor.SceneView.ISceneWriter sweep-pending

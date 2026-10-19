@@ -551,7 +551,7 @@ sealed partial class EditorApplication {
             document.Stack.Capacity = depth;
         }
 
-        Recent.Limit = Math.Max(1, preferences.RecentProjects);
+        session.History.Limit = Math.Max(1, preferences.RecentProjects);
         ApplyLanguage();
     }
 

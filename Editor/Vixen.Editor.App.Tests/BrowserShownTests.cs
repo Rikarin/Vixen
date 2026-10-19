@@ -43,6 +43,50 @@ public sealed class BrowserShownTests {
         Assert.Equal("bark", browser.Search);
     }
 
+    /// <summary>Tiles-or-tree and the tile size live in the model, come back with a reopened panel, and survive a restart.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two lifetimes, asserted separately.</b> The reopen proves the panel reads
+    ///     <c>Shown</c> on build rather than starting from a fresh toggle; the restart proves the model is
+    ///     written back to the preferences and seeded from them, which a model that only lived for the
+    ///     session would fail.
+    /// </remarks>
+    [Fact]
+    public void The_view_and_tile_size_survive_closing_the_panel_and_a_restart() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("project");
+
+        var browser = editor.Application.Browser ?? throw editor.Fail("the browser did not open");
+
+        Assert.True(browser.IsGrid, "the browser no longer opens as a grid");
+
+        Sizes(editor).Value = "Small";
+        editor.Settle();
+
+        browser.IsGrid = false;
+        editor.Settle();
+
+        Assert.False(editor.Library.Shown.Grid);
+        Assert.Equal("Small", editor.Library.Shown.TileSize);
+
+        editor.Close("project").Open("project");
+
+        var reopened = editor.Application.Browser ?? throw editor.Fail("the browser did not reopen");
+
+        Assert.False(reopened.IsGrid);
+        Assert.Equal("Small", reopened.Grid.TileSize);
+
+        editor.Restart().Open("project");
+
+        Assert.False(editor.Library.Shown.Grid);
+        Assert.Equal("Small", editor.Library.Shown.TileSize);
+        Assert.False((editor.Application.Browser ?? throw editor.Fail("no browser after the restart")).IsGrid);
+    }
+
+    static Select Sizes(EditorSession editor) =>
+        Descendants(editor.Panel("project")).OfType<Select>().FirstOrDefault(select => select.HasClass("browser-tile-size"))
+        ?? throw editor.Fail("the browser has no tile-size picker");
+
     static SearchBox Search(EditorSession editor) =>
         Descendants(editor.Panel("project")).OfType<SearchBox>().FirstOrDefault()
         ?? throw editor.Fail("the browser has no search box");

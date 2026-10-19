@@ -50,25 +50,31 @@ internal sealed class ContentLibrary : IContentLibrary {
     /// </param>
     /// <param name="writeFilters">Writes the preferences file the filters live in.</param>
     /// <param name="import">Imports what a scan found, on the content tasks' worker.</param>
+    /// <param name="shown">
+    ///     What the browser is showing, or <see langword="null" /> for a model whose view lives only as
+    ///     long as it does — the editor hands one kept in the user's preferences.
+    /// </param>
     public ContentLibrary(
         EditorProject project,
         Action<string, NotificationSeverity, string?> notify,
         Func<List<SavedAssetFilter>> filters,
         Action writeFilters,
-        Action import
+        Action import,
+        ShownContent? shown = null
     ) {
         this.project = project;
         this.notify = notify;
         this.filters = filters;
         this.writeFilters = writeFilters;
         this.import = import;
+        Shown = shown ?? new ShownContent();
     }
 
     /// <inheritdoc />
     public EditorProject Project => project;
 
     /// <inheritdoc />
-    public ShownContent Shown { get; } = new();
+    public ShownContent Shown { get; }
 
     /// <inheritdoc />
     public event Action? CollectionsChanged;
@@ -218,6 +224,95 @@ internal sealed class ContentLibrary : IContentLibrary {
 
         return full.StartsWith(root, StringComparison.Ordinal)
             || string.Equals(full + Path.DirectorySeparatorChar, root, StringComparison.Ordinal);
+    }
+
+    /// <summary>Makes an empty asset of a kind in the selected folder and scans it in.</summary>
+    /// <param name="kind">What to make.</param>
+    /// <returns>The new asset, or <see langword="null" /> when the file could not be written.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Moved, not rewritten</b> — this was <c>EditorWorlds.CreateAsset</c>, the body behind
+    ///         every Create ▸ line. What stayed behind is the half that is not this context's: opening
+    ///         the new file, which the command does with the identity returned here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Scanned before it is returned, because a document is found by its GUID.</b> The file
+    ///         has to be in the asset database for <c>AssetEditorRegistry.TryOpen</c> to have an
+    ///         identity to open it under — and without the sidecar the scan mints, a second scan would
+    ///         give it a new one and every reference to it would dangle.
+    ///     </para>
+    /// </remarks>
+    public AssetId? Create(NewAssetKind kind) {
+        ArgumentNullException.ThrowIfNull(kind);
+
+        var folder = "Assets";
+
+        if (project.Selection.Count > 0 && project.Assets.TryGetByGuid(project.Selection[0], out var entry)) {
+            folder = entry.IsFolder ? entry.Path : Path.GetDirectoryName(entry.Path)?.Replace('\\', '/') ?? "Assets";
+        }
+
+        var directory = project.Paths.Absolute(folder);
+        var path = Path.Combine(directory, kind.DefaultName + kind.Extension);
+        var attempt = 2;
+
+        while (File.Exists(path)) {
+            path = Path.Combine(directory, $"{kind.DefaultName} {attempt++}{kind.Extension}");
+        }
+
+        try {
+            Directory.CreateDirectory(directory);
+            File.WriteAllText(path, kind.NewContents());
+        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+            notify("Could not create the asset", NotificationSeverity.Error, exception.Message);
+
+            return null;
+        }
+
+        project.Assets.Scan();
+        Arrived?.Invoke();
+
+        notify(Path.GetFileName(path) + " created", NotificationSeverity.Success, null);
+
+        return project.Assets.TryGetByPath(project.Paths.Relative(path), out var created) ? created.Guid : null;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>One step and not a closure</b> — the opposite of <see cref="Closure" />, and on
+    ///     purpose. Find References answers "who points at this" because a person is about to look at
+    ///     the answer: open one, delete the lot, or see what they have in common.
+    /// </remarks>
+    public IReadOnlyList<AssetId> Referrers(IEnumerable<AssetId> assets) => Walk(assets, project.References.ReferrersOf);
+
+    /// <inheritdoc />
+    public IReadOnlyList<AssetId> Dependencies(IEnumerable<AssetId> assets) =>
+        Walk(assets, asset => project.References.ReferencesFrom(asset).Select(reference => reference.Asset));
+
+    /// <summary>Walks one edge of the reference graph from some assets.</summary>
+    /// <param name="assets">Where to start.</param>
+    /// <param name="edge">Which way to walk: what points at an asset, or what it points at.</param>
+    /// <returns>What was reached, in the order found and each once.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A set for membership and a list for order.</b> The two verbs differ only in which
+    ///     direction they walk, and both can reach the same asset from several starting ones — a
+    ///     linear <c>Contains</c> per hit is quadratic in the answer, which a select-all over a
+    ///     heavily cross-referenced project is exactly the shape of.
+    /// </remarks>
+    static List<AssetId> Walk(IEnumerable<AssetId> assets, Func<AssetId, IEnumerable<AssetId>> edge) {
+        ArgumentNullException.ThrowIfNull(assets);
+
+        List<AssetId> found = [];
+        HashSet<AssetId> seen = [];
+
+        foreach (var asset in assets) {
+            foreach (var reached in edge(asset)) {
+                if (seen.Add(reached)) {
+                    found.Add(reached);
+                }
+            }
+        }
+
+        return found;
     }
 
     /// <summary>Everything the selection reaches through the reference graph, itself included.</summary>
