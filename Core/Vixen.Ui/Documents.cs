@@ -53,10 +53,18 @@ public interface IEditableDocument {
     ///         and not this. <c>Samples/02-HelloUi</c>'s save is in memory and says so.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A proxy icon <i>is</i> this and still waits on a seam.</b> A represented file
-    ///         is a path, and <c>IUiWindow</c> has <c>Title</c> and nothing like
-    ///         <c>NSWindow.representedURL</c>, which no platform implements either — so there is
-    ///         somewhere to read the path from now and nowhere to put it.
+    ///         ⚠ <b>A proxy icon <i>is</i> this and still waits on a seam</b> (#656). A represented
+    ///         file is a path, and nothing below this can take one. <c>IUiWindow</c> has
+    ///         <c>Title</c> and nothing like <c>NSWindow.representedURL</c>, and neither does the
+    ///         platform's <c>IWindow</c> under it. The SDL2 desktop window can reach its
+    ///         <c>NSWindow</c> through <c>SDL_GetWindowWMInfo</c>, and <c>Vixen.Platform.Desktop</c>
+    ///         references <c>Vixen.Platform.MacOS</c>, but that assembly's Objective-C bridge is
+    ///         internal and exposes no <c>setRepresentedURL:</c>. So the seam is four pieces — an
+    ///         <c>IWindow</c> member, the desktop window's macOS branch, a public call in
+    ///         <c>Vixen.Platform.MacOS</c>, and an <c>IUiWindow</c> member that
+    ///         <c>PlatformUiWindow</c> forwards and <c>UiWindowTitle.Bind</c> writes. Only macOS has
+    ///         anything to show, and a member on <c>IUiWindow</c> alone would be a setter nothing
+    ///         reads.
     ///     </para>
     /// </remarks>
     IReadOnlySignal<string?> Location { get; }
