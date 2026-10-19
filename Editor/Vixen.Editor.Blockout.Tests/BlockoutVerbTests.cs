@@ -111,6 +111,65 @@ public class BlockoutVerbTests : IDisposable {
         Assert.Equal(4, mode.Verbs.Repeat(radial: false));
     }
 
+    /// <summary>The loop cut the verb makes is the one the hover drew, at the mode's count and slide — #1485.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The preview read <c>LoopCuts</c> and <c>LoopSlide</c>; the verb ran with the
+    ///         defaults.</b> So with three loops on the dial the viewport drew three and Ctrl+Shift+R cut
+    ///         one, latent only because nothing yet sets either dial.
+    ///     </para>
+    ///     <para>
+    ///         <b>Closed form, on a unit box.</b> Every ring edge is one unit long, so each new
+    ///         position's distance to the nearest original corner is <c>min(t, 1 - t)</c> for the
+    ///         parameter it was cut at: <c>slide</c> for one cut, <c>k / (n + 1)</c> for <c>n</c>. Every
+    ///         row differs from the default's four halves, so a verb that ignores the dials is red on
+    ///         each — and the previewed points must be among the positions made, which is the
+    ///         agreement the remark on <c>BlockoutGeometry.LoopCut</c> promises.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(1, 0.25f, new[] { 0.25f, 0.25f, 0.25f, 0.25f })]
+    [InlineData(2, 0.5f, new[] { 1f / 3f, 1f / 3f, 1f / 3f, 1f / 3f, 1f / 3f, 1f / 3f, 1f / 3f, 1f / 3f })]
+    [InlineData(3, 0.5f, new[] { 0.25f, 0.25f, 0.25f, 0.25f, 0.25f, 0.25f, 0.25f, 0.25f, 0.5f, 0.5f, 0.5f, 0.5f })]
+    public void The_loop_cut_verb_cuts_at_the_count_and_slide_the_preview_draws(int cuts, float slide, float[] expected) {
+        var editing = new MeshEdit(scene);
+        var mode = new BlockoutMode { Editing = editing, LoopCuts = cuts, LoopSlide = slide };
+        var box = Box(new(1f, 1f, 1f));
+
+        scene.Selection.Set(box);
+        editing.Enter(MeshElementKind.Edge);
+        editing.Selection.Set([0]);
+
+        var before = scene.MeshOf(box)!;
+        var corners = before.Positions.ToArray();
+        var faces = before.FaceCount;
+        List<(Vector3 A, Vector3 B)> preview = [];
+
+        Assert.True(BlockoutHover.LoopCut(before, 0, mode.LoopCuts, mode.LoopSlide, preview));
+        Assert.True(mode.Verbs.LoopCut());
+
+        var after = scene.MeshOf(box)!;
+        var made = after.Positions.ToArray()[corners.Length..];
+
+        Assert.Equal(faces + 4 * cuts, after.FaceCount);
+
+        var fractions = made
+            .Select(position => corners.Min(corner => Vector3.Distance(corner, position)))
+            .Order()
+            .ToArray();
+
+        Assert.Equal(expected.Length, fractions.Length);
+
+        for (var index = 0; index < expected.Length; index++) {
+            Assert.Equal(expected[index], fractions[index], 4);
+        }
+
+        foreach (var (a, b) in preview) {
+            Assert.Contains(made, position => Vector3.Distance(position, a) < 1e-4f);
+            Assert.Contains(made, position => Vector3.Distance(position, b) < 1e-4f);
+        }
+    }
+
     [Fact]
     public void Every_verb_is_reached_by_a_command() {
         using var shell = new EditorShell(1280f, 800f);
