@@ -48,8 +48,10 @@ Beside every covered `.csproj`:
 | `PublicAPI.Unshipped.txt` | everything approved since, plus a `*REMOVED*` line for shipped API that has been taken away. |
 
 At a release the second is folded into the first. Until the first release both are honest as they
-stand: `Shipped` is empty everywhere, because nothing has shipped, and writing 22 000 entries into it
-would claim a compatibility promise nobody has made. The file format is the one
+stand: `Shipped` is empty everywhere but one, because nothing has shipped, and writing 22 000 entries
+into it would claim a compatibility promise nobody has made. ⚠ The one is `Vixen.Editor.Plugin`, whose
+stable core — `IEditorPlugin`, `PluginContext`, `PluginServices`, `PluginHost` — was shipped by
+decision before any release (#1311), because that promise *has* been made, to plugin authors. The file format is the one
 `Microsoft.CodeAnalysis.PublicApiAnalyzers` uses, deliberately — if the analyzer is ever turned on
 for the IDE experience, these files are what it reads.
 

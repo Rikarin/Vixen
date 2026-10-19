@@ -245,7 +245,9 @@ service seams have one consumer (`EditorDocument.Saved`, `IActiveView`, `IEditor
 and two — `DrawerRegistry.Default`, `ImporterContributions.Default` — are process statics handed
 over as if the host owned them. `Vixen.Editor.Plugin`'s `PublicAPI.Shipped.txt` is one line
 (`#nullable enable`); all 195 symbols are in `Unshipped`. **Nothing about the contract has ever been
-declared stable.**
+declared stable.** ✅ *Since #1311 the core is*: `IEditorPlugin`, `PluginContext`, `PluginServices`
+and `PluginHost` — 59 lines, every member — are `Shipped`; the doc 50 services stay `Unshipped`
+until P2 finishes.
 
 **F9 — The shell carries 110 feature names, measured, and they are not where doc 36 looked.**
 The feature-name audit (`.cs` and `.vxml`, code only, comments excluded):
@@ -738,7 +740,7 @@ Waves follow the phases; a wave is five worktrees, merged as each lands, gates o
 | [#1302](https://github.com/Rikarin/Vixen/issues/1302) | `NotYetMoved` deleted; `ApplicationReferenceRule` is `Allowed` only | P3 | 6 |
 | [#1303](https://github.com/Rikarin/Vixen/issues/1303)–[#1309](https://github.com/Rikarin/Vixen/issues/1309) | One per feature god file: `SceneViewport`, `ProjectBrowser`, `NodeGraphView`, `LayerStackView` + `TexturingModule`, `BlockoutMode`, `ComponentsView.vxml`, `EditorHost` | P4 | 7–8 · #1307 (`BlockoutMode`) ✅ the verbs are `IBlockout`, published with `PluginContext.Publish` · #1303 (`SceneViewport`) partial: a tool is handed `IViewportPane`, the eight members its consumers read; bookmarks, `Extensions` and the overlay signature are owed · #1306 (`LayerStackView` + `TexturingModule`) 🟡 all three moves landed — `ITexturing`, declared Tools lines, the chosen set and selected layer on the document — and the three view theme installs stay (#917) |
 | [#1310](https://github.com/Rikarin/Vixen/issues/1310) | Settings dirty joins `HasUnsavedChanges`; settings edits through `EditProperty` with a document (#1162's provider) | P2e | 5 · first half landed (the join); the document half waits on #1294 |
-| [#1311](https://github.com/Rikarin/Vixen/issues/1311) | Guide pages for the seven services and two records (`CheckDocs`, not `Docs`) | each | with its phase |
+| [#1311](https://github.com/Rikarin/Vixen/issues/1311) | Guide pages for the seven services and two records (`CheckDocs`, not `Docs`) | each | with its phase · 🟡 the pages for the services that exist ✅; `Vixen.Editor.Plugin`'s first `Shipped` baseline ✅ (the core four, decided (b)); five pages wait on #1294 and the delivery lane |
 
 ## Part 7 — Estimate and risk
 

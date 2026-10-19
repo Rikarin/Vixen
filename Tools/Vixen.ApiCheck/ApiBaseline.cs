@@ -22,7 +22,9 @@ namespace Vixen.ApiCheck;
 ///         something a consumer was using" a visible line in a reviewed file instead of an absence
 ///         nobody looked for. Until the first release, <c>Shipped</c> is empty and honest —
 ///         everything in this repository is unshipped, and writing it into <c>Shipped</c> would
-///         claim a compatibility promise that has not been made.
+///         claim a compatibility promise that has not been made. ⚠ The one exception is
+///         <c>Vixen.Editor.Plugin</c>'s stable core, shipped by decision because that promise was
+///         made to plugin authors (#1311).
 ///     </para>
 /// </remarks>
 public static class ApiBaseline {
