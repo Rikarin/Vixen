@@ -1030,6 +1030,19 @@ marquee {
     --marquee-edge: rgba(140, 190, 255, 0.9);
 }
 
+/* A play session's overlay panel over the focused pane (#1264), on the
+   band's terms: it covers the pane, so it must not take the pointer, and it
+   needs a box at all because a zero-sized element paints nothing of its own
+   (#1375) — its `OnDraw` is never called. */
+play-overlay {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    right: 0px;
+    bottom: 0px;
+    pointer-events: none;
+}
+
 /* ── Background tasks ───────────────────────────────────────────────────
    Never a modal dialog — doc 11 is explicit — so this is a panel that
    happens to be over the status bar and takes no input from the rest of

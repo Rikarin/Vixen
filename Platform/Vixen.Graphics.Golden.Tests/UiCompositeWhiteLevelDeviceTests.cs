@@ -194,21 +194,19 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
             $"{mode} is source-over on these operands at a white of one ({blended} against {over}), so the scaling cannot tell it ran"
         );
 
-        // ⚠ Away from the rectangles' edges, and the software executor against its own frame at one
-        // rather than the device's. `hue` is discontinuous at a grey source: § 5.3's `SetSat` gives any
-        // colour with non-zero saturation the backdrop's whole saturation, so a grey texel beside the
-        // paint that picks up a rounding's worth of it — the device's bilinear tap a hair off a texel
-        // centre on a float surface, or the software's own at a different white — comes out in the
-        // paint's hue at full strength. That is a one-pixel fringe at every white, and neither a unit
-        // error nor this test's to hold; it is filed on its own. Measured on the RTX 4060 Ti: column 88
-        // at (0.293, 0.593, 0.360) on the device against (0.542, 0.442, 0.492) in software, at a white
-        // of one and at 203 alike.
-        AssertScaled(mode.ToString(), "the device", one, lit, Edge);
+        // ⚠ Every pixel, edges included, and the software executor against its own frame at one rather
+        // than the device's. `hue` is discontinuous at a grey source: § 5.3's `SetSat` gives any colour
+        // with non-zero saturation the backdrop's whole saturation, so a grey pixel beside the paint
+        // that picks up a rounding's worth of it comes out in the paint's hue at full strength. This
+        // skipped two pixels either side of every edge until #1457 removed both traces that did that —
+        // `UiBox`'s edge coverage on the device and the software's composite tap a few ulps off a texel
+        // centre — and `ANonSeparableBlendOverAGreySourceHasNoFringeAtTheGroupsEdges` holds the edge.
+        AssertScaled(mode.ToString(), "the device", one, lit);
 
         var geometry = Build(list, DiffuseWhite, out var atlas);
         var softOne = ToPixels(SoftwareUiRasterizer.RenderLinear(Build(list, 1f, out var atlasOne), atlasOne, Side, Side, Clear));
 
-        AssertScaled(mode.ToString(), "the software renderer", softOne, ToPixels(SoftwareUiRasterizer.RenderLinear(geometry, atlas, Side, Side, Clear)), Edge);
+        AssertScaled(mode.ToString(), "the software renderer", softOne, ToPixels(SoftwareUiRasterizer.RenderLinear(geometry, atlas, Side, Side, Clear)));
     }
 
     public static TheoryData<UiBlendMode> NonSeparable() => [UiBlendMode.Hue, UiBlendMode.Saturation, UiBlendMode.Color];
@@ -223,8 +221,8 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
     ///         Compositing § 5.3's <c>SetSat</c> gives any source with non-zero saturation the
     ///         backdrop's whole saturation, so <c>hue</c> is discontinuous at a grey source: a grey
     ///         texel beside the paint that picks up a trace of it comes out in the paint's hue at full
-    ///         strength. <c>SoftwareUiRasterizer</c> samples a 1:1 composite texel-exact; the device
-    ///         must too, or every group edge on a float pass carries a one-pixel fringe.
+    ///         strength. Both executors must leave exactly nothing of the paint outside it, or every
+    ///         group edge on a float pass carries a one-pixel fringe.
     ///     </para>
     ///     <para>
     ///         The oracle is closed-form where it can be: the column just right of the paint is the
@@ -235,16 +233,19 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
     ///         a grey source and are here for completeness.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Skipped because it is red, and the cause #1457 named is not the cause.</b> Measured
-    ///         on the RTX 4060 Ti, the same three rectangles drawn flat — no group, no composite, no
-    ///         sampler anywhere — already put a trace of the paint into column 88: (0.49999827,
-    ///         0.50000226, 0.49999943) where the grey is 0.5. So the trace is <c>UiBox</c>'s edge
-    ///         coverage, <c>saturate(0.5 - d / w)</c> on an interpolated position a few ulps inside
-    ///         the paint's edge, and not the composite's bilinear tap: snapping <c>UiBlend</c>'s taps
-    ///         to texel centres left column 88 bit-identical. Unskip with the fix.
+    ///         ⚠ <b>Two traces, one per executor, and each was the other's suspect.</b> On the RTX 4060
+    ///         Ti the same three rectangles drawn flat — no group, no composite, no sampler — already
+    ///         put a trace of the paint into column 88: (0.49999827, 0.50000226, 0.49999943) where the
+    ///         grey is 0.5. That is <c>UiBox</c>'s edge coverage, <c>saturate(0.5 - d / w)</c> on a
+    ///         position a few ulps inside the paint's edge, and <c>Ui.Coverage</c> now snaps anything
+    ///         below half a unorm8 step to zero. With that fixed the device was right and the software
+    ///         executor was the one fringed — column 88 at rows 80 and 81, from its composite tap a few
+    ///         ulps off a texel centre, which a GPU sampler's sub-texel precision rounds away and its
+    ///         transcription now does too. Red against the pre-fix <c>UiBox.frag.spv</c> at the closed
+    ///         form, and red against the pre-fix sampler at (88, 80).
     ///     </para>
     /// </remarks>
-    [Theory(Skip = "#1457: red on the device — the fringe's trace comes from UiBox's edge coverage, not the composite's sampler; see the remarks")]
+    [Theory]
     [MemberData(nameof(NonSeparable))]
     public void ANonSeparableBlendOverAGreySourceHasNoFringeAtTheGroupsEdges(UiBlendMode mode) {
         if (!TryOpen(out var fixture)) {
@@ -548,25 +549,14 @@ public sealed class UiCompositeWhiteLevelDeviceTests {
         return list;
     }
 
-    /// <summary>Whether a pixel is within two of an edge of <see cref="Group" />'s rectangles, where <c>hue</c> is ill-conditioned.</summary>
-    static bool Edge(int x, int y) {
-        static bool Near(int value) => Math.Abs(value - 24) <= 2 || Math.Abs(value - 40) <= 2 || Math.Abs(value - 88) <= 2 || Math.Abs(value - 104) <= 2;
-
-        return Near(x) || Near(y);
-    }
-
     /// <summary>Asserts every pixel of <paramref name="lit" /> is <paramref name="one" /> times the white, alpha unchanged.</summary>
-    static void AssertScaled(string arrangement, string executor, Vector4[] one, Vector4[] lit, Func<int, int, bool>? skip = null) {
+    static void AssertScaled(string arrangement, string executor, Vector4[] one, Vector4[] lit) {
         var worst = 0f;
         var worstAt = (0, 0);
         var worstPair = (default(Vector4), default(Vector4));
 
         for (var y = 0; y < Side; y++) {
             for (var x = 0; x < Side; x++) {
-                if (skip is not null && skip(x, y)) {
-                    continue;
-                }
-
                 var a = one[(y * Side) + x];
                 var b = lit[(y * Side) + x];
 

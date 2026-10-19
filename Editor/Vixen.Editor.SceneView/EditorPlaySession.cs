@@ -286,12 +286,13 @@ public sealed class EditorPlaySession : IPlaySession {
     ///         axes are all world lines, so all of it arrives.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What does <em>not</em> arrive is the counts panel.</b>
+    ///         ⚠ <b>The counts panel does not come through here, and must not.</b>
     ///         <c>PhysicsDebugDrawSystem.Draw</c> writes "bodies awake/all" into an
-    ///         <c>OverlaySurface</c>, which is a game's HUD and not a pane — and the awake count is
-    ///         the number that tells "every body is asleep" from "nothing is being stepped" apart. It
-    ///         is a real gap and it is stated here rather than left to be discovered from an editor
-    ///         showing wireframes and no numbers.
+    ///         <c>OverlaySurface</c>, which is laid out against one screen — and this accumulator is
+    ///         every pane's, so a panel written here would land in all of them at one pane's
+    ///         coordinates. The application lays <see cref="Overlays" /> out against the focused pane
+    ///         into an accumulator of its own and the interface paints it over that pane
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1264">#1264</a>).
     ///     </para>
     ///     <para>
     ///         Run every frame rather than only while playing, because the frame after Stop has to

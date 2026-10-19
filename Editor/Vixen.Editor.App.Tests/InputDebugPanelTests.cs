@@ -20,11 +20,11 @@ namespace Vixen.Editor.App.Tests;
 ///         repeating.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="It_says_nothing_is_published_and_goes_live_when_something_is" /> is the
-///         one that matters.</b> The shipping editor publishes no <see cref="InputService" />, so
-///         every other assertion about this panel can be satisfied by a panel that is permanently
-///         dark. Proving the sentence *changes* when a host publishes one is what separates "the
-///         instrument is honest about not running" from "the instrument does not run".
+///         ⚠ <b><see cref="It_reads_the_service_the_editor_publishes_and_keeps_reading_it" /> is the
+///         one that matters.</b> Until #470 the shipping editor published no
+///         <see cref="InputService" /> and this panel was dark by construction; it publishes the one a
+///         play session's focused pane feeds now, so the panel is live from the first frame. The
+///         unpublished sentence is still the view's to say, and <c>InputDebugViewTests</c> holds it.
 ///     </para>
 /// </remarks>
 public class InputDebugPanelTests {
@@ -55,28 +55,19 @@ public class InputDebugPanelTests {
         Assert.Contains(session.Panels, panel => panel.Id == AssetEditorsModule.InputDebugPanelId);
     }
 
-    /// <summary>⚠ The honest-instrument check, both ways.</summary>
+    /// <summary>⚠ The panel reads the service the shipping editor publishes, and keeps reading it.</summary>
     [Fact]
-    public void It_says_nothing_is_published_and_goes_live_when_something_is() {
+    public void It_reads_the_service_the_editor_publishes_and_keeps_reading_it() {
         using var session = EditorSession.Start();
 
         var view = session.Control<InputDebugView>(AssetEditorsModule.InputDebugPanelId);
 
         session.Frames(2);
 
-        // The editor routes platform events into its own interface document and never into an
-        // InputDeviceSet, so this is what the shipping editor shows — and it says so.
-        Assert.Equal(InputDebugView.Unpublished, view.SourceLine);
-        Assert.Empty(view.Devices.Children);
-
-        var service = new InputService();
-
-        session.Plugins.Services.Add(service);
-        session.Frames(2);
-
-        // ⚠ Resolved again on the frame after the service arrived, not captured when the panel was
-        // built. A host publishes late — a play session is the obvious case — and a panel that asked
-        // once would stay dark with nothing to say why.
+        // The one a play session's focused pane feeds (#470) — the editor's, not one put there by
+        // this test, which is what the panel was dark for want of.
+        Assert.True(session.Plugins.Services.TryGet<InputService>(out var service));
+        Assert.NotNull(service);
         Assert.Contains("InputService", view.SourceLine, StringComparison.Ordinal);
         Assert.NotEmpty(view.Devices.Children);
 

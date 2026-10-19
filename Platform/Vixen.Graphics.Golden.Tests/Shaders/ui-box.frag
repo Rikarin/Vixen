@@ -117,8 +117,14 @@ float pixel_width(float value) {
 // Coverage across a one-pixel band, from the derivative of the distance itself. Taking the width
 // from the geometry rather than from a constant is what makes the same shader right under any
 // projection and any scale.
+//
+// ⚠ Below half a unorm8 step it is exactly zero (#1457): a pixel centred on the edge is evaluated a
+// few ulps inside it, and the ~2e-6 trace that leaves is rounded away by an 8-bit target but kept by
+// a float one, where a non-separable blend's `SetSat` turns it into a full-strength fringe.
+// `Ui.Coverage` is the twin, threshold included: 0.5 / 255 written out, as Raven must.
 float coverage_of(float distance, float width) {
-    return clamp(0.5 - (distance / width), 0.0, 1.0);
+    float coverage = clamp(0.5 - (distance / width), 0.0, 1.0);
+    return coverage < 0.0019607844 ? 0.0 : coverage;
 }
 
 // A shadow's coverage: the same distance, faded over the blur radius instead of over a pixel.

@@ -637,6 +637,11 @@ sealed partial class EditorApplication : IDisposable {
         // long as the session. #470.
         contributions.Add(Extensions.Add<IPlaySystems>(new PlayAi()));
 
+        // ⚠ And the keyboard, which a session reads only from a focused scene pane, and which every
+        // pane's input goes through ahead of the active mode — see `PlayInput` and `Configure`. #470.
+        playInput = new PlayInput(modeInput ??= new ModeInput(Shell.Modes));
+        contributions.Add(Extensions.Add<IPlaySystems>(playInput));
+
         // ⚠ Every entity gets a *new handle* when a play-mode snapshot is restored, so the
         // document's name and stable-id tables — both keyed by handle — name nothing at all
         // afterwards. `SceneDocument.Remap` was written for exactly this and nothing called it: the
@@ -1266,6 +1271,10 @@ sealed partial class EditorApplication : IDisposable {
         if (!play.Tick(delta)) {
             ResolveTransforms();
         }
+
+        // ⚠ After the step, so the panel's numbers are this frame's, and against the focused pane's
+        // size into an accumulator of its own — never `play.Debug`, which every pane draws (#1264).
+        paneOverlays.Update(play, viewports?.Focused);
 
         // ⚠ Immediately after them and not later in this method. Both extraction queries want
         // `WorldTransform` and neither writes one — in a game the phase and the declared access are
@@ -1936,6 +1945,7 @@ sealed partial class EditorApplication : IDisposable {
     void Configure(ViewportLayout layout) {
         chrome ??= new ViewportChrome(Shell);
         chrome.Forget();
+        overlayLayers.Clear();
 
         for (var index = 0; index < layout.Panes.Count; index++) {
             var pane = layout.Panes[index];
@@ -1988,7 +1998,9 @@ sealed partial class EditorApplication : IDisposable {
             // assemblies that cannot see each other: `IEditorMode` is the shell's and `IViewportInput`
             // is the pane's, and the application is the only thing that knows about both. Shared
             // across panes and across rebuilds, because it holds nothing but the mode registry.
-            pane.Input = modeInput ??= new ModeInput(Shell.Modes);
+            // ⚠ Behind the play session's keyboard, which takes a key first while a session runs and
+            // the pane has not let go of it with Escape, and hands everything else to the mode (#470).
+            pane.Input = playInput;
 
             // ⚠ Restored, because this runs again every time the panel is reopened and a fresh
             // SceneViewport starts at the origin looking down −Z. Absent for a pane of an
@@ -2018,6 +2030,10 @@ sealed partial class EditorApplication : IDisposable {
                     if (args.Gained) {
                         layout.Focus(focused);
                     }
+
+                    // ⚠ Both ways: a key held as the focus leaves is released where the game never
+                    // hears it, so losing the focus has to let go of it here (#470).
+                    playInput.Focus(args.Gained);
                 },
                 handledEventsToo: true
             );
@@ -2028,6 +2044,15 @@ sealed partial class EditorApplication : IDisposable {
             pane.Gizmos = new(bridges, Extensions);
 
             chrome.Attach(pane, this);
+
+            // ⚠ After the chrome, so a play session's overlay panel is stroked over the toolbar as a
+            // game's HUD is over its picture. Every pane gets one and only the focused pane's paints
+            // — see `PaneOverlays` (#1264).
+            var layer = pane.Control.Overlay.Add<PlayOverlayLayer>();
+
+            layer.Owner = pane;
+            layer.Source = paneOverlays;
+            overlayLayers.Add(layer);
         }
 
         // ⚠ After the loop and not inside it, because the panes are what it walks. A rearrangement
@@ -2041,6 +2066,29 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>What gives the active editor mode first refusal on every pane's input.</summary>
     ModeInput? modeInput;
+
+    /// <summary>A play session's keyboard, ahead of <see cref="modeInput" /> on every pane.</summary>
+    readonly PlayInput playInput;
+
+    /// <summary>A play session's overlay panels, laid out against the focused pane.</summary>
+    readonly PaneOverlays paneOverlays = new();
+
+
+    /// <summary>The layer over each pane of the current arrangement that paints them.</summary>
+    readonly List<PlayOverlayLayer> overlayLayers = [];
+
+    /// <summary>How many overlay segments the layer over a pane stroked on the last frame.</summary>
+    /// <param name="pane">The pane.</param>
+    /// <returns>The count, zero for a pane with no layer.</returns>
+    /// <remarks>Internal for the suite that asserts the panel reaches the focused pane and no other.</remarks>
+    internal int PaintedOverlaySegments(SceneViewport pane) =>
+        overlayLayers.FirstOrDefault(layer => ReferenceEquals(layer.Owner, pane))?.Drawn ?? 0;
+
+    /// <summary>Every endpoint the layer over a pane stroked on the last frame, in document space.</summary>
+    /// <param name="pane">The pane.</param>
+    /// <returns>The points, empty for a pane with no layer.</returns>
+    internal IReadOnlyList<Vector2> PaintedOverlayPoints(SceneViewport pane) =>
+        overlayLayers.FirstOrDefault(layer => ReferenceEquals(layer.Owner, pane))?.Points ?? [];
 
     void Panels() {
         Shell.RegisterPanel(
@@ -2368,6 +2416,11 @@ sealed partial class EditorApplication : IDisposable {
             // ⚠ And the verbs, under the wider contract (#1289): what `PlayModule` registers the
             // transport over, and what a plugin asks for to enter play the way F5 does.
             .Add<IPlaySession>(play)
+
+            // ⚠ And the keyboard a session reads, which outlives every session for the reason the
+            // contract above does — so the input debug panel, which was dark by construction, reads
+            // the devices a focused pane feeds (#470).
+            .Add(playInput.Service)
 
             // ⚠ And the scene's verbs (#1290): what `SceneModule` registers the Entity menu over, and
             // what a plugin asks for to group the selection the way Ctrl+G does.

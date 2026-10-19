@@ -106,7 +106,20 @@ struct Ui {
     static func PixelWidth(value: float): float => abs(ddx(value)) + abs(ddy(value))
 
     /// Coverage across a one-pixel band, from the derivative of the distance itself.
-    static func Coverage(distance: float, width: float): float => saturate(0.5f - distance / width)
+    ///
+    /// ⚠ **Below half a unorm8 step it is exactly zero (#1457).** A pixel whose centre sits on the
+    /// edge is evaluated at an interpolated position a few ulps inside it, so the plain ramp writes a
+    /// ~2e-6 trace there. An 8-bit target rounds that away; a float target keeps it, and a
+    /// non-separable blend's `SetSat` turns any non-zero saturation into the backdrop's whole one, so
+    /// the trace came out as a full-strength fringe in the paint's hue. Snapping under what unorm8
+    /// rounds to zero anyway makes float and 8-bit targets agree on what is outside the box without
+    /// moving a single 8-bit pixel. `coverage_of` in the golden suite's `ui-box.frag` is the twin. The
+    /// threshold is 0.5 / 255 written out, because Raven does not fold a constant division and
+    /// `SharedUiShaderTests` counts every constant-only instruction it leaves.
+    static func Coverage(distance: float, width: float): float {
+        val coverage = saturate(0.5f - distance / width)
+        return coverage < 0.0019607844f ? 0f : coverage
+    }
 
     /// Premultiplies a straight-alpha colour, which is what the UI blend state expects.
     ///

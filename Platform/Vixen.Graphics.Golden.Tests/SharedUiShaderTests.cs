@@ -1638,10 +1638,11 @@ public partial class SharedUiShaderTests {
     ///         ⚠ <b>What the control-flow gap in the box pair actually is, measured rather than
     ///         guessed &#8212; and it is <em>not</em> a candidate for #1190's 1/255.</b> The two modules
     ///         differ by <c>OpPhi</c> 4 against 0, <c>OpBranchConditional</c> 29 against 21 and
-    ///         <c>OpSelect</c> 3 against 7. ⚠ Not "32 against 28", which this remark said until it
+    ///         <c>OpSelect</c> 4 against 8 &#8212; 3 against 7 until #1457's coverage snap added one
+    ///         select to each. ⚠ Not "32 against 28", which this remark said until it
     ///         was recounted by opcode: a <c>grep OpSelect</c> over a disassembly also matches every
     ///         <c>OpSelectionMerge</c>, of which there are 29 and 21 &#8212; one per conditional branch
-    ///         &#8212; and 3 + 29 and 7 + 21 are exactly the two numbers that stood here. The argument
+    ///         &#8212; and 3 + 29 and 7 + 21 were exactly the two numbers that stood here. The argument
     ///         below does not move, but the count it rests on is now the count of selects. ⚠ <b>And
     ///         all six of these numbers are now read by
     ///         <see cref="TheBranchShapeOfTheBoxPairIsWhatTheCensusArgumentCounts" /> rather than
@@ -1954,7 +1955,7 @@ public partial class SharedUiShaderTests {
     ///     say so.
     /// </remarks>
     static readonly (string Opcode, int Copy, int Shipped)[] BoxBranchShape = [
-        ("OpSelect", 3, 7),
+        ("OpSelect", 4, 8),
         ("OpPhi", 4, 0),
         ("OpSelectionMerge", 29, 21),
         ("OpBranchConditional", 29, 21),
