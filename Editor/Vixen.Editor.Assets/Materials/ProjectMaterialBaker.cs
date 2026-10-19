@@ -377,13 +377,6 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
         );
     }
 
-    /// <summary>Adds this write's digest to the material's block without disturbing the rest of it.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The digest key is the one <see cref="MaterialProvenance.Painted" /> and
-    ///     <see cref="Ours" /> both read</b>, so writing it under any other name would leave a splat
-    ///     map that no guard can tell from a file somebody authored — overwritable without a word,
-    ///     which is the failure § D4's whole digest exists to prevent.
-    /// </remarks>
     /// <summary>Tells a watcher over <c>Assets/</c> that a file and its sidecar are about to be this bake's doing (#1497).</summary>
     /// <param name="file">The asset's absolute path.</param>
     void Announce(string file) {
@@ -391,6 +384,13 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
         project.Assets.WillWrite(AssetMetaFile.PathFor(file));
     }
 
+    /// <summary>Adds this write's digest to the material's block without disturbing the rest of it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The digest key is the one <see cref="MaterialProvenance.Painted" /> and
+    ///     <see cref="Ours" /> both read</b>, so writing it under any other name would leave a splat
+    ///     map that no guard can tell from a file somebody authored — overwritable without a word,
+    ///     which is the failure § D4's whole digest exists to prevent.
+    /// </remarks>
     static void Bound(string file, AssetId guid, MaterialMapImage image, MaterialBakeRecord record) {
         var sidecar = AssetMetaFile.PathFor(file);
         var existing = Existing(sidecar);
