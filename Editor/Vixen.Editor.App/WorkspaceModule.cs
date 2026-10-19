@@ -43,6 +43,9 @@ sealed class WorkspaceModule : IEditorPlugin {
     /// <summary>What an empty Recent Documents submenu shows.</summary>
     const string NoRecent = "file.no-recent-documents";
 
+    /// <summary>The Window menu's full-screen line, which no host can answer yet.</summary>
+    const string FullScreen = "view.full-screen";
+
     static readonly string[] NoRecentLine = [NoRecent];
 
     /// <inheritdoc />
@@ -60,6 +63,16 @@ sealed class WorkspaceModule : IEditorPlugin {
         context.AddCommand(
             new EditorCommand("tools.reload-styles", EditorStrings.CommandToolsReloadStyles, workspace.ReloadStyles) {
                 Category = EditorStrings.CategoryTools
+            }
+        );
+
+        // ⚠ Declared and unavailable, and the Window menu's — the shell names it there, as it names
+        // Save Layout. Full screen is a property of an OS window and `EditorShell` is deliberately a
+        // document with no window: what is missing is a way for the editor to reach one, not the verb.
+        context.AddCommand(
+            new EditorCommand(FullScreen, EditorStrings.CommandViewFullScreen, () => { }) {
+                Category = EditorStrings.CategoryView,
+                Unavailable = EditorStrings.PlannedReasons[FullScreen]
             }
         );
 

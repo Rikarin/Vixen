@@ -47,6 +47,7 @@ public class HelpAndWorkspaceModuleTests {
     [InlineData(WorkspaceModule.ModuleId, "view.layout.Sequencing")]
     [InlineData(WorkspaceModule.ModuleId, "view.save-layout")]
     [InlineData(WorkspaceModule.ModuleId, "tools.reload-styles")]
+    [InlineData(WorkspaceModule.ModuleId, "view.full-screen")]
     public void Disabling_the_module_takes_its_lines_away(string module, string command) {
         using var session = EditorSession.Start();
 
