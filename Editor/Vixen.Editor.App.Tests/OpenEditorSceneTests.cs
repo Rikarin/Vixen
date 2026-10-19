@@ -128,6 +128,26 @@ public sealed class OpenEditorSceneTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>#1493: the editor's own scene has a location, and it follows Save As.</b> The scene is a
+    ///     document over <c>AssetId.Empty</c> with its file on the writer, and it answered
+    ///     <c>IEditableDocument.Location</c> with null — "never saved" — for a scene with a file on disk.
+    /// </summary>
+    [Fact]
+    public void The_editors_scene_is_where_its_file_is_and_moves_with_save_as() {
+        using var session = EditorSession.Start();
+
+        Vixen.Ui.IEditableDocument scene = session.Scene;
+        var main = MainScene(session);
+
+        Assert.Equal(session.Project.Paths.Absolute(main.Path), scene.Location.Value);
+
+        var other = Path.Combine(session.Project.Paths.Assets, "Elsewhere.vxscene");
+        session.Editor.SaveSceneAs(other);
+
+        Assert.Equal(Path.GetFullPath(other), scene.Location.Value);
+    }
+
+    /// <summary>
     ///     ⚠ <b>The question #1416 left open: Save As onto a file another tab is editing made two
     ///     documents over one file again</b>, the defect #1395 removed — two undo histories, two
     ///     writers, whichever saved last winning. It is refused, and the scene keeps writing where it
