@@ -78,7 +78,12 @@ to survive a reopen belongs on the document.
 ⚠ **The panel hosts the document.** `Show` sets `UiElement.HostedDocument` and installs
 `DocumentCommands`, so `document.save`, `document.revert` and `document.close` answer for the tab the
 focus is in — the editor's documents are `IEditableDocument`s since #656 — and a failed write reaches
-`EditorProject.SaveFailed`, which the editor shows as a notification.
+`EditorProject.SaveFailed`, which the editor shows as a notification. Ctrl+S, Ctrl+W and File ▸
+Save / Revert / Close are bound to those ids (#1494), so they ask the tab the focus is in first; the
+registry's commands of the same ids are the fallback for a focus in no document's panel — the
+scene's save, Revert to Saved, Close Panel. ⚠ Revert in a tab asks first: the editor sets
+`EditorWorkspace.Reverting`, which `Show` hands to `DocumentCommands.Install` in place of the
+document's own revert.
 
 ⚠ **`Opened` is not raised for a document that was already open**, and not from the document's own
 constructor, which would hand a subscriber a half-built document.
@@ -103,10 +108,19 @@ window rather than by `IDocumentHost`, which opens assets by id and the settings
 **A view that links to another asset asks `IWorkspace.Open`** — a material's "Open shader graph", a
 group picked from the Addressables list — and the host puts the asset in a tab of its own.
 
+**The arrangement's verbs are the workspace's too** (#1294). `Place` puts a document's panel in the
+scene's group, `EditorWorkspace.PanelOf`/`TryReadPanel` are the asset panel id's one format,
+`SaveLayout` and `ReloadStyles` are what `WorkspaceModule`'s two commands run (#1296), and
+`ThemeTokens`/`ApplyThemeTokens` are the user's theme the Appearance page edits. `Recent` is the
+editor's recent-documents list (#656) — `Vixen.Ui`'s `RecentDocuments`, noted for every document
+`Show` builds, kept in the user's store, and File ▸ Recent Documents.
+
 ## Still owed
 
-Doc 50 also gives the workspace the panels, the layouts and the state the application parks on
-itself between rebuilds (§ F1). Those are still `EditorApplication`'s — #1294 records what is left.
+Opening an asset in a tab stays the host's, handed in: resolving the document is `IDocumentHost`'s
+and the editor's open scenes', which this assembly cannot name. ⚠ Doc 50's other parked panel state
+(§ F1) — the browser, the outliner, the inspectors, the viewport's cameras — is made of types this
+assembly cannot name either, and belongs to those contexts' own models; #1294 records what is left.
 
 ## Examples
 

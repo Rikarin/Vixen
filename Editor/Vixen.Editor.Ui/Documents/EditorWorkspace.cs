@@ -66,9 +66,10 @@ public interface IWorkspace {
     /// <returns>The view's root, or <see langword="null" /> when no view shows this document.</returns>
     /// <remarks>
     ///     ⚠ <b>The panel hosts the document</b> — <see cref="UiElement.HostedDocument" /> and
-    ///     <see cref="DocumentCommands.Install(UiElement, Action)" /> — so <c>document.save</c>, <c>document.revert</c>
-    ///     and <c>document.close</c> answer for the tab the focus is in, which is #656's port reaching
-    ///     the editor. A panel is built fresh each time it opens, so installing on it once is right.
+    ///     <see cref="DocumentCommands.Install(UiElement, Action)" /> — so <c>document.save</c>,
+    ///     <c>document.revert</c> and <c>document.close</c> answer for the tab the focus is in, which is
+    ///     #656's port reaching the editor; Ctrl+S, Ctrl+W and the File menu ask it (#1494). A panel is
+    ///     built fresh each time it opens, so installing on it once is right.
     /// </remarks>
     UiElement? Show(IEditableDocument document, UiElement panel);
 

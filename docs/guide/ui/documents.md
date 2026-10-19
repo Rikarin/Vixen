@@ -239,7 +239,7 @@ compares locations ordinally, because whether two spellings are one file is the 
 it never forgets a location for being missing: a file on an unmounted volume is the entry somebody
 most wants back.
 
-```csharp
+```csharp no-compile="a fragment; `saved`, `document`, `ui` and `Save` are the host's own"
 var recent = new RecentDocuments(capacity: 10);
 recent.Restore(saved);                                   // the host's own persistence
 using var tracking = recent.Track(document, ui.Effects); // noted when it has a location, and again when it moves
