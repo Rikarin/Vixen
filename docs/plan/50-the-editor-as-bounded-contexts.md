@@ -640,7 +640,9 @@ tool is handed; doc 36 § Part 5 says narrow it *when a consumer can say which m
 after P2 the consumers can), `ProjectBrowser.cs` (1,491), `NodeGraphView.cs` (1,392),
 `LayerStackView.cs` (3,783) and `TexturingModule.cs` (2,381), `BlockoutMode.cs` (1,462),
 `ComponentsView.vxml` (1,117). ⚠ `NodeGraphView`'s selection is `NodeGraphModel.Selection`, a
-`Selection<NodeId>`, since #1305 (the on-node port editors are still owed). ⚠ `ComponentsView`'s
+`Selection<NodeId>`, since #1305, and its on-node port editors write through
+`NodePortEditProvider`'s `InspectorField` as the side panel does (the row is still the canvas's
+`PortEditor`, not a drawer). ⚠ `ComponentsView`'s
 "one template per authoring kind" does not exist: there is one keyed `@for` over `IComponentBridge`,
 deliberately the same for components and behaviours, and the size is a 945-line `@code` block — so
 "split by component kind" has nothing to split along; #1308 carries the options. Each is its own issue with its own ceiling in `ApplicationSizeRule`'s

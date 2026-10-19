@@ -1225,10 +1225,15 @@ three is worth keeping:
 ⚠ **This was recorded as done once, and then over-counted when the correction was written.** Both
 mistakes have the same shape — the section was measured against the phase list rather than the tree.
 
-⚠ **Still owed inside the node graph itself:** the port fields drawn *on* the node in
-`NodeGraphView` are built by hand and are now the only place in that assembly that constructs an
-editor for a port. They are a different surface with a different constraint — a row has to fit inside
-a node that clips its own contents — so they are their own task rather than an oversight.
+✅ **The port fields drawn *on* the node have moved onto the provider** ([#1305](https://github.com/Rikarin/Vixen/issues/1305)).
+`NodeGraphView.Inline` binds an `InspectorField` over the port's `NodePortMember` and writes through
+it, so the member, the value encoding, the command and the read-only rule match the panel's. While
+the field was built by hand the two disagreed twice. The panel read a one-number default on a
+`float3` as one lane and two zeros, although the compiler splats it, and a vector edit wrote those
+zeros. Enter on the node ended no undo run, so two separate edits of one port became one entry.
+⚠ **The row's shape is still the canvas's `PortEditor` rather than a drawer.** The node's elements
+are pooled and rebound on every pan, so a drawer's `Build` per rebind would create elements on every
+frame of a pan. That means a drawer registered for a port's type reaches the panel and not the node.
 
 #### What routing the gizmo through the pipeline costs
 
