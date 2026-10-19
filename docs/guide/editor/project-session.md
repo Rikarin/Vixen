@@ -24,7 +24,7 @@ related: [editor/index, editor/writing-a-plugin, editor/content-library, editor/
 | `RequestProject(root)` | Asks to close this project and reopen the editor over another. |
 | `PendingProject` | Where the editor will reopen, or `null`. |
 | `IsWatching` / `ChangedOnDisk` | Whether a watcher is over `Assets/`, and the event it raises once per burst of outside changes — after the rescan they caused, with what changed and whether events were lost. |
-| `BuildCode()` / `CodeBuilt` | Builds and loads the project's own C#, taking the scene's authored behaviours off and putting them back on the rebuilt types; `false` when the build failed, which has been reported. |
+| `BuildCode()` / `CodeBuilt` | Builds and loads the project's own C#, taking the scene's authored project behaviours off and putting them back on the rebuilt types; `false` when the build failed, which has been reported. |
 
 ## What it is for
 
@@ -36,8 +36,16 @@ once a frame, and builds the game's code on its first frame.
 
 ⚠ **`ChangedOnDisk` hands over a list it reuses.** Read it during the call. An overflow — the watcher
 lost events — means the list cannot name everything; treat it as "anything may have changed".
-⚠ The database's own `.meta` writes are heard as outside changes today, so a new file arrives as two
-bursts ([#1488](https://github.com/Rikarin/Vixen/issues/1488)).
+⚠ The sidecars a rescan writes are not outside changes: the scan lists them in `ScanReport.Written` and
+the session suppresses each on its watcher, so one file dropped in from outside is one burst and one
+rescan ([#1488](https://github.com/Rikarin/Vixen/issues/1488)). Only `Rescan` does this — a scan
+called on the database directly is not suppressed.
+
+⚠ **No code build removes a behaviour the author did not remove**
+([#1490](https://github.com/Rikarin/Vixen/issues/1490)). Only the loaded project assembly's
+behaviours come off; a failed build loads the last good one again when it is still on disk; with
+nothing to fall back on, the values are held, the scene refuses to save, and the next build that
+declares them puts them back.
 
 ⚠ **Opening another project is a request, not a call.** The editor is *rebuilt* over the new root by
 the host — the same path every launch takes — rather than having a world, a scene, an asset database

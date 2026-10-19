@@ -234,6 +234,13 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     public ScanReport Rescan() {
         var report = project.Assets.Scan();
 
+        // ⚠ Before anything drains the watcher again (#1488). A file dropped into `Assets/` from
+        // outside gets its `.meta` minted by this scan, and that write is into the watched directory:
+        // unsuppressed, the watcher reported it a quarter of a second later as a second outside
+        // change, and the whole scan, sweep and thumbnail flush ran twice. `Suppress` also drops an
+        // event already pending for the path, so it is right whether or not the platform has spoken.
+        Suppress(report.Written);
+
         project.Assets.Save();
 
         // ⚠ Rebuilt with it. The reverse index is what answers "what would break if I deleted this",
@@ -242,6 +249,24 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
 
         Rescanned?.Invoke(report);
         return report;
+    }
+
+    /// <summary>Tells the watcher that files this session wrote under <c>Assets/</c> were its own doing.</summary>
+    /// <param name="written">Absolute paths; any outside the watched directory are ignored.</param>
+    void Suppress(IReadOnlyList<string> written) {
+        if (watcher is null) {
+            return;
+        }
+
+        foreach (var absolute in written) {
+            var relative = Path.GetRelativePath(project.Paths.Assets, absolute).Replace(Path.DirectorySeparatorChar, VirtualPath.Separator);
+
+            if (!relative.StartsWith("..", StringComparison.Ordinal)
+                && !Path.IsPathRooted(relative)
+                && VirtualPath.TryCreate("/" + relative, out var path)) {
+                watcher.Suppress(path);
+            }
+        }
     }
 
     /// <summary>Writes a new game project and opens it.</summary>

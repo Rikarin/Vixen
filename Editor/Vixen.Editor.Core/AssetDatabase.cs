@@ -130,6 +130,10 @@ public sealed class AssetDatabase {
         var clock = Stopwatch.StartNew();
         var issues = new ConcurrentBag<AssetIssue>();
 
+        // Every sidecar this scan writes or moves, for `ScanReport.Written` — what a watcher over the
+        // same directory has to be told was this program's doing (#1488).
+        var written = new ConcurrentBag<string>();
+
         // Taken before the walk, and it is what the *next* scan will refuse to trust from. It catches
         // an edit by somebody else that landed while this scan was walking, which nothing else here
         // can see.
@@ -168,14 +172,14 @@ public sealed class AssetDatabase {
             candidates.Count,
             index => {
                 claimed[index] = survey.Sidecars.ContainsKey(candidates[index].Absolute);
-                found[index] = Read(candidates[index], survey, previousEntries, previousStamps, previousCutoff, options, issues);
+                found[index] = Read(candidates[index], survey, previousEntries, previousStamps, previousCutoff, options, issues, written);
             }
         );
 
         // After the read rather than before it, because "an orphan" is exactly "a sidecar no asset
         // claimed" and the read has just worked out which those are. A project in order — every
         // sidecar spoken for — never builds the set of paths the search would need.
-        Quarantine(survey, claimed, options, issues);
+        Quarantine(survey, claimed, options, issues, written);
 
         // Built into fresh dictionaries and swapped in at the end, so the previous index stays whole
         // for the reuse lookups above and a scan that throws leaves the database as it found it.
@@ -198,11 +202,14 @@ public sealed class AssetDatabase {
                 reused++;
             }
 
-            Insert(present.Entry, present.Stamp, options, issues);
+            Insert(present.Entry, present.Stamp, options, issues, written);
         }
 
         trustedBeforeUtc = startedUtc;
-        return new(Count, clock.Elapsed, [.. issues.OrderBy(issue => issue.Path, StringComparer.Ordinal)], reused);
+
+        return new(Count, clock.Elapsed, [.. issues.OrderBy(issue => issue.Path, StringComparer.Ordinal)], reused) {
+            Written = [.. written.Order(StringComparer.Ordinal)]
+        };
     }
 
     /// <summary>Writes the index to <c>Library/GuidIndex</c>.</summary>
@@ -449,7 +456,8 @@ public sealed class AssetDatabase {
         Dictionary<string, MetaStamp> previousStamps,
         DateTime cutoff,
         ScanOptions options,
-        ConcurrentBag<AssetIssue> issues
+        ConcurrentBag<AssetIssue> issues,
+        ConcurrentBag<string> written
     ) {
         var relative = RelativeUnderRoot(candidate.Absolute);
         var hasMeta = survey.Sidecars.TryGetValue(candidate.Absolute, out var stamp);
@@ -472,6 +480,7 @@ public sealed class AssetDatabase {
             }
 
             var minted = CreateMeta(metaPath);
+            written.Add(metaPath);
             issues.Add(new(AssetIssueKind.MetaCreated, relative, $"Had no .meta; created one with GUID {minted}."));
 
             // No stamp, rather than the one the write just left behind. This scan cannot tell an edit
@@ -504,7 +513,7 @@ public sealed class AssetDatabase {
         );
     }
 
-    void Insert(AssetEntry entry, MetaStamp stamp, ScanOptions options, ConcurrentBag<AssetIssue> issues) {
+    void Insert(AssetEntry entry, MetaStamp stamp, ScanOptions options, ConcurrentBag<AssetIssue> issues, ConcurrentBag<string> written) {
         byPath[entry.Path] = entry;
         stamps[entry.Path] = stamp;
 
@@ -538,6 +547,7 @@ public sealed class AssetDatabase {
         }
 
         var minted = ReGuid(loser);
+        written.Add(AssetMetaFile.PathFor(Paths.Absolute(loser.Path)));
         var repaired = loser with { Guid = minted };
         byGuid[winner.Guid] = winner;
         byGuid[minted] = repaired;
@@ -552,7 +562,7 @@ public sealed class AssetDatabase {
         issues.Add(new(AssetIssueKind.DuplicateGuid, loser.Path, $"{message} '{loser.Path}' was re-GUIDed to {minted}."));
     }
 
-    void Quarantine(Survey survey, bool[] claimed, ScanOptions options, ConcurrentBag<AssetIssue> issues) {
+    void Quarantine(Survey survey, bool[] claimed, ScanOptions options, ConcurrentBag<AssetIssue> issues, ConcurrentBag<string> written) {
         var spokenFor = 0;
 
         foreach (var claim in claimed) {
@@ -599,6 +609,7 @@ public sealed class AssetDatabase {
             var destination = Path.Combine(Paths.OrphanMeta, Paths.Relative(meta));
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             File.Move(meta, destination, overwrite: true);
+            written.Add(meta);
             survey.Sidecars.Remove(owner);
             issues.Add(new(AssetIssueKind.MetaOrphaned, relative, $"Its asset is gone. Moved to '{Paths.Relative(destination)}'."));
         }

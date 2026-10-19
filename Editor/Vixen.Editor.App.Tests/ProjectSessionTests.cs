@@ -207,12 +207,12 @@ public sealed class ProjectSessionTests : IDisposable {
         Assert.Equal(1, heard);
         Assert.True(indexedWhenHeard, "the session spoke before its rescan had indexed the file");
 
-        // ⚠ One rescan per burst — the application's panels follow the session's scan rather than
-        // making one of their own. And ⚠ two bursts rather than one, which is #1488: the first scan
-        // writes the file's `.meta` into `Assets/`, and the watcher hears the database's own write as
-        // somebody else's. Tighten to one when that is fixed.
-        Assert.Equal(bursts, scans);
-        Assert.InRange(bursts, 1, 2);
+        // ⚠ One burst and one rescan — the application's panels follow the session's scan rather than
+        // making one of their own. It was two (#1488): the scan writes the new file's `.meta` into
+        // `Assets/`, and the watcher heard the database's own write as somebody else's. The session
+        // now suppresses every sidecar its scan reports writing.
+        Assert.Equal(1, bursts);
+        Assert.Equal(1, scans);
     }
 
     /// <summary>The project's watcher and its code have one owner, and it is not the application.</summary>
