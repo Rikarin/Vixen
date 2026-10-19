@@ -18,13 +18,13 @@ namespace Vixen.Build;
 ///         most, that is the difference between a fix and a tidy-up.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two lists, and the second is what makes the criterion move rather than describe.</b>
-///         <see cref="Allowed" /> is what P3's exit permits for ever. <see cref="NotYetMoved" /> is
-///         what the application still names today, each with an issue behind it — and a name in
-///         <i>that</i> list which is no longer referenced is <b>also</b> a violation. So the list can
-///         only shrink: the batch that finally dereferences the profiler is told to delete the line,
-///         in the same run, rather than leaving a rule that has quietly stopped asserting anything.
-///         <c>CheckWhitespace</c>'s exemption file is the same shape and the same reason.
+///         ⚠ <b>One list, and there used to be two.</b> <see cref="Allowed" /> is what P3's exit
+///         permits for ever. Beside it stood <c>NotYetMoved</c>, what the application still named
+///         with an issue behind each — shrink-only, because a name in it that was no longer referenced
+///         failed too. ⚠ <b>Deleted rather than emptied</b> (#1302), once #1297 took the asset editors
+///         off as its last name: an empty shrink-only list asserts nothing, and the half of the rule
+///         that read it could only ever answer "nothing owed". What is left is the rule that
+///         anything not in <see cref="Allowed" /> fails.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The exit list omits <c>Assets</c> and is corrected here.</b> Doc 36's P3 says
@@ -71,14 +71,6 @@ static class ApplicationReferenceRule {
         "Vixen.Editor.SceneView"
     ];
 
-    /// <summary>
-    ///     What the application still references, each with the reason it has not moved. ⚠ This list
-    ///     may only shrink: a name here that is no longer referenced fails too.
-    /// </summary>
-    /// <remarks>
-    ///     Empty since #1297 took the asset editors off, the last name it held; #1302 deletes it.
-    /// </remarks>
-    public static readonly string[] NotYetMoved = [];
 
     /// <summary>The <c>Editor/</c> assemblies one project references, analyzers excluded.</summary>
     /// <param name="root">The repository root.</param>
@@ -151,8 +143,7 @@ static class ApplicationReferenceRule {
         var violations = new List<string>();
 
         foreach (var reference in referenced) {
-            if (Allowed.Contains(reference, StringComparer.Ordinal)
-                || NotYetMoved.Contains(reference, StringComparer.Ordinal)) {
+            if (Allowed.Contains(reference, StringComparer.Ordinal)) {
                 continue;
             }
 
@@ -161,15 +152,6 @@ static class ApplicationReferenceRule {
                 + $"registers through PluginContext from an assembly that cannot see {Application}. If this "
                 + "reference is genuinely the application's job, say so in ApplicationReferenceRule.Allowed "
                 + "with the argument."
-            );
-        }
-
-        foreach (var moved in NotYetMoved.Where(name => !referenced.Contains(name, StringComparer.Ordinal))) {
-            violations.Add(
-                $"{Application} no longer references {moved}, so delete it from "
-                + "ApplicationReferenceRule.NotYetMoved. That list is what is still owed and it may only "
-                + "shrink — a name left in it is a rule that has stopped asserting anything about that "
-                + "assembly."
             );
         }
 

@@ -404,10 +404,9 @@ partial class Build {
                 // build when `Vixen.Editor.App` referenced a feature assembly again. Blockout and
                 // Terrain were decoupled at real cost and either could have come back in silence.
                 //
-                // ⚠ The rule's second half is what makes the criterion move: a name in
-                // `NotYetMoved` that is no longer referenced fails too, so the batch that finally
-                // dereferences one is told to delete the line rather than leaving a list that has
-                // quietly stopped asserting anything.
+                // ⚠ It had a second, shrink-only half — `NotYetMoved`, what was still owed — and it was
+                // deleted rather than emptied when the last name left (#1302): an empty shrink-only list
+                // asserts nothing. What is left is `Allowed` and the rule that anything else fails.
                 var applicationVacuity = ApplicationReferenceRule.Vacuity(
                     RootDirectory,
                     projects.Select(project => project.ToString())
