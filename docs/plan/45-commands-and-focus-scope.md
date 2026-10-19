@@ -94,7 +94,7 @@ pushed. The pull is one level too shallow, and every new panel is a new chance t
 >
 > **Four of the nine contexts are not places at all.** `blockout`, `terrain`, `water` and `foliage`
 > are *modes* — "a statement about what the viewport's input means right now" — claimed by
-> `Shell.Modes.Changed` (`EditorParity.cs:974`) without any pointer or focus event. There is no
+> `Shell.Modes.Changed` (`EditorParity.cs:976`) without any pointer or focus event. There is no
 > element the focus could be on that would derive them. Hanging a `CommandScope` on the viewport and
 > rewriting it on mode change is a push wearing the new API's clothes, which is not what G2 asked
 > for.
