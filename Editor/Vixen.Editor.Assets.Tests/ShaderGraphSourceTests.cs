@@ -70,6 +70,34 @@ public class ShaderGraphSourceTests : IDisposable {
     ///     It is a legitimate thing to have — a preview thumbnail is one — and nothing can name it as
     ///     a material, so it contributes no source and no complaint.
     /// </remarks>
+    /// <summary>⚠ What a graph compiles to is pinned, so moving the compiler's caller cannot change it (#1300).</summary>
+    /// <remarks>
+    ///     <b>The shader graph's content bytes.</b> <c>ShaderGraphImporter</c> writes no chunk — what a
+    ///     graph ships as is this Raven text, which <c>EditorEffects</c> and <c>vixen content build</c>
+    ///     compile. The digest was captured on master at 5f03c9b80, before <c>ShaderGraphSources</c>
+    ///     left <c>Vixen.Editor.Assets</c>; a change to the emitter changes it, and says so in the same
+    ///     commit.
+    /// </remarks>
+    [Fact]
+    public void The_raven_a_surface_graph_compiles_to_is_pinned() {
+        Write("Painted", graph => {
+            var uv = graph.Add("Input/UV");
+            var tiling = graph.Add("Vector/Tiling and Offset");
+            var master = graph.Add("Master/Surface");
+
+            graph.Connect(new(uv.Id, "UV"), new(tiling.Id, "UV"));
+            graph.Connect(new(tiling.Id, "Out"), new(master.Id, "Base Color"));
+        });
+
+        var compiled = Assert.Single(ShaderGraphSources.All(root));
+        var digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(compiled.Text)));
+
+        Assert.True(compiled.Compiled, string.Join("; ", compiled.Diagnostics));
+        Assert.True(digest == PaintedDigest, $"Painted compiled to {digest}, and to {PaintedDigest} before the move.\n{compiled.Text}");
+    }
+
+    const string PaintedDigest = "D2DBA6CF094F670EEA8C6B4F2D25EF8F3F5CB053D89C6C57A0341326DC583A11";
+
     [Fact]
     public void A_standalone_graph_contributes_no_source_and_no_complaint() {
         Write("Preview", graph => graph.Add("Master/Unlit"));
