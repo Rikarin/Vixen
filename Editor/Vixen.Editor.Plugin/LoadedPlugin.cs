@@ -60,13 +60,26 @@ public sealed class LoadedPlugin {
 
     internal IEditorPlugin? Instance { get; set; }
 
-    /// <summary>A built-in's module, kept whatever its state, because there is nowhere to re-read it from.</summary>
+    /// <summary>
+    ///     A built-in's module, kept while the user's switch may bring it back, because there is nowhere
+    ///     to re-read it from.
+    /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Only for a built-in.</b> A compiled-in module lives in the default context for the life
-    ///     of the process, so holding it costs nothing; holding something loaded from a collectible
-    ///     context would be the reference that stops it being collected.
+    ///     <para>
+    ///         ⚠ <b>Only for a built-in.</b> Holding something loaded from a collectible context would be
+    ///         the reference that stops it being collected.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And not past an <see cref="PluginHost.Unload" />, because holding it is not free.</b>
+    ///         #1288 kept it "whatever its state" on the reasoning that a compiled-in module's
+    ///         <i>assembly</i> never leaves; but this is the <i>instance</i>, and with it everything the
+    ///         instance still points at. An unloaded row stays in the host's list, so this field was the
+    ///         one path by which every <c>…ModuleReachTests</c> probe found its module alive after an
+    ///         unload. <see cref="PluginHost.Disable" /> keeps it, since switching the module back on
+    ///         is what a disabled row is for; a plain unload drops it, which is what it did before #1288.
+    ///     </para>
     /// </remarks>
-    internal IEditorPlugin? Module { get; init; }
+    internal IEditorPlugin? Module { get; set; }
 
     internal PluginLoadContext? Context { get; set; }
 

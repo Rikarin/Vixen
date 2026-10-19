@@ -88,17 +88,26 @@ public class ModuleReachTests {
     }
 
     /// <summary>What a user can reach in the session as it stands, one line per thing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A menu line counts only while its command is registered</b>, because that is what
+    ///     <c>MenuPresenter.Fill</c> draws: a <see cref="MenuCommand" /> naming an id nobody registered is
+    ///     skipped. Until this walk asked the same question, the transport and the Entity menu — lines
+    ///     the application places and <c>PlayModule</c> and <c>SceneModule</c> register the commands
+    ///     for (#1289, #1290) — were attributed to <c>editor</c>, and both modules read as taking away
+    ///     nothing a user can see, while unloading either takes its lines off the bar.
+    /// </remarks>
     static SortedSet<string> Reach(EditorSession editor) {
         var lines = new SortedSet<string>(StringComparer.Ordinal);
+        var commands = editor.Shell.Commands;
 
         void Walk(MenuGroup group, string path) {
             foreach (var entry in group.Entries) {
                 switch (entry) {
-                    case MenuCommand command:
+                    case MenuCommand command when commands[command.CommandId] is not null:
                         lines.Add($"menu {path} {command.CommandId}");
                         break;
                     case MenuDynamic dynamic:
-                        foreach (var id in dynamic.CommandIds()) {
+                        foreach (var id in dynamic.CommandIds().Where(id => commands[id] is not null)) {
                             lines.Add($"menu {path} {id}");
                         }
 
@@ -242,11 +251,11 @@ public class ModuleReachTests {
     ///     Standard modules whose unload takes away nothing in the reach walk, each with why. ⚠
     ///     Shrink-only, both ways: a module that starts being taken back, or one that stops, fails.
     /// </summary>
+    /// <remarks>
+    ///     <c>vixen.terrain</c> left this list with #1287, which moved its panels and modes through
+    ///     <c>PluginContext</c> so its unload takes them back.
+    /// </remarks>
     static readonly Dictionary<string, string> Unattributed = new(StringComparer.Ordinal) {
-        // ⚠ Not quiet: five panels and two modes — and they stay on unload, because every one is
-        // registered round PluginContext. Its reach is in the manifest under `editor`.
-        ["vixen.terrain"] = "registers its panels and modes on the shell directly, so unloading it takes nothing back (#740, #1287)",
-
         // Genuinely quiet: play systems and a collider service, nothing a menu, panel or mode shows.
         ["vixen.terrain.physics"] = "contributes play systems and ITerrainColliders, nothing a user sees"
     };

@@ -74,7 +74,6 @@ editor menu editor.menu.build/editor.menu.build-configuration build.configuratio
 editor menu editor.menu.build/editor.menu.build-configuration build.configuration-development
 editor menu editor.menu.build/editor.menu.build-configuration build.configuration-release
 editor menu editor.menu.build/editor.menu.build-configuration build.configuration-server
-editor menu editor.menu.build/editor.menu.build-deploy build.deploy
 editor menu editor.menu.build/editor.menu.build-target build.target-android
 editor menu editor.menu.build/editor.menu.build-target build.target-host
 editor menu editor.menu.build/editor.menu.build-target build.target-ios
@@ -107,24 +106,17 @@ editor menu editor.menu.edit edit.select-parent
 editor menu editor.menu.edit edit.undo
 editor menu editor.menu.edit edit.undo-history
 editor menu editor.menu.entity entity.align
-editor menu editor.menu.entity entity.align-with-view
 editor menu editor.menu.entity entity.apply-overrides
-editor menu editor.menu.entity entity.clear-parent
 editor menu editor.menu.entity entity.copy-transform
 editor menu editor.menu.entity entity.create-audio
-editor menu editor.menu.entity entity.create-child
 editor menu editor.menu.entity entity.create-ui
 editor menu editor.menu.entity entity.create-vfx
 editor menu editor.menu.entity entity.distribute
-editor menu editor.menu.entity entity.group
-editor menu editor.menu.entity entity.group-lod
 editor menu editor.menu.entity entity.make-prefab
-editor menu editor.menu.entity entity.move-to-view
 editor menu editor.menu.entity entity.paste-transform
 editor menu editor.menu.entity entity.relative-transform
 editor menu editor.menu.entity entity.reset-transform
 editor menu editor.menu.entity entity.set-parent
-editor menu editor.menu.entity entity.snap-to-floor
 editor menu editor.menu.entity entity.toggle-active
 editor menu editor.menu.entity entity.toggle-hidden
 editor menu editor.menu.entity entity.toggle-lock
@@ -165,10 +157,6 @@ editor menu editor.menu.help help.documentation
 editor menu editor.menu.help help.release-notes
 editor menu editor.menu.help help.report-bug
 editor menu editor.menu.help help.show-log-folder
-editor menu editor.menu.play play.pause
-editor menu editor.menu.play play.play
-editor menu editor.menu.play play.step
-editor menu editor.menu.play play.stop
 editor menu editor.menu.play/editor.menu.play-mode play.mode-in-editor
 editor menu editor.menu.play/editor.menu.play-mode play.mode-server
 editor menu editor.menu.play/editor.menu.play-mode play.mode-standalone
@@ -298,16 +286,9 @@ editor menu editor.menu.scene/editor.menu.work-plane scene.work-plane-to-world
 editor menu editor.menu.tools plugins.reload
 editor menu editor.menu.tools tools.diagnostics-report
 editor menu editor.menu.tools tools.export-strings
-editor menu editor.menu.tools tools.frame-debugger
-editor menu editor.menu.tools tools.gpu
-editor menu editor.menu.tools tools.memory
-editor menu editor.menu.tools tools.network
 editor menu editor.menu.tools tools.plugins
-editor menu editor.menu.tools tools.profiler
 editor menu editor.menu.tools tools.reload-shaders
 editor menu editor.menu.tools tools.reload-styles
-editor menu editor.menu.tools tools.remote-inspector
-editor menu editor.menu.tools tools.statistics
 editor menu editor.menu.tools view.clear-console
 editor menu editor.menu.window view.close-panel
 editor menu editor.menu.window view.float-panel
@@ -326,11 +307,8 @@ editor menu editor.menu.window/editor.menu.layout view.layout.Shading
 editor menu editor.menu.window/editor.menu.layout view.reset-layout
 editor menu editor.menu.window/editor.menu.layout view.save-layout
 editor menu editor.menu.window/editor.menu.panels view.panel.addressables
-editor menu editor.menu.window/editor.menu.panels view.panel.blockout.panel
-editor menu editor.menu.window/editor.menu.panels view.panel.blockout.uv
 editor menu editor.menu.window/editor.menu.panels view.panel.build-settings
 editor menu editor.menu.window/editor.menu.panels view.panel.console
-editor menu editor.menu.window/editor.menu.panels view.panel.foliage.panel
 editor menu editor.menu.window/editor.menu.panels view.panel.hierarchy
 editor menu editor.menu.window/editor.menu.panels view.panel.history
 editor menu editor.menu.window/editor.menu.panels view.panel.inspector
@@ -347,24 +325,12 @@ editor menu editor.menu.window/editor.menu.panels view.panel.project-settings
 editor menu editor.menu.window/editor.menu.panels view.panel.revisions
 editor menu editor.menu.window/editor.menu.panels view.panel.scene
 editor menu editor.menu.window/editor.menu.panels view.panel.scenes
-editor menu editor.menu.window/editor.menu.panels view.panel.terrain.grass
-editor menu editor.menu.window/editor.menu.panels view.panel.terrain.growth
-editor menu editor.menu.window/editor.menu.panels view.panel.terrain.panel
-editor menu editor.menu.window/editor.menu.panels view.panel.terrain.splines
 editor menu editor.menu.window/editor.menu.panels view.panel.ui-diagnostics
-editor menu editor.menu.window/editor.menu.panels view.panel.water.panel
-editor menu editor.menu.window/editor.menu.panels view.panel.water.zone
 editor menu editor.menu.window/editor.menu.panels view.panel.world-settings
-editor mode foliage
 editor mode select
-editor mode terrain
-editor mode water
 editor panel addressables
-editor panel blockout.panel
-editor panel blockout.uv
 editor panel build-settings
 editor panel console
-editor panel foliage.panel
 editor panel hierarchy
 editor panel history
 editor panel inspector
@@ -381,13 +347,7 @@ editor panel project-settings
 editor panel revisions
 editor panel scene
 editor panel scenes
-editor panel terrain.grass
-editor panel terrain.growth
-editor panel terrain.panel
-editor panel terrain.splines
 editor panel ui-diagnostics
-editor panel water.panel
-editor panel water.zone
 editor panel world-settings
 editor scene-menu edit.delete
 editor scene-menu edit.duplicate
@@ -407,7 +367,82 @@ vixen.asset-editors menu editor.menu.window/editor.menu.panels view.panel.ai-deb
 vixen.asset-editors menu editor.menu.window/editor.menu.panels view.panel.input-debug
 vixen.asset-editors panel ai-debugger
 vixen.asset-editors panel input-debug
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-boolean blockout.apply-boolean
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-boolean blockout.intersect
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-boolean blockout.plane-cut
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-boolean blockout.subtract
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-boolean blockout.trim
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-boolean blockout.union
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create blockout.array
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create blockout.create-shape
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create blockout.cube-grid
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create blockout.duplicate
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create blockout.mirror
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create blockout.push-in
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create blockout.push-out
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create blockout.radial
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create blockout.shape-tool
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create/editor.menu.blockout-shape blockout.shape.arch
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create/editor.menu.blockout-shape blockout.shape.box
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create/editor.menu.blockout-shape blockout.shape.capsule
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create/editor.menu.blockout-shape blockout.shape.cone
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create/editor.menu.blockout-shape blockout.shape.cylinder
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create/editor.menu.blockout-shape blockout.shape.doorframe
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create/editor.menu.blockout-shape blockout.shape.pipe
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create/editor.menu.blockout-shape blockout.shape.plane
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create/editor.menu.blockout-shape blockout.shape.ramp
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create/editor.menu.blockout-shape blockout.shape.sphere
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create/editor.menu.blockout-shape blockout.shape.stairs
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-create/editor.menu.blockout-shape blockout.shape.torus
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-handoff blockout.bake
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-handoff blockout.export-gltf
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-handoff blockout.export-obj
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-handoff blockout.make-editable
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-surfaces blockout.auto-smooth
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-surfaces blockout.fit-uv
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-surfaces blockout.harden
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-surfaces blockout.new-group
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-surfaces blockout.project-box
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-surfaces blockout.project-world
+vixen.blockout menu editor.menu.scene/editor.menu.blockout-surfaces blockout.smooth
+vixen.blockout menu editor.menu.scene/editor.menu.elements blockout.grow
+vixen.blockout menu editor.menu.scene/editor.menu.elements blockout.invert
+vixen.blockout menu editor.menu.scene/editor.menu.elements blockout.select-all
+vixen.blockout menu editor.menu.scene/editor.menu.elements blockout.select-coplanar
+vixen.blockout menu editor.menu.scene/editor.menu.elements blockout.select-group
+vixen.blockout menu editor.menu.scene/editor.menu.elements blockout.select-linked
+vixen.blockout menu editor.menu.scene/editor.menu.elements blockout.select-loop
+vixen.blockout menu editor.menu.scene/editor.menu.elements blockout.select-none
+vixen.blockout menu editor.menu.scene/editor.menu.elements blockout.select-ring
+vixen.blockout menu editor.menu.scene/editor.menu.elements blockout.shrink
+vixen.blockout menu editor.menu.scene/editor.menu.geometry blockout.bevel
+vixen.blockout menu editor.menu.scene/editor.menu.geometry blockout.bridge
+vixen.blockout menu editor.menu.scene/editor.menu.geometry blockout.delete
+vixen.blockout menu editor.menu.scene/editor.menu.geometry blockout.detach
+vixen.blockout menu editor.menu.scene/editor.menu.geometry blockout.dissolve
+vixen.blockout menu editor.menu.scene/editor.menu.geometry blockout.extrude
+vixen.blockout menu editor.menu.scene/editor.menu.geometry blockout.extrude-individual
+vixen.blockout menu editor.menu.scene/editor.menu.geometry blockout.fill
+vixen.blockout menu editor.menu.scene/editor.menu.geometry blockout.flip
+vixen.blockout menu editor.menu.scene/editor.menu.geometry blockout.inset
+vixen.blockout menu editor.menu.scene/editor.menu.geometry blockout.inset-individual
+vixen.blockout menu editor.menu.scene/editor.menu.geometry blockout.knife
+vixen.blockout menu editor.menu.scene/editor.menu.geometry blockout.loop-cut
+vixen.blockout menu editor.menu.scene/editor.menu.geometry blockout.subdivide
+vixen.blockout menu editor.menu.scene/editor.menu.geometry blockout.weld
+vixen.blockout menu editor.menu.window/editor.menu.panels view.panel.blockout.panel
+vixen.blockout menu editor.menu.window/editor.menu.panels view.panel.blockout.uv
 vixen.blockout mode blockout
+vixen.blockout panel blockout.panel
+vixen.blockout panel blockout.uv
+vixen.diagnostics menu editor.menu.build/editor.menu.build-deploy build.deploy
+vixen.diagnostics menu editor.menu.tools tools.frame-debugger
+vixen.diagnostics menu editor.menu.tools tools.gpu
+vixen.diagnostics menu editor.menu.tools tools.memory
+vixen.diagnostics menu editor.menu.tools tools.network
+vixen.diagnostics menu editor.menu.tools tools.profiler
+vixen.diagnostics menu editor.menu.tools tools.remote-inspector
+vixen.diagnostics menu editor.menu.tools tools.statistics
 vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.devices
 vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.frame-debugger
 vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.gpu
@@ -424,7 +459,35 @@ vixen.diagnostics panel network
 vixen.diagnostics panel profiler
 vixen.diagnostics panel remote-inspector
 vixen.diagnostics panel statistics
+vixen.play menu editor.menu.play play.pause
+vixen.play menu editor.menu.play play.play
+vixen.play menu editor.menu.play play.step
+vixen.play menu editor.menu.play play.stop
+vixen.scene menu editor.menu.entity entity.align-with-view
+vixen.scene menu editor.menu.entity entity.clear-parent
+vixen.scene menu editor.menu.entity entity.create-child
+vixen.scene menu editor.menu.entity entity.group
+vixen.scene menu editor.menu.entity entity.group-lod
+vixen.scene menu editor.menu.entity entity.move-to-view
+vixen.scene menu editor.menu.entity entity.snap-to-floor
 vixen.scripts menu editor.menu.window/editor.menu.panels view.panel.scripts
 vixen.scripts panel scripts
+vixen.terrain menu editor.menu.window/editor.menu.panels view.panel.foliage.panel
+vixen.terrain menu editor.menu.window/editor.menu.panels view.panel.terrain.grass
+vixen.terrain menu editor.menu.window/editor.menu.panels view.panel.terrain.growth
+vixen.terrain menu editor.menu.window/editor.menu.panels view.panel.terrain.panel
+vixen.terrain menu editor.menu.window/editor.menu.panels view.panel.terrain.splines
+vixen.terrain mode foliage
+vixen.terrain mode terrain
+vixen.terrain panel foliage.panel
+vixen.terrain panel terrain.grass
+vixen.terrain panel terrain.growth
+vixen.terrain panel terrain.panel
+vixen.terrain panel terrain.splines
 vixen.water create water.create-waves
 vixen.water menu editor.menu.assets/editor.menu.create water.create-waves
+vixen.water menu editor.menu.window/editor.menu.panels view.panel.water.panel
+vixen.water menu editor.menu.window/editor.menu.panels view.panel.water.zone
+vixen.water mode water
+vixen.water panel water.panel
+vixen.water panel water.zone

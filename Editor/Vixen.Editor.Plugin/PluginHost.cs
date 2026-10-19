@@ -204,6 +204,11 @@ public sealed class PluginHost {
         }
 
         Deactivate(plugin);
+
+        // ⚠ Dropped here and not in `Deactivate`, which `Disable` shares: a disabled built-in keeps its
+        // instance so Enable can start it again (#1288), and an unloaded one keeps nothing, or the row
+        // left in `plugins` is what holds the module alive after it was taken out (#1286, #1287).
+        plugin.Module = null;
         Changed?.Invoke(plugin);
 
         return true;

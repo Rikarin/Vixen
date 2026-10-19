@@ -130,9 +130,9 @@ after commands, because the undo depth is pushed into stacks that exist by then"
 holds, the reason does not: `ApplyPreferences` writes `project.GlobalStack.Capacity` and
 `scene.Stack.Capacity` (`EditorSettingsPanels.cs:545-548`), which exist from line 633, before any
 command. *"Disabled list before activation"* — true for disk plugins, **false for the built-in
-modules**: they are activated inside `Commands()` → `RegisterModes()` (`EditorParity.cs:1246-1248`,
-called from `EditorApplication.cs:3880`), before `LoadDisabledPlugins` at `:1007`, and
-`PluginHost.Activate` (`PluginHost.cs:525`) never consults `suppressed`. **A built-in module cannot
+modules**: they are activated inside `Commands()` → `RegisterModes()` (`EditorParity.cs:1246-1248@0d7dda4a9`,
+called from `EditorApplication.cs:3880@0d7dda4a9`), before `LoadDisabledPlugins` at `:1013`, and
+`PluginHost.Activate` (`PluginHost.cs:522@0d7dda4a9`) never consults `suppressed`. **A built-in module cannot
 be disabled**, which the plugin manager's Disable button does not say. *(Fixed by
 [#1288](https://github.com/Rikarin/Vixen/issues/1288): `Activate` consults the set and keeps a
 suppressed built-in as a disabled row, and the list is read before `Commands()`. ⚠ It also found a
@@ -159,7 +159,7 @@ Seven zeros. `[Importer]` has 27, because `AssetImporter<T>.Extensions` has alwa
 § D3 said *"in-tree code registers the records directly and nothing scans it"* and promised the
 in-tree half of the attribute set would be a **source generator** — *"the generator sees the
 attribute and emits a registration — no reflection, ADR-002 intact"*. That generator was never
-built. `PluginHost.Declared(context, assembly)` (`PluginHost.cs:781`) is the reflective scan for a
+built. `PluginHost.Declared(context, assembly)` (`PluginHost.cs:786`) is the reflective scan for a
 plugin's or a script's assembly; the in-process `Activate` overload does not call it, and no module
 does either. So the mechanism a third party is told to use is one no first-party feature has ever
 been through, and the count of hand registrations says what that costs:
@@ -276,15 +276,15 @@ What *is* doubled is the language, and each pair is two contexts sharing a word:
 
 | One idea | Vocabulary A | Vocabulary B | Measured |
 |---|---|---|---|
-| **the active scene** | `EditorProject.ActiveDocument` (`EditorProject.cs:56`) | `EditorApplication.scene` (`EditorApplication.cs:108`), whose remarks say *"half the editor holds the active scene"* (`EditorApplication.cs:103-104`), plus `Shown => inspected ?? scene` wrapped as `IActiveScene` | `ActiveDocument` has **3** readers; `scene.` is read **124** times across the partials; `EditorWorlds.cs:499-502` sets both in sequence |
-| **dirty** | `CommandStack.IsDirty` → `EditorDocument.IsDirty` → `EditorProject.HasUnsavedChanges` | `SettingsView.dirty` + `ProjectSettingsStore.HasUnsavedChanges` | `HasUnsavedChanges` gates Save All and close (`EditorParity.cs:132,2477`) and **does not include** the settings store's — project settings edits are non-undoable by construction (`EditorSettingsPanels.cs:747`, `EditedDocument = null`) and can be lost on close |
-| **selection** | `Selection<T>` — assets on the project, entities on the scene | `HashSet<NodeId>` (`NodeGraphView.cs:109`), `List<FoliageAddress>`, `HashSet<SplineHandle>`, `LayerPath?` | the graph's is read cross-assembly by two `.vxml` views; none of B's is reactive or on `EditorContext` |
+| **the active scene** | `EditorProject.ActiveDocument` (`EditorProject.cs:56`) | `EditorApplication.scene` (`EditorApplication.cs:107`), whose remarks say *"half the editor holds the active scene"* (`EditorApplication.cs:101-102`), plus `Shown => inspected ?? scene` wrapped as `IActiveScene` | `ActiveDocument` has **3** readers; `scene.` is read **124** times across the partials; `EditorWorlds.cs:499-502` sets both in sequence |
+| **dirty** | `CommandStack.IsDirty` → `EditorDocument.IsDirty` → `EditorProject.HasUnsavedChanges` | `SettingsView.dirty` + `ProjectSettingsStore.HasUnsavedChanges` | `HasUnsavedChanges` gates Save All and close (`EditorParity.cs:132,2231`) and **does not include** the settings store's — project settings edits are non-undoable by construction (`EditorSettingsPanels.cs:747`, `EditedDocument = null`) and can be lost on close |
+| **selection** | `Selection<T>` — assets on the project, entities on the scene | `HashSet<NodeId>` (`NodeGraphView.cs:109@0d7dda4a9`), `List<FoliageAddress>`, `HashSet<SplineHandle>`, `LayerPath?` | the graph's is read cross-assembly by two `.vxml` views; none of B's is reactive or on `EditorContext` |
 | **a document** | `EditorDocument` (25 subclasses) | `Vixen.Ui.IEditableDocument` (0 implementations under `Editor/`; #656) | the model itemises its own divergence at `EditorDocument.cs:29-61` |
 | **a property** | `EditProperty` (18 uses, the live edit path) | `EditorProperty<T>` / `EditorObject` / `SetPropertyCommand<T>` — **5 uses, all in Core, no subclass of `EditorObject` anywhere under `Editor/`** | `EditProperty.cs:18-19` says it *"is what a `SceneDocument`'s own fields are"*; they are plain dictionaries (`SceneDocument.cs:120-194`). A dead type with a remark that describes the live one |
 
 And **hidden and locked are edited behind the stack's back**: `SceneDocument.SetHidden`/`SetLocked`
 have no command (grep: none), and are written directly from the outliner's eye and lock toggles
-(`EditorApplication.cs:5471,5473`, `EditorParity.cs:796,805`, `EditorWorlds.cs:600,613`), from `Isolate`
+(`EditorApplication.cs:5434,5436`, `EditorParity.cs:727,736`, `EditorWorlds.cs:600,613`), from `Isolate`
 (`EditorSelectionVerbs.cs:178-230`), and — the one that is a bug — from **inside a Blockout
 transaction** (`BlockoutBoolean.cs:66-71`), so undoing a boolean restores the reparent and the mesh
 and leaves the operand hidden. Filed as [#1277](https://github.com/Rikarin/Vixen/issues/1277).
@@ -342,7 +342,7 @@ architecture rules enforce.
 | | **Editing** (shared kernel) | `EditTarget`, `EditProperty`, `IEditProvider` | the one edit path, doc 36 § D1 | `Vixen.Editor.Core` (already) |
 | | **Session** | `PlayModeController` | enter/stop play, snapshot/restore, `PlayPhysics`, play diagnostics — `EditorParity.cs:855-954, 2913-3032@0d7dda4a9`, `PlayPhysics.cs` | `Vixen.Editor.Core` |
 | | **Delivery** | `BuildPlan` | build settings, Build and Run, deploy, `BuildStep` contributions — `EditorBuilds.cs`, `EditorApplication.cs:5276` | `Vixen.Editor.Assets.Content` |
-| **Application** | **Workspace** | `DockingWorkspace`, `EditorUserStore` | panels, layouts, view bookmarks, what persists — `EditorApplication.cs:1447-1515, 2236-2696, 3657-3734, 5766` | `Vixen.Editor.Ui` (already) |
+| **Application** | **Workspace** | `DockingWorkspace`, `EditorUserStore` | panels, layouts, view bookmarks, what persists — `EditorApplication.cs:1463-1531, 2217-2670, 3600-3677, 5742` | `Vixen.Editor.Ui` (already) |
 | | **Extensibility** | `PluginHost`, `EditorRegistry` | modules, disk plugins, scripts, hot reload, `PluginPoints` — `EditorApplication.cs:3060-3254`, `Vixen.Editor.Scripts` | `Vixen.Editor.Plugin` (already) |
 | | **Composition root** | `EditorApplication` | construct, publish, activate, tick | `Vixen.Editor.App` — **≤ 800 lines** |
 | **Supporting** | Diagnostics, Source control, Preferences | `EditorLog`, `SourceControl`, `EditorSettings` | `EditorDiagnostics.cs`, `EditorSourceControl.cs`, `EditorSettingsPanels.cs` | modules |
