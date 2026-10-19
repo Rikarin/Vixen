@@ -79,10 +79,12 @@ public class ApplicationReferenceRuleTests {
         Assert.Contains("Vixen.Editor.Ui", referenced);
 
         // And the other half of the instrument: a feature reference is something this walk can find.
-        // The node graph is one, it is still there, and a rule that could not see it would be clean for
-        // the wrong reason. ⚠ This named the profiler until #1298 took it off; the day the node graph
-        // goes too (#1299) this half needs a feature reference made for it, not a deleted line.
-        Assert.Contains("Vixen.Editor.NodeGraph", referenced);
+        // The asset editors are one, the last `NotYetMoved` names, and a rule that could not see them
+        // would be clean for the wrong reason. ⚠ This named the profiler until #1298 and the node graph
+        // until #1299 took each off; the day the asset editors go too (#1297) this half needs a feature
+        // reference made for it — a fixture project — not a deleted line, because then the real tree
+        // holds none left to point at.
+        Assert.Contains("Vixen.Editor.AssetEditors", referenced);
 
         // ⚠ The generator is not in the list, and that is the one exclusion the rule makes.
         // `Vixen.Editor.Inspector.Generator` is an `OutputItemType="Analyzer"` reference under

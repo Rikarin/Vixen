@@ -199,8 +199,8 @@ What `Vixen.Editor.App` publishes today is `EditorProject`, `SceneDocument`, `Dr
 `ImporterContributions`, `IContentLibrary`, `IProjectSession`, `IEditorRegistry`, the editing state
 (`MeshEdit`), the work plane (`WorkPlane`), `IMeshBaker`, `IMeshMapBaker`, `IMeshSource`,
 `IActiveScene`, `IActivePlaySession`, `IPlaySession`, `ISceneEditing`, `IActiveView`,
-`IPlayerDelivery`, `AssetEditorRegistry`, `HotReloadHost`, `IEditorGraphics`, the log ring (`RingBufferSink`), `EditorDataDirectory`, `INativeDialogs` where the platform has pickers (#1298), `IExternalLinks` and the `PluginHost`
-itself. ⚠ Five of those — the doc 50 context services — were published by three batches before this
+`IPlayerDelivery`, `AssetEditorRegistry`, `HotReloadHost`, `IEditorGraphics`, the log ring (`RingBufferSink`), `EditorDataDirectory`, `IExternalLinks` and the `PluginHost`
+itself. Where the platform has native pickers it publishes `INativeDialogs` too (#1298) — on a head with none, nothing, which is why it is named outside the list above. ⚠ Five of those — the doc 50 context services — were published by three batches before this
 sentence named them; `PublishedServicesReadmeTests` now compares it with what the editor publishes,
 and the context services each have a guide page: [the content library](../../docs/guide/editor/content-library.md),
 [the project session](../../docs/guide/editor/project-session.md), [scene editing](../../docs/guide/editor/scene-editing.md)
