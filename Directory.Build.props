@@ -119,6 +119,17 @@
     <IsPackable>false</IsPackable>
     <IsAotCompatible>false</IsAotCompatible>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!--
+      ⚠ For the documentation graph, not the compiler. The SDK turns reference assemblies on only
+      for net5.0+, so a netstandard plugin has no TargetRefPath, and Roslyn's MSBuildWorkspace
+      cannot match a plain ProjectReference to such a project against the referencing project's
+      metadata: it reports "Found project reference without a matching metadata reference" —
+      depending on load order, so the full solution hid it for every generator test suite until
+      Vixen.Editor.App.Tests referenced Vixen.Editor.Plugin.Generator plainly and CheckDocs refused
+      the load. A two-project solution of any generator and its tests reproduces it. With a ref
+      assembly the match is made the same way as for every net10.0 project in the tree.
+    -->
+    <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
   </PropertyGroup>
 
   <!--
