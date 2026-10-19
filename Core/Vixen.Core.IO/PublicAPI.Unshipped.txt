@@ -132,6 +132,7 @@ Vixen.Core.IO.Watch.FileChangeCoalescer.Debounce.set -> System.TimeSpan
 Vixen.Core.IO.Watch.FileChangeCoalescer.Drain(long timestamp, System.Collections.Generic.ICollection<Vixen.Core.IO.Watch.FileChange> into) -> int
 Vixen.Core.IO.Watch.FileChangeCoalescer.DroppedCount.get -> long
 Vixen.Core.IO.Watch.FileChangeCoalescer.FileChangeCoalescer(int capacity = 4096) -> void
+Vixen.Core.IO.Watch.FileChangeCoalescer.Observed() -> void
 Vixen.Core.IO.Watch.FileChangeCoalescer.PendingCount.get -> int
 Vixen.Core.IO.Watch.FileChangeCoalescer.Record(Vixen.Core.IO.Watch.FileChange change, long timestamp) -> void
 Vixen.Core.IO.Watch.FileChangeCoalescer.Suppress(Vixen.Core.IO.VirtualPath path, long timestamp) -> void
@@ -154,6 +155,7 @@ Vixen.Core.IO.Watch.FileWatcher.Drain(System.Collections.Generic.ICollection<Vix
 Vixen.Core.IO.Watch.FileWatcher.DroppedCount.get -> long
 Vixen.Core.IO.Watch.FileWatcher.FileWatcher(string rootDirectory, Vixen.Core.IO.VirtualPath virtualRoot) -> void
 Vixen.Core.IO.Watch.FileWatcher.HasOverflowed.get -> bool
+Vixen.Core.IO.Watch.FileWatcher.Observed() -> void
 Vixen.Core.IO.Watch.FileWatcher.Root.get -> Vixen.Core.IO.VirtualPath
 Vixen.Core.IO.Watch.FileWatcher.Suppress(Vixen.Core.IO.VirtualPath path) -> void
 Vixen.Core.IO.Watch.IFileWatcher -> interface
@@ -163,6 +165,7 @@ Vixen.Core.IO.Watch.IFileWatcher.Debounce.get -> System.TimeSpan
 Vixen.Core.IO.Watch.IFileWatcher.Debounce.set -> System.TimeSpan
 Vixen.Core.IO.Watch.IFileWatcher.Drain(System.Collections.Generic.ICollection<Vixen.Core.IO.Watch.FileChange> into) -> int
 Vixen.Core.IO.Watch.IFileWatcher.HasOverflowed.get -> bool
+Vixen.Core.IO.Watch.IFileWatcher.Observed() -> void
 Vixen.Core.IO.Watch.IFileWatcher.Root.get -> Vixen.Core.IO.VirtualPath
 Vixen.Core.IO.Watch.IFileWatcher.Suppress(Vixen.Core.IO.VirtualPath path) -> void
 const Vixen.Core.IO.VirtualPath.Separator = '/' -> char

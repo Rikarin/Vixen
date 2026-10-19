@@ -87,6 +87,24 @@ public class FileChangeCoalescerTests {
         Assert.Empty(changes);
     }
 
+    /// <summary>
+    ///     ⚠ <b>A creation the consumer has already seen is not cancelled by a deletion.</b> A full rescan
+    ///     that ran while the creation was still settling indexed the file; if the deletion then cancelled
+    ///     the pair, nothing would ever tell the consumer the file had gone.
+    /// </summary>
+    [Fact]
+    public void ACreationObservedByARescanIsNotCancelledByADeletion() {
+        var coalescer = Create();
+        var changes = new List<FileChange>();
+
+        coalescer.Record(new(new("/doomed.png"), FileChangeKind.Created), 0);
+        coalescer.Observed();
+        coalescer.Record(new(new("/doomed.png"), FileChangeKind.Deleted), 10 * Millisecond);
+
+        Assert.Equal(1, coalescer.Drain(70 * Millisecond, changes));
+        Assert.Equal(FileChangeKind.Deleted, Assert.Single(changes).Kind);
+    }
+
     [Fact]
     public void DeletedThenCreatedIsAChangeRatherThanADeletion() {
         var coalescer = Create();

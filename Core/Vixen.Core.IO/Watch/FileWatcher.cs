@@ -21,6 +21,9 @@ public interface IFileWatcher : IDisposable {
     /// <param name="path">The virtual path.</param>
     void Suppress(VirtualPath path);
 
+    /// <summary>Says the consumer has just rescanned everything, so a creation still pending is no longer news a deletion can cancel.</summary>
+    void Observed();
+
     /// <summary>Takes every change whose debounce window has closed.</summary>
     /// <param name="into">Where to put them.</param>
     /// <returns>How many changes were produced.</returns>
@@ -134,6 +137,13 @@ public sealed class FileWatcher : IFileWatcher {
     public void Suppress(VirtualPath path) {
         lock (gate) {
             coalescer.Suppress(path, System.Diagnostics.Stopwatch.GetTimestamp());
+        }
+    }
+
+    /// <inheritdoc />
+    public void Observed() {
+        lock (gate) {
+            coalescer.Observed();
         }
     }
 

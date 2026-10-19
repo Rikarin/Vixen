@@ -263,6 +263,12 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         // event already pending for the path, so it is right whether or not the platform has spoken.
         Suppress(report.Written);
 
+        // ⚠ And the scan has now seen every file on disk, including one whose creation is still
+        // settling in the watcher. Without this, deleting that file inside the debounce window
+        // cancelled its pending creation and nothing was ever reported: the index kept an entry for a
+        // file that was gone. The `.meta` echo above used to be the second burst that cleaned it up.
+        watcher?.Observed();
+
         project.Assets.Save();
 
         // ⚠ Rebuilt with it. The reverse index is what answers "what would break if I deleted this",

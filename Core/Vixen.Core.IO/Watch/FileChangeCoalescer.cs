@@ -120,6 +120,23 @@ public sealed class FileChangeCoalescer {
         pending.Remove(path);
     }
 
+    /// <summary>Says the consumer has just read the whole tree, so a pending creation is no longer news.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What keeps "created then deleted is not news" true.</b> That merge assumes nobody saw the
+    ///     file in between. A full rescan that ran while a creation was still settling did see it — it
+    ///     indexed the file — so a deletion arriving afterwards has to be reported, or the consumer keeps
+    ///     an entry for a file that is gone and nothing ever tells it otherwise. Every pending creation
+    ///     becomes a change, which a deletion overrides rather than cancels. Found when #1488 stopped a
+    ///     scan's own sidecar write echoing back: that echo had been the second burst that cleaned up.
+    /// </remarks>
+    public void Observed() {
+        foreach (var (path, entry) in pending.ToArray()) {
+            if (entry.Kind == FileChangeKind.Created) {
+                pending[path] = entry with { Kind = FileChangeKind.Changed };
+            }
+        }
+    }
+
     /// <summary>Feeds in one raw event.</summary>
     /// <param name="change">What the platform reported.</param>
     /// <param name="timestamp">The current <see cref="System.Diagnostics.Stopwatch.GetTimestamp" />.</param>
