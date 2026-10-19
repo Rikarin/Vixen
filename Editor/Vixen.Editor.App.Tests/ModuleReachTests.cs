@@ -6,8 +6,8 @@ using System.Text.RegularExpressions;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
-using Vixen.Testing;
 using Vixen.Editor.Ui;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
