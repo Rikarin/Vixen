@@ -47,6 +47,15 @@ sealed class SceneEditing : ISceneEditing {
 
     SceneDocument active;
 
+    /// <summary>What reads a scene file into a document beside the others: the composition root's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The application's, handed in, because the read is tangled with which files other
+    ///     documents edit</b> — a scene a tab already has open is refused, not loaded a second time —
+    ///     and that arbitration is the Documents context's. It ends in <see cref="Open(SceneDocument)" />.
+    ///     Unset, <see cref="OpenAdditively" /> opens nothing.
+    /// </remarks>
+    internal Func<string, SceneDocument?>? Load { get; set; }
+
     /// <summary>Builds the verbs over the scene the editor starts with and the composition root's answers.</summary>
     /// <param name="first">The scene the editor starts with: the first open and the active one.</param>
     /// <param name="view">The focused pane's camera, or <see langword="null" />.</param>
@@ -102,6 +111,16 @@ sealed class SceneEditing : ISceneEditing {
     /// <remarks>The application's <c>RefreshMarks()</c> calls, for the same reason as <see cref="Restructured" />.</remarks>
     internal void Remarked() => MarksChanged?.Invoke(this);
 
+    /// <inheritdoc />
+    public event Action<ISceneEditing>? ScenesChanged;
+
+    /// <inheritdoc />
+    public SceneDocument? OpenAdditively(string path) {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+
+        return Load?.Invoke(path);
+    }
+
     /// <summary>Adds a scene the host has opened from a file, without activating it.</summary>
     /// <param name="scene">The scene.</param>
     /// <returns>Whether it was not already open.</returns>
@@ -113,20 +132,28 @@ sealed class SceneEditing : ISceneEditing {
         }
 
         scenes.Add(scene);
+        ScenesChanged?.Invoke(this);
 
         return true;
     }
 
-    /// <summary>Takes an open scene out, activating the one before it when it was the active one.</summary>
-    /// <param name="scene">The scene, which must not be the first.</param>
-    /// <returns>Whether it was open here and could be taken out.</returns>
+    /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>The scene before it is activated <i>through</i> <see cref="Activate" />, so the editor
-    ///     follows (#1498).</b> The application's close moved its index back and then asked to activate
-    ///     that index, which it already was — so closing the active scene left everything pointed at the
-    ///     closed document. The first scene cannot be closed; closing the last one is New Scene.
+    ///     <para>
+    ///         ⚠ <b>The scene before it is activated <i>through</i> <see cref="Activate" />, so the editor
+    ///         follows (#1498).</b> The application's close moved its index back and then asked to
+    ///         activate that index, which it already was — so closing the active scene left everything
+    ///         pointed at the closed document.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The entities go with the scene</b>, moved here from the application's close. The
+    ///         world is shared, so a document closed without deleting its roots would leave its entities
+    ///         in the level with nothing naming them — the multi-scene version of a leak.
+    ///     </para>
     /// </remarks>
-    internal bool Close(SceneDocument scene) {
+    public bool Close(SceneDocument scene) {
+        ArgumentNullException.ThrowIfNull(scene);
+
         var index = scenes.IndexOf(scene);
 
         if (index <= 0) {
@@ -138,6 +165,12 @@ sealed class SceneEditing : ISceneEditing {
         }
 
         scenes.RemoveAt(index);
+
+        scene.Delete([.. scene.Roots]);
+        scene.Close();
+
+        Restructured();
+        ScenesChanged?.Invoke(this);
 
         return true;
     }

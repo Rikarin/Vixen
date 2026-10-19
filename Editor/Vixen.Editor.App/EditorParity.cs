@@ -810,7 +810,7 @@ sealed partial class EditorApplication {
     ///     <para>
     ///         Positioned by finding a menu the shell owns rather than by a literal index, so that a
     ///         menu added to the shell's default bar does not silently move these somewhere else.
-    ///         The Scene menu is inserted by <see cref="SceneMenu" />, which runs after this.
+    ///         The Scene menu is inserted by <c>SceneModule</c>'s <see cref="SceneMenuBar" />, later.
     ///     </para>
     /// </remarks>
     void ParityMenus() {
@@ -868,7 +868,7 @@ sealed partial class EditorApplication {
             .AddSeparator()
             .Add("entity.toggle-active", "entity.toggle-hidden", "entity.toggle-lock");
 
-        // Consecutive, with no gap left for Scene: `SceneMenu` inserts it between Entity and Play
+        // Consecutive, with no gap left for Scene: `SceneMenuBar` inserts it between Entity and Play
         // afterwards, which shifts these three along by one. Leaving a hole here instead would mean
         // this method knowing what the next one is going to do.
         var play = Shell.Menus.InsertMenu(++after, EditorStrings.MenuPlay);

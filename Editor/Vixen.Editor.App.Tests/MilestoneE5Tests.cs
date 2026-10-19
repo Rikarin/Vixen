@@ -302,7 +302,7 @@ public class MilestoneE5Tests {
         Assert.Same(opened, fixture.Editor.OpenSceneAdditively(path));
         Assert.Equal(2, fixture.Editor.Scenes.Count);
 
-        fixture.Editor.CloseScene(1);
+        Assert.True(fixture.Plugins.Services.Require<ISceneEditing>().Close(opened));
         fixture.Settle();
 
         Assert.Single(fixture.Editor.Scenes);

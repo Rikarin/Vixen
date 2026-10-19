@@ -57,9 +57,6 @@ sealed partial class EditorApplication {
     /// <summary>And the navigation one.</summary>
     internal const string NavigationPanel = "navigation";
 
-    /// <summary>And the list of open scenes.</summary>
-    internal const string ScenesPanel = "scenes";
-
     /// <summary>The context id of the world-building panels.</summary>
     internal const string WorldContext = "world";
 
@@ -70,9 +67,10 @@ sealed partial class EditorApplication {
     /// <remarks>
     ///     ⚠ <b>Which scenes are open, in what order, and which is active are
     ///     <see cref="ISceneEditing" />'s (#1290)</b> — <see cref="SceneEditing.Scenes" /> is the list
-    ///     and this is only the file beside each entry: its path, its world settings, and the two view
-    ///     marks the Scenes panel toggles. The application follows the service's
-    ///     <see cref="ISceneEditing.ActiveChanged" /> rather than assigning <c>scene</c> itself.
+    ///     and this is only the file beside each entry: its path and its world settings. The view marks
+    ///     the Scenes panel toggles are the panel's, <see cref="ScenesPanel" />. The application follows
+    ///     the service's <see cref="ISceneEditing.ActiveChanged" /> rather than assigning <c>scene</c>
+    ///     itself, and its <see cref="ISceneEditing.ScenesChanged" /> to forget a closed scene's file.
     /// </remarks>
     readonly Dictionary<SceneDocument, EditorScene> sceneFiles = [];
 
@@ -94,17 +92,6 @@ sealed partial class EditorApplication {
 
         /// <summary>Its world settings.</summary>
         public WorldSettings Settings { get; set; } = new();
-
-        /// <summary>Whether its entities are drawn.</summary>
-        /// <remarks>
-        ///     ⚠ <b>Editor state, like an entity's own visibility.</b> Hiding a scene to work on the
-        ///     one in front of it must not change what ships, so it is not written and it is not
-        ///     undoable — the rule <c>entity.toggle-hidden</c> already follows.
-        /// </remarks>
-        public bool IsVisible { get; set; } = true;
-
-        /// <summary>Whether its entities can be selected or edited.</summary>
-        public bool IsLocked { get; set; }
     }
 
     /// <summary>The scene commands and the outliner act on: the one new entities go into.</summary>
@@ -116,7 +103,7 @@ sealed partial class EditorApplication {
     /// <summary>The active scene's world settings.</summary>
     internal WorldSettings World => world0;
 
-    /// <summary>The four panels doc 20's B6 names that this milestone builds.</summary>
+    /// <summary>Three of the four panels doc 20's B6 names; the Scenes panel is <c>SceneModule</c>'s (#1290).</summary>
     void WorldPanels() {
         Shell.RegisterPanel(
             WorldPanel,
@@ -178,17 +165,6 @@ sealed partial class EditorApplication {
                 Report(report, navigation);
             }
         );
-
-        Shell.RegisterPanel(
-            ScenesPanel,
-            EditorStrings.PanelScenes,
-            panel => {
-                panel.WhenPressedIn(() => Shell.Context = SceneContext);
-
-                sceneList = panel.Add("scene-list");
-                RefreshScenes();
-            }
-        );
     }
 
     /// <summary>The debug views a GI solution owes, named as absent rather than left out.</summary>
@@ -204,7 +180,6 @@ sealed partial class EditorApplication {
         "Indirect-only"
     ];
 
-    UiElement? sceneList;
     bool navigationDrawn;
     NavMeshTileData? navigation;
 
@@ -426,6 +401,11 @@ sealed partial class EditorApplication {
     /// <returns>The document, or <see langword="null" /> when it would not load.</returns>
     /// <remarks>
     ///     <para>
+    ///         ⚠ <b>The read behind <see cref="ISceneEditing.OpenAdditively" /> (#1290)</b>, handed to the
+    ///         service as <see cref="SceneEditing.Load" /> because refusing a file another document edits
+    ///         is this class's arbitration. Scene ▸ Open Scene Additively is <c>SceneModule</c>'s.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>Into the same world and its own <c>SceneHandle</c>.</b> That is what
     ///         <c>SceneManager</c> is for and it is what makes an entity handle mean one thing across
     ///         the editor — a second world would mean the outliner, the gizmo and the picker each
@@ -476,19 +456,9 @@ sealed partial class EditorApplication {
         sceneEditing.Open(document);
 
         sceneEditing.Restructured();
-        RefreshScenes();
 
         Shell.Notifications.Success(Path.GetFileName(path) + " opened additively");
         return document;
-    }
-
-    /// <summary>Makes one of the open scenes the one commands act on.</summary>
-    /// <param name="index">Which one.</param>
-    /// <remarks>Through the service, so this and a plugin's <c>Activate</c> are one path — see <see cref="Followed" />.</remarks>
-    internal void Activate(int index) {
-        if (sceneEditing.Scenes is var open && index >= 0 && index < open.Count) {
-            sceneEditing.Activate(open[index]);
-        }
     }
 
     /// <summary>Points the editor at the scene <see cref="ISceneEditing" /> made active.</summary>
@@ -515,8 +485,20 @@ sealed partial class EditorApplication {
         }
 
         sceneEditing.Restructured();
-        RefreshScenes();
         Retitle();
+    }
+
+    /// <summary>Forgets the file of every scene the service no longer has open.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Following <see cref="ISceneEditing.ScenesChanged" />, so a plugin's
+    ///     <see cref="ISceneEditing.Close" /> and the Scenes panel's are one path (#1290).</b> The
+    ///     service deletes the closed scene's entities and closes the document; the path and the world
+    ///     settings beside it are what only this class held.
+    /// </remarks>
+    void ForgetClosedScenes() {
+        foreach (var closed in sceneFiles.Keys.Where(document => !sceneEditing.Scenes.Contains(document)).ToList()) {
+            sceneFiles.Remove(closed);
+        }
     }
 
     /// <summary>Points every field that holds the active scene at another one.</summary>
@@ -534,117 +516,6 @@ sealed partial class EditorApplication {
         probe = new SceneProbe(document);
     }
 
-    /// <summary>Closes an additively-opened scene, asking first if it has changes.</summary>
-    /// <param name="index">Which one.</param>
-    /// <remarks>
-    ///     ⚠ <b>The first scene cannot be closed.</b> An editor with no scene at all has no viewport
-    ///     subject, no outliner and nowhere to put a new entity — every one of which is a panel that
-    ///     would have to grow an empty state for a condition nobody wants to be in. Closing the last
-    ///     one is New Scene.
-    /// </remarks>
-    internal void CloseScene(int index) {
-        var scenes = Scenes;
-
-        if (index <= 0 || index >= scenes.Count) {
-            return;
-        }
-
-        var open = scenes[index];
-
-        Confirm(
-            open.Document.HasUnsavedChanges.Value,
-            "Discard unsaved changes?",
-            Path.GetFileName(open.Path) + " has changes that have not been written.",
-            () => {
-                // ⚠ Out of the service first, which activates the scene before it when this one was
-                // active — and the editor follows that before the document goes (#1498).
-                sceneEditing.Close(open.Document);
-
-                // ⚠ The entities go with the scene. The world is shared, so a document closed without
-                // unloading its handle would leave its entities in the level with nothing naming
-                // them — which is the multi-scene version of a leak.
-                open.Document.Delete([.. open.Document.Roots]);
-                open.Document.Close();
-
-                sceneFiles.Remove(open.Document);
-                sceneEditing.Restructured();
-                RefreshScenes();
-            },
-            confirm: "Discard"
-        );
-    }
-
-    /// <summary>Rebuilds the Scenes panel's rows.</summary>
-    void RefreshScenes() {
-        if (sceneList is not { } list) {
-            return;
-        }
-
-        while (list.Children.Count > 0) {
-            list.Children[^1].Remove();
-        }
-
-        var scenes = Scenes;
-
-        for (var index = 0; index < scenes.Count; index++) {
-            var position = index;
-            var open = scenes[index];
-
-            var row = list.Add("scene-row");
-            if (ReferenceEquals(open.Document, sceneEditing.Active)) {
-                row.AddClass("selected");
-            }
-
-            var name = row.Add("scene-name");
-            name.Text = Path.GetFileNameWithoutExtension(open.Path) + (open.Document.HasUnsavedChanges.Value ? " *" : string.Empty);
-
-            var visible = row.Add<CheckBox>();
-            visible.IsChecked = open.IsVisible;
-
-            visible.CheckedChanged += (_, on) => {
-                open.IsVisible = on;
-
-                foreach (var entity in open.Document.Roots) {
-                    open.Document.SetHidden(entity, !on);
-                }
-
-                sceneEditing.Remarked();
-            };
-
-            var locked = row.Add<CheckBox>();
-            locked.IsChecked = open.IsLocked;
-
-            locked.CheckedChanged += (_, on) => {
-                open.IsLocked = on;
-
-                foreach (var entity in open.Document.Roots) {
-                    open.Document.SetLocked(entity, on);
-                }
-
-                sceneEditing.Remarked();
-            };
-
-            row.AddHandler<PointerEvent>(
-                (_, args) => {
-                    if (args.Action == PointerAction.Pressed) {
-                        Activate(position);
-                    }
-                }
-            );
-
-            if (index == 0) {
-                continue;
-            }
-
-            var close = row.Add<Button>();
-
-            close.Label = "Close";
-            close.Size = ControlSize.Small;
-            close.Variant = ControlVariant.Subtle;
-            close.Clicked += _ => CloseScene(position);
-        }
-    }
-
     /// <summary>The verbs doc 20's B6 and its multi-scene row name.</summary>
     void WorldCommands() {
         CreateAssetCommands();
@@ -652,16 +523,9 @@ sealed partial class EditorApplication {
         Panel("scene.world-settings", EditorStrings.CommandSceneWorldSettings, WorldPanel, EditorStrings.CategoryScene);
         Panel("scene.lighting", EditorStrings.CommandSceneLighting, LightingPanel, EditorStrings.CategoryScene);
         Panel("scene.navigation", EditorStrings.CommandSceneNavigation, NavigationPanel, EditorStrings.CategoryScene);
-        Panel("scene.scenes", EditorStrings.CommandSceneScenes, ScenesPanel, EditorStrings.CategoryScene);
 
-        Verb(
-            "scene.open-additive",
-            EditorStrings.CommandSceneOpenAdditive,
-            EditorStrings.CategoryScene,
-            OpenSceneAdditive,
-            enabled: () => services.CanPick
-        );
-
+        // ⚠ The Scenes panel, Open Scene Additively and Close Scene are `SceneModule`'s (#1290), over
+        // `ISceneEditing`. Save All Scenes stays: it writes each scene's world settings beside it.
         Verb(
             "scene.save-all-scenes",
             EditorStrings.CommandSceneSaveAllScenes,
@@ -671,28 +535,6 @@ sealed partial class EditorApplication {
         );
 
         Planned("scene.layers", EditorStrings.CommandSceneLayers, EditorStrings.CategoryScene);
-    }
-
-    void OpenSceneAdditive() {
-        if (services.Dialogs is not { } dialogs) {
-            return;
-        }
-
-        deferred.When(
-            dialogs.OpenFileAsync(
-                new Platform.FileDialogOptions {
-                    Title = "Open Scene Additively",
-                    InitialDirectory = project.Paths.Assets,
-                    Filters = [new Platform.FileFilter("Vixen scene", SceneSerializer.Extension.TrimStart('.'))]
-                }
-            ),
-            path => {
-                if (path is not null) {
-                    OpenSceneAdditively(path);
-                }
-            },
-            failure => Shell.Notifications.Show("Could not open the scene", NotificationSeverity.Error, failure.Message)
-        );
     }
 
     void SaveAllScenes() {
@@ -718,7 +560,6 @@ sealed partial class EditorApplication {
         }
 
         Shell.Notifications.Success($"{written} scene(s) saved");
-        RefreshScenes();
     }
 
     // ── Making one of the new assets ────────────────────────────────────────────────────────────

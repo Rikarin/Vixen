@@ -51,6 +51,7 @@
 # read the class declaration reports two ports that are already done.
 
 Editor/Vixen.Editor.App/EditorDiagnostics.cs not-a-view — ShownView is the IActiveView adapter the diagnostics report reads the viewport through; it draws nothing
+Editor/Vixen.Editor.App/ScenesPanel.cs pending — the Scenes panel's rows over ISceneEditing.Scenes, moved as C# out of EditorWorlds by #1290; a list of rows over a live model
 Editor/Vixen.Editor.AssetEditors/Ai/BehaviorTreeView.cs canvas
 Editor/Vixen.Editor.AssetEditors/Animation/AnimationClipView.cs canvas — a timeline
 Editor/Vixen.Editor.AssetEditors/Animation/AnimationGraphView.cs canvas

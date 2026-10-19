@@ -754,6 +754,9 @@ public static class EditorStrings {
     /// <summary>The <c>Navigation…</c> command.</summary>
     public static StringId CommandSceneNavigation { get; } = new("editor.command.scene.navigation", "Navigation…");
 
+    /// <summary>The <c>Close Scene</c> command: the active scene, when it is not the first.</summary>
+    public static StringId CommandSceneCloseScene { get; } = new("editor.command.scene.close-scene", "Close Scene");
+
     /// <summary>The <c>Open Scene Additively…</c> command.</summary>
     public static StringId CommandSceneOpenAdditive { get; } =
         new("editor.command.scene.open-additive", "Open Scene Additively…");
@@ -1502,6 +1505,7 @@ public static class EditorStrings {
         CommandRadialMenu,
         CommandRefreshAssets,
         CommandReloadPlugins,
+        CommandSceneCloseScene,
         CommandSceneContextMenu,
         CommandSceneLayers,
         CommandSceneLighting,

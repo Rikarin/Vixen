@@ -7,6 +7,7 @@ using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Editor.Ui.Documents;
 using Vixen.Input;
+using Vixen.Platform;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 using Vixen.Ui;
@@ -23,7 +24,7 @@ namespace Vixen.Editor.App;
 ///         <c>Require</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Not yet the whole Scene menu the issue names.</b> The Edit menu's selection verbs
+///         ⚠ <b>Not every Scene line's command is this module's.</b> The Edit menu's selection verbs
 ///         (Duplicate, Invert, Select Children, Select Parent) are still registered by the application
 ///         over this service — the clipboard loop beside them reserves ids by checking for a command,
 ///         and a module activated later would find its id taken by a planned placeholder. Set Parent
@@ -36,6 +37,12 @@ namespace Vixen.Editor.App;
 ///         or a set (Align, Distribute, Select By Name/Type, the selection sets), through
 ///         <see cref="SceneQuestions" />: the chooser they ask with is the shell's now, not the
 ///         application's.
+///     </para>
+///     <para>
+///         <b>The fifth made the Scene menu, the Scenes panel and Open Scene Additively / Close Scene
+///         the module's</b> — <see cref="SceneMenuBar" /> and <see cref="ScenesPanel" />, over
+///         <see cref="ISceneEditing.OpenAdditively" /> and <see cref="ISceneEditing.Close" />. The outliner's
+///         context menu was already <see cref="SceneOutliner" />'s.
 ///     </para>
 /// </remarks>
 sealed class SceneModule : IEditorPlugin {
@@ -175,6 +182,31 @@ sealed class SceneModule : IEditorPlugin {
             new PanelDescriptor(SceneOutliner.PanelId, EditorStrings.PanelHierarchy, outliner.Build) { Closed = outliner.Closed }
         );
         context.OnUpdate(_ => outliner.Update());
+
+        // ── The Scenes panel and the multi-scene verbs (#1290's fifth slice) ───────────────────
+        // ⚠ Over `ISceneEditing.OpenAdditively`/`Close`; the picker is the published one, so a host
+        // with none greys Open Scene Additively rather than offering a line that does nothing.
+        context.Services.TryGet(out INativeDialogs? dialogs);
+
+        var session = context.Services.Require<IProjectSession>();
+        var scenes = context.Owns(
+            new ScenesPanel(
+                context.Shell,
+                editing,
+                EditorApplication.SceneContext,
+                dialogs,
+                () => session.Project.Paths.Assets,
+                () => (editing as SceneEditing)?.Remarked()
+            )
+        );
+
+        scenes.Register(context);
+        context.OnUpdate(_ => scenes.Update());
+
+        // ── The Scene menu (#1290's fifth slice) ────────────────────────────────────────────────
+        // ⚠ Last, so every line it names that is this module's is registered; and before Blockout and
+        // Water activate, which place their submenus in it by finding it.
+        SceneMenuBar.Register(context);
     }
 
     /// <summary>One command per built-in shape, so that spawning one is not the menu's private trick.</summary>
