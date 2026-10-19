@@ -67,7 +67,7 @@ static class WaterProfileHandles {
     /// <param name="radius">How near is near enough, in render pixels.</param>
     /// <returns>The handle and its control point, or <see cref="WaterHandle.None" /> and −1.</returns>
     public static (WaterHandle Handle, int Point) Under(
-        SceneViewport pane,
+        IViewportPane pane,
         Vector2 pointer,
         Spline spline,
         in WaterProfilePoint profile,
@@ -124,7 +124,7 @@ static class WaterProfileHandles {
     /// </remarks>
     public static void Draw(
         GizmoDraw draw,
-        SceneViewport pane,
+        IViewportPane pane,
         Spline spline,
         in WaterProfilePoint profile,
         WaterHandle held = WaterHandle.None,

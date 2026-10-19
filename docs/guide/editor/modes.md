@@ -4,7 +4,7 @@ slug: editor/modes
 kind: guide
 area: Editor
 summary: What the viewport's input means right now, and how a mode claims keys that already mean something else.
-api: [T:Vixen.Editor.Ui.IEditorMode, T:Vixen.Editor.Ui.EditorModes, T:Vixen.Editor.Ui.SelectMode, T:Vixen.Editor.SceneView.IViewportInput, T:Vixen.Editor.Blockout.BlockoutMode, T:Vixen.Editor.Blockout.BlockoutElement, T:Vixen.Editor.Ui.ModeArt]
+api: [T:Vixen.Editor.Ui.IEditorMode, T:Vixen.Editor.Ui.EditorModes, T:Vixen.Editor.Ui.SelectMode, T:Vixen.Editor.SceneView.IViewportInput, T:Vixen.Editor.SceneView.IViewportPane, T:Vixen.Editor.Blockout.BlockoutMode, T:Vixen.Editor.Blockout.BlockoutElement, T:Vixen.Editor.Ui.ModeArt]
 tags: [editor, viewport, input, blockout, terrain, foliage, plugins]
 since: 0.1
 status: preview
@@ -26,7 +26,10 @@ its own; view-bookmark recall keeps all nine everywhere none of them has the foc
 that, which is the whole of what a seam with one implementation could only assert.
 
 `IViewportInput` is the other end of it. `Vixen.Editor.SceneView` deliberately does not reference the
-shell, so a pane declares the hook it needs and the application joins the two.
+shell, so a pane declares the hook it needs and the application joins the two. What the hook hands a
+mode or a tool is `IViewportPane` — the control, the camera, the surface probe, a cursor, the picking
+ray and the hover queries — and not the whole `SceneViewport`: that list is every member the shipped
+modes and the sample plugin's tool read, so growing it is a decision rather than an accident.
 
 ## What it is for
 
@@ -115,8 +118,8 @@ assemblies that cannot see each other:
 
 ```csharp no-compile="`Vixen.Editor.App` is an executable and is not part of the packable surface"
 sealed class ModeInput(EditorModes modes) : IViewportInput {
-    public bool Pointer(SceneViewport pane, PointerEvent args) => modes.Active?.Pointer(args) == true;
-    public bool Key(SceneViewport pane, KeyEvent args) => modes.Active?.Key(args) == true;
+    public bool Pointer(IViewportPane pane, PointerEvent args) => modes.Active?.Pointer(args) == true;
+    public bool Key(IViewportPane pane, KeyEvent args) => modes.Active?.Key(args) == true;
 }
 ```
 

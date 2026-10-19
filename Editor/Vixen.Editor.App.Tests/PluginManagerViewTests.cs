@@ -160,7 +160,7 @@ public class PluginManagerViewTests {
         }
     }
 
-    static void Toggle(EditorSession fixture, string id) {
+    internal static void Toggle(EditorSession fixture, string id) {
         var view = Open(fixture);
         var index = -1;
 

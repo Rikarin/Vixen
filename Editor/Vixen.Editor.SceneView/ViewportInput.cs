@@ -31,7 +31,7 @@ public interface IViewportInput {
     /// <param name="pane">The pane it happened in.</param>
     /// <param name="args">The event.</param>
     /// <returns>Whether it was taken, in which case the pane does nothing else with it.</returns>
-    bool Pointer(SceneViewport pane, PointerEvent args);
+    bool Pointer(IViewportPane pane, PointerEvent args);
 
     /// <summary>Offers a key event to it.</summary>
     /// <param name="pane">The pane.</param>
@@ -44,5 +44,5 @@ public interface IViewportInput {
     ///     would be one the feature cannot be written against. What still comes first is Escape, which
     ///     is the drag's own way out and has to stay reachable from inside any mode.
     /// </remarks>
-    bool Key(SceneViewport pane, KeyEvent args);
+    bool Key(IViewportPane pane, KeyEvent args);
 }

@@ -28,7 +28,7 @@ namespace Vixen.Editor.Blockout;
 ///         ⚠ <b>So far it owns its keys and nothing else, and that is doc 24's P0 exactly.</b> There
 ///         is no editable mesh in the engine yet — <c>Core/Vixen.Geometry</c> is P1 — so
 ///         <see cref="Element" /> is a statement about what a click <i>would</i> select rather than
-///         something that selects it, and <see cref="Pointer(SceneViewport, PointerEvent)" /> declines every event. What is real
+///         something that selects it, and <see cref="Pointer(IViewportPane, PointerEvent)" /> declines every event. What is real
 ///         is the arbitration: while this mode is active <c>1</c>, <c>2</c>, <c>3</c> and <c>4</c> in
 ///         the viewport are the element modes, and while it is not they are view-bookmark recall. That
 ///         is the thing that could not be retrofitted, and it is the thing this mode is here to prove.
@@ -62,7 +62,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     BlockoutElement inside = BlockoutElement.Face;
 
     /// <summary>The pane the pointer is in, which is the one drawing the preview.</summary>
-    SceneViewport? hoveredPane;
+    IViewportPane? hoveredPane;
 
     /// <summary>The loop-cut preview's segments, reused so a hover allocates nothing.</summary>
     /// <remarks>
@@ -1074,7 +1074,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     ///     two cameras looking at one scene, and a candidate cell left in the pane the pointer has left
     ///     says the next click will land in two places. Only the pane the pointer is in draws one.
     /// </remarks>
-    void Hovering(SceneViewport pane, PointerEvent args) {
+    void Hovering(IViewportPane pane, PointerEvent args) {
         if (!ReferenceEquals(hoveredPane, pane)) {
             if (hoveredPane is { } previous) {
                 previous.Cursor = null;
@@ -1187,7 +1187,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     ///         declines, which leaves the pane's behaviour exactly as it was.
     ///     </para>
     /// </remarks>
-    public bool Pointer(SceneViewport pane, PointerEvent args) {
+    public bool Pointer(IViewportPane pane, PointerEvent args) {
         ArgumentNullException.ThrowIfNull(pane);
         ArgumentNullException.ThrowIfNull(args);
 
@@ -1248,7 +1248,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     ///     unconditionally would break cancelling a gizmo drag. A half-dragged shape is the one thing
     ///     the pane cannot know how to abandon.
     /// </remarks>
-    public bool Key(SceneViewport pane, KeyEvent args) {
+    public bool Key(IViewportPane pane, KeyEvent args) {
         ArgumentNullException.ThrowIfNull(args);
 
         if (Knife.IsArmed) {
@@ -1294,7 +1294,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     ///     stroke ends where the designer says it does, which is Blender's rule and the one that lets
     ///     a path be as long as it needs.
     /// </remarks>
-    bool Cutting(SceneViewport pane, PointerEvent args) {
+    bool Cutting(IViewportPane pane, PointerEvent args) {
         if (Editing is not { IsActive: true } editing || editing.Mesh is not { } mesh) {
             Knife.Cancel();
 
@@ -1333,7 +1333,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     ///     second plane faces the camera so that a pointer moved anywhere on screen has an answer,
     ///     rather than going to infinity when the view is edge-on to it.
     /// </remarks>
-    bool Shaping(SceneViewport pane, PointerEvent args) {
+    bool Shaping(IViewportPane pane, PointerEvent args) {
         if (drag is not { } gesture) {
             return false;
         }

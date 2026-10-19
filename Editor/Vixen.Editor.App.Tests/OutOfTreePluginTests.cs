@@ -70,7 +70,7 @@ public class OutOfTreePluginTests {
 
         /// <summary>Moves the camera's pivot somewhere unmistakable when the pane is pressed.</summary>
         public sealed class SampleTool : IViewportInput {
-            public bool Pointer(SceneViewport pane, PointerEvent args) {
+            public bool Pointer(IViewportPane pane, PointerEvent args) {
                 if (args.Action != PointerAction.Pressed) {
                     return false;
                 }
@@ -79,7 +79,7 @@ public class OutOfTreePluginTests {
                 return true;
             }
 
-            public bool Key(SceneViewport pane, KeyEvent args) => false;
+            public bool Key(IViewportPane pane, KeyEvent args) => false;
         }
 
         public sealed class SamplePlugin : IEditorPlugin {

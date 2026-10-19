@@ -679,6 +679,7 @@ sealed partial class EditorApplication : IDisposable {
         // probe rebuilt for the new scene. See `SceneEditing`.
         sceneEditing = new SceneEditing(() => scene, () => Viewport?.Camera, () => probe);
         sceneEditing.HierarchyChanged += _ => hierarchyStale = true;
+        sceneEditing.MarksChanged += _ => RefreshMarks();
 
         // ⚠ And every other open scene's, because the store above is the *first* document's and a
         // behaviour authored into an additively opened scene used to be named in `Unsupported`

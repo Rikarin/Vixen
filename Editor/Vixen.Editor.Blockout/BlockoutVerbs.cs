@@ -82,7 +82,12 @@ public sealed class BlockoutVerbs(BlockoutMode mode) : IBlockout {
     public bool Bevel() => Run(editing => BlockoutGeometry.Bevel(editing, mode.Step * 0.25f, mode.BevelSegments, out _));
 
     /// <inheritdoc />
-    public bool LoopCut() => Run(editing => BlockoutGeometry.LoopCut(editing));
+    /// <remarks>
+    ///     ⚠ <b>At the mode's <c>LoopCuts</c> and <c>LoopSlide</c>, which are what the hover preview
+    ///     draws.</b> This ran with the defaults, so three loops on the dial drew three and cut one
+    ///     (#1485).
+    /// </remarks>
+    public bool LoopCut() => Run(editing => BlockoutGeometry.LoopCut(editing, mode.LoopCuts, mode.LoopSlide));
 
     /// <inheritdoc />
     public bool Subdivide() => Run(editing => BlockoutGeometry.Subdivide(editing));

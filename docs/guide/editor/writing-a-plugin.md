@@ -273,7 +273,7 @@ specific claim: a tool was chosen for this selection where a mode was chosen for
 
 ```csharp no-compile="an IViewportInput, which is the whole of a tool's contract"
 public sealed class PaintTool : IViewportInput {
-    public bool Pointer(SceneViewport pane, PointerEvent args) {
+    public bool Pointer(IViewportPane pane, PointerEvent args) {
         if (args.Action != PointerAction.Pressed) {
             return false;
         }
@@ -282,7 +282,7 @@ public sealed class PaintTool : IViewportInput {
         return true;
     }
 
-    public bool Key(SceneViewport pane, KeyEvent args) => false;
+    public bool Key(IViewportPane pane, KeyEvent args) => false;
 }
 ```
 

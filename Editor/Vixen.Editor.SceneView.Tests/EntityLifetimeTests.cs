@@ -6,6 +6,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Engine.Transforms;
+using Vixen.Geometry;
 using Xunit;
 
 namespace Vixen.Editor.SceneView.Tests;
@@ -328,5 +329,67 @@ public sealed class EntityLifetimeTests : IDisposable {
 
         Assert.False(world.IsAlive(going));
         Assert.Equal([kept], document.Selection.ToArray());
+    }
+
+    /// <summary>A hidden or locked entity comes back hidden or locked — #1482.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The marks are keyed by handle and <c>PruneNames</c> drops a dead handle's.</b> So a
+    ///     snapshot that did not carry them restored a hidden entity drawn and a locked one pickable —
+    ///     the visible case being Blockout's Apply Boolean, whose undo put the operands back on top of
+    ///     the result they had been hidden under. A child is marked too, because the restore is a
+    ///     walk and a mark carried only for the root would pass the first assertion.
+    /// </remarks>
+    [Fact]
+    public void Undoing_a_delete_keeps_what_was_hidden_hidden_and_what_was_locked_locked() {
+        var (parent, children) = Family(2);
+        var other = document.Add("Other", LocalTransform.Identity);
+
+        document.SetHidden(parent, true);
+        document.SetLocked(children[1], true);
+
+        Assert.True(document.Delete([parent, other]));
+        Assert.Empty(document.Hidden);
+        Assert.Empty(document.Locked);
+
+        Assert.True(document.Stack.Undo());
+
+        Assert.True(document.IsHiddenDirectly(parent));
+        Assert.True(document.IsLockedDirectly(children[1]));
+
+        // And nothing the user had not marked comes back marked.
+        Assert.Equal([parent], document.Hidden.ToArray());
+        Assert.Equal([children[1]], document.Locked.ToArray());
+    }
+
+    /// <summary>A blockout entity comes back with its geometry and everything said about it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The same defect as the marks, four tables wider.</b> The mesh, the live shape
+    ///     parameters, the per-group materials and the boolean are all tables on the document keyed by
+    ///     handle, and <c>PruneNames</c> drops all four with the marks — so a delete and an undo of a
+    ///     blockout box gave back an entity with a transform and nothing to draw.
+    /// </remarks>
+    [Fact]
+    public void Undoing_a_delete_gives_back_the_mesh_the_shape_the_materials_and_the_boolean() {
+        var entity = document.Add("Box", LocalTransform.Identity);
+        var shape = ShapeParameters.Default(ShapeKind.Box);
+        var material = new AssetReference(AssetId.New());
+        var node = new CsgNode(BooleanOperation.Difference, 2);
+
+        document.SetShape(entity, shape);
+        document.SetMaterial(entity, MeshShapes.GroupTop, material);
+        document.SetBoolean(entity, node);
+
+        var mesh = document.MeshOf(entity);
+
+        Assert.NotNull(mesh);
+        Assert.True(document.Delete([entity]));
+        Assert.False(document.HasMesh(entity));
+
+        Assert.True(document.Stack.Undo());
+
+        Assert.Same(mesh, document.MeshOf(entity));
+        Assert.Equal(shape.Clamped(), document.Shapes[entity]);
+        Assert.Equal(material, document.MaterialsOf(entity)[MeshShapes.GroupTop]);
+        Assert.Equal(node, document.BooleanOf(entity));
     }
 }

@@ -128,9 +128,9 @@ public class DeclaredContributionTests {
 
         [EditorTool("Sculpt", typeof(Widget), Id = "declared.sculpt")]
         public sealed class SculptTool : IViewportInput {
-            public bool Pointer(SceneViewport pane, PointerEvent args) => false;
+            public bool Pointer(IViewportPane pane, PointerEvent args) => false;
 
-            public bool Key(SceneViewport pane, KeyEvent args) => false;
+            public bool Key(IViewportPane pane, KeyEvent args) => false;
         }
 
         /// <summary>

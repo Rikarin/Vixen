@@ -26,6 +26,12 @@ namespace Vixen.Editor.App;
 ///         keeps its chooser there for the same reason <c>PlayModule</c>'s options stayed: the dialog
 ///         is this editor's, the move is the service's.
 ///     </para>
+///     <para>
+///         <b>The second slice added Part D's four verbs that ask nothing</b> — Isolate and Reset, Copy
+///         and Paste Transform. Their six neighbours that ask an axis, a name or a set (Align,
+///         Distribute, Select By Name/Type, the selection sets) are service methods too, and stay
+///         registered by the application for Set Parent's reason: the chooser is its.
+///     </para>
 /// </remarks>
 sealed class SceneModule : IEditorPlugin {
     /// <summary>What the host activates it under.</summary>
@@ -82,6 +88,41 @@ sealed class SceneModule : IEditorPlugin {
         context.AddDefaultBinding("entity.create-child", new KeyChord(InputKey.N, ModifierKeys.Alt | ModifierKeys.Shift));
         context.AddDefaultBinding("entity.group", new KeyChord(InputKey.G, ModifierKeys.Control));
         context.AddDefaultBinding("entity.snap-to-floor", new KeyChord(InputKey.End, ModifierKeys.None));
+
+        // ── Part D's verbs that ask nothing (#1290's second slice) ──────────────────────────────
+        // The ones that ask an axis, a name or a set stay with the application's chooser — see
+        // `EditorSelectionVerbs`.
+        context.AddCommand(
+            new EditorCommand("edit.isolate", EditorStrings.CommandEditIsolate, editing.Isolate) {
+                Category = EditorStrings.CategoryEdit,
+                Enablement = () => editing.IsIsolating || Selected(),
+                Checked = () => editing.IsIsolating
+            }
+        );
+
+        context.AddDefaultBinding("edit.isolate", new KeyChord(InputKey.I, ModifierKeys.Control | ModifierKeys.Shift));
+
+        Verb(context, "entity.reset-transform", EditorStrings.CommandEntityResetTransform, editing.ResetTransform, Selected);
+
+        Verb(
+            context,
+            "entity.copy-transform",
+            EditorStrings.CommandEntityCopyTransform,
+            () => {
+                if (editing.CopyTransform()) {
+                    context.Shell.Notifications.Success("Transform copied");
+                }
+            },
+            () => editing.CanCopyTransform
+        );
+
+        Verb(
+            context,
+            "entity.paste-transform",
+            EditorStrings.CommandEntityPasteTransform,
+            editing.PasteTransform,
+            () => editing.HasCopiedTransform && Selected()
+        );
     }
 
     static void Verb(PluginContext context, string id, StringId title, Action run, Func<bool> enabled) =>

@@ -152,7 +152,7 @@ public readonly record struct FlyBindings(
 ///         binding system: <see cref="FlyKeys" /> is the whole of it, and it is settable.
 ///     </para>
 /// </remarks>
-public sealed class SceneViewport : IDisposable {
+public sealed class SceneViewport : IDisposable, IViewportPane {
     /// <summary>The longest frame flight will integrate, in seconds.</summary>
     /// <remarks>
     ///     ⚠ <b>A stall is not travel.</b> A shader compile, a scene load or a window dragged

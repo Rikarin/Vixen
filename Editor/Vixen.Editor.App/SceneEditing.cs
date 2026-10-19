@@ -7,6 +7,7 @@ using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
+using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering.Ecs;
 
@@ -472,11 +473,367 @@ sealed class SceneEditing : ISceneEditing {
         );
     }
 
+    // ── Doc 20 § Part D's selection and transform verbs ─────────────────────────────────────────
+    //
+    // Moved from EditorSelectionVerbs.cs (#1290's second slice), bodies unchanged except that each
+    // takes what its dialog asked as a parameter. The dialogs stayed in the application; what they
+    // ask is this editor's business, what is done with the answer is the service's.
+    //
+    // ⚠ A selection set and an isolate are editor state and are not saved, on the argument
+    // `entity.toggle-hidden` makes: what you were looking at is not what ships, and an undo step
+    // spent on it is a step not spent on what you changed. They are lost when the scene is
+    // reloaded, because they hold entity handles and a reload mints new ones.
+
+    /// <summary>What Copy Transform put aside, or <see langword="null" /> before anything did.</summary>
+    LocalTransform? copiedTransform;
+
+    /// <summary>The named selections, in the order they were saved.</summary>
+    readonly Dictionary<string, IReadOnlyList<Entity>> selectionSets = new(StringComparer.Ordinal);
+
+    /// <summary>What was hidden before Isolate hid everything else, or null when not isolating.</summary>
+    List<Entity>? isolatedFrom;
+
+    /// <inheritdoc />
+    public event Action<ISceneEditing>? MarksChanged;
+
+    /// <inheritdoc />
+    public bool IsIsolating => isolatedFrom is not null;
+
+    /// <inheritdoc />
+    public IReadOnlyDictionary<string, IReadOnlyList<Entity>> SelectionSets => selectionSets;
+
+    /// <inheritdoc />
+    public bool CanCopyTransform => Transformable(Active.Selection.Primary);
+
+    /// <inheritdoc />
+    public bool HasCopiedTransform => copiedTransform is not null;
+
+    /// <summary>Whether an entity is still alive and carries a transform to write.</summary>
+    /// <param name="entity">The entity, which may be a handle nothing answers to any more.</param>
+    /// <returns>Whether a transform verb can touch it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The liveness check is not defensive tidiness: <c>World.Has</c> <i>throws</i> on a dead
+    ///     handle, and an enablement predicate runs from inside a menu refresh.</b> The selection
+    ///     keeps what it held across an undo that destroyed it — undoing a Duplicate is the ordinary
+    ///     way to produce one — so a predicate that dereferenced the primary without asking took the
+    ///     whole frame down rather than greying a button. Every other enablement in the editor reads
+    ///     <c>Selection.Count</c> or a set, which is why these are the first to have met it.
+    /// </remarks>
+    bool Transformable(Entity entity) => World.IsAlive(entity) && World.Has<LocalTransform>(entity);
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The ancestors and the descendants stay visible, and both halves are needed.</b>
+    ///         Hidden-ness is inherited (<c>SceneDocument.IsHidden</c>), so hiding a selected
+    ///         entity's parent would hide the entity — and isolating a crate without what is inside
+    ///         it shows an empty crate, which reads as the command having deleted something.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What was hidden before is restored, not "everything becomes visible".</b> Somebody
+    ///         who had turned three eyes off and then isolated would otherwise find the three back on
+    ///         afterwards, with nothing to say why — the same rule <c>SubtreeSnapshot</c> follows about
+    ///         restoring exactly what was there.
+    ///     </para>
+    /// </remarks>
+    public void Isolate() {
+        var scene = Active;
+        var world = World;
+
+        if (isolatedFrom is { } was) {
+            foreach (var entity in scene.Entities) {
+                scene.SetHidden(entity, false);
+            }
+
+            foreach (var entity in was) {
+                if (world.IsAlive(entity)) {
+                    scene.SetHidden(entity, true);
+                }
+            }
+
+            isolatedFrom = null;
+            MarksChanged?.Invoke(this);
+
+            return;
+        }
+
+        if (scene.Selection.Count == 0) {
+            return;
+        }
+
+        HashSet<Entity> kept = [];
+
+        foreach (var entity in scene.Selection) {
+            kept.Add(entity);
+
+            for (var parent = Hierarchy.ParentOf(world, entity); !parent.IsNull;
+                 parent = Hierarchy.ParentOf(world, parent)) {
+                kept.Add(parent);
+            }
+        }
+
+        // Descendants in a second pass, because an entity is kept when any *selected* ancestor of it
+        // is — walking down from each selected root is the cheap way to say that.
+        foreach (var entity in scene.Entities) {
+            for (var parent = Hierarchy.ParentOf(world, entity); !parent.IsNull;
+                 parent = Hierarchy.ParentOf(world, parent)) {
+                if (scene.Selection.Contains(parent)) {
+                    kept.Add(entity);
+                    break;
+                }
+            }
+        }
+
+        isolatedFrom = [.. scene.Entities.Where(scene.IsHiddenDirectly)];
+
+        foreach (var entity in scene.Entities) {
+            scene.SetHidden(entity, !kept.Contains(entity));
+        }
+
+        MarksChanged?.Invoke(this);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Contains and case-insensitive, which is what the outliner's own filter does.</b> Two
+    ///     surfaces answering "which entities are called Lamp" differently is how a person concludes
+    ///     one of them is broken; <c>Matches</c> is the filter and this is the same predicate said
+    ///     once.
+    /// </remarks>
+    public IReadOnlyList<Entity> SelectByName(string text) {
+        ArgumentNullException.ThrowIfNull(text);
+
+        var scene = Active;
+
+        return Choose([.. scene.Entities.Where(entity => scene.NameOf(entity).Contains(text, StringComparison.OrdinalIgnoreCase))]);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Only the components something in this scene actually has.</b> The registry holds every
+    ///     declared type in the process — a list of two hundred, most of which would select nothing —
+    ///     and a picker whose rows are mostly dead ends is a picker people stop opening.
+    /// </remarks>
+    public IReadOnlyList<(string Component, int Count)> ComponentsInScene() {
+        var scene = Active;
+        var world = World;
+        List<(string Component, int Count)> present = [];
+
+        foreach (var binder in SceneComponentRegistry.Binders) {
+            var count = scene.Entities.Count(entity => binder.Has(world, entity));
+
+            if (count > 0) {
+                present.Add((binder.Name, count));
+            }
+        }
+
+        present.Sort(static (left, right) => string.CompareOrdinal(left.Component, right.Component));
+
+        return present;
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<Entity> SelectByType(string component) {
+        ArgumentNullException.ThrowIfNull(component);
+
+        if (!SceneComponentRegistry.TryGet(component, out var binder)) {
+            return [];
+        }
+
+        var world = World;
+
+        return Choose([.. Active.Entities.Where(entity => binder.Has(world, entity))]);
+    }
+
+    /// <inheritdoc />
+    public bool SaveSelectionSet(string name) {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+
+        var scene = Active;
+
+        if (scene.Selection.Count == 0) {
+            return false;
+        }
+
+        selectionSets[name] = scene.Selection.ToList();
+        return true;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>A set that has lost members is recalled anyway.</b> Deleting one of five is not a
+    ///     reason to refuse the other four; a caller that compares the count with
+    ///     <see cref="SelectionSets" /> can say so.
+    /// </remarks>
+    public IReadOnlyList<Entity> RecallSelectionSet(string name) {
+        ArgumentNullException.ThrowIfNull(name);
+
+        return selectionSets.TryGetValue(name, out var members)
+            ? Choose([.. members.Where(World.IsAlive)])
+            : [];
+    }
+
+    /// <summary>Makes a found list the selection, unless it is empty.</summary>
+    List<Entity> Choose(List<Entity> found) {
+        if (found.Count > 0) {
+            Active.Selection.Set(found);
+        }
+
+        return found;
+    }
+
+    /// <inheritdoc />
+    public void ResetTransform() => Rewrite("Reset Transform", static _ => LocalTransform.Identity);
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The <i>local</i> transform, which is what makes paste mean something.</b> A world
+    ///     matrix copied off one entity and written onto another under a different parent is a
+    ///     position neither of them has; what people copy a transform for is to give a second object
+    ///     the first one's pose inside the same rig.
+    /// </remarks>
+    public bool CopyTransform() {
+        var primary = Active.Selection.Primary;
+
+        if (!Transformable(primary)) {
+            return false;
+        }
+
+        copiedTransform = World.Read<LocalTransform>(primary);
+        return true;
+    }
+
+    /// <inheritdoc />
+    public void PasteTransform() {
+        if (copiedTransform is { } copied) {
+            Rewrite("Paste Transform", _ => copied);
+        }
+    }
+
+    /// <summary>Rewrites the selection's local transforms as one undo step.</summary>
+    void Rewrite(string name, Func<LocalTransform, LocalTransform> next) {
+        var world = World;
+        var targets = Active.Selection
+            .Where(Transformable)
+            .Select(entity => (Entity: entity, Was: world.Read<LocalTransform>(entity)))
+            .ToList();
+
+        if (targets.Count == 0) {
+            return;
+        }
+
+        Active.Stack.Execute(
+            new DelegateCommand(
+                name,
+                _ => {
+                    foreach (var (entity, was) in targets) {
+                        world.Set(entity, next(was));
+                    }
+                },
+                _ => {
+                    foreach (var (entity, was) in targets) {
+                        world.Set(entity, was);
+                    }
+                }
+            )
+        );
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Onto the <i>primary</i> — the one selected last — rather than onto the average.</b>
+    ///     Every editor with this verb aligns to the active object, and the reason is that aligning to
+    ///     a mean moves every object including the one you were happy with, so there is nothing on
+    ///     screen that stayed still to judge the result against.
+    /// </remarks>
+    public void Align(int axis) {
+        ArgumentOutOfRangeException.ThrowIfNegative(axis);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(axis, 2);
+
+        var world = World;
+        var anchor = Active.Selection.Primary;
+
+        if (!world.IsAlive(anchor) || !world.Has<WorldTransform>(anchor)) {
+            return;
+        }
+
+        var to = world.Read<WorldTransform>(anchor).Value.Translation;
+
+        if (AxisTargets() is not { Count: > 0 } targets) {
+            return;
+        }
+
+        Displace(
+            "Align",
+            targets,
+            entity => Along(axis, Component(to, axis) - Component(WorldPositionOf(entity), axis))
+        );
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Between the extremes rather than by a fixed gap, and the two ends do not move.</b>
+    ///     A fixed gap is a different verb — it needs a number — and one that moved the outermost
+    ///     objects would change the extent of the row somebody had already placed.
+    /// </remarks>
+    public void Distribute(int axis) {
+        ArgumentOutOfRangeException.ThrowIfNegative(axis);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(axis, 2);
+
+        var targets = AxisTargets();
+
+        var ordered = targets
+            .Select(target => (target.Entity, Position: Component(WorldPositionOf(target.Entity), axis)))
+            .OrderBy(static entry => entry.Position)
+            .ToList();
+
+        if (ordered.Count < 3) {
+            return;
+        }
+
+        var first = ordered[0].Position;
+        var step = (ordered[^1].Position - first) / (ordered.Count - 1);
+
+        Dictionary<Entity, float> wanted = [];
+
+        for (var index = 0; index < ordered.Count; index++) {
+            wanted[ordered[index].Entity] = first + (step * index);
+        }
+
+        Displace(
+            "Distribute",
+            targets,
+            entity => Along(axis, wanted[entity] - Component(WorldPositionOf(entity), axis))
+        );
+    }
+
+    /// <summary>The selection's transformable entities, with the local transforms they hold.</summary>
+    List<(Entity Entity, LocalTransform Was)> AxisTargets() {
+        var world = World;
+
+        return Active.Selection
+            .Where(entity => Transformable(entity) && world.Has<WorldTransform>(entity))
+            .Select(entity => (Entity: entity, Was: world.Read<LocalTransform>(entity)))
+            .ToList();
+    }
+
+    /// <summary>Where an entity is in the world.</summary>
+    Vector3 WorldPositionOf(Entity entity) => World.Read<WorldTransform>(entity).Value.Translation;
+
+    /// <summary>One component of a vector, by index.</summary>
+    static float Component(Vector3 value, int axis) => axis == 0 ? value.X : axis == 1 ? value.Y : value.Z;
+
+    /// <summary>A distance along one axis, as a vector.</summary>
+    static Vector3 Along(int axis, float distance) =>
+        axis == 0 ? new Vector3(distance, 0f, 0f)
+        : axis == 1 ? new Vector3(0f, distance, 0f)
+        : new Vector3(0f, 0f, distance);
+
     /// <summary>Moves each target by a world-space offset, as one undo entry.</summary>
     /// <param name="name">What the history calls it.</param>
     /// <param name="targets">The entities and the local transforms they held.</param>
     /// <param name="offsetOf">How far each moves, in world space.</param>
-    internal void Displace(
+    void Displace(
         string name,
         List<(Entity Entity, LocalTransform Was)> targets,
         Func<Entity, Vector3> offsetOf
