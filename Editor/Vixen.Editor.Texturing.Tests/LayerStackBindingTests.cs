@@ -421,6 +421,55 @@ public class LayerStackBindingTests {
         Assert.Equal("", document.Document.Sets[0].Mesh);
     }
 
+    /// <summary>Narrowing the chosen set reaches the pane when the chosen set is not the first.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1487">#1487</a>.</b> The module
+    ///         decides whether the paint pane needs a refresh by comparing a binding key, and the
+    ///         key's mesh term was <c>Sets[0].Mesh</c> — so narrowing the second set, with the second
+    ///         set chosen, moved nothing the key held, and the pane kept the old islands. Every
+    ///         other test of the picker chooses set 0, where the two readings agree.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Set 0 is left wide on purpose</b>, and asserted wide: a key that read set 0 can
+    ///         only be told apart from one that reads the chosen set when the two differ.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Narrowing_a_chosen_second_set_reaches_the_pane() {
+        using var fixture = new TexturingFixture(graphics: true);
+
+        Imported(fixture, "Panels.obj", Quad(0f, 0.4f) + Named("upper", 4, 0.6f, 1f));
+
+        var document = Paintable(fixture, "Hull");
+        var first = document.Document.Sets[0];
+
+        document.Document = document.Document with {
+            Sets = [
+                first,
+                first with {
+                    Name = "Head",
+                    Layers = [new() { Id = "paint", Name = "Paint", Kind = LayerKind.Paint }]
+                }
+            ]
+        };
+
+        document.PaintSet = "Head";
+        Refresh(fixture);
+
+        var image = ImageIn(PaintPane(fixture));
+
+        Find<Select>(Panel(fixture), "layer-stack-model").Value = "Assets/Panels.obj";
+
+        Assert.Equal(12, image.Overlay.Count);
+
+        Find<Select>(Panel(fixture), "layer-stack-set-mesh").Value = "upper";
+
+        Assert.Equal("upper", document.Document.Sets[1].Mesh);
+        Assert.Equal("", document.Document.Sets[0].Mesh);
+        Assert.Equal(6, image.Overlay.Count);
+    }
+
     /// <summary>An unbound stack draws none, and unbinding takes the last mesh's outlines away.</summary>
     /// <remarks>
     ///     ⚠ <b>The second half is the one a cache breaks.</b> Islands are redrawn only when the

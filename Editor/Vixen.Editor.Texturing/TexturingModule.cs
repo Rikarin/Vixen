@@ -1731,8 +1731,13 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
         // set at all, which is the honest answer and is not the starter stack; this line indexed
         // `Sets[0]` and threw, so running `Open Layer Stack` on a `.vxlayers` naming a blend mode
         // this build lacks took the command handler down before the panel that was to explain it had
-        // been built. The other `Sets[0]` in this file already asks the question this way.
-        var mesh = stack.Document.Sets.Count > 0 ? stack.Document.Sets[0].Mesh : "";
+        // been built.
+        //
+        // ⚠ **And it is the chosen set's mesh, not the first one's** — #1487. The key read
+        // `Sets[0].Mesh` while `Mesh()` resolves `PaintSet` and the part picker narrows the shown
+        // set, so narrowing a chosen second set moved nothing the key held and the pane kept the
+        // old islands. `SetFor` falls back to the first set, and answers null for a stack with none.
+        var mesh = LayerStackEdit.SetFor(stack.Document, stack.PaintSet)?.Mesh ?? "";
         var binding = (stack.Document.Model, mesh, tool.LayerId, tool.Channel);
 
         if (binding != paintBinding) {
