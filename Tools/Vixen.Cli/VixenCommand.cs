@@ -5,6 +5,7 @@ using System.CommandLine;
 using System.Globalization;
 using Vixen.ContentServer;
 using Vixen.Core.IO;
+using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.Gameplay;
 using Vixen.Editor.Assets.Materials;
@@ -33,11 +34,28 @@ public static class VixenCommand {
     /// <summary>How long `vixen trace record` records when nobody says. Doc 13's own example.</summary>
     internal const string DefaultTraceDuration = "10s";
 
+    /// <summary>Puts the importers out of the assemblies this tool links into a set.</summary>
+    /// <param name="linked">The set — <see cref="ImporterContributions.Linked" />, or a test's own.</param>
+    /// <remarks>
+    ///     <b>#1300's option A</b>, said once per host: the editor's is <c>EditorModules</c>' and the
+    ///     compiler worker's is <c>WorkerHost</c>'s, and <c>HostImporterMapTests</c> holds all three to
+    ///     one literal extension → importer map. ⚠ Not <see cref="ImporterContributions.Default" />,
+    ///     whose assemblies <c>CompilerPool</c> forwards to a worker that links them itself.
+    /// </remarks>
+    internal static void LinkImporters(ImporterContributions linked) {
+        ArgumentNullException.ThrowIfNull(linked);
+    }
+
     /// <summary>Builds the command line.</summary>
     /// <param name="output">Where commands write, or <see langword="null" /> for the console.</param>
     /// <param name="error">Where commands complain, or <see langword="null" /> for the console.</param>
     /// <returns>The root command.</returns>
     public static RootCommand Create(TextWriter? output = null, TextWriter? error = null) {
+        // ⚠ First, because every verb below may build an importer registry, and one built before the
+        // link imports the linked formats as byte blobs. Here rather than in `Program` so that a test
+        // driving the command line in-process links exactly what the tool does (#1300).
+        LinkImporters(ImporterContributions.Linked);
+
         var root = new RootCommand("Vixen — start a project, import it, build its content, publish it, run it.");
 
         root.Subcommands.Add(Import(output, error));

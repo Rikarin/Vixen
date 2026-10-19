@@ -181,4 +181,12 @@
 
     <!-- What git calls the tree, for the repository sweeps here, instead of a directory walk (#1424). -->
     <Import Project="..\..\Testing\Vixen.Testing.RepositoryFiles.props" />
+
+    <ItemGroup>
+        <!--
+            #1300's instrument: one literal extension → importer map every host's registry must have,
+            linked into each host's suite rather than copied, so the three cannot drift apart.
+        -->
+        <Compile Include="..\..\Editor\Vixen.Editor.Assets.Tests\Shared\HostImporterMap.cs" Link="Shared\HostImporterMap.cs" />
+    </ItemGroup>
 </Project>

@@ -74,4 +74,12 @@
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
     </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            #1300's instrument: one literal extension → importer map every host's registry must have,
+            linked into each host's suite rather than copied, so the three cannot drift apart.
+        -->
+        <Compile Include="..\..\Editor\Vixen.Editor.Assets.Tests\Shared\HostImporterMap.cs" Link="Shared\HostImporterMap.cs" />
+    </ItemGroup>
 </Project>
