@@ -60,7 +60,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
     EditorShell? shell;
 
     /// <summary>The pane the handles are currently drawn in, or null for none.</summary>
-    SceneViewport? hovered;
+    IViewportPane? hovered;
 
     /// <summary>The body the Profile tool is aimed at, refreshed as the pointer moves.</summary>
     /// <remarks>
@@ -414,7 +414,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
     ///         the sky is how somebody frames a shot.
     ///     </para>
     /// </remarks>
-    public bool Pointer(SceneViewport pane, PointerEvent args) {
+    public bool Pointer(IViewportPane pane, PointerEvent args) {
         ArgumentNullException.ThrowIfNull(pane);
         ArgumentNullException.ThrowIfNull(args);
 
@@ -426,7 +426,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
     }
 
     /// <summary>The draw gesture: a press on the ground lays a point or closes the curve.</summary>
-    bool Drawing(SceneViewport pane, PointerEvent args) =>
+    bool Drawing(IViewportPane pane, PointerEvent args) =>
         args.Action switch {
             PointerAction.Pressed when args.Button == PointerButton.Primary && Ground(pane, args) is { } point =>
                 // ⚠ Taken whether or not a point was laid. A click too close to the last one lays
@@ -444,7 +444,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
     ///     whatever a click would select, and a mode that swallowed every move to draw three crosses
     ///     would turn that highlight off for the whole time the tool is armed.
     /// </remarks>
-    bool Profiling(SceneViewport pane, PointerEvent args) {
+    bool Profiling(IViewportPane pane, PointerEvent args) {
         var pointer = pane.Control.ToRender(args.X, args.Y);
 
         switch (args.Action) {
@@ -485,7 +485,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
     ///     <see cref="Slide" /> — so a cancel that only let go of the handle would leave the body at
     ///     whatever half-width the pointer happened to be over, with no undo entry naming it.
     /// </remarks>
-    public bool Key(SceneViewport pane, KeyEvent args) {
+    public bool Key(IViewportPane pane, KeyEvent args) {
         ArgumentNullException.ThrowIfNull(args);
 
         if (args.Key != InputKey.Escape) {
@@ -615,7 +615,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
     }
 
     /// <summary>Refreshes what the handles are drawn on, and keeps the pane's cursor pointed here.</summary>
-    void Aiming(SceneViewport pane) {
+    void Aiming(IViewportPane pane) {
         if (!ReferenceEquals(hovered, pane)) {
             if (hovered is { } previous) {
                 previous.Cursor = null;
@@ -663,7 +663,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
     ///     the body they are about to edit, and a Profile tool that swallowed it would be a tool you
     ///     have to leave in order to choose what it works on.
     /// </remarks>
-    bool Grab(SceneViewport pane, Vector2 pointer) {
+    bool Grab(IViewportPane pane, Vector2 pointer) {
         if (!Aim() || aimed is not { } body) {
             return false;
         }
@@ -701,7 +701,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
     ///     looking at it". What is <em>not</em> done per move is pushing an undo entry; that is
     ///     <see cref="Drop" />, on <c>TerrainStrokeCommand</c>'s terms.
     /// </remarks>
-    void Slide(SceneViewport pane, Vector2 pointer) {
+    void Slide(IViewportPane pane, Vector2 pointer) {
         if (aimed is not { } body || Document is not { } document || !document.World.IsAlive(body.Entity)) {
             return;
         }
@@ -747,7 +747,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
     }
 
     /// <summary>Where a pointer meets a surface, in world space, or null if it misses.</summary>
-    Vector3? Ground(SceneViewport pane, PointerEvent args) {
+    Vector3? Ground(IViewportPane pane, PointerEvent args) {
         var ray = pane.Ray(pane.Control.ToRender(args.X, args.Y));
 
         if (pane.Surfaces is { } probe && probe.Raycast(ray, out var hit)) {

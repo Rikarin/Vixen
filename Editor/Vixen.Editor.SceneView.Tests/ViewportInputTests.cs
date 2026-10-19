@@ -11,6 +11,36 @@ namespace Vixen.Editor.SceneView.Tests;
 
 /// <summary>An editor mode's first refusal on a pane's input — doc 20's A1, from the pane's end.</summary>
 public class ViewportInputTests {
+    /// <summary>
+    ///     #1303: a tool is handed the narrow pane, and the narrow pane is the list its consumers
+    ///     read — so a member added to it is a decision a reviewer sees.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The compile-time half is the parameter type</b>: every <see cref="IViewportInput" />
+    ///     in the tree is now written against <see cref="IViewportPane" />, so a mode that reached for
+    ///     <c>pane.Bookmarks</c> or <c>pane.Selecting</c> would not build. The listing pins the other
+    ///     direction: growing the interface back toward the pane fails here first.
+    /// </remarks>
+    [Fact]
+    public void A_tool_is_handed_the_narrow_pane_and_the_narrow_pane_is_what_tools_read() {
+        Assert.All(
+            typeof(IViewportInput).GetMethods(),
+            method => Assert.Equal(typeof(IViewportPane), method.GetParameters()[0].ParameterType)
+        );
+
+        Assert.True(typeof(IViewportPane).IsAssignableFrom(typeof(SceneViewport)));
+
+        var members = typeof(IViewportPane).GetMembers()
+            .Where(member => member is not System.Reflection.MethodInfo { IsSpecialName: true })
+            .Select(member => member.Name)
+            .Order(StringComparer.Ordinal);
+
+        Assert.Equal(
+            ["Camera", "Control", "Cursor", "Hover", "HoverElement", "Ray", "RefreshTargets", "Surfaces"],
+            members
+        );
+    }
+
     /// <summary>Something that takes whatever it is told to and remembers what it saw.</summary>
     sealed class Owner : IViewportInput {
         public bool ClaimsPointer { get; set; }
@@ -19,12 +49,12 @@ public class ViewportInputTests {
         public List<PointerAction> Pointers { get; } = [];
         public List<InputKey> Keys { get; } = [];
 
-        public bool Pointer(SceneViewport pane, PointerEvent args) {
+        public bool Pointer(IViewportPane pane, PointerEvent args) {
             Pointers.Add(args.Action);
             return ClaimsPointer;
         }
 
-        public bool Key(SceneViewport pane, KeyEvent args) {
+        public bool Key(IViewportPane pane, KeyEvent args) {
             Keys.Add(args.Key);
             return ClaimsKey;
         }

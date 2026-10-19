@@ -88,9 +88,9 @@ public static class DeclaredFixture {
 
         [EditorTool("Sculpt", typeof(Widget), Order = 4)]
         public sealed class SculptTool : IViewportInput {
-            public bool Pointer(SceneViewport pane, PointerEvent args) => false;
+            public bool Pointer(IViewportPane pane, PointerEvent args) => false;
 
-            public bool Key(SceneViewport pane, KeyEvent args) => false;
+            public bool Key(IViewportPane pane, KeyEvent args) => false;
         }
         """;
 }

@@ -20,7 +20,7 @@ namespace Vixen.Editor.Terrain;
 ///         <b>The third mode, and the first whose gestures <em>are</em> the feature — [docs/plan/31
 ///         § Two modes, not three, and not one].</b> Blockout proved the seam by claiming keys that
 ///         already meant something; this one claims eight of them and then spends the whole of every
-///         drag inside <see cref="Pointer(SceneViewport, PointerEvent)" />, because a brush is not a
+///         drag inside <see cref="Pointer(IViewportPane, PointerEvent)" />, because a brush is not a
 ///         verb with a shortcut — it is a pointer that means something else while the mode is active.
 ///     </para>
 ///     <para>
@@ -53,7 +53,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
     public const string PanelId = "terrain.panel";
 
     EditorShell? shell;
-    SceneViewport? hovered;
+    IViewportPane? hovered;
 
     /// <inheritdoc />
     public string Id => ModeId;
@@ -664,7 +664,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
     ///         unusable everywhere the terrain is not.
     ///     </para>
     /// </remarks>
-    public bool Pointer(SceneViewport pane, PointerEvent args) {
+    public bool Pointer(IViewportPane pane, PointerEvent args) {
         ArgumentNullException.ThrowIfNull(pane);
         ArgumentNullException.ThrowIfNull(args);
 
@@ -730,7 +730,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
     ///     two cameras looking at one terrain, and a ring left in the pane the pointer has left says
     ///     the brush is in two places. Only the pane the pointer is actually in draws one.
     /// </remarks>
-    void Hovering(SceneViewport pane, Vector2? ground) {
+    void Hovering(IViewportPane pane, Vector2? ground) {
         if (!ReferenceEquals(hovered, pane)) {
             if (hovered is { } previous) {
                 previous.Cursor = null;
@@ -766,7 +766,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
     ///     rule. A mode that took the key unconditionally would break cancelling a gizmo drag, and a
     ///     half-applied stroke is the one thing the pane cannot know how to abandon.
     /// </remarks>
-    public bool Key(SceneViewport pane, KeyEvent args) {
+    public bool Key(IViewportPane pane, KeyEvent args) {
         ArgumentNullException.ThrowIfNull(args);
 
         if (args.Key != InputKey.Escape || !Editing.IsStroking) {
@@ -796,7 +796,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
     }
 
     /// <summary>Where a pointer meets the ground, in the terrain's own XZ, or null if it misses.</summary>
-    Vector2? Ground(SceneViewport pane, PointerEvent args) {
+    Vector2? Ground(IViewportPane pane, PointerEvent args) {
         if (Editing.Terrain is not { } terrain) {
             return null;
         }

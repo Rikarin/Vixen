@@ -327,7 +327,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
     ///     is a press that misses every surface, because aiming at the sky is how somebody frames a
     ///     shot.
     /// </remarks>
-    public bool Pointer(SceneViewport pane, PointerEvent args) {
+    public bool Pointer(IViewportPane pane, PointerEvent args) {
         ArgumentNullException.ThrowIfNull(pane);
         ArgumentNullException.ThrowIfNull(args);
 
@@ -361,7 +361,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
     }
 
     /// <inheritdoc />
-    public bool Key(SceneViewport pane, KeyEvent args) {
+    public bool Key(IViewportPane pane, KeyEvent args) {
         ArgumentNullException.ThrowIfNull(args);
 
         if (args.Key != InputKey.Escape || !Editing.IsStroking) {
@@ -416,7 +416,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
     }
 
     /// <summary>Where a pointer meets a surface, in world XZ, or null if it misses.</summary>
-    Vector2? Ground(SceneViewport pane, PointerEvent args) {
+    Vector2? Ground(IViewportPane pane, PointerEvent args) {
         var ray = pane.Ray(pane.Control.ToRender(args.X, args.Y));
 
         if (pane.Surfaces is { } probe && probe.Raycast(ray, out var hit)) {

@@ -27,13 +27,13 @@ namespace Vixen.Editor.App;
 /// </remarks>
 sealed class ModeInput(EditorModes modes) : IViewportInput {
     /// <inheritdoc />
-    public bool Pointer(SceneViewport pane, PointerEvent args) =>
+    public bool Pointer(IViewportPane pane, PointerEvent args) =>
         modes.Active is IViewportInput input
             ? input.Pointer(pane, args)
             : modes.Active?.Pointer(args) == true;
 
     /// <inheritdoc />
-    public bool Key(SceneViewport pane, KeyEvent args) =>
+    public bool Key(IViewportPane pane, KeyEvent args) =>
         modes.Active is IViewportInput input
             ? input.Key(pane, args)
             : modes.Active?.Key(args) == true;
