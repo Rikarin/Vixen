@@ -64,6 +64,9 @@ public class ModuleReachTests {
     /// <remarks><c>vixen.texturing</c> left this list with #1276, which added it to <c>Standard()</c>.</remarks>
     static readonly Dictionary<string, string> NotStandard = new(StringComparer.Ordinal);
 
+    /// <summary>The family a recent document's command id belongs to; the rest of the id is a hash of a path.</summary>
+    const string RecentDocument = "file.recent-document.";
+
     static readonly Regex Declared = new("""const\s+string\s+ModuleId\s*=\s*"([^"]+)"\s*;""", RegexOptions.CultureInvariant);
 
     /// <summary>Every module id production source under <c>Editor/</c> declares, as git lists it (#1424).</summary>
@@ -105,8 +108,15 @@ public class ModuleReachTests {
                         lines.Add($"menu {path} {command.CommandId}");
                         break;
                     case MenuDynamic dynamic:
+                        // ⚠ A recent document's id is derived from its path (#656), and a session's
+                        // project lives in a fresh temporary directory — so the id is spelled as the
+                        // family it belongs to, or the manifest would differ on every run.
                         foreach (var id in dynamic.CommandIds().Where(id => commands[id] is not null)) {
-                            lines.Add($"menu {path} {id}");
+                            lines.Add(
+                                id.StartsWith(RecentDocument, StringComparison.Ordinal)
+                                    ? $"menu {path} {RecentDocument}*"
+                                    : $"menu {path} {id}"
+                            );
                         }
 
                         break;

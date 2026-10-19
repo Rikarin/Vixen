@@ -66,7 +66,7 @@ public interface IWorkspace {
     /// <returns>The view's root, or <see langword="null" /> when no view shows this document.</returns>
     /// <remarks>
     ///     ⚠ <b>The panel hosts the document</b> — <see cref="UiElement.HostedDocument" /> and
-    ///     <see cref="DocumentCommands.Install" /> — so <c>document.save</c>, <c>document.revert</c>
+    ///     <see cref="DocumentCommands.Install(UiElement, Action)" /> — so <c>document.save</c>, <c>document.revert</c>
     ///     and <c>document.close</c> answer for the tab the focus is in, which is #656's port reaching
     ///     the editor. A panel is built fresh each time it opens, so installing on it once is right.
     /// </remarks>
@@ -82,6 +82,14 @@ public interface IWorkspace {
     ///     lands in is the host's.
     /// </remarks>
     bool Open(AssetId asset);
+
+    /// <summary>The documents recently opened in a tab or saved, by location, newest first (#656).</summary>
+    /// <remarks>
+    ///     <c>Vixen.Ui</c>'s list, keyed on <see cref="IEditableDocument.Location" />: <see cref="Show" />
+    ///     notes every document it builds a view for, and a host notes its own documents — the editor
+    ///     tracks its scene, whose location moves with Save As. Kept in the user's store between runs.
+    /// </remarks>
+    RecentDocuments Recent { get; }
 
     /// <summary>Puts a document's panel where documents go — beside the scene — before it is opened.</summary>
     /// <param name="panelId">The panel.</param>
@@ -147,6 +155,7 @@ public sealed class EditorWorkspace : IWorkspace {
     readonly Func<AssetId, bool>? open;
     readonly EditorShell? shell;
     readonly EditorUserStore? store;
+    readonly RecentDocuments recent = new();
     string? tokens;
 
     /// <summary>A view list with no shell behind it — what a test or a sweep over the standard views builds.</summary>
@@ -172,7 +181,25 @@ public sealed class EditorWorkspace : IWorkspace {
 
         this.shell = shell;
         this.store = store;
+
+        // ⚠ Restored before it is listened to, so start-up does not write back the file it just read.
+        if (store.Read(EditorUserStore.RecentDocumentsFile) is { } kept) {
+            recent.Restore(kept.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        }
+
+        recent.Changed += Keep;
     }
+
+    /// <inheritdoc />
+    public RecentDocuments Recent => recent;
+
+    /// <summary>How the host reverts a document from its tab, or <see langword="null" /> for the document's own revert.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The editor's asks first</b> (#1494): <c>document.revert</c> in a tab is Revert to Saved,
+    ///     which has always put a question before throwing away the only copy of somebody's edits, and
+    ///     the framework's answer has no dialog to ask with.
+    /// </remarks>
+    public Action<IEditableDocument>? Reverting { get; set; }
 
     /// <summary>The id of the panel an asset's editor is shown in.</summary>
     /// <param name="asset">The asset.</param>
@@ -262,7 +289,11 @@ public sealed class EditorWorkspace : IWorkspace {
         }
 
         panel.HostedDocument = document;
-        DocumentCommands.Install(panel);
+        DocumentCommands.Install(panel, Reverting is { } revert ? () => revert(document) : null);
+
+        if (document.Location.Peek() is { Length: > 0 } location) {
+            recent.Note(location);
+        }
 
         var root = view.Create(document, panel);
         Shown?.Invoke(root, document);
@@ -329,6 +360,21 @@ public sealed class EditorWorkspace : IWorkspace {
     public void LoadStyles() {
         tokens = null;
         Shell.Theme.LoadTokens(Store.Read(ThemeFile));
+    }
+
+    /// <summary>Writes the recent list to the user's store.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A failure is said and not thrown</b>, against the store's own rule, and deliberately:
+    ///     this runs from inside a document being opened or saved, and a full disk that cost the user
+    ///     their recent list must not also cost them the save they asked for. The list stays right in
+    ///     memory for the rest of the run.
+    /// </remarks>
+    void Keep(RecentDocuments list) {
+        try {
+            Store.Write(EditorUserStore.RecentDocumentsFile, string.Join('\n', list.Locations));
+        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+            Shell.Notifications.Show("Could not keep the recent documents", NotificationSeverity.Warning, exception.Message);
+        }
     }
 
     EditorShell Shell => shell ?? throw new InvalidOperationException("This workspace has no shell: it was built as a view list only.");

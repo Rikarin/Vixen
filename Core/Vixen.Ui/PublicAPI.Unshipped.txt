@@ -975,6 +975,15 @@ Vixen.Ui.PositionedGlyph.X.get -> float
 Vixen.Ui.PositionedGlyph.X.init -> float
 Vixen.Ui.PositionedGlyph.Y.get -> float
 Vixen.Ui.PositionedGlyph.Y.init -> float
+Vixen.Ui.RecentDocuments -> sealed class
+Vixen.Ui.RecentDocuments.Capacity.get -> int
+Vixen.Ui.RecentDocuments.Changed -> System.Action<Vixen.Ui.RecentDocuments>?
+Vixen.Ui.RecentDocuments.Forget(string location) -> bool
+Vixen.Ui.RecentDocuments.Locations.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Ui.RecentDocuments.Note(string location) -> bool
+Vixen.Ui.RecentDocuments.RecentDocuments(int capacity = 10) -> void
+Vixen.Ui.RecentDocuments.Restore(System.Collections.Generic.IEnumerable<string> saved) -> void
+Vixen.Ui.RecentDocuments.Track(Vixen.Ui.IEditableDocument document, Vixen.Ui.Reactive.EffectScheduler? scheduler = null) -> System.IDisposable
 Vixen.Ui.Rendering.Contour -> readonly struct
 Vixen.Ui.Rendering.Contour : System.IEquatable<Vixen.Ui.Rendering.Contour>
 Vixen.Ui.Rendering.Contour.Closed.get -> bool
@@ -2018,6 +2027,7 @@ static Vixen.Ui.CornerRadii.Circular(float topLeft, float topRight, float bottom
 static Vixen.Ui.CornerRadii.Uniform(float radius) -> Vixen.Ui.CornerRadii
 static Vixen.Ui.DocumentCommands.HasUnsavedChanges(Vixen.Ui.IEditableDocument document) -> bool
 static Vixen.Ui.DocumentCommands.Install(Vixen.Ui.UiElement element) -> void
+static Vixen.Ui.DocumentCommands.Install(Vixen.Ui.UiElement element, System.Action? revert) -> void
 static Vixen.Ui.DrawBatcher.Build(System.Collections.Generic.IReadOnlyList<Vixen.Ui.DrawCommand> commands, System.Collections.Generic.List<Vixen.Ui.DrawBatch> into) -> void
 static Vixen.Ui.EditingCommands.Current.get -> Vixen.Ui.EditingKeymap
 static Vixen.Ui.EditingCommands.Id(Vixen.Ui.EditingCommand command) -> string?

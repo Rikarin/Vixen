@@ -513,6 +513,7 @@ vixen.water menu editor.menu.window/editor.menu.panels view.panel.water.zone
 vixen.water mode water
 vixen.water panel water.panel
 vixen.water panel water.zone
+vixen.workspace menu editor.menu.file/editor.menu.recent-documents file.recent-document.*
 vixen.workspace menu editor.menu.tools tools.reload-styles
 vixen.workspace menu editor.menu.window/editor.menu.layout view.layout.Animation
 vixen.workspace menu editor.menu.window/editor.menu.layout view.layout.Debug

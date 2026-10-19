@@ -755,7 +755,14 @@ sealed partial class EditorApplication : IDisposable {
         // `IDocumentHost`'s and the editor's open scenes', which `Vixen.Editor.Ui` cannot name; the
         // panel id, its placement, the layouts and the theme are the workspace's own (#1294).
         documentHost = new DocumentHost(project);
-        documentViews = new EditorWorkspace(Shell, store, Open);
+        documentViews = new EditorWorkspace(Shell, store, Open) {
+            // ⚠ #1494: `document.revert` in a tab is Revert to Saved, which asks first.
+            Reverting = document => {
+                if (document is EditorDocument edited) {
+                    Revert(edited);
+                }
+            }
+        };
 
         // ⚠ The one document kind the *viewport* is a view of, so opening it points the panes at it
         // and every edit after that reaches them without a restart. Through `Opened` rather than a
@@ -1906,7 +1913,17 @@ sealed partial class EditorApplication : IDisposable {
     ///     <c>EditorShell.Describe</c> raises nothing unless the composed string actually differs, so
     ///     the host is told only when there is something to tell it.
     /// </remarks>
-    void Retitle() => Shell.Describe(scene.Title.Peek(), scene.HasUnsavedChanges.Value, ProductName);
+    /// <remarks>
+    ///     ⚠ <b>The active document, not the scene</b> (#656): the window says what the user is
+    ///     editing, and with a material tab in front that is the material. Its asterisk reads both
+    ///     halves of unsaved — its own edits and <c>ExternallyModified</c> — and a file that changed on
+    ///     disk underneath it (<c>IsStale</c>) is said beside the name, apart from the asterisk.
+    /// </remarks>
+    void Retitle() {
+        var shown = project.ActiveDocument.Peek() ?? scene;
+
+        Shell.Describe(shown.Title.Peek(), shown.HasUnsavedChanges.Value, ProductName, shown.IsStale.Value);
+    }
 
     /// <summary>A scene with something in it, for a project that has none yet.</summary>
     /// <remarks>
@@ -2448,15 +2465,12 @@ sealed partial class EditorApplication : IDisposable {
                             tabDocuments[id] = open;
                             documentViews.Show(open, panel);
 
-                            // ⚠ #1494: the panel answers the route's three ids now, and two of the
-                            // framework's answers are not the editor's. Revert asks first here, as
-                            // Revert to Saved always has; and the close `document.close` raises on
-                            // the panel is this tab's, which nothing in the editor heard until now.
-                            // ⚠ Only a document's close: a quit raised at the focus bubbles through
-                            // here too, and closing the tab under it would answer a question the
-                            // window asked.
-                            panel.RemoveCommandHandler(DocumentCommands.Revert);
-                            panel.AddCommandHandler(DocumentCommands.Revert, () => Revert(open), () => Revertible(open));
+                            // ⚠ #1494: the panel answers the route's three ids now, and the close
+                            // `document.close` raises on it is this tab's, which nothing in the
+                            // editor heard until now (Revert asking first is `Reverting`, below the
+                            // workspace's construction). ⚠ Only a document's close: a quit raised at
+                            // the focus bubbles through here too, and closing the tab under it would
+                            // answer a question the window asked.
                             panel.AddHandler<CloseRequestEvent>((_, args) => {
                                 if (args.Reason == UiCloseReason.DocumentClosed && !args.IsCancelled) {
                                     Shell.Workspace.Close(id);

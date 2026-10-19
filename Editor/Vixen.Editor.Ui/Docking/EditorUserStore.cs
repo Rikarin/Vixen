@@ -59,6 +59,9 @@ public sealed class EditorUserStore {
     /// <summary>The file listing the projects the editor has opened, newest first.</summary>
     public const string RecentProjectsFile = "projects.yaml";
 
+    /// <summary>The documents recently opened or saved, one absolute path a line, newest first (#656).</summary>
+    public const string RecentDocumentsFile = "documents.txt";
+
     /// <summary>The arrangement the editor was left in.</summary>
     public const string CurrentLayout = "current";
 
