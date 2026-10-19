@@ -270,8 +270,12 @@ and never once runs. Capture is also the only leg on which a paint drag can win 
 wants: in Select mode nothing is swallowed and the pane pans as it always did.
 
 **What the brush is aimed at is chosen in the layers panel.** A row's *Select* button writes
-`LayerStackView.Selected` and mirrors it into `PaintTool.LayerId`, which the paint pane reads at every
-refresh — [#910](https://github.com/Rikarin/Vixen/issues/910). ⚠ Selecting a layer that is not a
+`LayerStackDocument.LayerSelection` and mirrors it into `PaintTool.LayerId`, which the paint pane reads
+at every refresh — [#910](https://github.com/Rikarin/Vixen/issues/910). ⚠ The selection and the
+chosen set (`PaintSet`) are the **document's** since [#1306](https://github.com/Rikarin/Vixen/issues/1306),
+not the view's: `LayerStackView.Selected` and `SetName` read them, and the view's undo-depth effect
+follows a write made anywhere else — a double-click tab of the same file, a plugin — by redrawing and
+re-aiming the brush, so the module no longer asks the view which set its preview should compile. ⚠ Selecting a layer that is not a
 `Paint` layer is allowed and the brush then refuses it **by name**; silently painting into some other
 layer is the defect the issue is about. Clicking the selected row again clears the selection, which
 puts the brush back on "the first paint layer in composite order" — a state with its own meaning that

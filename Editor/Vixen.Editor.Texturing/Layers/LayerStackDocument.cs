@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
+using Vixen.Ui.Reactive;
 
 namespace Vixen.Editor.Texturing.Layers;
 
@@ -421,8 +422,48 @@ sealed class LayerStackDocument : EditorDocument {
     ///         change nothing at all for a single-set stack, and what keeps a stack whose set was
     ///         renamed openable.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A signal, and the only copy — #1306.</b> <c>LayerStackView</c> held its own
+    ///         <c>SetName</c>, adopted from here when the document changed and written back through
+    ///         this setter when its picker moved, and <c>TexturingModule</c> read the <em>view's</em>
+    ///         copy to choose the set its preview compiled. So a write made anywhere else — a second
+    ///         view on the same document, a plugin, a test — moved the stroke and left the rows, the
+    ///         picker and the preview on the old set: #927's mis-aim with the halves swapped. The view
+    ///         now reads this and follows it, and so does the module.
+    ///     </para>
     /// </remarks>
-    public string PaintSet { get; set; } = "";
+    public string PaintSet {
+        get => paintSet.Value;
+        set => paintSet.Value = value ?? "";
+    }
+
+    readonly Signal<string> paintSet = new("");
+
+    /// <summary><see cref="PaintSet" />, read without becoming a dependency of whatever is running.</summary>
+    /// <returns>The chosen set's name, or empty.</returns>
+    internal string PeekPaintSet() => paintSet.Peek();
+
+    /// <summary>Which layer the artist is working on: empty for none, or one path into the stack.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The document's, for <see cref="PaintSet" />'s reason (#1306).</b> It was
+    ///         <c>LayerStackView.Selected</c>, a field of the view — so nothing without the view could
+    ///         read or set which layer the brush is aimed at, and a second view of the same file
+    ///         disagreed with the first about it. The view's <c>Selected</c> reads this now, every row
+    ///         click writes it, and a write from anywhere else is followed: the rows restate and the
+    ///         brush's <c>PaintTool.LayerId</c>, which is still the mirror a stroke reads, is re-aimed.
+    ///         The same shape <c>NodeGraphModel.Selection</c> took for #1305.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not saved and not an undo entry</b> — <c>LayerStackView.SelectionChanged</c> says
+    ///         why a selection is not an edit. ⚠ <b>Only <see cref="Selection{T}.Primary" /> is
+    ///         read</b>: the panel selects one layer at a time, and a path that names no layer of the
+    ///         shown set is dropped by the view's next build rather than refused here.
+    ///     </para>
+    /// </remarks>
+    public Selection<LayerPath> LayerSelection => layerSelection ??= new();
+
+    Selection<LayerPath>? layerSelection;
 
     /// <inheritdoc />
     /// <remarks>

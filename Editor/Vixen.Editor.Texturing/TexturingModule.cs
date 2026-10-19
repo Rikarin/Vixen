@@ -1685,9 +1685,13 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
         // editor — it is a test or a tool embedding the shell. The state the editor is really in at
         // start-up is graphics *with no device*, and `LayerStackPreview.Evaluate` compiles before it
         // asks for one precisely so that pane is not silent.
+        //
+        // ⚠ The set is the *document's* — #1306. This read `stackView.SetName`, which was the view's
+        // copy of `PaintSet`: the module asked a view what the document's state was, and a set chosen
+        // anywhere but that view's picker compiled the old one under rows showing the new one.
         stackView.Show(
             stack,
-            stackPreview?.Evaluate(stack, LayerStackPreview.DefaultUsage, stackView?.SetName ?? "")
+            stackPreview?.Evaluate(stack, LayerStackPreview.DefaultUsage, stack.PaintSet)
             ?? new LayerStackPicture(
                 null,
                 LayerStackPreview.DefaultUsage,
