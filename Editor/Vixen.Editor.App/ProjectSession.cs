@@ -306,7 +306,6 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     ///         would be one you could not use to fix the syntax error.
     ///     </para>
     /// </remarks>
-    /// <inheritdoc />
     public bool BuildCode() {
         // ⚠ Taken off before the assembly goes and put back after it returns. A behaviour somebody
         // authored is an instance of a type that is about to stop existing — leaving it attached
