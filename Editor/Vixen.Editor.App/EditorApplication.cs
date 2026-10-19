@@ -2223,14 +2223,11 @@ sealed partial class EditorApplication : IDisposable {
                 panel => {
                     panel.WhenPressedIn(() => Shell.Context = AssetContext);
 
-                    browser = new ProjectBrowser(session, panel, library.Shown, Extensions);
+                    browser = new ProjectBrowser(session, panel, library, Extensions);
 
                     browser.Activated += Open;
-                    browser.Renamed += (asset, name) => library.Rename(asset, name);
-                    browser.Moved += MoveAssets;
                     browser.DroppedOutside += Dropped;
                     browser.DraggedOutside += Dragging;
-                    browser.FilesDropped += (paths, folder) => library.Import(paths, folder);
 
                     // ⚠ Doc 20 § B7's column, given to the panel as a value. The sweep that fills it
                     // is asked for here rather than at startup: this factory runs when the panel
@@ -2241,18 +2238,11 @@ sealed partial class EditorApplication : IDisposable {
                     browser.Grabbing += down => grabbingAssets = down;
                     browser.Thumbnails = thumbnails;
 
-                    // ⚠ Doc 20 § B1's saved filters. The list is given to the panel rather than held
-                    // by it for `IsGrid`'s reason — a panel's factory runs again on every reopen, and
-                    // the preferences file is this object's — and it is re-given after every write,
-                    // because the browser's menu reads the list it was handed.
-                    // ⚠ A lambda over the field and not the list itself. `preferences` is REPLACED —
-                    // by a restart and by the settings window's Revert, which re-reads the file into
-                    // a new object — so a panel handed the list would go on offering the filters
-                    // that existed when it was opened, silently, for as long as it stayed open.
-                    browser.SavedFilters = () => library.Filters;
+                    // ⚠ Doc 20 § B1's saved filters and collections are the library's, which the panel
+                    // reads and writes itself (#1304) — asked on every read, because `preferences` and
+                    // the project's settings object are both REPLACED by a Revert. What comes back
+                    // here is only what needs a name typed first.
                     browser.FilterSaveRequested += KeepFilter;
-
-                    browser.FilterForgotten += library.ForgetFilter;
 
                     // ⚠ Both views, and the grid was the one that had nothing. The menu was attached to
                     // the tree alone, so switching to tiles — which is the view somebody browses
@@ -2264,27 +2254,7 @@ sealed partial class EditorApplication : IDisposable {
                     Contextualise(browser.Tree, assetMenu);
                     Contextualise(browser.Grid, assetMenu);
 
-                    // ⚠ Doc 20 § B1's collections, and the store is the *project's* rather than the
-                    // user's — which is where the saved filters' own comment said this half would
-                    // differ. `EditorPreferences` is one file across every project somebody opens,
-                    // and a set of `AssetId`s means nothing in another project.
-                    // ⚠ A lambda for the same reason the filters are one: `ProjectSettingsStore`
-                    // *replaces* the settings object on `Reload` and `Reset` — a branch switch, a
-                    // Revert — so a panel handed the list would go on showing the collections that
-                    // existed when it was opened.
-                    browser.Collections = () => library.Collections;
-
-                    // ⚠ And rebuilt at once, because the constructor has already built the column
-                    // from a source it did not have yet. Without this the shelf is empty every time
-                    // the panel is opened over a project that already has collections — until
-                    // something else happens to rebuild it, which for somebody who only wanted to
-                    // look is never. Same shape as `Sweep()` after `browser.Status`.
-                    browser.Recollect();
-
                     browser.CollectionCreateRequested += MakeCollection;
-                    browser.CollectionAdded += (assets, name) => library.AddToCollection(name, assets);
-                    browser.CollectionRemoved += (assets, name) => library.RemoveFromCollection(name, assets);
-                    browser.CollectionForgotten += library.ForgetCollection;
                 }
             ) {
                 // ⚠ The other half of holding it, and the crash it prevents is not hypothetical.

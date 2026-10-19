@@ -357,6 +357,45 @@ public sealed class ContentLibraryTests : IDisposable {
         Assert.Equal(couldUndo, editor.CanRun("edit.undo"));
     }
 
+    /// <summary>A rename typed into the browser's row is done by the service a plugin requires, once.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Counted on the published object, because the file cannot tell.</b> The browser used to
+    ///     raise <c>Renamed</c> for the application to forward; it calls the library now (#1304). A browser
+    ///     handed a private second library would rename the file just as well — <c>ScenarioTests</c>' rename
+    ///     reads the database and stays green — and only the published service's event says which
+    ///     object did it.
+    /// </remarks>
+    [Fact]
+    public void A_rename_typed_into_the_browser_is_the_published_services() {
+        using var editor = EditorSession.Start();
+        editor.Open("project");
+
+        var library = editor.Plugins.Services.Require<IContentLibrary>();
+        var rearranged = 0;
+
+        library.Rearranged += () => rearranged++;
+
+        File.WriteAllText(Path.Combine(editor.Project.Paths.Assets, "crate.png"), "pixels");
+        editor.Run("assets.refresh");
+
+        Assert.True(editor.Project.Assets.TryGetByPath("Assets/crate.png", out var crate));
+
+        editor.ExpandAll(editor.Assets);
+        editor.ClickRow(editor.Assets, "crate.png");
+        editor.Run("assets.rename");
+
+        var box = Descendants(editor.Panel("project")).OfType<TextBox>().FirstOrDefault()
+            ?? throw editor.Fail("Rename did not open an editor on the row.");
+
+        box.Value = "barrel";
+        editor.Ui.Get("textbox").First().PressKey(Vixen.Input.InputKey.Enter);
+        editor.Settle();
+
+        Assert.Equal(1, rearranged);
+        Assert.True(editor.Project.Assets.TryGetByGuid(crate.Guid, out var renamed));
+        Assert.Equal("Assets/barrel.png", renamed.Path);
+    }
+
     static AssetId Scanned(EditorProject project, string path) {
         var absolute = Path.Combine(project.Paths.Assets, path.Replace('/', Path.DirectorySeparatorChar));
 

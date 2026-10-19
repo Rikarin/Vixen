@@ -1363,15 +1363,6 @@ sealed partial class EditorApplication {
         }
     }
 
-    /// <summary>Moves assets into a folder that was dropped on, through the library.</summary>
-    void MoveAssets(IReadOnlyList<AssetId> assets, AssetId folder) {
-        if (!project.Assets.TryGetByGuid(folder, out var destination) || !destination.IsFolder) {
-            return;
-        }
-
-        library.Move(assets, destination.Path);
-    }
-
     /// <summary>Makes a folder beside whatever is selected, and starts renaming it.</summary>
     /// <remarks>
     ///     Inside the selected folder, or beside the selected file — which is what every browser does
