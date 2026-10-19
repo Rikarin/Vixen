@@ -77,8 +77,6 @@ public static class BuiltInImporters {
                 .Add(new SceneImporter())
                 .Add(new MaterialImporter())
                 .Add(new Compositors.CompositorImporter())
-                .Add(new Terrain.TerrainAssetImporter())
-                .Add(new Terrain.HeightmapImporter())
 
                 // ⚠ [Importer] is a declaration nothing scans for, so an importer absent from this
                 // list is not an error anywhere — a .vxwaves fell through to RawImporter and became a
@@ -204,6 +202,12 @@ static class UnimportedFormats {
                 "The editor creates and opens a .vxseq and nothing imports one, so an authored sequence cannot be "
                 + "loaded by address at run time."),
 
+            // ── Claimed by an importer a host links (#1300), so the fallback sees one only in a host
+            //    that forgot the link. A .vx… format needs no row — IsEngineShaped speaks for every one —
+            //    and these are the linked formats whose extension does not carry the prefix.
+            [".r16"] = (ImportSeverity.Warning, "A .r16 " + HeightmapReason),
+            [".hmpng"] = (ImportSeverity.Warning, "A .hmpng " + HeightmapReason),
+
             [".vxplacement"] = (ImportSeverity.Warning,
                 "Nothing imports a .vxplacement. The extension belongs to Live/Vixen.Live.Orchestrator, which "
                 + "CheckArchitecture refuses to let Editor/ reference — see docs/overview.md § 1.13 for the two "
@@ -214,6 +218,12 @@ static class UnimportedFormats {
         "A font is loaded straight from its bytes by FontFace.Load, so this blob is readable. What is missing is "
         + "the bake: doc 08's table names a FontImporter producing an MSDF atlas, metrics and kerning, and there "
         + "is none, so every consumer shapes from the raw face at run time.";
+
+    const string HeightmapReason =
+        "is a terrain heightmap, imported by HeightmapImporter, which lives beside the terrain toolset and reaches a "
+        + "registry only because the host links it at start-up (TerrainImporters.Link into "
+        + "ImporterContributions.Linked, #1300). This process did not, so the file ships as a chunk called Blob "
+        + "that no terrain reads.";
 
     /// <summary>Every extension the table has something to say about.</summary>
     internal static IEnumerable<string> Extensions => Known.Keys;

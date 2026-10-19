@@ -109,7 +109,17 @@ static class HostImporterMap {
     ];
 
     /// <summary>The rows of <see cref="Expected" /> only a host's link provides; the pipeline's own registry has the rest.</summary>
-    public static readonly string[] LinkedOnly = [".vxshadergraph ShaderGraphImporter", ".vxvfx VfxImporter"];
+    public static readonly string[] LinkedOnly = [
+        ".hmpng HeightmapImporter",
+        ".r16 HeightmapImporter",
+        ".vxfol TerrainAssetImporter",
+        ".vxfoliage TerrainAssetImporter",
+        ".vxgrass TerrainAssetImporter",
+        ".vxlayer TerrainAssetImporter",
+        ".vxshadergraph ShaderGraphImporter",
+        ".vxspline TerrainAssetImporter",
+        ".vxvfx VfxImporter"
+    ];
 
     /// <summary>A registry's map, in <see cref="Expected" />'s form and order.</summary>
     /// <param name="registry">The registry.</param>

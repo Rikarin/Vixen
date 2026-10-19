@@ -4,12 +4,12 @@
 using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Core.Serialization;
-using Vixen.Editor.Assets.Terrain;
+using Vixen.Editor.Assets;
 using Vixen.Foliage;
 using Vixen.Terrain;
 using Xunit;
 
-namespace Vixen.Editor.Assets.Tests;
+namespace Vixen.Editor.Terrain.Tests;
 
 /// <summary>The four terrain assets, and the heightmap — [docs/plan/31]'s owed importers.</summary>
 public sealed class TerrainAssetImporterTests {
