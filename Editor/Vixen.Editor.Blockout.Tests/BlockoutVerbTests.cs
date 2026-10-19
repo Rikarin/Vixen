@@ -137,7 +137,7 @@ public class BlockoutVerbTests : IDisposable {
             shell.Commands.Execute(id);
         }
 
-        var called = ((Recorder) (object) recorder).Called.ToHashSet(StringComparer.Ordinal);
+        var called = ((Recorder)(object)recorder).Called.ToHashSet(StringComparer.Ordinal);
         var declared = typeof(IBlockout).GetMethods().Select(static method => method.Name).ToHashSet(StringComparer.Ordinal);
 
         Assert.Empty(declared.Except(called).Order());

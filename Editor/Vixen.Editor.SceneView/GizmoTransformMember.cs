@@ -55,7 +55,7 @@ sealed class GizmoTransformMember : IEditMember {
     /// <inheritdoc />
     public void Write(object owner, object? value) {
         var target = Target(owner);
-        var (position, rotation, scale) = ((Vector3, Quaternion, Vector3)) value!;
+        var (position, rotation, scale) = ((Vector3, Quaternion, Vector3))value!;
 
         target.Position = position;
         target.Rotation = rotation;
@@ -83,7 +83,7 @@ sealed class GizmoTransformMember : IEditMember {
         return new TransformTargetsCommand(
             name,
             [.. targets.Select(Target)],
-            [.. before.Select(state => ((Vector3, Quaternion, Vector3)) state!)],
+            [.. before.Select(state => ((Vector3, Quaternion, Vector3))state!)],
             document
         );
     }

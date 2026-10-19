@@ -207,7 +207,7 @@ public sealed class TerrainModuleReachTests {
     }
 
     static TerrainMode Mode(EditorSession session) =>
-        (TerrainMode) session.Shell.Modes.Modes.Single(mode => mode.Id == TerrainMode.ModeId);
+        (TerrainMode)session.Shell.Modes.Modes.Single(mode => mode.Id == TerrainMode.ModeId);
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     static WeakReference ActivateFresh(EditorSession session, string id) {

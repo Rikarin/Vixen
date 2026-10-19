@@ -72,11 +72,11 @@ public class DeclaredParityTests {
 
     /// <summary>The fixture, compiled through the generator and loaded once for the whole class.</summary>
     static Assembly Build() {
-        var references = ((string) AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+        var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
             .Split(Path.PathSeparator)
             .Where(path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.Ordinal)
-            .Select(path => (MetadataReference) MetadataReference.CreateFromFile(path))
+            .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
             .ToList();
 
         var compilation = CSharpCompilation.Create(
@@ -209,12 +209,12 @@ public class DeclaredParityTests {
 
         var verbs = Fixture.Value.GetType("Fixture.Verbs", throwOnError: true)!;
         var baked = verbs.GetField("Baked")!;
-        var before = (int) baked.GetValue(null)!;
+        var before = (int)baked.GetValue(null)!;
 
         Assert.True(scanned.Shell.Commands.Execute("fixture.bake"));
         Assert.True(generated.Shell.Commands.Execute("fixture.bake"));
 
-        Assert.Equal(before + 2, (int) baked.GetValue(null)!);
+        Assert.Equal(before + 2, (int)baked.GetValue(null)!);
     }
 
     /// <summary>Unloading either takes back everything it registered, menus included.</summary>

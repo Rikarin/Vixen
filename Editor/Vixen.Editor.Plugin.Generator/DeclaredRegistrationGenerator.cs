@@ -211,9 +211,9 @@ public sealed class DeclaredRegistrationGenerator : IIncrementalGenerator {
         text.AppendLine("        global::System.ArgumentNullException.ThrowIfNull(context);");
         text.AppendLine();
 
-        var menus = ordered.Any(static item => item.Group <= (int) Group.MenuField);
+        var menus = ordered.Any(static item => item.Group <= (int)Group.MenuField);
 
-        if (ordered.Any(static item => item.Group > (int) Group.MenuField && item.Group != (int) Group.Drawer)) {
+        if (ordered.Any(static item => item.Group > (int)Group.MenuField && item.Group != (int)Group.Drawer)) {
             text.AppendLine("        var registry = context.Services.Require<global::Vixen.Editor.Core.IEditorRegistry>();");
         }
 
@@ -648,13 +648,13 @@ public sealed class DeclaredRegistrationGenerator : IIncrementalGenerator {
 
         switch (constant.Kind) {
             case TypedConstantKind.Type:
-                return TypeOf((ITypeSymbol) constant.Value!);
+                return TypeOf((ITypeSymbol)constant.Value!);
 
             case TypedConstantKind.Enum:
                 return $"(({Qualified(constant.Type!)}) ({Convert.ToString(constant.Value, CultureInfo.InvariantCulture)}))";
 
             case TypedConstantKind.Array:
-                return $"new {Qualified(((IArrayTypeSymbol) constant.Type!).ElementType)}[] {{ {string.Join(", ", constant.Values.Select(Literal))} }}";
+                return $"new {Qualified(((IArrayTypeSymbol)constant.Type!).ElementType)}[] {{ {string.Join(", ", constant.Values.Select(Literal))} }}";
 
             default:
                 return constant.Value switch {
@@ -722,7 +722,7 @@ public sealed class DeclaredRegistrationGenerator : IIncrementalGenerator {
         attribute.ConstructorArguments.Concat(attribute.NamedArguments.Select(static pair => pair.Value))
             .All(constant => constant.Kind != TypedConstantKind.Type
                 || constant.IsNull
-                || Reachable((ITypeSymbol) constant.Value!, compilation));
+                || Reachable((ITypeSymbol)constant.Value!, compilation));
 
     /// <summary>The <c>StringId</c> a <c>Title</c> names, as C#, or null for no title.</summary>
     /// <remarks>
@@ -866,7 +866,7 @@ public sealed class DeclaredRegistrationGenerator : IIncrementalGenerator {
         return new(
             declared?.SyntaxTree.FilePath ?? "",
             declared?.Span.Start ?? 0,
-            (int) group,
+            (int)group,
             at?.Span.Start ?? 0,
             index < 0 ? 0 : index,
             problems.Count == 0 ? statement : null,
