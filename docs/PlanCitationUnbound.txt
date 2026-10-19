@@ -33,7 +33,7 @@
 31 docs/overview.md
 5 docs/plan/04-ecs-and-scripting.md
 1 docs/plan/07-raven-shader-pipeline.md
-16 docs/plan/36-an-extensible-editor.md
+15 docs/plan/36-an-extensible-editor.md
 3 docs/plan/43-web-styling-parity.md
 4 docs/plan/45-commands-and-focus-scope.md
 24 docs/plan/46-what-an-application-needs.md

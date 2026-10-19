@@ -346,6 +346,47 @@ public class PrefabInspectorTests : IDisposable {
         Assert.Empty(scene.Prefabs.OverridesOf(root));
     }
 
+    /// <summary>⚠ A box paired through <see cref="IPrefabSource" /> is paired in the source, and unpaired too.</summary>
+    /// <remarks>
+    ///     <b>What the components panel does since #1308</b>: it holds the interface and never names
+    ///     <see cref="PrefabSource" />. <c>Link</c> and <c>Unlink</c> are default members there, doing
+    ///     nothing — so a <see cref="PrefabSource" /> whose own methods stopped matching the interface's
+    ///     shape would compile, the panel would call the empty default, and every component row would
+    ///     go unmarked with no error anywhere. This holds the implementation to the interface by effect.
+    /// </remarks>
+    [Fact]
+    public void AComponentPairedThroughTheInterfaceIsPairedInTheSource() {
+        using var fixture = new EditorFixture();
+        using var world = new World("Scene");
+
+        var scene = new SceneDocument(fixture.Project, world, AssetId.Empty, "Level");
+        var asset = Publish(fixture, Template(new(5f, 0f, 0f), 7f));
+
+        Assert.True(Prefab.TryPlace(scene, fixture.Project.Assets, asset, Entity.Null, out var root, out _));
+
+        var descriptor = ReflectedDescriptor.For(typeof(Light));
+
+        Assert.NotNull(descriptor);
+        Assert.True(descriptor.TryGetMember(nameof(Light.Intensity), out var intensity));
+
+        IPrefabSource source = new PrefabSource(scene, fixture.Project.Assets);
+
+        List<object> box = [world.Read<Light>(root)];
+
+        Assert.False(source.TryGetPrefabValue(box[0], intensity, out _));
+
+        source.Link(box[0], root, "Light");
+        scene.Prefabs.Mark(root, "Light.Intensity");
+
+        Assert.True(source.TryGetPrefabValue(box[0], intensity, out var template));
+        Assert.Equal(7f, template);
+        Assert.True(source.IsOverridden(box[0], intensity));
+
+        Assert.True(source.Unlink(box[0]));
+        Assert.False(source.TryGetPrefabValue(box[0], intensity, out _));
+        Assert.False(source.Unlink(box[0]));
+    }
+
     /// <summary>A lamp turned down to zero reverts to the brightness the template has.</summary>
     /// <remarks>
     ///     The other half: the claim is recorded by the edit itself, and the revert writes the

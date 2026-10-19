@@ -79,7 +79,7 @@ public sealed class PrefabSource : IPrefabSource {
     /// <summary>Says which entity an inspected object stands for, and which part of it.</summary>
     /// <param name="target">The object an inspector will show.</param>
     /// <param name="entity">The entity it stands for.</param>
-    /// <param name="alias">The <c>[DataContract]</c> alias when the object is a component, or empty
+    /// <param name="dataAlias">The <c>[DataContract]</c> alias when the object is a component, or empty
     ///     when it is the entity itself.</param>
     /// <remarks>
     ///     ⚠ <b>The alias and not the component's type.</b> A member path in the format is
@@ -87,11 +87,11 @@ public sealed class PrefabSource : IPrefabSource {
     ///     for the component, so building the path from anything else would be a second spelling of
     ///     one name.
     /// </remarks>
-    public void Link(object target, Entity entity, string alias = "") {
+    public void Link(object target, Entity entity, string dataAlias = "") {
         ArgumentNullException.ThrowIfNull(target);
-        ArgumentNullException.ThrowIfNull(alias);
+        ArgumentNullException.ThrowIfNull(dataAlias);
 
-        shown[target] = new(entity, alias);
+        shown[target] = new(entity, dataAlias);
     }
 
     /// <summary>Forgets a pairing.</summary>

@@ -649,7 +649,7 @@ after P2 the consumers can), `ProjectBrowser.cs` (1,491), `NodeGraphView.cs` (1,
 `PortEditor`, not a drawer). ⚠ `ComponentsView`'s
 "one template per authoring kind" does not exist: there is one keyed `@for` over `IComponentBridge`,
 deliberately the same for components and behaviours, and the size is a 945-line `@code` block — so
-"split by component kind" has nothing to split along; #1308 carries the options. Each is its own issue with its own ceiling in `ApplicationSizeRule`'s
+"split by component kind" has nothing to split along. #1308 decided (c) then (d): `IPrefabSource` gained `Link`/`Unlink` as default no-ops and `Pair` takes the interface, so `ComponentsView` names no `Vixen.Editor.AssetEditors` type (four `FeatureNameExempt` rows gone, the dumps unchanged); the size is closed as decided-not-to, because the only split is by concern. Each is its own issue with its own ceiling in `ApplicationSizeRule`'s
 table, which is renamed `FileSizeRule` the day it gains a second assembly.
 
 **`ProjectBrowser` (#1304), first slice landed:** the folder, collection, search and kind are
