@@ -219,6 +219,15 @@ public class RealPlanCitationTests {
     ///     bare continuation and the file it would continue, which makes the continuation a guess, and
     ///     <paramref name="Commit" /> the commit a pinned citation describes.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b><paramref name="Lines" /> is every number the citation wrote, and
+    ///     <see cref="Spans" /> is what they mean</b>
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1495">#1495</a>). Doc 50 wrote
+    ///     <c>`EditorApplication.cs:792-832, 2966-2973`</c> — two ranges — and the sweep read it as one
+    ///     range, 792 to 832, with two numbers nobody checked; the second range was never read at all.
+    ///     <paramref name="Column" /> is where on its line the citation starts, so the prose around it
+    ///     can be found again.
+    /// </remarks>
     sealed record Cited(
         string Document,
         int Line,
@@ -229,8 +238,23 @@ public class RealPlanCitationTests {
         string? Symbol,
         string? Code,
         string? Across = null,
-        string? Commit = null
-    );
+        string? Commit = null,
+        int Column = -1
+    ) {
+        /// <summary>Each single line or range the citation names, in order: <c>792-832, 2966-2973</c> is two.</summary>
+        public (int From, int To)[] Spans {
+            get {
+                var spec = Text[(Text.LastIndexOf(':') + 1)..];
+                spec = spec.Contains('@') ? spec[..spec.IndexOf('@')] : spec;
+
+                return spec.Split(',')
+                    .Select(part => Regex.Matches(part, @"\d+").Select(digits => int.Parse(digits.Value)).ToArray())
+                    .Where(numbers => numbers.Length > 0)
+                    .Select(numbers => (numbers[0], numbers[^1]))
+                    .ToArray();
+            }
+        }
+    }
 
     /// <summary>Every citation resolves to a file that has the cited lines.</summary>
     [Fact]
@@ -307,10 +331,14 @@ public class RealPlanCitationTests {
     ///         green under resolution.
     ///     </para>
     ///     <para>
-    ///         A single line and every line of a list must carry a word; a range needs one, because a
-    ///         range legitimately ends on the brace that closes what it spans. Nobody cites a blank line
-    ///         or a lone <c>}</c> as evidence, so this has no false positive worth the name — and a
-    ///         citation that means one on purpose goes in <see cref="ExemptPath" /> like any other.
+    ///         A single line and every line of a list must carry a word; a range must open on something
+    ///         other than a blank or a closing brace and close on something other than a blank, because
+    ///         a range legitimately ends on the brace that closes what it spans. ⚠ It used to need only
+    ///         one worded line anywhere in it, which every range in a long file has — doc 50's
+    ///         <c>`EditorApplication.cs:792-832`</c> ended on a blank and passed, and the ends rule found
+    ///         twenty-one more on its first run (#1495). Nobody cites a blank line or a lone <c>}</c> as
+    ///         evidence, so this has no false positive worth the name — and a citation that means one
+    ///         on purpose goes in <see cref="ExemptPath" /> like any other.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -339,6 +367,252 @@ public class RealPlanCitationTests {
         );
     }
 
+    /// <summary>
+    ///     An unbound range uses, somewhere in it, a name the prose it is evidence for uses
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1495">#1495</a>).
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A range was the one form nothing could make false.</b> Resolution passes any range
+    ///         inside the file, and "something on it" passed any range with a word in it, which in a
+    ///         four-thousand-line file is every range. Doc 50 § F9 cited
+    ///         <c>`EditorApplication.cs:792-832, 2966-2973`</c> for <c>is StandardFrameDocument</c>,
+    ///         <c>is ShaderGraphDocument</c>, <c>is MaterialView</c> and <c>is TextureImportView</c>
+    ///         — a <c>FileSystemWatcher</c> remark and the inspector factory's <c>&lt;para&gt;</c> — and
+    ///         <c>`:1076-1094`</c> for three <c>I…Scene</c> properties over <c>Extensions</c>' summary,
+    ///         and the sweep passed all four.
+    ///     </para>
+    ///     <para>
+    ///         The source comments' rule (<see cref="Misplaced" />, #1454), with the document's own
+    ///         prose for the comment: some span of the citation has to use, as a whole word, a name of
+    ///         the clause the citation closes — the text since the citation before it in its paragraph
+    ///         or table cell (<see cref="ProseAround" />) — or carry one of its backticked fragments
+    ///         whole. A range whose clause names nothing in code cannot be held to this and is
+    ///         skipped rather than guessed at.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The clause before the citation and not the paragraph</b>, because a table row in
+    ///         doc 50 names forty types and a range of a hundred lines in the editor's biggest file
+    ///         uses one of them by accident. Read that wide, the rule passed § F9's four.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_cited_range_uses_a_name_its_prose_uses() {
+        var (citations, index, exempt) = Sweep();
+        List<string> failures = [];
+        var held = 0;
+
+        foreach (var cited in citations) {
+            // Code only: a range of a guide page or a README is prose citing prose, and shares words
+            // with its clause rather than names — doc 49's `UiApplication`'s frame loop is a paragraph
+            // of the desktop guide that says "the loop".
+            if (cited.Symbol is not null || cited.Code is not null || cited.Spans.All(span => span.From == span.To)
+                || !SourceExtensions.Contains(Path.GetExtension(cited.File))) {
+                continue;
+            }
+
+            if (Resolve(cited, index) is not null || Unverifiable(cited) || exempt.ContainsKey((cited.Document, cited.Text))) {
+                continue;
+            }
+
+            // ⚠ Not where the clause cites an absence: "`UiEvent` has no `Cancel` (`UiEvent.cs:46-58`)"
+            // cites the lines the name is missing from — the negation BoundSymbol refuses to bind.
+            if (Regex.IsMatch(ProseAround(cited), @"\bno\s+`[^`]+`[^`(]*\(\s*$")) {
+                continue;
+            }
+
+            if (Unnamed(cited, index) is { } problem) {
+                failures.Add($"{cited.Document}:{cited.Line} `{cited.Text}` {problem}");
+            } else if (ProseNames(cited).Count > 0 || ProseCode(cited).Count > 0) {
+                held++;
+            }
+        }
+
+        Assert.True(
+            failures.Count == 0,
+            $"{failures.Count} range citation(s) in {Swept} span no line that uses a name their own clause uses, which is what a "
+            + "range that drifted onto other code looks like (#1495). Re-point each by reading it, or pin it to the commit it "
+            + "describes (`File.cs:N-M@sha`):\n  " + string.Join("\n  ", failures)
+        );
+
+        // The instrument: a rule that holds nothing is not reading ranges. 50 when this was written,
+        // read by raising the floor out of reach.
+        Assert.True(held >= 40, $"only {held} range citation(s) were held to their prose, so the rule has stopped reading");
+    }
+
+    /// <summary>
+    ///     Why a range citation spans nothing its clause names, or <see langword="null" /> when some
+    ///     line of every span does — or when the clause names nothing in code to look for.
+    /// </summary>
+    static string? Unnamed(Cited cited, Dictionary<string, List<string>> index) {
+        if (!SourceExtensions.Contains(Path.GetExtension(cited.File))) {
+            return null;
+        }
+
+        var names = ProseNames(cited);
+        var fragments = ProseCode(cited);
+
+        if (names.Count == 0 && fragments.Count == 0) {
+            return null;
+        }
+
+        bool Named(string line) => Regex.Matches(line, @"[A-Za-z_][A-Za-z0-9_]*").Any(word => names.Contains(word.Value));
+
+        // A clause's code may be all keywords — `default: return false` — and still be what the
+        // span says, across its lines.
+        bool Quoted(IEnumerable<string> span) {
+            var text = Collapse(string.Concat(span));
+
+            return fragments.Any(fragment => text.Contains(fragment, StringComparison.Ordinal));
+        }
+
+        // ⚠ Any span rather than every one: a list names its places, and the clause names what
+        // they are about once. A range that drifted onto other code shares nothing with it.
+        if (Targets(cited, index).Any(target => cited.Spans.Any(span => span.To <= target.Lines.Length
+                                                                        && (target.Lines[(span.From - 1)..span.To].Any(Named)
+                                                                            || Quoted(target.Lines[(span.From - 1)..span.To]))))) {
+            return null;
+        }
+
+        return $"spans no line using any of {string.Join(", ", names.Order(StringComparer.Ordinal).Take(6).Concat(fragments.Take(2)).Select(name => $"`{name}`"))}";
+    }
+
+    /// <summary>The clause's backticked code, collapsed, where it is long enough to mean something.</summary>
+    static List<string> ProseCode(Cited cited) {
+        var places = Places(cited);
+
+        return CodeSpan.Matches(NamedFile.Replace(Citation.Replace(ProseAround(cited), " "), " "))
+            .Select(span => Collapse(span.Groups["code"].Value))
+            .Where(code => code.Length >= 4 && !places.Contains(code) && !Regex.IsMatch(code, "^(?=.*[0-9])[0-9a-f]{7,40}$"))
+            .ToList();
+    }
+
+    /// <summary>
+    ///     The files the citation's prose names — its own and any other on its line — which are places
+    ///     and not code: the context map's "`PlayPhysics`, play diagnostics — `EditorParity.cs:…`,
+    ///     `PlayPhysics.cs`" names a file, and no line of <c>EditorParity.cs</c> need carry it.
+    /// </summary>
+    static HashSet<string> Places(Cited cited) {
+        HashSet<string> places = new(StringComparer.Ordinal) { Path.GetFileNameWithoutExtension(cited.File) };
+
+        places.UnionWith(NamedFile.Matches(Lines(cited.Document)[cited.Line - 1])
+            .Select(file => Path.GetFileNameWithoutExtension(file.Groups["file"].Value)));
+
+        return places;
+    }
+
+    /// <summary>Words that are C# or English before they are names, so a clause's <c>`is X`</c> lends only <c>X</c>.</summary>
+    static readonly HashSet<string> Keywords = new(
+        ["as", "is", "if", "in", "of", "or", "and", "the", "new", "var", "for", "not", "null", "true", "false", "this", "base",
+            "void", "int", "bool", "string", "object", "return", "static", "public", "private", "internal", "readonly", "class",
+            "struct", "record", "get", "set", "init", "using", "case", "switch", "default", "with", "out", "ref", "params"],
+        StringComparer.Ordinal
+    );
+
+    /// <summary>The names a range citation's clause uses, from <see cref="ProseAround" />, as <see cref="CommentNames" /> reads a comment.</summary>
+    /// <remarks>
+    ///     Less the cited file's own name, which says where and not what: <c>`ForwardPlus`</c> withholds
+    ///     the ambient (<c>`ForwardPlus.rvn:456-469`</c>) names its file, and no line of it need.
+    /// </remarks>
+    static HashSet<string> ProseNames(Cited cited) {
+        var prose = NamedFile.Replace(Citation.Replace(ProseAround(cited), " "), " ");
+        HashSet<string> names = new(StringComparer.Ordinal);
+
+        foreach (Match span in CodeSpan.Matches(prose)) {
+            foreach (Match name in Regex.Matches(span.Groups["code"].Value, @"[A-Za-z_][A-Za-z0-9_]*")) {
+                if (name.Length >= 2 && !Keywords.Contains(name.Value) && !Regex.IsMatch(name.Value, "^(?=.*[0-9])[0-9a-f]{7,40}$")) {
+                    names.Add(name.Value);
+                }
+            }
+        }
+
+        foreach (Match word in CodeWord.Matches(Regex.Replace(prose, "`[^`]*`", " "))) {
+            names.Add(word.Value);
+        }
+
+        names.ExceptWith(Places(cited));
+
+        return names;
+    }
+
+    /// <summary>
+    ///     The clause a document citation is evidence for: the text from the citation before it — or
+    ///     the start of its paragraph or table cell — up to it, and, where the citation stands bare in
+    ///     its sentence rather than in a parenthesis, the rest of that sentence too.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A paragraph is read across its wraps, bounded the way <see cref="ParseDocument" />
+    ///         bounds a continuation (<see cref="Opens" />); a table row is one line and its cell is the
+    ///         bound.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which side the subject is on depends on the parenthesis.</b> <c>`X` (`F.cs:1-9`)</c>
+    ///         cites for what precedes it; <c>`F.cs:1-9` lists `.ttf` and `.otf`</c> cites for what
+    ///         follows. Read only before, the second shape was held to the previous sentence's names.
+    ///     </para>
+    /// </remarks>
+    static string ProseAround(Cited cited) {
+        if (cited.Column < 0) {
+            return "";
+        }
+
+        var lines = Lines(cited.Document);
+        var at = cited.Line - 1;
+        var line = lines[at];
+        string text;
+        int start;
+
+        if (Unquoted(line).StartsWith('|')) {
+            var open = line.LastIndexOf('|', Math.Max(cited.Column - 1, 0));
+            var close = line.IndexOf('|', cited.Column);
+            text = line[(open + 1)..(close < 0 ? line.Length : close)];
+            start = cited.Column - open - 1;
+        } else {
+            var first = at;
+
+            while (first > 0 && !Opens(lines[first])) {
+                first--;
+            }
+
+            // A list item opens its paragraph and belongs to it; a blank, a heading or a row above it does not.
+            if (first < at && Opens(lines[first]) && !ListItem.IsMatch(Unquoted(lines[first]))) {
+                first++;
+            }
+
+            var last = at;
+
+            while (last + 1 < lines.Length && !Opens(lines[last + 1])) {
+                last++;
+            }
+
+            var before = string.Join('\n', lines[first..at]) + (first < at ? "\n" : "");
+            text = before + string.Join('\n', lines[at..(last + 1)]);
+            start = before.Length + cited.Column;
+        }
+
+        var citations = Citation.Matches(text).ToList();
+        var own = citations.Single(match => match.Index == start);
+        var previous = citations.LastOrDefault(match => match.Index < start);
+        var prose = text[(previous is null ? 0 : previous.Index + previous.Length)..start];
+
+        // A clause ends at a semicolon or a full stop as well as at a citation: doc 50's F9 row is
+        // "…, `DiagnosticsModule`'s since #1296); `StandardIcons` keyed by … (`StandardIcons.cs:89-115`)".
+        if (Regex.Matches(prose, @"[.;](\s|$)").LastOrDefault() is { } stop) {
+            prose = prose[(stop.Index + stop.Length)..];
+        }
+
+        if (prose.TrimEnd().EndsWith('(')) {
+            return prose;
+        }
+
+        var end = own.Index + own.Length;
+        var next = citations.FirstOrDefault(match => match.Index > start)?.Index ?? text.Length;
+        var sentence = Regex.Match(text[end..next], @"[.;:,](\s|$)");
+
+        return prose + text[end..(sentence.Success ? end + sentence.Index : next)];
+    }
+
     /// <summary>The exemption list can only shrink: every entry is still cited and still fails.</summary>
     [Fact]
     public void Every_exempt_citation_is_still_cited_and_still_unresolvable() {
@@ -353,7 +627,10 @@ public class RealPlanCitationTests {
             } else if (matching.All(cited => Resolve(cited, index) is null
                                              && Targets(cited, index).Any(target => Substantial(cited, target.Lines))
                                              && (cited.Symbol is null && cited.Code is null
-                                                 || Targets(cited, index).Any(target => Holds(cited, target.Lines))))) {
+                                                 || Targets(cited, index).Any(target => Holds(cited, target.Lines)))
+                                             && (cited.Symbol is not null || cited.Code is not null
+                                                 || cited.Spans.All(span => span.From == span.To)
+                                                 || Unnamed(cited, index) is null))) {
                 stale.Add($"{document} `{text}` resolves and holds now — delete the line");
             }
         }
@@ -562,9 +839,7 @@ public class RealPlanCitationTests {
                 return false;
             }
 
-            return cited.Range
-                ? lines[(cited.Lines[0] - 1)..Math.Min(cited.Lines[1], lines.Length)].Any(Named)
-                : cited.Lines.All(line => Named(lines[line - 1]));
+            return cited.Spans.All(span => lines[(span.From - 1)..span.To].Any(Named));
         }
 
         var targets = Targets(cited, index);
@@ -991,6 +1266,75 @@ public class RealPlanCitationTests {
         Assert.Null(Resolve(root, index));
     }
 
+    /// <summary>
+    ///     Doc 50 § F9's App row as it stood on master at <c>c40c2ea93</c>: the sweep passed all of its
+    ///     ranges, and each is refused now — and the row as re-read is not
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1495">#1495</a>).
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Fed in and pinned, so neither half moves.</b> The drifted ranges are read at
+    ///     <c>c40c2ea93</c>, the master the issue was filed against, rather than at HEAD, where the
+    ///     lanes editing <c>EditorApplication</c> would turn this into a test of their line shifts.
+    ///     The document is primed into the line cache under a path no checkout has, because the prose
+    ///     a range is held to is read from its document.
+    /// </remarks>
+    [Fact]
+    public void Doc_50s_F9_ranges_are_refused_where_they_say_nothing_the_row_claims() {
+        if (!History.Has("c40c2ea93") || !History.Has("5f03c9b80")) {
+            Assert.Skip("this checkout has no history to hold a pin to (a shallow clone)");
+        }
+
+        var (_, index, _) = Sweep();
+
+        Cited Read(string document, string row, string text) {
+            lock (LineCache) {
+                LineCache[document] = [row];
+            }
+
+            return ParseDocument(document, [row]).Single(cited => cited.Text == text);
+        }
+
+        const string Drifted =
+            "| `Vixen.Editor.App` | 48 | `is StandardFrameDocument`, `is ShaderGraphDocument`, `is MaterialView`, "
+            + "`is TextureImportView` (`EditorApplication.cs:792-832, 2966-2973@c40c2ea93`); "
+            + "`ITerrainScene`/`IVegetationScene`/`IWaterScene` — one property per feature (`:1076-1094`) |";
+
+        var types = Read("fixture/f9-drifted.md", Drifted, "EditorApplication.cs:792-832, 2966-2973@c40c2ea93");
+        var scenes = Read("fixture/f9-drifted.md", Drifted, ":1076-1094");
+
+        // Both resolve, which is all the old sweep asked of a range with no symbol before it.
+        Assert.Null(Resolve(types, index));
+        Assert.Null(Resolve(scenes, index));
+
+        // ⚠ Two ranges, where the old reading was one range and two numbers nobody checked.
+        Assert.Equal([(792, 832), (2966, 2973)], types.Spans);
+
+        // 832 is blank, so the first is refused on its ends alone…
+        Assert.DoesNotContain(Targets(types, index), target => Substantial(types, target.Lines));
+
+        // …and neither range uses a name its clause does. `:1076-1094` has words at both ends —
+        // `Extensions` and its summary — so only the names can refuse it.
+        Assert.NotNull(Unnamed(types, index));
+        Assert.Contains(Targets(scenes, index), target => Substantial(scenes, target.Lines));
+        Assert.Contains("ITerrainScene", Unnamed(scenes, index));
+
+        // The row as re-read: the type tests pinned to the tree #1297 removed them from, and the
+        // scene seams where they are.
+        const string Read_ =
+            "| `Vixen.Editor.App` | 48 | `is StandardFrameDocument`, `is ShaderGraphDocument`, `is MaterialView`, "
+            + "`is TextureImportView` (`EditorApplication.cs:772-778, 2912-2920@5f03c9b80`, removed by #1297); "
+            + "`ITerrainScene`/`IVegetationScene`/`IWaterScene` — one property per feature (`ScenePresenter.cs:255-298@c40c2ea93`) |";
+
+        var pinned = Read("fixture/f9-read.md", Read_, "EditorApplication.cs:772-778, 2912-2920@5f03c9b80");
+        var seams = Read("fixture/f9-read.md", Read_, "ScenePresenter.cs:255-298@c40c2ea93");
+
+        foreach (var cited in new[] { pinned, seams }) {
+            Assert.Null(Resolve(cited, index));
+            Assert.Contains(Targets(cited, index), target => Substantial(cited, target.Lines));
+            Assert.Null(Unnamed(cited, index));
+        }
+    }
+
     /// <summary>A pin is checked against its commit and not against HEAD, in both directions.</summary>
     /// <remarks>
     ///     <para>
@@ -1181,9 +1525,7 @@ public class RealPlanCitationTests {
 
     /// <summary>Whether the bound symbol or code is on the cited line, in the cited range, or on a listed line.</summary>
     static bool Holds(Cited cited, string[] lines) {
-        IEnumerable<string> cover = cited.Range
-            ? lines[(cited.Lines[0] - 1)..Math.Min(cited.Lines[1], lines.Length)]
-            : cited.Lines.Where(line => line <= lines.Length).Select(line => lines[line - 1]);
+        var cover = Cover(cited, lines);
 
         if (cited.Symbol is { } symbol) {
             var name = Regex.Replace(symbol, @"<.*$|\(.*\)$", "").Split('.')[^1];
@@ -1196,7 +1538,19 @@ public class RealPlanCitationTests {
         return cover.Any(line => Collapse(line).Contains(code, StringComparison.Ordinal));
     }
 
-    /// <summary>Whether the cited lines say anything: every one of a line or a list, and one of a range.</summary>
+    /// <summary>
+    ///     Whether the cited lines say anything: every single line carries a word, and every range
+    ///     opens on a word and closes on something that is not blank.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A range asked only that one of its lines carry a word</b>, and a range of forty lines in
+    ///     a file of four thousand always has one — so doc 50's <c>`EditorApplication.cs:792-832`</c>,
+    ///     which ended on a blank line, passed (<a href="https://github.com/Rikarin/Vixen/issues/1495">#1495</a>).
+    ///     Its ends are where a drifted range lands wrong, so its ends are what is held: the first line
+    ///     to anything but a blank or a closing brace — a range may open on <c>&lt;!--</c> or <c>{</c>
+    ///     — and the last to anything but a blank, because a range legitimately closes on the brace
+    ///     that ends what it spans.
+    /// </remarks>
     static bool Substantial(Cited cited, string[] lines) {
         static bool Worded(string line) => Regex.IsMatch(line, @"\w");
 
@@ -1205,10 +1559,18 @@ public class RealPlanCitationTests {
             return false;
         }
 
-        return cited.Range
-            ? lines[(cited.Lines[0] - 1)..Math.Min(cited.Lines[1], lines.Length)].Any(Worded)
-            : cited.Lines.All(line => Worded(lines[line - 1]));
+        return cited.Spans.All(span => span.From == span.To
+            ? Worded(lines[span.From - 1])
+            : Starts(lines[span.From - 1]) && lines[span.To - 1].Trim().Length > 0);
+
+        // Anything but a blank or a closer: a range may open on `<!--` or `{`, never on the `}` that
+        // ends the thing above it.
+        static bool Starts(string line) => line.Trim() is { Length: > 0 } text && !Regex.IsMatch(text, @"^[})\]]+[;,]?$");
     }
+
+    /// <summary>Every line the citation covers: each single line, and every line of each range.</summary>
+    static IEnumerable<string> Cover(Cited cited, string[] lines) =>
+        cited.Spans.SelectMany(span => lines[Math.Min(span.From - 1, lines.Length)..Math.Min(span.To, lines.Length)]);
 
     static string Collapse(string text) => Regex.Replace(text, @"\s+", "");
 
@@ -1501,7 +1863,7 @@ public class RealPlanCitationTests {
             var code = BoundCode.Match(rest) is { Success: true } dash ? dash.Groups["code"].Value : null;
             var commit = match.Groups["commit"] is { Success: true } pin ? pin.Value : pinned;
 
-            citations.Add(new(relative, number, match.Value.Trim('`'), file ?? "", lines, range, symbol, code, across, commit));
+            citations.Add(new(relative, number, match.Value.Trim('`'), file ?? "", lines, range, symbol, code, across, commit, match.Index));
         }
 
         carry = file is null ? null

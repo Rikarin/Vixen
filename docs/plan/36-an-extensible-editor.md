@@ -1248,7 +1248,7 @@ target for one entry, once, on mouse-up, then `Execute`s it and `Seal`s — `Sce
 and the command owns the history, which is the division `CommandTransaction` makes for every drag.
 
 ⚠ **Multi-select is already the shape the pipeline would have to be bent into.** One command, N
-targets, each with its own before *and* after triple, named `"Move (3)"` —
+targets, each with its own `before` *and* `after` triple, named `"Move (3)"` —
 `TransformTargetsCommand.cs:59-72`. Through the pipeline a drag gives each target a *different*
 value, so `EditProperty.Write` (one command, N objects, one value) does not apply and `WriteEach`
 does; `WriteEach` executes one command **per target** (`EditProperty.cs:173`), and position, rotation

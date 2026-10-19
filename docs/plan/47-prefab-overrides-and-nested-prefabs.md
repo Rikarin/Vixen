@@ -142,7 +142,7 @@ resolved at load.
   every instance of it into an entity with a transform and no content. Under (C) the same case
   degrades to an ordinary subtree with its links intact.
 - **It cannot be reviewed.** A `.vxscene` is a file people merge by hand — that is the stated reason
-  the whole authoring format is YAML (`SceneFormat.cs:521-524`). A level whose contents are a hundred
+  the whole authoring format is YAML (`SceneFormat.cs:586-589`). A level whose contents are a hundred
   asset ids and a patch list is not a file anybody can read a diff of.
 
 It is the right long-term model and it is blocked on work outside this document.
