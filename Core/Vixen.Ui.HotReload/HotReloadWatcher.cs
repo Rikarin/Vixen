@@ -120,7 +120,9 @@ public sealed class HotReloadWatcher : IDisposable {
         var styles = host.Document.Styles;
 
         for (var sheet = 0; sheet < styles.SheetCount; sheet++) {
-            if (string.Equals(styles.SheetText(sheet), css, StringComparison.Ordinal)) {
+            // A removed sheet reads as empty text, which an empty file would otherwise match, and a
+            // removed sheet cannot be replaced.
+            if (!styles.IsRemoved(sheet) && string.Equals(styles.SheetText(sheet), css, StringComparison.Ordinal)) {
                 return sheet;
             }
         }
