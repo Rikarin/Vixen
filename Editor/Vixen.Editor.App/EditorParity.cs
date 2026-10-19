@@ -438,34 +438,16 @@ sealed partial class EditorApplication {
             () => Shell.Workspace.Open(MeshMapBakePanel)
         );
 
-        Verb(
-            "assets.show-in-explorer",
-            EditorStrings.CommandAssetsShowInExplorer,
-            EditorStrings.CategoryAssets,
-            ShowSelectedAsset,
-            enabled: () => project.Selection.Count > 0 && services.OpenUrl is not null
-        );
-
-        // ⚠ Doc 20 calls a naive rename "the fastest way to corrupt a project", and it is worth
-        // being precise about which naivety. Not a stale path: doc 08 chose a GUID in a prefixed
-        // scalar over a path, so a referrer needs nothing done to it. The corruption is leaving the
-        // sidecar behind — the next scan then finds an asset with no identity, mints a new one, and
-        // every reference in the project dangles with nothing having reported an error.
-        // `AssetOperations` is that invariant and nothing else, and it is tested against it.
+        // Show in Explorer, Delete and Reimport All are `LibraryModule`'s now (#1292): names for
+        // `IContentLibrary` verbs, registered through `PluginContext`. Rename and Move To stay here —
+        // the first starts the browser panel's inline editor and the second asks through this
+        // editor's drawn chooser — and both end in `IContentLibrary.Rename`/`Move`.
         Verb(
             "assets.rename",
             EditorStrings.CommandAssetsRename,
             EditorStrings.CategoryAssets,
             RenameSelectedAsset,
             enabled: () => browser is not null && project.Selection.Count == 1
-        );
-
-        Verb(
-            "assets.delete",
-            EditorStrings.CommandAssetsDelete,
-            EditorStrings.CategoryAssets,
-            DeleteSelectedAssets,
-            enabled: () => project.Selection.Count > 0
         );
 
         Verb(
@@ -519,14 +501,6 @@ sealed partial class EditorApplication {
 
         Planned("assets.reimport", EditorStrings.CommandAssetsReimport, EditorStrings.CategoryAssets);
 
-        Verb(
-            "assets.reimport-all",
-            EditorStrings.CommandAssetsReimportAll,
-            EditorStrings.CategoryAssets,
-            content.Import,
-            enabled: () => !content.IsBusy
-        );
-
         // Find References and Select Dependencies are `LibraryModule`'s now (#1292): names for
         // `IContentLibrary.Referrers` and `Dependencies`, registered through `PluginContext`.
     }
@@ -542,7 +516,8 @@ sealed partial class EditorApplication {
     ///     ⚠ <b>Every folder in the project, flat, by path.</b> A tree would be prettier and would
     ///     need the browser's own tree in a dialog; a sorted list of relative paths is searchable by
     ///     eye, is what the operation actually takes, and cannot express a destination outside the
-    ///     project — which is the one answer <c>AssetOperations.Move</c> refuses.
+    ///     project — which is the one answer <c>AssetOperations.Move</c> refuses. The move itself is
+    ///     <c>IContentLibrary.Move</c>; the question is this editor's dialog.
     /// </remarks>
     void MoveSelectedAssets() {
         List<AssetId> assets = [.. project.Selection];
@@ -572,22 +547,7 @@ sealed partial class EditorApplication {
                 return;
             }
 
-            var failures = 0;
-
-            foreach (var asset in assets) {
-                var result = AssetOperations.Move(project, asset, folder);
-
-                if (!result.Ok) {
-                    failures++;
-                    Shell.Notifications.Show("Could not move", NotificationSeverity.Error, result.Message);
-                }
-            }
-
-            browser?.Rescan();
-
-            if (failures == 0) {
-                Shell.Notifications.Success($"Moved to {folder}");
-            }
+            library.Move(assets, folder);
         }
     }
 
@@ -1403,95 +1363,13 @@ sealed partial class EditorApplication {
         }
     }
 
-    /// <summary>Applies a rename typed into the browser, and says why not if it could not.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The tree is rebuilt either way.</b> A refused rename leaves the row showing the name
-    ///     that was typed — the control committed its own editor before this ran — and an outliner
-    ///     showing a name the disk does not have is worse than the refusal it is reporting.
-    /// </remarks>
-    void RenameAsset(AssetId asset, string name) {
-        var result = AssetOperations.Rename(project, asset, name);
-
-        if (!result.Ok) {
-            Shell.Notifications.Show("Could not rename", NotificationSeverity.Error, result.Message);
-        }
-
-        browser?.Rescan();
-    }
-
-    /// <summary>Moves assets into a folder that was dropped on, and says why not if it could not.</summary>
+    /// <summary>Moves assets into a folder that was dropped on, through the library.</summary>
     void MoveAssets(IReadOnlyList<AssetId> assets, AssetId folder) {
         if (!project.Assets.TryGetByGuid(folder, out var destination) || !destination.IsFolder) {
             return;
         }
 
-        var failures = 0;
-
-        foreach (var asset in assets) {
-            var result = AssetOperations.Move(project, asset, destination.Path);
-
-            if (!result.Ok) {
-                failures++;
-                Shell.Notifications.Show("Could not move", NotificationSeverity.Error, result.Message);
-            }
-        }
-
-        browser?.Rescan();
-
-        if (failures == 0 && assets.Count > 0) {
-            Shell.Notifications.Success($"Moved to {destination.Name}");
-        }
-    }
-
-    /// <summary>Deletes the selected assets, having said what would break.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The list of referrers goes in the question, not in a report afterwards.</b>
-    ///     <c>ReferenceIndex</c> has answered "what breaks if I delete this" since it was written and
-    ///     nothing asked it; a list of newly-broken scenes shown once the file has gone is not a
-    ///     warning. Five names and a count, because a dialog listing four hundred is one nobody reads
-    ///     and the number is the part that changes the decision.
-    /// </remarks>
-    void DeleteSelectedAssets() {
-        List<AssetId> assets = [.. project.Selection];
-
-        if (assets.Count == 0) {
-            return;
-        }
-
-        var names = assets
-            .Select(asset => project.Assets.TryGetByGuid(asset, out var entry) ? entry.Name : asset.ToString())
-            .ToList();
-
-        var broken = AssetOperations.Breakage(project, assets);
-
-        var what = assets.Count == 1 ? $"Delete '{names[0]}'?" : $"Delete {assets.Count} assets?";
-
-        var message = broken.Count == 0
-            ? "Nothing in the project references them. This cannot be undone."
-            : $"{Count(broken.Count, "asset")} would be left pointing at nothing:"
-            + Environment.NewLine
-            + string.Join(Environment.NewLine, broken.Take(5))
-            + (broken.Count > 5 ? Environment.NewLine + $"…and {broken.Count - 5} more" : string.Empty);
-
-        Confirm(
-            ask: true,
-            what,
-            message,
-            () => {
-                foreach (var asset in assets) {
-                    var result = AssetOperations.Delete(project, asset);
-
-                    if (!result.Ok) {
-                        Shell.Notifications.Show("Could not delete", NotificationSeverity.Error, result.Message);
-                    }
-                }
-
-                browser?.Rescan();
-            },
-            "Delete"
-        );
-
-        static string Count(int count, string noun) => count == 1 ? $"1 {noun}" : $"{count} {noun}s";
+        library.Move(assets, destination.Path);
     }
 
     /// <summary>Makes a folder beside whatever is selected, and starts renaming it.</summary>
@@ -1514,18 +1392,6 @@ sealed partial class EditorApplication {
         }
 
         browser?.Rescan();
-    }
-
-    void ShowSelectedAsset() {
-        if (project.Selection.Count == 0 || !project.Assets.TryGetByGuid(project.Selection[0], out var entry)) {
-            return;
-        }
-
-        var full = Path.Combine(project.Paths.Root, entry.Path);
-
-        // The folder rather than the file: every desktop opens a directory URI in its file manager
-        // and none of them agree on how to ask for a file to be revealed.
-        Browse(new Uri(Path.GetDirectoryName(full) ?? project.Paths.Root).AbsoluteUri);
     }
 
     /// <summary>Bakes the selected model's mesh maps into the project.</summary>

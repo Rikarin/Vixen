@@ -27,12 +27,18 @@ namespace Vixen.Editor.App;
 ///         <see cref="IContentLibrary.Dependencies" /> rather than a closure inside the application.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Not yet the whole Assets menu the issue names.</b> Open, Show in Explorer, Rename,
-///         Delete, Move To, Revert and History still register in the application: each opens a
-///         document, asks through the editor's drawn chooser, or reads the browser panel or the
-///         source-control provider, none of which is this context's to hand a module yet. The menu
-///         layout — which lines appear where — is the application's too; a line naming a command
-///         nobody registered is skipped, so switching this module off takes these lines off the bar.
+///         <b>And the Assets-menu verbs that only touch content</b> (#1292): Show in Explorer, Delete
+///         and Reimport All are names for <see cref="IContentLibrary" /> and <see cref="IExternalLinks" />,
+///         and Delete asks through the shell's own confirmation, which a module is handed.
+///     </para>
+///     <para>
+///         ⚠ <b>Not yet the whole Assets menu the issue names.</b> Open and History need the document
+///         host (#1294); Rename starts the browser panel's inline editor and Move To asks through this
+///         editor's drawn chooser, so both still register in the application — and both end in
+///         <see cref="IContentLibrary.Rename" /> and <see cref="IContentLibrary.Move" />. Revert reads the
+///         source-control provider. The menu layout — which lines appear where — is the application's
+///         too; a line naming a command nobody registered is skipped, so switching this module off
+///         takes these lines off the bar.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Inside <c>Vixen.Editor.App</c> on purpose, as doc 50 § D3 says modules start.</b> The
@@ -95,6 +101,94 @@ sealed class LibraryModule : IEditorPlugin {
             "That does not reference anything.",
             "dependency"
         );
+
+        var selection = library.Project.Selection;
+        var links = context.Services.Require<IExternalLinks>();
+
+        context.AddCommand(
+            new EditorCommand(
+                "assets.show-in-explorer",
+                EditorStrings.CommandAssetsShowInExplorer,
+                () => ShowInExplorer(library.Project, links)
+            ) {
+                Category = EditorStrings.CategoryAssets,
+                Enablement = () => selection.Count > 0 && links.CanOpen
+            }
+        );
+
+        context.AddCommand(
+            new EditorCommand("assets.delete", EditorStrings.CommandAssetsDelete, () => Delete(context, library)) {
+                Category = EditorStrings.CategoryAssets,
+                Enablement = () => selection.Count > 0
+            }
+        );
+
+        context.AddCommand(
+            new EditorCommand("assets.reimport-all", EditorStrings.CommandAssetsReimportAll, library.ReimportAll) {
+                Category = EditorStrings.CategoryAssets,
+                Enablement = () => !library.IsImporting
+            }
+        );
+    }
+
+    /// <summary>Opens the selected asset's folder in the platform's file manager.</summary>
+    /// <param name="project">The project the selection is in.</param>
+    /// <param name="links">What opens a URL on this host.</param>
+    static void ShowInExplorer(EditorProject project, IExternalLinks links) {
+        if (project.Selection.Count == 0 || !project.Assets.TryGetByGuid(project.Selection[0], out var entry)) {
+            return;
+        }
+
+        var full = Path.Combine(project.Paths.Root, entry.Path);
+
+        // The folder rather than the file: every desktop opens a directory URI in its file manager
+        // and none of them agree on how to ask for a file to be revealed.
+        links.Open(new Uri(Path.GetDirectoryName(full) ?? project.Paths.Root).AbsoluteUri);
+    }
+
+    /// <summary>Deletes the selected assets, having said what would break.</summary>
+    /// <param name="context">Where the confirmation is asked.</param>
+    /// <param name="library">What deletes them.</param>
+    /// <remarks>
+    ///     ⚠ <b>The list of referrers goes in the question, not in a report afterwards.</b>
+    ///     <c>ReferenceIndex</c> has answered "what breaks if I delete this" since it was written and
+    ///     nothing asked it; a list of newly-broken scenes shown once the file has gone is not a
+    ///     warning. Five names and a count, because a dialog listing four hundred is one nobody reads
+    ///     and the number is the part that changes the decision. The delete itself is
+    ///     <see cref="IContentLibrary.Delete" />, which asks nobody.
+    /// </remarks>
+    static void Delete(PluginContext context, IContentLibrary library) {
+        var project = library.Project;
+        List<AssetId> assets = [.. project.Selection];
+
+        if (assets.Count == 0) {
+            return;
+        }
+
+        var names = assets
+            .Select(asset => project.Assets.TryGetByGuid(asset, out var entry) ? entry.Name : asset.ToString())
+            .ToList();
+
+        var broken = AssetOperations.Breakage(project, assets);
+
+        var what = assets.Count == 1 ? $"Delete '{names[0]}'?" : $"Delete {assets.Count} assets?";
+
+        var message = broken.Count == 0
+            ? "Nothing in the project references them. This cannot be undone."
+            : $"{Count(broken.Count, "asset")} would be left pointing at nothing:"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, broken.Take(5))
+            + (broken.Count > 5 ? Environment.NewLine + $"…and {broken.Count - 5} more" : string.Empty);
+
+        _ = Ask();
+
+        async Task Ask() {
+            if (await context.Shell.Dialogs.ConfirmAsync(what, message, "Delete", danger: true).ConfigureAwait(true)) {
+                library.Delete(assets);
+            }
+        }
+
+        static string Count(int count, string noun) => count == 1 ? $"1 {noun}" : $"{count} {noun}s";
     }
 
     /// <summary>Registers one walk of the reference graph from the selection, as a command that selects what it found.</summary>

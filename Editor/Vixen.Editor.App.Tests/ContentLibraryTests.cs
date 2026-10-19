@@ -263,6 +263,112 @@ public sealed class ContentLibraryTests : IDisposable {
         Assert.Contains("From a plugin", EditorSession.Labels(folders));
     }
 
+    /// <summary>A rename keeps the asset's identity because the sidecar moves with it — with no window.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The GUID is the assertion that matters.</b> A rename that moved the file and not its
+    ///     <c>.meta</c> still puts a file of the new name in the index — under a freshly minted identity,
+    ///     with every reference to the old one dangling and nothing reporting it.
+    /// </remarks>
+    [Fact]
+    public void Rename_keeps_the_identity_and_its_sidecar_without_a_window() {
+        var (library, project, _) = Bare();
+        var rearranged = 0;
+
+        library.Rearranged += () => rearranged++;
+
+        var crate = Scanned(project, "Textures/crate.png");
+
+        Assert.True(library.Rename(crate, "barrel").Ok);
+
+        Assert.True(project.Assets.TryGetByGuid(crate, out var renamed));
+        Assert.Equal("Assets/Textures/barrel.png", renamed.Path);
+        Assert.True(File.Exists(Path.Combine(project.Paths.Assets, "Textures", "barrel.png.meta")));
+        Assert.False(File.Exists(Path.Combine(project.Paths.Assets, "Textures", "crate.png.meta")));
+
+        // The index on disk agrees, so the next launch reads the same identity back.
+        var reopened = new EditorProject(new ProjectPaths(project.Paths.Root));
+        reopened.Open();
+
+        Assert.True(reopened.Assets.TryGetByGuid(crate, out var survived));
+        Assert.Equal("Assets/Textures/barrel.png", survived.Path);
+
+        // A refusal is reported, and the views are still told — the tree already shows what was typed.
+        Scanned(project, "Textures/taken.png");
+
+        Assert.False(library.Rename(crate, "taken").Ok);
+        Assert.Equal("Could not rename", reported[^1]);
+        Assert.Equal(2, rearranged);
+    }
+
+    /// <summary>Move carries sidecars and identities into the folder, and Delete takes both away — with no window.</summary>
+    [Fact]
+    public void Move_and_delete_carry_the_sidecars_without_a_window() {
+        var (library, project, _) = Bare();
+        var rearranged = 0;
+
+        library.Rearranged += () => rearranged++;
+
+        var crate = Scanned(project, "crate.png");
+        var plank = Scanned(project, "plank.png");
+
+        Directory.CreateDirectory(Path.Combine(project.Paths.Assets, "Props"));
+
+        Assert.Equal(2, library.Move([crate, plank], "Assets/Props"));
+        Assert.Equal("Moved to Props", reported[^1]);
+
+        Assert.True(project.Assets.TryGetByGuid(crate, out var moved));
+        Assert.Equal("Assets/Props/crate.png", moved.Path);
+        Assert.True(File.Exists(Path.Combine(project.Paths.Assets, "Props", "plank.png.meta")));
+
+        Assert.Equal(1, library.Delete([crate]));
+
+        Assert.False(project.Assets.TryGetByGuid(crate, out _));
+        Assert.False(File.Exists(Path.Combine(project.Paths.Assets, "Props", "crate.png")));
+        Assert.False(File.Exists(Path.Combine(project.Paths.Assets, "Props", "crate.png.meta")));
+        Assert.True(project.Assets.TryGetByGuid(plank, out _));
+        Assert.Equal(2, rearranged);
+    }
+
+    /// <summary>A rename a plugin asks for redraws the open browser, and records nothing to undo.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not undoable, as the browser's rename never was</b> — <see cref="IContentLibrary.Rename" />
+    ///     says so, and this holds it: Undo is exactly as available after the rename as before it.
+    /// </remarks>
+    [Fact]
+    public void A_rename_a_plugin_asks_for_reaches_the_open_browser_and_is_not_undoable() {
+        using var editor = EditorSession.Start();
+        editor.Open("project");
+
+        var library = editor.Plugins.Services.Require<IContentLibrary>();
+
+        File.WriteAllText(Path.Combine(editor.Project.Paths.Assets, "crate.png"), "pixels");
+        editor.Run("assets.refresh");
+
+        Assert.True(editor.Project.Assets.TryGetByPath("Assets/crate.png", out var crate));
+
+        var couldUndo = editor.CanRun("edit.undo");
+
+        Assert.True(library.Rename(crate.Guid, "barrel").Ok);
+        editor.Settle();
+        editor.ExpandAll(editor.Assets);
+
+        Assert.Contains("barrel.png", EditorSession.Labels(editor.Assets));
+        Assert.DoesNotContain("crate.png", EditorSession.Labels(editor.Assets));
+        Assert.Equal(couldUndo, editor.CanRun("edit.undo"));
+    }
+
+    static AssetId Scanned(EditorProject project, string path) {
+        var absolute = Path.Combine(project.Paths.Assets, path.Replace('/', Path.DirectorySeparatorChar));
+
+        Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
+        File.WriteAllText(absolute, path);
+        project.Assets.Scan();
+
+        return project.Assets.TryGetByPath("Assets/" + path, out var entry)
+            ? entry.Guid
+            : throw new InvalidOperationException($"'{path}' was not indexed.");
+    }
+
     int filtersWritten;
 
     readonly List<string> reported = [];

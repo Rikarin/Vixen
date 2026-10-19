@@ -36,6 +36,7 @@ internal sealed class ContentLibrary : IContentLibrary {
     readonly Func<List<SavedAssetFilter>> filters;
     readonly Action writeFilters;
     readonly Action import;
+    readonly Func<bool> busy;
 
     /// <summary>Builds the library over a project.</summary>
     /// <param name="project">The open project.</param>
@@ -54,19 +55,22 @@ internal sealed class ContentLibrary : IContentLibrary {
     ///     What the browser is showing, or <see langword="null" /> for a model whose view lives only as
     ///     long as it does — the editor hands one kept in the user's preferences.
     /// </param>
+    /// <param name="busy">Whether the content tasks are importing or building, or never for none.</param>
     public ContentLibrary(
         EditorProject project,
         Action<string, NotificationSeverity, string?> notify,
         Func<List<SavedAssetFilter>> filters,
         Action writeFilters,
         Action import,
-        ShownContent? shown = null
+        ShownContent? shown = null,
+        Func<bool>? busy = null
     ) {
         this.project = project;
         this.notify = notify;
         this.filters = filters;
         this.writeFilters = writeFilters;
         this.import = import;
+        this.busy = busy ?? (() => false);
         Shown = shown ?? new ShownContent();
     }
 
@@ -81,6 +85,98 @@ internal sealed class ContentLibrary : IContentLibrary {
 
     /// <inheritdoc />
     public event Action? Arrived;
+
+    /// <inheritdoc />
+    public event Action? Rearranged;
+
+    /// <inheritdoc />
+    public bool IsImporting => busy();
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Moved from <c>EditorApplication.RenameAsset</c> (#1292).</b> Doc 20 calls a naive
+    ///         rename "the fastest way to corrupt a project", and it is worth being precise about which
+    ///         naivety. Not a stale path: doc 08 chose a GUID in a prefixed scalar over a path, so a
+    ///         referrer needs nothing done to it. The corruption is leaving the sidecar behind — the
+    ///         next scan then finds an asset with no identity, mints a new one, and every reference in
+    ///         the project dangles with nothing having reported an error.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The views are told either way.</b> A refused rename leaves the row showing the name
+    ///         that was typed — the control committed its own editor before this ran — and a tree
+    ///         showing a name the disk does not have is worse than the refusal it is reporting.
+    ///     </para>
+    /// </remarks>
+    public AssetOperation Rename(AssetId asset, string name) {
+        var result = AssetOperations.Rename(project, asset, name);
+
+        if (!result.Ok) {
+            notify("Could not rename", NotificationSeverity.Error, result.Message);
+        }
+
+        Rearranged?.Invoke();
+        return result;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>One body for the two doors</b> — a drop on a folder row and Assets ▸ Move To — which
+    ///     were two loops in the application. The success line names the folder rather than its path,
+    ///     which is what the drop said; Move To used to say the path.
+    /// </remarks>
+    public int Move(IReadOnlyList<AssetId> assets, string folder) {
+        ArgumentNullException.ThrowIfNull(assets);
+        ArgumentNullException.ThrowIfNull(folder);
+
+        var moved = 0;
+
+        foreach (var asset in assets) {
+            var result = AssetOperations.Move(project, asset, folder);
+
+            if (result.Ok) {
+                moved++;
+            } else {
+                notify("Could not move", NotificationSeverity.Error, result.Message);
+            }
+        }
+
+        Rearranged?.Invoke();
+
+        if (moved == assets.Count && assets.Count > 0) {
+            notify($"Moved to {folder[(folder.LastIndexOf('/') + 1)..]}", NotificationSeverity.Success, null);
+        }
+
+        return moved;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The sidecar goes too</b> — see <see cref="AssetOperations.Delete" />: an orphaned
+    ///     <c>.meta</c> is quarantined by the next scan, which is a repair the user did not ask for
+    ///     appearing in their working tree.
+    /// </remarks>
+    public int Delete(IReadOnlyList<AssetId> assets) {
+        ArgumentNullException.ThrowIfNull(assets);
+
+        var deleted = 0;
+
+        foreach (var asset in assets) {
+            var result = AssetOperations.Delete(project, asset);
+
+            if (result.Ok) {
+                deleted++;
+            } else {
+                notify("Could not delete", NotificationSeverity.Error, result.Message);
+            }
+        }
+
+        Rearranged?.Invoke();
+        return deleted;
+    }
+
+    /// <inheritdoc />
+    public void ReimportAll() => import();
 
     /// <summary>Copies files and folders into the project, then scans and imports what arrived.</summary>
     /// <param name="paths">Absolute paths on the user's disk.</param>
@@ -102,7 +198,7 @@ internal sealed class ContentLibrary : IContentLibrary {
     ///     <para>
     ///         ⚠ <b>A path already inside the project is refused rather than duplicated.</b> The
     ///         browser is a file view of <c>Assets/</c>, and a person dragging a row of it onto
-    ///         itself means a move — which <c>EditorApplication.MoveAssets</c> does with identity intact.
+    ///         itself means a move — which <see cref="Move" /> does with identity intact.
     ///         Copying would mint a second GUID for the same bytes, which is the state the reference
     ///         index cannot repair.
     ///     </para>

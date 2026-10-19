@@ -908,9 +908,13 @@ sealed partial class EditorApplication : IDisposable {
                     (preferences.ProjectGridView, preferences.ProjectTileSize) = (grid, size);
                     WritePreferences();
                 }
-            )
+            ),
+            () => content.IsBusy
         );
         library.CollectionsChanged += () => browser?.Recollect();
+
+        // ⚠ A rename, move or delete has already reindexed; the browser redraws from what it found.
+        library.Rearranged += () => browser?.Rescan();
 
         library.Arrived += () => browser?.Rescan();
 
@@ -2222,7 +2226,7 @@ sealed partial class EditorApplication : IDisposable {
                     browser = new ProjectBrowser(session, panel, library.Shown, Extensions);
 
                     browser.Activated += Open;
-                    browser.Renamed += RenameAsset;
+                    browser.Renamed += (asset, name) => library.Rename(asset, name);
                     browser.Moved += MoveAssets;
                     browser.DroppedOutside += Dropped;
                     browser.DraggedOutside += Dragging;
