@@ -128,7 +128,7 @@ Three things the census found that the design has to answer:
 ⚠ **And the App README's load order is wrong in two places** (`Editor/Vixen.Editor.App/README.md:104-121`). *"Preferences
 after commands, because the undo depth is pushed into stacks that exist by then"* — the ordering
 holds, the reason does not: `ApplyPreferences` writes `project.GlobalStack.Capacity` and
-`scene.Stack.Capacity` (`EditorSettingsPanels.cs:520-523`), which exist from line 633, before any
+`scene.Stack.Capacity` (`EditorSettingsPanels.cs:547-550`), which exist from line 633, before any
 command. *"Disabled list before activation"* — true for disk plugins, **false for the built-in
 modules**: they are activated inside `Commands()` → `RegisterModes()` (`EditorParity.cs:1246-1248@0d7dda4a9`,
 called from `EditorApplication.cs:3880@0d7dda4a9`), before `LoadDisabledPlugins` at `:1013`, and
@@ -270,7 +270,7 @@ database mutation and importer calls: `LayerStackView.cs` 0, `NodeGraphView.cs` 
 `Stack.Execute`), `ProjectBrowser.cs` 2 — a `Scan()`+`Save()` pair (`:1167-1175`) that duplicates
 `EditorProject.Open` minus its "save only if changed" guard. **The application logic is not in the
 views; it is in the one class** — `EditorParity.cs` alone has 21 file-system calls, including
-`Directory.Delete(project.Paths.Library, recursive: true)` at `EditorParity.cs:2193`.
+`Directory.Delete(project.Paths.Library, recursive: true)` at `EditorParity.cs:2192`.
 
 What *is* doubled is the language, and each pair is two contexts sharing a word:
 
@@ -750,7 +750,7 @@ Waves follow the phases; a wave is five worktrees, merged as each lands, gates o
 | [#1301](https://github.com/Rikarin/Vixen/issues/1301) | 35 feature string ids out of `EditorStrings` | P3 | 6 |
 | [#1302](https://github.com/Rikarin/Vixen/issues/1302) | `NotYetMoved` deleted; `ApplicationReferenceRule` is `Allowed` only | P3 | 6 · landed |
 | [#1303](https://github.com/Rikarin/Vixen/issues/1303)–[#1309](https://github.com/Rikarin/Vixen/issues/1309) | One per feature god file: `SceneViewport`, `ProjectBrowser`, `NodeGraphView`, `LayerStackView` + `TexturingModule`, `BlockoutMode`, `ComponentsView.vxml`, `EditorHost` | P4 | 7–8 · #1307 (`BlockoutMode`) ✅ the verbs are `IBlockout`, published with `PluginContext.Publish` · #1303 (`SceneViewport`) partial: a tool is handed `IViewportPane`, the eight members its consumers read; bookmarks, `Extensions` and the overlay signature are owed · #1306 (`LayerStackView` + `TexturingModule`) 🟡 all three moves landed — `ITexturing`, declared Tools lines, the chosen set and selected layer on the document — and the three view theme installs stay (#917) |
-| [#1310](https://github.com/Rikarin/Vixen/issues/1310) | Settings dirty joins `HasUnsavedChanges`; settings edits through `EditProperty` with a document (#1162's provider) | P2e | 5 · first half landed (the join); the document half waits on #1294 |
+| [#1310](https://github.com/Rikarin/Vixen/issues/1310) | Settings dirty joins `HasUnsavedChanges`; settings edits through `EditProperty` with a document (#1162's provider) | P2e | 5 · both halves landed: the join, and a `SettingsDocument` with its own stack, hosted by the window and never the active document (decision (a)) |
 | [#1311](https://github.com/Rikarin/Vixen/issues/1311) | Guide pages for the seven services and two records (`CheckDocs`, not `Docs`) | each | with its phase |
 
 ## Part 7 — Estimate and risk

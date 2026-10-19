@@ -308,8 +308,11 @@ public sealed class EditorProject {
         return true;
     }
 
-    internal void Register(EditorDocument document) {
+    internal void Register(EditorDocument document, bool activate) {
         documents.Add(document);
-        activeDocument.Value = document;
+
+        if (activate) {
+            activeDocument.Value = document;
+        }
     }
 }

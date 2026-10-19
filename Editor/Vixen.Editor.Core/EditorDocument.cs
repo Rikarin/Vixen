@@ -136,7 +136,21 @@ public abstract class EditorDocument : IEditableDocument {
     /// <param name="project">The project.</param>
     /// <param name="asset">The asset it edits, or <see cref="AssetId.Empty" />.</param>
     /// <param name="title">What the tab says.</param>
-    protected EditorDocument(EditorProject project, AssetId asset, string title) {
+    protected EditorDocument(EditorProject project, AssetId asset, string title)
+        : this(project, asset, title, activate: true) {
+    }
+
+    /// <summary>Opens a document in a project, choosing whether it takes the focus.</summary>
+    /// <param name="project">The project.</param>
+    /// <param name="asset">The asset it edits, or <see cref="AssetId.Empty" />.</param>
+    /// <param name="title">What the tab says.</param>
+    /// <param name="activate">
+    ///     Whether it becomes <see cref="EditorProject.ActiveDocument" />. ⚠ <see langword="false" />
+    ///     only for <see cref="SettingsDocument" /> (#1310): the active document is what Ctrl+Z
+    ///     reaches when nothing nearer the focus owns a history, so a settings document that took it
+    ///     would be the viewport's Ctrl+Z undoing a project setting.
+    /// </param>
+    private protected EditorDocument(EditorProject project, AssetId asset, string title, bool activate) {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentException.ThrowIfNullOrEmpty(title);
 
@@ -154,7 +168,7 @@ public abstract class EditorDocument : IEditableDocument {
         // Registering from the base constructor means every document is in the project by
         // construction rather than by whoever created it remembering to add it. Nothing virtual is
         // called and the project only stores the reference, so the half-built instance is not used.
-        project.Register(this);
+        project.Register(this, activate);
     }
 
     /// <summary>Changes what the tab says.</summary>

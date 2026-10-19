@@ -288,6 +288,67 @@ public class SettingsWindowTests {
     }
 
     /// <summary>Types into the inspector row for a member, the way a person does.</summary>
+    /// <summary>Ctrl+Z inside the project settings window undoes a setting, and undoing back to clean is clean.</summary>
+    /// <remarks>
+    ///     ⚠ <b>#1310, decision (a).</b> The rows edit through a <c>SettingsDocument</c> whose stack the
+    ///     window hosts, so the history is found from the focus. The window's Apply is the document's
+    ///     unsaved answer, so the undo that takes the edit back also greys it — a hand-set flag could
+    ///     not have.
+    /// </remarks>
+    [Fact]
+    public void Undo_inside_the_project_settings_window_takes_a_setting_back() {
+        using var fixture = EditorSession.Start();
+
+        var view = fixture.Control<SettingsView>("project-settings");
+        var before = fixture.Project.Settings.Get<ProjectInfoSettings>().ProductName;
+
+        Type(view, "ProductName", "Moonshot");
+        fixture.Settle();
+
+        Assert.Equal("Moonshot", fixture.Project.Settings.Get<ProjectInfoSettings>().ProductName);
+        Assert.True(view.IsDirty);
+        Assert.True(fixture.Project.HasUnsavedChanges.Value);
+
+        Assert.True(fixture.Shell.Document.Focus(Focusable(view)));
+        fixture.Run("edit.undo");
+
+        Assert.Equal(before, fixture.Project.Settings.Get<ProjectInfoSettings>().ProductName);
+        Assert.False(view.IsDirty);
+        Assert.False(fixture.Project.HasUnsavedChanges.Value);
+    }
+
+    /// <summary>Ctrl+Z aimed anywhere but the settings window never reaches a setting.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The hazard the window's old remark refused undo over</b>: "a Ctrl+Z aimed at the
+    ///     viewport that silently changed a project setting would be worse than no undo at all". The
+    ///     settings document never becomes the active document, so with the focus outside the window
+    ///     the undo reaches the scene — whose edit it takes back — and the setting stays.
+    /// </remarks>
+    [Fact]
+    public void Undo_aimed_at_the_scene_never_undoes_a_setting() {
+        using var fixture = EditorSession.Start();
+
+        var view = fixture.Control<SettingsView>("project-settings");
+        var entities = fixture.Scene.Entities.Count();
+
+        fixture.Run("scene.create-entity");
+        Assert.Equal(entities + 1, fixture.Scene.Entities.Count());
+
+        Type(view, "ProductName", "Moonshot");
+        fixture.Settle();
+
+        fixture.Shell.Document.Focus(null);
+        fixture.Run("edit.undo");
+
+        Assert.Equal(entities, fixture.Scene.Entities.Count());
+        Assert.Equal("Moonshot", fixture.Project.Settings.Get<ProjectInfoSettings>().ProductName);
+        Assert.True(view.IsDirty);
+    }
+
+    static UiElement Focusable(UiElement root) =>
+        Descendants(root).FirstOrDefault(element => element.Focusable)
+        ?? throw new InvalidOperationException("nothing in the settings window takes focus");
+
     static void Type(SettingsView view, string member, string value) {
         foreach (var row in Descendants(view.Pane).OfType<InspectorRow>()) {
             if (string.Equals(row.Field.Member.Name, member, StringComparison.Ordinal)) {

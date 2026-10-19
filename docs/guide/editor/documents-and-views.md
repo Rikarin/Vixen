@@ -4,7 +4,7 @@ slug: editor/documents-and-views
 kind: guide
 area: Editor
 summary: Opening an asset is two registrations — a DocumentKind with IDocumentHost says which files and how a document opens, a DocumentView with IWorkspace says what shows it — joined by the document's type and held together by a pairing test.
-api: [T:Vixen.Editor.Core.IDocumentHost, T:Vixen.Editor.Core.DocumentHost, T:Vixen.Editor.Core.DocumentKind, T:Vixen.Editor.Core.DocumentRequest, T:Vixen.Editor.Ui.Documents.IWorkspace, T:Vixen.Editor.Ui.Documents.EditorWorkspace, T:Vixen.Editor.Ui.Documents.DocumentView, T:Vixen.Editor.Ui.Documents.DocumentView`1, T:Vixen.Editor.Ui.Documents.ITickingView, T:Vixen.Editor.SceneView.IViewportFrame]
+api: [T:Vixen.Editor.Core.IDocumentHost, T:Vixen.Editor.Core.DocumentHost, T:Vixen.Editor.Core.DocumentKind, T:Vixen.Editor.Core.DocumentRequest, T:Vixen.Editor.Ui.Documents.IWorkspace, T:Vixen.Editor.Ui.Documents.EditorWorkspace, T:Vixen.Editor.Ui.Documents.DocumentView, T:Vixen.Editor.Ui.Documents.DocumentView`1, T:Vixen.Editor.Ui.Documents.ITickingView, T:Vixen.Editor.SceneView.IViewportFrame, T:Vixen.Editor.Core.SettingsDocument]
 tags: [editor, documents, plugins, services, panels]
 since: 0.1
 status: preview
@@ -90,6 +90,15 @@ effect — implements `ITickingView`, and the application steps every one it fin
 frame. Both were type tests on the asset editors' own classes, and the two `case` patterns for the
 VFX graph and the sequence were the names doc 36 found the compiler never reports when the
 reference goes.
+
+**The project's settings are a document too, and not an asset** (#1310). `SettingsDocument` is the
+project settings window's: its rows edit through the editing pipeline onto its own stack, so Ctrl+Z
+inside the window undoes a setting and undoing back to where it was applied is clean again. ⚠ It never
+becomes the active document — that is what the viewport's Ctrl+Z reaches — so the window hosts its
+stack as the undo manager the focus finds first, and nowhere else reaches it. A category's Reset, or
+a plugin that writes a settings object and marks it, did not go through the stack, so it is the
+document's `ExternallyModified`: saved by Save, asked about on close, not undone. It is opened by the
+window rather than by `IDocumentHost`, which opens assets by id and the settings store is not one.
 
 **A view that links to another asset asks `IWorkspace.Open`** — a material's "Open shader graph", a
 group picked from the Addressables list — and the host puts the asset in a tab of its own.
