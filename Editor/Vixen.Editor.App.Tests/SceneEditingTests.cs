@@ -99,6 +99,136 @@ public sealed class SceneEditingTests : IDisposable {
         Assert.Equal(1, changed);
     }
 
+    // ── #1290's second slice: Part D's selection and transform verbs ─────────────────────────────
+
+    [Fact]
+    public void Isolate_hides_all_but_the_selection_its_ancestors_and_descendants_and_gives_back_what_was_hidden() {
+        var rig = document.Create("Rig", LocalTransform.Identity);
+        var arm = document.Create("Arm", LocalTransform.Identity, rig);
+        var hand = document.Create("Hand", LocalTransform.Identity, arm);
+        var lamp = document.Create("Lamp", LocalTransform.Identity);
+        var crate = document.Create("Crate", LocalTransform.Identity);
+
+        document.SetHidden(crate, true);
+        document.Selection.Set([arm]);
+
+        var marks = 0;
+        editing.MarksChanged += _ => marks++;
+        var depth = document.Stack.Depth.Value;
+
+        editing.Isolate();
+
+        Assert.True(editing.IsIsolating);
+        Assert.False(document.IsHidden(rig));
+        Assert.False(document.IsHidden(arm));
+        Assert.False(document.IsHidden(hand));
+        Assert.True(document.IsHiddenDirectly(lamp));
+
+        editing.Isolate();
+
+        Assert.False(editing.IsIsolating);
+        Assert.False(document.IsHidden(lamp));
+
+        // ⚠ What was hidden before comes back hidden, not "everything visible".
+        Assert.True(document.IsHiddenDirectly(crate));
+        Assert.Equal(2, marks);
+
+        // Editor state, not an edit: no undo entry either way.
+        Assert.Equal(depth, document.Stack.Depth.Value);
+    }
+
+    [Fact]
+    public void Select_by_name_ignores_case_and_leaves_the_selection_alone_when_it_finds_nothing() {
+        var lamp = document.Create("Desk Lamp", LocalTransform.Identity);
+        var crate = document.Create("Crate", LocalTransform.Identity);
+
+        document.Selection.Set([crate]);
+
+        Assert.Empty(editing.SelectByName("chair"));
+        Assert.Equal([crate], document.Selection);
+
+        Assert.Equal([lamp], editing.SelectByName("LAMP"));
+        Assert.Equal([lamp], document.Selection);
+    }
+
+    [Fact]
+    public void A_recalled_selection_set_comes_back_without_what_was_deleted() {
+        var a = document.Create("A", LocalTransform.Identity);
+        var b = document.Create("B", LocalTransform.Identity);
+
+        document.Selection.Set([a, b]);
+        Assert.True(editing.SaveSelectionSet("Pair"));
+
+        document.Delete([b]);
+        document.Selection.Clear();
+
+        Assert.Equal([a], editing.RecallSelectionSet("Pair"));
+        Assert.Equal([a], document.Selection);
+        Assert.Equal(2, editing.SelectionSets["Pair"].Count);
+    }
+
+    [Fact]
+    public void Paste_transform_writes_the_copied_pose_onto_the_selection_as_one_undoable_entry() {
+        var from = document.Create("From", LocalTransform.Identity with { Position = new Vector3(1f, 2f, 3f) });
+        var to = document.Create("To", LocalTransform.Identity);
+        var also = document.Create("Also", LocalTransform.Identity with { Position = new Vector3(9f, 0f, 0f) });
+
+        document.Selection.Set([from]);
+        Assert.True(editing.CopyTransform());
+
+        document.Selection.Set([to, also]);
+
+        var depth = document.Stack.Depth.Value;
+
+        editing.PasteTransform();
+
+        Assert.Equal(depth + 1, document.Stack.Depth.Value);
+        Assert.Equal(new Vector3(1f, 2f, 3f), world.Read<LocalTransform>(to).Position);
+        Assert.Equal(new Vector3(1f, 2f, 3f), world.Read<LocalTransform>(also).Position);
+
+        Assert.True(document.Stack.Undo());
+
+        Assert.Equal(Vector3.Zero, world.Read<LocalTransform>(to).Position);
+        Assert.Equal(new Vector3(9f, 0f, 0f), world.Read<LocalTransform>(also).Position);
+    }
+
+    [Fact]
+    public void Align_and_distribute_move_along_one_axis_as_one_entry_each() {
+        var a = document.Create("A", LocalTransform.Identity with { Position = new Vector3(0f, 1f, 0f) });
+        var b = document.Create("B", LocalTransform.Identity with { Position = new Vector3(1f, 2f, 5f) });
+        var c = document.Create("C", LocalTransform.Identity with { Position = new Vector3(10f, 3f, 0f) });
+
+        Resolve();
+
+        // Onto the primary — the last selected — on Y only.
+        document.Selection.Set([a, b, c]);
+
+        var depth = document.Stack.Depth.Value;
+
+        editing.Align(1);
+
+        Assert.Equal(depth + 1, document.Stack.Depth.Value);
+        Assert.Equal(new Vector3(0f, 3f, 0f), world.Read<LocalTransform>(a).Position);
+        Assert.Equal(new Vector3(1f, 3f, 5f), world.Read<LocalTransform>(b).Position);
+
+        Resolve();
+
+        // Between the ends on X, which do not move.
+        editing.Distribute(0);
+        Resolve();
+
+        Assert.Equal(depth + 2, document.Stack.Depth.Value);
+        Assert.Equal(0f, world.Read<LocalTransform>(a).Position.X);
+        Assert.Equal(5f, world.Read<LocalTransform>(b).Position.X, 4);
+        Assert.Equal(10f, world.Read<LocalTransform>(c).Position.X);
+
+        Assert.True(document.Stack.Undo());
+        Assert.True(document.Stack.Undo());
+
+        Assert.Equal(new Vector3(1f, 2f, 5f), world.Read<LocalTransform>(b).Position);
+        Assert.Throws<ArgumentOutOfRangeException>(() => editing.Align(3));
+    }
+
     /// <summary>
     ///     By effect, through the shell: the command is <c>SceneModule</c>'s, over the published
     ///     service, and pressing it changes the scene by exactly one undo entry.
@@ -142,6 +272,15 @@ public sealed class SceneEditingTests : IDisposable {
 
         Assert.Null(editor.Shell.Commands["entity.group"]);
         Assert.Null(editor.Shell.Commands["entity.snap-to-floor"]);
+
+        // And Part D's verbs that ask nothing, which moved with #1290's second slice.
+        Assert.Null(editor.Shell.Commands["edit.isolate"]);
+        Assert.Null(editor.Shell.Commands["entity.reset-transform"]);
+        Assert.Null(editor.Shell.Commands["entity.copy-transform"]);
+        Assert.Null(editor.Shell.Commands["entity.paste-transform"]);
+
+        // The ones that ask through the application's chooser stay the application's.
+        Assert.NotNull(editor.Shell.Commands["entity.align"]);
 
         // The Edit menu's selection verbs are still the application's, over the same service.
         Assert.NotNull(editor.Shell.Commands["edit.duplicate"]);

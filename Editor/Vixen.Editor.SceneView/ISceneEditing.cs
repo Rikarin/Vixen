@@ -85,4 +85,70 @@ public interface ISceneEditing {
 
     /// <summary>Drops each selected entity straight down onto whatever is under it, or onto Y = 0.</summary>
     void SnapToFloor();
+
+    // ── Doc 20 § Part D's selection and transform verbs (#1290's second slice) ──────────────────
+
+    /// <summary>Raised after a verb changed what is hidden, so the outliner restates its eyes.</summary>
+    event Action<ISceneEditing>? MarksChanged;
+
+    /// <summary>Whether <see cref="Isolate" /> is hiding everything outside a selection.</summary>
+    bool IsIsolating { get; }
+
+    /// <summary>Hides everything the selection is not part of, or — while isolating — puts it all back.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not undoable, on purpose</b>: what is hidden is where somebody is looking, not what they
+    ///     changed. See <c>entity.toggle-hidden</c>.
+    /// </remarks>
+    void Isolate();
+
+    /// <summary>Selects every entity whose name contains some text, ignoring case.</summary>
+    /// <param name="text">What to look for.</param>
+    /// <returns>What was found and selected; empty, with the selection untouched, for nothing.</returns>
+    IReadOnlyList<Entity> SelectByName(string text);
+
+    /// <summary>The components something in the active scene carries, by name, with how many carry each.</summary>
+    /// <returns>The components, ordered by name.</returns>
+    IReadOnlyList<(string Component, int Count)> ComponentsInScene();
+
+    /// <summary>Selects every entity carrying a component.</summary>
+    /// <param name="component">The component's registered name.</param>
+    /// <returns>What was found and selected; empty, with the selection untouched, for nothing.</returns>
+    IReadOnlyList<Entity> SelectByType(string component);
+
+    /// <summary>The named selections, as saved.</summary>
+    IReadOnlyDictionary<string, IReadOnlyList<Entity>> SelectionSets { get; }
+
+    /// <summary>Names the current selection so it can be brought back.</summary>
+    /// <param name="name">What to call it.</param>
+    /// <returns>Whether there was a selection to save.</returns>
+    bool SaveSelectionSet(string name);
+
+    /// <summary>Brings a named selection back, less whatever has since been deleted.</summary>
+    /// <param name="name">Which.</param>
+    /// <returns>What was selected; empty, with the selection untouched, for nothing alive.</returns>
+    IReadOnlyList<Entity> RecallSelectionSet(string name);
+
+    /// <summary>Puts the selection back at its parent's origin, unrotated and unscaled, as one undo entry.</summary>
+    void ResetTransform();
+
+    /// <summary>Whether the primary selection has a transform to copy.</summary>
+    bool CanCopyTransform { get; }
+
+    /// <summary>Whether something has been copied for <see cref="PasteTransform" />.</summary>
+    bool HasCopiedTransform { get; }
+
+    /// <summary>Remembers the primary selection's local transform.</summary>
+    /// <returns>Whether there was one.</returns>
+    bool CopyTransform();
+
+    /// <summary>Writes the copied transform onto everything selected, as one undo entry.</summary>
+    void PasteTransform();
+
+    /// <summary>Puts everything selected on the primary's line along one axis, as one undo entry.</summary>
+    /// <param name="axis">0, 1 or 2 for X, Y or Z.</param>
+    void Align(int axis);
+
+    /// <summary>Spaces everything selected evenly between the two ends along one axis, as one undo entry.</summary>
+    /// <param name="axis">0, 1 or 2 for X, Y or Z.</param>
+    void Distribute(int axis);
 }

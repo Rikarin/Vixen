@@ -88,7 +88,6 @@ editor menu editor.menu.edit edit.deselect-all
 editor menu editor.menu.edit edit.duplicate
 editor menu editor.menu.edit edit.find-references
 editor menu editor.menu.edit edit.invert-selection
-editor menu editor.menu.edit edit.isolate
 editor menu editor.menu.edit edit.keybindings
 editor menu editor.menu.edit edit.paste
 editor menu editor.menu.edit edit.paste-as-child
@@ -107,15 +106,12 @@ editor menu editor.menu.edit edit.undo
 editor menu editor.menu.edit edit.undo-history
 editor menu editor.menu.entity entity.align
 editor menu editor.menu.entity entity.apply-overrides
-editor menu editor.menu.entity entity.copy-transform
 editor menu editor.menu.entity entity.create-audio
 editor menu editor.menu.entity entity.create-ui
 editor menu editor.menu.entity entity.create-vfx
 editor menu editor.menu.entity entity.distribute
 editor menu editor.menu.entity entity.make-prefab
-editor menu editor.menu.entity entity.paste-transform
 editor menu editor.menu.entity entity.relative-transform
-editor menu editor.menu.entity entity.reset-transform
 editor menu editor.menu.entity entity.set-parent
 editor menu editor.menu.entity entity.toggle-active
 editor menu editor.menu.entity entity.toggle-hidden
@@ -463,12 +459,16 @@ vixen.play menu editor.menu.play play.pause
 vixen.play menu editor.menu.play play.play
 vixen.play menu editor.menu.play play.step
 vixen.play menu editor.menu.play play.stop
+vixen.scene menu editor.menu.edit edit.isolate
 vixen.scene menu editor.menu.entity entity.align-with-view
 vixen.scene menu editor.menu.entity entity.clear-parent
+vixen.scene menu editor.menu.entity entity.copy-transform
 vixen.scene menu editor.menu.entity entity.create-child
 vixen.scene menu editor.menu.entity entity.group
 vixen.scene menu editor.menu.entity entity.group-lod
 vixen.scene menu editor.menu.entity entity.move-to-view
+vixen.scene menu editor.menu.entity entity.paste-transform
+vixen.scene menu editor.menu.entity entity.reset-transform
 vixen.scene menu editor.menu.entity entity.snap-to-floor
 vixen.scripts menu editor.menu.window/editor.menu.panels view.panel.scripts
 vixen.scripts panel scripts
