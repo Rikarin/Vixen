@@ -104,7 +104,7 @@ out-of-tree plugin cannot obtain a generated descriptor, and there is no attribu
 path either. **There is no `[CustomEditor]` equivalent available to anyone outside this repository.**
 
 **F6 — Modes are added imperatively from application code.**
-`EditorParity.cs:946` — `Shell.Modes.Add(new SelectMode())`.
+`EditorParity.cs:948` — `Shell.Modes.Add(new SelectMode())`.
 `Editor/Vixen.Editor.Terrain/TerrainModulePanels.cs:475@0d7dda4a9` — `Shell.Modes.Add(terrain)`. (It was the app's `EditorTerrainPanels.cs:451` when this was surveyed; `81f9e68ec` moved it into the terrain module, and since #1287 it is `context.AddMode(terrain)`, removed on unload.)
 The mode list is code in the app, not a registry the app reads.
 
@@ -1243,7 +1243,7 @@ row assumed turned out not to be true, and the third is a design decision.**
 
 ⚠ **There is no coalescing to preserve, and the fear that there was is the wrong worry.** A drag does
 not produce a stream of edits: `SceneViewport.EndManipulate` builds the `GizmoDrag` and asks the first
-target for one entry, once, on mouse-up, then `Execute`s it and `Seal`s — `SceneViewport.cs:1168-1189`.
+target for one entry, once, on mouse-up, then `Execute`s it and `Seal`s — `SceneViewport.cs:1162-1192`.
 `TransformTargetsCommand.TryMergeWith` returns false on purpose. The gizmo owns the live manipulation
 and the command owns the history, which is the division `CommandTransaction` makes for every drag.
 

@@ -257,12 +257,6 @@ public sealed class ExternalEditPumpTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>The gesture that makes the policy an offer rather than a refusal.</b> Declining to
-    ///     reload over unsaved work is only half an answer if the other half is "close the tab and
-    ///     open it again"; <c>file.revert</c> is the same operation with a name, and it asks first
-    ///     because it is the destructive one.
-    /// </summary>
-    /// <summary>
     ///     ⚠ <b>#656: the window says the file changed on disk, apart from the asterisk.</b> The
     ///     asterisk is "saving writes something"; a file that moved on underneath a kept document is
     ///     the other direction, and before this nothing on screen said so once the notification went.
@@ -287,6 +281,12 @@ public sealed class ExternalEditPumpTests : IDisposable {
         Assert.StartsWith(name + "* (changed on disk) — ", session.Shell.Title, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     ⚠ <b>The gesture that makes the policy an offer rather than a refusal.</b> Declining to
+    ///     reload over unsaved work is only half an answer if the other half is "close the tab and
+    ///     open it again"; <c>file.revert</c> is the same operation with a name, and it asks first
+    ///     because it is the destructive one.
+    /// </summary>
     [Fact]
     public void Reverting_a_stale_document_takes_the_version_on_disk_and_asks_first() {
         var (session, document, path) = Editing();

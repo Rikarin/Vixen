@@ -491,11 +491,11 @@ static class StringIdCensus {
 ///     That is louder than the compiler, never quieter — the direction a census can afford.
 /// </remarks>
 sealed class StringIdParameters {
-    readonly Dictionary<string, HashSet<int>> positions = new(StringComparer.Ordinal);
-    readonly Dictionary<string, HashSet<string>> names = new(StringComparer.Ordinal);
+    readonly Dictionary<string, HashSet<int>> Positions = new(StringComparer.Ordinal);
+    readonly Dictionary<string, HashSet<string>> Names = new(StringComparer.Ordinal);
 
     /// <summary>How many callable names take a <c>StringId</c> somewhere.</summary>
-    public int Count => positions.Count;
+    public int Count => Positions.Count;
 
     /// <summary>Records one parameter.</summary>
     /// <param name="callable">The method, constructor, type or delegate name.</param>
@@ -503,15 +503,15 @@ sealed class StringIdParameters {
     /// <param name="parameter">Its name, for a named argument.</param>
     public void Add(string callable, int position, string parameter) {
         if (position >= 0) {
-            if (!positions.TryGetValue(callable, out var at)) {
-                positions[callable] = at = [];
+            if (!Positions.TryGetValue(callable, out var at)) {
+                Positions[callable] = at = [];
             }
 
             at.Add(position);
         }
 
-        if (!names.TryGetValue(callable, out var named)) {
-            names[callable] = named = [];
+        if (!Names.TryGetValue(callable, out var named)) {
+            Names[callable] = named = [];
         }
 
         named.Add(parameter);
@@ -522,7 +522,7 @@ sealed class StringIdParameters {
     /// <param name="position">Where in a call's argument list.</param>
     /// <returns>Whether one does.</returns>
     public bool Takes(string callable, int position) =>
-        positions.TryGetValue(callable, out var at) && at.Contains(position);
+        Positions.TryGetValue(callable, out var at) && at.Contains(position);
 
     /// <summary>Whether an argument is in a position some declaration of its callee types as <c>StringId</c>.</summary>
     /// <param name="argument">The argument.</param>
@@ -546,10 +546,10 @@ sealed class StringIdParameters {
         }
 
         if (argument.NameColon is { } named) {
-            return names.TryGetValue(callee, out var set) && set.Contains(named.Name.Identifier.ValueText);
+            return Names.TryGetValue(callee, out var set) && set.Contains(named.Name.Identifier.ValueText);
         }
 
-        return positions.TryGetValue(callee, out var at) && at.Contains(list.Arguments.IndexOf(argument));
+        return Positions.TryGetValue(callee, out var at) && at.Contains(list.Arguments.IndexOf(argument));
     }
 
     static string? Name(SyntaxNode node) =>

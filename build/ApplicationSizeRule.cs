@@ -73,7 +73,7 @@ static class ApplicationSizeRule {
     /// <summary>The class's lines: every measured file but the <see cref="Named" /> ones.</summary>
     static int Sum(IReadOnlyDictionary<string, int> parts) => parts.Where(part => !Named.Contains(part.Key)).Sum(part => part.Value);
 
-    static readonly Regex Declaration =new(@"\bpartial\s+class\s+EditorApplication\b", RegexOptions.CultureInvariant);
+    static readonly Regex Declaration = new(@"\bpartial\s+class\s+EditorApplication\b", RegexOptions.CultureInvariant);
 
     /// <summary>Every part of the class, by path under <see cref="Directory" />, with its line count.</summary>
     /// <param name="root">The repository root.</param>
