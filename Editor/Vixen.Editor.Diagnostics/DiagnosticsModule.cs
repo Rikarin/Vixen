@@ -360,6 +360,21 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
         Panels(context);
         Commands(context);
 
+        // ⚠ Doc 20's A6 owes two more presets, "once Parts B4 and B5 exist". B4 is this module, so
+        // this one is its own (#1296) — the application's layouts named five of these panel ids. The shape is deliberate and is not the Default's: profiling is a reading rather
+        // than an edit, so the viewport is the *narrow* column and the numbers get the width — a
+        // flame chart squeezed into a right-hand inspector slot is one where every bar is a pixel.
+        context.AddLayout(
+            "Profiling",
+            DiagnosticsStrings.LayoutProfiling,
+            () => LayoutPresets.Standard(
+                ["scene"],
+                ["profiler", "gpu", "frame-debugger"],
+                ["statistics", "memory"],
+                ["console"]
+            )
+        );
+
         // ⚠ Drained every frame while a capture is running, whether or not the panel is open. The
         // rings overwrite, so a five-second capture of a busy thread would otherwise be the last
         // sixty milliseconds of it with the rest gone and nothing saying so.
@@ -760,7 +775,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     ///     same reason, and this is that queue with one slot.
     /// </remarks>
     void FinishReport() {
-        if (pendingReport is not ({ } report, { IsCompleted: true } picked)) {
+        if (pendingReport is not ( { } report, { IsCompleted: true } picked)) {
             return;
         }
 

@@ -33,6 +33,7 @@ call site.
 | `EditorSettingsPanels.cs` | the Preferences and Project Settings pages, and the plugin and history panels |
 | `EditorProjects.cs` | which project, asked at start-up and answered without a restart |
 | `EditorSettings.cs` | the settings assets the editor ships: three of the project's and one of the user's |
+| `HelpModule.cs`, `WorkspaceModule.cs` | the Help menu over `IExternalLinks`, and the layout presets through `PluginContext.AddLayout` (doc 50 § D3, #1296); the Profiling preset is the diagnostics module's |
 | `PlayerDelivery.cs`, `DeliveryModule.cs` | build settings and building a player as `IPlayerDelivery` (doc 50 § P2f, #1295), and the Build menu and Build Settings panel as a module over it; what Deploy means per device is the diagnostics module's |
 | `BuildSettingsView.vxml` | doc 20's B7 window: target, configuration, scenes-in-build, output path — markup since doc 36 § F7 wave 2, and the assembly's third |
 | `UndoHistory.vxml` | the undo history panel — the first of this assembly's panels written in markup |

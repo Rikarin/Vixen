@@ -26,11 +26,6 @@ Editor/Vixen.Editor.App/EditorApplication.cs PrefabSource 2
 Editor/Vixen.Editor.App/EditorApplication.cs StandardEditors 1
 Editor/Vixen.Editor.App/EditorApplication.cs Vixen.Editor.AssetEditors 4
 Editor/Vixen.Editor.App/EditorApplication.cs Vixen.Editor.NodeGraph 1
-Editor/Vixen.Editor.App/EditorApplication.cs frame-debugger 1
-Editor/Vixen.Editor.App/EditorApplication.cs gpu 1
-Editor/Vixen.Editor.App/EditorApplication.cs memory 1
-Editor/Vixen.Editor.App/EditorApplication.cs profiler 1
-Editor/Vixen.Editor.App/EditorApplication.cs statistics 1
 Editor/Vixen.Editor.App/EditorFrames.cs StandardFrameDocument 3
 Editor/Vixen.Editor.App/EditorFrames.cs Vixen.Editor.AssetEditors 1
 Editor/Vixen.Editor.App/EditorWorlds.cs .vxanimgraph 1
@@ -101,6 +96,5 @@ Editor/Vixen.Editor.Assets/Vfx/VfxImporter.cs Vixen.Editor.NodeGraph 1
 Editor/Vixen.Editor.Assets/Vfx/VfxImporter.cs Vixen.Editor.VfxGraph 1
 Editor/Vixen.Editor.Host/EditorHost.cs ShaderGraphPreviewRenderer 2
 Editor/Vixen.Editor.Host/EditorHost.cs ShaderNodeLibrary 1
-Editor/Vixen.Editor.Host/EditorHost.cs Vixen.Editor.Profiler 1
 Editor/Vixen.Editor.Host/EditorHost.cs Vixen.Editor.ShaderGraph 1
 Editor/Vixen.Editor.Ui/Menus/EditorIcons.cs profiler 1

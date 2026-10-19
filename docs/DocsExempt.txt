@@ -1254,6 +1254,7 @@ T:Vixen.Editor.Core.EditorDocument sweep-pending
 T:Vixen.Editor.Core.EditorNames sweep-pending
 T:Vixen.Editor.Core.EditorProject sweep-pending
 T:Vixen.Editor.Core.IEditorCommand sweep-pending
+T:Vixen.Editor.Core.IExternalLinks a published host fact, not a context service — #1311's pages document what publishes it (doc 50 § D3, #1296)
 T:Vixen.Editor.Core.IProjectSession service guide page owed by #1311 (doc 50 § D6: seven services, nine pages)
 T:Vixen.Editor.Core.PlayerBuildSettings sweep-pending
 T:Vixen.Editor.Core.ProjectMarker sweep-pending

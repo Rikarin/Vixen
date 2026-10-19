@@ -240,6 +240,9 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>Doc 50 § P2f's Delivery service. See <see cref="PlayerDelivery" />.</summary>
     readonly PlayerDelivery delivery;
 
+    /// <summary>The platform's link opener, as <c>HelpModule</c> is handed it. Set by <see cref="PluginPoints" />.</summary>
+    ExternalLinks links = null!;
+
     /// <summary>The import and build tasks, for the suite that has to substitute the publish.</summary>
     /// <remarks>
     ///     ⚠ <b>Internal and for one thing.</b> Every other question about a build is asked through
@@ -1008,7 +1011,6 @@ sealed partial class EditorApplication : IDisposable {
         // exactly the one whose Activate must not run, whichever door it comes through.
         LoadDisabledPlugins();
 
-        Layouts();
         Commands();
 
         // ⚠ After every command is registered, because the entries name command ids and one that
@@ -3110,6 +3112,7 @@ sealed partial class EditorApplication : IDisposable {
             // on this class (#1298).
             .Add(log.Sink)
             .Add(new EditorDataDirectory(dataDirectory))
+            .Add<IExternalLinks>(links = new ExternalLinks(services, Shell.Notifications))
 
             // ⚠ And the graphics, which until now were the one thing a plugin could not get at all —
             // doc 36 § F2's gap, found by the first plugin that draws, and #737.
@@ -3602,83 +3605,6 @@ sealed partial class EditorApplication : IDisposable {
         }
     }
 
-    void Layouts() {
-        // The five doc 11 names. They differ in which panels they show and how the middle is split,
-        // which is the whole of what a layout preset is — the shapes come from `LayoutPresets` and
-        // the panel lists are this application's.
-        // ⚠ Project is a tab *behind* the console rather than under the hierarchy, and the two halves
-        // of that are one decision. A content browser is read in tiles — a grid of thumbnails wants
-        // width, and a quarter-width left column gives it two tiles a row — while the hierarchy is a
-        // list of names and wants height. Stacking them in the left column made each of them the
-        // other's problem. The console keeps the front tab because it is the one that has something
-        // to say without being asked.
-        Shell.RegisterLayout(
-            "Default",
-            EditorStrings.LayoutDefault,
-            () => LayoutPresets.Standard(
-                ["hierarchy"],
-                ["scene"],
-                // ⚠ Build Settings beside the inspector rather than in the middle. It is a form that
-                // is read down, which is the shape the right-hand column already has — and it is
-                // opened *against* a scene rather than instead of one, so a preset that gave it the
-                // centre would put the viewport behind a tab.
-                ["inspector", DeliveryModule.BuildPanel],
-                ["console", "project"]
-            )
-        );
-
-        Shell.RegisterLayout(
-            "Scene",
-            EditorStrings.LayoutScene,
-            () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"])
-        );
-
-        Shell.RegisterLayout(
-            "Shading",
-            EditorStrings.LayoutShading,
-            () => LayoutPresets.Standard(["project"], ["scene"], ["inspector"], ["console"])
-        );
-
-        Shell.RegisterLayout(
-            "Animation",
-            EditorStrings.LayoutAnimation,
-            () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"], ["console"])
-        );
-
-        Shell.RegisterLayout(
-            "Debug",
-            EditorStrings.LayoutDebug,
-            () => LayoutPresets.Split(["scene"], ["console"], 0.6f)
-        );
-
-        // ⚠ Doc 20's A6 owes two more presets, "once Parts B4 and B5 exist". B4 exists now, so this
-        // one does. The shape is deliberate and is not the Default's: profiling is a reading rather
-        // than an edit, so the viewport is the *narrow* column and the numbers get the width — a
-        // flame chart squeezed into a right-hand inspector slot is one where every bar is a pixel.
-        Shell.RegisterLayout(
-            "Profiling",
-            EditorStrings.LayoutProfiling,
-            () => LayoutPresets.Standard(
-                ["scene"],
-                ["profiler", "gpu", "frame-debugger"],
-                ["statistics", "memory"],
-                ["console"]
-            )
-        );
-
-        // ⚠ And the second of the two A6 owes, now that B5 exists. Its shape is the Profiling
-        // preset's argument turned round: a cinematic is authored *against* the viewport, so the
-        // scene keeps the width and the tracks get a wide, short strip under it — a timeline in a
-        // right-hand slot is one where a two-second shot is forty pixels.
-        Shell.RegisterLayout(
-            "Sequencing",
-            EditorStrings.LayoutSequencing,
-            () => LayoutPresets.Standard(["hierarchy", "scenes"], ["scene"], ["inspector"], ["console"])
-        );
-
-        Shell.Workspace.DefaultPreset = "Default";
-    }
-
     void Commands() {
         Shell.Commands.Add(
             // Through the same request the window's close button goes through, so the menu, the
@@ -3763,12 +3689,6 @@ sealed partial class EditorApplication : IDisposable {
         );
 
         Shell.Keys.SetDefault("assets.build", new KeyChord(InputKey.B, ModifierKeys.Control | ModifierKeys.Shift));
-
-        Shell.Commands.Add(
-            new EditorCommand("help.about", EditorStrings.CommandAbout, About) {
-                Category = EditorStrings.CategoryHelp
-            }
-        );
 
         // The plugin-development loop, reachable from the palette. Enabled only when there is
         // something to reload, so an editor with no plugins does not offer it.
@@ -5747,11 +5667,4 @@ sealed partial class EditorApplication : IDisposable {
         store.SaveLayout(name, Shell.Workspace.Save());
         Shell.Notifications.Success(name);
     }
-
-    void About() =>
-        Shell.Notifications.Show(
-            "Vixen Editor",
-            NotificationSeverity.Info,
-            typeof(EditorApplication).Assembly.GetName().Version?.ToString() ?? "development build"
-        );
 }

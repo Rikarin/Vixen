@@ -70,9 +70,13 @@ public static class DiagnosticsStrings {
     /// <summary>The <c>Devices</c> panel.</summary>
     public static StringId PanelDevices { get; } = new("editor.panel.devices", "Devices");
 
+    /// <summary>The <c>Profiling</c> workspace layout, which is made of this toolset's panels.</summary>
+    public static StringId LayoutProfiling { get; } = new("editor.layout.profiling", "Profiling");
+
     /// <summary>What a translator's template for this toolset holds.</summary>
     public static IReadOnlyList<StringId> All { get; } = [
         .. Commands.All,
+        LayoutProfiling,
         PanelProfiler,
         PanelGpu,
         PanelMemory,

@@ -138,12 +138,6 @@ editor menu editor.menu.file file.save
 editor menu editor.menu.file file.save-all
 editor menu editor.menu.file file.save-as
 editor menu editor.menu.file/editor.menu.recent file.no-recent
-editor menu editor.menu.help help.about
-editor menu editor.menu.help help.api-reference
-editor menu editor.menu.help help.documentation
-editor menu editor.menu.help help.release-notes
-editor menu editor.menu.help help.report-bug
-editor menu editor.menu.help help.show-log-folder
 editor menu editor.menu.play/editor.menu.play-mode play.mode-in-editor
 editor menu editor.menu.play/editor.menu.play-mode play.mode-server
 editor menu editor.menu.play/editor.menu.play-mode play.mode-standalone
@@ -283,13 +277,6 @@ editor menu editor.menu.window view.next-tab
 editor menu editor.menu.window view.palette
 editor menu editor.menu.window view.previous-tab
 editor menu editor.menu.window view.toggle-theme
-editor menu editor.menu.window/editor.menu.layout view.layout.Animation
-editor menu editor.menu.window/editor.menu.layout view.layout.Debug
-editor menu editor.menu.window/editor.menu.layout view.layout.Default
-editor menu editor.menu.window/editor.menu.layout view.layout.Profiling
-editor menu editor.menu.window/editor.menu.layout view.layout.Scene
-editor menu editor.menu.window/editor.menu.layout view.layout.Sequencing
-editor menu editor.menu.window/editor.menu.layout view.layout.Shading
 editor menu editor.menu.window/editor.menu.layout view.reset-layout
 editor menu editor.menu.window/editor.menu.layout view.save-layout
 editor menu editor.menu.window/editor.menu.panels view.panel.addressables
@@ -443,6 +430,7 @@ vixen.diagnostics menu editor.menu.tools tools.network
 vixen.diagnostics menu editor.menu.tools tools.profiler
 vixen.diagnostics menu editor.menu.tools tools.remote-inspector
 vixen.diagnostics menu editor.menu.tools tools.statistics
+vixen.diagnostics menu editor.menu.window/editor.menu.layout view.layout.Profiling
 vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.devices
 vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.frame-debugger
 vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.gpu
@@ -459,6 +447,12 @@ vixen.diagnostics panel network
 vixen.diagnostics panel profiler
 vixen.diagnostics panel remote-inspector
 vixen.diagnostics panel statistics
+vixen.help menu editor.menu.help help.about
+vixen.help menu editor.menu.help help.api-reference
+vixen.help menu editor.menu.help help.documentation
+vixen.help menu editor.menu.help help.release-notes
+vixen.help menu editor.menu.help help.report-bug
+vixen.help menu editor.menu.help help.show-log-folder
 vixen.play menu editor.menu.play play.pause
 vixen.play menu editor.menu.play play.play
 vixen.play menu editor.menu.play play.step
@@ -491,3 +485,9 @@ vixen.water menu editor.menu.window/editor.menu.panels view.panel.water.zone
 vixen.water mode water
 vixen.water panel water.panel
 vixen.water panel water.zone
+vixen.workspace menu editor.menu.window/editor.menu.layout view.layout.Animation
+vixen.workspace menu editor.menu.window/editor.menu.layout view.layout.Debug
+vixen.workspace menu editor.menu.window/editor.menu.layout view.layout.Default
+vixen.workspace menu editor.menu.window/editor.menu.layout view.layout.Scene
+vixen.workspace menu editor.menu.window/editor.menu.layout view.layout.Sequencing
+vixen.workspace menu editor.menu.window/editor.menu.layout view.layout.Shading

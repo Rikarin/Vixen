@@ -45,6 +45,8 @@ static class EditorModules {
         (PlayModule.ModuleId, PlayModule.ModuleName, new PlayModule()),
         (SceneModule.ModuleId, SceneModule.ModuleName, new SceneModule()),
         (DeliveryModule.ModuleId, DeliveryModule.ModuleName, new DeliveryModule()),
+        (HelpModule.ModuleId, HelpModule.ModuleName, new HelpModule()),
+        (WorkspaceModule.ModuleId, WorkspaceModule.ModuleName, new WorkspaceModule()),
         (BlockoutModule.ModuleId, BlockoutModule.ModuleName, new BlockoutModule()),
         (TerrainModule.ModuleId, TerrainModule.ModuleName, new TerrainModule()),
         (TerrainPhysicsModule.ModuleId, TerrainPhysicsModule.ModuleName, new TerrainPhysicsModule()),

@@ -876,9 +876,6 @@ public static class EditorStrings {
     /// <summary>The <c>Default</c> workspace layout.</summary>
     public static StringId LayoutDefault { get; } = new("editor.layout.default", "Default");
 
-    /// <summary>The <c>Profiling</c> workspace layout.</summary>
-    public static StringId LayoutProfiling { get; } = new("editor.layout.profiling", "Profiling");
-
     /// <summary>The <c>Scene</c> workspace layout.</summary>
     public static StringId LayoutScene { get; } = new("editor.layout.scene", "Scene");
 
@@ -1492,7 +1489,6 @@ public static class EditorStrings {
         LayoutAnimation,
         LayoutDebug,
         LayoutDefault,
-        LayoutProfiling,
         LayoutScene,
         LayoutSequencing,
         LayoutShading,

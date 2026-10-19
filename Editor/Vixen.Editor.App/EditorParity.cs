@@ -62,9 +62,6 @@ sealed partial class EditorApplication {
     /// </remarks>
     internal const string ConsoleContext = "console";
 
-    /// <summary>Where the manual lives, until there is a documentation site to point at.</summary>
-    const string DocumentationUrl = "https://github.com/Rikarin/Vixen/tree/master/docs";
-
     /// <summary>Everything Part C names that this application owns.</summary>
     void ParityCommands() {
         FileCommands();
@@ -74,7 +71,6 @@ sealed partial class EditorApplication {
         SelectionAndTransformCommands();
         PlayCommands();
         BuildAndToolCommands();
-        HelpCommands();
     }
 
     // ── File ────────────────────────────────────────────────────────────────────────────────────
@@ -932,48 +928,8 @@ sealed partial class EditorApplication {
 
     // ── Help ────────────────────────────────────────────────────────────────────────────────────
 
-    void HelpCommands() {
-        // The fifth of doc 20's dangling ids, and the shell has named it since it was written.
-        Verb(
-            "help.documentation",
-            EditorStrings.CommandDocumentation,
-            EditorStrings.CategoryHelp,
-            () => Browse(DocumentationUrl),
-            enabled: () => services.OpenUrl is not null
-        );
-
-        Verb(
-            "help.api-reference",
-            EditorStrings.CommandHelpApiReference,
-            EditorStrings.CategoryHelp,
-            () => Browse(DocumentationUrl + "/README.md"),
-            enabled: () => services.OpenUrl is not null
-        );
-
-        Verb(
-            "help.release-notes",
-            EditorStrings.CommandHelpReleaseNotes,
-            EditorStrings.CategoryHelp,
-            () => Browse(DocumentationUrl + "/14-roadmap.md"),
-            enabled: () => services.OpenUrl is not null
-        );
-
-        Verb(
-            "help.report-bug",
-            EditorStrings.CommandHelpReportBug,
-            EditorStrings.CategoryHelp,
-            () => Browse("https://github.com/Rikarin/Vixen/issues/new"),
-            enabled: () => services.OpenUrl is not null
-        );
-
-        Verb(
-            "help.show-log-folder",
-            EditorStrings.CommandHelpShowLogFolder,
-            EditorStrings.CategoryHelp,
-            () => Browse(new Uri(dataDirectory).AbsoluteUri),
-            enabled: () => services.OpenUrl is not null
-        );
-    }
+    // The Help menu's verbs are `HelpModule`'s (#1296): registered through `PluginContext` over the
+    // published `IExternalLinks` and `EditorDataDirectory`, which is everything they read of this class.
 
     // ── The menus ───────────────────────────────────────────────────────────────────────────────
 
@@ -2074,11 +2030,7 @@ sealed partial class EditorApplication {
         hierarchyStale = true;
     }
 
-    void Browse(string url) {
-        if (services.OpenUrl is not { } open || !open(url)) {
-            Shell.Notifications.Show("Could not open the link", NotificationSeverity.Warning, url);
-        }
-    }
+    void Browse(string url) => links.Open(url);
 
     // ── Selection and hierarchy verbs ───────────────────────────────────────────────────────────
 
