@@ -29,7 +29,28 @@ namespace Vixen.Editor.SceneView;
 /// </remarks>
 public interface ISceneEditing {
     /// <summary>The scene the verbs act on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This service's, not a mirror of the application's field (#1290).</b> The editor follows
+    ///     <see cref="ActiveChanged" /> — the picker, the probe, the panes and the document focus — so a
+    ///     plugin that calls <see cref="Activate" /> moves the editor with it.
+    /// </remarks>
     SceneDocument Active { get; }
+
+    /// <summary>Every scene open in the editor, the first being the one it started with.</summary>
+    /// <remarks>
+    ///     All in one world, each under its own handle — doc 20's multi-scene row. Opening one from a
+    ///     file and closing one are the host's, because both are a file and a question; which of them is
+    ///     active is this service's.
+    /// </remarks>
+    IReadOnlyList<SceneDocument> Scenes { get; }
+
+    /// <summary>Raised after <see cref="Active" /> became another scene.</summary>
+    event Action<ISceneEditing>? ActiveChanged;
+
+    /// <summary>Makes an open scene the one the verbs act on.</summary>
+    /// <param name="scene">One of <see cref="Scenes" />.</param>
+    /// <returns>Whether it changed anything: <see langword="false" /> for the scene already active or one not open here.</returns>
+    bool Activate(SceneDocument scene);
 
     /// <summary>The camera of the focused viewport, or <see langword="null" /> when no pane is showing.</summary>
     /// <remarks>What <see cref="AlignWithView" /> and <see cref="MoveToView" /> are relative to.</remarks>

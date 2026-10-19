@@ -19,9 +19,9 @@ namespace Vixen.Editor.App;
 ///     <para>
 ///         <b>Moved, not rewritten (#1290).</b> Every method here was a private method in
 ///         <c>EditorParity.cs</c>'s "Selection and hierarchy verbs" block, reading <c>scene</c>,
-///         <c>world</c>, <c>Viewport</c> and <c>probe</c> off the application. They read the same
-///         things now through three callbacks the composition root supplies, which is all of their
-///         state — so a test reaches them with a <see cref="SceneDocument" /> and nothing else.
+///         <c>world</c>, <c>Viewport</c> and <c>probe</c> off the application. They read the active
+///         scene this service holds and two callbacks the composition root supplies, which is all of
+///         their state — so a test reaches them with a <see cref="SceneDocument" /> and nothing else.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>In <c>Vixen.Editor.App</c> rather than beside the interface</b>, because two
@@ -41,24 +41,93 @@ sealed class SceneEditing : ISceneEditing {
     /// </remarks>
     static readonly ComponentBridge<LodLevel> LodLevels = new("LodLevel");
 
-    readonly Func<SceneDocument> active;
+    readonly List<SceneDocument> scenes = [];
     readonly Func<EditorCamera?> view;
     readonly Func<ISceneProbe?> probe;
 
-    /// <summary>Builds the verbs over the composition root's answers.</summary>
-    /// <param name="active">Which scene is active — asked every time, because it changes.</param>
+    SceneDocument active;
+
+    /// <summary>Builds the verbs over the scene the editor starts with and the composition root's answers.</summary>
+    /// <param name="first">The scene the editor starts with: the first open and the active one.</param>
     /// <param name="view">The focused pane's camera, or <see langword="null" />.</param>
     /// <param name="probe">What a ray hits in the active scene, or <see langword="null" />.</param>
-    public SceneEditing(Func<SceneDocument> active, Func<EditorCamera?>? view = null, Func<ISceneProbe?>? probe = null) {
-        ArgumentNullException.ThrowIfNull(active);
+    /// <remarks>
+    ///     ⚠ <b>The active scene is held here, not asked of the application (#1290).</b> It used to be a
+    ///     callback reading the application's <c>scene</c> field, which only the application's own
+    ///     multi-scene verbs could move; now the field follows <see cref="ActiveChanged" />.
+    /// </remarks>
+    public SceneEditing(SceneDocument first, Func<EditorCamera?>? view = null, Func<ISceneProbe?>? probe = null) {
+        ArgumentNullException.ThrowIfNull(first);
 
-        this.active = active;
+        active = first;
+        scenes.Add(first);
+
         this.view = view ?? (static () => null);
         this.probe = probe ?? (static () => null);
     }
 
     /// <inheritdoc />
-    public SceneDocument Active => active();
+    public SceneDocument Active => active;
+
+    /// <inheritdoc />
+    public IReadOnlyList<SceneDocument> Scenes => scenes;
+
+    /// <inheritdoc />
+    public event Action<ISceneEditing>? ActiveChanged;
+
+    /// <inheritdoc />
+    public bool Activate(SceneDocument scene) {
+        ArgumentNullException.ThrowIfNull(scene);
+
+        if (ReferenceEquals(scene, active) || !scenes.Contains(scene)) {
+            return false;
+        }
+
+        active = scene;
+        ActiveChanged?.Invoke(this);
+
+        return true;
+    }
+
+    /// <summary>Adds a scene the host has opened from a file, without activating it.</summary>
+    /// <param name="scene">The scene.</param>
+    /// <returns>Whether it was not already open.</returns>
+    internal bool Open(SceneDocument scene) {
+        ArgumentNullException.ThrowIfNull(scene);
+
+        if (scenes.Contains(scene)) {
+            return false;
+        }
+
+        scenes.Add(scene);
+
+        return true;
+    }
+
+    /// <summary>Takes an open scene out, activating the one before it when it was the active one.</summary>
+    /// <param name="scene">The scene, which must not be the first.</param>
+    /// <returns>Whether it was open here and could be taken out.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The scene before it is activated <i>through</i> <see cref="Activate" />, so the editor
+    ///     follows (#1498).</b> The application's close moved its index back and then asked to activate
+    ///     that index, which it already was — so closing the active scene left everything pointed at the
+    ///     closed document. The first scene cannot be closed; closing the last one is New Scene.
+    /// </remarks>
+    internal bool Close(SceneDocument scene) {
+        var index = scenes.IndexOf(scene);
+
+        if (index <= 0) {
+            return false;
+        }
+
+        if (ReferenceEquals(scene, active)) {
+            Activate(scenes[index - 1]);
+        }
+
+        scenes.RemoveAt(index);
+
+        return true;
+    }
 
     /// <inheritdoc />
     public EditorCamera? View => view();

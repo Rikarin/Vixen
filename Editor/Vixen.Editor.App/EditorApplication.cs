@@ -93,13 +93,14 @@ sealed partial class EditorApplication : IDisposable {
     readonly World world = new("Editor");
     readonly EditorProject project;
 
-    /// <summary>The scene every command acts on.</summary>
+    /// <summary>The scene every command acts on: <see cref="ISceneEditing.Active" />, followed.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not readonly, because doc 20's multi-scene row makes it change.</b> Half the editor
-    ///     holds the active scene — the outliner, the gizmo, the inspector, the picker — so making
-    ///     one of several open scenes active is an assignment to the field they all already read,
-    ///     rather than an index every one of them would have to learn about. See
-    ///     <see cref="SetActiveScene" />.
+    ///     ⚠ <b>Not readonly, because doc 20's multi-scene row makes it change — and not this class's
+    ///     to change (#1290).</b> Which scene is active is <see cref="ISceneEditing" />'s; this field is
+    ///     what the ~350 reads across the partials already name, written only by <see cref="Followed" />
+    ///     when the service raises <see cref="ISceneEditing.ActiveChanged" />. ⚠ Not
+    ///     <c>EditorProject.ActiveDocument</c>, refuted by the first slice: an asset editor's tab
+    ///     activates its own document. See <see cref="SetActiveScene" />.
     /// </remarks>
     SceneDocument scene;
 
@@ -645,10 +646,12 @@ sealed partial class EditorApplication : IDisposable {
         play.Entered += _ => PlayEntered();
         play.Left += _ => PlayLeft();
 
-        // ⚠ The active scene, the focused pane's camera and the probe are asked for at each call,
-        // because all three change under the service — a second scene activated, a pane split, a
-        // probe rebuilt for the new scene. See `SceneEditing`.
-        sceneEditing = new SceneEditing(() => scene, () => Viewport?.Camera, () => probe);
+        // ⚠ The active scene is the service's from here on and this class follows it (#1290): `scene`
+        // is written by `Followed` and by nothing else. The focused pane's camera and the probe are
+        // asked for at each call, because both change under the service — a pane split, a probe
+        // rebuilt for the new scene. See `SceneEditing`.
+        sceneEditing = new SceneEditing(scene, () => Viewport?.Camera, () => probe);
+        sceneEditing.ActiveChanged += _ => Followed();
         sceneEditing.HierarchyChanged += _ => hierarchyStale = true;
         sceneEditing.MarksChanged += _ => RefreshMarks();
 
@@ -656,7 +659,7 @@ sealed partial class EditorApplication : IDisposable {
         // behaviour authored into an additively opened scene used to be named in `Unsupported`
         // rather than run. Honest, and not whole: a designer was told about something the editor
         // should be able to do. Read at every Play, so a scene opened after this line still plays.
-        play.Controller.Stores = () => openScenes.Select(open => open.Document.Behaviors);
+        play.Controller.Stores = () => sceneEditing.Scenes.Select(document => document.Behaviors);
 
         // ⚠ The editor's own contribution to the frame a session runs, and the one service this
         // application can honestly own. Doc 31 § D10 said an embedding host would have to add the
@@ -776,8 +779,8 @@ sealed partial class EditorApplication : IDisposable {
         // than a special case beside it. Everything that walks the open scenes — the panel, Save All
         // Scenes, the active-scene switch — would otherwise have to remember that one of them is not
         // in the list, which is exactly the kind of exception that goes wrong once and quietly.
-        openScenes.Add(new(scene, scenePath) { Settings = WorldSettings.Load(scenePath) });
-        world0 = openScenes[0].Settings;
+        sceneFiles[scene] = new(scene, scenePath) { Settings = WorldSettings.Load(scenePath) };
+        world0 = sceneFiles[scene].Settings;
 
         // ⚠ With the registry, which is doc 36 § D4's `AddPreview` row: a module or a plugin owning
         // its own file format is the one thing that can draw a picture of it, and without this the
@@ -2503,7 +2506,7 @@ sealed partial class EditorApplication : IDisposable {
 
         var file = project.Paths.Absolute(entry.Path);
 
-        foreach (var open in openScenes) {
+        foreach (var open in Scenes) {
             if (open.Document.IsOpen && SameFile(open.Writes, file)) {
                 document = open.Document;
 
@@ -2545,7 +2548,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     </para>
     /// </remarks>
     EditorDocument? EditedElsewhere(string path, SceneDocument? scene) {
-        foreach (var open in openScenes) {
+        foreach (var open in Scenes) {
             if (!ReferenceEquals(open.Document, scene) && open.Document.IsOpen && SameFile(open.Writes, path)) {
                 return open.Document;
             }
@@ -2589,7 +2592,7 @@ sealed partial class EditorApplication : IDisposable {
         Shell.Notifications.Show(
             title,
             NotificationSeverity.Warning,
-            InATab(holder) || openScenes.Exists(open => ReferenceEquals(open.Document, holder))
+            InATab(holder) || sceneEditing.Scenes.Any(open => ReferenceEquals(open, holder))
                 ? $"{file} is already open as '{name}'. Close that first, so that one document writes the file."
                 : $"{file} has unsaved changes in '{name}', whose tab is closed. Save them, or reopen it and revert, so that one document writes the file."
         );
@@ -2614,7 +2617,7 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     void CloseTabsTheSceneLeft() {
         foreach (var (id, shown) in tabDocuments.ToArray()) {
-            if (shown is not SceneDocument moved || !openScenes.Exists(open => ReferenceEquals(open.Document, moved))) {
+            if (shown is not SceneDocument moved || !sceneEditing.Scenes.Contains(moved)) {
                 continue;
             }
 
