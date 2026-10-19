@@ -406,13 +406,8 @@ sealed partial class EditorApplication {
             ChooseAssetKind
         );
 
-        Verb(
-            "assets.open",
-            EditorStrings.CommandAssetsOpen,
-            EditorStrings.CategoryAssets,
-            OpenSelectedAsset,
-            enabled: () => project.Selection.Count > 0
-        );
+        // Open is `LibraryModule`'s now (#1292): a name for the published `IWorkspace.Open`, which is
+        // this application's open and asks `IDocumentHost.TryOpen` for the document.
 
         // ⚠ Doc 48 § D12's last line, and the reason this verb exists rather than a checkbox on the
         // model importer. A mesh map has to land in `Assets/` as a file an artist can open — § D12
@@ -1335,12 +1330,6 @@ sealed partial class EditorApplication {
             },
             failure => Shell.Notifications.Show("Could not export", NotificationSeverity.Error, failure.Message)
         );
-    }
-
-    void OpenSelectedAsset() {
-        if (project.Selection.Count > 0) {
-            Open(project.Selection[0]);
-        }
     }
 
     /// <summary>Renames the selected asset, in place in the browser's own tree.</summary>

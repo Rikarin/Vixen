@@ -66,6 +66,7 @@ public class LibraryModuleTests {
         Assert.Null(editor.Shell.Commands["assets.delete"]);
         Assert.Null(editor.Shell.Commands["assets.show-in-explorer"]);
         Assert.Null(editor.Shell.Commands["assets.reimport-all"]);
+        Assert.Null(editor.Shell.Commands["assets.open"]);
 
         editor.Plugins.Enable(LibraryModule.ModuleId);
 
@@ -104,6 +105,34 @@ public class LibraryModuleTests {
         editor.Run("assets.select-dependencies");
 
         Assert.Equal([made.Guid], editor.Project.Selection);
+    }
+
+    /// <summary>Open opens the selection through the published document host, in a panel of its own (#1292).</summary>
+    /// <remarks>
+    ///     ⚠ <b>Counted on the published <see cref="IDocumentHost" />.</b> The command is the module's and asks
+    ///     the published workspace, whose open is the host's <c>TryOpen</c> — so the document a plugin's
+    ///     <c>Opened</c> handler hears about is the one the command opened. The file is written and scanned
+    ///     rather than made by a Create ▸ line, which opens what it makes and would be counted first.
+    /// </remarks>
+    [Fact]
+    public void Open_reaches_the_published_document_host() {
+        using var editor = EditorSession.Start();
+
+        var host = editor.Plugins.Services.Require<IDocumentHost>();
+        List<EditorDocument> opened = [];
+
+        host.Opened += opened.Add;
+
+        File.WriteAllText(editor.Project.Paths.Absolute("Assets/Walk.vxmoveset"), "name: walk\n");
+        editor.Run("assets.refresh");
+
+        Assert.True(editor.Project.Assets.TryGetByPath("Assets/Walk.vxmoveset", out var walk));
+
+        editor.Project.Selection.Set([walk.Guid]);
+        editor.Run("assets.open");
+
+        Assert.Equal(walk.Guid, Assert.Single(opened).Asset);
+        Assert.True(editor.Shell.Workspace.IsOpen("asset." + walk.Guid));
     }
 
     /// <summary>Delete asks, then deletes through the service a plugin gets — once, with the sidecar.</summary>
