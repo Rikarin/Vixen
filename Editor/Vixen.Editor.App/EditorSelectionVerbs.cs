@@ -72,7 +72,13 @@ sealed partial class EditorApplication {
             "entity.align",
             EditorStrings.CommandEntityAlign,
             EditorStrings.CategoryEntity,
-            () => Axis("Align on which axis?", sceneEditing.Align),
+            () => {
+                // No question when the primary — the line everything aligns onto — has no place,
+                // which is where the verb stopped before it moved into the service.
+                if (world.IsAlive(scene.Selection.Primary) && world.Has<WorldTransform>(scene.Selection.Primary)) {
+                    Axis("Align on which axis?", sceneEditing.Align);
+                }
+            },
             enabled: () => scene.Selection.Count > 1
         );
 
