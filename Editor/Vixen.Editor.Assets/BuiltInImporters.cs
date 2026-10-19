@@ -90,6 +90,11 @@ public static class BuiltInImporters {
                 // the registry. A warning is not a gate; the gate is
                 // EveryAttributedImporterTests.EveryImporterInThisAssemblyIsRegistered, which walks
                 // this assembly's [Importer] types and fails on the one that is not here.
+                //
+                // ⚠ Water and the four AI importers have since left this list for their features
+                // (#1300), with the terrain's and the two graphs': each host links them, and the gate
+                // for those is HostImporterMap, which holds every host to one literal map. What is
+                // still here past the pipeline's own kinds is waiting on a decision about its home (#1499).
                 .Add(new Animation.AnimationClipImporter())
                 .Add(new Animation.ShapeVocabularyImporter())
                 .Add(new Animation.ProxyShapeSetImporter())

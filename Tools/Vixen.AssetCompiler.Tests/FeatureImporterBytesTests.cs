@@ -30,6 +30,11 @@ namespace Vixen.AssetCompiler.Tests;
 ///         theory is for.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Seven of the fourteen have moved</b> — the terrain, water and AI importers. The seven
+///         animation ones are still the pipeline's, waiting on a decision about their home (#1499), and
+///         are pinned here so that whichever home is chosen is held to these bytes.
+///     </para>
+///     <para>
 ///         The sources are the samples' own files where one is committed and a small literal otherwise,
 ///         each the smallest file the importer's own suite shows compiling cleanly.
 ///     </para>
