@@ -8,6 +8,8 @@ using Vixen.Editor.Plugin;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Ui;
 using Vixen.Graphics;
+using Vixen.Ui;
+using Vixen.Ui.Styling;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -79,6 +81,20 @@ sealed class TexturingFixture : IDisposable {
 
     /// <summary>What the module drew through, when this fixture published any.</summary>
     public RecordingGraphics? Graphics { get; }
+
+    /// <summary>A host for a view built without the module, in a document holding the module's sheet.</summary>
+    /// <returns>An element under the shell's root.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The sheet is the module's since #1486</b>: <c>TexturingModule.Activate</c> loads it and an
+    ///     unload takes it out, and no view installs it any more. A test that builds a pane directly
+    ///     loads it here, as activating the module would, or the pane lays out as a strip and every
+    ///     hit test against it lands on nothing.
+    /// </remarks>
+    public UiElement ThemedHost() {
+        Shell.Document.Load(TexturingTheme.Css, StyleOrigin.UserAgent);
+
+        return Shell.Document.Root.Add<UiElement>();
+    }
 
     /// <summary>Writes a <c>.vxtexgraph</c> and its sidecar, and scans it in.</summary>
     /// <param name="name">What to call it, without the extension.</param>

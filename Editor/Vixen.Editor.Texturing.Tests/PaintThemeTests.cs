@@ -128,22 +128,26 @@ public class PaintThemeTests {
     /// <remarks>
     ///     <para>
     ///         <b>The finding that moving the layout into the sheet turned up, and it was a real
-    ///         defect rather than a test artefact.</b> <c>TexturingTheme.Install</c> had exactly one
+    ///         defect rather than a test artefact.</b> the sheet's install had exactly one
     ///         production caller — <c>LayerStackView</c>'s constructor — which was invisible for as
     ///         long as the paint panes styled their own hosts inline, and became "the pane is a
     ///         strip" the moment they stopped. A docked workspace restoring the paint pane without
     ///         the layers panel is a state an artist reaches by closing one panel and quitting.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Built directly rather than through the module, which is the only way to say
-    ///         it.</b> Opening the pane through <c>TexturingModule</c> opens the layers panel too, so
-    ///         a case that went that way would install the sheet by the side door and pass against a
-    ///         view that asked for nothing.
+    ///         ⚠ <b>Built directly rather than through the module's verbs, which is the only way to
+    ///         say it.</b> Opening the pane through <c>TexturingModule</c> opens the layers panel too,
+    ///         so a case that went that way would get the sheet by the side door. ⚠ Since #1486 the
+    ///         sheet is the module's, loaded at activation — so the module is activated and no panel
+    ///         of it is opened, and the pane has the sheet because the module is in, which is the
+    ///         state a restored workspace is in.
     ///     </para>
     /// </remarks>
     [Fact]
     public void A_pane_built_without_the_layers_panel_still_gets_the_sheet() {
         using var fixture = new TexturingFixture();
+
+        fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
 
         var host = fixture.Shell.Document.Root.Add<UiElement>();
 

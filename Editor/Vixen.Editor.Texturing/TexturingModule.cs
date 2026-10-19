@@ -567,6 +567,11 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
         // `StringFamily` exists to end one level down (#1202).
         context.AddStrings(TexturingStrings.All);
 
+        // ⚠ The panels' sheet, loaded here so an unload takes it back out — #1486. The three views
+        // used to install it themselves, guarded once per document, and nothing removed it. Here
+        // it is loaded once per activation whatever the panels do, and before any of them is built.
+        context.AddStyleSheet(TexturingTheme.Css);
+
         // ⚠ Asked here and *read* on every show, and the difference is the finding. This used to
         // resolve to a `TexturePreviewBlocker` once, on the grounds that a host does not start
         // publishing a device halfway through a session — and the editor does exactly that: it

@@ -482,7 +482,7 @@ public class PaintUvViewTests {
     [Fact]
     public void The_islands_are_drawn_in_texels_of_the_atlas() {
         using var fixture = new TexturingFixture();
-        var host = fixture.Shell.Document.Root.Add<UiElement>();
+        var host = fixture.ThemedHost();
         // ⚠ In Paint mode, because the ring is not drawn in Select mode and that is deliberate: with
         // the brush up a drag pans, and a brush cursor over a pane that will not paint is a control
         // lying about what the next gesture does.
@@ -525,7 +525,7 @@ public class PaintUvViewTests {
     public void A_masked_brushs_cursor_is_a_turned_square_and_a_round_ones_is_not() {
         using var fixture = new TexturingFixture();
 
-        var host = fixture.Shell.Document.Root.Add<UiElement>();
+        var host = fixture.ThemedHost();
         PaintTool tool = new() { Mode = PaintToolMode.Paint };
         PaintUvView view = new(host, tool);
 
@@ -584,7 +584,7 @@ public class PaintUvViewTests {
     public void A_placed_path_paints_its_curve_rather_than_its_chord_in_one_entry() {
         using var fixture = new TexturingFixture();
 
-        var host = fixture.Shell.Document.Root.Add<UiElement>();
+        var host = fixture.ThemedHost();
         PaintTool tool = new() { Mode = PaintToolMode.Path };
         PaintUvView view = new(host, tool);
 
@@ -648,7 +648,7 @@ public class PaintUvViewTests {
     public void Enter_lays_the_path_and_escape_drops_it() {
         using var fixture = new TexturingFixture();
 
-        var host = fixture.Shell.Document.Root.Add<UiElement>();
+        var host = fixture.ThemedHost();
         PaintTool tool = new() { Mode = PaintToolMode.Path };
         PaintUvView view = new(host, tool);
 
@@ -850,7 +850,7 @@ public class PaintUvViewTests {
     /// <param name="entries">Where a laid path's undo entry goes.</param>
     /// <returns>The view.</returns>
     static PaintUvView Pen(TexturingFixture fixture, out PaintImage layer, out List<IEditorCommand> entries) {
-        var host = fixture.Shell.Document.Root.Add<UiElement>();
+        var host = fixture.ThemedHost();
         PaintTool tool = new() { Mode = PaintToolMode.Path };
         PaintUvView view = new(host, tool);
 

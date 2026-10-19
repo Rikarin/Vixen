@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
+using Vixen.Ui.Styling;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -74,26 +75,60 @@ public class LayerStackThemeTests {
         Assert.True(preview.Left > list.Left, "the preview column is not beside the rows.");
     }
 
-    /// <summary>⚠ And a second panel build does not load a second copy of the sheet.</summary>
+    /// <summary>⚠ The sheet comes in with the module, once, and goes out with it.</summary>
     /// <remarks>
-    ///     <b>A panel's factory really does re-run</b>: opening any other panel relays the workspace
-    ///     out and rebuilds this one, which is why <c>LayerStackView</c> is disposed and replaced
-    ///     there. <c>UiDocument.Load</c> appends and has no notion of a sheet it already holds, so an
-    ///     unguarded install would grow the editor's stylesheet for as long as the session lasted.
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1486">#1486</a>.</b> The three views
+    ///         installed the sheet themselves, guarded once per document, and nothing took it back
+    ///         out: an unloaded texturing module left its rules in the editor's cascade. The module
+    ///         loads it through <c>PluginContext.AddStyleSheet</c> now, which records the removal.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The panels are built in between, and a panel's factory re-runs</b> — which is what
+    ///         the old per-document guard was for. A view that still loaded the sheet would show as a
+    ///         second copy here, and a module that loaded none would show as zero copies after
+    ///         activation. ⚠ Red against the view-installed sheet: activation alone loaded nothing,
+    ///         and the unload left one copy behind.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void The_sheet_is_loaded_once_per_document_however_often_the_panel_is_rebuilt() {
-        using var fixture = new TexturingFixture();
+    public void The_sheet_comes_and_goes_with_the_module_and_comes_back_once() {
+        using var fixture = new TexturingFixture(graphics: true);
 
-        Assert.True(TexturingTheme.Install(fixture.Shell.Document));
-        Assert.False(TexturingTheme.Install(fixture.Shell.Document));
+        var styles = fixture.Shell.Document.Styles;
+        var baseline = styles.LoadedSheetCount;
 
-        using var second = new TexturingFixture();
+        Assert.Equal(0, Copies(styles));
 
-        // A different document is a different answer, which is what makes the guard a guard rather
-        // than a one-shot flag: two editor windows are two documents.
-        Assert.True(TexturingTheme.Install(second.Shell.Document));
+        fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
+
+        Assert.Equal(1, Copies(styles));
+        Assert.Equal(baseline + 1, styles.LoadedSheetCount);
+
+        // Every view that used to install the sheet, built — and the stack panel built twice.
+        fixture.Project.Selection.Set(LayerStackPanelTests.AddStack(fixture, "Hull"));
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.PaintCommand));
+        Assert.NotNull(fixture.Shell.Workspace.Open(TexturingModule.StackPanel));
+        Assert.NotNull(fixture.Shell.Workspace.Open(TexturingModule.PaintPanel));
+        fixture.Shell.Document.Update();
+
+        Assert.Equal(1, Copies(styles));
+        Assert.Equal(baseline + 1, styles.LoadedSheetCount);
+
+        Assert.True(fixture.Host.Unload(TexturingModule.ModuleId));
+
+        Assert.Equal(0, Copies(styles));
+        Assert.Equal(baseline, styles.LoadedSheetCount);
+
+        fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
+
+        Assert.Equal(1, Copies(styles));
+        Assert.Equal(baseline + 1, styles.LoadedSheetCount);
     }
+
+    static int Copies(StyleEngine styles) =>
+        Enumerable.Range(0, styles.SheetCount).Count(index => styles.SheetText(index) == TexturingTheme.Css);
 
     /// <summary>⚠ No typed control in the panel is renamed out of the theme that styles it.</summary>
     /// <remarks>
