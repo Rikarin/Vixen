@@ -159,7 +159,7 @@ Seven zeros. `[Importer]` has 27, because `AssetImporter<T>.Extensions` has alwa
 § D3 said *"in-tree code registers the records directly and nothing scans it"* and promised the
 in-tree half of the attribute set would be a **source generator** — *"the generator sees the
 attribute and emits a registration — no reflection, ADR-002 intact"*. That generator was never
-built. `PluginHost.Declared(context, assembly)` (`PluginHost.cs:786`) is the reflective scan for a
+built. `PluginHost.Declared(context, assembly)` (`PluginHost.cs:819`) is the reflective scan for a
 plugin's or a script's assembly; the in-process `Activate` overload does not call it, and no module
 does either. So the mechanism a third party is told to use is one no first-party feature has ever
 been through, and the count of hand registrations says what that costs:
@@ -550,7 +550,8 @@ a row the tree no longer needs. What the measurement changed:
   exempt in code because a list row for it could never become clean.
 * **`ModuleRegistrationRule`** — 18 rows over ten module-bearing projects. ⚠ § F7's six leaks are
   there and so are four it did not name: `BlockoutMode`, `TerrainMode`, `FoliageMode` and `WaterMode`
-  put 25 commands straight into the shell, and three Texturing views install the module's sheet.
+  put 25 commands straight into the shell, and three Texturing views install the module's sheet
+  (✅ #1486: `TexturingModule.Activate` loads it through `context.AddStyleSheet`; the rows are gone).
 * **`ContributionWriterTests`** — **sixteen** kinds read through `IEditorRegistry`, not twelve (the
   four interface seams `ITerrainScene`, `IVegetationScene`, `IWaterScene`, `IPlaySystems` were not
   counted); § F8's six unwritten kinds confirmed exactly.
@@ -627,9 +628,19 @@ copying them on (#1299's third point — it was also what kept an unloaded modul
 `NodeGraphTheme` is `AssetEditorsModule`'s through `context.AddStyleSheet` (#1484), so `NodeGraph` has
 left `NotYetMoved` — ⚠ a context wrapper rather than a `UserAgentSheet` registry kind, because a kind
 needs a reader diffing sheets on `Changed` and the wrapper reaches the same exit with no new reader.
-The stages and the preview renderer stay in the host: ⚠ `IEditorGraphics` can upload pixels and cannot
-show a GPU view, and the preview renderer draws into render targets the UI renderer samples, so a
-module cannot host it without a new contract member; #1299 carries the options. The 35 feature string ids
+⚠ **The preview renderer is `AssetEditorsModule`'s now** (#1299, decision (a)): `IEditorGraphics.Show`
+names a GPU view over the thumbnail surface's renderer, the module builds the renderer in `OnUpdate`
+once there is a device and gives it back in `OnDeviceLost`, and — a member the decision did not name and
+could not work without — `PluginContext.OnFrame` runs it inside the host's frame, because a command list
+recorded from the editor's update races the next `BeginFrame`'s pool reset. `EditorHost` has no `using
+Vixen.Editor.ShaderGraph`. The terrain stages stay in the host, decided-not-now. ⚠ **And the import
+pipeline references neither graph assembly** (#1300, option A): `VfxImporter`, `ShaderGraphImporter` and
+`ShaderGraphSources` live beside their compilers and each host (`EditorModules`, `VixenCommand`,
+`WorkerHost`) links them into `ImporterContributions.Linked`, which `CompilerPool` never forwards;
+`EditorEffects` asks an `IEffectSourceProvider` the module publishes rather than calling the compiler;
+`HostImporterMap` pins all three hosts' extension → importer maps to one literal list, and a sidecar
+naming an importer the host lacks is refused rather than imported as bytes. Still in
+`BuiltInImporters`: the terrain, water, AI, animation, gameplay, compositor, net and mixer importers. The 35 feature string ids
 in `EditorStrings.cs` move to the `*Strings` class that already exists for each — `CheckStrings`
 fails on an id declared and used nowhere, so the move cannot leave a stale one behind.
 
@@ -672,7 +683,8 @@ follows a write it did not make, and the module evaluates `stack.PaintSet` rathe
 ⚠ *"Four `LayerStackDocument?` copies"* is three-quarters refuted: `framed` was `built` under another
 name and is gone, but `bound` survives an empty show that `built` does not and `watched` is the
 subscription's. ⚠ *"The 26 registration sites"* were already through `PluginContext` — what was left
-round the side is the three `TexturingTheme.Install` calls, which no wrapper can record (§ D6).
+round the side is the three `TexturingTheme.Install` calls, which no wrapper can record (§ D6). ✅ Since
+#1484 one can, and #1486 used it: the module loads the sheet and an unload takes it out.
 
 ### P5 — The gizmo decision (≈ 0.25 EM, a decision before a change)
 
@@ -732,8 +744,8 @@ Waves follow the phases; a wave is five worktrees, merged as each lands, gates o
 | [#1296](https://github.com/Rikarin/Vixen/issues/1296) | `HelpModule`, `WorkspaceModule`; `EditorParity.cs` deleted | P2 | 5 · 🟡 `HelpModule` (the six Help lines over a published `IExternalLinks`) and `WorkspaceModule` (six layout presets through `AddLayout`; Profiling moved to `DiagnosticsModule`, whose panels it names) landed. ⚠ `EditorParity.cs` is not empty and is not deleted — file, edit, asset, entity, play-option and tool verbs, the menus and the toolbar are the other P2 steps' — and Save Layout / Reload Styles wait on #1294's `IWorkspace`; the issue carries the list |
 | [#1297](https://github.com/Rikarin/Vixen/issues/1297) | `AssetEditors` off `NotYetMoved` through 17 | P3 | 6 |
 | [#1298](https://github.com/Rikarin/Vixen/issues/1298) | `Profiler` + `Debugger` + `Diagnostics` off: report into the module, log ring and data dir published; typed module fields gone | P3 | 6 · ✅ all three off `NotYetMoved`; the device and GPU frame through `IEditorGraphics.Frame`, the ring as `RingBufferSink`, the directory as `EditorDataDirectory`, the pickers as `INativeDialogs`. ⚠ "Asserted by the existing report tests" — there were none; `Report` had never been read by a test. `FindModule` stays for the asset editors (#1297) |
-| [#1299](https://github.com/Rikarin/Vixen/issues/1299) | `NodeGraph` off: theme as a contribution (#917); `Host` stops building the shader-graph preview and terrain stages | P3 | 6 · 🟡 theme ✅ (`AssetEditorsModule`, through `context.AddStyleSheet`; `NodeGraph` off `NotYetMoved`), pane reads the scene seams ✅; the preview renderer and the terrain stages still the host's — a contract decision |
-| [#1300](https://github.com/Rikarin/Vixen/issues/1300) | `Assets` drops `ShaderGraph`/`VfxGraph`; `BuiltInImporters` shrinks to the pipeline's own | P3 | 6 |
+| [#1299](https://github.com/Rikarin/Vixen/issues/1299) | `NodeGraph` off: theme as a contribution (#917); `Host` stops building the shader-graph preview and terrain stages | P3 | 6 · ✅ theme (`AssetEditorsModule`, through `context.AddStyleSheet`; `NodeGraph` off `NotYetMoved`), pane reads the scene seams, preview renderer `AssetEditorsModule`'s (`IEditorGraphics.Show`, `PluginContext.OnFrame`; device-tested on an RTX 4060 Ti) · terrain stages stay in the host (decided) |
+| [#1300](https://github.com/Rikarin/Vixen/issues/1300) | `Assets` drops `ShaderGraph`/`VfxGraph`; `BuiltInImporters` shrinks to the pipeline's own | P3 | 6 · 🟡 both references gone (option A: host-linked `ImporterContributions.Linked`, `IEffectSourceProvider`, `HostImporterMap`); terrain, water, AI, animation, gameplay, compositor, net and mixer importers still in `BuiltInImporters` |
 | [#1301](https://github.com/Rikarin/Vixen/issues/1301) | 35 feature string ids out of `EditorStrings` | P3 | 6 |
 | [#1302](https://github.com/Rikarin/Vixen/issues/1302) | `NotYetMoved` deleted; `ApplicationReferenceRule` is `Allowed` only | P3 | 6 |
 | [#1303](https://github.com/Rikarin/Vixen/issues/1303)–[#1309](https://github.com/Rikarin/Vixen/issues/1309) | One per feature god file: `SceneViewport`, `ProjectBrowser`, `NodeGraphView`, `LayerStackView` + `TexturingModule`, `BlockoutMode`, `ComponentsView.vxml`, `EditorHost` | P4 | 7–8 · #1307 (`BlockoutMode`) ✅ the verbs are `IBlockout`, published with `PluginContext.Publish` · #1303 (`SceneViewport`) partial: a tool is handed `IViewportPane`, the eight members its consumers read; bookmarks, `Extensions` and the overlay signature are owed · #1306 (`LayerStackView` + `TexturingModule`) 🟡 all three moves landed — `ITexturing`, declared Tools lines, the chosen set and selected layer on the document — and the three view theme installs stay (#917) |

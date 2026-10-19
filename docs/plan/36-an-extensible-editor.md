@@ -907,7 +907,7 @@ whole of it was `AssetEditorRegistry` moving somewhere both ends could see:
 | `EditorApplication.cs:13,14,43,44` | the `Vixen.Editor.AssetEditors` and `.Content` namespaces, and the `EditorPrefab` / `PrefabSource` aliases |
 | `ComponentsView.cs:21` | `PrefabSource` |
 | `EditorFrames.cs:7,399,409,434` | `StandardFrameDocument` |
-| `ShaderGraphPreviews.cs:4,5,27,56,66,80` | `IPreviewImages`, `ShaderGraphPreviewRenderer`, `ShaderGraphDocument`, and `Vixen.Editor.ShaderGraph` itself |
+| `ShaderGraphPreviews.cs:4,5,27,56,66,80@5f03c9b80` | `IPreviewImages`, `ShaderGraphPreviewRenderer`, `ShaderGraphDocument`, and `Vixen.Editor.ShaderGraph` itself |
 
 ⚠⚠ **And the compiler under-reports, so "remove the reference and count the errors" is a floor on the
 dependency list and never the list.** `EditorWorlds.cs:823,827` name
