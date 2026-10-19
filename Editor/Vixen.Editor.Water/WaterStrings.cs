@@ -85,6 +85,12 @@ public static class WaterStrings {
     /// <summary>The <c>Water Zone</c> panel.</summary>
     public static StringId PanelWaterZone { get; } = new("editor.panel.water.zone", "Water Zone");
 
+    /// <summary>The <c>Water</c> submenu the toolset adds under Scene, beside Blockout's.</summary>
+    public static StringId MenuWater { get; } = new("editor.menu.water", "Water");
+
+    /// <summary>The <c>Debug</c> submenu under Scene ▸ Water, which holds the six debug switches.</summary>
+    public static StringId MenuWaterDebug { get; } = new("editor.menu.water-debug", "Debug");
+
     /// <summary>What a translator's template for this toolset holds.</summary>
     /// <remarks>
     ///     Spread from the family, which is what puts every member of it in the template. A family
@@ -96,6 +102,8 @@ public static class WaterStrings {
         CategoryWater,
         ModeWater,
         PanelWater,
-        PanelWaterZone
+        PanelWaterZone,
+        MenuWater,
+        MenuWaterDebug
     ];
 }

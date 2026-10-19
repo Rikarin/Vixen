@@ -137,6 +137,11 @@ public sealed partial class WaterModule : IEditorPlugin {
         // "already registered" and failed the module, and the mode's `Drawn` handler kept the whole
         // module reachable for the life of the shell (#740's audit, #1286).
         context.AddMode(water);
+
+        // ⚠ Last, because every line it declares names a command registered above — Scene ▸ Water ▸
+        // Debug's six switches (#1286). An in-tree module is never scanned, so this generated call
+        // is the only reader of the attributes; without it they compile and place nothing.
+        Declared.Register(context);
     }
 
     /// <summary>Turns a drawn curve into a spline asset and an entity that names it.</summary>

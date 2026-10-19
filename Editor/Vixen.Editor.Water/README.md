@@ -177,13 +177,16 @@ registered", and the mode's `Drawn` handler kept the module reachable for the li
 see a leak: `WaitForCollection` is unconditionally true for a built-in, which has no load context
 (#740).
 
-⚠ **No attributes, and since the generator exists (#1283) that is a finding rather than a wait.** The
-module builds no menu, so there is no hand menu registration to replace. Its seven verbs carry state no
-attribute shape can — the carve's enablement, the six switches' `Checked` over this module's
-`WaterDebugFlags` — and are reached through the command palette only; "the order the mode's menu lists
-them" was never true. The one attribute-shaped registration, the sea state's Create ▸ line, builds its
-file from the panel's *current* sea state, which a `static string ()` behind `[CreateAssetMenu]` cannot
-read. Giving the switches menu lines is a placement decision, carried on #1286.
+**Scene ▸ Water ▸ Debug holds the six switches (#1286)**, after Blockout's Scene submenus. The
+placement is declared — an `[EditorMenu]` on each switch's command id and two `[EditorSubmenu]`s on
+`WaterModule` — and `Vixen.Editor.Plugin.Generator` turns it into the `Declared.Register` that
+`Activate` calls last. The commands stay the module's, because the state is: each line's tick is the
+command's `Checked`, read from this session's `WaterDebugFlags`, so the menu and the palette show one
+state. ⚠ Before this the switches were the command palette's alone, and "the order the mode's menu
+lists them" had never been true. The carve keeps its own registration for its enablement, and the sea
+state's Create ▸ line stays registered in code: it builds its file from the panel's *current* sea
+state, which a `static string ()` behind `[CreateAssetMenu]` cannot read. `WaterModuleReachTests`
+holds the six lines to once each, ticking this session's flags, and gone on unload.
 
 [§ D6]: ../../docs/plan/35-water.md#d6-a-water-body-is-a-spline-and-a-profile-and-there-is-no-new-spline
 [§ Part 4]: ../../docs/plan/35-water.md#part-4--testing

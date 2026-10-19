@@ -502,6 +502,12 @@ vixen.texturing panel texturing.paint
 vixen.texturing panel texturing.paint-3d
 vixen.water create water.create-waves
 vixen.water menu editor.menu.assets/editor.menu.create water.create-waves
+vixen.water menu editor.menu.scene/editor.menu.water/editor.menu.water-debug water.showBuoyancy
+vixen.water menu editor.menu.scene/editor.menu.water/editor.menu.water-debug water.showFlow
+vixen.water menu editor.menu.scene/editor.menu.water/editor.menu.water-debug water.showInfo
+vixen.water menu editor.menu.scene/editor.menu.water/editor.menu.water-debug water.showLod
+vixen.water menu editor.menu.scene/editor.menu.water/editor.menu.water-debug water.showRipples
+vixen.water menu editor.menu.scene/editor.menu.water/editor.menu.water-debug water.showTiles
 vixen.water menu editor.menu.window/editor.menu.panels view.panel.water.panel
 vixen.water menu editor.menu.window/editor.menu.panels view.panel.water.zone
 vixen.water mode water

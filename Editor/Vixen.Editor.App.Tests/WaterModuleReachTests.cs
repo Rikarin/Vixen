@@ -209,6 +209,102 @@ public sealed class WaterModuleReachTests {
         }
     }
 
+    /// <summary>The six debug switches, in the order Scene ▸ Water ▸ Debug lists them.</summary>
+    static readonly string[] Switches = [
+        WaterModule.ShowTilesCommand,
+        WaterModule.ShowLodCommand,
+        WaterModule.ShowInfoCommand,
+        WaterModule.ShowFlowCommand,
+        WaterModule.ShowBuoyancyCommand,
+        WaterModule.ShowRipplesCommand
+    ];
+
+    /// <summary>
+    ///     Scene ▸ Water ▸ Debug holds the six switches once each, after Blockout's submenus, and a line
+    ///     ticks this session's flags (#1286).
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Red before the declarations</b>: the switches were the command palette's alone, and a
+    ///     remark claiming "the order the mode's menu lists them" had been false since it was written.
+    ///     Each line is run as the menu runs it — by its command id — and the check it draws is the
+    ///     command's <c>Checked</c>, so the assertion is on the same two things the presenter reads.
+    /// </remarks>
+    [Fact]
+    public void The_scene_menu_has_the_six_water_debug_switches_once_each_and_they_tick_this_sessions_flags() {
+        using var session = EditorSession.Start();
+
+        var debug = DebugMenu(session);
+
+        Assert.NotNull(debug);
+        Assert.Equal(Switches, debug.Entries.OfType<MenuCommand>().Select(line => line.CommandId).ToArray());
+
+        var flags = Assert.Single(session.Extensions.All<WaterDebugFlags>());
+
+        try {
+            foreach (var id in Switches) {
+                Assert.False(Checked(session, id), $"'{id}' is ticked before anybody ticked it.");
+
+                session.Run(id);
+
+                Assert.True(Checked(session, id), $"'{id}' did not tick.");
+            }
+
+            Assert.True(flags is { ShowTiles: true, ShowLod: true, ShowInfo: true, ShowFlow: true, ShowBuoyancy: true, ShowRipples: true });
+
+            session.Run(WaterModule.ShowFlowCommand);
+
+            Assert.False(flags.ShowFlow);
+            Assert.False(Checked(session, WaterModule.ShowFlowCommand));
+        } finally {
+            WaterDebug.Reset();
+        }
+
+        // Beside Blockout's submenus, which is the Scene menu's mode-tool run, and not before them.
+        var scene = Assert.Single(session.Shell.Menus.Menus, menu => menu.Title.Id == "editor.menu.scene");
+        var submenus = scene.Entries.OfType<MenuSubmenu>().Select(entry => entry.Group.Title.Id).ToList();
+
+        Assert.Equal(submenus.IndexOf("editor.menu.blockout-handoff") + 1, submenus.IndexOf(WaterStrings.MenuWater.Id));
+    }
+
+    /// <summary>The Water ▸ Debug submenu leaves with the module, and comes back once with a reload.</summary>
+    [Fact]
+    public void The_water_debug_submenu_leaves_on_unload_and_comes_back_once() {
+        using var session = EditorSession.Start();
+
+        Assert.True(session.Plugins.Unload(WaterModule.ModuleId));
+        session.Settle();
+
+        var scene = Assert.Single(session.Shell.Menus.Menus, menu => menu.Title.Id == "editor.menu.scene");
+
+        Assert.DoesNotContain(scene.Entries.OfType<MenuSubmenu>(), entry => entry.Group.Title.Id == WaterStrings.MenuWater.Id);
+        Assert.Null(DebugMenu(session));
+
+        Assert.Equal(
+            PluginState.Active,
+            session.Plugins.Activate(WaterModule.ModuleId, WaterModule.ModuleName, new WaterModule()).State
+        );
+        session.Settle();
+
+        Assert.Single(scene.Entries.OfType<MenuSubmenu>(), entry => entry.Group.Title.Id == WaterStrings.MenuWater.Id);
+        Assert.Equal(Switches, DebugMenu(session)!.Entries.OfType<MenuCommand>().Select(line => line.CommandId).ToArray());
+
+        Assert.Empty(session.Plugins.Reload(WaterModule.ModuleId).Diagnostics);
+        session.Settle();
+
+        Assert.Single(scene.Entries.OfType<MenuSubmenu>(), entry => entry.Group.Title.Id == WaterStrings.MenuWater.Id);
+        Assert.Equal(Switches, DebugMenu(session)!.Entries.OfType<MenuCommand>().Select(line => line.CommandId).ToArray());
+    }
+
+    /// <summary>Scene ▸ Water ▸ Debug, or <see langword="null" /> when the bar has none.</summary>
+    static MenuGroup? DebugMenu(EditorSession session) {
+        var scene = session.Shell.Menus.Menus.SingleOrDefault(menu => menu.Title.Id == "editor.menu.scene");
+        var water = scene?.Entries.OfType<MenuSubmenu>().SingleOrDefault(entry => entry.Group.Title.Id == WaterStrings.MenuWater.Id);
+
+        return water?.Group.Entries.OfType<MenuSubmenu>()
+            .SingleOrDefault(entry => entry.Group.Title.Id == WaterStrings.MenuWaterDebug.Id)
+            ?.Group;
+    }
+
     static void AssertPresentOnce(EditorSession session) {
         foreach (var panel in Panels) {
             Assert.Single(session.Shell.Workspace.Panels, descriptor => descriptor.Id == panel);
