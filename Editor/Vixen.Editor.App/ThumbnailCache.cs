@@ -349,7 +349,7 @@ sealed class ThumbnailCache : IDisposable {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Everything rather than one asset, and that is
-    ///         <c>EditorApplication.FollowDisk</c>'s own argument rather than laziness.</b> The three
+    ///         <c>ProjectSession.FollowDisk</c>'s own argument rather than laziness.</b> The three
     ///         callers — the watcher's drain, <c>assets.refresh</c> and the frame-thread half of a
     ///         finished import — know <em>whether</em> the project changed and deliberately not what:
     ///         resolving a watched path back to an asset here would be a second, worse copy of the

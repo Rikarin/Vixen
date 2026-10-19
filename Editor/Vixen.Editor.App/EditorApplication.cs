@@ -167,44 +167,15 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>Pictures of assets for the browser's grid, decoded off the frame thread.</summary>
     readonly ThumbnailCache thumbnails;
 
-    /// <summary>The project's own code, once it has been built and loaded.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Loaded once, at start-up, and never unloaded.</b> The context is collectible and
-    ///     nothing calls <c>Unload</c>, because the registries a load fills have no way to empty —
-    ///     see <c>ProjectAssemblies</c>. A project rebuilt while the editor is open therefore needs a
-    ///     restart, which is said out loud rather than half-built.
-    /// </remarks>
-    readonly ProjectAssemblies code;
-
-    /// <summary>What tells the editor that something outside it changed the assets on disk.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>The panel's own remarks used to say why there wasn't one</b> — "a watcher is worth
-    ///         having and is not free: it needs debouncing, a rename heuristic and a way to not fight
-    ///         the editor's own writes". All three of those are <c>Vixen.Core.IO</c>'s and have been
-    ///         since <c>FileChangeCoalescer</c> was written; what was missing was not the mechanism
-    ///         but the wire. Saving a texture from another program left the Project panel showing the
-    ///         project as it was when the editor started.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Null when there is no assets directory</b>, which a scratch project opened before
-    ///         anything has been saved genuinely has. A missing folder is not an error worth refusing
-    ///         to start over — it is a project with nothing in it yet.
-    ///     </para>
-    /// </remarks>
-    readonly IFileWatcher? watcher;
-
     /// <summary>Whether this editor has a watcher over the project at all.</summary>
     /// <remarks>
     ///     ⚠ <b>The only honest instrument for "did the harness actually skip it".</b> Every other
     ///     observable of a missing watcher is a silence — nothing rescans, nothing reloads — and a
     ///     silence is what a broken watcher looks like too, so a test asserting on one would pass
-    ///     for both reasons. This is the constructor's decision, read back.
+    ///     for both reasons. This is the constructor's decision, read back from the session that
+    ///     owns the watcher (#1293).
     /// </remarks>
-    internal bool IsWatchingAssets => watcher is not null;
-
-    /// <summary>What the watcher has to say, reused so that a quiet frame allocates nothing.</summary>
-    readonly List<FileChange> changes = [];
+    internal bool IsWatchingAssets => session.IsWatching;
 
     /// <summary>What carries a change on disk the last few metres, from the project to the open document.</summary>
     /// <remarks>
@@ -609,8 +580,25 @@ sealed partial class EditorApplication : IDisposable {
         // A scratch project under the user's data directory, so a first run with no arguments opens
         // something real rather than refusing to start. `Open` tolerates a missing Assets directory
         // — see AssetDatabase.Scan — which is what makes a directory that does not exist yet fine.
-        project = new EditorProject(new ProjectPaths(projectRoot ?? Path.Combine(directory, "Scratch")));
-        project.Open();
+        // ⚠ Doc 50 § P2d: the open is the session's (#1293), so the project, its watcher and its code
+        // have one owner. The close request and the closing flags are handed in rather than moved —
+        // closing is the application's — and read on every call, because the prompt answers later.
+        // The scene is asked for at each code build, because the active scene moves.
+        session = ProjectSession.Open(
+            new ProjectPaths(projectRoot ?? Path.Combine(directory, "Scratch")),
+            (message, severity, detail) => Shell.Notifications.Show(message, severity, detail),
+            RequestClose,
+            () => IsClosing || closing,
+
+            // ⚠ The recent list is read here and written by `Opened` at the end of this constructor:
+            // whether this run is a first one — no history at all — decides whether the startup
+            // Project Browser has anything to offer, and opening the project adds this one to it.
+            new ProjectHistory(directory),
+            log.Write,
+            () => scene
+        );
+
+        project = session.Project;
 
         // One scene per project until there is a file dialog to choose another. The path is decided
         // here rather than by the document, because where a scene lives is the shell's answer and a
@@ -828,13 +816,17 @@ sealed partial class EditorApplication : IDisposable {
         // ours: `FileSystemWatcher.EnableRaisingEvents = true` starts an FSEvents stream. A test
         // that never edits a file behind the editor's back pays it anyway, 344 times over in
         // `Vixen.Editor.App.Tests` — see `EditorSessionOptions.WatchAssets` and #557.
-        watcher = watchAssets ? Watch(project) : null;
+        // ⚠ After the first scene has been written, so the editor's own save is not heard as somebody
+        // else's. The watcher is the session's (#1293).
+        if (watchAssets) {
+            session.Watch();
+        }
 
         // ⚠ Constructed even when there is no watcher, because the object is what subscribes to
         // `EditorProject.DocumentSaving`, and a project with no watcher still has documents that
         // save. What a null watcher costs is the suppression, not the wiring — and a conditional
         // here would be a second place that has to know that.
-        external = new(project, watcher);
+        external = new(project, session.Watcher);
         external.Applied += Announce;
 
         // ⚠ `BuiltInSubsystems` is registered and touched *above*, before the scene file is read —
@@ -844,7 +836,6 @@ sealed partial class EditorApplication : IDisposable {
         // application's; what changed is that it is a contribution, so a module can add to it and a
         // plugin's own runtime assembly can be declared by whoever shipped it.
         bridges = ComponentsView.Default(() => scene?.Behaviors, Extensions);
-        code = new ProjectAssemblies(project.Paths);
 
         // ⚠ Before the tasks, because one of their hooks closes over it. A project that has never
         // been imported opens as a refusal rather than an exception — see the type — so this is
@@ -917,26 +908,26 @@ sealed partial class EditorApplication : IDisposable {
                     (preferences.ProjectGridView, preferences.ProjectTileSize) = (grid, size);
                     WritePreferences();
                 }
-            )
+            ),
+            () => content.IsBusy
         );
         library.CollectionsChanged += () => browser?.Recollect();
 
+        // ⚠ A rename, move or delete has already reindexed; the browser redraws from what it found.
+        library.Rearranged += () => browser?.Rescan();
 
-        // ⚠ Doc 50 § P2d: the rescan and the reopen request, before `PluginPoints` publishes it. The
-        // close request and the closing flags are handed in rather than moved — closing is the
-        // application's — and read on every call, because the prompt answers later.
-        session = new ProjectSession(
-            project,
-            (message, severity, detail) => Shell.Notifications.Show(message, severity, detail),
-            RequestClose,
-            () => IsClosing || closing,
-
-            // ⚠ The recent list is read here and written by `Opened` at the end of this constructor:
-            // whether this run is a first one — no history at all — decides whether the startup
-            // Project Browser has anything to offer, and opening the project adds this one to it.
-            new ProjectHistory(directory)
-        );
         library.Arrived += () => browser?.Rescan();
+
+        // ⚠ What the session's disk watch and code build mean to the panels, which are this
+        // application's: the session rescans and builds, and these are the readers that follow.
+        session.ChangedOnDisk += FollowedDisk;
+        session.CodeBuilt += () => {
+            foreach (var (_, section) in inspectors) {
+                section.Rebuild();
+            }
+
+            delivery.Restate();
+        };
 
         // ⚠ Before the panels, because the inspector's asset fields are built by drawers that have
         // to be pointed at a project first. `AssetDrawer` has raised `PickRequested` since it was
@@ -1294,7 +1285,7 @@ sealed partial class EditorApplication : IDisposable {
         if (Greets) {
             Greets = false;
 
-            BuildProjectCode();
+            session.BuildCode();
 
             if (IsScratch && session.Recent.Count <= 1) {
                 ShowProjectBrowser();
@@ -1389,7 +1380,7 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ Drained here rather than raised from the platform thread, which is the whole shape of
         // `IFileWatcher`: a rescan clears and repopulates the database's dictionaries, and doing
         // that from a `FileSystemWatcher` callback would race every panel reading it.
-        FollowDisk();
+        session.FollowDisk();
 
         // ⚠ And the dev-mode stylesheets, on the frame thread and for exactly the same reason. A
         // reload replaces the rule set and re-runs the cascade over every element in the document;
@@ -1648,7 +1639,7 @@ sealed partial class EditorApplication : IDisposable {
 
         // ⚠ Early, so that nothing arrives during the rest of this. A watcher left running holds a
         // platform handle and keeps recording changes into a coalescer nobody will drain again.
-        watcher?.Dispose();
+        session.Dispose();
 
         // And the subscription on the project's saves with it, so that the documents closing below
         // do not announce writes to a watcher that has gone.
@@ -1681,145 +1672,6 @@ sealed partial class EditorApplication : IDisposable {
         // After the shell, because disposing it raises no notifications but unloading a plugin can —
         // and a mirror taken down first would lose the last thing the editor had to say.
         log.Dispose();
-    }
-
-    /// <summary>Builds and loads the project's own code, and says what happened.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>On the first frame rather than in the constructor.</b> It runs a compiler, which
-    ///         takes seconds on a cold restore — and the console it reports into is a panel the shell
-    ///         has to have built first. An editor that blocked on <c>dotnet build</c> before drawing
-    ///         anything would look like one that failed to start.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>A failed build is a notification and not a refusal.</b> The project's content is
-    ///         still worth opening — a scene, a texture, a material do not care whether the game's
-    ///         C# compiles — and an editor that would not open a project because of a syntax error
-    ///         would be one you could not use to fix the syntax error.
-    ///     </para>
-    /// </remarks>
-    void BuildProjectCode() {
-        // ⚠ Taken off before the assembly goes and put back after it returns. A behaviour somebody
-        // authored is an instance of a type that is about to stop existing — leaving it attached
-        // would hold the old context alive *and* lose the values, which is both failures at once.
-        // Bytes and an alias are what crosses: the same alias registers again from the rebuilt
-        // assembly, and the state goes into an instance of the new type.
-        var authored = SaveProjectBehaviors();
-        var built = code.Reload();
-
-        if (built.Output is { Length: > 0 } said) {
-            log.Write(built.Failed ? LogLevel.Error : LogLevel.Debug, said);
-        }
-
-        if (built.Failed) {
-            Shell.Notifications.Show(
-                "The project's code did not build",
-                NotificationSeverity.Error,
-                "Its components and behaviours are not available. The console has what the compiler said."
-            );
-
-            return;
-        }
-
-        if (built.Assembly is not null) {
-            // The load ran the module initializers, so whatever the project declares is in the
-            // registries — and `ComponentsView.Registered` re-reads them, so the Add Component menu
-            // has it without being told.
-            RestoreProjectBehaviors(authored);
-
-            foreach (var (_, section) in inspectors) {
-                section.Rebuild();
-            }
-
-            delivery.Restate();
-        }
-    }
-
-    /// <summary>One authored behaviour, as something that outlives the type that held it.</summary>
-    /// <param name="Entity">Which entity carried it.</param>
-    /// <param name="Alias">Its name, which is what survives a rebuild.</param>
-    /// <param name="State">Its values.</param>
-    readonly record struct AuthoredBehavior(Entity Entity, string Alias, byte[] State);
-
-    /// <summary>Takes every behaviour off the scene, keeping what was in it.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Every behaviour, not only the project's.</b> Deciding which assembly a behaviour came
-    ///     from means reading its type, and the whole point of this is that types are about to become
-    ///     unreliable. Taking them all off and putting them all back is the same answer for both and
-    ///     has no case that needs to be right.
-    /// </remarks>
-    List<AuthoredBehavior> SaveProjectBehaviors() {
-        List<AuthoredBehavior> authored = [];
-
-        foreach (var entity in scene.Entities) {
-            foreach (var behavior in scene.Behaviors.AllOn(entity).ToArray()) {
-                if (!SceneBehaviorRegistry.TryGet(behavior.GetType(), out var binder)) {
-                    continue;
-                }
-
-                authored.Add(new(entity, binder.Name, binder.Save(behavior)));
-                binder.RemoveFrom(scene.Behaviors, entity);
-            }
-        }
-
-        return authored;
-    }
-
-    /// <summary>Puts them back, on the rebuilt types.</summary>
-    /// <remarks>
-    ///     ⚠ <b>A behaviour whose alias the rebuilt project no longer declares is dropped, and said
-    ///     so.</b> Somebody deleted or renamed the class; there is nowhere to put its values, and
-    ///     silently keeping them would mean a save that wrote a behaviour the build cannot name.
-    /// </remarks>
-    void RestoreProjectBehaviors(List<AuthoredBehavior> authored) {
-        var lost = 0;
-
-        foreach (var (entity, alias, state) in authored) {
-            if (!scene.World.IsAlive(entity) || !SceneBehaviorRegistry.TryGet(alias, out var binder)) {
-                lost++;
-                continue;
-            }
-
-            binder.AttachTo(scene.Behaviors, entity, binder.Restore(state));
-        }
-
-        if (lost > 0) {
-            Shell.Notifications.Show(
-                $"{lost} authored behaviour(s) were dropped",
-                NotificationSeverity.Warning,
-                "The rebuilt project no longer declares them, so there was nowhere to put their values."
-            );
-        }
-    }
-
-    /// <summary>Starts watching a project's assets, if there are any to watch.</summary>
-    /// <remarks>
-    ///     ⚠ <b>A quarter of a second of quiet before a change counts.</b> A text editor's atomic
-    ///     save is four raw events and a rename; an art tool exporting a texture atlas is one per
-    ///     file. Rescanning on each would walk the project several times for one action —
-    ///     <c>FileChangeCoalescer</c>'s debounce is what turns a burst into a rescan.
-    /// </remarks>
-    IFileWatcher? Watch(EditorProject open) {
-        if (!Directory.Exists(open.Paths.Assets)) {
-            return null;
-        }
-
-        try {
-            return new FileWatcher(open.Paths.Assets, VirtualPath.Root) {
-                Debounce = TimeSpan.FromMilliseconds(250)
-            };
-        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
-            // A project on a share the platform cannot watch, or one whose handle limit is spent.
-            // The editor still opens and Refresh still works, which is the right trade for a
-            // convenience — and the console says why the panel stopped keeping up by itself.
-            log.Write(
-                LogLevel.Warning,
-                $"Could not watch '{open.Paths.Assets}' for changes, so the Project panel will only "
-                + $"update on Refresh. {exception.Message}"
-            );
-
-            return null;
-        }
     }
 
     /// <summary>Loads every <c>.vcss</c> under a directory and reloads them as they are saved.</summary>
@@ -1977,54 +1829,25 @@ sealed partial class EditorApplication : IDisposable {
                 || segment.Equals("bin", StringComparison.OrdinalIgnoreCase)
             );
 
-    /// <summary>Rescans when something outside the editor has changed the assets.</summary>
+    /// <summary>Brings the panels into line with a change made on disk, after the session has rescanned for it.</summary>
+    /// <param name="changes">What the watcher drained — empty, or incomplete, for an overflow.</param>
+    /// <param name="overflowed">Whether the watcher lost events, so anything may have changed.</param>
     /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>What changed is deliberately not used.</b> The database's scan is the thing that
-    ///         knows how to repair a sidecar, re-GUID a duplicate and quarantine an orphan, and a
-    ///         browser that applied one path at a time would be a second, worse implementation of it
-    ///         that disagreed after the first rename. The changes are drained to find out
-    ///         <i>whether</i> to rescan, not what to do.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>An overflow is a rescan too.</b> Losing events is the one case where nothing that
-    ///         arrives afterwards can be trusted to describe the folder — which is exactly the case a
-    ///         full rescan covers, and why the watcher reports it separately.
-    ///     </para>
+    ///     ⚠ <b>The drain and the rescan are <see cref="ProjectSession.FollowDisk" />'s (#1293)</b>;
+    ///     what is left here is what a change on disk means to this application's panels, in the
+    ///     order it always had after the scan.
     /// </remarks>
-    void FollowDisk() {
-        if (watcher is null) {
-            return;
-        }
-
-        changes.Clear();
-
-        var drained = watcher.Drain(changes) > 0;
-        var overflowed = watcher.HasOverflowed;
-
-        if (overflowed) {
-            watcher.ClearOverflow();
-            drained = true;
-        }
-
-        if (!drained) {
-            return;
-        }
-
-        // ⚠ Before the rescan and reading `changes` rather than only its count, which is the one
-        // place in this method that cares what changed. A shader edit has to reach the effect tier
+    void FollowedDisk(IReadOnlyList<FileChange> changes, bool overflowed) {
+        // ⚠ Reading `changes` rather than only its count, which is one of the two places in this
+        // method that care what changed. A shader edit has to reach the effect tier
         // that compiled the old one, and it is the only kind of change that does — see
         // `ReloadShaders`, which also says why a rebuild is not free enough to do unconditionally.
         ReloadShaders(changes);
 
-        // ⚠ Through the browser when its panel is open and through the project when it is not. The
-        // database is the editor's and outlives any panel — a file added while the Project tab is
-        // closed has to be in the asset picker and in a build, not only in the tree.
-        if (browser is not null) {
-            browser.Rescan();
-        } else {
-            session.Rescan();
-        }
+        // ⚠ The session has rescanned whether or not the panel is open; an open one redraws what it
+        // found. This used to be `browser.Rescan()` when open and `session.Rescan()` when not — one
+        // scan either way, and still one.
+        browser?.Rebuild();
 
         // ⚠ The one event that means "somebody changed the project without going through us", which
         // is the same event a source-control status goes stale on — a checkout, a pull, a rebase and
@@ -2037,15 +1860,16 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ And the pictures, which nothing invalidated at all until #1187: an entry left the cache
         // on capacity and on nothing else, so a texture repainted in another program kept the
         // thumbnail it had when it was first looked at, for the session. Wholesale rather than by
-        // path, on this method's own argument two paragraphs up — the drained changes are read to
-        // find out *whether*, and an overflow has no paths to read at all.
+        // path, on `ProjectSession.FollowDisk`'s own argument — the drained changes are read to find
+        // out *whether*, and an overflow has no paths to read at all.
         thumbnails.Forget();
 
-        // ⚠ After the rescan, and this is the one ordering constraint in the seam. A path becomes a
-        // document through the GUID index, and a rename is exactly the change that moves an entry in
-        // it — so routing before the scan would look the new path up in an index that still has the
-        // old one and find nothing open. An overflow has no paths to route, so it does the other
-        // thing: re-read what can be re-read, on `ReloadShaders`' argument two paragraphs up.
+        // ⚠ After the rescan, which the session has done before raising this, and that is the one
+        // ordering constraint in the seam. A path becomes a document through the GUID index, and a
+        // rename is exactly the change that moves an entry in it — so routing before the scan would
+        // look the new path up in an index that still has the old one and find nothing open. An
+        // overflow has no paths to route, so it does the other thing: re-read what can be re-read, on
+        // `ReloadShaders`' argument above.
         if (overflowed) {
             external.Rescan();
         } else {
@@ -2399,14 +2223,11 @@ sealed partial class EditorApplication : IDisposable {
                 panel => {
                     panel.WhenPressedIn(() => Shell.Context = AssetContext);
 
-                    browser = new ProjectBrowser(session, panel, library.Shown, Extensions);
+                    browser = new ProjectBrowser(session, panel, library, Extensions);
 
                     browser.Activated += Open;
-                    browser.Renamed += RenameAsset;
-                    browser.Moved += MoveAssets;
                     browser.DroppedOutside += Dropped;
                     browser.DraggedOutside += Dragging;
-                    browser.FilesDropped += (paths, folder) => library.Import(paths, folder);
 
                     // ⚠ Doc 20 § B7's column, given to the panel as a value. The sweep that fills it
                     // is asked for here rather than at startup: this factory runs when the panel
@@ -2417,18 +2238,11 @@ sealed partial class EditorApplication : IDisposable {
                     browser.Grabbing += down => grabbingAssets = down;
                     browser.Thumbnails = thumbnails;
 
-                    // ⚠ Doc 20 § B1's saved filters. The list is given to the panel rather than held
-                    // by it for `IsGrid`'s reason — a panel's factory runs again on every reopen, and
-                    // the preferences file is this object's — and it is re-given after every write,
-                    // because the browser's menu reads the list it was handed.
-                    // ⚠ A lambda over the field and not the list itself. `preferences` is REPLACED —
-                    // by a restart and by the settings window's Revert, which re-reads the file into
-                    // a new object — so a panel handed the list would go on offering the filters
-                    // that existed when it was opened, silently, for as long as it stayed open.
-                    browser.SavedFilters = () => library.Filters;
+                    // ⚠ Doc 20 § B1's saved filters and collections are the library's, which the panel
+                    // reads and writes itself (#1304) — asked on every read, because `preferences` and
+                    // the project's settings object are both REPLACED by a Revert. What comes back
+                    // here is only what needs a name typed first.
                     browser.FilterSaveRequested += KeepFilter;
-
-                    browser.FilterForgotten += library.ForgetFilter;
 
                     // ⚠ Both views, and the grid was the one that had nothing. The menu was attached to
                     // the tree alone, so switching to tiles — which is the view somebody browses
@@ -2440,27 +2254,7 @@ sealed partial class EditorApplication : IDisposable {
                     Contextualise(browser.Tree, assetMenu);
                     Contextualise(browser.Grid, assetMenu);
 
-                    // ⚠ Doc 20 § B1's collections, and the store is the *project's* rather than the
-                    // user's — which is where the saved filters' own comment said this half would
-                    // differ. `EditorPreferences` is one file across every project somebody opens,
-                    // and a set of `AssetId`s means nothing in another project.
-                    // ⚠ A lambda for the same reason the filters are one: `ProjectSettingsStore`
-                    // *replaces* the settings object on `Reload` and `Reset` — a branch switch, a
-                    // Revert — so a panel handed the list would go on showing the collections that
-                    // existed when it was opened.
-                    browser.Collections = () => library.Collections;
-
-                    // ⚠ And rebuilt at once, because the constructor has already built the column
-                    // from a source it did not have yet. Without this the shelf is empty every time
-                    // the panel is opened over a project that already has collections — until
-                    // something else happens to rebuild it, which for somebody who only wanted to
-                    // look is never. Same shape as `Sweep()` after `browser.Status`.
-                    browser.Recollect();
-
                     browser.CollectionCreateRequested += MakeCollection;
-                    browser.CollectionAdded += (assets, name) => library.AddToCollection(name, assets);
-                    browser.CollectionRemoved += (assets, name) => library.RemoveFromCollection(name, assets);
-                    browser.CollectionForgotten += library.ForgetCollection;
                 }
             ) {
                 // ⚠ The other half of holding it, and the crash it prevents is not hypothetical.

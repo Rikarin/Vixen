@@ -63,6 +63,9 @@ public class LibraryModuleTests {
         Assert.Null(editor.Shell.Commands["assets.find-references"]);
         Assert.Null(editor.Shell.Commands["edit.find-references"]);
         Assert.Null(editor.Shell.Commands["assets.select-dependencies"]);
+        Assert.Null(editor.Shell.Commands["assets.delete"]);
+        Assert.Null(editor.Shell.Commands["assets.show-in-explorer"]);
+        Assert.Null(editor.Shell.Commands["assets.reimport-all"]);
 
         editor.Plugins.Enable(LibraryModule.ModuleId);
 
@@ -101,5 +104,37 @@ public class LibraryModuleTests {
         editor.Run("assets.select-dependencies");
 
         Assert.Equal([made.Guid], editor.Project.Selection);
+    }
+
+    /// <summary>Delete asks, then deletes through the service a plugin gets — once, with the sidecar.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Counted on the published object.</b> A Delete left registered in the application beside the
+    ///     module's would delete the file just as well, and only the service's event can tell the two apart.
+    /// </remarks>
+    [Fact]
+    public void Delete_asks_and_then_deletes_through_the_published_service() {
+        using var editor = EditorSession.Start();
+
+        var library = editor.Plugins.Services.Require<IContentLibrary>();
+        var rearranged = 0;
+
+        library.Rearranged += () => rearranged++;
+
+        File.WriteAllText(editor.Project.Paths.Absolute("Assets/crate.png"), "pixels");
+        editor.Run("assets.refresh");
+
+        Assert.True(editor.Project.Assets.TryGetByPath("Assets/crate.png", out var crate));
+
+        editor.Project.Selection.Set([crate.Guid]);
+        editor.Run("assets.delete");
+
+        Assert.True(editor.IsAsking, "Delete did not ask first");
+        Assert.Equal(0, rearranged);
+
+        editor.Answer("Delete");
+
+        Assert.Equal(1, rearranged);
+        Assert.False(editor.Project.Assets.TryGetByGuid(crate.Guid, out _));
+        Assert.False(File.Exists(editor.Project.Paths.Absolute("Assets/crate.png.meta")));
     }
 }

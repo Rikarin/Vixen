@@ -330,7 +330,7 @@ these hold, and each is a gate in Part 10:
    command handlers.
 2. The editor's `CommandDispatcher` resolves through `CommandRoute` instead of the flat registry.
 3. `EditorShell.Context` — a mutable string pushed by hand from pointer handlers in ten places
-   (`EditorApplication.cs:2324,2411,2533,2589`; `EditorParity.cs:621,1150-1154,2073`;
+   (`EditorApplication.cs:2148,2232,2327,2383`; `EditorParity.cs:581,1110-1114,1930`;
    `EditorWorlds.cs:129`; ⚠ ten was a floor when it was written — `EditorWorlds.cs` alone had four —
    and a re-count for #1388 finds twenty-one, most of them in the module panels) — is deleted in favour of `CommandScope`, which was built to replace it and
    is assigned only in tests.

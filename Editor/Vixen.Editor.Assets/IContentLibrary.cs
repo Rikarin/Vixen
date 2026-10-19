@@ -48,6 +48,41 @@ public interface IContentLibrary {
     /// </returns>
     AssetId? Create(NewAssetKind kind);
 
+    /// <summary>Gives an asset a new name in the folder it is in, its sidecar with it, and says why not if it could not.</summary>
+    /// <param name="asset">Which asset.</param>
+    /// <param name="name">The new name, with or without the extension — a name without one keeps the asset's.</param>
+    /// <returns>What happened. A refusal has already been reported.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The identity survives because the <c>.meta</c> moves with the file</b> — see
+    ///     <see cref="AssetOperations" />, which is that invariant and nothing else. Nothing that points
+    ///     at the asset is rewritten, because nothing needs to be: a reference is a GUID.
+    ///     ⚠ <b>Not undoable</b>, as the browser's rename never was: it is an operation on files, not an
+    ///     edit to a document, and no command stack records it.
+    /// </remarks>
+    AssetOperation Rename(AssetId asset, string name);
+
+    /// <summary>Moves assets into a folder of the project, each with its sidecar.</summary>
+    /// <param name="assets">What to move.</param>
+    /// <param name="folder">The destination, relative to the project root — <c>Assets/Props</c>.</param>
+    /// <returns>How many moved. Each one refused has said why. Not undoable, as <see cref="Rename" /> is not.</returns>
+    int Move(IReadOnlyList<AssetId> assets, string folder);
+
+    /// <summary>Deletes assets and the sidecars that carry their identities, without asking.</summary>
+    /// <param name="assets">What to delete.</param>
+    /// <returns>How many went. Each one refused has said why.</returns>
+    /// <remarks>
+    ///     ⚠ <b>This does not ask, and cannot be undone.</b> Asking — with the referrers that would be
+    ///     left pointing at nothing in the question — is the command's, which is a name for this; a
+    ///     script or a plugin deleting what it generated has nobody to ask.
+    /// </remarks>
+    int Delete(IReadOnlyList<AssetId> assets);
+
+    /// <summary>Imports every asset in the project again, on the content tasks' worker.</summary>
+    void ReimportAll();
+
+    /// <summary>Whether an import or a build is running, so another should wait.</summary>
+    bool IsImporting { get; }
+
     /// <summary>Everything that points at some assets, one step back along the reference graph.</summary>
     /// <param name="assets">What is pointed at — usually the selection.</param>
     /// <returns>The referrers, in the order found and each once; empty when nothing points at them.</returns>
@@ -104,4 +139,15 @@ public interface IContentLibrary {
 
     /// <summary>Raised after an import or a <see cref="Create" /> put something in and the database has been rescanned.</summary>
     event Action? Arrived;
+
+    /// <summary>
+    ///     Raised after a <see cref="Rename" />, <see cref="Move" /> or <see cref="Delete" /> — refused or
+    ///     not — once the database agrees with the disk.
+    /// </summary>
+    /// <remarks>
+    ///     Raised on a refusal too: the browser's tree has already shown the name that was typed or the
+    ///     row where it was dropped, and a view left showing what the disk does not have is worse than
+    ///     the refusal it was told about.
+    /// </remarks>
+    event Action? Rearranged;
 }

@@ -29,19 +29,24 @@ namespace Vixen.Editor.App;
 ///     <para>
 ///         ⚠ <b>Rebuilt on demand, and the demand now also comes from the disk.</b> Nothing
 ///         <i>here</i> has a file-system watcher and nothing here should: what a watcher reports is a
-///         fact about the project, not about a panel that may be closed. <c>EditorApplication</c>
+///         fact about the project, not about a panel that may be closed. <c>ProjectSession</c>
 ///         owns one — see its <c>FollowDisk</c> — and drains it on the frame thread into the same
-///         <see cref="Rescan" /> the Refresh command calls. The three things that used to be the
+///         <see cref="IProjectSession.Rescan" /> the Refresh command calls. The three things that used to be the
 ///         argument against having one are all <c>Vixen.Core.IO</c>'s and were before this panel
 ///         existed: <c>FileChangeCoalescer</c> debounces, collapses an atomic save's four events into
 ///         one, and can be told to ignore a write this program is about to make.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every verb goes out as an event rather than being done here.</b> Renaming a file,
-///         moving one and dropping one into the scene are all operations on the <i>project</i>, and a
-///         browser that performed them would be the second place that knows how — the first being
+///         ⚠ <b>Every verb on content is <see cref="IContentLibrary" />'s, and the panel only names
+///         it</b> (#1304). Renaming a file, moving one, importing a drop and filing assets into a
+///         collection are operations on the <i>project</i>, and a browser that performed them would be
+///         the second place that knows how — the first being the library, over
 ///         <see cref="AssetOperations" />, which is where the sidecar invariant is written down and
-///         tested.
+///         tested. They used to leave as events for the application to forward to the same service;
+///         the panel calls it. What still goes out as an event is what needs something the panel is
+///         not: a prompt for a name (<see cref="FilterSaveRequested" />,
+///         <see cref="CollectionCreateRequested" />), a document (<see cref="Activated" />) or another
+///         panel (<see cref="DroppedOutside" />).
 ///     </para>
 /// </remarks>
 sealed class ProjectBrowser {
@@ -49,6 +54,7 @@ sealed class ProjectBrowser {
     const string AnyType = "All types";
 
     readonly IProjectSession session;
+    readonly IContentLibrary library;
     readonly EditorProject project;
     readonly TreeView tree;
     readonly SearchBox search;
@@ -128,9 +134,6 @@ sealed class ProjectBrowser {
     /// </remarks>
     public event Action<AssetId>? Activated;
 
-    /// <summary>Raised when a row's inline editor is committed.</summary>
-    public event Action<AssetId, string>? Renamed;
-
     /// <summary>Raised when the user asks to keep the filter that is set, under a name.</summary>
     /// <remarks>
     ///     ⚠ <b>The request rather than the filter, for the browser's own rule: every verb goes out
@@ -139,9 +142,6 @@ sealed class ProjectBrowser {
     ///     reads back is <see cref="Search" /> and <see cref="Kind" />, which are the filter.
     /// </remarks>
     public event Action? FilterSaveRequested;
-
-    /// <summary>Raised when the user forgets a saved filter, by name.</summary>
-    public event Action<string>? FilterForgotten;
 
     /// <summary>Raised when assets are to go into a collection that has to be named first.</summary>
     /// <remarks>
@@ -152,20 +152,6 @@ sealed class ProjectBrowser {
     ///     somebody produces a row there is anywhere to drop onto.
     /// </remarks>
     public event Action<IReadOnlyList<AssetId>>? CollectionCreateRequested;
-
-    /// <summary>Raised when assets are dropped on, or added to, a collection that exists.</summary>
-    public event Action<IReadOnlyList<AssetId>, string>? CollectionAdded;
-
-    /// <summary>Raised when assets are taken out of a collection, which leaves the collection.</summary>
-    public event Action<IReadOnlyList<AssetId>, string>? CollectionRemoved;
-
-    /// <summary>Raised when a whole collection is forgotten, by name.</summary>
-    /// <remarks>Forgotten and not deleted: the assets are files and a collection is a way of looking
-    ///     at them, which is the same word and the same reason the saved filters use.</remarks>
-    public event Action<string>? CollectionForgotten;
-
-    /// <summary>Raised when rows are dropped onto a folder row.</summary>
-    public event Action<IReadOnlyList<AssetId>, AssetId>? Moved;
 
     /// <summary>Raised when a drag leaves the panel and is released somewhere else.</summary>
     /// <remarks>
@@ -187,24 +173,6 @@ sealed class ProjectBrowser {
     ///     stays highlighted.
     /// </remarks>
     public event Action<IReadOnlyList<AssetId>, float, float>? DraggedOutside;
-
-    /// <summary>Raised when files are dropped onto the panel from outside the editor.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>The paths and the folder they landed in, because where a drop lands is what
-    ///         chooses the destination.</b> Doc 20 § B3 asks an import to choose a destination, and a
-    ///         drag says it with the pointer: dropping a folder of textures on <c>Textures/</c> means
-    ///         that folder, and there is no dialog in the world that says it faster. What the browser
-    ///         will not do is the import itself — copying into <c>Assets/</c> and rescanning is the
-    ///         application's, for the same reason every other verb here goes out as an event.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>An in-app drag is not this.</b> <see cref="DropEvent.Files" /> is empty for a
-    ///         drag begun inside the editor — a row dragged out of this very panel arrives as one —
-    ///         and importing an asset the project already holds would copy a file over itself.
-    ///     </para>
-    /// </remarks>
-    public event Action<IReadOnlyList<string>, string>? FilesDropped;
 
     /// <summary>Raised when a pointer goes down on the panel, and again when it comes up.</summary>
     /// <remarks>
@@ -240,20 +208,25 @@ sealed class ProjectBrowser {
     ///     database itself was the second copy of a sequence the disk watcher also had.
     /// </param>
     /// <param name="panel">Where to put the rows.</param>
-    /// <param name="shown">What the grid is showing, which outlives this panel — the library's.</param>
+    /// <param name="library">
+    ///     The project's content, through its service: what the grid is showing (its <c>Shown</c>, which
+    ///     outlives this panel), the collections and saved filters, and the verbs a row's gestures name.
+    /// </param>
     /// <param name="extensions">
     ///     What has been contributed, for the pictures. A constructor argument and not a settable
     ///     property, because this constructor populates both views before it returns — a registry
     ///     assigned afterwards would arrive one panel too late, which is the shape of mistake
     ///     <c>EditorSession</c> already made once with <c>init</c>.
     /// </param>
-    public ProjectBrowser(IProjectSession session, UiElement panel, ShownContent shown, IEditorRegistry extensions) {
+    public ProjectBrowser(IProjectSession session, UiElement panel, IContentLibrary library, IEditorRegistry extensions) {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(panel);
+        ArgumentNullException.ThrowIfNull(library);
         ArgumentNullException.ThrowIfNull(extensions);
 
         this.session = session;
-        this.shown = shown;
+        this.library = library;
+        shown = library.Shown;
         project = session.Project;
         Extensions = extensions;
         root = AssetTree.Build(project.Assets.Entries);
@@ -296,8 +269,12 @@ sealed class ProjectBrowser {
                 // Handled, so a drop is imported once. Nothing above this is listening today, and
                 // the day something is, two copies of a hundred textures is not the failure to find
                 // out that way.
+                // ⚠ The paths and the folder they landed in, because where a drop lands is what
+                // chooses the destination (doc 20 § B3) — and an in-app drag is not this:
+                // `DropEvent.Files` is empty for one, and importing an asset the project already
+                // holds would copy a file over itself.
                 args.Handled = true;
-                FilesDropped?.Invoke(args.Files, FolderAt(args.X, args.Y));
+                library.Import(args.Files, FolderAt(args.X, args.Y));
             }
         );
 
@@ -405,13 +382,13 @@ sealed class ProjectBrowser {
 
         tree.Renamed += (_, node, name) => {
             if (node.Tag is AssetTreeNode { IsIndexed: true } asset) {
-                Renamed?.Invoke(asset.Guid, name);
+                library.Rename(asset.Guid, name);
             }
         };
 
         // ⚠ The tree has already moved the row by the time this runs and the disk has not, so the
-        // handler reads where it landed, tells the application, and lets the rescan put the rows
-        // back where the disk says they are. A move the file system refuses would otherwise leave
+        // handler reads where it landed, asks the library, and lets the rescan put the rows back
+        // where the disk says they are. A move the file system refuses would otherwise leave
         // the browser showing a folder that does not contain what it is drawing.
         // ⚠ On the tree as well as the grid, and it has to be the *source* that watches for this:
         // a drop outside the panel never reaches the panel it landed on.
@@ -445,7 +422,7 @@ sealed class ProjectBrowser {
 
         tree.Moved += (_, node) => {
             if (node.Parent?.Tag is AssetTreeNode { IsIndexed: true, IsFolder: true } folder) {
-                Moved?.Invoke(Dragged(node), folder.Guid);
+                library.Move(Dragged(node), folder.Path);
             } else {
                 Populate();
             }
@@ -596,7 +573,7 @@ sealed class ProjectBrowser {
     /// <summary>What source control says about a project-relative path, for the column.</summary>
     /// <remarks>
     ///     ⚠ <b>Given to the panel rather than read by it, for the browser's standing rule: every
-    ///     verb goes out as an event and every fact comes in as a value.</b> A browser that ran
+    ///     verb is a service's and every fact comes in as a value.</b> A browser that ran
     ///     <c>git</c> would be a panel that starts a process, and the answer belongs to the project
     ///     rather than to whichever view happens to be open — see <c>EditorApplication.Sweep</c>,
     ///     which is where the sweep is taken and what makes it survive the panel being closed.
@@ -813,21 +790,12 @@ sealed class ProjectBrowser {
 
         heading.Art = StandardIcons.Folder;
 
-        foreach (var named in Collections?.Invoke() ?? []) {
+        foreach (var named in library.Collections) {
             var row = heading.Add(named.Name, new CollectionRow(named.Name));
 
             row.Art = StandardIcons.Folder;
         }
     }
-
-    /// <summary>Where the collections come from, asked at the moment the column is rebuilt.</summary>
-    /// <remarks>
-    ///     ⚠ <b>A function rather than the list, for <see cref="SavedFilters" />'s reason one store
-    ///     over.</b> <c>ProjectSettingsStore.Reload</c> and <c>Reset</c> both replace the settings
-    ///     object — a branch switch, a Revert — so a panel holding the list would go on showing the
-    ///     collections that existed when it was opened.
-    /// </remarks>
-    public Func<IReadOnlyList<SavedAssetSet>>? Collections { get; set; }
 
     /// <summary>Which collection the grid is showing, or <see langword="null" />.</summary>
     public string? Collection => shown.Collection;
@@ -893,14 +861,14 @@ sealed class ProjectBrowser {
             added.Disabled = picked.Count == 0;
             removed.Disabled = picked.Count == 0;
 
-            added.Clicked += _ => CollectionAdded?.Invoke(picked, name);
-            removed.Clicked += _ => CollectionRemoved?.Invoke(picked, name);
+            added.Clicked += _ => library.AddToCollection(name, picked);
+            removed.Clicked += _ => library.RemoveFromCollection(name, picked);
 
             menu.AddSeparator();
 
             var forgotten = menu.AddItem("Forget Collection");
 
-            forgotten.Clicked += _ => CollectionForgotten?.Invoke(name);
+            forgotten.Clicked += _ => library.ForgetCollection(name);
         }
 
         menu.OpenAt(x, y);
@@ -908,13 +876,13 @@ sealed class ProjectBrowser {
 
     /// <summary>Rebuilds the column and the grid after the collections themselves changed.</summary>
     /// <remarks>
-    ///     ⚠ <b>What the application calls after it has written the file</b>, because the browser
+    ///     ⚠ <b>What the application calls when the library says the collections changed</b>, because the browser
     ///     asks for the list rather than holding it — so nothing here knows a collection was added
     ///     until something says so. A collection being shown when it is forgotten drops the grid back
     ///     into the folder it was standing in, which is the only place there is to go.
     /// </remarks>
     public void Recollect() {
-        if (shown.Collection is { } named && Collections?.Invoke().All(one => one.Name != named) != false) {
+        if (shown.Collection is { } named && library.Collections.All(one => one.Name != named)) {
             shown.Collection = null;
         }
 
@@ -969,26 +937,6 @@ sealed class ProjectBrowser {
     /// </remarks>
     public string Kind => kinds.Value is { } chosen && chosen != AnyType ? chosen : string.Empty;
 
-    /// <summary>Where the saved filters come from, asked at the moment the menu opens.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>A function rather than the list, and holding the list would have been a bug
-    ///         rather than a style.</b> <c>EditorPreferences</c> is <i>replaced</i> — the settings
-    ///         window's Revert re-reads the file into a new object, and so does a restart — so a
-    ///         panel that had captured <c>preferences.AssetFilters</c> would go on offering the
-    ///         filters that existed when it was opened, silently, for as long as it stayed open. It
-    ///         is the same shape as <c>CurvePresetLines</c>'s <c>Func&lt;InspectorRow?&gt;</c>: asked
-    ///         at the moment it is needed, because that is the only moment the answer is known to be
-    ///         current.
-    ///     </para>
-    ///     <para>
-    ///         Null while nothing has offered any, which is a browser with no saved filters rather
-    ///         than an error — the panel is constructible without a preferences file, and the
-    ///         harness builds one that way.
-    ///     </para>
-    /// </remarks>
-    public Func<IReadOnlyList<SavedAssetFilter>>? SavedFilters { get; set; }
-
     /// <summary>Puts a filter into the two controls that are the filter.</summary>
     /// <param name="query">What to put in the search box.</param>
     /// <param name="kind">The importer tag, or empty for every kind.</param>
@@ -1037,7 +985,7 @@ sealed class ProjectBrowser {
         save.Disabled = Search.Length == 0 && Kind.Length == 0;
         save.Clicked += _ => FilterSaveRequested?.Invoke();
 
-        var offered = SavedFilters?.Invoke() ?? [];
+        var offered = library.Filters;
 
         if (offered.Count > 0) {
             menu.AddSeparator();
@@ -1056,7 +1004,7 @@ sealed class ProjectBrowser {
                 var line = forget.AddItem(saved.Name);
                 var name = saved.Name;
 
-                line.Clicked += _ => FilterForgotten?.Invoke(name);
+                line.Clicked += _ => library.ForgetFilter(name);
             }
         }
 
@@ -1095,7 +1043,7 @@ sealed class ProjectBrowser {
             if (target.Length == 0) {
                 CollectionCreateRequested?.Invoke(carried);
             } else {
-                CollectionAdded?.Invoke(carried, target);
+                library.AddToCollection(target, carried);
             }
 
             return;
@@ -1386,7 +1334,7 @@ sealed class ProjectBrowser {
     ///     </para>
     /// </remarks>
     AssetTreeNode Gather(string named, AssetTreeNode within) {
-        var wanted = Collections?.Invoke().FirstOrDefault(one =>
+        var wanted = library.Collections.FirstOrDefault(one =>
             string.Equals(one.Name, named, StringComparison.Ordinal)
         );
 

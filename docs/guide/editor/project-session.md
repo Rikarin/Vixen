@@ -3,7 +3,7 @@ title: The project session service
 slug: editor/project-session
 kind: guide
 area: Editor
-summary: What a plugin gets from IProjectSession — the open project, a full rescan, the recent list, New Project's scaffold and the request to reopen the editor over another project.
+summary: What a plugin gets from IProjectSession — the open project, a full rescan, what changed on disk, the project's own code, the recent list, New Project's scaffold and the request to reopen the editor over another project.
 api: [T:Vixen.Editor.Core.IProjectSession, T:Vixen.Editor.Core.RecentProject]
 tags: [editor, project, plugins, services, recents]
 since: 0.1
@@ -23,12 +23,21 @@ related: [editor/index, editor/writing-a-plugin, editor/content-library, editor/
 | `CreateProject(root)` | Writes the `game` template into a directory through `ProjectScaffold` and asks to reopen there. |
 | `RequestProject(root)` | Asks to close this project and reopen the editor over another. |
 | `PendingProject` | Where the editor will reopen, or `null`. |
+| `IsWatching` / `ChangedOnDisk` | Whether a watcher is over `Assets/`, and the event it raises once per burst of outside changes — after the rescan they caused, with what changed and whether events were lost. |
+| `BuildCode()` / `CodeBuilt` | Builds and loads the project's own C#, taking the scene's authored behaviours off and putting them back on the rebuilt types; `false` when the build failed, which has been reported. |
 
 ## What it is for
 
 The three calls that make a rescan used to be repeated by whoever needed them — the content browser scanned
 and saved the database itself, and the disk watcher did it again when the browser was closed. They
-are one method now, and the browser's Refresh, the watcher and a plugin all reach it.
+are one method now, and the browser's Refresh, the watcher and a plugin all reach it. The watcher and
+the code build are the session's too: the editor opens the project through it, drains the watcher
+once a frame, and builds the game's code on its first frame.
+
+⚠ **`ChangedOnDisk` hands over a list it reuses.** Read it during the call. An overflow — the watcher
+lost events — means the list cannot name everything; treat it as "anything may have changed".
+⚠ The database's own `.meta` writes are heard as outside changes today, so a new file arrives as two
+bursts ([#1488](https://github.com/Rikarin/Vixen/issues/1488)).
 
 ⚠ **Opening another project is a request, not a call.** The editor is *rebuilt* over the new root by
 the host — the same path every launch takes — rather than having a world, a scene, an asset database
@@ -55,6 +64,7 @@ What it deliberately does **not** do:
 var session = context.Services.Require<IProjectSession>();
 
 session.Rescanned += report => Log($"{report.Assets} assets after the rescan");
+session.ChangedOnDisk += (changes, overflowed) => Log(overflowed ? "anything may have changed" : $"{changes.Count} change(s)");
 
 context.AddCommand("mine.rescan", new StringId("mine.rescan", "Rescan Project"), () => session.Rescan());
 ```

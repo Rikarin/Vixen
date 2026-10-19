@@ -5,17 +5,14 @@
 
 editor menu editor.menu.assets assets.bake-mesh-maps
 editor menu editor.menu.assets assets.build
-editor menu editor.menu.assets assets.delete
 editor menu editor.menu.assets assets.history
 editor menu editor.menu.assets assets.import
 editor menu editor.menu.assets assets.move-to
 editor menu editor.menu.assets assets.open
 editor menu editor.menu.assets assets.refresh
 editor menu editor.menu.assets assets.reimport
-editor menu editor.menu.assets assets.reimport-all
 editor menu editor.menu.assets assets.rename
 editor menu editor.menu.assets assets.revert
-editor menu editor.menu.assets assets.show-in-explorer
 editor menu editor.menu.assets view.panel.addressables
 editor menu editor.menu.assets/editor.menu.create assets.create
 editor menu editor.menu.assets/editor.menu.create assets.new-folder
@@ -381,8 +378,11 @@ vixen.library create assets.create-shader-graph
 vixen.library create assets.create-shape-vocabulary
 vixen.library create assets.create-spline
 vixen.library create assets.create-vfx
+vixen.library menu editor.menu.assets assets.delete
 vixen.library menu editor.menu.assets assets.find-references
+vixen.library menu editor.menu.assets assets.reimport-all
 vixen.library menu editor.menu.assets assets.select-dependencies
+vixen.library menu editor.menu.assets assets.show-in-explorer
 vixen.library menu editor.menu.assets/editor.menu.create assets.create-addressable-group
 vixen.library menu editor.menu.assets/editor.menu.create assets.create-animation
 vixen.library menu editor.menu.assets/editor.menu.create assets.create-animation-graph

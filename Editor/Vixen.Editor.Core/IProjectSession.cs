@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.IO.Watch;
+
 namespace Vixen.Editor.Core;
 
 /// <summary>Doc 50 § D2's Project service: which project is open, what is on disk, and which opens next.</summary>
@@ -47,4 +49,35 @@ public interface IProjectSession {
 
     /// <summary>Raised after every <see cref="Rescan" />, with what it found.</summary>
     event Action<ScanReport>? Rescanned;
+
+    /// <summary>Whether something is watching the project's assets for changes made outside the editor.</summary>
+    /// <remarks>
+    ///     False for a project with no assets directory yet, on a share the platform cannot watch, and in
+    ///     a harness that asked for none — the project still opens, and <see cref="Rescan" /> still works.
+    /// </remarks>
+    bool IsWatching { get; }
+
+    /// <summary>
+    ///     Raised once for each burst of changes made to the assets outside the editor, after the rescan
+    ///     they caused — with what changed and whether the watcher lost events.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The list is reused and is only valid during the call.</b> An overflow means the list
+    ///     cannot be trusted to name everything that changed; treat it as "anything may have".
+    /// </remarks>
+    event Action<IReadOnlyList<FileChange>, bool>? ChangedOnDisk;
+
+    /// <summary>Builds the project's own code and loads it, keeping the scene's authored behaviours across the reload.</summary>
+    /// <returns>
+    ///     <see langword="false" /> when the build failed, which has been reported; <see langword="true" />
+    ///     when it built, and also for a project with no code to build.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>It runs a compiler</b>, which takes seconds on a cold restore — the editor calls it on its
+    ///     first frame, not while it is starting.
+    /// </remarks>
+    bool BuildCode();
+
+    /// <summary>Raised after <see cref="BuildCode" /> loaded the project's code and put the authored behaviours back.</summary>
+    event Action? CodeBuilt;
 }

@@ -54,7 +54,7 @@ public readonly record struct ProjectBuild(Assembly? Assembly, string Output, bo
 ///         ⚠ <b>What a caller must do first is take the live instances off.</b> This knows nothing
 ///         about scenes; a behaviour authored into one is an object of a type that is about to stop
 ///         existing, and <c>ISceneBehaviorBinder.Save</c> is how its values cross the gap. The editor
-///         does that around its call — see <c>EditorApplication.BuildProjectCode</c>.
+///         does that around its call — see <c>ProjectSession.BuildCode</c>.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Taking a behaviour off also ends its coroutines, which is what makes that enough.</b>
