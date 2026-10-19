@@ -1113,6 +1113,78 @@ public sealed class SceneDocument : EditorDocument {
         return false;
     }
 
+    /// <summary>What this document says about one entity beyond its name, id and prefab link.</summary>
+    /// <param name="Hidden">Whether it was hidden directly.</param>
+    /// <param name="Locked">Whether it was locked directly.</param>
+    /// <param name="Mesh">Its editable geometry — the object itself, which nothing can reach once it is deleted.</param>
+    /// <param name="Version">How many times that mesh had changed.</param>
+    /// <param name="Shape">The live parameters it was generated from.</param>
+    /// <param name="Materials">A copy of its per-group materials.</param>
+    /// <param name="Boolean">The boolean its geometry was derived by.</param>
+    /// <remarks>
+    ///     ⚠ <b>Every table <see cref="PruneNames" /> drops apart from the three a snapshot already
+    ///     carries, and the two lists have to be kept in step.</b> A delete's undo restores the handle
+    ///     and the components; everything here is keyed by handle on the document instead, and was lost
+    ///     on the way — a hidden entity came back drawn, a locked one pickable (#1482) and a blockout
+    ///     box with a transform and no geometry.
+    /// </remarks>
+    internal readonly record struct Annotations(
+        bool Hidden,
+        bool Locked,
+        EditMesh? Mesh,
+        int Version,
+        ShapeParameters? Shape,
+        Dictionary<int, AssetReference>? Materials,
+        CsgNode? Boolean
+    );
+
+    /// <summary>Reads what <see cref="Annotations" /> keeps about an entity, before it is deleted.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Its annotations.</returns>
+    internal Annotations AnnotationsOf(Entity entity) =>
+        new(
+            hidden.Contains(entity),
+            locked.Contains(entity),
+            meshes.GetValueOrDefault(entity),
+            versions.GetValueOrDefault(entity),
+            shapes.TryGetValue(entity, out var shape) ? shape : null,
+            materials.TryGetValue(entity, out var table) ? new(table) : null,
+            BooleanOf(entity)
+        );
+
+    /// <summary>Puts back what <see cref="AnnotationsOf" /> read, after the entity is recreated.</summary>
+    /// <param name="entity">The entity, under the handle it had.</param>
+    /// <param name="annotations">What it had.</param>
+    /// <remarks>
+    ///     ⚠ <b>Written to the tables rather than through <see cref="SetShape" />,</b> which would
+    ///     regenerate the mesh from the parameters and throw away whatever the recorded one was. And
+    ///     the mesh version resumes past the recorded one rather than restarting, because it is a number
+    ///     that "never goes back" and a cache holding the old value would otherwise read a restored
+    ///     mesh as one it had already seen.
+    /// </remarks>
+    internal void Annotate(Entity entity, Annotations annotations) {
+        Mark(hidden, entity, annotations.Hidden);
+        Mark(locked, entity, annotations.Locked);
+
+        if (annotations.Shape is { } shape) {
+            shapes[entity] = shape;
+        }
+
+        if (annotations.Materials is { } table) {
+            materials[entity] = new(table);
+        }
+
+        if (annotations.Boolean is { } node) {
+            booleans[entity] = node;
+        }
+
+        if (annotations.Mesh is { } mesh) {
+            meshes[entity] = mesh;
+            versions[entity] = annotations.Version;
+            TouchMesh(entity);
+        }
+    }
+
     /// <summary>Forgets everything this document holds about entities that are no longer alive.</summary>
     /// <returns>How many were forgotten.</returns>
     /// <remarks>

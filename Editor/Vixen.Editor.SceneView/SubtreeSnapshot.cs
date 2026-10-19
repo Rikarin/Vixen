@@ -45,6 +45,8 @@ sealed class SubtreeSnapshot : IDisposable {
     /// <param name="Id">Its stable id, or empty if one was never minted.</param>
     /// <param name="Link">Which prefab it came from, or null if it came from none.</param>
     /// <param name="Overrides">Which members it claimed as its own, or null if it claimed none.</param>
+    /// <param name="Removed">Which of its template's entities it had deleted, for an instance root.</param>
+    /// <param name="Annotations">Its hidden and locked marks, its geometry and what was said about it.</param>
     /// <remarks>
     ///     ⚠ <b>The prefab link is recorded here for the reason the name and the id are, and losing
     ///     it is quieter than losing either.</b> <c>PruneNames</c> drops the links of dead handles, so
@@ -62,7 +64,8 @@ sealed class SubtreeSnapshot : IDisposable {
         EntityId Id,
         PrefabLink? Link,
         string[]? Overrides,
-        EntityId[]? Removed
+        EntityId[]? Removed,
+        SceneDocument.Annotations Annotations
     );
 
     static readonly ComponentTypeId[] Structural = [
@@ -150,6 +153,7 @@ sealed class SubtreeSnapshot : IDisposable {
             }
 
             document.Adopt(item.Handle, item.Id);
+            document.Annotate(item.Handle, item.Annotations);
 
             if (item.Link is { } link) {
                 document.Prefabs.Record(item.Handle, link, item.Overrides ?? []);
@@ -197,7 +201,11 @@ sealed class SubtreeSnapshot : IDisposable {
 
                 // And the removed list, which only an instance root ever has anything in — its own
                 // delete is what would otherwise lose the record of every child deleted before it.
-                [.. document.Prefabs.RemovedFrom(entity)]
+                [.. document.Prefabs.RemovedFrom(entity)],
+
+                // ⚠ And every other table PruneNames drops with the name — #1482. Without them a
+                // hidden entity came back drawn, a locked one pickable and a blockout mesh empty.
+                document.AnnotationsOf(entity)
             )
         );
 

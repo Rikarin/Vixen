@@ -458,6 +458,37 @@ public class BlockoutBooleanTests : IDisposable {
         Assert.True(scene.IsHiddenDirectly(hole));
     }
 
+    /// <summary>Undoing an Apply Boolean puts the operands back hidden, with their geometry — #1482.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The apply deletes the operands, and the delete's snapshot is what brings them back.</b>
+    ///     It carried neither the hidden mark nor the mesh, so the undo restored two operands that
+    ///     were drawn over the result they had been hidden under — and drawn as nothing, because the
+    ///     mesh table had dropped them too.
+    /// </remarks>
+    [Fact]
+    public void Undoing_an_apply_brings_the_operands_back_hidden_and_whole() {
+        var wall = Box(new(4f, 3f, 0.5f));
+        var hole = Box(new(1f, 2f, 2f));
+
+        scene.Selection.Set([wall, hole]);
+
+        var result = BlockoutBoolean.Subtract(scene);
+
+        Settle();
+        Assert.True(BlockoutBoolean.Collapse(scene, result));
+        Settle();
+
+        Assert.True(scene.Stack.Undo());
+        Settle();
+
+        var operands = SceneCsg.Operands(scene, result);
+
+        Assert.Equal(2, operands.Count);
+        Assert.All(operands, entity => Assert.True(scene.IsHiddenDirectly(entity)));
+        Assert.All(operands, entity => Assert.True(scene.HasMesh(entity)));
+        Assert.True(scene.IsDerived(result));
+    }
+
     [Fact]
     public void Collision_is_a_box_per_shell_and_the_mesh_when_that_is_not_enough() {
         var one = Box(new(2f, 2f, 2f));
