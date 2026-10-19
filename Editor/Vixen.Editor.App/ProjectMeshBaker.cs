@@ -63,6 +63,7 @@ public sealed class ProjectMeshBaker(EditorProject project, string folder = "Blo
         // perfectly good name for one and a path traversal in a file system.
         var file = Path.Combine(directory, Safe(name) + extension);
 
+        project.Assets.WillWrite(file);
         File.WriteAllText(file, content);
         Written = file;
 

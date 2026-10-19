@@ -55,6 +55,12 @@ sealed class ContentTasks {
         this.project = project;
         this.shell = shell;
         workspace = new(project.Paths);
+
+        // ⚠ The workspace's database is not the editor's — `ProjectWorkspace` says why — but the folder
+        // is: its scans mint sidecars and an import writes every one it learns something about back
+        // into `Assets/`. Relayed, so a watcher the editor's database tells hears these as the
+        // editor's own as well (#1497). Raised on the pool, which `AssetDatabase.Writing` allows for.
+        workspace.Database.Writing += project.Assets.WillWrite;
         Meshes = new(workspace);
         Surfaces = new(workspace);
     }

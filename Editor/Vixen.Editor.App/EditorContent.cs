@@ -137,6 +137,8 @@ sealed class EditorContent : IDisposable {
             // build, for a project that was imported perfectly well.
             var workspace = new ProjectWorkspace(project.Paths);
 
+            // Its scan writes into the editor's `Assets/`, so the editor's watcher is told (#1497).
+            workspace.Database.Writing += project.Assets.WillWrite;
             workspace.Cache.TryLoad(workspace.CacheFile);
             workspace.Database.Scan();
 

@@ -94,6 +94,45 @@ public sealed class AssetDatabase {
         time = clock;
     }
 
+    /// <summary>
+    ///     Raised with the absolute path of a file under <c>Assets/</c> that this program is about to
+    ///     write, move or delete — by a <see cref="Scan" /> of this database, or by anything that said so
+    ///     through <see cref="WillWrite" />.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What a watcher over the same directory is told was this program's doing (#1497).</b>
+    ///         #1488 suppressed the sidecars of <c>ProjectSession.Rescan</c>'s own scan and nothing
+    ///         else's, so an import, a bake, a Create ▸, a rename or a package import wrote into
+    ///         <c>Assets/</c> and a quarter of a second later the watcher reported the same files as an
+    ///         outside change: a second scan, a source-control sweep and a <c>ChangedOnDisk</c> to every
+    ///         module. Raised here, before the write, the subscriber hears about it whichever of the
+    ///         dozen callers scanned and whichever thread it ran on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Raised on whatever thread is writing</b> — the scan reads in parallel and an import's
+    ///         write-back runs on the pool. A subscriber is a watcher's <c>Suppress</c>, which locks.
+    ///     </para>
+    /// </remarks>
+    public event Action<string>? Writing;
+
+    /// <summary>Says this program is about to write, move or delete a file under <c>Assets/</c>.</summary>
+    /// <param name="path">The file's absolute path. A move says both ends, and a sidecar is a file of its own.</param>
+    /// <remarks>
+    ///     For a writer outside the scan: an import's write-back, a bake, an asset operation. Call it
+    ///     before the write, since a watcher told afterwards can already have reported it.
+    /// </remarks>
+    public void WillWrite(string path) {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        Writing?.Invoke(path);
+    }
+
+    /// <summary>Announces a sidecar this scan is about to write or move, and keeps it for the report.</summary>
+    void Writes(ConcurrentBag<string> written, string path) {
+        WillWrite(path);
+        written.Add(path);
+    }
+
     /// <summary>Finds an asset by its identity.</summary>
     /// <param name="guid">The GUID.</param>
     /// <param name="entry">What is there.</param>
@@ -131,7 +170,8 @@ public sealed class AssetDatabase {
         var issues = new ConcurrentBag<AssetIssue>();
 
         // Every sidecar this scan writes or moves, for `ScanReport.Written` — what a watcher over the
-        // same directory has to be told was this program's doing (#1488).
+        // same directory has to be told was this program's doing (#1488), and is, through `Writing`,
+        // as each one is written (#1497).
         var written = new ConcurrentBag<string>();
 
         // Taken before the walk, and it is what the *next* scan will refuse to trust from. It catches
@@ -479,8 +519,8 @@ public sealed class AssetDatabase {
                 return null;
             }
 
+            Writes(written, metaPath);
             var minted = CreateMeta(metaPath);
-            written.Add(metaPath);
             issues.Add(new(AssetIssueKind.MetaCreated, relative, $"Had no .meta; created one with GUID {minted}."));
 
             // No stamp, rather than the one the write just left behind. This scan cannot tell an edit
@@ -546,8 +586,8 @@ public sealed class AssetDatabase {
             return;
         }
 
+        Writes(written, AssetMetaFile.PathFor(Paths.Absolute(loser.Path)));
         var minted = ReGuid(loser);
-        written.Add(AssetMetaFile.PathFor(Paths.Absolute(loser.Path)));
         var repaired = loser with { Guid = minted };
         byGuid[winner.Guid] = winner;
         byGuid[minted] = repaired;
@@ -608,8 +648,8 @@ public sealed class AssetDatabase {
             // and is not if the editor helpfully tidied it away.
             var destination = Path.Combine(Paths.OrphanMeta, Paths.Relative(meta));
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            Writes(written, meta);
             File.Move(meta, destination, overwrite: true);
-            written.Add(meta);
             survey.Sidecars.Remove(owner);
             issues.Add(new(AssetIssueKind.MetaOrphaned, relative, $"Its asset is gone. Moved to '{Paths.Relative(destination)}'."));
         }

@@ -145,6 +145,46 @@ public sealed class AssetDatabaseTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>Every sidecar a scan writes or moves is announced through <see cref="AssetDatabase.Writing" />
+    ///     before it is touched (#1497)</b>, so a watcher told by the event never sees the write first —
+    ///     whichever of the editor's dozen scanning call sites ran the scan.
+    /// </summary>
+    [Fact]
+    public void AScanAnnouncesEverySidecarBeforeItWritesOrMovesIt() {
+        using var project = new ProjectFixture();
+        var shared = AssetId.New();
+
+        project.Add("Assets/kept.png");
+        project.AddWithoutMeta("Assets/new.png");
+        project.AddOrphanMeta("Assets/gone.png");
+        project.Add("Assets/b.png", "b", shared);
+        project.Add("Assets/a.png", "a", shared);
+
+        var orphan = project.Paths.Absolute("Assets/gone.png.meta");
+        var minted = project.Paths.Absolute("Assets/new.png.meta");
+        var regenerated = project.Paths.Absolute("Assets/b.png.meta");
+        var before = File.ReadAllText(regenerated);
+        var database = new AssetDatabase(project.Paths);
+        var untouched = new System.Collections.Concurrent.ConcurrentBag<string>();
+
+        // What is on disk at the moment of the announcement says whether it came first.
+        database.Writing += path => {
+            var unwritten = path == minted ? !File.Exists(path)
+                : path == orphan ? File.Exists(path)
+                : File.ReadAllText(path) == before;
+
+            if (unwritten) {
+                untouched.Add(path);
+            }
+        };
+
+        var report = database.Scan();
+
+        Assert.Equal(report.Written, untouched.Order(StringComparer.Ordinal));
+        Assert.Equal(3, report.Written.Count);
+    }
+
+    /// <summary>
     ///     When no hash settles it, the first path in order keeps the GUID — a rule rather than
     ///     whichever file the filesystem happened to hand over first, so two machines scanning one
     ///     checkout agree.

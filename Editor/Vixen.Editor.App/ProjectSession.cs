@@ -121,6 +121,11 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         code = new ProjectAssemblies(project.Paths);
         project.DocumentSaving += RefuseToSaveWithout;
 
+        // ⚠ Every write the editor announces into `Assets/` is suppressed on the watcher, not only the
+        // rescan's (#1497) — and from here rather than from `Watch`, because the subscription costs
+        // nothing while there is no watcher and `Watch` may replace the one there is.
+        project.Assets.Writing += Suppress;
+
         // ⚠ #656: a document saved through `Vixen.Ui`'s `document.save` or the close prompt answers
         // a failed write with `false` and reports it here, which is what makes that `false` a message
         // rather than a Save that silently did nothing. With nobody subscribed it would throw. Moved
@@ -250,14 +255,10 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     ///     editor slower the more often it was refreshed, which is the wrong way round.
     /// </remarks>
     public ScanReport Rescan() {
+        // ⚠ The sidecars this scan mints are suppressed as it writes them (#1488), through
+        // `AssetDatabase.Writing` — see `Watch` — and not from `report.Written` here, which covered this
+        // scan and none of the dozen others that write into the same directory (#1497).
         var report = project.Assets.Scan();
-
-        // ⚠ Before anything drains the watcher again (#1488). A file dropped into `Assets/` from
-        // outside gets its `.meta` minted by this scan, and that write is into the watched directory:
-        // unsuppressed, the watcher reported it a quarter of a second later as a second outside
-        // change, and the whole scan, sweep and thumbnail flush ran twice. `Suppress` also drops an
-        // event already pending for the path, so it is right whether or not the platform has spoken.
-        Suppress(report.Written);
 
         // ⚠ And the scan has now seen every file on disk, including one whose creation is still
         // settling in the watcher. Without this, deleting that file inside the debounce window
@@ -275,20 +276,35 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         return report;
     }
 
-    /// <summary>Tells the watcher that files this session wrote under <c>Assets/</c> were its own doing.</summary>
-    /// <param name="written">Absolute paths; any outside the watched directory are ignored.</param>
-    void Suppress(IReadOnlyList<string> written) {
-        if (watcher is null) {
+    /// <summary>Tells the watcher that a file the editor is about to write under <c>Assets/</c> is its own doing.</summary>
+    /// <param name="absolute">An absolute path; one outside the watched directory is ignored.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Reached from <see cref="AssetDatabase.Writing" />, so possibly from a pool thread</b> — an
+    ///         import's write-back. The field is read once, and a watcher's <c>Suppress</c> takes its lock.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And every folder above it, because a writer makes the folder it writes into</b> — a
+    ///         bake's <c>Materials/</c>, an import's destination, a move's new parent — and that is a
+    ///         creation the platform reports too. Suppression is by exact path, so this hides an event
+    ///         about the folder entry itself for the window and nothing about any other file in it; a
+    ///         folder's own contents changing raises no event for the folder under the watcher's filters.
+    ///     </para>
+    /// </remarks>
+    void Suppress(string absolute) {
+        if (watcher is not { } listening) {
             return;
         }
 
-        foreach (var absolute in written) {
-            var relative = Path.GetRelativePath(project.Paths.Assets, absolute).Replace(Path.DirectorySeparatorChar, VirtualPath.Separator);
+        var relative = Path.GetRelativePath(project.Paths.Assets, absolute).Replace(Path.DirectorySeparatorChar, VirtualPath.Separator);
 
-            if (!relative.StartsWith("..", StringComparison.Ordinal)
-                && !Path.IsPathRooted(relative)
-                && VirtualPath.TryCreate("/" + relative, out var path)) {
-                watcher.Suppress(path);
+        if (relative.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relative) || relative == ".") {
+            return;
+        }
+
+        for (var end = relative.Length; end > 0; end = relative.LastIndexOf(VirtualPath.Separator, end - 1)) {
+            if (VirtualPath.TryCreate("/" + relative[..end], out var path)) {
+                listening.Suppress(path);
             }
         }
     }
@@ -568,6 +584,24 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         external = new(project, watcher);
     }
 
+    /// <summary>Watches through a watcher the caller made, for a suite that decides what the platform reports.</summary>
+    /// <param name="assets">The watcher, which this session now owns.</param>
+    /// <remarks>
+    ///     ⚠ <b>The seam that makes "nothing echoed" a count rather than a wait (#1497).</b> A real watcher's
+    ///     events arrive on a platform thread after a debounce measured in real time, so a test of
+    ///     <i>no</i> event can only sleep and hope; one that replays the disk's changes into a watcher of its
+    ///     own can drain it at once.
+    /// </remarks>
+    internal void WatchWith(IFileWatcher assets) {
+        ArgumentNullException.ThrowIfNull(assets);
+
+        watcher?.Dispose();
+        watcher = assets;
+
+        external?.Dispose();
+        external = new(project, watcher);
+    }
+
     /// <summary>What a change on disk did to the open documents, for the suite that asserts about it.</summary>
     /// <exception cref="InvalidOperationException">Asked for before <see cref="Watch" />.</exception>
     internal ExternalEdits External =>
@@ -676,6 +710,7 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         external = null;
 
         project.DocumentSaving -= RefuseToSaveWithout;
+        project.Assets.Writing -= Suppress;
     }
 
     /// <summary>Says so when the project was made by an engine newer than this one.</summary>

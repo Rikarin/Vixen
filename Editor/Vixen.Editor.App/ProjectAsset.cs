@@ -308,6 +308,7 @@ public sealed class ProjectAsset {
             && !updated.Excluded;
 
         try {
+            project.Assets.WillWrite(path);
             AssetMetaFile.WriteFile(path, current with { Addressable = empty ? null : updated });
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             // A read-only checkout is an ordinary thing to meet. The row reads back what is still on
