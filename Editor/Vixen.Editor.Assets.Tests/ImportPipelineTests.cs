@@ -436,6 +436,36 @@ public sealed class ImportPipelineTests : IDisposable {
         Assert.True(second.Succeeded);
     }
 
+    /// <summary>⚠ And the same for a format that was declared editor-only and later grows an importer (#1491).</summary>
+    /// <remarks>
+    ///     <see cref="EditorOnlyImporter" /> is the other entry nobody chose: every sidecar beside a
+    ///     <c>.vxtexgraph</c> names it today, so honouring that name would keep the file unimported for
+    ///     ever once a real importer claims the extension. Modelled with the palette, whose sidecar is
+    ///     rewritten to name the editor-only importer while <c>PaletteImporter</c> claims the extension.
+    /// </remarks>
+    [Fact]
+    public async Task A_sidecar_naming_the_editor_only_importer_gives_way_to_the_extensions_own() {
+        Write("Assets/hero.pal", "palette bytes");
+
+        var database = Database();
+        var entry = Entry(database, "Assets/hero.pal");
+        var pipeline = new ImportPipeline(
+            database,
+            Registry(new PaletteImporter()).Add(new EditorOnlyImporter()),
+            Artifacts(),
+            Files()
+        );
+
+        await pipeline.ImportAsync(entry, TestContext.Current.CancellationToken);
+
+        EditMeta("Assets/hero.pal", _ => { }, "guid: {guid}\nmetaVersion: 1\nimporter: !EditorOnlyImporter\n");
+
+        var outcome = await pipeline.ImportAsync(entry, TestContext.Current.CancellationToken);
+
+        Assert.Equal("PaletteImporter", outcome.Importer);
+        Assert.True(outcome.Succeeded);
+    }
+
     /// <summary>⚠ A sidecar naming an importer this host lacks is refused, not handed to the fallback.</summary>
     /// <remarks>
     ///     <para>

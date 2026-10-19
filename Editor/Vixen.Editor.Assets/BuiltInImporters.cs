@@ -105,6 +105,7 @@ public static class BuiltInImporters {
                 .Add(new Gameplay.DefinitionImporter())
                 .Add(new Net.NetworkRulesImporter())
                 .Add(new Audio.MixerImporter())
+                .Add(new EditorOnlyImporter())
                 .Add(new NativeFormatImporter())
                 .Add(new FolderImporter())
             )

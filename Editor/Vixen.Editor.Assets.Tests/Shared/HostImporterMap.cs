@@ -36,7 +36,12 @@ namespace Vixen.Testing.Importers;
 /// </remarks>
 static class HostImporterMap {
     /// <summary>The map, as <c>extension TypeName</c> lines; <c>-</c> for an importer chosen by name, <c>*</c> for the fallback.</summary>
-    /// <remarks>Captured on master at 5f03c9b80, before any importer moved.</remarks>
+    /// <remarks>
+    ///     Captured on master at 5f03c9b80, before any importer moved. ⚠ Changed once since, on purpose and
+    ///     for every host at once: <c>.vxlayers</c> and <c>.vxtexgraph</c> went from the fallback to
+    ///     <c>EditorOnlyImporter</c> (#1491). A move must leave this list alone; a decision about what a
+    ///     format is may change it, in the commit that makes the decision.
+    /// </remarks>
     public static readonly string[] Expected = [
         "* RawImporter",
         "- FolderImporter",
@@ -83,6 +88,7 @@ static class HostImporterMap {
         ".vxharness HarnessPlanImporter",
         ".vxinput NativeFormatImporter",
         ".vxitem DefinitionImporter",
+        ".vxlayers EditorOnlyImporter",
         ".vxlayer TerrainAssetImporter",
         ".vxloot DefinitionImporter",
         ".vxmat MaterialImporter",
@@ -100,6 +106,7 @@ static class HostImporterMap {
         ".vxshadergraph ShaderGraphImporter",
         ".vxshapevocab ShapeVocabularyImporter",
         ".vxspline TerrainAssetImporter",
+        ".vxtexgraph EditorOnlyImporter",
         ".vxutility UtilitySetImporter",
         ".vxvfx VfxImporter",
         ".vxwaves WaterWavesImporter",

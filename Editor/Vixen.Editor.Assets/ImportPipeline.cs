@@ -587,10 +587,13 @@ public sealed class ImportPipeline {
 
         // Naming a *specific* importer is still a decision and still wins — including one that is not
         // the extension's, which is how somebody imports a .png as a cube map. Only the fallback is
-        // disregarded, and only because it is the one entry nobody chose.
+        // disregarded, and only because it is the one entry nobody chose — and EditorOnlyImporter, the
+        // other one (#1491): a sidecar naming it was written by its claim on the extension, so the day a
+        // real importer takes that extension over, honouring the name would keep the file unimported.
         if (root["importer"]?.Tag is { } tag
             && importers.TryGetByName(tag, out var named)
-            && !ReferenceEquals(named, importers.Fallback)) {
+            && !ReferenceEquals(named, importers.Fallback)
+            && named is not EditorOnlyImporter) {
             importer = named;
             return true;
         }
