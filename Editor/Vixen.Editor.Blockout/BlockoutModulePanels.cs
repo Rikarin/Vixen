@@ -60,23 +60,14 @@ public sealed partial class BlockoutModule {
     EditorShell Shell =>
         shell ?? throw new InvalidOperationException("The module has not been activated, so it has no shell.");
 
-    /// <summary>The sheet <see cref="BlockoutTheme" /> was loaded into, and which document holds it.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Kept across an unload, so the next activation puts the rules back in the same slot.</b>
-    ///     <c>UiDocument</c> can replace a sheet's text and cannot take a sheet out — the style engine's
-    ///     rule indices and layer order assume sheets are only ever appended — so releasing the theme
-    ///     means emptying its sheet, and loading it again means refilling that one rather than adding
-    ///     another. A module reloaded ten times would otherwise leave ten copies of its rules in the
-    ///     cascade, nine of them from activations that no longer exist.
-    /// </remarks>
-    (UiDocument Document, int Sheet)? theme;
-
     /// <summary>Registers the settings panel and the UV panel, and the sheet both are styled by.</summary>
     /// <remarks>
-    ///     ⚠ <b>Through the context, and both used to go round it.</b> <c>Shell.RegisterPanel</c> had no
-    ///     removal, so unloading or disabling Blockout left both panels and their View-menu toggles
-    ///     registered, each a closure over this module; <c>context.AddPanel</c> records the removal.
-    ///     The theme was installed and never released, and is now emptied on unload.
+    ///     ⚠ <b>Through the context, and all three used to go round it.</b> <c>Shell.RegisterPanel</c>
+    ///     had no removal, so unloading or disabling Blockout left both panels and their View-menu
+    ///     toggles registered, each a closure over this module; <c>context.AddPanel</c> records the
+    ///     removal. The theme was installed and never released; <c>context.AddStyleSheet</c> takes it
+    ///     out of the document on unload (#1484), so a module loaded, unloaded and loaded again — by
+    ///     a reload or as a fresh instance — leaves the document with the sheets it had plus one.
     /// </remarks>
     void SettingsPanels(PluginContext context) {
         context.AddPanel(
@@ -128,7 +119,7 @@ public sealed partial class BlockoutModule {
             }
         );
 
-        Theme(context);
+        context.AddStyleSheet(BlockoutTheme.Css);
 
         context.AddPanel(
             UvPanel,
@@ -148,21 +139,6 @@ public sealed partial class BlockoutModule {
                 view.Model = uv;
             }
         );
-    }
-
-    /// <summary>Puts the theme's rules in the cascade, and takes them back out on unload.</summary>
-    void Theme(PluginContext context) {
-        var document = context.Shell.Document;
-
-        if (theme is { } held && ReferenceEquals(held.Document, document)) {
-            document.ReloadStyles(held.Sheet, BlockoutTheme.Css);
-        } else {
-            theme = (document, BlockoutTheme.Install(document));
-        }
-
-        var sheet = theme.Value.Sheet;
-
-        context.OnUnload(() => document.ReloadStyles(sheet, string.Empty));
     }
 
     /// <summary>A titled divider, which is all a section is.</summary>

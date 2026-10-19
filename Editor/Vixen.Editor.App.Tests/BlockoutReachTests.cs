@@ -6,6 +6,7 @@ using Vixen.Editor.Blockout;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Testing;
 using Vixen.Editor.Ui;
+using Vixen.Ui.Styling;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -122,11 +123,11 @@ public class BlockoutReachTests {
     ///         part that was taken back.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The sheet count is held to the count after the <i>first</i> load, not to the one
-    ///         before it</b>, and that is <c>UiDocument</c>'s limit rather than this module's: a sheet
-    ///         can be emptied and cannot be removed, so releasing the theme empties its sheet and the
-    ///         reload refills the same one. What is asserted is that its rules leave the cascade and
-    ///         that the cascade does not grow by a copy per reload. ⚠ <c>WaitForCollection</c> is not
+    ///         <b>The loaded-sheet count returns to the count before the module across load, unload and
+    ///         load</b> — a reload and then a fresh instance — and the theme's text is in the cascade
+    ///         exactly once while it runs and not at all after. Before #1484 a sheet could be emptied
+    ///         and not removed, so this was held to the count after the first load. ⚠ Red against the
+    ///         emptying theme: the unloaded count was one too many. ⚠ <c>WaitForCollection</c> is not
     ///         asserted, because for a built-in it answers true without collecting anything — there is
     ///         no load context to wait for — and a predicate that cannot be false proves nothing.
     ///     </para>
@@ -139,8 +140,10 @@ public class BlockoutReachTests {
         var host = session.Application.PluginHost;
         var styles = shell.Document.Styles;
 
-        var sheets = styles.SheetCount;
-        var sheet = Enumerable.Range(0, sheets).Single(index => styles.SheetText(index) == BlockoutTheme.Css);
+        // The module is already in, so the document without it is one sheet fewer.
+        var loaded = styles.LoadedSheetCount;
+        var baseline = loaded - 1;
+        Assert.Equal(1, Themes(styles));
 
         // A reload is an unload and a load of the same module: everything its first activation
         // registered is taken out and registered again — once.
@@ -153,8 +156,8 @@ public class BlockoutReachTests {
         Assert.Single(shell.Workspace.Panels, panel => panel.Id == BlockoutMode.PanelId);
         Assert.Single(shell.Workspace.Panels, panel => panel.Id == "blockout.uv");
         Assert.Single(shell.Modes.Modes, mode => mode.Id == BlockoutMode.ModeId);
-        Assert.Equal(BlockoutTheme.Css, styles.SheetText(sheet));
-        Assert.Equal(sheets, styles.SheetCount);
+        Assert.Equal(1, Themes(styles));
+        Assert.Equal(loaded, styles.LoadedSheetCount);
         Assert.True(host.Services.Contains<IBlockout>());
 
         // And an unload leaves nothing of it registered, and nothing of its rules in the cascade.
@@ -164,10 +167,20 @@ public class BlockoutReachTests {
         Assert.DoesNotContain(shell.Workspace.Panels, panel => panel.Id.StartsWith("blockout", StringComparison.Ordinal));
         Assert.Null(shell.Commands[EditorShell.PanelCommand(BlockoutMode.PanelId)]);
         Assert.DoesNotContain(shell.Modes.Modes, mode => mode.Id == BlockoutMode.ModeId);
-        Assert.Equal(string.Empty, styles.SheetText(sheet));
-        Assert.Equal(sheets, styles.SheetCount);
+        Assert.Equal(0, Themes(styles));
+        Assert.Equal(baseline, styles.LoadedSheetCount);
         Assert.False(host.Services.Contains<IBlockout>());
+
+        // And a fresh instance, which is what a disk plugin's reload is, puts the one sheet back.
+        var again = host.Activate(BlockoutModule.ModuleId, BlockoutModule.ModuleName, new BlockoutModule());
+
+        Assert.Equal(PluginState.Active, again.State);
+        Assert.Equal(1, Themes(styles));
+        Assert.Equal(loaded, styles.LoadedSheetCount);
     }
+
+    static int Themes(StyleEngine styles) =>
+        Enumerable.Range(0, styles.SheetCount).Count(index => styles.SheetText(index) == BlockoutTheme.Css);
 
     static List<string> Lines(EditorShell shell) {
         var lines = new List<string>();
