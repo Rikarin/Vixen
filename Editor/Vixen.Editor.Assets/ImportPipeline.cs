@@ -402,6 +402,22 @@ public sealed class ImportPipeline {
                 return new(metaPath, root, null, null, default, default, default, null, null);
             }
 
+            // ⚠ Refused rather than handed to the fallback — #1300. A sidecar naming an importer this
+            // registry lacks, for a file nothing else here claims, is a host that did not link that
+            // importer (or a registry built before it did): the bytes `RawImporter` would write are not
+            // what the file is, and they used to be written with nothing said.
+            if (ReferenceEquals(importer, importers.Fallback)
+                && root["importer"]?.Tag is { Length: > 0 } named
+                && !importers.TryGetByName(named, out _)) {
+                return Refusal(
+                    metaPath,
+                    $"Its .meta says {named} imports it, and this process has no importer of that name and "
+                    + "nothing else that claims the file — so it would be imported as raw bytes. An importer "
+                    + "out of a feature assembly reaches a registry because the host links it at start-up "
+                    + "(ImporterContributions.Linked); a plugin's, because the plugin is loaded."
+                );
+            }
+
             // ⚠ The recorded settings belong to the importer that recorded them. When the chosen
             // importer is not that one — a format that used to fall through to RawImporter and now
             // has a compiler of its own — binding the old block against the new settings type fails
@@ -540,7 +556,9 @@ public sealed class ImportPipeline {
     ///         The sidecar wins because it is the record of what actually imported this asset last
     ///         time, and changing an asset's importer is a decision somebody made rather than
     ///         something an extension table should silently revisit. A sidecar naming an importer this
-    ///         build does not have falls back to the extension, and says so.
+    ///         build does not have falls back to the extension — and when the extension reaches only
+    ///         the fallback, <see cref="Prepare" /> refuses the file instead (#1300). ⚠ The remark said
+    ///         it "says so" before that, and nothing did: the fallback imported the file in silence.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Except the fallback, which pins nothing.</b> A sidecar saying
