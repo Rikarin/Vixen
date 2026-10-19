@@ -115,6 +115,9 @@
         -->
         <InternalsVisibleTo Include="Vixen.Editor.AssetEditors" />
         <InternalsVisibleTo Include="Vixen.Editor.AssetEditors.Tests" />
+
+        <!-- `TextureOf`, for the editor-level preview test that reads a node's picture back (#1299). -->
+        <InternalsVisibleTo Include="Vixen.Editor.App.Tests" />
     </ItemGroup>
 
 </Project>
