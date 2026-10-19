@@ -290,7 +290,7 @@ What *is* doubled is the language, and each pair is two contexts sharing a word:
 
 And **hidden and locked are edited behind the stack's back**: `SceneDocument.SetHidden`/`SetLocked`
 have no command (grep: none), and are written directly from the outliner's eye and lock toggles
-(`EditorApplication.cs:5125,5127`, `EditorParity.cs:603,612`, `EditorWorlds.cs:597,610`), from `Isolate`
+(`EditorApplication.cs:5082,5084`, `EditorParity.cs:603,612`, `EditorWorlds.cs:597,610`), from `Isolate`
 (`SceneEditing.cs:539-594`), which #1290 moved out of `EditorSelectionVerbs.cs`, and — the one that is a bug — from **inside a Blockout
 transaction** (`BlockoutBoolean.cs:66-71`), so undoing a boolean restores the reparent and the mesh
 and leaves the operand hidden. Filed as [#1277](https://github.com/Rikarin/Vixen/issues/1277).
