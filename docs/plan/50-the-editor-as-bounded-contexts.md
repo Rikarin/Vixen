@@ -652,7 +652,7 @@ Save Filter reads them from the library rather than out of the view; the rescan 
 `IProjectSession`'s (#1293). ⚠ *"Its second asset tree"* is refuted: `AssetTree.Build` has exactly
 one production caller, the browser, and the database holds a flat list — the tree is a projection,
 not a second copy of state, and moving it into the service would need a database change signal
-`AssetDatabase` does not have (and would create the second copy the finding warned about).
+`AssetDatabase` does not have (and would create the second copy the finding warned about). **Second slice:** the grid toggle and the tile size are `Shown.Grid`/`Shown.TileSize` too — read from and written to the preferences through delegates `ShownContent` is built over, asked on every read because Revert replaces the preferences object — so `ProjectBrowser.ViewChanged`/`TileSizeChanged` and the factory's restore are gone. ⚠ A first version copied the two in one setter at a time and wrote a half-restored view back (the toggle's change fired while the size still held its default); the restart half of `BrowserShownTests` caught it, and the copy is gone rather than ordered. Still owed: the verbs still leave the panel as events the application handles.
 
 ### P5 — The gizmo decision (≈ 0.25 EM, a decision before a change)
 

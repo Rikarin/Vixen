@@ -925,9 +925,22 @@ sealed partial class EditorApplication : IDisposable {
             (message, severity, detail) => Shell.Notifications.Show(message, severity, detail),
             () => preferences.AssetFilters,
             () => WritePreferences(),
-            content.Import
+            content.Import,
+
+            // ⚠ The browser's tiles-or-tree and tile size (#1304): the model's, kept in the preferences
+            // and asked for on every read — Revert replaces the object — and written on change rather
+            // than on the way down, because closing the *panel* is a way the choice was being lost.
+            new ShownContent(
+                () => preferences.ProjectGridView,
+                () => preferences.ProjectTileSize,
+                (grid, size) => {
+                    (preferences.ProjectGridView, preferences.ProjectTileSize) = (grid, size);
+                    WritePreferences();
+                }
+            )
         );
         library.CollectionsChanged += () => browser?.Recollect();
+
 
         // ⚠ Doc 50 § P2d: the rescan and the reopen request, before `PluginPoints` publishes it. The
         // close request and the closing flags are handed in rather than moved — closing is the
@@ -2425,24 +2438,6 @@ sealed partial class EditorApplication : IDisposable {
                     Sweep();
                     browser.Grabbing += down => grabbingAssets = down;
                     browser.Thumbnails = thumbnails;
-
-                    // ⚠ Restored before the subscription, so putting the toggle back where the user
-                    // left it is not itself recorded as the user having moved it — and written on
-                    // change rather than on the way down, because closing the *panel* is one of the two
-                    // ways the choice was being lost and nothing runs on that.
-                    browser.IsGrid = preferences.ProjectGridView;
-
-                    browser.ViewChanged += grid => {
-                        preferences.ProjectGridView = grid;
-                        WritePreferences();
-                    };
-
-                    browser.TileSize = preferences.ProjectTileSize;
-
-                    browser.TileSizeChanged += size => {
-                        preferences.ProjectTileSize = size;
-                        WritePreferences();
-                    };
 
                     // ⚠ Doc 20 § B1's saved filters. The list is given to the panel rather than held
                     // by it for `IsGrid`'s reason — a panel's factory runs again on every reopen, and

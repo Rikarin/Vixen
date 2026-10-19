@@ -50,25 +50,31 @@ internal sealed class ContentLibrary : IContentLibrary {
     /// </param>
     /// <param name="writeFilters">Writes the preferences file the filters live in.</param>
     /// <param name="import">Imports what a scan found, on the content tasks' worker.</param>
+    /// <param name="shown">
+    ///     What the browser is showing, or <see langword="null" /> for a model whose view lives only as
+    ///     long as it does — the editor hands one kept in the user's preferences.
+    /// </param>
     public ContentLibrary(
         EditorProject project,
         Action<string, NotificationSeverity, string?> notify,
         Func<List<SavedAssetFilter>> filters,
         Action writeFilters,
-        Action import
+        Action import,
+        ShownContent? shown = null
     ) {
         this.project = project;
         this.notify = notify;
         this.filters = filters;
         this.writeFilters = writeFilters;
         this.import = import;
+        Shown = shown ?? new ShownContent();
     }
 
     /// <inheritdoc />
     public EditorProject Project => project;
 
     /// <inheritdoc />
-    public ShownContent Shown { get; } = new();
+    public ShownContent Shown { get; }
 
     /// <inheritdoc />
     public event Action? CollectionsChanged;

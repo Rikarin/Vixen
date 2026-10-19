@@ -524,7 +524,7 @@
     ///     ⚠ <b>Guarded, because the toggle is bound to <see cref="IsRaw" /> in both directions.</b>
     ///     Restoring the mode writes <c>IsChecked</c>, which raises the control's change — so an
     ///     unguarded handler would record the restore as the user having pressed the button, which is
-    ///     the mistake <c>ProjectBrowser.IsGrid</c>'s own note in <c>EditorApplication</c> records.
+    ///     the mistake the note on the grid toggle in <c>ProjectBrowser</c>'s constructor records.
     /// </remarks>
     /// <param name="on">Whether raw mode is wanted.</param>
     void Reveal(bool on) {
