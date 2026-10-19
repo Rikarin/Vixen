@@ -116,11 +116,11 @@ layout over the one the user spent the afternoon arranging.
 3. Load the plugins — **after** the editor's own commands, so a plugin naming one that already
    exists is refused rather than shadowing it, and **before** the two steps below, because a
    plugin's commands own keymap defaults and a plugin's panels are named by saved layouts. The
-   user's list of switched-off plugins is read before any **disk** plugin is activated, because a
-   plugin somebody disabled because it broke the editor is the one whose `Activate` must not run.
-   ⚠ **Not before the built-in modules**: step 1 activated those already, and
-   `PluginHost.Activate` never consults the suppressed list in any case — so a built-in module
-   cannot be disabled today, whatever the plugin manager's Disable button suggests (#1288).
+   user's list of switched-off plugins is read **before** anything is activated, because a plugin
+   somebody disabled because it broke the editor is the one whose `Activate` must not run. ⚠ That
+   means before step 1, not before this step: the editor's own modules are activated inside
+   `Commands()` (the mode bar's order is theirs), and until #1288 the list was read here — after
+   them — and `PluginHost.Activate` did not consult it, so a built-in could not be disabled.
 4. Load the keymap — **after** the commands that own its defaults, or every override in the file
    lands on a command with no default and the file rewrites itself with the whole map in it.
 5. Load the theme tokens.

@@ -87,4 +87,34 @@ public interface IEditMember {
     /// <param name="document">The document the objects belong to, if any.</param>
     /// <returns>The command.</returns>
     IEditorCommand CreateSetCommand(IReadOnlyList<object> targets, object? value, EditorDocument? document);
+
+    /// <summary>Builds the command that records a change the caller has <i>already applied</i>.</summary>
+    /// <param name="targets">What changed.</param>
+    /// <param name="before">What each target held before, in <paramref name="targets" />' order.</param>
+    /// <param name="after">What each target holds now.</param>
+    /// <param name="name">What the history calls it — <c>Move</c>; a count is added for several.</param>
+    /// <param name="document">The document the objects belong to, if any.</param>
+    /// <returns>The command; its <c>Do</c> writes <paramref name="after" />, which they already hold.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not <see cref="CreateSetCommand" />, because that one reads the before-state at
+    ///         construction</b> — and after a surface has applied a change live, what it reads <i>is</i>
+    ///         the after-state: doc 36 § Part 6 measured that shape recording nothing, stack depth 0.
+    ///         A gizmo drag, a script that moved something, anything that animates a value and commits
+    ///         on release is a surface that applied it and is telling the pipeline (doc 50 § P5, #1291).
+    ///     </para>
+    ///     <para>
+    ///         Defaulted to one entry over every target, so an implementation outside this repository
+    ///         records correctly without knowing this exists; a member whose objects have a richer
+    ///         command of their own — the gizmo's <c>TransformTargetsCommand</c> — overrides it.
+    ///     </para>
+    /// </remarks>
+    IEditorCommand CreateRecordCommand(
+        IReadOnlyList<object> targets,
+        IReadOnlyList<object?> before,
+        IReadOnlyList<object?> after,
+        string name,
+        EditorDocument? document
+    ) =>
+        new RecordedValuesCommand(this, targets, before, after, name, document);
 }

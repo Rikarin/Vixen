@@ -2,14 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.IO.Compression;
-using System.Reflection;
 using Microsoft.Extensions.Logging;
 using Vixen.Core;
 using Vixen.Core.Diagnostics;
-using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
-using Vixen.Ecs.Systems;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.Models;
 using Vixen.Editor.Core;
@@ -19,7 +16,6 @@ using Vixen.Engine.Transforms;
 using Vixen.Input;
 using Vixen.Platform;
 using Vixen.Rendering;
-using Vixen.Rendering.Ecs;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 
@@ -307,7 +303,7 @@ sealed partial class EditorApplication {
             "edit.duplicate",
             EditorStrings.CommandEditDuplicate,
             EditorStrings.CategoryEdit,
-            DuplicateSelection,
+            () => sceneEditing.DuplicateSelection(),
             enabled: () => scene.Selection.Count > 0
         );
 
@@ -340,14 +336,14 @@ sealed partial class EditorApplication {
             "edit.invert-selection",
             EditorStrings.CommandEditInvertSelection,
             EditorStrings.CategoryEdit,
-            InvertSelection
+            sceneEditing.InvertSelection
         );
 
         Verb(
             "edit.select-children",
             EditorStrings.CommandEditSelectChildren,
             EditorStrings.CategoryEdit,
-            SelectChildren,
+            sceneEditing.SelectChildren,
             enabled: () => scene.Selection.Count > 0
         );
 
@@ -355,7 +351,7 @@ sealed partial class EditorApplication {
             "edit.select-parent",
             EditorStrings.CommandEditSelectParent,
             EditorStrings.CategoryEdit,
-            SelectParent,
+            sceneEditing.SelectParent,
             enabled: () => scene.Selection.Count > 0
         );
 
@@ -682,57 +678,14 @@ sealed partial class EditorApplication {
     // ── Entity ──────────────────────────────────────────────────────────────────────────────────
 
     void EntityCommands() {
-        Verb(
-            "entity.create-child",
-            EditorStrings.CommandEntityCreateChild,
-            EditorStrings.CategoryEntity,
-            CreateChild,
-            enabled: () => scene.Selection.Count > 0
-        );
-
-        Verb(
-            "entity.group",
-            EditorStrings.CommandEntityGroup,
-            EditorStrings.CategoryEntity,
-            Group,
-            enabled: () => scene.Selection.Count > 0
-        );
-
-        // ⚠ Two or more, unlike `entity.group` above, and the difference is what the verb means. A
-        // group of one is a perfectly ordinary thing to want; a LOD chain of one is a group whose
-        // only level is always the one drawn, which is what an author gets by doing nothing at all.
-        Verb(
-            "entity.group-lod",
-            EditorStrings.CommandEntityGroupLod,
-            EditorStrings.CategoryEntity,
-            GroupAsLod,
-            enabled: () => scene.Selection.Count > 1
-        );
-
-        Verb(
-            "entity.clear-parent",
-            EditorStrings.CommandEntityClearParent,
-            EditorStrings.CategoryEntity,
-            ClearParent,
-            enabled: () => scene.Selection.Count > 0
-        );
-
-        Verb(
-            "entity.align-with-view",
-            EditorStrings.CommandEntityAlignWithView,
-            EditorStrings.CategoryEntity,
-            AlignWithView,
-            enabled: () => Viewport is not null && scene.Selection.Count > 0
-        );
-
-        Shell.Keys.SetDefault("entity.create-child", new KeyChord(InputKey.N, ModifierKeys.Alt | ModifierKeys.Shift));
-
+        // ⚠ Create Child, Group, Group as LOD, Clear Parent, Align With View, Move To View and Snap To
+        // Floor are `SceneModule`'s now (#1290): names for `ISceneEditing`'s verbs, registered through
+        // `PluginContext` with their keys. What stays here is the shortcut for a command this class
+        // still owns, the planned lines, Set Parent's chooser and the two marks.
         Shell.Keys.SetDefault(
             "scene.create-entity",
             new KeyChord(InputKey.N, ModifierKeys.Control | ModifierKeys.Shift)
         );
-
-        Shell.Keys.SetDefault("entity.group", new KeyChord(InputKey.G, ModifierKeys.Control));
 
         Planned("entity.create-audio", EditorStrings.CommandEntityCreateAudio, EditorStrings.CategoryEntity);
 
@@ -759,28 +712,6 @@ sealed partial class EditorApplication {
             SetParent,
             enabled: () => scene.Selection.Count > 0
         );
-
-        Verb(
-            "entity.move-to-view",
-            EditorStrings.CommandEntityMoveToView,
-            EditorStrings.CategoryEntity,
-            MoveToView,
-            enabled: () => Viewport is not null && scene.Selection.Count > 0
-        );
-
-        // ⚠ Not blocked on the picking readback after all. What Snap To Floor needs is "what does
-        // this ray hit", and `SceneProbe` answers it exactly against the same geometry the viewport
-        // draws — which is what makes it the right answer today and the wrong one the day a shader
-        // moves a vertex. See `SceneProbe`'s own remarks.
-        Verb(
-            "entity.snap-to-floor",
-            EditorStrings.CommandEntitySnapToFloor,
-            EditorStrings.CategoryEntity,
-            SnapToFloor,
-            enabled: () => scene.Selection.Count > 0
-        );
-
-        Shell.Keys.SetDefault("entity.snap-to-floor", new KeyChord(InputKey.End, ModifierKeys.None));
 
         Planned("entity.toggle-active", EditorStrings.CommandEntityToggleActive, EditorStrings.CategoryEntity);
 
@@ -853,51 +784,11 @@ sealed partial class EditorApplication {
     ///     </para>
     /// </remarks>
     void PlayCommands() {
-        // ⚠ The four carry an icon and a colour class, and the transport is the one strip where that
-        // is not decoration. It is the most-clicked control in either reference editor, it is read at
-        // a glance rather than looked at, and — the part that matters most — "am I in play mode" has
-        // to be answerable without reading anything. A row of identical grey glyphs answers none of
-        // those. The theme fills the button when the command is on, so Play is a green button with a
-        // white triangle while the game is running and a green triangle when it is not.
-        Transport(
-            "play.play",
-            EditorStrings.CommandPlayPlay,
-            EditorIcons.Play,
-            EnterPlay,
-            () => !play.IsPlaying,
-            () => play.IsPlaying
-        );
-
-        Transport(
-            "play.pause",
-            EditorStrings.CommandPlayPause,
-            EditorIcons.Pause,
-            () => {
-                if (play.State == PlayState.Paused) {
-                    play.Resume();
-                } else {
-                    play.Pause();
-                }
-            },
-            () => play.IsPlaying,
-            () => play.State == PlayState.Paused
-        );
-
-        Transport(
-            "play.step",
-            EditorStrings.CommandPlayStep,
-            EditorIcons.Step,
-            () => play.Step(),
-            () => play.State == PlayState.Paused
-        );
-
-        Transport("play.stop", EditorStrings.CommandPlayStop, EditorIcons.Stop, LeavePlay, () => play.IsPlaying);
-
-        Shell.Keys.SetDefault("play.play", new KeyChord(InputKey.F5, ModifierKeys.None));
-        Shell.Keys.SetDefault("play.pause", new KeyChord(InputKey.P, ModifierKeys.Control | ModifierKeys.Shift));
-        Shell.Keys.SetDefault("play.step", new KeyChord(InputKey.F10, ModifierKeys.None));
-        Shell.Keys.SetDefault("play.stop", new KeyChord(InputKey.F5, ModifierKeys.Shift));
-
+        // ⚠ Play, Pause, Step and Stop are not here any more (#1289). They are names for
+        // `IPlaySession`'s verbs and `PlayModule` registers them through `PluginContext`, the door a
+        // third party uses — so a plugin reaches the same four verbs the transport does. What is left
+        // here is the Play menu's options, which are this editor's preferences rather than the
+        // session's verbs.
         Planned("play.mode-in-editor", EditorStrings.CommandPlayModeInEditor, EditorStrings.CategoryPlay);
 
         // ⚠ Both of these named milestone E6, and E6 has shipped — `build.settings` is a window and
@@ -1330,30 +1221,6 @@ sealed partial class EditorApplication {
             }
         );
 
-    /// <summary>Registers one of the four transport verbs: an icon, a colour, and a state.</summary>
-    /// <remarks>
-    ///     The class is the command's and the rules are the theme's — see
-    ///     <see cref="EditorCommand.ClassName" /> — so the toolbar stays a view over ids and does not
-    ///     acquire a list of which buttons are green.
-    /// </remarks>
-    void Transport(
-        string id,
-        StringId title,
-        PathBuilder icon,
-        Action run,
-        Func<bool>? enabled = null,
-        Func<bool>? on = null
-    ) =>
-        Shell.Commands.Add(
-            new EditorCommand(id, title, run) {
-                Category = EditorStrings.CategoryPlay,
-                Icon = icon,
-                ClassName = "transport-" + id["play.".Length..],
-                Enablement = enabled,
-                Checked = on
-            }
-        );
-
     /// <summary>Registers one of a pair of verbs that mean different things in different panels.</summary>
     /// <remarks>
     ///     The context is what lets its twin have the same key. See the class's remarks, and
@@ -1535,7 +1402,20 @@ sealed partial class EditorApplication {
     /// <summary>Writes every open document that has changes.</summary>
     void SaveAll() {
         try {
+            // ⚠ Project settings are saved too now (#1310), so what the window's Apply does after a
+            // write — push the content target, retitle, clear its own dirty mark — has to follow, or
+            // the file says one thing and the running editor another until the next launch.
+            var settings = project.Settings.HasUnsavedChanges;
             var written = project.SaveAll();
+
+            if (settings) {
+                ApplyProjectSettings();
+
+                if (projectSettingsView is { } view) {
+                    view.IsDirty = false;
+                }
+            }
+
             Shell.Notifications.Success($"{written} document(s) saved");
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             Shell.Notifications.Show("Could not save everything", NotificationSeverity.Error, exception.Message);
@@ -2203,216 +2083,9 @@ sealed partial class EditorApplication {
 
     // ── Selection and hierarchy verbs ───────────────────────────────────────────────────────────
 
-    void InvertSelection() {
-        var selected = scene.Selection.ToHashSet();
-        scene.Selection.Set([.. scene.Entities.Where(entity => !selected.Contains(entity))]);
-    }
-
-    void SelectChildren() {
-        List<Entity> children = [];
-
-        foreach (var entity in scene.Selection) {
-            // ⚠ Enumerated rather than added as a range. `ChildrenOf` gives back a struct sequence
-            // over the sibling list, which is what keeps walking a hierarchy allocation-free — and
-            // `AddRange` would box it into an enumerator per parent for no reason at all.
-            foreach (var child in Hierarchy.ChildrenOf(world, entity)) {
-                children.Add(child);
-            }
-        }
-
-        if (children.Count > 0) {
-            scene.Selection.Set(children);
-        }
-    }
-
-    void SelectParent() {
-        List<Entity> parents = [];
-
-        foreach (var entity in scene.Selection) {
-            if (Hierarchy.ParentOf(world, entity) is var parent && parent != Entity.Null && !parents.Contains(parent)) {
-                parents.Add(parent);
-            }
-        }
-
-        if (parents.Count > 0) {
-            scene.Selection.Set(parents);
-        }
-    }
-
-    void CreateChild() {
-        if (scene.Selection.Count == 0) {
-            return;
-        }
-
-        var created = scene.Create("Entity", LocalTransform.Identity, scene.Selection[0]);
-        scene.Selection.Set([created]);
-    }
-
-    /// <summary>Puts an empty over the selection and hangs everything selected under it.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Under the first selected entity's parent, not at the root.</b> Grouping three
-    ///         children of a rig and having the group appear beside the rig is the behaviour that
-    ///         makes Ctrl+G untrustworthy — the group belongs where the things being grouped already
-    ///         were.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>One undo step, and the whole selection moves as one command.</b> A create plus a
-    ///         reparent per member is n+1 entries, so Ctrl+Z over a group of five put the fifth
-    ///         entity back and left a group holding the other four — issue 1217. The transaction
-    ///         covers the create, and the batch <see cref="SceneDocument.Reparent(IEnumerable{Entity}, Entity)" />
-    ///         is the overload whose own remarks say why a loop of the single-entity one is wrong.
-    ///     </para>
-    /// </remarks>
-    void Group() {
-        if (scene.Selection.Count == 0) {
-            return;
-        }
-
-        var members = scene.Selection.ToList();
-        var parent = Hierarchy.ParentOf(world, members[0]);
-
-        using var batch = scene.Stack.BeginTransaction(EditorStrings.CommandEntityGroup.Text);
-
-        var group = scene.Create("Group", LocalTransform.Identity, parent);
-
-        scene.Reparent(members, group);
-        scene.Selection.Set([group]);
-    }
-
-    /// <summary>What an entity's <c>LodLevel</c> is written through, so the write is undoable.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The same seam the component panel writes through, rather than a bare
-    ///     <c>World.Add</c>.</b> A command that added the component directly would put a change on
-    ///     the scene that Ctrl+Z cannot take back — and undoing the reparent beside it <em>would</em>
-    ///     work, so the half-undone state is five meshes back where they were, each still claiming to
-    ///     be a level of a group that no longer exists.
-    /// </remarks>
-    static readonly ComponentBridge<LodLevel> LodLevels = new("LodLevel");
-
-    /// <summary>Turns the selection into a LOD chain under a group of its own.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         <b>Issue 1173's item (2).</b> Both components are <c>[Component] [DataContract]</c>,
-    ///         so the inspector has always shown them and a scene has always serialised them — and
-    ///         that was the whole of the authoring story. A three-level chain was three meshes, one
-    ///         empty, three reparents, three <c>LodLevel</c> components typed in by hand and a
-    ///         threshold list typed into a fourth.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Selection order is level order, and the first selected is LOD 0.</b> There is no
-    ///         other honest source: the meshes are three separate imports with no relationship the
-    ///         editor can read, and guessing from triangle counts would be a rule that is right until
-    ///         the day somebody's coarse level is denser. The numbers are a field on each child
-    ///         afterwards, so a wrong guess costs one edit rather than an undo.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Halving thresholds, and they have to descend.</b> <c>LodRenderFeature.Add</c>
-    ///         throws on a list that does not, so a default that merely looked plausible would be a
-    ///         command whose output crashes the renderer. Halving from a half of the viewport's
-    ///         height is a chain an author edits rather than one they have to invent.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>One undo step for the whole gesture.</b> A create, n reparents and n component
-    ///         writes is 2n+1 commands, and Ctrl+Z that took back one of them would leave a group
-    ///         with four levels in it. <c>entity.group</c> beside this one still has that shape —
-    ///         filed rather than widened into here.
-    ///     </para>
-    /// </remarks>
-    void GroupAsLod() {
-        var members = scene.Selection.Where(world.IsAlive).ToList();
-
-        if (members.Count < 2) {
-            return;
-        }
-
-        using var batch = scene.Stack.BeginTransaction(EditorStrings.CommandEntityGroupLod.Text);
-
-        var parent = Hierarchy.ParentOf(world, members[0]);
-
-        var group = scene.Create(
-            "LOD Group",
-            LocalTransform.Identity,
-            parent,
-            entity => world.Add(entity, new LodGroupComponent { Thresholds = LodThresholds(members.Count) })
-        );
-
-        for (var level = 0; level < members.Count; level++) {
-            var member = members[level];
-
-            scene.Reparent(member, group);
-
-            scene.Stack.Execute(
-                new SetComponentCommand(
-                    scene,
-                    LodLevels,
-                    member,
-                    world.Has<LodLevel>(member) ? world.Read<LodLevel>(member) : null,
-                    new LodLevel { Level = level },
-                    EditorStrings.CommandEntityGroupLod.Text
-                )
-            );
-        }
-
-        scene.Selection.Set([group]);
-    }
-
-    /// <summary>The switch points a chain of <paramref name="levels" /> starts with.</summary>
-    /// <param name="levels">How many levels the group has.</param>
-    /// <returns>
-    ///     <paramref name="levels" /> − 1 screen-height fractions, descending — empty for a group of
-    ///     one, which <c>LodGroupComponent</c> reads as "one level" rather than as a mistake.
-    /// </returns>
-    static float[] LodThresholds(int levels) {
-        var thresholds = new float[Math.Max(levels - 1, 0)];
-        var fraction = 0.5f;
-
-        for (var index = 0; index < thresholds.Length; index++) {
-            thresholds[index] = fraction;
-            fraction *= 0.5f;
-        }
-
-        return thresholds;
-    }
-
-    /// <summary>Copies the selection in place, and selects what came out.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>No offset, which is what every editor with this key does.</b> A duplicate nudged
-    ///         sideways is a duplicate somebody has to put back; a copy exactly on top of the
-    ///         original, already selected, is one drag away from wherever they meant. Blockout's
-    ///         array tools pass an offset because a row of nine walls is what they are for.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The copies become the selection, and the originals stop being it.</b> Pressing
-    ///         Ctrl+D twice has to give two copies rather than a copy of a copy of the same thing —
-    ///         and leaving the originals selected would make the second press duplicate them again.
-    ///     </para>
-    /// </remarks>
-    void DuplicateSelection() {
-        if (scene.Selection.Count == 0) {
-            return;
-        }
-
-        List<Entity> copies = [];
-
-        if (SceneClone.Duplicate(scene, scene.Selection.ToList(), Vector3.Zero, copies) == 0) {
-            return;
-        }
-
-        scene.Selection.Set(copies);
-        hierarchyStale = true;
-    }
-
-    /// <summary>Makes everything selected a root, keeping where each one is in the world.</summary>
-    /// <remarks>
-    ///     ⚠ <b>One <c>ReparentCommand</c> for the whole selection.</b> A loop of the single-entity
-    ///     overload was one undo entry per entity — issue 1217 — so a single Ctrl+Z after unparenting
-    ///     five rows put one of them back under its old parent and left the other four at the root.
-    /// </remarks>
-    void ClearParent() {
-        scene.Reparent(scene.Selection.ToList(), Entity.Null);
-    }
+    // ⚠ The verbs that were here are `SceneEditing`'s now (#1290) — `ISceneEditing`, published to
+    // plugins — and `SceneModule` registers the Entity menu's lines over them. What stays is the one
+    // that asks a question first: the chooser is this editor's dialog, the move is the service's.
 
     /// <summary>One row of the Set Parent dialog.</summary>
     /// <param name="Label">What the row says.</param>
@@ -2447,30 +2120,10 @@ sealed partial class EditorApplication {
         List<ParentChoice> choices = [new ParentChoice("(No parent)", Entity.Null, null)];
 
         foreach (var entity in scene.Entities) {
-            choices.Add(new ParentChoice(scene.NameOf(entity), entity, WhyNot(entity)));
+            choices.Add(new ParentChoice(scene.NameOf(entity), entity, sceneEditing.WhyNotParent(moving, entity)));
         }
 
         _ = Ask();
-
-        string? WhyNot(Entity candidate) {
-            foreach (var entity in moving) {
-                if (candidate == entity) {
-                    return "That is the entity being moved.";
-                }
-
-                if (Hierarchy.IsAncestorOf(world, entity, candidate)) {
-                    return $"It is inside {scene.NameOf(entity)}, which is what is moving.";
-                }
-            }
-
-            // ⚠ Refused only when *every* one of them is already there. A mixed selection with one
-            // entity outside still has something to move, and `ReparentCommand` drops the ones that
-            // do not — so greying the row would refuse a move that is half meaningful, which is the
-            // opposite of that command's own rule.
-            return moving.All(entity => Hierarchy.ParentOf(world, entity) == candidate)
-                ? "Already the parent."
-                : null;
-        }
 
         async Task Ask() {
             var chosen = await ChooseAsync(
@@ -2481,200 +2134,22 @@ sealed partial class EditorApplication {
                 static choice => choice.Refusal is null
             ).ConfigureAwait(true);
 
-            if (chosen is not null && scene.Reparent(moving, chosen.Parent)) {
-                hierarchyStale = true;
+            if (chosen is not null) {
+                sceneEditing.SetParent(moving, chosen.Parent);
             }
         }
-    }
-
-    /// <summary>Puts the selection where the camera is, facing the way it faces.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Through the stack as one command, so one Ctrl+Z puts all of them back.</b> A
-    ///     multi-selection aligned entity by entity would be one undo step per object, which is the
-    ///     shape of every "undo did not undo what I did" report. The write goes to
-    ///     <c>LocalTransform</c> and <c>TransformSystem</c> turns it into the matrix the viewport
-    ///     draws from — see <c>EditorApplication.ResolveTransforms</c>.
-    /// </remarks>
-    void AlignWithView() {
-        if (Viewport is not { } pane) {
-            return;
-        }
-
-        var targets = scene.Selection
-            .Where(entity => world.Has<LocalTransform>(entity))
-            .Select(entity => (Entity: entity, Was: world.Read<LocalTransform>(entity)))
-            .ToList();
-
-        if (targets.Count == 0) {
-            return;
-        }
-
-        var position = pane.Camera.Position;
-
-        // ⚠ From the camera's own yaw and pitch rather than from `EditorCamera.Rotation`, which is a
-        // basis matrix and which nothing here can turn back into a quaternion — the maths library
-        // deliberately has no matrix-to-quaternion path. The two agree: yaw about +Y then pitch
-        // about +X takes −Z to exactly the vector `EditorCamera.Forward` computes, which is the
-        // engine's forward (Conventions.md § Handedness).
-        var rotation = Quaternion.FromYawPitchRoll(pane.Camera.Yaw, pane.Camera.Pitch, 0f);
-
-        scene.Stack.Execute(
-            new DelegateCommand(
-                "Align With View",
-                _ => {
-                    foreach (var (entity, was) in targets) {
-                        world.Set(entity, was with { Position = position, Rotation = rotation });
-                    }
-                },
-                _ => {
-                    foreach (var (entity, was) in targets) {
-                        world.Set(entity, was);
-                    }
-                }
-            )
-        );
-    }
-
-    /// <summary>Puts the selection where the camera is looking.</summary>
-    /// <remarks>
-    ///     ⚠ <b>At the pivot, not at the eye, and that is what makes it different from Align With
-    ///     View.</b> The pivot is the point the view orbits and therefore the point in the middle of
-    ///     the pane; the eye is where you are standing. Moving something to the eye puts it inside the
-    ///     near plane, which reads as the object having vanished.
-    /// </remarks>
-    void MoveToView() {
-        if (Viewport is not { } pane) {
-            return;
-        }
-
-        var pivot = pane.Camera.Pivot;
-
-        // The middle of what is selected, so a group keeps its shape rather than collapsing onto one
-        // point — the same rule `TransformGizmo`'s centre pivot follows.
-        var centre = Vector3.Zero;
-        var counted = 0;
-
-        var targets = scene.Selection
-            .Where(entity => world.Has<LocalTransform>(entity))
-            .Select(entity => (Entity: entity, Was: world.Read<LocalTransform>(entity)))
-            .ToList();
-
-        foreach (var (entity, _) in targets) {
-            if (world.Has<WorldTransform>(entity)) {
-                centre += world.Read<WorldTransform>(entity).Value.Translation;
-                counted++;
-            }
-        }
-
-        if (counted == 0) {
-            return;
-        }
-
-        var offset = pivot - (centre / counted);
-        Displace("Move To View", targets, _ => offset);
-    }
-
-    /// <summary>Drops the selection onto whatever is under it.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Straight down from each entity's own origin, ignoring the selection.</b> A ray
-    ///         that could hit the thing being dropped answers "zero" at once, which is a Snap To Floor
-    ///         that never moves anything — and with several things selected, one of them landing on
-    ///         another is worse than nothing happening.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>An entity with nothing under it falls to the ground plane rather than not
-    ///         moving.</b> A block-out scene has no floor geometry at all, which is exactly the scene
-    ///         somebody is placing things in; a verb that only worked once there was something to
-    ///         land on would be one nobody would find out worked.
-    ///     </para>
-    /// </remarks>
-    void SnapToFloor() {
-        var targets = scene.Selection
-            .Where(entity => world.Has<LocalTransform>(entity) && world.Has<WorldTransform>(entity))
-            .Select(entity => (Entity: entity, Was: world.Read<LocalTransform>(entity)))
-            .ToList();
-
-        if (targets.Count == 0) {
-            return;
-        }
-
-        var ignore = scene.Selection.Items;
-
-        Displace(
-            "Snap To Floor",
-            targets,
-            entity => {
-                var from = world.Read<WorldTransform>(entity).Value.Translation;
-                var ray = new Ray(from, -Vector3.UnitY);
-
-                var landed = probe.Raycast(ray, ignore, out var hit) ? hit.Point : new Vector3(from.X, 0f, from.Z);
-
-                return landed - from;
-            }
-        );
-    }
-
-    /// <summary>Moves a set of entities by an offset each, undoably.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>The offsets are resolved once, when the command is built, rather than inside its
-    ///         redo.</b> A redo that re-cast the rays would land on whatever the scene contains
-    ///         <i>now</i>, so undoing and redoing a Snap To Floor after moving the floor would put
-    ///         things somewhere the history never recorded — which is the one thing an undo stack
-    ///         exists to make impossible.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>A world offset is turned into the parent's space before it is added to a
-    ///         <c>LocalTransform</c>.</b> The two are the same only for a root; under a rotated or
-    ///         scaled parent, adding a world vector to a local position moves the child along an axis
-    ///         that is not the one asked for and by a distance that is not the one asked for. As a
-    ///         <i>direction</i> and not a position, because an offset has no origin.
-    ///     </para>
-    /// </remarks>
-    void Displace(
-        string name,
-        List<(Entity Entity, LocalTransform Was)> targets,
-        Func<Entity, Vector3> offsetOf
-    ) {
-        var offsets = targets.Select(target => Local(target.Entity, offsetOf(target.Entity))).ToArray();
-
-        scene.Stack.Execute(
-            new DelegateCommand(
-                name,
-                _ => {
-                    for (var index = 0; index < targets.Count; index++) {
-                        var (entity, was) = targets[index];
-                        world.Set(entity, was with { Position = was.Position + offsets[index] });
-                    }
-                },
-                _ => {
-                    foreach (var (entity, was) in targets) {
-                        world.Set(entity, was);
-                    }
-                }
-            )
-        );
-    }
-
-    /// <summary>A world-space offset in the space an entity's <c>LocalTransform</c> is written in.</summary>
-    Vector3 Local(Entity entity, Vector3 offset) {
-        var parent = new Transform(world, entity).Parent;
-
-        return !parent.IsNull
-            && world.Has<WorldTransform>(parent)
-            && Matrix4x4.Invert(world.Read<WorldTransform>(parent).Value, out var inverse)
-                ? Matrix4x4.TransformDirection(offset, inverse)
-                : offset;
     }
 
     // ── Play mode ───────────────────────────────────────────────────────────────────────────────
 
-    void EnterPlay() {
-        if (!play.Play()) {
-            return;
-        }
-
+    /// <summary>What entering play does to the rest of the editor, after the session has started.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The verb is <see cref="EditorPlaySession.Enter" /> (#1289); this is what follows it.</b>
+    ///     The arrangement, the console and the notification are the workspace's and the
+    ///     diagnostics' concerns, and until those are services of their own the composition root is
+    ///     where they meet — doc 50 § P2a's "a callback the composition root supplies".
+    /// </remarks>
+    void PlayEntered() {
         // ⚠ Through the same pair maximise itself uses, so stopping restores whatever arrangement the
         // user had rather than an arrangement this remembered separately. Skipped when the panel is
         // already single, because `Remember` would then record Single and stopping would leave the
@@ -2704,139 +2179,24 @@ sealed partial class EditorApplication {
 
     /// <summary>Says what this session runs, and names anything it is not running.</summary>
     /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Doc 20's first bar applied to a frame rather than to a menu line: a thing that
-    ///         does not happen must be <i>visibly</i> not happening.</b> An in-editor session steps
-    ///         an <c>EngineLoop</c>'s default graph — behaviours, coroutines, transforms — and
-    ///         nothing else, because every other system a game runs is registered by that game's own
-    ///         <c>OnInitialise</c> against a <c>PhysicsScene</c>, an <c>AudioEngine</c>, an
-    ///         <c>InputService</c> or a <c>RenderView</c> that an editor either does not have or
-    ///         already has a second, differently-aimed one of. A Play button that ran most of a frame
-    ///         and said nothing would make the missing part read as a gameplay bug, which is the one
-    ///         outcome worse than not stepping at all.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The project's own systems are named, not counted.</b> "Some systems did not run"
-    ///         sends somebody looking through their whole game; a list of three type names sends them
-    ///         to the three files. They are found by reflection over the assembly
-    ///         <c>ProjectAssemblies</c> already built and loaded, so the list is what this project
-    ///         declares rather than what the engine ships.
-    ///     </para>
+    ///     The wording is the session's — <see cref="EditorPlaySession.DescribeRunning" /> and
+    ///     <see cref="EditorPlaySession.DescribeMissing" /> carry the reasons — and where it is said
+    ///     is this editor's: its log and its notifications.
     /// </remarks>
     void ReportPlayGaps() {
-        // ⚠ Read off the session rather than written out here, and that is the point of the list
-        // existing. This sentence used to name physics as a thing an in-editor session does not run,
-        // and an `IPlaySystems` contribution has since made that false for the editor Vixen ships —
-        // a fixed sentence would now be a report that lies in the safe direction, which is the one
-        // that costs somebody a day.
-        var added = play.Session?.Running ?? [];
+        log.Write(LogLevel.Information, play.DescribeRunning());
 
-        log.Write(
-            LogLevel.Information,
-            $"Play mode runs behaviours, coroutines and transforms{Also(added)}. Anything else a game "
-            + "registers imperatively in its own OnInitialise — rather than declaring with "
-            + "[GameSystem] — takes a host service the editor was never handed, so an in-editor "
-            + "session does not run it."
-        );
-
-        // ⚠ The project's systems minus the ones that just ran, and the subtraction is the whole
-        // point of #320. This list used to be every `ISystem` the project's assembly declared,
-        // because none of them could run; a system that carries `[GameSystem]` and found its
-        // services is now in the frame, and naming it as missing would be a report that lies.
-        var systems = ProjectSystems().Except(play.Declared.Running, StringComparer.Ordinal).ToArray();
-        var unsatisfied = play.Declared.Missing;
-        var behaviors = play.Unsupported;
-        var refused = play.Refused;
-
-        if (systems.Length == 0 && unsatisfied.Count == 0 && behaviors.Count == 0 && refused.Count == 0) {
+        if (play.DescribeMissing(code.Loaded) is not { } said) {
             return;
         }
-
-        List<string> lines = [];
-
-        // ⚠ Two different failures, said differently. An undeclared system is one nobody asked the
-        // editor to run — the fix is `[GameSystem]`, and saying so is worth more than the list. An
-        // unsatisfied one *was* declared and could not be built, which is a service the editor does
-        // not have and a much narrower thing to go and look at.
-        if (systems.Length > 0) {
-            lines.Add(
-                $"{systems.Length} system(s) this project declares but does not mark [GameSystem]: "
-                + $"{string.Join(", ", systems)}."
-            );
-        }
-
-        if (unsatisfied.Count > 0) {
-            lines.Add($"{unsatisfied.Count} declared system(s) whose services are not here: {string.Join("; ", unsatisfied)}.");
-        }
-
-        if (behaviors.Count > 0) {
-            lines.Add($"{behaviors.Count} behaviour(s) the session could not take over: {string.Join(", ", behaviors)}.");
-        }
-
-        // ⚠ A contribution that threw is the loudest of the three, because it is the editor's own
-        // wiring failing rather than a gap the editor never claimed to fill. A session with no
-        // physics after this editor started publishing one is a difference somebody will otherwise
-        // spend the afternoon looking for in their game.
-        if (refused.Count > 0) {
-            lines.Add($"{refused.Count} contribution(s) that failed to start: {string.Join(", ", refused)}.");
-        }
-
-        var said = "Not running — " + string.Join(" ", lines);
 
         log.Write(LogLevel.Warning, said);
 
         Shell.Notifications.Show("Play mode is not running everything", NotificationSeverity.Warning, said);
     }
 
-    /// <summary>", plus physics and terrain collision" — or nothing, for a session with no additions.</summary>
-    static string Also(IReadOnlyList<string> added) => added.Count == 0 ? string.Empty : $", plus {Join(added)}";
-
-    /// <summary>A list a person reads: "a", "a and b", "a, b and c".</summary>
-    static string Join(IReadOnlyList<string> parts) =>
-        parts.Count == 1
-            ? parts[0]
-            : string.Join(", ", parts.Take(parts.Count - 1)) + " and " + parts[^1];
-
-    /// <summary>The <c>ISystem</c> types the project's own assembly declares.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Every <c>ISystem</c> in the assembly, including the ones that just ran.</b> The
-    ///     caller subtracts <c>PlayModeController.Declared.Running</c>, so what is left is the set a
-    ///     project still registers by hand in its <c>Game.OnInitialise</c> — code no editor runs.
-    ///     Until <c>[GameSystem]</c> that was all of them, and this list was the closest true
-    ///     statement available; it is now a list of systems whose author has not opted in yet, which
-    ///     is a thing they can act on.
-    /// </remarks>
-    IReadOnlyList<string> ProjectSystems() {
-        List<string> found = [];
-
-        if (code.Loaded is not { } assembly) {
-            return found;
-        }
-
-        Type?[] declared;
-
-        try {
-            declared = assembly.GetTypes();
-        } catch (ReflectionTypeLoadException partial) {
-            // A project referencing something that did not load still has the types that did, and a
-            // partial list is a better answer here than none: this is a report, not a gate.
-            declared = partial.Types;
-        }
-
-        foreach (var type in declared) {
-            if (type is { IsClass: true, IsAbstract: false } && typeof(ISystem).IsAssignableFrom(type)) {
-                found.Add(type.Name);
-            }
-        }
-
-        found.Sort(StringComparer.Ordinal);
-        return found;
-    }
-
-    void LeavePlay() {
-        var restored = play.Stop(scene.Selection);
-
-        scene.Selection.Set(restored);
+    /// <summary>What leaving play does to the rest of the editor, after the scene has been restored.</summary>
+    void PlayLeft() {
         hierarchyStale = true;
 
         // Whatever the panel was split into before Play maximised it. Null when it was not, which is
@@ -2960,6 +2320,12 @@ sealed partial class EditorApplication {
             .Where(document => document.IsDirty.Value)
             .Select(document => document.Title.Peek())
             .ToList();
+
+        // Named, because it is counted (#1310): a prompt asking about "unsaved changes" with no
+        // document dirty would send somebody looking through every tab for an edit that is not in one.
+        if (project.Settings.HasUnsavedChanges) {
+            names.Add(EditorStrings.PanelProjectSettings.Text);
+        }
 
         return names.Count switch {
             0 => "There are unsaved changes.",

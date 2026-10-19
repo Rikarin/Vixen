@@ -207,7 +207,7 @@ sealed partial class EditorApplication {
     ///     </para>
     /// </remarks>
     IReadOnlyList<StatisticRow> BehaviorFacts() {
-        var live = play.Session?.Loop.Behaviors;
+        var live = play.Current?.Loop.Behaviors;
         var population = (live ?? scene.Behaviors).Population;
 
         if (population.Count == 0) {

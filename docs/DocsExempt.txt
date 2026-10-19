@@ -1489,6 +1489,7 @@ T:Vixen.Editor.SceneView.GizmoSpace sweep-pending
 T:Vixen.Editor.SceneView.GridLine sweep-pending
 T:Vixen.Editor.SceneView.IComponentBridge sweep-pending
 T:Vixen.Editor.SceneView.IGizmoTarget sweep-pending
+T:Vixen.Editor.SceneView.ISceneEditing doc 50 service — its guide page is #1311 (the context-service pages), and the verbs it carries are documented on the type
 T:Vixen.Editor.SceneView.IScenePicker sweep-pending
 T:Vixen.Editor.SceneView.ISceneProbe sweep-pending
 T:Vixen.Editor.SceneView.ISceneWriter sweep-pending

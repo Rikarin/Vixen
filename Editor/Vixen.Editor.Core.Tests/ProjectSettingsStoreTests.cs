@@ -74,6 +74,34 @@ public sealed class ProjectSettingsStoreTests {
         );
     }
 
+    /// <summary>
+    ///     #1310: a setting marked changed is unsaved work as far as the project is concerned — the
+    ///     signal the close prompt and Save All read — and the project's Save All writes it.
+    /// </summary>
+    [Fact]
+    public void AnUnsavedSettingIsWhatTheProjectCallsUnsavedChanges() {
+        using var fixture = new ProjectFixture();
+        var project = new EditorProject(fixture.Paths);
+
+        Assert.False(project.HasUnsavedChanges.Value);
+
+        project.Settings.Get<PlaySettings>().Players = 3;
+        project.Settings.MarkChanged<PlaySettings>();
+
+        Assert.True(project.Settings.IsDirty.Value);
+        Assert.True(project.HasUnsavedChanges.Value);
+
+        Assert.Equal(1, project.SaveAll());
+        Assert.False(project.HasUnsavedChanges.Value);
+        Assert.True(File.Exists(project.Settings.FileFor<PlaySettings>()));
+
+        // And Revert's path clears it too, rather than leaving a prompt over nothing.
+        project.Settings.MarkChanged<PlaySettings>();
+        project.Settings.Reload();
+
+        Assert.False(project.HasUnsavedChanges.Value);
+    }
+
     [Fact]
     public void OnlyWhatWasMarkedChangedIsWritten() {
         using var project = new ProjectFixture();

@@ -4,7 +4,7 @@ slug: editor/editing-pipeline
 kind: guide
 area: Editor
 summary: One path every edit in the editor takes, so undo, multi-object editing and mixed values are answered once rather than per panel.
-api: [T:Vixen.Editor.Core.EditTarget, T:Vixen.Editor.Core.EditProperty, T:Vixen.Editor.Core.EditValue, T:Vixen.Editor.Core.IEditMember, T:Vixen.Editor.Core.IEditProvider, T:Vixen.Editor.Core.EmptyEditProvider, T:Vixen.Editor.Core.SetValuesCommand, T:Vixen.Editor.Inspector.InspectorEditProvider, T:Vixen.Editor.SceneView.GizmoDrag, T:Vixen.Editor.SceneView.GizmoEdit]
+api: [T:Vixen.Editor.Core.EditTarget, T:Vixen.Editor.Core.EditProperty, T:Vixen.Editor.Core.EditValue, T:Vixen.Editor.Core.IEditMember, T:Vixen.Editor.Core.IEditProvider, T:Vixen.Editor.Core.EmptyEditProvider, T:Vixen.Editor.Core.SetValuesCommand, T:Vixen.Editor.Core.RecordedValuesCommand, T:Vixen.Editor.Inspector.InspectorEditProvider, T:Vixen.Editor.SceneView.GizmoDrag, T:Vixen.Editor.SceneView.GizmoEdit]
 tags: [editor, undo, inspector, plugins, multi-object-editing]
 since: 0.1
 status: preview
@@ -151,11 +151,20 @@ viewport does not hold a list of which target kinds are exceptions to its rule.
 
 ```csharp no-compile="an IGizmoTarget's half of the contract"
 public GizmoEdit? Record(in GizmoDrag drag) {
-    var command = new TransformTargetsCommand(drag.Verb, drag.Targets, drag.Captured, drag.Document);
+    var property = new EditProperty(member, drag.Targets, drag.Document);
+    var command = property.CreateRecordCommand(before, after, drag.Verb);
 
-    return command.IsEmpty ? null : new(command, drag.Document?.Stack);
+    return command is null ? null : new(command, drag.Document?.Stack);
 }
 ```
+
+**Recording a change somebody already applied.** `EditProperty.Record(before, after, name)` is the
+entry point for a surface that wrote live and is now telling the pipeline: a gizmo drag, a script
+that moved something, a value animated and committed on release. `Write` and `WriteEach` cannot
+record it — each compares with what the object holds *now*, which is the after-state, and skips it as
+unchanged, so the drag records nothing. `Record` makes one entry for every object (`Move (3)`), and
+`IEditMember.CreateRecordCommand` lets a member record with a command of its own — the entity gizmo's
+is the N-target `TransformTargetsCommand`; the default is `RecordedValuesCommand`.
 
 ⚠ **The stack comes back with the command rather than being assumed.** A proxy shape dragged in an
 animation panel belongs to the shape set's file and its entry belongs on that file's history — not on

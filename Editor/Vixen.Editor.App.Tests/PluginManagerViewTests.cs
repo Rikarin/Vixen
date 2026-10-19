@@ -1,9 +1,13 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Editor.Blockout;
 using Vixen.Editor.Plugin;
+using Vixen.Editor.SceneView;
+using Vixen.Editor.Terrain;
 using Vixen.Editor.Testing;
 using Vixen.Editor.Ui;
+using Vixen.Editor.Water;
 using Vixen.Ui;
 using Xunit;
 
@@ -97,6 +101,81 @@ public class PluginManagerViewTests {
         fixture.Settle();
 
         Assert.Equal(all, view.Grid.Items.Count);
+    }
+
+    /// <summary>
+    ///     #1288, by effect: Water switched off in the manager is absent from the next session's mode
+    ///     bar, still listed so it can be switched back on, and back in its place when it is.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Red before the fix, twice over.</b> The built-ins were activated inside
+    ///     <c>Commands()</c>, before the user's list was read, and <c>PluginHost.Activate</c> never
+    ///     consulted it anyway — so the restarted editor had Water on the bar whatever the file said.
+    /// </remarks>
+    [Fact]
+    public void A_built_in_switched_off_in_the_manager_stays_off_in_the_next_session() {
+        using var fixture = EditorSession.Start();
+
+        Toggle(fixture, WaterModule.ModuleId);
+
+        Assert.True(fixture.Plugins.IsSuppressed(WaterModule.ModuleId));
+
+        fixture.Restart();
+
+        Assert.DoesNotContain(WaterMode.ModeId, fixture.Shell.Modes.Modes.Select(mode => mode.Id));
+        Assert.Equal(PluginState.Disabled, fixture.Plugins.Find(WaterModule.ModuleId)!.State);
+
+        // And the manager can switch it back on, which it could not do for a module it never listed.
+        Toggle(fixture, WaterModule.ModuleId);
+
+        Assert.Equal(PluginState.Active, fixture.Plugins.Find(WaterModule.ModuleId)!.State);
+        Assert.Equal(
+            [SelectMode.ModeId, BlockoutMode.ModeId, TerrainMode.ModeId, FoliageMode.ModeId, WaterMode.ModeId],
+            fixture.Shell.Modes.Modes.Select(mode => mode.Id)
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ Every built-in can now actually be off at start-up, which no session had ever been in —
+    ///     two of them (<c>AssetEditors</c>, <c>Diagnostics</c>) are held by typed fields on the
+    ///     application. The editor still has to open, and to open the plugin manager to undo it.
+    /// </summary>
+    [Fact]
+    public void The_editor_starts_with_any_one_built_in_switched_off() {
+        using var fixture = EditorSession.Start();
+
+        var ids = fixture.Plugins.Plugins.Where(plugin => plugin.IsBuiltIn).Select(plugin => plugin.Id).ToList();
+
+        Assert.True(ids.Count >= 7, "the standard modules are listed");
+
+        foreach (var id in ids) {
+            Toggle(fixture, id);
+            fixture.Restart();
+
+            Assert.Equal(PluginState.Disabled, fixture.Plugins.Find(id)!.State);
+
+            Toggle(fixture, id);
+
+            Assert.Equal(PluginState.Active, fixture.Plugins.Find(id)!.State);
+        }
+    }
+
+    static void Toggle(EditorSession fixture, string id) {
+        var view = Open(fixture);
+        var index = -1;
+
+        for (var row = 0; row < view.Grid.Items.Count; row++) {
+            if (view.Grid.Items[row] is LoadedPlugin { Id: var each } && each == id) {
+                index = row;
+            }
+        }
+
+        Assert.True(index >= 0, $"'{id}' is not a row in the plugin manager");
+
+        view.Grid.Select(index);
+        fixture.Settle();
+        fixture.Click(view.Toggle);
+        fixture.Settle();
     }
 
     static PluginManagerView Open(EditorSession fixture) {

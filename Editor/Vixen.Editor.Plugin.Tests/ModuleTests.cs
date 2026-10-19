@@ -17,9 +17,14 @@ namespace Vixen.Editor.Plugin.Tests;
 /// </remarks>
 public class ModuleTests {
     sealed class Module(Action<PluginContext> activate) : IEditorPlugin {
+        public int Activations { get; private set; }
+
         public int Deactivations { get; private set; }
 
-        public void Activate(PluginContext context) => activate(context);
+        public void Activate(PluginContext context) {
+            Activations++;
+            activate(context);
+        }
 
         public void Deactivate() => Deactivations++;
     }
@@ -115,6 +120,66 @@ public class ModuleTests {
 
         // And it was told it was going, which is what lets a module drop what it holds.
         Assert.Equal(1, module.Deactivations);
+    }
+
+    /// <summary>
+    ///     #1288: the user's switch means the same thing for a module the editor ships as for a plugin
+    ///     off a disk. It used to be consulted by <c>Load</c> alone, so a built-in disabled in the
+    ///     manager came back on at the next launch.
+    /// </summary>
+    [Fact]
+    public void A_module_the_user_switched_off_is_never_activated_and_is_still_listed() {
+        using var shell = new EditorShell(1280f, 800f);
+        var host = new PluginHost(shell);
+
+        var module = new Module(
+            context => context.AddCommand("terrain.sculpt", Named("terrain.sculpt"), static () => { })
+        );
+
+        host.Suppress(["terrain"]);
+        var loaded = host.Activate("terrain", "Terrain", module);
+
+        // ⚠ Its Activate did not run — the module somebody switched off because it broke the editor
+        // is exactly the one whose Activate must not.
+        Assert.Equal(0, module.Activations);
+        Assert.Equal(PluginState.Disabled, loaded.State);
+        Assert.Null(shell.Commands["terrain.sculpt"]);
+
+        // And it is still a row, or the manager would have nothing to switch back on.
+        Assert.Same(loaded, Assert.Single(host.Plugins));
+        Assert.True(loaded.IsBuiltIn);
+        Assert.True(host.IsSuppressed("terrain"));
+
+        Assert.Equal(PluginState.Active, Assert.Single(host.Enable("terrain").Activated).State);
+        Assert.Equal(1, module.Activations);
+        Assert.NotNull(shell.Commands["terrain.sculpt"]);
+    }
+
+    /// <summary>
+    ///     ⚠ #1288's second half: a built-in disabled while running could not be switched back on
+    ///     without a restart, because the deactivation dropped the only instance there was and the
+    ///     revive found nothing to activate.
+    /// </summary>
+    [Fact]
+    public void A_module_switched_off_while_running_can_be_switched_back_on() {
+        using var shell = new EditorShell(1280f, 800f);
+        var host = new PluginHost(shell);
+
+        var module = new Module(
+            context => context.AddCommand("terrain.sculpt", Named("terrain.sculpt"), static () => { })
+        );
+
+        host.Activate("terrain", "Terrain", module);
+
+        Assert.True(host.Disable("terrain"));
+        Assert.Null(shell.Commands["terrain.sculpt"]);
+
+        var report = host.Enable("terrain");
+
+        Assert.Empty(report.Diagnostics);
+        Assert.Equal(PluginState.Active, host.Find("terrain")!.State);
+        Assert.Equal(2, module.Activations);
+        Assert.NotNull(shell.Commands["terrain.sculpt"]);
     }
 
     [Fact]

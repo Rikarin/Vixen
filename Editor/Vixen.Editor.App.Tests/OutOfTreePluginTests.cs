@@ -221,6 +221,110 @@ public class OutOfTreePluginTests {
         }
     }
 
+    /// <summary>
+    ///     Doc 50 § P2a's exit (#1289): a plugin built outside the solution <c>Require</c>s
+    ///     <see cref="Vixen.Editor.SceneView.IPlaySession" /> and enters play through it — the same
+    ///     verb F5 is a name for — and the transport's own Stop leaves it.
+    /// </summary>
+    [Fact]
+    public void A_plugin_built_outside_the_solution_enters_play_through_the_service() {
+        const string Player = """
+            using Vixen.Editor.Plugin;
+            using Vixen.Editor.SceneView;
+            using Vixen.Ui;
+
+            namespace Sample;
+
+            public sealed class Player : IEditorPlugin {
+                public void Activate(PluginContext context) {
+                    var play = context.Services.Require<IPlaySession>();
+
+                    context.AddCommand("sample.play", new StringId("sample.play", "Play from a plugin"), () => play.Enter());
+                }
+            }
+            """;
+
+        var data = Path.Combine(Path.GetTempPath(), "vixen-plugin-play", Guid.NewGuid().ToString("N"));
+        using var folder = new PluginFolder(Path.Combine(data, "Plugins"));
+
+        folder.Write("player", Player);
+
+        try {
+            using var editor = EditorSession.Start(new() { DataDirectory = data });
+
+            Assert.Equal(Vixen.Editor.SceneView.PlayState.Editing, editor.Editor.PlayMode.State);
+
+            editor.Run("sample.play");
+
+            Assert.Equal(Vixen.Editor.SceneView.PlayState.Playing, editor.Editor.PlayMode.State);
+
+            editor.Run("play.stop");
+
+            Assert.Equal(Vixen.Editor.SceneView.PlayState.Editing, editor.Editor.PlayMode.State);
+        } finally {
+            try {
+                Directory.Delete(data, recursive: true);
+            } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+                // A temp directory that would not go is not a failed test.
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Doc 50 § P2b's exit (#1290): a plugin built outside the solution <c>Require</c>s
+    ///     <see cref="Vixen.Editor.SceneView.ISceneEditing" /> and groups the selection the way Ctrl+G
+    ///     does — the entities move under a new parent and the undo stack has one entry.
+    /// </summary>
+    [Fact]
+    public void A_plugin_built_outside_the_solution_groups_the_selection_through_the_service() {
+        const string Grouper = """
+            using Vixen.Editor.Plugin;
+            using Vixen.Editor.SceneView;
+            using Vixen.Ui;
+
+            namespace Sample;
+
+            public sealed class Grouper : IEditorPlugin {
+                public void Activate(PluginContext context) {
+                    var editing = context.Services.Require<ISceneEditing>();
+
+                    context.AddCommand("sample.group", new StringId("sample.group", "Group from a plugin"), () => editing.Group());
+                }
+            }
+            """;
+
+        var data = Path.Combine(Path.GetTempPath(), "vixen-plugin-group", Guid.NewGuid().ToString("N"));
+        using var folder = new PluginFolder(Path.Combine(data, "Plugins"));
+
+        folder.Write("grouper", Grouper);
+
+        try {
+            using var editor = EditorSession.Start(new() { DataDirectory = data });
+
+            var a = editor.Scene.Create("A", Vixen.Engine.Transforms.LocalTransform.Identity);
+            var b = editor.Scene.Create("B", Vixen.Engine.Transforms.LocalTransform.Identity);
+
+            editor.Scene.Selection.Set([a, b]);
+
+            var before = editor.Scene.Stack.Depth.Value;
+
+            editor.Run("sample.group");
+
+            Assert.Equal(before + 1, editor.Scene.Stack.Depth.Value);
+
+            var group = Vixen.Engine.Transforms.Hierarchy.ParentOf(editor.Scene.World, a);
+
+            Assert.False(group.IsNull);
+            Assert.Equal(group, Vixen.Engine.Transforms.Hierarchy.ParentOf(editor.Scene.World, b));
+        } finally {
+            try {
+                Directory.Delete(data, recursive: true);
+            } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+                // A temp directory that would not go is not a failed test.
+            }
+        }
+    }
+
     /// <summary>Something with a decimal on it, so the plugin's drawer has a member to be resolved for.</summary>
     sealed class Probe {
         public decimal Amount;

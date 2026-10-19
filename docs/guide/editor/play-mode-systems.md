@@ -4,7 +4,7 @@ slug: editor/play-mode-systems
 kind: guide
 area: Editor
 summary: How a module adds systems to the frame the editor's Play button steps — the `IPlaySystems` contribution, the `PlaySession` that owns their lifetime, and the physics world the editor now stands up on Play and takes away on Stop.
-api: [T:Vixen.Editor.SceneView.IPlaySystems, T:Vixen.Editor.SceneView.PlaySession, T:Vixen.Editor.SceneView.IActivePlaySession, T:Vixen.Editor.SceneView.PlaySystemOrder, T:Vixen.Editor.SceneView.ProvidesAttribute, T:Vixen.Editor.SceneView.RunsAfterAttribute, T:Vixen.Editor.Terrain.Physics.TerrainPhysicsModule]
+api: [T:Vixen.Editor.SceneView.IPlaySystems, T:Vixen.Editor.SceneView.PlaySession, T:Vixen.Editor.SceneView.IActivePlaySession, T:Vixen.Editor.SceneView.IPlaySession, T:Vixen.Editor.SceneView.EditorPlaySession, T:Vixen.Editor.SceneView.PlaySystemOrder, T:Vixen.Editor.SceneView.ProvidesAttribute, T:Vixen.Editor.SceneView.RunsAfterAttribute, T:Vixen.Editor.Terrain.Physics.TerrainPhysicsModule]
 tags: [editor, play-mode, systems, physics, terrain, collision]
 since: 0.1
 status: preview
@@ -141,6 +141,15 @@ wants what a session `Provide`d — the agent debugger wants the running `AiSyst
 `PluginServices` for `IActivePlaySession` and reads `Current`, which is `null` between sessions. The
 controller is what is published, once; the session's own objects never are, because `PluginServices`
 has no removal and anything put there on Play is a dead object after the first Stop.
+
+**Enter and leave play through `IPlaySession`, the way the transport does.** It extends
+`IActivePlaySession` with the verbs — `Enter`, `Leave`, `TogglePause`, `StepFrame` — and the
+`Entered`/`Left` events, and Play, Pause, Step and Stop are only names for those four: `PlayModule`
+registers them over the service through `PluginContext`, so a plugin that `Require`s it enters play
+exactly as F5 does. `Leave` translates the selection through the restore's handle map, which is the
+part a hand-rolled `PlayModeController.Stop` call forgets. `EditorPlaySession` is the editor's
+implementation, constructible over a controller and a selection with no window — what a test of a
+play verb wants.
 
 ## Examples
 
