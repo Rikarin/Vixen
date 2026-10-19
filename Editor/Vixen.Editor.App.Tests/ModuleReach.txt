@@ -68,19 +68,6 @@ editor menu editor.menu.assets/editor.menu.create assets.new-folder
 editor menu editor.menu.build assets.build
 editor menu editor.menu.build build.clean-library
 editor menu editor.menu.build build.rebuild-shaders
-editor menu editor.menu.build build.run
-editor menu editor.menu.build build.settings
-editor menu editor.menu.build/editor.menu.build-configuration build.configuration-debug
-editor menu editor.menu.build/editor.menu.build-configuration build.configuration-development
-editor menu editor.menu.build/editor.menu.build-configuration build.configuration-release
-editor menu editor.menu.build/editor.menu.build-configuration build.configuration-server
-editor menu editor.menu.build/editor.menu.build-target build.target-android
-editor menu editor.menu.build/editor.menu.build-target build.target-host
-editor menu editor.menu.build/editor.menu.build-target build.target-ios
-editor menu editor.menu.build/editor.menu.build-target build.target-linux
-editor menu editor.menu.build/editor.menu.build-target build.target-macos
-editor menu editor.menu.build/editor.menu.build-target build.target-web
-editor menu editor.menu.build/editor.menu.build-target build.target-windows
 editor menu editor.menu.edit edit.copy
 editor menu editor.menu.edit edit.cut
 editor menu editor.menu.edit edit.delete
@@ -307,7 +294,6 @@ editor menu editor.menu.window/editor.menu.layout view.layout.Shading
 editor menu editor.menu.window/editor.menu.layout view.reset-layout
 editor menu editor.menu.window/editor.menu.layout view.save-layout
 editor menu editor.menu.window/editor.menu.panels view.panel.addressables
-editor menu editor.menu.window/editor.menu.panels view.panel.build-settings
 editor menu editor.menu.window/editor.menu.panels view.panel.console
 editor menu editor.menu.window/editor.menu.panels view.panel.hierarchy
 editor menu editor.menu.window/editor.menu.panels view.panel.history
@@ -329,7 +315,6 @@ editor menu editor.menu.window/editor.menu.panels view.panel.ui-diagnostics
 editor menu editor.menu.window/editor.menu.panels view.panel.world-settings
 editor mode select
 editor panel addressables
-editor panel build-settings
 editor panel console
 editor panel hierarchy
 editor panel history
@@ -435,6 +420,21 @@ vixen.blockout menu editor.menu.window/editor.menu.panels view.panel.blockout.uv
 vixen.blockout mode blockout
 vixen.blockout panel blockout.panel
 vixen.blockout panel blockout.uv
+vixen.delivery menu editor.menu.build build.run
+vixen.delivery menu editor.menu.build build.settings
+vixen.delivery menu editor.menu.build/editor.menu.build-configuration build.configuration-debug
+vixen.delivery menu editor.menu.build/editor.menu.build-configuration build.configuration-development
+vixen.delivery menu editor.menu.build/editor.menu.build-configuration build.configuration-release
+vixen.delivery menu editor.menu.build/editor.menu.build-configuration build.configuration-server
+vixen.delivery menu editor.menu.build/editor.menu.build-target build.target-android
+vixen.delivery menu editor.menu.build/editor.menu.build-target build.target-host
+vixen.delivery menu editor.menu.build/editor.menu.build-target build.target-ios
+vixen.delivery menu editor.menu.build/editor.menu.build-target build.target-linux
+vixen.delivery menu editor.menu.build/editor.menu.build-target build.target-macos
+vixen.delivery menu editor.menu.build/editor.menu.build-target build.target-web
+vixen.delivery menu editor.menu.build/editor.menu.build-target build.target-windows
+vixen.delivery menu editor.menu.window/editor.menu.panels view.panel.build-settings
+vixen.delivery panel build-settings
 vixen.diagnostics menu editor.menu.build/editor.menu.build-deploy build.deploy
 vixen.diagnostics menu editor.menu.tools tools.frame-debugger
 vixen.diagnostics menu editor.menu.tools tools.gpu

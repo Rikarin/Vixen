@@ -33,7 +33,7 @@ call site.
 | `EditorSettingsPanels.cs` | the Preferences and Project Settings pages, and the plugin and history panels |
 | `EditorProjects.cs` | which project, asked at start-up and answered without a restart |
 | `EditorSettings.cs` | the settings assets the editor ships: three of the project's and one of the user's |
-| `EditorBuilds.cs` | the Build Settings panel, Build and Run, and what Deploy means for a device |
+| `PlayerDelivery.cs`, `DeliveryModule.cs` | build settings and building a player as `IPlayerDelivery` (doc 50 § P2f, #1295), and the Build menu and Build Settings panel as a module over it; what Deploy means per device is the diagnostics module's |
 | `BuildSettingsView.vxml` | doc 20's B7 window: target, configuration, scenes-in-build, output path — markup since doc 36 § F7 wave 2, and the assembly's third |
 | `UndoHistory.vxml` | the undo history panel — the first of this assembly's panels written in markup |
 | `PluginManagerView.vxml` | the plugin manager — doc 36 § F7 wave 1b, and the second of them |

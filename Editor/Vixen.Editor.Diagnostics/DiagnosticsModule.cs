@@ -79,16 +79,25 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     EditorProject project = null!;
     IActiveScene scenes = null!;
 
-    /// <summary>Whoever in this editor can build a player and put it on a device.</summary>
+    /// <summary>Whoever in this editor can build a player, which is what Deploy is for this machine.</summary>
     /// <remarks>
-    ///     ⚠ <b>Optional, and the button says why when it is absent.</b> Building a player is a
-    ///     project, a target, a content build and a process; a host that publishes no deployer is one
-    ///     where Deploy is greyed with a sentence rather than one where the panel is missing.
-    ///     <c>TryGet</c> rather than <c>Require</c> for exactly that reason — see
-    ///     <c>PluginServices.TryGet</c>, whose own remark is about a plugin that should still install
-    ///     half of itself.
+    ///     <para>
+    ///         ⚠ <b>Optional, and the button says why when it is absent.</b> Building a player is a
+    ///         project, a target, a content build and a process; a host that publishes no delivery
+    ///         service is one where Deploy is greyed with a sentence rather than one where the panel is
+    ///         missing. <c>TryGet</c> rather than <c>Require</c> for exactly that reason — see
+    ///         <c>PluginServices.TryGet</c>, whose own remark is about a plugin that should still
+    ///         install half of itself.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The build's service rather than a deploy contract the application implemented
+    ///         (#1295).</b> That contract was <c>IDeviceDeploy</c>, and implementing it is what made the
+    ///         application name four of the debugger's types: the device record, its kind, its status
+    ///         and the interface. What Deploy means per kind of device is this module's vocabulary, so
+    ///         the switch lives here and the build is asked only the question it can answer.
+    ///     </para>
     /// </remarks>
-    IDeviceDeploy? deployer;
+    IPlayerDelivery? delivery;
 
     /// <summary>The provider standing for the machine the editor is on, once it has activated.</summary>
     /// <remarks>
@@ -322,7 +331,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
         // `StringFamily` exists to end one level down (#1202).
         context.AddStrings(DiagnosticsStrings.All);
 
-        context.Services.TryGet<IDeviceDeploy>(out deployer);
+        context.Services.TryGet<IPlayerDelivery>(out delivery);
 
         ProfilerTheme.Install(shell.Document);
         DebuggerTheme.Install(shell.Document);
@@ -549,7 +558,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
                     Inspector().Attach();
                 };
 
-                manager.DeployRequested += (_, device) => deployer?.Deploy(device);
+                manager.DeployRequested += (_, device) => Deploy(device);
             }
         );
     }
@@ -585,9 +594,68 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     void Panel(PluginContext context, string id, string panel) =>
         context.AddCommand(id, DiagnosticsStrings.Commands[id], () => shell.Workspace.Toggle(panel));
 
+    /// <summary>Why a device cannot be deployed to, or <see langword="null" /> when it can.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Only this machine, and the reason for each of the others is the provider that would
+    ///         have found it.</b> Doc 20's E4 left device discovery behind <c>adb</c> and the vendor SDKs;
+    ///         installing is the same tool as finding, so a kind of device the editor cannot discover is
+    ///         necessarily one it cannot install to. Saying which tool is missing is what makes that a
+    ///         state rather than a refusal.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The absent-builder sentence is chosen on the builder being absent, and it used to be
+    ///         chosen on the <i>answer</i> being null</b> (#1295). This read
+    ///         <c>deployer?.Refuse(device) ?? "This editor cannot build a player…"</c>, and a null
+    ///         refusal is the deployer saying yes — so on exactly the project where a build could run,
+    ///         Deploy was greyed with a sentence claiming the editor could not build one. Every test
+    ///         asked about a project with no <c>.csproj</c>, where the two readings agree.
+    ///     </para>
+    /// </remarks>
     string? Refuse(DeviceEntry device) =>
-        deployer?.Refuse(device)
-        ?? "This editor cannot build a player, so there is nothing to put on a device.";
+        delivery is null
+            ? "This editor cannot build a player, so there is nothing to put on a device."
+            : device.Kind switch {
+                DeviceKind.Local => delivery.Refusal(),
+                DeviceKind.Mobile => "Installing on a phone is `adb install` or a provisioned .ipa, which needs the "
+                    + "IDeviceProvider that would have found it.",
+                DeviceKind.Console => "A console takes its build through the vendor's own SDK.",
+                DeviceKind.Browser => "A Web player is doc 17's packaging step, which this build does not produce.",
+                _ => "A build reaches another machine over `vixen content serve` or a share; the editor does not copy to it."
+            };
+
+    /// <summary>What Deploy does for the one kind of device this editor can reach.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Build, install, launch — and <i>not</i> attach.</b> Doc 20's B7 asks for all four and
+    ///         three of them are here; the fourth needs something on the other side to answer, and doc
+    ///         13's runtime half of the remote inspector is not written — see <c>RemoteInspectorClient</c>.
+    ///         The Attach button beside this one is what will do it the day a player listens, and it is
+    ///         enabled by the endpoint the device reports rather than by this having run.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Marked before the build is asked for and put back if it was refused</b>, rather than
+    ///         marked after it started. A build ends on the frame thread, and nothing promises it has
+    ///         not already ended by the time <see cref="IPlayerDelivery.Build" /> returns — a row
+    ///         marked Deploying after that would read Deploying for ever. A row left reading Deploying
+    ///         after a build that failed is a row somebody waits on, so the end of any build puts it
+    ///         back to what discovery would say about it.
+    ///     </para>
+    /// </remarks>
+    void Deploy(DeviceEntry device) {
+        if (delivery is null || device.Kind is not DeviceKind.Local) {
+            shell.Notifications.Show("Not deployed", NotificationSeverity.Warning, Refuse(device) ?? string.Empty);
+            return;
+        }
+
+        devices.Mark(device.Id, DeviceStatus.Deploying);
+
+        // The build's own refusal — no .csproj, a build already running — is said by the build, in
+        // the words Build and Run uses, which is the point of the two being one method.
+        if (!delivery.Build(launch: true, () => devices.Mark(device.Id, DeviceStatus.Available))) {
+            devices.Mark(device.Id, DeviceStatus.Available);
+        }
+    }
 
     /// <summary>The remote inspector's client, made on first use.</summary>
     RemoteInspectorClient Inspector() {

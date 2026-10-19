@@ -450,11 +450,3 @@ sealed class ShownView(EditorApplication editor) : IActiveView {
     public RenderView? Current => editor.Viewport?.View;
 }
 
-/// <summary>Deploying, for the one kind of device this editor can reach.</summary>
-sealed class PlayerDeploy(EditorApplication editor) : IDeviceDeploy {
-    /// <inheritdoc />
-    public string? Refuse(DeviceEntry device) => editor.DeployRefusal(device);
-
-    /// <inheritdoc />
-    public void Deploy(DeviceEntry device) => editor.Deploy(device);
-}

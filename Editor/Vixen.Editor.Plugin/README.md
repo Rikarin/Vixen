@@ -197,7 +197,7 @@ written once rather than once per plugin.
 
 What `Vixen.Editor.App` publishes today is `EditorProject`, `SceneDocument`, `DrawerRegistry`,
 `ImporterContributions`, `IEditorRegistry`, the editing state, the work plane, `IMeshBaker`,
-`IMeshMapBaker`, `IMeshSource`, `IActiveScene`, `IActiveView`, `IDeviceDeploy`,
+`IMeshMapBaker`, `IMeshSource`, `IActiveScene`, `IActiveView`, `IPlayerDelivery`,
 `AssetEditorRegistry`, `HotReloadHost`, `IEditorGraphics` and the `PluginHost` itself.
 ⚠ **This paragraph used to end "importers and build steps are not published", which contradicted the
 list two lines above it.** `ImporterContributions` is published, and has been since doc 36 § F8: the
@@ -209,7 +209,7 @@ names the assemblies its contributed importers came out of and `Tools/Vixen.Asse
 ~~**Build steps really are not published**, and that one is a missing mechanism rather than an
 unpublished registry.~~ — **the mechanism exists now, and it is a record rather than a service.**
 `BuildStep(id, stage, run)` is in `Vixen.Editor.Assets.Content`, added through `IEditorRegistry` like
-a settings page, and `EditorBuilds` reads the registry when Build is pressed. ⚠ **The list is read on
+a settings page, and `PlayerDelivery` reads the registry when Build is pressed. ⚠ **The list is read on
 the frame thread and handed to the task**, for the reason the target and the variant are: a plugin can
 be unloaded while its build runs, so a list read on the pool two minutes in is a list that may name a
 delegate over an assembly that has gone. Two stages, `BeforeBuild` and `AfterBuild`; a step answers

@@ -794,7 +794,7 @@ sealed partial class EditorApplication {
         // ⚠ Both of these named milestone E6, and E6 has shipped — `build.settings` is a window and
         // `build.run` publishes and starts a player. What is actually missing is on this side of the
         // line and is the same thing twice: a *supervised* process. Play is a transport — Pause, Step
-        // and Stop have to mean something — and `StartPlayerBuild` hands the artefact to the OS and
+        // and Stop have to mean something — and `PlayerDelivery.Build` hands the artefact to the OS and
         // forgets it, so a play mode over it would be a Play button with three dead buttons beside
         // it. A reason naming a mechanism can be checked against the tree; one naming a schedule
         // stayed on screen for two milestones after its schedule closed.
@@ -846,12 +846,11 @@ sealed partial class EditorApplication {
     // ── Build and Tools ─────────────────────────────────────────────────────────────────────────
 
     void BuildAndToolCommands() {
-        // Build Settings, Build and Run, and the two radio submenus. `EditorBuilds` owns them
-        // because they are one setting's worth of state and a build's worth of orchestration, and
-        // this file's job is the bar rather than what is behind it.
-        PlayerBuildCommands();
+        // Build Settings, Build and Run, and the two radio submenus are `DeliveryModule`'s (#1295):
+        // names for `IPlayerDelivery`'s verbs, registered through `PluginContext`. This file's job is
+        // the bar rather than what is behind it.
 
-        // Deploy is `DiagnosticsCommands`', because it opens the device manager E4 built. It is
+        // Deploy is the diagnostics module's, because it opens the device manager E4 built. It is
         // still a Build-menu line — Part C puts it there — and the window is the Tools one.
 
         Verb(
@@ -1072,14 +1071,14 @@ sealed partial class EditorApplication {
         var build = Shell.Menus.InsertMenu(++after, EditorStrings.MenuBuild);
 
         build.Add("build.settings").AddSeparator().Add("assets.build", "build.run").AddSeparator();
-        build.AddSubmenu(EditorStrings.MenuBuildTarget).Add(BuildIds.Targets);
+        build.AddSubmenu(EditorStrings.MenuBuildTarget).Add(DeliveryModule.BuildIds.Targets);
 
         // ⚠ Four lines where Part C names two, and the label is Part C's word for them. Doc 17's
         // variants are the axis a player build actually has — Development is an optimised build that
         // keeps its profiler, and Server is a Release one with no window — and the compiler
         // configuration is derived from the variant rather than chosen beside it. A menu of Debug
         // and Release over a setting of four would leave two of them unreachable and unmarkable.
-        build.AddSubmenu(EditorStrings.MenuBuildConfiguration).Add(BuildIds.Variants);
+        build.AddSubmenu(EditorStrings.MenuBuildConfiguration).Add(DeliveryModule.BuildIds.Variants);
 
         build.AddSubmenu(EditorStrings.MenuBuildDeploy).Add("build.deploy");
         build.AddSeparator().Add("build.clean-library", "build.rebuild-shaders");
@@ -1826,7 +1825,7 @@ sealed partial class EditorApplication {
     /// <summary>Writes the bake settings, which is what every control on the panel does.</summary>
     /// <remarks>
     ///     ⚠ <b>Immediately rather than behind an Apply</b>, for the reason
-    ///     <c>EditorBuilds.SaveBuildSettings</c> gives: the Bake button reads these fields, so an edit
+    ///     <c>PlayerDelivery.SaveSettings</c> gives: the Bake button reads these fields, so an edit
     ///     that had not been committed would mean the button baking something other than what is on
     ///     screen. Nothing here costs anything until a bake runs.
     /// </remarks>

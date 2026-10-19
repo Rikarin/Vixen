@@ -314,7 +314,7 @@ sealed class ContentTasks {
     /// <remarks>
     ///     ⚠ <b>Held here rather than handed to <see cref="Baked" />, because a panel opened after a
     ///     bake has to be able to ask.</b> A panel's factory runs on every reopen — see
-    ///     <c>EditorBuilds</c>'s pulled answers — and an event is only heard by whoever was listening.
+    ///     <c>PlayerDelivery</c>'s pulled answers — and an event is only heard by whoever was listening.
     /// </remarks>
     public MeshMapSet? LastBake { get; private set; }
 

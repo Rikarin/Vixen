@@ -17,7 +17,6 @@ using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.MeshMaps;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
-using Vixen.Editor.Debugger;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.Inspector.Drawers;
 using Vixen.Editor.NodeGraph;
@@ -237,6 +236,9 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>Doc 50 § P2d's Project service. See <see cref="ProjectSession" />.</summary>
     readonly ProjectSession session;
+
+    /// <summary>Doc 50 § P2f's Delivery service. See <see cref="PlayerDelivery" />.</summary>
+    readonly PlayerDelivery delivery;
 
     /// <summary>The import and build tasks, for the suite that has to substitute the publish.</summary>
     /// <remarks>
@@ -884,7 +886,7 @@ sealed partial class EditorApplication : IDisposable {
             // scene that arrived in an import belongs in the list of what can be put in a build.
             Rescan = () => {
                 browser?.Rescan();
-                RefreshBuildPanel();
+                delivery?.Restate();
 
                 // ⚠ And the viewport's own content, which is the frame-thread half of what
                 // `Cataloged` began on the pool. A mount hands the renderer a whole new material and
@@ -902,9 +904,8 @@ sealed partial class EditorApplication : IDisposable {
             Cataloged = () => projectContent.Rebuild()
         };
 
-        // And its two buttons are greyed while anything is running, which is a fact about the task
-        // rather than about anything the panel did.
-        content.BusyChanged += RefreshBuildPanel;
+        // Doc 50 § P2f: built before `PluginPoints` publishes it; it follows `BusyChanged` itself.
+        delivery = new PlayerDelivery(project, content, Shell.Notifications, log, Extensions);
 
         // ⚠ And the toolbar, which is the other half of doc 45 step 4. `assets.build`'s enablement
         // reads `content.IsBusy` — a counter a worker thread moves, with no notification of its own —
@@ -966,7 +967,6 @@ sealed partial class EditorApplication : IDisposable {
         Panels();
 
         SettingsPanels();
-        BuildPanels();
         RevisionsPanel();
 
         // And doc 48 § D12's, which is where a mesh-map bake is set up and where what it produced is
@@ -1741,7 +1741,7 @@ sealed partial class EditorApplication : IDisposable {
                 section.Rebuild();
             }
 
-            RefreshBuildPanel();
+            delivery.Restate();
         }
     }
 
@@ -2042,7 +2042,7 @@ sealed partial class EditorApplication : IDisposable {
         // right on average and wrong exactly when it mattered.
         Sweep();
 
-        RefreshBuildPanel();
+        delivery.Restate();
 
         // ⚠ And the pictures, which nothing invalidated at all until #1187: an entry left the cache
         // on capacity and on nothing else, so a texture repainted in another program kept the
@@ -3111,8 +3111,8 @@ sealed partial class EditorApplication : IDisposable {
             // only answer for the origin, which is a place nobody is standing.
             .Add<IActiveView>(new ShownView(this))
 
-            // And what Deploy means, for the half of the editor that can build a player.
-            .Add<IDeviceDeploy>(new PlayerDeploy(this))
+            // And building a player (#1295): what `DeliveryModule` and Deploy are names for.
+            .Add<IPlayerDelivery>(delivery)
 
             // ⚠ And the graphics, which until now were the one thing a plugin could not get at all —
             // doc 36 § F2's gap, found by the first plugin that draws, and #737.
@@ -3617,7 +3617,7 @@ sealed partial class EditorApplication : IDisposable {
                 // is read down, which is the shape the right-hand column already has — and it is
                 // opened *against* a scene rather than instead of one, so a preset that gave it the
                 // centre would put the viewport behind a tab.
-                ["inspector", BuildPanel],
+                ["inspector", DeliveryModule.BuildPanel],
                 ["console", "project"]
             )
         );

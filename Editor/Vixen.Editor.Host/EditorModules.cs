@@ -44,6 +44,7 @@ static class EditorModules {
         // the application's modules fill, and none adds a mode, so the mode bar's order is untouched.
         (PlayModule.ModuleId, PlayModule.ModuleName, new PlayModule()),
         (SceneModule.ModuleId, SceneModule.ModuleName, new SceneModule()),
+        (DeliveryModule.ModuleId, DeliveryModule.ModuleName, new DeliveryModule()),
         (BlockoutModule.ModuleId, BlockoutModule.ModuleName, new BlockoutModule()),
         (TerrainModule.ModuleId, TerrainModule.ModuleName, new TerrainModule()),
         (TerrainPhysicsModule.ModuleId, TerrainPhysicsModule.ModuleName, new TerrainPhysicsModule()),

@@ -300,7 +300,7 @@
 
     /// <summary>Asks the panel to look at the project and the settings again.</summary>
     /// <remarks>
-    ///     ⚠ <b>Asked rather than told, and <c>EditorBuilds</c>'s own remarks say what the difference
+    ///     ⚠ <b>Asked rather than told, and <c>DeliveryModule</c>'s own remarks say what the difference
     ///     cost there.</b> Whether a bake can start depends on the selection and on whether a content
     ///     task is running, and neither of those is an edit to this panel — a panel that only
     ///     restated itself when somebody typed in it would sit with Bake enabled for the whole of the

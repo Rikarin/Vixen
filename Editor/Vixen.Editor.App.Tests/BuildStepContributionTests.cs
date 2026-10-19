@@ -153,7 +153,7 @@ public class BuildStepContributionTests {
 
         // The window's Build button rather than Build and Run, so nothing is launched: the stage
         // under test is the one between the publish and a launch that does not happen.
-        var view = session.Control<BuildSettingsView>(EditorApplication.BuildPanel);
+        var view = session.Control<BuildSettingsView>(DeliveryModule.BuildPanel);
 
         view.Rebuild();
         Assert.False(view.BuildButton.Disabled, "Build is greyed on a project that has a .csproj.");

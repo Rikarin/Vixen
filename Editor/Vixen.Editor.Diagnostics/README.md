@@ -35,7 +35,7 @@ kinds of recording sort as one list.
 |---|---|
 | `EditorProject` | the memory panel's asset counts, and where the profiler's **Export Trace** writes |
 | `IActiveScene` | ⚠ **which scene is being *shown***, which is not which scene is open — an editor inspecting a prefab must count the prefab, or Refresh reports the level behind it |
-| `IDeviceDeploy` | optional. Building a player is a project, a target, a content build and a process; a host with none greys Deploy with a sentence rather than hiding the panel |
+| `IPlayerDelivery` | optional. Building a player is a project, a target, a content build and a process; a host with none greys Deploy with a sentence rather than hiding the panel. ⚠ The build's service, not a deploy contract (#1295): which device kinds a build can reach is decided here, and this machine's answer is the build's own `Refusal()` |
 
 The graphics device, the resolved GPU frame and the frame-capture source arrive later still — only a
 host with a window and a device can supply them, and they are settable properties for that reason.
