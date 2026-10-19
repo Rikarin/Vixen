@@ -286,6 +286,7 @@ internal sealed class ContentLibrary : IContentLibrary {
             return false;
         }
 
+        project.Assets.WillWrite(target);
         File.Copy(path, target);
         return true;
     }
@@ -293,11 +294,16 @@ internal sealed class ContentLibrary : IContentLibrary {
     /// <summary>Copies a directory and everything under it.</summary>
     /// <param name="from">The source directory.</param>
     /// <param name="to">Where it goes, which does not exist yet.</param>
-    static void CopyTree(string from, string to) {
+    /// <remarks>Each copy is announced first, so the watcher does not hear the editor's own import (#1497).</remarks>
+    void CopyTree(string from, string to) {
+        project.Assets.WillWrite(to);
         Directory.CreateDirectory(to);
 
         foreach (var file in Directory.EnumerateFiles(from)) {
-            File.Copy(file, Path.Combine(to, Path.GetFileName(file)));
+            var copy = Path.Combine(to, Path.GetFileName(file));
+
+            project.Assets.WillWrite(copy);
+            File.Copy(file, copy);
         }
 
         foreach (var directory in Directory.EnumerateDirectories(from)) {
@@ -357,6 +363,7 @@ internal sealed class ContentLibrary : IContentLibrary {
 
         try {
             Directory.CreateDirectory(directory);
+            project.Assets.WillWrite(path);
             File.WriteAllText(path, kind.NewContents());
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             notify("Could not create the asset", NotificationSeverity.Error, exception.Message);

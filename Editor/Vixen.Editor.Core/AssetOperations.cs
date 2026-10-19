@@ -137,6 +137,10 @@ public static class AssetOperations {
         var path = project.Paths.Absolute(entry.Path);
 
         try {
+            // ⚠ Every file the delete takes, told to the watcher first (#1497): a folder's recursive
+            // delete is an event per file under it, and each would come back as somebody else's.
+            Announce(project, path, entry.IsFolder);
+
             if (entry.IsFolder) {
                 Directory.Delete(path, recursive: true);
             } else if (File.Exists(path)) {
@@ -178,7 +182,10 @@ public static class AssetOperations {
         var chosen = Unique(project, root, name);
 
         try {
-            Directory.CreateDirectory(project.Paths.Absolute(Combine(root, chosen)));
+            var folder = project.Paths.Absolute(Combine(root, chosen));
+
+            project.Assets.WillWrite(folder);
+            Directory.CreateDirectory(folder);
         } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
             return AssetOperation.Failed(failure.Message);
         }
@@ -236,6 +243,13 @@ public static class AssetOperations {
         try {
             var folder = Path.GetDirectoryName(to);
 
+            // Both ends of both files, before anything moves (#1497). A platform reports a move as a
+            // rename, a delete-and-create, or both, depending on which one it is.
+            project.Assets.WillWrite(from);
+            project.Assets.WillWrite(to);
+            project.Assets.WillWrite(AssetMetaFile.PathFor(from));
+            project.Assets.WillWrite(AssetMetaFile.PathFor(to));
+
             if (folder is { Length: > 0 }) {
                 Directory.CreateDirectory(folder);
             }
@@ -267,6 +281,20 @@ public static class AssetOperations {
 
         Reindex(project);
         return AssetOperation.Done;
+    }
+
+    /// <summary>Tells a watcher over <c>Assets/</c> that a file — or a folder and all of it — is about to go, with its sidecar.</summary>
+    static void Announce(EditorProject project, string path, bool isFolder) {
+        project.Assets.WillWrite(path);
+        project.Assets.WillWrite(AssetMetaFile.PathFor(path));
+
+        if (!isFolder || !Directory.Exists(path)) {
+            return;
+        }
+
+        foreach (var inside in Directory.EnumerateFileSystemEntries(path, "*", SearchOption.AllDirectories)) {
+            project.Assets.WillWrite(inside);
+        }
     }
 
     static void Restore(bool isFolder, string from, string to) {

@@ -365,8 +365,7 @@ public sealed class ProjectAssemblyTests : IDisposable {
             (title, _, _) => said.Add(title),
             () => { },
             () => false,
-            new ProjectHistory(Path.Combine(root, "Data")),
-            scene: () => scene
+            new ProjectHistory(Path.Combine(root, "Data"))
         );
 
         Assert.True(session.BuildCode(), string.Join(Environment.NewLine, said));
@@ -411,6 +410,104 @@ public sealed class ProjectAssemblyTests : IDisposable {
 
         scene.Save();
         Assert.Contains("!HeldPatrol", File.ReadAllText(file), StringComparison.Ordinal);
+
+        static float Speed(Behavior behavior) => (float)behavior.GetType().GetProperty("Speed")!.GetValue(behavior)!;
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Every open scene keeps its project behaviours across a rebuild, not only the active one
+    ///     (#1496).</b> The take-off ran over the active scene alone, so a scene opened beside it kept
+    ///     instances of the unloaded types: the next save wrote it without them, because the registry no
+    ///     longer knew the old type, and the instances held the old context alive.
+    /// </summary>
+    /// <remarks>
+    ///     Both scenes share one world, as the editor's additively opened scenes do. A rebuild that works
+    ///     must put an instance of the <i>rebuilt</i> type on each — the value alone would pass against the
+    ///     defect, since the stale instance still has it — and a rebuild with nothing to fall back on
+    ///     holds both and refuses to save either.
+    ///     ⚠ <b>Whether the old context is then collected is not asserted here</b>: it is not, with one
+    ///     scene or two, because <c>BehaviorStore</c> keeps an emptied bucket keyed by the old type —
+    ///     a separate defect (#1502), filed rather than widened into this one.
+    /// </remarks>
+    [Fact]
+    public void A_rebuild_keeps_the_project_behaviours_of_every_open_scene() {
+        Write(Declaring("TwinPatrol"));
+        Directory.CreateDirectory(Path.Combine(root, "Assets"));
+
+        var project = new EditorProject(new ProjectPaths(root));
+        using var world = new World("Scenes");
+        var files = new[] { Path.Combine(root, "Assets", "Active.vxscene"), Path.Combine(root, "Assets", "Beside.vxscene") };
+        var scenes = files.Select(file => new SceneDocument(project, world, AssetId.Empty, Path.GetFileNameWithoutExtension(file)) { Writer = new SceneFileWriter(file) }).ToArray();
+        List<string> said = [];
+
+        using var session = new ProjectSession(
+            project,
+            (title, _, _) => said.Add(title),
+            () => { },
+            () => false,
+            new ProjectHistory(Path.Combine(root, "Data"))
+        );
+
+        Assert.True(session.BuildCode(), string.Join(Environment.NewLine, said));
+
+        var entities = scenes.Select((scene, index) => Author(scene, 10f + index)).ToArray();
+
+        // A rebuild that works: a new field, the ordinary edit.
+        var laps = Declaring("TwinPatrol").Replace("Speed { get; set; } = 1f;", "Speed { get; set; } = 1f; public int Laps { get; set; }", StringComparison.Ordinal);
+
+        File.WriteAllText(Path.Combine(root, "GameCode.cs"), laps);
+
+        Assert.True(session.BuildCode(), string.Join(Environment.NewLine, said));
+        Assert.True(SceneBehaviorRegistry.TryGet("TwinPatrol", out var rebuilt));
+
+        for (var index = 0; index < scenes.Length; index++) {
+            var kept = Assert.Single(scenes[index].Behaviors.AllOn(entities[index]).ToArray());
+
+            Assert.Same(rebuilt.BehaviorType, kept.GetType());
+            Assert.Equal(10f + index, Speed(kept));
+
+            scenes[index].Save();
+            Assert.Contains("!TwinPatrol", File.ReadAllText(files[index]), StringComparison.Ordinal);
+        }
+
+        // A rebuild with nothing to fall back on: both are held, and neither scene will save.
+        File.WriteAllText(Path.Combine(root, "GameCode.cs"), "public class Broken { this is not C#; }");
+        Directory.Delete(Path.Combine(root, "bin"), recursive: true);
+
+        Assert.False(session.BuildCode());
+
+        for (var index = 0; index < scenes.Length; index++) {
+            var saved = File.ReadAllText(files[index]);
+
+            Assert.Empty(scenes[index].Behaviors.AllOn(entities[index]).ToArray());
+            Assert.Throws<IOException>(scenes[index].Save);
+            Assert.Equal(saved, File.ReadAllText(files[index]));
+        }
+
+        File.WriteAllText(Path.Combine(root, "GameCode.cs"), laps);
+
+        Assert.True(session.BuildCode(), string.Join(Environment.NewLine, said));
+
+        for (var index = 0; index < scenes.Length; index++) {
+            Assert.Equal(10f + index, Speed(Assert.Single(scenes[index].Behaviors.AllOn(entities[index]).ToArray())));
+
+            scenes[index].Save();
+            Assert.Contains("!TwinPatrol", File.ReadAllText(files[index]), StringComparison.Ordinal);
+        }
+
+        static Entity Author(SceneDocument scene, float speed) {
+            var entity = scene.Add("Guard", LocalTransform.Identity);
+
+            Assert.True(SceneBehaviorRegistry.TryGet("TwinPatrol", out var binder));
+
+            var authored = binder.Create();
+
+            binder.BehaviorType.GetProperty("Speed")!.SetValue(authored, speed);
+            binder.AttachTo(scene.Behaviors, entity, authored);
+            scene.Save();
+
+            return entity;
+        }
 
         static float Speed(Behavior behavior) => (float)behavior.GetType().GetProperty("Speed")!.GetValue(behavior)!;
     }

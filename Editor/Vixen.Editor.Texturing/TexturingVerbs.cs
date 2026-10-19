@@ -397,6 +397,9 @@ public sealed partial class TexturingModule {
 
         try {
             Directory.CreateDirectory(shelf);
+
+            // Announced, so the watcher does not hear the editor's own save as an outside edit (#1497).
+            project.Assets.WillWrite(file);
             File.WriteAllText(file, LayerStackYaml.Write(material));
         } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
             // ⚠ A sentence rather than an exception, which is this module's rule for every route that

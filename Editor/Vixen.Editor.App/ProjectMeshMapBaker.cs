@@ -139,6 +139,7 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
             // both of which are unreachable now that the writer is the only thing that names a file.
             var file = Path.Combine(directory, MeshMapNaming.FileName(name, image.Usage));
 
+            project.Assets.WillWrite(file);
             File.WriteAllBytes(file, image.Png);
             files.Add(file);
         }
@@ -164,6 +165,7 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
                 throw new InvalidOperationException(Unresolved(files[at], images[at].Usage));
             }
 
+            project.Assets.WillWrite(AssetMetaFile.PathFor(files[at]));
             Describe(files[at], entry.Guid, model, name, images[at]);
             references[images[at].Usage] = new AssetReference(entry.Guid);
         }

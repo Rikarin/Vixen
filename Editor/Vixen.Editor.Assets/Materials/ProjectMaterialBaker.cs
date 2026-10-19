@@ -168,6 +168,7 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
         foreach (var image in images) {
             var file = Path.Combine(directory, MaterialMapNaming.FileName(name, image.Target, image.Extension));
 
+            Announce(file);
             File.WriteAllBytes(file, image.Bytes);
             files.Add(file);
         }
@@ -190,6 +191,7 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
                 throw new InvalidOperationException(Unresolved(files[at]));
             }
 
+            Announce(files[at]);
             Describe(files[at], entry.Guid, name, images[at]);
             maps[images[at].Target] = new AssetReference(entry.Guid);
         }
@@ -200,6 +202,7 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
             warnings.Add(Unsampled(name));
         }
 
+        Announce(materialFile);
         File.WriteAllText(materialFile, YamlSerializer.ToYaml(content));
         files.Add(materialFile);
         Written = files;
@@ -214,6 +217,7 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
             throw new InvalidOperationException(Unresolved(materialFile));
         }
 
+        Announce(materialFile);
         Provenance(materialFile, found.Guid, record, images);
         project.Assets.Save();
 
@@ -324,6 +328,7 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
 
         var file = Path.Combine(directory, MaterialMapNaming.FileName(name, MaterialMapTarget.Splat, image.Extension));
 
+        Announce(file);
         File.WriteAllBytes(file, image.Bytes);
         Written = [file];
 
@@ -333,6 +338,7 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
             throw new InvalidOperationException(Unresolved(file));
         }
 
+        Announce(file);
         Describe(file, texture.Guid, name, image);
 
         // ⚠ Read back off the disk rather than taken from a caller, because what is being patched is
@@ -342,6 +348,7 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
             throw new InvalidOperationException(Unreadable(name));
         }
 
+        Announce(materialFile);
         File.WriteAllText(
             materialFile,
             YamlSerializer.ToYaml(MaterialBake.Splatted(content, new AssetReference(texture.Guid), layers))
@@ -355,6 +362,7 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
             throw new InvalidOperationException(Unresolved(materialFile));
         }
 
+        Announce(materialFile);
         Bound(materialFile, found.Guid, image, record);
         project.Assets.Save();
 
@@ -367,6 +375,13 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
             [file, materialFile],
             warnings
         );
+    }
+
+    /// <summary>Tells a watcher over <c>Assets/</c> that a file and its sidecar are about to be this bake's doing (#1497).</summary>
+    /// <param name="file">The asset's absolute path.</param>
+    void Announce(string file) {
+        project.Assets.WillWrite(file);
+        project.Assets.WillWrite(AssetMetaFile.PathFor(file));
     }
 
     /// <summary>Adds this write's digest to the material's block without disturbing the rest of it.</summary>
@@ -665,7 +680,7 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
     ///         run.
     ///     </para>
     /// </remarks>
-    static void Prune(
+    void Prune(
         string directory,
         string name,
         IReadOnlyList<MaterialMapImage> images,
@@ -693,7 +708,7 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
     /// <param name="writing">The extension this write is about to use, or null where it writes none.</param>
     /// <param name="recorded">The material sidecar's extensions, as they stand.</param>
     /// <param name="warnings">Where anything the artist should know is added.</param>
-    static void Prune(
+    void Prune(
         string directory,
         string name,
         MaterialMapTarget target,
@@ -761,8 +776,9 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
     ///     <c>AssetDatabase</c> quarantines — a second report, in another place, about a file this bake
     ///     already reported.
     /// </remarks>
-    static bool Remove(string file, List<string> warnings) {
+    bool Remove(string file, List<string> warnings) {
         try {
+            Announce(file);
             File.Delete(file);
 
             var sidecar = AssetMetaFile.PathFor(file);

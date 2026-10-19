@@ -352,6 +352,11 @@ public sealed class ImportPipeline {
         );
 
         Cache.Set(fresh);
+
+        // ⚠ Announced, because this is a write into `Assets/` that no scan reports (#1497): every
+        // import that learns something rewrites the sidecar, and a watcher over the folder heard it as
+        // an outside edit of every asset the import touched.
+        database.WillWrite(metaPath);
         WriteBack(metaPath, root, importer, sourceHash, result.SubAssets);
         return new(entry.Guid, importer.Name, false, true, fresh, result.Diagnostics);
     }

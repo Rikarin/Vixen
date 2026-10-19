@@ -650,10 +650,16 @@ and AI (4) importers followed** (#1300's remainder): `TerrainImporters`/`WaterIm
 in each host, `HostImporterMap.LinkedOnly` grown to match, every moved importer's bytes pinned in this
 process and in a worker (`FeatureImporterBytesTests`) — and a first import with no sidecar, in a host
 missing a link, is now a warning naming the format (the fallback speaks about any unclaimed `.vx…`,
-plus `.r16`/`.hmpng`), which the sidecar refusal could not see. Still in `BuiltInImporters`, waiting on
-a home rather than on typing (#1499): animation ×7 (`Vixen.Editor.AnimationGraph` refuses to know an
-asset database; the documents are `AssetEditors`'), gameplay (doc 28's `Vixen.Editor.Gameplay` does not
-exist), net (no editor assembly), compositor and mixer (`AssetEditors`' documents, or pipeline-owned).
+plus `.r16`/`.hmpng`), which the sidecar refusal could not see. ⚠ **The rest are pipeline-owned, and
+#1300 is complete on that list** (#1499, decided): animation ×7, gameplay definitions, network rules,
+the compositor frame and the audio mixer each import a format a *runtime* assembly owns —
+`Core/Vixen.Animation`'s content types (`.vxanim` is spelled there), `Vixen.Gameplay`'s `Definition`,
+`Vixen.Net.Engine`'s `NetworkRulesAsset`, `Vixen.Rendering`'s `GraphicsCompositorAsset`, `Vixen.Audio`'s
+`MixerAsset` — and what this phase moves out is an editor feature's importer. They stay in
+`BuiltInImporters` with that reason at the registration and on the two `FeatureNameExempt` rows they
+leave (`.vxcompositor`, `.vxmixer`); nothing moved. `HostImporterMap` stays the instrument, and
+`FeatureImporterBytesTests` still pins the animation seven's bytes, so a later move — doc 28's
+`Vixen.Editor.Gameplay`, if it is ever built — is held to them.
 `.vxtexgraph`/`.vxlayers` are claimed by the pipeline's `EditorOnlyImporter` (#1491): recipes nothing at
 run time reads, so nothing ships. The 35 feature string ids
 in `EditorStrings.cs` move to the `*Strings` class that already exists for each — `CheckStrings`
@@ -775,7 +781,7 @@ Waves follow the phases; a wave is five worktrees, merged as each lands, gates o
 | [#1297](https://github.com/Rikarin/Vixen/issues/1297) | `AssetEditors` off `NotYetMoved` through 17 | P3 | 6 · landed: the App no longer references it |
 | [#1298](https://github.com/Rikarin/Vixen/issues/1298) | `Profiler` + `Debugger` + `Diagnostics` off: report into the module, log ring and data dir published; typed module fields gone | P3 | 6 · ✅ all three off `NotYetMoved`; the device and GPU frame through `IEditorGraphics.Frame`, the ring as `RingBufferSink`, the directory as `EditorDataDirectory`, the pickers as `INativeDialogs`. ⚠ "Asserted by the existing report tests" — there were none; `Report` had never been read by a test. `FindModule` stays for the asset editors (#1297) |
 | [#1299](https://github.com/Rikarin/Vixen/issues/1299) | `NodeGraph` off: theme as a contribution (#917); `Host` stops building the shader-graph preview and terrain stages | P3 | 6 · ✅ theme (`AssetEditorsModule`, through `context.AddStyleSheet`; `NodeGraph` off `NotYetMoved`), pane reads the scene seams, preview renderer `AssetEditorsModule`'s (`IEditorGraphics.Show`, `PluginContext.OnFrame`; device-tested on an RTX 4060 Ti) · terrain stages stay in the host (decided) |
-| [#1300](https://github.com/Rikarin/Vixen/issues/1300) | `Assets` drops `ShaderGraph`/`VfxGraph`; `BuiltInImporters` shrinks to the pipeline's own | P3 | 6 · 🟡 both references gone (option A: host-linked `ImporterContributions.Linked`, `IEffectSourceProvider`, `HostImporterMap`); terrain, water and AI importers linked too, bytes pinned, first-import gap loud; animation, gameplay, compositor, net and mixer wait on a home (#1499) |
+| [#1300](https://github.com/Rikarin/Vixen/issues/1300) | `Assets` drops `ShaderGraph`/`VfxGraph`; `BuiltInImporters` shrinks to the pipeline's own | P3 | 6 · ✅ both references gone (option A: host-linked `ImporterContributions.Linked`, `IEffectSourceProvider`, `HostImporterMap`); terrain, water and AI importers linked too, bytes pinned, first-import gap loud; animation, gameplay, net, compositor and mixer decided pipeline-owned — runtime formats, reason recorded at the registration and on their exemption rows (#1499) |
 | [#1301](https://github.com/Rikarin/Vixen/issues/1301) | 35 feature string ids out of `EditorStrings` | P3 | 6 |
 | [#1302](https://github.com/Rikarin/Vixen/issues/1302) | `NotYetMoved` deleted; `ApplicationReferenceRule` is `Allowed` only | P3 | 6 |
 | [#1303](https://github.com/Rikarin/Vixen/issues/1303)–[#1309](https://github.com/Rikarin/Vixen/issues/1309) | One per feature god file: `SceneViewport`, `ProjectBrowser`, `NodeGraphView`, `LayerStackView` + `TexturingModule`, `BlockoutMode`, `ComponentsView.vxml`, `EditorHost` | P4 | 7–8 · #1307 (`BlockoutMode`) ✅ the verbs are `IBlockout`, published with `PluginContext.Publish` · #1303 (`SceneViewport`) partial: a tool and an `[Overlay]` are handed `IViewportPane`, the eight members its consumers read; ⚠ `Extensions` is already the published registry in the editor (`pane.Extensions = Extensions`), `Default` only a pane's fallback outside one; the split, each pane's camera and its nine bookmarks are the workspace's `SceneViewState` (`IWorkspace.ViewState`), so the bookmarks now survive the Scene panel being closed and reopened, which they did not (the pane owned them) · #1306 (`LayerStackView` + `TexturingModule`) 🟡 all three moves landed — `ITexturing`, declared Tools lines, the chosen set and selected layer on the document — and the three view theme installs stay (#917) |

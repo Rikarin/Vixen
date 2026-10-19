@@ -410,6 +410,8 @@ public sealed partial class TerrainModule {
             var name = Unique(directory);
             var file = Path.Combine(directory, name + TerrainExtension);
 
+            // Announced, so the watcher does not hear the editor's own write as an outside edit (#1497).
+            Project.Assets.WillWrite(file);
             File.WriteAllBytes(file, TerrainStore.Write(map));
 
             Project.Assets.Scan();

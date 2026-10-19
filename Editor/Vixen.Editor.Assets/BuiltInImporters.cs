@@ -93,8 +93,18 @@ public static class BuiltInImporters {
                 //
                 // ⚠ Water and the four AI importers have since left this list for their features
                 // (#1300), with the terrain's and the two graphs': each host links them, and the gate
-                // for those is HostImporterMap, which holds every host to one literal map. What is
-                // still here past the pipeline's own kinds is waiting on a decision about its home (#1499).
+                // for those is HostImporterMap, which holds every host to one literal map.
+                //
+                // ⚠ What follows is pipeline-owned, decided rather than left over (#1499). Each one
+                // imports a format a *runtime* assembly owns, and what #1300 moved out was an editor
+                // feature's importer: the seven animation importers write Core/Vixen.Animation's
+                // content types and `.vxanim` is spelled there; DefinitionImporter compiles
+                // Vixen.Gameplay's Definition; NetworkRulesImporter writes Vixen.Net.Engine's
+                // NetworkRulesAsset under its own extension; MixerImporter writes Vixen.Audio's
+                // MixerAsset; and CompositorImporter, above, Vixen.Rendering's GraphicsCompositorAsset.
+                // A future editor assembly for one of them (doc 28's Vixen.Editor.Gameplay) may take
+                // its own; until then they stay here, and FeatureImporterBytesTests pins the animation
+                // seven's bytes so a later move is held to them.
                 .Add(new Animation.AnimationClipImporter())
                 .Add(new Animation.ShapeVocabularyImporter())
                 .Add(new Animation.ProxyShapeSetImporter())

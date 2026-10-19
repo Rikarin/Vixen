@@ -69,6 +69,9 @@ public sealed record ScanReport(int Assets, TimeSpan Elapsed, IReadOnlyList<Asse
     ///     A scan that minted a <c>.meta</c> for a file somebody dropped into <c>Assets/</c> is itself a
     ///     write into <c>Assets/</c>; unsuppressed, the watcher hears it as a second outside change and the
     ///     whole rescan runs again. The issues name the same events, but as assets and in prose.
+    ///     ⚠ <b>The watcher is no longer told from here (#1497)</b> but by <see cref="AssetDatabase.Writing" />,
+    ///     before each write and for every caller's scan; this is the same set, after the fact, for a
+    ///     reader that wants the record.
     /// </remarks>
     public IReadOnlyList<string> Written { get; init; } = [];
 
