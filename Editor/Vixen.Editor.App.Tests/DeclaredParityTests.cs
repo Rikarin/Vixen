@@ -134,13 +134,13 @@ public class DeclaredParityTests {
 
         foreach (var item in host.Registry.All<NewAssetKind>()) {
             text.AppendLine(
-                $"asset: {item.Id} '{item.Title}' {item.Extension} '{item.DefaultName}' {item.Opens} {item.Order} "
+                $"asset: {item.Id} '{item.Title.Id}' '{item.Title.Source}' {item.Extension} '{item.DefaultName}' {item.Opens} {item.Order} "
                 + $"'{item.NewContents().ReplaceLineEndings("\\n")}'"
             );
         }
 
         foreach (var item in host.Registry.All<SceneOverlay>()) {
-            text.AppendLine($"overlay: {item.Id} '{item.Title}' {item.Corner} {item.Order}");
+            text.AppendLine($"overlay: {item.Id} '{item.Title.Id}' '{item.Title.Source}' {item.Corner} {item.Order}");
         }
 
         foreach (var item in host.Registry.All<ComponentGizmo>()) {
@@ -189,8 +189,10 @@ public class DeclaredParityTests {
                      "fixture.menu.things:'Things'[editor.menu.tools.things.deeper:'Deeper'[fixture.one fixture.two | scripts.tools.things.deeper.sweep] scripts.tools.things.audit fixture.bake | fixture.existing]",
                      "inspector: Fixture.Widget 3",
                      "tool: tools.sculpt 'Sculpt' Fixture.SculptTool Fixture.Widget 4",
-                     "asset: assets.create.dialogue-table 'Dialogue Table' .dialogue 'New Dialogue' False 0 'id: 1\\n'",
-                     "overlay: overlays.declared-overlay 'Declared Overlay' BottomLeft 0",
+                     "asset: assets.create.dialogue-table 'editor.command.assets.create.dialogue-table' 'Dialogue Table' .dialogue 'New Dialogue' False 0 'id: 1\\n'",
+                     "asset: assets.create.ledger 'fixture.create.ledger' 'Ledger Book' .ledger 'Ledger' True 0 'rows: []\\n'",
+                     "overlay: overlays.declared-overlay 'editor.overlay.overlays.declared-overlay' 'Declared Overlay' BottomLeft 0",
+                     "overlay: fixture.compass 'fixture.overlay.compass' 'Compass Rose' TopRight 0",
                      "gizmo: Fixture.Widget True 5",
                      "icon: Fixture.Widget 2 ",
                      "drawer: Fixture.MoneyDrawer"
@@ -336,5 +338,47 @@ public class DeclaredParityTests {
 
         // Nothing it declared is left behind, which is the rollback a failed activation owes.
         Assert.Null(host.Shell.Commands["scripts.tools.go"]);
+    }
+
+    /// <summary>#1284: a Create ▸ line's or an overlay's title naming nothing refuses the plugin the same way.</summary>
+    /// <remarks>The generator's half is the four <c>VXP0003</c> rows in <c>DeclaredRegistrationTests</c>.</remarks>
+    [Theory]
+    [InlineData("""[CreateAssetMenu("Thing", ".thing", Title = "Nowhere")] public static string Make() => "";""")]
+    [InlineData("""[Overlay("Over", Title = "Nowhere")] public static void Build(UiElement host, SceneViewport pane) { }""")]
+    public void A_contribution_title_naming_nothing_refuses_the_plugin_with_a_diagnostic(string member) {
+        using var folder = new PluginFolder();
+
+        folder.Write(
+            "untitled",
+            $$"""
+            using Vixen.Editor.Core;
+            using Vixen.Editor.Plugin;
+            using Vixen.Editor.SceneView;
+            using Vixen.Ui;
+
+            public static class Kinds {
+                {{member}}
+            }
+
+            public sealed class Untitled : IEditorPlugin {
+                public void Activate(PluginContext context) { }
+            }
+            """
+        );
+
+        using var host = new Host();
+
+        host.Plugins.Scanners.Add(new DeclaredContributions());
+
+        var report = host.Plugins.Load(PluginDiscovery.Scan(folder.Root));
+
+        Assert.Empty(report.Activated);
+
+        var diagnostic = Assert.Single(report.Diagnostics);
+
+        Assert.Equal(PluginSeverity.Error, diagnostic.Severity);
+        Assert.Contains("Title = \"Nowhere\"", diagnostic.Message, StringComparison.Ordinal);
+        Assert.Empty(host.Registry.All<NewAssetKind>());
+        Assert.Empty(host.Registry.All<SceneOverlay>());
     }
 }

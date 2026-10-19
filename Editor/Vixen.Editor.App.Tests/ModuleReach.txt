@@ -478,8 +478,36 @@ vixen.terrain panel terrain.grass
 vixen.terrain panel terrain.growth
 vixen.terrain panel terrain.panel
 vixen.terrain panel terrain.splines
+vixen.texturing create texturing.create-layer-stack
+vixen.texturing create texturing.create-texture-graph
+vixen.texturing menu editor.menu.assets/editor.menu.create texturing.create-layer-stack
+vixen.texturing menu editor.menu.assets/editor.menu.create texturing.create-texture-graph
+vixen.texturing menu editor.menu.tools texturing.apply-smart-material
+vixen.texturing menu editor.menu.tools texturing.bake-material
+vixen.texturing menu editor.menu.tools texturing.bake-material-force
+vixen.texturing menu editor.menu.tools texturing.bake-material-parallax
+vixen.texturing menu editor.menu.tools texturing.bake-splat-map
+vixen.texturing menu editor.menu.tools texturing.bake-stack-material
+vixen.texturing menu editor.menu.tools texturing.open-graph
+vixen.texturing menu editor.menu.tools texturing.open-stack
+vixen.texturing menu editor.menu.tools texturing.save-smart-material
+vixen.texturing menu editor.menu.tools texturing.toggle-paint
+vixen.texturing menu editor.menu.window/editor.menu.panels view.panel.texturing.graph
+vixen.texturing menu editor.menu.window/editor.menu.panels view.panel.texturing.layers
+vixen.texturing menu editor.menu.window/editor.menu.panels view.panel.texturing.paint
+vixen.texturing menu editor.menu.window/editor.menu.panels view.panel.texturing.paint-3d
+vixen.texturing panel texturing.graph
+vixen.texturing panel texturing.layers
+vixen.texturing panel texturing.paint
+vixen.texturing panel texturing.paint-3d
 vixen.water create water.create-waves
 vixen.water menu editor.menu.assets/editor.menu.create water.create-waves
+vixen.water menu editor.menu.scene/editor.menu.water/editor.menu.water-debug water.showBuoyancy
+vixen.water menu editor.menu.scene/editor.menu.water/editor.menu.water-debug water.showFlow
+vixen.water menu editor.menu.scene/editor.menu.water/editor.menu.water-debug water.showInfo
+vixen.water menu editor.menu.scene/editor.menu.water/editor.menu.water-debug water.showLod
+vixen.water menu editor.menu.scene/editor.menu.water/editor.menu.water-debug water.showRipples
+vixen.water menu editor.menu.scene/editor.menu.water/editor.menu.water-debug water.showTiles
 vixen.water menu editor.menu.window/editor.menu.panels view.panel.water.panel
 vixen.water menu editor.menu.window/editor.menu.panels view.panel.water.zone
 vixen.water mode water

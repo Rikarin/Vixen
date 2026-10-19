@@ -66,6 +66,15 @@ sealed class ViewportChrome {
     const int StatsInterval = 15;
 
     readonly List<Attached> attached = [];
+
+    /// <summary>Every contributed overlay's header, with the declaration it says (#1284).</summary>
+    /// <remarks>
+    ///     ⚠ <b>Re-read in <see cref="Refresh" /> rather than assigned once.</b> A header written once
+    ///     in C# is not an expression, so it would say whatever language was in use when the panes were
+    ///     arranged — <c>Strings</c>' own remarks name the trap. Assigning the same text again is free.
+    /// </remarks>
+    readonly List<(TextBlock Header, StringId Title)> titles = [];
+
     readonly EditorShell shell;
     IEditorRegistry? extensions;
     int frame;
@@ -78,7 +87,10 @@ sealed class ViewportChrome {
     }
 
     /// <summary>Forgets every pane, because they are about to be replaced.</summary>
-    public void Forget() => attached.Clear();
+    public void Forget() {
+        attached.Clear();
+        titles.Clear();
+    }
 
     /// <summary>Rebuilds every pane's contributed overlays.</summary>
     /// <param name="kind">The contribution kind that changed.</param>
@@ -99,6 +111,8 @@ sealed class ViewportChrome {
         if (kind != typeof(SceneOverlay) || extensions is null) {
             return;
         }
+
+        titles.Clear();
 
         foreach (var entry in attached) {
             foreach (var corner in entry.Overlays.Children.ToArray()) {
@@ -211,7 +225,8 @@ sealed class ViewportChrome {
             var title = panel.Add<TextBlock>();
 
             title.AddClass("panel-title");
-            title.Text = contributed.Title;
+            title.Text = contributed.Title.Text;
+            titles.Add((title, contributed.Title));
 
             var body = panel.Add<UiElement>();
 
@@ -247,6 +262,10 @@ sealed class ViewportChrome {
         // until the interval elapses, which is a quarter-second of empty chrome on every start-up
         // and on every rearrangement.
         var due = frame++ % StatsInterval == 0;
+
+        foreach (var (header, words) in titles) {
+            header.Text = words.Text;
+        }
 
         foreach (var entry in attached) {
             if (!ReferenceEquals(entry.Pane, pane)) {

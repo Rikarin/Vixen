@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Editor.Core;
 
 namespace Vixen.Editor.Inspector;
@@ -332,4 +333,24 @@ public interface IPrefabSource {
     ///     looks like it worked and did not.
     /// </remarks>
     bool Release(object target, InspectorMember member) => false;
+
+    /// <summary>Says which entity an inspected object stands for, and which part of it.</summary>
+    /// <param name="target">The object an inspector will show.</param>
+    /// <param name="entity">The entity it stands for.</param>
+    /// <param name="dataAlias">The <c>[DataContract]</c> alias when the object is a component, or empty
+    ///     when it is the entity itself.</param>
+    /// <remarks>
+    ///     Here so that a panel pairing boxes it builds itself — the components panel — can hold this
+    ///     interface and name no implementation (#1308). ⚠ <b>The default does nothing</b>, for
+    ///     <see cref="Claim" />'s reason: a source that only displays has no pairing to record. So an
+    ///     implementation whose own method stops matching this shape compiles and is silently never
+    ///     called — <c>PrefabInspectorTests.AComponentPairedThroughTheInterfaceIsPairedInTheSource</c>
+    ///     holds <c>PrefabSource</c> to it.
+    /// </remarks>
+    void Link(object target, Entity entity, string dataAlias = "") { }
+
+    /// <summary>Forgets a pairing <see cref="Link" /> made.</summary>
+    /// <param name="target">The object.</param>
+    /// <returns>Whether it had one. The default has none to forget.</returns>
+    bool Unlink(object target) => false;
 }

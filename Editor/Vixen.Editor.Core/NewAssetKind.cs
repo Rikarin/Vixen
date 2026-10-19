@@ -1,11 +1,17 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui;
+
 namespace Vixen.Editor.Core;
 
 /// <summary>One line in Create ▸: what it is called, what it writes, and whether it opens.</summary>
 /// <param name="Id">The command id. Prefix a plugin's with the plugin's own id.</param>
-/// <param name="Title">What the menu line says.</param>
+/// <param name="Title">
+///     What the menu line says, as a declaration a translator sees (#1284). The editor switches
+///     language live, so the record carries the id rather than the text: a string here was frozen at
+///     whatever language was in use when the kind registered.
+/// </param>
 /// <param name="Extension">What the new file is called after the dot, including it.</param>
 /// <param name="DefaultName">What it is called before the dot, before a number is appended.</param>
 /// <param name="Contents">
@@ -31,7 +37,7 @@ namespace Vixen.Editor.Core;
 /// </remarks>
 public sealed record NewAssetKind(
     string Id,
-    string Title,
+    StringId Title,
     string Extension,
     string DefaultName,
     string Contents = "",

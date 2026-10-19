@@ -197,7 +197,11 @@ plugin — its README's first sentence — and is activated by nothing: not in `
 no `plugin.yaml`, no copy step, `Host` does not reference it. Filed as
 [#1276](https://github.com/Rikarin/Vixen/issues/1276). It is here because it is the shape this
 document is about: the *plugin* path has never carried a first-party feature, so it is unproved in
-the same way the attributes are.
+the same way the attributes are. ✅ **Decided and landed (#1276):** `TexturingModule` is in
+`EditorModules.Standard()` and `Host` references it; `TexturingModuleReachTests` holds its four panels,
+ten Tools lines and two Create ▸ kinds to exactly once in a session opened as `EditorHost` opens one,
+gone on unload and collectable after it (red with the module out of the list), and `ModuleReach.txt`
+gained its 22 lines and lost none.
 
 **F5 — The feature assemblies have their own god files.** `LayerStackView.cs` 3,783,
 `TexturingModule.cs` 2,381, `LayerStackGraph.cs` 2,019, `TextureGraphCompiler.cs` 1,809,
@@ -245,7 +249,9 @@ service seams have one consumer (`EditorDocument.Saved`, `IActiveView`, `IEditor
 and two — `DrawerRegistry.Default`, `ImporterContributions.Default` — are process statics handed
 over as if the host owned them. `Vixen.Editor.Plugin`'s `PublicAPI.Shipped.txt` is one line
 (`#nullable enable`); all 195 symbols are in `Unshipped`. **Nothing about the contract has ever been
-declared stable.**
+declared stable.** ✅ *Since #1311 the core is*: `IEditorPlugin`, `PluginContext`, `PluginServices`
+and `PluginHost` — 59 lines, every member — are `Shipped`; the doc 50 services stay `Unshipped`
+until P2 finishes.
 
 **F9 — The shell carries 110 feature names, measured, and they are not where doc 36 looked.**
 The feature-name audit (`.cs` and `.vxml`, code only, comments excluded):
@@ -649,7 +655,7 @@ after P2 the consumers can), `ProjectBrowser.cs` (1,491), `NodeGraphView.cs` (1,
 `PortEditor`, not a drawer). ⚠ `ComponentsView`'s
 "one template per authoring kind" does not exist: there is one keyed `@for` over `IComponentBridge`,
 deliberately the same for components and behaviours, and the size is a 945-line `@code` block — so
-"split by component kind" has nothing to split along; #1308 carries the options. Each is its own issue with its own ceiling in `ApplicationSizeRule`'s
+"split by component kind" has nothing to split along. #1308 decided (c) then (d): `IPrefabSource` gained `Link`/`Unlink` as default no-ops and `Pair` takes the interface, so `ComponentsView` names no `Vixen.Editor.AssetEditors` type (four `FeatureNameExempt` rows gone, the dumps unchanged); the size is closed as decided-not-to, because the only split is by concern. Each is its own issue with its own ceiling in `ApplicationSizeRule`'s
 table, which is renamed `FileSizeRule` the day it gains a second assembly.
 
 **`ProjectBrowser` (#1304), first slice landed:** the folder, collection, search and kind are
@@ -693,7 +699,7 @@ through it with its own N-target `TransformTargetsCommand`.*
 * **It does not add a DI container, a mediator or a message bus.** `PluginServices` by name and
   `IEditorRegistry` by kind are the two lookups, and they are enough.
 * **It does not turn every feature assembly into a disk plugin.** In-process modules through
-  `Activate` are the front door; #1276 decides whether Texturing stays the one disk-shaped
+  `Activate` are the front door; #1276 decided Texturing is one of them, so there is no disk-shaped
   exception.
 * **It does not redesign `.vxml`, the inspector, or the editing pipeline.** It gives them more
   callers.
@@ -714,12 +720,12 @@ Waves follow the phases; a wave is five worktrees, merged as each lands, gates o
 | [#1280](https://github.com/Rikarin/Vixen/issues/1280) | `ReachTest`: every standard module's Create ▸ / menu / panel present, by effect | P0 | 1 · ✅ both halves: the measured manifest, and a module switched off in the plugin manager reaching nothing in the next session (red with `Activate` ignoring the suppressed set) |
 | [#1281](https://github.com/Rikarin/Vixen/issues/1281) | `ModuleRegistrationRule` + `ContributionWriterTest` | P0 | 1 · landed |
 | [#1282](https://github.com/Rikarin/Vixen/issues/1282) | Three README/dead-type corrections (Core `Vixen.Ui` line; App load-order reasons; delete `EditorObject` family) | P0 | 1 · landed |
-| — | [#1276](https://github.com/Rikarin/Vixen/issues/1276) `TexturingModule` reaches nothing — decide and close | P0 | 1 · filed |
+| — | [#1276](https://github.com/Rikarin/Vixen/issues/1276) `TexturingModule` reaches nothing — decide and close | P0 | 1 · ✅ in `Standard()`; `TexturingModuleReachTests`, 22 manifest lines gained |
 | — | [#1277](https://github.com/Rikarin/Vixen/issues/1277) Blockout boolean undo leaves operands hidden | P2b | 1 · filed · ✅ the hide is a recorded command in the transaction; the delete-undo half of the same shape is [#1482](https://github.com/Rikarin/Vixen/issues/1482), ✅ the delete's snapshot now carries the marks — and the mesh, shape, materials and boolean, which it was losing too |
 | [#1283](https://github.com/Rikarin/Vixen/issues/1283) | `Vixen.Editor.Plugin.Generator`: the eight attributes → `Declared.Register` | P1 | 2 · ✅ nine attributes (with `[EditorSubmenu]` and `[EditorIcon]`; `[Importer]` stays the pipeline's); placement shared through `DeclaredMenus`; not packed — a disk plugin gets the scan |
-| [#1284](https://github.com/Rikarin/Vixen/issues/1284) | `EditorMenuAttribute.Title` as a `*Strings` member name; `DeclaredParityTest` | P1 | 2 · 🟡 `[EditorMenu]`/`[EditorSubmenu]` and `DeclaredParityTests` ✅; `[CreateAssetMenu]`/`[Overlay]` titles owed — their records carry strings |
-| [#1285](https://github.com/Rikarin/Vixen/issues/1285) | Blockout → attributes, and through `context.AddPanel`/`AddMode` | P1 | 2 · 🟡 menus declared, panels and theme through the context — the theme removed on unload since #1484, the sheet count back to baseline; ⚠ its submenus had been absent from the shipped editor (modules activated before the Scene menu existed). The mode's own commands are still `IEditorMode.Register`'s — a contract decision |
-| [#1286](https://github.com/Rikarin/Vixen/issues/1286) | Water → attributes, `WaterDebug` static becomes module state | P1 | 2 · 🟡 through the context; ⚠ no menu to move — the module never built one, its debug switches are palette-only (a remark claiming "the mode's menu" was never true), and the sea state's Create line reads the panel's current state, which `[CreateAssetMenu]` cannot. Menu lines for the switches are a placement decision |
+| [#1284](https://github.com/Rikarin/Vixen/issues/1284) | `EditorMenuAttribute.Title` as a `*Strings` member name; `DeclaredParityTest` | P1 | 2 · ✅ `[EditorMenu]`/`[EditorSubmenu]` and `DeclaredParityTests`; then decided (a): `NewAssetKind.Title` and `SceneOverlay.Title` are `StringId`s, `[CreateAssetMenu]`/`[Overlay]` take `Title`/`Strings` by the same rule (`VXP0003`, a refused plugin), and a live language switch relabels a Create ▸ line, the New Asset… chooser and an overlay header (`ContributionTitleLanguageTests`). ⚠ The menu-bar line was already live through a run-time id no template held; the chooser and the header were frozen |
+| [#1285](https://github.com/Rikarin/Vixen/issues/1285) | Blockout → attributes, and through `context.AddPanel`/`AddMode` | P1 | 2 · 🟡 menus declared, panels and theme through the context — the theme removed on unload since #1484, the sheet count back to baseline; ⚠ its submenus had been absent from the shipped editor (modules activated before the Scene menu existed). ✅ The mode's own commands stay `IEditorMode.Register`'s, decided (a): that contract *is* a front door — `context.AddMode` invokes `Register` and the recorded removal's `EditorModes.Remove` calls `Unregister` — so the four mode rows in `ModuleRegistrationExempt.txt` carry that reason rather than a debt |
+| [#1286](https://github.com/Rikarin/Vixen/issues/1286) | Water → attributes, `WaterDebug` static becomes module state | P1 | 2 · 🟡 through the context; ⚠ no menu to move — the module never built one, its debug switches are palette-only (a remark claiming "the mode's menu" was never true), and the sea state's Create line reads the panel's current state, which `[CreateAssetMenu]` cannot. ✅ Placement decided: Scene ▸ Water ▸ Debug, six checkable lines declared by `[EditorMenu]` on the command ids, ticked from the session's `WaterDebugFlags`; `WaterModuleReachTests` holds them once each and gone on unload (red with `Declared.Register` removed) |
 | [#1287](https://github.com/Rikarin/Vixen/issues/1287) | Terrain → attributes; #740 closed; `TerrainPhysics` publishes via `Owns` | P1 | 2 · 🟡 through the context; ⚠ no menu to move either — what was attribute-shaped was three Create ▸ kinds held by the *application*, now `[CreateAssetMenu]` on `TerrainAssetKinds` (the attribute's first in-tree user). The modes' commands stay `IEditorMode.Register`'s, as #1285's |
 | [#1288](https://github.com/Rikarin/Vixen/issues/1288) | `PluginHost.Activate` honours `suppressed`; Disable works for built-ins | P1 | 2 |
 | [#1289](https://github.com/Rikarin/Vixen/issues/1289) | `IPlaySession` out of `EditorParity` + `PlayPhysics`; `PlayModule` | P2a | 3 |
@@ -738,7 +744,7 @@ Waves follow the phases; a wave is five worktrees, merged as each lands, gates o
 | [#1302](https://github.com/Rikarin/Vixen/issues/1302) | `NotYetMoved` deleted; `ApplicationReferenceRule` is `Allowed` only | P3 | 6 |
 | [#1303](https://github.com/Rikarin/Vixen/issues/1303)–[#1309](https://github.com/Rikarin/Vixen/issues/1309) | One per feature god file: `SceneViewport`, `ProjectBrowser`, `NodeGraphView`, `LayerStackView` + `TexturingModule`, `BlockoutMode`, `ComponentsView.vxml`, `EditorHost` | P4 | 7–8 · #1307 (`BlockoutMode`) ✅ the verbs are `IBlockout`, published with `PluginContext.Publish` · #1303 (`SceneViewport`) partial: a tool and an `[Overlay]` are handed `IViewportPane`, the eight members its consumers read; ⚠ `Extensions` is already the published registry in the editor (`pane.Extensions = Extensions`), `Default` only a pane's fallback outside one; bookmarks wait on § 2e's `IWorkspace` · #1306 (`LayerStackView` + `TexturingModule`) 🟡 all three moves landed — `ITexturing`, declared Tools lines, the chosen set and selected layer on the document — and the three view theme installs stay (#917) |
 | [#1310](https://github.com/Rikarin/Vixen/issues/1310) | Settings dirty joins `HasUnsavedChanges`; settings edits through `EditProperty` with a document (#1162's provider) | P2e | 5 · first half landed (the join); the document half waits on #1294 |
-| [#1311](https://github.com/Rikarin/Vixen/issues/1311) | Guide pages for the seven services and two records (`CheckDocs`, not `Docs`) | each | with its phase |
+| [#1311](https://github.com/Rikarin/Vixen/issues/1311) | Guide pages for the seven services and two records (`CheckDocs`, not `Docs`) | each | with its phase · 🟡 the pages for the services that exist ✅; `Vixen.Editor.Plugin`'s first `Shipped` baseline ✅ (the core four, decided (b)); five pages wait on #1294 and the delivery lane |
 
 ## Part 7 — Estimate and risk
 

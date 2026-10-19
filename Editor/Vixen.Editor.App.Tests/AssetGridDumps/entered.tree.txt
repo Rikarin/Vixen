@@ -12,5 +12,10 @@
           <image .hidden .size-md .variant-default> 0,0 0×0
           <asset-caption> 4,74 104×19 "Main.vxscene"
           <asset-status .hidden> 0,0 0×0
+        <asset-tile .parked .size-md .variant-default> 0,0 0×0
+          <icon .size-md .variant-default> 0,0 0×0
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 0,0 0×0
+          <asset-status .hidden> 0,0 0×0
       <scrollbar .size-md .variant-default .vertical> 748,0 10×124
       <scrollbar .horizontal .size-md .variant-default> 0,114 757×10

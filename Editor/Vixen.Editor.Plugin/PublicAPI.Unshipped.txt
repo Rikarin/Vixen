@@ -45,9 +45,6 @@ Vixen.Editor.Plugin.IEditorImage : System.IDisposable
 Vixen.Editor.Plugin.IEditorImage.Height.get -> int
 Vixen.Editor.Plugin.IEditorImage.Image.get -> ulong
 Vixen.Editor.Plugin.IEditorImage.Width.get -> int
-Vixen.Editor.Plugin.IEditorPlugin -> interface
-Vixen.Editor.Plugin.IEditorPlugin.Activate(Vixen.Editor.Plugin.PluginContext context) -> void
-Vixen.Editor.Plugin.IEditorPlugin.Deactivate() -> void
 Vixen.Editor.Plugin.LoadedPlugin -> sealed class
 Vixen.Editor.Plugin.LoadedPlugin.Descriptor.get -> Vixen.Editor.Plugin.PluginDescriptor
 Vixen.Editor.Plugin.LoadedPlugin.Failure.get -> System.Exception?
@@ -64,32 +61,6 @@ Vixen.Editor.Plugin.PluginCatalog.Find(string id) -> Vixen.Editor.Plugin.PluginD
 Vixen.Editor.Plugin.PluginCatalog.PluginCatalog(System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDescriptor> Plugins, System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDiagnostic> Diagnostics) -> void
 Vixen.Editor.Plugin.PluginCatalog.Plugins.get -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDescriptor>
 Vixen.Editor.Plugin.PluginCatalog.Plugins.init -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDescriptor>
-Vixen.Editor.Plugin.PluginContext -> sealed class
-Vixen.Editor.Plugin.PluginContext.AddCommand(Vixen.Ui.Controls.EditorCommand command) -> Vixen.Ui.Controls.EditorCommand
-Vixen.Editor.Plugin.PluginContext.AddCommand(string id, Vixen.Ui.StringId title, System.Action run) -> Vixen.Ui.Controls.EditorCommand
-Vixen.Editor.Plugin.PluginContext.AddDefaultBinding(string commandId, Vixen.Ui.KeyChord chord) -> Vixen.Ui.Controls.BindResult
-Vixen.Editor.Plugin.PluginContext.AddLayout(string name, Vixen.Ui.StringId title, System.Func<Vixen.Ui.Controls.Advanced.DockLayout> layout) -> void
-Vixen.Editor.Plugin.PluginContext.AddMenu(Vixen.Ui.StringId title, int index = -1) -> Vixen.Editor.Ui.MenuGroup
-Vixen.Editor.Plugin.PluginContext.AddMenuItem(Vixen.Editor.Ui.MenuGroup group, string commandId) -> void
-Vixen.Editor.Plugin.PluginContext.AddMode(Vixen.Editor.Ui.IEditorMode mode) -> Vixen.Editor.Ui.IEditorMode
-Vixen.Editor.Plugin.PluginContext.AddPanel(Vixen.Editor.Ui.PanelDescriptor descriptor) -> Vixen.Editor.Ui.PanelDescriptor
-Vixen.Editor.Plugin.PluginContext.AddPanel(string id, Vixen.Ui.StringId title, System.Action<Vixen.Ui.Controls.Advanced.DockPanel> build) -> Vixen.Editor.Ui.PanelDescriptor
-Vixen.Editor.Plugin.PluginContext.AddStrings(System.Collections.Generic.IReadOnlyList<Vixen.Ui.StringId> declarations) -> void
-Vixen.Editor.Plugin.PluginContext.AddStyleSheet(string css, Vixen.Ui.Styling.StyleOrigin origin = Vixen.Ui.Styling.StyleOrigin.UserAgent) -> int
-Vixen.Editor.Plugin.PluginContext.AddSubmenu(Vixen.Editor.Ui.MenuGroup parent, Vixen.Ui.StringId title, int index = -1) -> Vixen.Editor.Ui.MenuGroup
-Vixen.Editor.Plugin.PluginContext.Descriptor.get -> Vixen.Editor.Plugin.PluginDescriptor
-Vixen.Editor.Plugin.PluginContext.Directory.get -> string
-Vixen.Editor.Plugin.PluginContext.FindMenu(string titleId) -> Vixen.Editor.Ui.MenuGroup?
-Vixen.Editor.Plugin.PluginContext.Manifest.get -> Vixen.Editor.Plugin.PluginManifest
-Vixen.Editor.Plugin.PluginContext.OnDeviceLost(System.Action<Vixen.Graphics.IGraphicsDevice> release) -> void
-Vixen.Editor.Plugin.PluginContext.OnUnload(System.Action action) -> void
-Vixen.Editor.Plugin.PluginContext.OnUpdate(System.Action<System.TimeSpan> update) -> void
-Vixen.Editor.Plugin.PluginContext.Owns<T>(T scope) -> T
-Vixen.Editor.Plugin.PluginContext.Publish<T>(T service) -> T
-Vixen.Editor.Plugin.PluginContext.Registrations.get -> Vixen.Editor.Plugin.PluginRegistrations
-Vixen.Editor.Plugin.PluginContext.Services.get -> Vixen.Editor.Plugin.PluginServices
-Vixen.Editor.Plugin.PluginContext.Shell.get -> Vixen.Editor.Ui.EditorShell
-Vixen.Editor.Plugin.PluginContext.With<TService>(System.Action<TService> register, System.Action<TService> unregister) -> TService
 Vixen.Editor.Plugin.PluginDescriptor -> sealed record
 Vixen.Editor.Plugin.PluginDescriptor : System.IEquatable<Vixen.Editor.Plugin.PluginDescriptor>
 Vixen.Editor.Plugin.PluginDescriptor.AssemblyPath.get -> string
@@ -117,29 +88,6 @@ Vixen.Editor.Plugin.PluginException : System.Exception
 Vixen.Editor.Plugin.PluginException.PluginException() -> void
 Vixen.Editor.Plugin.PluginException.PluginException(string message) -> void
 Vixen.Editor.Plugin.PluginException.PluginException(string message, System.Exception innerException) -> void
-Vixen.Editor.Plugin.PluginHost -> sealed class
-Vixen.Editor.Plugin.PluginHost.Activate(string id, string name, Vixen.Editor.Plugin.IEditorPlugin module, Vixen.Editor.Plugin.PluginLoadContext? context = null) -> Vixen.Editor.Plugin.LoadedPlugin
-Vixen.Editor.Plugin.PluginHost.Changed -> System.Action<Vixen.Editor.Plugin.LoadedPlugin>?
-Vixen.Editor.Plugin.PluginHost.Declared(Vixen.Editor.Plugin.PluginContext context, System.Reflection.Assembly assembly) -> void
-Vixen.Editor.Plugin.PluginHost.DeviceLost(Vixen.Graphics.IGraphicsDevice device) -> void
-Vixen.Editor.Plugin.PluginHost.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDiagnostic>
-Vixen.Editor.Plugin.PluginHost.Disable(string id) -> bool
-Vixen.Editor.Plugin.PluginHost.Enable(string id) -> Vixen.Editor.Plugin.PluginReport
-Vixen.Editor.Plugin.PluginHost.Find(string id) -> Vixen.Editor.Plugin.LoadedPlugin?
-Vixen.Editor.Plugin.PluginHost.IsSuppressed(string id) -> bool
-Vixen.Editor.Plugin.PluginHost.Load(System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDescriptor> descriptors) -> Vixen.Editor.Plugin.PluginReport
-Vixen.Editor.Plugin.PluginHost.Load(Vixen.Editor.Plugin.PluginCatalog catalog) -> Vixen.Editor.Plugin.PluginReport
-Vixen.Editor.Plugin.PluginHost.PluginHost(Vixen.Editor.Ui.EditorShell shell, Vixen.Editor.Plugin.PluginServices? services = null) -> void
-Vixen.Editor.Plugin.PluginHost.Plugins.get -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.LoadedPlugin>
-Vixen.Editor.Plugin.PluginHost.Reload(string id) -> Vixen.Editor.Plugin.PluginReport
-Vixen.Editor.Plugin.PluginHost.Scanners.get -> System.Collections.Generic.IList<Vixen.Editor.Plugin.IContributionScanner>
-Vixen.Editor.Plugin.PluginHost.Services.get -> Vixen.Editor.Plugin.PluginServices
-Vixen.Editor.Plugin.PluginHost.Suppress(System.Collections.Generic.IEnumerable<string> ids) -> void
-Vixen.Editor.Plugin.PluginHost.Suppressed.get -> System.Collections.Generic.IReadOnlyCollection<string>
-Vixen.Editor.Plugin.PluginHost.Unload(string id) -> bool
-Vixen.Editor.Plugin.PluginHost.UnloadAll() -> void
-Vixen.Editor.Plugin.PluginHost.Update(System.TimeSpan delta) -> void
-Vixen.Editor.Plugin.PluginHost.WaitForCollection(string id, System.TimeSpan timeout) -> bool
 Vixen.Editor.Plugin.PluginLoadContext -> sealed class
 Vixen.Editor.Plugin.PluginLoadContext : System.Runtime.Loader.AssemblyLoadContext
 Vixen.Editor.Plugin.PluginLoadContext.AssemblyPath.get -> string
@@ -190,13 +138,6 @@ Vixen.Editor.Plugin.PluginReport.Failed.get -> System.Collections.Generic.IReadO
 Vixen.Editor.Plugin.PluginReport.Failed.init -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.LoadedPlugin>
 Vixen.Editor.Plugin.PluginReport.HasErrors.get -> bool
 Vixen.Editor.Plugin.PluginReport.PluginReport(System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.LoadedPlugin> Activated, System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.LoadedPlugin> Failed, System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDiagnostic> Diagnostics) -> void
-Vixen.Editor.Plugin.PluginServices -> sealed class
-Vixen.Editor.Plugin.PluginServices.Add<T>(T service) -> Vixen.Editor.Plugin.PluginServices
-Vixen.Editor.Plugin.PluginServices.Available.get -> System.Collections.Generic.IReadOnlyCollection<System.Type>
-Vixen.Editor.Plugin.PluginServices.Contains<T>() -> bool
-Vixen.Editor.Plugin.PluginServices.PluginServices() -> void
-Vixen.Editor.Plugin.PluginServices.Require<T>() -> T
-Vixen.Editor.Plugin.PluginServices.TryGet<T>(out T? service) -> bool
 Vixen.Editor.Plugin.PluginSeverity -> enum : byte
 Vixen.Editor.Plugin.PluginSeverity.Error = 1 -> Vixen.Editor.Plugin.PluginSeverity
 Vixen.Editor.Plugin.PluginSeverity.PluginSeverity() -> void

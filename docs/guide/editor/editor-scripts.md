@@ -87,6 +87,13 @@ A `[CreateAssetMenu]` method returns what to write into the new file, and it run
 rather than once when your script loaded — so a starter document carrying an id or a date is a
 different file each time. Return `""` for an empty one.
 
+The first argument of `[CreateAssetMenu]` and `[Overlay]` is the words shown when nothing else is
+said, which is right for a script with no catalogue. A project that translates its editor names a
+declaration instead, the way `[EditorMenu]` does — `Title = nameof(MyStrings.CreateTable)`, and
+`Strings = typeof(…)` when the class is in another assembly — and the line then follows a language
+switch while the editor runs. A `Title` naming nothing is refused when the script loads, never shown
+as its own name.
+
 ⚠ **An empty file is right for a kind whose editor opens a blank document and wrong for a kind an
 importer reads.** The importer deserialises what it finds, so an empty file arrives in the project
 with a warning beside it instead of as an asset.

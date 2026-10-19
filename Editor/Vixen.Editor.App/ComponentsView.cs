@@ -18,7 +18,6 @@ using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Terrain;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
-using PrefabSource = Vixen.Editor.AssetEditors.Prefabs.PrefabSource;
 
 namespace Vixen.Editor.App;
 

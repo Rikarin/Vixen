@@ -1241,6 +1241,38 @@ public static class EditorStrings {
         ]
     );
 
+    /// <summary>What each of the editor's own Create ▸ lines says, by the kind's id after <c>assets.create-</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Declared since #1284, when <c>NewAssetKind.Title</c> became a <c>StringId</c>.</b> The
+    ///     record used to carry the English and the editor built <c>editor.command.</c> + the kind's id
+    ///     around it at registration, which is an id no translator's template could contain. The ids
+    ///     are exactly the ones it built, so nothing keyed on them moves.
+    /// </remarks>
+    public static StringFamily CreateAssetKinds { get; } = new(
+        "editor.command.assets.create-",
+        [
+            new("scene", "Scene"),
+            new("material", "Material"),
+            new("shader-graph", "Shader Graph"),
+            new("frame", "Frame"),
+            new("addressable-group", "Addressable Group"),
+            new("vfx", "VFX Graph"),
+            new("animation", "Animation Clip"),
+            new("animation-graph", "Animation Graph"),
+            new("sequence", "Sequence"),
+            new("input", "Input Actions"),
+            new("mixer", "Audio Mixer"),
+            new("font", "Font"),
+            new("spline", "Spline"),
+            new("move-set", "Move Set"),
+            new("proxy-shapes", "Proxy Shapes"),
+            new("shape-vocabulary", "Shape Vocabulary"),
+            new("priorities", "Priority Ladder"),
+            new("constraint-template", "Constraint Template"),
+            new("harness", "Variation Harness")
+        ]
+    );
+
     /// <summary>Every string above, for a translator to start from.</summary>
     public static IReadOnlyList<StringId> All { get; } = [
         MenuFile,
@@ -1553,7 +1585,8 @@ public static class EditorStrings {
         .. PlayOverlays.All,
         .. CreateShapes.All,
         .. CreateLights.All,
-        .. BuildConfigurations.All
+        .. BuildConfigurations.All,
+        .. CreateAssetKinds.All
     ];
 
     /// <summary>A catalog holding every string the editor declares, for a translator to start from.</summary>

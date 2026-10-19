@@ -301,32 +301,32 @@ sealed class LibraryModule : IEditorPlugin {
         // hand and opening it, which AssetFile.Read's remarks describe as "the ordinary way" because
         // it was the only way. Both are registered first so they lead the menu; the sort below is
         // stable, so position here is order there.
-        new("assets.create-scene", "Scene", SceneFile.Extension, "New Scene", NewSceneFile),
-        new("assets.create-material", "Material", MaterialAsset.Extension, "New Material", NewMaterial),
+        new("assets.create-scene", EditorStrings.CreateAssetKinds["scene"], SceneFile.Extension, "New Scene", NewSceneFile),
+        new("assets.create-material", EditorStrings.CreateAssetKinds["material"], MaterialAsset.Extension, "New Material", NewMaterial),
 
-        new("assets.create-shader-graph", "Shader Graph", ".vxshadergraph", "New Shader Graph"),
+        new("assets.create-shader-graph", EditorStrings.CreateAssetKinds["shader-graph"], ".vxshadergraph", "New Shader Graph"),
 
         // The project's frame, as the game template ships it — one !StandardFrame node whose knobs
         // are semantic — and an addressable group. Both are claimed by an importer and both open.
-        new("assets.create-frame", "Frame", StandardFrameDocument.Extension, "New Frame", NewFrame),
-        new("assets.create-addressable-group", "Addressable Group", AddressableGroupDocument.Extension, "New Group", NewGroup),
+        new("assets.create-frame", EditorStrings.CreateAssetKinds["frame"], StandardFrameDocument.Extension, "New Frame", NewFrame),
+        new("assets.create-addressable-group", EditorStrings.CreateAssetKinds["addressable-group"], AddressableGroupDocument.Extension, "New Group", NewGroup),
 
-        new("assets.create-vfx", "VFX Graph", ".vxvfx", "New Effect"),
-        new("assets.create-animation", "Animation Clip", ".vxanim", "New Clip"),
-        new("assets.create-animation-graph", "Animation Graph", ".vxanimgraph", "New Animation Graph"),
-        new("assets.create-sequence", "Sequence", ".vxseq", "New Sequence"),
-        new("assets.create-input", "Input Actions", ".vxinput", "New Input Actions"),
-        new("assets.create-mixer", "Audio Mixer", ".vxmixer", "New Mixer"),
-        new("assets.create-font", "Font", ".vxfont", "New Font"),
+        new("assets.create-vfx", EditorStrings.CreateAssetKinds["vfx"], ".vxvfx", "New Effect"),
+        new("assets.create-animation", EditorStrings.CreateAssetKinds["animation"], ".vxanim", "New Clip"),
+        new("assets.create-animation-graph", EditorStrings.CreateAssetKinds["animation-graph"], ".vxanimgraph", "New Animation Graph"),
+        new("assets.create-sequence", EditorStrings.CreateAssetKinds["sequence"], ".vxseq", "New Sequence"),
+        new("assets.create-input", EditorStrings.CreateAssetKinds["input"], ".vxinput", "New Input Actions"),
+        new("assets.create-mixer", EditorStrings.CreateAssetKinds["mixer"], ".vxmixer", "New Mixer"),
+        new("assets.create-font", EditorStrings.CreateAssetKinds["font"], ".vxfont", "New Font"),
 
-        new("assets.create-spline", "Spline", ".vxspline", "New Spline", NewSpline, false),
+        new("assets.create-spline", EditorStrings.CreateAssetKinds["spline"], ".vxspline", "New Spline", NewSpline, false),
 
-        new("assets.create-move-set", "Move Set", ".vxmoveset", "New Move Set", NewMoveSet),
-        new("assets.create-proxy-shapes", "Proxy Shapes", ".vxproxyshapes", "New Proxy Shapes", NewProxyShapes),
-        new("assets.create-shape-vocabulary", "Shape Vocabulary", ".vxshapevocab", "New Shape Vocabulary", NewVocabulary),
-        new("assets.create-priorities", "Priority Ladder", ".vxpriorities", "New Priority Ladder", NewPriorities, false),
-        new("assets.create-constraint-template", "Constraint Template", ".vxconstraints", "New Constraint Template", NewTemplate, false),
-        new("assets.create-harness", "Variation Harness", ".vxharness", "New Harness", NewHarness)
+        new("assets.create-move-set", EditorStrings.CreateAssetKinds["move-set"], ".vxmoveset", "New Move Set", NewMoveSet),
+        new("assets.create-proxy-shapes", EditorStrings.CreateAssetKinds["proxy-shapes"], ".vxproxyshapes", "New Proxy Shapes", NewProxyShapes),
+        new("assets.create-shape-vocabulary", EditorStrings.CreateAssetKinds["shape-vocabulary"], ".vxshapevocab", "New Shape Vocabulary", NewVocabulary),
+        new("assets.create-priorities", EditorStrings.CreateAssetKinds["priorities"], ".vxpriorities", "New Priority Ladder", NewPriorities, false),
+        new("assets.create-constraint-template", EditorStrings.CreateAssetKinds["constraint-template"], ".vxconstraints", "New Constraint Template", NewTemplate, false),
+        new("assets.create-harness", EditorStrings.CreateAssetKinds["harness"], ".vxharness", "New Harness", NewHarness)
     ];
 
     /// <summary>A scene with one root, which is what File ▸ New Scene builds in memory.</summary>

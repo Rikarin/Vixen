@@ -905,7 +905,7 @@ whole of it was `AssetEditorRegistry` moving somewhere both ends could see:
 | `EditorApplication.cs:338` | `AssetEditorRegistry` |
 | `EditorApplication.cs:1115` | `AssetEditorsModule` |
 | `EditorApplication.cs:13,14,43,44` | the `Vixen.Editor.AssetEditors` and `.Content` namespaces, and the `EditorPrefab` / `PrefabSource` aliases |
-| `ComponentsView.cs:21` | `PrefabSource` |
+| `ComponentsView.cs:21@5f03c9b80` | `PrefabSource` (gone since #1308: `Pair` takes `IPrefabSource`) |
 | `EditorFrames.cs:7,399,409,434` | `StandardFrameDocument` |
 | `ShaderGraphPreviews.cs:4,5,27,56,66,80` | `IPreviewImages`, `ShaderGraphPreviewRenderer`, `ShaderGraphDocument`, and `Vixen.Editor.ShaderGraph` itself |
 

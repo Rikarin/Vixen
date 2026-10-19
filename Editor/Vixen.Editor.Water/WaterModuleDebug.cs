@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Editor.Core;
+using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
 using Vixen.Rendering.Water;
 using Vixen.Ui.Controls;
@@ -39,31 +40,62 @@ namespace Vixen.Editor.Water;
 ///         terms: "why does this river run backwards" is a question asked from whatever mode the
 ///         author happened to be in.
 ///     </para>
+///     <para>
+///         <b>Scene ▸ Water ▸ Debug, as six checkable lines (#1286).</b> Placed by an
+///         <c>[EditorMenu]</c> on each command id and two <c>[EditorSubmenu]</c>s here, which
+///         <c>Vixen.Editor.Plugin.Generator</c> turns into the <c>Declared.Register</c> that
+///         <see cref="Activate" /> calls last; the tick is each command's <c>Checked</c>, read from
+///         <see cref="Debug" />, so the line and the palette show one state. Under Scene and after
+///         Blockout's submenus rather than a menu of water's own, for <c>BlockoutModule</c>'s reason: a
+///         menu that comes and goes with a mode is one nobody can find twice. ⚠ The sea state's Create
+///         ▸ line stays registered in code, because it builds from the panel's <i>current</i> sea
+///         state and <c>[CreateAssetMenu]</c> can only name a fixed template.
+///     </para>
 /// </remarks>
+[EditorSubmenu(
+    WaterMenu,
+    Title = nameof(WaterStrings.MenuWater),
+    After = "editor.menu.blockout-handoff",
+    Priority = 7
+)]
+[EditorSubmenu(DebugMenu, Title = nameof(WaterStrings.MenuWaterDebug))]
 public sealed partial class WaterModule {
+    /// <summary>The toolset's submenu under Scene. A key for the declarations; its title is <see cref="WaterStrings.MenuWater" />.</summary>
+    internal const string WaterMenu = "Scene/Water";
+
+    /// <summary>The six switches' submenu.</summary>
+    internal const string DebugMenu = "Scene/Water/Debug";
+
     /// <summary>Draws the patches a device selected.</summary>
+    [EditorMenu(DebugMenu)]
     public const string ShowTilesCommand = "water.showTiles";
 
     /// <summary>Draws which LOD band each patch is in.</summary>
+    [EditorMenu(DebugMenu)]
     public const string ShowLodCommand = "water.showLod";
 
     /// <summary>Draws the info channels.</summary>
+    [EditorMenu(DebugMenu)]
     public const string ShowInfoCommand = "water.showInfo";
 
     /// <summary>Draws the flow field.</summary>
+    [EditorMenu(DebugMenu)]
     public const string ShowFlowCommand = "water.showFlow";
 
     /// <summary>Draws what buoyancy reads.</summary>
+    [EditorMenu(DebugMenu)]
     public const string ShowBuoyancyCommand = "water.showBuoyancy";
 
     /// <summary>Draws the ripple simulation only a game runs.</summary>
+    [EditorMenu(DebugMenu)]
     public const string ShowRipplesCommand = "water.showRipples";
 
     /// <summary>The six verbs, in the order doc 35's debugging table lists them.</summary>
     /// <remarks>
-    ///     ⚠ <b>No menu lists them, though this summary said one did from the commit that added it.</b>
-    ///     They are reached through the command palette, under <c>WaterStrings.CategoryWater</c>; no
-    ///     <c>MenuGroup</c> in the editor names a <c>water.show*</c> id (#1286).
+    ///     ⚠ <b>The order Scene ▸ Water ▸ Debug lists them in, too — but only since #1286.</b> This
+    ///     summary said a menu listed them from the commit that added it, and none did until the
+    ///     <c>[EditorMenu]</c>s above; before that they were the command palette's alone, under
+    ///     <c>WaterStrings.CategoryWater</c>.
     ///     ⚠ <b>Two of them are inert in a pane and are registered anyway.</b>
     ///     <c>water.showTiles</c> and <c>water.showLod</c> describe the patches a device selected and
     ///     <c>water.showRipples</c> a simulation only a game runs — the editor's preview surface is a

@@ -777,7 +777,7 @@ sealed partial class EditorApplication {
 
         Verb(
             kind.Id,
-            new StringId("editor.command." + kind.Id, kind.Title),
+            kind.Title,
             EditorStrings.CategoryAssets,
             () => {
                 if (library.Create(kind) is { } created && kind.Opens) {

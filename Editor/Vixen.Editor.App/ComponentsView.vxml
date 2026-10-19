@@ -67,7 +67,6 @@
 @using Vixen.Ui.Composition
 @using Vixen.Ui.Controls
 @using Vixen.Ui.Reactive
-@using Vixen.Editor.AssetEditors.Prefabs
 
 <!--
     ⚠ Doc 20 § B1's "debug (raw) mode", and the diagnostic argument behind it is that an undrawn
@@ -274,7 +273,7 @@
     ///     reach, and the new box answers for nothing at all: the marks would simply stop appearing
     ///     after the first undo.
     /// </remarks>
-    PrefabSource? prefabs;
+    IPrefabSource? prefabs;
 
     /// <summary>The foldout being dragged, or <see langword="null" />.</summary>
     Expander? dragging;
@@ -606,7 +605,7 @@
     ///     telling the truth at the next selection, which is the sort of bug that is only ever seen
     ///     by somebody who was not looking for it.
     /// </remarks>
-    public void Pair(PrefabSource? source) => prefabs = source;
+    public void Pair(IPrefabSource? source) => prefabs = source;
 
     /// <summary>Shows an entity's components.</summary>
     /// <param name="target">The entity, or <see cref="Entity.Null" /> to show nothing.</param>

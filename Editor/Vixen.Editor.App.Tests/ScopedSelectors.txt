@@ -198,7 +198,7 @@ moveset-bar > textbox	Documents
 moveset-side > scroll-content	Documents
 multi-select icon	Panels
 network-row progress-bar	-
-node-graph > node-canvas	Documents
+node-graph > node-canvas	Panels
 node-inspector fact-value	-
 node-port-editor checkbox	-
 node-port-editor numeric-input	Documents

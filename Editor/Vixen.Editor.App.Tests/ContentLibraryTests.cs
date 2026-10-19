@@ -164,7 +164,7 @@ public sealed class ContentLibraryTests : IDisposable {
         project.Assets.Scan();
         project.Selection.Set([project.Assets.Entries.Single(entry => entry.Name == "Crate.yaml").Guid]);
 
-        var kind = new NewAssetKind("test.create-thing", "Thing", ".thing", "New Thing", "name: thing\n");
+        var kind = new NewAssetKind("test.create-thing", new("editor.command.test.create-thing", "Thing"), ".thing", "New Thing", "name: thing\n");
 
         var first = library.Create(kind);
         var second = library.Create(kind);

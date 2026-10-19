@@ -291,7 +291,11 @@ applies: same major, and a minor no higher than the host's.
 
 This project also carries a `PublicAPI.Shipped.txt` and is checked by `nuke CheckApi` — the only one
 under `Editor/` that is, because doc 11 asks for a stricter promise here than anywhere else and a
-promise nobody diffed is not one.
+promise nobody diffed is not one. **And it is the one baseline in the tree whose `Shipped` is not
+empty** (#1311): `IEditorPlugin`, `PluginContext`, `PluginServices` and `PluginHost`, every member, are
+the stable core doc 36 promised plugin authors. Changing one of them now fails `CheckApi`, and
+`--update-api` records it as a `*REMOVED*` line in `Unshipped` — a decision in a reviewed diff, not a
+rewrite. Everything else here, the doc 50 services among it, stays `Unshipped` until P2 finishes.
 
 ## Threading
 

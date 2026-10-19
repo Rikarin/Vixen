@@ -31,23 +31,43 @@ namespace Vixen.Editor.Core;
 ///         mechanism in ours.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Read by a scan of the assembly that declared it, and only for a plugin or a project
-///         script</b> — see <c>CustomInspectorAttribute</c> for why that is bounded rather than the
-///         assembly scanning ADR-002 refuses. In-tree code registers a <see cref="NewAssetKind" />
-///         directly, which is what the application's own kinds do.
+///         ⚠ <b>Read two ways</b>: by a scan of the assembly that declared it, for a plugin or a
+///         project script — see <c>CustomInspectorAttribute</c> for why that is bounded rather than
+///         the assembly scanning ADR-002 refuses — and, in-tree, by the
+///         <c>Declared.Register</c> that <c>Vixen.Editor.Plugin.Generator</c> writes.
+///     </para>
+///     <para>
+///         <b>The line's words are a declaration when there is a catalogue</b> (#1284), named the way
+///         <c>EditorMenuAttribute.Title</c> names one: <c>Title = nameof(MyStrings.CreateTable)</c>,
+///         resolved in <see cref="Strings" /> or in the one <c>*Strings</c> class of the declaring
+///         assembly that declares it. A name that resolves to nothing is a compile error from the
+///         generator (<c>VXP0003</c>) and a refused plugin from the scan — never a silent literal.
+///         Without a <see cref="Title" /> the line says <see cref="Text" />, which is right for a
+///         script with no catalogue.
 ///     </para>
 /// </remarks>
-/// <param name="title">What the menu line says.</param>
+/// <param name="text">What the menu line says when <see cref="Title" /> names no declaration.</param>
 /// <param name="extension">What the new file is called after the dot, including it.</param>
 [AttributeUsage(AttributeTargets.Method)]
-public sealed class CreateAssetMenuAttribute(string title, string extension) : Attribute {
-    /// <summary>What the menu line says.</summary>
-    public string Title { get; } = title;
+public sealed class CreateAssetMenuAttribute(string text, string extension) : Attribute {
+    /// <summary>What the menu line says when <see cref="Title" /> names no declaration.</summary>
+    /// <remarks>
+    ///     Also what a derived <see cref="Id" /> and an empty <see cref="DefaultName" /> are made
+    ///     from, so translating the line moves neither the command nor the file name.
+    /// </remarks>
+    public string Text { get; } = text;
+
+    /// <summary>The line's words, as the name of a <c>StringId</c> in a declaration class, or empty.</summary>
+    /// <remarks>The rule is <c>EditorMenuAttribute.Title</c>'s, read by both readers.</remarks>
+    public string Title { get; init; } = string.Empty;
+
+    /// <summary>The declaration class <see cref="Title" /> is in, when it is not this assembly's.</summary>
+    public Type? Strings { get; init; }
 
     /// <summary>What the new file is called after the dot, including it.</summary>
     public string Extension { get; } = extension;
 
-    /// <summary>What it is called before the dot, or empty to use <see cref="Title" />.</summary>
+    /// <summary>What it is called before the dot, or empty to use <see cref="Text" />.</summary>
     /// <remarks>
     ///     A number is appended when the name is taken, so this is the stem rather than the whole
     ///     name — "New Dialogue" becomes <c>New Dialogue 2.dialogue</c> beside an existing one.
@@ -62,10 +82,10 @@ public sealed class CreateAssetMenuAttribute(string title, string extension) : A
     /// </remarks>
     public bool Opens { get; init; } = true;
 
-    /// <summary>The command id, or empty to derive one from the title.</summary>
+    /// <summary>The command id, or empty to derive one from <see cref="Text" />.</summary>
     /// <remarks>
     ///     ⚠ <b>Worth setting for anything a key should be bound to.</b> A derived id changes when the
-    ///     title does, so renaming the menu line drops the user's binding for it.
+    ///     text does, so renaming the menu line drops the user's binding for it.
     /// </remarks>
     public string Id { get; init; } = string.Empty;
 

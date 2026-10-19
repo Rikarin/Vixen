@@ -89,6 +89,12 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     /// <summary>What a plugin-management panel calls it.</summary>
     public const string ModuleName = "Texturing";
 
+    /// <summary>The Create ▸ Texture Graph line's command id.</summary>
+    public const string CreateGraphKind = "texturing.create-texture-graph";
+
+    /// <summary>The Create ▸ Layer Stack line's command id.</summary>
+    public const string CreateStackKind = "texturing.create-layer-stack";
+
     /// <summary>The menu every verb's line is declared in.</summary>
     /// <remarks>
     ///     ⚠ <b>Where the verbs belong rather than a menu of their own</b> — doc 36, and
@@ -668,8 +674,8 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
         context.Owns(
             registry.Add(
                 new NewAssetKind(
-                    "texturing.create-texture-graph",
-                    "Texture Graph",
+                    CreateGraphKind,
+                    TexturingStrings.Commands[CreateGraphKind],
                     TextureGraphDocument.Extension,
                     "New Texture Graph",
                     TextureGraphDocument.NewContents,
@@ -685,8 +691,8 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
         context.Owns(
             registry.Add(
                 new NewAssetKind(
-                    "texturing.create-layer-stack",
-                    "Layer Stack",
+                    CreateStackKind,
+                    TexturingStrings.Commands[CreateStackKind],
                     LayerStackDocument.Extension,
                     "New Layer Stack",
                     LayerStackDocument.NewContents,

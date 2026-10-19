@@ -41,7 +41,11 @@ public static class TexturingStrings {
             new(TexturingModule.ForceBakeCommand, "Bake Material (Force)"),
             new(TexturingModule.ParallaxBakeCommand, "Bake Material with Parallax"),
             new(TexturingModule.SaveSmartCommand, "Save as Smart Material"),
-            new(TexturingModule.ApplySmartCommand, "Apply Smart Material")
+            new(TexturingModule.ApplySmartCommand, "Apply Smart Material"),
+
+            // The two Create ▸ kinds, whose titles are declarations since #1284.
+            new(TexturingModule.CreateGraphKind, "Texture Graph"),
+            new(TexturingModule.CreateStackKind, "Layer Stack")
         ]
     );
 

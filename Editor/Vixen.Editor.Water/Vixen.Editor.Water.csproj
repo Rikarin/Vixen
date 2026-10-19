@@ -79,6 +79,16 @@
                           ReferenceOutputAssembly="false" />
 
         <!--
+            Doc 50 § D5: the six debug switches' [EditorMenu] and the two [EditorSubmenu]s become
+            `Declared.Register`, which WaterModule.Activate calls (#1286). Named here for the reason the
+            generator above is: an analyzer does not flow through a ProjectReference, and without it the
+            attributes compile and place nothing.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Plugin.Generator\Vixen.Editor.Plugin.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
             The VXML compiler, by the same route and for the same reason: a PackageReference to
             Vixen.Ui would bring it and a ProjectReference does not. Doc 36 § F7 wave 5 — the two
             water panels' readout blocks are written in the markup language the UI framework is for.

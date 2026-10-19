@@ -61,10 +61,8 @@ public class ModuleReachTests {
     ///     Modules that declare an id and do not ship in <c>Standard()</c>, each with why. ⚠
     ///     Shrink-only: a module here that joins <c>Standard()</c> fails until its line goes.
     /// </summary>
-    static readonly Dictionary<string, string> NotStandard = new(StringComparer.Ordinal) {
-        ["vixen.texturing"] = "#1276 — decided 'add to EditorModules.Standard', not landed; until it does the layer "
-            + "stack, painting and Bake Material reach no user of Vixen.Editor.Host"
-    };
+    /// <remarks><c>vixen.texturing</c> left this list with #1276, which added it to <c>Standard()</c>.</remarks>
+    static readonly Dictionary<string, string> NotStandard = new(StringComparer.Ordinal);
 
     static readonly Regex Declared = new("""const\s+string\s+ModuleId\s*=\s*"([^"]+)"\s*;""", RegexOptions.CultureInvariant);
 

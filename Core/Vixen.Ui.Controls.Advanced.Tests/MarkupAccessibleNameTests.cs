@@ -384,7 +384,7 @@ public partial class MarkupAccessibleNameTests {
             + "the scan is calling every value a literal and the census is a record of its own bug."
         );
 
-        // `ComponentsView.vxml:170` writes `Label="Add Component"`, which is the issue's own example.
+        // `ComponentsView.vxml:169` writes `Label="Add Component"`, which is the issue's own example.
         Assert.Contains(
             "Editor/Vixen.Editor.App/ComponentsView.vxml\tLabel\tAdd Component",
             markup.Literal,

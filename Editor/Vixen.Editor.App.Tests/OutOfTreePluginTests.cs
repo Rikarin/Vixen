@@ -88,7 +88,7 @@ public class OutOfTreePluginTests {
 
                 context.Owns(
                     registry.Add(
-                        new NewAssetKind("sample.create-widget", "Widget", ".widget", "New Widget", "size: 1", false)
+                        new NewAssetKind("sample.create-widget", new("editor.command.sample.create-widget", "Widget"), ".widget", "New Widget", "size: 1", false)
                     )
                 );
 
