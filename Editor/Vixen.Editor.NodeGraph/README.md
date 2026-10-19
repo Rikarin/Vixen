@@ -244,8 +244,8 @@ selection vocabulary (#1305). A palette entry or a script that has the graph sel
 `graph.Selection.Set(id)`, and the view follows on the next effect flush: it reselects the canvas and
 raises `SelectionChanged`, exactly as for a click. It asks whether the canvas already agrees rather than
 setting a "this is me writing" flag, because the effect runs long after the click that wrote it.
-`GraphSelectionTests` holds all three halves. Still owed from the same issue: the on-node port editors
-are built by hand rather than through `NodePortEditProvider`.
+`GraphSelectionTests` holds all three halves. The same issue's second half, the on-node port editors,
+is below: they now write through `NodePortEditProvider`'s field.
 
 **A note is edited by double-clicking it, and the blur is what commits.** `SetCommentCommand` does not
 merge — unlike `SetPortValueCommand`, which folds a scrub into one entry — so writing per keystroke
@@ -313,9 +313,26 @@ fallback cannot: whether a port *had* an inline value at all, so an undo restore
 than pinning it to a number the node type is free to change. It was widened to take a list of nodes
 for the same reason — one entry per selection, and it still merges, so a drag is one undo step.
 
-**⚠ The port fields drawn on the node are still hand-built.** They are a different surface with a
-constraint the panel does not have: a node clips its own contents, so a row wider than 240 units is a
-box that cannot be typed into. Putting them on the provider is a task, not an oversight.
+**⚠ The port fields drawn on the node go through the same field (#1305).** `NodeGraphView.Inline`
+asks `NodePortEditProvider` for the port's `NodePortMember`, binds an `InspectorField` to the one
+node, fills the box from the field's value and writes it back through `InspectorField.Write`. That
+means the member's command, its value encoding and its read-only rule apply on the node too. While
+the box was built by hand the two surfaces disagreed twice:
+
+- **The default.** The panel read a one-number default on a `float3` as `(d, 0, 0)`. The node and the
+  compiler both read it as `(d, d, d)`. Because a vector row writes the whole vector, nudging X in
+  the panel wrote the zeros into Y and Z.
+- **Enter.** On the node, Enter ended nothing, so two separate edits of one port became one undo
+  entry. `NodeCanvas.PortCommitted` now seals the run, as `NumberDrawer` does on `Submitted`.
+
+`OnNodeFieldTests` asserts both on both surfaces.
+
+**⚠ The row's shape is still the canvas's `PortEditor` and not a drawer.** A node's elements are
+pooled and rebound on every pan, and removal is final in this framework. So a drawer's `Build` per
+rebind would create a fresh set of elements for every frame of a pan. A node also clips its own
+contents, so a row wider than 240 units is a box nobody can type into. The value and the write are
+the pipeline's. Which `IPropertyDrawer` draws the row is not, which means a drawer registered for a
+port's type reaches the panel and not the node.
 
 ## The compiler does the parts that are the same everywhere
 

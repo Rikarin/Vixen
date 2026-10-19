@@ -91,6 +91,9 @@ public sealed partial class NodePortEditor : Control {
     /// <summary>Told when the person at the keyboard changed a value. Set by the canvas.</summary>
     internal Action<GraphPort>? Edited { get; set; }
 
+    /// <summary>Told when the person at the keyboard finished a value. Set by the canvas.</summary>
+    internal Action<GraphPort>? Committed { get; set; }
+
     /// <summary>Shows a port's editor, or nothing.</summary>
     /// <param name="port">The port, or <c>null</c> for a parked row.</param>
     /// <param name="editable">Whether the port is unconnected, and so takes a typed value at all.</param>
@@ -158,6 +161,7 @@ public sealed partial class NodePortEditor : Control {
             var box = Add<NumericInput>();
 
             box.NumberChanged += (_, _) => Changed(lane);
+            box.Submitted += _ => Finished();
             boxes.Add(box);
         }
 
@@ -179,6 +183,12 @@ public sealed partial class NodePortEditor : Control {
 
         editor[lane] = (float) boxes[lane].Number;
         Edited?.Invoke(port);
+    }
+
+    void Finished() {
+        if (!binding && Port is { Editor: not null } port) {
+            Committed?.Invoke(port);
+        }
     }
 
     void Ticked(bool on) {
@@ -309,6 +319,9 @@ public sealed partial class NodeItem : Control {
 
     /// <summary>Told when a value was typed into one of this node's ports. Set by the canvas.</summary>
     internal Action<GraphPort>? Edited { get; set; }
+
+    /// <summary>Told when a value typed into one of this node's ports was finished. Set by the canvas.</summary>
+    internal Action<GraphPort>? Committed { get; set; }
 
     /// <inheritdoc />
     protected override void OnCreated() {
@@ -447,6 +460,7 @@ public sealed partial class NodeItem : Control {
             view.AddClass(className);
 
             view.Fields.Edited = port => Edited?.Invoke(port);
+            view.Fields.Committed = port => Committed?.Invoke(port);
 
             pool.Add(view);
         }
@@ -1020,6 +1034,16 @@ public sealed partial class NodeCanvas : Control {
     /// </remarks>
     public event Action<NodeCanvas, GraphPort>? PortEdited;
 
+    /// <summary>Raised when a value typed into a port's inline editor was finished — Enter in a box.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The end of an edit, which <see cref="PortEdited" /> cannot say.</b> That fires per
+    ///     keystroke and per scrub step, and a host that merges the run into one undo entry needs to
+    ///     know where the run stops — or two separate edits of one port become one entry and an undo
+    ///     after the second goes back past the first. An inspector's number field ends its run on the
+    ///     same key.
+    /// </remarks>
+    public event Action<NodeCanvas, GraphPort>? PortCommitted;
+
     /// <summary>Raised when a node drag ends, with where in graph space it was let go.</summary>
     /// <remarks>
     ///     ⚠ <b>Beside <see cref="NodesMoved" />, not instead of it.</b> A canvas cannot know that a
@@ -1338,6 +1362,7 @@ public sealed partial class NodeCanvas : Control {
         while (items.Count < visible.Count) {
             var item = Surface.Add<NodeItem>();
             item.Edited = port => PortEdited?.Invoke(this, port);
+            item.Committed = port => PortCommitted?.Invoke(this, port);
 
             items.Add(item);
         }
