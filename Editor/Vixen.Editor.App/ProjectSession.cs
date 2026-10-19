@@ -46,6 +46,18 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     /// <summary>What the watcher has to say, reused so that a quiet frame allocates nothing.</summary>
     readonly List<FileChange> changes = [];
 
+    /// <summary>Authored behaviours a failed build had no type to put back on, by the scene they came off.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Held rather than dropped (#1490), and the scene refuses to save while it holds any.</b> A
+    ///     failed build is not the author deleting a class — the next build that works declares the alias
+    ///     again — so the values wait here, and <see cref="RefuseToSaveWithout" /> keeps a save from
+    ///     writing the scene without them.
+    /// </remarks>
+    readonly Dictionary<SceneDocument, List<AuthoredBehavior>> held = [];
+
+    /// <summary>What <see cref="RestoreProjectBehaviors" /> could not put back during this build.</summary>
+    int dropped;
+
     /// <summary>What tells the editor that something outside it changed the assets on disk.</summary>
     /// <remarks>
     ///     <para>
@@ -95,6 +107,7 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         this.log = log ?? ((_, _) => { });
         activeScene = scene ?? (() => null);
         Code = new ProjectAssemblies(project.Paths);
+        project.DocumentSaving += RefuseToSaveWithout;
     }
 
     /// <summary>Opens the project at a root and builds the session over it.</summary>
@@ -152,10 +165,9 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
 
     /// <summary>The project's own code, once it has been built and loaded.</summary>
     /// <remarks>
-    ///     ⚠ <b>Loaded once, at start-up, and never unloaded.</b> The context is collectible and
-    ///     nothing calls <c>Unload</c>, because the registries a load fills have no way to empty —
-    ///     see <c>ProjectAssemblies</c>. A project rebuilt while the editor is open therefore needs a
-    ///     restart, which is said out loud rather than half-built.
+    ///     ⚠ <b>Reloaded by every <see cref="BuildCode" />.</b> This remark used to say the code was loaded
+    ///     once and never unloaded because the registries had no way to empty; both halves were stale —
+    ///     <c>ProjectAssemblies.Reload</c> unloads first, and <c>Unload</c> evicts all six registries.
     /// </remarks>
     internal ProjectAssemblies Code { get; }
 
@@ -312,8 +324,12 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         // would hold the old context alive *and* lose the values, which is both failures at once.
         // Bytes and an alias are what crosses: the same alias registers again from the rebuilt
         // assembly, and the state goes into an instance of the new type.
-        var authored = SaveProjectBehaviors();
+        var scene = activeScene();
+        var authored = SaveProjectBehaviors(scene);
+        var before = held.ToArray();
         var built = Code.Reload();
+
+        held.Clear();
 
         if (built.Output is { Length: > 0 } said) {
             log(built.Failed ? LogLevel.Error : LogLevel.Debug, said);
@@ -323,23 +339,35 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
             notify(
                 "The project's code did not build",
                 NotificationSeverity.Error,
-                "Its components and behaviours are not available. The console has what the compiler said."
+                built.Assembly is null
+                    ? "Its components and behaviours are not available. The console has what the compiler said."
+                    : "The last build that worked is still loaded. The console has what the compiler said."
             );
-
-            return false;
         }
 
-        if (built.Assembly is not null) {
-            // The load ran the module initializers, so whatever the project declares is in the
-            // registries — and `ComponentsView.Registered` re-reads them, so the Add Component menu
-            // has it without being told.
-            RestoreProjectBehaviors(authored);
+        // ⚠ Put back on every path, not only when an assembly loaded (#1490). A project with no code
+        // and a build that failed used to leave the scene without them, and the next save wrote it so.
+        // The load ran the module initializers, so whatever the project declares is in the registries
+        // — and `ComponentsView.Registered` re-reads them, so the Add Component menu has it untold.
+        if (scene is not null) {
+            RestoreProjectBehaviors(scene, authored);
+        }
 
-            // The inspectors' sections and the build panel are the application's, and follow this.
+        // And what an earlier failure had nowhere to put, now that there may be somewhere.
+        foreach (var (document, waiting) in before) {
+            RestoreProjectBehaviors(document, waiting);
+        }
+
+        Report(built.Failed);
+
+        if (built.Assembly is not null) {
+            // The inspectors' sections and the build panel are the application's, and follow this —
+            // after a failed build too when the last good one was loaded again, because its types are
+            // new ones from a new context.
             CodeBuilt?.Invoke();
         }
 
-        return true;
+        return !built.Failed;
     }
 
     /// <summary>One authored behaviour, as something that outlives the type that held it.</summary>
@@ -348,23 +376,24 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     /// <param name="State">Its values.</param>
     readonly record struct AuthoredBehavior(Entity Entity, string Alias, byte[] State);
 
-    /// <summary>Takes every behaviour off the scene, keeping what was in it.</summary>
+    /// <summary>Takes the loaded project assembly's behaviours off the scene, keeping what was in them.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every behaviour, not only the project's.</b> Deciding which assembly a behaviour came
-    ///     from means reading its type, and the whole point of this is that types are about to become
-    ///     unreliable. Taking them all off and putting them all back is the same answer for both and
-    ///     has no case that needs to be right.
+    ///     ⚠ <b>Only the project's — and the remark that said "every behaviour" was wrong (#1490).</b> It
+    ///     argued that deciding which assembly a behaviour came from means reading its type, and that
+    ///     types are about to become unreliable. They are not yet: this runs before the unload, while the
+    ///     type is exactly what it says. Taking an engine's or a plugin's behaviour off as well put it at
+    ///     the mercy of the reload — which, with no <c>.csproj</c>, never put it back.
     /// </remarks>
-    List<AuthoredBehavior> SaveProjectBehaviors() {
+    List<AuthoredBehavior> SaveProjectBehaviors(SceneDocument? scene) {
         List<AuthoredBehavior> authored = [];
 
-        if (activeScene() is not { } scene) {
+        if (scene is null || Code.Loaded is not { } loaded) {
             return authored;
         }
 
         foreach (var entity in scene.Entities) {
             foreach (var behavior in scene.Behaviors.AllOn(entity).ToArray()) {
-                if (!SceneBehaviorRegistry.TryGet(behavior.GetType(), out var binder)) {
+                if (behavior.GetType().Assembly != loaded || !SceneBehaviorRegistry.TryGet(behavior.GetType(), out var binder)) {
                     continue;
                 }
 
@@ -376,33 +405,76 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         return authored;
     }
 
-    /// <summary>Puts them back, on the rebuilt types.</summary>
+    /// <summary>Puts them back, on the rebuilt types — or holds them, when nothing declares them yet.</summary>
     /// <remarks>
-    ///     ⚠ <b>A behaviour whose alias the rebuilt project no longer declares is dropped, and said
-    ///     so.</b> Somebody deleted or renamed the class; there is nowhere to put its values, and
-    ///     silently keeping them would mean a save that wrote a behaviour the build cannot name.
+    ///     ⚠ <b>A behaviour whose alias nothing declares is held, and <see cref="Report" /> decides what
+    ///     that means.</b> After a build that worked, somebody deleted or renamed the class; there is
+    ///     nowhere to put its values, and silently keeping them would mean a save that wrote a behaviour
+    ///     the build cannot name — so it is dropped, and said so. After a build that failed, it waits.
     /// </remarks>
-    void RestoreProjectBehaviors(List<AuthoredBehavior> authored) {
-        var lost = 0;
-
-        if (activeScene() is not { } scene) {
-            return;
-        }
-
-        foreach (var (entity, alias, state) in authored) {
-            if (!scene.World.IsAlive(entity) || !SceneBehaviorRegistry.TryGet(alias, out var binder)) {
-                lost++;
+    void RestoreProjectBehaviors(SceneDocument scene, List<AuthoredBehavior> authored) {
+        foreach (var behavior in authored) {
+            if (!scene.World.IsAlive(behavior.Entity)) {
+                // The entity went while the behaviour was held; there is nothing to put it on.
+                dropped++;
                 continue;
             }
 
-            binder.AttachTo(scene.Behaviors, entity, binder.Restore(state));
+            if (!SceneBehaviorRegistry.TryGet(behavior.Alias, out var binder)) {
+                if (!held.TryGetValue(scene, out var waiting)) {
+                    held[scene] = waiting = [];
+                }
+
+                waiting.Add(behavior);
+                continue;
+            }
+
+            binder.AttachTo(scene.Behaviors, behavior.Entity, binder.Restore(behavior.State));
+        }
+    }
+
+    /// <summary>Says what a build could not put back: dropped after one that worked, held after one that did not.</summary>
+    void Report(bool failed) {
+        if (!failed) {
+            foreach (var (_, waiting) in held) {
+                dropped += waiting.Count;
+            }
+
+            held.Clear();
         }
 
-        if (lost > 0) {
+        if (dropped > 0) {
             notify(
-                $"{lost} authored behaviour(s) were dropped",
+                $"{dropped} authored behaviour(s) were dropped",
                 NotificationSeverity.Warning,
                 "The rebuilt project no longer declares them, so there was nowhere to put their values."
+            );
+        }
+
+        dropped = 0;
+
+        if (held.Values.Sum(waiting => waiting.Count) is > 0 and var count) {
+            notify(
+                $"{count} authored behaviour(s) are held until the code builds",
+                NotificationSeverity.Warning,
+                "Nothing declares them until it does, so they are off the scene for now — and the scene "
+                + "will not save, because it would be written without them."
+            );
+        }
+    }
+
+    /// <summary>Refuses to write a scene that has behaviours held off it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Raised before the write, through <c>EditorProject.DocumentSaving</c>, as an
+    ///     <see cref="IOException" /></b> — the failure every save path already reports as a refused write
+    ///     and leaves the document dirty for. A scene saved now would be the file without the behaviours,
+    ///     which is the data loss #1490 is about arriving by the other door.
+    /// </remarks>
+    void RefuseToSaveWithout(EditorDocument document) {
+        if (document is SceneDocument scene && held.TryGetValue(scene, out var waiting) && waiting.Count > 0) {
+            throw new IOException(
+                $"'{scene.Title.Peek()}' has {waiting.Count} authored behaviour(s) held off it until the "
+                + "project's code builds. Saving now would write it without them; fix the build first."
             );
         }
     }
@@ -510,6 +582,7 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     public void Dispose() {
         watcher?.Dispose();
         watcher = null;
+        project.DocumentSaving -= RefuseToSaveWithout;
     }
 
     /// <summary>Says so when the project was made by an engine newer than this one.</summary>

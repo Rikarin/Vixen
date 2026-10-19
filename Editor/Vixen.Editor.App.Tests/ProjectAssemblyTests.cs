@@ -2,8 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
+using Vixen.Core;
+using Vixen.Ecs;
 using Vixen.Editor.Core;
+using Vixen.Editor.SceneView;
 using Vixen.Engine.Behaviors;
+using Vixen.Engine.Transforms;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -305,6 +309,122 @@ public sealed class ProjectAssemblyTests : IDisposable {
         // could use while actually editing.
         Assert.Equal(7f, after.BehaviorType.GetProperty("Distance")!.GetValue(restored));
     }
+
+    /// <summary>
+    ///     ⚠ <b>A rebuild that fails keeps the previous build's types (#1490).</b> The old assembly is
+    ///     unloaded before the compiler runs, so a syntax error typed into a script that had been working
+    ///     used to take every one of its behaviours out of the registries — and with them, out of the scene.
+    /// </summary>
+    [Fact]
+    public void A_rebuild_that_fails_keeps_the_previous_builds_types() {
+        Write(Declaring("KeptPatrol"));
+
+        var assemblies = new ProjectAssemblies(new ProjectPaths(root));
+        var first = assemblies.Reload();
+
+        Assert.False(first.Failed, first.Output);
+        Assert.True(SceneBehaviorRegistry.TryGet("KeptPatrol", out var before));
+
+        File.WriteAllText(Path.Combine(root, "GameCode.cs"), "public class Broken { this is not C#; }");
+
+        var second = assemblies.Reload();
+
+        // Failed, and said why — and still holding what the last good build declared.
+        Assert.True(second.Failed);
+        Assert.Contains("error", second.Output, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(second.Assembly);
+        Assert.Same(second.Assembly, assemblies.Loaded);
+        Assert.True(SceneBehaviorRegistry.TryGet("KeptPatrol", out var after), "the failed rebuild took the last good build's types with it");
+
+        // From a fresh context: the old one was unloaded before the compiler ran, as it has to be.
+        Assert.NotSame(before.BehaviorType, after.BehaviorType);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>An authored project behaviour, and its values, survive a rebuild that fails — and when the
+    ///     last good build is gone too, they are held rather than dropped, and the scene refuses to be
+    ///     saved without them (#1490).</b>
+    /// </summary>
+    /// <remarks>
+    ///     The last build is the user fixing the syntax error: what was held goes back on, with the value
+    ///     a designer typed before any of this happened.
+    /// </remarks>
+    [Fact]
+    public void A_failed_rebuild_never_takes_an_authored_behaviour_out_of_the_scene() {
+        Write(Declaring("HeldPatrol"));
+        Directory.CreateDirectory(Path.Combine(root, "Assets"));
+
+        var project = new EditorProject(new ProjectPaths(root));
+        using var world = new World("Scene");
+        var file = Path.Combine(root, "Assets", "Level.vxscene");
+        var scene = new SceneDocument(project, world, AssetId.Empty, "Level") { Writer = new SceneFileWriter(file) };
+        List<string> said = [];
+
+        using var session = new ProjectSession(
+            project,
+            (title, _, _) => said.Add(title),
+            () => { },
+            () => false,
+            new ProjectHistory(Path.Combine(root, "Data")),
+            scene: () => scene
+        );
+
+        Assert.True(session.BuildCode(), string.Join(Environment.NewLine, said));
+
+        var entity = scene.Add("Guard", LocalTransform.Identity);
+
+        Assert.True(SceneBehaviorRegistry.TryGet("HeldPatrol", out var binder));
+
+        var authored = binder.Create();
+
+        binder.BehaviorType.GetProperty("Speed")!.SetValue(authored, 41.5f);
+        binder.AttachTo(scene.Behaviors, entity, authored);
+        scene.Save();
+
+        var saved = File.ReadAllText(file);
+
+        Assert.Contains("!HeldPatrol", saved, StringComparison.Ordinal);
+
+        // A syntax error: the last good build is still on disk and is what comes back.
+        File.WriteAllText(Path.Combine(root, "GameCode.cs"), "public class Broken { this is not C#; }");
+
+        Assert.False(session.BuildCode());
+        Assert.Equal(41.5f, Speed(Assert.Single(scene.Behaviors.AllOn(entity).ToArray())));
+
+        // And again with the last good build deleted, so there is nothing at all to put it back on.
+        Directory.Delete(Path.Combine(root, "bin"), recursive: true);
+        said.Clear();
+
+        Assert.False(session.BuildCode());
+        Assert.Empty(scene.Behaviors.AllOn(entity).ToArray());
+        Assert.Contains(said, title => title.Contains("held", StringComparison.OrdinalIgnoreCase));
+
+        // ⚠ The save path: a scene written now would be written without it, so it is refused, and the
+        // file on disk is still the one that names the behaviour.
+        Assert.Throws<IOException>(scene.Save);
+        Assert.Equal(saved, File.ReadAllText(file));
+
+        File.WriteAllText(Path.Combine(root, "GameCode.cs"), Declaring("HeldPatrol"));
+
+        Assert.True(session.BuildCode(), string.Join(Environment.NewLine, said));
+        Assert.Equal(41.5f, Speed(Assert.Single(scene.Behaviors.AllOn(entity).ToArray())));
+
+        scene.Save();
+        Assert.Contains("!HeldPatrol", File.ReadAllText(file), StringComparison.Ordinal);
+
+        static float Speed(Behavior behavior) => (float)behavior.GetType().GetProperty("Speed")!.GetValue(behavior)!;
+    }
+
+    static string Declaring(string alias) =>
+        $$"""
+          using Vixen.Core;
+          using Vixen.Engine.Behaviors;
+
+          namespace GameCode;
+
+          [DataContract("{{alias}}")]
+          public sealed class {{alias}} : Behavior { public float Speed { get; set; } = 1f; }
+          """;
 
     /// <summary>The assembly is loaded into a collectible context of its own, not into the host's.</summary>
     [Fact]

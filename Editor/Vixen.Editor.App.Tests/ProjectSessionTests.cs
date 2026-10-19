@@ -6,7 +6,9 @@ using System.Reflection;
 using Vixen.Core;
 using Vixen.Core.IO.Watch;
 using Vixen.Editor.Core;
+using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
+using Vixen.Engine.Behaviors;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -274,6 +276,49 @@ public sealed class ProjectSessionTests : IDisposable {
         Assert.Equal(0, built);
         Assert.Contains("The project's code did not build", said);
         Assert.Same(editor.Project, service.Project);
+    }
+
+    /// <summary>A code build that loaded nothing leaves the scene's authored behaviours where they were (#1490).</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every editor launch runs this build on its first frame</b>, and the scratch project and
+    ///         every content-only project have no <c>.csproj</c>. The build used to take every behaviour off
+    ///         the scene and put them back only when an assembly loaded — so a behaviour from an assembly the
+    ///         editor already references was gone a frame after launch, and the next save wrote the scene
+    ///         without it.
+    ///     </para>
+    ///     <para>
+    ///         Two cases, one assertion: no code at all, and code that does not build. The values are checked
+    ///         as well as the count, because a restore that attached a fresh instance would pass a count.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_build_that_loads_nothing_keeps_the_scenes_behaviours(bool broken) {
+        SceneBehaviorRegistry.Register<PatrolBehavior>();
+
+        using var editor = EditorSession.Start();
+
+        if (broken) {
+            File.WriteAllText(Path.Combine(editor.ProjectRoot, "Broken.csproj"), "<Project><this is not xml");
+        }
+
+        var scene = editor.Scene;
+        var entity = scene.Entities.First();
+        var authored = scene.Behaviors.Add<PatrolBehavior>(entity);
+
+        authored.Speed = 41.5f;
+
+        Assert.Single(scene.Behaviors.AllOn(entity).ToArray());
+
+        Assert.Equal(!broken, editor.Plugins.Services.Require<IProjectSession>().BuildCode());
+
+        var kept = Assert.IsType<PatrolBehavior>(Assert.Single(scene.Behaviors.AllOn(entity).ToArray()));
+        Assert.Equal(41.5f, kept.Speed);
+
+        // ⚠ And the file a save writes still names it — the half of the defect a user meets.
+        Assert.Contains("!PatrolBehavior", SceneSerializer.ToYaml(scene), StringComparison.Ordinal);
     }
 
     /// <summary>Frames until a condition holds or the budget runs out, sleeping between so the watcher's debounce can pass.</summary>
