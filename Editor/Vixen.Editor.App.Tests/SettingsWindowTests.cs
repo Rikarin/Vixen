@@ -287,7 +287,6 @@ public class SettingsWindowTests {
         Assert.Equal(9, fixture.Project.GlobalStack.Capacity);
     }
 
-    /// <summary>Types into the inspector row for a member, the way a person does.</summary>
     /// <summary>Ctrl+Z inside the project settings window undoes a setting, and undoing back to clean is clean.</summary>
     /// <remarks>
     ///     ⚠ <b>#1310, decision (a).</b> The rows edit through a <c>SettingsDocument</c> whose stack the
@@ -349,6 +348,7 @@ public class SettingsWindowTests {
         Descendants(root).FirstOrDefault(element => element.Focusable)
         ?? throw new InvalidOperationException("nothing in the settings window takes focus");
 
+    /// <summary>Types into the inspector row for a member, the way a person does.</summary>
     static void Type(SettingsView view, string member, string value) {
         foreach (var row in Descendants(view.Pane).OfType<InspectorRow>()) {
             if (string.Equals(row.Field.Member.Name, member, StringComparison.Ordinal)) {
