@@ -167,6 +167,36 @@ public class ApplicationSizeRuleTests {
         Assert.Empty(ApplicationSizeRule.Violations(parts, table));
     }
 
+    /// <summary>
+    ///     ⚠ A named file outside the class — <c>ProjectBrowser.cs</c>, doc 50 § P4's (#1304) — is measured,
+    ///     held to its own row, and kept out of the class's total.
+    /// </summary>
+    /// <remarks>
+    ///     Both halves: the browser growing past its row is a violation naming it, and its lines are not the
+    ///     application's, so a total at the partial files' sum stays clean.
+    /// </remarks>
+    [Fact]
+    public void A_named_file_outside_the_class_has_its_own_ceiling_and_is_not_in_the_total() {
+        var named = Assert.Single(ApplicationSizeRule.Named);
+
+        using var fixture = new Fixture().Part("EditorApplication.cs", 100).Part(named, 60, partial: false);
+
+        var parts = ApplicationSizeRule.Measure(fixture.Root);
+
+        Assert.Equal(60, parts[named]);
+        Assert.Empty(ApplicationSizeRule.Violations(parts, Table(("EditorApplication.cs", 100), (named, 60), (ApplicationSizeRule.Total, 100))));
+
+        var grown = ApplicationSizeRule.Violations(parts, Table(("EditorApplication.cs", 100), (named, 40), (ApplicationSizeRule.Total, 100)));
+
+        Assert.Contains(grown, violation => violation.Contains(named + " is 60 lines", StringComparison.Ordinal));
+        Assert.Single(grown);
+
+        var table = ApplicationSizeRule.Parse(ApplicationSizeRule.Render(parts));
+
+        Assert.Equal(60, table[named]);
+        Assert.Equal(100, table[ApplicationSizeRule.Total]);
+    }
+
     /// <summary>This checkout, against the committed table, with the instrument checked first.</summary>
     [Fact]
     public void The_application_on_this_tree_is_within_every_ceiling_and_no_ceiling_is_slack() {
@@ -179,6 +209,7 @@ public class ApplicationSizeRuleTests {
         // The subject set, named rather than counted: the file the class is named after. A walk that
         // did not find it is reading some other directory.
         Assert.Contains("EditorApplication.cs", parts.Keys);
+        Assert.All(ApplicationSizeRule.Named, named => Assert.Contains(named, parts.Keys));
 
         Assert.Equal([], ApplicationSizeRule.Violations(parts, ceilings));
     }
