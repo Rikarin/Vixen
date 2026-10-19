@@ -509,7 +509,7 @@ exemption list that has become clean fails too.
 | **`ContributionWriterTest`** | a contribution kind with a reader and no production writer (`SettingsPage`, `AssetPreview`, `BuildStep` today) — a registry nobody writes is a list with a longer name | one test over `IEditorRegistry`'s kinds |
 
 ⚠ **`Docs` is not `CheckDocs`, and each new public service type owes a guide page or a
-`DocsExempt` line** (CLAUDE.md § Gates). Seven services and two contribution records is nine pages.
+`DocsExempt` line** (CLAUDE.md § Gates). Seven services and two contribution records is nine pages. **Landed (#1311) for the services that exist:** `editor/content-library` (`IContentLibrary`, `ShownContent`), `editor/project-session` (`IProjectSession`, `RecentProject`) and `editor/scene-editing` (`ISceneEditing`); `IPlaySession` was already on `editor/play-mode-systems` and `IBlockout` on `editor/writing-a-plugin`. `IDocumentHost`, `IWorkspace`, `IPlayerDelivery`, `DocumentKind` and `DocumentView` do not exist yet (#1294's decision), so their pages are still owed. ⚠ The plugin README's list of what `PluginPoints()` publishes had drifted by five services; `PublishedServicesReadmeTests` now compares it with the editor.
 
 ---
 

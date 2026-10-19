@@ -196,9 +196,15 @@ takes bytes rather than a texture view so that the host's staging buffer, copy a
 written once rather than once per plugin.
 
 What `Vixen.Editor.App` publishes today is `EditorProject`, `SceneDocument`, `DrawerRegistry`,
-`ImporterContributions`, `IEditorRegistry`, the editing state, the work plane, `IMeshBaker`,
-`IMeshMapBaker`, `IMeshSource`, `IActiveScene`, `IActiveView`, `IDeviceDeploy`,
-`AssetEditorRegistry`, `HotReloadHost`, `IEditorGraphics` and the `PluginHost` itself.
+`ImporterContributions`, `IContentLibrary`, `IProjectSession`, `IEditorRegistry`, the editing state
+(`MeshEdit`), the work plane (`WorkPlane`), `IMeshBaker`, `IMeshMapBaker`, `IMeshSource`,
+`IActiveScene`, `IActivePlaySession`, `IPlaySession`, `ISceneEditing`, `IActiveView`,
+`IDeviceDeploy`, `AssetEditorRegistry`, `HotReloadHost`, `IEditorGraphics` and the `PluginHost`
+itself. ⚠ Five of those — the doc 50 context services — were published by three batches before this
+sentence named them; `PublishedServicesReadmeTests` now compares it with what the editor publishes,
+and the context services each have a guide page: [the content library](../../docs/guide/editor/content-library.md),
+[the project session](../../docs/guide/editor/project-session.md), [scene editing](../../docs/guide/editor/scene-editing.md)
+and [play](../../docs/guide/editor/play-mode-systems.md).
 ⚠ **This paragraph used to end "importers and build steps are not published", which contradicted the
 list two lines above it.** `ImporterContributions` is published, and has been since doc 36 § F8: the
 reason it could not be — `ContentPipeline` builds its `ImporterRegistry` per run, deliberately, so
