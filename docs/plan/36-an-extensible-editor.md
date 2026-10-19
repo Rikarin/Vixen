@@ -104,7 +104,7 @@ out-of-tree plugin cannot obtain a generated descriptor, and there is no attribu
 path either. **There is no `[CustomEditor]` equivalent available to anyone outside this repository.**
 
 **F6 — Modes are added imperatively from application code.**
-`EditorParity.cs:951` — `Shell.Modes.Add(new SelectMode())`.
+`EditorParity.cs:953` — `Shell.Modes.Add(new SelectMode())`.
 `Editor/Vixen.Editor.Terrain/TerrainModulePanels.cs:475@0d7dda4a9` — `Shell.Modes.Add(terrain)`. (It was the app's `EditorTerrainPanels.cs:451` when this was surveyed; `81f9e68ec` moved it into the terrain module, and since #1287 it is `context.AddMode(terrain)`, removed on unload.)
 The mode list is code in the app, not a registry the app reads.
 
@@ -1169,7 +1169,7 @@ Deliberately open, and named so the first project that needs one does not fork.
 
   ⚠ **The two things terrain surfaced were answered by naming them, not by a context.**
   `PluginContext.OnUpdate` (`Editor/Vixen.Editor.Plugin/PluginContext.cs:345`) and
-  `EditorDocument.Saved` (`Editor/Vixen.Editor.Core/EditorDocument.cs:198`) both exist. A tool
+  `EditorDocument.Saved` (`Editor/Vixen.Editor.Core/EditorDocument.cs:199`) both exist. A tool
   context would have been a third place to put them.
 
   **What is genuinely left is a different, smaller question**, and it is not this one: `SceneViewport`
