@@ -120,6 +120,16 @@ public sealed class NodeGraphView : Control {
     /// <summary>The field behind each box on a node, which is what an edit there is written through.</summary>
     readonly Dictionary<Socket, InspectorField> fields = [];
 
+    /// <summary>The drawer each hosted port shows, kept across projections — see <see cref="Hosted" />.</summary>
+    readonly Dictionary<Socket, DrawerContent> hosted = [];
+
+    /// <summary>What the built-in drawers would choose, which is the question that decides whether a port is hosted.</summary>
+    /// <remarks>
+    ///     A registry of its own rather than <see cref="DrawerRegistry.Default" />, because the default
+    ///     is where a plugin adds its drawers — it is the thing being compared against this.
+    /// </remarks>
+    static readonly DrawerRegistry BuiltIn = DrawerRegistry.CreateDefault();
+
     readonly List<NodeCommentView> notes = [];
 
     NodeGraphModel graph = new();
@@ -174,6 +184,17 @@ public sealed class NodeGraphView : Control {
     ///     depending on which of the two an author is looking at.
     /// </remarks>
     public int Decimals { get; set; } = 3;
+
+    /// <summary>Which drawer edits a port's value, the panel's registry unless the view is handed another.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asked per port and acted on only for a drawer the built-in set would not have chosen
+    ///     (#1305, decision (b)).</b> A <c>float</c>, a vector or a <c>bool</c> resolves to the
+    ///     number, vector or tick drawer, whose shapes the canvas already draws pooled; those keep the
+    ///     canvas's <see cref="PortEditor" />. A drawer a plugin registered for the port's type is hosted
+    ///     on the node instead — <see cref="PortEditorKind.Hosted" /> — so it shows on the node as it
+    ///     does in the panel. Set before <see cref="Graph" /> or followed by <see cref="Project" />.
+    /// </remarks>
+    public DrawerRegistry Drawers { get; set; } = DrawerRegistry.Default;
 
     /// <summary>The graph being shown.</summary>
     /// <remarks>
@@ -485,6 +506,20 @@ public sealed class NodeGraphView : Control {
             groups[built.AddGroup(group.Title, [.. members])] = group;
         }
 
+        // What a port no longer hosts — its node gone, or its drawer resolved away — is let go, so a
+        // removed node's field does not keep it alive.
+        List<Socket> stale = [];
+
+        foreach (var (key, content) in hosted) {
+            if (!fields.TryGetValue(key, out var field) || !ReferenceEquals(content.Field, field)) {
+                stale.Add(key);
+            }
+        }
+
+        foreach (var key in stale) {
+            hosted.Remove(key);
+        }
+
         projecting = true;
 
         try {
@@ -536,12 +571,14 @@ public sealed class NodeGraphView : Control {
     ///         member, the field and the write are the panel's, and what is left here is the shape.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The shape is still the canvas's and not a drawer's, deliberately.</b> A node's
-    ///         elements are pooled and rebound on every pan — see <c>NodeItem</c> — and removal is
-    ///         final in this framework, so a drawer's <c>Build</c> per rebind would be a fresh set of
-    ///         elements per frame of a pan. <see cref="PortEditor" /> is the row shape that fits a
-    ///         node that clips its own contents; it is filled from the member's value and written
-    ///         back through the member's field, which is where the two surfaces could disagree.
+    ///         ⚠ <b>The shape is the canvas's unless a drawer the built-in set would not choose is
+    ///         registered for the port (#1305, decision (b)).</b> A node's elements are pooled and
+    ///         rebound on every pan — see <c>NodeItem</c> — and removal is final in this framework, so
+    ///         a drawer's <c>Build</c> per rebind would be a fresh set of elements per frame of a pan.
+    ///         <see cref="PortEditor" /> is the row shape that fits a node that clips its own contents;
+    ///         it is filled from the member's value and written back through the member's field. A
+    ///         custom drawer is hosted instead (<see cref="PortEditorKind.Hosted" />), and only it pays
+    ///         for a row moving to another port — <c>PortDrawerTests</c> counts both.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Built for every input, wired or not.</b> The provider is asked about no node, so
@@ -565,6 +602,15 @@ public sealed class NodeGraphView : Control {
         }
 
         var field = new InspectorField(provider.Descriptor, member, [node], edited);
+
+        if (Drawers.Resolve(member) is { } drawer && BuiltIn.Resolve(member)?.GetType() != drawer.GetType()) {
+            var content = Hosted(key, drawer, field);
+
+            fields[key] = content.Field;
+
+            return new PortEditor(content) { ReadOnly = !content.Field.CanWrite };
+        }
+
         var type = member.MemberType;
         var lanes = member.Encode(field.Read().Value);
 
@@ -578,6 +624,43 @@ public sealed class NodeGraphView : Control {
         fields[key] = field;
 
         return editor;
+    }
+
+    /// <summary>The hosted content for a port, kept across projections while it would be built the same.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Kept, because a drawer's own write reprojects.</b> The canvas's boxes write under
+    ///     <c>typing</c>, which holds the projection off; a drawer writes through its field directly, so
+    ///     the graph changes and the view reprojects in the middle of the edit. A fresh content per
+    ///     projection would make the row drop the element being typed into and build another. The same
+    ///     content is the same element, and the row only shows the value again.
+    /// </remarks>
+    DrawerContent Hosted(Socket key, IPropertyDrawer drawer, InspectorField field) {
+        if (hosted.TryGetValue(key, out var kept)
+            && ReferenceEquals(kept.Drawer, drawer)
+            && ReferenceEquals(kept.Field.Objects[0], field.Objects[0])
+            && ReferenceEquals(kept.Field.Document, field.Document)
+            && kept.Field.Member.MemberType == field.Member.MemberType
+            && kept.Field.CanWrite == field.CanWrite) {
+            return kept;
+        }
+
+        return hosted[key] = new DrawerContent(drawer, field);
+    }
+
+    /// <summary>A drawer's element on a node: built over the port's field, refreshed the way the panel refreshes a row.</summary>
+    sealed class DrawerContent(IPropertyDrawer drawer, InspectorField field) : IPortContent {
+        public IPropertyDrawer Drawer { get; } = drawer;
+
+        public InspectorField Field { get; } = field;
+
+        public UiElement Build(UiElement parent) => Drawer.Build(Field, parent);
+
+        /// <remarks>Inside <see cref="EditProperty.Refreshing" />, as <c>InspectorRows.Show</c> is, so the value put in is not written back.</remarks>
+        public void Show(UiElement built) {
+            using (Field.Refreshing()) {
+                Drawer.Show(Field, built);
+            }
+        }
     }
 
     /// <summary>What is written across the top of a node.</summary>

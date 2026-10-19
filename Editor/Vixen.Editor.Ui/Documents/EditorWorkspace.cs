@@ -72,6 +72,18 @@ public interface IWorkspace {
     ///     lands in is the host's.
     /// </remarks>
     bool Open(AssetId asset);
+
+    /// <summary>The durable state of one view — what it is looking at, which must outlive the panel showing it.</summary>
+    /// <typeparam name="T">The view's own model.</typeparam>
+    /// <param name="view">Which view, by the id its panel is registered under.</param>
+    /// <returns>The one instance for that view, made the first time anything asks.</returns>
+    /// <remarks>
+    ///     <b>Doc 50 § D2's <c>IWorkspace.Views[i]</c>.</b> A panel is built afresh every time it is
+    ///     opened, so whatever it keeps on its own elements goes with the old ones; the panel factory
+    ///     reads this on build and writes through it, and nothing has to be parked on the application
+    ///     in between. The model is the view's own type, because this assembly cannot name a scene pane.
+    /// </remarks>
+    T ViewState<T>(string view) where T : class, new();
 }
 
 /// <summary>The editor's <see cref="IWorkspace" />: a view list keyed by document type.</summary>
@@ -86,6 +98,7 @@ public interface IWorkspace {
 /// </remarks>
 public sealed class EditorWorkspace(Func<AssetId, bool>? open = null) : IWorkspace {
     readonly List<DocumentView> views = [];
+    readonly Dictionary<string, object> states = new(StringComparer.Ordinal);
 
     /// <inheritdoc />
     public IReadOnlyList<DocumentView> Views => views;
@@ -161,6 +174,21 @@ public sealed class EditorWorkspace(Func<AssetId, bool>? open = null) : IWorkspa
 
     /// <inheritdoc />
     public bool Open(AssetId asset) => open?.Invoke(asset) ?? false;
+
+    /// <inheritdoc />
+    /// <exception cref="InvalidOperationException">The view's state was first asked for as another type.</exception>
+    public T ViewState<T>(string view) where T : class, new() {
+        ArgumentException.ThrowIfNullOrEmpty(view);
+
+        if (!states.TryGetValue(view, out var state)) {
+            states[view] = state = new T();
+        }
+
+        return state as T
+            ?? throw new InvalidOperationException(
+                $"The '{view}' view keeps a {state.GetType().Name}, not a {typeof(T).Name}: two owners for one view's state."
+            );
+    }
 
     sealed class Removal(EditorWorkspace workspace, DocumentView view) : IDisposable {
         bool done;

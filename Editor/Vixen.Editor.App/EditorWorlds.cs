@@ -66,15 +66,15 @@ sealed partial class EditorApplication {
     /// <summary>The active scene's settings, read when the scene is loaded and written on save.</summary>
     WorldSettings world0 = new();
 
-    /// <summary>Every scene open in this editor, the first being the one it started with.</summary>
+    /// <summary>What the editor knows about each open scene's file, keyed by its document.</summary>
     /// <remarks>
-    ///     ⚠ <b>A list beside <c>scene</c> rather than instead of it.</b> Half the editor holds the
-    ///     active scene — the viewport, the gizmo, the inspector, the picker — and replacing that
-    ///     field with an index would be a change to every one of them. What multi-scene adds is the
-    ///     <i>others</i>, and making one of them active is an assignment to the field they all
-    ///     already read.
+    ///     ⚠ <b>Which scenes are open, in what order, and which is active are
+    ///     <see cref="ISceneEditing" />'s (#1290)</b> — <see cref="SceneEditing.Scenes" /> is the list
+    ///     and this is only the file beside each entry: its path, its world settings, and the two view
+    ///     marks the Scenes panel toggles. The application follows the service's
+    ///     <see cref="ISceneEditing.ActiveChanged" /> rather than assigning <c>scene</c> itself.
     /// </remarks>
-    readonly List<EditorScene> openScenes = [];
+    readonly Dictionary<SceneDocument, EditorScene> sceneFiles = [];
 
     /// <summary>One scene open in the editor: its document, its file, and its settings.</summary>
     /// <param name="Document">The document.</param>
@@ -108,12 +108,10 @@ sealed partial class EditorApplication {
     }
 
     /// <summary>The scene commands and the outliner act on: the one new entities go into.</summary>
-    internal EditorScene ActiveScene => openScenes.Count > 0 ? openScenes[activeScene] : new(scene, scenePath);
+    internal EditorScene ActiveScene => sceneFiles.TryGetValue(scene, out var open) ? open : new(scene, scenePath);
 
-    int activeScene;
-
-    /// <summary>Every scene open in this editor.</summary>
-    internal IReadOnlyList<EditorScene> Scenes => openScenes;
+    /// <summary>Every scene open in this editor, in the service's order.</summary>
+    internal IReadOnlyList<EditorScene> Scenes => [.. sceneEditing.Scenes.Select(document => sceneFiles[document])];
 
     /// <summary>The active scene's world settings.</summary>
     internal WorldSettings World => world0;
@@ -247,8 +245,8 @@ sealed partial class EditorApplication {
     /// <summary>Reads the active scene's settings, which is what loading a scene does.</summary>
     void LoadWorld() {
         world0 = WorldSettings.Load(ActiveScene.Path);
-        if (openScenes.Count > activeScene) {
-            openScenes[activeScene].Settings = world0;
+        if (sceneFiles.TryGetValue(scene, out var open)) {
+            open.Settings = world0;
         }
     }
 
@@ -445,10 +443,10 @@ sealed partial class EditorApplication {
         // ⚠ By the file each scene writes now, not the one it was opened from — after Save As the
         // main scene's recorded path names a file it no longer writes, so adding that file activated
         // the main scene and adding the one it moved to loaded a second document over it (#1416).
-        if (openScenes.FindIndex(open => SameFile(open.Writes, path)) is var found and >= 0) {
-            Activate(found);
+        if (Scenes.FirstOrDefault(open => SameFile(open.Writes, path)) is { } found) {
+            sceneEditing.Activate(found.Document);
 
-            return openScenes[found].Document;
+            return found.Document;
         }
 
         if (EditedElsewhere(path, scene: null) is { } holder) {
@@ -471,12 +469,13 @@ sealed partial class EditorApplication {
 
         document.Stack.Clear();
         document.Stack.MarkClean();
-        document.StructureChanged += _ => hierarchyStale = true;
-        document.Renamed += (_, _) => hierarchyStale = true;
+        document.StructureChanged += _ => sceneEditing.Restructured();
+        document.Renamed += (_, _) => sceneEditing.Restructured();
 
-        openScenes.Add(new(document, path) { Settings = WorldSettings.Load(path) });
+        sceneFiles[document] = new(document, path) { Settings = WorldSettings.Load(path) };
+        sceneEditing.Open(document);
 
-        hierarchyStale = true;
+        sceneEditing.Restructured();
         RefreshScenes();
 
         Shell.Notifications.Success(Path.GetFileName(path) + " opened additively");
@@ -485,14 +484,23 @@ sealed partial class EditorApplication {
 
     /// <summary>Makes one of the open scenes the one commands act on.</summary>
     /// <param name="index">Which one.</param>
+    /// <remarks>Through the service, so this and a plugin's <c>Activate</c> are one path — see <see cref="Followed" />.</remarks>
     internal void Activate(int index) {
-        if (index < 0 || index >= openScenes.Count || index == activeScene) {
-            return;
+        if (sceneEditing.Scenes is var open && index >= 0 && index < open.Count) {
+            sceneEditing.Activate(open[index]);
         }
+    }
 
-        activeScene = index;
-
-        var open = openScenes[index];
+    /// <summary>Points the editor at the scene <see cref="ISceneEditing" /> made active.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one writer of <c>scene</c> after start-up (#1290).</b> The service owns which scene
+    ///     is active and raises <see cref="ISceneEditing.ActiveChanged" />; what only the application can
+    ///     do — the picker, the probe, the world settings, the document focus and the panes — happens
+    ///     here, so a plugin activating a scene moves the editor exactly as a click in the Scenes panel
+    ///     does.
+    /// </remarks>
+    void Followed() {
+        var open = sceneFiles[sceneEditing.Active];
 
         SetActiveScene(open.Document, open.Path);
         world0 = open.Settings;
@@ -506,7 +514,7 @@ sealed partial class EditorApplication {
             layout.Document = open.Document;
         }
 
-        hierarchyStale = true;
+        sceneEditing.Restructured();
         RefreshScenes();
         Retitle();
     }
@@ -535,31 +543,31 @@ sealed partial class EditorApplication {
     ///     one is New Scene.
     /// </remarks>
     internal void CloseScene(int index) {
-        if (index <= 0 || index >= openScenes.Count) {
+        var scenes = Scenes;
+
+        if (index <= 0 || index >= scenes.Count) {
             return;
         }
 
-        var open = openScenes[index];
+        var open = scenes[index];
 
         Confirm(
             open.Document.HasUnsavedChanges.Value,
             "Discard unsaved changes?",
             Path.GetFileName(open.Path) + " has changes that have not been written.",
             () => {
+                // ⚠ Out of the service first, which activates the scene before it when this one was
+                // active — and the editor follows that before the document goes (#1498).
+                sceneEditing.Close(open.Document);
+
                 // ⚠ The entities go with the scene. The world is shared, so a document closed without
                 // unloading its handle would leave its entities in the level with nothing naming
                 // them — which is the multi-scene version of a leak.
                 open.Document.Delete([.. open.Document.Roots]);
                 open.Document.Close();
 
-                openScenes.RemoveAt(index);
-
-                if (activeScene >= index) {
-                    activeScene = Math.Max(0, activeScene - 1);
-                }
-
-                Activate(activeScene);
-                hierarchyStale = true;
+                sceneFiles.Remove(open.Document);
+                sceneEditing.Restructured();
                 RefreshScenes();
             },
             confirm: "Discard"
@@ -576,12 +584,14 @@ sealed partial class EditorApplication {
             list.Children[^1].Remove();
         }
 
-        for (var index = 0; index < openScenes.Count; index++) {
+        var scenes = Scenes;
+
+        for (var index = 0; index < scenes.Count; index++) {
             var position = index;
-            var open = openScenes[index];
+            var open = scenes[index];
 
             var row = list.Add("scene-row");
-            if (index == activeScene) {
+            if (ReferenceEquals(open.Document, sceneEditing.Active)) {
                 row.AddClass("selected");
             }
 
@@ -598,7 +608,7 @@ sealed partial class EditorApplication {
                     open.Document.SetHidden(entity, !on);
                 }
 
-                RefreshMarks();
+                sceneEditing.Remarked();
             };
 
             var locked = row.Add<CheckBox>();
@@ -611,7 +621,7 @@ sealed partial class EditorApplication {
                     open.Document.SetLocked(entity, on);
                 }
 
-                RefreshMarks();
+                sceneEditing.Remarked();
             };
 
             row.AddHandler<PointerEvent>(
@@ -657,7 +667,7 @@ sealed partial class EditorApplication {
             EditorStrings.CommandSceneSaveAllScenes,
             EditorStrings.CategoryScene,
             SaveAllScenes,
-            enabled: () => openScenes.Exists(open => open.Document.HasUnsavedChanges.Value)
+            enabled: () => sceneEditing.Scenes.Any(document => document.HasUnsavedChanges.Value)
         );
 
         Planned("scene.layers", EditorStrings.CommandSceneLayers, EditorStrings.CategoryScene);
@@ -688,7 +698,7 @@ sealed partial class EditorApplication {
     void SaveAllScenes() {
         var written = 0;
 
-        foreach (var open in openScenes) {
+        foreach (var open in Scenes) {
             if (!open.Document.HasUnsavedChanges.Value) {
                 continue;
             }

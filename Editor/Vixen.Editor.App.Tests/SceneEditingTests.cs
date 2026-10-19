@@ -32,7 +32,7 @@ public sealed class SceneEditingTests : IDisposable {
         var project = new EditorProject(new ProjectPaths(Path.Combine(Path.GetTempPath(), "vixen-scene-editing")));
 
         document = new SceneDocument(project, world, AssetId.Empty, "Test");
-        editing = new SceneEditing(() => document);
+        editing = new SceneEditing(document);
     }
 
     public void Dispose() => world.Dispose();
@@ -265,6 +265,35 @@ public sealed class SceneEditingTests : IDisposable {
         Assert.True(world.Has<Light>(editing.CreateLight(LightKind.Point)));
     }
 
+    /// <summary>Which scene is active is the service's: only an open one can be, and the verbs follow it.</summary>
+    [Fact]
+    public void Only_an_open_scene_can_be_activated_and_the_verbs_act_on_the_one_that_is() {
+        var other = new SceneDocument(document.Project, world, AssetId.Empty, "Other");
+        var raised = 0;
+
+        editing.ActiveChanged += _ => raised++;
+
+        Assert.False(editing.Activate(other));
+        Assert.False(editing.Activate(document));
+        Assert.Equal(0, raised);
+
+        Assert.True(editing.Open(other));
+        Assert.True(editing.Activate(other));
+        Assert.Equal(1, raised);
+        Assert.Same(other, editing.Active);
+
+        var created = editing.CreateEntity();
+
+        Assert.Contains(created, other.Entities);
+        Assert.DoesNotContain(created, document.Entities);
+
+        // Closing the active one hands the verbs back to the scene before it, and says so.
+        Assert.True(editing.Close(other));
+        Assert.Same(document, editing.Active);
+        Assert.Equal(2, raised);
+        Assert.False(editing.Close(document));
+    }
+
     /// <summary>
     ///     By effect, through the shell: the command is <c>SceneModule</c>'s, over the published
     ///     service, and pressing it changes the scene by exactly one undo entry.
@@ -305,7 +334,14 @@ public sealed class SceneEditingTests : IDisposable {
         Assert.NotNull(editor.Shell.Commands["entity.group"]);
         Assert.Contains(editor.Extensions.All<SceneMenuItem>(), item => item.CommandId == "scene.create-entity");
 
+        Assert.Contains(editor.Shell.Workspace.Panels, panel => panel.Id == SceneOutliner.PanelId);
+
         editor.Plugins.Disable(SceneModule.ModuleId);
+
+        // The outliner is the module's since #1290's fourth slice: its panel and the outliner the
+        // application asks for F2 go with it.
+        Assert.DoesNotContain(editor.Shell.Workspace.Panels, panel => panel.Id == SceneOutliner.PanelId);
+        Assert.False(editor.Plugins.Services.Contains<SceneOutliner>());
 
         Assert.Null(editor.Shell.Commands["entity.group"]);
         Assert.Null(editor.Shell.Commands["entity.snap-to-floor"]);

@@ -282,7 +282,7 @@ sealed partial class EditorApplication {
             EditorStrings.CommandEditRename,
             SceneContext,
             Rename,
-            () => hierarchy is not null && scene.Selection.Count > 0
+            () => Outliner is { IsOpen: true } && scene.Selection.Count > 0
         );
 
         Shell.Keys.SetDefault("edit.delete", new KeyChord(InputKey.Delete, ModifierKeys.None));
@@ -625,7 +625,7 @@ sealed partial class EditorApplication {
             write(entity, wanted);
         }
 
-        RefreshMarks();
+        sceneEditing.Remarked();
     }
 
     // ── Play ────────────────────────────────────────────────────────────────────────────────────
@@ -1090,7 +1090,7 @@ sealed partial class EditorApplication {
                 scene.Stack.MarkClean();
 
                 scene.Add("Scene Root", LocalTransform.Identity);
-                hierarchyStale = true;
+                sceneEditing.Restructured();
             },
             confirm: "Discard"
         );
@@ -1165,7 +1165,7 @@ sealed partial class EditorApplication {
             scene.Stack.Clear();
             scene.Stack.MarkClean();
 
-            hierarchyStale = true;
+            sceneEditing.Restructured();
             CloseTabsTheSceneLeft();
             Shell.Notifications.Success(Path.GetFileName(path));
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
@@ -1786,7 +1786,7 @@ sealed partial class EditorApplication {
         (inspected ?? scene).Selection.Set([entity]);
         Shell.Context = SceneContext;
 
-        hierarchyStale = true;
+        sceneEditing.Restructured();
     }
 
     void Browse(string url) => links.Open(url);
@@ -1864,7 +1864,7 @@ sealed partial class EditorApplication {
         // user had rather than an arrangement this remembered separately. Skipped when the panel is
         // already single, because `Remember` would then record Single and stopping would leave the
         // toggle claiming the viewport is maximised when nothing was ever changed.
-        if (maximiseOnPlay && arrangement != ViewportArrangement.Single) {
+        if (maximiseOnPlay && Arrangement != ViewportArrangement.Single) {
             Arrangement = Remember();
         }
 
@@ -1907,7 +1907,7 @@ sealed partial class EditorApplication {
 
     /// <summary>What leaving play does to the rest of the editor, after the scene has been restored.</summary>
     void PlayLeft() {
-        hierarchyStale = true;
+        sceneEditing.Restructured();
 
         // Whatever the panel was split into before Play maximised it. Null when it was not, which is
         // every session where the preference is off.

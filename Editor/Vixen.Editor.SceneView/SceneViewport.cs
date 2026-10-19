@@ -244,10 +244,14 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     /// </remarks>
     public const int BookmarkSlots = 9;
 
-    readonly ViewBookmark?[] bookmarks = new ViewBookmark?[BookmarkSlots];
-
     /// <summary>The nine slots, empty where nothing has been saved.</summary>
-    public IReadOnlyList<ViewBookmark?> Bookmarks => bookmarks;
+    /// <remarks>
+    ///     ⚠ <b>Handed in by whoever owns the view, not kept by the pane (#1303).</b> A pane is rebuilt
+    ///     every time the Scene panel is opened, and slots it owned went with it; the editor hands each
+    ///     pane its <see cref="PaneState.Bookmarks" /> from the workspace's <see cref="SceneViewState" />.
+    ///     A pane built outside an editor keeps its own, as before.
+    /// </remarks>
+    public ViewBookmarks Bookmarks { get; set; } = new();
 
     /// <summary>Where a gizmo drag is recorded.</summary>
     public EditorDocument? Document { get; set; }
@@ -970,7 +974,7 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
         }
 
         var bookmark = Camera.Bookmark("View " + (slot + 1).ToString(System.Globalization.CultureInfo.InvariantCulture));
-        bookmarks[slot] = bookmark;
+        Bookmarks[slot] = bookmark;
 
         return bookmark;
     }
@@ -979,7 +983,7 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     /// <param name="slot">Which one.</param>
     /// <returns>Whether there was one.</returns>
     public bool RestoreBookmark(int slot) {
-        if ((uint) slot >= (uint) BookmarkSlots || bookmarks[slot] is not { } bookmark) {
+        if ((uint) slot >= (uint) BookmarkSlots || Bookmarks[slot] is not { } bookmark) {
             return false;
         }
 
@@ -990,7 +994,7 @@ public sealed class SceneViewport : IDisposable, IViewportPane {
     /// <summary>Whether a slot has a view in it.</summary>
     /// <param name="slot">Which one.</param>
     /// <returns>Whether it does.</returns>
-    public bool HasBookmark(int slot) => (uint) slot < (uint) BookmarkSlots && bookmarks[slot] is not null;
+    public bool HasBookmark(int slot) => (uint) slot < (uint) BookmarkSlots && Bookmarks[slot] is not null;
 
     /// <summary>What a drag with this button and these modifiers means.</summary>
     /// <param name="button">Which button is down.</param>

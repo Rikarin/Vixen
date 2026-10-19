@@ -5,6 +5,7 @@ using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
+using Vixen.Editor.Ui.Documents;
 using Vixen.Input;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
@@ -154,6 +155,26 @@ sealed class SceneModule : IEditorPlugin {
         context.Owns(registry.Add(new SceneMenuItem("entity.snap-to-floor", SceneMenuSurface.Context) { Order = 4 }));
         context.Owns(registry.Add(new SceneMenuItem("entity.move-to-view", SceneMenuSurface.Context) { Order = 5 }));
         context.Owns(registry.Add(new SceneMenuItem("scene.create-entity", SceneMenuSurface.Context) { Order = 6 }));
+
+        // ── The outliner (#1290's fourth slice) ─────────────────────────────────────────────────
+        // ⚠ Its filter and order are the workspace's per-view state rather than the module's, so they
+        // outlive the panel and the module both; the outliner itself is published for the two things
+        // the application still asks of the tree — F2's in-place rename and Deselect's highlight.
+        var outliner = context.Owns(
+            new SceneOutliner(
+                context.Shell,
+                editing,
+                registry,
+                context.Services.Require<IWorkspace>().ViewState<OutlinerState>(SceneOutliner.PanelId),
+                EditorApplication.SceneContext
+            )
+        );
+
+        context.Publish(outliner);
+        context.AddPanel(
+            new PanelDescriptor(SceneOutliner.PanelId, EditorStrings.PanelHierarchy, outliner.Build) { Closed = outliner.Closed }
+        );
+        context.OnUpdate(_ => outliner.Update());
     }
 
     /// <summary>One command per built-in shape, so that spawning one is not the menu's private trick.</summary>

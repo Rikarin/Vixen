@@ -79,9 +79,10 @@ namespace Vixen.Editor.App;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A panel's factory runs again when it is reopened</b>, so nothing durable may live in
-///         one. The camera is kept as a <see cref="ViewBookmark" /> on this object and restored when
-///         the scene panel is rebuilt; without that, closing and reopening the viewport would put the
-///         user back at the origin.
+///         one. The camera, the split and the saved views are the workspace's
+///         <see cref="Vixen.Editor.SceneView.SceneViewState" /> (#1303) and are restored when the scene
+///         panel is rebuilt; without that, closing and reopening the viewport would put the user back at
+///         the origin.
 ///     </para>
 /// </remarks>
 sealed partial class EditorApplication : IDisposable {
@@ -92,13 +93,14 @@ sealed partial class EditorApplication : IDisposable {
     readonly World world = new("Editor");
     readonly EditorProject project;
 
-    /// <summary>The scene every command acts on.</summary>
+    /// <summary>The scene every command acts on: <see cref="ISceneEditing.Active" />, followed.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not readonly, because doc 20's multi-scene row makes it change.</b> Half the editor
-    ///     holds the active scene — the outliner, the gizmo, the inspector, the picker — so making
-    ///     one of several open scenes active is an assignment to the field they all already read,
-    ///     rather than an index every one of them would have to learn about. See
-    ///     <see cref="SetActiveScene" />.
+    ///     ⚠ <b>Not readonly, because doc 20's multi-scene row makes it change — and not this class's
+    ///     to change (#1290).</b> Which scene is active is <see cref="ISceneEditing" />'s; this field is
+    ///     what the ~350 reads across the partials already name, written only by <see cref="Followed" />
+    ///     when the service raises <see cref="ISceneEditing.ActiveChanged" />. ⚠ Not
+    ///     <c>EditorProject.ActiveDocument</c>, refuted by the first slice: an asset editor's tab
+    ///     activates its own document. See <see cref="SetActiveScene" />.
     /// </remarks>
     SceneDocument scene;
 
@@ -326,18 +328,13 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>The panes the scene is drawn in, or <see langword="null" /> while the panel is closed.</summary>
     ViewportLayout? viewports;
 
-    /// <summary>How the scene panel is split, kept across a panel rebuild.</summary>
-    ViewportArrangement arrangement = ViewportArrangement.Single;
-
-    /// <summary>Where each pane's camera was, so reopening the panel does not go back to the origin.</summary>
+    /// <summary>How the scene panel is split, and each pane's camera and saved views, kept across a panel rebuild.</summary>
     /// <remarks>
-    ///     ⚠ <b>One per pane and cleared when the arrangement changes.</b> A saved camera restored
-    ///     into a freshly-split layout would overwrite <c>ViewportLayout</c>'s top/front/side presets
-    ///     with three copies of wherever the single pane happened to be looking — which is a four-pane
-    ///     layout that comes up as four identical perspective views, the exact thing the presets exist
-    ///     to prevent.
+    ///     The workspace's per-view state (#1303) rather than two fields here: the arrangement and the
+    ///     cameras were parked on this class and the nine bookmarks on the pane, which a reopened panel
+    ///     rebuilt empty. See <see cref="SceneViewState" />.
     /// </remarks>
-    readonly ViewBookmark?[] cameras = new ViewBookmark?[4];
+    SceneViewState SceneViewState => documentViews.ViewState<SceneViewState>("scene");
 
     /// <summary>What answers "what is under this ray" for placement and snapping.</summary>
     /// <remarks>
@@ -474,35 +471,8 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     internal IReadOnlyList<ReloadReport> StyleReloads => styleReloads;
 
-    TreeView? hierarchy;
-    ContextMenu? hierarchyMenu;
     ContextMenu? assetMenu;
     ProjectBrowser? browser;
-    bool hierarchyStale = true;
-
-    /// <summary>What the outliner's filter box says, or <see langword="null" /> for no filter.</summary>
-    /// <remarks>
-    ///     Held here rather than read from the box, because a panel's factory runs again when it is
-    ///     reopened — so a filter kept in the control would be silently forgotten by closing the
-    ///     panel, which looks like the outliner spontaneously showing rows that were hidden.
-    /// </remarks>
-    string? hierarchyFilter;
-
-    /// <summary>Whether the tree is being told about the selection rather than reporting one.</summary>
-    bool hierarchyEchoing;
-
-    /// <summary>How the outliner's siblings are ordered.</summary>
-    /// <inheritdoc cref="hierarchyFilter" select="remarks" />
-    string hierarchyOrder = OutlinerOrders[0];
-
-    /// <summary>The orders the outliner offers, the first being the one it opens with.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Hierarchy order is first and is the default.</b> It is the only one that carries
-    ///     information the others destroy — the order of siblings is something the user arranged, and
-    ///     a name sort on by default would hide that permanently and look like the arrangement not
-    ///     having been saved.
-    /// </remarks>
-    static readonly string[] OutlinerOrders = ["Hierarchy order", "Name (A–Z)", "Name (Z–A)"];
 
     /// <summary>Whether the inspector is showing the project's selection rather than a scene's.</summary>
     bool inspectingAssets;
@@ -649,18 +619,18 @@ sealed partial class EditorApplication : IDisposable {
         play.Entered += _ => PlayEntered();
         play.Left += _ => PlayLeft();
 
-        // ⚠ The active scene, the focused pane's camera and the probe are asked for at each call,
-        // because all three change under the service — a second scene activated, a pane split, a
-        // probe rebuilt for the new scene. See `SceneEditing`.
-        sceneEditing = new SceneEditing(() => scene, () => Viewport?.Camera, () => probe);
-        sceneEditing.HierarchyChanged += _ => hierarchyStale = true;
-        sceneEditing.MarksChanged += _ => RefreshMarks();
+        // ⚠ The active scene is the service's from here on and this class follows it (#1290): `scene`
+        // is written by `Followed` and by nothing else. The focused pane's camera and the probe are
+        // asked for at each call, because both change under the service — a pane split, a probe
+        // rebuilt for the new scene. See `SceneEditing`.
+        sceneEditing = new SceneEditing(scene, () => Viewport?.Camera, () => probe);
+        sceneEditing.ActiveChanged += _ => Followed();
 
         // ⚠ And every other open scene's, because the store above is the *first* document's and a
         // behaviour authored into an additively opened scene used to be named in `Unsupported`
         // rather than run. Honest, and not whole: a designer was told about something the editor
         // should be able to do. Read at every Play, so a scene opened after this line still plays.
-        play.Controller.Stores = () => openScenes.Select(open => open.Document.Behaviors);
+        play.Controller.Stores = () => sceneEditing.Scenes.Select(document => document.Behaviors);
 
         // ⚠ The editor's own contribution to the frame a session runs, and the one service this
         // application can honestly own. Doc 31 § D10 said an embedding host would have to add the
@@ -698,7 +668,7 @@ sealed partial class EditorApplication : IDisposable {
         // controller performs for any other reason.
         play.Controller.Restored += (_, translation) => {
             scene.Remap(translation);
-            hierarchyStale = true;
+            sceneEditing.Restructured();
         };
 
         // ⚠ Not only after this panel's own commands. An *undo* of "remove component" puts the
@@ -711,11 +681,11 @@ sealed partial class EditorApplication : IDisposable {
                 }
             }
 
-            // ⚠ And the outliner, whose row glyph is *what the entity carries* — see `GlyphFor`. It
+            // ⚠ And the outliner, whose row glyph is *what the entity carries* — see `SceneOutliner.GlyphFor`. It
             // was subscribed to the structure and the rename and to nothing else, so adding a light
             // to an entity left the row drawing the plain dot until something unrelated rebuilt the
             // tree. The remark on `GlyphFor` asserted this already happened; it did not.
-            hierarchyStale = true;
+            sceneEditing.Restructured();
         };
 
         // ⚠ Before the scene is read, and that ordering is the whole of it. These used to be
@@ -746,8 +716,8 @@ sealed partial class EditorApplication : IDisposable {
             project.Assets.Scan();
         }
 
-        scene.StructureChanged += _ => hierarchyStale = true;
-        scene.Renamed += (_, _) => hierarchyStale = true;
+        scene.StructureChanged += _ => sceneEditing.Restructured();
+        scene.Renamed += (_, _) => sceneEditing.Restructured();
 
         // ⚠ Empty here: every kind and view is a module's contribution (#1297), registered through
         // `PluginServices` — the asset editors module registers this build's twenty-six. The
@@ -780,8 +750,8 @@ sealed partial class EditorApplication : IDisposable {
         // than a special case beside it. Everything that walks the open scenes — the panel, Save All
         // Scenes, the active-scene switch — would otherwise have to remember that one of them is not
         // in the list, which is exactly the kind of exception that goes wrong once and quietly.
-        openScenes.Add(new(scene, scenePath) { Settings = WorldSettings.Load(scenePath) });
-        world0 = openScenes[0].Settings;
+        sceneFiles[scene] = new(scene, scenePath) { Settings = WorldSettings.Load(scenePath) };
+        world0 = sceneFiles[scene].Settings;
 
         // ⚠ With the registry, which is doc 36 § D4's `AddPreview` row: a module or a plugin owning
         // its own file format is the one thing that can draw a picture of it, and without this the
@@ -1144,20 +1114,20 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>How the scene panel is split.</summary>
     public ViewportArrangement Arrangement {
-        get => arrangement;
+        get => SceneViewState.Arrangement;
 
         set {
-            if (arrangement == value) {
+            if (SceneViewState.Arrangement == value) {
                 return;
             }
 
-            arrangement = value;
+            SceneViewState.Arrangement = value;
 
             // ⚠ Forgotten before the rebuild, not after. `ViewportLayout` raises `Rearranged` from
             // inside the setter below, and the handler is what restores these — so clearing
             // afterwards would restore last arrangement's cameras into this one's panes and then
             // throw the record away.
-            Array.Clear(cameras);
+            SceneViewState.ForgetCameras();
 
             if (viewports is not null) {
                 viewports.Arrangement = value;
@@ -1323,24 +1293,14 @@ sealed partial class EditorApplication : IDisposable {
         FollowHistory();
         Retitle();
 
-        if (hierarchyStale) {
-            hierarchyStale = false;
-            RebuildHierarchy();
-        }
-
         FollowSelection();
 
         // ⚠ After it, because a module's per-frame work follows the *entity* selection and this is
         // where that is arbitrated between the panels. A terrain brush pointed at ground the frame
-        // has just decided is not selected any more would be a stroke on the wrong hill.
+        // has just decided is not selected any more would be a stroke on the wrong hill. The outliner
+        // is a module's now (#1290) and rebuilds and re-highlights in here — `SceneOutliner.Update`.
         plugins.Update(delta);
 
-        // ⚠ After the arbitration, and every frame rather than only after a rebuild. A selection
-        // made anywhere but the tree — a viewport click, a command, an undo — changes nothing
-        // structural, so a sync that only ran when the rows were rebuilt would leave the outliner
-        // highlighting whatever was clicked in it last. Comparing a handful of handles is the same
-        // trade this class already makes for the selections themselves.
-        SyncTreeSelection();
         browser?.SyncSelection();
 
         // ⚠ Drained here rather than raised from the platform thread, which is the whole shape of
@@ -1374,8 +1334,8 @@ sealed partial class EditorApplication : IDisposable {
             // reopened and the SceneViewport goes with the old one, so there is no teardown hook to
             // read the camera in — and a bookmark taken once at startup would restore the origin
             // every time.
-            if (index < cameras.Length) {
-                cameras[index] = pane.Camera.Bookmark("current");
+            if (index < SceneViewState.MaxPanes) {
+                SceneViewState.Panes[index].Camera = pane.Camera.Bookmark("current");
             }
 
             RememberView(index, pane);
@@ -2052,8 +2012,16 @@ sealed partial class EditorApplication : IDisposable {
             // ⚠ Restored, because this runs again every time the panel is reopened and a fresh
             // SceneViewport starts at the origin looking down −Z. Absent for a pane of an
             // arrangement nobody has looked at yet, which is what leaves the quad presets alone.
-            if (index < cameras.Length && cameras[index] is { } saved) {
-                pane.Camera.Restore(saved);
+            if (index < SceneViewState.MaxPanes) {
+                var remembered = SceneViewState.Panes[index];
+
+                if (remembered.Camera is { } saved) {
+                    pane.Camera.Restore(saved);
+                }
+
+                // ⚠ The workspace's slots, not the pane's own: a pane is rebuilt with the panel, and the
+                // nine views saved in the last one went with it (#1303).
+                pane.Bookmarks = remembered.Bookmarks;
             }
 
             // ⚠ And what it was drawing, which is the same restore one shelf along: the camera
@@ -2094,92 +2062,6 @@ sealed partial class EditorApplication : IDisposable {
     ModeInput? modeInput;
 
     void Panels() {
-        Shell.RegisterPanel(
-            "hierarchy",
-            EditorStrings.PanelHierarchy,
-            panel => {
-                panel.WhenPressedIn(() => Shell.Context = SceneContext);
-
-                // ⚠ Above the tree and outside it, because a filter is about the panel rather than
-                // about the control: the tree is a view of whatever it is handed, and what it is
-                // handed is this application's decision. `TreeView` has no filter of its own for
-                // the same reason it has no idea what an entity is.
-                var bar = panel.Add<UiElement>("outliner-filters");
-
-                var search = bar.Add<SearchBox>();
-                search.Placeholder = "Filter by name…";
-
-                search.ValueChanged += (_, value) => {
-                    hierarchyFilter = string.IsNullOrWhiteSpace(value) ? null : value;
-                    hierarchyStale = true;
-                };
-
-                // ⚠ Hierarchy order is first and is the default, because it is the only one that
-                // carries information the others destroy: the order of siblings is a thing the user
-                // arranged, and a sort that is on by default would hide it permanently.
-                var order = bar.Add<Select>();
-
-                foreach (var mode in OutlinerOrders) {
-                    order.AddOption(mode);
-                }
-
-                order.Value = hierarchyOrder;
-
-                order.SelectionChanged += (_, value) => {
-                    hierarchyOrder = value ?? OutlinerOrders[0];
-                    hierarchyStale = true;
-                };
-
-                hierarchy = panel.Add<TreeView>();
-                hierarchy.MultiSelect = true;
-                hierarchy.AllowDrag = true;
-
-                // ⚠ The two columns are added on bind rather than built with the row, because the
-                // rows are pooled: thirty of them serve a scene of any size, so an eye appended per
-                // call would add one per scrolled row for the life of the panel.
-                hierarchy.RowBound += MarkRow;
-
-                hierarchy.SelectionChanged += tree => {
-                    // ⚠ Ignored while the tree is being brought into line with the selection rather
-                    // than the other way round. Restoring the highlight after a rebuild raises this,
-                    // and writing it straight back would be the tree overwriting the very selection
-                    // it is being told about — which for a click in the viewport means the click is
-                    // undone on the next frame.
-                    if (hierarchyEchoing) {
-                        return;
-                    }
-
-                    List<Entity> picked = [];
-
-                    foreach (var node in tree.Selection) {
-                        if (node.Tag is Entity entity) {
-                            picked.Add(entity);
-                        }
-                    }
-
-                    scene.Selection.Set(picked);
-                };
-
-                hierarchy.Renamed += (_, node, name) => {
-                    if (node.Tag is Entity entity) {
-                        scene.Rename(entity, name);
-                    }
-                };
-
-                hierarchy.Moved += (_, node) => Dropped(node);
-
-                // ⚠ Double-click renames, and it is the control's own gesture rather than three
-                // lines here. A row's name is the thing you edit in place, in this panel and in the
-                // content browser both — see `TreeView.RenameOnActivate`, which is where the two
-                // copies of it went. F2 still comes through `edit.rename`, so the keyboard and the
-                // pointer cannot disagree about what a rename is.
-                hierarchy.RenameOnActivate = true;
-
-                Contextualise(hierarchy, hierarchyMenu ??= HierarchyMenu());
-                hierarchyStale = true;
-            }
-        );
-
         Shell.RegisterPanel(
             new PanelDescriptor(
                 "project",
@@ -2276,7 +2158,7 @@ sealed partial class EditorApplication : IDisposable {
                             editing.IsActive && !editing.Selection.IsEmpty
                                 ? [new MeshGizmoTarget(scene, editing)]
                                 : EntityGizmoTarget.For(world, scene.Selection),
-                        Arrangement = arrangement
+                        Arrangement = SceneViewState.Arrangement
                     };
 
                     // ⚠ Subscribed after the constructor and then called by hand, because the
@@ -2499,7 +2381,7 @@ sealed partial class EditorApplication : IDisposable {
 
         var file = project.Paths.Absolute(entry.Path);
 
-        foreach (var open in openScenes) {
+        foreach (var open in Scenes) {
             if (open.Document.IsOpen && SameFile(open.Writes, file)) {
                 document = open.Document;
 
@@ -2541,7 +2423,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     </para>
     /// </remarks>
     EditorDocument? EditedElsewhere(string path, SceneDocument? scene) {
-        foreach (var open in openScenes) {
+        foreach (var open in Scenes) {
             if (!ReferenceEquals(open.Document, scene) && open.Document.IsOpen && SameFile(open.Writes, path)) {
                 return open.Document;
             }
@@ -2585,7 +2467,7 @@ sealed partial class EditorApplication : IDisposable {
         Shell.Notifications.Show(
             title,
             NotificationSeverity.Warning,
-            InATab(holder) || openScenes.Exists(open => ReferenceEquals(open.Document, holder))
+            InATab(holder) || sceneEditing.Scenes.Any(open => ReferenceEquals(open, holder))
                 ? $"{file} is already open as '{name}'. Close that first, so that one document writes the file."
                 : $"{file} has unsaved changes in '{name}', whose tab is closed. Save them, or reopen it and revert, so that one document writes the file."
         );
@@ -2610,7 +2492,7 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     void CloseTabsTheSceneLeft() {
         foreach (var (id, shown) in tabDocuments.ToArray()) {
-            if (shown is not SceneDocument moved || !openScenes.Exists(open => ReferenceEquals(open.Document, moved))) {
+            if (shown is not SceneDocument moved || !sceneEditing.Scenes.Contains(moved)) {
                 continue;
             }
 
@@ -3904,7 +3786,7 @@ sealed partial class EditorApplication : IDisposable {
     ///         than about the gap. They belong here the moment there is something for them to attach.
     ///     </para>
     /// </remarks>
-    static void Creatable(MenuGroup menu) {
+    internal static void Creatable(MenuGroup menu) {
         var shapes = menu.AddSubmenu(EditorStrings.MenuCreateShape);
 
         foreach (var kind in PrimitiveShapes.All) {
@@ -3937,7 +3819,7 @@ sealed partial class EditorApplication : IDisposable {
     ///         of five selected rows still means all five.
     ///     </para>
     /// </remarks>
-    static void Contextualise(TreeView tree, ContextMenu menu) {
+    internal static void Contextualise(TreeView tree, ContextMenu menu) {
         tree.AddHandler<PointerEvent>(
             (_, args) => {
                 if (args is not { Action: PointerAction.Pressed, Button: PointerButton.Secondary }) {
@@ -4028,54 +3910,6 @@ sealed partial class EditorApplication : IDisposable {
         group.Add("assets.reimport-all", "assets.bake-mesh-maps", "assets.show-in-explorer");
 
         return MenuPresenter.Context(Shell.Document, group, Shell.Commands, Shell.Keys);
-    }
-
-    /// <summary>What is on the outliner's menu.</summary>
-    ContextMenu HierarchyMenu() {
-        var group = new MenuGroup(EditorStrings.MenuHierarchy);
-
-        group.Add("scene.create-entity");
-        Creatable(group);
-
-        group.AddSeparator();
-        group.Add("edit.rename", "edit.delete");
-        group.AddSeparator();
-        group.Add("entity.toggle-hidden", "entity.toggle-lock");
-        group.AddSeparator();
-        group.Add("scene.focus");
-
-        return MenuPresenter.Context(Shell.Document, group, Shell.Commands, Shell.Keys);
-    }
-
-    /// <summary>Renames whatever the hierarchy has selected, in place.</summary>
-    /// <remarks>
-    ///     Through the tree's own inline editor rather than a dialog, so that the menu line and F2 do
-    ///     the same thing — and so the commit goes through <c>TreeView.Renamed</c>, which is already
-    ///     wired to the document's undoable rename.
-    /// </remarks>
-    void Rename() {
-        if (hierarchy is not { } tree || scene.Selection.Count == 0) {
-            return;
-        }
-
-        var entity = scene.Selection[0];
-
-        foreach (var node in Descendants(tree.Root)) {
-            if (node.Tag is Entity tagged && tagged == entity) {
-                tree.BeginRename(node);
-                return;
-            }
-        }
-    }
-
-    static IEnumerable<TreeNode> Descendants(TreeNode node) {
-        foreach (var child in node.Children) {
-            yield return child;
-
-            foreach (var descendant in Descendants(child)) {
-                yield return descendant;
-            }
-        }
     }
 
     /// <summary>Brings the inspector into line with whichever panel the selection changed in.</summary>
@@ -4253,10 +4087,22 @@ sealed partial class EditorApplication : IDisposable {
             return;
         }
 
-        if (hierarchy is { } tree) {
-            tree.Select(null);
-        } else {
+        if (Outliner?.ClearSelection() != true) {
             scene.Selection.Clear();
+        }
+    }
+
+    /// <summary>The outliner <see cref="SceneModule" /> published, or <see langword="null" /> with the module off.</summary>
+    /// <remarks>
+    ///     Asked, not held: the outliner is the module's (#1290), so switching the module off takes it and
+    ///     its panel away, and F2 and Deselect then act on the document alone.
+    /// </remarks>
+    SceneOutliner? Outliner => plugins.Services.TryGet<SceneOutliner>(out var outliner) ? outliner : null;
+
+    /// <summary>Renames whatever the hierarchy has selected, in place.</summary>
+    void Rename() {
+        if (scene.Selection.Count > 0) {
+            Outliner?.BeginRename(scene.Selection[0]);
         }
     }
 
@@ -4531,7 +4377,7 @@ sealed partial class EditorApplication : IDisposable {
         // Selected afterwards, so the next thing the user does — rename it, move it, look at it in
         // the inspector — lands on what they just made.
         scene.Selection.Set(created);
-        hierarchyStale = true;
+        sceneEditing.Restructured();
 
         Shell.Notifications.Show(
             created.Count == 1 ? $"Added {scene.NameOf(created[0])}" : $"Added {created.Count} entities",
@@ -4646,169 +4492,6 @@ sealed partial class EditorApplication : IDisposable {
         }
     }
 
-    /// <summary>What a drag in the outliner meant, as an undoable move of the document.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>The tree has already moved the node by the time this runs, and the document has
-    ///         not.</b> <c>TreeView</c> owns the gesture and its own rows; the scene owns what is
-    ///         true. So this reads where the node landed, tells the document, and marks the tree
-    ///         stale either way — a move the document refuses (a cycle, an entity already there)
-    ///         would otherwise leave the outliner showing a hierarchy the scene does not have.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The whole selection moves when the dragged row is part of it.</b> The same rule
-    ///         the context menu follows, and for the same reason: dragging one of five selected rows
-    ///         and having four of them stay behind is the behaviour nobody means.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Where it landed among its new siblings is read off the tree and passed on, and
-    ///         until it was, half of this gesture did nothing.</b> <c>TreeView</c> has always
-    ///         distinguished a drop <i>on</i> a row from one <i>between</i> two — that is what the
-    ///         drop indicator draws — and this method read only <c>node.Parent</c>, so every drop
-    ///         landed the entity at the head of its new parent's children. Doc 20 § Part D lists
-    ///         "reorder among siblings" beside "reparent by drag" for that reason: the drag was
-    ///         wired, and the position it carried was discarded one call short of the document.
-    ///     </para>
-    /// </remarks>
-    void Dropped(TreeNode node) {
-        if (node.Tag is not Entity moved) {
-            return;
-        }
-
-        var parent = node.Parent is { Tag: Entity target } ? target : Entity.Null;
-        var entities = scene.Selection.Contains(moved) ? scene.Selection.ToList() : [moved];
-
-        scene.Reparent(entities, parent, Preceding(node));
-        hierarchyStale = true;
-    }
-
-    /// <summary>The entity a moved row now sits behind, or none when it is first.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Read after the tree has moved the node, which is the only moment it is knowable.</b>
-    ///     <c>TreeView.MoveNode</c> raises <c>Moved</c> once the row is where the pointer put it, so
-    ///     the row above it in its new parent is the sibling the document has to land behind — and a
-    ///     <c>DropPosition</c> handed over instead would be a second encoding of the same fact for
-    ///     this method to get wrong.
-    /// </remarks>
-    static Entity Preceding(TreeNode node) {
-        if (node.Parent is not { } parent) {
-            return Entity.Null;
-        }
-
-        var index = parent.IndexOf(node);
-
-        return index > 0 && parent.Children[index - 1].Tag is Entity before ? before : Entity.Null;
-    }
-
-    void RebuildHierarchy() {
-        if (hierarchy is not { } tree) {
-            return;
-        }
-
-        while (tree.Root.Children.Count > 0) {
-            tree.Root.Remove(tree.Root.Children[^1]);
-        }
-
-        // ⚠ One snapshot for the whole rebuild rather than one per row. `IEditorRegistry.All` takes
-        // a lock and hands back a fresh array on every call, so asking it inside `Branch` was a
-        // locked allocation per entity, and the binder behind each icon was resolved per entity as
-        // well. A scene of a few thousand entities paid for both on every rename, every component
-        // added and every undo — which is what made having the panel open feel expensive.
-        var icons = GlyphSources();
-
-        foreach (var entity in Ordered(scene.Roots)) {
-            Branch(tree.Root, entity);
-        }
-
-        // ⚠ Expanded by writing the flag and refreshing *once*, rather than by calling `Expand` per
-        // root. `TreeView.Expand` refreshes on every call — the right shape for a person clicking a
-        // chevron and the wrong one for a loop — so a scene with N roots flattened the whole tree
-        // and realised its rows N+1 times. That is the O(n²) this method had.
-        tree.Expand(tree.Root.Children);
-        ShowSelectionInTree(tree);
-
-        // ⚠ Whether a branch is kept is decided bottom-up: an entity survives the filter if it
-        // matches, and a parent survives if any of its descendants did. A filter that dropped a
-        // non-matching parent would take the matching child with it, which for a name typed into
-        // an outliner is the one row the user was looking for.
-        bool Branch(TreeNode parent, Entity entity) {
-            var node = parent.Add(scene.NameOf(entity), entity);
-
-            node.Art = GlyphFor(icons, entity);
-
-            var kept = Matches(entity);
-
-            foreach (var child in Ordered(Children(entity))) {
-                kept |= Branch(node, child);
-            }
-
-            if (!kept) {
-                parent.Remove(node);
-            }
-
-            return kept;
-        }
-    }
-
-
-    /// <summary>The registered icons that have a binder, most characteristic first.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Resolved once per rebuild, which is what makes <see cref="GlyphFor" /> cheap.</b> The
-    ///     registry copy, the binder lookup and the ordering are all facts about the *session* rather
-    ///     than about an entity, and doing them per row turned an outliner refresh into a locked
-    ///     allocation and a dictionary walk per entity. Sorted descending here so the first match
-    ///     wins and the loop can stop.
-    /// </remarks>
-    List<(ISceneComponentBinder Binder, IconArt Art)> GlyphSources() {
-        List<(ISceneComponentBinder, IconArt)> found = [];
-
-        foreach (var icon in Extensions.All<TypeIcon>().OrderByDescending(entry => entry.Order)) {
-            if (SceneComponentRegistry.TryGet(icon.Target, out var binder)) {
-                found.Add((binder, icon.Art));
-            }
-        }
-
-        return found;
-    }
-
-    /// <summary>The glyph an outliner row draws for what an entity is.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>What it carries rather than what it is called.</b> An outliner of forty identical
-    ///         rows is one you read rather than scan, and a name is the one thing on the row that is
-    ///         already text — an icon that repeated it would be decoration. A camera, a light and a
-    ///         piece of geometry are the three things a scene is mostly made of, and telling them
-    ///         apart at a glance is what the column is for.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Asked once per rebuild rather than on every bind.</b> The node keeps the answer,
-    ///         and a rebuild is what a component being added or removed already triggers — so a row
-    ///         scrolling past does not ask the world a question per registered icon per frame.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>From the registry rather than from a three-case switch, which is doc 36 § D6.</b>
-    ///         The switch could only ever name components this assembly references, so an entity
-    ///         carrying a plugin's component was a plain dot whatever it was. What decides now is which
-    ///         registered icon's type the entity actually carries — asked through the binder, because
-    ///         an archetype knows dense ids and this knows types, and <c>ISceneComponentBinder.Has</c>
-    ///         is the only bridge between them.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Highest <c>Order</c> first, so "most characteristic" is a declared thing.</b> An
-    ///         entity with a camera and a light has to draw one of them, and the alternative to an
-    ///         order is the registration sequence — which is whichever assembly happened to load first.
-    ///     </para>
-    /// </remarks>
-    IconArt GlyphFor(List<(ISceneComponentBinder Binder, IconArt Art)> icons, Entity entity) {
-        foreach (var (binder, art) in icons) {
-            if (binder.Has(world, entity)) {
-                return art;
-            }
-        }
-
-        return EntityArt;
-    }
-
     /// <summary>The subsystems whose components and behaviours this editor draws.</summary>
     /// <remarks>
     ///     <para>
@@ -4848,242 +4531,6 @@ sealed partial class EditorApplication : IDisposable {
         // and an Add Component menu with no `BuoyancyBody` in it is a component nobody can place.
         new(typeof(Vixen.Water.Physics.BuoyancyBody))
     ];
-
-    /// <summary>What a row with nothing else to say draws.</summary>
-    /// <remarks>
-    ///     Not a registration, because nothing keys it: it is the absence of every other answer rather
-    ///     than the picture for a type.
-    /// </remarks>
-    static readonly IconArt EntityArt = IconArt.Of(EditorIcons.Entity);
-
-    /// <summary>An entity's children, as a list a sort can be applied to.</summary>
-    /// <remarks>
-    ///     <c>Hierarchy.ChildrenOf</c> hands back a struct sequence rather than a list, which is
-    ///     right for a walk that does not want an allocation and is the one thing a sort cannot be
-    ///     done on. One list per branch, in a rebuild that only happens when the scene's shape
-    ///     changed.
-    /// </remarks>
-    List<Entity> Children(Entity entity) {
-        List<Entity> found = [];
-
-        foreach (var child in Hierarchy.ChildrenOf(world, entity)) {
-            found.Add(child);
-        }
-
-        return found;
-    }
-
-    /// <summary>Puts a set of siblings in whatever order the outliner is showing.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Per level, not over the flattened tree.</b> Sorting an outliner is sorting each
-    ///     parent's children — a global sort would put a child above its own parent, which is not a
-    ///     tree.
-    /// </remarks>
-    IEnumerable<Entity> Ordered(IReadOnlyList<Entity> siblings) =>
-        hierarchyOrder switch {
-            "Name (A–Z)" => siblings.OrderBy(scene.NameOf, StringComparer.CurrentCultureIgnoreCase),
-            "Name (Z–A)" => siblings.OrderByDescending(scene.NameOf, StringComparer.CurrentCultureIgnoreCase),
-            _ => siblings
-        };
-
-    /// <summary>Puts the eye and the padlock on a row, and brings them up to date.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Made once per row and updated on every bind.</b> A virtualised tree rebinds its
-    ///         rows as it scrolls, so a handler that added an element per call would add one per
-    ///         scrolled row for the life of the panel. The two buttons are found by class on the row
-    ///         they already belong to.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>A row whose parent is hidden shows the eye off but dimmed.</b> It is off because
-    ///         the entity is not being drawn, and dimmed because clicking it would do nothing — the
-    ///         mark it would clear is on an ancestor. Showing it on would be a lie about what is on
-    ///         screen; showing it plainly off would make the click look broken.
-    ///     </para>
-    /// </remarks>
-    void MarkRow(TreeRow row, TreeNode node) {
-        var eye = Mark(row, "outliner-hidden", EditorIcons.Eye, EditorIcons.EyeOff, "Hide");
-        var padlock = Mark(row, "outliner-locked", ControlIcons.Unlock, ControlIcons.Lock, "Lock");
-
-        if (node.Tag is not Entity entity) {
-            eye.AddClass("hidden");
-            padlock.AddClass("hidden");
-
-            return;
-        }
-
-        eye.RemoveClass("hidden");
-        padlock.RemoveClass("hidden");
-
-        Restate(eye, scene.IsHiddenDirectly(entity), scene.IsHidden(entity));
-        Restate(padlock, scene.IsLockedDirectly(entity), scene.IsLocked(entity));
-
-        void Restate(ToggleButton button, bool directly, bool inherited) {
-            button.IsChecked = directly;
-
-            if (inherited && !directly) {
-                button.AddClass("inherited");
-            } else {
-                button.RemoveClass("inherited");
-            }
-
-            // ⚠ Written here and not only from `CheckedChanged`. `IsChecked` above raises nothing
-            // when the value it is given is the one it already had, and a pooled row rebound to a
-            // different entity is exactly that case — the eye would keep the last entity's shape.
-            Wear(button, directly || inherited);
-        }
-    }
-
-    /// <summary>The toggle for one column, made on the row's first bind and reused after that.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Two glyphs and no word, which is <c>InspectorView</c>'s padlock argument applied to
-    ///     the column beside it.</b> These used to be a cross and a tick with "Hide" and "Lock"
-    ///     written next to them — a label four times the button's width on every row of the outliner,
-    ///     saying what pressing it <i>does</i> rather than what state it is in, which is the one thing
-    ///     a toggle must not do. The shape carries the state now and the label stays for the tooltip
-    ///     and the screen reader.
-    /// </remarks>
-    ToggleButton Mark(TreeRow row, string className, PathBuilder clear, PathBuilder marked, string label) {
-        foreach (var child in row.Children) {
-            if (child is ToggleButton existing && existing.HasClass(className)) {
-                return existing;
-            }
-        }
-
-        var button = row.Add<ToggleButton>();
-
-        button.AddClass(className);
-        button.LeadingIcon.Geometry = clear;
-        button.Variant = ControlVariant.Subtle;
-        button.Size = ControlSize.Small;
-        button.Label = label;
-        button.TabIndex = -1;
-
-        marks[button] = (clear, marked);
-
-        // ⚠ Reads the row's *current* node rather than the one it was made for. The row outlives the
-        // node by design — that is what pooling is — so a closure over the node would toggle
-        // whatever entity happened to be in this slot when the panel first scrolled.
-        button.CheckedChanged += (control, on) => {
-            if (row.Node?.Tag is not Entity entity) {
-                return;
-            }
-
-            if (className == "outliner-hidden") {
-                scene.SetHidden(entity, on);
-            } else {
-                scene.SetLocked(entity, on);
-            }
-
-            // The descendants' rows show an inherited mark, so they have to be restated too — and
-            // the selection may now hold something that cannot be picked.
-            RefreshMarks();
-            _ = control;
-        };
-
-        return button;
-    }
-
-    /// <summary>Which pair of glyphs a column's toggle draws, off and on.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Beside the button rather than on it, because a <c>ToggleButton</c> has one icon slot
-    ///     and no tag.</b> Bounded by the row pool — about thirty rows, two toggles each — for the
-    ///     same reason the console's row map is.
-    /// </remarks>
-    readonly Dictionary<ToggleButton, (PathBuilder Clear, PathBuilder Marked)> marks = [];
-
-    /// <summary>Puts the glyph for a state on a column's toggle.</summary>
-    void Wear(ToggleButton button, bool marked) {
-        if (marks.TryGetValue(button, out var pair)) {
-            button.LeadingIcon.Geometry = marked ? pair.Marked : pair.Clear;
-        }
-    }
-
-    /// <summary>Brings every realised row's two columns up to date.</summary>
-    void RefreshMarks() {
-        if (hierarchy is not { } tree) {
-            return;
-        }
-
-        foreach (var row in tree.Rows) {
-            if (row.Node is { } node) {
-                MarkRow(row, node);
-            }
-        }
-    }
-
-    bool Matches(Entity entity) =>
-        hierarchyFilter is null
-        || scene.NameOf(entity).Contains(hierarchyFilter, StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>Brings the outliner's highlight into line with the document, when they differ.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Doc 20's "selection <i>into</i> the tree", which is the half that was missing.</b>
-    ///     Clicking a row selected an entity; selecting an entity anywhere else — the viewport, a
-    ///     command, an undo — left the outliner showing whatever had been clicked last, because the
-    ///     highlight is the tree's own state and nothing wrote it.
-    /// </remarks>
-    void SyncTreeSelection() {
-        if (hierarchy is not { } tree || hierarchyStale) {
-            return;
-        }
-
-        var shown = 0;
-        var agrees = true;
-
-        foreach (var node in tree.Selection) {
-            shown++;
-
-            if (node.Tag is not Entity entity || !scene.Selection.Contains(entity)) {
-                agrees = false;
-                break;
-            }
-        }
-
-        // Same count and every row selected is selected in the document: nothing to do, which is
-        // every frame in which nobody clicked anything.
-        if (agrees && shown == scene.Selection.Count) {
-            return;
-        }
-
-        ShowSelectionInTree(tree);
-    }
-
-    /// <inheritdoc cref="SyncTreeSelection" />
-    void ShowSelectionInTree(TreeView tree) {
-        if (scene.Selection.Count == 0) {
-            // ⚠ Guarded as well. Clearing the tree's rows raises `SelectionChanged` too, and letting
-            // that through would write an empty selection into whichever document the inspector had
-            // just been handed.
-            hierarchyEchoing = true;
-
-            try {
-                tree.Select(null);
-            } finally {
-                hierarchyEchoing = false;
-            }
-
-            return;
-        }
-
-        // ⚠ Guarded, because `Select` raises `SelectionChanged` and the handler writes the tree's
-        // selection back into the document. Without this, restoring a selection of three entities
-        // would set the document's to one — the first row selected — and the other two would vanish.
-        hierarchyEchoing = true;
-
-        try {
-            var first = true;
-
-            foreach (var node in Descendants(tree.Root)) {
-                if (node.Tag is Entity entity && scene.Selection.Contains(entity)) {
-                    tree.Select(node, first ? ModifierKeys.None : ModifierKeys.Control);
-                    first = false;
-                }
-            }
-        } finally {
-            hierarchyEchoing = false;
-        }
-    }
 
     BoundingBox SelectionBounds() {
         if (scene.Selection.Count == 0) {

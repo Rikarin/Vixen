@@ -285,7 +285,7 @@ sealed partial class EditorApplication {
 
     /// <summary>Records what to come back to, and answers Single.</summary>
     ViewportArrangement Remember() {
-        restore = arrangement;
+        restore = Arrangement;
         return ViewportArrangement.Single;
     }
 
@@ -390,7 +390,7 @@ sealed partial class EditorApplication {
                     // Splitting a closed panel is meaningless, and a pane count is a property of the
                     // panel — so this is the one viewport command that does not go through `Pane`.
                     Enablement = () => viewports is not null,
-                    Checked = () => arrangement == value
+                    Checked = () => Arrangement == value
                 }
             );
 

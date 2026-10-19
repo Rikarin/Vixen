@@ -43,6 +43,12 @@ one transaction or executes one command, so Ctrl+Z after a plugin's `Group()` un
 document; a Group pressed while that tab has focus must still group entities, so the verbs follow the
 scene rather than whichever document was last focused.
 
+⚠ **Which scene is active is this service's.** `Scenes` lists the open ones (doc 20's multi-scene
+row: one world, a handle each) and `Activate(scene)` makes one of them active; the editor follows
+`ActiveChanged` — the picker, the probe, the panes, the document focus — so a plugin that activates a
+scene moves the editor exactly as a click in the Scenes panel does. Opening a scene from a file and
+closing one stay the editor's, because each is a file and a question.
+
 What it deliberately does **not** do:
 
 - **Ask.** Every verb takes the answer — an axis, a name, a set, a parent. The questions are the
