@@ -604,10 +604,9 @@ sealed partial class EditorApplication : IDisposable {
         // is written by `Followed` and by nothing else. The focused pane's camera and the probe are
         // asked for at each call, because both change under the service — a pane split, a probe
         // rebuilt for the new scene. See `SceneEditing`.
-        sceneEditing = new SceneEditing(scene, () => Viewport?.Camera, () => probe);
+        sceneEditing = new SceneEditing(scene, () => Viewport?.Camera, () => probe) { Load = OpenSceneAdditively };
         sceneEditing.ActiveChanged += _ => Followed();
         sceneEditing.ScenesChanged += _ => ForgetClosedScenes();
-        sceneEditing.Load = OpenSceneAdditively;
 
         // ⚠ And every other open scene's, because the store above is the *first* document's and a
         // behaviour authored into an additively opened scene used to be named in `Unsupported`
