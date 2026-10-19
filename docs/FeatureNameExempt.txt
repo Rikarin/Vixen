@@ -17,7 +17,6 @@ Editor/Vixen.Editor.App/ComponentsView.cs PrefabSource 1
 Editor/Vixen.Editor.App/ComponentsView.cs Vixen.Editor.AssetEditors 1
 Editor/Vixen.Editor.App/ComponentsView.vxml PrefabSource 2
 Editor/Vixen.Editor.App/ComponentsView.vxml Vixen.Editor.AssetEditors 1
-Editor/Vixen.Editor.App/DeclaredContributions.cs scripts 1
 Editor/Vixen.Editor.App/EditorApplication.cs AddressableGroupEditorFactory 1
 Editor/Vixen.Editor.App/EditorApplication.cs AssetEditorRegistry 2
 Editor/Vixen.Editor.App/EditorApplication.cs AssetEditorTheme 1
