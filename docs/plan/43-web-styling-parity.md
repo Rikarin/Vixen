@@ -2279,9 +2279,9 @@ container onto another flex line — and its fixture is now that. `ContainerType
 holds the declaration end to end.
 
 **The ordering problem is already solved and already bounded.** `UiDocument.Update()` runs
-`Restyle(); Arrange();` and then `Settle()` (`Core/Vixen.Ui/UiDocument.cs:1268`), which re-runs
-both up to `SettlePasses` (`Core/Vixen.Ui/UiDocument.cs:1255`) times — three — while handlers keep
-dirtying the document, and reports non-convergence on `Settled` (`Core/Vixen.Ui/UiDocument.cs:1263`).
+`Restyle(); Arrange();` and then `Settle()` (`Core/Vixen.Ui/UiDocument.cs:1300`), which re-runs
+both up to `SettlePasses` (`Core/Vixen.Ui/UiDocument.cs:1287`) times — three — while handlers keep
+dirtying the document, and reports non-convergence on `Settled` (`Core/Vixen.Ui/UiDocument.cs:1295`).
 A container-query re-cascade is that loop's existing shape, not a new one — and where containment
 does hold, one extra pass is provably enough, because a contained container's size cannot move in
 response to its descendants' styles.
