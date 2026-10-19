@@ -41,7 +41,6 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     readonly Func<bool> closing;
     readonly ProjectHistory history;
     readonly Action<LogLevel, string> log;
-    readonly Func<SceneDocument?> activeScene;
 
     /// <summary>What the watcher has to say, reused so that a quiet frame allocates nothing.</summary>
     readonly List<FileChange> changes = [];
@@ -100,18 +99,18 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     /// </param>
     /// <param name="history">The user's recent-projects list, read from their data directory.</param>
     /// <param name="log">Where the compiler's output and a watcher that could not start are written, or nowhere.</param>
-    /// <param name="scene">
-    ///     The scene whose authored behaviours a code build takes off and puts back, asked for at each
-    ///     build because the editor's active scene moves; <see langword="null" /> for none.
-    /// </param>
+    /// <remarks>
+    ///     ⚠ <b>No scene is handed in (#1496).</b> A code build takes the authored behaviours off every
+    ///     scene open in the project — <see cref="EditorProject.Documents" />. It used to be handed the
+    ///     active one, which left every other open scene holding instances of the unloaded types.
+    /// </remarks>
     public ProjectSession(
         EditorProject project,
         Action<string, NotificationSeverity, string?> notify,
         Action requestClose,
         Func<bool> closing,
         ProjectHistory history,
-        Action<LogLevel, string>? log = null,
-        Func<SceneDocument?>? scene = null
+        Action<LogLevel, string>? log = null
     ) {
         this.project = project;
         this.notify = notify;
@@ -119,7 +118,6 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         this.closing = closing;
         this.history = history;
         this.log = log ?? ((_, _) => { });
-        activeScene = scene ?? (() => null);
         code = new ProjectAssemblies(project.Paths);
         project.DocumentSaving += RefuseToSaveWithout;
 
@@ -142,7 +140,6 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     /// <param name="closing">Whether the editor has agreed to close or is still asking.</param>
     /// <param name="history">The user's recent-projects list.</param>
     /// <param name="log">Where the compiler's output and a watcher that could not start are written.</param>
-    /// <param name="scene">The scene a code build takes the authored behaviours off.</param>
     /// <returns>The session, with its project open and its index read.</returns>
     /// <remarks>
     ///     <c>EditorProject.Open</c> tolerates a missing Assets directory — see <c>AssetDatabase.Scan</c> —
@@ -154,13 +151,12 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         Action requestClose,
         Func<bool> closing,
         ProjectHistory history,
-        Action<LogLevel, string> log,
-        Func<SceneDocument?> scene
+        Action<LogLevel, string> log
     ) {
         var project = new EditorProject(paths);
         project.Open();
 
-        return new(project, notify, requestClose, closing, history, log, scene);
+        return new(project, notify, requestClose, closing, history, log);
     }
 
     /// <inheritdoc />
@@ -377,8 +373,11 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         // would hold the old context alive *and* lose the values, which is both failures at once.
         // Bytes and an alias are what crosses: the same alias registers again from the rebuilt
         // assembly, and the state goes into an instance of the new type.
-        var scene = activeScene();
-        var authored = SaveProjectBehaviors(scene);
+        //
+        // ⚠ Off every open scene, not the active one (#1496). A scene opened beside it — additively, or
+        // as an asset in a tab — kept instances of the old types: the registry no longer knew them, so
+        // its next save wrote it without them, and they held the unloaded context alive.
+        var authored = project.Documents.OfType<SceneDocument>().Select(scene => (Scene: scene, Behaviors: SaveProjectBehaviors(scene))).ToArray();
         var before = held.ToArray();
         var built = code.Reload();
 
@@ -402,8 +401,8 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         // and a build that failed used to leave the scene without them, and the next save wrote it so.
         // The load ran the module initializers, so whatever the project declares is in the registries
         // — and `ComponentsView.Registered` re-reads them, so the Add Component menu has it untold.
-        if (scene is not null) {
-            RestoreProjectBehaviors(scene, authored);
+        foreach (var (scene, behaviors) in authored) {
+            RestoreProjectBehaviors(scene, behaviors);
         }
 
         // And what an earlier failure had nowhere to put, now that there may be somewhere.
@@ -437,10 +436,10 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     ///     type is exactly what it says. Taking an engine's or a plugin's behaviour off as well put it at
     ///     the mercy of the reload — which, with no <c>.csproj</c>, never put it back.
     /// </remarks>
-    List<AuthoredBehavior> SaveProjectBehaviors(SceneDocument? scene) {
+    List<AuthoredBehavior> SaveProjectBehaviors(SceneDocument scene) {
         List<AuthoredBehavior> authored = [];
 
-        if (scene is null || code.Loaded is not { } loaded) {
+        if (code.Loaded is not { } loaded) {
             return authored;
         }
 

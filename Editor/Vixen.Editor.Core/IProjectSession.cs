@@ -67,7 +67,7 @@ public interface IProjectSession {
     /// </remarks>
     event Action<IReadOnlyList<FileChange>, bool>? ChangedOnDisk;
 
-    /// <summary>Builds the project's own code and loads it, keeping the scene's authored behaviours across the reload.</summary>
+    /// <summary>Builds the project's own code and loads it, keeping every open scene's authored behaviours across the reload.</summary>
     /// <returns>
     ///     <see langword="false" /> when the build failed, which has been reported; <see langword="true" />
     ///     when it built, and also for a project with no code to build.
@@ -79,8 +79,8 @@ public interface IProjectSession {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>No build removes an authored behaviour the author did not remove (#1490).</b> A failed
-    ///         build keeps the last one that worked; one with nothing to fall back on holds the scene's
-    ///         behaviours until the code builds, says so, and refuses to save the scene without them.
+    ///         build keeps the last one that worked; one with nothing to fall back on holds each open scene's
+    ///         behaviours until the code builds, says so, and refuses to save a scene without its own (#1496).
     ///     </para>
     /// </remarks>
     bool BuildCode();

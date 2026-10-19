@@ -538,7 +538,6 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ Doc 50 § P2d: the open is the session's (#1293), so the project, its watcher and its code
         // have one owner. The close request and the closing flags are handed in rather than moved —
         // closing is the application's — and read on every call, because the prompt answers later.
-        // The scene is asked for at each code build, because the active scene moves.
         session = ProjectSession.Open(
             new ProjectPaths(projectRoot ?? Path.Combine(directory, "Scratch")),
             (message, severity, detail) => Shell.Notifications.Show(message, severity, detail),
@@ -549,8 +548,7 @@ sealed partial class EditorApplication : IDisposable {
             // whether this run is a first one — no history at all — decides whether the startup
             // Project Browser has anything to offer, and opening the project adds this one to it.
             new ProjectHistory(directory),
-            log.Write,
-            () => scene
+            log.Write
         );
 
         project = session.Project;
