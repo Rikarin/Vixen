@@ -136,6 +136,17 @@ sealed partial class EditorApplication {
                 && (document.HasUnsavedChanges.Value || document.IsStale.Value)
         );
 
+        // ⚠ The route's id with `file.revert` as its fallback (#1494): an asset tab answers
+        // `document.revert` itself — see `Open`, which hands it `Revert(EditorDocument)` so the
+        // question is still asked — and this runs only when the focus is in no document's panel.
+        Verb(
+            DocumentCommands.Revert,
+            EditorStrings.CommandDocumentRevert,
+            EditorStrings.CategoryFile,
+            Revert,
+            enabled: () => project.ActiveDocument.Value is { } document && Revertible(document)
+        );
+
         Verb(
             "assets.import-files",
             EditorStrings.CommandAssetsImportFiles,
@@ -2009,7 +2020,27 @@ sealed partial class EditorApplication {
     ///     </para>
     /// </remarks>
     void Revert() {
-        if (project.ActiveDocument.Value is not { CanReload: true } document) {
+        if (project.ActiveDocument.Value is { } document) {
+            Revert(document);
+        }
+    }
+
+    /// <summary>Whether reverting a document would do anything: it can read its file, and differs from it.</summary>
+    /// <param name="document">The document.</param>
+    /// <returns>Whether Revert is offered for it.</returns>
+    static bool Revertible(EditorDocument document) =>
+        document.CanReload && (document.HasUnsavedChanges.Value || document.IsStale.Value);
+
+    /// <summary>Reads one document's file again, asking first when that throws edits away.</summary>
+    /// <param name="document">The document.</param>
+    /// <remarks>
+    ///     ⚠ <b>What an asset tab answers <c>document.revert</c> with (#1494)</b>, in place of
+    ///     <c>DocumentCommands</c>' own handler, which reverts without asking — right for a framework
+    ///     that has no dialog, and a regression here, where Revert to Saved has always asked before
+    ///     it threw away the only copy of somebody's edits.
+    /// </remarks>
+    void Revert(EditorDocument document) {
+        if (!document.CanReload) {
             return;
         }
 

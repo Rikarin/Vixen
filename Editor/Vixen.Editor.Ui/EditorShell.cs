@@ -973,7 +973,10 @@ public sealed class EditorShell : IDisposable {
         file.AddSubmenu(EditorStrings.MenuRecent).AddDynamic(() => Recent?.Invoke() ?? []);
 
         file.AddSeparator()
-            .Add("file.new-scene", "file.open-scene", "file.save", "file.save-as", "file.save-all", "file.revert")
+            // ⚠ Save, Revert and Close are the route's ids (#1494): the line answers for the document
+            // the focus is in, and the registry's command of the same id is only the fallback.
+            .Add("file.new-scene", "file.open-scene")
+            .Add(DocumentCommands.Save, "file.save", "file.save-as", "file.save-all", DocumentCommands.Revert, DocumentCommands.Close)
             .AddSeparator()
             .Add("assets.import-files", "file.export-package")
             .AddSeparator()

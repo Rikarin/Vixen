@@ -49,6 +49,9 @@ editor menu editor.menu.entity entity.ungroup
 editor menu editor.menu.entity entity.unpack-prefab
 editor menu editor.menu.entity scene.focus
 editor menu editor.menu.file assets.import-files
+editor menu editor.menu.file document.close
+editor menu editor.menu.file document.revert
+editor menu editor.menu.file document.save
 editor menu editor.menu.file file.exit
 editor menu editor.menu.file file.export-package
 editor menu editor.menu.file file.new-project
@@ -56,7 +59,6 @@ editor menu editor.menu.file file.new-scene
 editor menu editor.menu.file file.open-project
 editor menu editor.menu.file file.open-scene
 editor menu editor.menu.file file.project-settings
-editor menu editor.menu.file file.revert
 editor menu editor.menu.file file.save
 editor menu editor.menu.file file.save-all
 editor menu editor.menu.file file.save-as

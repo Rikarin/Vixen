@@ -97,6 +97,15 @@ public static class EditorStrings {
     /// </remarks>
     public static StringId CommandSave { get; } = new("editor.command.file.save", "Save Scene");
 
+    /// <summary>Saves the document the focus is in — an asset tab's, or the scene's when the focus is in none (#1494).</summary>
+    public static StringId CommandDocumentSave { get; } = new("editor.command.document.save", "Save");
+
+    /// <summary>Throws away the unsaved changes of the document the focus is in, asking first (#1494).</summary>
+    public static StringId CommandDocumentRevert { get; } = new("editor.command.document.revert", "Revert");
+
+    /// <summary>Closes the document tab the focus is in, or the active panel when the focus is in none (#1494).</summary>
+    public static StringId CommandDocumentClose { get; } = new("editor.command.document.close", "Close");
+
     /// <summary>Saves all of them.</summary>
     public static StringId CommandSaveAll { get; } = new("editor.command.file.save-all", "Save All");
 
@@ -1299,6 +1308,9 @@ public static class EditorStrings {
         CommandNewProject,
         CommandOpenProject,
         CommandSave,
+        CommandDocumentSave,
+        CommandDocumentRevert,
+        CommandDocumentClose,
         CommandSaveAll,
         CommandExit,
         CommandUndo,

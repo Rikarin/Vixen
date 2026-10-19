@@ -2446,6 +2446,21 @@ sealed partial class EditorApplication : IDisposable {
                             && documentViews.TryGetView(open, out _)) {
                             tabDocuments[id] = open;
                             documentViews.Show(open, panel);
+
+                            // ⚠ #1494: the panel answers the route's three ids now, and two of the
+                            // framework's answers are not the editor's. Revert asks first here, as
+                            // Revert to Saved always has; and the close `document.close` raises on
+                            // the panel is this tab's, which nothing in the editor heard until now.
+                            // ⚠ Only a document's close: a quit raised at the focus bubbles through
+                            // here too, and closing the tab under it would answer a question the
+                            // window asked.
+                            panel.RemoveCommandHandler(DocumentCommands.Revert);
+                            panel.AddCommandHandler(DocumentCommands.Revert, () => Revert(open), () => Revertible(open));
+                            panel.AddHandler<CloseRequestEvent>((_, args) => {
+                                if (args.Reason == UiCloseReason.DocumentClosed && !args.IsCancelled) {
+                                    Shell.Workspace.Close(id);
+                                }
+                            });
                         }
                     }
                 ) {
@@ -3345,7 +3360,34 @@ sealed partial class EditorApplication : IDisposable {
             }
         );
 
-        Shell.Keys.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
+        // ⚠ **Ctrl+S is `document.save`'s and not `file.save`'s (#1494).** Every asset tab answers
+        // `document.save` on the route — `IWorkspace.Show` installs `DocumentCommands` on its panel —
+        // and the dispatcher asks the focus before it asks this registry, so the chord saves the
+        // document whose tab the focus is in. This registration is the fallback for a focus in no
+        // document's panel, and there it is the scene's save, which is what Ctrl+S always did.
+        Shell.Commands.Add(
+            new EditorCommand(DocumentCommands.Save, EditorStrings.CommandDocumentSave, SaveScene) {
+                Category = EditorStrings.CategoryFile,
+                Enablement = () => scene.HasUnsavedChanges.Value
+            }
+        );
+
+        Shell.Keys.SetDefault(DocumentCommands.Save, new KeyChord(InputKey.S, ModifierKeys.Control));
+
+        // ⚠ And Ctrl+W is `document.close`'s, for the same reason: an asset tab answers the route's
+        // id with its own close (`Open` closes the tab on it), and with the focus in no document's
+        // panel this fallback is what Close Panel always was. The shell gives the chord to Close
+        // Panel, which a bare shell keeps; this application takes it back first, since a chord held
+        // by another command refuses a second default rather than sharing it.
+        Shell.Commands.Add(
+            new EditorCommand(DocumentCommands.Close, EditorStrings.CommandDocumentClose, () => Shell.Workspace.CloseActive()) {
+                Category = EditorStrings.CategoryFile,
+                Enablement = () => Shell.Workspace.Host.Active is not null
+            }
+        );
+
+        Shell.Keys.SetDefault("view.close-panel", KeyChord.None);
+        Shell.Keys.SetDefault(DocumentCommands.Close, new KeyChord(InputKey.W, ModifierKeys.Control));
 
         // ⚠ **The other predicate that kept the toolbar polled, and it always had a signal to hang
         // this on.** `IsDirty` is an `IReadOnlySignal<bool>` on the scene's command stack — the
