@@ -273,7 +273,8 @@ document; what is left here is rows, selection and when to rebuild. `Ctrl+R` res
 and rebuilds the reverse-reference index with it, and reports what the scan repaired rather than only
 how many assets it found.
 
-**Watched.** `FollowDisk` drains an `IFileWatcher` over `Assets/` on the frame thread — on the frame
+**Watched.** `ProjectSession.FollowDisk` drains an `IFileWatcher` over `Assets/` on the frame thread, rescans, and raises
+`IProjectSession.ChangedOnDisk` for the panels and any module (#1293) — on the frame
 because a rescan clears and repopulates the database's dictionaries, and doing that from a
 `FileSystemWatcher` callback would race every panel reading it. The three things that used to be the
 argument against having a watcher are all `Vixen.Core.IO`'s: `FileChangeCoalescer` debounces, folds an

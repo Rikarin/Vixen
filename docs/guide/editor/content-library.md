@@ -3,7 +3,7 @@ title: The content library service
 slug: editor/content-library
 kind: guide
 area: Editor
-summary: What a plugin can do to the project's assets by asking for IContentLibrary — import, create, walk references, export a package, file into collections — and what the browser's model is.
+summary: What a plugin can do to the project's assets by asking for IContentLibrary — import, create, rename, move, delete, walk references, export a package, file into collections — and what the browser's model is.
 api: [T:Vixen.Editor.Assets.IContentLibrary, T:Vixen.Editor.Assets.ShownContent]
 tags: [editor, assets, project-browser, plugins, services]
 since: 0.1
@@ -21,6 +21,9 @@ gets the same object the Assets menu, the content browser's OS drop and the Crea
 |---|---|
 | `Import(paths, folder)` | Copies files and folders from the user's disk into the project, scans, and imports. Refuses a path already inside the project, and never overwrites. |
 | `Create(kind)` | Writes a `NewAssetKind`'s starter file beside the selection, scans it in, and returns its `AssetId`. |
+| `Rename(asset, name)` / `Move(assets, folder)` | Renames in place or moves into a project folder, each with its `.meta` sidecar, so the GUID — and every reference to it — survives. |
+| `Delete(assets)` | Deletes assets and their sidecars, **without asking**; the Assets menu's Delete asks first, with the referrers in the question. |
+| `ReimportAll()` / `IsImporting` | Imports everything again on the content tasks' worker, and whether one is running. |
 | `Referrers(assets)` / `Dependencies(assets)` | One step along the reference graph, each way — what Find References and Select Dependencies select. |
 | `Closure(roots)` | Everything some assets reach, transitively — what a package carries. |
 | `ExportPackage(path, assets)` | Writes a `.vxpackage` archive, each asset with its `.meta` sidecar. |
@@ -28,8 +31,13 @@ gets the same object the Assets menu, the content browser's OS drop and the Crea
 | `SaveFilter` / `ForgetFilter` | The user's [saved filters](saved-filters.md), written to their preferences. |
 
 `Shown` is a `ShownContent`: what the browser is looking at — the folder or collection, the search,
-the kind, tiles or a tree and the tile size. Two events, `Arrived` and `CollectionsChanged`, say when
-something was brought in or a collection was written.
+the kind, tiles or a tree and the tile size. Three events, `Arrived`, `Rearranged` and
+`CollectionsChanged`, say when something was brought in, renamed, moved or deleted, or a collection
+was written.
+
+⚠ **Rename, move and delete are not undoable**, as the menu verbs never were: they are operations on
+files, not edits to a document, and no command stack records them. `Rearranged` is raised on a
+refusal too, because the browser has already drawn what was typed or dropped.
 
 ## What it is for
 
