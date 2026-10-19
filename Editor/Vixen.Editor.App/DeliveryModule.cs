@@ -165,10 +165,10 @@ sealed class DeliveryModule : IEditorPlugin {
         void Target(string id, string label, string value) =>
             context.AddCommand(
                 new EditorCommand(id, new StringId("editor.command." + id, label), () => {
-                        delivery.Settings.Target = value;
-                        delivery.SaveSettings();
-                        ShowBuildSettings();
-                    }
+                    delivery.Settings.Target = value;
+                    delivery.SaveSettings();
+                    ShowBuildSettings();
+                }
                 ) {
                     Category = EditorStrings.CategoryBuild,
                     RadioGroup = "build.target",
