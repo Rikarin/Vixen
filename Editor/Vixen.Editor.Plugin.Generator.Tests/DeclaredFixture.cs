@@ -84,7 +84,7 @@ public static class DeclaredFixture {
             public static string NewLedger() => "rows: []\n";
 
             [Overlay("Compass", Title = nameof(FixtureStrings.OverlayCompass), Id = "fixture.compass")]
-            public static void BuildCompass(UiElement host, SceneViewport pane) { }
+            public static void BuildCompass(UiElement host, IViewportPane pane) { }
 
             [DrawGizmo(typeof(Widget), SelectedOnly = true, Order = 5)]
             public static void DrawWidgetGizmo(GizmoDraw draw, object component, GizmoPlacement placement, bool selected) { }

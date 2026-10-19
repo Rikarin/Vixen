@@ -92,8 +92,8 @@ public class DeclaredRegistrationTests {
     [InlineData("""[DrawGizmo(typeof(string))] public static void Draw(GizmoDraw draw) { }""", "VXP0001", "GizmoPlacement placement")]
     [InlineData("""[CreateAssetMenu("Thing", ".thing", Title = "Nowhere")] public static string Make() => "";""", "VXP0003", "declares a public static StringId called Nowhere")]
     [InlineData("""[CreateAssetMenu("Thing", ".thing", Strings = typeof(EditorStrings))] public static string Make() => "";""", "VXP0003", "no Title to find in it")]
-    [InlineData("""[Overlay("Over", Title = "Nowhere")] public static void Build(UiElement host, SceneViewport pane) { }""", "VXP0003", "declares a public static StringId called Nowhere")]
-    [InlineData("""[Overlay("Over", Strings = typeof(EditorStrings))] public static void Build(UiElement host, SceneViewport pane) { }""", "VXP0003", "no Title to find in it")]
+    [InlineData("""[Overlay("Over", Title = "Nowhere")] public static void Build(UiElement host, IViewportPane pane) { }""", "VXP0003", "declares a public static StringId called Nowhere")]
+    [InlineData("""[Overlay("Over", Strings = typeof(EditorStrings))] public static void Build(UiElement host, IViewportPane pane) { }""", "VXP0003", "no Title to find in it")]
     public void A_wrong_declaration_is_a_compile_error_with_its_own_id(string member, string id, string says) {
         var result = GeneratorHarness.Run(Usings + "public static class Holder {\n    " + member + "\n}\n");
 
