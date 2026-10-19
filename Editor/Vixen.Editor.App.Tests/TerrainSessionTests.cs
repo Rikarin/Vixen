@@ -386,7 +386,9 @@ public class TerrainSessionTests {
         // is the same contribution saying a second thing: physics runs either way, and this line is
         // what says there is a wireframe to switch on. The whole list rather than a `Contains`, so
         // that a contribution which stops running is a failure here rather than a silence.
-        Assert.Equal(["physics", "collider overlay", "animation", "terrain collision"], session.Running);
+        // ⚠ And "input" with #470, registered after animation by the application and before any
+        // module activates, so it lands ahead of the terrain module's contribution.
+        Assert.Equal(["physics", "collider overlay", "animation", "input", "terrain collision"], session.Running);
 
         // The simulation the terrain's bodies were created in, provided by the application rather
         // than stood up a second time by the terrain module.

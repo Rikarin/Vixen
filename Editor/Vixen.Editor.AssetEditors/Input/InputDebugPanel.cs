@@ -25,16 +25,15 @@ namespace Vixen.Editor.AssetEditors;
 ///         <see cref="PluginContext.AddPanel(PanelDescriptor)" /> takes it out again on unload.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The editor publishes no <see cref="InputService" />, and the panel's first line says
-///         so.</b> The editor process routes platform events into the interface's own document and
-///         never into an <c>InputDeviceSet</c> — so this panel is dark in the shipping editor until a
-///         host publishes a service with <c>Services.Add(service)</c>. That is the same bargain the
-///         agent debugger makes with <c>AiSystem</c>, and it is worth stating that the honest failure
-///         was the hard part: four empty lists are what a panel draws when nobody is pressing
-///         anything <i>and</i> what it draws when nothing in the process reads a device, and the
-///         second is the one that would have been mistaken for the first for years.
-///         <see href="https://github.com/Rikarin/Vixen/issues/470">#470</see> is where the editor
-///         growing one of its own is decided; it is a lifetime question rather than a wiring one.
+///         ⚠ <b>A host with no <see cref="InputService" /> gets a first line that says so.</b> The
+///         shipping editor publishes one since
+///         <see href="https://github.com/Rikarin/Vixen/issues/470">#470</see> — a play session's,
+///         fed only by a focused scene pane, published once because it outlives every session — so
+///         this panel is live there. A host that publishes none still gets the honest sentence, and it
+///         is worth stating that the honest failure was the hard part: four empty lists are what a
+///         panel draws when nobody is pressing anything <i>and</i> what it draws when nothing in the
+///         process reads a device, and the second is the one that would have been mistaken for the
+///         first for years.
 ///     </para>
 /// </remarks>
 public sealed partial class AssetEditorsModule {

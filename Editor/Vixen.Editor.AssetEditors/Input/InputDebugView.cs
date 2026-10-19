@@ -17,9 +17,10 @@ namespace Vixen.Editor.AssetEditors.Input;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The source line is the whole design, and it is there because an instrument that never
-///         ran reports success.</b> The editor process owns no <c>InputService</c> — it routes
-///         platform events straight into the interface's own document and never into an
-///         <c>InputDeviceSet</c> — so a panel that simply listed "what is pressed" would draw an empty
+///         ran reports success.</b> The editor process owned no <c>InputService</c> until #470 — it
+///         routed platform events straight into the interface's own document and never into an
+///         <c>InputDeviceSet</c>; the one it publishes now hears keys only from a focused scene pane
+///         during play — so a panel that simply listed "what is pressed" would draw an empty
 ///         list whether the player was pressing nothing or nothing in this process was reading a
 ///         device at all. Those are different sentences and this panel says which one it means before
 ///         it says anything else.

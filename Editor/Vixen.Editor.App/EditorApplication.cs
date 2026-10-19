@@ -641,6 +641,11 @@ sealed partial class EditorApplication : IDisposable {
         // long as the session. #470.
         contributions.Add(Extensions.Add<IPlaySystems>(new PlayAi()));
 
+        // ⚠ And the keyboard, which a session reads only from a focused scene pane, and which every
+        // pane's input goes through ahead of the active mode — see `PlayInput` and `Configure`. #470.
+        playInput = new PlayInput(modeInput ??= new ModeInput(Shell.Modes));
+        contributions.Add(Extensions.Add<IPlaySystems>(playInput));
+
         // ⚠ Every entity gets a *new handle* when a play-mode snapshot is restored, so the
         // document's name and stable-id tables — both keyed by handle — name nothing at all
         // afterwards. `SceneDocument.Remap` was written for exactly this and nothing called it: the
@@ -1982,7 +1987,9 @@ sealed partial class EditorApplication : IDisposable {
             // assemblies that cannot see each other: `IEditorMode` is the shell's and `IViewportInput`
             // is the pane's, and the application is the only thing that knows about both. Shared
             // across panes and across rebuilds, because it holds nothing but the mode registry.
-            pane.Input = modeInput ??= new ModeInput(Shell.Modes);
+            // ⚠ Behind the play session's keyboard, which takes a key first while a session runs and
+            // the pane has not let go of it with Escape, and hands everything else to the mode (#470).
+            pane.Input = playInput;
 
             // ⚠ Restored, because this runs again every time the panel is reopened and a fresh
             // SceneViewport starts at the origin looking down −Z. Absent for a pane of an
@@ -2012,6 +2019,10 @@ sealed partial class EditorApplication : IDisposable {
                     if (args.Gained) {
                         layout.Focus(focused);
                     }
+
+                    // ⚠ Both ways: a key held as the focus leaves is released where the game never
+                    // hears it, so losing the focus has to let go of it here (#470).
+                    playInput.Focus(args.Gained);
                 },
                 handledEventsToo: true
             );
@@ -2035,6 +2046,9 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>What gives the active editor mode first refusal on every pane's input.</summary>
     ModeInput? modeInput;
+
+    /// <summary>A play session's keyboard, ahead of <see cref="modeInput" /> on every pane.</summary>
+    readonly PlayInput playInput;
 
     void Panels() {
         Shell.RegisterPanel(
@@ -2613,6 +2627,11 @@ sealed partial class EditorApplication : IDisposable {
             // ⚠ And the verbs, under the wider contract (#1289): what `PlayModule` registers the
             // transport over, and what a plugin asks for to enter play the way F5 does.
             .Add<IPlaySession>(play)
+
+            // ⚠ And the keyboard a session reads, which outlives every session for the reason the
+            // contract above does — so the input debug panel, which was dark by construction, reads
+            // the devices a focused pane feeds (#470).
+            .Add(playInput.Service)
 
             // ⚠ And the scene's verbs (#1290): what `SceneModule` registers the Entity menu over, and
             // what a plugin asks for to group the selection the way Ctrl+G does.
