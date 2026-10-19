@@ -47,7 +47,7 @@ public sealed class EditableDocumentPortTests {
         // What saving writes still includes it, which is why the split costs nothing: Save All, the
         // project's close question and the interface's own signal all see it.
         Assert.True(project.HasUnsavedChanges.Value);
-        Assert.True(((IEditableDocument) document).ExternallyModified.Value);
+        Assert.True(((IEditableDocument)document).ExternallyModified.Value);
         Assert.Equal(1, project.SaveAll());
         Assert.False(document.ExternallyModified.Value);
         Assert.False(project.HasUnsavedChanges.Value);
@@ -84,7 +84,7 @@ public sealed class EditableDocumentPortTests {
 
         Assert.Equal("Level1", document.Name.Value);
 
-        ((EditorDocument) document).SetTitle("Level2");
+        ((EditorDocument)document).SetTitle("Level2");
 
         Assert.Equal("Level2", document.Name.Value);
     }
@@ -95,7 +95,7 @@ public sealed class EditableDocumentPortTests {
         var document = new TestDocument(ModelFixture.Project());
         new Knob(document).Label.Set("edited");
 
-        Assert.True(((IEditableDocument) document).Save());
+        Assert.True(((IEditableDocument)document).Save());
         Assert.Equal(1, document.Saves);
         Assert.False(document.IsDirty.Value);
     }
@@ -116,7 +116,7 @@ public sealed class EditableDocumentPortTests {
         var reported = new List<(EditorDocument Document, Exception Failure)>();
         project.SaveFailed += (failed, failure) => reported.Add((failed, failure));
 
-        Assert.False(((IEditableDocument) document).Save());
+        Assert.False(((IEditableDocument)document).Save());
 
         var (which, why) = Assert.Single(reported);
         Assert.Same(document, which);
@@ -129,7 +129,7 @@ public sealed class EditableDocumentPortTests {
     public void A_failed_save_nobody_hears_about_is_thrown() {
         var document = new FailingDocument(ModelFixture.Project());
 
-        Assert.Throws<IOException>(() => ((IEditableDocument) document).Save());
+        Assert.Throws<IOException>(() => ((IEditableDocument)document).Save());
     }
 
     /// <summary>A document whose asset is in the database says where it lives; one with none says null.</summary>

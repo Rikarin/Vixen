@@ -230,7 +230,7 @@ public class PrefabPlacementTests {
     }
 
     static SceneDocument Open(EditorFixture fixture, World world, string path, AssetId asset) =>
-        (SceneDocument) new SceneEditorFactory(_ => world).Open(new(fixture.Project, asset, path));
+        (SceneDocument)new SceneEditorFactory(_ => world).Open(new(fixture.Project, asset, path));
 
     /// <summary>A member the instance does not claim takes the template's value when the scene opens.</summary>
     [Fact]

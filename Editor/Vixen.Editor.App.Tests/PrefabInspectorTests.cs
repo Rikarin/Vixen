@@ -332,7 +332,7 @@ public class PrefabInspectorTests : IDisposable {
 
         var field = new InspectorField(descriptor, intensity, box, null, source);
 
-        Assert.Equal(0f, ((Light) box[0]).Intensity);
+        Assert.Equal(0f, ((Light)box[0]).Intensity);
         Assert.True(source.TryGetPrefabValue(box[0], intensity, out var template));
         Assert.Equal(0f, template);
 
@@ -418,14 +418,14 @@ public class PrefabInspectorTests : IDisposable {
         var field = new InspectorField(descriptor, intensity, box, null, source);
 
         Assert.True(field.Write(0f));
-        Assert.Equal(0f, ((Light) box[0]).Intensity);
+        Assert.Equal(0f, ((Light)box[0]).Intensity);
 
         // The value is the type's default and the row is still marked, which is the whole point.
         Assert.True(field.IsOverridden);
         Assert.True(scene.Prefabs.IsOverridden(root, "Light.Intensity"));
 
         Assert.True(field.RevertToPrefab());
-        Assert.Equal(7f, ((Light) box[0]).Intensity);
+        Assert.Equal(7f, ((Light)box[0]).Intensity);
         Assert.False(field.IsOverridden);
     }
 
@@ -553,7 +553,7 @@ public class PrefabInspectorTests : IDisposable {
         fixture.Project.Open();
 
         using var reopened = new World("Reopened");
-        var again = (SceneDocument) new SceneEditorFactory(_ => reopened).Open(new(fixture.Project, level, path));
+        var again = (SceneDocument)new SceneEditorFactory(_ => reopened).Open(new(fixture.Project, level, path));
 
         Assert.True(again.TryGetEntity(scene.IdOf(root), out var entity));
         Assert.Equal(new Vector3(25f, 0f, 0f), reopened.Read<LocalTransform>(entity).Position);
