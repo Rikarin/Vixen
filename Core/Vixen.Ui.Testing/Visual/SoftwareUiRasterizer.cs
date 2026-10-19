@@ -1072,6 +1072,16 @@ public static class SoftwareUiRasterizer {
     ///     filter anyway rather than as a texel fetch, because the GPU's sampler <i>is</i> a filter: if
     ///     the two ever stopped being aligned, a fetch here would quietly disagree with the device
     ///     instead of blurring the same way it does.
+    ///     <para>
+    ///         ⚠ <b>"Exactly on a texel centre" was not true of the uv this is handed (#1457).</b> The uv
+    ///         is interpolated across the composite quad, and on <c>UiCompositeWhiteLevelDeviceTests</c>'s
+    ///         group it lands a few ulps off the centre on some rows — column 88 at rows 80 and 81 took
+    ///         ~8e-6 of the paint texel beside it, which a non-separable blend's <c>SetSat</c> turned
+    ///         into a full-strength fringe the device did not draw. A GPU sampler does not see that
+    ///         offset: Vulkan quantises the filter weights to <c>subTexelPrecisionBits</c>, eight on a
+    ///         desktop part. So the weights here are quantised to 1/256 too, which is the sampler being
+    ///         transcribed rather than a fetch being substituted for it.
+    ///     </para>
     /// </remarks>
     static Vector4 SampleSurface(float[] surface, int width, int height, Vector2 uv) {
         var x = (uv.X * width) - 0.5f;
@@ -1079,8 +1089,8 @@ public static class SoftwareUiRasterizer {
 
         var x0 = (int)MathF.Floor(x);
         var y0 = (int)MathF.Floor(y);
-        var fx = x - x0;
-        var fy = y - y0;
+        var fx = SubTexel(x - x0);
+        var fy = SubTexel(y - y0);
 
         var c00 = Pixel(surface, width, height, x0, y0);
         var c10 = Pixel(surface, width, height, x0 + 1, y0);
@@ -1094,6 +1104,11 @@ public static class SoftwareUiRasterizer {
             Lerp(Lerp(c00.W, c10.W, fx), Lerp(c01.W, c11.W, fx), fy)
         );
     }
+
+    /// <summary>A filter weight at a GPU sampler's sub-texel precision, eight bits.</summary>
+    /// <param name="weight">The exact weight, in [0, 1).</param>
+    /// <returns>The weight rounded to the nearest 1/256.</returns>
+    static float SubTexel(float weight) => MathF.Round(weight * 256f) / 256f;
 
     static Vector4 Pixel(float[] surface, int width, int height, int x, int y) {
         x = Math.Clamp(x, 0, width - 1);
