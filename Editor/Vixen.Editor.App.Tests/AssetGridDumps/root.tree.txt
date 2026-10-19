@@ -10,5 +10,10 @@
           <image .hidden .size-md .variant-default> 0,0 0×0
           <asset-caption> 4,74 104×19 "Scenes"
           <asset-status .hidden> 0,0 0×0
+        <asset-tile .folder .size-md .variant-default> 112,0 112×116
+          <icon .size-md .variant-default> 26,8 60×60
+          <image .hidden .size-md .variant-default> 0,0 0×0
+          <asset-caption> 4,74 104×19 "SmartMaterials"
+          <asset-status .hidden> 0,0 0×0
       <scrollbar .size-md .variant-default .vertical> 748,0 10×124
       <scrollbar .horizontal .size-md .variant-default> 0,114 757×10

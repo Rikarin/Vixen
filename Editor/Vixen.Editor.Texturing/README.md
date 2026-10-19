@@ -15,6 +15,12 @@ references `Vixen.Editor.Plugin`, `Vixen.Editor.Ui`, `Vixen.Editor.Core`, `Vixen
 and `Vixen.Editor.TextureGraph`, and it **does not reference `Vixen.Editor.App`**.
 `ModuleReferenceTests` asserts that, and says what its own instrument cannot see.
 
+⚠ **Not loaded from a folder after all.** Nothing loaded it from anywhere until
+[#1276](https://github.com/Rikarin/Vixen/issues/1276), which decided it ships in-process in
+`EditorModules.Standard()` beside Blockout, Terrain and Water — through the same `PluginContext` door,
+so the reference set above is still what keeps the claim. `TexturingModuleReachTests` (in
+`Vixen.Editor.App.Tests`) is the proof that the launched editor has it.
+
 ## What is here
 
 | | |
@@ -53,7 +59,8 @@ every field.
 calls only when the module was activated in-process — a copy loaded off disk is scanned by the host
 after `Activate`, and reading the attributes twice would put every line on the menu twice
 (`docs/GeneratorPackagingExempt.txt` states the same hazard for any plugin). So the module holds
-whichever way [#1276](https://github.com/Rikarin/Vixen/issues/1276) is decided. What still goes round
+either way; [#1276](https://github.com/Rikarin/Vixen/issues/1276) decided in-process, and it ships in
+`EditorModules.Standard()`. What still goes round
 `PluginContext` is the three `TexturingTheme.Install` calls in the views, and that is not this module's
 to fix: `UiDocument` cannot take a sheet back out, so there is nothing to record (doc 50 § D6, #917).
 

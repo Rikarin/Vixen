@@ -243,7 +243,12 @@ public class CreateMenuTests {
     static readonly string[] AuthoredAndUnimported = [
         ".vxanimgraph",
         ".vxseq",
-        ".vxfont"
+        ".vxfont",
+
+        // ⚠ Texturing's two, offered by the shipped editor since #1276 made the module standard;
+        // the module registers no importer for either (#1491).
+        ".vxlayers",
+        ".vxtexgraph"
     ];
 
     /// <summary>Every kind the Create menu offers is a kind the build can read back.</summary>
@@ -264,11 +269,11 @@ public class CreateMenuTests {
     ///         longer exists. Equality fails in both directions, and the message says which.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Contributed kinds are excluded by construction and that is not a loophole.</b> The
-    ///         session starts with no plugins and no project scripts, so
-    ///         <c>Extensions.All&lt;NewAssetKind&gt;()</c> is exactly the application's own list —
-    ///         <c>EditorArt</c>'s remarks already record that a plugin's kind may legitimately have no
-    ///         importer in this build.
+    ///         ⚠ <b>Every standard module's kinds are in it, and that is the point.</b> The session
+    ///         starts as <c>EditorHost</c> does, with <c>EditorModules.Standard()</c> and no disk plugins
+    ///         or project scripts, so <c>Extensions.All&lt;NewAssetKind&gt;()</c> is exactly what a user's
+    ///         Create ▸ offers. (This used to say "the application's own list"; the modules had been
+    ///         contributing to it since #1292, and Texturing's two arrived with #1276.)
     ///     </para>
     /// </remarks>
     [Fact]

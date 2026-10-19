@@ -23,6 +23,12 @@ namespace Vixen.Editor.App.Tests;
 ///         own picker.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Four tree references gained one tile each with #1276, and only that.</b> Texturing
+///         joined <c>EditorModules.Standard()</c>, and its activation writes the starter shelf into
+///         <c>Assets/SmartMaterials</c> — so the root has one more folder, and an entered folder one
+///         more parked tile. Every other line, and every flags dump, is the pre-port recording.
+///     </para>
+///     <para>
 ///         ⚠ <b>Two dumps per state, because a tree dump is blind</b> to a tile's <c>Checked</c> bit,
 ///         which lives where only <c>UiTest.Flags</c> looks.
 ///     </para>

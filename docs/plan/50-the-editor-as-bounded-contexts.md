@@ -197,7 +197,11 @@ plugin — its README's first sentence — and is activated by nothing: not in `
 no `plugin.yaml`, no copy step, `Host` does not reference it. Filed as
 [#1276](https://github.com/Rikarin/Vixen/issues/1276). It is here because it is the shape this
 document is about: the *plugin* path has never carried a first-party feature, so it is unproved in
-the same way the attributes are.
+the same way the attributes are. ✅ **Decided and landed (#1276):** `TexturingModule` is in
+`EditorModules.Standard()` and `Host` references it; `TexturingModuleReachTests` holds its four panels,
+ten Tools lines and two Create ▸ kinds to exactly once in a session opened as `EditorHost` opens one,
+gone on unload and collectable after it (red with the module out of the list), and `ModuleReach.txt`
+gained its 22 lines and lost none.
 
 **F5 — The feature assemblies have their own god files.** `LayerStackView.cs` 3,783,
 `TexturingModule.cs` 2,381, `LayerStackGraph.cs` 2,019, `TextureGraphCompiler.cs` 1,809,
@@ -695,7 +699,7 @@ through it with its own N-target `TransformTargetsCommand`.*
 * **It does not add a DI container, a mediator or a message bus.** `PluginServices` by name and
   `IEditorRegistry` by kind are the two lookups, and they are enough.
 * **It does not turn every feature assembly into a disk plugin.** In-process modules through
-  `Activate` are the front door; #1276 decides whether Texturing stays the one disk-shaped
+  `Activate` are the front door; #1276 decided Texturing is one of them, so there is no disk-shaped
   exception.
 * **It does not redesign `.vxml`, the inspector, or the editing pipeline.** It gives them more
   callers.
@@ -716,7 +720,7 @@ Waves follow the phases; a wave is five worktrees, merged as each lands, gates o
 | [#1280](https://github.com/Rikarin/Vixen/issues/1280) | `ReachTest`: every standard module's Create ▸ / menu / panel present, by effect | P0 | 1 · ✅ both halves: the measured manifest, and a module switched off in the plugin manager reaching nothing in the next session (red with `Activate` ignoring the suppressed set) |
 | [#1281](https://github.com/Rikarin/Vixen/issues/1281) | `ModuleRegistrationRule` + `ContributionWriterTest` | P0 | 1 · landed |
 | [#1282](https://github.com/Rikarin/Vixen/issues/1282) | Three README/dead-type corrections (Core `Vixen.Ui` line; App load-order reasons; delete `EditorObject` family) | P0 | 1 · landed |
-| — | [#1276](https://github.com/Rikarin/Vixen/issues/1276) `TexturingModule` reaches nothing — decide and close | P0 | 1 · filed |
+| — | [#1276](https://github.com/Rikarin/Vixen/issues/1276) `TexturingModule` reaches nothing — decide and close | P0 | 1 · ✅ in `Standard()`; `TexturingModuleReachTests`, 22 manifest lines gained |
 | — | [#1277](https://github.com/Rikarin/Vixen/issues/1277) Blockout boolean undo leaves operands hidden | P2b | 1 · filed · ✅ the hide is a recorded command in the transaction; the delete-undo half of the same shape is [#1482](https://github.com/Rikarin/Vixen/issues/1482), ✅ the delete's snapshot now carries the marks — and the mesh, shape, materials and boolean, which it was losing too |
 | [#1283](https://github.com/Rikarin/Vixen/issues/1283) | `Vixen.Editor.Plugin.Generator`: the eight attributes → `Declared.Register` | P1 | 2 · ✅ nine attributes (with `[EditorSubmenu]` and `[EditorIcon]`; `[Importer]` stays the pipeline's); placement shared through `DeclaredMenus`; not packed — a disk plugin gets the scan |
 | [#1284](https://github.com/Rikarin/Vixen/issues/1284) | `EditorMenuAttribute.Title` as a `*Strings` member name; `DeclaredParityTest` | P1 | 2 · 🟡 `[EditorMenu]`/`[EditorSubmenu]` and `DeclaredParityTests` ✅; `[CreateAssetMenu]`/`[Overlay]` titles owed — their records carry strings |

@@ -8,6 +8,7 @@ using Vixen.Editor.Plugin;
 using Vixen.Editor.Scripts;
 using Vixen.Editor.Terrain;
 using Vixen.Editor.Terrain.Physics;
+using Vixen.Editor.Texturing;
 using Vixen.Editor.Water;
 
 namespace Vixen.Editor.App;
@@ -57,6 +58,11 @@ static class EditorModules {
         (WaterModule.ModuleId, WaterModule.ModuleName, new WaterModule()),
         (DiagnosticsModule.ModuleId, DiagnosticsModule.ModuleName, new DiagnosticsModule()),
         (AssetEditorsModule.ModuleId, AssetEditorsModule.ModuleName, new AssetEditorsModule()),
+
+        // ⚠ Activated by nothing a user launched until #1276: its suite activates it by hand and
+        // stayed green while the layer stack, painting and Bake Material reached nobody. It adds no
+        // mode, so where it sits changes no bar; after the asset editors, whose registry it fills.
+        (TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule()),
         (ScriptsModule.ModuleId, ScriptsModule.ModuleName, new ScriptsModule())
     ];
 }
