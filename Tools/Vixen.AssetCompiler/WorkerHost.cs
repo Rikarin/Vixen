@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Core.Serialization;
+using Vixen.Editor.Ai;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Core;
 using Vixen.Editor.ShaderGraph;
@@ -76,6 +77,7 @@ public sealed class WorkerHost {
         ShaderGraphImporters.Link(linked);
         TerrainImporters.Link(linked);
         WaterImporters.Link(linked);
+        AiImporters.Link(linked);
     }
 
     /// <summary>The registry a worker serves with: what it links, and what its coordinator named.</summary>

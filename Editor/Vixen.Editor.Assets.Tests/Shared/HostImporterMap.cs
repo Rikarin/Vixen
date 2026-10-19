@@ -112,12 +112,16 @@ static class HostImporterMap {
     public static readonly string[] LinkedOnly = [
         ".hmpng HeightmapImporter",
         ".r16 HeightmapImporter",
+        ".vxbt BehaviorTreeImporter",
         ".vxfol TerrainAssetImporter",
         ".vxfoliage TerrainAssetImporter",
+        ".vxgoap GoapDomainImporter",
         ".vxgrass TerrainAssetImporter",
         ".vxlayer TerrainAssetImporter",
+        ".vxquery QueryImporter",
         ".vxshadergraph ShaderGraphImporter",
         ".vxspline TerrainAssetImporter",
+        ".vxutility UtilitySetImporter",
         ".vxvfx VfxImporter",
         ".vxwaves WaterWavesImporter"
     ];

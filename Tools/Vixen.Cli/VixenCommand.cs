@@ -5,6 +5,7 @@ using System.CommandLine;
 using System.Globalization;
 using Vixen.ContentServer;
 using Vixen.Core.IO;
+using Vixen.Editor.Ai;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.Gameplay;
@@ -53,6 +54,7 @@ public static class VixenCommand {
         ShaderGraphImporters.Link(linked);
         TerrainImporters.Link(linked);
         WaterImporters.Link(linked);
+        AiImporters.Link(linked);
     }
 
     /// <summary>Builds the command line.</summary>
