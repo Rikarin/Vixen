@@ -30,6 +30,17 @@ public interface IProjectSession {
     /// <param name="root">The new project's root directory, which need not exist yet.</param>
     void RequestProject(string root);
 
+    /// <summary>The projects this user has opened, newest first — what File ▸ Open Recent and the startup browser list.</summary>
+    IReadOnlyList<RecentProject> Recent { get; }
+
+    /// <summary>Writes the game template into a directory and asks to reopen the editor over it.</summary>
+    /// <param name="root">The new project's root directory, created if it is not there.</param>
+    /// <remarks>
+    ///     A directory that already holds some of the template's files is opened rather than clobbered,
+    ///     and says what was left alone — see <see cref="ProjectScaffold.Write" />.
+    /// </remarks>
+    void CreateProject(string root);
+
     /// <summary>Rescans the asset database, saves its index and rebuilds the reference index.</summary>
     /// <returns>What the scan found.</returns>
     ScanReport Rescan();

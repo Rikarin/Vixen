@@ -568,10 +568,6 @@ sealed partial class EditorApplication : IDisposable {
         diagnostics = FindDiagnostics(this.modules);
         assetEditors = FindModule<AssetEditorsModule>(this.modules);
 
-        // ⚠ Before the project, because whether this run is a first one — no history at all — is
-        // what decides whether the startup Project Browser has anything to offer, and opening the
-        // project is what adds this one to the list.
-        Recent = new ProjectHistory(directory);
         IsScratch = projectRoot is null;
 
         // ⚠ The logger is the point of the third argument: `UiDocument` reports every stylesheet rule
@@ -940,7 +936,12 @@ sealed partial class EditorApplication : IDisposable {
             project,
             (message, severity, detail) => Shell.Notifications.Show(message, severity, detail),
             RequestClose,
-            () => IsClosing || closing
+            () => IsClosing || closing,
+
+            // ⚠ The recent list is read here and written by `Opened` at the end of this constructor:
+            // whether this run is a first one — no history at all — decides whether the startup
+            // Project Browser has anything to offer, and opening the project adds this one to it.
+            new ProjectHistory(directory)
         );
         library.Arrived += () => browser?.Rescan();
 
@@ -1069,9 +1070,7 @@ sealed partial class EditorApplication : IDisposable {
 
         // ⚠ Recorded after the project has opened rather than before, so a root that turned out to
         // be unreadable is not offered as the first thing to try again next time.
-        Recent.Record(project.Paths.Root, DateTime.UtcNow);
-
-        WarnIfNewerEngine();
+        session.Opened(DateTime.UtcNow);
 
         Shell.Status = ProductName;
 
@@ -1306,7 +1305,7 @@ sealed partial class EditorApplication : IDisposable {
 
             BuildProjectCode();
 
-            if (IsScratch && Recent.Entries.Count <= 1) {
+            if (IsScratch && session.Recent.Count <= 1) {
                 ShowProjectBrowser();
             }
         }

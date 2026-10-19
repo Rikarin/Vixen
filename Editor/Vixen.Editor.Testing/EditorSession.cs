@@ -767,11 +767,12 @@ public sealed class EditorSession : IDisposable {
 
     /// <summary>The projects this editor has opened, newest first, as paths and times.</summary>
     /// <remarks>
-    ///     Flattened to primitives rather than handed out as the application's own record, because
-    ///     that type is internal to the head and a public member of this class cannot return one.
+    ///     Read from <see cref="IProjectSession.Recent" />, the list a plugin reads. Flattened to
+    ///     primitives because the scenarios that read it compare paths and times, and that shape
+    ///     predates the record moving into <c>Vixen.Editor.Core</c>.
     /// </remarks>
     public IReadOnlyList<(string Path, DateTime Opened)> RecentProjects =>
-        [.. editor.Recent.Entries.Select(entry => (entry.Path, entry.Opened))];
+        [.. editor.Session.Recent.Select(entry => (entry.Path, entry.Opened))];
 
     /// <summary>Asks the editor to close this project and reopen over another.</summary>
     /// <param name="root">The new project's root.</param>

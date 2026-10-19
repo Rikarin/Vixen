@@ -1261,6 +1261,7 @@ T:Vixen.Editor.Core.ProjectPaths sweep-pending
 T:Vixen.Editor.Core.ProjectScaffold sweep-pending
 T:Vixen.Editor.Core.ProjectSettingsStore sweep-pending
 T:Vixen.Editor.Core.ProjectTemplate sweep-pending
+T:Vixen.Editor.Core.RecentProject the project service page owed by #1311 documents it with IProjectSession.Recent
 T:Vixen.Editor.Core.ReferenceIndex sweep-pending
 T:Vixen.Editor.Core.ScaffoldResult sweep-pending
 T:Vixen.Editor.Core.ScanOptions sweep-pending

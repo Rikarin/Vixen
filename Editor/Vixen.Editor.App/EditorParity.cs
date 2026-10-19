@@ -88,7 +88,7 @@ sealed partial class EditorApplication {
             "file.new-project",
             EditorStrings.CommandNewProject,
             EditorStrings.CategoryFile,
-            () => PickProjectDirectory("New Project", CreateProject),
+            () => PickProjectDirectory("New Project", session.CreateProject),
             enabled: () => services.CanPick
         );
 
@@ -202,7 +202,7 @@ sealed partial class EditorApplication {
     void RecentProjectCommands() {
         List<string> ids = [];
 
-        foreach (var entry in Recent.Entries) {
+        foreach (var entry in session.Recent) {
             if (string.Equals(entry.Path, project.Paths.Root, StringComparison.Ordinal)) {
                 continue;
             }
