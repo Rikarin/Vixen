@@ -112,6 +112,39 @@ public sealed class AssetDatabaseTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>Every sidecar a scan writes or moves is in <see cref="ScanReport.Written" />, and nothing
+    ///     else is (#1488).</b> It is what a watcher over <c>Assets/</c> is told to ignore, so a write
+    ///     missing from it echoes back as an outside change and a path it names wrongly hides one.
+    /// </summary>
+    [Fact]
+    public void AScanReportsEverySidecarItWroteOrMoved() {
+        using var project = new ProjectFixture();
+        var shared = AssetId.New();
+
+        project.Add("Assets/kept.png");
+        project.AddWithoutMeta("Assets/new.png");
+        project.AddOrphanMeta("Assets/gone.png");
+        project.Add("Assets/b.png", "b", shared);
+        project.Add("Assets/a.png", "a", shared);
+
+        var database = new AssetDatabase(project.Paths);
+        var report = database.Scan();
+
+        Assert.Equal(
+            [
+                project.Paths.Absolute("Assets/b.png.meta"),
+                project.Paths.Absolute("Assets/gone.png.meta"),
+                project.Paths.Absolute("Assets/new.png.meta")
+            ],
+            report.Written
+        );
+
+        // And a scan with nothing to repair wrote nothing.
+        Assert.Empty(database.Scan().Written);
+        Assert.Empty(new AssetDatabase(project.Paths).Scan(ScanOptions.ReadOnly).Written);
+    }
+
+    /// <summary>
     ///     When no hash settles it, the first path in order keeps the GUID — a rule rather than
     ///     whichever file the filesystem happened to hand over first, so two machines scanning one
     ///     checkout agree.

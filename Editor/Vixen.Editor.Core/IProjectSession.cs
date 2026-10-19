@@ -73,11 +73,27 @@ public interface IProjectSession {
     ///     when it built, and also for a project with no code to build.
     /// </returns>
     /// <remarks>
-    ///     ⚠ <b>It runs a compiler</b>, which takes seconds on a cold restore — the editor calls it on its
-    ///     first frame, not while it is starting.
+    ///     <para>
+    ///         ⚠ <b>It runs a compiler</b>, which takes seconds on a cold restore — the editor calls it on its
+    ///         first frame, not while it is starting.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No build removes an authored behaviour the author did not remove (#1490).</b> A failed
+    ///         build keeps the last one that worked; one with nothing to fall back on holds the scene's
+    ///         behaviours until the code builds, says so, and refuses to save the scene without them.
+    ///     </para>
     /// </remarks>
     bool BuildCode();
 
-    /// <summary>Raised after <see cref="BuildCode" /> loaded the project's code and put the authored behaviours back.</summary>
+    /// <summary>The project's own code: which <c>.csproj</c> builds it and the assembly loaded from it.</summary>
+    /// <remarks>
+    ///     Read-only — <see cref="BuildCode" /> is the way to rebuild it. See <see cref="IProjectCode" />.
+    /// </remarks>
+    IProjectCode Code { get; }
+
+    /// <summary>
+    ///     Raised after <see cref="BuildCode" /> loaded the project's code and put the authored behaviours
+    ///     back — after a failed build too, when the last build that worked was loaded again.
+    /// </summary>
     event Action? CodeBuilt;
 }

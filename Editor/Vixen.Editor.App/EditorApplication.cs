@@ -177,16 +177,6 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     internal bool IsWatchingAssets => session.IsWatching;
 
-    /// <summary>What carries a change on disk the last few metres, from the project to the open document.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The half of the watcher that was never wired.</b> Everything else on this path reads
-    ///     the drained list for its length: the browser rescans, the database rescans, the build panel
-    ///     refreshes. <c>ReloadShaders</c> is the one exception and it filters to <c>.rvn</c> — so a
-    ///     <c>.vxscene</c> or a <c>.vxcompositor</c> saved by another program reached the tree, the
-    ///     index and the build, and did not reach the panel that had it open.
-    /// </remarks>
-    readonly ExternalEdits external;
-
     /// <summary>What a change on disk did to the open documents, for the suite that asserts about it.</summary>
     /// <remarks>
     ///     ⚠ <b>Internal, and it is the only honest instrument for "did the watcher reach this
@@ -197,7 +187,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     one did. <see cref="ExternalEdits.Applied" /> fires exactly once per document a change
     ///     reached, whatever the outcome.
     /// </remarks>
-    internal ExternalEdits External => external;
+    internal ExternalEdits External => session.External;
 
     readonly ContentTasks content;
 
@@ -565,15 +555,6 @@ sealed partial class EditorApplication : IDisposable {
 
         project = session.Project;
 
-        // ⚠ #656: a document saved through `Vixen.Ui`'s `document.save` or the close prompt answers
-        // a failed write with `false` and reports it here, which is what makes that `false` a message
-        // rather than a Save that silently did nothing. With nobody subscribed it would throw.
-        project.SaveFailed += (failed, failure) => Shell.Notifications.Show(
-            $"Could not save {failed.Title.Peek()}",
-            NotificationSeverity.Error,
-            failure.Message
-        );
-
         // One scene per project until there is a file dialog to choose another. The path is decided
         // here rather than by the document, because where a scene lives is the shell's answer and a
         // document only knows how to write itself.
@@ -766,22 +747,10 @@ sealed partial class EditorApplication : IDisposable {
         // grid shows its files the generic glyph for ever.
         thumbnails = new ThumbnailCache(project, Extensions);
 
-        // ⚠ 80–95 ms of a session, measured on this machine, and it is the platform's rather than
-        // ours: `FileSystemWatcher.EnableRaisingEvents = true` starts an FSEvents stream. A test
-        // that never edits a file behind the editor's back pays it anyway, 344 times over in
-        // `Vixen.Editor.App.Tests` — see `EditorSessionOptions.WatchAssets` and #557.
         // ⚠ After the first scene has been written, so the editor's own save is not heard as somebody
-        // else's. The watcher is the session's (#1293).
-        if (watchAssets) {
-            session.Watch();
-        }
-
-        // ⚠ Constructed even when there is no watcher, because the object is what subscribes to
-        // `EditorProject.DocumentSaving`, and a project with no watcher still has documents that
-        // save. What a null watcher costs is the suppression, not the wiring — and a conditional
-        // here would be a second place that has to know that.
-        external = new(project, session.Watcher);
-        external.Applied += Announce;
+        // else's. The watcher and the routing to open documents are the session's (#1293).
+        session.Watch(watchAssets);
+        session.External.Applied += Announce;
 
         // ⚠ `BuiltInSubsystems` is registered and touched *above*, before the scene file is read —
         // see there. Doc 36 § D5 retires `ComponentsView.Prime` — three hardcoded
@@ -1573,10 +1542,6 @@ sealed partial class EditorApplication : IDisposable {
         // platform handle and keeps recording changes into a coalescer nobody will drain again.
         session.Dispose();
 
-        // And the subscription on the project's saves with it, so that the documents closing below
-        // do not announce writes to a watcher that has gone.
-        external.Dispose();
-
         // And the dev-mode one, on the same terms — plus one of its own: it is the reason
         // `--hot-reload` cannot make the process outlive its window, since a live
         // `FileSystemWatcher` is a handle the runtime will not shut down over.
@@ -1796,17 +1761,9 @@ sealed partial class EditorApplication : IDisposable {
         // out *whether*, and an overflow has no paths to read at all.
         thumbnails.Forget();
 
-        // ⚠ After the rescan, which the session has done before raising this, and that is the one
-        // ordering constraint in the seam. A path becomes a document through the GUID index, and a
-        // rename is exactly the change that moves an entry in it — so routing before the scan would
-        // look the new path up in an index that still has the old one and find nothing open. An
-        // overflow has no paths to route, so it does the other thing: re-read what can be re-read, on
-        // `ReloadShaders`' argument above.
-        if (overflowed) {
-            external.Rescan();
-        } else {
-            external.Apply(changes);
-        }
+        // ⚠ The open documents are routed by the session after this returns (#1293), and after the
+        // rescan, which is the one ordering constraint in the seam: a path becomes a document through
+        // the GUID index, and a rename is exactly the change that moves an entry in it.
     }
 
     /// <summary>Says what a change on disk did to a document that was open on it.</summary>

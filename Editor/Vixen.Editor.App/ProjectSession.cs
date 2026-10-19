@@ -46,6 +46,18 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     /// <summary>What the watcher has to say, reused so that a quiet frame allocates nothing.</summary>
     readonly List<FileChange> changes = [];
 
+    /// <summary>Authored behaviours a failed build had no type to put back on, by the scene they came off.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Held rather than dropped (#1490), and the scene refuses to save while it holds any.</b> A
+    ///     failed build is not the author deleting a class — the next build that works declares the alias
+    ///     again — so the values wait here, and <see cref="RefuseToSaveWithout" /> keeps a save from
+    ///     writing the scene without them.
+    /// </remarks>
+    readonly Dictionary<SceneDocument, List<AuthoredBehavior>> held = [];
+
+    /// <summary>What <see cref="RestoreProjectBehaviors" /> could not put back during this build.</summary>
+    int dropped;
+
     /// <summary>What tells the editor that something outside it changed the assets on disk.</summary>
     /// <remarks>
     ///     <para>
@@ -63,6 +75,20 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     ///     </para>
     /// </remarks>
     IFileWatcher? watcher;
+
+    /// <summary>What carries a change on disk the last few metres, from the project to the open document.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half of the watcher that was never wired</b>, moved here from the application with the
+    ///     watcher it reads (#1293). Everything else on this path reads the drained list for its length:
+    ///     the browser rescans, the database rescans, the build panel refreshes. <c>ReloadShaders</c> is
+    ///     the one exception and it filters to <c>.rvn</c> — so a <c>.vxscene</c> or a
+    ///     <c>.vxcompositor</c> saved by another program reached the tree, the index and the build, and
+    ///     did not reach the panel that had it open. Null until <see cref="Watch" />.
+    /// </remarks>
+    ExternalEdits? external;
+
+    /// <summary>The project's own code. See <see cref="Code" />.</summary>
+    readonly ProjectAssemblies code;
 
     /// <summary>Builds the session over the open project.</summary>
     /// <param name="project">The open project.</param>
@@ -94,7 +120,19 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         this.history = history;
         this.log = log ?? ((_, _) => { });
         activeScene = scene ?? (() => null);
-        Code = new ProjectAssemblies(project.Paths);
+        code = new ProjectAssemblies(project.Paths);
+        project.DocumentSaving += RefuseToSaveWithout;
+
+        // ⚠ #656: a document saved through `Vixen.Ui`'s `document.save` or the close prompt answers
+        // a failed write with `false` and reports it here, which is what makes that `false` a message
+        // rather than a Save that silently did nothing. With nobody subscribed it would throw. Moved
+        // from the application's constructor (#1293): it is the project's documents and the session's
+        // notification, and nothing of the window's.
+        project.SaveFailed += (failed, failure) => notify(
+            $"Could not save {failed.Title.Peek()}",
+            NotificationSeverity.Error,
+            failure.Message
+        );
     }
 
     /// <summary>Opens the project at a root and builds the session over it.</summary>
@@ -147,17 +185,13 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     /// <inheritdoc />
     public bool IsWatching => watcher is not null;
 
-    /// <summary>The watcher itself, for what has to suppress the editor's own writes — <c>ExternalEdits</c>.</summary>
-    internal IFileWatcher? Watcher => watcher;
-
     /// <summary>The project's own code, once it has been built and loaded.</summary>
     /// <remarks>
-    ///     ⚠ <b>Loaded once, at start-up, and never unloaded.</b> The context is collectible and
-    ///     nothing calls <c>Unload</c>, because the registries a load fills have no way to empty —
-    ///     see <c>ProjectAssemblies</c>. A project rebuilt while the editor is open therefore needs a
-    ///     restart, which is said out loud rather than half-built.
+    ///     ⚠ <b>Reloaded by every <see cref="BuildCode" />.</b> This remark used to say the code was loaded
+    ///     once and never unloaded because the registries had no way to empty; both halves were stale —
+    ///     <c>ProjectAssemblies.Reload</c> unloads first, and <c>Unload</c> evicts all six registries.
     /// </remarks>
-    internal ProjectAssemblies Code { get; }
+    public IProjectCode Code => code;
 
     /// <inheritdoc />
     public IReadOnlyList<RecentProject> Recent => history.Entries;
@@ -222,6 +256,19 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     public ScanReport Rescan() {
         var report = project.Assets.Scan();
 
+        // ⚠ Before anything drains the watcher again (#1488). A file dropped into `Assets/` from
+        // outside gets its `.meta` minted by this scan, and that write is into the watched directory:
+        // unsuppressed, the watcher reported it a quarter of a second later as a second outside
+        // change, and the whole scan, sweep and thumbnail flush ran twice. `Suppress` also drops an
+        // event already pending for the path, so it is right whether or not the platform has spoken.
+        Suppress(report.Written);
+
+        // ⚠ And the scan has now seen every file on disk, including one whose creation is still
+        // settling in the watcher. Without this, deleting that file inside the debounce window
+        // cancelled its pending creation and nothing was ever reported: the index kept an entry for a
+        // file that was gone. The `.meta` echo above used to be the second burst that cleaned it up.
+        watcher?.Observed();
+
         project.Assets.Save();
 
         // ⚠ Rebuilt with it. The reverse index is what answers "what would break if I deleted this",
@@ -230,6 +277,24 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
 
         Rescanned?.Invoke(report);
         return report;
+    }
+
+    /// <summary>Tells the watcher that files this session wrote under <c>Assets/</c> were its own doing.</summary>
+    /// <param name="written">Absolute paths; any outside the watched directory are ignored.</param>
+    void Suppress(IReadOnlyList<string> written) {
+        if (watcher is null) {
+            return;
+        }
+
+        foreach (var absolute in written) {
+            var relative = Path.GetRelativePath(project.Paths.Assets, absolute).Replace(Path.DirectorySeparatorChar, VirtualPath.Separator);
+
+            if (!relative.StartsWith("..", StringComparison.Ordinal)
+                && !Path.IsPathRooted(relative)
+                && VirtualPath.TryCreate("/" + relative, out var path)) {
+                watcher.Suppress(path);
+            }
+        }
     }
 
     /// <summary>Writes a new game project and opens it.</summary>
@@ -312,8 +377,12 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         // would hold the old context alive *and* lose the values, which is both failures at once.
         // Bytes and an alias are what crosses: the same alias registers again from the rebuilt
         // assembly, and the state goes into an instance of the new type.
-        var authored = SaveProjectBehaviors();
-        var built = Code.Reload();
+        var scene = activeScene();
+        var authored = SaveProjectBehaviors(scene);
+        var before = held.ToArray();
+        var built = code.Reload();
+
+        held.Clear();
 
         if (built.Output is { Length: > 0 } said) {
             log(built.Failed ? LogLevel.Error : LogLevel.Debug, said);
@@ -323,23 +392,35 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
             notify(
                 "The project's code did not build",
                 NotificationSeverity.Error,
-                "Its components and behaviours are not available. The console has what the compiler said."
+                built.Assembly is null
+                    ? "Its components and behaviours are not available. The console has what the compiler said."
+                    : "The last build that worked is still loaded. The console has what the compiler said."
             );
-
-            return false;
         }
 
-        if (built.Assembly is not null) {
-            // The load ran the module initializers, so whatever the project declares is in the
-            // registries — and `ComponentsView.Registered` re-reads them, so the Add Component menu
-            // has it without being told.
-            RestoreProjectBehaviors(authored);
+        // ⚠ Put back on every path, not only when an assembly loaded (#1490). A project with no code
+        // and a build that failed used to leave the scene without them, and the next save wrote it so.
+        // The load ran the module initializers, so whatever the project declares is in the registries
+        // — and `ComponentsView.Registered` re-reads them, so the Add Component menu has it untold.
+        if (scene is not null) {
+            RestoreProjectBehaviors(scene, authored);
+        }
 
-            // The inspectors' sections and the build panel are the application's, and follow this.
+        // And what an earlier failure had nowhere to put, now that there may be somewhere.
+        foreach (var (document, waiting) in before) {
+            RestoreProjectBehaviors(document, waiting);
+        }
+
+        Report(built.Failed);
+
+        if (built.Assembly is not null) {
+            // The inspectors' sections and the build panel are the application's, and follow this —
+            // after a failed build too when the last good one was loaded again, because its types are
+            // new ones from a new context.
             CodeBuilt?.Invoke();
         }
 
-        return true;
+        return !built.Failed;
     }
 
     /// <summary>One authored behaviour, as something that outlives the type that held it.</summary>
@@ -348,23 +429,24 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     /// <param name="State">Its values.</param>
     readonly record struct AuthoredBehavior(Entity Entity, string Alias, byte[] State);
 
-    /// <summary>Takes every behaviour off the scene, keeping what was in it.</summary>
+    /// <summary>Takes the loaded project assembly's behaviours off the scene, keeping what was in them.</summary>
     /// <remarks>
-    ///     ⚠ <b>Every behaviour, not only the project's.</b> Deciding which assembly a behaviour came
-    ///     from means reading its type, and the whole point of this is that types are about to become
-    ///     unreliable. Taking them all off and putting them all back is the same answer for both and
-    ///     has no case that needs to be right.
+    ///     ⚠ <b>Only the project's — and the remark that said "every behaviour" was wrong (#1490).</b> It
+    ///     argued that deciding which assembly a behaviour came from means reading its type, and that
+    ///     types are about to become unreliable. They are not yet: this runs before the unload, while the
+    ///     type is exactly what it says. Taking an engine's or a plugin's behaviour off as well put it at
+    ///     the mercy of the reload — which, with no <c>.csproj</c>, never put it back.
     /// </remarks>
-    List<AuthoredBehavior> SaveProjectBehaviors() {
+    List<AuthoredBehavior> SaveProjectBehaviors(SceneDocument? scene) {
         List<AuthoredBehavior> authored = [];
 
-        if (activeScene() is not { } scene) {
+        if (scene is null || code.Loaded is not { } loaded) {
             return authored;
         }
 
         foreach (var entity in scene.Entities) {
             foreach (var behavior in scene.Behaviors.AllOn(entity).ToArray()) {
-                if (!SceneBehaviorRegistry.TryGet(behavior.GetType(), out var binder)) {
+                if (behavior.GetType().Assembly != loaded || !SceneBehaviorRegistry.TryGet(behavior.GetType(), out var binder)) {
                     continue;
                 }
 
@@ -376,33 +458,76 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         return authored;
     }
 
-    /// <summary>Puts them back, on the rebuilt types.</summary>
+    /// <summary>Puts them back, on the rebuilt types — or holds them, when nothing declares them yet.</summary>
     /// <remarks>
-    ///     ⚠ <b>A behaviour whose alias the rebuilt project no longer declares is dropped, and said
-    ///     so.</b> Somebody deleted or renamed the class; there is nowhere to put its values, and
-    ///     silently keeping them would mean a save that wrote a behaviour the build cannot name.
+    ///     ⚠ <b>A behaviour whose alias nothing declares is held, and <see cref="Report" /> decides what
+    ///     that means.</b> After a build that worked, somebody deleted or renamed the class; there is
+    ///     nowhere to put its values, and silently keeping them would mean a save that wrote a behaviour
+    ///     the build cannot name — so it is dropped, and said so. After a build that failed, it waits.
     /// </remarks>
-    void RestoreProjectBehaviors(List<AuthoredBehavior> authored) {
-        var lost = 0;
-
-        if (activeScene() is not { } scene) {
-            return;
-        }
-
-        foreach (var (entity, alias, state) in authored) {
-            if (!scene.World.IsAlive(entity) || !SceneBehaviorRegistry.TryGet(alias, out var binder)) {
-                lost++;
+    void RestoreProjectBehaviors(SceneDocument scene, List<AuthoredBehavior> authored) {
+        foreach (var behavior in authored) {
+            if (!scene.World.IsAlive(behavior.Entity)) {
+                // The entity went while the behaviour was held; there is nothing to put it on.
+                dropped++;
                 continue;
             }
 
-            binder.AttachTo(scene.Behaviors, entity, binder.Restore(state));
+            if (!SceneBehaviorRegistry.TryGet(behavior.Alias, out var binder)) {
+                if (!held.TryGetValue(scene, out var waiting)) {
+                    held[scene] = waiting = [];
+                }
+
+                waiting.Add(behavior);
+                continue;
+            }
+
+            binder.AttachTo(scene.Behaviors, behavior.Entity, binder.Restore(behavior.State));
+        }
+    }
+
+    /// <summary>Says what a build could not put back: dropped after one that worked, held after one that did not.</summary>
+    void Report(bool failed) {
+        if (!failed) {
+            foreach (var (_, waiting) in held) {
+                dropped += waiting.Count;
+            }
+
+            held.Clear();
         }
 
-        if (lost > 0) {
+        if (dropped > 0) {
             notify(
-                $"{lost} authored behaviour(s) were dropped",
+                $"{dropped} authored behaviour(s) were dropped",
                 NotificationSeverity.Warning,
                 "The rebuilt project no longer declares them, so there was nowhere to put their values."
+            );
+        }
+
+        dropped = 0;
+
+        if (held.Values.Sum(waiting => waiting.Count) is > 0 and var count) {
+            notify(
+                $"{count} authored behaviour(s) are held until the code builds",
+                NotificationSeverity.Warning,
+                "Nothing declares them until it does, so they are off the scene for now — and the scene "
+                + "will not save, because it would be written without them."
+            );
+        }
+    }
+
+    /// <summary>Refuses to write a scene that has behaviours held off it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Raised before the write, through <c>EditorProject.DocumentSaving</c>, as an
+    ///     <see cref="IOException" /></b> — the failure every save path already reports as a refused write
+    ///     and leaves the document dirty for. A scene saved now would be the file without the behaviours,
+    ///     which is the data loss #1490 is about arriving by the other door.
+    /// </remarks>
+    void RefuseToSaveWithout(EditorDocument document) {
+        if (document is SceneDocument scene && held.TryGetValue(scene, out var waiting) && waiting.Count > 0) {
+            throw new IOException(
+                $"'{scene.Title.Peek()}' has {waiting.Count} authored behaviour(s) held off it until the "
+                + "project's code builds. Saving now would write it without them; fix the build first."
             );
         }
     }
@@ -418,11 +543,36 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     ///     save is four raw events and a rename; an art tool exporting a texture atlas is one per
     ///     file. Rescanning on each would walk the project several times for one action —
     ///     <c>FileChangeCoalescer</c>'s debounce is what turns a burst into a rescan.
+    ///     <para>
+    ///         ⚠ <b>The watcher before <see cref="External" />, and that is one of the constructor's
+    ///         order-dependent steps made a line here (#1293).</b> <c>ExternalEdits</c> suppresses the
+    ///         editor's own saves on the watcher it is handed, so one built first would suppress nothing.
+    ///         And it is built when there is no watcher too, because it is what subscribes to
+    ///         <c>EditorProject.DocumentSaving</c>, and a project with no watcher still has documents
+    ///         that save. What a null watcher costs is the suppression, not the wiring.
+    ///     </para>
     /// </remarks>
-    internal void Watch() {
-        watcher?.Dispose();
-        watcher = Start(project);
+    /// <param name="assets">
+    ///     Whether to start the platform's watcher at all — off only in a harness. ⚠ 80–95 ms of a
+    ///     session, measured, and it is the platform's rather than ours:
+    ///     <c>FileSystemWatcher.EnableRaisingEvents = true</c> starts an FSEvents stream, and a test that
+    ///     never edits a file behind the editor's back paid it anyway, 344 times over in
+    ///     <c>Vixen.Editor.App.Tests</c> — see <c>EditorSessionOptions.WatchAssets</c> and #557.
+    /// </param>
+    internal void Watch(bool assets) {
+        if (assets) {
+            watcher?.Dispose();
+            watcher = Start(project);
+        }
+
+        external?.Dispose();
+        external = new(project, watcher);
     }
+
+    /// <summary>What a change on disk did to the open documents, for the suite that asserts about it.</summary>
+    /// <exception cref="InvalidOperationException">Asked for before <see cref="Watch" />.</exception>
+    internal ExternalEdits External =>
+        external ?? throw new InvalidOperationException("The session routes changes to open documents only once it watches.");
 
     IFileWatcher? Start(EditorProject open) {
         if (!Directory.Exists(open.Paths.Assets)) {
@@ -498,6 +648,16 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         // it — so a reader routing before the scan would look the new path up in an index that
         // still has the old one and find nothing open.
         ChangedOnDisk?.Invoke(changes, overflowed);
+
+        // ⚠ And then the open documents, last — after the readers above, which is where the
+        // application's `FollowedDisk` had it (#1293). An overflow has no paths to route, so it does
+        // the other thing: re-read what can be re-read.
+        if (overflowed) {
+            external?.Rescan();
+        } else {
+            external?.Apply(changes);
+        }
+
         return true;
     }
 
@@ -510,6 +670,13 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     public void Dispose() {
         watcher?.Dispose();
         watcher = null;
+
+        // And the subscription on the project's saves with it, so that the documents closing after
+        // this do not announce writes to a watcher that has gone.
+        external?.Dispose();
+        external = null;
+
+        project.DocumentSaving -= RefuseToSaveWithout;
     }
 
     /// <summary>Says so when the project was made by an engine newer than this one.</summary>

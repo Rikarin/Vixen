@@ -63,6 +63,15 @@ public sealed record AssetIssue(AssetIssueKind Kind, string Path, string Message
 ///     that was paid for.
 /// </remarks>
 public sealed record ScanReport(int Assets, TimeSpan Elapsed, IReadOnlyList<AssetIssue> Issues, int Reused = 0) {
+    /// <summary>Every sidecar the scan wrote or moved aside, as absolute paths, in ordinal order.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What a watcher over the same directory must be told was this program's doing (#1488).</b>
+    ///     A scan that minted a <c>.meta</c> for a file somebody dropped into <c>Assets/</c> is itself a
+    ///     write into <c>Assets/</c>; unsuppressed, the watcher hears it as a second outside change and the
+    ///     whole rescan runs again. The issues name the same events, but as assets and in prose.
+    /// </remarks>
+    public IReadOnlyList<string> Written { get; init; } = [];
+
     /// <summary>How many assets had their sidecar actually read.</summary>
     public int Rescanned => Assets - Reused;
 }

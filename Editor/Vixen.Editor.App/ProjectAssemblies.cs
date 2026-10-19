@@ -16,7 +16,10 @@ using Vixen.Engine.Scenes;
 namespace Vixen.Editor.App;
 
 /// <summary>What building a project's own code produced, and what to say if it did not.</summary>
-/// <param name="Assembly">The loaded assembly, or <see langword="null" /> if nothing was loaded.</param>
+/// <param name="Assembly">
+///     The loaded assembly, or <see langword="null" /> if nothing was loaded. After a failed build this is
+///     the last build that worked, loaded again, when it is still on disk.
+/// </param>
 /// <param name="Output">What the compiler said, verbatim.</param>
 /// <param name="Failed">Whether the build failed. A project with no code to build has neither.</param>
 public readonly record struct ProjectBuild(Assembly? Assembly, string Output, bool Failed);
@@ -66,10 +69,13 @@ public readonly record struct ProjectBuild(Assembly? Assembly, string Output, bo
 ///         scripts run coroutines would leak its assembly. See <c>ProjectCoroutineUnloadTests</c>.
 ///     </para>
 /// </remarks>
-public sealed class ProjectAssemblies {
+public sealed class ProjectAssemblies : IProjectCode {
     readonly ProjectPaths paths;
 
     PluginLoadContext? context;
+
+    /// <summary>Where the assembly last loaded came from, which is what a failed rebuild loads again.</summary>
+    string? loadedFrom;
 
     /// <summary>How long a build may take before it is given up on.</summary>
     /// <remarks>
@@ -155,14 +161,25 @@ public sealed class ProjectAssemblies {
     /// <summary>Builds the project's code and loads what came out.</summary>
     /// <returns>What happened, for a caller that has somewhere to report it.</returns>
     /// <remarks>
-    ///     ⚠ <b>A project with no <c>.csproj</c> is not a failure.</b> Plenty of projects are content
-    ///     and nothing else, and an editor that reported an error for one would be reporting on the
-    ///     absence of a feature nobody asked for.
+    ///     <para>
+    ///         ⚠ <b>A project with no <c>.csproj</c> is not a failure.</b> Plenty of projects are content
+    ///         and nothing else, and an editor that reported an error for one would be reporting on the
+    ///         absence of a feature nobody asked for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A failed rebuild loads the last build that worked again (#1490).</b> The old assembly
+    ///         has to go before the compiler runs, so a syntax error typed into a script that had been
+    ///         working used to leave nothing loaded — and every behaviour of the project with no type to
+    ///         go back on. A compile that fails writes no output, so the previous build is still where
+    ///         MSBuild put it; when it is not (a clean, a deleted <c>bin/</c>), the failure loads nothing.
+    ///     </para>
     /// </remarks>
     public ProjectBuild Reload() {
         if (Project is not { } project) {
             return new(null, string.Empty, Failed: false);
         }
+
+        var previous = loadedFrom;
 
         // ⚠ Before the build, not after it. The old assembly is read into memory rather than mapped
         // — see `PluginLoadContext` — but its dependencies are not, and a compiler writing over a
@@ -172,7 +189,7 @@ public sealed class ProjectAssemblies {
         var (built, output) = Build(project);
 
         if (built is null) {
-            return new(null, output, Failed: true);
+            return new(previous is not null && File.Exists(previous) ? Load(previous) : null, output, Failed: true);
         }
 
         return new(Load(built), output, Failed: false);
@@ -200,6 +217,7 @@ public sealed class ProjectAssemblies {
         RuntimeHelpers.RunModuleConstructor(assembly.ManifestModule.ModuleHandle);
 
         Loaded = assembly;
+        loadedFrom = assemblyPath;
         return assembly;
     }
 

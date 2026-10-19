@@ -5,8 +5,12 @@ using System.Diagnostics;
 using System.Reflection;
 using Vixen.Core;
 using Vixen.Core.IO.Watch;
+using Vixen.Ecs;
 using Vixen.Editor.Core;
+using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
+using Vixen.Engine.Behaviors;
+using Vixen.Ui;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -205,15 +209,15 @@ public sealed class ProjectSessionTests : IDisposable {
         Assert.Equal(1, heard);
         Assert.True(indexedWhenHeard, "the session spoke before its rescan had indexed the file");
 
-        // ⚠ One rescan per burst — the application's panels follow the session's scan rather than
-        // making one of their own. And ⚠ two bursts rather than one, which is #1488: the first scan
-        // writes the file's `.meta` into `Assets/`, and the watcher hears the database's own write as
-        // somebody else's. Tighten to one when that is fixed.
-        Assert.Equal(bursts, scans);
-        Assert.InRange(bursts, 1, 2);
+        // ⚠ One burst and one rescan — the application's panels follow the session's scan rather than
+        // making one of their own. It was two (#1488): the scan writes the new file's `.meta` into
+        // `Assets/`, and the watcher heard the database's own write as somebody else's. The session
+        // now suppresses every sidecar its scan reports writing.
+        Assert.Equal(1, bursts);
+        Assert.Equal(1, scans);
     }
 
-    /// <summary>The project's watcher and its code have one owner, and it is not the application.</summary>
+    /// <summary>The project's watcher, its routing to open documents and its code have one owner, and it is not the application.</summary>
     /// <remarks>
     ///     ⚠ <b>A move that left a copy behind is the failure this rules out.</b> The application held the
     ///     watcher and the <c>ProjectAssemblies</c> in fields of its own; a second watcher would drain
@@ -226,15 +230,49 @@ public sealed class ProjectSessionTests : IDisposable {
         Assert.DoesNotContain(application, type => typeof(IFileWatcher).IsAssignableFrom(type));
         Assert.DoesNotContain(typeof(ProjectAssemblies), application);
 
+        // ⚠ And what routes the watcher's changes to the open documents, which moved with it — a copy
+        // left in the application would apply every change to a document twice.
+        Assert.DoesNotContain(typeof(ExternalEdits), application);
+
         var session = Held(typeof(ProjectSession));
 
         Assert.Contains(typeof(IFileWatcher), session);
         Assert.Contains(typeof(ProjectAssemblies), session);
+        Assert.Contains(typeof(ExternalEdits), session);
+
+        // ⚠ And a module reads the code through an interface, not the App's loader: the session is the
+        // one door that takes the scene's behaviours off around a reload, so a module handed the
+        // loader could unload an assembly a scene still holds instances of.
+        Assert.Equal(typeof(IProjectCode), typeof(IProjectSession).GetProperty(nameof(IProjectSession.Code))!.PropertyType);
+        Assert.DoesNotContain(typeof(IProjectCode).GetMethods(), method => !method.IsSpecialName);
 
         static List<Type> Held(Type type) => [
             .. type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
                 .Select(field => field.FieldType)
         ];
+    }
+
+    /// <summary>A save that could not write is reported through the session — with no window (#656, moved by #1293).</summary>
+    /// <remarks>
+    ///     ⚠ <b>With nobody subscribed to <c>EditorProject.SaveFailed</c> the failure is thrown on</b>, so this
+    ///     is red both when the subscription is lost and when it is made somewhere a windowless session
+    ///     never reaches — the application's constructor, where it was.
+    /// </remarks>
+    [Fact]
+    public void A_failed_save_is_reported_through_the_session_without_a_window() {
+        var (session, reported, _) = Bare();
+        using var world = new World("Scene");
+
+        // A file where the scene's folder would have to be, so the write fails as a disk would.
+        var blocked = Path.Combine(session.Project.Paths.Assets, "not-a-folder");
+        File.WriteAllText(blocked, string.Empty);
+
+        var scene = new SceneDocument(session.Project, world, AssetId.Empty, "Level") {
+            Writer = new SceneFileWriter(Path.Combine(blocked, "Level.vxscene"))
+        };
+
+        Assert.False(((IEditableDocument)scene).Save());
+        Assert.Equal("Could not save Level", Assert.Single(reported));
     }
 
     /// <summary>A project with no code builds as nothing — with no window — and announces no reload.</summary>
@@ -247,6 +285,7 @@ public sealed class ProjectSessionTests : IDisposable {
 
         Assert.True(session.BuildCode());
         Assert.Null(session.Code.Loaded);
+        Assert.Null(session.Code.Project);
         Assert.Equal(0, built);
         Assert.Empty(reported);
     }
@@ -274,6 +313,49 @@ public sealed class ProjectSessionTests : IDisposable {
         Assert.Equal(0, built);
         Assert.Contains("The project's code did not build", said);
         Assert.Same(editor.Project, service.Project);
+    }
+
+    /// <summary>A code build that loaded nothing leaves the scene's authored behaviours where they were (#1490).</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every editor launch runs this build on its first frame</b>, and the scratch project and
+    ///         every content-only project have no <c>.csproj</c>. The build used to take every behaviour off
+    ///         the scene and put them back only when an assembly loaded — so a behaviour from an assembly the
+    ///         editor already references was gone a frame after launch, and the next save wrote the scene
+    ///         without it.
+    ///     </para>
+    ///     <para>
+    ///         Two cases, one assertion: no code at all, and code that does not build. The values are checked
+    ///         as well as the count, because a restore that attached a fresh instance would pass a count.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_build_that_loads_nothing_keeps_the_scenes_behaviours(bool broken) {
+        SceneBehaviorRegistry.Register<PatrolBehavior>();
+
+        using var editor = EditorSession.Start();
+
+        if (broken) {
+            File.WriteAllText(Path.Combine(editor.ProjectRoot, "Broken.csproj"), "<Project><this is not xml");
+        }
+
+        var scene = editor.Scene;
+        var entity = scene.Entities.First();
+        var authored = scene.Behaviors.Add<PatrolBehavior>(entity);
+
+        authored.Speed = 41.5f;
+
+        Assert.Single(scene.Behaviors.AllOn(entity).ToArray());
+
+        Assert.Equal(!broken, editor.Plugins.Services.Require<IProjectSession>().BuildCode());
+
+        var kept = Assert.IsType<PatrolBehavior>(Assert.Single(scene.Behaviors.AllOn(entity).ToArray()));
+        Assert.Equal(41.5f, kept.Speed);
+
+        // ⚠ And the file a save writes still names it — the half of the defect a user meets.
+        Assert.Contains("!PatrolBehavior", SceneSerializer.ToYaml(scene), StringComparison.Ordinal);
     }
 
     /// <summary>Frames until a condition holds or the budget runs out, sleeping between so the watcher's debounce can pass.</summary>

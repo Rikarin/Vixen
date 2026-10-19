@@ -31,6 +31,9 @@ sealed class StubWatcher : IFileWatcher {
 
     public void Suppress(VirtualPath path) => Suppressed.Add(path);
 
+    public void Observed() {
+    }
+
     public int Drain(ICollection<FileChange> into) {
         var count = pending.Count;
 
