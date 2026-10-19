@@ -231,4 +231,119 @@ public class StringIdCensusTests {
         Assert.Single(found);
         Assert.True(StringIdCensus.InDocComment(prose, found[0].Index));
     }
+
+    /// <summary>
+    ///     ⚠ <a href="https://github.com/Rikarin/Vixen/issues/1492">#1492</a> and
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1270">#1270</a>: a target-typed
+    ///     <c>new(…)</c> in every position whose <c>StringId</c> is only in a declaration.
+    /// </summary>
+    /// <remarks>
+    ///     The first line is <c>ViewportCommands.Label</c> verbatim, which built the id of every
+    ///     viewport command's label at run time for as long as the census existed and was in no
+    ///     count. The argument line is the shape #1492 measured: <c>DeclaredContributions</c>
+    ///     written that way made the census report one construction fewer.
+    /// </remarks>
+    const string TargetTypedFixture = """
+        static class Shapes {
+            static StringId Label(string id, string text) => new("editor.command." + id, text);
+
+            static StringId Caption => new("editor.caption", "Caption");
+
+            static StringId Returned(string id) {
+                return new("editor.returned." + id, id);
+            }
+
+            static StringId Chosen(bool which) => which ? new("editor.which.yes", "Yes") : new("editor.which.no", "No");
+
+            static readonly StringId[] Collected = [new("editor.collected", "Collected")];
+
+            static readonly List<StringId> Listed = new() { new("editor.listed", "Listed") };
+
+            static void Register(string id, string text) {
+                Verb(id, new("editor.command." + id, text), () => { });
+                Verb(label: new("editor.named", "Named"), id: id, run: () => { });
+            }
+
+            static void Verb(string id, StringId label, Action run) { }
+        }
+        """;
+
+    /// <summary>The same positions holding something that is not a <c>StringId</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The last two lines are off the tree</b> (<c>CompositorDocument</c>,
+    ///     <c>LootLibrary</c>), and they are the forty-seven false positives the first run of the
+    ///     argument shape reported: the fixture declares an <c>Add</c> taking a <c>StringId</c>
+    ///     second, exactly as the tree does, so a name-only resolution counts a node graph's and a
+    ///     dictionary's <c>Add</c> too. What keeps them out is that neither construction looks like
+    ///     an id. A lambda's return is not read at all: its type is the delegate's, which is a
+    ///     semantic question.
+    /// </remarks>
+    const string TargetTypedElsewhereFixture = """
+        static class Elsewhere {
+            static Endpoint Home() => new("127.0.0.1", 7777);
+
+            static Endpoint Away() {
+                return new("10.0.0.1", 7777);
+            }
+
+            static readonly Endpoint[] Hosts = [new("a", 1)];
+
+            static void Build(List<Endpoint> hosts, NodeGraph graph, Dictionary<string, Table> tables) {
+                hosts.Add(new("b", 2));
+                Connect(new("c", 3), "c");
+                graph.Add("Frame/Frame", new(80f, 80f));
+                tables.Add(definition.Id.Value, new(definition, rows));
+            }
+
+            static void Connect(Endpoint endpoint, string name) { }
+
+            static void Add(string key, StringId label) { }
+        }
+        """;
+
+    /// <summary>Every target-typed position is a construction, and the literal ones are ids.</summary>
+    [Fact]
+    public void A_target_typed_new_is_seen_wherever_its_target_is_a_StringId() {
+        var sources = new[] { TargetTypedFixture, TargetTypedElsewhereFixture };
+        var members = StringIdCensus.Members(sources);
+        var parameters = StringIdCensus.Parameters(sources);
+
+        var constructions = StringIdCensus.Constructions(TargetTypedFixture, members, parameters).ToList();
+
+        // Label, Returned and the positional argument build their id at run time; the other six
+        // are literals.
+        Assert.Equal(9, constructions.Count);
+        Assert.Equal(3, constructions.Count(construction => !construction.Literal));
+
+        var ids = StringIdCensus.LiteralIds(TargetTypedFixture, members, parameters).Select(found => found.Id).ToList();
+
+        Assert.Equal(
+            ["editor.caption", "editor.collected", "editor.listed", "editor.named", "editor.which.no", "editor.which.yes"],
+            ids.Order(StringComparer.Ordinal)
+        );
+    }
+
+    /// <summary>The same positions, holding something else, are left alone.</summary>
+    [Fact]
+    public void A_target_typed_new_of_something_else_is_left_alone() {
+        var sources = new[] { TargetTypedFixture, TargetTypedElsewhereFixture };
+        var members = StringIdCensus.Members(sources);
+        var parameters = StringIdCensus.Parameters(sources);
+
+        Assert.Empty(StringIdCensus.Constructions(TargetTypedElsewhereFixture, members, parameters));
+        Assert.Empty(StringIdCensus.Constructions(OtherInitialisersFixture, members, parameters));
+    }
+
+    /// <summary>An argument is resolved against the tree's parameter lists, so without them it is unseen.</summary>
+    /// <remarks>
+    ///     The argument shape's failure mode, written down the way the member set's is: a parameter
+    ///     map that read nothing makes the census quieter, which is why <c>CheckStrings</c> asserts
+    ///     it is populated.
+    /// </remarks>
+    [Fact]
+    public void Arguments_need_the_parameter_map() {
+        var members = StringIdCensus.Members([TargetTypedFixture]);
+
+        Assert.Equal(7, StringIdCensus.Constructions(TargetTypedFixture, members).Count());
+    }
 }
