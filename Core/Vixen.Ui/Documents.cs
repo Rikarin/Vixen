@@ -46,17 +46,13 @@ public interface IEditableDocument {
     ///         whose ⌘S silently does nothing the first time it is pressed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Nothing in this repository writes one and nothing reads one</b>
-    ///         (<a href="https://github.com/Rikarin/Vixen/issues/656">#656</a>). Measured on
-    ///         2026-09-23: there is exactly <b>one</b> write in the whole tree,
-    ///         <c>EditableDocumentTests.cs:164</c>. <see cref="EditableDocument.Rename(string, string?)" />
-    ///         is called four times and the other three pass a name only, so the
-    ///         <c>newLocation is not null</c> guard below leaves the signal alone. And
-    ///         <see cref="UiWindowTitle.Bind" /> — the one thing that takes an
-    ///         <see cref="IEditableDocument" /> and shows it — reads
-    ///         <see cref="Name" /> and <see cref="IsDirty" /> and not this.
-    ///         <c>Samples/02-HelloUi</c>'s save is in memory and says so;
-    ///         <c>EditorDocument</c>'s identity is an <c>AssetId</c>.
+    ///         ⚠ <b>Nothing in this repository reads one</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/656">#656</a>), and the one
+    ///         production writer is <c>EditorDocument</c>, which answers from its asset's path in the
+    ///         asset database — so the editor's <c>AssetId.Empty</c> scenes answer null for a file
+    ///         they have. <see cref="UiWindowTitle.Bind" /> — the one thing that takes an
+    ///         <see cref="IEditableDocument" /> and shows it — reads <see cref="Name" /> and the two
+    ///         unsaved flags and not this. <c>Samples/02-HelloUi</c>'s save is in memory and says so.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>That is one blocker wearing three hats, and doc 49 § 5 lists it as three jobs.</b>
@@ -69,8 +65,40 @@ public interface IEditableDocument {
     /// </remarks>
     IReadOnlySignal<string?> Location { get; }
 
-    /// <summary>Whether it has changes that saving would write.</summary>
+    /// <summary>Whether it has changes of the user's own, made in it, that saving would write.</summary>
+    /// <remarks>
+    ///     Only the edits made <i>in</i> this document — an undo history walked back to where it was
+    ///     saved answers <see langword="false" /> again. A change that reached it from outside is
+    ///     <see cref="ExternallyModified" />, and "does saving write anything" is the two together:
+    ///     <see cref="DocumentCommands.HasUnsavedChanges" />.
+    /// </remarks>
     IReadOnlySignal<bool> IsDirty { get; }
+
+    /// <summary>Whether something other than its own edits changed it since it was last saved.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The second half of "would saving write anything", kept apart from
+    ///         <see cref="IsDirty" /> on purpose</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/656">#656</a>). An application whose
+    ///         documents refer to each other — a rename in one rewriting a reference held by another —
+    ///         changes a document the user never typed in, and no undo inside that document can take
+    ///         it back. Folded into dirty, it made <see cref="IsDirty" /> a flag that walking the
+    ///         history back could never clear, and a title, a prompt and a greyed Save could not say
+    ///         which of the two they were showing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every surface that asks "unsaved?" reads both</b> — <see cref="DocumentCommands" />,
+    ///         <see cref="UiWindowTitle" /> and the close prompt — so a document that is only
+    ///         externally modified is still marked, still saveable and still asked about.
+    ///         <see cref="Save" /> and <see cref="Revert" /> clear it with dirty.
+    ///     </para>
+    ///     <para>
+    ///         Not "the file changed on disk": that is the opposite direction — disk ahead of memory —
+    ///         and saving over it would be the destructive answer. A document that tracks that keeps it
+    ///         to itself, as the editor's <c>IsStale</c> does.
+    ///     </para>
+    /// </remarks>
+    IReadOnlySignal<bool> ExternallyModified { get; }
 
     /// <summary>Writes it out.</summary>
     /// <returns>Whether it was written. <see langword="false" /> leaves it dirty.</returns>
@@ -90,6 +118,7 @@ public interface IEditableDocument {
 /// </remarks>
 public abstract class EditableDocument : IEditableDocument {
     readonly Signal<bool> dirty = new(false);
+    readonly Signal<bool> externallyModified = new(false);
     readonly Signal<string?> location;
     readonly Signal<string> name;
 
@@ -112,6 +141,9 @@ public abstract class EditableDocument : IEditableDocument {
     /// <inheritdoc />
     public IReadOnlySignal<bool> IsDirty => dirty;
 
+    /// <inheritdoc />
+    public IReadOnlySignal<bool> ExternallyModified => externallyModified;
+
     /// <summary>Says something changed.</summary>
     /// <remarks>
     ///     Called by whatever made the edit. It is not inferred, because a document knows what a
@@ -127,6 +159,14 @@ public abstract class EditableDocument : IEditableDocument {
     ///     behaviour every editor has and which nothing but the document itself can detect.
     /// </remarks>
     public void MarkClean() => dirty.Value = false;
+
+    /// <summary>Says something other than this document's own edits changed it.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="MarkClean" /> does not take this back</b>, because an undo history walked
+    ///     back to its save point says nothing about a change that never went through it. Only
+    ///     <see cref="Save" /> and <see cref="Revert" /> do.
+    /// </remarks>
+    public void MarkExternallyModified() => externallyModified.Value = true;
 
     /// <summary>Renames it, which is what a Save As does after it has chosen a path.</summary>
     /// <param name="newName">What to call it now.</param>
@@ -148,6 +188,7 @@ public abstract class EditableDocument : IEditableDocument {
         }
 
         MarkClean();
+        externallyModified.Value = false;
         return true;
     }
 
@@ -158,6 +199,7 @@ public abstract class EditableDocument : IEditableDocument {
         }
 
         MarkClean();
+        externallyModified.Value = false;
         return true;
     }
 
@@ -222,8 +264,10 @@ public static class DocumentCommands {
             );
         }
 
-        element.AddCommandHandler(Save, () => document.Save(), () => document.IsDirty.Value);
-        element.AddCommandHandler(Revert, () => document.Revert(), () => document.IsDirty.Value);
+        // ⚠ Both halves of "unsaved" (#656): a document only changed from outside still has
+        // something to write and something to throw away.
+        element.AddCommandHandler(Save, () => document.Save(), () => HasUnsavedChanges(document));
+        element.AddCommandHandler(Revert, () => document.Revert(), () => HasUnsavedChanges(document));
 
         // ⚠ Raised on the hosting element and not on the UiDocument, which is what makes the close
         // be about THIS document: the route picked this handler because this element is the nearest
@@ -239,9 +283,29 @@ public static class DocumentCommands {
 
         var ui = element.Document;
         element.TrackDocumentCommands(new Effect(() => {
-            _ = document.IsDirty.Value;
+            _ = HasUnsavedChanges(document);
             ui.InvalidateCommands();
         }, ui.Effects));
+    }
+
+    /// <summary>Whether saving a document would write anything: its own edits, or a change from outside.</summary>
+    /// <param name="document">The document.</param>
+    /// <returns>
+    ///     <see cref="IEditableDocument.IsDirty" /> or <see cref="IEditableDocument.ExternallyModified" />,
+    ///     read live.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>Reads both signals every time, never short-circuited</b>, so an effect or a computed
+    ///     calling it depends on both — a <c>||</c> that stopped at a true dirty flag would leave a
+    ///     reader that never re-ran when the other signal moved on its own.
+    /// </remarks>
+    public static bool HasUnsavedChanges(IEditableDocument document) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var dirty = document.IsDirty.Value;
+        var external = document.ExternallyModified.Value;
+
+        return dirty | external;
     }
 }
 
@@ -328,7 +392,9 @@ public static class UiWindowTitle {
         ArgumentNullException.ThrowIfNull(dirtyMarker);
 
         return new Effect(
-            () => window.Title = document.IsDirty.Value ? dirtyMarker + document.Name.Value : document.Name.Value,
+            () => window.Title = DocumentCommands.HasUnsavedChanges(document)
+                ? dirtyMarker + document.Name.Value
+                : document.Name.Value,
             scheduler
         );
     }

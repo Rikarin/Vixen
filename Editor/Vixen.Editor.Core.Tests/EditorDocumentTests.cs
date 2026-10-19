@@ -129,7 +129,7 @@ public sealed class EditorDocumentTests {
         );
 
         project.GlobalStack.Execute(rename);
-        Assert.True(document.IsDirty.Value);
+        Assert.True(document.HasUnsavedChanges.Value);
         Assert.Equal(9f, knob.Amount.Value);
 
         project.GlobalStack.Undo();
@@ -137,7 +137,10 @@ public sealed class EditorDocumentTests {
 
         // The value is back, and the document is still marked: the editor cannot know whether what
         // was on disk was written before or after the rename, so it says so instead of guessing.
-        Assert.True(document.IsDirty.Value);
+        // ⚠ Marked as changed from outside, not dirty (#656) — its own stack never moved.
+        Assert.True(document.HasUnsavedChanges.Value);
+        Assert.True(document.ExternallyModified.Value);
+        Assert.False(document.IsDirty.Value);
     }
 
     [Fact]

@@ -541,7 +541,7 @@ sealed partial class EditorApplication {
         var open = openScenes[index];
 
         Confirm(
-            open.Document.IsDirty.Value,
+            open.Document.HasUnsavedChanges.Value,
             "Discard unsaved changes?",
             Path.GetFileName(open.Path) + " has changes that have not been written.",
             () => {
@@ -585,7 +585,7 @@ sealed partial class EditorApplication {
             }
 
             var name = row.Add("scene-name");
-            name.Text = Path.GetFileNameWithoutExtension(open.Path) + (open.Document.IsDirty.Value ? " *" : string.Empty);
+            name.Text = Path.GetFileNameWithoutExtension(open.Path) + (open.Document.HasUnsavedChanges.Value ? " *" : string.Empty);
 
             var visible = row.Add<CheckBox>();
             visible.IsChecked = open.IsVisible;
@@ -656,7 +656,7 @@ sealed partial class EditorApplication {
             EditorStrings.CommandSceneSaveAllScenes,
             EditorStrings.CategoryScene,
             SaveAllScenes,
-            enabled: () => openScenes.Exists(open => open.Document.IsDirty.Value)
+            enabled: () => openScenes.Exists(open => open.Document.HasUnsavedChanges.Value)
         );
 
         Planned("scene.layers", EditorStrings.CommandSceneLayers, EditorStrings.CategoryScene);
@@ -688,7 +688,7 @@ sealed partial class EditorApplication {
         var written = 0;
 
         foreach (var open in openScenes) {
-            if (!open.Document.IsDirty.Value) {
+            if (!open.Document.HasUnsavedChanges.Value) {
                 continue;
             }
 

@@ -612,6 +612,15 @@ sealed partial class EditorApplication : IDisposable {
         project = new EditorProject(new ProjectPaths(projectRoot ?? Path.Combine(directory, "Scratch")));
         project.Open();
 
+        // ⚠ #656: a document saved through `Vixen.Ui`'s `document.save` or the close prompt answers
+        // a failed write with `false` and reports it here, which is what makes that `false` a message
+        // rather than a Save that silently did nothing. With nobody subscribed it would throw.
+        project.SaveFailed += (failed, failure) => Shell.Notifications.Show(
+            $"Could not save {failed.Title.Peek()}",
+            NotificationSeverity.Error,
+            failure.Message
+        );
+
         // One scene per project until there is a file dialog to choose another. The path is decided
         // here rather than by the document, because where a scene lives is the shell's answer and a
         // document only knows how to write itself.
@@ -2117,7 +2126,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     <c>EditorShell.Describe</c> raises nothing unless the composed string actually differs, so
     ///     the host is told only when there is something to tell it.
     /// </remarks>
-    void Retitle() => Shell.Describe(scene.Title.Peek(), scene.IsDirty.Value, ProductName);
+    void Retitle() => Shell.Describe(scene.Title.Peek(), scene.HasUnsavedChanges.Value, ProductName);
 
     /// <summary>A scene with something in it, for a project that has none yet.</summary>
     /// <remarks>
@@ -2790,7 +2799,7 @@ sealed partial class EditorApplication : IDisposable {
                 continue;
             }
 
-            if (!InATab(document) && !document.IsDirty.Peek()) {
+            if (!InATab(document) && !document.HasUnsavedChanges.Peek()) {
                 document.Close();
 
                 continue;
@@ -3603,7 +3612,7 @@ sealed partial class EditorApplication : IDisposable {
         Shell.Commands.Add(
             new EditorCommand("file.save", EditorStrings.CommandSave, SaveScene) {
                 Category = EditorStrings.CategoryFile,
-                Enablement = () => scene.IsDirty.Value
+                Enablement = () => scene.HasUnsavedChanges.Value
             }
         );
 
@@ -3621,7 +3630,7 @@ sealed partial class EditorApplication : IDisposable {
         // anywhere else is one nothing here ever flushes.
         saveEnablement = new Effect(
             () => {
-                _ = scene.IsDirty.Value;
+                _ = scene.HasUnsavedChanges.Value;
                 Shell.Document.InvalidateCommands();
             },
             Shell.Document.Effects

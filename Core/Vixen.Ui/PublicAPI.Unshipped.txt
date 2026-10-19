@@ -601,10 +601,12 @@ Vixen.Ui.DropEvent.Y.init -> float
 Vixen.Ui.EditableDocument -> abstract class
 Vixen.Ui.EditableDocument : Vixen.Ui.IEditableDocument
 Vixen.Ui.EditableDocument.EditableDocument(string name, string? location = null) -> void
+Vixen.Ui.EditableDocument.ExternallyModified.get -> Vixen.Ui.Reactive.IReadOnlySignal<bool>
 Vixen.Ui.EditableDocument.IsDirty.get -> Vixen.Ui.Reactive.IReadOnlySignal<bool>
 Vixen.Ui.EditableDocument.Location.get -> Vixen.Ui.Reactive.IReadOnlySignal<string?>
 Vixen.Ui.EditableDocument.MarkClean() -> void
 Vixen.Ui.EditableDocument.MarkDirty() -> void
+Vixen.Ui.EditableDocument.MarkExternallyModified() -> void
 Vixen.Ui.EditableDocument.Name.get -> Vixen.Ui.Reactive.IReadOnlySignal<string>
 Vixen.Ui.EditableDocument.Rename(string newName, string? newLocation = null) -> void
 Vixen.Ui.EditableDocument.Revert() -> bool
@@ -744,6 +746,7 @@ Vixen.Ui.GradientStops.To.init -> float
 Vixen.Ui.GradientStops.Via.get -> float
 Vixen.Ui.GradientStops.Via.init -> float
 Vixen.Ui.IEditableDocument -> interface
+Vixen.Ui.IEditableDocument.ExternallyModified.get -> Vixen.Ui.Reactive.IReadOnlySignal<bool>
 Vixen.Ui.IEditableDocument.IsDirty.get -> Vixen.Ui.Reactive.IReadOnlySignal<bool>
 Vixen.Ui.IEditableDocument.Location.get -> Vixen.Ui.Reactive.IReadOnlySignal<string?>
 Vixen.Ui.IEditableDocument.Name.get -> Vixen.Ui.Reactive.IReadOnlySignal<string>
@@ -2013,6 +2016,7 @@ static Vixen.Ui.Composition.ScopedStyles.Scope(string css, string scope) -> stri
 static Vixen.Ui.Composition.ScopedStyles.ScopeOf(System.Type component) -> string
 static Vixen.Ui.CornerRadii.Circular(float topLeft, float topRight, float bottomRight, float bottomLeft) -> Vixen.Ui.CornerRadii
 static Vixen.Ui.CornerRadii.Uniform(float radius) -> Vixen.Ui.CornerRadii
+static Vixen.Ui.DocumentCommands.HasUnsavedChanges(Vixen.Ui.IEditableDocument document) -> bool
 static Vixen.Ui.DocumentCommands.Install(Vixen.Ui.UiElement element) -> void
 static Vixen.Ui.DrawBatcher.Build(System.Collections.Generic.IReadOnlyList<Vixen.Ui.DrawCommand> commands, System.Collections.Generic.List<Vixen.Ui.DrawBatch> into) -> void
 static Vixen.Ui.EditingCommands.Current.get -> Vixen.Ui.EditingKeymap

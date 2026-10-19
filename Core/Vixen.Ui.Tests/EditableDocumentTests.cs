@@ -230,6 +230,70 @@ public class EditableDocumentTests {
         Assert.False(CommandRoute.CanExecute(document, DocumentCommands.Save));
     }
 
+    /// <summary>A document only changed from outside is still saveable, still marked, and still revertible.</summary>
+    /// <remarks>
+    ///     ⚠ <b>#656's decision, from the side every surface reads.</b> Dirty is the document's own
+    ///     edits; a change from outside is <see cref="IEditableDocument.ExternallyModified" />. A
+    ///     Save greyed on dirty alone would leave a document with something to write and no way to
+    ///     write it, and a title with no marker over it.
+    /// </remarks>
+    [Fact]
+    public void A_document_changed_from_outside_enables_save_and_revert_and_marks_the_title() {
+        using var document = Laid();
+        var panel = document.Root.Add("div", classNames: "panel");
+        var field = panel.Add("div", classNames: "field");
+        field.Focusable = true;
+        var note = new Note("Notes.txt", "/tmp/Notes.txt");
+        panel.HostedDocument = note;
+        DocumentCommands.Install(panel);
+        using var window = new FakeWindow();
+        using var bound = UiWindowTitle.Bind(window, note, document.Effects);
+        document.Update();
+        document.Focus(field);
+
+        Assert.False(CommandRoute.CanExecute(document, DocumentCommands.Save));
+        Assert.Equal("Notes.txt", window.Title);
+
+        note.MarkExternallyModified();
+        document.Update();
+
+        Assert.False(note.IsDirty.Value);
+        Assert.True(CommandRoute.CanExecute(document, DocumentCommands.Save));
+        Assert.True(CommandRoute.CanExecute(document, DocumentCommands.Revert));
+        Assert.Equal("• Notes.txt", window.Title);
+
+        // Walking the document's own history back cannot take it away; reverting can.
+        note.MarkClean();
+        Assert.True(note.ExternallyModified.Value);
+
+        Assert.True(CommandRoute.Execute(document, DocumentCommands.Revert));
+        document.Update();
+
+        Assert.False(note.ExternallyModified.Value);
+        Assert.False(CommandRoute.CanExecute(document, DocumentCommands.Save));
+        Assert.Equal("Notes.txt", window.Title);
+    }
+
+    /// <summary>A change from outside alone raises the invalidation, as a dirty mark does.</summary>
+    [Fact]
+    public void A_change_from_outside_raises_the_command_invalidation() {
+        using var document = Laid();
+        var panel = document.Root.Add("div", classNames: "panel");
+        var note = new Note("Notes.txt", "/tmp/Notes.txt");
+        panel.HostedDocument = note;
+        DocumentCommands.Install(panel);
+        document.Update();
+        document.Tick(TimeSpan.Zero);
+
+        var raised = 0;
+        document.CommandsInvalidated += _ => raised++;
+
+        note.MarkExternallyModified();
+        document.Update();
+        document.Tick(TimeSpan.FromMilliseconds(16));
+        Assert.Equal(1, raised);
+    }
+
     /// <summary>A dirty change tells the route it is out of date, so a greyed item can come back.</summary>
     /// <remarks>
     ///     ⚠ <b>Command state is pulled, once per raise, by whatever is showing it.</b> A signal that

@@ -134,7 +134,7 @@ sealed partial class EditorApplication {
             EditorStrings.CategoryFile,
             Revert,
             enabled: () => project.ActiveDocument.Value is { CanReload: true } document
-                && (document.IsDirty.Value || document.IsStale.Value)
+                && (document.HasUnsavedChanges.Value || document.IsStale.Value)
         );
 
         Verb(
@@ -1132,7 +1132,7 @@ sealed partial class EditorApplication {
     /// <summary>Empties the scene and starts again, asking first if there is anything to lose.</summary>
     void NewScene() =>
         Confirm(
-            scene.IsDirty.Value,
+            scene.HasUnsavedChanges.Value,
             "Discard unsaved changes?",
             Path.GetFileName(scenePath) + " has changes that have not been written.",
             () => {
@@ -1159,7 +1159,7 @@ sealed partial class EditorApplication {
         }
 
         Confirm(
-            scene.IsDirty.Value,
+            scene.HasUnsavedChanges.Value,
             "Discard unsaved changes?",
             Path.GetFileName(scenePath) + " has changes that have not been written.",
             () => deferred.When(
@@ -2166,7 +2166,7 @@ sealed partial class EditorApplication {
         var title = document.Title.Peek();
 
         Confirm(
-            document.IsDirty.Value,
+            document.HasUnsavedChanges.Value,
             $"Revert '{title}'?",
             "Its unsaved changes and its undo history are discarded, and the file on disk is read "
             + "again. This cannot be undone.",
@@ -2188,7 +2188,7 @@ sealed partial class EditorApplication {
     /// <summary>What has changes in it, named, for the prompt to show.</summary>
     string Unsaved() {
         var names = project.Documents
-            .Where(document => document.IsDirty.Value)
+            .Where(document => document.HasUnsavedChanges.Value)
             .Select(document => document.Title.Peek())
             .ToList();
 

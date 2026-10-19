@@ -21,13 +21,20 @@ document — the thing with a name, a file, unsaved changes and a prompt on clos
 |---|---|---|
 | `Name` | `IReadOnlySignal<string>` | The window title, a tab's label |
 | `Location` | `IReadOnlySignal<string?>` | Where it lives. `null` means Save has to ask |
-| `IsDirty` | `IReadOnlySignal<bool>` | The title's marker, whether Save is greyed, whether closing prompts |
-| `Save()`, `Revert()` | `bool` | Returning `false` leaves it dirty |
+| `IsDirty` | `IReadOnlySignal<bool>` | The user's own edits in it — what walking the undo history back can clear |
+| `ExternallyModified` | `IReadOnlySignal<bool>` | A change that reached it from outside — another document's rename rewriting a reference in it |
+| `Save()`, `Revert()` | `bool` | Returning `false` leaves it as it was; returning `true` clears both flags |
 
-**All three are signals, and that is the point.** Every surface that shows a document's state reads
+**All of them are signals, and that is the point.** Every surface that shows a document's state reads
 one of them through the reactive graph, so there is no "raise the changed event" for a control to
 forget. A `bool IsDirty` with a `Changed` event beside it — which is what the editor's own document
 has — is a subscription in every consumer and a raise the producer can miss.
+
+⚠ **"Unsaved" is the two flags together**, and every surface asks it that way —
+`DocumentCommands.HasUnsavedChanges(document)` is the title's marker, whether Save and Revert are
+greyed, and whether closing prompts (#656). They are separate because they answer to different verbs:
+an undo walked back to the save point clears `IsDirty` and cannot touch a change that never went
+through this document's history.
 
 ## What it is for
 
@@ -216,10 +223,10 @@ as for a quit could not tell the two apart. `UiCloseReason.DocumentClosed` is it
 `Samples/02-HelloUi`'s File ▸ Close is the first caller either has had.
 
 ⚠ **The three entries below are one blocker wearing three hats, which is worth saying before reading
-them as three jobs.** `IEditableDocument.Location` has no writer and no reader anywhere in this
-repository. Measured 2026-09-23: there is exactly **one** write in the whole tree, at
-`Core/Vixen.Ui.Tests/EditableDocumentTests.cs:164`; `Rename(string, string?)` is called four times
-and the other three pass a name only, which the null guard in `Rename` leaves alone. And
+them as three jobs.** `IEditableDocument.Location` has no reader anywhere in this repository, and
+until #656's port it had no production writer either. `EditorDocument` now answers it from the asset
+database — so an editor asset has a real location and the editor's `AssetId.Empty` scenes still do
+not. And
 `UiWindowTitle.Bind` — the one thing that takes an `IEditableDocument` and shows it — reads `Name` and
 `IsDirty` and not the location. A recent list is *keyed* on it; a proxy icon *is* it, because a
 represented file is a path; and half of the editor port is the question of what an `AssetId`'s
@@ -253,20 +260,21 @@ absent; `UiDocument.WindowOf(element)` reaches it from any element, and `Samples
 has no window to name — so the call sits behind a pattern match rather than a null-forgiving
 dereference.
 
-**External-modification detection.** `EditorDocument` has it against an asset database; the
-framework has no file watcher and does not want one in `Core/`. ⚠ What is missing is not the
-mechanism but somewhere to put its answer: `EditorDocument.IsStale` is *the opposite question to
-`IsDirty`* — disk ahead of memory rather than memory ahead of disk — and `IEditableDocument` has no
-signal for it, so a host cannot ask.
+**A file changed on disk.** `EditorDocument.IsStale` has it against an asset database; the
+framework has no file watcher and does not want one in `Core/`. ⚠ It is *not* `ExternallyModified`:
+stale is disk ahead of memory, which saving would overwrite, and externally modified is memory ahead
+of disk, which saving writes. `IEditableDocument` still has no signal for the first, so a host cannot
+ask it.
 
-**Nothing in the editor implements `IEditableDocument`**, and the port is two decisions rather than
-glue. `Name` is `EditorDocument.Title` renamed and `Revert` is `Reload` exactly, promise for promise.
-But ⚠ `EditorDocument.Save` returns nothing and *throws through* on a failed write, on purpose, so
-mapping it onto this `bool` either swallows the failure or makes `false` unreachable; and ⚠ an editor
-document's identity is an immutable `AssetId`, not a path — `EditorApplication` opens the main scene
-with `AssetId.Empty` and the real path on its writer — so a straight mapping reports `Location` null
-for a document that has a file, which here means "never saved". Both are recorded in
-`EditorDocument`'s own remarks.
+**The editor implements `IEditableDocument`** (#656), explicitly, on the decision made there.
+`Name` is `EditorDocument.Title` and `Revert` is `Reload`. `IsDirty` is the command stack's position
+and nothing else; a global operation that touched the document is `ExternallyModified`, and
+`EditorDocument.HasUnsavedChanges` is the two together, which Save All and the editor's close
+question read. ⚠ `EditorDocument.Save` keeps its void-and-throw contract; the interface's `Save`
+catches a disk's failure, raises `EditorProject.SaveFailed` — which the editor turns into a
+notification — and answers `false`, and with nobody subscribed it throws on rather than lose the
+failure. ⚠ `Location` is the asset database's path, so a document opened with `AssetId.Empty` —
+the editor's own scenes — still reports `null` for a file it has; nothing reads `Location` yet.
 
 **Undo is not owned by the document.** An element finds a manager with `FindUndoManager`, and a
 document that wants to be where one lives sets `UndoManager` on the element that hosts it. Marking

@@ -84,6 +84,22 @@ public sealed class EditorProject {
     /// </remarks>
     public event Action<EditorDocument>? DocumentSaving;
 
+    /// <summary>Raised when a document saved through <c>Vixen.Ui</c>'s <c>IEditableDocument.Save</c> could not write.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What turns #656's decision into a notification.</b> <see cref="EditorDocument.Save" />
+    ///         throws a failed write through; the framework's <c>document.save</c> and its close
+    ///         prompt want a <see langword="bool" />. The interface catches a disk's failures, raises
+    ///         this so the shell can say what happened, and answers <see langword="false" /> — which
+    ///         leaves the document dirty and the window open.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>With nobody subscribed the failure is thrown on</b>, not lost: a <see langword="false" />
+    ///         that nobody had been told the reason for is the swallow the save path exists to refuse.
+    ///     </para>
+    /// </remarks>
+    public event Action<EditorDocument, Exception>? SaveFailed;
+
     /// <summary>Names a project's directories and builds the empty models over them.</summary>
     /// <param name="paths">Where the project is.</param>
     public EditorProject(ProjectPaths paths) {
@@ -110,7 +126,7 @@ public sealed class EditorProject {
                 }
 
                 for (var index = 0; index < documents.Count; index++) {
-                    if (documents[index].IsDirty.Value) {
+                    if (documents[index].HasUnsavedChanges.Value) {
                         return true;
                     }
                 }
@@ -224,7 +240,7 @@ public sealed class EditorProject {
         // Over a snapshot: a document's Save may open or close another one, and a save that
         // reorganised the list underneath the loop would skip whatever moved into the slot it left.
         foreach (var document in documents.ToArray()) {
-            if (document.IsDirty.Value) {
+            if (document.HasUnsavedChanges.Value) {
                 document.Save();
                 saved++;
             }
@@ -282,6 +298,15 @@ public sealed class EditorProject {
     }
 
     internal void OnDocumentSaving(EditorDocument document) => DocumentSaving?.Invoke(document);
+
+    internal bool ReportSaveFailed(EditorDocument document, Exception failure) {
+        if (SaveFailed is not { } handlers) {
+            return false;
+        }
+
+        handlers(document, failure);
+        return true;
+    }
 
     internal void Register(EditorDocument document) {
         documents.Add(document);
