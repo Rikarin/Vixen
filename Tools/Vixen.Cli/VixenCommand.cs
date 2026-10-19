@@ -10,6 +10,7 @@ using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.Gameplay;
 using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.Core;
+using Vixen.Editor.VfxGraph;
 using Vixen.Live;
 
 namespace Vixen.Cli;
@@ -44,6 +45,8 @@ public static class VixenCommand {
     /// </remarks>
     internal static void LinkImporters(ImporterContributions linked) {
         ArgumentNullException.ThrowIfNull(linked);
+
+        VfxGraphImporters.Link(linked);
     }
 
     /// <summary>Builds the command line.</summary>

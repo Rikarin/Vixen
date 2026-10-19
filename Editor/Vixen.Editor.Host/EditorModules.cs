@@ -9,6 +9,7 @@ using Vixen.Editor.Plugin;
 using Vixen.Editor.Scripts;
 using Vixen.Editor.Terrain;
 using Vixen.Editor.Terrain.Physics;
+using Vixen.Editor.VfxGraph;
 using Vixen.Editor.Water;
 
 namespace Vixen.Editor.App;
@@ -54,6 +55,8 @@ static class EditorModules {
     /// </remarks>
     internal static void LinkImporters(ImporterContributions linked) {
         ArgumentNullException.ThrowIfNull(linked);
+
+        VfxGraphImporters.Link(linked);
     }
 
     /// <summary>What the editor ships with, in the order it registers them.</summary>

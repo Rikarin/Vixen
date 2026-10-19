@@ -82,14 +82,6 @@ Editor/Vixen.Editor.Assets/Terrain/TerrainAssetImporter.cs .vxfoliage 1
 Editor/Vixen.Editor.Assets/Terrain/TerrainAssetImporter.cs .vxgrass 1
 Editor/Vixen.Editor.Assets/Terrain/TerrainAssetImporter.cs .vxlayer 1
 Editor/Vixen.Editor.Assets/Terrain/TerrainAssetImporter.cs .vxspline 1
-Editor/Vixen.Editor.Assets/Vfx/VfxImporter.cs .vxvfx 1
-Editor/Vixen.Editor.Assets/Vfx/VfxImporter.cs NodeGraphAsset 2
-Editor/Vixen.Editor.Assets/Vfx/VfxImporter.cs NodeGraphDocument 1
-Editor/Vixen.Editor.Assets/Vfx/VfxImporter.cs NodeGraphModel 1
-Editor/Vixen.Editor.Assets/Vfx/VfxImporter.cs VfxGraphCompiler 1
-Editor/Vixen.Editor.Assets/Vfx/VfxImporter.cs VfxNodeLibrary 1
-Editor/Vixen.Editor.Assets/Vfx/VfxImporter.cs Vixen.Editor.NodeGraph 1
-Editor/Vixen.Editor.Assets/Vfx/VfxImporter.cs Vixen.Editor.VfxGraph 1
 Editor/Vixen.Editor.Host/EditorHost.cs ShaderGraphPreviewRenderer 2
 Editor/Vixen.Editor.Host/EditorHost.cs ShaderNodeLibrary 1
 Editor/Vixen.Editor.Host/EditorHost.cs Vixen.Editor.ShaderGraph 1

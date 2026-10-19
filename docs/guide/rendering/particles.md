@@ -4,7 +4,7 @@ slug: rendering/particles
 kind: guide
 area: Rendering
 summary: Dropping a .vxvfx onto an entity — the component, the importer that compiles the graph, the bridge that runs it, and the feature that draws it.
-api: [R:Vfx/ParticleSprite, T:Vixen.Shaders.Generated.ParticleSpriteKeys, T:Vixen.Shaders.Generated.ParticleSpritePerMaterialConstants, T:Vixen.Shaders.Generated.ParticleSpritePerViewConstants, T:Vixen.Rendering.Vfx.ParticleSpriteMaterial, T:Vixen.Rendering.Ecs.VfxEmitter, T:Vixen.Rendering.Ecs.VfxEmitters, T:Vixen.Rendering.Ecs.VfxHandle, T:Vixen.Rendering.Ecs.VfxExtractionSystem, T:Vixen.Rendering.Ecs.IVfxEffectSource, T:Vixen.Engine.Renderer.AssetVfxEffectSource, T:Vixen.Editor.Assets.Vfx.VfxImporter, T:Vixen.Editor.Assets.Vfx.VfxImportSettings, T:Vixen.Rendering.Vfx.VfxEffectContent, T:Vixen.Rendering.Vfx.VfxSpawnerRow, T:Vixen.Rendering.Vfx.VfxOperationRow, T:Vixen.Rendering.Vfx.VfxRendererRow, T:Vixen.Rendering.Vfx.VfxCustomAttributeRow, T:Vixen.Rendering.Features.ParticleRenderFeature, T:Vixen.Rendering.ParticleVertices, T:Vixen.Rendering.ParticleInstances, T:Vixen.Rendering.MeshParticleVertices, T:Vixen.Rendering.Vfx.ParticleMeshMaterial, R:Vfx/ParticleMesh, T:Vixen.Shaders.Generated.ParticleMeshKeys, T:Vixen.Shaders.Generated.ParticleMeshPerMaterialConstants, T:Vixen.Shaders.Generated.ParticleMeshPerViewConstants, T:Vixen.Vfx.ParticleInstance, T:Vixen.Vfx.VfxSystem, T:Vixen.Vfx.VfxCompiledGraph, T:Vixen.Vfx.VfxSpawner, T:Vixen.Vfx.VfxOperation, T:Vixen.Vfx.VfxRenderer, T:Vixen.Vfx.ParticleVertex]
+api: [R:Vfx/ParticleSprite, T:Vixen.Shaders.Generated.ParticleSpriteKeys, T:Vixen.Shaders.Generated.ParticleSpritePerMaterialConstants, T:Vixen.Shaders.Generated.ParticleSpritePerViewConstants, T:Vixen.Rendering.Vfx.ParticleSpriteMaterial, T:Vixen.Rendering.Ecs.VfxEmitter, T:Vixen.Rendering.Ecs.VfxEmitters, T:Vixen.Rendering.Ecs.VfxHandle, T:Vixen.Rendering.Ecs.VfxExtractionSystem, T:Vixen.Rendering.Ecs.IVfxEffectSource, T:Vixen.Engine.Renderer.AssetVfxEffectSource, T:Vixen.Editor.VfxGraph.VfxImporter, T:Vixen.Editor.VfxGraph.VfxImportSettings, T:Vixen.Editor.VfxGraph.VfxGraphImporters, T:Vixen.Rendering.Vfx.VfxEffectContent, T:Vixen.Rendering.Vfx.VfxSpawnerRow, T:Vixen.Rendering.Vfx.VfxOperationRow, T:Vixen.Rendering.Vfx.VfxRendererRow, T:Vixen.Rendering.Vfx.VfxCustomAttributeRow, T:Vixen.Rendering.Features.ParticleRenderFeature, T:Vixen.Rendering.ParticleVertices, T:Vixen.Rendering.ParticleInstances, T:Vixen.Rendering.MeshParticleVertices, T:Vixen.Rendering.Vfx.ParticleMeshMaterial, R:Vfx/ParticleMesh, T:Vixen.Shaders.Generated.ParticleMeshKeys, T:Vixen.Shaders.Generated.ParticleMeshPerMaterialConstants, T:Vixen.Shaders.Generated.ParticleMeshPerViewConstants, T:Vixen.Vfx.ParticleInstance, T:Vixen.Vfx.VfxSystem, T:Vixen.Vfx.VfxCompiledGraph, T:Vixen.Vfx.VfxSpawner, T:Vixen.Vfx.VfxOperation, T:Vixen.Vfx.VfxRenderer, T:Vixen.Vfx.ParticleVertex]
 tags: [rendering, vfx, particles, compositor]
 since: 0.1
 status: stable
@@ -24,6 +24,12 @@ owned by whoever knows the fact it carries:
 | `VfxExtractionSystem` | resolves, creates, places, **steps** and retires — the bridge |
 | `ParticleRenderFeature` | expands each live particle into a camera-facing quad and draws the run |
 | `ParticleSprite.rvn` | the shader that takes a position, a texcoord and a colour and returns a disc |
+
+⚠ **`VfxImporter` lives beside the graph, in `Vixen.Editor.VfxGraph`, not in the import pipeline**
+(#1300). Each host that links that assembly — the editor, `vixen` and the asset-compiler worker —
+calls `VfxGraphImporters.Link` at start-up, so a tool of your own that imports a project has to do the
+same before it builds an `ImporterRegistry`, or its `.vxvfx` files are refused by name rather than
+compiled.
 
 ⚠ **The extraction is the only thing that steps a simulation.** `ParticleRenderFeature` draws what it
 has been handed and never advances it, deliberately — a renderer that simulated would simulate once

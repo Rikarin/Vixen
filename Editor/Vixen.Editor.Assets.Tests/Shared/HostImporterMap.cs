@@ -109,7 +109,7 @@ static class HostImporterMap {
     ];
 
     /// <summary>The rows of <see cref="Expected" /> only a host's link provides; the pipeline's own registry has the rest.</summary>
-    public static readonly string[] LinkedOnly = [];
+    public static readonly string[] LinkedOnly = [".vxvfx VfxImporter"];
 
     /// <summary>A registry's map, in <see cref="Expected" />'s form and order.</summary>
     /// <param name="registry">The registry.</param>

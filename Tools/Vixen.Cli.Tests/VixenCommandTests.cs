@@ -63,6 +63,42 @@ public sealed class VixenCommandTests : IDisposable {
         Assert.Contains("Imported 0, 2 unchanged", output, StringComparison.Ordinal);
     }
 
+    /// <summary>The tool links the VFX importer, so an effect is compiled rather than imported as bytes.</summary>
+    /// <remarks>
+    ///     <b>#1300.</b> <c>VfxImporter</c> left the import pipeline for <c>Vixen.Editor.VfxGraph</c>, and
+    ///     reaches this tool's registry only because <c>VixenCommand.Create</c> links it. ⚠ The sidecar is
+    ///     the evidence rather than the exit code: without the link the effect falls through to
+    ///     <c>RawImporter</c>, which succeeds.
+    /// </remarks>
+    [Fact]
+    public async Task AnEffectIsImportedByTheVfxImporterTheToolLinks() {
+        var sample = Path.Combine(
+            Repository(),
+            "Samples",
+            "13-ThirdPersonShooter",
+            "Assets",
+            "Effects",
+            "Embers.vxvfx"
+        );
+
+        Asset("Embers.vxvfx", File.ReadAllText(sample));
+
+        var (code, output) = await Run("import");
+
+        Assert.True(code == ExitCode.Success, output);
+        Assert.Contains("!VfxImporter", File.ReadAllText(Path.Combine(root, "Assets", "Embers.vxvfx.meta")), StringComparison.Ordinal);
+
+        static string Repository() {
+            for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+                if (File.Exists(Path.Combine(directory.FullName, "Vixen.slnx"))) {
+                    return directory.FullName;
+                }
+            }
+
+            throw new InvalidOperationException("No directory above this test holds Vixen.slnx.");
+        }
+    }
+
     [Fact]
     public async Task AContentBuildWritesBundlesACatalogAndItsHash() {
         Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");

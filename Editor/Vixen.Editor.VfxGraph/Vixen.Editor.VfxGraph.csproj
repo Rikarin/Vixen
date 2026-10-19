@@ -29,6 +29,18 @@
         -->
         <ProjectReference Include="..\..\Core\Vixen.Vfx\Vixen.Vfx.csproj" />
 
+        <!--
+          The import pipeline, for VfxImporter (#1300). It used to live in Vixen.Editor.Assets, which
+          therefore referenced this assembly; the reference runs the other way now, and a host links
+          the importer at start-up through VfxGraphImporters.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
+
+        <!-- VfxImportSettings is a [DataContract]: the importer's name is its alias. -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
         <ProjectReference Include="..\Vixen.Editor.NodeGraph.Generator\Vixen.Editor.NodeGraph.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />

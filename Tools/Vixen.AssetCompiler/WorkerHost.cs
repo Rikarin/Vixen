@@ -6,6 +6,7 @@ using Vixen.Core.IO;
 using Vixen.Core.Serialization;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Core;
+using Vixen.Editor.VfxGraph;
 
 namespace Vixen.AssetCompiler;
 
@@ -67,6 +68,8 @@ public sealed class WorkerHost {
     /// </remarks>
     internal static void LinkImporters(ImporterContributions linked) {
         ArgumentNullException.ThrowIfNull(linked);
+
+        VfxGraphImporters.Link(linked);
     }
 
     /// <summary>The registry a worker serves with: what it links, and what its coordinator named.</summary>

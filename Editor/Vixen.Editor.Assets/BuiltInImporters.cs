@@ -76,7 +76,6 @@ public static class BuiltInImporters {
                 .Add(new VideoImporter())
                 .Add(new SceneImporter())
                 .Add(new MaterialImporter())
-                .Add(new Vfx.VfxImporter())
                 .Add(new Shading.ShaderGraphImporter())
                 .Add(new Compositors.CompositorImporter())
                 .Add(new Terrain.TerrainAssetImporter())

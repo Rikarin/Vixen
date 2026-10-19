@@ -143,19 +143,13 @@
         <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
 
         <!--
-            For VfxImporter. A `.vxvfx` is a node graph, so compiling one needs the node library and
-            the graph compiler — both editor-side, which is exactly where an importer runs. This is
-            the same shape as the model importer reaching for Assimp: the heavy authoring-format
-            knowledge lives above the runtime, and a player loads what the build produced.
-        -->
-        <ProjectReference Include="..\Vixen.Editor.VfxGraph\Vixen.Editor.VfxGraph.csproj" />
-
-        <!--
-            And the shader graph's, on exactly the same argument, for ShaderGraphImporter and for
-            ShaderGraphSources. A .vxshadergraph is a node graph, so compiling one needs the node
-            library and the graph compiler; the heavy authoring-format knowledge lives above the
-            runtime and a player loads what the build produced. This one also produces Raven source
-            rather than a chunk, which is why ShaderGraphSources exists beside the importer.
+            The shader graph's, for ShaderGraphImporter and for ShaderGraphSources. A .vxshadergraph
+            is a node graph, so compiling one needs the node library and the graph compiler; the heavy
+            authoring-format knowledge lives above the runtime and a player loads what the build
+            produced. This one also produces Raven source rather than a chunk, which is why
+            ShaderGraphSources exists beside the importer. ⚠ The VFX graph's reference went with #1300:
+            VfxImporter lives in Vixen.Editor.VfxGraph and every host links it at start-up, and this
+            one is owed the same once EditorEffects stops calling ShaderGraphSources.
         -->
         <ProjectReference Include="..\Vixen.Editor.ShaderGraph\Vixen.Editor.ShaderGraph.csproj" />
 

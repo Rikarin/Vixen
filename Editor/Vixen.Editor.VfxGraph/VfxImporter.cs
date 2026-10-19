@@ -5,11 +5,11 @@ using Vixen.Core;
 using Vixen.Core.Serialization;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
+using Vixen.Editor.Assets;
 using Vixen.Editor.NodeGraph;
-using Vixen.Editor.VfxGraph;
 using Vixen.Rendering.Vfx;
 
-namespace Vixen.Editor.Assets.Vfx;
+namespace Vixen.Editor.VfxGraph;
 
 /// <summary>How a visual effect is compiled.</summary>
 /// <remarks>
@@ -31,7 +31,7 @@ public sealed record VfxImportSettings : IImportSettings {
 ///         graph forward verbatim and said so — its own remarks list <c>.vxvfx</c> among "the ones
 ///         whose compiler is still owed", and <c>docs/overview.md</c> recorded the consequence: a game
 ///         could not load one by address, so an effect had to be written in C#. This is the step that
-///         closes it, written on <see cref="Materials.MaterialImporter" />'s terms.
+///         closes it, written on <see cref="Assets.Materials.MaterialImporter" />'s terms.
 ///     </para>
 ///     <para>
 ///         <b>What is written is the <em>compiled</em> graph, not the document.</b> That is the one
@@ -51,7 +51,7 @@ public sealed record VfxImportSettings : IImportSettings {
 ///     </para>
 ///     <para>
 ///         <b>The shader is compiled and thrown away</b>, exactly as
-///         <see cref="Materials.MaterialImporter" /> compiles a material to find out whether it is one.
+///         <see cref="Assets.Materials.MaterialImporter" /> compiles a material to find out whether it is one.
 ///         <see cref="VfxGraphCompiler" /> emits the Raven source alongside the graph from one call —
 ///         so asking for it costs nothing and proves the GPU half of the same effect exists. What a
 ///         device would need is a compiled module, which is the effect system's business and not an
@@ -69,7 +69,7 @@ public sealed class VfxImporter : AssetImporter<VfxImportSettings> {
     ///     <see cref="VfxEffectContent" /> — not <c>"VisualEffect"</c>, which is what the old
     ///     text-carrying importer called these bytes. A chunk's type string is resolved through the
     ///     type registry at load, so the wrong alias hands one record's bytes to another's reader.
-    ///     <see cref="Materials.MaterialImporter.MaterialType" /> records the same mistake being made
+    ///     <see cref="Assets.Materials.MaterialImporter.MaterialType" /> records the same mistake being made
     ///     twice before, with <c>"Material"</c> and with <c>"Mesh"</c>, and why it survived: no project
     ///     had ever loaded one at run time, so nothing resolved the string.
     /// </remarks>
