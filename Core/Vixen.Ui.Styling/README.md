@@ -575,6 +575,12 @@ middle of a set. Rebuilding is a few milliseconds for a stylesheet a human just 
 difference between a reload and an *overlay*: replaying the sheets is what makes a deleted rule stop
 applying.
 
+**Removing a sheet is the same reload with one sheet skipped** (`Remove`, #1484). ⚠ The slot stays,
+empty, and is never handed out again: an index is a position in load order and load order is cascade
+order, so compacting would move every later index under whoever holds it and refilling a hole would put
+a new sheet ahead of older ones. `SheetCount` is therefore the bound of an index and `LoadedSheetCount`
+the number in the cascade; `SheetText` answers the empty string for a removed slot.
+
 What survives is what elements hold handles to: the name tables the style tree interned its tags and
 classes against, the inline-style store, and the tree. What does not is the rule set and everything
 derived from it, the interning cache included — so a computed style from before a reload is a

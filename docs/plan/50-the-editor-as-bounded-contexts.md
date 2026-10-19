@@ -222,7 +222,7 @@ module (the front-door audit, 2026-09-17):
 | Module | Through `context.*` / `Require` / `Owns` | Round the side |
 |---|---|---|
 | `AssetEditors`, `Scripts`, `Texturing` | everything | — |
-| `Blockout` | mode, submenus, four services | `Shell.RegisterPanel` ×2 with no removal (`BlockoutModulePanels.cs:64,115`), `BlockoutTheme.Install` never uninstalled, no `Deactivate` |
+| `Blockout` | mode, submenus, four services | ~~`Shell.RegisterPanel` ×2 with no removal (`BlockoutModulePanels.cs:64,115@0d7dda4a9`), `BlockoutTheme.Install` never uninstalled~~ — `context.AddPanel` since #1285, and the theme through `context.AddStyleSheet` since #1484, so the loaded-sheet count returns to baseline; no `Deactivate` |
 | `Terrain` | registry adds via `Owns`, `Saved` unhooked on unload | ~~`Shell.RegisterPanel` ×5 (`TerrainModulePanels.cs:112-276@0d7dda4a9`, #740), `Shell.Modes.Add` ×2 (`TerrainModulePanels.cs:475-476@0d7dda4a9`)~~ — `context.AddPanel`/`AddMode` since #1287, and the three mode events unhooked on unload |
 | `Water` | commands paired with `OnUnload` | ~~`Shell.RegisterPanel` ×2 (`WaterModulePanels.cs:33,63@0d7dda4a9`), `Shell.Modes.Add` (`WaterModule.cs:135@0d7dda4a9`), a process-wide `WaterDebug` static~~ — `context.*` since #1286; the switches are a per-module `WaterDebugFlags` contribution, and `WaterDebug.Process` stays the game console's (the static could not go: samples and `BuoyancyDebugSystem` read it) |
 | `TerrainPhysics` | `IEditorRegistry` | ~~writes `ITerrainColliders` **into the shared services bag** (`TerrainPhysicsModule.cs:75@0d7dda4a9`) and never removes it — `PluginServices.Add` throws on a duplicate, so a reload of this module fails~~ — contributed through `Owns` since #1287; `TerrainModule` follows the registry each frame |
@@ -505,7 +505,7 @@ exemption list that has become clean fails too.
 | **`DeclaredParityTest`** | the generator and the scan disagreeing on one fixture | § D5 |
 | **`DocumentPairingTest`** | a `DocumentKind` with no `DocumentView` or the reverse | § D4 |
 | **`ServiceReachTest`** | a public method on any `I*Editing`/`I*Library`/… service that no command, menu, context menu or module calls — the *"finished thing nothing calls"* rule applied to the new surface | grep for callers, not for the type |
-| **`ModuleRegistrationRule`** | an `IEditorPlugin` assembly calling `Shell.RegisterPanel`, `Shell.Modes.Add`, `Shell.Commands.Add`, `*Theme.Install` or `Services.Add` directly rather than through `PluginContext` (Part 1 § F7's six leaks are the initial exemption list) | grep; the removal-recording wrappers already exist — ⚠ **not for `*Theme.Install`**: `UiDocument` has `Load`, `LoadOnce` and `ReloadStyles` and no way to take a sheet back out, so a theme contribution has nothing to record (measured for #1299) |
+| **`ModuleRegistrationRule`** | an `IEditorPlugin` assembly calling `Shell.RegisterPanel`, `Shell.Modes.Add`, `Shell.Commands.Add`, `*Theme.Install` or `Services.Add` directly rather than through `PluginContext` (Part 1 § F7's six leaks are the initial exemption list) | grep; the removal-recording wrappers already exist — ⚠ **they did not for `*Theme.Install`** (measured for #1299): `UiDocument` had `Load`, `LoadOnce` and `ReloadStyles` and no way to take a sheet back out. Since #1484 it has `Unload`, over a slot that stays empty so every other index keeps naming its sheet, and `PluginContext.AddStyleSheet` is the wrapper; Blockout and the node graph use it |
 | **`ContributionWriterTest`** | a contribution kind with a reader and no production writer (`SettingsPage`, `AssetPreview`, `BuildStep` today) — a registry nobody writes is a list with a longer name | one test over `IEditorRegistry`'s kinds |
 
 ⚠ **`Docs` is not `CheckDocs`, and each new public service type owes a guide page or a
@@ -623,9 +623,13 @@ to the kinds the pipeline itself owns, with each feature's importers arriving fr
 `Host` stops building `ShaderGraphPreviewRenderer` and loading the terrain stages itself
 (`EditorHost.cs:581, 1033-1047`); both become what the modules publish. ⚠ **Partly done**: the pane
 reads the terrain, vegetation and water scenes from the registry every frame rather than the host
-copying them on (#1299's third point — it was also what kept an unloaded module reachable). The stages
-and the preview renderer stay in the host, and `NodeGraphTheme` stays the application's until a sheet
-can be removed from a document; #1299 carries the options. The 35 feature string ids
+copying them on (#1299's third point — it was also what kept an unloaded module reachable), and
+`NodeGraphTheme` is `AssetEditorsModule`'s through `context.AddStyleSheet` (#1484), so `NodeGraph` has
+left `NotYetMoved` — ⚠ a context wrapper rather than a `UserAgentSheet` registry kind, because a kind
+needs a reader diffing sheets on `Changed` and the wrapper reaches the same exit with no new reader.
+The stages and the preview renderer stay in the host: ⚠ `IEditorGraphics` can upload pixels and cannot
+show a GPU view, and the preview renderer draws into render targets the UI renderer samples, so a
+module cannot host it without a new contract member; #1299 carries the options. The 35 feature string ids
 in `EditorStrings.cs` move to the `*Strings` class that already exists for each — `CheckStrings`
 fails on an id declared and used nowhere, so the move cannot leave a stale one behind.
 
@@ -698,9 +702,9 @@ Waves follow the phases; a wave is five worktrees, merged as each lands, gates o
 | — | [#1277](https://github.com/Rikarin/Vixen/issues/1277) Blockout boolean undo leaves operands hidden | P2b | 1 · filed · ✅ the hide is a recorded command in the transaction; the delete-undo half of the same shape is [#1482](https://github.com/Rikarin/Vixen/issues/1482) |
 | [#1283](https://github.com/Rikarin/Vixen/issues/1283) | `Vixen.Editor.Plugin.Generator`: the eight attributes → `Declared.Register` | P1 | 2 · ✅ nine attributes (with `[EditorSubmenu]` and `[EditorIcon]`; `[Importer]` stays the pipeline's); placement shared through `DeclaredMenus`; not packed — a disk plugin gets the scan |
 | [#1284](https://github.com/Rikarin/Vixen/issues/1284) | `EditorMenuAttribute.Title` as a `*Strings` member name; `DeclaredParityTest` | P1 | 2 · 🟡 `[EditorMenu]`/`[EditorSubmenu]` and `DeclaredParityTests` ✅; `[CreateAssetMenu]`/`[Overlay]` titles owed — their records carry strings |
-| [#1285](https://github.com/Rikarin/Vixen/issues/1285) | Blockout → attributes, and through `context.AddPanel`/`AddMode` | P1 | 2 · 🟡 menus declared, panels and theme through the context; ⚠ its submenus had been absent from the shipped editor (modules activated before the Scene menu existed). The mode's own commands are still `IEditorMode.Register`'s — a contract decision |
-| [#1286](https://github.com/Rikarin/Vixen/issues/1286) | Water → attributes, `WaterDebug` static becomes module state | P1 | 2 |
-| [#1287](https://github.com/Rikarin/Vixen/issues/1287) | Terrain → attributes; #740 closed; `TerrainPhysics` publishes via `Owns` | P1 | 2 |
+| [#1285](https://github.com/Rikarin/Vixen/issues/1285) | Blockout → attributes, and through `context.AddPanel`/`AddMode` | P1 | 2 · 🟡 menus declared, panels and theme through the context — the theme removed on unload since #1484, the sheet count back to baseline; ⚠ its submenus had been absent from the shipped editor (modules activated before the Scene menu existed). The mode's own commands are still `IEditorMode.Register`'s — a contract decision |
+| [#1286](https://github.com/Rikarin/Vixen/issues/1286) | Water → attributes, `WaterDebug` static becomes module state | P1 | 2 · 🟡 through the context; ⚠ no menu to move — the module never built one, its debug switches are palette-only (a remark claiming "the mode's menu" was never true), and the sea state's Create line reads the panel's current state, which `[CreateAssetMenu]` cannot. Menu lines for the switches are a placement decision |
+| [#1287](https://github.com/Rikarin/Vixen/issues/1287) | Terrain → attributes; #740 closed; `TerrainPhysics` publishes via `Owns` | P1 | 2 · 🟡 through the context; ⚠ no menu to move either — what was attribute-shaped was three Create ▸ kinds held by the *application*, now `[CreateAssetMenu]` on `TerrainAssetKinds` (the attribute's first in-tree user). The modes' commands stay `IEditorMode.Register`'s, as #1285's |
 | [#1288](https://github.com/Rikarin/Vixen/issues/1288) | `PluginHost.Activate` honours `suppressed`; Disable works for built-ins | P1 | 2 |
 | [#1289](https://github.com/Rikarin/Vixen/issues/1289) | `IPlaySession` out of `EditorParity` + `PlayPhysics`; `PlayModule` | P2a | 3 |
 | [#1290](https://github.com/Rikarin/Vixen/issues/1290) | `ISceneEditing`: selection + entity verbs + outliner; `Active` = `ActiveDocument`; `SceneModule` | P2b | 3 |
@@ -712,7 +716,7 @@ Waves follow the phases; a wave is five worktrees, merged as each lands, gates o
 | [#1296](https://github.com/Rikarin/Vixen/issues/1296) | `HelpModule`, `WorkspaceModule`; `EditorParity.cs` deleted | P2 | 5 |
 | [#1297](https://github.com/Rikarin/Vixen/issues/1297) | `AssetEditors` off `NotYetMoved` through 17 | P3 | 6 |
 | [#1298](https://github.com/Rikarin/Vixen/issues/1298) | `Profiler` + `Debugger` + `Diagnostics` off: report into the module, log ring and data dir published; typed module fields gone | P3 | 6 |
-| [#1299](https://github.com/Rikarin/Vixen/issues/1299) | `NodeGraph` off: theme as a contribution (#917); `Host` stops building the shader-graph preview and terrain stages | P3 | 6 |
+| [#1299](https://github.com/Rikarin/Vixen/issues/1299) | `NodeGraph` off: theme as a contribution (#917); `Host` stops building the shader-graph preview and terrain stages | P3 | 6 · 🟡 theme ✅ (`AssetEditorsModule`, through `context.AddStyleSheet`; `NodeGraph` off `NotYetMoved`), pane reads the scene seams ✅; the preview renderer and the terrain stages still the host's — a contract decision |
 | [#1300](https://github.com/Rikarin/Vixen/issues/1300) | `Assets` drops `ShaderGraph`/`VfxGraph`; `BuiltInImporters` shrinks to the pipeline's own | P3 | 6 |
 | [#1301](https://github.com/Rikarin/Vixen/issues/1301) | 35 feature string ids out of `EditorStrings` | P3 | 6 |
 | [#1302](https://github.com/Rikarin/Vixen/issues/1302) | `NotYetMoved` deleted; `ApplicationReferenceRule` is `Allowed` only | P3 | 6 |
