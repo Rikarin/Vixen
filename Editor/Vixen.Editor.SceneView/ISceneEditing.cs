@@ -38,11 +38,35 @@ public interface ISceneEditing {
 
     /// <summary>Every scene open in the editor, the first being the one it started with.</summary>
     /// <remarks>
-    ///     All in one world, each under its own handle — doc 20's multi-scene row. Opening one from a
-    ///     file and closing one are the host's, because both are a file and a question; which of them is
-    ///     active is this service's.
+    ///     All in one world, each under its own handle — doc 20's multi-scene row. Which of them is
+    ///     active is this service's, and so are <see cref="OpenAdditively" /> and <see cref="Close" />;
+    ///     the questions around them — which file, and whether to lose unsaved changes — are whoever
+    ///     names them, the Scene menu and the Scenes panel.
     /// </remarks>
     IReadOnlyList<SceneDocument> Scenes { get; }
+
+    /// <summary>Raised after a scene was opened beside the others or closed.</summary>
+    event Action<ISceneEditing>? ScenesChanged;
+
+    /// <summary>Opens a scene file beside the scenes already open, rather than over them.</summary>
+    /// <param name="path">Where the scene file is, absolute.</param>
+    /// <returns>The scene, or <see langword="null" /> when it would not load or another document edits the file.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Into the same world, under its own handle, and not activated.</b> A file that is already
+    ///     open is activated instead of loaded twice: two documents over one file are two undo histories
+    ///     over one set of bytes. Not undoable, and it never was — opening is not an edit.
+    /// </remarks>
+    SceneDocument? OpenAdditively(string path);
+
+    /// <summary>Closes an open scene, and its entities leave the world with it.</summary>
+    /// <param name="scene">One of <see cref="Scenes" />, other than the first.</param>
+    /// <returns>Whether it was open here and could be closed.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Without asking.</b> Discarding unsaved changes is the caller's question, put before the
+    ///     call. The first scene cannot be closed — closing the last one is New Scene — and closing the
+    ///     active one activates the scene before it, so the editor follows.
+    /// </remarks>
+    bool Close(SceneDocument scene);
 
     /// <summary>Raised after <see cref="Active" /> became another scene.</summary>
     event Action<ISceneEditing>? ActiveChanged;

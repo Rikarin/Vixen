@@ -36,17 +36,20 @@ public class ActiveSceneTests {
         var main = fixture.Scene;
         var opened = Second(fixture);
 
-        fixture.Editor.Activate(1);
+        var service = fixture.Plugins.Services.Require<ISceneEditing>();
+
+        Assert.True(service.Activate(opened));
         fixture.Settle();
 
         Assert.Same(opened, fixture.Scene);
 
-        fixture.Editor.CloseScene(1);
+        // Scene ▸ Close Scene, which closes the active one — no question, since nothing is unsaved.
+        fixture.Run(ScenesPanel.CloseCommand);
         fixture.Settle();
 
         Assert.False(opened.IsOpen);
         Assert.Same(main, fixture.Scene);
-        Assert.Same(main, fixture.Plugins.Services.Require<ISceneEditing>().Active);
+        Assert.Same(main, service.Active);
     }
 
     [Fact]
