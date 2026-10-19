@@ -69,7 +69,7 @@ public readonly record struct ProjectBuild(Assembly? Assembly, string Output, bo
 ///         scripts run coroutines would leak its assembly. See <c>ProjectCoroutineUnloadTests</c>.
 ///     </para>
 /// </remarks>
-public sealed class ProjectAssemblies {
+public sealed class ProjectAssemblies : IProjectCode {
     readonly ProjectPaths paths;
 
     PluginLoadContext? context;

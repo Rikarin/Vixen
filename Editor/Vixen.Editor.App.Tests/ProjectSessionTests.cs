@@ -5,10 +5,12 @@ using System.Diagnostics;
 using System.Reflection;
 using Vixen.Core;
 using Vixen.Core.IO.Watch;
+using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
 using Vixen.Engine.Behaviors;
+using Vixen.Ui;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -215,7 +217,7 @@ public sealed class ProjectSessionTests : IDisposable {
         Assert.Equal(1, scans);
     }
 
-    /// <summary>The project's watcher and its code have one owner, and it is not the application.</summary>
+    /// <summary>The project's watcher, its routing to open documents and its code have one owner, and it is not the application.</summary>
     /// <remarks>
     ///     ⚠ <b>A move that left a copy behind is the failure this rules out.</b> The application held the
     ///     watcher and the <c>ProjectAssemblies</c> in fields of its own; a second watcher would drain
@@ -228,15 +230,49 @@ public sealed class ProjectSessionTests : IDisposable {
         Assert.DoesNotContain(application, type => typeof(IFileWatcher).IsAssignableFrom(type));
         Assert.DoesNotContain(typeof(ProjectAssemblies), application);
 
+        // ⚠ And what routes the watcher's changes to the open documents, which moved with it — a copy
+        // left in the application would apply every change to a document twice.
+        Assert.DoesNotContain(typeof(ExternalEdits), application);
+
         var session = Held(typeof(ProjectSession));
 
         Assert.Contains(typeof(IFileWatcher), session);
         Assert.Contains(typeof(ProjectAssemblies), session);
+        Assert.Contains(typeof(ExternalEdits), session);
+
+        // ⚠ And a module reads the code through an interface, not the App's loader: the session is the
+        // one door that takes the scene's behaviours off around a reload, so a module handed the
+        // loader could unload an assembly a scene still holds instances of.
+        Assert.Equal(typeof(IProjectCode), typeof(IProjectSession).GetProperty(nameof(IProjectSession.Code))!.PropertyType);
+        Assert.DoesNotContain(typeof(IProjectCode).GetMethods(), method => !method.IsSpecialName);
 
         static List<Type> Held(Type type) => [
             .. type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
                 .Select(field => field.FieldType)
         ];
+    }
+
+    /// <summary>A save that could not write is reported through the session — with no window (#656, moved by #1293).</summary>
+    /// <remarks>
+    ///     ⚠ <b>With nobody subscribed to <c>EditorProject.SaveFailed</c> the failure is thrown on</b>, so this
+    ///     is red both when the subscription is lost and when it is made somewhere a windowless session
+    ///     never reaches — the application's constructor, where it was.
+    /// </remarks>
+    [Fact]
+    public void A_failed_save_is_reported_through_the_session_without_a_window() {
+        var (session, reported, _) = Bare();
+        using var world = new World("Scene");
+
+        // A file where the scene's folder would have to be, so the write fails as a disk would.
+        var blocked = Path.Combine(session.Project.Paths.Assets, "not-a-folder");
+        File.WriteAllText(blocked, string.Empty);
+
+        var scene = new SceneDocument(session.Project, world, AssetId.Empty, "Level") {
+            Writer = new SceneFileWriter(Path.Combine(blocked, "Level.vxscene"))
+        };
+
+        Assert.False(((IEditableDocument)scene).Save());
+        Assert.Equal("Could not save Level", Assert.Single(reported));
     }
 
     /// <summary>A project with no code builds as nothing — with no window — and announces no reload.</summary>
@@ -249,6 +285,7 @@ public sealed class ProjectSessionTests : IDisposable {
 
         Assert.True(session.BuildCode());
         Assert.Null(session.Code.Loaded);
+        Assert.Null(session.Code.Project);
         Assert.Equal(0, built);
         Assert.Empty(reported);
     }

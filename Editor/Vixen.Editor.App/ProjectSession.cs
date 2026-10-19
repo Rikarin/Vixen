@@ -76,6 +76,20 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     /// </remarks>
     IFileWatcher? watcher;
 
+    /// <summary>What carries a change on disk the last few metres, from the project to the open document.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half of the watcher that was never wired</b>, moved here from the application with the
+    ///     watcher it reads (#1293). Everything else on this path reads the drained list for its length:
+    ///     the browser rescans, the database rescans, the build panel refreshes. <c>ReloadShaders</c> is
+    ///     the one exception and it filters to <c>.rvn</c> — so a <c>.vxscene</c> or a
+    ///     <c>.vxcompositor</c> saved by another program reached the tree, the index and the build, and
+    ///     did not reach the panel that had it open. Null until <see cref="Watch" />.
+    /// </remarks>
+    ExternalEdits? external;
+
+    /// <summary>The project's own code. See <see cref="Code" />.</summary>
+    readonly ProjectAssemblies code;
+
     /// <summary>Builds the session over the open project.</summary>
     /// <param name="project">The open project.</param>
     /// <param name="notify">Where a refusal is reported.</param>
@@ -106,8 +120,19 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         this.history = history;
         this.log = log ?? ((_, _) => { });
         activeScene = scene ?? (() => null);
-        Code = new ProjectAssemblies(project.Paths);
+        code = new ProjectAssemblies(project.Paths);
         project.DocumentSaving += RefuseToSaveWithout;
+
+        // ⚠ #656: a document saved through `Vixen.Ui`'s `document.save` or the close prompt answers
+        // a failed write with `false` and reports it here, which is what makes that `false` a message
+        // rather than a Save that silently did nothing. With nobody subscribed it would throw. Moved
+        // from the application's constructor (#1293): it is the project's documents and the session's
+        // notification, and nothing of the window's.
+        project.SaveFailed += (failed, failure) => notify(
+            $"Could not save {failed.Title.Peek()}",
+            NotificationSeverity.Error,
+            failure.Message
+        );
     }
 
     /// <summary>Opens the project at a root and builds the session over it.</summary>
@@ -160,16 +185,13 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     /// <inheritdoc />
     public bool IsWatching => watcher is not null;
 
-    /// <summary>The watcher itself, for what has to suppress the editor's own writes — <c>ExternalEdits</c>.</summary>
-    internal IFileWatcher? Watcher => watcher;
-
     /// <summary>The project's own code, once it has been built and loaded.</summary>
     /// <remarks>
     ///     ⚠ <b>Reloaded by every <see cref="BuildCode" />.</b> This remark used to say the code was loaded
     ///     once and never unloaded because the registries had no way to empty; both halves were stale —
     ///     <c>ProjectAssemblies.Reload</c> unloads first, and <c>Unload</c> evicts all six registries.
     /// </remarks>
-    internal ProjectAssemblies Code { get; }
+    public IProjectCode Code => code;
 
     /// <inheritdoc />
     public IReadOnlyList<RecentProject> Recent => history.Entries;
@@ -352,7 +374,7 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         var scene = activeScene();
         var authored = SaveProjectBehaviors(scene);
         var before = held.ToArray();
-        var built = Code.Reload();
+        var built = code.Reload();
 
         held.Clear();
 
@@ -412,7 +434,7 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     List<AuthoredBehavior> SaveProjectBehaviors(SceneDocument? scene) {
         List<AuthoredBehavior> authored = [];
 
-        if (scene is null || Code.Loaded is not { } loaded) {
+        if (scene is null || code.Loaded is not { } loaded) {
             return authored;
         }
 
@@ -515,11 +537,36 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     ///     save is four raw events and a rename; an art tool exporting a texture atlas is one per
     ///     file. Rescanning on each would walk the project several times for one action —
     ///     <c>FileChangeCoalescer</c>'s debounce is what turns a burst into a rescan.
+    ///     <para>
+    ///         ⚠ <b>The watcher before <see cref="External" />, and that is one of the constructor's
+    ///         order-dependent steps made a line here (#1293).</b> <c>ExternalEdits</c> suppresses the
+    ///         editor's own saves on the watcher it is handed, so one built first would suppress nothing.
+    ///         And it is built when there is no watcher too, because it is what subscribes to
+    ///         <c>EditorProject.DocumentSaving</c>, and a project with no watcher still has documents
+    ///         that save. What a null watcher costs is the suppression, not the wiring.
+    ///     </para>
     /// </remarks>
-    internal void Watch() {
-        watcher?.Dispose();
-        watcher = Start(project);
+    /// <param name="assets">
+    ///     Whether to start the platform's watcher at all — off only in a harness. ⚠ 80–95 ms of a
+    ///     session, measured, and it is the platform's rather than ours:
+    ///     <c>FileSystemWatcher.EnableRaisingEvents = true</c> starts an FSEvents stream, and a test that
+    ///     never edits a file behind the editor's back paid it anyway, 344 times over in
+    ///     <c>Vixen.Editor.App.Tests</c> — see <c>EditorSessionOptions.WatchAssets</c> and #557.
+    /// </param>
+    internal void Watch(bool assets) {
+        if (assets) {
+            watcher?.Dispose();
+            watcher = Start(project);
+        }
+
+        external?.Dispose();
+        external = new(project, watcher);
     }
+
+    /// <summary>What a change on disk did to the open documents, for the suite that asserts about it.</summary>
+    /// <exception cref="InvalidOperationException">Asked for before <see cref="Watch" />.</exception>
+    internal ExternalEdits External =>
+        external ?? throw new InvalidOperationException("The session routes changes to open documents only once it watches.");
 
     IFileWatcher? Start(EditorProject open) {
         if (!Directory.Exists(open.Paths.Assets)) {
@@ -595,6 +642,16 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         // it — so a reader routing before the scan would look the new path up in an index that
         // still has the old one and find nothing open.
         ChangedOnDisk?.Invoke(changes, overflowed);
+
+        // ⚠ And then the open documents, last — after the readers above, which is where the
+        // application's `FollowedDisk` had it (#1293). An overflow has no paths to route, so it does
+        // the other thing: re-read what can be re-read.
+        if (overflowed) {
+            external?.Rescan();
+        } else {
+            external?.Apply(changes);
+        }
+
         return true;
     }
 
@@ -607,6 +664,12 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     public void Dispose() {
         watcher?.Dispose();
         watcher = null;
+
+        // And the subscription on the project's saves with it, so that the documents closing after
+        // this do not announce writes to a watcher that has gone.
+        external?.Dispose();
+        external = null;
+
         project.DocumentSaving -= RefuseToSaveWithout;
     }
 

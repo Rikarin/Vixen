@@ -85,6 +85,12 @@ public interface IProjectSession {
     /// </remarks>
     bool BuildCode();
 
+    /// <summary>The project's own code: which <c>.csproj</c> builds it and the assembly loaded from it.</summary>
+    /// <remarks>
+    ///     Read-only — <see cref="BuildCode" /> is the way to rebuild it. See <see cref="IProjectCode" />.
+    /// </remarks>
+    IProjectCode Code { get; }
+
     /// <summary>
     ///     Raised after <see cref="BuildCode" /> loaded the project's code and put the authored behaviours
     ///     back — after a failed build too, when the last build that worked was loaded again.
