@@ -89,6 +89,19 @@ sealed class SceneEditing : ISceneEditing {
         return true;
     }
 
+    /// <summary>Says the scene's shape changed where no verb of this service changed it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What the application's <c>hierarchyStale = true</c> became (#1290).</b> A play-mode restore,
+    ///     a scene opened over the old one, a component added, an entity renamed through the document — the
+    ///     application changes the shape itself in a score of places, and the outliner is a module's that
+    ///     hears <see cref="HierarchyChanged" /> rather than a field the application sets.
+    /// </remarks>
+    internal void Restructured() => HierarchyChanged?.Invoke(this);
+
+    /// <summary>Says an entity's hidden or locked mark changed where no verb of this service changed it.</summary>
+    /// <remarks>The application's <c>RefreshMarks()</c> calls, for the same reason as <see cref="Restructured" />.</remarks>
+    internal void Remarked() => MarksChanged?.Invoke(this);
+
     /// <summary>Adds a scene the host has opened from a file, without activating it.</summary>
     /// <param name="scene">The scene.</param>
     /// <returns>Whether it was not already open.</returns>

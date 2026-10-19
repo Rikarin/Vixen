@@ -334,7 +334,14 @@ public sealed class SceneEditingTests : IDisposable {
         Assert.NotNull(editor.Shell.Commands["entity.group"]);
         Assert.Contains(editor.Extensions.All<SceneMenuItem>(), item => item.CommandId == "scene.create-entity");
 
+        Assert.Contains(editor.Shell.Workspace.Panels, panel => panel.Id == SceneOutliner.PanelId);
+
         editor.Plugins.Disable(SceneModule.ModuleId);
+
+        // The outliner is the module's since #1290's fourth slice: its panel and the outliner the
+        // application asks for F2 go with it.
+        Assert.DoesNotContain(editor.Shell.Workspace.Panels, panel => panel.Id == SceneOutliner.PanelId);
+        Assert.False(editor.Plugins.Services.Contains<SceneOutliner>());
 
         Assert.Null(editor.Shell.Commands["entity.group"]);
         Assert.Null(editor.Shell.Commands["entity.snap-to-floor"]);

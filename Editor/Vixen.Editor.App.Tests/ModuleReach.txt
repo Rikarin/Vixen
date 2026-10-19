@@ -188,7 +188,6 @@ editor menu editor.menu.window view.toggle-theme
 editor menu editor.menu.window/editor.menu.layout view.reset-layout
 editor menu editor.menu.window/editor.menu.layout view.save-layout
 editor menu editor.menu.window/editor.menu.panels view.panel.console
-editor menu editor.menu.window/editor.menu.panels view.panel.hierarchy
 editor menu editor.menu.window/editor.menu.panels view.panel.history
 editor menu editor.menu.window/editor.menu.panels view.panel.inspector
 editor menu editor.menu.window/editor.menu.panels view.panel.inspector-2
@@ -208,7 +207,6 @@ editor menu editor.menu.window/editor.menu.panels view.panel.ui-diagnostics
 editor menu editor.menu.window/editor.menu.panels view.panel.world-settings
 editor mode select
 editor panel console
-editor panel hierarchy
 editor panel history
 editor panel inspector
 editor panel inspector-2
@@ -455,6 +453,8 @@ vixen.scene menu editor.menu.scene/editor.menu.create-shape scene.create-plane
 vixen.scene menu editor.menu.scene/editor.menu.create-shape scene.create-quad
 vixen.scene menu editor.menu.scene/editor.menu.create-shape scene.create-sphere
 vixen.scene menu editor.menu.scene/editor.menu.create-shape scene.create-torus
+vixen.scene menu editor.menu.window/editor.menu.panels view.panel.hierarchy
+vixen.scene panel hierarchy
 vixen.scene scene-menu entity.move-to-view
 vixen.scene scene-menu entity.snap-to-floor
 vixen.scene scene-menu scene.create-entity

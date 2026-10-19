@@ -92,6 +92,33 @@ public class OutlinerTests {
         Assert.Contains("Main Camera", Rows(fixture.Hierarchy));
     }
 
+    /// <remarks>
+    ///     ⚠ <b>The filter outlived the panel in the rows and not in the box.</b> It was a field on the
+    ///     application, so a reopened outliner still hid the rows that did not match — under an empty
+    ///     filter box, which reads as rows having gone missing. It is the workspace's per-view state now
+    ///     (#1290), and the box is filled from it.
+    /// </remarks>
+    [Fact]
+    public void A_filter_outlives_the_panel_in_the_box_as_well_as_the_rows() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Open("hierarchy");
+
+        Filter(fixture, "barrel");
+        fixture.Frames(2);
+
+        fixture.Close("hierarchy");
+        fixture.Open("hierarchy");
+        fixture.Frames(2);
+
+        Assert.DoesNotContain("Main Camera", Rows(fixture.Hierarchy));
+        Assert.Equal("barrel", Find<SearchBox>(fixture.Panel("hierarchy"))?.Value);
+
+        var state = fixture.Plugins.Services.Require<Vixen.Editor.Ui.Documents.IWorkspace>().ViewState<OutlinerState>("hierarchy");
+
+        Assert.Equal("barrel", state.Filter);
+    }
+
     [Fact]
     public void A_drag_onto_another_row_reparents_the_entity_undoably() {
         using var fixture = EditorSession.Start();

@@ -469,13 +469,13 @@ sealed partial class EditorApplication {
 
         document.Stack.Clear();
         document.Stack.MarkClean();
-        document.StructureChanged += _ => hierarchyStale = true;
-        document.Renamed += (_, _) => hierarchyStale = true;
+        document.StructureChanged += _ => sceneEditing.Restructured();
+        document.Renamed += (_, _) => sceneEditing.Restructured();
 
         sceneFiles[document] = new(document, path) { Settings = WorldSettings.Load(path) };
         sceneEditing.Open(document);
 
-        hierarchyStale = true;
+        sceneEditing.Restructured();
         RefreshScenes();
 
         Shell.Notifications.Success(Path.GetFileName(path) + " opened additively");
@@ -514,7 +514,7 @@ sealed partial class EditorApplication {
             layout.Document = open.Document;
         }
 
-        hierarchyStale = true;
+        sceneEditing.Restructured();
         RefreshScenes();
         Retitle();
     }
@@ -567,7 +567,7 @@ sealed partial class EditorApplication {
                 open.Document.Close();
 
                 sceneFiles.Remove(open.Document);
-                hierarchyStale = true;
+                sceneEditing.Restructured();
                 RefreshScenes();
             },
             confirm: "Discard"
@@ -608,7 +608,7 @@ sealed partial class EditorApplication {
                     open.Document.SetHidden(entity, !on);
                 }
 
-                RefreshMarks();
+                sceneEditing.Remarked();
             };
 
             var locked = row.Add<CheckBox>();
@@ -621,7 +621,7 @@ sealed partial class EditorApplication {
                     open.Document.SetLocked(entity, on);
                 }
 
-                RefreshMarks();
+                sceneEditing.Remarked();
             };
 
             row.AddHandler<PointerEvent>(
