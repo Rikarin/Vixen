@@ -248,6 +248,77 @@ public class ModuleReachTests {
     }
 
     /// <summary>
+    ///     The negative half (#1280): a standard module switched off in the plugin manager contributes
+    ///     nothing to the next session, and the rest of the editor is unchanged.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Against the same manifest as the positive half, so the expectation is still measured
+    ///         rather than written.</b> Each module is switched off through the manager's own button —
+    ///         which is what writes the user's list — and the editor is restarted on the same data
+    ///         directory, the way a person relaunches it. Every line the manifest attributes to the
+    ///         module must be gone; every other line must be there.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The second half is what makes the first falsifiable.</b> An editor that failed to
+    ///         start any module, or lost its menu bar, would pass "the module's lines are absent" for
+    ///         every row. And it is a stronger statement than unloading: a module registered round
+    ///         <c>PluginContext</c> leaves its lines behind on unload, but a suppressed one is never
+    ///         activated at all — so a line owned by <c>editor</c> that vanishes here is one the
+    ///         manifest has attributed to the wrong owner.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_module_switched_off_in_the_plugin_manager_contributes_nothing_to_the_next_session() {
+        var path = Path.Combine(RepositoryFiles.Root, ManifestFile.Replace('/', Path.DirectorySeparatorChar));
+        var manifest = File.ReadAllLines(path)
+            .Where(line => line.Length > 0 && !line.StartsWith('#'))
+            .Select(line => line.Split(' ', 2))
+            .ToList();
+
+        var everything = manifest.Select(row => row[1]).ToHashSet(StringComparer.Ordinal);
+        var failures = new StringBuilder();
+
+        using var editor = EditorSession.Start();
+
+        foreach (var (id, _, _) in EditorModules.Standard()) {
+            PluginManagerViewTests.Toggle(editor, id);
+            // Recorded rather than asserted, so one bad row does not hide what the others found.
+            if (!editor.Plugins.IsSuppressed(id)) {
+                failures.Append(id).Append("\n  the manager did not switch it off\n");
+                continue;
+            }
+
+            editor.Restart();
+
+            var reach = Reach(editor);
+            var owned = manifest.Where(row => row[0] == id).Select(row => row[1]).ToHashSet(StringComparer.Ordinal);
+            var left = owned.Where(reach.Contains).ToList();
+            var lost = everything.Except(owned).Where(line => !reach.Contains(line)).ToList();
+
+            if (left.Count > 0 || lost.Count > 0) {
+                failures.Append(id).Append('\n');
+
+                foreach (var line in left) {
+                    failures.Append("  still reached: ").Append(line).Append('\n');
+                }
+
+                foreach (var line in lost) {
+                    failures.Append("  lost with it:  ").Append(line).Append('\n');
+                }
+            }
+
+            // Back on, which writes the list without it — so the next row's restart has one module off.
+            PluginManagerViewTests.Toggle(editor, id);
+            if (editor.Plugins.IsSuppressed(id)) {
+                failures.Append(id).Append("\n  the manager did not switch it back on\n");
+            }
+        }
+
+        Assert.True(failures.Length == 0, "Switched off in the plugin manager and restarted:\n" + failures);
+    }
+
+    /// <summary>
     ///     Standard modules whose unload takes away nothing in the reach walk, each with why. ⚠
     ///     Shrink-only, both ways: a module that starts being taken back, or one that stops, fails.
     /// </summary>
