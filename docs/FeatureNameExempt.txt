@@ -22,12 +22,10 @@ Editor/Vixen.Editor.App/EditorApplication.cs AssetEditorRegistry 2
 Editor/Vixen.Editor.App/EditorApplication.cs AssetEditorTheme 1
 Editor/Vixen.Editor.App/EditorApplication.cs AssetEditorsModule 2
 Editor/Vixen.Editor.App/EditorApplication.cs IDeviceDeploy 1
-Editor/Vixen.Editor.App/EditorApplication.cs NodeGraphTheme 1
 Editor/Vixen.Editor.App/EditorApplication.cs PrefabSource 2
 Editor/Vixen.Editor.App/EditorApplication.cs StandardEditors 1
 Editor/Vixen.Editor.App/EditorApplication.cs Vixen.Editor.AssetEditors 4
 Editor/Vixen.Editor.App/EditorApplication.cs Vixen.Editor.Debugger 1
-Editor/Vixen.Editor.App/EditorApplication.cs Vixen.Editor.NodeGraph 1
 Editor/Vixen.Editor.App/EditorApplication.cs frame-debugger 1
 Editor/Vixen.Editor.App/EditorApplication.cs gpu 1
 Editor/Vixen.Editor.App/EditorApplication.cs memory 1

@@ -1,8 +1,12 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Editor.AssetEditors;
 using Vixen.Editor.AssetEditors.Shading;
+using Vixen.Editor.NodeGraph;
+using Vixen.Editor.Plugin;
 using Vixen.Editor.Testing;
+using Vixen.Ui.Styling;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -161,4 +165,32 @@ public class NodeGraphThemeTests {
         // on `node-graph` buys and nothing else in the editor declares.
         Assert.Equal("relative", fixture.Ui.StyleOf(fixture.Ui.Get("node-graph").Element, "position"));
     }
+
+    /// <summary>
+    ///     #1299: the sheet is the asset editors module's now, so it leaves the document with the module
+    ///     and comes back once — where the application used to install it for the life of the shell.
+    /// </summary>
+    [Fact]
+    public void The_sheet_leaves_with_the_asset_editors_module_and_comes_back_once() {
+        using var session = EditorSession.Start();
+
+        var host = session.Application.PluginHost;
+        var styles = session.Shell.Document.Styles;
+        var loaded = styles.LoadedSheetCount;
+
+        Assert.Equal(1, Copies(styles));
+
+        Assert.True(host.Unload(AssetEditorsModule.ModuleId));
+        Assert.Equal(0, Copies(styles));
+        Assert.Equal(loaded - 2, styles.LoadedSheetCount);
+
+        var again = host.Activate(AssetEditorsModule.ModuleId, AssetEditorsModule.ModuleName, new AssetEditorsModule());
+
+        Assert.Equal(PluginState.Active, again.State);
+        Assert.Equal(1, Copies(styles));
+        Assert.Equal(loaded, styles.LoadedSheetCount);
+    }
+
+    static int Copies(StyleEngine styles) =>
+        Enumerable.Range(0, styles.SheetCount).Count(sheet => styles.SheetText(sheet) == NodeGraphTheme.Css);
 }

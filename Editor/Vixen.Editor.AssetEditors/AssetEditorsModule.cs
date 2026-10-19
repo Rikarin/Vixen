@@ -3,6 +3,7 @@
 
 using Vixen.Editor.AssetEditors.Frame;
 using Vixen.Editor.Core;
+using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Ui.HotReload;
@@ -55,6 +56,18 @@ public sealed partial class AssetEditorsModule : IEditorPlugin {
         context.OnUnload(() => editors.Opened -= binder.Bind);
 
         Frames(context, editors);
+
+        // ⚠ The graph panels' sheet, which the application installed by name and never released
+        // (#917, #1299). Three of the four panels hosting a `NodeGraphView` are this module's — the
+        // compositor, the shader graph and the VFX graph — and the fourth, the texture graph, is a
+        // plugin's that already rides on the same sheet. Through the context, so an unload takes the
+        // rules out of the document (#1484). Moving it here puts it after `InspectorTheme`,
+        // `AssetEditorTheme`, `BrowserTheme` and `WorldTheme` rather than before them; no rule in
+        // those has a selector of equal specificity naming a node-graph element — the four that
+        // mention one are child combinators, which out-specify this sheet wherever they are — so the
+        // order changes no computed value. Both of `Install`'s sheets, in its order.
+        context.AddStyleSheet(NodeGraphTheme.Css);
+        context.AddStyleSheet(NodeGraphTheme.Utilities);
 
         // The two panel titles below go into the translator's template with the module, not with
         // the shell (#1301): EditorStrings cannot name this class, and a template taken while this
