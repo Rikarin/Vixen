@@ -122,7 +122,7 @@ Three things the census found that the design has to answer:
   *filters*, the sibling feature, live in `preferences` instead. Same feature, two stores.
 * **The cheap moves exist and are large**: 171 methods (~3,400 lines) touch one concern's fields;
   the selection verbs (all of `EditorSelectionVerbs.cs`, 20 methods), the entity verbs
-  (`EditorParity.cs:2446-2901@0d7dda4a9`, 12), the outliner (`EditorApplication.cs:4983-5351`, 7) and the
+  (`EditorParity.cs:2446-2901@0d7dda4a9`, 12), the outliner (`EditorApplication.cs:4703-5086`, 7) and the
   project chooser (all of `EditorProjects.cs`) are self-contained clusters.
 
 ⚠ **And the App README's load order is wrong in two places** (`Editor/Vixen.Editor.App/README.md:104-121`). *"Preferences
@@ -258,7 +258,7 @@ The feature-name audit (`.cs` and `.vxml`, code only, comments excluded):
 
 | Shell assembly | Rows | The largest |
 |---|---|---|
-| `Vixen.Editor.App` | 48 | `BuiltInAssetKinds`, 24 rows with 21 literal extensions (`LibraryModule.cs:207-243` since #1292, `EditorWorlds.cs:764-799@28c44db26` before); `BuiltInSubsystems` naming `TerrainComponent`, `WaterZoneComponent`, `BuoyancyBody` (`EditorApplication.cs:5336-5354`); the *Profiling* layout preset naming five diagnostics panel ids (`:3649`); `StandardIcons` keyed by importer name and extension (`:90-115`); `case Vixen.Editor.AssetEditors.Vfx.VfxGraphView` (`EditorWorlds.cs:823,827`); `is StandardFrameDocument`, `is ShaderGraphDocument`, `is MaterialView`, `is TextureImportView` (`EditorApplication.cs:792-832, 2966-2973`); `ITerrainScene`/`IVegetationScene`/`IWaterScene` — one property per feature (`:1076-1094`) |
+| `Vixen.Editor.App` | 48 | `BuiltInAssetKinds`, 24 rows with 21 literal extensions (`LibraryModule.cs:207-243` since #1292, `EditorWorlds.cs:764-799@28c44db26` before); `BuiltInSubsystems` naming `TerrainComponent`, `WaterZoneComponent`, `BuoyancyBody` (`EditorApplication.cs:4832-4850`); the *Profiling* layout preset naming five diagnostics panel ids (`EditorApplication.cs:3659@fdc943b19`, `DiagnosticsModule`'s since #1296); `StandardIcons` keyed by importer name and extension (`:90-115`); `case Vixen.Editor.AssetEditors.Vfx.VfxGraphView` (`EditorWorlds.cs:823,827@5f03c9b80`); `is StandardFrameDocument`, `is ShaderGraphDocument`, `is MaterialView`, `is TextureImportView` (`EditorApplication.cs:792-832, 2966-2973`); `ITerrainScene`/`IVegetationScene`/`IWaterScene` — one property per feature (`:1076-1094`) |
 | `Vixen.Editor.Ui` | 38 | **35 string ids in `EditorStrings.cs` that belong to a feature which already has its own `*Strings` class** (Terrain 9, Blockout 10, Water 4, Texturing 4, Diagnostics 8); `ModeArt` has a static icon per mode; `EditorIcons["profiler"]` |
 | `Vixen.Editor.Assets` | 14 | `BuiltInImporters.cs:57-99` is a hand list of **34** importers naming Vfx, ShaderGraph, Terrain ×2, Water, Ai ×4, Animation ×7, Gameplay, Net; `VfxImporter` and `ShaderGraphSources` construct the two graph compilers, which is the `ShaderGraph`/`VfxGraph` reference |
 | `Vixen.Editor.Host` | 8 | builds `ShaderGraphPreviewRenderer` itself (`EditorHost.cs:581`), loads the terrain stages' SPIR-V (`:1033-1047`), a stale `using Vixen.Editor.Profiler` (`:8`) |
@@ -276,14 +276,14 @@ database mutation and importer calls: `LayerStackView.cs` 0, `NodeGraphView.cs` 
 `Stack.Execute`), `ProjectBrowser.cs` 2 — a `Scan()`+`Save()` pair (`:1167-1175`) that duplicates
 `EditorProject.Open` minus its "save only if changed" guard. **The application logic is not in the
 views; it is in the one class** — `EditorParity.cs` alone has 21 file-system calls, including
-`Directory.Delete(project.Paths.Library, recursive: true)` at `EditorParity.cs:1679`.
+`Directory.Delete(project.Paths.Library, recursive: true)` at `EditorParity.cs:1672`.
 
 What *is* doubled is the language, and each pair is two contexts sharing a word:
 
 | One idea | Vocabulary A | Vocabulary B | Measured |
 |---|---|---|---|
-| **the active scene** | `EditorProject.ActiveDocument` (`EditorProject.cs:56`) | `EditorApplication.scene` (`EditorApplication.cs:105`), whose remarks say *"half the editor holds the active scene"* (`EditorApplication.cs:98-99`), plus `Shown => inspected ?? scene` wrapped as `IActiveScene` | `ActiveDocument` has **3** readers; `scene.` is read **124** times across the partials; `EditorWorlds.cs:496-499` sets both in sequence |
-| **dirty** | `CommandStack.IsDirty` → `EditorDocument.IsDirty` → `EditorProject.HasUnsavedChanges` | `SettingsView.dirty` + `ProjectSettingsStore.HasUnsavedChanges` | `HasUnsavedChanges` gates Save All and close (`EditorParity.cs:128,1959`) and **does not include** the settings store's — project settings edits are non-undoable by construction (`EditorSettingsPanels.cs:749`, `EditedDocument = null`) and can be lost on close |
+| **the active scene** | `EditorProject.ActiveDocument` (`EditorProject.cs:56`) | `EditorApplication.scene` (`EditorApplication.cs:103`), whose remarks say *"half the editor holds the active scene"* (`EditorApplication.cs:97-98`), plus `Shown => inspected ?? scene` wrapped as `IActiveScene` | `ActiveDocument` has **3** readers; `scene.` is read **124** times across the partials; `EditorWorlds.cs:496-499` sets both in sequence |
+| **dirty** | `CommandStack.IsDirty` → `EditorDocument.IsDirty` → `EditorProject.HasUnsavedChanges` | `SettingsView.dirty` + `ProjectSettingsStore.HasUnsavedChanges` | `HasUnsavedChanges` gates Save All and close (`EditorParity.cs:127,1952`) and **does not include** the settings store's — project settings edits are non-undoable by construction (`EditorSettingsPanels.cs:749`, `EditedDocument = null`) and can be lost on close |
 | **selection** | `Selection<T>` — assets on the project, entities on the scene | `HashSet<NodeId>` (`NodeGraphView.cs:109@0d7dda4a9`), `List<FoliageAddress>`, `HashSet<SplineHandle>`, `LayerPath?` | the graph's is read cross-assembly by two `.vxml` views; none of B's is reactive or on `EditorContext` |
 | **a document** | `EditorDocument` (25 subclasses) | `Vixen.Ui.IEditableDocument` (0 implementations under `Editor/`; #656) | the model itemises its own divergence at `EditorDocument.cs:29-61` |
 | **a property** | `EditProperty` (18 uses, the live edit path) | `EditorProperty<T>` / `EditorObject` / `SetPropertyCommand<T>` — **5 uses, all in Core, no subclass of `EditorObject` anywhere under `Editor/`** | `EditProperty.cs:18-19` says it *"is what a `SceneDocument`'s own fields are"*; they are plain dictionaries (`SceneDocument.cs:120-194`). A dead type with a remark that describes the live one |
