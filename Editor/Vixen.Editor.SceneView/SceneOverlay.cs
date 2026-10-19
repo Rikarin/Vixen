@@ -51,11 +51,18 @@ public enum OverlayCorner : byte {
 ///         <c>ViewportLayout.Focused</c> would be right for the focused pane and lying over every
 ///         other one.
 ///     </para>
+///     <para>
+///         ⚠ <b>Handed the <see cref="IViewportPane" />, not the <see cref="SceneViewport" /> (#1303).</b>
+///         A tool was narrowed to the members its consumers read; the overlay builder was the one
+///         signature still handing a plugin the whole pane — its bookmarks, its selection, its editing
+///         state. No overlay reads more than the narrow pane, so a declaration taking the concrete
+///         pane is refused (<c>VXP0001</c> from the generator, a <c>PluginException</c> from the scan).
+///     </para>
 /// </remarks>
 public sealed record SceneOverlay(
     string Id,
     string Title,
-    Action<UiElement, SceneViewport> Build,
+    Action<UiElement, IViewportPane> Build,
     OverlayCorner Corner = OverlayCorner.TopRight,
     int Order = 0
 );
@@ -68,13 +75,13 @@ public sealed record SceneOverlay(
 ///     </para>
 ///     <code language="csharp">
 ///         [Overlay("Snapping", Corner = OverlayCorner.BottomLeft)]
-///         public static void Build(UiElement host, SceneViewport pane) { … }
+///         public static void Build(UiElement host, IViewportPane pane) { … }
 ///     </code>
 ///     <para>
 ///         ⚠ <b>A static method rather than a class, unlike Unity's <c>[Overlay]</c>.</b> Unity's goes
 ///         on an <c>Overlay</c> subclass because the base carries the docking state, the collapsed
 ///         state and the display name. Ours has no base: an overlay <i>is</i> an
-///         <c>Action&lt;UiElement, SceneViewport&gt;</c>, its title is on the attribute, and where it
+///         <c>Action&lt;UiElement, IViewportPane&gt;</c>, its title is on the attribute, and where it
 ///         sits is <see cref="SceneOverlay.Corner" />. Same reasoning as
 ///         <c>CustomInspectorAttribute</c>, and it matches the rest of the set.
 ///     </para>

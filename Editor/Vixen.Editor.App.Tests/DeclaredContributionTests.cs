@@ -100,7 +100,7 @@ public class DeclaredContributionTests {
             public static string NewDialogue() => "id: " + Interlocked.Increment(ref Made) + "\n";
 
             [Overlay("Declared Overlay", Corner = OverlayCorner.BottomLeft, Id = "declared.overlay")]
-            public static void BuildOverlay(UiElement host, SceneViewport pane) {
+            public static void BuildOverlay(UiElement host, IViewportPane pane) {
                 var label = host.Add<TextBlock>(null, null, Array.Empty<string>());
 
                 label.AddClass("declared-overlay");

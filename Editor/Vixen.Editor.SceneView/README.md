@@ -622,7 +622,8 @@ reach and its plateau, conformed to the ground.
 ## A plugin can float a panel over a pane
 
 `SceneOverlay` is Unity's `[Overlay]`: a title, a corner, and a builder handed a host element and the
-pane. `ViewportChrome` hosts them beside the toolbar, the stats readout and the rubber-band, which
+pane — as `IViewportPane`, the members a tool reads, and not the whole `SceneViewport` (#1303).
+`ViewportChrome` hosts them beside the toolbar, the stats readout and the rubber-band, which
 were the only things that could be over a pane before.
 
 - ⚠ **Built once per pane, not once.** Two panes are two cameras, two view modes and two active tools,

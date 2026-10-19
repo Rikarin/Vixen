@@ -69,7 +69,7 @@ sealed partial class EditorApplication {
             // and a recent list is precisely where a path to an unmounted share lives.
             var entries = session.Recent.Select(entry => (entry.Path, entry.Name, entry.Opened, entry.Exists)).ToList();
 
-            var chosen = await ChooseAsync(
+            var chosen = await Shell.ChooseAsync(
                 EditorStrings.ProjectsTitle.Text,
                 entries.Select(entry => entry.Path),
                 path => entries.First(entry => entry.Path == path).Name,
@@ -180,62 +180,6 @@ sealed partial class EditorApplication {
             failure => Shell.Notifications.Show(failed, NotificationSeverity.Error, failure.Message)
         );
     }
-
-    /// <summary>Asks the user to pick one of a list, as a drawn dialog.</summary>
-    /// <param name="title">What the dialog asks.</param>
-    /// <param name="items">What to choose between.</param>
-    /// <param name="label">What a row says.</param>
-    /// <param name="detail">A second line, or <see langword="null" /> for none.</param>
-    /// <param name="enabled">Whether a row can be chosen, for one that is listed and unreachable.</param>
-    /// <param name="fill">Anything else the dialog needs, above the Cancel button.</param>
-    /// <returns>What was chosen, or <see langword="null" />.</returns>
-    /// <remarks>
-    ///     ⚠ <b>Drawn rather than native, because every one of these is a question about the
-    ///     <i>project</i> rather than about the user's disk</b> — a destination folder carries a GUID
-    ///     and a project-relative path, and a native picker would happily answer with a directory
-    ///     outside the project, which is the one answer the operation cannot take.
-    /// </remarks>
-    Task<T?> ChooseAsync<T>(
-        string title,
-        IEnumerable<T> items,
-        Func<T, string> label,
-        Func<T, string?>? detail = null,
-        Func<T, bool>? enabled = null,
-        Action<DialogSession<T?>>? fill = null
-    ) where T : class =>
-        Shell.Dialogs.ShowAsync<T?>(
-            title,
-            session => {
-                // ⚠ Inside a ScrollView, because `overflow: auto` in this UI means *clip* and not
-                // *scroll* — `OverflowReader`'s remarks say so: it decides which edges cut off what
-                // hangs outside. The sheet capped this list at 320px and cut it there, so with
-                // nineteen asset kinds every row past the sixth was unreachable from New Asset…, by
-                // pointer or wheel, and nothing said so because the one test of this dialog chose a
-                // row near the top. The `choice-list` element stays the buttons' direct parent, which
-                // is what the sheet's `choice-list > button.choice` selector needs.
-                var scroller = session.Body.Add<ScrollView>("choice-scroller");
-                var list = scroller.Content.Add<UiElement>("choice-list");
-
-                foreach (var item in items) {
-                    var button = list.Add<Button>();
-                    var chosen = item;
-
-                    button.AddClass("choice");
-                    button.Variant = ControlVariant.Subtle;
-                    button.Label = label(item);
-                    button.Disabled = enabled is not null && !enabled(item);
-
-                    if (detail?.Invoke(item) is { Length: > 0 } second) {
-                        button.Add<UiElement>("choice-detail").Text = second;
-                    }
-
-                    button.Clicked += _ => session.Answer(chosen);
-                }
-
-                fill?.Invoke(session);
-                session.AddButton(EditorStrings.DialogCancel.Text, () => null);
-            }
-        );
 
     /// <summary>How long ago something was, in the roughest terms that are still useful.</summary>
     /// <remarks>

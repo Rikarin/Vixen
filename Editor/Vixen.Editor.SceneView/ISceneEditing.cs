@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Rendering;
 
 namespace Vixen.Editor.SceneView;
 
@@ -151,4 +152,24 @@ public interface ISceneEditing {
     /// <summary>Spaces everything selected evenly between the two ends along one axis, as one undo entry.</summary>
     /// <param name="axis">0, 1 or 2 for X, Y or Z.</param>
     void Distribute(int axis);
+
+    // ── The create verbs (#1290's third slice) ─────────────────────────────────────────────────
+
+    /// <summary>Creates an empty entity under the first selected one, or at the root, and selects it.</summary>
+    /// <returns>The new entity. One undo entry.</returns>
+    Entity CreateEntity();
+
+    /// <summary>Creates one of the built-in shapes under the first selected entity, and selects it.</summary>
+    /// <param name="kind">Which shape.</param>
+    /// <returns>The new entity. One undo entry.</returns>
+    Entity CreateShape(PrimitiveKind kind);
+
+    /// <summary>Creates a light under the first selected entity, aimed down and forward, and selects it.</summary>
+    /// <param name="kind">Which kind.</param>
+    /// <returns>The new entity. One undo entry.</returns>
+    Entity CreateLight(LightKind kind);
+
+    /// <summary>Creates a camera under the first selected entity, and selects it.</summary>
+    /// <returns>The new entity. One undo entry.</returns>
+    Entity CreateCamera();
 }

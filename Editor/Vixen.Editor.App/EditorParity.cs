@@ -68,7 +68,6 @@ sealed partial class EditorApplication {
         EditingCommands();
         AssetCommands();
         EntityCommands();
-        SelectionAndTransformCommands();
         PlayCommands();
         BuildAndToolCommands();
     }
@@ -562,7 +561,7 @@ sealed partial class EditorApplication {
         _ = Ask();
 
         async Task Ask() {
-            var destination = await ChooseAsync(
+            var destination = await Shell.ChooseAsync(
                 assets.Count == 1 ? "Move to which folder?" : $"Move {assets.Count} assets to which folder?",
                 folders,
                 folder => folder
@@ -596,13 +595,8 @@ sealed partial class EditorApplication {
     void EntityCommands() {
         // ⚠ Create Child, Group, Group as LOD, Clear Parent, Align With View, Move To View and Snap To
         // Floor are `SceneModule`'s now (#1290): names for `ISceneEditing`'s verbs, registered through
-        // `PluginContext` with their keys. What stays here is the shortcut for a command this class
-        // still owns, the planned lines, Set Parent's chooser and the two marks.
-        Shell.Keys.SetDefault(
-            "scene.create-entity",
-            new KeyChord(InputKey.N, ModifierKeys.Control | ModifierKeys.Shift)
-        );
-
+        // `PluginContext` with their keys, and so are Create Empty and its shortcut (#1290's third
+        // slice). What stays here is the planned lines, Set Parent's chooser and the two marks.
         Planned("entity.create-audio", EditorStrings.CommandEntityCreateAudio, EditorStrings.CategoryEntity);
 
         Planned("entity.create-ui", EditorStrings.CommandEntityCreateUi, EditorStrings.CategoryEntity);
@@ -1340,7 +1334,7 @@ sealed partial class EditorApplication {
         _ = Ask();
 
         async Task Ask() {
-            var chosen = await ChooseAsync(
+            var chosen = await Shell.ChooseAsync(
                 "What kind of asset?",
                 kinds,
                 static kind => kind.Title,
@@ -1997,7 +1991,7 @@ sealed partial class EditorApplication {
         _ = Ask();
 
         async Task Ask() {
-            var chosen = await ChooseAsync(
+            var chosen = await Shell.ChooseAsync(
                 moving.Count == 1 ? "Hang it from what?" : $"Hang {moving.Count} entities from what?",
                 choices,
                 static choice => choice.Label,

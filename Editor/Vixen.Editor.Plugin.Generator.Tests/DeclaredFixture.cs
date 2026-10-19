@@ -73,7 +73,7 @@ public static class DeclaredFixture {
             public static string NewDialogue() => "id: 1\n";
 
             [Overlay("Declared Overlay", Corner = OverlayCorner.BottomLeft)]
-            public static void BuildOverlay(UiElement host, SceneViewport pane) { }
+            public static void BuildOverlay(UiElement host, IViewportPane pane) { }
 
             [DrawGizmo(typeof(Widget), SelectedOnly = true, Order = 5)]
             public static void DrawWidgetGizmo(GizmoDraw draw, object component, GizmoPlacement placement, bool selected) { }

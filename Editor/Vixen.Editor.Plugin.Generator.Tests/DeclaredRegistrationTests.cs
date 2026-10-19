@@ -87,7 +87,8 @@ public class DeclaredRegistrationTests {
     [InlineData("""[EditorMenu("Tools/Go", Strings = typeof(EditorStrings))] public static void Go() { }""", "VXP0003", "no Title to find in it")]
     [InlineData("""[CustomInspector(typeof(string))] public static void Draw(UiElement body) { }""", "VXP0001", "static void (UiElement body, EditTarget target)")]
     [InlineData("""[CreateAssetMenu("Thing", "thing")] public static string Make() => "";""", "VXP0001", "'thing' is not an extension")]
-    [InlineData("""[Overlay("Over")] public static void Build(UiElement host) { }""", "VXP0001", "static void (UiElement host, SceneViewport pane)")]
+    [InlineData("""[Overlay("Over")] public static void Build(UiElement host) { }""", "VXP0001", "static void (UiElement host, IViewportPane pane)")]
+    [InlineData("""[Overlay("Over")] public static void Build(UiElement host, SceneViewport pane) { }""", "VXP0001", "static void (UiElement host, IViewportPane pane)")]
     [InlineData("""[DrawGizmo(typeof(string))] public static void Draw(GizmoDraw draw) { }""", "VXP0001", "GizmoPlacement placement")]
     public void A_wrong_declaration_is_a_compile_error_with_its_own_id(string member, string id, string says) {
         var result = GeneratorHarness.Run(Usings + "public static class Holder {\n    " + member + "\n}\n");

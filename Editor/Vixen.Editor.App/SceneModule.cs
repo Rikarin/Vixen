@@ -1,10 +1,13 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Input;
+using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 
@@ -28,9 +31,10 @@ namespace Vixen.Editor.App;
 ///     </para>
 ///     <para>
 ///         <b>The second slice added Part D's four verbs that ask nothing</b> — Isolate and Reset, Copy
-///         and Paste Transform. Their six neighbours that ask an axis, a name or a set (Align,
-///         Distribute, Select By Name/Type, the selection sets) are service methods too, and stay
-///         registered by the application for Set Parent's reason: the chooser is its.
+///         and Paste Transform. <b>The third added their six neighbours that ask</b> an axis, a name
+///         or a set (Align, Distribute, Select By Name/Type, the selection sets), through
+///         <see cref="SceneQuestions" />: the chooser they ask with is the shell's now, not the
+///         application's.
 ///     </para>
 /// </remarks>
 sealed class SceneModule : IEditorPlugin {
@@ -90,8 +94,6 @@ sealed class SceneModule : IEditorPlugin {
         context.AddDefaultBinding("entity.snap-to-floor", new KeyChord(InputKey.End, ModifierKeys.None));
 
         // ── Part D's verbs that ask nothing (#1290's second slice) ──────────────────────────────
-        // The ones that ask an axis, a name or a set stay with the application's chooser — see
-        // `EditorSelectionVerbs`.
         context.AddCommand(
             new EditorCommand("edit.isolate", EditorStrings.CommandEditIsolate, editing.Isolate) {
                 Category = EditorStrings.CategoryEdit,
@@ -123,7 +125,104 @@ sealed class SceneModule : IEditorPlugin {
             editing.PasteTransform,
             () => editing.HasCopiedTransform && Selected()
         );
+
+        // ── Part D's verbs that ask first (#1290's third slice) ─────────────────────────────────
+        new SceneQuestions(context, editing).Register();
+
+        // ── The create verbs (#1290's third slice) ──────────────────────────────────────────────
+        // Enabled from the selection, so the menu item greys itself out with nothing here polling.
+        context.AddCommand(
+            new EditorCommand(
+                "scene.create-entity",
+                EditorStrings.CommandCreateEntity,
+                () => editing.CreateEntity()
+            ) {
+                Category = EditorStrings.CategoryEdit
+            }
+        );
+
+        context.AddDefaultBinding("scene.create-entity", new KeyChord(InputKey.N, ModifierKeys.Control | ModifierKeys.Shift));
+
+        ShapeCommands(context, editing);
+        ObjectCommands(context, editing);
+
+        // ── The viewport's context list (#1489) ─────────────────────────────────────────────────
+        // Its lines for this module's commands, offered by this module, so they leave with it. The
+        // orders are the slots `SceneMenus.RegisterSceneMenus` gave them beside the application's.
+        var registry = context.Services.Require<IEditorRegistry>();
+
+        context.Owns(registry.Add(new SceneMenuItem("entity.snap-to-floor", SceneMenuSurface.Context) { Order = 4 }));
+        context.Owns(registry.Add(new SceneMenuItem("entity.move-to-view", SceneMenuSurface.Context) { Order = 5 }));
+        context.Owns(registry.Add(new SceneMenuItem("scene.create-entity", SceneMenuSurface.Context) { Order = 6 }));
     }
+
+    /// <summary>One command per built-in shape, so that spawning one is not the menu's private trick.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Eight commands rather than one that takes an argument.</b> The registry's unit is a
+    ///     command with an id, a title and an enablement — that is what the palette searches, what the
+    ///     keymap binds and what a menu line is built from — so "Create Cube" being findable in the
+    ///     palette and bindable to a key means it has to be its own entry. Generated from
+    ///     <see cref="PrimitiveShapes.All" />, so a shape added there appears everywhere without anything
+    ///     here being edited.
+    /// </remarks>
+    static void ShapeCommands(PluginContext context, ISceneEditing editing) {
+        foreach (var kind in PrimitiveShapes.All) {
+            var shape = kind;
+            var name = PrimitiveShapes.NameOf(shape);
+
+            context.AddCommand(
+                new EditorCommand(
+                    ShapeCommandId(shape),
+                    EditorStrings.CreateShapes[name.ToLowerInvariant()],
+                    () => editing.CreateShape(shape)
+                ) {
+                    Category = EditorStrings.CategoryCreate
+                }
+            );
+        }
+    }
+
+    /// <summary>What a shape's create command is called in the registry.</summary>
+    internal static string ShapeCommandId(PrimitiveKind kind) =>
+        "scene.create-" + PrimitiveShapes.NameOf(kind).ToLowerInvariant();
+
+    /// <summary>One command per kind of light, and one for a camera.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Commands rather than menu lines, which is <see cref="ShapeCommands" />' argument
+    ///     applied to the other half of a Create menu.</b> "Create Point Light" being findable in the
+    ///     palette and bindable to a key is what makes it a thing the editor can do, rather than a
+    ///     thing one menu happens to offer — and it is why the Scene menu and the hierarchy's context
+    ///     menu can both name it without either of them owning it.
+    /// </remarks>
+    static void ObjectCommands(PluginContext context, ISceneEditing editing) {
+        foreach (var kind in Lights.All) {
+            var light = kind;
+
+            context.AddCommand(
+                new EditorCommand(
+                    LightCommandId(light),
+                    EditorStrings.CreateLights[Lights.NameOf(light).ToLowerInvariant()],
+                    () => editing.CreateLight(light)
+                ) {
+                    Category = EditorStrings.CategoryCreate
+                }
+            );
+        }
+
+        context.AddCommand(
+            new EditorCommand(
+                "scene.create-camera",
+                EditorStrings.CommandCreateCamera,
+                () => editing.CreateCamera()
+            ) {
+                Category = EditorStrings.CategoryCreate
+            }
+        );
+    }
+
+    /// <summary>What a light's create command is called in the registry.</summary>
+    internal static string LightCommandId(LightKind kind) =>
+        "scene.create-light-" + Lights.NameOf(kind).ToLowerInvariant();
 
     static void Verb(PluginContext context, string id, StringId title, Action run, Func<bool> enabled) =>
         context.AddCommand(

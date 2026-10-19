@@ -511,6 +511,68 @@ public sealed class EditorShell : IDisposable {
     /// <summary>How the editor asks a question.</summary>
     public DialogService Dialogs { get; }
 
+    /// <summary>Asks the user to pick one of a list, as a drawn dialog.</summary>
+    /// <param name="title">What the dialog asks.</param>
+    /// <param name="items">What to choose between.</param>
+    /// <param name="label">What a row says.</param>
+    /// <param name="detail">A second line, or <see langword="null" /> for none.</param>
+    /// <param name="enabled">Whether a row can be chosen, for one that is listed and unreachable.</param>
+    /// <param name="fill">Anything else the dialog needs, above the Cancel button.</param>
+    /// <returns>What was chosen, or <see langword="null" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Drawn rather than native, because every one of these is a question about the
+    ///     <i>project</i> rather than about the user's disk</b> — a destination folder carries a GUID
+    ///     and a project-relative path, and a native picker would happily answer with a directory
+    ///     outside the project, which is the one answer the operation cannot take.
+    ///
+    ///     ⚠ <b>The shell's rather than the application's (#1290).</b> It was a private method on
+    ///     <c>EditorApplication</c>, so a verb that had to ask "which axis?" or "which set?" could only
+    ///     be registered by the application; on the shell, a module reaches it through
+    ///     <c>PluginContext.Shell</c> as it reaches <see cref="Dialogs" />. Its sheet rules
+    ///     (<c>choice-scroller</c>, <c>choice-list</c>) were already the shell's theme's.
+    /// </remarks>
+    public Task<T?> ChooseAsync<T>(
+        string title,
+        IEnumerable<T> items,
+        Func<T, string> label,
+        Func<T, string?>? detail = null,
+        Func<T, bool>? enabled = null,
+        Action<DialogSession<T?>>? fill = null
+    ) where T : class =>
+        Dialogs.ShowAsync<T?>(
+            title,
+            session => {
+                // ⚠ Inside a ScrollView, because `overflow: auto` in this UI means *clip* and not
+                // *scroll* — `OverflowReader`'s remarks say so: it decides which edges cut off what
+                // hangs outside. The sheet capped this list at 320px and cut it there, so with
+                // nineteen asset kinds every row past the sixth was unreachable from New Asset…, by
+                // pointer or wheel, and nothing said so because the one test of this dialog chose a
+                // row near the top. The `choice-list` element stays the buttons' direct parent, which
+                // is what the sheet's `choice-list > button.choice` selector needs.
+                var scroller = session.Body.Add<ScrollView>("choice-scroller");
+                var list = scroller.Content.Add<UiElement>("choice-list");
+
+                foreach (var item in items) {
+                    var button = list.Add<Button>();
+                    var chosen = item;
+
+                    button.AddClass("choice");
+                    button.Variant = ControlVariant.Subtle;
+                    button.Label = label(item);
+                    button.Disabled = enabled is not null && !enabled(item);
+
+                    if (detail?.Invoke(item) is { Length: > 0 } second) {
+                        button.Add<UiElement>("choice-detail").Text = second;
+                    }
+
+                    button.Clicked += _ => session.Answer(chosen);
+                }
+
+                fill?.Invoke(session);
+                session.AddButton(EditorStrings.DialogCancel.Text, () => null);
+            }
+        );
+
     /// <summary>What File ▸ Open Recent lists, asked every time the menu is built.</summary>
     /// <remarks>
     ///     ⚠ <b>Command ids, not paths.</b> Every dynamic menu in this shell is a set of ids — see

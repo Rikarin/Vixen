@@ -455,11 +455,11 @@ public sealed class DeclaredRegistrationGenerator : IIncrementalGenerator {
             syntax,
             Group.Overlay,
             "[Overlay]",
-            "`static void (UiElement host, SceneViewport pane)`. That is what an overlay is: it fills the host for one pane.",
+            "`static void (UiElement host, IViewportPane pane)`. That is what an overlay is: it fills the host for one pane.",
             static method => method.ReturnsVoid
                 && method.Parameters.Length == 2
                 && Is(method.Parameters[0].Type, "Vixen.Ui.UiElement")
-                && Is(method.Parameters[1].Type, "Vixen.Editor.SceneView.SceneViewport"),
+                && Is(method.Parameters[1].Type, "Vixen.Editor.SceneView.IViewportPane"),
             static (_, target) =>
                 "var id = string.IsNullOrEmpty(declared.Id) ? global::Vixen.Editor.Plugin.DeclaredMenus.Derive(\"overlays\", declared.Title) : declared.Id;\n"
                 + $"context.Owns(registry.Add(new global::Vixen.Editor.SceneView.SceneOverlay(id, declared.Title, {target}, declared.Corner, declared.Order)));"

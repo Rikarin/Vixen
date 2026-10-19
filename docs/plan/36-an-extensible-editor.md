@@ -104,7 +104,7 @@ out-of-tree plugin cannot obtain a generated descriptor, and there is no attribu
 path either. **There is no `[CustomEditor]` equivalent available to anyone outside this repository.**
 
 **F6 — Modes are added imperatively from application code.**
-`EditorParity.cs:997` — `Shell.Modes.Add(new SelectMode())`.
+`EditorParity.cs:991` — `Shell.Modes.Add(new SelectMode())`.
 `Editor/Vixen.Editor.Terrain/TerrainModulePanels.cs:475@0d7dda4a9` — `Shell.Modes.Add(terrain)`. (It was the app's `EditorTerrainPanels.cs:451` when this was surveyed; `81f9e68ec` moved it into the terrain module, and since #1287 it is `context.AddMode(terrain)`, removed on unload.)
 The mode list is code in the app, not a registry the app reads.
 
