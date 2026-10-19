@@ -344,7 +344,7 @@ public class DeclaredParityTests {
     /// <remarks>The generator's half is the four <c>VXP0003</c> rows in <c>DeclaredRegistrationTests</c>.</remarks>
     [Theory]
     [InlineData("""[CreateAssetMenu("Thing", ".thing", Title = "Nowhere")] public static string Make() => "";""")]
-    [InlineData("""[Overlay("Over", Title = "Nowhere")] public static void Build(UiElement host, SceneViewport pane) { }""")]
+    [InlineData("""[Overlay("Over", Title = "Nowhere")] public static void Build(UiElement host, IViewportPane pane) { }""")]
     public void A_contribution_title_naming_nothing_refuses_the_plugin_with_a_diagnostic(string member) {
         using var folder = new PluginFolder();
 

@@ -37,7 +37,14 @@ public sealed class AssetEditorsModuleReachTests {
         // ⚠ Nothing of it stays: the application registers no kind of its own, so the editor with
         // the module switched off claims no asset-editor file, which is what a double-click then says.
         Assert.False(documents.TryGetForFile("Assets/hero.vxmat", out _));
-        Assert.Empty(workspace.Views);
+
+        // ⚠ Nothing of *this assembly's*, rather than nothing at all: since #1276 the texturing module
+        // is standard and adds its texture-graph and layer-stack views to the same workspace, and they
+        // stay when this module goes — which is also what proves the walk below sees views at all.
+        var assembly = typeof(AssetEditorsModule).Assembly;
+
+        Assert.DoesNotContain(workspace.Views, view => view.GetType().Assembly == assembly);
+        Assert.Contains(workspace.Views, view => view.GetType().Assembly != assembly);
     }
 
     /// <summary>After an unload nothing the editor still holds reaches the module, even with its documents opened.</summary>

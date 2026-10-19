@@ -13,7 +13,6 @@ editor menu editor.menu.assets assets.refresh
 editor menu editor.menu.assets assets.reimport
 editor menu editor.menu.assets assets.rename
 editor menu editor.menu.assets assets.revert
-editor menu editor.menu.assets view.panel.addressables
 editor menu editor.menu.assets/editor.menu.create assets.create
 editor menu editor.menu.assets/editor.menu.create assets.new-folder
 editor menu editor.menu.build assets.build
@@ -188,7 +187,6 @@ editor menu editor.menu.window view.previous-tab
 editor menu editor.menu.window view.toggle-theme
 editor menu editor.menu.window/editor.menu.layout view.reset-layout
 editor menu editor.menu.window/editor.menu.layout view.save-layout
-editor menu editor.menu.window/editor.menu.panels view.panel.addressables
 editor menu editor.menu.window/editor.menu.panels view.panel.console
 editor menu editor.menu.window/editor.menu.panels view.panel.hierarchy
 editor menu editor.menu.window/editor.menu.panels view.panel.history
@@ -209,7 +207,6 @@ editor menu editor.menu.window/editor.menu.panels view.panel.scenes
 editor menu editor.menu.window/editor.menu.panels view.panel.ui-diagnostics
 editor menu editor.menu.window/editor.menu.panels view.panel.world-settings
 editor mode select
-editor panel addressables
 editor panel console
 editor panel hierarchy
 editor panel history
@@ -240,8 +237,11 @@ editor scene-menu scene.scale
 editor scene-menu scene.toggle-grid
 editor scene-menu scene.toggle-projection
 editor scene-menu scene.translate
+vixen.asset-editors menu editor.menu.assets view.panel.addressables
+vixen.asset-editors menu editor.menu.window/editor.menu.panels view.panel.addressables
 vixen.asset-editors menu editor.menu.window/editor.menu.panels view.panel.ai-debugger
 vixen.asset-editors menu editor.menu.window/editor.menu.panels view.panel.input-debug
+vixen.asset-editors panel addressables
 vixen.asset-editors panel ai-debugger
 vixen.asset-editors panel input-debug
 vixen.blockout menu editor.menu.scene/editor.menu.blockout-boolean blockout.apply-boolean

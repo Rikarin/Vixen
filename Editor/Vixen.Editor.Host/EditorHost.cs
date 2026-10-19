@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.Reflection;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Threading;
-using Vixen.Editor.AssetEditors;
 using Vixen.Editor.SceneView;
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
@@ -193,12 +192,6 @@ sealed class EditorHost : IDisposable {
         jobs = new JobScheduler(Math.Max(1, platform.Processors.AvailableProcessors - 1));
 
         var modules = EditorModules.Standard();
-
-        // ⚠ The registered instance, not one of our own (#1297): the shader graph's previews are
-        // handed to the module that opens the graphs, which until then was a property of the
-        // application naming the document type. A second `new AssetEditorsModule()` here would be one
-        // nothing activated, holding a renderer no graph ever hears about.
-        assetEditors = modules.Select(entry => entry.Module).OfType<AssetEditorsModule>().FirstOrDefault();
 
         editor = new EditorApplication(
             window.FramebufferSize.X / Scale,

@@ -13,33 +13,17 @@
 # Regenerate after a merge with `./build.sh CheckArchitecture --update-exemptions` — and read the
 # diff: a row that appeared or grew is the shell learning a feature's name.
 
-Editor/Vixen.Editor.App/EditorApplication.cs AddressableGroupEditorFactory 1
-Editor/Vixen.Editor.App/EditorApplication.cs AssetEditorRegistry 2
-Editor/Vixen.Editor.App/EditorApplication.cs AssetEditorTheme 1
-Editor/Vixen.Editor.App/EditorApplication.cs AssetEditorsModule 2
-Editor/Vixen.Editor.App/EditorApplication.cs PrefabSource 2
-Editor/Vixen.Editor.App/EditorApplication.cs StandardEditors 1
-Editor/Vixen.Editor.App/EditorApplication.cs Vixen.Editor.AssetEditors 4
-Editor/Vixen.Editor.App/EditorFrames.cs StandardFrameDocument 3
-Editor/Vixen.Editor.App/EditorFrames.cs Vixen.Editor.AssetEditors 1
-Editor/Vixen.Editor.App/EditorWorlds.cs Vixen.Editor.AssetEditors 2
+Editor/Vixen.Editor.App/EditorSettingsPanels.cs addressables 1
 Editor/Vixen.Editor.App/LibraryModule.cs .vxanimgraph 1
+Editor/Vixen.Editor.App/LibraryModule.cs .vxcompositor 1
 Editor/Vixen.Editor.App/LibraryModule.cs .vxfont 1
+Editor/Vixen.Editor.App/LibraryModule.cs .vxmat 1
 Editor/Vixen.Editor.App/LibraryModule.cs .vxmixer 1
 Editor/Vixen.Editor.App/LibraryModule.cs .vxseq 1
 Editor/Vixen.Editor.App/LibraryModule.cs .vxshadergraph 1
 Editor/Vixen.Editor.App/LibraryModule.cs .vxspline 1
 Editor/Vixen.Editor.App/LibraryModule.cs .vxvfx 1
-Editor/Vixen.Editor.App/LibraryModule.cs AddressableGroupDocument 1
-Editor/Vixen.Editor.App/LibraryModule.cs MaterialAsset 1
-Editor/Vixen.Editor.App/LibraryModule.cs StandardFrameDocument 1
-Editor/Vixen.Editor.App/LibraryModule.cs Vixen.Editor.AssetEditors 3
 Editor/Vixen.Editor.App/StandardIcons.cs .vxmat 1
-Editor/Vixen.Editor.App/TexturePreviewImages.cs TextureChannels 12
-Editor/Vixen.Editor.App/TexturePreviewImages.cs TextureImportDocument 4
-Editor/Vixen.Editor.App/TexturePreviewImages.cs TextureImportEdits 1
-Editor/Vixen.Editor.App/TexturePreviewImages.cs TextureImportView 3
-Editor/Vixen.Editor.App/TexturePreviewImages.cs Vixen.Editor.AssetEditors 1
 Editor/Vixen.Editor.Assets/Audio/MixerImporter.cs .vxmixer 1
 Editor/Vixen.Editor.Assets/BuiltInImporters.cs .vxanimgraph 1
 Editor/Vixen.Editor.Assets/BuiltInImporters.cs .vxfont 1

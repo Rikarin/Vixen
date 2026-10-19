@@ -44,41 +44,6 @@ public sealed partial class AssetEditorsModule {
     /// <summary>The Addressables panel's id, which the application's Assets menu names.</summary>
     public const string AddressablesPanel = "addressables";
 
-    ShaderGraphPreviewRenderer? previews;
-    EditorProject? previewed;
-
-    /// <summary>What draws a shader graph's preview thumbnails, once the host has a device.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Set by the host, which made it, onto the module that opens the graphs</b> (#1297).
-    ///         It was a property of the application, which named <see cref="ShaderGraphDocument" /> to
-    ///         hand it on; the renderer itself stays the host's to make and to destroy, because it
-    ///         draws into targets the interface's renderer samples — #1299 records why a module cannot
-    ///         make one through <see cref="IEditorGraphics" /> yet.
-    ///     </para>
-    ///     <para>
-    ///         Setting it reaches every shader graph that is <i>already</i> open as well as the ones
-    ///         opened afterwards: a session restore opens documents before the first frame, so the ones
-    ///         that matter most are always the early ones.
-    ///     </para>
-    /// </remarks>
-    public ShaderGraphPreviewRenderer? ShaderGraphPreviews {
-        get => previews;
-        set {
-            previews = value;
-
-            if (previewed is null) {
-                return;
-            }
-
-            foreach (var document in previewed.Documents) {
-                if (document is ShaderGraphDocument shader) {
-                    shader.PreviewSource = value;
-                }
-            }
-        }
-    }
-
     /// <summary>Registers every kind and view, and joins what the host hands out to what they need.</summary>
     /// <param name="context">The module's scope.</param>
     /// <param name="host">Where kinds go.</param>
@@ -112,8 +77,9 @@ public sealed partial class AssetEditorsModule {
             }
         }
 
-        previewed = project;
-
+        // ⚠ A graph opened after the renderer exists is handed it here, on the documents' own path;
+        // the ones already open when it appears are handed it by `ShaderGraphPreviews`, which owns
+        // the renderer (#1299) — one field, one owner, and the host hands nothing in.
         void Preview(EditorDocument opened) {
             if (opened is ShaderGraphDocument shader) {
                 shader.PreviewSource = previews;
@@ -121,12 +87,7 @@ public sealed partial class AssetEditorsModule {
         }
 
         host.Opened += Preview;
-
-        context.OnUnload(() => {
-            host.Opened -= Preview;
-            ShaderGraphPreviews = null;
-            previewed = null;
-        });
+        context.OnUnload(() => host.Opened -= Preview);
 
         Joins(context, workspace);
         Addressables(context, workspace, project);

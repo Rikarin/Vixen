@@ -58,16 +58,21 @@ if (result.Artefact is { } shader) {
 }
 ```
 
-Rendering one is the host's, because it owns the device and the interface renderer. `EditorHost`
-builds the renderer at the moment both exist, hands it to the application, and pumps it inside the
-frame:
+Rendering one is `AssetEditorsModule`'s, the module that owns the shader graph (#1299) — the host
+names neither. It builds the renderer from what any plugin is handed: in `OnUpdate`, the first time
+`IEditorGraphics.Device` is non-null; its targets are named through `IEditorGraphics.Show`; it is
+pumped inside the host's frame through `PluginContext.OnFrame`; and it is given back on
+`OnDeviceLost` and on unload:
 
-```csharp no-compile="the host's own wiring, quoted — the device and the renderer are its fields"
-previews = new ShaderGraphPreviewRenderer(device, ShaderNodeLibrary.Create(), new UiPreviewImages(renderer));
-editor.ShaderGraphPreviews = previews;
+```csharp no-compile="the module's own wiring, quoted — `previews` and `ShownImages` are its members"
+context.OnUpdate(_ => {
+    if (previews is null && graphics.Device is { } device) {
+        Hand(new ShaderGraphPreviewRenderer(device, ShaderNodeLibrary.Create(), new ShownImages(graphics)));
+    }
+});
 
-// …and once per frame, after BeginFrame and before anything records:
-previews.Update();
+// …after BeginFrame and before anything records:
+context.OnFrame(_ => previews?.Update());
 ```
 
 ⚠ **`TryGet` never compiles and never draws.** It is called from the canvas's draw, once per visible
@@ -77,7 +82,8 @@ frame. A node whose expression has just changed keeps showing the *old* picture 
 lands, which is better than blinking empty on every edit.
 
 ⚠ **The canvas's preview source is the `ShaderGraphDocument`, not the renderer.** The document
-forwards to its `PreviewSource`, which the host sets when a device appears. `ShaderGraphView.Show`
+forwards to its `PreviewSource`, which the module sets on every graph already open when the
+renderer appears and, through `IDocumentHost.Opened`, on every graph opened after. `ShaderGraphView.Show`
 runs when a tab opens — which for a restored session is before the first frame, and therefore before
 there is a device — so a view that had been handed the renderer directly would show flat swatches for
 the rest of the session.

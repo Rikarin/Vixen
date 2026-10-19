@@ -35,24 +35,17 @@ public sealed partial class AssetEditorsModule {
     /// <summary>The renderer the open shader graphs preview through, once there is a device.</summary>
     internal ShaderGraphPreviewRenderer? Previews => previews;
 
-    void ShaderGraphPreviews(PluginContext context, AssetEditorRegistry editors) {
+    void ShaderGraphPreviews(PluginContext context, EditorProject project) {
         if (!context.Services.TryGet<IEditorGraphics>(out var graphics)) {
             return;
-        }
-
-        var project = context.Services.Require<EditorProject>();
-
-        void Opened(EditorDocument document) {
-            if (document is ShaderGraphDocument shader) {
-                shader.PreviewSource = previews;
-            }
         }
 
         void Hand(ShaderGraphPreviewRenderer? source) {
             previews = source;
 
-            // Every graph that is already open as well as the later ones: a restored session opens
-            // its tabs before the first frame, so the ones that matter most are the early ones.
+            // Every graph that is already open; the later ones are handed it as they open, by the
+            // `IDocumentHost.Opened` subscription in `Documents`. A restored session opens its tabs
+            // before the first frame, so the ones that matter most are the early ones.
             foreach (var document in project.Documents) {
                 if (document is ShaderGraphDocument shader) {
                     shader.PreviewSource = source;
@@ -70,8 +63,6 @@ public sealed partial class AssetEditorsModule {
             going.Dispose();
         }
 
-        editors.Opened += Opened;
-
         context.OnUpdate(_ => {
             if (previews is null && graphics.Device is { } device) {
                 Hand(new ShaderGraphPreviewRenderer(device, ShaderNodeLibrary.Create(), new ShownImages(graphics)));
@@ -81,10 +72,7 @@ public sealed partial class AssetEditorsModule {
         context.OnFrame(_ => previews?.Update());
         context.OnDeviceLost(_ => Release());
 
-        context.OnUnload(() => {
-            editors.Opened -= Opened;
-            Release();
-        });
+        context.OnUnload(Release);
     }
 
     /// <summary>A project's shader graphs, as Raven for the editor's effect compilation (#1300).</summary>
