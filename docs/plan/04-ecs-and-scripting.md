@@ -539,7 +539,7 @@ need throughput. Both are first-class and documented as such.
 >   which can `Array.Resize(ref managedStores, …)` and `managedStores[id] ??= new …`
 >   (`Vixen.Ecs/World.cs:1100-1107`), and then `store.Allocate(default!)` when the row's handle is still zero,
 >   which pops an unsynchronised `Stack<int>` or appends to a `ChunkedArray<T>`
->   (`ManagedComponentStore.cs:78-84`). ⚠ **So a behaviour that only *reads* a managed component it
+>   (`ManagedComponentStore.cs:77-84`). ⚠ **So a behaviour that only *reads* a managed component it
 >   has never written races two other behaviours doing the same**, and nothing about the call site
 >   says so — the lazy allocation is what makes `Add<T>()` with no value work, and it is invisible
 >   from `Read`. `BehaviorRef` is itself a managed component, so this is not a corner of the design

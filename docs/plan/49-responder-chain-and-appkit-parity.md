@@ -189,7 +189,7 @@ place where Vixen is **ahead of AppKit**, and each survives Part 3 unchanged.
 1. **The first responder's `CanExecute` is the only one asked** (`Commands.cs:486-487,499-506`).
    AppKit's `validateUserInterfaceItem:` is famously ambiguous about whether a later responder gets a
    say. Vixen states it once, in one place, and names it as the invariant.
-2. **`IsCommandTransparent` as data rather than as a private event loop** (`Commands.cs:732-756`,
+2. **`IsCommandTransparent` as data rather than as a private event loop** (`Commands.cs:732-755`,
    `Focus.cs:313`). AppKit gets "a menu is not in the responder chain" for free because a menu is not
    a view; Vixen gets it declaratively for menus, menu bars, palettes **and toolbar buttons**
    (`ButtonBase.cs:82`) — and AppKit has no answer at all for the toolbar case.
@@ -330,8 +330,8 @@ these hold, and each is a gate in Part 10:
    command handlers.
 2. The editor's `CommandDispatcher` resolves through `CommandRoute` instead of the flat registry.
 3. `EditorShell.Context` — a mutable string pushed by hand from pointer handlers in ten places
-   (`EditorApplication.cs:2148,2232,2327,2383`; `EditorParity.cs:581,1110-1114,1930`;
-   `EditorWorlds.cs:129`; ⚠ ten was a floor when it was written — `EditorWorlds.cs` alone had four —
+   (`EditorApplication.cs:2101,2188,2262,2318`; `EditorParity.cs:510,979-985,1798`;
+   `EditorWorlds.cs:127`; ⚠ ten was a floor when it was written — `EditorWorlds.cs` alone had four —
    and a re-count for #1388 finds twenty-one, most of them in the module panels) — is deleted in favour of `CommandScope`, which was built to replace it and
    is assigned only in tests.
 4. `Samples/02-HelloUi` has at least one panel whose Copy means something different from the shell's.
@@ -349,7 +349,8 @@ here, and each becomes cheap once Part 3 exists.
 `git grep "IUndo\|UndoManager"` returns zero hits repository-wide. Doc 46 § Part 1 row 4 stands.
 
 `CodeBuffer.cs:50` argues correctly that a text control must not own an undo stack, and its seam —
-`Changed` — has a real consumer in `Editor/Vixen.Editor.AssetEditors/Code/CodeDocument.cs:27,86-93,258`.
+`Changed` — has a real consumer in `Editor/Vixen.Editor.AssetEditors/Code/CodeDocument.cs:162`, which records
+each edit as a `TextEditCommand` (`:27,86-93,258`).
 The argument does not transfer to `TextField`, which has no stack and no seam, so **a dialog's text
 box has no ⌘Z in any Vixen application including the editor**.
 
@@ -449,7 +450,7 @@ chord there (#650, #642).
 ## Part 5 — The application layer
 
 `UiApplicationOptions` describes **one** window with one `Content` component
-(`docs/guide/ui/desktop-application.md:60-102`). AppKit's `NSApplication`/`NSWindow`/`NSDocument` and
+(`docs/guide/ui/desktop-application.md:60-101`). AppKit's `NSApplication`/`NSWindow`/`NSDocument` and
 SwiftUI's `App`/`Scene`/`WindowGroup`/`DocumentGroup` all start one level above that.
 
 | Capability | Vixen today | Verdict |
@@ -463,7 +464,7 @@ SwiftUI's `App`/`Scene`/`WindowGroup`/`DocumentGroup` all start one level above 
 | Clipboard from a control | § 4.3 as audited. At HEAD a text field copies through `UiDocument.Clipboard` (`UiClipboard.cs:55`) — `edit.copy` is a command handler on the control (`TextField.cs:392`) — and both hosts fill it from the pasteboard: `PlatformClipboard.Install` (`UiApplication.cs:233`) and the editor's `EditorHost.cs:235` | **present** since `2267100d8`; **present-but-unwired** as audited |
 | OS drag-in (files from Finder/Explorer) | `DropFile`/`DropText` produced (`DesktopPlatform.cs:744`, `WebPlatform.cs:578`) and routed (`Vixen.Platform.Ui/PlatformInput.cs:618`) as a `DropEvent`; as audited, **dropped** (`Vixen.Platform.Ui/PlatformInput.cs:214@10523d70f`) | **present** since `14e1abb9d` ([#654](https://github.com/Rikarin/Vixen/issues/654)); **present-but-unwired** as audited |
 | In-app drop model | `DataObject` (`DataObject.cs:35`), `DropEvent` (`Drop.cs:48`), `AllowDrop` (`Drop.cs:228`); as audited there were none, and `TreeView.cs:247` and `AssetFieldDrop.cs:22-27` each hit-test by hand | **present** since `f1e099531`; **absent** as audited |
-| Native open/save panels | `INativeDialogs` complete with six backends. As audited one consumer, `Editor/Vixen.Editor.App/EditorServices.cs:37`, and at HEAD that is still the one place above the platform that asks for it, `platform.Pickers()` (`EditorServices.cs:39`) — but it now feeds seven `services.Dialogs` call sites in `Vixen.Editor.App`, three of them through `Picked` (`EditorProjects.cs:168`). An application can reach the same object through `UiApplication.Platform` (`UiApplication.cs:439`), public since `a1935a308`, and `Pickers()` (`PlatformExtensions.cs:59`); nothing in `Vixen.Ui*` or the sample does. ⚠ the SDL fallback returns `null` (`DesktopServices.cs:211-241`) | **present-but-unwired**, re-judged at HEAD: reachable by an application, called only by the editor |
+| Native open/save panels | `INativeDialogs` complete with six backends. As audited one consumer, `Editor/Vixen.Editor.App/EditorServices.cs:37`, and at HEAD that is still the one place above the platform that asks for it, `platform.Pickers()` (`EditorServices.cs:39`) — but it now feeds seven `services.Dialogs` call sites in `Vixen.Editor.App`, three of them through `Picked` (`EditorProjects.cs:168`). An application can reach the same object through `UiApplication.Platform` (`UiApplication.cs:439`), public since `a1935a308`, and `Pickers()` (`PlatformExtensions.cs:59`); nothing in `Vixen.Ui*` or the sample does. ⚠ the SDL fallback returns `null` (`DesktopServices.cs:211-240`) | **present-but-unwired**, re-judged at HEAD: reachable by an application, called only by the editor |
 | Recent documents | still no list below the editor, and none can be built yet: one is keyed on `IEditableDocument.Location` (`Documents.cs:66`) and no document in the tree sets it, so the sample removed its Open Recent rather than draw a menu that is always empty, `Samples/02-HelloUi/Shell.vxml:86` — `There is no Open Recent here`. The editor's `ProjectHistory` (`ProjectHistory.cs:27`) keeps recent *projects* for its startup browser, not documents | **absent**; owed on [#656](https://github.com/Rikarin/Vixen/issues/656) |
 | Answerable modal | `DialogService.cs` (465 lines) — doc 46 § A4 landed and the editor's copy is gone | **present** |
 | Sheets (window-attached modals) | `runModal` on purpose (`MacOSDialogs.cs:20-23`) | **absent by decision** |
@@ -510,7 +511,7 @@ Checked hard. The framework has exactly three ancestor-walking mechanisms and no
 one `string?`; and `UiDocument.Mounted` (`UiDocument.cs:396`), which records a component for an
 element and offers no "nearest ancestor of type T" query.
 
-So every cross-cutting value is threaded through props by hand. `Samples/02-HelloUi/Shell.vxml:169-183`
+So every cross-cutting value is threaded through props by hand. `Samples/02-HelloUi/Shell.vxml:69-83@10523d70f`
 repeats `Model="@Model"` on three panels and `:126-135` wires two callbacks in `OnComposed` for want
 of a channel. Multiply by an editor with forty panels. This is the single biggest markup gap, and it
 compounds with § 6.2.
@@ -941,7 +942,7 @@ expensive items are.
 
 1. ⚠ **No damage tracking.** `DrawListBuilder.Build` (`DrawListBuilder.cs:643`) reconstructs the entire draw list every
    frame — ⚠ *since #671's first slice it replays every unchanged subtree out of the previous frame
-   instead of walking it, see W7 below; the list is still finished whole* — and `DrawList.cs:526-539` only reports *whether* the frame differs, not where. There is no
+   instead of walking it, see W7 below; the list is still finished whole* — and `DrawList.cs:527-539` only reports *whether* the frame differs, not where. There is no
    retained per-element surface — which is why `will-change-*` is refused. Combined with
    `UiApplication`'s unconditional frame loop (`docs/guide/ui/desktop-application.md:44-58`, a
    documented decision), this is the difference between an idle editor at 0.5 W and one at 15 W.

@@ -89,8 +89,12 @@ partial class Build {
     ///     the third shape was added because two of them had been silently missing an id for as
     ///     long as it existed (#1203).
     /// </remarks>
-    static IEnumerable<(string Id, int Index)> LooseIds(string contents, IReadOnlySet<string> members) =>
-        StringIdCensus.LiteralIds(contents, members);
+    static IEnumerable<(string Id, int Index)> LooseIds(
+        string contents,
+        IReadOnlySet<string> members,
+        StringIdParameters parameters
+    ) =>
+        StringIdCensus.LiteralIds(contents, members, parameters);
 
     Target CheckStrings => definition => definition
         .Description("Fails if a declared string id is used nowhere, if a call site repeats an id a declaration class already declares, if a shipping call site builds one no class declares, or if it builds one out of a run-time value")
@@ -149,6 +153,20 @@ partial class Build {
                     $"Only {members.Count} StringId member names were read out of the tree. The member pattern is "
                     + "wrong, and a census that recognises no members reports every object-initialiser id as absent."
                 );
+
+                // ⚠ The fourth shape's half of the same instrument (#1492): a target-typed new(…)
+                // passed as an argument is a StringId only because some parameter list says so, and
+                // a map that read nothing un-sees every one of them in the same quiet direction.
+                // EditorCommand's constructor is the call site #1492 measured.
+                var parameters = StringIdCensus.Parameters(text.Values);
+
+                Assert.True(
+                    parameters.Takes("EditorCommand", 1) && parameters.Count > 25,
+                    $"Only {parameters.Count} callables taking a StringId were read out of the tree. The "
+                    + "parameter reader is wrong, and a census that knows no parameters reports every "
+                    + "target-typed argument as absent."
+                );
+
                 var declarations = new List<(string Class, string Member, string Id, AbsolutePath File)>();
 
                 foreach (var (path, contents) in text) {
@@ -187,9 +205,9 @@ partial class Build {
                 var violations = new List<string>();
 
                 Unused(declarations, text, violations);
-                Repeated(declared, text, members, violations);
-                Undeclared(declared, text, members, violations);
-                Constructed(text, members, violations);
+                Repeated(declared, text, members, parameters, violations);
+                Undeclared(declared, text, members, parameters, violations);
+                Constructed(text, members, parameters, violations);
 
                 foreach (var violation in violations) {
                     Log.Error("{Violation}", violation);
@@ -257,10 +275,11 @@ partial class Build {
         IReadOnlyDictionary<string, (string Class, string Member, string Id, AbsolutePath File)> declared,
         IReadOnlyDictionary<AbsolutePath, string> text,
         IReadOnlySet<string> members,
+        StringIdParameters parameters,
         List<string> violations
     ) {
         foreach (var (path, contents) in text) {
-            foreach (var (id, index) in LooseIds(contents, members)) {
+            foreach (var (id, index) in LooseIds(contents, members, parameters)) {
                 if (!declared.TryGetValue(id, out var declaration) || declaration.File == path) {
                     continue;
                 }
@@ -327,6 +346,7 @@ partial class Build {
         IReadOnlyDictionary<string, (string Class, string Member, string Id, AbsolutePath File)> declared,
         IReadOnlyDictionary<AbsolutePath, string> text,
         IReadOnlySet<string> members,
+        StringIdParameters parameters,
         List<string> violations
     ) {
         var undeclared = new SortedDictionary<string, string>(StringComparer.Ordinal);
@@ -336,7 +356,7 @@ partial class Build {
                 continue;
             }
 
-            foreach (var (id, index) in LooseIds(contents, members)) {
+            foreach (var (id, index) in LooseIds(contents, members, parameters)) {
                 if (declared.ContainsKey(id) || StringIdCensus.InDocComment(contents, index)) {
                     continue;
                 }
@@ -415,14 +435,27 @@ partial class Build {
     ///         piece of work.
     ///     </para>
     ///     <para>
-    ///         <b>What the eight are.</b> Every one needs a decision rather than a migration:
+    ///         <b>What the nine are.</b> Every one needs a decision rather than a migration:
     ///         <c>DeclaredMenus</c> in <c>Vixen.Editor.Plugin</c> (3, a plugin's command, its top
     ///         menu and an undeclared submenu — moved out of <c>DeclaredContributions</c> by #1283,
     ///         where they were the same three, so both readers of the attributes share them), <c>EditorApplication</c> (1, a panel titled by a document — user
     ///         data), <c>EditorParity</c> (1, a recent project's directory name — user data),
     ///         <c>EditorBuilds</c> (2, "This Machine (rid)" — machine data — and
     ///         <c>PlayerBuild.WhyNotPublishable</c>'s prose, which another assembly owns) and
-    ///         <c>EditorWorlds</c> (1, a <c>NewAssetKind</c>'s title, which a plugin can contribute).
+    ///         <c>EditorWorlds</c> (1, a <c>NewAssetKind</c>'s title, which a plugin can contribute)
+    ///         and <c>ViewportCommands.Label</c> (1, the label of every viewport command).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The ninth was always there; the census could not see it</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1492">#1492</a>,
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1270">#1270</a>).
+    ///         <c>static StringId Label(string id, string text) => new("editor.command." + id, text)</c>
+    ///         target-types its <c>new</c> off the return type, which no textual shape carries, so
+    ///         the ceiling read eight with nine sites in the tree. Raising it is the measurement
+    ///         being corrected, not a regression admitted: the site is the one helper behind the label
+    ///         of every viewport command, and it needs a decision rather than a migration because one of
+    ///         its labels is <c>"Reference: " + placed.Name</c> — user data, like
+    ///         <c>EditorParity</c>'s.
     ///         ⚠ The viewport helper's twenty-three labels, its two-state captions and the shape,
     ///         light and build-configuration families went to <c>EditorStrings</c>; the captions
     ///         were a translation bug and not only a census entry, because they reused the title's
@@ -457,15 +490,17 @@ partial class Build {
     ///         initialisers in this repository that build something else.
     ///     </para>
     /// </remarks>
-    const int ConstructedCeiling = 8;
+    const int ConstructedCeiling = 9;
 
     /// <summary>Applies <see cref="ConstructedCeiling" />.</summary>
     /// <param name="text">Every source file, by path.</param>
     /// <param name="members">Every name the tree declares as a <c>StringId</c>.</param>
+    /// <param name="parameters">Every parameter the tree declares as a <c>StringId</c>.</param>
     /// <param name="violations">Where a breach is recorded.</param>
     static void Constructed(
         IReadOnlyDictionary<AbsolutePath, string> text,
         IReadOnlySet<string> members,
+        StringIdParameters parameters,
         List<string> violations
     ) {
         var built = new SortedSet<string>(StringComparer.Ordinal);
@@ -483,7 +518,7 @@ partial class Build {
                 continue;
             }
 
-            foreach (var (index, literal) in StringIdCensus.Constructions(contents, members)) {
+            foreach (var (index, literal) in StringIdCensus.Constructions(contents, members, parameters)) {
                 if (literal || StringIdCensus.InDocComment(contents, index)) {
                     continue;
                 }
