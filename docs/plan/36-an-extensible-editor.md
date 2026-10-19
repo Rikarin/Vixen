@@ -104,7 +104,7 @@ out-of-tree plugin cannot obtain a generated descriptor, and there is no attribu
 path either. **There is no `[CustomEditor]` equivalent available to anyone outside this repository.**
 
 **F6 — Modes are added imperatively from application code.**
-`EditorParity.cs:1042` — `Shell.Modes.Add(new SelectMode())`.
+`EditorParity.cs:997` — `Shell.Modes.Add(new SelectMode())`.
 `Editor/Vixen.Editor.Terrain/TerrainModulePanels.cs:475@0d7dda4a9` — `Shell.Modes.Add(terrain)`. (It was the app's `EditorTerrainPanels.cs:451` when this was surveyed; `81f9e68ec` moved it into the terrain module, and since #1287 it is `context.AddMode(terrain)`, removed on unload.)
 The mode list is code in the app, not a registry the app reads.
 
@@ -902,9 +902,9 @@ whole of it was `AssetEditorRegistry` moving somewhere both ends could see:
 
 | File | Names |
 |---|---|
-| `EditorApplication.cs:334` | `AssetEditorRegistry` |
-| `EditorApplication.cs:1125` | `AssetEditorsModule` |
-| `EditorApplication.cs:13,14,45,46` | the `Vixen.Editor.AssetEditors` and `.Content` namespaces, and the `Prefab` / `PrefabSource` aliases |
+| `EditorApplication.cs:338` | `AssetEditorRegistry` |
+| `EditorApplication.cs:1115` | `AssetEditorsModule` |
+| `EditorApplication.cs:13,14,43,44` | the `Vixen.Editor.AssetEditors` and `.Content` namespaces, and the `EditorPrefab` / `PrefabSource` aliases |
 | `ComponentsView.cs:21` | `PrefabSource` |
 | `EditorFrames.cs:7,399,409,434` | `StandardFrameDocument` |
 | `ShaderGraphPreviews.cs:4,5,27,56,66,80` | `IPreviewImages`, `ShaderGraphPreviewRenderer`, `ShaderGraphDocument`, and `Vixen.Editor.ShaderGraph` itself |
