@@ -639,7 +639,7 @@ sealed partial class EditorApplication : IDisposable {
 
         // ⚠ And the keyboard, which a session reads only from a focused scene pane, and which every
         // pane's input goes through ahead of the active mode — see `PlayInput` and `Configure`. #470.
-        playInput = new PlayInput(modeInput ??= new ModeInput(Shell.Modes));
+        playInput = new PlayInput(modeInput = new ModeInput(Shell.Modes));
         contributions.Add(Extensions.Add<IPlaySystems>(playInput));
 
         // ⚠ Every entity gets a *new handle* when a play-mode snapshot is restored, so the
@@ -1945,7 +1945,7 @@ sealed partial class EditorApplication : IDisposable {
     void Configure(ViewportLayout layout) {
         chrome ??= new ViewportChrome(Shell);
         chrome.Forget();
-        overlayLayers.Clear();
+        paneOverlays.Forget();
 
         for (var index = 0; index < layout.Panes.Count; index++) {
             var pane = layout.Panes[index];
@@ -2048,11 +2048,7 @@ sealed partial class EditorApplication : IDisposable {
             // ⚠ After the chrome, so a play session's overlay panel is stroked over the toolbar as a
             // game's HUD is over its picture. Every pane gets one and only the focused pane's paints
             // — see `PaneOverlays` (#1264).
-            var layer = pane.Control.Overlay.Add<PlayOverlayLayer>();
-
-            layer.Owner = pane;
-            layer.Source = paneOverlays;
-            overlayLayers.Add(layer);
+            paneOverlays.Attach(pane);
         }
 
         // ⚠ After the loop and not inside it, because the panes are what it walks. A rearrangement
@@ -2065,30 +2061,16 @@ sealed partial class EditorApplication : IDisposable {
     ViewportChrome? chrome;
 
     /// <summary>What gives the active editor mode first refusal on every pane's input.</summary>
-    ModeInput? modeInput;
+    readonly ModeInput modeInput;
 
     /// <summary>A play session's keyboard, ahead of <see cref="modeInput" /> on every pane.</summary>
     readonly PlayInput playInput;
 
     /// <summary>A play session's overlay panels, laid out against the focused pane.</summary>
-    readonly PaneOverlays paneOverlays = new();
-
-
-    /// <summary>The layer over each pane of the current arrangement that paints them.</summary>
-    readonly List<PlayOverlayLayer> overlayLayers = [];
-
-    /// <summary>How many overlay segments the layer over a pane stroked on the last frame.</summary>
-    /// <param name="pane">The pane.</param>
-    /// <returns>The count, zero for a pane with no layer.</returns>
     /// <remarks>Internal for the suite that asserts the panel reaches the focused pane and no other.</remarks>
-    internal int PaintedOverlaySegments(SceneViewport pane) =>
-        overlayLayers.FirstOrDefault(layer => ReferenceEquals(layer.Owner, pane))?.Drawn ?? 0;
+    internal PaneOverlays PaneOverlays => paneOverlays;
 
-    /// <summary>Every endpoint the layer over a pane stroked on the last frame, in document space.</summary>
-    /// <param name="pane">The pane.</param>
-    /// <returns>The points, empty for a pane with no layer.</returns>
-    internal IReadOnlyList<Vector2> PaintedOverlayPoints(SceneViewport pane) =>
-        overlayLayers.FirstOrDefault(layer => ReferenceEquals(layer.Owner, pane))?.Points ?? [];
+    readonly PaneOverlays paneOverlays = new();
 
     void Panels() {
         Shell.RegisterPanel(

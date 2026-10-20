@@ -39,11 +39,42 @@ sealed class PaneOverlays {
 
     readonly List<DebugScreenLine> segments = [];
 
+    /// <summary>The layer over each pane of the current arrangement that paints them.</summary>
+    readonly List<PlayOverlayLayer> layers = [];
+
     /// <summary>The pane the segments were laid out against, or <see langword="null" /> for none.</summary>
     public SceneViewport? Pane { get; private set; }
 
     /// <summary>This frame's panel segments, in <see cref="Pane" />'s render pixels.</summary>
     public IReadOnlyList<DebugScreenLine> Segments => segments;
+
+    /// <summary>Puts a layer over a pane, which paints the panel while that pane is the focused one.</summary>
+    /// <param name="pane">A pane of the current arrangement.</param>
+    /// <remarks>Every pane gets one; which of them paints is decided per frame by <see cref="Pane" />.</remarks>
+    public void Attach(SceneViewport pane) {
+        ArgumentNullException.ThrowIfNull(pane);
+
+        var layer = pane.Control.Overlay.Add<PlayOverlayLayer>();
+
+        layer.Owner = pane;
+        layer.Source = this;
+        layers.Add(layer);
+    }
+
+    /// <summary>Drops the layers of the previous arrangement, whose panes a rearrangement replaced.</summary>
+    public void Forget() => layers.Clear();
+
+    /// <summary>How many overlay segments the layer over a pane stroked on the last frame.</summary>
+    /// <param name="pane">The pane.</param>
+    /// <returns>The count, zero for a pane with no layer.</returns>
+    public int Painted(SceneViewport pane) => Layer(pane)?.Drawn ?? 0;
+
+    /// <summary>Every endpoint the layer over a pane stroked on the last frame, in document space.</summary>
+    /// <param name="pane">The pane.</param>
+    /// <returns>The points, empty for a pane with no layer.</returns>
+    public IReadOnlyList<Vector2> PaintedPoints(SceneViewport pane) => Layer(pane)?.Points ?? [];
+
+    PlayOverlayLayer? Layer(SceneViewport pane) => layers.FirstOrDefault(layer => ReferenceEquals(layer.Owner, pane));
 
     /// <summary>Lays the enabled overlays out against the focused pane, or clears them.</summary>
     /// <param name="play">The play session, whose overlay registry is read.</param>

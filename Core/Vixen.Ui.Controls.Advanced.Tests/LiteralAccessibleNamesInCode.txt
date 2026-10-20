@@ -22,11 +22,11 @@
 # ⚠ This file can only shrink. A row leaving means a word moved into a `*Strings` class; a row
 # ARRIVING is a new untranslatable name and is the loud direction.
 Editor/Vixen.Editor.App/EditorWorlds.cs	Button.Label	Bake navigation mesh
-Editor/Vixen.Editor.App/EditorWorlds.cs	Button.Label	Close
 Editor/Vixen.Editor.App/EditorWorlds.cs	Button.Label	Recompute budgets
 Editor/Vixen.Editor.App/EditorWorlds.cs	CheckBox.Label	Draw the navigation mesh
 Editor/Vixen.Editor.App/ProjectBrowser.cs	Button.Label	Filters
 Editor/Vixen.Editor.App/ProjectBrowser.cs	ToggleButton.Label	Grid
+Editor/Vixen.Editor.App/ScenesPanel.cs	Button.Label	Close
 Editor/Vixen.Editor.AssetEditors/Ai/BehaviorTreeView.cs	Button.Label	Add decorator
 Editor/Vixen.Editor.AssetEditors/Ai/BehaviorTreeView.cs	Button.Label	Add node
 Editor/Vixen.Editor.AssetEditors/Ai/BehaviorTreeView.cs	Button.Label	Add service
