@@ -639,7 +639,7 @@ sealed partial class EditorApplication : IDisposable {
 
         // ⚠ And the keyboard, which a session reads only from a focused scene pane, and which every
         // pane's input goes through ahead of the active mode — see `PlayInput` and `Configure`. #470.
-        playInput = new PlayInput(modeInput ??= new ModeInput(Shell.Modes));
+        playInput = new PlayInput(modeInput = new ModeInput(Shell.Modes));
         contributions.Add(Extensions.Add<IPlaySystems>(playInput));
 
         // ⚠ Every entity gets a *new handle* when a play-mode snapshot is restored, so the
@@ -2061,7 +2061,7 @@ sealed partial class EditorApplication : IDisposable {
     ViewportChrome? chrome;
 
     /// <summary>What gives the active editor mode first refusal on every pane's input.</summary>
-    ModeInput? modeInput;
+    readonly ModeInput modeInput;
 
     /// <summary>A play session's keyboard, ahead of <see cref="modeInput" /> on every pane.</summary>
     readonly PlayInput playInput;
