@@ -46,13 +46,13 @@ public class PlayOverlayPaintingTests {
         session.Frames(2);
 
         // False before the work: a session runs and every overlay is off, so nothing is painted.
-        Assert.All(panes, pane => Assert.Equal(0, session.Editor.PaintedOverlaySegments(pane)));
+        Assert.All(panes, pane => Assert.Equal(0, session.Editor.PaneOverlays.Painted(pane)));
 
         Assert.True(session.Editor.PlayOverlays.Set(PhysicsDebugDrawSystem.OverlayName, true));
         session.Frames(2);
 
-        Assert.True(session.Editor.PaintedOverlaySegments(first) > 0, "the focused pane painted no overlay panel");
-        Assert.Equal(0, session.Editor.PaintedOverlaySegments(second));
+        Assert.True(session.Editor.PaneOverlays.Painted(first) > 0, "the focused pane painted no overlay panel");
+        Assert.Equal(0, session.Editor.PaneOverlays.Painted(second));
 
         // ⚠ And the shared accumulator carries none of it: its screen half is what a pane cannot
         // place, and the panel would land in every pane at one pane's coordinates.
@@ -65,14 +65,14 @@ public class PlayOverlayPaintingTests {
         session.Settle();
         session.Frames(2);
 
-        Assert.Equal(0, session.Editor.PaintedOverlaySegments(first));
-        Assert.True(session.Editor.PaintedOverlaySegments(second) > 0, "the newly focused pane painted nothing");
+        Assert.Equal(0, session.Editor.PaneOverlays.Painted(first));
+        Assert.True(session.Editor.PaneOverlays.Painted(second) > 0, "the newly focused pane painted nothing");
 
         // And Stop takes it away: a panel left behind would read as a session still running.
         session.Run("play.stop");
         session.Frames(2);
 
-        Assert.All(session.Viewports, pane => Assert.Equal(0, session.Editor.PaintedOverlaySegments(pane)));
+        Assert.All(session.Viewports, pane => Assert.Equal(0, session.Editor.PaneOverlays.Painted(pane)));
     }
 
     /// <summary>The panel is laid out against the focused pane's own size, in the pane's place.</summary>
@@ -100,7 +100,7 @@ public class PlayOverlayPaintingTests {
         session.Frames(2);
 
         var bounds = pane.Control.Bounds;
-        var points = session.Editor.PaintedOverlayPoints(pane);
+        var points = session.Editor.PaneOverlays.PaintedPoints(pane);
 
         Assert.NotEmpty(points);
 
