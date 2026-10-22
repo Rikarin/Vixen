@@ -855,12 +855,9 @@ sealed partial class EditorApplication : IDisposable {
 
         library.Arrived += () => browser?.Rescan();
 
-        // ⚠ Source control follows the session's rescans, not the browser's presence (#1505); the browser
-        // is only a reader of the column, and redraws on what a sweep or a revert changed.
+        // ⚠ Sweeps on the session's rescans, not the browser's presence (#1505); the browser only reads it.
         sourceControl = new ProjectSourceControl(
-            project.Paths.Root,
-            session,
-            deferred,
+            project.Paths.Root, session, deferred,
             (message, severity, detail) => Shell.Notifications.Show(message, severity, detail),
             message => log.Write(LogLevel.Debug, message)
         );
@@ -2356,8 +2353,6 @@ sealed partial class EditorApplication : IDisposable {
             // import, export a package or file assets into a collection the way the editor's own
             // menus do — not by re-implementing the copy, the scan and the save beside them.
             .Add<IContentLibrary>(library)
-
-            // And what the project's source control says, and the verbs over it (#1505).
             .Add<ISourceControl>(sourceControl)
 
             // ⚠ And the project's: the rescan every panel and module used to repeat for itself, and

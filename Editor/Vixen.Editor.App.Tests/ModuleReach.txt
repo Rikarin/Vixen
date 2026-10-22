@@ -5,13 +5,11 @@
 
 editor menu editor.menu.assets assets.bake-mesh-maps
 editor menu editor.menu.assets assets.build
-editor menu editor.menu.assets assets.history
 editor menu editor.menu.assets assets.import
 editor menu editor.menu.assets assets.move-to
 editor menu editor.menu.assets assets.refresh
 editor menu editor.menu.assets assets.reimport
 editor menu editor.menu.assets assets.rename
-editor menu editor.menu.assets assets.revert
 editor menu editor.menu.assets/editor.menu.create assets.create
 editor menu editor.menu.assets/editor.menu.create assets.new-folder
 editor menu editor.menu.build assets.build
@@ -94,7 +92,6 @@ editor menu editor.menu.window/editor.menu.panels view.panel.plugins
 editor menu editor.menu.window/editor.menu.panels view.panel.preferences
 editor menu editor.menu.window/editor.menu.panels view.panel.project
 editor menu editor.menu.window/editor.menu.panels view.panel.project-settings
-editor menu editor.menu.window/editor.menu.panels view.panel.revisions
 editor menu editor.menu.window/editor.menu.panels view.panel.scene
 editor menu editor.menu.window/editor.menu.panels view.panel.ui-diagnostics
 editor menu editor.menu.window/editor.menu.panels view.panel.world-settings
@@ -112,7 +109,6 @@ editor panel plugins
 editor panel preferences
 editor panel project
 editor panel project-settings
-editor panel revisions
 editor panel scene
 editor panel ui-diagnostics
 editor panel world-settings
@@ -460,6 +456,10 @@ vixen.scene scene-menu entity.snap-to-floor
 vixen.scene scene-menu scene.create-entity
 vixen.scripts menu editor.menu.window/editor.menu.panels view.panel.scripts
 vixen.scripts panel scripts
+vixen.source-control menu editor.menu.assets assets.history
+vixen.source-control menu editor.menu.assets assets.revert
+vixen.source-control menu editor.menu.window/editor.menu.panels view.panel.revisions
+vixen.source-control panel revisions
 vixen.terrain create assets.create-foliage
 vixen.terrain create assets.create-grass
 vixen.terrain create assets.create-terrain-layer

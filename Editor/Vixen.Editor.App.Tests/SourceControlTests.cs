@@ -693,7 +693,7 @@ public class SourceControlColumnTests {
     /// <summary>Pumps frames until the sweep has landed, and says so if it never does.</summary>
     /// <remarks>
     ///     ⚠ <b>A condition rather than a frame count, and the difference is not theoretical.</b>
-    ///     <c>EditorSourceControl.Sweep</c> hands its answer to the deferred queue behind a
+    ///     <c>ProjectSourceControl.Sweep</c> hands its answer to the deferred queue behind a
     ///     <c>Task.Run</c>, so a fixed <c>Settle()</c> asserts "the thread pool got round to it
     ///     within a dozen frames" — a wall-clock budget wearing a frame counter's clothes. It failed
     ///     here, twice, on a machine running another project's suite, and the two tests it failed
