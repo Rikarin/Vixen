@@ -234,12 +234,10 @@ the union's inline start rather than after its in-flow siblings. What is still l
 a span with a **floated child**, which is a limit of the walk rather than of the representation and is
 written up in `Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt`.
 
-Also absent, each with its reason in the same file: generated `::before`/`::after` boxes,
-`white-space`, `text-overflow: ellipsis`, `line-clamp` and bidirectional reordering.
-⚠ A generated box is the *opposite* direction from fragmentation — a box with no node behind it —
-and the fragment arena does not help. Anonymous block boxes were the other half of that direction
-and have landed; what a generated box still needs is a **style** of its own, which is a second style
-slot rather than a second rectangle.
+Also absent, each with its reason in the same file: `white-space`, `text-overflow: ellipsis`,
+`line-clamp` and bidirectional reordering. Generated `::before`/`::after` boxes have landed (#233),
+beside an element's own text as well (#1481), where the words move into an anonymous inline box —
+see [Generated content](generated-content.md).
 
 ⚠ **Text is not re-wrapped here.** `Vixen.Ui`'s `TextLayout` already breaks a string into lines across
 a font-fallback chain and reaches the store the way every leaf does — as a measure function. This

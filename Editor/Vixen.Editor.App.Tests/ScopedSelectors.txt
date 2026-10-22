@@ -260,6 +260,7 @@ switch track knob	-
 task-center > text	Started
 task-row > task-line	-
 task-row progress-bar	-
+textarea field-placeholder	-
 textarea field-text	-
 toolbar button	Started
 toolbar icon-button	Started

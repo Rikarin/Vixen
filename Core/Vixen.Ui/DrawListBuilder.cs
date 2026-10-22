@@ -1995,6 +1995,13 @@ public sealed partial class DrawListBuilder {
     ///     </para>
     /// </remarks>
     void EmitText(UiDocument document, UiElement element, DrawList into, float alpha) {
+        // ⚠ An element whose words moved into its anonymous text box (#1481) draws them from there,
+        // in paint order between its `::before` and `::after`. Drawing them here as well would put a
+        // second copy at the element's own content box, under the `::before`.
+        if (element.AnonymousText is not null) {
+            return;
+        }
+
         var borderLeft = document.Layout.GetComputedBorder(element.LayoutNode, Edge.Left);
         var paddingLeft = document.Layout.GetComputedPadding(element.LayoutNode, Edge.Left);
         var left = element.AbsoluteLeft + borderLeft + paddingLeft;

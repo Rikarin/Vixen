@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Vixen.Ui.Styling;
 
@@ -30,10 +31,15 @@ namespace Vixen.Ui;
 /// </remarks>
 internal sealed class GeneratedBox : UiElement {
     /// <summary>Creates the box an element generates.</summary>
-    /// <param name="kind">Which of the two.</param>
+    /// <param name="kind">Which of the two, or <see cref="PseudoElement.None" /> for the anonymous text box.</param>
     public GeneratedBox(PseudoElement kind) => Kind = kind;
 
     /// <summary>Which pseudo-element this is.</summary>
+    /// <remarks>
+    ///     <see cref="PseudoElement.None" /> is the third kind, and it is not a pseudo-element: it is
+    ///     the anonymous inline box an element's own words move into while it generates one of the
+    ///     other two (#1481). See <see cref="UiElement.AnonymousText" />.
+    /// </remarks>
     public PseudoElement Kind { get; }
 }
 
@@ -55,12 +61,13 @@ public sealed partial class UiDocument {
     ///         the element can make one appear, and only the style pass knows.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Never on an element that carries text of its own.</b> Such an element measures
-    ///         itself — its <c>Text</c> is a single run shaped as one — and the layout tree refuses a
-    ///         node that both measures and has children. A browser puts the generated text inline,
-    ///         beside the element's own words; Vixen has no run that can carry a second style, so the
-    ///         honest answer is no box rather than a box the layout throws on. See
-    ///         <c>InlineKnownGaps.txt</c>.
+    ///         ⚠ <b>On an element that carries text of its own too (#1481), and that used to be a
+    ///         refusal.</b> Such an element measures itself, and the layout tree refuses a node that
+    ///         both measures and has children — so its words move into an anonymous inline box between
+    ///         the two generated ones, CSS 2.1 §9.2.2.1's own answer for loose text beside a box, and
+    ///         the element's node stops measuring. That box is created FIRST, before either generated
+    ///         box is inserted, because inserting one under a node that still measures is the throw.
+    ///         See <see cref="SyncOwnText" />.
     ///     </para>
     /// </remarks>
     void Generate(UiElement element) {
@@ -68,14 +75,119 @@ public sealed partial class UiDocument {
             return;
         }
 
-        var bare = string.IsNullOrEmpty(element.Text);
+        var before = ContentOf(Restyler.PseudoStyleOf(element.StyleNode, PseudoElement.Before));
+        var after = ContentOf(Restyler.PseudoStyleOf(element.StyleNode, PseudoElement.After));
 
-        var before = bare ? ContentOf(Restyler.PseudoStyleOf(element.StyleNode, PseudoElement.Before)) : null;
-        var after = bare ? ContentOf(Restyler.PseudoStyleOf(element.StyleNode, PseudoElement.After)) : null;
+        if (!string.IsNullOrEmpty(element.Text) && (before is not null || after is not null)) {
+            MoveOwnTextIntoBox(element);
+        }
 
         Reconcile(element, PseudoElement.Before, before);
         Reconcile(element, PseudoElement.After, after);
+        SyncOwnText(element);
     }
+
+    /// <summary>
+    ///     Puts an element's own words where they belong given the boxes it generates: in its own
+    ///     node, measured, when it generates none — and in <see cref="UiElement.AnonymousText" />
+    ///     when it generates one.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One invariant, restored from either side</b>: the element's node measures itself
+    ///         exactly when it has text and no anonymous box. Called after the style pass has
+    ///         reconciled the generated boxes, and from <c>UiElement.OnTextChanged</c> whenever the
+    ///         element has any of the three — so text arriving, text leaving and a rule turning off
+    ///         all end in the same state whichever came first.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The detach comes before the box and the reattach after it</b>, in both directions,
+    ///         because the layout tree refuses a measure function on a node that has children at the
+    ///         moment either call is made.
+    ///     </para>
+    /// </remarks>
+    internal void SyncOwnText(UiElement element) {
+        var text = element.Text;
+        var boxed = !string.IsNullOrEmpty(text) && (element.GeneratedBefore is not null || element.GeneratedAfter is not null);
+
+        if (boxed) {
+            MoveOwnTextIntoBox(element).Text = text;
+
+            return;
+        }
+
+        if (element.AnonymousText is not { } own) {
+            return;
+        }
+
+        Layout.RemoveChild(element.LayoutNode, own.LayoutNode);
+        Layout.DestroyRecursive(own.LayoutNode);
+        element.SetGenerated(PseudoElement.None, null);
+
+        if (!string.IsNullOrEmpty(text)) {
+            Layout.SetContext(element.LayoutNode, element);
+            Layout.SetMeasureFunction(element.LayoutNode, TextLayout.Measure);
+        }
+    }
+
+    /// <summary>Gives an element its anonymous text box if it has none, taking the measure function off its node.</summary>
+    GeneratedBox MoveOwnTextIntoBox(UiElement element) {
+        if (element.AnonymousText is { } existing) {
+            return existing;
+        }
+
+        Layout.SetMeasureFunction(element.LayoutNode, null);
+        Layout.SetContext(element.LayoutNode, null);
+
+        var box = new GeneratedBox(PseudoElement.None);
+        var node = Layout.CreateNode();
+
+        box.Bind(this, "::text", element, StyleNodeId.Invalid, node);
+
+        // After a `::before` when there is one and first otherwise; an `::after` arriving later is
+        // appended behind it, and a `::before` arriving later is inserted ahead of it.
+        Layout.InsertChild(element.LayoutNode, node, element.GeneratedBefore is null ? 0 : 1);
+        element.SetGenerated(PseudoElement.None, box);
+        box.Text = element.Text;
+        GeneratedBoxesBuilt++;
+
+        return box;
+    }
+
+    /// <summary>The anonymous text box's style: everything its element passes down, and <c>display: inline</c>.</summary>
+    /// <param name="owner">The originating element's cascaded style.</param>
+    /// <remarks>
+    ///     ⚠ <b>Cached per owner style, by reference, and that is what keeps it free.</b> A style built
+    ///     afresh each frame is a new object each frame, and <c>Apply</c>'s reference test would then
+    ///     rebuild the box's layout style every frame for a document nothing changed in. Owner styles
+    ///     are interned, so a table keyed on them is keyed on the cascade's own answer; a weak one,
+    ///     so a style the cascade has dropped takes its anonymous twin with it.
+    /// </remarks>
+    ComputedStyle AnonymousTextStyleOf(ComputedStyle? owner) {
+        owner ??= ComputedStyle.Empty;
+
+        if (anonymousTextStyles.TryGetValue(owner, out var cached)) {
+            return cached;
+        }
+
+        var pairs = new List<KeyValuePair<int, int>>(owner.Count + 1);
+        var inherited = Styles.Resolver.Inherited;
+
+        for (var i = 0; i < owner.Count; i++) {
+            if (inherited.Inherits(owner.Properties[i])) {
+                pairs.Add(new KeyValuePair<int, int>(owner.Properties[i], owner.Values[i]));
+            }
+        }
+
+        pairs.Add(new KeyValuePair<int, int>(display, Styles.Values.Intern("inline")));
+
+        var style = ComputedStyle.Create(pairs, owner);
+        anonymousTextStyles.AddOrUpdate(owner, style);
+
+        return style;
+    }
+
+    readonly ConditionalWeakTable<ComputedStyle, ComputedStyle> anonymousTextStyles = new();
 
     /// <summary>Builds, rewrites or drops one of an element's two generated boxes.</summary>
     void Reconcile(UiElement element, PseudoElement kind, string? content) {
@@ -118,23 +230,6 @@ public sealed partial class UiDocument {
         Layout.RemoveChild(element.LayoutNode, box.LayoutNode);
         Layout.DestroyRecursive(box.LayoutNode);
         element.SetGenerated(box.Kind, null);
-    }
-
-    /// <summary>Drops both of an element's generated boxes, ahead of it starting to measure itself.</summary>
-    /// <remarks>
-    ///     Called from <c>UiElement.OnTextChanged</c>, before the measure function goes on: the layout
-    ///     tree refuses a measure function on a node with children, and a generated box is one. The
-    ///     next style pass would have dropped them anyway — <see cref="Generate" /> refuses a box on
-    ///     an element with text — but the measure function cannot wait for it.
-    /// </remarks>
-    internal void Ungenerate(UiElement element) {
-        if (element.GeneratedBefore is { } before) {
-            Ungenerate(element, before);
-        }
-
-        if (element.GeneratedAfter is { } after) {
-            Ungenerate(element, after);
-        }
     }
 
     /// <summary>What a generated box's <c>content</c> computes to, as text, or null for no box.</summary>

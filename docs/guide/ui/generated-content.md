@@ -45,10 +45,14 @@ The box inherits from the element, as every CSS property says it should: a `colo
 
 ### What it does not do yet
 
-- **No box on an element that carries text of its own.** An element with `Text` measures itself as one
-  run, and the layout refuses a node that measures itself and has children. Put the words on a child
-  element and the generated box on the parent. This is the gap most worth knowing about: a `label` with
-  `label::after { content: "*" }` and the label's text on the label itself generates nothing.
+- **Beside an element's own text, the words are in a box of their own.** A `label` with
+  `label::after { content: "*" }` and its text on the label itself draws `Name*`: while the element
+  generates a box, its `Text` is measured and drawn in an anonymous inline box between the two, which
+  carries the element's inherited properties and nothing else. So a property that does not inherit —
+  `text-overflow`, for one — written on the element does not reach its words while it generates a
+  box. And a text field's caret and hit testing read the text layout of its `field-text` part
+  directly, so a `::before` on that part (not on the field, which has no text of its own) would put
+  the caret beside where the words are drawn rather than on them.
 - **Strings only.** `attr()`, counters, quotes and images in `content` give no box rather than their
   literal text.
 - **No transitions on the box.** Its style is recomputed with the element's, and nothing animates it.
@@ -80,6 +84,6 @@ The box inherits from the element, as every CSS property says it should: a `colo
 ## See also
 
 - [Stylesheet diagnostics](stylesheet-diagnostics.md) — where a refused pseudo-element is reported.
-- [Inline layout](inline-layout.md) — why a box cannot sit beside an element's own text yet.
+- [Inline layout](inline-layout.md) — how a generated box shares a line with inline siblings.
 - [Accessibility](accessibility.md) — names from content, and the roles that take them.
 - [Cascade layers](cascade-layers.md) — a `::before` rule is ranked like any other.

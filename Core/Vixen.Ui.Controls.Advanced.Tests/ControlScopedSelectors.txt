@@ -94,6 +94,7 @@ stepper icon	Bare
 stepper icon-button	Bare
 switch track	Bare
 switch track knob	Bare
+textarea field-placeholder	Bare
 textarea field-text	Bare
 toolbar-grid-shell > slot	Bare
 tree-row icon	Bare

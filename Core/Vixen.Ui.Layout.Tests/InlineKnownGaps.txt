@@ -267,7 +267,7 @@ the strut's effect on a fragment  ⚠ CLOSED BY THE STRUT SECTION BELOW, and it 
 # `Mixed_content_stacks_because_there_are_no_anonymous_boxes` inverted) and by two in
 # `InlineFragmentationTests`.
 
-generated boxes (::before/after)  doc 43's A12 — LANDED FOR ELEMENT CHILDREN, NOT FOR TEXT (#233).
+generated boxes (::before/after)  doc 43's A12 — LANDED, FOR ELEMENT CHILDREN (#233) AND TEXT (#1481).
                                   The "second style slot" turned out not to be a slot: the box's
                                   style is a second cascade of the ORIGINATING element over the
                                   rules naming the pseudo-element (`StyleResolver.ResolvePseudo`),
@@ -275,15 +275,17 @@ generated boxes (::before/after)  doc 43's A12 — LANDED FOR ELEMENT CHILDREN, 
                                   a layout child first or last under it (`UiDocument.Generate`),
                                   in its paint order and in nothing else. Covered by
                                   `Vixen.Ui.Tests.GeneratedContentTests`.
-                                  ⚠ STILL ABSENT, and it is this file's subject: an element that
-                                  carries TEXT generates no box. Its text is a single measured
-                                  run, the layout refuses a measured node with children, and a
-                                  browser would put the generated string in the same inline
-                                  formatting context as the element's words — which needs a run
-                                  that carries a style of its own, and there is none. A generated
-                                  box's own text is fine; it is the box beside an element's text
-                                  that is missing. The generated box also takes Vixen's default
-                                  `display: flex` rather than CSS's `inline`.
+                                  ⚠ An element that carries TEXT generates its boxes too (#1481).
+                                  Its words move into an anonymous inline box between them
+                                  (`UiElement.AnonymousText`, CSS 2.1 §9.2.2.1's anonymous box:
+                                  the element's inherited properties and `display: inline`), and
+                                  the element's node stops measuring — which is all the layout's
+                                  "a measured node has no children" rule ever asked for. No run
+                                  with a style of its own was needed: the boxes are siblings in
+                                  the box tree, not runs in one shaped string. Still true: the
+                                  generated box takes Vixen's default `display: flex` rather than
+                                  CSS's `inline`, so beside text in a block it wants
+                                  `display: inline` written to share the line.
 
 
 # ══ FLOATS BESIDE LINES — LANDED, and the oracle had to be built before the code ════════════════
@@ -582,20 +584,23 @@ blockification (§2.7)             refused as a measured no-op; `BlockificationT
 # wiring test, 30 for 60); measuring against the container's strut reddens the three parent-box
 # tests; treating a fontless span's empty strut as a refusal reddens the two fallback tests.
 #
-# STILL OWED beside it, and recorded rather than smuggled in:
-#   · A flattened span's own `vertical-align` is not read at all — neither for its own box nor as
-#     the baseline the boxes inside it hang from — so a box inside a `super` span measures against
-#     the right font from the wrong baseline. It was this before the change too.
-#   · An EMPTY span is not flattened (`IsNonAtomicInline` wants a child that participates), so it is
-#     an atomic zero-size box and its strut is inert, where CSS would still give it an inline box
-#     that can grow the line.
+# The two rows that were STILL OWED beside it have landed too:
+#   · A flattened span's own `vertical-align` is read (#1478). Every box hangs from its PARENT inline
+#     box's baseline, so the shift of every span above it is summed (`InlineAnchor`); a `top`/`bottom`
+#     span is the root of an aligned subtree, measured whole and pinned to the line's edge in round
+#     two (`AlignedSubtreeExtent`). ⚠ Decision: a baseline span's fragment is still the line box; a
+#     span that is shifted, or inside one that is, gets its own line height about its own baseline.
+#   · An EMPTY span is flattened (#1479) and is an inline box on its line. A line holding nothing but
+#     empty spans with no margin, border or padding is §9.4.2's ZERO-HEIGHT line box — so a block
+#     whose only child is a bare empty span is 0 tall, where the atomic zero-size box made it a strut
+#     tall. Covered by `InlineSpanAlignmentTests` (eleven closed-form tests, ten red before).
 
 a span's own strut                ⚠ LANDED — `ParentStrut`, and the span's line-height seed in
                                   `MeasureLine`. `InlineSpanStrutTests`
-a span's own vertical-align       a flattened span is placed at the line's baseline whatever it
-                                  declares; the boxes inside it follow (#1478)
-an empty span's inline box        an empty span is atomic and zero-size, so its line height is lost
-                                  (#1479)
+a span's own vertical-align       ⚠ LANDED (#1478) — `InlineAnchor`, `AlignedSubtreeExtent`.
+                                  `InlineSpanAlignmentTests`
+an empty span's inline box        ⚠ LANDED (#1479) — flattened, and §9.4.2's zero-height line.
+                                  `InlineSpanAlignmentTests`
 
 
 # ══ ABSENT, AND THE HONEST REASON IS "NOT YET" ══════════════════════════════════════════════════

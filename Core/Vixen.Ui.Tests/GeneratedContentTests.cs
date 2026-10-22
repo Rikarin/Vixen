@@ -285,30 +285,163 @@ public class GeneratedContentTests {
         Assert.Equal(box.AbsoluteTop, word.AbsoluteTop, 1f);
     }
 
+    /// <summary>
+    ///     ⚠ <b>The inversion of the test that pinned the gap (#1481).</b> An element with text of its
+    ///     own generates its boxes, and its words move into an anonymous inline box between them, so
+    ///     the three sit in CSS order: the red <c>::before</c> at 0, the text after it, and the
+    ///     <c>::after</c> after that. It used to generate nothing.
+    /// </summary>
     [Fact]
-    public void An_element_with_text_of_its_own_generates_nothing_and_does_not_throw() {
+    public void An_element_with_text_of_its_own_generates_its_boxes_around_that_text() {
         UiElement label = null!;
 
         using var document = Drawn(
-            Row + ".label::before { content: ''; width: 10px; height: 10px; background-color: #ff0000; }",
+            Row
+            + """
+              .label { flex-direction: row; align-items: flex-start; font-family: Test; font-size: 16px; }
+              .label::before { content: ''; width: 10px; height: 10px; background-color: #ff0000; }
+              .label::after { content: "*"; }
+              """,
             document => {
+                document.Fonts.Register("Test", Face);
                 label = document.Root.Add("div", classNames: "label");
                 label.Text = "Name";
             }
         );
 
-        Assert.Null(label.GeneratedBefore);
-        Assert.DoesNotContain(document.Drawing.Commands, IsRed);
+        Assert.IsType<GeneratedBox>(label.GeneratedBefore);
+        var after = Assert.IsType<GeneratedBox>(label.GeneratedAfter);
+        var own = Assert.IsType<GeneratedBox>(label.AnonymousText);
 
-        // And the other direction: a box that exists is dropped before the element starts measuring
-        // itself, which the layout tree would otherwise refuse.
+        Assert.Equal("Name", own.Text);
+        Assert.Equal("*", after.Text);
+
+        Assert.Equal(0f, Assert.Single(document.Drawing.Commands, IsRed).X, Tolerance);
+        Assert.Equal(10f, own.AbsoluteLeft, Tolerance);
+        Assert.True(own.Width > 0f, "the element's own words are measured in the anonymous box");
+        Assert.Equal(own.AbsoluteLeft + own.Width, after.AbsoluteLeft, Tolerance);
+        Assert.True(after.Width > 0f, "the ::after measures its own text");
+
+        // ⚠ Drawn once, from the anonymous box and not from the element too: a text command at the
+        // element's own content box would be the words a second time, under the `::before`.
+        var words = document.Drawing.Commands.Where(command => command.Kind == DrawCommandKind.Text).ToList();
+        Assert.Contains(words, command => Math.Abs(command.X - own.AbsoluteLeft) < 0.5f);
+        Assert.DoesNotContain(words, command => Math.Abs(command.X - label.AbsoluteLeft) < 0.5f);
+
+        // A point on the words is a point on the element: the anonymous box is never a target.
+        Assert.Same(label, document.HitTest(own.AbsoluteLeft + 1f, own.AbsoluteTop + 1f));
+    }
+
+    /// <summary>
+    ///     The web's shape: inline generated boxes on either side of a block's own text, on one line,
+    ///     <c>AB</c> then <c>CD</c> then <c>EF</c>, left to right on one row.
+    /// </summary>
+    [Fact]
+    public void Inline_generated_boxes_share_a_line_with_the_elements_own_text() {
+        using var document = new UiDocument(400f, 300f);
+        document.Fonts.Register("Test", Face);
+        document.Load(
+            """
+            root { width: 400px; height: 300px; align-items: flex-start; font-family: Test; font-size: 16px; }
+            .para { display: block; width: 300px; }
+            .para::before { content: "AB "; display: inline; }
+            .para::after { content: " EF"; display: inline; }
+            """
+        );
+
+        var para = document.Root.Add("div", classNames: "para");
+        para.Text = "CD";
+        document.Update();
+
+        var before = Assert.IsType<GeneratedBox>(para.GeneratedBefore);
+        var own = Assert.IsType<GeneratedBox>(para.AnonymousText);
+        var after = Assert.IsType<GeneratedBox>(para.GeneratedAfter);
+
+        Assert.True(own.Width > 0f, "the element's own words are measured");
+        Assert.True(own.AbsoluteLeft >= before.AbsoluteLeft + before.Width - 0.5f, $"the text at {own.AbsoluteLeft} overlaps the ::before ending at {before.AbsoluteLeft + before.Width}");
+        Assert.True(after.AbsoluteLeft >= own.AbsoluteLeft + own.Width - 0.5f, $"the ::after at {after.AbsoluteLeft} overlaps the text ending at {own.AbsoluteLeft + own.Width}");
+        Assert.Equal(before.AbsoluteTop, own.AbsoluteTop, 1f);
+        Assert.Equal(before.AbsoluteTop, after.AbsoluteTop, 1f);
+    }
+
+    /// <summary>
+    ///     Every transition between the states, each settling to the right shape: text taken away
+    ///     keeps the box and drops the anonymous one; text given back restores it with the box kept;
+    ///     the rule turned off drops both and the element measures its own words again — as wide as
+    ///     they are, which it cannot be if the measure function never came back.
+    /// </summary>
+    [Fact]
+    public void Text_and_generated_boxes_come_and_go_in_any_order() {
+        UiElement label = null!;
+
+        using var document = Drawn(
+            Row
+            + """
+              .label { flex-direction: row; align-items: flex-start; font-family: Test; font-size: 16px; }
+              .label.marked::after { content: "*"; }
+              """,
+            document => {
+                document.Fonts.Register("Test", Face);
+                label = document.Root.Add("div", null, "label", "marked");
+                label.Text = "Name";
+            }
+        );
+
+        var width = label.AnonymousText!.Width;
+        Assert.True(width > 0f);
+
         label.Text = null;
         document.Update();
-        Assert.NotNull(label.GeneratedBefore);
+        Assert.NotNull(label.GeneratedAfter);
+        Assert.Null(label.AnonymousText);
 
         label.Text = "Name";
         document.Update();
-        Assert.Null(label.GeneratedBefore);
+        Assert.NotNull(label.GeneratedAfter);
+        Assert.Equal("Name", label.AnonymousText!.Text);
+
+        label.Text = "Other";
+        document.Update();
+        Assert.Equal("Other", label.AnonymousText!.Text);
+
+        label.Text = "Name";
+        label.RemoveClass("marked");
+        document.Update();
+        Assert.Null(label.GeneratedAfter);
+        Assert.Null(label.AnonymousText);
+        Assert.Equal(width, label.Width, Tolerance);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The retained draw path</b>: an element whose words were drawn from its own box on the
+    ///     last frame, and which starts generating a box on this one, draws them once, from the
+    ///     anonymous box 10 along — not a second, stale copy at its own left edge.
+    /// </summary>
+    [Fact]
+    public void A_box_turned_on_after_the_text_was_drawn_moves_the_drawn_words() {
+        UiElement label = null!;
+
+        using var document = Drawn(
+            Row
+            + """
+              .label { flex-direction: row; align-items: flex-start; font-family: Test; font-size: 16px; }
+              .label.marked::before { content: ''; width: 10px; height: 10px; }
+              """,
+            document => {
+                document.Fonts.Register("Test", Face);
+                label = document.Root.Add("div", classNames: "label");
+                label.Text = "Name";
+            }
+        );
+
+        Assert.Equal(label.AbsoluteLeft, Assert.Single(document.Drawing.Commands, command => command.Kind == DrawCommandKind.Text).X, 0.5f);
+
+        label.AddClass("marked");
+        document.Update();
+        document.Draw();
+
+        var words = Assert.Single(document.Drawing.Commands, command => command.Kind == DrawCommandKind.Text);
+        Assert.Equal(label.AbsoluteLeft + 10f, words.X, 0.5f);
     }
 
     [Fact]

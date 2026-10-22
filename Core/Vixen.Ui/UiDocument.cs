@@ -1650,9 +1650,12 @@ public sealed partial class UiDocument : IDisposable {
         //
         // ⚠ A generated box has no slot, so its style is its originating element's pseudo cascade and
         // nothing animates it. See `GeneratedBox`.
+        //
+        // ⚠ And the anonymous text box (#1481) has no rule at all: it is its element's inherited
+        // properties and `display: inline`, which is what CSS 2.1 §9.2.2.1 gives an anonymous box.
         var generated = element as GeneratedBox;
-        var cascaded = generated is null
-            ? Restyler.StyleOf(element.StyleNode)
+        var cascaded = generated is null ? Restyler.StyleOf(element.StyleNode)
+            : generated.Kind == PseudoElement.None ? AnonymousTextStyleOf(parentCascaded)
             : Restyler.PseudoStyleOf(generated.Parent!.StyleNode, generated.Kind) ?? ComputedStyle.Empty;
         var style = generated is null ? Styles.Animations.Apply(element.StyleNode, cascaded, seconds) : cascaded;
 
@@ -1850,6 +1853,10 @@ public sealed partial class UiDocument : IDisposable {
 
         if (element.GeneratedBefore is { } first) {
             Apply(first, element.FontSize, text, childMetrics, cascaded, style);
+        }
+
+        if (element.AnonymousText is { } words) {
+            Apply(words, element.FontSize, text, childMetrics, cascaded, style);
         }
 
         // ⚠ `ChildList` rather than `Children`, here and in `Accumulate`, and it is worth forty bytes
@@ -3231,6 +3238,10 @@ public sealed partial class UiDocument : IDisposable {
         // paint walk reads `AbsoluteLeft`, which nothing else would ever write for them.
         if (element.GeneratedBefore is { } first) {
             Accumulate(first, element.AbsoluteLeft, element.AbsoluteTop, metrics, in inner);
+        }
+
+        if (element.AnonymousText is { } words) {
+            Accumulate(words, element.AbsoluteLeft, element.AbsoluteTop, metrics, in inner);
         }
 
         if (element.GeneratedAfter is { } last) {
