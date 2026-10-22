@@ -3,17 +3,17 @@
 
 using System.Diagnostics;
 using Vixen.Core;
+using Vixen.Core.Imaging;
 using Vixen.Core.IO;
 using Vixen.Core.IO.Watch;
 using Vixen.Editor.AssetEditors.Content;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.Core;
+using Vixen.Editor.Plugin;
 using Vixen.Editor.Testing;
 using Vixen.Editor.Texturing;
 using Vixen.Editor.Ui.Documents;
-using Vixen.Core.Imaging;
-using Vixen.Editor.Plugin;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
