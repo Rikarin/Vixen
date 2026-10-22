@@ -425,9 +425,10 @@ public sealed class ProjectAssemblyTests : IDisposable {
     ///     must put an instance of the <i>rebuilt</i> type on each — the value alone would pass against the
     ///     defect, since the stale instance still has it — and a rebuild with nothing to fall back on
     ///     holds both and refuses to save either.
-    ///     ⚠ <b>Whether the old context is then collected is not asserted here</b>: it is not, with one
-    ///     scene or two, because <c>BehaviorStore</c> keeps an emptied bucket keyed by the old type —
-    ///     a separate defect (#1502), filed rather than widened into this one.
+    ///     ⚠ <b>And the old context is collected afterwards (#1502).</b> It was not, with one scene or
+    ///     two: <c>BehaviorStore</c> kept the emptied bucket keyed by the old type, so the take-off this
+    ///     test proves was undone by the store, and every rebuild with a project behaviour in a scene
+    ///     leaked one assembly. The probe was written with #1496 and dropped because of that defect.
     /// </remarks>
     [Fact]
     public void A_rebuild_keeps_the_project_behaviours_of_every_open_scene() {
@@ -451,6 +452,7 @@ public sealed class ProjectAssemblyTests : IDisposable {
         Assert.True(session.BuildCode(), string.Join(Environment.NewLine, said));
 
         var entities = scenes.Select((scene, index) => Author(scene, 10f + index)).ToArray();
+        var first = ContextOf("TwinPatrol");
 
         // A rebuild that works: a new field, the ordinary edit.
         var laps = Declaring("TwinPatrol").Replace("Speed { get; set; } = 1f;", "Speed { get; set; } = 1f; public int Laps { get; set; }", StringComparison.Ordinal);
@@ -469,6 +471,15 @@ public sealed class ProjectAssemblyTests : IDisposable {
             scenes[index].Save();
             Assert.Contains("!TwinPatrol", File.ReadAllText(files[index]), StringComparison.Ordinal);
         }
+
+        // Bounded by attempts rather than by a clock, as `ProjectCoroutineUnloadTests` is.
+        for (var attempt = 0; attempt < 10 && first.IsAlive; attempt++) {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+        }
+
+        Assert.False(first.IsAlive, "the first build's load context was not collected after the rebuild put its behaviours back");
 
         // A rebuild with nothing to fall back on: both are held, and neither scene will save.
         File.WriteAllText(Path.Combine(root, "GameCode.cs"), "public class Broken { this is not C#; }");
@@ -510,6 +521,23 @@ public sealed class ProjectAssemblyTests : IDisposable {
         }
 
         static float Speed(Behavior behavior) => (float)behavior.GetType().GetProperty("Speed")!.GetValue(behavior)!;
+    }
+
+    /// <summary>A weak handle on the load context the alias's current type was loaded into.</summary>
+    /// <remarks>
+    ///     ⚠ Not inlined, so neither the binder nor the type is a live local of the caller's frame when
+    ///     it collects — a register holding one would report a leak for a fix that works.
+    /// </remarks>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    static WeakReference ContextOf(string alias) {
+        Assert.True(SceneBehaviorRegistry.TryGet(alias, out var binder));
+
+        var context = System.Runtime.Loader.AssemblyLoadContext.GetLoadContext(binder.BehaviorType.Assembly);
+
+        Assert.NotNull(context);
+        Assert.True(context.IsCollectible, "the project's assembly is not in a collectible context");
+
+        return new WeakReference(context);
     }
 
     static string Declaring(string alias) =>
