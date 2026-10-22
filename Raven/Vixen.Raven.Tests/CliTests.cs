@@ -367,6 +367,33 @@ public class CliTests : IDisposable {
         Assert.False(File.Exists(At("Leaky.rvnlib")));
     }
 
+    /// <summary>
+    ///     A <c>.reflect.json</c> is LF on every host, because <c>CheckShaders</c> compares the
+    ///     committed file to this output byte for byte and git stores it as LF (#1314).
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ This can only go red on Windows. Since .NET 9 an indented writer defaults to
+    ///     <c>Environment.NewLine</c>, which is already <c>\n</c> on Linux and macOS — so CI, which runs on
+    ///     Linux, passes with <c>NewLine = "\n"</c> deleted from <c>CompileDriver.ReflectionJson</c>, and
+    ///     that is exactly how the CRLF output reached master unseen. Sabotaged on Windows: red.
+    /// </remarks>
+    [Fact]
+    public void Emitted_reflection_has_no_carriage_return_on_any_host() {
+        Assert.Equal(0, Invoke("compile", Fixture("lambert.rvn"), At(""), "--emit-reflection"));
+
+        var reflections = Directory.GetFiles(directory, "*.reflect.json");
+
+        Assert.NotEmpty(reflections);
+
+        foreach (var reflection in reflections) {
+            var bytes = File.ReadAllBytes(reflection);
+
+            // Indented, so a file with no line break at all would pass vacuously; it must have some.
+            Assert.Contains((byte)'\n', bytes);
+            Assert.DoesNotContain((byte)'\r', bytes);
+        }
+    }
+
     int Invoke(params string[] args) =>
         RavenCommand.Create(output, error).Parse(args) is { Errors.Count: 0 } parsed
             ? parsed.Invoke()
