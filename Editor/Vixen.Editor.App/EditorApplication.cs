@@ -130,7 +130,7 @@ sealed partial class EditorApplication : IDisposable {
     readonly EditorLog log = new();
 
     /// <summary>The console panel's model: what it shows, and the view while it is open (#1294).</summary>
-    readonly ConsolePanel console;
+    readonly EditorConsole console;
 
     /// <summary>Whether the save-on-close prompt is already on screen.</summary>
     bool closing;
@@ -470,7 +470,7 @@ sealed partial class EditorApplication : IDisposable {
         bool watchAssets = true
     ) {
         store = new EditorUserStore(directory);
-        console = new ConsolePanel(log.Sink);
+        console = new EditorConsole(log.Sink);
         dataDirectory = directory;
         this.services = services ?? EditorServices.None;
         Extensions = extensions ?? EditorRegistry.Default;
@@ -1171,7 +1171,7 @@ sealed partial class EditorApplication : IDisposable {
         // `BuildRefusal`, which enumerates the project root and is therefore asked on events only.
         bakeView?.Refresh();
 
-        // ⚠ Pulled rather than subscribed to — see `ConsolePanel.Tick` for the threading reason.
+        // ⚠ Pulled rather than subscribed to — see `EditorConsole.Tick` for the threading reason.
         console.Tick();
 
         // ⚠ Beside the console's pull and for the same reason: a capture drains the sample rings,

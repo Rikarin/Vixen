@@ -29,7 +29,7 @@ namespace Vixen.Editor.App;
 ///         see.
 ///     </para>
 /// </remarks>
-sealed class ConsolePanel {
+sealed class EditorConsole {
     /// <summary>The panel's id, which a saved arrangement carries it back by.</summary>
     public const string PanelId = "console";
 
@@ -40,7 +40,7 @@ sealed class ConsolePanel {
 
     /// <summary>Builds the model over the ring the editor's log writes into.</summary>
     /// <param name="sink">The ring.</param>
-    public ConsolePanel(RingBufferSink sink) => this.sink = sink;
+    public EditorConsole(RingBufferSink sink) => this.sink = sink;
 
     /// <summary>The console's view while the panel is open, or <see langword="null" />.</summary>
     public ConsoleView? View { get; private set; }
