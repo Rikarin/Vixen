@@ -45,7 +45,7 @@ sealed class SourceControlModule : IEditorPlugin {
         var selection = project.Selection;
 
         var revisions = context.Publish(
-            new RevisionsPanel(context.Shell, sourceControl, project, context.Services.Require<HotReloadHost>())
+            new AssetRevisions(context.Shell, sourceControl, project, context.Services.Require<HotReloadHost>())
         );
 
         context.AddPanel(revisions.Descriptor());

@@ -80,11 +80,11 @@ public class SourceControlModuleTests {
         sourceControl.Use(new Fixed(path));
         Swept(editor, sourceControl);
 
-        Assert.False(editor.Shell.Workspace.IsOpen(RevisionsPanel.PanelId));
+        Assert.False(editor.Shell.Workspace.IsOpen(AssetRevisions.PanelId));
 
         editor.Run("assets.history").Settle();
 
-        Assert.True(editor.Shell.Workspace.IsOpen(RevisionsPanel.PanelId));
+        Assert.True(editor.Shell.Workspace.IsOpen(AssetRevisions.PanelId));
 
         var view = SourceControlHarness.Revisions(editor).View;
 
@@ -96,7 +96,7 @@ public class SourceControlModuleTests {
 
         Assert.Null(editor.Shell.Commands["assets.history"]);
         Assert.Null(editor.Shell.Commands["assets.revert"]);
-        Assert.DoesNotContain(editor.Shell.Workspace.Panels, panel => panel.Id == RevisionsPanel.PanelId);
+        Assert.DoesNotContain(editor.Shell.Workspace.Panels, panel => panel.Id == AssetRevisions.PanelId);
 
         // ⚠ The service is the application's and outlives the module: a column still has its answer.
         Assert.True(editor.Plugins.Services.Require<ISourceControl>().IsKnown);

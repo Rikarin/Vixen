@@ -777,5 +777,5 @@ static class SourceControlHarness {
         (ProjectSourceControl)editor.Plugins.Services.Require<ISourceControl>();
 
     /// <summary>The revisions panel <see cref="SourceControlModule" /> published.</summary>
-    public static RevisionsPanel Revisions(EditorSession editor) => editor.Plugins.Services.Require<RevisionsPanel>();
+    public static AssetRevisions Revisions(EditorSession editor) => editor.Plugins.Services.Require<AssetRevisions>();
 }

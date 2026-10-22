@@ -29,7 +29,7 @@ namespace Vixen.Editor.App;
 ///         <see cref="Update" /> on the frame thread; the view is handed answers.
 ///     </para>
 /// </remarks>
-sealed class RevisionsPanel {
+sealed class AssetRevisions {
     /// <summary>The panel's id.</summary>
     internal const string PanelId = "revisions";
 
@@ -56,7 +56,7 @@ sealed class RevisionsPanel {
     /// <param name="sourceControl">The published service.</param>
     /// <param name="project">The project whose selection the panel follows.</param>
     /// <param name="hotReload">The reload host the view is mounted through.</param>
-    public RevisionsPanel(EditorShell shell, ISourceControl sourceControl, EditorProject project, HotReloadHost hotReload) {
+    public AssetRevisions(EditorShell shell, ISourceControl sourceControl, EditorProject project, HotReloadHost hotReload) {
         this.shell = shell;
         this.sourceControl = sourceControl;
         this.project = project;
