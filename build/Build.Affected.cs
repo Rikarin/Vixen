@@ -212,8 +212,11 @@ partial class Build {
         var outside = owners.Where(project => !solution.Contains(project)).ToList();
 
         foreach (var project in outside) {
+            // ⚠ "Owns or reads", not "changed": since #1446 `build/_build.csproj` is the declared reader
+            // of the content-bytes fixture, and this line is how a narrowed run says the gate that
+            // reads it (CheckContentBytes) is one it does not run.
             Log.Information(
-                "{Project} changed but is not in {Solution}, so no target that reads the solution covers it.",
+                "{Project} owns or reads what changed but is not in {Solution}, so no target that reads the solution covers it.",
                 RootDirectory.GetRelativePathTo(project).ToUnixRelativePath(),
                 Solution.Path.Name
             );

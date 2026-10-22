@@ -66,6 +66,67 @@ public sealed class AffectedOwnershipTests {
         Assert.True(AffectedOwnership.OwnedByNoProject("Raven/README.md"));
     }
 
+    /// <summary>
+    ///     ⚠ <c>Raven/README.md</c> is projectless by the area-README clause and still selects the
+    ///     suite that reads it.
+    /// </summary>
+    /// <remarks>
+    ///     #1319 made it projectless so that <c>--since</c> stopped refusing it, while
+    ///     <c>ReadmeExampleTests</c> compiles its examples and <c>DiagnosticCoverageTests</c> checks its
+    ///     table. On the real tree the suite was still reached, but only because two Raven projects
+    ///     pack the file as their NuGet readme; with no patterns — the position it is in the day that
+    ///     include moves — <c>Projects</c> came back empty before the declared reader.
+    /// </remarks>
+    [Fact]
+    public void TheRavenReadmeIsOwnedByTheSuiteThatReadsIt() {
+        var ownership = AffectedOwnership.Classify(["Raven/README.md"], NoContainer, NoPatterns);
+
+        Assert.Empty(ownership.Orphans);
+        Assert.Equal([RavenTests], ownership.Projects);
+
+        // A declared file is that file, not a prefix of a longer name.
+        Assert.Empty(AffectedOwnership.ReadersOf("Raven/README.md.orig", NoPatterns));
+    }
+
+    /// <summary>
+    ///     #1446's two groups that something does read select that reader, rather than refusing or
+    ///     being exempted as projectless.
+    /// </summary>
+    [Theory]
+    [InlineData("Tools/Vixen.BcnOracle/bcn-oracle.c", "Core/Vixen.Core.Imaging.Tests/Vixen.Core.Imaging.Tests.csproj")]
+    [InlineData("Tools/Vixen.BcnOracle/build.sh", "Core/Vixen.Core.Imaging.Tests/Vixen.Core.Imaging.Tests.csproj")]
+    [InlineData("Testing/ContentDeterminism/Assets/UiCore.vxgroup", "build/_build.csproj")]
+    [InlineData("Testing/ContentDeterminism/README.md", "build/_build.csproj")]
+    public void AFileReadOnlyByAToolOrATargetIsOwnedByIt(string file, string reader) {
+        Assert.False(AffectedOwnership.OwnedByNoProject(file));
+
+        var ownership = AffectedOwnership.Classify([file], NoContainer, NoPatterns);
+
+        Assert.Empty(ownership.Orphans);
+        Assert.Equal([reader], ownership.Projects);
+    }
+
+    /// <summary>#1446's prose and markers: projectless, each by name.</summary>
+    [Theory]
+    [InlineData(".claude/skills/vixen/SKILL.md")]
+    [InlineData("Core/Vixen.Generators.Shared/README.md")]
+    [InlineData("Samples/14-Mmo/Mmo.vxproj")]
+    [InlineData("Samples/14-Mmo/README.md")]
+    [InlineData("Samples/14-Mmo/Assets/Default.vxgroup")]
+    public void ProseAndMarkersNothingReadsAreProjectless(string file) {
+        Assert.True(AffectedOwnership.OwnedByNoProject(file));
+    }
+
+    /// <summary>
+    ///     And the Mmo exemption is those three files, not the sample: a source file at its root is
+    ///     still an orphan.
+    /// </summary>
+    [Fact]
+    public void TheMmoExemptionIsNotTheWholeSample() {
+        Assert.False(AffectedOwnership.OwnedByNoProject("Samples/14-Mmo/Stray.cs"));
+        Assert.False(AffectedOwnership.OwnedByNoProject("Samples/14-Mmo/Assets/Other.vxgroup"));
+    }
+
     /// <summary>A file nothing contains, reads or exempts is still an orphan.</summary>
     [Fact]
     public void AFileNothingReadsIsStillAnOrphan() {
@@ -214,36 +275,17 @@ public sealed class AffectedOwnershipTests {
     ///         time.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The list is what <c>--since</c> still refuses</b>, and each group is a decision
-    ///         nobody has taken, not a verdict: <c>Testing/ContentDeterminism/</c> is read by the
-    ///         <c>CheckContentBytes</c> target rather than by a project, <c>Tools/Vixen.BcnOracle/</c>
-    ///         is C built by a script, and the rest is prose. It can only shrink; a new file in a
-    ///         place nothing owns reds this before it reds somebody's narrowed run.
+    ///         ⚠ <b>The list is what <c>--since</c> still refuses, and it is empty</b> since #1446
+    ///         decided its nineteen rows: <c>Testing/ContentDeterminism/</c> and
+    ///         <c>Tools/Vixen.BcnOracle/</c> have declared readers, and <c>.claude/</c>, the
+    ///         generator README and the Mmo sample's root are projectless. It can only stay empty; a
+    ///         new file in a place nothing owns reds this before it reds somebody's narrowed run, and
+    ///         a row added here needs a written reason beside it.
     ///     </para>
     /// </remarks>
     [Fact]
     public void EveryCommittedFileHasAnOwnerOrIsANamedOrphan() {
-        string[] named = [
-            ".claude/skills/vixen/SKILL.md",
-            ".claude/skills/vixen/mcp.md",
-            "Core/Vixen.Generators.Shared/README.md",
-            "Samples/14-Mmo/Assets/Default.vxgroup",
-            "Samples/14-Mmo/Mmo.vxproj",
-            "Samples/14-Mmo/README.md",
-            "Testing/ContentDeterminism/Assets/Ui.meta",
-            "Testing/ContentDeterminism/Assets/Ui/hero.txt",
-            "Testing/ContentDeterminism/Assets/Ui/hero.txt.meta",
-            "Testing/ContentDeterminism/Assets/Ui/sidekick.txt",
-            "Testing/ContentDeterminism/Assets/Ui/sidekick.txt.meta",
-            "Testing/ContentDeterminism/Assets/Ui/villain.txt",
-            "Testing/ContentDeterminism/Assets/Ui/villain.txt.meta",
-            "Testing/ContentDeterminism/Assets/UiCore.vxgroup",
-            "Testing/ContentDeterminism/Assets/UiCore.vxgroup.meta",
-            "Testing/ContentDeterminism/README.md",
-            "Tools/Vixen.BcnOracle/README.md",
-            "Tools/Vixen.BcnOracle/bcn-oracle.c",
-            "Tools/Vixen.BcnOracle/build.sh"
-        ];
+        string[] named = [];
 
         var root = RepositoryRoot();
         var committed = CommittedPaths(root);
@@ -318,9 +360,7 @@ public sealed class AffectedOwnershipTests {
             var projectDirectory = Path.GetDirectoryName(reader.Project)!.Replace('\\', '/');
             Assert.StartsWith(projectDirectory + "/", reader.Evidence, StringComparison.Ordinal);
 
-            var walks = BaseDirectoryWalk.Matches(File.ReadAllText(Path.Combine(root, reader.Evidence)))
-                .Select(walk => Resolve(projectDirectory + "/bin/Debug/net10.0", walk.Groups["segments"].Value))
-                .ToList();
+            var walks = Reaches(projectDirectory, File.ReadAllText(Path.Combine(root, reader.Evidence)));
 
             Assert.True(
                 walks.Contains(reader.Prefix.TrimEnd('/')),
@@ -329,6 +369,60 @@ public sealed class AffectedOwnershipTests {
             );
         }
     }
+
+    /// <summary>
+    ///     Every repository-relative path <paramref name="source" /> reaches, in the three shapes a
+    ///     declared reader's evidence takes.
+    /// </summary>
+    /// <remarks>
+    ///     <list type="bullet">
+    ///         <item>
+    ///             A test binary walking up: <c>Path.Combine(AppContext.BaseDirectory, "..", …)</c>,
+    ///             resolved from the project's own <c>bin/Debug/net10.0</c>.
+    ///         </item>
+    ///         <item>
+    ///             A build target: <c>RootDirectory / "Testing" / "ContentDeterminism"</c>, resolved
+    ///             from the root (#1446).
+    ///         </item>
+    ///         <item>
+    ///             ⚠ The weakest, kept for the one reader nothing on disk connects it to: a string
+    ///             literal spelling the whole prefix. <c>Tools/Vixen.BcnOracle/</c> is compiled by a
+    ///             script into a cache outside the tree and the suite finds the binary there, so the
+    ///             suite's own instruction to run that script is the only edge. It is the whole
+    ///             repository-relative directory, not a word like <c>"Library"</c>, which is what
+    ///             made the old name check pass for a reader that had stopped walking.
+    ///         </item>
+    ///     </list>
+    /// </remarks>
+    static List<string> Reaches(string projectDirectory, string source) => [
+        .. BaseDirectoryWalk.Matches(source).Select(walk => Resolve(projectDirectory + "/bin/Debug/net10.0", walk.Groups["segments"].Value)),
+        .. RootDirectoryWalk.Matches(source).Select(walk => Resolve(string.Empty, walk.Groups["segments"].Value.Replace('/', ','))),
+        .. ScriptInstruction.Matches(source).Select(match => match.Groups["directory"].Value)
+    ];
+
+    /// <summary>
+    ///     ⚠ The evidence check cannot pass for a reader in the wrong place, in any of its shapes.
+    /// </summary>
+    [Theory]
+    [InlineData("Raven/Vixen.Raven.Tests", """Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "README.md")""", "Raven/README.md")]
+    [InlineData("build", """AbsolutePath Fixture => RootDirectory / "Testing" / "ContentDeterminism";""", "Testing/ContentDeterminism")]
+    [InlineData("build", """AbsolutePath Fixture => RootDirectory / "Testing";""", "Testing")]
+    [InlineData("Core/Vixen.Core.Imaging.Tests", """Missing("x", "Build it: sh Tools/Vixen.BcnOracle/build.sh.");""", "Tools/Vixen.BcnOracle")]
+    public void A_declared_readers_evidence_resolves_to_one_place(string project, string source, string expected) {
+        Assert.Equal([expected], Reaches(project, source));
+    }
+
+    /// <summary>A Nuke path built from the repository root out of string literals.</summary>
+    static readonly System.Text.RegularExpressions.Regex RootDirectoryWalk = new(
+        """RootDirectory(?<segments>(?:\s*/\s*"[^"]*")+)""",
+        System.Text.RegularExpressions.RegexOptions.CultureInvariant
+    );
+
+    /// <summary>A script under a repository directory, named as the command that builds what is read: <c>sh Dir/Sub/build.sh</c>.</summary>
+    static readonly System.Text.RegularExpressions.Regex ScriptInstruction = new(
+        """\bsh (?<directory>[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+)/[A-Za-z0-9_.-]+\.sh\b""",
+        System.Text.RegularExpressions.RegexOptions.CultureInvariant
+    );
 
     /// <summary>
     ///     ⚠ The check above cannot pass by finding a word: a walk one level short, or to a sibling
@@ -352,7 +446,7 @@ public sealed class AffectedOwnershipTests {
 
     /// <summary>Applies a walk's literal segments to a repository-relative start.</summary>
     static string Resolve(string start, string segments) {
-        var path = start.Split('/').ToList();
+        List<string> path = start.Length == 0 ? [] : [.. start.Split('/')];
 
         foreach (var segment in segments.Split(',').Select(part => part.Trim().Trim('"')).Where(part => part.Length > 0)) {
             if (segment == "..") {

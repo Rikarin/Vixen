@@ -42,7 +42,10 @@ public static class AffectedOwnership {
     ///     A project that reads files under a directory without naming them in any item, so that
     ///     nothing in its project file could be matched against a change.
     /// </summary>
-    /// <param name="Prefix">The repository-relative directory, <c>/</c>-separated, with a trailing slash.</param>
+    /// <param name="Prefix">
+    ///     The repository-relative directory, <c>/</c>-separated, with a trailing slash — or one
+    ///     file, exactly, when a reader reads that file and nothing beside it.
+    /// </param>
     /// <param name="Project">The reading project, repository-relative.</param>
     /// <param name="Evidence">
     ///     A repository-relative source file of that project which spells the directory, so that a
@@ -54,15 +57,40 @@ public static class AffectedOwnership {
     ///     The readers no project file can reveal, because they find their input on disk.
     /// </summary>
     /// <remarks>
-    ///     ⚠ Short on purpose, and the only hand-kept part of the rule: everything a project names
-    ///     in an item is derived by <see cref="ItemPatterns" /> instead. <c>Vixen.Raven.Tests</c> is
-    ///     here because <c>LibraryReflectionTests</c>, <c>LibraryCompileWorkTests</c> and
-    ///     <c>LexerDifferentialTests</c> bind the whole library by walking four directories up from
-    ///     the test binary, which no <c>.csproj</c> records. It is a floor and not a closure: an
-    ///     <c>.rvn</c> import closure is still invisible to <c>--since</c>, as its targets say.
+    ///     <para>
+    ///         ⚠ Short on purpose, and the only hand-kept part of the rule: everything a project
+    ///         names in an item is derived by <see cref="ItemPatterns" /> instead.
+    ///         <c>Vixen.Raven.Tests</c> is here because <c>LibraryReflectionTests</c>,
+    ///         <c>LibraryCompileWorkTests</c> and <c>LexerDifferentialTests</c> bind the whole library
+    ///         by walking four directories up from the test binary, which no <c>.csproj</c> records.
+    ///         It is a floor and not a closure: an <c>.rvn</c> import closure is still invisible to
+    ///         <c>--since</c>, as its targets say.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Raven/README.md</c> is read by a test, and was selected only by accident.</b>
+    ///         <c>ReadmeExampleTests</c> compiles the README's examples off disk and
+    ///         <c>DiagnosticCoverageTests</c> checks its diagnostic table. The one-slash README
+    ///         clause in <see cref="OwnedByNoProject" /> (8e9c0ca47, #1319) calls it projectless, and
+    ///         what kept an edit to it reaching those suites since #1420 is that
+    ///         <c>Vixen.Raven</c> and <c>Vixen.Raven.Cli</c> <em>pack</em> it as their NuGet readme —
+    ///         an item include, whose reverse-reference closure happens to hold the suite. Move the
+    ///         package readme and the selection would have gone to nothing, silently. The real
+    ///         reader is declared here instead, and outranks the clause in <see cref="Classify" />.
+    ///     </para>
+    ///     <para>
+    ///         The last two are readers that are not test binaries walking the tree (#1446).
+    ///         <c>Testing/ContentDeterminism/</c> is the fixture only the <c>CheckContentBytes</c>
+    ///         target builds, so its reader is <c>build/_build.csproj</c>: outside the solution, so a
+    ///         narrowed run says it cannot cover it rather than either refusing or saying nothing.
+    ///         <c>Tools/Vixen.BcnOracle/</c> is C a script compiles into the oracle that
+    ///         <c>BcnReferenceDecoderTests</c> runs, so an edit to it selects that suite.
+    ///     </para>
     /// </remarks>
     public static IReadOnlyList<DeclaredReader> DeclaredReaders { get; } = [
-        new("Raven/Library/", "Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj", "Raven/Vixen.Raven.Tests/LibraryReflectionTests.cs")
+        new("Raven/Library/", "Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj", "Raven/Vixen.Raven.Tests/LibraryReflectionTests.cs"),
+        new("Raven/README.md", "Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj", "Raven/Vixen.Raven.Tests/ReadmeExampleTests.cs"),
+        new("Testing/ContentDeterminism/", "build/_build.csproj", "build/Build.ContentBytes.cs"),
+        new("Tools/Vixen.BcnOracle/", "Core/Vixen.Core.Imaging.Tests/Vixen.Core.Imaging.Tests.csproj", "Core/Vixen.Core.Imaging.Tests/BcnReferenceDecoderTests.cs")
     ];
 
     /// <summary>
@@ -119,8 +147,26 @@ public static class AffectedOwnership {
         // Kept as narrow as the others: exactly one slash, and exactly that name. A README
         // deeper in the tree still belongs to the project above it, which is where the
         // per-module READMEs the convention actually cares about live.
+        //
+        // ⚠ "Compile into nothing" was not true of `Raven/README.md`: Vixen.Raven.Tests reads it.
+        // This clause still admits it, harmlessly, because a declared reader in `DeclaredReaders`
+        // outranks it — but a new area README a test reads needs a reader there too, or an edit
+        // to it narrows to no tests unless something happens to pack it.
         || (relative.EndsWith("/README.md", StringComparison.Ordinal)
-            && relative.Count(character => character == '/') == 1);
+            && relative.Count(character => character == '/') == 1)
+        // Claude Code's project skill: read by the agent harness, by no .NET target (#1446).
+        || relative.StartsWith(".claude/", StringComparison.Ordinal)
+        // ⚠ Named one by one rather than by a rule, because each was checked rather than assumed
+        // (#1446). The shared generator source beside this README is owned through its importers'
+        // `Compile` links; the README itself is prose nothing reads. The Mmo sample's root holds
+        // no project — its projects are one level down — and its marker, README and the group
+        // its *content build* reads are read by no test: Mmo.Content.Tests copies the definition
+        // kinds by extension and no `.vxgroup`, and nothing in the solution runs that content
+        // build. A new file there goes red in `EveryCommittedFileHasAnOwnerOrIsANamedOrphan`.
+        || relative is "Core/Vixen.Generators.Shared/README.md"
+            or "Samples/14-Mmo/Mmo.vxproj"
+            or "Samples/14-Mmo/README.md"
+            or "Samples/14-Mmo/Assets/Default.vxgroup";
 
 
     /// <summary>
@@ -255,7 +301,9 @@ public static class AffectedOwnership {
     public static IReadOnlyList<string> ReadersOf(string relative, IReadOnlyDictionary<string, IReadOnlyList<string>> patternsByProject) {
         var readers = new SortedSet<string>(StringComparer.Ordinal);
 
-        foreach (var reader in DeclaredReaders.Where(reader => relative.StartsWith(reader.Prefix, StringComparison.Ordinal))) {
+        foreach (var reader in DeclaredReaders.Where(reader => reader.Prefix.EndsWith('/')
+                     ? relative.StartsWith(reader.Prefix, StringComparison.Ordinal)
+                     : relative == reader.Prefix)) {
             readers.Add(reader.Project);
         }
 
