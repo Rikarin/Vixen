@@ -33,7 +33,13 @@ path says before the first sweep and in a project with no provider. ⚠ It is ne
 the short one a person reads. `SourceControlDiff.IsText` says whether `Text` is a patch, or a
 sentence about a binary file and how its size changed.
 
-## When the answers arrive
+## What it is for
+
+Doc 50's rule is that a use case is a method on a service, and a menu line only names one. Before
+this service existed, the provider, the sweep and the revisions panel were private to the editor
+application. The sweep also ran only once the content browser had been opened, so Revert and Show
+History stayed greyed in a git project until somebody opened the Project tab. Those verbs now belong
+to the editor's `SourceControlModule`, which is a module over this service.
 
 The provider is found lazily, on the thread pool, by the first sweep. The editor takes that sweep
 when it starts, and another on every [`IProjectSession.Rescanned`](project-session.md): when the file

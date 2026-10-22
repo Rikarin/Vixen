@@ -276,7 +276,7 @@ database mutation and importer calls: `LayerStackView.cs` 0, `NodeGraphView.cs` 
 `Stack.Execute`), `ProjectBrowser.cs` 2 — a `Scan()`+`Save()` pair (`:1167-1175@3e9f7e5d9`) that duplicates
 `EditorProject.Open` minus its "save only if changed" guard. **The application logic is not in the
 views; it is in the one class** — `EditorParity.cs` alone has 21 file-system calls, including
-`Directory.Delete(project.Paths.Library, recursive: true)` at `EditorParity.cs:1657`.
+`Directory.Delete(project.Paths.Library, recursive: true)` at `EditorParity.cs:1630`.
 
 What *is* doubled is the language, and each pair is two contexts sharing a word:
 
