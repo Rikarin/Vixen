@@ -92,12 +92,12 @@ public static class TestRunSummary {
         foreach (var assembly in expected.OrderBy(name => name, StringComparer.Ordinal)) {
             if (!summaries.TryGetValue(assembly, out var summary)) {
                 var recorded = trxTotals is not null && trxTotals.TryGetValue(assembly, out var total)
-                    ? $" Its TRX records {total} case(s), so it may have run them all;"
-                    : " It wrote no TRX either;";
+                    ? $" Its TRX records {total} case(s), so its host most likely died after the last of them"
+                    : " It wrote no TRX either, so it did not build, did not start, or died early";
 
                 problems.Add(
-                    $"{assembly} printed no summary line.{recorded} a host that dies after its last test "
-                    + "prints none, and a run with no summary is not a pass (#1360)."
+                    $"{assembly} printed no summary line.{recorded} — and a run with no summary is not a "
+                    + "pass, whatever its exit code said (#1360)."
                 );
 
                 continue;

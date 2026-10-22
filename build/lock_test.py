@@ -194,6 +194,15 @@ def the_exit_code_is_the_builds_own(lock_file: str) -> None:
     assert run.returncode == 42, f"expected 42, got {run.returncode}"
 
 
+def a_failing_nuke_is_255_not_127(lock_file: str) -> None:
+    """Nuke fails with -1. POSIX reports that as 255; Windows as 4294967295, which `sys.exit` cannot
+    take and turns into 127 — "command not found" for a red gate. Both platforms must say 255."""
+    run = spawn(lock_file, sys.executable, "-c", "raise SystemExit(-1)")
+    run.wait(timeout=20.0)
+
+    assert run.returncode == 255, f"expected 255, got {run.returncode}"
+
+
 def a_signalled_build_reports_the_shell_convention(lock_file: str) -> None:
     """A build killed by a signal is 128 + N, not Python's negative."""
     if not hasattr(signal, "SIGKILL"):
@@ -461,6 +470,7 @@ CASES = [
     the_kernel_releases_the_lock_when_the_holder_is_killed,
     a_wait_names_what_it_is_waiting_for,
     the_exit_code_is_the_builds_own,
+    a_failing_nuke_is_255_not_127,
     a_signalled_build_reports_the_shell_convention,
 ]
 

@@ -290,6 +290,14 @@ def run(argv: list) -> int:
             # Already forwarded by the handler above; keep waiting for the build to finish dying.
             continue
 
+    # ⚠ A Windows exit code is 32 bits, and Nuke's failure is -1, which Popen reports as 4294967295.
+    # Handed to `sys.exit` unchanged, Git Bash reports the run as **127** — "command not found" —
+    # so a red gate read as a missing tool. Measured 2026-10-22: a failing
+    # AffectedTests exited 127 through this file. Reduced to the low byte the way bash itself
+    # reports a native program's code (`cmd /c exit -1` is 255 there), never to 0.
+    if os.name == "nt" and not 0 <= status <= 255:
+        return (status & 0xFF) or 255
+
     # Popen reports a signalled child as -N. The shell convention every caller of build.sh reads —
     # CI, and CLAUDE.md's warning about pipelines swallowing exit codes — is 128 + N.
     return status if status >= 0 else 128 - status
