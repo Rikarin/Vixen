@@ -58,11 +58,10 @@ public interface ISceneBehaviorBinder {
     /// <param name="behavior">The instance.</param>
     /// <returns>Its state.</returns>
     /// <remarks>
-    ///     ⚠ <b>For a reload, where an instance cannot survive and its values must.</b> Unloading a
-    ///     project's assembly takes every type in it, so a behaviour the user authored is a live
-    ///     object about to become unreferenceable. Bytes and an alias are what crosses the gap: the
-    ///     assembly is rebuilt, the same alias registers again, and <see cref="Restore" /> puts the
-    ///     values into an instance of the *new* type.
+    ///     ⚠ <b>For a round trip in which the type does not lose a member</b> — play mode's, and
+    ///     <see cref="Copy" />'s. The editor's code rebuild used these bytes to carry authored
+    ///     behaviours across an unload, and a rebuild that removed a property made
+    ///     <see cref="Restore" /> throw (#1503); it now carries scene YAML. See <see cref="Restore" />.
     /// </remarks>
     byte[] Save(object behavior);
 
@@ -70,10 +69,13 @@ public interface ISceneBehaviorBinder {
     /// <param name="state">The bytes.</param>
     /// <returns>The instance, unattached.</returns>
     /// <remarks>
-    ///     ⚠ <b>A field the rebuilt behaviour no longer has is dropped, and one it has gained keeps
-    ///     its constructor's value.</b> That is the serializer's own versioning behaviour and it is
-    ///     the right one here: a reload that refused because somebody renamed a field would be a
-    ///     reload nobody could use while editing.
+    ///     ⚠ <b>A member the type has gained keeps its constructor's value; one it has lost is a
+    ///     <c>SerializationException</c>.</b> This remark used to say a lost member was dropped, and
+    ///     it is not: the binary serializer is positional, reads data written with fewer members and
+    ///     refuses data written with more (#1503). So these bytes cross nothing that may remove a
+    ///     member — play mode's round trip, an undo copy — and the editor's code rebuild carries
+    ///     behaviours across as scene YAML instead, which is keyed by name and skips what nothing
+    ///     declares.
     /// </remarks>
     object Restore(byte[] state);
 

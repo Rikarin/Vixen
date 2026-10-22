@@ -523,6 +523,113 @@ public sealed class ProjectAssemblyTests : IDisposable {
         static float Speed(Behavior behavior) => (float)behavior.GetType().GetProperty("Speed")!.GetValue(behavior)!;
     }
 
+    /// <summary>
+    ///     ⚠ <b>A rebuild that removes a member from one behaviour puts every behaviour back (#1503).</b>
+    ///     The state crossed the rebuild as the binary serializer's bytes, which are positional and
+    ///     refuse data holding more members than the build knows — so removing a property, an
+    ///     ordinary edit, threw out of <c>BuildCode</c> partway through the restore, and every
+    ///     behaviour after the failing one was neither put back nor held, so the next save wrote the
+    ///     scene without them.
+    /// </summary>
+    /// <remarks>
+    ///     Three behaviours, the middle one losing a member from the <i>middle</i> of its list, so a
+    ///     read that bound by position would also put <c>Turns</c>' value in the wrong place. All three
+    ///     come back on the rebuilt types with their values, the removed member is said by name, and the
+    ///     scene saves with all three.
+    /// </remarks>
+    [Fact]
+    public void A_rebuild_that_removes_a_member_puts_every_behaviour_back() {
+        const string before = """
+            using Vixen.Core;
+            using Vixen.Engine.Behaviors;
+
+            namespace GameCode;
+
+            [DataContract("TrioFirst")]
+            public sealed class TrioFirst : Behavior { public float Speed { get; set; } = 1f; }
+
+            [DataContract("TrioMiddle")]
+            public sealed class TrioMiddle : Behavior {
+                public float Speed { get; set; } = 1f;
+                public int Laps { get; set; }
+                public int Turns { get; set; }
+            }
+
+            [DataContract("TrioLast")]
+            public sealed class TrioLast : Behavior { public float Speed { get; set; } = 1f; }
+            """;
+
+        Write(before);
+        Directory.CreateDirectory(Path.Combine(root, "Assets"));
+
+        var project = new EditorProject(new ProjectPaths(root));
+        using var world = new World("Scenes");
+        var file = Path.Combine(root, "Assets", "Trio.vxscene");
+        var scene = new SceneDocument(project, world, AssetId.Empty, "Trio") { Writer = new SceneFileWriter(file) };
+        List<string> said = [];
+
+        using var session = new ProjectSession(
+            project,
+            (title, _, detail) => said.Add(title + ": " + detail),
+            () => { },
+            () => false,
+            new ProjectHistory(Path.Combine(root, "Data"))
+        );
+
+        Assert.True(session.BuildCode(), string.Join(Environment.NewLine, said));
+
+        var entity = scene.Add("Guard", LocalTransform.Identity);
+
+        foreach (var (alias, speed) in new[] { ("TrioFirst", 11f), ("TrioMiddle", 12f), ("TrioLast", 13f) }) {
+            Assert.True(SceneBehaviorRegistry.TryGet(alias, out var binder));
+
+            var authored = binder.Create();
+
+            binder.BehaviorType.GetProperty("Speed")!.SetValue(authored, speed);
+
+            if (alias == "TrioMiddle") {
+                binder.BehaviorType.GetProperty("Laps")!.SetValue(authored, 7);
+                binder.BehaviorType.GetProperty("Turns")!.SetValue(authored, 9);
+            }
+
+            binder.AttachTo(scene.Behaviors, entity, authored);
+        }
+
+        scene.Save();
+        said.Clear();
+
+        File.WriteAllText(Path.Combine(root, "GameCode.cs"), before.Replace("public int Laps { get; set; }", string.Empty, StringComparison.Ordinal));
+
+        Assert.True(session.BuildCode(), string.Join(Environment.NewLine, said));
+
+        var back = scene.Behaviors.AllOn(entity).ToArray().ToDictionary(behavior => behavior.GetType().Name);
+
+        Assert.Equal(3, back.Count);
+        Assert.Equal(11f, Read<float>(back["TrioFirst"], "Speed"));
+        Assert.Equal(12f, Read<float>(back["TrioMiddle"], "Speed"));
+        Assert.Equal(9, Read<int>(back["TrioMiddle"], "Turns"));
+        Assert.Equal(13f, Read<float>(back["TrioLast"], "Speed"));
+        Assert.Null(back["TrioMiddle"].GetType().GetProperty("Laps"));
+
+        foreach (var (name, behavior) in back) {
+            Assert.True(SceneBehaviorRegistry.TryGet(name, out var rebuilt));
+            Assert.Same(rebuilt.BehaviorType, behavior.GetType());
+        }
+
+        // Said, by name: the value is gone from the scene the next save writes.
+        Assert.Contains(said, line => line.Contains("TrioMiddle", StringComparison.Ordinal) && line.Contains("laps", StringComparison.OrdinalIgnoreCase));
+
+        scene.Save();
+
+        var saved = File.ReadAllText(file);
+
+        Assert.Contains("!TrioFirst", saved, StringComparison.Ordinal);
+        Assert.Contains("!TrioMiddle", saved, StringComparison.Ordinal);
+        Assert.Contains("!TrioLast", saved, StringComparison.Ordinal);
+
+        static T Read<T>(Behavior behavior, string member) => (T)behavior.GetType().GetProperty(member)!.GetValue(behavior)!;
+    }
+
     /// <summary>A weak handle on the load context the alias's current type was loaded into.</summary>
     /// <remarks>
     ///     ⚠ Not inlined, so neither the binder nor the type is a live local of the caller's frame when

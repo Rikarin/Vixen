@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Core.IO.Watch;
+using Vixen.Core.Yaml;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
@@ -56,6 +57,12 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
 
     /// <summary>What <see cref="RestoreProjectBehaviors" /> could not put back during this build.</summary>
     int dropped;
+
+    /// <summary>
+    ///     What <see cref="RestoreProjectBehaviors" /> put back without part of its state during this build:
+    ///     a member the rebuilt type no longer has, or a behaviour the rebuilt type could not read at all.
+    /// </summary>
+    readonly List<string> lost = [];
 
     /// <summary>What tells the editor that something outside it changed the assets on disk.</summary>
     /// <remarks>
@@ -441,8 +448,17 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     /// <summary>One authored behaviour, as something that outlives the type that held it.</summary>
     /// <param name="Entity">Which entity carried it.</param>
     /// <param name="Alias">Its name, which is what survives a rebuild.</param>
-    /// <param name="State">Its values.</param>
-    readonly record struct AuthoredBehavior(Entity Entity, string Alias, byte[] State);
+    /// <param name="State">Its values, as the YAML a scene file would hold for it.</param>
+    /// <remarks>
+    ///     ⚠ <b>YAML, keyed by member name, and not the binder's bytes (#1503).</b> The binary serializer
+    ///     is positional: it reads data written with fewer members and refuses data written with more,
+    ///     so removing a property from a script — an ordinary edit — made the restore throw out of
+    ///     <see cref="BuildCode" /> partway through, and every behaviour after the failing one was neither
+    ///     put back nor held. A scene file is YAML and already survives that edit, by ignoring the key
+    ///     nothing declares; this is the same mapping, so a rebuild keeps exactly what reopening the saved
+    ///     scene would.
+    /// </remarks>
+    readonly record struct AuthoredBehavior(Entity Entity, string Alias, string State);
 
     /// <summary>Takes the loaded project assembly's behaviours off the scene, keeping what was in them.</summary>
     /// <remarks>
@@ -465,7 +481,7 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
                     continue;
                 }
 
-                authored.Add(new(entity, binder.Name, binder.Save(behavior)));
+                authored.Add(new(entity, binder.Name, YamlWriter.Write(YamlSerializer.Serialize(behavior, behavior.GetType()))));
                 binder.RemoveFrom(scene.Behaviors, entity);
             }
         }
@@ -497,7 +513,28 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
                 continue;
             }
 
-            binder.AttachTo(scene.Behaviors, behavior.Entity, binder.Restore(behavior.State));
+            // ⚠ One behaviour's state the rebuilt type cannot read is that behaviour's problem, not the
+            // rest's (#1503): it is said and skipped, and the restore carries on with the next.
+            List<string> unknown = [];
+            object restored;
+
+            try {
+                restored = YamlSerializer.Deserialize(
+                    YamlReader.Read(behavior.State),
+                    binder.BehaviorType,
+                    new YamlSerializerOptions(OnUnknownKey: unknown.Add)
+                )!;
+            } catch (YamlBindingException failure) {
+                lost.Add($"{behavior.Alias} was dropped: the rebuilt code cannot read its values ({failure.Message})");
+                dropped++;
+                continue;
+            }
+
+            if (unknown.Count > 0) {
+                lost.Add($"{behavior.Alias} lost {string.Join(", ", unknown)}, which the rebuilt code no longer declares");
+            }
+
+            binder.AttachTo(scene.Behaviors, behavior.Entity, restored);
         }
     }
 
@@ -520,6 +557,19 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         }
 
         dropped = 0;
+
+        if (lost.Count > 0) {
+            notify(
+                $"{lost.Count} authored behaviour(s) lost values in the rebuild",
+                NotificationSeverity.Warning,
+                string.Join(Environment.NewLine, lost)
+                + Environment.NewLine
+                + "The scene file on disk still holds them until the scene is saved over it."
+            );
+
+            log(LogLevel.Warning, string.Join(Environment.NewLine, lost));
+            lost.Clear();
+        }
 
         if (held.Values.Sum(waiting => waiting.Count) is > 0 and var count) {
             notify(
