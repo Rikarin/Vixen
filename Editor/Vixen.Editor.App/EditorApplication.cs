@@ -129,11 +129,8 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>The ring the console reads, and what puts the editor's own messages in it.</summary>
     readonly EditorLog log = new();
 
-    /// <summary>The console panel while it is open, or <see langword="null" />.</summary>
-    ConsoleView? console;
-
-    /// <summary>What it is showing, which outlives the panel.</summary>
-    ConsoleModel? consoleModel;
+    /// <summary>The console panel's model: what it shows, and the view while it is open (#1294).</summary>
+    readonly ConsolePanel console;
 
     /// <summary>Whether the save-on-close prompt is already on screen.</summary>
     bool closing;
@@ -473,6 +470,7 @@ sealed partial class EditorApplication : IDisposable {
         bool watchAssets = true
     ) {
         store = new EditorUserStore(directory);
+        console = new ConsolePanel(log.Sink);
         dataDirectory = directory;
         this.services = services ?? EditorServices.None;
         Extensions = extensions ?? EditorRegistry.Default;
@@ -1221,10 +1219,8 @@ sealed partial class EditorApplication : IDisposable {
         // `BuildRefusal`, which enumerates the project root and is therefore asked on events only.
         bakeView?.Refresh();
 
-        // ⚠ Pulled here rather than subscribed to, and the reason is threading: the sink is written
-        // from the pool by a content import and by anything else the editor runs in the background,
-        // so a subscription would rebuild the panel's rows off the frame thread.
-        console?.Tick();
+        // ⚠ Pulled rather than subscribed to — see `ConsolePanel.Tick` for the threading reason.
+        console.Tick();
 
         // ⚠ Beside the console's pull and for the same reason: a capture drains the sample rings,
         // and the rings are written from every thread the editor runs work on.
@@ -2128,24 +2124,7 @@ sealed partial class EditorApplication : IDisposable {
         Shell.RegisterPanel(inspectorPanels.Describe("inspector", EditorStrings.PanelInspector));
         Shell.RegisterPanel(inspectorPanels.Describe("inspector-2", EditorStrings.PanelInspector2));
 
-        Shell.RegisterPanel(
-            "console",
-            EditorStrings.PanelConsole,
-            panel => {
-                panel.WhenPressedIn(() => Shell.Context = ConsoleContext);
-
-                console = panel.Add<ConsoleView>();
-
-                // ⚠ One model, kept here, rather than one per panel. A panel's factory runs again
-                // every time it is reopened — see this class's own remarks — and a fresh model starts
-                // at the sink's current end, so closing and reopening the console would empty it.
-                // The buffer, the filters and the collapse state are all the user's and survive.
-                consoleModel ??= new ConsoleModel(log.Sink);
-                console.Show(consoleModel);
-
-                console.Activated += (_, record) => Reveal(record);
-            }
-        );
+        Shell.RegisterPanel(console.Describe(Shell, ConsoleContext, Reveal));
 
         Shell.RegisterPanel(
             new PanelDescriptor(

@@ -699,21 +699,17 @@ sealed partial class EditorApplication {
             "play.clear-console",
             EditorStrings.CommandPlayClearConsole,
             EditorStrings.CategoryPlay,
-            () => {
-                if (console is { } view) {
-                    view.ClearsOnPlay = !view.ClearsOnPlay;
-                }
-            },
-            enabled: () => console is not null,
-            on: () => console is { ClearsOnPlay: true }
+            console.ToggleClearsOnPlay,
+            enabled: () => console.View is not null,
+            on: () => console.ClearsOnPlay
         );
 
         Verb(
             "view.clear-console",
             EditorStrings.CommandViewClearConsole,
             EditorStrings.CategoryPlay,
-            () => console?.Clear(),
-            enabled: () => console is not null
+            console.Clear,
+            enabled: () => console.View is not null
         );
     }
 
@@ -1849,8 +1845,8 @@ sealed partial class EditorApplication {
 
         // Before the notification, so the line saying what play mode does is the first thing in the
         // console rather than the last thing before it was emptied.
-        if (console is { ClearsOnPlay: true } view) {
-            view.Clear();
+        if (console.ClearsOnPlay) {
+            console.Clear();
         }
 
         // ⚠ Said before it matters rather than after it has cost something. Doc 20 calls this the one
