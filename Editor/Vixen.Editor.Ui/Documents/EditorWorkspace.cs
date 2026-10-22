@@ -4,6 +4,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Vixen.Core;
 using Vixen.Ui;
+using Vixen.Ui.Controls.Advanced;
 
 namespace Vixen.Editor.Ui.Documents;
 
@@ -389,6 +390,57 @@ public sealed class EditorWorkspace : IWorkspace {
     public void LoadStyles() {
         tokens = null;
         Shell.Theme.LoadTokens(Store.Read(ThemeFile));
+    }
+
+    /// <summary>Puts back the user's keymap, theme and arrangement — what start-up does, once.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The read half of what persists, moved with the write half (#1293).</b> Both were
+    ///         <c>EditorApplication</c>'s, the read as six steps of its constructor; the store and the
+    ///         shell they touch are this object's, so the order is kept here as lines.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Called after every command and panel is registered, and only then.</b> The keymap
+    ///         has to be read after the commands that own its defaults, or every override in the file
+    ///         lands on a command with no default and the file rewrites itself with the whole map in
+    ///         it. The layout has to be applied after the panels are registered, or a saved
+    ///         arrangement names panels the workspace cannot build — which is also why the
+    ///         application sets <c>DockingWorkspace.Resolve</c> first, for the asset tabs that are
+    ///         registered on demand.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The one place the layout file is read without the user having asked for it</b>, so
+    ///         it is the one place a file that could not be used has to be said out loud.
+    ///         <c>Load</c> puts the default preset up either way; without the notice a hand-edited or
+    ///         truncated file looks exactly like a first run, and the response to that is
+    ///         re-arranging every panel over a file that will fail again next time.
+    ///     </para>
+    /// </remarks>
+    public void Restore() {
+        if (Store.Read(EditorUserStore.KeyMapFile) is { } keymap) {
+            KeyMapYaml.Read(Shell.Keys, keymap);
+        }
+
+        LoadStyles();
+
+        if (Store.LoadLayout(EditorUserStore.CurrentLayout) is { } layout) {
+            if (!Shell.Workspace.Load(layout)) {
+                Shell.Notifications.Show(EditorStrings.LayoutNotRestored.Text, NotificationSeverity.Warning);
+            }
+        } else {
+            Shell.Workspace.Reset();
+        }
+    }
+
+    /// <summary>Writes the arrangement and the keymap — what closing does.</summary>
+    /// <remarks>
+    ///     Called on the way down rather than on every change: a splitter drag raises
+    ///     <c>LayoutChanged</c> per mouse-move, and an editor that wrote a file per frame of a drag
+    ///     would be one whose window layout is the noisiest thing on the disk.
+    /// </remarks>
+    public void Persist() {
+        Store.SaveLayout(EditorUserStore.CurrentLayout, Shell.Workspace.Save());
+        Store.Write(EditorUserStore.KeyMapFile, KeyMapYaml.Write(Shell.Keys));
     }
 
     /// <summary>Writes the recent list to the user's store.</summary>

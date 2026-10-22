@@ -913,33 +913,13 @@ sealed partial class EditorApplication : IDisposable {
         // of what to leave alone was read before `Commands()`, which is where the built-ins start.
         StartPlugins(directory);
 
-        // ⚠ In this order and no other. The keymap has to be loaded after the commands that own its
-        // defaults, or every override in the file lands on a command with no default and the file
-        // rewrites itself with the whole map in it. The layout has to be applied after the panels
-        // are registered, or a saved arrangement names panels the workspace cannot build.
-        if (store.Read(EditorUserStore.KeyMapFile) is { } keymap) {
-            KeyMapYaml.Read(Shell.Keys, keymap);
-        }
-
-        documentViews.LoadStyles();
-
         // ⚠ Doc 20's A6: the panels a saved arrangement names include the asset editors that were
         // open, which nothing has registered yet because they are registered on demand. This is the
-        // hook that registers one when the arrangement asks for it.
+        // hook that registers one when the arrangement asks for it — set before the arrangement is read.
         Shell.Workspace.Resolve = tabs.ReopenDocument;
 
-        // ⚠ The one place the layout file is read without the user having asked for it, so it is the
-        // one place a file that could not be used has to be said out loud. `Load` puts the default
-        // preset up either way; without the notice a hand-edited or truncated file looks exactly
-        // like a first run, and the response to that is re-arranging every panel over a file that
-        // will fail again next time.
-        if (store.LoadLayout(EditorUserStore.CurrentLayout) is { } layout) {
-            if (!Shell.Workspace.Load(layout)) {
-                Shell.Notifications.Show(EditorStrings.LayoutNotRestored.Text, NotificationSeverity.Warning);
-            }
-        } else {
-            Shell.Workspace.Reset();
-        }
+        // The keymap, the theme and the arrangement, in the order `EditorWorkspace.Restore` keeps (#1293).
+        documentViews.Restore();
 
         // ⚠ Recorded after the project has opened rather than before, so a root that turned out to
         // be unreadable is not offered as the first thing to try again next time.
@@ -1387,16 +1367,9 @@ sealed partial class EditorApplication : IDisposable {
         world.AdvanceVersion();
     }
 
-    /// <summary>Writes what the user changed.</summary>
-    /// <remarks>
-    ///     Called on the way down rather than on every change: a splitter drag raises
-    ///     <c>LayoutChanged</c> per mouse-move, and an editor that wrote a file per frame of a drag
-    ///     would be one whose window layout is the noisiest thing on the disk.
-    /// </remarks>
-    public void Persist() {
-        store.SaveLayout(EditorUserStore.CurrentLayout, Shell.Workspace.Save());
-        store.Write(EditorUserStore.KeyMapFile, KeyMapYaml.Write(Shell.Keys));
-    }
+    /// <summary>Writes what the user changed: the workspace's arrangement and keymap.</summary>
+    /// <remarks>See <see cref="EditorWorkspace.Persist" />, which is where the write is (#1293).</remarks>
+    public void Persist() => documentViews.Persist();
 
     /// <inheritdoc />
     /// <remarks>
