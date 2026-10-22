@@ -669,7 +669,7 @@ sealed class MaterialBakeRoute {
         var asked = "";
 
         if (parallax) {
-            kept = MaterialBakeParallax.Requested(set, out var refused);
+            kept = MaterialBakeParallax.Requested(set, out var refused, project.Assets);
 
             // ⚠ Said either way. A bake that turned the march on looks identical to one that did not,
             // and the artist pressed a verb whose whole content is that difference.

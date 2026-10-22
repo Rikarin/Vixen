@@ -214,6 +214,11 @@ static class SmartMaterial {
 
     /// <summary>Writes every shipped smart material a project's shelf has not got onto it.</summary>
     /// <param name="assets">A project's <c>Assets/</c> folder, or <see langword="null" /> for none.</param>
+    /// <param name="writing">
+    ///     Told each file's absolute path before it is written — the project's
+    ///     <c>AssetDatabase.WillWrite</c>, so that the editor's watcher does not hear its own starter
+    ///     shelf as somebody else's edit (#1497). <see langword="null" /> to tell nobody.
+    /// </param>
     /// <returns>The names actually written, ordered. Empty when there was nothing to do.</returns>
     /// <remarks>
     ///     <para>
@@ -240,7 +245,7 @@ static class SmartMaterial {
     ///         module.
     ///     </para>
     /// </remarks>
-    public static IReadOnlyList<string> Install(string? assets) {
+    public static IReadOnlyList<string> Install(string? assets, Action<string>? writing = null) {
         if (FolderOf(assets) is not { } folder) {
             return [];
         }
@@ -255,6 +260,7 @@ static class SmartMaterial {
             }
 
             try {
+                writing?.Invoke(file);
                 Directory.CreateDirectory(folder);
                 File.WriteAllText(file, text);
             } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {

@@ -188,10 +188,17 @@ public sealed partial class AssetEditorsModule {
     ///         stores that have to agree about which directory they are looking at, and it must not
     ///         share the editor's database — <c>Scan</c> clears and repopulates its dictionaries.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>But it shares the folder, so its scan's writes are relayed (#1497).</b> A scan mints
+    ///         the sidecar of any file the editor has not indexed yet, and the editor's watcher heard
+    ///         that as somebody else's edit — the relay <c>ContentTasks</c> and <c>EditorContent</c>
+    ///         make for their own workspaces.
+    ///     </para>
     /// </remarks>
     static BuildPlan Analyse(EditorProject project) {
         var workspace = new ProjectWorkspace(project.Paths);
 
+        workspace.Database.Writing += project.Assets.WillWrite;
         workspace.Database.Scan();
         return ContentPipeline.Analyse(workspace, _ => { });
     }
