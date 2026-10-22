@@ -57,6 +57,13 @@ public sealed class BehaviorStore {
     // means no loop holds an index into a queue and a removal may compact it.
     int draining;
 
+    // How many `RunUpdate`/`RunLateUpdate` calls are on the stack. Those walk `ordered` by index, so a
+    // bucket may only leave it when this and `draining` are both zero. See `DropEmptied`.
+    int walking;
+
+    // Whether a detach has emptied a bucket that is still in `ordered`.
+    bool emptied;
+
     /// <summary>The world the behaviours' entities live in.</summary>
     public World World => world;
 
@@ -396,6 +403,7 @@ public sealed class BehaviorStore {
             RunLifecycleCore();
         } finally {
             draining--;
+            DropEmptied();
         }
     }
 
@@ -510,19 +518,33 @@ public sealed class BehaviorStore {
     ///     </para>
     /// </remarks>
     public void RunUpdate() {
-        for (var index = 0; index < ordered.Count; index++) {
-            if (ordered[index].Update(Jobs)) {
-                DispatchedBatches++;
+        walking++;
+
+        try {
+            for (var index = 0; index < ordered.Count; index++) {
+                if (ordered[index].Update(Jobs)) {
+                    DispatchedBatches++;
+                }
             }
+        } finally {
+            walking--;
+            DropEmptied();
         }
     }
 
     /// <summary>Runs <c>LateUpdate</c> on every enabled, started behaviour.</summary>
     public void RunLateUpdate() {
-        for (var index = 0; index < ordered.Count; index++) {
-            if (ordered[index].LateUpdate(Jobs)) {
-                DispatchedBatches++;
+        walking++;
+
+        try {
+            for (var index = 0; index < ordered.Count; index++) {
+                if (ordered[index].LateUpdate(Jobs)) {
+                    DispatchedBatches++;
+                }
             }
+        } finally {
+            walking--;
+            DropEmptied();
         }
     }
 
@@ -615,7 +637,14 @@ public sealed class BehaviorStore {
         behavior.StopCoroutines();
         Coroutines.Cancel(behavior);
 
-        buckets[behavior.BucketKey].Remove(behavior);
+        var bucket = buckets[behavior.BucketKey];
+
+        bucket.Remove(behavior);
+
+        if (bucket.Count == 0) {
+            emptied = true;
+            DropEmptied();
+        }
 
         if (!world.IsAlive(behavior.Entity) || !world.TryGet<BehaviorRef>(behavior.Entity, out var link)) {
             return;
@@ -627,6 +656,41 @@ public sealed class BehaviorStore {
             world.Remove<BehaviorRef>(behavior.Entity);
         } else {
             world.Set(behavior.Entity, new BehaviorRef { Items = remaining });
+        }
+    }
+
+    /// <summary>Forgets every bucket a detach has emptied, unless a loop is walking them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A bucket is closed over the behaviour's type, so an empty one is not nothing
+    ///         (#1502).</b> <c>BehaviorBucket&lt;T&gt;</c> keeps <c>T</c>, <c>T</c> keeps its assembly,
+    ///         and a project's assembly keeps the collectible context it was loaded into. The editor's
+    ///         rebuild takes every project behaviour off its scene and puts an instance of the rebuilt
+    ///         type back — a different <c>T</c>, so a different bucket — and the old one, kept here
+    ///         empty and keyed by the old type, held the unloaded context alive: one project assembly
+    ///         per rebuild, for as long as the editor was open.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Deferred while a loop holds an index into <see cref="ordered" />, on the terms
+    ///         <see cref="Drain(Behavior)" /> keeps for the queues.</b> <see cref="RunUpdate" /> walks
+    ///         it by index and a behaviour's <c>Update</c> may detach the last of another type;
+    ///         removing that bucket under the loop would skip the one after it, silently. So the
+    ///         outermost loop sweeps on its way out, and a bucket refilled in the meantime is kept,
+    ///         because what is swept is what is empty <i>then</i>.
+    ///     </para>
+    /// </remarks>
+    void DropEmptied() {
+        if (!emptied || draining > 0 || walking > 0) {
+            return;
+        }
+
+        emptied = false;
+
+        for (var index = ordered.Count - 1; index >= 0; index--) {
+            if (ordered[index].Count == 0) {
+                buckets.Remove(ordered[index].Key);
+                ordered.RemoveAt(index);
+            }
         }
     }
 
@@ -647,6 +711,9 @@ public sealed class BehaviorStore {
 
     /// <summary>The type-erased half of a bucket, so the store can hold a table of them.</summary>
     interface IBehaviorBucket {
+        /// <summary>The concrete behaviour type this bucket holds, which is its key in <see cref="buckets" />.</summary>
+        Type Key { get; }
+
         int Count { get; }
 
         /// <summary>How many of them are in the enabled prefix, which is what the update loop walks.</summary>
@@ -683,6 +750,8 @@ public sealed class BehaviorStore {
 
         T[] items = new T[8];
         int enabled;
+
+        public Type Key => typeof(T);
 
         public int Count { get; private set; }
 

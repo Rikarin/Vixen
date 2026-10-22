@@ -106,8 +106,12 @@ internal sealed class AssetTabs(
                             // alone. Installed first for that reason — the handlers run in order. The
                             // editor's own scenes are not asked about: closing a tab over one hides
                             // nothing, because the Scene view still shows it and still saves it.
+                            //
+                            // ⚠ #1504: the document form, which answers only a document's close. The
+                            // window form would answer a quit raised with the focus in this tab by
+                            // shutting the tab, and nothing would retry the quit.
                             if (!sceneEditing.Scenes.Any(scene => ReferenceEquals(scene, open))) {
-                                DocumentClosePrompt.Install(panel, shell.Dialogs, () => CloseDocumentTab(id, open));
+                                DocumentClosePrompt.InstallOnDocument(panel, shell.Dialogs, () => CloseDocumentTab(id, open));
                             }
 
                             panel.AddHandler<CloseRequestEvent>((_, args) => {

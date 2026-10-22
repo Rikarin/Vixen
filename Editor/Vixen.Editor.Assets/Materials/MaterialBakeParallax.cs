@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Yaml;
+using Vixen.Editor.Core;
 using Vixen.Rendering.Materials;
 
 namespace Vixen.Editor.Assets.Materials;
@@ -67,15 +68,28 @@ public static class MaterialBakeParallax {
     ///     only where the ask itself could not be met — a bake with no height output, or a material
     ///     that cannot be re-read — never where the material already carried the feature.
     /// </param>
+    /// <param name="assets">
+    ///     The database of the project the bake wrote into, told before the material is rewritten, or
+    ///     <see langword="null" /> where nothing watches the folder — the command line.
+    /// </param>
     /// <returns>The bake's warnings that are still true of the material now on disk.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="set" /> is null.</exception>
     /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The rewrite is announced on its own, not covered by the bake's announcement
+    ///         (#1497).</b> The bake said it would write this file, and a watcher suppresses a path
+    ///         for a window of time rather than for one event — so a rewrite that lands after the
+    ///         bake's scan of a large project has run past it echoed as somebody else's edit: a
+    ///         second scan, a source-control sweep and a <c>ChangedOnDisk</c> to every module.
+    ///     </para>
+    ///     <para>
     ///     ⚠ <b>An <c>out</c> sentence rather than a <c>TextWriter</c>, which is what it took while
     ///     this lived in the command line.</b> A writer is one host's answer: the editor has no
     ///     stderr, and its bake verbs put every refusal in a notification's detail. Both hosts can
     ///     take a sentence.
+    ///     </para>
     /// </remarks>
-    public static IReadOnlyList<string> Requested(MaterialBakeSet set, out string? refused) {
+    public static IReadOnlyList<string> Requested(MaterialBakeSet set, out string? refused, AssetDatabase? assets = null) {
         ArgumentNullException.ThrowIfNull(set);
 
         refused = null;
@@ -120,6 +134,7 @@ public static class MaterialBakeParallax {
 
         var asked = written with { Features = [new ParallaxOcclusionFeature(), .. written.Features] };
 
+        assets?.WillWrite(file);
         File.WriteAllText(file, YamlSerializer.ToYaml(MaterialBake.Material(set.Maps, asked)));
 
         return [.. set.Warnings.Where(warning => !Unfed(warning))];

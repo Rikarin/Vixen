@@ -3,11 +3,17 @@
 
 using System.Diagnostics;
 using Vixen.Core;
+using Vixen.Core.Imaging;
 using Vixen.Core.IO;
 using Vixen.Core.IO.Watch;
+using Vixen.Editor.AssetEditors.Content;
 using Vixen.Editor.Assets;
+using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.Core;
+using Vixen.Editor.Plugin;
 using Vixen.Editor.Testing;
+using Vixen.Editor.Texturing;
+using Vixen.Editor.Ui.Documents;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -114,6 +120,99 @@ public sealed class EditorWriteEchoTests {
         fixture.AssertSilent(() => new ProjectMeshBaker(fixture.Project).Bake("Wall", ".obj", "v 0 0 0\n"));
     }
 
+    /// <summary>
+    ///     ⚠ <b>The texturing starter shelf, written at activation, echoes nothing (#1497).</b> A module
+    ///     activates while the watcher runs — a reload, here — and the five shipped smart materials it
+    ///     writes onto a shelf that has lost them came back as somebody else's edit.
+    /// </summary>
+    [Fact]
+    public void The_starter_shelf_echoes_nothing() {
+        using var fixture = Fixture.Start();
+        var shelf = Path.Combine(fixture.Assets, "SmartMaterials");
+
+        Assert.True(Directory.Exists(shelf), "the shelf was not written when the editor started, so its rewrite below proves nothing");
+
+        // From outside, drained: the reload's rewrite is what is measured.
+        fixture.Echoes(() => Directory.Delete(shelf, recursive: true));
+        fixture.Elapse();
+
+        fixture.AssertSilent(() => Assert.Empty(fixture.Plugins.Reload(TexturingModule.ModuleId).Diagnostics));
+
+        Assert.True(Directory.Exists(shelf), "the reload did not write the shelf back");
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The parallax ask's rewrite of the material a bake wrote echoes nothing (#1497)</b>, however
+    ///     long after the bake's own announcement it lands.
+    /// </summary>
+    /// <remarks>
+    ///     The bake announced the file, and a watcher suppresses a path for a window of time rather than
+    ///     for one event — so the rewrite was covered only while it landed inside that window, and a bake
+    ///     whose scan of a large project ran past it echoed. <see cref="Fixture.Elapse" /> is that scan,
+    ///     without the wait.
+    /// </remarks>
+    [Fact]
+    public void The_parallax_rewrite_echoes_nothing() {
+        using var fixture = Fixture.Start();
+        MaterialBakeSet? set = null;
+
+        fixture.Echoes(
+            () => set = new ProjectMaterialBaker(fixture.Project).Write(
+                "Hull",
+                MaterialBake.Encode(
+                    new Dictionary<MaterialMapUsage, Bitmap> {
+                        [MaterialMapUsage.BaseColor] = Flat(10),
+                        [MaterialMapUsage.Height] = Flat(10)
+                    }
+                ),
+                new() { Source = "Assets/hull.vxtexgraph" }
+            )
+        );
+
+        fixture.Elapse();
+
+        fixture.AssertSilent(
+            () => {
+                MaterialBakeParallax.Requested(set!, out var refused, fixture.Project.Assets);
+                Assert.Null(refused);
+            }
+        );
+
+        static Bitmap Flat(byte value) {
+            var pixels = new byte[4 * 4 * 4];
+
+            Array.Fill(pixels, value);
+            return new(4, 4, pixels);
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Analyse build in the addressable groups view echoes nothing (#1497).</b> It scans a
+    ///     workspace of its own over the editor's <c>Assets/</c>, and that scan mints the sidecar of any
+    ///     file the editor has not indexed yet.
+    /// </summary>
+    /// <remarks>
+    ///     The file is the editor's own — announced, as a writer that had not yet rescanned would have —
+    ///     so that the only thing left for the watcher to hear is the sidecar Analyse writes. The clock is
+    ///     frozen so that the announcement cannot lapse while the analysis runs.
+    /// </remarks>
+    [Fact]
+    public void Analysing_a_build_echoes_nothing() {
+        using var fixture = Fixture.Start();
+        var file = Path.Combine(fixture.Assets, "unindexed.txt");
+        var analyse = fixture.Plugins.Services.Require<IWorkspace>().Views.OfType<AddressableGroupEditorView>().Single().Analyser;
+
+        Assert.NotNull(analyse);
+
+        fixture.Freeze();
+        fixture.Project.Assets.WillWrite(file);
+        File.WriteAllText(file, "written by the editor");
+
+        fixture.AssertSilent(() => Assert.NotNull(analyse()));
+
+        Assert.True(File.Exists(file + ".meta"), "Analyse's scan wrote no sidecar, so nothing it wrote was measured");
+    }
+
     /// <summary>An editor with the replaying watcher in place of the platform's.</summary>
     sealed class Fixture : IDisposable {
         readonly EditorSession editor;
@@ -141,6 +240,14 @@ public sealed class EditorWriteEchoTests {
         public string Assets => editor.Project.Paths.Assets;
 
         public IContentLibrary Library => editor.Editor.Library;
+
+        public PluginHost Plugins => editor.Plugins;
+
+        /// <summary>Lets more than the watcher's suppression window pass, as a slow scan or a later operation does.</summary>
+        public void Elapse() => disk.Elapse();
+
+        /// <summary>Stops the watcher's clock, so that a suppression cannot lapse while an operation runs.</summary>
+        public void Freeze() => disk.Freeze();
 
         public AssetId Guid(string path) {
             Assert.True(Project.Assets.TryGetByPath(path, out var entry), path + " is not indexed");
@@ -212,10 +319,39 @@ public sealed class EditorWriteEchoTests {
     }
 
     /// <summary>A watcher whose events are the disk's changes since it last looked, drained with no debounce.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Its clock is the machine's plus whatever <see cref="Elapse" /> added</b>, so a test can put
+    ///     an operation past the suppression window of the one before it without sleeping, and
+    ///     <see cref="Freeze" /> stops it, so a test can keep an announcement alive without racing it.
+    /// </remarks>
     sealed class ReplayWatcher(string assets) : IFileWatcher {
         readonly FileChangeCoalescer coalescer = new() { Debounce = TimeSpan.Zero };
         readonly Lock gate = new();
         Dictionary<string, Snapshot.Stamp> seen = Snapshot.Of(assets).Entries;
+        long skew;
+        long? frozen;
+
+        long Now => frozen ?? Stopwatch.GetTimestamp() + skew;
+
+        /// <summary>Moves the clock past the suppression window, so every suppression made so far has lapsed.</summary>
+        public void Elapse() {
+            lock (gate) {
+                var window = (long)(coalescer.SuppressionWindow.TotalSeconds * Stopwatch.Frequency) + 1;
+
+                if (frozen is { } at) {
+                    frozen = at + window;
+                } else {
+                    skew += window;
+                }
+            }
+        }
+
+        /// <summary>Stops the clock where it is.</summary>
+        public void Freeze() {
+            lock (gate) {
+                frozen = Now;
+            }
+        }
 
         public VirtualPath Root => VirtualPath.Root;
 
@@ -225,7 +361,7 @@ public sealed class EditorWriteEchoTests {
 
         public void Suppress(VirtualPath path) {
             lock (gate) {
-                coalescer.Suppress(path, Stopwatch.GetTimestamp());
+                coalescer.Suppress(path, Now);
             }
         }
 
@@ -237,7 +373,7 @@ public sealed class EditorWriteEchoTests {
 
         public int Drain(ICollection<FileChange> into) {
             lock (gate) {
-                return coalescer.Drain(Stopwatch.GetTimestamp(), into);
+                return coalescer.Drain(Now, into);
             }
         }
 
@@ -255,7 +391,7 @@ public sealed class EditorWriteEchoTests {
             var now = Snapshot.Of(assets).Entries;
 
             lock (gate) {
-                var timestamp = Stopwatch.GetTimestamp();
+                var timestamp = Now;
 
                 foreach (var (path, stamp) in now) {
                     if (!seen.TryGetValue(path, out var was)) {

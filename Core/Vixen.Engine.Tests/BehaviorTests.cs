@@ -525,6 +525,12 @@ public sealed class BehaviorTests {
     }
 
     /// <summary>A destroyed behaviour leaves the count, or the number is of what was ever attached.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The row goes with the last of its type, and this test used to assert the opposite.</b>
+    ///     It pinned an empty bucket staying as a row with a zero — which was the store keeping a
+    ///     bucket closed over the type, and through it the type's assembly: the leak #1502 is about.
+    ///     No row is the same answer to "how many PlayerControllers".
+    /// </remarks>
     [Fact]
     public void PopulationFollowsTheBucketDownAgain() {
         var log = new List<string>();
@@ -535,9 +541,67 @@ public sealed class BehaviorTests {
         behavior.Destroy();
         loop.Frame(TimeSpan.FromMilliseconds(16));
 
-        // The bucket stays, empty: it is created on the first Add<T> and nothing removes it. So the
-        // row is there with a zero, which is the honest answer to "how many PlayerControllers".
-        Assert.Equal(0, Assert.Single(loop.Behaviors.Population).Total);
+        Assert.Empty(loop.Behaviors.Population);
+        Assert.Equal(0, loop.Behaviors.Count);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Detaching the last behaviour of a type forgets its bucket (#1502)</b> — through
+    ///     <c>Remove</c>, which is the editor's path and runs with nothing walking the store.
+    /// </summary>
+    /// <remarks>
+    ///     A bucket is closed over the behaviour's type, so one kept empty keeps the type's assembly:
+    ///     the project's collectible context, in the editor, for every rebuild. The population is the
+    ///     public window onto the bucket table; <c>ProjectAssemblyTests</c> proves the unload itself.
+    /// </remarks>
+    [Fact]
+    public void RemovingTheLastBehaviourOfATypeForgetsItsBucket() {
+        using var world = new World();
+        var store = new BehaviorStore(world);
+        var one = store.Add(world.Create(), new Detachable());
+        var two = store.Add(world.Create(), new Detachable());
+
+        Assert.True(store.Remove(one));
+        Assert.Equal(1, Assert.Single(store.Population).Total);
+
+        Assert.True(store.Remove(two));
+        Assert.Empty(store.Population);
+
+        // And the type can come back: a fresh bucket, not a dangling key.
+        store.Add(world.Create(), new Detachable());
+        Assert.Equal(1, Assert.Single(store.Population).Total);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A bucket emptied from inside <c>Update</c> waits for the loop to finish.</b> The loop
+    ///     walks the buckets by index; the victim's bucket is <i>before</i> the remover's, so dropping
+    ///     it at once would slide the next bucket under the cursor and its <c>Update</c> would never
+    ///     run — silently, the arrangement <see cref="DetachingASiblingFromInsideAwakeSkipsNobodyElse" />
+    ///     guards for the queues.
+    /// </summary>
+    [Fact]
+    public void ABucketEmptiedDuringUpdateSkipsNobodyElse() {
+        var log = new List<string>();
+        using var loop = new EngineLoop();
+        var victim = loop.Behaviors.Add(loop.World.Create(), new Detachable());
+
+        loop.Behaviors.Add(loop.World.Create(), new UpdateRemover(loop.Behaviors, victim));
+        loop.Behaviors.Add(loop.World.Create(), new Recorder("last", log));
+
+        loop.Frame(TimeSpan.FromMilliseconds(16));
+        log.Clear();
+        loop.Frame(TimeSpan.FromMilliseconds(16));
+
+        Assert.Contains("last.Update", log);
+        Assert.Contains("last.LateUpdate", log);
+
+        // Swept once the loop let go of its index.
+        Assert.DoesNotContain(loop.Behaviors.Population, row => row.BehaviorType == typeof(Detachable));
+    }
+
+    /// <summary>Removes another behaviour from inside its own <c>Update</c>, once.</summary>
+    sealed class UpdateRemover(BehaviorStore store, Behavior target) : Behavior {
+        protected override void Update() => store.Remove(target);
     }
 
     sealed class Recorder(string name, List<string> log) : Behavior {

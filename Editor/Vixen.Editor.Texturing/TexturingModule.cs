@@ -599,7 +599,11 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
         // database — `project.Selection.Primary` can never name one and `IDocumentHost` can
         // never open one — until the editor is restarted. Writing them was the visible half of the
         // work and reaching them was the whole point of it.
-        if (SmartMaterial.Install(project.Paths.Assets).Count > 0) {
+        //
+        // ⚠ **Announced, file by file, because a module activates while the watcher runs** (#1497): a
+        // reload, or a project whose texturing comes up after the editor has started watching, heard
+        // its own shelf come back as an outside change.
+        if (SmartMaterial.Install(project.Paths.Assets, project.Assets.WillWrite).Count > 0) {
             project.Assets.Scan();
         }
 
