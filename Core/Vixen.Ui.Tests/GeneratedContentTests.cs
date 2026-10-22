@@ -412,6 +412,38 @@ public class GeneratedContentTests {
         Assert.Equal(width, label.Width, Tolerance);
     }
 
+    /// <summary>
+    ///     ⚠ <b>The retained draw path</b>: an element whose words were drawn from its own box on the
+    ///     last frame, and which starts generating a box on this one, draws them once, from the
+    ///     anonymous box 10 along — not a second, stale copy at its own left edge.
+    /// </summary>
+    [Fact]
+    public void A_box_turned_on_after_the_text_was_drawn_moves_the_drawn_words() {
+        UiElement label = null!;
+
+        using var document = Drawn(
+            Row
+            + """
+              .label { flex-direction: row; align-items: flex-start; font-family: Test; font-size: 16px; }
+              .label.marked::before { content: ''; width: 10px; height: 10px; }
+              """,
+            document => {
+                document.Fonts.Register("Test", Face);
+                label = document.Root.Add("div", classNames: "label");
+                label.Text = "Name";
+            }
+        );
+
+        Assert.Equal(label.AbsoluteLeft, Assert.Single(document.Drawing.Commands, command => command.Kind == DrawCommandKind.Text).X, 0.5f);
+
+        label.AddClass("marked");
+        document.Update();
+        document.Draw();
+
+        var words = Assert.Single(document.Drawing.Commands, command => command.Kind == DrawCommandKind.Text);
+        Assert.Equal(label.AbsoluteLeft + 10f, words.X, 0.5f);
+    }
+
     [Fact]
     public void A_generated_box_joins_a_named_from_content_role_and_is_never_a_node() {
         using var document = new UiDocument(400f, 300f);
