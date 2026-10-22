@@ -15,17 +15,15 @@
 :: <checkout>\.nuke\temp\build.log for writing with FileShare.Read, and it does so BEFORE it reads
 :: the command line -- so the second run dies whatever target it was given, down to --help, having
 :: run nothing, and reports Nuke's 255, which is also what a genuine gate failure reports (#1057).
-:: Windows shares that failure mode rather than escaping it: FileShare.Read is a Win32 share mode
-:: natively, so the second CreateFile is refused with ERROR_SHARING_VIOLATION. Measured on macOS on
-:: 2026-09-09; NOT confirmed on Windows, which is what should price the work.
+:: Windows shares that failure mode rather than escaping it -- CONFIRMED 2026-10-22: with the log
+:: held by a .NET File.Open(ReadWrite, FileShare.Read), this file's own `build.cmd --help` exited 255
+:: in 13 s with the one IO message.
 ::
-:: And the cheapest-looking version of that work is cheaper in one half and dearer in the other, so
-:: whoever prices it should know before starting: build\lock.py is fcntl-only, and its two jobs do
-:: NOT map onto one Windows primitive. The advisory lock it holds is a byte-range lock and becomes
-:: msvcrt.locking. Its log_is_held probe is not: a Python flock sees .NET's FileShare on Unix only
-:: because .NET implements FileShare there WITH flock, and on Win32 it is the share mode passed to
-:: CreateFile, which no byte-range lock can observe. Probing it there means ctypes and CreateFileW
-:: with dwShareMode = 0, not msvcrt.
+:: The Python half of that work is done (#1324): build\lock.py now loads on Windows and takes both
+:: locks there, because build.sh under Git Bash runs it. The lock is msvcrt.locking on one byte past
+:: the contents, and the log probe is a plain write-open -- FileShare.Read refuses exactly that, so it
+:: needs no ctypes, which is what this comment used to predict. What is still missing is only the
+:: wiring here: finding a real Python from batch (not the Store's python3 alias) and calling lock.py.
 ::
 :: ⚠ build/lock_test.py reads this file: whatever runs the build here must stay the command build.sh
 :: runs, and the day this grows a lock it must name --checkout, because a checkout lock without one

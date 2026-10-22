@@ -64,11 +64,40 @@ needs_lock() {
 }
 # --- end lock scope ---
 
+# The interpreter that will run lock.py, found by *running* each candidate rather than by name.
+#
+# ⚠ `command -v python3` is not a test for Python. On a default Windows install it finds
+# `%LOCALAPPDATA%\Microsoft\WindowsApps\python3.exe`, the Microsoft Store's App Execution Alias — a
+# real executable on PATH that prints an advertisement and exits 49. The old guard took that for a
+# Python, handed it lock.py, and `./build.sh <anything>` under Git Bash ran no target and exited 49,
+# which reads as a red gate (#1324). `python` is what a Windows install or conda puts on PATH, and
+# `py -3` is the launcher the alias does not shadow; both come after `python3` so nothing changes on
+# a machine where `python3` is real.
+find_python() {
+    local candidate
+
+    for candidate in "python3" "python" "py -3"; do
+        # ⚠ Unquoted on purpose: `py -3` is a command and an argument.
+        if ${candidate} -c 'import sys; sys.exit(sys.version_info < (3, 6))' > /dev/null 2>&1; then
+            printf '%s' "${candidate}"
+
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 # Off in CI, where a leg owns its runner and there is nothing for a lock to protect — the same
 # distinction `NukeBuild.IsLocalBuild` makes inside the build. VIXEN_NO_BUILD_LOCK is the escape
-# hatch for someone who knows what else is running, and a machine with no python3 falls through it
-# rather than refusing to build.
-if [ -n "${CI:-}" ] || [ -n "${VIXEN_NO_BUILD_LOCK:-}" ] || ! command -v python3 > /dev/null 2>&1; then
+# hatch for someone who knows what else is running, and a machine with no working Python falls
+# through it rather than refusing to build — but says so, since it is then running unlocked.
+if [ -n "${CI:-}" ] || [ -n "${VIXEN_NO_BUILD_LOCK:-}" ]; then
+    exec dotnet run --project "${root}/build/_build.csproj" --no-launch-profile -- "$@"
+fi
+
+if ! python="$(find_python)"; then
+    echo "vixen: no working Python 3 (tried python3, python, py -3), so this run takes no build lock." >&2
     exec dotnet run --project "${root}/build/_build.csproj" --no-launch-profile -- "$@"
 fi
 
@@ -90,6 +119,6 @@ if needs_lock ${1+"$@"}; then
 fi
 
 # ⚠ `${machine}` unquoted on purpose: quoted, an empty value is an empty *argument*, and lock.py
-# would read it as the command to run.
-exec python3 "${root}/build/lock.py" --checkout "${root}" ${machine} \
+# would read it as the command to run. `${python}` unquoted for the same `py -3` reason as above.
+exec ${python} "${root}/build/lock.py" --checkout "${root}" ${machine} \
     dotnet run --project "${root}/build/_build.csproj" --no-launch-profile -- "$@"

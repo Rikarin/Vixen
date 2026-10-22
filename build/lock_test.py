@@ -12,18 +12,64 @@ else here was already true of the version that shipped the defect: it serialised
 SIGKILL, it printed who it was waiting for. What it did was hand the lock to MSBuild's node-reuse
 daemons, which outlive the build on purpose — so the lock outlived the build too, and the next run
 queued behind nothing at all. A suite that only asserts "two runs do not overlap" is green on that.
+
+It runs on Windows too (`python build/lock_test.py` from Git Bash), because `build.sh` takes these
+locks there since #1324. The one case with no Windows meaning — a build killed *by a signal* — says
+it skipped rather than passing.
 """
 
-import fcntl
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
 import tempfile
 import time
 
+try:
+    import fcntl
+except ImportError:  # Windows: see hold_log.
+    fcntl = None
+
 LOCK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lock.py")
+
+
+class Skipped(Exception):
+    """A case with no meaning on this platform. Reported as skipped, never as passed."""
+
+
+def hold_log(path: str):
+    """Holds a Nuke log the way the build does, and returns what releases it.
+
+    POSIX: an exclusive `flock`, which is how .NET implements `FileShare.Read` there. Windows: the
+    real thing — `CreateFileW` with write access and `FILE_SHARE_READ` alone, the share mode .NET
+    passes for `FileShare.Read` — because that is what `lock.py`'s probe has to see, and a byte-range
+    lock would be a test of a different mechanism.
+    """
+    if fcntl is not None:
+        handle = os.open(path, os.O_RDWR)
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+        return lambda: os.close(handle)
+
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateFileW.restype = wintypes.HANDLE
+    kernel32.CreateFileW.argtypes = [
+        wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
+        wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE,
+    ]
+    generic_read_write, file_share_read, open_existing = 0xC0000000, 0x1, 3
+    handle = kernel32.CreateFileW(path, generic_read_write, file_share_read, None, open_existing, 0, None)
+
+    assert handle not in (None, wintypes.HANDLE(-1).value), (
+        f"could not hold {path}: WinError {ctypes.get_last_error()}"
+    )
+
+    return lambda: kernel32.CloseHandle(handle)
 
 
 def spawn(lock_file: str, *command: str, checkout_lock: str = None) -> subprocess.Popen:
@@ -96,7 +142,14 @@ def a_daemon_the_build_leaves_behind_does_not_keep_the_lock(lock_file: str) -> N
     reproducing the thing being tested. `sh` inherits whatever it was handed, which is what MSBuild
     does and what makes the lock leak.
     """
-    spawn(lock_file, "/bin/sh", "-c", "sleep 120 &").wait()
+    # `shutil.which` rather than `/bin/sh`, which a Windows Python cannot resolve; under Git Bash it
+    # finds the MSYS `sh`, which inherits what it is handed just as a POSIX one does.
+    shell = shutil.which("sh")
+
+    if shell is None:
+        raise Skipped("no sh on PATH to background the daemon with")
+
+    spawn(lock_file, shell, "-c", "sleep 120 &").wait()
 
     waited = seconds_to_acquire(lock_file, timeout=15.0)
 
@@ -110,7 +163,7 @@ def the_kernel_releases_the_lock_when_the_holder_is_killed(lock_file: str) -> No
     """No stale-lock case: SIGKILL the holder and the next run walks straight in."""
     holder = spawn(lock_file, sys.executable, "-c", "import time; time.sleep(120)")
     time.sleep(1.5)
-    holder.send_signal(signal.SIGKILL)
+    holder.kill()  # SIGKILL on POSIX, TerminateProcess on Windows: neither lets the holder clean up.
     holder.wait()
 
     waited = seconds_to_acquire(lock_file, timeout=15.0)
@@ -143,6 +196,9 @@ def the_exit_code_is_the_builds_own(lock_file: str) -> None:
 
 def a_signalled_build_reports_the_shell_convention(lock_file: str) -> None:
     """A build killed by a signal is 128 + N, not Python's negative."""
+    if not hasattr(signal, "SIGKILL"):
+        raise Skipped("Windows has no signals to die of")
+
     run = spawn(lock_file, sys.executable, "-c", "import os, signal; os.kill(os.getpid(), signal.SIGKILL)")
     run.wait(timeout=20.0)
 
@@ -220,15 +276,14 @@ def a_held_nuke_log_is_not_reported_as_a_gate_failure(lock_file: str) -> None:
     a distinguishable code with the log held, and the command's own code with it free.
     """
     root = checkout(lock_file)
-    handle = os.open(os.path.join(root, ".nuke", "temp", "build.log"), os.O_RDWR)
-    fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    release = hold_log(os.path.join(root, ".nuke", "temp", "build.log"))
 
     try:
         run = spawn(lock_file, "--checkout", root, sys.executable, "-c", "raise SystemExit(42)")
         run.wait(timeout=20.0)
         notice = run.stderr.read()
     finally:
-        os.close(handle)
+        release()
 
     assert run.returncode == 75, f"expected 75 (EX_TEMPFAIL), got {run.returncode}"
     assert "not a gate failure" in notice, f"the refusal did not say what it was: {notice!r}"
@@ -266,8 +321,12 @@ def decision(*arguments: str) -> str:
     assert "expensive=" in fragment, "the marked range no longer contains the target list"
 
     probe = f'{fragment}\nif needs_lock "$@"; then echo lock; else echo free; fi\n'
+    # ⚠ `shutil.which`, not a bare "bash": a Windows Python resolves a bare name through
+    # CreateProcess, which searches System32 before PATH and finds WSL's `bash.exe` there.
     run = subprocess.run(
-        ["bash", "-c", probe, "build.sh", *arguments], capture_output=True, text=True
+        [shutil.which("bash") or "bash", "-c", probe, "build.sh", *arguments],
+        capture_output=True,
+        text=True,
     )
 
     assert run.returncode == 0, f"the fragment did not run: {run.stderr}"
@@ -408,19 +467,25 @@ CASES = [
 
 def main() -> int:
     failures = 0
+    skipped = 0
 
     for case in CASES:
-        with tempfile.TemporaryDirectory() as directory:
+        # ⚠ `ignore_cleanup_errors`: on Windows a lock file a just-exited child held can still be
+        # open for a moment, and a cleanup error would read as the case failing.
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             lock_file = os.path.join(directory, "build.lock")
 
             try:
                 case(lock_file)
                 print(f"  ok   {case.__name__}")
+            except Skipped as reason:
+                skipped += 1
+                print(f"  skip {case.__name__}: {reason}")
             except AssertionError as failure:
                 failures += 1
                 print(f"  FAIL {case.__name__}: {failure}")
 
-    print(f"{len(CASES) - failures}/{len(CASES)} passed")
+    print(f"{len(CASES) - failures - skipped}/{len(CASES)} passed, {skipped} skipped")
 
     return 1 if failures else 0
 
