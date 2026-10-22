@@ -27,7 +27,7 @@ first" shape — *ask what a gate prints on the day it does not run*, and until 
 `CheckStrings`, `CheckArchitecture` and `CheckDocComments`, and those are exactly the three that
 were observed exiting 255 having run nothing (#1057).
 
-The lock is `fcntl.flock` on a file, held by *this* process, which stays alive as the build's parent
+The lock is `fcntl.flock` on a file (on Windows a byte-range `msvcrt.locking`; see `try_lock`), held by *this* process, which stays alive as the build's parent
 rather than being replaced by it. That is the whole reason it is this and not a `mkdir` with a pid
 file:
 
@@ -53,7 +53,6 @@ whole wait, because the pid written there is this process and this process lives
 does; before, it named a `dotnet run` that had usually already exited.
 """
 
-import fcntl
 import hashlib
 import os
 import signal
@@ -61,7 +60,23 @@ import subprocess
 import sys
 import time
 
+# ⚠ Chosen by platform, never imported unconditionally. A bare `import fcntl` here was the whole of
+# #1324: on Windows the module did not load, so `build.sh` under Git Bash ran no target at all and
+# exited 1, a number no reader can tell from a red gate. Both halves hold a lock the OS drops with the
+# holder's last handle, which is the one property this file relies on.
+try:
+    import fcntl
+except ImportError:  # Windows, where the lock is a byte-range lock instead.
+    fcntl = None
+    import msvcrt
+
 WAIT_NOTICE_SECONDS = 30
+
+# Where the Windows byte-range lock sits: far past anything `acquire` writes. ⚠ A Windows byte lock
+# is *mandatory*, not advisory — no other handle can read a locked byte — so locking byte 0 would
+# leave `holder` unable to read who holds the lock, and every wait would say "another run". Locking
+# past the end of a file is allowed, and it leaves the reported contents readable.
+WINDOWS_LOCK_OFFSET = 1 << 30
 
 # What we exit with when the checkout's Nuke log is held by a run this process did not start and
 # cannot wait for — a `dotnet run` somebody launched by hand, or a `build.sh` with the lock turned
@@ -137,6 +152,23 @@ def log_is_held(checkout: str) -> bool:
     """
     path = nuke_log_path(checkout)
 
+    if fcntl is None:
+        # ⚠ On Windows `FileShare.Read` is the share mode of the holder's `CreateFile`, which no
+        # byte-range lock can observe — but an open *for writing* is exactly what that share mode
+        # refuses, so the probe is the open itself and needs no ctypes. Measured 2026-10-22 against a
+        # .NET `File.Open(…, ReadWrite, FileShare.Read)` holder: `os.open(O_RDWR)` is refused with
+        # EACCES, `O_RDONLY` succeeds, and the same write open succeeds once the holder closes. And
+        # Nuke on Windows does die on it: `build.cmd --help` with the log held that way exited 255
+        # in 13 s with the single IO message, so #1057 is not a Unix-only failure.
+        try:
+            os.close(os.open(path, os.O_RDWR))
+
+            return False
+        except PermissionError:
+            return True
+        except OSError:
+            return False
+
     try:
         handle = os.open(path, os.O_RDWR)
     except OSError:
@@ -154,6 +186,32 @@ def log_is_held(checkout: str) -> bool:
         os.close(handle)
 
 
+def try_lock(handle) -> bool:
+    """Takes the lock on an open lock file without waiting, and says whether it is now ours.
+
+    POSIX: `flock`. Windows: a one-byte `LockFile` range at `WINDOWS_LOCK_OFFSET`. The OS releases
+    both when the holder's handle closes, which includes the holder dying for any reason, and neither
+    reaches a child: Python opens descriptors non-inheritable, `subprocess` closes the rest, and a
+    Windows byte-range lock belongs to the handle that took it.
+    """
+    if fcntl is not None:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+            return True
+        except BlockingIOError:
+            return False
+
+    os.lseek(handle, WINDOWS_LOCK_OFFSET, os.SEEK_SET)
+
+    try:
+        msvcrt.locking(handle, msvcrt.LK_NBLCK, 1)
+
+        return True
+    except OSError:
+        return False
+
+
 def holder(handle) -> str:
     """What the current holder wrote about itself, or a shrug."""
     try:
@@ -169,22 +227,17 @@ def acquire(handle, command: str, what: str = "the build lock") -> None:
     """Blocks until the lock is ours, saying what is being waited on rather than going quiet."""
     waited = 0.0
 
-    while True:
-        try:
-            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    while not try_lock(handle):
+        if waited == 0.0 or waited % WAIT_NOTICE_SECONDS < 1.0:
+            print(
+                f"vixen: waiting for {what} held by {holder(handle)} "
+                f"({int(waited)}s so far). Set VIXEN_NO_BUILD_LOCK=1 to run anyway.",
+                file=sys.stderr,
+                flush=True,
+            )
 
-            break
-        except BlockingIOError:
-            if waited == 0.0 or waited % WAIT_NOTICE_SECONDS < 1.0:
-                print(
-                    f"vixen: waiting for {what} held by {holder(handle)} "
-                    f"({int(waited)}s so far). Set VIXEN_NO_BUILD_LOCK=1 to run anyway.",
-                    file=sys.stderr,
-                    flush=True,
-                )
-
-            time.sleep(1.0)
-            waited += 1.0
+        time.sleep(1.0)
+        waited += 1.0
 
     os.ftruncate(handle, 0)
     os.lseek(handle, 0, os.SEEK_SET)
@@ -220,8 +273,13 @@ def run(argv: list) -> int:
         except (OSError, ValueError):
             pass
 
-    for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
-        signal.signal(number, forward)
+    # ⚠ By name, because Windows has no SIGHUP and `signal.SIGHUP` there is an AttributeError — the
+    # same shape as the `fcntl` import, one step further into the run.
+    for name in ("SIGINT", "SIGTERM", "SIGHUP"):
+        number = getattr(signal, name, None)
+
+        if number is not None:
+            signal.signal(number, forward)
 
     while True:
         try:
@@ -231,6 +289,14 @@ def run(argv: list) -> int:
         except KeyboardInterrupt:
             # Already forwarded by the handler above; keep waiting for the build to finish dying.
             continue
+
+    # ⚠ A Windows exit code is 32 bits, and Nuke's failure is -1, which Popen reports as 4294967295.
+    # Handed to `sys.exit` unchanged, Git Bash reports the run as **127** — "command not found" —
+    # so a red gate read as a missing tool. Measured 2026-10-22: a failing
+    # AffectedTests exited 127 through this file. Reduced to the low byte the way bash itself
+    # reports a native program's code (`cmd /c exit -1` is 255 there), never to 0.
+    if os.name == "nt" and not 0 <= status <= 255:
+        return (status & 0xFF) or 255
 
     # Popen reports a signalled child as -N. The shell convention every caller of build.sh reads —
     # CI, and CLAUDE.md's warning about pipelines swallowing exit codes — is 128 + N.

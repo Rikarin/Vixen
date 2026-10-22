@@ -11,6 +11,7 @@ using Nuke.Common.Tooling;
 using Nuke.Common.Tools.DotNet;
 using Nuke.Common.Tools.Git;
 using Serilog;
+using Vixen.Build;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
 
 /// <summary>
@@ -314,14 +315,38 @@ partial class Build : NukeBuild {
                 // instead, on this process, because dyld reads it at process start.
                 ExportLayerLibraryPath();
 
-                DotNet(
-                    $"msbuild \"{traversal}\" -t:VSTest -nologo -p:Configuration={Configuration} -p:VSTestNoBuild=true -p:VSTestResultsDirectory=\"{TestResultsDirectory}\" {workers}"
+                // ⚠ The exit code is captured rather than thrown on, so that a red run still reaches
+                // the post-condition below and says *which* assemblies are red and why, instead of
+                // one MSBuild error line at the end of a five-hundred-second log.
+                var exitCode = 0;
+                var output = DotNet(
+                    $"msbuild \"{traversal}\" -t:VSTest -nologo -p:Configuration={Configuration} -p:VSTestNoBuild=true -p:VSTestResultsDirectory=\"{TestResultsDirectory}\" {workers}",
+                    exitHandler: process => exitCode = process.ExitCode
+                );
+
+                // ⚠ The post-condition #1360 asked for: every scheduled assembly printed a summary
+                // line, none of them red, each agreeing with its TRX — and a non-zero exit is a
+                // failure even when every line is green. A host that dies after its last test
+                // prints no summary and leaves a complete TRX behind, and every reader that greps
+                // for `Failed:` calls that clean; this is the reader that does not.
+                var trxTotals = TestResultsDirectory.GlobFiles("*.trx")
+                    .ToDictionary(result => result.NameWithoutExtension, TestCaseCount, StringComparer.OrdinalIgnoreCase);
+                var problems = TestRunSummary.Problems(
+                    [.. projects.Select(project => project.NameWithoutExtension)],
+                    output.Select(line => line.Text),
+                    exitCode,
+                    trxTotals
+                );
+
+                Assert.True(
+                    problems.Count == 0,
+                    $"{problems.Count} problem(s) with the test run:\n  " + string.Join("\n  ", problems)
                 );
 
                 // ⚠ The instrument, checked after it has run. A schedule that quietly dropped half
                 // the tree is indistinguishable from a schedule that worked — it is simply a faster
                 // green run — so the count of TRX is compared with the count of assemblies that were
-                // supposed to write one. This is only reached when MSBuild exited zero.
+                // supposed to write one. This is only reached when every assembly summarised green.
                 var written = TestResultsDirectory.GlobFiles("*.trx").Count;
 
                 Assert.True(
