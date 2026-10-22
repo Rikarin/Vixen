@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Inspector;
+using Vixen.Editor.SceneView;
 
 namespace Vixen.Editor.App;
 
@@ -267,6 +268,69 @@ public sealed class EditorPreferences {
     ///     </para>
     /// </remarks>
     public List<ViewportPreferences> Viewports { get; set; } = [];
+
+    /// <summary>Records what a pane is drawing.</summary>
+    /// <param name="index">Which pane, in reading order.</param>
+    /// <param name="pane">The pane.</param>
+    /// <returns>Whether anything changed, which is when the file has to be written.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Polled beside the camera rather than raised, and for the camera's own reason.</b>
+    ///         A pane is destroyed and rebuilt every time the Scene panel is closed and reopened, so
+    ///         there is no teardown hook to read the flags in — and a <c>SceneViewport</c> that raised
+    ///         an event per flag would still leave the arrangement's <i>other</i> panes unwritten.
+    ///         Reading them is a bitwise compare.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Reports a change only when it differs from what is held.</b> This runs every frame
+    ///         for every pane; a caller that wrote unconditionally would be a YAML serialisation and a
+    ///         disk write sixty times a second for the life of the editor.
+    ///     </para>
+    ///     <para>
+    ///         The pane's memory is this model's and not the application's (doc 50 § D2, #1294): the
+    ///         preferences are what outlives the panel, so they are what reads and writes the pane.
+    ///     </para>
+    /// </remarks>
+    internal bool RememberView(int index, SceneViewport pane) {
+        while (Viewports.Count <= index) {
+            Viewports.Add(new ViewportPreferences());
+        }
+
+        var stored = Viewports[index];
+        var show = ShowFlags.Slugs(pane.Show);
+        var mode = pane.Modes.Current.ToString();
+
+        if (string.Equals(stored.Mode, mode, StringComparison.Ordinal) && stored.Show.SequenceEqual(show, StringComparer.Ordinal)) {
+            return false;
+        }
+
+        stored.Show = show;
+        stored.Mode = mode;
+
+        return true;
+    }
+
+    /// <summary>Puts a pane back to what it was drawing when the editor last closed.</summary>
+    /// <param name="index">Which pane, in reading order.</param>
+    /// <param name="pane">The pane.</param>
+    /// <remarks>
+    ///     ⚠ <b>Nothing at all for a pane the file has no entry for</b>, which is what leaves a
+    ///     four-pane arrangement nobody has opened yet at its defaults rather than giving every pane
+    ///     the first one's flags. Same rule as the saved cameras.
+    /// </remarks>
+    internal void RestoreView(int index, SceneViewport pane) {
+        if (Viewports.ElementAtOrDefault(index) is not { } stored) {
+            return;
+        }
+
+        if (stored.Show.Count > 0) {
+            pane.Show = ShowFlags.Parse(stored.Show);
+        }
+
+        if (Enum.TryParse<ViewMode>(stored.Mode, out var mode)) {
+            pane.Modes.Current = mode;
+        }
+    }
 
     /// <summary>The project browser's named searches, in the order they were saved.</summary>
     /// <remarks>
