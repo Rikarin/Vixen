@@ -31,12 +31,11 @@ namespace Vixen.Editor.App;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Not yet the whole Assets menu the issue names.</b> Open is here, over the published
-///         <see cref="IWorkspace" /> (whose open asks <see cref="IDocumentHost" />). History is not, and the
-///         document host was never what it needed: it opens the revisions panel over the source-control
-///         provider, both the application's and neither a service. Rename starts the browser panel's inline editor and Move To asks through this
+///         <see cref="IWorkspace" /> (whose open asks <see cref="IDocumentHost" />). History and Revert are not
+///         this module's but <see cref="SourceControlModule" />'s, over the published <see cref="ISourceControl" />
+///         (#1505) — the document host was never what History needed. Rename starts the browser panel's inline editor and Move To asks through this
 ///         editor's drawn chooser, so both still register in the application — and both end in
-///         <see cref="IContentLibrary.Rename" /> and <see cref="IContentLibrary.Move" />. Revert reads the
-///         source-control provider. The menu layout — which lines appear where — is the application's
+///         <see cref="IContentLibrary.Rename" /> and <see cref="IContentLibrary.Move" />. The menu layout — which lines appear where — is the application's
 ///         too; a line naming a command nobody registered is skipped, so switching this module off
 ///         takes these lines off the bar.
 ///     </para>

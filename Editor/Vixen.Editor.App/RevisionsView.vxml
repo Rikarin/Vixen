@@ -5,6 +5,7 @@
 @component RevisionsView
 @namespace Vixen.Editor.App
 @tag revisions-view
+@using Vixen.Editor.Assets
 @using Vixen.Editor.Ui
 @using Vixen.Ui.Controls
 @using Vixen.Ui.Reactive

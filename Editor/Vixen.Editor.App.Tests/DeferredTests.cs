@@ -20,7 +20,7 @@ namespace Vixen.Editor.App.Tests;
 ///         ⚠ <b>Which is the answer to the question #1179 left open, and it is the second of the two
 ///         candidates rather than the first.</b> That issue asked whether the delay was
 ///         <c>SweepAsync</c>'s <c>Task.Run</c> or the deferred pump.
-///         <c>EditorApplication.UseSourceControl</c> sets <c>sought</c>, so the harness's sweep never
+///         <c>ProjectSourceControl.Use</c> sets <c>IsSought</c>, so the harness's sweep never
 ///         reaches the <c>Task.Run</c> at all, and the <c>Fake</c> provider answers with an
 ///         already-completed <c>ValueTask</c> — so on the failing path there was <b>no</b>
 ///         asynchrony left except the one this queue imposed on itself.

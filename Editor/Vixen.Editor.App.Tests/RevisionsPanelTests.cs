@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Editor.Assets;
 using Vixen.Editor.Testing;
 using Xunit;
 
@@ -32,11 +33,11 @@ public class RevisionsPanelTests {
 
         var provider = new Recording(path);
 
-        editor.Editor.UseSourceControl(provider);
+        SourceControlHarness.Of(editor).Use(provider);
         Swept(editor);
         editor.Run("assets.history").Settle();
 
-        var view = editor.Editor.Revisions;
+        var view = SourceControlHarness.Revisions(editor).View;
 
         Assert.NotNull(view);
         Assert.Equal(path, view!.Path);
@@ -68,11 +69,11 @@ public class RevisionsPanelTests {
 
         Select(editor, out var path);
 
-        editor.Editor.UseSourceControl(new Recording(path));
+        SourceControlHarness.Of(editor).Use(new Recording(path));
         Swept(editor);
         editor.Run("assets.history").Settle();
 
-        var view = editor.Editor.Revisions!;
+        var view = SourceControlHarness.Revisions(editor).View!;
 
         view.Choose(Recording.Older);
         editor.Settle();
@@ -96,11 +97,11 @@ public class RevisionsPanelTests {
 
         var provider = new Recording(path);
 
-        editor.Editor.UseSourceControl(provider);
+        SourceControlHarness.Of(editor).Use(provider);
         Swept(editor);
         editor.Run("assets.history").Settle();
 
-        var view = editor.Editor.Revisions!;
+        var view = SourceControlHarness.Revisions(editor).View!;
 
         view.Choose(Recording.Older);
         editor.Settle();
@@ -127,11 +128,11 @@ public class RevisionsPanelTests {
 
         Select(editor, out var path);
 
-        editor.Editor.UseSourceControl(new Recording(path));
+        SourceControlHarness.Of(editor).Use(new Recording(path));
         Swept(editor);
         editor.Run("assets.history").Settle();
 
-        var view = editor.Editor.Revisions!;
+        var view = SourceControlHarness.Revisions(editor).View!;
 
         Assert.Equal(2, view.Count);
 
@@ -145,7 +146,7 @@ public class RevisionsPanelTests {
         Assert.Equal(2, files.Count);
 
         editor.Project.Selection.Set(files.Select(entry => entry.Guid));
-        editor.Editor.ShowRevisions();
+        SourceControlHarness.Revisions(editor).Show();
         editor.Settle();
 
         Assert.Equal(0, view.Count);
@@ -172,15 +173,15 @@ public class RevisionsPanelTests {
     ///     clothes. The ceiling below is a hang check and not a bound.
     /// </remarks>
     static void Swept(EditorSession editor) {
-        editor.Editor.Sweep();
+        SourceControlHarness.Of(editor).Sweep();
 
-        for (var frame = 0; frame < 2000 && !editor.Editor.SourceControl.IsKnown; frame++) {
+        for (var frame = 0; frame < 2000 && !SourceControlHarness.Of(editor).IsKnown; frame++) {
             editor.Frame();
         }
 
         editor.Settle();
 
-        Assert.True(editor.Editor.SourceControl.IsKnown, "the sweep never landed");
+        Assert.True(SourceControlHarness.Of(editor).IsKnown, "the sweep never landed");
     }
 
     /// <summary>Selects exactly one file in the project, and says which.</summary>
@@ -206,7 +207,7 @@ public class RevisionsPanelTests {
     ///     A provider that answers two fixed revisions and records what it was asked, so an
     ///     assertion is about the panel rather than about git.
     /// </summary>
-    sealed class Recording(string path) : ISourceControl {
+    sealed class Recording(string path) : ISourceControlProvider {
         public const string Newest = "1111111111111111111111111111111111111111";
         public const string Older = "2222222222222222222222222222222222222222";
 
