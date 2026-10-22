@@ -154,9 +154,10 @@ backing out both leave the application exactly where it was. A `Save` that retur
 disk, a read-only file — answers `DocumentCloseAnswer.SaveFailed` and does **not** close, which is
 what the bool on `Save` is for.
 
-⚠ **The document asked about is the one under the focus**, because a close request is raised there
-and this walks up from `Source`. In a window with two panels and two documents, quitting asks about
-the one being worked in.
+⚠ **A quit asks about every dirty document in the window, the one under the focus first**, and
+then calls `close` once — or stops at the first Cancel, or the first save that refuses, and the
+application stays (#1504). A close raised by one document (`UiCloseReason.DocumentClosed`) asks
+about that document alone, found by walking up from `Source`.
 
 ### Closing a document without quitting
 
@@ -164,11 +165,18 @@ The same three buttons in front of a different action. `UiElement.RequestClose` 
 the element that holds the document, so a tab, a panel or a File ▸ Close item asks about *its* own:
 
 ```csharp no-compile="a fragment; `tab` is the element a document is hosted on"
-using var prompt = DocumentClosePrompt.Install(tab, dialogs, () => tab.Remove());
+using var prompt = DocumentClosePrompt.InstallOnDocument(tab, dialogs, () => tab.Remove());
 
 // …and what the close button does:
 tab.RequestClose();
 ```
+
+⚠ **`InstallOnDocument`, not `Install`, on a tab (#1504).** A quit is raised from the focus
+outwards, so with the focus in a tab it reaches the tab's handlers first. `Install` there answered
+it: it refused the quit, asked, and on Save ran `close` — which removed the tab — and nothing retried
+the quit, so the application stayed open after the user had answered a question about quitting.
+`InstallOnDocument` answers only `UiCloseReason.DocumentClosed` and lets a quit through to the
+window's `Install`, which asks about this document with the rest.
 
 ⚠ **`UiDocument.CloseRequested` is not raised by this one.** That event is the head answering about
 the *application* — an object outside the element tree, with no opinion about one panel — so a host

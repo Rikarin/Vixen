@@ -1672,6 +1672,7 @@ static Vixen.Ui.Controls.ControlStrings.ToastDismiss.get -> Vixen.Ui.StringId
 static Vixen.Ui.Controls.ControlTheme.Css.get -> string
 static Vixen.Ui.Controls.ControlTheme.Install(Vixen.Ui.UiDocument document) -> int
 static Vixen.Ui.Controls.DocumentClosePrompt.Install(Vixen.Ui.UiElement element, Vixen.Ui.Controls.DialogService dialogs, System.Action close, System.Action<Vixen.Ui.Controls.DocumentCloseAnswer>? answered = null) -> System.IDisposable
+static Vixen.Ui.Controls.DocumentClosePrompt.InstallOnDocument(Vixen.Ui.UiElement element, Vixen.Ui.Controls.DialogService dialogs, System.Action close, System.Action<Vixen.Ui.Controls.DocumentCloseAnswer>? answered = null) -> System.IDisposable
 static Vixen.Ui.Controls.IconArt.Of(Vixen.Ui.PathBuilder geometry, Vixen.Core.Mathematics.Color4 tint, Vixen.Ui.PathFillRule rule = Vixen.Ui.PathFillRule.NonZero) -> Vixen.Ui.Controls.IconArt
 static Vixen.Ui.Controls.IconArt.Of(Vixen.Ui.PathBuilder geometry, Vixen.Ui.PathFillRule rule = Vixen.Ui.PathFillRule.NonZero) -> Vixen.Ui.Controls.IconArt
 static Vixen.Ui.Controls.IconPaint.Foreground.get -> Vixen.Ui.Controls.IconPaint

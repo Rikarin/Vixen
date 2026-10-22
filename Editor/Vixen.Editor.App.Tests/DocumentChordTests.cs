@@ -157,6 +157,32 @@ public sealed class DocumentChordTests {
     }
 
     /// <summary>
+    ///     ⚠ A quit raised through the element tree with the focus in a dirty tab is not the tab's to
+    ///     answer (#1504).
+    /// </summary>
+    /// <remarks>
+    ///     The editor's own quit does not raise through the tree today, so this is the day it does: the
+    ///     tab's prompt used to refuse the quit, ask, and on an answer shut the tab — dropping the quit.
+    ///     It now lets it through, untouched, to whatever answers for the window.
+    /// </remarks>
+    [Fact]
+    public void A_quit_raised_from_a_dirty_tab_is_not_answered_by_the_tab() {
+        using var session = EditorSession.Start();
+
+        var (document, _, tab) = Editing(session);
+
+        Dirty(document);
+        FocusIn(session, tab);
+
+        Assert.True(session.Document.RequestClose(UiCloseReason.Quit), "the tab's prompt refused a quit");
+        session.Settle();
+
+        Assert.False(session.IsAsking, "the tab's prompt asked about a quit");
+        Assert.True(session.Shell.Workspace.IsOpen(tab), "a quit shut the tab");
+        Assert.True(document.IsOpen);
+    }
+
+    /// <summary>
     ///     ⚠ Revert in a tab still asks first. <c>DocumentCommands</c>' own answer reverts without a
     ///     question — the framework has no dialog — and the tab's is the editor's, which has always
     ///     asked before it threw away the only copy of somebody's edits.

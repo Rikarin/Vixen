@@ -54,7 +54,10 @@ public class DocumentClosePromptTests : IDisposable {
     }
 
     /// <summary>A document that records whether it was asked to write, and may refuse.</summary>
-    sealed class Note(bool writes = true) : EditableDocument("Untitled") {
+    sealed class Note(bool writes = true, string name = "Untitled") : EditableDocument(name) {
+        public Note(string name) : this(true, name) {
+        }
+
         public bool Writes { get; set; } = writes;
 
         public int Saves { get; private set; }
@@ -459,6 +462,132 @@ public class DocumentClosePromptTests : IDisposable {
         // One, from `Close` — the host's own quit, which is the application's question. Two would
         // mean the command's request had reached the head as well.
         Assert.Equal(1, heads);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A quit raised with the focus in a prompted tab quits, and leaves the tab alone (#1504).</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A quit is raised from the focus outwards, so it reaches the tab before the window. The
+    ///         per-tab prompt answered it: refused the quit, asked, and on Save ran its own close —
+    ///         which shut the tab — and nothing retried the quit, so the application stayed open after
+    ///         the user answered a quit question. The window's prompt never saw it.
+    ///     </para>
+    ///     <para>
+    ///         Two dirty documents, the focus in the first, so the quit has to ask about both — the
+    ///         focused one first — and then quit <i>once</i>. <see cref="Close" /> is the host's quit
+    ///         and retries the request, so <see cref="retried" /> is whether the quit got through.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_quit_with_the_focus_in_a_prompted_tab_asks_about_every_document_and_quits() {
+        var (tab, other, mine, neighbour, removed) = Tabs();
+
+        using var window = DocumentClosePrompt.Install(document.Root, dialogs, Close, answers.Add);
+
+        Assert.False(document.RequestClose());
+
+        dialogs.Pump();
+        Assert.Equal(mine.Name.Value, DialogMessage());
+
+        Press(ControlStrings.DocumentSave.Text);
+        dialogs.Pump();
+
+        // Not quit yet: the other document has not been asked about.
+        Assert.Equal(0, closed);
+        Assert.True(dialogs.IsOpen);
+        Assert.Equal(neighbour.Name.Value, DialogMessage());
+
+        Press(ControlStrings.DocumentDiscard.Text);
+        dialogs.Pump();
+
+        Assert.Equal(1, mine.Saves);
+        Assert.Equal(0, neighbour.Saves);
+        Assert.Equal([DocumentCloseAnswer.Saved, DocumentCloseAnswer.Discarded], answers);
+
+        // The quit, once, and it got through: neither tab's prompt answered it, so nothing shut a tab.
+        Assert.Equal(1, closed);
+        Assert.True(retried);
+        Assert.Empty(removed);
+        Assert.Same(document.Root, tab.Parent);
+        Assert.Same(document.Root, other.Parent);
+    }
+
+    /// <summary>Backing out of any one document's question cancels the quit as a whole.</summary>
+    [Fact]
+    public void Cancelling_one_documents_question_cancels_the_whole_quit() {
+        var (_, _, mine, neighbour, removed) = Tabs();
+
+        using var window = DocumentClosePrompt.Install(document.Root, dialogs, Close, answers.Add);
+
+        Assert.False(document.RequestClose());
+
+        dialogs.Pump();
+        Press(ControlStrings.DocumentSave.Text);
+        dialogs.Pump();
+
+        Assert.Equal(neighbour.Name.Value, DialogMessage());
+        Press(ControlStrings.DialogCancel.Text);
+        dialogs.Pump();
+
+        Assert.False(dialogs.IsOpen);
+        Assert.Equal(0, closed);
+        Assert.Empty(removed);
+        Assert.Equal(1, mine.Saves);
+        Assert.Equal([DocumentCloseAnswer.Saved, DocumentCloseAnswer.Cancel], answers);
+    }
+
+    /// <summary>The tab's own close is still the tab's: it asks about its document and removes the tab, and does not quit.</summary>
+    [Fact]
+    public void A_tab_close_is_still_answered_by_the_tabs_prompt_alone() {
+        var (tab, _, mine, neighbour, removed) = Tabs();
+
+        using var window = DocumentClosePrompt.Install(document.Root, dialogs, Close, answers.Add);
+
+        Assert.False(tab.RequestClose());
+
+        dialogs.Pump();
+        Assert.Equal(mine.Name.Value, DialogMessage());
+
+        Press(ControlStrings.DocumentDiscard.Text);
+        dialogs.Pump();
+
+        // Asked once — the window's prompt saw a request the tab had already refused — and the tab
+        // went, the application did not.
+        Assert.False(dialogs.IsOpen);
+        Assert.Equal([tab], removed);
+        Assert.Equal(0, closed);
+        Assert.Equal(0, neighbour.Saves);
+    }
+
+    /// <summary>Two tabs, each hosting a dirty document behind its own document-form prompt, the focus in the first.</summary>
+    (Panel Tab, Panel Other, Note Mine, Note Neighbour, List<Panel> Removed) Tabs() {
+        var mine = new Note("Mine");
+        var neighbour = new Note("Neighbour");
+        List<Panel> removed = [];
+
+        var tab = document.Root.Add<Panel>();
+        var other = document.Root.Add<Panel>();
+
+        tab.HostedDocument = mine;
+        other.HostedDocument = neighbour;
+
+        var field = tab.Add<TextBox>();
+        field.Focusable = true;
+
+        // The guide's per-tab shape: the close is the tab's removal, recorded rather than performed so
+        // that "the tab is still there" is a list being empty.
+        DocumentClosePrompt.InstallOnDocument(tab, dialogs, () => removed.Add(tab));
+        DocumentClosePrompt.InstallOnDocument(other, dialogs, () => removed.Add(other));
+
+        document.Update();
+        document.Focus(field);
+
+        mine.MarkDirty();
+        neighbour.MarkDirty();
+
+        return (tab, other, mine, neighbour, removed);
     }
 
     /// <summary>The reason carried is the document's, and the default says so without being written.</summary>
