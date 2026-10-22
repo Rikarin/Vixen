@@ -44,7 +44,7 @@ open rows where there is one.
 | `UiElement.CommandScope` (`Commands.cs:699`) | the derived scope 45 § G2 was written to build | **0** | 2 — `Hierarchy.vxml:84`, `Inspector.vxml:63` |
 | `CommandRoute.ScopeOf` (`Commands.cs:418`) | reads it | **0** | 1 — `Shell.vxml:311` |
 | `UiDocument.CommandResponder` (`Commands.cs:537`) | `NSDocument`'s slot | **0** | 1 — `Shell.vxml:323` |
-| `UiElement.AccessKey` (`UiElement.cs:788`) | Alt-mnemonics | **0** | 1 — `Shell.vxml:591` |
+| `UiElement.AccessKey` (`UiElement.cs:813`) | Alt-mnemonics | **0** | 1 — `Shell.vxml:591` |
 | `UiDocument.MoveFocus(NavigationDirection)` (`Vixen.Ui/Navigation.cs:48`) | arrow/D-pad navigation | **0** | 1 — `Shell.vxml:549` |
 
 ⚠ **Two halves of the "now" column are gated and a third is not, and the difference matters to a
@@ -140,7 +140,7 @@ command system exists to make identical.
 
 **1.4 — There is no window level, and no seam for one.** `UiDocument.Focused` is a single
 document-global field (`Focus.cs:35@10523d70f`). `Dispatch(KeyEvent)` takes no surface (`Keyboard.cs:191`),
-unlike `Dispatch(UiSurface, PointerEvent)` (`UiDocument.cs:2208`) and
+unlike `Dispatch(UiSurface, PointerEvent)` (`UiDocument.cs:2215`) and
 `Dispatch(UiSurface, WheelEvent)` (`Hover.cs:103`); `Platform/Vixen.Platform.Ui/PlatformInput.cs:173`
 says so outright. With nothing focused, keys land on the **primary** surface's root
 (`Keyboard.cs:196@10523d70f` + `Surfaces.cs:29`) — so a keystroke aimed at a torn-off inspector executes
@@ -196,8 +196,8 @@ place where Vixen is **ahead of AppKit**, and each survives Part 3 unchanged.
 3. **A real capture phase over a snapshotted route** (`EventRouter.cs:39-42`). AppKit has no capture
    phase, and walks `nextResponder` live.
 4. **Pointer fall-through is free.** Hit test → target → bubble:
-   `UiDocument.Dispatch(UiSurface, PointerEvent)` (`UiDocument.cs:2208`) takes its target from
-   `HitTest` (`UiDocument.cs:2221`) and bubbles through `Raise` (`UiDocument.cs:2231`). In AppKit
+   `UiDocument.Dispatch(UiSurface, PointerEvent)` (`UiDocument.cs:2215`) takes its target from
+   `HitTest` (`UiDocument.cs:2228`) and bubbles through `Raise` (`UiDocument.cs:2238`). In AppKit
    every `mouseDown:` that wants to pass the event on must remember to call `super`.
 5. **`Defocus`** (`Focus.cs:343-391`): a press that lands on nothing focusable clears the focus, on
    the whole ancestor chain, with a pointer-capture exemption. AppKit has no rule for this and every
