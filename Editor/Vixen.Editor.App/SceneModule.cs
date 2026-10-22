@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
@@ -100,6 +101,51 @@ sealed class SceneModule : IEditorPlugin {
         context.AddDefaultBinding("entity.create-child", new KeyChord(InputKey.N, ModifierKeys.Alt | ModifierKeys.Shift));
         context.AddDefaultBinding("entity.group", new KeyChord(InputKey.G, ModifierKeys.Control));
         context.AddDefaultBinding("entity.snap-to-floor", new KeyChord(InputKey.End, ModifierKeys.None));
+
+        // ── The Entity menu's planned lines and the two marks (#1296) ───────────────────────────
+        // Declared and disabled with the reason, which is doc 20's E0: a verb that is not implemented
+        // is visibly not implemented rather than absent. Moved out of `EditorParity.EntityCommands`
+        // with the rest of the Entity menu's lines, so switching this module off takes all of them.
+        foreach (var (id, title) in PlannedEntityLines) {
+            context.AddCommand(
+                new EditorCommand(id, title, () => { }) {
+                    Category = EditorStrings.CategoryEntity,
+                    Unavailable = EditorStrings.PlannedReasons[id]
+                }
+            );
+        }
+
+        // ⚠ Editor state and not scene state, which is the line both Unreal and Unity draw: hiding
+        // something to work on what is behind it must not change what ships. So these write
+        // `SceneDocument`'s own sets rather than a component, they are not saved, and they are not
+        // undoable — an undo that put an eye back would be one step of history spent on where the
+        // user was looking rather than on what they changed, which is `Selection`'s argument.
+        context.AddCommand(
+            new EditorCommand(
+                "entity.toggle-hidden",
+                EditorStrings.CommandEntityToggleHidden,
+                () => Mark(editing, static (scene, entity) => scene.IsHiddenDirectly(entity), static (scene, entity, on) => scene.SetHidden(entity, on))
+            ) {
+                Category = EditorStrings.CategoryEntity,
+                Enablement = Selected,
+                Checked = () => Selected() && editing.Active.IsHiddenDirectly(editing.Active.Selection[0])
+            }
+        );
+
+        context.AddCommand(
+            new EditorCommand(
+                "entity.toggle-lock",
+                EditorStrings.CommandEntityToggleLock,
+                () => Mark(editing, static (scene, entity) => scene.IsLockedDirectly(entity), static (scene, entity, on) => scene.SetLocked(entity, on))
+            ) {
+                Category = EditorStrings.CategoryEntity,
+                Enablement = Selected,
+                Checked = () => Selected() && editing.Active.IsLockedDirectly(editing.Active.Selection[0])
+            }
+        );
+
+        context.AddDefaultBinding("entity.toggle-hidden", new KeyChord(InputKey.H, ModifierKeys.None));
+        context.AddDefaultBinding("entity.toggle-lock", new KeyChord(InputKey.L, ModifierKeys.None));
 
         // ── Part D's verbs that ask nothing (#1290's second slice) ──────────────────────────────
         context.AddCommand(
@@ -207,6 +253,47 @@ sealed class SceneModule : IEditorPlugin {
         // ⚠ Last, so every line it names that is this module's is registered; and before Blockout and
         // Water activate, which place their submenus in it by finding it.
         SceneMenuBar.Register(context);
+    }
+
+    /// <summary>The Entity menu's lines that are declared and not yet built, in the order the menu shows them.</summary>
+    static readonly (string Id, StringId Title)[] PlannedEntityLines = [
+        ("entity.create-audio", EditorStrings.CommandEntityCreateAudio),
+        ("entity.create-ui", EditorStrings.CommandEntityCreateUi),
+        ("entity.create-vfx", EditorStrings.CommandEntityCreateVfx),
+        ("entity.make-prefab", EditorStrings.CommandEntityMakePrefab),
+        ("entity.unpack-prefab", EditorStrings.CommandEntityUnpackPrefab),
+        ("entity.apply-overrides", EditorStrings.CommandEntityApplyOverrides),
+        ("entity.ungroup", EditorStrings.CommandEntityUngroup),
+        ("entity.toggle-active", EditorStrings.CommandEntityToggleActive)
+    ];
+
+    /// <summary>Flips a mark across the selection, taking the first entity's state as the answer.</summary>
+    /// <remarks>
+    ///     ⚠ <b>All of them get what the <i>first</i> one is not, rather than each being flipped.</b>
+    ///     Toggling a mixed selection per entity swaps which half is hidden, which is the one outcome
+    ///     nobody ever means — and it makes pressing the key twice a no-op that looks like the key
+    ///     not working.
+    /// </remarks>
+    static void Mark(
+        ISceneEditing editing,
+        Func<SceneDocument, Entity, bool> read,
+        Action<SceneDocument, Entity, bool> write
+    ) {
+        var scene = editing.Active;
+
+        if (scene.Selection.Count == 0) {
+            return;
+        }
+
+        var wanted = !read(scene, scene.Selection[0]);
+
+        foreach (var entity in scene.Selection) {
+            write(scene, entity, wanted);
+        }
+
+        // ⚠ Through the service's own event, which the outliner and the viewport follow; the cast is
+        // the one `ScenesPanel` makes, because raising it is not a verb a plugin should have.
+        (editing as SceneEditing)?.Remarked();
     }
 
     /// <summary>One command per built-in shape, so that spawning one is not the menu's private trick.</summary>

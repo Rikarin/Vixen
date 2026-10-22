@@ -67,7 +67,6 @@ sealed partial class EditorApplication {
         FileCommands();
         EditingCommands();
         AssetCommands();
-        EntityCommands();
         PlayCommands();
         BuildAndToolCommands();
     }
@@ -552,89 +551,6 @@ sealed partial class EditorApplication {
 
             library.Move(assets, folder);
         }
-    }
-
-    // ── Entity ──────────────────────────────────────────────────────────────────────────────────
-
-    void EntityCommands() {
-        // ⚠ Create Child, Group, Group as LOD, Clear Parent, Align With View, Move To View and Snap To
-        // Floor are `SceneModule`'s now (#1290): names for `ISceneEditing`'s verbs, registered through
-        // `PluginContext` with their keys, and so are Create Empty and its shortcut (#1290's third
-        // slice). What stays here is the planned lines, Set Parent's chooser and the two marks.
-        Planned("entity.create-audio", EditorStrings.CommandEntityCreateAudio, EditorStrings.CategoryEntity);
-
-        Planned("entity.create-ui", EditorStrings.CommandEntityCreateUi, EditorStrings.CategoryEntity);
-
-        Planned("entity.create-vfx", EditorStrings.CommandEntityCreateVfx, EditorStrings.CategoryEntity);
-
-        Planned("entity.make-prefab", EditorStrings.CommandEntityMakePrefab, EditorStrings.CategoryEntity);
-
-        Planned("entity.unpack-prefab", EditorStrings.CommandEntityUnpackPrefab, EditorStrings.CategoryEntity);
-
-        Planned("entity.apply-overrides", EditorStrings.CommandEntityApplyOverrides, EditorStrings.CategoryEntity);
-
-        Planned("entity.ungroup", EditorStrings.CommandEntityUngroup, EditorStrings.CategoryEntity);
-
-        // ⚠ The picker this waited for was never the outliner's drag. `ChooseAsync` is the editor's
-        // one drawn "pick one of these", the drag has been wired for a milestone anyway
-        // (`hierarchy.AllowDrag`), and `ReparentCommand` is the undoable move both gestures make —
-        // so what was left was a list of candidate parents and one call.
-        Verb(
-            "entity.set-parent",
-            EditorStrings.CommandEntitySetParent,
-            EditorStrings.CategoryEntity,
-            SetParent,
-            enabled: () => scene.Selection.Count > 0
-        );
-
-        Planned("entity.toggle-active", EditorStrings.CommandEntityToggleActive, EditorStrings.CategoryEntity);
-
-        // ⚠ Editor state and not scene state, which is the line both Unreal and Unity draw: hiding
-        // something to work on what is behind it must not change what ships. So these write
-        // `SceneDocument`'s own sets rather than a component, they are not saved, and they are not
-        // undoable — an undo that put an eye back would be one step of history spent on where the
-        // user was looking rather than on what they changed, which is `Selection`'s argument.
-        Verb(
-            "entity.toggle-hidden",
-            EditorStrings.CommandEntityToggleHidden,
-            EditorStrings.CategoryEntity,
-            () => Mark(scene.IsHiddenDirectly, scene.SetHidden),
-            enabled: () => scene.Selection.Count > 0,
-            on: () => scene.Selection.Count > 0 && scene.IsHiddenDirectly(scene.Selection[0])
-        );
-
-        Verb(
-            "entity.toggle-lock",
-            EditorStrings.CommandEntityToggleLock,
-            EditorStrings.CategoryEntity,
-            () => Mark(scene.IsLockedDirectly, scene.SetLocked),
-            enabled: () => scene.Selection.Count > 0,
-            on: () => scene.Selection.Count > 0 && scene.IsLockedDirectly(scene.Selection[0])
-        );
-
-        Shell.Keys.SetDefault("entity.toggle-hidden", new KeyChord(InputKey.H, ModifierKeys.None));
-        Shell.Keys.SetDefault("entity.toggle-lock", new KeyChord(InputKey.L, ModifierKeys.None));
-    }
-
-    /// <summary>Flips a mark across the selection, taking the first entity's state as the answer.</summary>
-    /// <remarks>
-    ///     ⚠ <b>All of them get what the <i>first</i> one is not, rather than each being flipped.</b>
-    ///     Toggling a mixed selection per entity swaps which half is hidden, which is the one outcome
-    ///     nobody ever means — and it makes pressing the key twice a no-op that looks like the key
-    ///     not working.
-    /// </remarks>
-    void Mark(Func<Entity, bool> read, Action<Entity, bool> write) {
-        if (scene.Selection.Count == 0) {
-            return;
-        }
-
-        var wanted = !read(scene.Selection[0]);
-
-        foreach (var entity in scene.Selection) {
-            write(entity, wanted);
-        }
-
-        sceneEditing.Remarked();
     }
 
     // ── Play ────────────────────────────────────────────────────────────────────────────────────
@@ -1769,61 +1685,8 @@ sealed partial class EditorApplication {
     // ── Selection and hierarchy verbs ───────────────────────────────────────────────────────────
 
     // ⚠ The verbs that were here are `SceneEditing`'s now (#1290) — `ISceneEditing`, published to
-    // plugins — and `SceneModule` registers the Entity menu's lines over them. What stays is the one
-    // that asks a question first: the chooser is this editor's dialog, the move is the service's.
-
-    /// <summary>One row of the Set Parent dialog.</summary>
-    /// <param name="Label">What the row says.</param>
-    /// <param name="Parent">Where choosing it would put the selection.</param>
-    /// <param name="Refusal">Why it cannot be chosen, or <see langword="null" /> when it can.</param>
-    sealed record ParentChoice(string Label, Entity Parent, string? Refusal);
-
-    /// <summary>Asks which entity to hang the selection from, and moves it there undoably.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>The impossible parents are listed and greyed rather than left out.</b> Dragging a
-    ///         parent onto its own child is a gesture people make on purpose — they are looking for
-    ///         the row and expect to find it — and a list that quietly omitted the descendants would
-    ///         read as the editor having lost them. The row says which rule refused it, which is the
-    ///         same bargain the whole <c>Planned</c> mechanism makes one level up.
-    ///     </para>
-    ///     <para>
-    ///         One <see cref="ReparentCommand" /> for the whole selection, so one Ctrl+Z takes it
-    ///         back — the drag in the outliner makes exactly the same call.
-    ///     </para>
-    /// </remarks>
-    void SetParent() {
-        if (scene.Selection.Count == 0) {
-            return;
-        }
-
-        var moving = scene.Selection.ToList();
-
-        // ⚠ Not called "Scene Root", which is what the default scene's own root entity is called.
-        // A list where the row meaning "no parent at all" is spelled the same as a row meaning "under
-        // that entity" is a list with two different answers under one name.
-        List<ParentChoice> choices = [new ParentChoice("(No parent)", Entity.Null, null)];
-
-        foreach (var entity in scene.Entities) {
-            choices.Add(new ParentChoice(scene.NameOf(entity), entity, sceneEditing.WhyNotParent(moving, entity)));
-        }
-
-        _ = Ask();
-
-        async Task Ask() {
-            var chosen = await Shell.ChooseAsync(
-                moving.Count == 1 ? "Hang it from what?" : $"Hang {moving.Count} entities from what?",
-                choices,
-                static choice => choice.Label,
-                static choice => choice.Refusal,
-                static choice => choice.Refusal is null
-            ).ConfigureAwait(true);
-
-            if (chosen is not null) {
-                sceneEditing.SetParent(moving, chosen.Parent);
-            }
-        }
-    }
+    // plugins — and `SceneModule` registers the Entity menu's lines over them, Set Parent's chooser
+    // (`SceneQuestions`) and the two marks included (#1296).
 
     // ── Play mode ───────────────────────────────────────────────────────────────────────────────
 
