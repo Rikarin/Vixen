@@ -133,14 +133,18 @@ sealed class Deferred {
         ArgumentNullException.ThrowIfNull(next);
         ArgumentNullException.ThrowIfNull(failed);
 
-        if (work.IsCompletedSuccessfully) {
-            var answer = work.Result;
-
-            Post(() => next(answer));
-            return;
-        }
-
+        // ⚠ Completion is read once, and success is asked only of a call already known to be done.
+        // Asking `IsCompletedSuccessfully` first and `IsCompleted` second let a call that answered
+        // between the two reads look faulted — and, with no exception on it, be dropped with neither
+        // handler run. A finished call stays finished, so the reads below cannot disagree.
         if (work.IsCompleted) {
+            if (work.IsCompletedSuccessfully) {
+                var answer = work.Result;
+
+                Post(() => next(answer));
+                return;
+            }
+
             // Faulted or cancelled. `AsTask` on a completed ValueTask hands back a completed Task
             // rather than starting anything, and a cancelled one carries no exception to report.
             if (work.AsTask().Exception is { } thrown) {

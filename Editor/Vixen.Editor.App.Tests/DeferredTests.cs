@@ -158,4 +158,64 @@ public class DeferredTests {
             + "that never received it rather than a hand-off that was slow."
         );
     }
+
+    /// <summary>A call that answers while <c>When</c> is reading its status is still delivered.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The status was read twice and the answer could land between the reads.</b>
+    ///         <c>IsCompletedSuccessfully</c> said "not yet", the pool thread finished the call, and
+    ///         <c>IsCompleted</c> then said "done" — which the code took to mean faulted or cancelled,
+    ///         found no exception, and returned without posting anything. The success was dropped and
+    ///         neither handler ever ran.
+    ///     </para>
+    ///     <para>
+    ///         Under lane B's sweep latch (#1505) that stopped being a missed update: the detection
+    ///         sweep's success handler is what clears <c>ProjectSourceControl.sweeping</c>, so every
+    ///         later sweep folded into <c>again</c> for good and the column never drew. It reproduced
+    ///         as <c>"the sweep never landed"</c> about one run in eight of the source-control suites,
+    ///         and once hung five minutes under a widened ceiling.
+    ///     </para>
+    ///     <para>
+    ///         A source whose first status read is pending and every later one succeeded is that
+    ///         interleaving made deterministic, so this is red on every run of the old code rather
+    ///         than one in a hundred.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_call_that_answers_between_the_status_reads_is_still_delivered() {
+        var deferred = new Deferred();
+        var seen = 0;
+
+        deferred.When(new ValueTask<int>(new AnswersOnSecondLook(7), 0), answer => seen = answer, _ => seen = -1);
+
+        // A hang check and not a bound: the answer is taken down the asynchronous path now, which
+        // posts from a pool continuation. The old code never posted at all, so it spins out here.
+        var hung = Stopwatch.StartNew();
+
+        while (seen == 0 && hung.Elapsed < TimeSpan.FromSeconds(30)) {
+            deferred.Pump();
+            Thread.Yield();
+        }
+
+        Assert.Equal(7, seen);
+    }
+
+    /// <summary>Pending on the first status read and answered on every one after it.</summary>
+    sealed class AnswersOnSecondLook(int answer) : System.Threading.Tasks.Sources.IValueTaskSource<int> {
+        int looks;
+
+        public System.Threading.Tasks.Sources.ValueTaskSourceStatus GetStatus(short token) =>
+            Interlocked.Increment(ref looks) == 1
+                ? System.Threading.Tasks.Sources.ValueTaskSourceStatus.Pending
+                : System.Threading.Tasks.Sources.ValueTaskSourceStatus.Succeeded;
+
+        public int GetResult(short token) => answer;
+
+        public void OnCompleted(
+            Action<object?> continuation,
+            object? state,
+            short token,
+            System.Threading.Tasks.Sources.ValueTaskSourceOnCompletedFlags flags
+        ) => continuation(state);
+    }
 }
