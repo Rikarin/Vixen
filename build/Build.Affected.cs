@@ -8,6 +8,7 @@ using System.Xml.Linq;
 using Nuke.Common;
 using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
+using Nuke.Common.Tooling;
 using Nuke.Common.Tools.DotNet;
 using Nuke.Common.Tools.Git;
 using Serilog;
@@ -381,15 +382,54 @@ partial class Build {
                 // the platform runner cannot read (#560).
                 ExportLayerLibraryPath();
 
-                foreach (var project in projects) {
-                    Log.Information("Testing {Project}", RootDirectory.GetRelativePathTo(project).ToUnixRelativePath());
+                // ⚠ Every project runs, and the verdict comes at the end (#1332). This used to throw
+                // on the first red project, and on a machine without `spirv-val` that is
+                // Vixen.Fuzz.Tests, second of sixty-seven, every time: the other sixty-five never ran,
+                // and a real census drift in the twelfth hid behind an environmental red for a whole
+                // sweep. The target printed "Failed" whether one project was red or sixty-six were.
+                TestResultsDirectory.CreateOrCleanDirectory();
 
-                    DotNetTest(settings => settings
+                var red = new List<(string Project, IReadOnlyList<string> Problems)>();
+
+                foreach (var project in projects) {
+                    var relative = RootDirectory.GetRelativePathTo(project).ToUnixRelativePath().ToString();
+                    var exitCode = 0;
+
+                    Log.Information("Testing {Project}", relative);
+
+                    var output = DotNetTest(settings => settings
                         .SetProjectFile(project)
                         .SetConfiguration(Configuration)
                         .SetResultsDirectory(TestResultsDirectory)
+                        .SetProcessExitHandler(process => exitCode = process.ExitCode)
                     );
+
+                    var trx = TestResultsDirectory / (project.NameWithoutExtension + ".trx");
+                    var problems = TestRunSummary.Problems(
+                        [project.NameWithoutExtension],
+                        output.Select(line => line.Text),
+                        exitCode,
+                        trx.FileExists() ? new Dictionary<string, int> { [project.NameWithoutExtension] = TestCaseCount(trx) } : null
+                    );
+
+                    if (problems.Count > 0) {
+                        red.Add((relative, problems));
+                        Log.Error("{Project} is red — carrying on with the rest: {Problems}", relative, string.Join(" ", problems));
+                    }
                 }
+
+                Log.Information("{Ran} test project(s) ran; {Red} red.", projects.Count, red.Count);
+
+                foreach (var (project, problems) in red) {
+                    Log.Error("  red: {Project} — {Problems}", project, string.Join(" ", problems));
+                }
+
+                Assert.True(
+                    red.Count == 0,
+                    $"{red.Count} of {projects.Count} test project(s) are red: "
+                    + string.Join(", ", red.Select(entry => entry.Project))
+                    + ". Every one of them ran; the list above says why each is red."
+                );
             }
         );
 }

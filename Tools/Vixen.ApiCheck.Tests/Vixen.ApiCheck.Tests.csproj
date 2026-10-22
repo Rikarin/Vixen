@@ -174,6 +174,15 @@
         <Compile Include="..\..\build\BenchmarkInventory.cs" Link="BenchmarkInventory.cs" />
     </ItemGroup>
 
+    <!--
+        ⚠ And the test runs' post-condition (#1360): a host that died after its last test printed no
+        summary line, and every reader of the console called that clean. `TestRunSummaryTests` feeds
+        it the two runners' real lines and the shapes a dying host leaves.
+    -->
+    <ItemGroup>
+        <Compile Include="..\..\build\TestRunSummary.cs" Link="TestRunSummary.cs" />
+    </ItemGroup>
+
     <!-- What git calls the tree, for the repository sweeps here, instead of a directory walk (#1424). -->
     <Import Project="..\..\Testing\Vixen.Testing.RepositoryFiles.props" />
 </Project>
