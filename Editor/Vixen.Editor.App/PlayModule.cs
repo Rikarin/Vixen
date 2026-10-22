@@ -75,11 +75,63 @@ sealed class PlayModule : IEditorPlugin {
 
         Transport(context, "play.stop", EditorStrings.CommandPlayStop, EditorIcons.Stop, () => play.Leave(), () => play.IsPlaying);
 
+        // ── Play ▸ Mode and Mute Audio, declared and disabled with the reason (#1296) ──────────────
+        // ⚠ Standalone and Server both named milestone E6, and E6 has shipped — `build.settings` is a
+        // window and `build.run` publishes and starts a player. What is actually missing is on this
+        // side of the line and is the same thing twice: a *supervised* process. Play is a transport —
+        // Pause, Step and Stop have to mean something — and `PlayerDelivery.Build` hands the artefact
+        // to the OS and forgets it, so a play mode over it would be a Play button with three dead
+        // buttons beside it. A reason naming a mechanism can be checked against the tree; one naming
+        // a schedule stayed on screen for two milestones after its schedule closed.
+        foreach (var (id, title) in PlannedLines) {
+            context.AddCommand(
+                new EditorCommand(id, title, () => { }) {
+                    Category = EditorStrings.CategoryPlay,
+                    Unavailable = EditorStrings.PlannedReasons[id]
+                }
+            );
+        }
+
+        // ── Play ▸ Overlays: one checked line per diagnostic overlay (#1263) ───────────────────
+        // ⚠ From the declaration rather than from `IPlaySession.Overlays.Registered`, because while
+        // editing nothing is registered — the physics overlay exists only between Play and Stop — and
+        // a switch that appeared only once the game was running could not be set before pressing
+        // Play, which is when somebody sets up what they are about to watch. Not a `SceneShow` flag
+        // either: a show flag is per pane, an overlay's `Enabled` is per session and is already the
+        // switch, and two switches that have to agree is the failure `SceneShow`'s remarks describe.
+        foreach (var name in SwitchableOverlays()) {
+            var overlay = name;
+
+            context.AddCommand(
+                new EditorCommand(OverlayCommand(overlay), EditorStrings.PlayOverlays[overlay], () => play.SwitchOverlay(overlay)) {
+                    Category = EditorStrings.CategoryPlay,
+                    Checked = () => play.IsOverlayOn(overlay)
+                }
+            );
+        }
+
         context.AddDefaultBinding("play.play", new KeyChord(InputKey.F5, ModifierKeys.None));
         context.AddDefaultBinding("play.pause", new KeyChord(InputKey.P, ModifierKeys.Control | ModifierKeys.Shift));
         context.AddDefaultBinding("play.step", new KeyChord(InputKey.F10, ModifierKeys.None));
         context.AddDefaultBinding("play.stop", new KeyChord(InputKey.F5, ModifierKeys.Shift));
     }
+
+    /// <summary>The Play menu's lines that are declared and not yet built.</summary>
+    static readonly (string Id, StringId Title)[] PlannedLines = [
+        ("play.mode-in-editor", EditorStrings.CommandPlayModeInEditor),
+        ("play.mode-standalone", EditorStrings.CommandPlayModeStandalone),
+        ("play.mode-server", EditorStrings.CommandPlayModeServer),
+        ("play.mute-audio", EditorStrings.CommandPlayMuteAudio)
+    ];
+
+    /// <summary>The command that switches one diagnostic overlay, by the overlay's name.</summary>
+    /// <param name="name">What the overlay is called — <c>physics</c>.</param>
+    /// <returns><c>play.overlay.</c> followed by the name.</returns>
+    internal static string OverlayCommand(string name) => "play.overlay." + name;
+
+    /// <summary>The overlay names the editor has a declared word for, in menu order.</summary>
+    internal static IEnumerable<string> SwitchableOverlays() =>
+        EditorStrings.PlayOverlays.All.Select(id => id.Id[EditorStrings.PlayOverlays.Prefix.Length..]);
 
     /// <summary>Registers one of the four transport verbs: an icon, a colour, and a state.</summary>
     /// <remarks>

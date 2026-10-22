@@ -1245,11 +1245,8 @@ sealed partial class EditorApplication : IDisposable {
         // frame's colliders: `PhysicsDebugDrawSystem` runs in `PreRender`, inside `Tick`. Clearing
         // afterwards would draw nothing at all and clearing nowhere would accumulate every frame of
         // the session into one solid mass of lines.
-        // `EditorPlaySession.Tick` empties the overlays' draw before the step and drains it after.
-        //
-        // Before the step, which is the frame a session registered on Play first draws in.
-        FollowPlayOverlays();
-
+        // `EditorPlaySession.Tick` applies the overlay switches, empties the overlays' draw before the
+        // step and drains it after.
         if (!play.Tick(delta)) {
             ResolveTransforms();
         }

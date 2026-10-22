@@ -6,6 +6,7 @@ using Vixen.Core.Threading;
 using Vixen.Ecs;
 using Vixen.Ecs.Systems;
 using Vixen.Editor.Core;
+using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Engine.Transforms;
 using Xunit;
 
@@ -115,6 +116,54 @@ public class EditorPlaySessionTests {
         Assert.Contains(nameof(UnmarkedSystem), said);
 
         play.Leave();
+    }
+
+    /// <summary>
+    ///     An overlay switched on before Play is on in the session that registers it, and in the next
+    ///     one — the wish is the service's, and a plugin switches the same one the menu ticks (#1296).
+    /// </summary>
+    [Fact]
+    public void An_overlay_switched_on_while_editing_is_on_in_every_session_that_registers_it() {
+        using var world = new World("Scene");
+        var selection = new Selection<Entity>();
+
+        using var controller = new PlayModeController(world);
+        var session = new EditorPlaySession(controller, () => selection);
+        IPlaySession play = session;
+
+        Assert.False(play.IsOverlayOn("probe"));
+
+        play.SwitchOverlay("probe");
+        Assert.True(play.IsOverlayOn("probe"));
+
+        // What a session's contribution does on Play: a new overlay object, switched off.
+        var first = new Probe();
+        play.Overlays.Add(first);
+        session.Tick(Frame);
+        Assert.True(first.Enabled, "the wish did not reach the overlay the session registered");
+
+        // Stop takes it out and the next Play registers another, switched off again.
+        play.Overlays.Remove("probe");
+        var second = new Probe();
+        play.Overlays.Add(second);
+        session.Tick(Frame);
+        Assert.True(second.Enabled, "the wish did not outlive the session");
+
+        // A switch made on the live overlay by something else is read back, not overwritten.
+        second.Enabled = false;
+        session.Tick(Frame);
+        Assert.False(second.Enabled);
+        Assert.False(play.IsOverlayOn("probe"));
+    }
+
+    sealed class Probe : IDiagnosticOverlay {
+        public string Name => "probe";
+
+        public OverlayAnchor Anchor => OverlayAnchor.TopLeft;
+
+        public bool Enabled { get; set; }
+
+        public void Draw(OverlaySurface surface, in GameTime time) { }
     }
 
     /// <summary>A system a project declares and does not opt into the editor's session.</summary>

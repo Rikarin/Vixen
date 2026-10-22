@@ -20,6 +20,9 @@ public class ParityLinesModuleTests {
     [InlineData(SceneModule.ModuleId, "entity.toggle-lock")]
     [InlineData(SceneModule.ModuleId, "entity.ungroup")]
     [InlineData(SceneModule.ModuleId, "entity.toggle-active")]
+    [InlineData(PlayModule.ModuleId, "play.mode-in-editor")]
+    [InlineData(PlayModule.ModuleId, "play.mute-audio")]
+    [InlineData(PlayModule.ModuleId, "play.overlay.physics")]
     public void Disabling_the_module_takes_its_lines_away(string module, string command) {
         using var session = EditorSession.Start();
 

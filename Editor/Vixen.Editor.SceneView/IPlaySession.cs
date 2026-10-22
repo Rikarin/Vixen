@@ -39,9 +39,33 @@ public interface IPlaySession : IActivePlaySession {
     /// <summary>The registry a session's diagnostic overlays are registered in and switched through.</summary>
     /// <remarks>
     ///     The editor's rather than a session's, because a switch has to be settable before Play is
-    ///     pressed — see <c>PlayOverlaySwitches</c>.
+    ///     pressed — see <see cref="SwitchOverlay" />.
     /// </remarks>
     DiagnosticOverlays Overlays { get; }
+
+    /// <summary>Whether a diagnostic overlay is on: the live one if a session has it, the wish if not.</summary>
+    /// <param name="name">What the overlay is called — <c>physics</c>.</param>
+    /// <returns>Whether it is, or will be when the next session registers it, switched on.</returns>
+    bool IsOverlayOn(string name);
+
+    /// <summary>Flips a diagnostic overlay — the wish, and the live overlay with it if a session runs one.</summary>
+    /// <param name="name">What the overlay is called — <c>physics</c>.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a game types at its console, as a verb</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1263">#1263</a>). Play ▸ Overlays is
+    ///         one checked command per overlay over this; a plugin reaches the same switch.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The wish is the editor's and the switch is the overlay's, and the two have to be
+    ///         kept apart.</b> <c>IDiagnosticOverlay.Enabled</c> lives on the overlay object, and the
+    ///         physics one is registered on Play and removed on Stop, because it holds a
+    ///         <c>PhysicsScene</c> Stop destroys — so the next Play registers a new overlay, switched
+    ///         off. What outlives a session is the wish, applied to each overlay the first frame it is
+    ///         seen.
+    ///     </para>
+    /// </remarks>
+    void SwitchOverlay(string name);
 
     /// <summary>Raised after a session has started, so the rest of the editor can follow.</summary>
     event Action<IPlaySession>? Entered;

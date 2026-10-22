@@ -51,13 +51,8 @@ editor menu editor.menu.file file.save
 editor menu editor.menu.file file.save-all
 editor menu editor.menu.file file.save-as
 editor menu editor.menu.file/editor.menu.recent file.no-recent
-editor menu editor.menu.play/editor.menu.play-mode play.mode-in-editor
-editor menu editor.menu.play/editor.menu.play-mode play.mode-server
-editor menu editor.menu.play/editor.menu.play-mode play.mode-standalone
 editor menu editor.menu.play/editor.menu.play-options play.clear-console
 editor menu editor.menu.play/editor.menu.play-options play.maximise
-editor menu editor.menu.play/editor.menu.play-options play.mute-audio
-editor menu editor.menu.play/editor.menu.play-overlays play.overlay.physics
 editor menu editor.menu.tools plugins.reload
 editor menu editor.menu.tools tools.export-strings
 editor menu editor.menu.tools tools.plugins
@@ -287,6 +282,11 @@ vixen.play menu editor.menu.play play.pause
 vixen.play menu editor.menu.play play.play
 vixen.play menu editor.menu.play play.step
 vixen.play menu editor.menu.play play.stop
+vixen.play menu editor.menu.play/editor.menu.play-mode play.mode-in-editor
+vixen.play menu editor.menu.play/editor.menu.play-mode play.mode-server
+vixen.play menu editor.menu.play/editor.menu.play-mode play.mode-standalone
+vixen.play menu editor.menu.play/editor.menu.play-options play.mute-audio
+vixen.play menu editor.menu.play/editor.menu.play-overlays play.overlay.physics
 vixen.scene menu editor.menu.edit edit.isolate
 vixen.scene menu editor.menu.edit edit.recall-selection-set
 vixen.scene menu editor.menu.edit edit.save-selection-set

@@ -24,7 +24,7 @@ namespace Vixen.Editor.App;
 ///         drained into the panes by <c>EditorApplication</c> after the loop has stepped. ⚠ The
 ///         registry outliving the session does <em>not</em> keep a toggle across Stop, which this
 ///         used to claim: <c>Enabled</c> is on the overlay, and the next Play registers a new one.
-///         The editor's wish does that — <c>EditorApplication.FollowPlayOverlays</c> (#1263). What
+///         The editor's wish does that — <c>EditorPlaySession.SwitchOverlay</c> (#1263). What
 ///         <em>is</em> per session is the overlay: the physics
 ///         one holds the <c>PhysicsScene</c>, which is destroyed on Stop, so it is registered by
 ///         <see cref="PlayPhysics" /> and taken back out there.

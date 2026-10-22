@@ -579,18 +579,8 @@ sealed partial class EditorApplication {
         // third party uses — so a plugin reaches the same four verbs the transport does. What is left
         // here is the Play menu's options, which are this editor's preferences rather than the
         // session's verbs.
-        Planned("play.mode-in-editor", EditorStrings.CommandPlayModeInEditor, EditorStrings.CategoryPlay);
-
-        // ⚠ Both of these named milestone E6, and E6 has shipped — `build.settings` is a window and
-        // `build.run` publishes and starts a player. What is actually missing is on this side of the
-        // line and is the same thing twice: a *supervised* process. Play is a transport — Pause, Step
-        // and Stop have to mean something — and `PlayerDelivery.Build` hands the artefact to the OS and
-        // forgets it, so a play mode over it would be a Play button with three dead buttons beside
-        // it. A reason naming a mechanism can be checked against the tree; one naming a schedule
-        // stayed on screen for two milestones after its schedule closed.
-        Planned("play.mode-standalone", EditorStrings.CommandPlayModeStandalone, EditorStrings.CategoryPlay);
-
-        Planned("play.mode-server", EditorStrings.CommandPlayModeServer, EditorStrings.CategoryPlay);
+        // The three play modes, Mute Audio and the Overlays submenu are `PlayModule`'s (#1296): the
+        // first four are declared lines and the last is `IPlaySession.SwitchOverlay`.
 
         // ⚠ A preference rather than an action, which is what the tick says. It changes what the
         // *next* Play does; pressing it while the game is running would be a second, differently
@@ -602,11 +592,6 @@ sealed partial class EditorApplication {
             () => maximiseOnPlay = !maximiseOnPlay,
             on: () => maximiseOnPlay
         );
-
-        Planned("play.mute-audio", EditorStrings.CommandPlayMuteAudio, EditorStrings.CategoryPlay);
-
-        // One checked line per diagnostic overlay — Play ▸ Overlays (#1263).
-        PlayOverlayCommands();
 
         // ⚠ A tick over the console's own preference rather than a second copy of it. Doc 20's rule
         // for the three navigation preferences applies here for the same reason: two writers to one
@@ -794,7 +779,7 @@ sealed partial class EditorApplication {
             .Add("play.maximise", "play.mute-audio", "play.clear-console");
 
         play.AddSubmenu(EditorStrings.MenuPlayOverlays)
-            .Add(SwitchableOverlays().Select(PlayOverlayCommand).ToArray());
+            .Add(PlayModule.SwitchableOverlays().Select(PlayModule.OverlayCommand).ToArray());
 
         // ⚠ Counted from Window rather than carried on from Play, because Part C puts Window
         // between them: File, Edit, Assets, Entity, Scene, Play, Window, Build, Tools, Help. The
