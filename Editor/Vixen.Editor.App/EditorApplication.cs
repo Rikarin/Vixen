@@ -193,6 +193,9 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>Doc 50 § P2c's Content Library service. See <see cref="ContentLibrary" />.</summary>
     readonly ContentLibrary library;
 
+    /// <summary>Doc 50's source-control service (#1505). See <see cref="ProjectSourceControl" />.</summary>
+    readonly ProjectSourceControl sourceControl;
+
     /// <summary>Doc 50 § P2d's Project service. See <see cref="ProjectSession" />.</summary>
     readonly ProjectSession session;
 
@@ -852,6 +855,18 @@ sealed partial class EditorApplication : IDisposable {
 
         library.Arrived += () => browser?.Rescan();
 
+        // ⚠ Source control follows the session's rescans, not the browser's presence (#1505); the browser
+        // is only a reader of the column, and redraws on what a sweep or a revert changed.
+        sourceControl = new ProjectSourceControl(
+            project.Paths.Root,
+            session,
+            deferred,
+            (message, severity, detail) => Shell.Notifications.Show(message, severity, detail),
+            message => log.Write(LogLevel.Debug, message)
+        );
+        sourceControl.Swept += () => browser?.Restated();
+        sourceControl.Reverted += () => browser?.Rebuild();
+
         // ⚠ What the session's disk watch and code build mean to the panels, which are this
         // application's: the session rescans and builds, and these are the readers that follow.
         session.ChangedOnDisk += FollowedDisk;
@@ -885,7 +900,6 @@ sealed partial class EditorApplication : IDisposable {
         Panels();
 
         SettingsPanels();
-        RevisionsPanel();
 
         // And doc 48 § D12's, which is where a mesh-map bake is set up and where what it produced is
         // read afterwards.
@@ -1761,12 +1775,7 @@ sealed partial class EditorApplication : IDisposable {
         // scan either way, and still one.
         browser?.Rebuild();
 
-        // ⚠ The one event that means "somebody changed the project without going through us", which
-        // is the same event a source-control status goes stale on — a checkout, a pull, a rebase and
-        // an editor in another window are all this. A provider polled on a timer instead would be
-        // right on average and wrong exactly when it mattered.
-        Sweep();
-
+        // The source-control sweep follows the session's rescan, which raised this (#1505).
         delivery.Restate();
 
         // ⚠ And the pictures, which nothing invalidated at all until #1187: an entry left the cache
@@ -2087,11 +2096,8 @@ sealed partial class EditorApplication : IDisposable {
                     browser.DraggedOutside += Dragging;
 
                     // ⚠ Doc 20 § B7's column, given to the panel as a value. The sweep that fills it
-                    // is asked for here rather than at startup: this factory runs when the panel
-                    // first appears and again on every reopen, which is exactly when somebody is
-                    // about to look at the answer.
-                    browser.Status = statuses.Of;
-                    Sweep();
+                    // follows the session's rescans and the startup, not this panel (#1505).
+                    browser.Status = sourceControl.Status;
                     browser.Grabbing += down => grabbingAssets = down;
                     browser.Thumbnails = thumbnails;
 
@@ -2350,6 +2356,9 @@ sealed partial class EditorApplication : IDisposable {
             // import, export a package or file assets into a collection the way the editor's own
             // menus do — not by re-implementing the copy, the scan and the save beside them.
             .Add<IContentLibrary>(library)
+
+            // And what the project's source control says, and the verbs over it (#1505).
+            .Add<ISourceControl>(sourceControl)
 
             // ⚠ And the project's: the rescan every panel and module used to repeat for itself, and
             // the request to open another project.
@@ -3599,12 +3608,6 @@ sealed partial class EditorApplication : IDisposable {
         shownAssets.AddRange(project.Selection);
 
         ShowSelection();
-
-        // ⚠ Here rather than on a timer or in the panel's own tick. A history is a `git log` per
-        // asset, and a panel that asked for one every frame would run a process every frame; what
-        // it follows is the selection changing, which is this method's whole job and which has just
-        // been established to have happened. It is a no-op unless the panel is open.
-        ShowRevisions();
     }
 
     /// <summary>Fills <see cref="scenes" /> with every scene the editor has open, its own first.</summary>
@@ -4228,11 +4231,9 @@ sealed partial class EditorApplication : IDisposable {
         }
 
         try {
-            var report = open.Rescan();
-
             // Refresh is the user saying "the project may have changed underneath you", which is the
-            // same sentence a status sweep answers.
-            Sweep();
+            // same sentence a status sweep answers — and the session's rescan is what takes one (#1505).
+            var report = open.Rescan();
 
             // ⚠ And the same sentence a held thumbnail is wrong on — #1187. This is the command
             // somebody presses precisely because they repainted a file outside the editor, and until

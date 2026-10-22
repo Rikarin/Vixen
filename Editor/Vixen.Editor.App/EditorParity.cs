@@ -474,34 +474,7 @@ sealed partial class EditorApplication {
             enabled: () => browser is not null && project.Selection.Count > 0
         );
 
-        // ⚠ Doc 20 § B7's second verb, and it is enabled by a *provider* rather than by a
-        // preference: an editor opened on a project that is not in a working tree greys this with
-        // the reason, which is the shape every other unimplementable line in this file takes. The
-        // enablement asks `SourceControl.IsKnown` rather than "is there a provider", because the
-        // detection happens on the pool during the first sweep — a line that lit up only after the
-        // answer arrived is honest, and one that lit up before it would offer a verb with nothing
-        // behind it.
-        Verb(
-            "assets.revert",
-            EditorStrings.CommandAssetsRevert,
-            EditorStrings.CategoryAssets,
-            RevertToSourceControl,
-            enabled: () => SourceControl.IsKnown && project.Selection.Count > 0
-        );
-
-        // ⚠ Doc 20 § B7's third and fourth verbs, which arrive as one line because they are one
-        // panel. A history row is only worth clicking for what it shows and what it can put back, so
-        // "Diff" is not a command of its own — it is what the panel draws under whichever row is
-        // picked. One asset, because the panel has a Restore button on it and a panel that showed
-        // whichever file happened to be first in a selection of forty would be right by accident.
-        Verb(
-            "assets.history",
-            EditorStrings.CommandAssetsHistory,
-            EditorStrings.CategoryAssets,
-            ShowRevisionsPanel,
-            enabled: () => SourceControl.IsKnown && project.Selection.Count == 1
-        );
-
+        // Revert and Show History are `SourceControlModule`'s (#1505), over the published `ISourceControl`.
         Planned("assets.reimport", EditorStrings.CommandAssetsReimport, EditorStrings.CategoryAssets);
 
         // Find References and Select Dependencies are `LibraryModule`'s now (#1292): names for

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics;
+using Vixen.Editor.Assets;
 using Vixen.Editor.Testing;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
@@ -567,11 +568,11 @@ public class SourceControlColumnTests {
 
         Assert.True(folder.Contains('/'), "the fixture's scene is at the root, so this proves no fold");
 
-        editor.Editor.UseSourceControl(new Fake(new Dictionary<string, SourceControlStatus> {
+        SourceControlHarness.Of(editor).Use(new Fake(new Dictionary<string, SourceControlStatus> {
             [scene.Path] = SourceControlStatus.Modified
         }));
 
-        editor.Editor.Sweep();
+        SourceControlHarness.Of(editor).Sweep();
         Swept(editor);
 
         var marked = Tiles(editor).Where(tile => !tile.Status.HasClass("hidden")).ToList();
@@ -593,7 +594,7 @@ public class SourceControlColumnTests {
         editor.Open("project");
         editor.Settle();
 
-        Assert.False(editor.Editor.SourceControl.IsKnown);
+        Assert.False(SourceControlHarness.Of(editor).IsKnown);
 
         var tiles = Tiles(editor);
 
@@ -640,11 +641,11 @@ public class SourceControlColumnTests {
 
         var scene = scenes[0];
 
-        editor.Editor.UseSourceControl(new Fake(new Dictionary<string, SourceControlStatus> {
+        SourceControlHarness.Of(editor).Use(new Fake(new Dictionary<string, SourceControlStatus> {
             [scene.Path] = SourceControlStatus.Modified
         }));
 
-        editor.Editor.Sweep();
+        SourceControlHarness.Of(editor).Sweep();
         Swept(editor);
 
         // ⚠ `editor.Assets` puts the panel in front of the tree, which is what this asks about. The
@@ -681,7 +682,7 @@ public class SourceControlColumnTests {
 
         editor.Settle();
 
-        Assert.False(editor.Editor.SourceControl.IsKnown);
+        Assert.False(SourceControlHarness.Of(editor).IsKnown);
 
         var rows = Marks(tree);
 
@@ -701,13 +702,13 @@ public class SourceControlColumnTests {
     ///     <see href="https://github.com/Rikarin/Vixen/issues/1179">#1179</see>.
     /// </remarks>
     static void Swept(EditorSession editor) {
-        for (var frame = 0; frame < 2000 && !editor.Editor.SourceControl.IsKnown; frame++) {
+        for (var frame = 0; frame < 2000 && !SourceControlHarness.Of(editor).IsKnown; frame++) {
             editor.Frame();
         }
 
         editor.Settle();
 
-        Assert.True(editor.Editor.SourceControl.IsKnown, "the sweep never landed");
+        Assert.True(SourceControlHarness.Of(editor).IsKnown, "the sweep never landed");
     }
 
     /// <summary>Every live row's status mark, which excludes the pool's parked rows.</summary>
@@ -747,7 +748,7 @@ public class SourceControlColumnTests {
         }
     }
 
-    sealed class Fake(IReadOnlyDictionary<string, SourceControlStatus> statuses) : ISourceControl {
+    sealed class Fake(IReadOnlyDictionary<string, SourceControlStatus> statuses) : ISourceControlProvider {
         public string Name => "Fake";
 
         public ValueTask<IReadOnlyDictionary<string, SourceControlStatus>> StatusAsync() => new(statuses);
@@ -762,4 +763,19 @@ public class SourceControlColumnTests {
 
         public ValueTask<string?> RestoreAsync(string path, string revision) => new((string?)null);
     }
+}
+
+/// <summary>Where a suite reaches the published source-control service and the module's panel (#1505).</summary>
+/// <remarks>
+///     ⚠ <b>Through <c>PluginServices</c>, the door a module uses</b>, rather than through members on
+///     <c>EditorApplication</c> — which used to carry <c>UseSourceControl</c>, <c>Sweep</c>,
+///     <c>SourceControl</c>, <c>Revisions</c> and <c>ShowRevisions</c> for these suites alone.
+/// </remarks>
+static class SourceControlHarness {
+    /// <summary>The service the editor published.</summary>
+    public static ProjectSourceControl Of(EditorSession editor) =>
+        (ProjectSourceControl)editor.Plugins.Services.Require<ISourceControl>();
+
+    /// <summary>The revisions panel <see cref="SourceControlModule" /> published.</summary>
+    public static RevisionsPanel Revisions(EditorSession editor) => editor.Plugins.Services.Require<RevisionsPanel>();
 }

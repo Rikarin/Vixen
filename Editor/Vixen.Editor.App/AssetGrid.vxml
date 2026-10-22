@@ -39,6 +39,7 @@
 @inherits Vixen.Ui.Controls.Control
 @tag asset-grid
 @using Vixen.Core
+@using Vixen.Editor.Assets
 @using Vixen.Editor.Core
 @using Vixen.Ui
 @using Vixen.Ui.Controls
