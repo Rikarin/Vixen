@@ -33,17 +33,14 @@ public class PickerVisualTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>macOS only, for a different reason from the one this used to give.</b>
-    ///         <c>EditorChromeVisualTests</c> measured that Windows and macOS shape this font
-    ///         identically, so the per-platform-glyphs argument holds for Linux and not for Windows.
-    ///         This picture is held back on Windows because rendered there (2026-10-18) it differs
-    ///         from the committed reference by 1.40 %, and not in text: the inspector's tab strip sits
-    ///         about ten pixels lower than the hierarchy's beside it, the picker's search field has a
-    ///         caret, the hierarchy's filter placeholder reads differently, and the console's empty
-    ///         line is muted. The tab strip may be the layout regression this test exists to catch,
-    ///         so the reference is not re-taken to make it pass — see
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1477">#1477</a>. Once that is settled,
-    ///         Windows belongs in the condition below.
+    ///         ⚠ <b>macOS and Windows, which <c>EditorChromeVisualTests</c> measured to shape this font
+    ///         identically</b>, so the per-platform-glyphs argument holds for Linux only. Windows was
+    ///         held back while the reference was stale (#1477), and the staleness turned out to be what
+    ///         this test exists to catch: two strings that had started to WRAP. The inspector's
+    ///         "Build Settings" tab title wrapped to two lines and stretched its whole tab strip ten
+    ///         pixels below the hierarchy's, and the hierarchy's filter prompt wrapped to three and
+    ///         showed the middle one. Both are one line again (<c>DockTabTitleTests</c>,
+    ///         <c>PlaceholderLineTests</c>), and the reference was re-taken after, not instead.
     ///     </para>
     ///     <para>
     ///         A tolerance wide enough to admit a platform's glyph placement would admit a collapsed
@@ -51,12 +48,11 @@ public class PickerVisualTests {
     ///     </para>
     /// </remarks>
     static void SkipWhereTheReferenceDoesNotApply() {
-        if (OperatingSystem.IsMacOS()) {
+        if (OperatingSystem.IsMacOS() || OperatingSystem.IsWindows()) {
             return;
         }
 
-        const string why = "the committed screenshot is compared on macOS; on Windows it waits on #1477 "
-            + "(a stale reference that may hide an inspector tab-strip regression), and Linux's HarfBuzz "
+        const string why = "the committed screenshot is compared on macOS and Windows; Linux's HarfBuzz "
             + "natives place glyphs differently enough that a pixel comparison is meaningless there.";
 
         Assert.False(

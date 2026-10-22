@@ -145,6 +145,13 @@ dock-tabs {
 /* The arrows keep their width whatever the tabs do, or they are the first thing squeezed out. */
 dock-tabstrip > icon-button { flex-shrink: 0; align-self: center; }
 
+/* ⚠ `white-space: nowrap` because a tab's title is one line or it is a different strip.
+   The list is measured fit-content against the viewport before it overflows, so a
+   two-word title is squeezed to its min-content and wraps — and every tab in the row then
+   stretches to the two-line one's height. That is how the inspector's strip came to sit ten
+   pixels below its neighbours' once "Build Settings" joined its group (#1477). The strip
+   scrolls; the title must not wrap to save it from scrolling. Inherited, so it reaches the
+   label without a combinator. */
 dock-tab {
     flex-direction: row;
     align-items: center;
@@ -153,6 +160,7 @@ dock-tab {
     border-width: 0px;
     background-color: transparent;
     color: var(--text-muted);
+    white-space: nowrap;
 }
 
 dock-tab:hover { color: var(--text); }

@@ -527,7 +527,13 @@ textarea { min-height: 72px; align-items: flex-start; }
  */
 field-text { flex-shrink: 0; white-space: nowrap; min-height: 1.2em; }
 textarea field-text { flex-shrink: 1; white-space: normal; }
-field-placeholder { position: absolute; left: 8px; color: var(--text-muted); display: none; }
+/* ⚠ `white-space: nowrap` for the reason `radial-item` gives: an auto-width absolute box shrinks
+   to the room right of its `left` (#1447, CSS 2 §10.3.7), so a prompt longer than its field —
+   "Filter by name…" in the hierarchy's narrow filter — wrapped into three lines and the field
+   showed the middle one, "by" (#1477). A prompt is one line, like the text that replaces it;
+   a textarea's wraps, like its text. */
+field-placeholder { position: absolute; left: 8px; color: var(--text-muted); display: none; white-space: nowrap; }
+textarea field-placeholder { white-space: normal; }
 .empty field-placeholder { display: flex; }
 
 /* ⚠ Past the magnifying glass, because a search box has one and the other fields do not.
