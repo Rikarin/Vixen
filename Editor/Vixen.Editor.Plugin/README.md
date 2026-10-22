@@ -196,7 +196,7 @@ written once rather than once per plugin.
 What `Vixen.Editor.App` publishes today is `EditorProject`, `SceneDocument`, `DrawerRegistry`,
 `ImporterContributions`, `IContentLibrary`, `IProjectSession`, `IEditorRegistry`, the editing state
 (`MeshEdit`), the work plane (`WorkPlane`), `IMeshBaker`, `IMeshMapBaker`, `IMeshSource`,
-`IActiveScene`, `IActivePlaySession`, `IPlaySession`, the play session's keyboard (`InputService`, fed only by a focused scene pane — #470), `ISceneEditing`, `IActiveView`,
+`IActiveScene`, `IActivePlaySession`, `IPlaySession`, the play session's keyboard (`InputService`, fed only by a focused scene pane — #470, and the `PlayInput` pass that feeds it, which the Play module registers — #1293), `ISceneEditing`, `IActiveView`,
 `IPlayerDelivery`, `IDocumentHost`, `IWorkspace`, `HotReloadHost`, `IEditorGraphics`, the log ring (`RingBufferSink`), `EditorDataDirectory`, `IExternalLinks` and the `PluginHost`
 itself. Where the platform has native pickers it publishes `INativeDialogs` too (#1298) — on a head with none, nothing, which is why it is named outside the list above. ⚠ Five of those — the doc 50 context services — were published by three batches before this
 sentence named them; `PublishedServicesReadmeTests` now compares it with what the editor publishes,

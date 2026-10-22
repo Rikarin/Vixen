@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
@@ -54,5 +55,29 @@ public class PlayModuleTests {
         editor.Plugins.Enable(PlayModule.ModuleId);
 
         Assert.NotNull(editor.Shell.Commands["play.play"]);
+    }
+
+    /// <summary>
+    ///     The editor's passes for a session — diagnostics, physics, animation, agents, keyboard — are
+    ///     the module's contributions (#1293), so they are withdrawn with it and come back with it, in
+    ///     the order a contribution with no declared order keeps.
+    /// </summary>
+    [Fact]
+    public void The_sessions_passes_are_the_modules_contributions() {
+        using var editor = EditorSession.Start();
+
+        var registry = editor.Plugins.Services.Require<IEditorRegistry>();
+
+        string[] Passes() => [.. registry.All<IPlaySystems>().Select(static systems => systems.GetType().Name)];
+
+        string[] expected = ["PlayDiagnostics", "PlayPhysics", "PlayAnimation", "PlayAi", "PlayInput"];
+
+        Assert.Equal(expected, Passes().Where(expected.Contains));
+
+        editor.Plugins.Disable(PlayModule.ModuleId);
+        Assert.DoesNotContain(Passes(), expected.Contains);
+
+        editor.Plugins.Enable(PlayModule.ModuleId);
+        Assert.Equal(expected, Passes().Where(expected.Contains));
     }
 }
