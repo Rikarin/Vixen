@@ -286,9 +286,12 @@ The raw UCD files and the `references/` clones are **not** committed — `.gitig
 `/references/*` but for its `README.md`, and the UCD is fetched locally. Nothing in `references/` is
 built, restored or shipped.
 
-### ⚠ Two data items that need a decision
+### ⚠ Two data items that needed a decision — the first is decided
 
-1. **web-platform-tests is used as an oracle and appears in no notice.** Referenced from
+1. **Decided: `NOTICE` now carries a web-platform-tests entry** (`a9f3b6052`). It treats the
+   hand-transcribed cases as material that BSD-3-Clause covers, and it lists the files that
+   incorporate them. The finding as first recorded follows.
+   **web-platform-tests is used as an oracle and appears in no notice.** Referenced from
    `Core/Vixen.Ui.Layout/LayoutTree.Order.cs`, `Core/Vixen.Ui.Layout.Tests/OrderTests.cs`,
    `Core/Vixen.Ui.Layout.Tests/InlineFormattingTests.cs` and `Core/Vixen.Ui.Tests/OrderTests.cs`.
    The tests describe the fixtures as "re-expressed rather than translated", which is a defensible
@@ -356,8 +359,9 @@ tree is not.
 
 ## What `NOTICE` gets wrong
 
-`NOTICE` has not been modified by the change that added this page — it is the repository owner's to
-edit, and the corrections below are recorded rather than applied. All four are demonstrable:
+The change that added this page did not modify `NOTICE` — it is the repository owner's to edit — so
+the corrections below were recorded rather than applied. Three of them still stand, and each is
+demonstrable:
 
 1. **It promises a generator that does not exist.** It says "The full attribution manifest is
    generated at build time by the Nuke `Pack` target and published to docs/manual/third-party.md."
@@ -368,13 +372,15 @@ edit, and the corrections below are recorded rather than applied. All four are d
 2. **Its SDL entry is factually wrong.** See *Native libraries that arrive through managed packages*.
 3. **Its ANTLR entry names the wrong upstream** — `antlr/antlr4` rather than
    `tunnelvisionlabs/antlr4cs`. See *Unresolved*.
-4. **Its Open Sans entry says Open Sans is "the one binary asset the tree carries."** The tree carries
-   24 committed fonts, 116 PNGs, 66 `.spv`, 13 `.obj` and nine audio files. The text-rendering-tests
-   fonts are covered by their own entry further down the same file, so this is a wording defect rather
-   than a missing attribution — but it contradicts the entry below it.
+A fourth item, the Open Sans entry's claim to be "the one binary asset the tree carries", has been
+applied: `2f14b250c` and `911ed4cad` (#1315) rewrote it, and `NOTICE` now calls Open Sans the only
+font anything that ships embeds. The tree carries 25 committed fonts — 22 text-rendering-tests faces,
+two under `Editor/Vixen.Editor.App/Fonts/` and one under `Core/Vixen.Ui.Controls.Advanced.Tests/Fonts/`
+(`git ls-files '*.ttf' '*.otf'`). Nothing gates this list against `NOTICE`, so check each item there
+before acting on it.
 
 `NOTICE` is also missing an entry for **OpenAL Soft**, which is the most consequential omission on
-this page, and for **web-platform-tests** pending the decision above.
+this page.
 
 ## Keeping this true
 
