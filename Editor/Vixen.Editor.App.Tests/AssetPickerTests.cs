@@ -56,6 +56,33 @@ public class AssetPickerTests {
         Assert.All(drawers, drawer => Assert.NotNull(drawer.Resolve));
     }
 
+    /// <summary>
+    ///     ⚠ <b>A disposed editor's picker leaves the process-wide drawers (#1293).</b> The constructor
+    ///     subscribed every editor's picker to <c>DrawerRegistry.Default</c> and nothing unsubscribed
+    ///     it, so after a project switch — a new editor in the same process — a pick opened every
+    ///     earlier editor's picker as well, over a project and a dialog service that were gone.
+    /// </summary>
+    [Fact]
+    public void Only_the_live_editors_picker_answers_an_asset_field() {
+        EditorSession.Start().Dispose();
+
+        using var fixture = EditorSession.Start();
+
+        foreach (var drawer in DrawerRegistry.Default.Drawers.OfType<AssetDrawer>()) {
+            var handlers = typeof(AssetDrawer)
+                .GetField(nameof(AssetDrawer.PickRequested), System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .GetValue(drawer) as Delegate;
+
+            var pickers = handlers?.GetInvocationList().Count(handler => handler.Target is AssetPicker) ?? 0;
+
+            Assert.Equal(1, pickers);
+        }
+
+        fixture.Dispose();
+
+        Assert.All(DrawerRegistry.Default.Drawers.OfType<AssetDrawer>(), drawer => Assert.Null(drawer.Resolve));
+    }
+
     [Fact]
     public void An_asset_id_resolves_to_the_name_the_project_knows_it_by() {
         using var fixture = EditorSession.Start();

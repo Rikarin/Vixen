@@ -834,10 +834,9 @@ sealed partial class EditorApplication : IDisposable {
         // drop path with its own opinion is one that accepts what the picker would never have listed.
         assetDrop = new AssetFieldDrop(assetPicker);
 
-        foreach (var drawer in DrawerRegistry.Default.Drawers.OfType<AssetDrawer>()) {
-            drawer.Resolve = assetPicker.NameOf;
-            drawer.PickRequested += assetPicker.Open;
-        }
+        // ⚠ Withdrawn on Dispose with the other contributions: the drawers are process-wide, and the
+        // host builds the next editor in this process. See `AssetPicker.Serve`.
+        contributions.Add(assetPicker.Serve(DrawerRegistry.Default));
 
         Panels();
 
