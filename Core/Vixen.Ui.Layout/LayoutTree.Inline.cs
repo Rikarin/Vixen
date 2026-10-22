@@ -491,15 +491,17 @@ public sealed partial class LayoutTree {
                 var lineEnd = lineStart;
                 var placed = 0;
                 var metrics = default(LineMetrics);
+                var zeroHeight = false;
 
                 if (!floatsActive) {
                     (lineEnd, placed) = BreakLine(lineStart, streamEnd, direction, innerWidth, innerWidth);
 
-                    if (placed == 0) {
+                    if (placed == 0 && !HoldsInlineBox(lineStart, lineEnd)) {
                         break;
                     }
 
-                    metrics = MeasureLine(index, lineStart, lineEnd, direction, innerWidth, in strut);
+                    zeroHeight = placed == 0 && !HasNonZeroInlineBoxEdge(lineStart, lineEnd);
+                    metrics = zeroHeight ? default : MeasureLine(index, lineStart, lineEnd, direction, innerWidth, in strut);
                 } else {
                     // ── §9.5's main clause ──────────────────────────────────────────────────────
                     // ⚠ <b>The band a line gets depends on how tall the line is, and how tall the
@@ -575,7 +577,12 @@ public sealed partial class LayoutTree {
                     }
 
                     if (placed == 0) {
-                        break;
+                        if (!HoldsInlineBox(lineStart, lineEnd)) {
+                            break;
+                        }
+
+                        zeroHeight = !HasNonZeroInlineBoxEdge(lineStart, lineEnd);
+                        metrics = zeroHeight ? default : MeasureLine(index, lineStart, lineEnd, direction, innerWidth, in strut);
                     }
                 }
 
@@ -601,7 +608,13 @@ public sealed partial class LayoutTree {
                     );
                 }
 
-                lastBaseline = lineTop + metrics.Ascent;
+                // ⚠ A zero-height line box has no baseline to give: §9.4.2 treats it as absent for
+                // every purpose but its position, so an inline-block whose last line is one still
+                // hangs from the line before it.
+                if (!zeroHeight) {
+                    lastBaseline = lineTop + metrics.Ascent;
+                }
+
                 y = lineTop + metrics.Height;
             }
 
@@ -763,6 +776,52 @@ public sealed partial class LayoutTree {
         }
 
         return any;
+    }
+
+    /// <summary>Whether a run of the stream that placed no atomic box still holds an inline box's edge.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only an empty span reaches here with one (#1479)</b>: a span with a child on the line
+    ///     puts that child after its <c>Open</c>, and <see cref="BreakLine" /> never ends a line on an
+    ///     <c>Open</c> without taking the item behind it. So a run of edges with no atomic box between
+    ///     them is the tail of the stream after its last atomic box, or the whole of a stream with none
+    ///     — and the boxes in it still need a fragment and a position, which only <c>PlaceLine</c>
+    ///     gives them.
+    /// </remarks>
+    bool HoldsInlineBox(int lineStart, int lineEnd) {
+        for (var i = lineStart; i < lineEnd; i++) {
+            if (inlineItems[i].Kind == InlineItemKind.Open) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     Whether any inline box opened in a run has a margin, border or padding, which is what
+    ///     keeps a line of nothing else from being CSS 2.1 §9.4.2's zero-height line box.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Read from the results <c>ResolveInlineBoxMetrics</c> wrote in the sizing pass, which ran
+    ///     for every <c>Open</c> before the first line was broken — so all four edges, not only the two
+    ///     the line advances by. §9.4.2 names "non-zero margins, padding, or borders" without an axis.
+    /// </remarks>
+    bool HasNonZeroInlineBoxEdge(int lineStart, int lineEnd) {
+        for (var i = lineStart; i < lineEnd; i++) {
+            if (inlineItems[i].Kind != InlineItemKind.Open) {
+                continue;
+            }
+
+            ref readonly var result = ref results[inlineItems[i].Node];
+
+            for (var edge = 0; edge < 4; edge++) {
+                if (result.Margin[edge] != 0f || result.Border[edge] != 0f || result.Padding[edge] != 0f) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Whether a child takes part in the line-breaking walk at all.</summary>
@@ -1128,97 +1187,321 @@ public sealed partial class LayoutTree {
         // hanging LOWER than it — an image with a big descender's worth of margin — must grow the line
         // downward and still be raised to clear the strut's ascent. Maxing the finished height against
         // a strut height would give the same total and put the baseline in the wrong place.
-        var ascent = strut.Ascent;
-        var descent = strut.Descent;
+        //
+        // ⚠ Round one is the CONTAINER's aligned subtree: the strut, every span with a fragment on
+        // this line, and every atomic box, each at its baseline's offset from the line's — see
+        // `AlignedSubtreeExtent`. A box or span inside a `top`/`bottom` span belongs to THAT span's
+        // subtree instead, and reaches the line in round two with it.
+        var (ascent, descent) = AlignedSubtreeExtent(container, container, lineStart, lineEnd, direction, innerWidth, in strut);
 
-        // ⚠ <b>Every flattened span with a fragment on this line is an inline box on it, and §10.8.1
-        // makes a non-replaced inline box exactly its `line-height` tall about the baseline</b> — so a
-        // span with a bigger font or line height grows the line even around a small box (#249). Found
-        // from each item's ANCESTRY rather than from the `Open` items in the range, because a span
-        // whose `Open` was on an earlier line still has a fragment here and no entry of its own. Max
-        // is idempotent, so a span seen once per item it encloses costs nothing but the walk. A span
-        // whose strut is all-zero was given no font and contributes nothing; the nearest one that was
-        // given one, or the container's above, already has.
+        // Round two: an edge-aligned box can only grow the side it is anchored to. An atomic box is
+        // its own margin box; a `top`/`bottom` span is the whole subtree hanging from it (#1478).
+        for (var i = lineStart; i < lineEnd; i++) {
+            var item = inlineItems[i];
+
+            if (item.Kind == InlineItemKind.Atomic) {
+                var child = item.Node;
+                var alignment = EffectiveVerticalAlign(child, ParentStrut(child, container, in strut));
+                if (alignment is VerticalAlign.Top or VerticalAlign.Bottom) {
+                    var (top, bottom) = InlineVerticalMargins(child, direction, innerWidth);
+                    var outer = results[child].MeasuredDimensions[(int) Dimension.Height] + top + bottom;
+                    GrowForEdgeAligned(ref ascent, ref descent, alignment, outer);
+                }
+            }
+
+            if (item.Kind is not (InlineItemKind.Atomic or InlineItemKind.Open or InlineItemKind.Close)) {
+                continue;
+            }
+
+            // Every span this item is inside, for §10.8.1's continuation reason: a span opened on an
+            // earlier line has a fragment here and no entry. Growing is idempotent — a second visit
+            // finds no slack — so a span met once per item it encloses costs only the walk.
+            var span = item.Kind == InlineItemKind.Atomic ? links[item.Node].Parent : item.Node;
+
+            for (; span >= 0 && span != container; span = links[span].Parent) {
+                var alignment = SpanVerticalAlign(span, container, in strut);
+                if (alignment is not (VerticalAlign.Top or VerticalAlign.Bottom)) {
+                    continue;
+                }
+
+                var (subtreeAscent, subtreeDescent) = AlignedSubtreeExtent(span, container, lineStart, lineEnd, direction, innerWidth, in strut);
+                GrowForEdgeAligned(ref ascent, ref descent, alignment, subtreeAscent + subtreeDescent);
+            }
+        }
+
+        return new LineMetrics(ascent, ascent + descent);
+    }
+
+    /// <summary>Grows a line for one <c>top</c>- or <c>bottom</c>-aligned box, on the side it is not pinned to.</summary>
+    static void GrowForEdgeAligned(ref float ascent, ref float descent, VerticalAlign alignment, float outer) {
+        var slack = outer - (ascent + descent);
+
+        if (slack <= 0f) {
+            return;
+        }
+
+        if (alignment == VerticalAlign.Bottom) {
+            ascent += slack;
+        } else {
+            descent += slack;
+        }
+    }
+
+    /// <summary>
+    ///     How far one CSS 2.1 §10.8 <i>aligned subtree</i> reaches above and below its root's
+    ///     baseline, over the items of one line.
+    /// </summary>
+    /// <param name="root">The container — the line's own subtree — or a <c>top</c>/<c>bottom</c> span.</param>
+    /// <param name="container">The block container whose line this is.</param>
+    /// <param name="lineStart">The line's first stream entry.</param>
+    /// <param name="lineEnd">One past its last.</param>
+    /// <param name="direction">The container's inline direction.</param>
+    /// <param name="innerWidth">The container's content-box width, for percentage margins.</param>
+    /// <param name="strut">The container's strut.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The root's own inline box seeds it, then every span and every atomic box anchored
+    ///         to it contributes its two halves at its baseline's offset from the root's</b> — which
+    ///         is the sum of every span shift between it and the root, because §10.8.1 aligns each box
+    ///         against its PARENT inline box's baseline and a shifted parent carries its children with
+    ///         it (#1478). For the container the root's box is the strut, and the result is round one
+    ///         of <see cref="MeasureLine" />; for a <c>top</c> span it is that span's whole subtree,
+    ///         which round two then pins to the line's edge.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A box anchored elsewhere is skipped, not added at a guess.</b> A <c>top</c> span
+    ///         inside the root starts a subtree of its own, and an atomic <c>top</c> box is its own; both
+    ///         reach the line in round two and neither may move the root's baseline.
+    ///     </para>
+    /// </remarks>
+    (float Ascent, float Descent) AlignedSubtreeExtent(
+        int root,
+        int container,
+        int lineStart,
+        int lineEnd,
+        Direction direction,
+        float innerWidth,
+        in StrutMetrics strut
+    ) {
+        var rootStrut = root == container ? strut : InlineBoxStrut(root, container, in strut);
+        var ascent = rootStrut.Ascent;
+        var descent = rootStrut.Descent;
+
         for (var i = lineStart; i < lineEnd; i++) {
             var item = inlineItems[i];
             if (item.Kind is not (InlineItemKind.Atomic or InlineItemKind.Open or InlineItemKind.Close)) {
                 continue;
             }
 
+            // ⚠ Every span with a fragment on this line is an inline box ON it, exactly its line
+            // height about its own baseline (#249), and an empty one is no exception (#1479). A span
+            // with no font of its own inherits the nearest one's, which only matters once it is
+            // shifted — unshifted, it is exactly the box of the span that lent it the font.
             var span = item.Kind == InlineItemKind.Atomic ? links[item.Node].Parent : item.Node;
 
-            for (; span >= 0 && span != container; span = links[span].Parent) {
-                var spanStrut = styles[span].Strut;
-
-                if (spanStrut.HasFont) {
-                    ascent = MathF.Max(ascent, spanStrut.Ascent);
-                    descent = MathF.Max(descent, spanStrut.Descent);
+            for (; span >= 0 && span != container && span != root; span = links[span].Parent) {
+                var spanAlign = SpanVerticalAlign(span, container, in strut);
+                if (spanAlign is VerticalAlign.Top or VerticalAlign.Bottom) {
+                    continue;
                 }
-            }
-        }
 
-        // ⚠ Only the atomic entries. An inline box's own edges are horizontal — border, padding and
-        // margin on the left and right — and CSS 2.1 §10.8 is explicit that a non-replaced inline
-        // box's vertical padding and border do not affect the height of the line box it is on. So an
-        // Open or a Close contributes nothing here beyond its strut above, which is the one place that
-        // rule shows up.
-        for (var i = lineStart; i < lineEnd; i++) {
-            var item = inlineItems[i];
+                var (chain, anchor) = InlineAnchor(span, container, in strut);
+                if (anchor != root) {
+                    continue;
+                }
+
+                var spanStrut = InlineBoxStrut(span, container, in strut);
+                if (!spanStrut.HasFont) {
+                    continue;
+                }
+
+                var shift = chain + SpanOwnShift(span, container, in strut);
+                ascent = MathF.Max(ascent, spanStrut.Ascent - shift);
+                descent = MathF.Max(descent, spanStrut.Descent + shift);
+            }
+
+            // ⚠ Only the atomic entries past this point. An inline box's own edges are horizontal —
+            // border, padding and margin on the left and right — and CSS 2.1 §10.8 is explicit that a
+            // non-replaced inline box's vertical padding and border do not affect the height of the
+            // line box it is on. So an Open or a Close contributes nothing beyond its strut above.
             if (item.Kind != InlineItemKind.Atomic) {
                 continue;
             }
 
-            var parentStrut = ParentStrut(item.Node, container, in strut);
-            var alignment = EffectiveVerticalAlign(item.Node, in parentStrut);
+            var child = item.Node;
+            var parentStrut = ParentStrut(child, container, in strut);
+            var alignment = EffectiveVerticalAlign(child, in parentStrut);
             if (alignment is VerticalAlign.Top or VerticalAlign.Bottom) {
                 continue;
             }
 
-            var child = item.Node;
+            var (childChain, childAnchor) = InlineAnchor(child, container, in strut);
+            if (childAnchor != root) {
+                continue;
+            }
+
             var (top, bottom) = InlineVerticalMargins(child, direction, innerWidth);
             var height = results[child].MeasuredDimensions[(int) Dimension.Height];
             var baseline = InlineItemBaseline(child);
 
             // ⚠ Every one of the seven remaining values is this loop with a different shift, which is
             // what makes them cheap: `sub`, `super`, `middle`, `text-top`, `text-bottom` and a length
-            // all put a box's own baseline somewhere OTHER than the line's, and none of them changes
+            // all put a box's own baseline somewhere OTHER than its parent's, and none of them changes
             // which side of the baseline the box's two halves are on. So the box still contributes an
-            // ascent and a descent — moved by the shift, in opposite directions.
-            var shift = BaselineShift(alignment, in parentStrut, in styles[child], top + baseline, height - baseline + bottom);
+            // ascent and a descent — moved by the shift, in opposite directions — and the shift of
+            // every span around it is added on top.
+            var itemShift = childChain + BaselineShift(alignment, in parentStrut, in styles[child], top + baseline, height - baseline + bottom);
 
-            ascent = MathF.Max(ascent, top + baseline - shift);
-            descent = MathF.Max(descent, height - baseline + bottom + shift);
+            ascent = MathF.Max(ascent, top + baseline - itemShift);
+            descent = MathF.Max(descent, height - baseline + bottom + itemShift);
         }
 
-        // Round two: an edge-aligned box can only grow the side it is anchored to.
-        for (var i = lineStart; i < lineEnd; i++) {
-            var item = inlineItems[i];
-            if (item.Kind != InlineItemKind.Atomic) {
-                continue;
+        return (ascent, descent);
+    }
+
+    /// <summary>
+    ///     The aligned subtree a box hangs from, and how far its parent inline box's baseline sits
+    ///     below that subtree root's — positive down.
+    /// </summary>
+    /// <remarks>
+    ///     The walk is up the box's flattened ancestry, adding each span's own shift, and it stops at
+    ///     the first <c>top</c>/<c>bottom</c> span — the root of the aligned subtree the box is in —
+    ///     or at the container, whose subtree is the line's own. A box directly in the container
+    ///     answers <c>(0, container)</c>, which is the line every test before #1478 measured.
+    /// </remarks>
+    (float Shift, int Anchor) InlineAnchor(int node, int container, in StrutMetrics strut) {
+        var shift = 0f;
+
+        for (var span = links[node].Parent; span >= 0 && span != container; span = links[span].Parent) {
+            if (SpanVerticalAlign(span, container, in strut) is VerticalAlign.Top or VerticalAlign.Bottom) {
+                return (shift, span);
             }
 
-            var child = item.Node;
-            var alignment = EffectiveVerticalAlign(child, ParentStrut(child, container, in strut));
-            if (alignment is not (VerticalAlign.Top or VerticalAlign.Bottom)) {
-                continue;
-            }
+            shift += SpanOwnShift(span, container, in strut);
+        }
 
-            var (top, bottom) = InlineVerticalMargins(child, direction, innerWidth);
-            var outer = results[child].MeasuredDimensions[(int) Dimension.Height] + top + bottom;
-            var slack = outer - (ascent + descent);
+        return (shift, container);
+    }
 
-            if (slack <= 0f) {
-                continue;
-            }
+    /// <summary>Which <c>vertical-align</c> a flattened span is laid out with, against its own parent's strut.</summary>
+    VerticalAlign SpanVerticalAlign(int span, int container, in StrutMetrics strut) =>
+        EffectiveVerticalAlign(span, ParentStrut(span, container, in strut));
 
-            if (alignment == VerticalAlign.Bottom) {
-                ascent += slack;
-            } else {
-                descent += slack;
+    /// <summary>
+    ///     How far a flattened span's baseline sits below its parent inline box's, per CSS 2.1
+    ///     §10.8.1 — positive down, and zero for <c>top</c>/<c>bottom</c>, which are not shifts.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The span's two halves are its own inline box's — its line height about its
+    ///     baseline</b> — which is what <c>middle</c> centres. The strut it measures <c>sub</c>,
+    ///     <c>super</c>, <c>middle</c> and the text edges against is its PARENT's, exactly as for an
+    ///     atomic box.
+    /// </remarks>
+    float SpanOwnShift(int span, int container, in StrutMetrics strut) {
+        var parentStrut = ParentStrut(span, container, in strut);
+        var alignment = EffectiveVerticalAlign(span, in parentStrut);
+
+        if (alignment is VerticalAlign.Baseline or VerticalAlign.Top or VerticalAlign.Bottom) {
+            return 0f;
+        }
+
+        var own = InlineBoxStrut(span, container, in strut);
+
+        return BaselineShift(alignment, in parentStrut, in styles[span], own.Ascent, own.Descent);
+    }
+
+    /// <summary>The strut a flattened span's own inline box is made of: its own, or the nearest font above it.</summary>
+    StrutMetrics InlineBoxStrut(int span, int container, in StrutMetrics strut) =>
+        styles[span].Strut.HasFont ? styles[span].Strut : ParentStrut(span, container, in strut);
+
+    /// <summary>Where an aligned subtree root's baseline sits on a placed line, from the line's top.</summary>
+    float AnchorBaseline(
+        int anchor,
+        int container,
+        int lineStart,
+        int lineEnd,
+        in LineMetrics metrics,
+        Direction direction,
+        float innerWidth,
+        in StrutMetrics strut
+    ) {
+        if (anchor == container) {
+            return metrics.Ascent;
+        }
+
+        var (ascent, descent) = AlignedSubtreeExtent(anchor, container, lineStart, lineEnd, direction, innerWidth, in strut);
+
+        return SpanVerticalAlign(anchor, container, in strut) == VerticalAlign.Bottom ? metrics.Height - descent : ascent;
+    }
+
+    /// <summary>Where an atomic box's parent inline box's baseline sits on a placed line, from the line's top.</summary>
+    float ItemAnchorBaseline(
+        int child,
+        int container,
+        int lineStart,
+        int lineEnd,
+        in LineMetrics metrics,
+        Direction direction,
+        float innerWidth,
+        in StrutMetrics strut
+    ) {
+        var (chain, anchor) = InlineAnchor(child, container, in strut);
+
+        return AnchorBaseline(anchor, container, lineStart, lineEnd, in metrics, direction, innerWidth, in strut) + chain;
+    }
+
+    /// <summary>
+    ///     The vertical extent of a flattened span's fragment on one line: the whole line box, or —
+    ///     for a span displaced from the line's baseline — its own inline box (#1478).
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Decision (#1478): a baseline-aligned span keeps the line box as its fragment, and only a
+    ///     span that is itself shifted, or sits inside one that is, gets its own line height about its
+    ///     own baseline.</b> The first is what every span background and selection highlight in the
+    ///     tree was drawn against, and a line box is a fair approximation of a box that sits on the
+    ///     line's baseline; it is no approximation at all of a <c>super</c> span, whose box is
+    ///     somewhere else. A span with no font anywhere above it has no height to give, and keeps the
+    ///     line box too.
+    /// </remarks>
+    (float Top, float Height) InlineBoxFragmentExtent(
+        int span,
+        int container,
+        int lineStart,
+        int lineEnd,
+        float lineTop,
+        in LineMetrics metrics,
+        Direction direction,
+        float innerWidth,
+        in StrutMetrics strut
+    ) {
+        var displaced = false;
+
+        for (var s = span; s >= 0 && s != container; s = links[s].Parent) {
+            if (SpanVerticalAlign(s, container, in strut) != VerticalAlign.Baseline) {
+                displaced = true;
+
+                break;
             }
         }
 
-        return new LineMetrics(ascent, ascent + descent);
+        var own = InlineBoxStrut(span, container, in strut);
+
+        if (!displaced || !own.HasFont) {
+            return (lineTop, metrics.Height);
+        }
+
+        float baseline;
+
+        if (SpanVerticalAlign(span, container, in strut) is VerticalAlign.Top or VerticalAlign.Bottom) {
+            baseline = AnchorBaseline(span, container, lineStart, lineEnd, in metrics, direction, innerWidth, in strut);
+        } else {
+            var (chain, anchor) = InlineAnchor(span, container, in strut);
+            baseline = AnchorBaseline(anchor, container, lineStart, lineEnd, in metrics, direction, innerWidth, in strut)
+                + chain
+                + SpanOwnShift(span, container, in strut);
+        }
+
+        return (lineTop + baseline - own.Ascent, own.Ascent + own.Descent);
     }
 
     /// <summary>One non-atomic inline box the walk is currently inside, and where it started.</summary>
@@ -1410,14 +1693,26 @@ public sealed partial class LayoutTree {
                 // The innermost open box, which is this one: the stream nests, so a `Close` always
                 // names the top of the stack. Popping first would lose the chain the commit needs.
                 var closing = --openBoxTop;
+                var (fragmentTop, fragmentHeight) = InlineBoxFragmentExtent(
+                    item.Node,
+                    container,
+                    lineStart,
+                    lineEnd,
+                    lineTop,
+                    in metrics,
+                    direction,
+                    innerWidth,
+                    in strut
+                );
+
                 EmitInlineBoxFragment(
                     ref openBoxes[closing],
                     direction,
                     outerWidth,
                     insetLeft,
                     insetRight,
-                    lineTop,
-                    metrics.Height,
+                    fragmentTop,
+                    fragmentHeight,
                     x,
                     LayoutFragmentEnds.End
                 );
@@ -1447,8 +1742,12 @@ public sealed partial class LayoutTree {
                 // computed differently here would place the box outside the line it was measured
                 // into. That is why both call sites pass the item's own ascent and descent rather
                 // than the item.
+                //
+                // ⚠ And it hangs from its PARENT inline box's baseline, not the line's (#1478): the
+                // root of the aligned subtree it is in, moved by every span shift on the way down.
+                // For a box directly in the container both are zero and this is the line's ascent.
                 _ => lineTop
-                    + metrics.Ascent
+                    + ItemAnchorBaseline(child, container, lineStart, lineEnd, in metrics, direction, innerWidth, in strut)
                     - itemBaseline
                     + BaselineShift(
                         alignment,
@@ -1487,14 +1786,26 @@ public sealed partial class LayoutTree {
         // does not matter because each box owns a chain rather than a slice; it was exactly this loop
         // that a shared contiguous slice could not express, and that kept flattening one level deep.
         for (var b = openBoxTop - 1; b >= openBase; b--) {
+            var (fragmentTop, fragmentHeight) = InlineBoxFragmentExtent(
+                openBoxes[b].Node,
+                container,
+                lineStart,
+                lineEnd,
+                lineTop,
+                in metrics,
+                direction,
+                innerWidth,
+                in strut
+            );
+
             EmitInlineBoxFragment(
                 ref openBoxes[b],
                 direction,
                 outerWidth,
                 insetLeft,
                 insetRight,
-                lineTop,
-                metrics.Height,
+                fragmentTop,
+                fragmentHeight,
                 x,
                 LayoutFragmentEnds.None
             );
@@ -1574,10 +1885,10 @@ public sealed partial class LayoutTree {
     ///         still means no font, and falls through rather than refusing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The span's own baseline is taken to be the line's</b>, which is what it is while the
-    ///         span is baseline-aligned. A flattened span's own <c>vertical-align</c> is not read by
-    ///         this walk at all, so a box inside a <c>super</c> span measures against the right font
-    ///         from the wrong baseline — a separate gap, and the same one it was before.
+    ///         ⚠ <b>This answers WHICH font, and not from which baseline.</b> The span's own
+    ///         <c>vertical-align</c> moves the baseline the box hangs from, and that is
+    ///         <see cref="InlineAnchor" />'s question (#1478): this paragraph used to record it as
+    ///         unread, which put a box inside a <c>super</c> span on the line's baseline.
     ///     </para>
     /// </remarks>
     StrutMetrics ParentStrut(int child, int container, in StrutMetrics containerStrut) {

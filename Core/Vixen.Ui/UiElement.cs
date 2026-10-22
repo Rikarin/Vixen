@@ -2275,8 +2275,8 @@ public partial class UiElement : Composition.IComposable {
     /// <summary>The answer for a box that is not flattened inline content, or null for one to walk into.</summary>
     /// <remarks>
     ///     ⚠ <b>Every <c>display: inline</c> box is walked into, and the layout does not flatten every
-    ///     one</b>: <c>LayoutTree.IsNonAtomicInline</c> keeps atomic an inline with a measure function,
-    ///     one with no child that takes part in the line, and one holding a float. That was recorded
+    ///     one</b>: <c>LayoutTree.IsNonAtomicInline</c> keeps atomic an inline with a measure function
+    ///     and one holding a float (an empty one is flattened since #1479). That was recorded
     ///     as owed — such a box that draws is found empty here and looked past — and it is not a
     ///     divergence (#249). The layout's atomicity is how it lays a box out, not what CSS calls an
     ///     atomic inline: an empty span, padded or not, and a span holding only a float are inline

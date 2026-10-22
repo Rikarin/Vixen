@@ -112,17 +112,19 @@ public sealed partial class LayoutTree {
     ///         parts of that run each line ended up with.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A <c>display: inline</c> box with no box children is deliberately NOT this.</b>
-    ///         That is the case that dominates a user interface — a span holding text — and for it
-    ///         atomic and non-atomic agree exactly, because there is nothing to split. Treating it as
-    ///         atomic keeps it on the path the measure cache already serves, and keeps the text
+    ///         ⚠ <b>A <c>display: inline</c> box holding TEXT is deliberately NOT this.</b> That is
+    ///         the case that dominates a user interface, and it is a box with a measure function: for
+    ///         it atomic and non-atomic agree exactly, because there is nothing to split. Treating it
+    ///         as atomic keeps it on the path the measure cache already serves, and keeps the text
     ///         wrapper in <c>Vixen.Ui</c> the only thing that breaks a string.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Two restrictions, each one a place where the honest answer today is "still
     ///         atomic" rather than a guess.</b> An <i>out-of-flow</i> box is not on a line at all. A
     ///         box with a <i>measure function</i> stays atomic, because a measure function is what
-    ///         makes a node a leaf.
+    ///         makes a node a leaf. ⚠ An EMPTY box used to be a third — "a child that participates in
+    ///         the line" was required — and that made its strut inert (#1479): an empty span is an
+    ///         inline box on its line in CSS, and it is flattened now.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A third one is gone: a non-atomic inline box inside another one is flattened
@@ -173,8 +175,6 @@ public sealed partial class LayoutTree {
             return false;
         }
 
-        var any = false;
-
         foreach (var child in ChildIds(index)) {
             // ⚠ And the restriction that is still standing, which the out-of-flow one is NOT the
             // same shape as however alike they read. A float is
@@ -187,11 +187,14 @@ public sealed partial class LayoutTree {
             if (styles[child].Float != FloatSide.None) {
                 return false;
             }
-
-            any |= ParticipatesInLine(child);
         }
 
-        return any;
+        // ⚠ <b>An EMPTY span is flattened too (#1479)</b>, and that includes one whose children are
+        // all hidden or out of flow. CSS 2.1 §10.8.1 gives it an inline box on the line all the same,
+        // exactly its line height about its baseline, so its strut can grow the line — and an atomic
+        // zero-size box's strut is inert. Its stream entry is an `Open` straight after a `Close`, and
+        // a line holding nothing else is §9.4.2's zero-height line box: see `WalkInlineLines`.
+        return true;
     }
 
     /// <summary>Flattens a container's children into the stream a line walk consumes.</summary>
