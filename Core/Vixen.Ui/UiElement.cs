@@ -441,8 +441,15 @@ public partial class UiElement : Composition.IComposable {
             // `z-index` like any child, which is what lets a `::before` with `z-index: -1` sit under
             // its siblings.
             if (GeneratedBefore is { } before) {
-                before.paintKey = -1;
+                before.paintKey = -2;
                 ordered.Insert(0, before);
+            }
+
+            // The element's own words, when they had to move out of it to make room for a generated
+            // box (#1481): between the `::before` and the children, which is where CSS puts them.
+            if (AnonymousText is { } own) {
+                own.paintKey = -1;
+                ordered.Insert(GeneratedBefore is null ? 0 : 1, own);
             }
 
             if (GeneratedAfter is { } after) {
@@ -478,7 +485,7 @@ public partial class UiElement : Composition.IComposable {
         // ⚠ A generated box is not in `children`, so an element that has one cannot hand that list
         // out as its paint order — the box would be laid out and never drawn or hit. The sorted path
         // is the one that can add it, and an element generating a box takes it.
-        if (GeneratedBefore is not null || GeneratedAfter is not null) {
+        if (GeneratedBefore is not null || GeneratedAfter is not null || AnonymousText is not null) {
             return true;
         }
 
@@ -503,16 +510,34 @@ public partial class UiElement : Composition.IComposable {
     /// <summary>The box this element's <c>::after</c> rule generated, if one did.</summary>
     internal GeneratedBox? GeneratedAfter { get; private set; }
 
+    /// <summary>
+    ///     The anonymous inline box this element's own <see cref="Text" /> is measured and drawn in,
+    ///     while it also generates a box — else null, and the element measures its text itself.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>CSS's answer to "a <c>::before</c> beside an element's own words" (#1481).</b> The
+    ///     layout tree refuses a node that measures itself and has children, and a generated box is a
+    ///     child — so while there is one, the words move into a box of their own between the two,
+    ///     which is exactly the anonymous inline box CSS 2.1 §9.2.2.1 wraps loose text in. Its style
+    ///     is this element's inherited properties and <c>display: inline</c>; <see cref="Text" /> on
+    ///     the element stays the one place the words are written. <c>UiDocument.SyncOwnText</c> is
+    ///     the only writer, through <see cref="SetGenerated" /> with <see cref="PseudoElement.None" />.
+    /// </remarks>
+    internal GeneratedBox? AnonymousText { get; private set; }
+
     /// <summary>Records a generated box arriving or leaving.</summary>
     /// <remarks>
     ///     The paint order is rebuilt because the box is in it, and the accessibility flag is raised
     ///     because the box's words are part of this element's name — see <see cref="AccessibleName" />.
+    ///     <see cref="PseudoElement.None" /> names <see cref="AnonymousText" />.
     /// </remarks>
     internal void SetGenerated(PseudoElement kind, GeneratedBox? box) {
         if (kind == PseudoElement.Before) {
             GeneratedBefore = box;
-        } else {
+        } else if (kind == PseudoElement.After) {
             GeneratedAfter = box;
+        } else {
+            AnonymousText = box;
         }
 
         orderDirty = true;
@@ -2395,18 +2420,17 @@ public partial class UiElement : Composition.IComposable {
             );
         }
 
-        // ⚠ A generated box is a layout child, and a node that measures itself may have none — so an
-        // element taking text on drops its `::before` and `::after` first. `UiDocument.Generate` will
-        // not build them again while the text is there; see its remarks for why.
-        if (!string.IsNullOrEmpty(current) && (GeneratedBefore is not null || GeneratedAfter is not null)) {
-            Document.Ungenerate(this);
-        }
-
-        // ⚠ The measure function is attached and detached rather than left in place answering zero.
-        // The layout algorithm asks a node with one whether it is a leaf and refuses to lay out its
-        // children — so an element that once had text and now has none would silently stop laying
-        // out everything inside it.
-        if (string.IsNullOrEmpty(previous) != string.IsNullOrEmpty(current)) {
+        // ⚠ A generated box is a layout child, and a node that measures itself may have none — so
+        // while this element has one its words are measured in an anonymous box beside it instead,
+        // and the element's own node never takes the measure function (#1481). It used to drop the
+        // boxes, which is how `label::after` on a label with text generated nothing at all.
+        if (this is not GeneratedBox && (GeneratedBefore is not null || GeneratedAfter is not null || AnonymousText is not null)) {
+            Document.SyncOwnText(this);
+        } else if (string.IsNullOrEmpty(previous) != string.IsNullOrEmpty(current)) {
+            // ⚠ The measure function is attached and detached rather than left in place answering
+            // zero. The layout algorithm asks a node with one whether it is a leaf and refuses to lay
+            // out its children — so an element that once had text and now has none would silently
+            // stop laying out everything inside it.
             Document.Layout.SetContext(LayoutNode, string.IsNullOrEmpty(current) ? null : this);
             Document.Layout.SetMeasureFunction(LayoutNode, string.IsNullOrEmpty(current) ? null : TextLayout.Measure);
         } else if (!string.IsNullOrEmpty(current)) {

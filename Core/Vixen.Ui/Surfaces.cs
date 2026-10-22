@@ -357,7 +357,8 @@ public sealed partial class UiDocument {
 
         // ⚠ A `::before` is the parent's first layout child and is in no element list, so every
         // element index is one further along in the layout tree than the surface roots alone say.
-        var layout = parent.GeneratedBefore is null ? 0 : 1;
+        // The anonymous text box (#1481) sits after it and ahead of the children, for the same reason.
+        var layout = (parent.GeneratedBefore is null ? 0 : 1) + (parent.AnonymousText is null ? 0 : 1);
 
         for (var i = 0; i < index; i++) {
             if (children[i].SurfaceRoot is null) {

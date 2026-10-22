@@ -267,7 +267,7 @@ the strut's effect on a fragment  ⚠ CLOSED BY THE STRUT SECTION BELOW, and it 
 # `Mixed_content_stacks_because_there_are_no_anonymous_boxes` inverted) and by two in
 # `InlineFragmentationTests`.
 
-generated boxes (::before/after)  doc 43's A12 — LANDED FOR ELEMENT CHILDREN, NOT FOR TEXT (#233).
+generated boxes (::before/after)  doc 43's A12 — LANDED, FOR ELEMENT CHILDREN (#233) AND TEXT (#1481).
                                   The "second style slot" turned out not to be a slot: the box's
                                   style is a second cascade of the ORIGINATING element over the
                                   rules naming the pseudo-element (`StyleResolver.ResolvePseudo`),
@@ -275,15 +275,17 @@ generated boxes (::before/after)  doc 43's A12 — LANDED FOR ELEMENT CHILDREN, 
                                   a layout child first or last under it (`UiDocument.Generate`),
                                   in its paint order and in nothing else. Covered by
                                   `Vixen.Ui.Tests.GeneratedContentTests`.
-                                  ⚠ STILL ABSENT, and it is this file's subject: an element that
-                                  carries TEXT generates no box. Its text is a single measured
-                                  run, the layout refuses a measured node with children, and a
-                                  browser would put the generated string in the same inline
-                                  formatting context as the element's words — which needs a run
-                                  that carries a style of its own, and there is none. A generated
-                                  box's own text is fine; it is the box beside an element's text
-                                  that is missing. The generated box also takes Vixen's default
-                                  `display: flex` rather than CSS's `inline`.
+                                  ⚠ An element that carries TEXT generates its boxes too (#1481).
+                                  Its words move into an anonymous inline box between them
+                                  (`UiElement.AnonymousText`, CSS 2.1 §9.2.2.1's anonymous box:
+                                  the element's inherited properties and `display: inline`), and
+                                  the element's node stops measuring — which is all the layout's
+                                  "a measured node has no children" rule ever asked for. No run
+                                  with a style of its own was needed: the boxes are siblings in
+                                  the box tree, not runs in one shaped string. Still true: the
+                                  generated box takes Vixen's default `display: flex` rather than
+                                  CSS's `inline`, so beside text in a block it wants
+                                  `display: inline` written to share the line.
 
 
 # ══ FLOATS BESIDE LINES — LANDED, and the oracle had to be built before the code ════════════════
