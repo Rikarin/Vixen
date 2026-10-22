@@ -67,6 +67,28 @@ public class ConsolePanelTests {
         Assert.Contains(Rows(Console(fixture)), text => text.Contains("before", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    ///     ⚠ <b>The console's verbs follow the panel, and they did not.</b> The field behind them said
+    ///     "while it is open, or null" and the registration had no <c>Closed</c>, so after the panel
+    ///     was closed Clear Console stayed enabled and Clear on Play kept a tick over a view that was
+    ///     gone (#1294).
+    /// </summary>
+    [Fact]
+    public void Closing_the_console_greys_the_verbs_that_reach_into_it() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Open("console");
+        Assert.True(fixture.Shell.Commands.Execute("play.clear-console"));
+        Assert.True(fixture.Shell.Commands.CanExecute("view.clear-console"));
+
+        fixture.Shell.Workspace.Close("console");
+        fixture.Frames(2);
+
+        Assert.False(fixture.Shell.Commands.CanExecute("view.clear-console"), "Clear Console is offered over a closed panel");
+        Assert.False(fixture.Shell.Commands.CanExecute("play.clear-console"));
+        Assert.False(fixture.Shell.Commands["play.clear-console"]!.IsChecked, "Clear on Play is ticked for a view that is gone");
+    }
+
     [Fact]
     public void Clearing_the_console_from_the_menu_empties_it() {
         using var fixture = EditorSession.Start();

@@ -105,6 +105,38 @@ public sealed class EditorWorkspaceTests : IDisposable {
         Assert.Equal("root { --accent: #ff0000; }", workspace.ThemeTokens);
     }
 
+    /// <summary>
+    ///     What closing writes is what start-up puts back (#1293) — the arrangement, without a window and
+    ///     without the application that used to do both halves in its constructor and its Persist.
+    /// </summary>
+    [Fact]
+    public void Persisting_and_restoring_round_trips_the_arrangement() {
+        Assert.True(shell.Workspace.Apply("Split"));
+        var arranged = shell.Workspace.Save();
+
+        workspace.Persist();
+
+        Assert.Equal(arranged, store.LoadLayout(EditorUserStore.CurrentLayout));
+        Assert.NotNull(store.Read(EditorUserStore.KeyMapFile));
+
+        shell.Workspace.Close("inspector");
+        Assert.NotEqual(arranged, shell.Workspace.Save());
+
+        workspace.Restore();
+
+        Assert.Equal(arranged, shell.Workspace.Save());
+    }
+
+    /// <summary>A layout file that cannot be used is said out loud, not mistaken for a first run.</summary>
+    [Fact]
+    public void A_layout_file_that_cannot_be_used_is_said_rather_than_silently_reset() {
+        store.SaveLayout(EditorUserStore.CurrentLayout, "this: [ is not\n a layout");
+
+        workspace.Restore();
+
+        Assert.Contains(shell.Notifications.History, notice => notice.Message == EditorStrings.LayoutNotRestored.Text);
+    }
+
     /// <summary>A view list with no shell refuses the arrangement's verbs rather than pretending.</summary>
     [Fact]
     public void A_workspace_with_no_shell_refuses_the_arrangements_verbs() {

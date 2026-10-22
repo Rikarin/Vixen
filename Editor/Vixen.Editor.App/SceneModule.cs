@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
@@ -101,6 +102,51 @@ sealed class SceneModule : IEditorPlugin {
         context.AddDefaultBinding("entity.group", new KeyChord(InputKey.G, ModifierKeys.Control));
         context.AddDefaultBinding("entity.snap-to-floor", new KeyChord(InputKey.End, ModifierKeys.None));
 
+        // ── The Entity menu's planned lines and the two marks (#1296) ───────────────────────────
+        // Declared and disabled with the reason, which is doc 20's E0: a verb that is not implemented
+        // is visibly not implemented rather than absent. Moved out of `EditorParity.EntityCommands`
+        // with the rest of the Entity menu's lines, so switching this module off takes all of them.
+        foreach (var (id, title) in PlannedEntityLines) {
+            context.AddCommand(
+                new EditorCommand(id, title, () => { }) {
+                    Category = EditorStrings.CategoryEntity,
+                    Unavailable = EditorStrings.PlannedReasons[id]
+                }
+            );
+        }
+
+        // ⚠ Editor state and not scene state, which is the line both Unreal and Unity draw: hiding
+        // something to work on what is behind it must not change what ships. So these write
+        // `SceneDocument`'s own sets rather than a component, they are not saved, and they are not
+        // undoable — an undo that put an eye back would be one step of history spent on where the
+        // user was looking rather than on what they changed, which is `Selection`'s argument.
+        context.AddCommand(
+            new EditorCommand(
+                "entity.toggle-hidden",
+                EditorStrings.CommandEntityToggleHidden,
+                () => Mark(editing, static (scene, entity) => scene.IsHiddenDirectly(entity), static (scene, entity, on) => scene.SetHidden(entity, on))
+            ) {
+                Category = EditorStrings.CategoryEntity,
+                Enablement = Selected,
+                Checked = () => Selected() && editing.Active.IsHiddenDirectly(editing.Active.Selection[0])
+            }
+        );
+
+        context.AddCommand(
+            new EditorCommand(
+                "entity.toggle-lock",
+                EditorStrings.CommandEntityToggleLock,
+                () => Mark(editing, static (scene, entity) => scene.IsLockedDirectly(entity), static (scene, entity, on) => scene.SetLocked(entity, on))
+            ) {
+                Category = EditorStrings.CategoryEntity,
+                Enablement = Selected,
+                Checked = () => Selected() && editing.Active.IsLockedDirectly(editing.Active.Selection[0])
+            }
+        );
+
+        context.AddDefaultBinding("entity.toggle-hidden", new KeyChord(InputKey.H, ModifierKeys.None));
+        context.AddDefaultBinding("entity.toggle-lock", new KeyChord(InputKey.L, ModifierKeys.None));
+
         // ── Part D's verbs that ask nothing (#1290's second slice) ──────────────────────────────
         context.AddCommand(
             new EditorCommand("edit.isolate", EditorStrings.CommandEditIsolate, editing.Isolate) {
@@ -183,6 +229,86 @@ sealed class SceneModule : IEditorPlugin {
         );
         context.OnUpdate(_ => outliner.Update());
 
+        // ── The Edit menu's scene verbs (#1296) ─────────────────────────────────────────────────
+        // ⚠ Scoped to the outliner, which is what lets the content browser's twin have the same key.
+        // Without a context the second Delete could not be bound at all, and an enablement predicate
+        // guessing from "is anything selected" gets it wrong the moment both panels have a selection
+        // — which after clicking an asset and then a row is most of the time.
+        context.AddCommand(
+            new EditorCommand("edit.delete", EditorStrings.CommandEditDelete, () => editing.Active.Delete([.. editing.Active.Selection])) {
+                Category = EditorStrings.CategoryEdit,
+                Context = EditorApplication.SceneContext,
+                Enablement = Selected
+            }
+        );
+
+        // In place, in the outliner — which is why it needs the outliner open.
+        context.AddCommand(
+            new EditorCommand(
+                "edit.rename",
+                EditorStrings.CommandEditRename,
+                () => {
+                    if (Selected()) {
+                        outliner.BeginRename(editing.Active.Selection[0]);
+                    }
+                }
+            ) {
+                Category = EditorStrings.CategoryEdit,
+                Context = EditorApplication.SceneContext,
+                Enablement = () => outliner.IsOpen && Selected()
+            }
+        );
+
+        context.AddDefaultBinding("edit.delete", new KeyChord(InputKey.Delete, ModifierKeys.None));
+        context.AddDefaultBinding("edit.rename", new KeyChord(InputKey.F2, ModifierKeys.None));
+
+        // ⚠ This block said "Cut, Copy, Paste and Duplicate need a subtree *clone*, which the engine
+        // does not have", and `SceneClone`'s own remarks call themselves "the thing doc 20's
+        // clipboard was blocked on". Duplicate is that clone with nothing in between, so it is a verb
+        // now. The other three still are not, and the reason is no longer the copy: a clipboard is a
+        // *buffer that outlives the selection* — what was cut has to survive being deleted, and a
+        // paste has to land somewhere the copy did not come from.
+        EditVerb(context, "edit.duplicate", EditorStrings.CommandEditDuplicate, () => editing.DuplicateSelection(), Selected);
+
+        foreach (var (id, title, key) in Clipboard()) {
+            if (context.Shell.Commands[id] is null) {
+                context.AddCommand(
+                    new EditorCommand(id, title, () => { }) {
+                        Category = EditorStrings.CategoryEdit,
+                        Unavailable = EditorStrings.PlannedReasons[id]
+                    }
+                );
+            }
+
+            if (key.IsBound) {
+                context.AddDefaultBinding(id, key);
+            }
+        }
+
+        EditVerb(context, "edit.select-all", EditorStrings.CommandEditSelectAll, () => editing.Active.Selection.Set([.. editing.Active.Entities]));
+
+        // Through the outliner when it is open: the rows' highlight is the tree's own state and the
+        // document's selection is written from it, so clearing only the document would leave a row
+        // that looks selected.
+        EditVerb(
+            context,
+            "edit.deselect-all",
+            EditorStrings.CommandEditDeselectAll,
+            () => {
+                if (Selected() && !outliner.ClearSelection()) {
+                    editing.Active.Selection.Clear();
+                }
+            },
+            Selected
+        );
+
+        EditVerb(context, "edit.invert-selection", EditorStrings.CommandEditInvertSelection, editing.InvertSelection);
+        EditVerb(context, "edit.select-children", EditorStrings.CommandEditSelectChildren, editing.SelectChildren, Selected);
+        EditVerb(context, "edit.select-parent", EditorStrings.CommandEditSelectParent, editing.SelectParent, Selected);
+
+        context.AddDefaultBinding("edit.select-all", new KeyChord(InputKey.A, ModifierKeys.Control));
+        context.AddDefaultBinding("edit.deselect-all", new KeyChord(InputKey.A, ModifierKeys.Control | ModifierKeys.Shift));
+
         // ── The Scenes panel and the multi-scene verbs (#1290's fifth slice) ───────────────────
         // ⚠ Over `ISceneEditing.OpenAdditively`/`Close`; the picker is the published one, so a host
         // with none greys Open Scene Additively rather than offering a line that does nothing.
@@ -207,6 +333,65 @@ sealed class SceneModule : IEditorPlugin {
         // ⚠ Last, so every line it names that is this module's is registered; and before Blockout and
         // Water activate, which place their submenus in it by finding it.
         SceneMenuBar.Register(context);
+    }
+
+    /// <summary>The four clipboard verbs and the keys everybody expects them on.</summary>
+    static (string Id, StringId Title, KeyChord Key)[] Clipboard() => [
+        ("edit.cut", EditorStrings.CommandEditCut, new KeyChord(InputKey.X, ModifierKeys.Control)),
+        ("edit.copy", EditorStrings.CommandEditCopy, new KeyChord(InputKey.C, ModifierKeys.Control)),
+        ("edit.paste", EditorStrings.CommandEditPaste, new KeyChord(InputKey.V, ModifierKeys.Control)),
+        ("edit.paste-as-child", EditorStrings.CommandEditPasteAsChild, KeyChord.None),
+        ("edit.duplicate", EditorStrings.CommandEditDuplicate, new KeyChord(InputKey.D, ModifierKeys.Control))
+    ];
+
+    /// <summary>Registers one of the Edit menu's verbs.</summary>
+    static void EditVerb(PluginContext context, string id, StringId title, Action run, Func<bool>? enabled = null) =>
+        context.AddCommand(
+            new EditorCommand(id, title, run) {
+                Category = EditorStrings.CategoryEdit,
+                Enablement = enabled
+            }
+        );
+
+    /// <summary>The Entity menu's lines that are declared and not yet built, in the order the menu shows them.</summary>
+    static readonly (string Id, StringId Title)[] PlannedEntityLines = [
+        ("entity.create-audio", EditorStrings.CommandEntityCreateAudio),
+        ("entity.create-ui", EditorStrings.CommandEntityCreateUi),
+        ("entity.create-vfx", EditorStrings.CommandEntityCreateVfx),
+        ("entity.make-prefab", EditorStrings.CommandEntityMakePrefab),
+        ("entity.unpack-prefab", EditorStrings.CommandEntityUnpackPrefab),
+        ("entity.apply-overrides", EditorStrings.CommandEntityApplyOverrides),
+        ("entity.ungroup", EditorStrings.CommandEntityUngroup),
+        ("entity.toggle-active", EditorStrings.CommandEntityToggleActive)
+    ];
+
+    /// <summary>Flips a mark across the selection, taking the first entity's state as the answer.</summary>
+    /// <remarks>
+    ///     ⚠ <b>All of them get what the <i>first</i> one is not, rather than each being flipped.</b>
+    ///     Toggling a mixed selection per entity swaps which half is hidden, which is the one outcome
+    ///     nobody ever means — and it makes pressing the key twice a no-op that looks like the key
+    ///     not working.
+    /// </remarks>
+    static void Mark(
+        ISceneEditing editing,
+        Func<SceneDocument, Entity, bool> read,
+        Action<SceneDocument, Entity, bool> write
+    ) {
+        var scene = editing.Active;
+
+        if (scene.Selection.Count == 0) {
+            return;
+        }
+
+        var wanted = !read(scene, scene.Selection[0]);
+
+        foreach (var entity in scene.Selection) {
+            write(scene, entity, wanted);
+        }
+
+        // ⚠ Through the service's own event, which the outliner and the viewport follow; the cast is
+        // the one `ScenesPanel` makes, because raising it is not a verb a plugin should have.
+        (editing as SceneEditing)?.Remarked();
     }
 
     /// <summary>One command per built-in shape, so that spawning one is not the menu's private trick.</summary>

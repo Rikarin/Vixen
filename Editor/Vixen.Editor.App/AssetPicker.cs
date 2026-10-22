@@ -100,6 +100,54 @@ sealed class AssetPicker {
         this.extensions = extensions;
     }
 
+    /// <summary>Points every asset drawer in a registry at this picker, until the result is disposed.</summary>
+    /// <param name="drawers">The registry whose <see cref="AssetDrawer" />s answer an asset field.</param>
+    /// <returns>What takes the picker back out of the drawers.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Moved out of <c>EditorApplication</c>'s constructor (#1293).</b> <c>AssetDrawer</c>
+    ///         had raised <c>PickRequested</c> since it was written and nothing listened, so the
+    ///         button in an asset field did nothing; this is the listener, and the names the field
+    ///         shows.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Taken back, which the constructor's loop never did.</b> The drawers are the
+    ///         process-wide <c>DrawerRegistry.Default</c>'s, and the host builds a new editor in the
+    ///         same process every time a project is switched — so each editor's picker stayed
+    ///         subscribed after its editor was disposed, and a pick in the next one opened every
+    ///         earlier editor's picker as well, over a project and a dialog service that were gone.
+    ///     </para>
+    /// </remarks>
+    public IDisposable Serve(DrawerRegistry drawers) {
+        ArgumentNullException.ThrowIfNull(drawers);
+
+        var served = drawers.Drawers.OfType<AssetDrawer>().ToList();
+        Func<AssetId, string?> resolve = NameOf;
+
+        foreach (var drawer in served) {
+            drawer.Resolve = resolve;
+            drawer.PickRequested += Open;
+        }
+
+        return new Served(this, served, resolve);
+    }
+
+    /// <summary>What <see cref="Serve" /> hands back.</summary>
+    sealed class Served(AssetPicker picker, List<AssetDrawer> drawers, Func<AssetId, string?> resolve) : IDisposable {
+        public void Dispose() {
+            foreach (var drawer in drawers) {
+                drawer.PickRequested -= picker.Open;
+
+                // Only our own: a later editor's picker may already have put its names there.
+                if (ReferenceEquals(drawer.Resolve, resolve)) {
+                    drawer.Resolve = null;
+                }
+            }
+
+            drawers.Clear();
+        }
+    }
+
     /// <summary>What an asset is called in the picker and in the field.</summary>
     /// <param name="asset">Its id.</param>
     /// <returns>Its file name, or <see langword="null" /> when the project does not have it.</returns>

@@ -73,10 +73,74 @@ public sealed class EditorPlaySession : IPlaySession {
     ///     say it did.</b> <c>Enabled</c> lives on the overlay object, which is per session —
     ///     <c>PlayPhysics</c> registers it and takes it back out, because it holds a
     ///     <c>PhysicsScene</c> that Stop destroys — so the next Play's overlay arrived switched off.
-    ///     What outlives the session is the application's <c>overlayWishes</c>, which
-    ///     <c>FollowPlayOverlays</c> applies to each new one (#1263).
+    ///     What outlives the session is <see cref="overlayWishes" />, which <see cref="Tick" />
+    ///     applies to each new one (#1263).
     /// </remarks>
     public DiagnosticOverlays Overlays { get; } = new();
+
+    /// <summary>The overlays somebody has switched on, by name, across every session.</summary>
+    /// <remarks>
+    ///     Moved here from <c>EditorApplication</c> with the switch (#1296): the wish is the session
+    ///     verb's state, and a plugin that switches an overlay through <see cref="IPlaySession" />
+    ///     has to be switching the same one Play ▸ Overlays ticks.
+    /// </remarks>
+    readonly HashSet<string> overlayWishes = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The overlay object last seen under each name, so a new session's is recognised as new.</summary>
+    readonly Dictionary<string, IDiagnosticOverlay> overlaysSeen = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <inheritdoc />
+    public bool IsOverlayOn(string name) =>
+        Overlays.Find(name) is { } live ? live.Enabled : overlayWishes.Contains(name);
+
+    /// <inheritdoc />
+    public void SwitchOverlay(string name) {
+        var on = !IsOverlayOn(name);
+
+        if (on) {
+            overlayWishes.Add(name);
+        } else {
+            overlayWishes.Remove(name);
+        }
+
+        Overlays.Set(name, on);
+    }
+
+    /// <summary>Applies the wishes to overlays a session has just registered, and learns from the rest.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Run every frame before the loop steps, because a session's overlays are registered by
+    ///         its contributions when Play is pressed, and the first frame that draws is this one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An overlay already seen is read <em>from</em>, not written to.</b> Something else
+    ///         can switch a live overlay — <c>DiagnosticOverlays.Set</c> is public and a plugin may
+    ///         hold its overlay — and writing the wish over it every frame would make that switch
+    ///         snap back on the next frame. Reading it into the wish keeps one answer and carries it
+    ///         across Stop.
+    ///     </para>
+    /// </remarks>
+    void FollowOverlays() {
+        foreach (var overlay in Overlays.Registered) {
+            var name = overlay.Name;
+
+            if (overlaysSeen.TryGetValue(name, out var seen) && ReferenceEquals(seen, overlay)) {
+                if (overlay.Enabled) {
+                    overlayWishes.Add(name);
+                } else {
+                    overlayWishes.Remove(name);
+                }
+
+                continue;
+            }
+
+            overlaysSeen[name] = overlay;
+
+            if (overlayWishes.Contains(name)) {
+                overlay.Enabled = true;
+            }
+        }
+    }
 
     /// <summary>The overlays' world geometry, as segment pairs a pane's line pass takes.</summary>
     /// <remarks>
@@ -135,6 +199,9 @@ public sealed class EditorPlaySession : IPlaySession {
     ///     accumulate every frame of the session into one solid mass of lines.
     /// </remarks>
     public bool Tick(TimeSpan delta) {
+        // Before the step, which is the frame a session registered on Play first draws in.
+        FollowOverlays();
+
         Debug.Clear();
 
         var ticked = Controller.Tick(delta);

@@ -32,6 +32,12 @@ namespace Vixen.Editor.App;
 ///         notes every document it shows; this tracks the editor's own scene, whose location Save As
 ///         moves (#1493).
 ///     </para>
+///     <para>
+///         <b>And File ▸ Open Recent's projects</b> (#1296), over <see cref="IProjectSession.Recent" />
+///         and <see cref="IProjectSession.RequestProject" />. ⚠ The list is the Project context's and
+///         the menu beside Recent Documents is this module's: doc 50 § D3 names no project module, and
+///         a second module for one submenu would be a module for its own sake.
+///     </para>
 /// </remarks>
 sealed class WorkspaceModule : IEditorPlugin {
     /// <summary>What the host activates it under.</summary>
@@ -137,6 +143,107 @@ sealed class WorkspaceModule : IEditorPlugin {
         context.Shell.Workspace.DefaultPreset = "Default";
 
         RecentDocuments(context, workspace);
+        RecentProjects(context);
+    }
+
+    /// <summary>What an empty Open Recent submenu shows.</summary>
+    const string NoRecentProject = "file.no-recent";
+
+    /// <summary>One command per project in the history, which is what Open Recent is made of.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Commands rather than paths, which <c>EditorShell.Recent</c> insists on and is
+    ///         right to.</b> A dynamic menu is a set of ids because a line has to have a title, an
+    ///         enablement and a place in the palette, and only a registered command has all three —
+    ///         so "open the project I was in on Tuesday" is findable in the palette by typing its
+    ///         name, which is the behaviour that makes the list worth keeping.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Registered once, because the list only changes when the editor reopens.</b>
+    ///         Opening another project closes this editor and builds a new one — see
+    ///         <see cref="IProjectSession.RequestProject" /> — so there is no moment at which the history changes
+    ///         under a live menu, and registering from inside the menu's own builder would be a
+    ///         registration that rebuilds the menu it is being built for.
+    ///     </para>
+    ///     <para>
+    ///         The project that is already open is left out: a line that reopens what you are
+    ///         looking at is one people choose once.
+    ///     </para>
+    /// </remarks>
+    static void RecentProjects(PluginContext context) {
+        var session = context.Services.Require<IProjectSession>();
+        var shell = context.Shell;
+
+        List<string> ids = [];
+
+        // The fallback line is declared and disabled, so an empty submenu reads as empty, not broken.
+        context.AddCommand(
+            new EditorCommand(NoRecentProject, EditorStrings.CommandFileNoRecent, () => { }) {
+                Category = EditorStrings.CategoryFile,
+                Unavailable = EditorStrings.PlannedReasons[NoRecentProject]
+            }
+        );
+
+        foreach (var entry in session.Recent) {
+            if (string.Equals(entry.Path, session.Project.Paths.Root, StringComparison.Ordinal)) {
+                continue;
+            }
+
+            var path = entry.Path;
+
+            // ⚠ Asked once. `Exists` is a stat call, and the list is where a path to an unmounted
+            // share lives — the one place where asking four times is four chances to block.
+            var exists = entry.Exists;
+
+            context.AddCommand(
+                new EditorCommand(
+                    RecentCommand(path),
+
+                    // ⚠ The user's name for it, never a translator's word — see `Untranslated`.
+                    Untranslated.Title(entry.Name),
+                    () => session.RequestProject(path)
+                ) {
+                    Category = EditorStrings.CategoryFile,
+
+                    // A project on a volume that is not mounted is greyed rather than absent, for
+                    // `ProjectHistory`'s reason: forgetting it is the one thing there is no way back
+                    // from.
+                    Enablement = () => exists
+                }
+            );
+
+            ids.Add(RecentCommand(path));
+        }
+
+        // The submenu is a dynamic over ids, so the fallback line is what an empty list shows —
+        // a submenu that opens onto nothing at all reads as a broken menu rather than an empty one.
+        shell.Recent = ids.Count == 0 ? () => [NoRecentProject] : () => ids;
+
+        // ⚠ Taken back with the module, or a disabled module would leave a submenu of commands it
+        // has just unregistered.
+        context.OnUnload(() => shell.Recent = null);
+    }
+
+    /// <summary>What the command that reopens a project is called.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Derived from the path rather than from the entry's position in the list.</b> A
+    ///     positional id — <c>file.recent.0</c> — names a different project every time the order
+    ///     changes, which is every time one is opened. A keybinding on it would be a shortcut that
+    ///     silently moves to another project, and the keymap file would record an id whose meaning
+    ///     changes between sessions.
+    /// </remarks>
+    static string RecentCommand(string path) {
+        // ⚠ FNV-1a rather than `string.GetHashCode`, which is randomised per process — an id that
+        // changed on every launch would defeat the whole point — and rather than a cryptographic
+        // hash, which this is not: it names a menu line, and a collision costs one duplicate id that
+        // the registry refuses out loud.
+        var hash = 2166136261u;
+
+        foreach (var character in path) {
+            hash = (hash ^ character) * 16777619u;
+        }
+
+        return string.Create(System.Globalization.CultureInfo.InvariantCulture, $"file.recent.{hash:x8}");
     }
 
     /// <summary>File ▸ Recent Documents: the documents of this project recently opened or saved.</summary>

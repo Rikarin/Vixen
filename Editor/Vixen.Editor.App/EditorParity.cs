@@ -67,7 +67,6 @@ sealed partial class EditorApplication {
         FileCommands();
         EditingCommands();
         AssetCommands();
-        EntityCommands();
         PlayCommands();
         BuildAndToolCommands();
     }
@@ -93,8 +92,6 @@ sealed partial class EditorApplication {
             EditorStrings.CategoryFile,
             ShowProjectBrowser
         );
-
-        Planned("file.no-recent", EditorStrings.CommandFileNoRecent, EditorStrings.CategoryFile);
 
         Verb(
             "file.new-scene",
@@ -182,86 +179,7 @@ sealed partial class EditorApplication {
         Shell.Keys.SetDefault("file.save-as", new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Shift));
         Shell.Keys.SetDefault("file.save-all", new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Alt));
 
-        RecentProjectCommands();
-    }
-
-    /// <summary>One command per project in the history, which is what Open Recent is made of.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Commands rather than paths, which <c>EditorShell.Recent</c> insists on and is
-    ///         right to.</b> A dynamic menu is a set of ids because a line has to have a title, an
-    ///         enablement and a place in the palette, and only a registered command has all three —
-    ///         so "open the project I was in on Tuesday" is findable in the palette by typing its
-    ///         name, which is the behaviour that makes the list worth keeping.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Registered once, because the list only changes when the editor reopens.</b>
-    ///         Opening another project closes this editor and builds a new one — see
-    ///         <see cref="IProjectSession.RequestProject" /> — so there is no moment at which the history changes
-    ///         under a live menu, and registering from inside the menu's own builder would be a
-    ///         registration that rebuilds the menu it is being built for.
-    ///     </para>
-    ///     <para>
-    ///         The project that is already open is left out: a line that reopens what you are
-    ///         looking at is one people choose once.
-    ///     </para>
-    /// </remarks>
-    void RecentProjectCommands() {
-        List<string> ids = [];
-
-        foreach (var entry in session.Recent) {
-            if (string.Equals(entry.Path, project.Paths.Root, StringComparison.Ordinal)) {
-                continue;
-            }
-
-            var path = entry.Path;
-
-            // ⚠ Asked once. `Exists` is a stat call, and the list is where a path to an unmounted
-            // share lives — the one place where asking four times is four chances to block.
-            var exists = entry.Exists;
-
-            Verb(
-                RecentCommand(path),
-
-                // ⚠ The user's name for it, never a translator's word — see `Untranslated`.
-                Untranslated.Title(entry.Name),
-                EditorStrings.CategoryFile,
-                () => session.RequestProject(path),
-
-                // A project on a volume that is not mounted is greyed rather than absent, for
-                // `ProjectHistory`'s reason: forgetting it is the one thing there is no way back
-                // from.
-                enabled: () => exists
-            );
-
-            ids.Add(RecentCommand(path));
-        }
-
-        // The submenu is a dynamic over ids, so the fallback line is what an empty list shows —
-        // a submenu that opens onto nothing at all reads as a broken menu rather than an empty one.
-        Shell.Recent = ids.Count == 0 ? () => ["file.no-recent"] : () => ids;
-    }
-
-    /// <summary>What the command that reopens a project is called.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Derived from the path rather than from the entry's position in the list.</b> A
-    ///     positional id — <c>file.recent.0</c> — names a different project every time the order
-    ///     changes, which is every time one is opened. A keybinding on it would be a shortcut that
-    ///     silently moves to another project, and the keymap file would record an id whose meaning
-    ///     changes between sessions.
-    /// </remarks>
-    static string RecentCommand(string path) {
-        // ⚠ FNV-1a rather than `string.GetHashCode`, which is randomised per process — an id that
-        // changed on every launch would defeat the whole point — and rather than a cryptographic
-        // hash, which this is not: it names a menu line, and a collision costs one duplicate id that
-        // the registry refuses out loud.
-        var hash = 2166136261u;
-
-        foreach (var character in path) {
-            hash = (hash ^ character) * 16777619u;
-        }
-
-        return string.Create(System.Globalization.CultureInfo.InvariantCulture, $"file.recent.{hash:x8}");
+        // File ▸ Open Recent's projects are `WorkspaceModule`'s (#1296), over `IProjectSession.Recent`.
     }
 
     // ── Edit ────────────────────────────────────────────────────────────────────────────────────
@@ -274,97 +192,8 @@ sealed partial class EditorApplication {
             () => Shell.Workspace.Open(HistoryPanel)
         );
 
-        // ⚠ Scoped to the outliner, which is what lets the content browser's twin have the same key.
-        // Without a context the second Delete could not be bound at all, and an enablement predicate
-        // guessing from "is anything selected" gets it wrong the moment both panels have a selection
-        // — which after clicking an asset and then a row is most of the time.
-        Scoped(
-            "edit.delete",
-            EditorStrings.CommandEditDelete,
-            SceneContext,
-            () => scene.Delete([.. scene.Selection]),
-            () => scene.Selection.Count > 0
-        );
-
-        Scoped(
-            "edit.rename",
-            EditorStrings.CommandEditRename,
-            SceneContext,
-            Rename,
-            () => Outliner is { IsOpen: true } && scene.Selection.Count > 0
-        );
-
-        Shell.Keys.SetDefault("edit.delete", new KeyChord(InputKey.Delete, ModifierKeys.None));
-        Shell.Keys.SetDefault("edit.rename", new KeyChord(InputKey.F2, ModifierKeys.None));
-
-        // ⚠ This block said "Cut, Copy, Paste and Duplicate need a subtree *clone*, which the engine
-        // does not have", and `SceneClone`'s own remarks call themselves "the thing doc 20's
-        // clipboard was blocked on". Duplicate is that clone with nothing in between, so it is a verb
-        // now. The other three still are not, and the reason is no longer the copy: a clipboard is a
-        // *buffer that outlives the selection* — what was cut has to survive being deleted, and a
-        // paste has to land somewhere the copy did not come from.
-        Verb(
-            "edit.duplicate",
-            EditorStrings.CommandEditDuplicate,
-            EditorStrings.CategoryEdit,
-            () => sceneEditing.DuplicateSelection(),
-            enabled: () => scene.Selection.Count > 0
-        );
-
-        foreach (var (id, title, key) in Clipboard()) {
-            if (Shell.Commands[id] is null) {
-                Planned(id, title, EditorStrings.CategoryEdit);
-            }
-
-            if (key.IsBound) {
-                Shell.Keys.SetDefault(id, key);
-            }
-        }
-
-        Verb(
-            "edit.select-all",
-            EditorStrings.CommandEditSelectAll,
-            EditorStrings.CategoryEdit,
-            () => scene.Selection.Set([.. scene.Entities])
-        );
-
-        Verb(
-            "edit.deselect-all",
-            EditorStrings.CommandEditDeselectAll,
-            EditorStrings.CategoryEdit,
-            DeselectEntities,
-            enabled: () => scene.Selection.Count > 0
-        );
-
-        Verb(
-            "edit.invert-selection",
-            EditorStrings.CommandEditInvertSelection,
-            EditorStrings.CategoryEdit,
-            sceneEditing.InvertSelection
-        );
-
-        Verb(
-            "edit.select-children",
-            EditorStrings.CommandEditSelectChildren,
-            EditorStrings.CategoryEdit,
-            sceneEditing.SelectChildren,
-            enabled: () => scene.Selection.Count > 0
-        );
-
-        Verb(
-            "edit.select-parent",
-            EditorStrings.CommandEditSelectParent,
-            EditorStrings.CategoryEdit,
-            sceneEditing.SelectParent,
-            enabled: () => scene.Selection.Count > 0
-        );
-
-        Shell.Keys.SetDefault("edit.select-all", new KeyChord(InputKey.A, ModifierKeys.Control));
-
-        Shell.Keys.SetDefault(
-            "edit.deselect-all",
-            new KeyChord(InputKey.A, ModifierKeys.Control | ModifierKeys.Shift)
-        );
+        // Delete, Rename, Duplicate, the clipboard lines and the selection verbs are `SceneModule`'s
+        // (#1296), over `ISceneEditing` and the outliner it builds.
 
         // ⚠ `edit.search-everywhere` is registered by the shell rather than here, because the
         // overlay is the shell's. What this application adds is the sources — see `SearchSources` —
@@ -527,89 +356,6 @@ sealed partial class EditorApplication {
         }
     }
 
-    // ── Entity ──────────────────────────────────────────────────────────────────────────────────
-
-    void EntityCommands() {
-        // ⚠ Create Child, Group, Group as LOD, Clear Parent, Align With View, Move To View and Snap To
-        // Floor are `SceneModule`'s now (#1290): names for `ISceneEditing`'s verbs, registered through
-        // `PluginContext` with their keys, and so are Create Empty and its shortcut (#1290's third
-        // slice). What stays here is the planned lines, Set Parent's chooser and the two marks.
-        Planned("entity.create-audio", EditorStrings.CommandEntityCreateAudio, EditorStrings.CategoryEntity);
-
-        Planned("entity.create-ui", EditorStrings.CommandEntityCreateUi, EditorStrings.CategoryEntity);
-
-        Planned("entity.create-vfx", EditorStrings.CommandEntityCreateVfx, EditorStrings.CategoryEntity);
-
-        Planned("entity.make-prefab", EditorStrings.CommandEntityMakePrefab, EditorStrings.CategoryEntity);
-
-        Planned("entity.unpack-prefab", EditorStrings.CommandEntityUnpackPrefab, EditorStrings.CategoryEntity);
-
-        Planned("entity.apply-overrides", EditorStrings.CommandEntityApplyOverrides, EditorStrings.CategoryEntity);
-
-        Planned("entity.ungroup", EditorStrings.CommandEntityUngroup, EditorStrings.CategoryEntity);
-
-        // ⚠ The picker this waited for was never the outliner's drag. `ChooseAsync` is the editor's
-        // one drawn "pick one of these", the drag has been wired for a milestone anyway
-        // (`hierarchy.AllowDrag`), and `ReparentCommand` is the undoable move both gestures make —
-        // so what was left was a list of candidate parents and one call.
-        Verb(
-            "entity.set-parent",
-            EditorStrings.CommandEntitySetParent,
-            EditorStrings.CategoryEntity,
-            SetParent,
-            enabled: () => scene.Selection.Count > 0
-        );
-
-        Planned("entity.toggle-active", EditorStrings.CommandEntityToggleActive, EditorStrings.CategoryEntity);
-
-        // ⚠ Editor state and not scene state, which is the line both Unreal and Unity draw: hiding
-        // something to work on what is behind it must not change what ships. So these write
-        // `SceneDocument`'s own sets rather than a component, they are not saved, and they are not
-        // undoable — an undo that put an eye back would be one step of history spent on where the
-        // user was looking rather than on what they changed, which is `Selection`'s argument.
-        Verb(
-            "entity.toggle-hidden",
-            EditorStrings.CommandEntityToggleHidden,
-            EditorStrings.CategoryEntity,
-            () => Mark(scene.IsHiddenDirectly, scene.SetHidden),
-            enabled: () => scene.Selection.Count > 0,
-            on: () => scene.Selection.Count > 0 && scene.IsHiddenDirectly(scene.Selection[0])
-        );
-
-        Verb(
-            "entity.toggle-lock",
-            EditorStrings.CommandEntityToggleLock,
-            EditorStrings.CategoryEntity,
-            () => Mark(scene.IsLockedDirectly, scene.SetLocked),
-            enabled: () => scene.Selection.Count > 0,
-            on: () => scene.Selection.Count > 0 && scene.IsLockedDirectly(scene.Selection[0])
-        );
-
-        Shell.Keys.SetDefault("entity.toggle-hidden", new KeyChord(InputKey.H, ModifierKeys.None));
-        Shell.Keys.SetDefault("entity.toggle-lock", new KeyChord(InputKey.L, ModifierKeys.None));
-    }
-
-    /// <summary>Flips a mark across the selection, taking the first entity's state as the answer.</summary>
-    /// <remarks>
-    ///     ⚠ <b>All of them get what the <i>first</i> one is not, rather than each being flipped.</b>
-    ///     Toggling a mixed selection per entity swaps which half is hidden, which is the one outcome
-    ///     nobody ever means — and it makes pressing the key twice a no-op that looks like the key
-    ///     not working.
-    /// </remarks>
-    void Mark(Func<Entity, bool> read, Action<Entity, bool> write) {
-        if (scene.Selection.Count == 0) {
-            return;
-        }
-
-        var wanted = !read(scene.Selection[0]);
-
-        foreach (var entity in scene.Selection) {
-            write(entity, wanted);
-        }
-
-        sceneEditing.Remarked();
-    }
-
     // ── Play ────────────────────────────────────────────────────────────────────────────────────
 
     /// <summary>The four transport verbs, over the controller that already exists.</summary>
@@ -636,18 +382,8 @@ sealed partial class EditorApplication {
         // third party uses — so a plugin reaches the same four verbs the transport does. What is left
         // here is the Play menu's options, which are this editor's preferences rather than the
         // session's verbs.
-        Planned("play.mode-in-editor", EditorStrings.CommandPlayModeInEditor, EditorStrings.CategoryPlay);
-
-        // ⚠ Both of these named milestone E6, and E6 has shipped — `build.settings` is a window and
-        // `build.run` publishes and starts a player. What is actually missing is on this side of the
-        // line and is the same thing twice: a *supervised* process. Play is a transport — Pause, Step
-        // and Stop have to mean something — and `PlayerDelivery.Build` hands the artefact to the OS and
-        // forgets it, so a play mode over it would be a Play button with three dead buttons beside
-        // it. A reason naming a mechanism can be checked against the tree; one naming a schedule
-        // stayed on screen for two milestones after its schedule closed.
-        Planned("play.mode-standalone", EditorStrings.CommandPlayModeStandalone, EditorStrings.CategoryPlay);
-
-        Planned("play.mode-server", EditorStrings.CommandPlayModeServer, EditorStrings.CategoryPlay);
+        // The three play modes, Mute Audio and the Overlays submenu are `PlayModule`'s (#1296): the
+        // first four are declared lines and the last is `IPlaySession.SwitchOverlay`.
 
         // ⚠ A preference rather than an action, which is what the tick says. It changes what the
         // *next* Play does; pressing it while the game is running would be a second, differently
@@ -660,11 +396,6 @@ sealed partial class EditorApplication {
             on: () => maximiseOnPlay
         );
 
-        Planned("play.mute-audio", EditorStrings.CommandPlayMuteAudio, EditorStrings.CategoryPlay);
-
-        // One checked line per diagnostic overlay — Play ▸ Overlays (#1263).
-        PlayOverlayCommands();
-
         // ⚠ A tick over the console's own preference rather than a second copy of it. Doc 20's rule
         // for the three navigation preferences applies here for the same reason: two writers to one
         // setting is how a menu tick and a panel's toggle come to disagree.
@@ -672,21 +403,17 @@ sealed partial class EditorApplication {
             "play.clear-console",
             EditorStrings.CommandPlayClearConsole,
             EditorStrings.CategoryPlay,
-            () => {
-                if (console is { } view) {
-                    view.ClearsOnPlay = !view.ClearsOnPlay;
-                }
-            },
-            enabled: () => console is not null,
-            on: () => console is { ClearsOnPlay: true }
+            console.ToggleClearsOnPlay,
+            enabled: () => console.View is not null,
+            on: () => console.ClearsOnPlay
         );
 
         Verb(
             "view.clear-console",
             EditorStrings.CommandViewClearConsole,
             EditorStrings.CategoryPlay,
-            () => console?.Clear(),
-            enabled: () => console is not null
+            console.Clear,
+            enabled: () => console.View is not null
         );
     }
 
@@ -754,15 +481,6 @@ sealed partial class EditorApplication {
         // finished: it carries the log, the memory arenas, the scene's counts and the last capture,
         // and says in the file that the minidump and the undo history are E6's.
     }
-
-    /// <summary>The four clipboard verbs and the keys everybody expects them on.</summary>
-    static (string Id, StringId Title, KeyChord Key)[] Clipboard() => [
-        ("edit.cut", EditorStrings.CommandEditCut, new KeyChord(InputKey.X, ModifierKeys.Control)),
-        ("edit.copy", EditorStrings.CommandEditCopy, new KeyChord(InputKey.C, ModifierKeys.Control)),
-        ("edit.paste", EditorStrings.CommandEditPaste, new KeyChord(InputKey.V, ModifierKeys.Control)),
-        ("edit.paste-as-child", EditorStrings.CommandEditPasteAsChild, KeyChord.None),
-        ("edit.duplicate", EditorStrings.CommandEditDuplicate, new KeyChord(InputKey.D, ModifierKeys.Control))
-    ];
 
     // ── Help ────────────────────────────────────────────────────────────────────────────────────
 
@@ -855,7 +573,7 @@ sealed partial class EditorApplication {
             .Add("play.maximise", "play.mute-audio", "play.clear-console");
 
         play.AddSubmenu(EditorStrings.MenuPlayOverlays)
-            .Add(SwitchableOverlays().Select(PlayOverlayCommand).ToArray());
+            .Add(PlayModule.SwitchableOverlays().Select(PlayModule.OverlayCommand).ToArray());
 
         // ⚠ Counted from Window rather than carried on from Play, because Part C puts Window
         // between them: File, Edit, Assets, Entity, Scene, Play, Window, Build, Tools, Help. The
@@ -1011,21 +729,6 @@ sealed partial class EditorApplication {
                 Category = category,
                 Enablement = enabled,
                 Checked = on
-            }
-        );
-
-    /// <summary>Registers one of a pair of verbs that mean different things in different panels.</summary>
-    /// <remarks>
-    ///     The context is what lets its twin have the same key. See the class's remarks, and
-    ///     <see cref="EditorCommand.Context" /> for why the alternative — an enablement predicate
-    ///     guessing from the selection — gets it wrong exactly when both panels have one.
-    /// </remarks>
-    void Scoped(string id, StringId title, string context, Action run, Func<bool>? enabled = null) =>
-        Shell.Commands.Add(
-            new EditorCommand(id, title, run) {
-                Category = EditorStrings.CategoryEdit,
-                Context = context,
-                Enablement = enabled
             }
         );
 
@@ -1746,61 +1449,8 @@ sealed partial class EditorApplication {
     // ── Selection and hierarchy verbs ───────────────────────────────────────────────────────────
 
     // ⚠ The verbs that were here are `SceneEditing`'s now (#1290) — `ISceneEditing`, published to
-    // plugins — and `SceneModule` registers the Entity menu's lines over them. What stays is the one
-    // that asks a question first: the chooser is this editor's dialog, the move is the service's.
-
-    /// <summary>One row of the Set Parent dialog.</summary>
-    /// <param name="Label">What the row says.</param>
-    /// <param name="Parent">Where choosing it would put the selection.</param>
-    /// <param name="Refusal">Why it cannot be chosen, or <see langword="null" /> when it can.</param>
-    sealed record ParentChoice(string Label, Entity Parent, string? Refusal);
-
-    /// <summary>Asks which entity to hang the selection from, and moves it there undoably.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>The impossible parents are listed and greyed rather than left out.</b> Dragging a
-    ///         parent onto its own child is a gesture people make on purpose — they are looking for
-    ///         the row and expect to find it — and a list that quietly omitted the descendants would
-    ///         read as the editor having lost them. The row says which rule refused it, which is the
-    ///         same bargain the whole <c>Planned</c> mechanism makes one level up.
-    ///     </para>
-    ///     <para>
-    ///         One <see cref="ReparentCommand" /> for the whole selection, so one Ctrl+Z takes it
-    ///         back — the drag in the outliner makes exactly the same call.
-    ///     </para>
-    /// </remarks>
-    void SetParent() {
-        if (scene.Selection.Count == 0) {
-            return;
-        }
-
-        var moving = scene.Selection.ToList();
-
-        // ⚠ Not called "Scene Root", which is what the default scene's own root entity is called.
-        // A list where the row meaning "no parent at all" is spelled the same as a row meaning "under
-        // that entity" is a list with two different answers under one name.
-        List<ParentChoice> choices = [new ParentChoice("(No parent)", Entity.Null, null)];
-
-        foreach (var entity in scene.Entities) {
-            choices.Add(new ParentChoice(scene.NameOf(entity), entity, sceneEditing.WhyNotParent(moving, entity)));
-        }
-
-        _ = Ask();
-
-        async Task Ask() {
-            var chosen = await Shell.ChooseAsync(
-                moving.Count == 1 ? "Hang it from what?" : $"Hang {moving.Count} entities from what?",
-                choices,
-                static choice => choice.Label,
-                static choice => choice.Refusal,
-                static choice => choice.Refusal is null
-            ).ConfigureAwait(true);
-
-            if (chosen is not null) {
-                sceneEditing.SetParent(moving, chosen.Parent);
-            }
-        }
-    }
+    // plugins — and `SceneModule` registers the Entity menu's lines over them, Set Parent's chooser
+    // (`SceneQuestions`) and the two marks included (#1296).
 
     // ── Play mode ───────────────────────────────────────────────────────────────────────────────
 
@@ -1822,8 +1472,8 @@ sealed partial class EditorApplication {
 
         // Before the notification, so the line saying what play mode does is the first thing in the
         // console rather than the last thing before it was emptied.
-        if (console is { ClearsOnPlay: true } view) {
-            view.Clear();
+        if (console.ClearsOnPlay) {
+            console.Clear();
         }
 
         // ⚠ Said before it matters rather than after it has cost something. Doc 20 calls this the one

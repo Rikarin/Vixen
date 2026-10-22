@@ -41,6 +41,18 @@ sealed class SceneQuestions(PluginContext context, ISceneEditing editing) {
 
     /// <summary>Registers Part D's verbs that ask a question first.</summary>
     public void Register() {
+        // ⚠ The picker this waited for was never the outliner's drag. `ChooseAsync` is the editor's
+        // one drawn "pick one of these", the drag has been wired for a milestone anyway
+        // (`hierarchy.AllowDrag`), and `ReparentCommand` is the undoable move both gestures make —
+        // so what was left was a list of candidate parents and one call.
+        Verb(
+            "entity.set-parent",
+            EditorStrings.CommandEntitySetParent,
+            EditorStrings.CategoryEntity,
+            SetParent,
+            enabled: () => Scene.Selection.Count > 0
+        );
+
         Verb(
             "edit.select-by-name",
             EditorStrings.CommandEditSelectByName,
@@ -107,6 +119,59 @@ sealed class SceneQuestions(PluginContext context, ISceneEditing editing) {
                 Unavailable = EditorStrings.PlannedReasons["entity.relative-transform"]
             }
         );
+    }
+
+    /// <summary>One row of the Set Parent dialog.</summary>
+    /// <param name="Label">What the row says.</param>
+    /// <param name="Parent">Where choosing it would put the selection.</param>
+    /// <param name="Refusal">Why it cannot be chosen, or <see langword="null" /> when it can.</param>
+    sealed record ParentChoice(string Label, Entity Parent, string? Refusal);
+
+    /// <summary>Asks which entity to hang the selection from, and moves it there undoably.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The impossible parents are listed and greyed rather than left out.</b> Dragging a
+    ///         parent onto its own child is a gesture people make on purpose — they are looking for
+    ///         the row and expect to find it — and a list that quietly omitted the descendants would
+    ///         read as the editor having lost them. The row says which rule refused it, which is the
+    ///         same bargain the whole <c>Planned</c> mechanism makes one level up.
+    ///     </para>
+    ///     <para>
+    ///         One <see cref="ReparentCommand" /> for the whole selection, so one Ctrl+Z takes it
+    ///         back — the drag in the outliner makes exactly the same call.
+    ///     </para>
+    /// </remarks>
+    void SetParent() {
+        if (Scene.Selection.Count == 0) {
+            return;
+        }
+
+        var moving = Scene.Selection.ToList();
+
+        // ⚠ Not called "Scene Root", which is what the default scene's own root entity is called.
+        // A list where the row meaning "no parent at all" is spelled the same as a row meaning "under
+        // that entity" is a list with two different answers under one name.
+        List<ParentChoice> choices = [new ParentChoice("(No parent)", Entity.Null, null)];
+
+        foreach (var entity in Scene.Entities) {
+            choices.Add(new ParentChoice(Scene.NameOf(entity), entity, editing.WhyNotParent(moving, entity)));
+        }
+
+        _ = Ask();
+
+        async Task Ask() {
+            var chosen = await Shell.ChooseAsync(
+                moving.Count == 1 ? "Hang it from what?" : $"Hang {moving.Count} entities from what?",
+                choices,
+                static choice => choice.Label,
+                static choice => choice.Refusal,
+                static choice => choice.Refusal is null
+            ).ConfigureAwait(true);
+
+            if (chosen is not null) {
+                editing.SetParent(moving, chosen.Parent);
+            }
+        }
     }
 
     /// <summary>Registers a command that does something, through the module's context.</summary>

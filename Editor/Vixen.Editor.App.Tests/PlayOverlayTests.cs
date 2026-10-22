@@ -178,7 +178,7 @@ public class PlayOverlayTests {
         session.Frames(2);
 
         Assert.NotEmpty(session.Editor.PlayDiagnosticLines);
-        Assert.True(session.Shell.Commands.TryGet(EditorApplication.PlayOverlayCommand("physics"), out var command));
+        Assert.True(session.Shell.Commands.TryGet(PlayModule.OverlayCommand("physics"), out var command));
         Assert.True(command.IsChecked);
 
         // And off again by the same line, which is what makes it a switch rather than a door.
@@ -201,7 +201,7 @@ public class PlayOverlayTests {
 
         Assert.Empty(session.Editor.PlayOverlays.Registered);
 
-        session.Run(EditorApplication.PlayOverlayCommand("physics"));
+        session.Run(PlayModule.OverlayCommand("physics"));
         session.Run("play.play");
         session.Frames(2);
 
@@ -225,7 +225,7 @@ public class PlayOverlayTests {
 
         session.Run("play.play");
         session.Frames(2);
-        session.Run(EditorApplication.PlayOverlayCommand("physics"));
+        session.Run(PlayModule.OverlayCommand("physics"));
         session.Frames(1);
         session.Run("play.stop");
         session.Frames(2);
