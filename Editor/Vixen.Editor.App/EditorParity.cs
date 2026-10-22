@@ -192,97 +192,8 @@ sealed partial class EditorApplication {
             () => Shell.Workspace.Open(HistoryPanel)
         );
 
-        // ⚠ Scoped to the outliner, which is what lets the content browser's twin have the same key.
-        // Without a context the second Delete could not be bound at all, and an enablement predicate
-        // guessing from "is anything selected" gets it wrong the moment both panels have a selection
-        // — which after clicking an asset and then a row is most of the time.
-        Scoped(
-            "edit.delete",
-            EditorStrings.CommandEditDelete,
-            SceneContext,
-            () => scene.Delete([.. scene.Selection]),
-            () => scene.Selection.Count > 0
-        );
-
-        Scoped(
-            "edit.rename",
-            EditorStrings.CommandEditRename,
-            SceneContext,
-            Rename,
-            () => Outliner is { IsOpen: true } && scene.Selection.Count > 0
-        );
-
-        Shell.Keys.SetDefault("edit.delete", new KeyChord(InputKey.Delete, ModifierKeys.None));
-        Shell.Keys.SetDefault("edit.rename", new KeyChord(InputKey.F2, ModifierKeys.None));
-
-        // ⚠ This block said "Cut, Copy, Paste and Duplicate need a subtree *clone*, which the engine
-        // does not have", and `SceneClone`'s own remarks call themselves "the thing doc 20's
-        // clipboard was blocked on". Duplicate is that clone with nothing in between, so it is a verb
-        // now. The other three still are not, and the reason is no longer the copy: a clipboard is a
-        // *buffer that outlives the selection* — what was cut has to survive being deleted, and a
-        // paste has to land somewhere the copy did not come from.
-        Verb(
-            "edit.duplicate",
-            EditorStrings.CommandEditDuplicate,
-            EditorStrings.CategoryEdit,
-            () => sceneEditing.DuplicateSelection(),
-            enabled: () => scene.Selection.Count > 0
-        );
-
-        foreach (var (id, title, key) in Clipboard()) {
-            if (Shell.Commands[id] is null) {
-                Planned(id, title, EditorStrings.CategoryEdit);
-            }
-
-            if (key.IsBound) {
-                Shell.Keys.SetDefault(id, key);
-            }
-        }
-
-        Verb(
-            "edit.select-all",
-            EditorStrings.CommandEditSelectAll,
-            EditorStrings.CategoryEdit,
-            () => scene.Selection.Set([.. scene.Entities])
-        );
-
-        Verb(
-            "edit.deselect-all",
-            EditorStrings.CommandEditDeselectAll,
-            EditorStrings.CategoryEdit,
-            DeselectEntities,
-            enabled: () => scene.Selection.Count > 0
-        );
-
-        Verb(
-            "edit.invert-selection",
-            EditorStrings.CommandEditInvertSelection,
-            EditorStrings.CategoryEdit,
-            sceneEditing.InvertSelection
-        );
-
-        Verb(
-            "edit.select-children",
-            EditorStrings.CommandEditSelectChildren,
-            EditorStrings.CategoryEdit,
-            sceneEditing.SelectChildren,
-            enabled: () => scene.Selection.Count > 0
-        );
-
-        Verb(
-            "edit.select-parent",
-            EditorStrings.CommandEditSelectParent,
-            EditorStrings.CategoryEdit,
-            sceneEditing.SelectParent,
-            enabled: () => scene.Selection.Count > 0
-        );
-
-        Shell.Keys.SetDefault("edit.select-all", new KeyChord(InputKey.A, ModifierKeys.Control));
-
-        Shell.Keys.SetDefault(
-            "edit.deselect-all",
-            new KeyChord(InputKey.A, ModifierKeys.Control | ModifierKeys.Shift)
-        );
+        // Delete, Rename, Duplicate, the clipboard lines and the selection verbs are `SceneModule`'s
+        // (#1296), over `ISceneEditing` and the outliner it builds.
 
         // ⚠ `edit.search-everywhere` is registered by the shell rather than here, because the
         // overlay is the shell's. What this application adds is the sources — see `SearchSources` —
@@ -598,15 +509,6 @@ sealed partial class EditorApplication {
         // and says in the file that the minidump and the undo history are E6's.
     }
 
-    /// <summary>The four clipboard verbs and the keys everybody expects them on.</summary>
-    static (string Id, StringId Title, KeyChord Key)[] Clipboard() => [
-        ("edit.cut", EditorStrings.CommandEditCut, new KeyChord(InputKey.X, ModifierKeys.Control)),
-        ("edit.copy", EditorStrings.CommandEditCopy, new KeyChord(InputKey.C, ModifierKeys.Control)),
-        ("edit.paste", EditorStrings.CommandEditPaste, new KeyChord(InputKey.V, ModifierKeys.Control)),
-        ("edit.paste-as-child", EditorStrings.CommandEditPasteAsChild, KeyChord.None),
-        ("edit.duplicate", EditorStrings.CommandEditDuplicate, new KeyChord(InputKey.D, ModifierKeys.Control))
-    ];
-
     // ── Help ────────────────────────────────────────────────────────────────────────────────────
 
     // The Help menu's verbs are `HelpModule`'s (#1296): registered through `PluginContext` over the
@@ -854,21 +756,6 @@ sealed partial class EditorApplication {
                 Category = category,
                 Enablement = enabled,
                 Checked = on
-            }
-        );
-
-    /// <summary>Registers one of a pair of verbs that mean different things in different panels.</summary>
-    /// <remarks>
-    ///     The context is what lets its twin have the same key. See the class's remarks, and
-    ///     <see cref="EditorCommand.Context" /> for why the alternative — an enablement predicate
-    ///     guessing from the selection — gets it wrong exactly when both panels have one.
-    /// </remarks>
-    void Scoped(string id, StringId title, string context, Action run, Func<bool>? enabled = null) =>
-        Shell.Commands.Add(
-            new EditorCommand(id, title, run) {
-                Category = EditorStrings.CategoryEdit,
-                Context = context,
-                Enablement = enabled
             }
         );
 

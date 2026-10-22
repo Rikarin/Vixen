@@ -3253,13 +3253,6 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     SceneOutliner? Outliner => plugins.Services.TryGet<SceneOutliner>(out var outliner) ? outliner : null;
 
-    /// <summary>Renames whatever the hierarchy has selected, in place.</summary>
-    void Rename() {
-        if (scene.Selection.Count > 0) {
-            Outliner?.BeginRename(scene.Selection[0]);
-        }
-    }
-
     /// <inheritdoc cref="DeselectEntities" />
     void DeselectAssets() {
         if (project.Selection.Count == 0) {

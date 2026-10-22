@@ -229,6 +229,86 @@ sealed class SceneModule : IEditorPlugin {
         );
         context.OnUpdate(_ => outliner.Update());
 
+        // ── The Edit menu's scene verbs (#1296) ─────────────────────────────────────────────────
+        // ⚠ Scoped to the outliner, which is what lets the content browser's twin have the same key.
+        // Without a context the second Delete could not be bound at all, and an enablement predicate
+        // guessing from "is anything selected" gets it wrong the moment both panels have a selection
+        // — which after clicking an asset and then a row is most of the time.
+        context.AddCommand(
+            new EditorCommand("edit.delete", EditorStrings.CommandEditDelete, () => editing.Active.Delete([.. editing.Active.Selection])) {
+                Category = EditorStrings.CategoryEdit,
+                Context = EditorApplication.SceneContext,
+                Enablement = Selected
+            }
+        );
+
+        // In place, in the outliner — which is why it needs the outliner open.
+        context.AddCommand(
+            new EditorCommand(
+                "edit.rename",
+                EditorStrings.CommandEditRename,
+                () => {
+                    if (Selected()) {
+                        outliner.BeginRename(editing.Active.Selection[0]);
+                    }
+                }
+            ) {
+                Category = EditorStrings.CategoryEdit,
+                Context = EditorApplication.SceneContext,
+                Enablement = () => outliner.IsOpen && Selected()
+            }
+        );
+
+        context.AddDefaultBinding("edit.delete", new KeyChord(InputKey.Delete, ModifierKeys.None));
+        context.AddDefaultBinding("edit.rename", new KeyChord(InputKey.F2, ModifierKeys.None));
+
+        // ⚠ This block said "Cut, Copy, Paste and Duplicate need a subtree *clone*, which the engine
+        // does not have", and `SceneClone`'s own remarks call themselves "the thing doc 20's
+        // clipboard was blocked on". Duplicate is that clone with nothing in between, so it is a verb
+        // now. The other three still are not, and the reason is no longer the copy: a clipboard is a
+        // *buffer that outlives the selection* — what was cut has to survive being deleted, and a
+        // paste has to land somewhere the copy did not come from.
+        EditVerb(context, "edit.duplicate", EditorStrings.CommandEditDuplicate, () => editing.DuplicateSelection(), Selected);
+
+        foreach (var (id, title, key) in Clipboard()) {
+            if (context.Shell.Commands[id] is null) {
+                context.AddCommand(
+                    new EditorCommand(id, title, () => { }) {
+                        Category = EditorStrings.CategoryEdit,
+                        Unavailable = EditorStrings.PlannedReasons[id]
+                    }
+                );
+            }
+
+            if (key.IsBound) {
+                context.AddDefaultBinding(id, key);
+            }
+        }
+
+        EditVerb(context, "edit.select-all", EditorStrings.CommandEditSelectAll, () => editing.Active.Selection.Set([.. editing.Active.Entities]));
+
+        // Through the outliner when it is open: the rows' highlight is the tree's own state and the
+        // document's selection is written from it, so clearing only the document would leave a row
+        // that looks selected.
+        EditVerb(
+            context,
+            "edit.deselect-all",
+            EditorStrings.CommandEditDeselectAll,
+            () => {
+                if (Selected() && !outliner.ClearSelection()) {
+                    editing.Active.Selection.Clear();
+                }
+            },
+            Selected
+        );
+
+        EditVerb(context, "edit.invert-selection", EditorStrings.CommandEditInvertSelection, editing.InvertSelection);
+        EditVerb(context, "edit.select-children", EditorStrings.CommandEditSelectChildren, editing.SelectChildren, Selected);
+        EditVerb(context, "edit.select-parent", EditorStrings.CommandEditSelectParent, editing.SelectParent, Selected);
+
+        context.AddDefaultBinding("edit.select-all", new KeyChord(InputKey.A, ModifierKeys.Control));
+        context.AddDefaultBinding("edit.deselect-all", new KeyChord(InputKey.A, ModifierKeys.Control | ModifierKeys.Shift));
+
         // ── The Scenes panel and the multi-scene verbs (#1290's fifth slice) ───────────────────
         // ⚠ Over `ISceneEditing.OpenAdditively`/`Close`; the picker is the published one, so a host
         // with none greys Open Scene Additively rather than offering a line that does nothing.
@@ -254,6 +334,24 @@ sealed class SceneModule : IEditorPlugin {
         // Water activate, which place their submenus in it by finding it.
         SceneMenuBar.Register(context);
     }
+
+    /// <summary>The four clipboard verbs and the keys everybody expects them on.</summary>
+    static (string Id, StringId Title, KeyChord Key)[] Clipboard() => [
+        ("edit.cut", EditorStrings.CommandEditCut, new KeyChord(InputKey.X, ModifierKeys.Control)),
+        ("edit.copy", EditorStrings.CommandEditCopy, new KeyChord(InputKey.C, ModifierKeys.Control)),
+        ("edit.paste", EditorStrings.CommandEditPaste, new KeyChord(InputKey.V, ModifierKeys.Control)),
+        ("edit.paste-as-child", EditorStrings.CommandEditPasteAsChild, KeyChord.None),
+        ("edit.duplicate", EditorStrings.CommandEditDuplicate, new KeyChord(InputKey.D, ModifierKeys.Control))
+    ];
+
+    /// <summary>Registers one of the Edit menu's verbs.</summary>
+    static void EditVerb(PluginContext context, string id, StringId title, Action run, Func<bool>? enabled = null) =>
+        context.AddCommand(
+            new EditorCommand(id, title, run) {
+                Category = EditorStrings.CategoryEdit,
+                Enablement = enabled
+            }
+        );
 
     /// <summary>The Entity menu's lines that are declared and not yet built, in the order the menu shows them.</summary>
     static readonly (string Id, StringId Title)[] PlannedEntityLines = [

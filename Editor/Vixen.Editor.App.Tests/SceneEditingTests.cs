@@ -375,7 +375,10 @@ public sealed class SceneEditingTests : IDisposable {
             item => item.CommandId is "scene.create-entity" or "entity.snap-to-floor" or "entity.move-to-view"
         );
 
-        // The Edit menu's selection verbs are still the application's, over the same service.
-        Assert.NotNull(editor.Shell.Commands["edit.duplicate"]);
+        // And the Edit menu's scene verbs since #1296, which this test used to hold the other way
+        // round while they were still the application's over the same service.
+        Assert.Null(editor.Shell.Commands["edit.duplicate"]);
+        Assert.Null(editor.Shell.Commands["edit.delete"]);
+        Assert.Null(editor.Shell.Commands["edit.select-all"]);
     }
 }
