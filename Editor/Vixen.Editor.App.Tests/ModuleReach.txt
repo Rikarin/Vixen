@@ -50,7 +50,6 @@ editor menu editor.menu.file file.project-settings
 editor menu editor.menu.file file.save
 editor menu editor.menu.file file.save-all
 editor menu editor.menu.file file.save-as
-editor menu editor.menu.file/editor.menu.recent file.no-recent
 editor menu editor.menu.play/editor.menu.play-options play.clear-console
 editor menu editor.menu.play/editor.menu.play-options play.maximise
 editor menu editor.menu.tools plugins.reload
@@ -513,6 +512,7 @@ vixen.water menu editor.menu.window/editor.menu.panels view.panel.water.zone
 vixen.water mode water
 vixen.water panel water.panel
 vixen.water panel water.zone
+vixen.workspace menu editor.menu.file/editor.menu.recent file.no-recent
 vixen.workspace menu editor.menu.file/editor.menu.recent-documents file.recent-document.*
 vixen.workspace menu editor.menu.tools tools.reload-styles
 vixen.workspace menu editor.menu.window view.full-screen

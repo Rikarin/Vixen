@@ -23,6 +23,7 @@ public class ParityLinesModuleTests {
     [InlineData(PlayModule.ModuleId, "play.mode-in-editor")]
     [InlineData(PlayModule.ModuleId, "play.mute-audio")]
     [InlineData(PlayModule.ModuleId, "play.overlay.physics")]
+    [InlineData(WorkspaceModule.ModuleId, "file.no-recent")]
     public void Disabling_the_module_takes_its_lines_away(string module, string command) {
         using var session = EditorSession.Start();
 
@@ -35,6 +36,21 @@ public class ParityLinesModuleTests {
         session.Plugins.Enable(module);
 
         Assert.NotNull(session.Shell.Commands[command]);
+    }
+
+    /// <summary>File ▸ Open Recent is the workspace module's, and leaves with it rather than naming lines it took away.</summary>
+    [Fact]
+    public void Open_recent_is_offered_by_the_workspace_module_and_withdrawn_with_it() {
+        using var session = EditorSession.Start();
+
+        // The history holds only the project that is open, which the list leaves out.
+        Assert.Equal(["file.no-recent"], session.Shell.Recent!.Invoke());
+
+        Assert.True(session.Plugins.Disable(WorkspaceModule.ModuleId));
+        Assert.Null(session.Shell.Recent);
+
+        session.Plugins.Enable(WorkspaceModule.ModuleId);
+        Assert.Equal(["file.no-recent"], session.Shell.Recent!.Invoke());
     }
 
     /// <summary>Toggle Hidden, through the module, still hides the whole selection by the first entity's state.</summary>

@@ -93,8 +93,6 @@ sealed partial class EditorApplication {
             ShowProjectBrowser
         );
 
-        Planned("file.no-recent", EditorStrings.CommandFileNoRecent, EditorStrings.CategoryFile);
-
         Verb(
             "file.new-scene",
             EditorStrings.CommandFileNewScene,
@@ -181,86 +179,7 @@ sealed partial class EditorApplication {
         Shell.Keys.SetDefault("file.save-as", new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Shift));
         Shell.Keys.SetDefault("file.save-all", new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Alt));
 
-        RecentProjectCommands();
-    }
-
-    /// <summary>One command per project in the history, which is what Open Recent is made of.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Commands rather than paths, which <c>EditorShell.Recent</c> insists on and is
-    ///         right to.</b> A dynamic menu is a set of ids because a line has to have a title, an
-    ///         enablement and a place in the palette, and only a registered command has all three —
-    ///         so "open the project I was in on Tuesday" is findable in the palette by typing its
-    ///         name, which is the behaviour that makes the list worth keeping.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Registered once, because the list only changes when the editor reopens.</b>
-    ///         Opening another project closes this editor and builds a new one — see
-    ///         <see cref="IProjectSession.RequestProject" /> — so there is no moment at which the history changes
-    ///         under a live menu, and registering from inside the menu's own builder would be a
-    ///         registration that rebuilds the menu it is being built for.
-    ///     </para>
-    ///     <para>
-    ///         The project that is already open is left out: a line that reopens what you are
-    ///         looking at is one people choose once.
-    ///     </para>
-    /// </remarks>
-    void RecentProjectCommands() {
-        List<string> ids = [];
-
-        foreach (var entry in session.Recent) {
-            if (string.Equals(entry.Path, project.Paths.Root, StringComparison.Ordinal)) {
-                continue;
-            }
-
-            var path = entry.Path;
-
-            // ⚠ Asked once. `Exists` is a stat call, and the list is where a path to an unmounted
-            // share lives — the one place where asking four times is four chances to block.
-            var exists = entry.Exists;
-
-            Verb(
-                RecentCommand(path),
-
-                // ⚠ The user's name for it, never a translator's word — see `Untranslated`.
-                Untranslated.Title(entry.Name),
-                EditorStrings.CategoryFile,
-                () => session.RequestProject(path),
-
-                // A project on a volume that is not mounted is greyed rather than absent, for
-                // `ProjectHistory`'s reason: forgetting it is the one thing there is no way back
-                // from.
-                enabled: () => exists
-            );
-
-            ids.Add(RecentCommand(path));
-        }
-
-        // The submenu is a dynamic over ids, so the fallback line is what an empty list shows —
-        // a submenu that opens onto nothing at all reads as a broken menu rather than an empty one.
-        Shell.Recent = ids.Count == 0 ? () => ["file.no-recent"] : () => ids;
-    }
-
-    /// <summary>What the command that reopens a project is called.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Derived from the path rather than from the entry's position in the list.</b> A
-    ///     positional id — <c>file.recent.0</c> — names a different project every time the order
-    ///     changes, which is every time one is opened. A keybinding on it would be a shortcut that
-    ///     silently moves to another project, and the keymap file would record an id whose meaning
-    ///     changes between sessions.
-    /// </remarks>
-    static string RecentCommand(string path) {
-        // ⚠ FNV-1a rather than `string.GetHashCode`, which is randomised per process — an id that
-        // changed on every launch would defeat the whole point — and rather than a cryptographic
-        // hash, which this is not: it names a menu line, and a collision costs one duplicate id that
-        // the registry refuses out loud.
-        var hash = 2166136261u;
-
-        foreach (var character in path) {
-            hash = (hash ^ character) * 16777619u;
-        }
-
-        return string.Create(System.Globalization.CultureInfo.InvariantCulture, $"file.recent.{hash:x8}");
+        // File ▸ Open Recent's projects are `WorkspaceModule`'s (#1296), over `IProjectSession.Recent`.
     }
 
     // ── Edit ────────────────────────────────────────────────────────────────────────────────────
