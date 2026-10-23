@@ -229,6 +229,10 @@ sealed class SceneModule : IEditorPlugin {
         );
         context.OnUpdate(_ => outliner.Update());
 
+        // ── File ▸ New Scene, Open Scene and Save As (#1296) ────────────────────────────────────
+        // Over the file behind the active scene, which is a service now — see `SceneFiles`.
+        SceneFileQuestions.Register(context, context.Services.Require<SceneFiles>());
+
         // ── Search Everywhere's entities (#1518) ────────────────────────────────────────────────
         // Over the scene the editor is *showing* — the prefab while one is inspected — and through the
         // context, so switching this module off takes its rows out of the overlay. Choosing one selects

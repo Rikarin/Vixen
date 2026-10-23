@@ -74,29 +74,12 @@ sealed partial class EditorApplication {
     void FileCommands() {
         // File ▸ New Project and Open Project are `WorkspaceModule`'s (#1296), over `ProjectChooser`.
 
-        Verb(
-            "file.new-scene",
-            EditorStrings.CommandFileNewScene,
-            EditorStrings.CategoryFile,
-            NewScene
-        );
+        // New Scene, Open Scene and Save As are `SceneModule`'s (#1296), over `SceneFiles` — see
+        // `SceneFileQuestions`. File ▸ Revert and `document.revert` are `WorkspaceModule`'s, over
+        // `Discarding.Revert`.
 
-        Verb(
-            "file.open-scene",
-            EditorStrings.CommandFileOpenScene,
-            EditorStrings.CategoryFile,
-            OpenScene,
-            enabled: () => services.CanPick
-        );
-
-        Verb(
-            "file.save-as",
-            EditorStrings.CommandFileSaveAs,
-            EditorStrings.CategoryFile,
-            SaveSceneAs,
-            enabled: () => services.CanPick
-        );
-
+        // ⚠ Save All stays: it applies the settings window's document after the write, which is this
+        // application's (`ApplyProjectSettings`), and the close prompt's Save is the same method.
         Verb(
             "file.save-all",
             EditorStrings.CommandSaveAll,
@@ -105,13 +88,8 @@ sealed partial class EditorApplication {
             enabled: () => project.HasUnsavedChanges.Value
         );
 
-        // File ▸ Revert and `document.revert` are `WorkspaceModule`'s (#1296), over `Discarding.Revert`.
-
         // Import Files and Export Package are `LibraryModule`'s (#1296) — see `LibraryQuestions`.
 
-        Shell.Keys.SetDefault("file.new-scene", new KeyChord(InputKey.N, ModifierKeys.Control));
-        Shell.Keys.SetDefault("file.open-scene", new KeyChord(InputKey.O, ModifierKeys.Control));
-        Shell.Keys.SetDefault("file.save-as", new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Shift));
         Shell.Keys.SetDefault("file.save-all", new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Alt));
 
         // File ▸ Open Recent's projects are `WorkspaceModule`'s (#1296), over `IProjectSession.Recent`.
@@ -546,151 +524,6 @@ sealed partial class EditorApplication {
 
     // ── What the verbs do ───────────────────────────────────────────────────────────────────────
 
-    /// <summary>Empties the scene and starts again, asking first if there is anything to lose.</summary>
-    void NewScene() =>
-        Confirm(
-            scene.HasUnsavedChanges.Value,
-            "Discard unsaved changes?",
-            Path.GetFileName(scenePath) + " has changes that have not been written.",
-            () => {
-                scene.Delete([.. scene.Roots]);
-                scene.Stack.Clear();
-                scene.Stack.MarkClean();
-
-                scene.Add("Scene Root", LocalTransform.Identity);
-                sceneEditing.Restructured();
-            },
-            confirm: "Discard"
-        );
-
-    /// <summary>Picks a scene file and loads it over the open one.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Into the same document, and the path moves with it.</b> The scene panel, the gizmo,
-    ///     the inspector and the picker all hold this document; swapping the object would leave four
-    ///     panels looking at the old one until each was rebuilt. What changes is the contents and the
-    ///     writer — which is also what makes the next Save write where the file came from.
-    /// </remarks>
-    void OpenScene() {
-        if (services.Dialogs is not { } dialogs) {
-            return;
-        }
-
-        Confirm(
-            scene.HasUnsavedChanges.Value,
-            "Discard unsaved changes?",
-            Path.GetFileName(scenePath) + " has changes that have not been written.",
-            () => deferred.When(
-                dialogs.OpenFileAsync(
-                    new FileDialogOptions {
-                        Title = "Open Scene",
-                        InitialDirectory = project.Paths.Assets,
-                        Filters = [new FileFilter("Vixen scene", SceneSerializer.Extension.TrimStart('.'))]
-                    }
-                ),
-                path => {
-                    if (path is null) {
-                        return;
-                    }
-
-                    LoadScene(path);
-                },
-                failure => Shell.Notifications.Show("Could not open the scene", NotificationSeverity.Error, failure.Message)
-            ),
-            confirm: "Discard"
-        );
-    }
-
-    /// <summary>Loads a scene file over the open scene, which then writes there.</summary>
-    /// <param name="path">The chosen file.</param>
-    /// <remarks>
-    ///     What Open Scene's answer does, named so a test can give the answer without a dialog. Refused,
-    ///     like <see cref="SaveSceneAs(string)" />, onto a file another document edits, and it closes the
-    ///     tab named after the file the scene leaves.
-    /// </remarks>
-    internal void LoadScene(string path) {
-        if (EditedElsewhere(path, scene) is { } holder) {
-            RefuseSecondDocument(path, holder, "Could not open the scene");
-
-            return;
-        }
-
-        try {
-            scene.Selection.Clear();
-            scene.Delete([.. scene.Roots]);
-
-            if (SceneSerializer.Load(scene, path) == 0) {
-                Shell.Notifications.Show(
-                    "Nothing was loaded",
-                    NotificationSeverity.Warning,
-                    Path.GetFileName(path) + " has no entities in it."
-                );
-            }
-
-            scenePath = path;
-            scene.Writer = new SceneFileWriter(path);
-            scene.SetTitle(Path.GetFileNameWithoutExtension(path));
-
-            scene.Stack.Clear();
-            scene.Stack.MarkClean();
-
-            sceneEditing.Restructured();
-            CloseTabsTheSceneLeft();
-            Shell.Notifications.Success(Path.GetFileName(path));
-        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
-            Shell.Notifications.Show("Could not open the scene", NotificationSeverity.Error, exception.Message);
-        }
-    }
-
-    /// <summary>Asks where to put the scene, and writes it there from now on.</summary>
-    void SaveSceneAs() {
-        if (services.Dialogs is not { } dialogs) {
-            return;
-        }
-
-        deferred.When(
-            dialogs.SaveFileAsync(
-                new FileDialogOptions {
-                    Title = "Save Scene As",
-                    InitialDirectory = Path.GetDirectoryName(scenePath) ?? project.Paths.Assets,
-                    SuggestedFileName = Path.GetFileName(scenePath),
-                    Filters = [new FileFilter("Vixen scene", SceneSerializer.Extension.TrimStart('.'))]
-                }
-            ),
-            path => {
-                if (path is null) {
-                    return;
-                }
-
-                SaveSceneAs(path);
-            },
-            failure => Shell.Notifications.Show("Could not save the scene", NotificationSeverity.Error, failure.Message)
-        );
-    }
-
-    /// <summary>Writes the scene to a file of the user's choosing, and writes it there from now on.</summary>
-    /// <param name="path">The chosen file.</param>
-    /// <remarks>
-    ///     What the dialog's answer does, named so a test can give the answer without a dialog. ⚠
-    ///     <b>Refused onto a file another document edits</b> — see <see cref="EditedElsewhere" /> for
-    ///     which ones count — and it closes any tab named after the file the scene leaves (#1416), see
-    ///     <see cref="CloseTabsTheSceneLeft" />.
-    /// </remarks>
-    internal void SaveSceneAs(string path) {
-        if (EditedElsewhere(path, scene) is { } holder) {
-            RefuseSecondDocument(path, holder, "Could not save the scene");
-
-            return;
-        }
-
-        scenePath = path;
-        scene.Writer = new SceneFileWriter(path);
-        scene.SetTitle(Path.GetFileNameWithoutExtension(path));
-
-        SaveScene();
-        project.Assets.Scan();
-        CloseTabsTheSceneLeft();
-    }
-
     /// <summary>Writes every open document that has changes.</summary>
     void SaveAll() {
         try {
@@ -917,21 +750,5 @@ sealed partial class EditorApplication {
             _ => string.Join(", ", names.Take(4)) + (names.Count > 4 ? ", and more" : string.Empty)
                 + " have unsaved changes."
         };
-    }
-
-    /// <summary>Runs something, asking first if there is unsaved work to lose.</summary>
-    void Confirm(bool ask, string title, string message, Action then, string confirm) {
-        if (!ask) {
-            then();
-            return;
-        }
-
-        _ = Run();
-
-        async Task Run() {
-            if (await Shell.Dialogs.ConfirmAsync(title, message, confirm, danger: true).ConfigureAwait(true)) {
-                then();
-            }
-        }
     }
 }
