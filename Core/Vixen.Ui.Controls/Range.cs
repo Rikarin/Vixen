@@ -455,6 +455,25 @@ public abstract partial class RangeBase : Control {
         return IsVertical ? 1f - ((y - rail.Y) / extent) : (x - rail.X) / extent;
     }
 
+    /// <summary>Whether a pointer is a finger or a pen, which decide on the drag rather than on the press (#1507).</summary>
+    /// <remarks>
+    ///     <c>TextField.IsDirect</c>'s test and <c>ScrollView.Dragged</c>'s, and deliberately the same
+    ///     one: the view drags its content for exactly these two devices, so these are the two for
+    ///     which a press on a slider in a list may be the start of a scroll rather than of a scrub.
+    /// </remarks>
+    internal static bool IsDirect(PointerType type) => type is PointerType.Touch or PointerType.Pen;
+
+    /// <summary>Whether a drag that began with this slop travel runs along the track rather than across it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The complement of <c>ScrollView.Admits</c>, tie included.</b> The view calls an exactly
+    ///     diagonal beginning vertical, so a horizontal track takes only a beginning strictly more
+    ///     across than down and a vertical one takes the tie. Deciding the tie the other way would
+    ///     leave one gesture that both the slider and the view think is theirs — and the slider,
+    ///     raised first, would win it from a list under <c>pan-y</c> that also admitted it.
+    /// </remarks>
+    internal bool AlongTrack(float totalX, float totalY) =>
+        IsVertical ? MathF.Abs(totalY) >= MathF.Abs(totalX) : MathF.Abs(totalX) > MathF.Abs(totalY);
+
     void OnBoundsChanged(float previous, float current) => OnBoundsChanged();
 
     /// <summary>Puts the axis on the element as a class, so a theme can size the two differently.</summary>
@@ -476,6 +495,7 @@ public abstract partial class RangeBase : Control {
 /// <summary>A value chosen by dragging a thumb along a track.</summary>
 public sealed partial class Slider : RangeBase {
     bool dragging;
+    bool fingerDragging;
 
     /// <inheritdoc />
     protected override string TagName => "slider";
@@ -515,6 +535,8 @@ public sealed partial class Slider : RangeBase {
         base.OnCreated();
 
         AddHandler<PointerEvent>(static (element, args) => ((Slider) element).Pointed(args));
+        AddHandler<DragEvent>(static (element, args) => ((Slider) element).Dragged(args));
+        AddHandler<TapEvent>(static (element, args) => ((Slider) element).Tapped(args));
         AddHandler<KeyEvent>(static (element, args) => ((Slider) element).Keyed(args));
     }
 
@@ -551,8 +573,22 @@ public sealed partial class Slider : RangeBase {
         ValueChanged?.Invoke(this, current);
     }
 
+    /// <summary>The raw pointer: the whole of a mouse's scrub, and only the press of a finger's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A finger or a pen decides on the drag and not on the press (#1507)</b>, which is the
+    ///     browser's range input: the press moves nothing and captures nothing, because it may be the
+    ///     start of a scroll of the list the slider is in. What it turns out to be is
+    ///     <see cref="Dragged" />'s question, and a press that never became a drag is
+    ///     <see cref="Tapped" />'s. Still handled, for <c>TextField</c>'s reason: an ancestor that
+    ///     acts on a press must not start answering one on a slider because it came from a finger.
+    ///     The mouse path below is what it always was.
+    /// </remarks>
     void Pointed(PointerEvent args) {
         switch (args.Action) {
+            case PointerAction.Pressed when args.Button == PointerButton.Primary && IsDirect(args.PointerType):
+                args.Handled = true;
+                break;
+
             case PointerAction.Pressed when args.Button == PointerButton.Primary:
                 dragging = true;
 
@@ -578,6 +614,64 @@ public sealed partial class Slider : RangeBase {
             default:
                 break;
         }
+    }
+
+    /// <summary>A finger's scrub, which begins only if the drag runs along the track.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Declined means not handled</b>, so a drag across the track goes on bubbling to the
+    ///         scroll view around the slider — which admits it under the theme's <c>pan-y</c> (or
+    ///         <c>pan-x</c> on a vertical slider) and scrolls, with <see cref="Value" /> untouched
+    ///         because nothing here ever wrote it. A drag along the track is handled before it can
+    ///         reach the view, which is what keeps the list still while the thumb moves; the
+    ///         declaration only has to refuse the axis the slider takes.
+    ///     </para>
+    ///     <para>
+    ///         Nothing is captured. The recogniser raises every stage of the drag on the element the
+    ///         finger pressed, wherever the finger has wandered since, so there is no capture to take
+    ///         and none to give back when a view takes the gesture instead.
+    ///     </para>
+    /// </remarks>
+    void Dragged(DragEvent args) {
+        if (!IsDirect(args.PointerType)) {
+            return;
+        }
+
+        switch (args.Stage) {
+            case DragStage.Started when AlongTrack(args.TotalX, args.TotalY):
+                fingerDragging = true;
+
+                Document.Focus(this);
+                Value = ValueAt(FractionAt(args.X, args.Y));
+
+                args.Handled = true;
+                break;
+
+            case DragStage.Moved when fingerDragging:
+                Value = ValueAt(FractionAt(args.X, args.Y));
+                args.Handled = true;
+                break;
+
+            case DragStage.Completed or DragStage.Cancelled when fingerDragging:
+                fingerDragging = false;
+                args.Handled = true;
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    /// <summary>A finger's tap, which sets the value where it landed, as a press of the mouse does.</summary>
+    void Tapped(TapEvent args) {
+        if (!IsDirect(args.PointerType)) {
+            return;
+        }
+
+        Document.Focus(this);
+        Value = ValueAt(FractionAt(args.X, args.Y));
+
+        args.Handled = true;
     }
 
     void Keyed(KeyEvent args) {
@@ -619,6 +713,7 @@ public sealed partial class Slider : RangeBase {
 public sealed partial class RangeSlider : RangeBase {
     bool draggingHigh;
     bool dragging;
+    bool fingerDragging;
 
     /// <inheritdoc />
     protected override string TagName => "range-slider";
@@ -660,6 +755,8 @@ public sealed partial class RangeSlider : RangeBase {
         base.OnCreated();
 
         AddHandler<PointerEvent>(static (element, args) => ((RangeSlider) element).Pointed(args));
+        AddHandler<DragEvent>(static (element, args) => ((RangeSlider) element).Dragged(args));
+        AddHandler<TapEvent>(static (element, args) => ((RangeSlider) element).Tapped(args));
         AddHandler<KeyEvent>(static (element, args) => ((RangeSlider) element).Keyed(args));
     }
 
@@ -701,15 +798,18 @@ public sealed partial class RangeSlider : RangeBase {
         SpanChanged?.Invoke(this, Low, High);
     }
 
+    /// <summary>The raw pointer: the whole of a mouse's scrub, and only the press of a finger's.</summary>
+    /// <remarks>A finger decides on the drag, for <c>Slider.Pointed</c>'s reasons (#1507).</remarks>
     void Pointed(PointerEvent args) {
         switch (args.Action) {
+            case PointerAction.Pressed when args.Button == PointerButton.Primary && IsDirect(args.PointerType):
+                args.Handled = true;
+                break;
+
             case PointerAction.Pressed when args.Button == PointerButton.Primary:
                 var fraction = FractionAt(args.X, args.Y);
 
-                // Whichever thumb is nearer, which is the only rule that does not need the user to
-                // aim: a press exactly between them takes the high one, arbitrarily and
-                // consistently.
-                draggingHigh = MathF.Abs(fraction - Fraction(High)) <= MathF.Abs(fraction - Fraction(Low));
+                Grab(fraction);
                 dragging = true;
 
                 Document.Focus(this);
@@ -735,6 +835,67 @@ public sealed partial class RangeSlider : RangeBase {
                 break;
         }
     }
+
+    /// <summary>A finger's scrub, on <c>Slider.Dragged</c>'s terms: begun only along the track.</summary>
+    /// <remarks>
+    ///     The thumb is chosen by where the finger PRESSED — the drag's start, which is its position
+    ///     less the slop travel — because that is the thumb the user aimed at; choosing by where the
+    ///     slop circle was left would pick the other one whenever the thumbs are closer together than
+    ///     the slop.
+    /// </remarks>
+    void Dragged(DragEvent args) {
+        if (!IsDirect(args.PointerType)) {
+            return;
+        }
+
+        switch (args.Stage) {
+            case DragStage.Started when AlongTrack(args.TotalX, args.TotalY):
+                Grab(FractionAt(args.X - args.TotalX, args.Y - args.TotalY));
+                fingerDragging = true;
+
+                Document.Focus(this);
+                Move(FractionAt(args.X, args.Y));
+
+                args.Handled = true;
+                break;
+
+            case DragStage.Moved when fingerDragging:
+                Move(FractionAt(args.X, args.Y));
+                args.Handled = true;
+                break;
+
+            case DragStage.Completed or DragStage.Cancelled when fingerDragging:
+                fingerDragging = false;
+                args.Handled = true;
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    /// <summary>A finger's tap, which moves the nearer thumb to where it landed, as a press of the mouse does.</summary>
+    void Tapped(TapEvent args) {
+        if (!IsDirect(args.PointerType)) {
+            return;
+        }
+
+        var fraction = FractionAt(args.X, args.Y);
+
+        Grab(fraction);
+        Document.Focus(this);
+        Move(fraction);
+
+        args.Handled = true;
+    }
+
+    /// <summary>Picks the thumb a press at <paramref name="fraction" /> moves.</summary>
+    /// <remarks>
+    ///     Whichever thumb is nearer, which is the only rule that does not need the user to aim: a
+    ///     press exactly between them takes the high one, arbitrarily and consistently.
+    /// </remarks>
+    void Grab(float fraction) =>
+        draggingHigh = MathF.Abs(fraction - Fraction(High)) <= MathF.Abs(fraction - Fraction(Low));
 
     void Move(float fraction) {
         if (draggingHigh) {
