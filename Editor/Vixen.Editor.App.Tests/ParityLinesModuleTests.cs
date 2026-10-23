@@ -40,6 +40,7 @@ public class ParityLinesModuleTests {
     [InlineData(LibraryModule.ModuleId, "file.export-package")]
     [InlineData(LibraryModule.ModuleId, "build.clean-library")]
     [InlineData(LibraryModule.ModuleId, "assets.reimport")]
+    [InlineData(LibraryModule.ModuleId, "assets.bake-mesh-maps")]
     [InlineData(DeliveryModule.ModuleId, "build.rebuild-shaders")]
     public void Disabling_the_module_takes_its_lines_away(string module, string command) {
         using var session = EditorSession.Start();

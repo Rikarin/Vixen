@@ -231,12 +231,6 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     readonly ProjectMeshMapBaker meshMaps;
 
-    /// <summary>Doc 48 § D12's bake: its line, its panel and its settings (#1296).</summary>
-    readonly MeshMapBaking meshMapBake;
-
-    /// <inheritdoc cref="meshMapBake" />
-    internal MeshMapBaking MeshMapBake => meshMapBake;
-
     /// <summary>The project's own content, opened the way a player opens a build.</summary>
     /// <remarks>
     ///     ⚠ <b><see cref="EditorContent" /> had no caller outside its own tests.</b> It is what turns
@@ -824,8 +818,6 @@ sealed partial class EditorApplication : IDisposable {
 
         SettingsPanels();
 
-        // And doc 48 § D12's bake, which registers its panel and line and follows the tasks itself.
-        (meshMapBake = new MeshMapBaking(Shell, project, content, meshMaps, SceneGeometry)).Register();
 
         // And E5's four, for the same reason: the Sequencing preset names the scene list.
         WorldPanels();
@@ -1143,10 +1135,6 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ And the thumbnails, on the frame thread because the device is not thread-safe. The
         // decode happened on the pool; this is the upload.
         thumbnails.Pump();
-
-        // ⚠ Pulled, and it is the one panel in this loop that has to be — see `MeshMapBaking.Refresh`.
-        // Compare `BuildRefusal`, which enumerates the project root and is therefore asked on events only.
-        meshMapBake.Refresh();
 
         // ⚠ Pulled rather than subscribed to — see `EditorConsole.Tick` for the threading reason.
         console.Tick();
@@ -2211,7 +2199,11 @@ sealed partial class EditorApplication : IDisposable {
 
             // ⚠ And the frame queue a native picker's answer comes back through, for the modules in
             // this assembly that ask one — `WorkspaceModule`'s project chooser (#1296).
-            .Add(deferred);
+            .Add(deferred)
+
+            // ⚠ And the content tasks, for `LibraryModule`'s mesh-map bake: it runs on their queue, behind
+            // their busy flag, and reports through their `Baked` (#1296).
+            .Add(content);
 
         // And the OS's pickers where there are any — a module that writes a file asks for them (#1298).
         if (services.Dialogs is { } pickers) {

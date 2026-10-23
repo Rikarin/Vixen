@@ -3,7 +3,6 @@
 # module in turn: `<owner> <kind> <id>`. A line owned by `editor` that names a feature is one its module
 # left behind on unload. Regenerate with VIXEN_REGENERATE=1 on that test, and read the diff.
 
-editor menu editor.menu.assets assets.bake-mesh-maps
 editor menu editor.menu.assets assets.build
 editor menu editor.menu.assets assets.import
 editor menu editor.menu.assets assets.move-to
@@ -44,7 +43,6 @@ editor menu editor.menu.window/editor.menu.panels view.panel.inspector
 editor menu editor.menu.window/editor.menu.panels view.panel.inspector-2
 editor menu editor.menu.window/editor.menu.panels view.panel.keybindings
 editor menu editor.menu.window/editor.menu.panels view.panel.lighting
-editor menu editor.menu.window/editor.menu.panels view.panel.mesh-map-bake
 editor menu editor.menu.window/editor.menu.panels view.panel.messages
 editor menu editor.menu.window/editor.menu.panels view.panel.navigation
 editor menu editor.menu.window/editor.menu.panels view.panel.plugins
@@ -61,7 +59,6 @@ editor panel inspector
 editor panel inspector-2
 editor panel keybindings
 editor panel lighting
-editor panel mesh-map-bake
 editor panel messages
 editor panel navigation
 editor panel plugins
@@ -224,6 +221,7 @@ vixen.library create assets.create-shader-graph
 vixen.library create assets.create-shape-vocabulary
 vixen.library create assets.create-spline
 vixen.library create assets.create-vfx
+vixen.library menu editor.menu.assets assets.bake-mesh-maps
 vixen.library menu editor.menu.assets assets.delete
 vixen.library menu editor.menu.assets assets.find-references
 vixen.library menu editor.menu.assets assets.open
@@ -255,6 +253,8 @@ vixen.library menu editor.menu.build build.clean-library
 vixen.library menu editor.menu.edit edit.find-references
 vixen.library menu editor.menu.file assets.import-files
 vixen.library menu editor.menu.file file.export-package
+vixen.library menu editor.menu.window/editor.menu.panels view.panel.mesh-map-bake
+vixen.library panel mesh-map-bake
 vixen.play menu editor.menu.play play.pause
 vixen.play menu editor.menu.play play.play
 vixen.play menu editor.menu.play play.step

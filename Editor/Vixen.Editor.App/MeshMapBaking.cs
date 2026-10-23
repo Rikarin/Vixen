@@ -5,9 +5,12 @@ using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.Models;
+using Vixen.Editor.Assets.MeshMaps;
 using Vixen.Editor.Core;
+using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.App;
@@ -18,23 +21,22 @@ namespace Vixen.Editor.App;
 ///         <b>Moved out of <c>EditorParity.cs</c> whole (#1296)</b>, where it was a quarter of the file:
 ///         the verb, the panel's registration, the one settings object, and the bake behind the panel's
 ///         button. Nothing in it read the application but the shell, the project, the content tasks, the
-///         map baker and the mesh source — so it is handed those and wires itself: <see cref="Register" />
-///         adds the panel and the line and hooks the tasks' <c>Baked</c>, and the application's frame
-///         calls <see cref="Refresh" />.
+///         map baker and the mesh source — every one of them published — so <c>LibraryModule</c> builds
+///         it, and <see cref="Register" /> adds the panel, the line, the tasks' <c>Baked</c> hook and the
+///         per-frame <see cref="Refresh" /> through the module's context, which takes them back on unload.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Not a module, yet.</b> The bake runs on <see cref="ContentTasks" />, whose busy flag,
-///         last result and queue are the application's and unpublished (#1292); a module would need
-///         them published first. Until then this is a part the composition root builds and hands its
-///         services to, not a verb it implements.
+///         ⚠ <b><see cref="ContentTasks" /> is published for this, as an App-internal service</b> like
+///         <c>PlayInput</c> and <c>Deferred</c>: the bake runs on its queue, behind its busy flag, and
+///         reports through its single <c>Baked</c> slot.
 ///     </para>
 /// </remarks>
 sealed class MeshMapBaking {
     readonly EditorShell shell;
     readonly EditorProject project;
     readonly ContentTasks content;
-    readonly ProjectMeshMapBaker meshMaps;
-    readonly ProjectMeshSource meshes;
+    readonly IMeshMapBaker meshMaps;
+    readonly IMeshSource meshes;
 
     /// <summary>Over the services a bake reads.</summary>
     /// <param name="shell">Where the panel, the line and the notifications go.</param>
@@ -46,8 +48,8 @@ sealed class MeshMapBaking {
         EditorShell shell,
         EditorProject project,
         ContentTasks content,
-        ProjectMeshMapBaker meshMaps,
-        ProjectMeshSource meshes
+        IMeshMapBaker meshMaps,
+        IMeshSource meshes
     ) {
         this.shell = shell;
         this.project = project;
@@ -56,9 +58,10 @@ sealed class MeshMapBaking {
         this.meshes = meshes;
     }
 
-    /// <summary>Adds the panel and the Assets ▸ Bake Mesh Maps line, and follows finished bakes.</summary>
-    public void Register() {
-        RegisterPanel();
+    /// <summary>Adds the panel and the Assets ▸ Bake Mesh Maps line, and follows finished bakes and the selection.</summary>
+    /// <param name="context">The library module's context, which takes all four back on unload.</param>
+    public void Register(PluginContext context) {
+        context.AddPanel(Descriptor());
 
         // ⚠ Doc 48 § D12's last line, and the reason this verb exists rather than a checkbox on the
         // model importer. A mesh map has to land in `Assets/` as a file an artist can open — § D12
@@ -76,7 +79,7 @@ sealed class MeshMapBaking {
         // it that opened the panel would be two answers to what Bake means, which is doc 20's A4
         // complaint. One settings object, one place to press it. `MeshMapBakeView` is the panel and
         // `Bake` is still the thing its button calls.
-        shell.Commands.Add(
+        context.AddCommand(
             new EditorCommand("assets.bake-mesh-maps", EditorStrings.CommandAssetsBakeMeshMaps, () => shell.Workspace.Open(Panel)) {
                 Category = EditorStrings.CategoryAssets
             }
@@ -86,6 +89,9 @@ sealed class MeshMapBaking {
         // rescan does not. `LastBake` is pulled rather than handed over, so that a panel opened *after*
         // a bake can still ask what it produced.
         content.Baked = () => view?.ShowResult(content.LastBake);
+        context.OnUnload(() => content.Baked = null);
+
+        context.OnUpdate(_ => Refresh());
     }
 
     /// <summary>Brings the open panel up to date with the selection, once a frame.</summary>
@@ -288,35 +294,33 @@ sealed class MeshMapBaking {
     }
 
     /// <summary>Doc 48 § D12's bake panel.</summary>
-    void RegisterPanel() =>
-        shell.RegisterPanel(
-            new PanelDescriptor(
-                Panel,
-                EditorStrings.PanelMeshMapBake,
-                panel => {
-                    var view = panel.Add<MeshMapBakeView>();
+    PanelDescriptor Descriptor() =>
+        new PanelDescriptor(
+            Panel,
+            EditorStrings.PanelMeshMapBake,
+            panel => {
+                var view = panel.Add<MeshMapBakeView>();
 
-                    // ⚠ Pulled, both, and `BuildSettingsView` says why: this factory runs again on
-                    // every reopen, so an answer captured once would be from a selection the user
-                    // has since changed.
-                    view.Chosen = Subject;
-                    view.Refusal = Refusal;
+                // ⚠ Pulled, both, and `BuildSettingsView` says why: this factory runs again on
+                // every reopen, so an answer captured once would be from a selection the user
+                // has since changed.
+                view.Chosen = Subject;
+                view.Refusal = Refusal;
 
-                    view.BakeRequested += _ => Bake();
+                view.BakeRequested += _ => Bake();
 
-                    // ⚠ Every control on the panel writes, and the panel is the only writer of these
-                    // settings — no inspector page over the same state, which is doc 20's A4 rule:
-                    // two writers is how a settings row and the panel beside it come to disagree.
-                    view.Changed = SaveSettings;
-                    view.Show(Options);
-                    view.ShowResult(content.LastBake);
+                // ⚠ Every control on the panel writes, and the panel is the only writer of these
+                // settings — no inspector page over the same state, which is doc 20's A4 rule:
+                // two writers is how a settings row and the panel beside it come to disagree.
+                view.Changed = SaveSettings;
+                view.Show(Options);
+                view.ShowResult(content.LastBake);
 
-                    this.view = view;
-                }
-            ) {
-                Closed = () => this.view = null
+                this.view = view;
             }
-        );
+        ) {
+            Closed = () => this.view = null
+        };
 
     /// <summary>What the panel says would be baked.</summary>
     /// <remarks>
