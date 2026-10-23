@@ -121,15 +121,15 @@ internal sealed class ContentLibrary : IContentLibrary {
 
     /// <inheritdoc />
     /// <remarks>Moved from <c>EditorApplication.NewAssetFolder</c> (#1292), with its refusal's wording.</remarks>
-    public AssetOperation CreateFolder(string parent, string name) {
-        var result = AssetOperations.CreateFolder(project, parent, name);
+    public AssetId? CreateFolder(string parent, string name) {
+        var result = AssetOperations.CreateFolder(project, parent, name, out var created);
 
         if (!result.Ok) {
             notify("Could not create the folder", NotificationSeverity.Error, result.Message);
         }
 
         Rearranged?.Invoke();
-        return result;
+        return result.Ok && project.Assets.TryGetByPath(created, out var folder) ? folder.Guid : null;
     }
 
     /// <inheritdoc />

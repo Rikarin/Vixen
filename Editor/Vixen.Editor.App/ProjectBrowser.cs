@@ -502,6 +502,13 @@ sealed class ProjectBrowser {
             }
         };
 
+        // ⚠ The browsing tree's commit, for the rename `BeginRename` opens here while tiles show (#1516).
+        folders.Renamed += (_, node, name) => {
+            if (node.Tag is AssetTreeNode { IsIndexed: true, IsFolder: true } asset) {
+                library.Rename(asset.Guid, name);
+            }
+        };
+
         // ⚠ The browser's own menu rather than the application's command-driven one, for the reason
         // `OpenFilters` builds one: a collection's name is not a command id, and a submenu whose
         // lines are the project's collections cannot come out of a registry keyed by id.
@@ -1091,10 +1098,19 @@ sealed class ProjectBrowser {
     /// <summary>Opens the inline editor on an asset's row.</summary>
     /// <param name="asset">Which asset.</param>
     /// <returns>Whether a row for it is on screen to edit.</returns>
+    /// <remarks>
+    ///     ⚠ <b>In tiles, a folder is renamed in the column beside them (#1516).</b> The browsing tree is
+    ///     hidden while the grid shows, so an editor opened in it is a text box nobody can see or type
+    ///     into — and tiles are what the panel opens in. The folders column is the tree that is on
+    ///     screen, and its commit goes to the same <see cref="IContentLibrary.Rename" />. A file in
+    ///     tiles has no row anywhere, and the grid has no editor of its own: that is #1519.
+    /// </remarks>
     public bool BeginRename(AssetId asset) {
-        foreach (var node in Descendants(tree.Root)) {
+        var view = IsGrid ? folders : tree;
+
+        foreach (var node in Descendants(view.Root)) {
             if (node.Tag is AssetTreeNode { IsIndexed: true } found && found.Guid == asset) {
-                tree.BeginRename(node);
+                view.BeginRename(node);
                 return true;
             }
         }

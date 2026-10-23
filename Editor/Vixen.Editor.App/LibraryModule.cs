@@ -142,12 +142,20 @@ sealed class LibraryModule : IEditorPlugin {
 
         // ⚠ Greyed while the Project panel is closed, as it was in the application (#1292): the row
         // appearing in the browser is the verb's only answer, and a folder made where nobody can see
-        // it is a click that seemed to do nothing.
+        // it is a click that seemed to do nothing. And it leaves that row being renamed (#1516) —
+        // the panel's inline editor, on the identity the library returns rather than the name asked
+        // for, which a taken one has numbered.
+        var browsing = context.Services.Require<ContentBrowsing>();
+
         context.AddCommand(
             new EditorCommand(
                 "assets.new-folder",
                 EditorStrings.CommandAssetsNewFolder,
-                () => library.CreateFolder(FolderBeside(library.Project), "New Folder")
+                () => {
+                    if (library.CreateFolder(FolderBeside(library.Project), "New Folder") is { } made) {
+                        browsing.BeginRename(made);
+                    }
+                }
             ) {
                 Category = EditorStrings.CategoryAssets,
                 Enablement = () => context.Shell.Workspace.IsOpen(ContentBrowsing.PanelId)
@@ -212,7 +220,8 @@ sealed class LibraryModule : IEditorPlugin {
     /// <remarks>
     ///     What every browser does and what somebody who has just clicked a folder means. Moved from
     ///     <c>EditorApplication.NewAssetFolder</c>, whose summary also said it "starts renaming it" — ⚠ it
-    ///     never did: nothing called the browser's <c>BeginRename</c> on the new row.
+    ///     never did: nothing called the browser's <c>BeginRename</c> on the new row, until the command
+    ///     was given the new folder's identity to call it with (#1516).
     /// </remarks>
     static string FolderBeside(EditorProject project) {
         var parent = "Assets";

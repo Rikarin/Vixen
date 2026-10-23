@@ -1818,6 +1818,10 @@ sealed partial class EditorApplication : IDisposable {
             .Add<IContentLibrary>(library)
             .Add<ISourceControl>(sourceControl)
 
+            // ⚠ And the Project panel's model, for `LibraryModule`'s Rename and New Folder: the rename is
+            // the library's, and the in-place editor that asks for the name is this panel's (#1516).
+            .Add(browsing)
+
             // ⚠ And the project's: the rescan every panel and module used to repeat for itself, and
             // the request to open another project.
             .Add<IProjectSession>(session)

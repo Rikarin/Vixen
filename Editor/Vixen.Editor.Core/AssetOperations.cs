@@ -171,18 +171,37 @@ public static class AssetOperations {
     ///     this" and an error dialog is not an answer to it. Renaming a file to a name that is taken
     ///     is the opposite case and does refuse — there the name is the point.
     /// </remarks>
-    public static AssetOperation CreateFolder(EditorProject project, string parent, string name) {
+    public static AssetOperation CreateFolder(EditorProject project, string parent, string name) =>
+        CreateFolder(project, parent, name, out _);
+
+    /// <summary>Makes a folder inside another one, and says which name it got.</summary>
+    /// <param name="project">The project.</param>
+    /// <param name="parent">Where, relative to the project root, or empty for <c>Assets</c>.</param>
+    /// <param name="name">What it is called.</param>
+    /// <param name="created">
+    ///     The folder made, relative to the project root — <c>Assets/New Folder 2</c> — or empty when it
+    ///     was refused.
+    /// </param>
+    /// <returns>What happened.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The path is the only way a caller can know which row is the new one (#1516).</b> The name
+    ///     is made unique in here, so "New Folder" asked for may be "New Folder 3" made — and the browser
+    ///     that starts renaming the new row has to be told which row that is.
+    /// </remarks>
+    public static AssetOperation CreateFolder(EditorProject project, string parent, string name, out string created) {
         ArgumentNullException.ThrowIfNull(project);
+
+        created = string.Empty;
 
         if (Invalid(name) is { } complaint) {
             return AssetOperation.Failed(complaint);
         }
 
         var root = string.IsNullOrEmpty(parent) ? "Assets" : parent.Replace('\\', '/').TrimEnd('/');
-        var chosen = Unique(project, root, name);
+        var chosen = Combine(root, Unique(project, root, name));
 
         try {
-            var folder = project.Paths.Absolute(Combine(root, chosen));
+            var folder = project.Paths.Absolute(chosen);
 
             project.Assets.WillWrite(folder);
             Directory.CreateDirectory(folder);
@@ -191,6 +210,7 @@ public static class AssetOperations {
         }
 
         Reindex(project);
+        created = chosen;
         return AssetOperation.Done;
     }
 

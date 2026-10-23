@@ -96,6 +96,16 @@ sealed class ContentBrowsing {
     /// <summary>The browser while the Project panel is open, or <see langword="null" />.</summary>
     public ProjectBrowser? Browser { get; private set; }
 
+    /// <summary>Opens the browser's inline editor on an asset's row, if the panel is open and the row is there.</summary>
+    /// <param name="asset">Which asset — a file or a folder.</param>
+    /// <returns>Whether an editor opened.</returns>
+    /// <remarks>
+    ///     ⚠ <b>What Rename and New Folder are names for (#1292, #1516)</b>, and the reason this model is
+    ///     published to <c>LibraryModule</c>: the rename itself is <see cref="IContentLibrary.Rename" />,
+    ///     reached from the tree's commit, and only the in-place editor is this panel's.
+    /// </remarks>
+    public bool BeginRename(AssetId asset) => Browser?.BeginRename(asset) ?? false;
+
     /// <summary>Describes the panel.</summary>
     /// <returns>The descriptor.</returns>
     public PanelDescriptor Describe() =>
