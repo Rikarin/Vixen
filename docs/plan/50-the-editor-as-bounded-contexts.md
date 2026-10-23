@@ -258,7 +258,7 @@ The feature-name audit (`.cs` and `.vxml`, code only, comments excluded):
 
 | Shell assembly | Rows | The largest |
 |---|---|---|
-| `Vixen.Editor.App` | 48 | `BuiltInAssetKinds`, 24 rows with 21 literal extensions (`LibraryModule.cs:207-243@874d511f5` since #1292, `EditorWorlds.cs:764-799@28c44db26` before); `BuiltInSubsystems` naming `TerrainComponent`, `WaterZoneComponent`, `BuoyancyBody` (`EditorApplication.cs:3610-3628`); the *Profiling* layout preset naming five diagnostics panel ids (`EditorApplication.cs:3659@fdc943b19`, `DiagnosticsModule`'s since #1296); `StandardIcons` keyed by importer name and extension (`StandardIcons.cs:89-115`); `case Vixen.Editor.AssetEditors.Vfx.VfxGraphView` (`EditorWorlds.cs:823,827@5f03c9b80`); `is StandardFrameDocument`, `is ShaderGraphDocument`, `is MaterialView`, `is TextureImportView` (`EditorApplication.cs:772-778, 2912-2920@5f03c9b80`, removed by #1297); `ITerrainScene`/`IVegetationScene`/`IWaterScene` — one property per feature (`ScenePresenter.cs:255-298`) |
+| `Vixen.Editor.App` | 48 | `BuiltInAssetKinds`, 24 rows with 21 literal extensions (`LibraryModule.cs:207-243@874d511f5` since #1292, `EditorWorlds.cs:764-799@28c44db26` before); `BuiltInSubsystems` naming `TerrainComponent`, `WaterZoneComponent`, `BuoyancyBody` (`EditorApplication.cs:3517-3535`); the *Profiling* layout preset naming five diagnostics panel ids (`EditorApplication.cs:3659@fdc943b19`, `DiagnosticsModule`'s since #1296); `StandardIcons` keyed by importer name and extension (`StandardIcons.cs:89-115`); `case Vixen.Editor.AssetEditors.Vfx.VfxGraphView` (`EditorWorlds.cs:823,827@5f03c9b80`); `is StandardFrameDocument`, `is ShaderGraphDocument`, `is MaterialView`, `is TextureImportView` (`EditorApplication.cs:772-778, 2912-2920@5f03c9b80`, removed by #1297); `ITerrainScene`/`IVegetationScene`/`IWaterScene` — one property per feature (`ScenePresenter.cs:255-298`) |
 | `Vixen.Editor.Ui` | 38 | **35 string ids in `EditorStrings.cs` that belong to a feature which already has its own `*Strings` class** (Terrain 9, Blockout 10, Water 4, Texturing 4, Diagnostics 8); `ModeArt` has a static icon per mode; `EditorIcons["profiler"]` |
 | `Vixen.Editor.Assets` | 14 | `BuiltInImporters.cs:57-99@3e9f7e5d9` is a hand list of **34** importers naming Vfx, ShaderGraph, Terrain ×2, Water, Ai ×4, Animation ×7, Gameplay, Net; `VfxImporter` and `ShaderGraphSources` construct the two graph compilers, which is the `ShaderGraph`/`VfxGraph` reference |
 | `Vixen.Editor.Host` | 8 | builds `ShaderGraphPreviewRenderer` itself (`EditorHost.cs:581`), loads the terrain stages' SPIR-V (`:1033-1047`), a stale `using Vixen.Editor.Profiler` (`:8`) |
@@ -276,14 +276,14 @@ database mutation and importer calls: `LayerStackView.cs` 0, `NodeGraphView.cs` 
 `Stack.Execute`), `ProjectBrowser.cs` 2 — a `Scan()`+`Save()` pair (`:1167-1175@3e9f7e5d9`) that duplicates
 `EditorProject.Open` minus its "save only if changed" guard. **The application logic is not in the
 views; it is in the one class** — `EditorParity.cs` alone has 21 file-system calls, including
-`Directory.Delete(project.Paths.Library, recursive: true)` at `EditorParity.cs:1630`.
+`Directory.Delete(project.Paths.Library, recursive: true)` — `LibraryQuestions.cs:193` since #1296 moved Clean Library to `LibraryModule`.
 
 What *is* doubled is the language, and each pair is two contexts sharing a word:
 
 | One idea | Vocabulary A | Vocabulary B | Measured |
 |---|---|---|---|
 | **the active scene** | `EditorProject.ActiveDocument` (`EditorProject.cs:56`) | `EditorApplication.scene` (`EditorApplication.cs:103@c40c2ea93`), whose remarks said *"half the editor holds the active scene"* (`EditorApplication.cs:97-98@c40c2ea93`), plus `Shown => inspected ?? scene` wrapped as `IActiveScene` | `ActiveDocument` has **3** readers; `scene.` is read **124** times across the partials; `EditorWorlds.cs:497-500@c40c2ea93` set both in sequence — `SetActiveScene` then `project.Activate` |
-| **dirty** | `CommandStack.IsDirty` → `EditorDocument.IsDirty` → `EditorProject.HasUnsavedChanges` | `SettingsView.dirty` + `ProjectSettingsStore.HasUnsavedChanges` | `HasUnsavedChanges` gates Save All and close (`EditorParity.cs:124,1570`) and **does not include** the settings store's — project settings edits are non-undoable by construction (`EditorSettingsPanels.cs:749`, `EditedDocument = null`) and can be lost on close |
+| **dirty** | `CommandStack.IsDirty` → `EditorDocument.IsDirty` → `EditorProject.HasUnsavedChanges` | `SettingsView.dirty` + `ProjectSettingsStore.HasUnsavedChanges` | `HasUnsavedChanges` gates Save All and close (`EditorParity.cs:107,1021`) and **does not include** the settings store's — project settings edits are non-undoable by construction (`EditorSettingsPanels.cs:749`, `EditedDocument = null`) and can be lost on close |
 | **selection** | `Selection<T>` — assets on the project, entities on the scene | `HashSet<NodeId>` (`NodeGraphView.cs:109@0d7dda4a9`), `List<FoliageAddress>`, `HashSet<SplineHandle>`, `LayerPath?` | the graph's is read cross-assembly by two `.vxml` views; none of B's is reactive or on `EditorContext` |
 | **a document** | `EditorDocument` (25 subclasses) | `Vixen.Ui.IEditableDocument` — `EditorDocument` implements it explicitly since #656, and the editor's scenes have a `Location` since #1493 | the model itemises its own divergence at `EditorDocument.cs:29-61` |
 | **a property** | `EditProperty` (18 uses, the live edit path) | `EditorProperty<T>` / `EditorObject` / `SetPropertyCommand<T>` — **5 uses, all in Core, no subclass of `EditorObject` anywhere under `Editor/`** | `EditProperty.cs:18-19@3e9f7e5d9` said it *"is what a `SceneDocument`'s own fields are"*; they are plain dictionaries (`SceneDocument.cs:120-194`). A dead type with a remark that describes the live one |
@@ -291,7 +291,7 @@ What *is* doubled is the language, and each pair is two contexts sharing a word:
 And **hidden and locked are edited behind the stack's back**: `SceneDocument.SetHidden`/`SetLocked`
 have no command (grep: none), and are written directly from the outliner's eye and lock toggles
 (`EditorApplication.cs:5125,5127@c40c2ea93`, `SceneModule.cs:127,139`, `EditorWorlds.cs:597,610@c40c2ea93`), from `Isolate`
-(`SceneEditing.cs:622-677`), which #1290 moved out of `EditorSelectionVerbs.cs`, and — the one that is a bug — from **inside a Blockout
+(`SceneEditing.cs:702-757`), which #1290 moved out of `EditorSelectionVerbs.cs`, and — the one that is a bug — from **inside a Blockout
 transaction** (`BlockoutBoolean.cs:66-71@3e9f7e5d9`), so undoing a boolean restores the reparent and the mesh
 and leaves the operand hidden. Filed as [#1277](https://github.com/Rikarin/Vixen/issues/1277).
 
