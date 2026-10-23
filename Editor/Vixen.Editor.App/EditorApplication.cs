@@ -438,8 +438,11 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     internal IReadOnlyList<ReloadReport> StyleReloads => styleReloads;
 
-    ContextMenu? assetMenu;
-    ProjectBrowser? browser;
+    /// <summary>The content browser while the Project panel is open, or <see langword="null" />.</summary>
+    ProjectBrowser? browser => browsing.Browser;
+
+    /// <summary>The Project panel and its browser (#1294) — the panel model, not this class's state.</summary>
+    readonly ContentBrowsing browsing;
 
     /// <summary>Whether the inspector is showing the project's selection rather than a scene's.</summary>
     bool inspectingAssets;
@@ -849,6 +852,24 @@ sealed partial class EditorApplication : IDisposable {
         );
         sourceControl.Swept += () => browser?.Restated();
         sourceControl.Reverted += () => browser?.Rebuild();
+
+        // ⚠ What a double-click, a drop outside and a press-and-drag mean stay this class's: each one
+        // decides between the browser and another panel.
+        browsing = new ContentBrowsing(
+            Shell,
+            AssetContext,
+            session,
+            project,
+            library,
+            Extensions,
+            sourceControl.Status,
+            thumbnails,
+            () => CreatableIds,
+            asset => Open(asset),
+            Dropped,
+            Dragging,
+            down => grabbingAssets = down
+        );
 
         // ⚠ What the session's disk watch and code build mean to the panels, which are this
         // application's: the session rescans and builds, and these are the readers that follow.
@@ -1807,57 +1828,7 @@ sealed partial class EditorApplication : IDisposable {
     internal PaneOverlays PaneOverlays => scenePanes.Overlays;
 
     void Panels() {
-        Shell.RegisterPanel(
-            new PanelDescriptor(
-                ProjectBrowser.PanelId,
-                EditorStrings.PanelProject,
-                panel => {
-                    panel.WhenPressedIn(() => Shell.Context = AssetContext);
-
-                    browser = new ProjectBrowser(session, panel, library, Extensions);
-
-                    browser.Activated += asset => Open(asset);
-                    browser.DroppedOutside += Dropped;
-                    browser.DraggedOutside += Dragging;
-
-                    // ⚠ Doc 20 § B7's column, given to the panel as a value. The sweep that fills it
-                    // follows the session's rescans and the startup, not this panel (#1505).
-                    browser.Status = sourceControl.Status;
-                    browser.Grabbing += down => grabbingAssets = down;
-                    browser.Thumbnails = thumbnails;
-
-                    // ⚠ Doc 20 § B1's saved filters and collections are the library's, which the panel
-                    // reads and writes itself (#1304) — asked on every read, because `preferences` and
-                    // the project's settings object are both REPLACED by a Revert. What comes back
-                    // here is only what needs a name typed first.
-                    browser.FilterSaveRequested += KeepFilter;
-
-                    // ⚠ Both views, and the grid was the one that had nothing. The menu was attached to
-                    // the tree alone, so switching to tiles — which is the view somebody browses
-                    // *assets* in — left right-click doing nothing at all: no Create, no Import, no
-                    // Rename, no Show in Explorer. One menu over two elements, because the verbs act on
-                    // the project's selection and both views write it.
-                    assetMenu ??= AssetMenu();
-
-                    Contextualise(browser.Tree, assetMenu);
-                    Contextualise(browser.Grid, assetMenu);
-
-                    browser.CollectionCreateRequested += MakeCollection;
-                }
-            ) {
-                // ⚠ The other half of holding it, and the crash it prevents is not hypothetical.
-                // `Update` calls `SyncSelection` every frame, which marks the grid's tiles — and a
-                // tile whose panel has been closed has been removed from the document, so asking it
-                // for its state throws. It went unnoticed for as long as the browser opened as a
-                // tree, because the tree's own highlight is written through `TreeView` and the grid
-                // was the half nothing touched. See `PanelDescriptor.Closed`.
-                //
-                // It is also what the null checks behind `browser is not null` have always meant:
-                // the enablement of Rename, Reveal and Select Dependencies is "the Project panel is
-                // open", and while this was never cleared the answer was "it has been open once".
-                Closed = () => browser = null
-            }
-        );
+        Shell.RegisterPanel(browsing.Describe());
 
         Shell.RegisterPanel(scenePanes.Describe());
 
@@ -2151,43 +2122,6 @@ sealed partial class EditorApplication : IDisposable {
         );
     }
 
-    /// <summary>Asks for a name and keeps the browser's current filter under it.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>The query is read at the moment the name comes back rather than when the prompt
-    ///         opens, and either would have been defensible — but the browser is behind a modal, so
-    ///         the two cannot differ.</b> Reading it here keeps the one rule that matters: what is
-    ///         saved is what the bar says, and never a filter assembled from two different moments.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>A name that is already taken replaces rather than doubling the menu</b>, which is
-    ///         <c>CurvePresetLibrary.Save</c>'s decision restated: somebody who saves "Textures"
-    ///         twice has said what they mean by it, and two identical lines on a menu is the answer
-    ///         nobody wants.
-    ///     </para>
-    /// </remarks>
-    void KeepFilter() {
-        if (browser is null) {
-            return;
-        }
-
-        _ = Ask();
-
-        async Task Ask() {
-            var typed = await Shell.Dialogs.PromptAsync(
-                "Save Filter",
-                "It is kept beside your layouts and keymap rather than in the project.",
-                confirm: "Save"
-            ).ConfigureAwait(true);
-
-            if (typed is not { Length: > 0 } name || string.IsNullOrWhiteSpace(name) || browser is null) {
-                return;
-            }
-
-            library.SaveFilter(name.Trim(), library.Shown.Search, library.Shown.Kind);
-        }
-    }
-
     /// <summary>The content library: import, package export, collections and saved filters — doc 50 § P2c.</summary>
     /// <remarks>
     ///     Published to plugins under <see cref="IContentLibrary" />; this is the same object, for the
@@ -2195,33 +2129,6 @@ sealed partial class EditorApplication : IDisposable {
     ///     to add the save, plus the filters' two in the preferences, is that one service now.
     /// </remarks>
     internal IContentLibrary Library => library;
-
-    /// <summary>Asks for a name and puts the assets into a collection under it.</summary>
-    /// <param name="assets">What to seed it with, which may be nothing.</param>
-    /// <remarks>
-    ///     ⚠ <b>The assets are read before the prompt and the name after it</b>, which is
-    ///     <see cref="KeepFilter" />'s bargain the other way round and for the same reason: the
-    ///     browser is behind a modal, so the two moments cannot differ — and what a drag was carrying
-    ///     is a fact about the gesture that ended, not about whatever is selected when the dialog
-    ///     closes.
-    /// </remarks>
-    void MakeCollection(IReadOnlyList<AssetId> assets) {
-        _ = Ask();
-
-        async Task Ask() {
-            var typed = await Shell.Dialogs.PromptAsync(
-                "New Collection",
-                "It is kept with the project, under ProjectSettings, and holds asset ids rather than paths.",
-                confirm: "Create"
-            ).ConfigureAwait(true);
-
-            if (typed is not { Length: > 0 } name || string.IsNullOrWhiteSpace(name)) {
-                return;
-            }
-
-            library.AddToCollection(name.Trim(), assets);
-        }
-    }
 
     void Commands() {
         Shell.Commands.Add(
@@ -2752,74 +2659,6 @@ sealed partial class EditorApplication : IDisposable {
         );
 
         menu.Attach(tree);
-    }
-
-    /// <summary>The same menu, over the content browser's tiles.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The selection is written from the press for <see cref="Contextualise(TreeView,
-    ///     ContextMenu)" />'s reason</b> — every line on the menu acts on it — and a press on the
-    ///     background clears it, so Create makes a file in the folder being looked at rather than
-    ///     beside whatever was clicked last. The grid's own <c>Selected</c> event cannot do this
-    ///     job: it fires for a primary press, and a right-click that did not also select would open
-    ///     a menu about a different asset.
-    /// </remarks>
-    void Contextualise(AssetGrid grid, ContextMenu menu) {
-        grid.AddHandler<PointerEvent>(
-            (_, args) => {
-                if (args is not { Action: PointerAction.Pressed, Button: PointerButton.Secondary }) {
-                    return;
-                }
-
-                if (grid.TileAt(args.X, args.Y)?.Node is { IsIndexed: true } asset) {
-                    if (!project.Selection.Contains(asset.Guid)) {
-                        project.Selection.Set([asset.Guid]);
-                    }
-
-                    return;
-                }
-
-                project.Selection.Set([]);
-            },
-
-            // Before the menu's own handler and regardless of it having marked the event handled,
-            // which is the tree's arrangement and for the same reason: the commands the menu enables
-            // are decided from the selection this writes.
-            handledEventsToo: true
-        );
-
-        menu.Attach(grid);
-    }
-
-    /// <summary>What a secondary click in the content browser opens.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Every line is a registered command, so this menu and the Assets menu on the bar
-    ///     cannot disagree.</b> That is the point of the registry rather than a nicety: the two
-    ///     menus, the palette and the keymap are four views over one list, and a browser that built
-    ///     its own verbs would be the place where Delete means something different.
-    /// </remarks>
-    ContextMenu AssetMenu() {
-        var group = new MenuGroup(EditorStrings.MenuBrowser);
-
-        group.Add("assets.open");
-        group.AddSeparator();
-
-        // ⚠ The same Create submenu the Assets menu on the bar carries, from the same ids — which is
-        // what the registry is for and is why this is three lines rather than a second list. A
-        // browser whose context menu could make a folder but not a material is one where the seven
-        // asset kinds are reachable only from a menu at the top of the window, several inches from
-        // the folder somebody has just navigated into and right-clicked in.
-        group.AddSubmenu(EditorStrings.MenuCreate)
-            .Add("assets.new-folder", "assets.create")
-            .AddSeparator()
-            .AddDynamic(() => CreatableIds);
-
-        group.Add("assets.import-files");
-        group.AddSeparator();
-        group.Add("assets.rename", "assets.delete", "assets.move-to");
-        group.AddSeparator();
-        group.Add("assets.reimport-all", "assets.bake-mesh-maps", "assets.show-in-explorer");
-
-        return MenuPresenter.Context(Shell.Document, group, Shell.Commands, Shell.Keys);
     }
 
     /// <summary>Brings the inspector into line with whichever panel the selection changed in.</summary>
