@@ -72,6 +72,7 @@ sealed class InspectorPanels {
 
     /// <summary>Builds the model over what the application owns.</summary>
     /// <param name="shell">The shell, whose dialogs name a curve preset.</param>
+    /// <param name="session">The project session, whose code build changes what a component section can show.</param>
     /// <param name="extensions">This editor's registry, which every inspector reads.</param>
     /// <param name="bridges">Which components and behaviours the sections can show.</param>
     /// <param name="scene">The active scene, asked for at each visit — it changes under the editor.</param>
@@ -88,6 +89,7 @@ sealed class InspectorPanels {
     /// </param>
     public InspectorPanels(
         EditorShell shell,
+        IProjectSession session,
         IEditorRegistry extensions,
         IReadOnlyList<IComponentBridge> bridges,
         Func<SceneDocument> scene,
@@ -106,6 +108,12 @@ sealed class InspectorPanels {
         this.presets = presets;
         this.writePresets = writePresets;
         this.showSelection = showSelection;
+
+        // ⚠ Every section, because a rebuilt assembly is new types under the old names: rows built over
+        // the previous build's binders show the members it had, so a member the build added stays
+        // invisible until they are built again. Followed here rather than forwarded by the
+        // application (#1293).
+        session.CodeBuilt += () => Rebuild();
     }
 
     EditorPreferences Preferences => preferences();

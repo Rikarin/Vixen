@@ -693,6 +693,7 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ The preferences and presets are asked for, not handed: `LoadPreferences` below replaces both.
         inspectorPanels = new InspectorPanels(
             Shell,
+            session,
             Extensions,
             bridges,
             () => scene,
@@ -739,7 +740,7 @@ sealed partial class EditorApplication : IDisposable {
         };
 
         // Doc 50 § P2f: built before `PluginPoints` publishes it; it follows `BusyChanged` itself.
-        delivery = new PlayerDelivery(project, content, Shell.Notifications, log, Extensions);
+        delivery = new PlayerDelivery(project, session, content, Shell.Notifications, log, Extensions);
 
         // ⚠ And the toolbar, which is the other half of doc 45 step 4. `assets.build`'s enablement
         // reads `content.IsBusy` — a counter a worker thread moves, with no notification of its own —
@@ -819,14 +820,10 @@ sealed partial class EditorApplication : IDisposable {
             thumbnails.Forget();
         };
 
-        // ⚠ What the session's disk watch and code build mean to the panels, which are this
-        // application's: the session rescans and builds, and these are the readers that follow.
+        // ⚠ What the session's disk watch means to the panels, which are this application's: the
+        // session rescans, and this is the reader that follows. A code build is followed by the
+        // inspector and the build panel themselves (#1293).
         session.ChangedOnDisk += FollowedDisk;
-        session.CodeBuilt += () => {
-            inspectorPanels.Rebuild();
-
-            delivery.Restate();
-        };
 
         // ⚠ Before the panels, because the inspector's asset fields are built by drawers that have
         // to be pointed at a project first. `AssetDrawer` has raised `PickRequested` since it was
