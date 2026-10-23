@@ -40,7 +40,7 @@ public sealed class MeshMapBakePanelTests {
     public void The_panel_and_the_bake_share_one_settings_object() {
         using var session = EditorSession.Start();
         var view = session.Control<MeshMapBakeView>("mesh-map-bake");
-        var settings = session.Editor.MeshMapBakeOptions;
+        var settings = session.Project.Settings.Get<MeshMapBakeSettings>();
 
         Assert.Equal(1024, settings.Resolution);
 
@@ -142,7 +142,7 @@ public sealed class MeshMapBakePanelTests {
         session.Close("mesh-map-bake");
         session.Control<MeshMapBakeView>("mesh-map-bake");
 
-        var settings = session.Editor.MeshMapBakeOptions;
+        var settings = session.Project.Settings.Get<MeshMapBakeSettings>();
 
         Assert.Equal(4096, settings.Resolution);
         Assert.False(settings.Wants(MeshMapUsage.Curvature));

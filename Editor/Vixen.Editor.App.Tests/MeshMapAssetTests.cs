@@ -369,7 +369,7 @@ public sealed class MeshMapAssetTests : IDisposable {
     ///         ⚠ <b>Through <see cref="IMeshMapBaker.Write" />, because that is the path the editor
     ///         takes and the one that was unguarded.</b> This test called <c>Bake</c> — the overload
     ///         that sanitised — so it stayed green whatever <c>Write</c> did with the name, while
-    ///         <c>EditorParity.BakeSelectedMeshMaps</c> handed Assimp's own string to
+    ///         <c>MeshMapBaking.Bake</c> handed Assimp's own string to
     ///         <c>ContentTasks</c>, which encoded and wrote it directly. A guard on a path nothing
     ///         takes is not a guard.
     ///     </para>
@@ -493,6 +493,39 @@ public sealed class MeshMapAssetTests : IDisposable {
         tasks.Pump();
 
         Assert.False(tasks.IsBusy);
+    }
+
+    /// <summary>A bake the editor's own tasks finish reaches the open bake panel's result list.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The <c>Baked</c> hook had no test</b> — removing it left every mesh-map suite green — so
+    ///     moving it into <c>MeshMapBaking.Register</c> (#1296) could have dropped it unseen. Through
+    ///     the editor's <c>ContentTasks</c> and its frame, not a second one.
+    /// </remarks>
+    [Fact]
+    public void A_finished_bake_reaches_the_open_panel() {
+        using var session = EditorSession.Start();
+        var view = session.Control<MeshMapBakeView>("mesh-map-bake");
+
+        Assert.Empty(view.Results.Items);
+
+        session.Editor.Content.BakeMeshMaps(
+            new ProjectMeshMapBaker(session.Project),
+            Barrel,
+            "Barrel",
+            Sheet(),
+            Sheet(),
+            Settings()
+        );
+
+        // ⚠ A hang check and not a budget — see the test above.
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+
+        while (view.Results.Items.Count == 0 && DateTime.UtcNow < deadline) {
+            session.Settle();
+            Thread.Sleep(5);
+        }
+
+        Assert.Equal(MeshMapNaming.Every.Count, view.Results.Items.Count);
     }
 
     /// <summary>A baker that says whether the editor still thought it was busy while it wrote.</summary>

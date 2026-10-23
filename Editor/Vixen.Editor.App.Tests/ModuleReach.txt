@@ -3,34 +3,21 @@
 # module in turn: `<owner> <kind> <id>`. A line owned by `editor` that names a feature is one its module
 # left behind on unload. Regenerate with VIXEN_REGENERATE=1 on that test, and read the diff.
 
-editor menu editor.menu.assets assets.bake-mesh-maps
 editor menu editor.menu.assets assets.build
 editor menu editor.menu.assets assets.move-to
 editor menu editor.menu.assets assets.refresh
-editor menu editor.menu.assets assets.reimport
 editor menu editor.menu.assets assets.rename
-editor menu editor.menu.assets/editor.menu.create assets.create
 editor menu editor.menu.build assets.build
-editor menu editor.menu.build build.clean-library
-editor menu editor.menu.build build.rebuild-shaders
-editor menu editor.menu.edit edit.keybindings
-editor menu editor.menu.edit edit.preferences
 editor menu editor.menu.edit edit.redo
 editor menu editor.menu.edit edit.search-everywhere
 editor menu editor.menu.edit edit.undo
-editor menu editor.menu.edit edit.undo-history
 editor menu editor.menu.entity scene.focus
-editor menu editor.menu.file assets.import-files
 editor menu editor.menu.file document.close
 editor menu editor.menu.file document.revert
 editor menu editor.menu.file document.save
 editor menu editor.menu.file file.exit
-editor menu editor.menu.file file.export-package
-editor menu editor.menu.file file.new-project
 editor menu editor.menu.file file.new-scene
-editor menu editor.menu.file file.open-project
 editor menu editor.menu.file file.open-scene
-editor menu editor.menu.file file.project-settings
 editor menu editor.menu.file file.save
 editor menu editor.menu.file file.save-all
 editor menu editor.menu.file file.save-as
@@ -54,7 +41,6 @@ editor menu editor.menu.window/editor.menu.panels view.panel.inspector
 editor menu editor.menu.window/editor.menu.panels view.panel.inspector-2
 editor menu editor.menu.window/editor.menu.panels view.panel.keybindings
 editor menu editor.menu.window/editor.menu.panels view.panel.lighting
-editor menu editor.menu.window/editor.menu.panels view.panel.mesh-map-bake
 editor menu editor.menu.window/editor.menu.panels view.panel.messages
 editor menu editor.menu.window/editor.menu.panels view.panel.navigation
 editor menu editor.menu.window/editor.menu.panels view.panel.plugins
@@ -70,7 +56,6 @@ editor panel inspector
 editor panel inspector-2
 editor panel keybindings
 editor panel lighting
-editor panel mesh-map-bake
 editor panel messages
 editor panel navigation
 editor panel plugins
@@ -165,6 +150,7 @@ vixen.blockout menu editor.menu.window/editor.menu.panels view.panel.blockout.uv
 vixen.blockout mode blockout
 vixen.blockout panel blockout.panel
 vixen.blockout panel blockout.uv
+vixen.delivery menu editor.menu.build build.rebuild-shaders
 vixen.delivery menu editor.menu.build build.run
 vixen.delivery menu editor.menu.build build.settings
 vixen.delivery menu editor.menu.build/editor.menu.build-configuration build.configuration-debug
@@ -233,13 +219,16 @@ vixen.library create assets.create-shader-graph
 vixen.library create assets.create-shape-vocabulary
 vixen.library create assets.create-spline
 vixen.library create assets.create-vfx
+vixen.library menu editor.menu.assets assets.bake-mesh-maps
 vixen.library menu editor.menu.assets assets.delete
 vixen.library menu editor.menu.assets assets.find-references
 vixen.library menu editor.menu.assets assets.import
 vixen.library menu editor.menu.assets assets.open
+vixen.library menu editor.menu.assets assets.reimport
 vixen.library menu editor.menu.assets assets.reimport-all
 vixen.library menu editor.menu.assets assets.select-dependencies
 vixen.library menu editor.menu.assets assets.show-in-explorer
+vixen.library menu editor.menu.assets/editor.menu.create assets.create
 vixen.library menu editor.menu.assets/editor.menu.create assets.create-addressable-group
 vixen.library menu editor.menu.assets/editor.menu.create assets.create-animation
 vixen.library menu editor.menu.assets/editor.menu.create assets.create-animation-graph
@@ -260,7 +249,12 @@ vixen.library menu editor.menu.assets/editor.menu.create assets.create-shape-voc
 vixen.library menu editor.menu.assets/editor.menu.create assets.create-spline
 vixen.library menu editor.menu.assets/editor.menu.create assets.create-vfx
 vixen.library menu editor.menu.assets/editor.menu.create assets.new-folder
+vixen.library menu editor.menu.build build.clean-library
 vixen.library menu editor.menu.edit edit.find-references
+vixen.library menu editor.menu.file assets.import-files
+vixen.library menu editor.menu.file file.export-package
+vixen.library menu editor.menu.window/editor.menu.panels view.panel.mesh-map-bake
+vixen.library panel mesh-map-bake
 vixen.play menu editor.menu.play play.pause
 vixen.play menu editor.menu.play play.play
 vixen.play menu editor.menu.play play.step
@@ -512,6 +506,12 @@ vixen.water menu editor.menu.window/editor.menu.panels view.panel.water.zone
 vixen.water mode water
 vixen.water panel water.panel
 vixen.water panel water.zone
+vixen.workspace menu editor.menu.edit edit.keybindings
+vixen.workspace menu editor.menu.edit edit.preferences
+vixen.workspace menu editor.menu.edit edit.undo-history
+vixen.workspace menu editor.menu.file file.new-project
+vixen.workspace menu editor.menu.file file.open-project
+vixen.workspace menu editor.menu.file file.project-settings
 vixen.workspace menu editor.menu.file/editor.menu.recent file.no-recent
 vixen.workspace menu editor.menu.file/editor.menu.recent-documents file.recent-document.*
 vixen.workspace menu editor.menu.tools tools.reload-styles

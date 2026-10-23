@@ -29,6 +29,19 @@ public class ParityLinesModuleTests {
     [InlineData(PlayModule.ModuleId, "play.mute-audio")]
     [InlineData(PlayModule.ModuleId, "play.overlay.physics")]
     [InlineData(WorkspaceModule.ModuleId, "file.no-recent")]
+    [InlineData(WorkspaceModule.ModuleId, "file.new-project")]
+    [InlineData(WorkspaceModule.ModuleId, "file.open-project")]
+    [InlineData(WorkspaceModule.ModuleId, "edit.undo-history")]
+    [InlineData(WorkspaceModule.ModuleId, "edit.preferences")]
+    [InlineData(WorkspaceModule.ModuleId, "edit.keybindings")]
+    [InlineData(WorkspaceModule.ModuleId, "file.project-settings")]
+    [InlineData(LibraryModule.ModuleId, "assets.create")]
+    [InlineData(LibraryModule.ModuleId, "assets.import-files")]
+    [InlineData(LibraryModule.ModuleId, "file.export-package")]
+    [InlineData(LibraryModule.ModuleId, "build.clean-library")]
+    [InlineData(LibraryModule.ModuleId, "assets.reimport")]
+    [InlineData(LibraryModule.ModuleId, "assets.bake-mesh-maps")]
+    [InlineData(DeliveryModule.ModuleId, "build.rebuild-shaders")]
     public void Disabling_the_module_takes_its_lines_away(string module, string command) {
         using var session = EditorSession.Start();
 
@@ -56,6 +69,19 @@ public class ParityLinesModuleTests {
 
         session.Plugins.Enable(WorkspaceModule.ModuleId);
         Assert.Equal(["file.no-recent"], session.Shell.Recent!.Invoke());
+    }
+
+    /// <summary>Clean Library, through the library module, still deletes the project's import cache.</summary>
+    [Fact]
+    public void Clean_library_through_the_module_deletes_the_import_cache() {
+        using var session = EditorSession.Start();
+
+        var library = session.Project.Paths.Library;
+        Directory.CreateDirectory(Path.Combine(library, "Artifacts"));
+        File.WriteAllText(Path.Combine(library, "Artifacts", "stale.bin"), "x");
+
+        Assert.True(session.Shell.Commands.Execute("build.clean-library"));
+        Assert.False(Directory.Exists(library));
     }
 
     /// <summary>Toggle Hidden, through the module, still hides the whole selection by the first entity's state.</summary>

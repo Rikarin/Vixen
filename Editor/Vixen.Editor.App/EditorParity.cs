@@ -74,24 +74,7 @@ sealed partial class EditorApplication {
     // ── File ────────────────────────────────────────────────────────────────────────────────────
 
     void FileCommands() {
-        // ⚠ The two the shell's default menu has named since it was written, and doc 20 filed both
-        // behind "swapping a project underneath a live editor". They do not swap one: the editor is
-        // rebuilt over the new root by the host, which is the path every restart already takes. See
-        // `RequestProject`.
-        Verb(
-            "file.new-project",
-            EditorStrings.CommandNewProject,
-            EditorStrings.CategoryFile,
-            () => PickProjectDirectory("New Project", session.CreateProject),
-            enabled: () => services.CanPick
-        );
-
-        Verb(
-            "file.open-project",
-            EditorStrings.CommandOpenProject,
-            EditorStrings.CategoryFile,
-            ShowProjectBrowser
-        );
+        // File ▸ New Project and Open Project are `WorkspaceModule`'s (#1296), over `ProjectChooser`.
 
         Verb(
             "file.new-scene",
@@ -145,37 +128,10 @@ sealed partial class EditorApplication {
                 && (document.HasUnsavedChanges.Value || document.IsStale.Value)
         );
 
-        Verb(
-            "assets.import-files",
-            EditorStrings.CommandAssetsImportFiles,
-            EditorStrings.CategoryFile,
-            ImportFiles,
-            enabled: () => services.CanPick && !content.IsBusy
-        );
-
-        // ⚠ The walk this waited on is `assets.select-dependencies`, and it has been a real verb
-        // since E5. What a package needs over that verb is the *closure* rather than one step of it:
-        // Select Dependencies answers "what does this point at" for a person about to look at the
-        // answer, and an archive that carried only that would unpack a material whose textures are
-        // missing.
-        Verb(
-            "file.export-package",
-            EditorStrings.CommandFileExportPackage,
-            EditorStrings.CategoryFile,
-            ExportPackage,
-            enabled: () => services.CanPick && project.Selection.Count > 0
-        );
-
-        Verb(
-            "file.project-settings",
-            EditorStrings.CommandFileProjectSettings,
-            EditorStrings.CategoryFile,
-            () => Shell.Workspace.Open(ProjectSettingsPanel)
-        );
+        // Import Files and Export Package are `LibraryModule`'s (#1296) — see `LibraryQuestions`.
 
         Shell.Keys.SetDefault("file.new-scene", new KeyChord(InputKey.N, ModifierKeys.Control));
         Shell.Keys.SetDefault("file.open-scene", new KeyChord(InputKey.O, ModifierKeys.Control));
-        Shell.Keys.SetDefault("file.open-project", new KeyChord(InputKey.O, ModifierKeys.Control | ModifierKeys.Shift));
         Shell.Keys.SetDefault("file.save-as", new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Shift));
         Shell.Keys.SetDefault("file.save-all", new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Alt));
 
@@ -185,12 +141,8 @@ sealed partial class EditorApplication {
     // ── Edit ────────────────────────────────────────────────────────────────────────────────────
 
     void EditingCommands() {
-        Verb(
-            "edit.undo-history",
-            EditorStrings.CommandEditUndoHistory,
-            EditorStrings.CategoryEdit,
-            () => Shell.Workspace.Open(HistoryPanel)
-        );
+        // Undo History, Preferences, Keybindings and File ▸ Project Settings are `WorkspaceModule`'s
+        // (#1296): lines that open a workspace panel, over `Shell.Workspace`.
 
         // Delete, Rename, Duplicate, the clipboard lines and the selection verbs are `SceneModule`'s
         // (#1296), over `ISceneEditing` and the outliner it builds.
@@ -211,64 +163,17 @@ sealed partial class EditorApplication {
         );
 
         // `edit.find-references` is `LibraryModule`'s (#1292), over the same walk as the Assets menu's.
-
-        Verb(
-            "edit.preferences",
-            EditorStrings.CommandPreferences,
-            EditorStrings.CategoryEdit,
-            () => Shell.Workspace.Open(PreferencesPanel)
-        );
-
-        Verb(
-            "edit.keybindings",
-            EditorStrings.CommandEditKeybindings,
-            EditorStrings.CategoryEdit,
-            () => Shell.Workspace.Open(EditorShell.KeyBindingsPanel)
-        );
-
-        Shell.Keys.SetDefault("edit.preferences", new KeyChord(InputKey.Comma, ModifierKeys.Control));
     }
 
     // ── Assets ──────────────────────────────────────────────────────────────────────────────────
 
     void AssetCommands() {
-        // ⚠ Not a template gallery, and it never needed to be. Eighteen `assets.create-*` verbs
-        // exist and each writes a sensible empty file of its kind — see `BuiltInAssetKinds` — so the
-        // general line's whole job is asking *which one*, over the same registry the Create submenu
-        // is built from. A kind a plugin contributed is in the dialog for free, which is the half a
-        // literal list of templates would have got wrong.
-        Verb(
-            "assets.create",
-            EditorStrings.CommandAssetsCreate,
-            EditorStrings.CategoryAssets,
-            ChooseAssetKind
-        );
+        // Create (the kind chooser) is `LibraryModule`'s (#1296) — see `LibraryQuestions`.
 
         // Open is `LibraryModule`'s now (#1292): a name for the published `IWorkspace.Open`, which is
         // this application's open and asks `IDocumentHost.TryOpen` for the document.
 
-        // ⚠ Doc 48 § D12's last line, and the reason this verb exists rather than a checkbox on the
-        // model importer. A mesh map has to land in `Assets/` as a file an artist can open — § D12
-        // says so in one sentence: they want to look at the curvature map when a generator
-        // misbehaves. An importer cannot write one there. It writes artefacts into `Library/` under
-        // a cache key, and a file it dropped into `Assets/` would be a file the next scan imports,
-        // that the import it came out of never declared it read, and that no cache key can see — a
-        // hidden cache with a re-entrancy bug on top. Baking is therefore a verb over a selected
-        // model, taken through the same scan-then-read-back-the-GUID sequence as every other thing
-        // the editor puts in a project.
-        //
-        // ⚠ And it opens the panel rather than baking, which § D12's last bullet is what changed.
-        // A verb that baked at a constant 1024 with every map on was a bake nobody chose — the
-        // constant's own comment said "until § D12's bake panel exists" — and a second verb beside
-        // it that opened the panel would be two answers to what Bake means, which is doc 20's A4
-        // complaint. One settings object, one place to press it. `MeshMapBakeView` is the panel and
-        // `BakeSelectedMeshMaps` is still the thing its button calls.
-        Verb(
-            "assets.bake-mesh-maps",
-            EditorStrings.CommandAssetsBakeMeshMaps,
-            EditorStrings.CategoryAssets,
-            () => Shell.Workspace.Open(MeshMapBakePanel)
-        );
+        // Bake Mesh Maps — the verb, its panel and its settings — is `MeshMapBaking`'s (#1296).
 
         // Show in Explorer, New Folder, Delete and Reimport All are `LibraryModule`'s now (#1292): names for
         // `IContentLibrary` verbs, registered through `PluginContext`. Rename and Move To stay here —
@@ -296,7 +201,7 @@ sealed partial class EditorApplication {
         );
 
         // Revert and Show History are `SourceControlModule`'s (#1505), over the published `ISourceControl`.
-        Planned("assets.reimport", EditorStrings.CommandAssetsReimport, EditorStrings.CategoryAssets);
+        // Reimport (declared, disabled) is `LibraryModule`'s (#1296).
 
         // Find References and Select Dependencies are `LibraryModule`'s now (#1292): names for
         // `IContentLibrary.Referrers` and `Dependencies`, registered through `PluginContext`.
@@ -363,7 +268,8 @@ sealed partial class EditorApplication {
     ///         <c>WorldSnapshot.Restore</c>'s handle map rather than being lost.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And <see cref="ReportPlayGaps" /> is not decoration on that.</b> The graph is
+    ///         ⚠ <b>And the report of what a session runs is not decoration on that</b> — it is
+    ///         <c>PlayModule.Announce</c>'s now (#1296). The graph is
     ///         the engine's default set and a game's own is not declarable anywhere, so a session
     ///         that said nothing would make the systems it is not running read as the user's bug.
     ///     </para>
@@ -419,21 +325,9 @@ sealed partial class EditorApplication {
         // Deploy is the diagnostics module's, because it opens the device manager E4 built. It is
         // still a Build-menu line — Part C puts it there — and the window is the Tools one.
 
-        Verb(
-            "build.clean-library",
-            EditorStrings.CommandBuildCleanLibrary,
-            EditorStrings.CategoryBuild,
-            CleanLibrary,
-            enabled: () => !content.IsBusy
-        );
+        // Clean Library is `LibraryModule`'s (#1296): it deletes the import cache, behind the library's busy flag.
 
-        // ⚠ Still declared-and-disabled, and the reason has moved rather than gone away. The
-        // ahead-of-time shader bundle is `ShaderBuildRunner`'s, which links Raven's compiler — a
-        // build-time library the editor deliberately does not carry, for the reason
-        // Tools/Vixen.ShaderCompiler's README gives. So a player built from here has no bundle, the
-        // build log says so for a project that has a manifest, and `vixen build` is what compiles
-        // one. What would close this is a compiler service the editor talks to rather than links.
-        Planned("build.rebuild-shaders", EditorStrings.CommandBuildRebuildShaders, EditorStrings.CategoryBuild);
+        // Rebuild Shaders (declared, disabled) is `DeliveryModule`'s (#1296): it is the player build's shader bundle.
 
         Verb(
             "tools.plugins",
@@ -909,93 +803,6 @@ sealed partial class EditorApplication {
         }
     }
 
-    /// <summary>Copies files chosen from the OS into the project, then imports.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Copied rather than referenced.</b> An asset outside the project tree is one the
-    ///     content build cannot find, the reference index cannot name and a colleague does not have —
-    ///     every engine that allowed it spent years telling people why their build was broken.
-    /// </remarks>
-    void ImportFiles() {
-        if (services.Dialogs is not { } dialogs) {
-            return;
-        }
-
-        // ⚠ Into the folder the browser is showing rather than into `Assets/`, which is what this
-        // did and is the smaller half of doc 20 § B3's "choose a destination". A person who has
-        // navigated to `Textures/` and asked to import has already said where; putting the files at
-        // the root anyway is a move they then have to undo by hand, and the affordance that told
-        // them nothing was the one they used.
-        var folder = Browser?.Folder ?? AssetTree.RootName;
-
-        deferred.When(
-            dialogs.OpenFilesAsync(new FileDialogOptions { Title = "Import Assets", AllowsMultipleSelection = true }),
-            paths => library.Import(paths, folder),
-            failure => Shell.Notifications.Show("Could not import", NotificationSeverity.Error, failure.Message)
-        );
-    }
-
-    /// <summary>Asks which kind of asset to make, and runs that kind's own verb.</summary>
-    /// <remarks>
-    ///     ⚠ <b>It runs the command rather than calling <c>CreateAsset</c> itself.</b> Each kind's
-    ///     verb is what the Create submenu, the palette and a key binding all reach, and a second
-    ///     path into the same file would be a second place the folder, the naming and the "does it
-    ///     open" answer are decided — which is how two ways of making an animation graph come to
-    ///     produce two different files.
-    /// </remarks>
-    void ChooseAssetKind() {
-        var kinds = AssetKinds;
-
-        if (kinds.Count == 0) {
-            return;
-        }
-
-        _ = Ask();
-
-        async Task Ask() {
-            var chosen = await Shell.ChooseAsync(
-                "What kind of asset?",
-                kinds,
-                static kind => kind.Title.Text,
-                static kind => kind.Extension
-            ).ConfigureAwait(true);
-
-            if (chosen is not null) {
-                Shell.Commands.Execute(chosen.Id);
-            }
-        }
-    }
-
-    /// <summary>Asks where to put a package of the selection, and writes one there.</summary>
-    void ExportPackage() {
-        if (services.Dialogs is not { } dialogs) {
-            return;
-        }
-
-        var assets = library.Closure(project.Selection);
-
-        if (assets.Count == 0) {
-            return;
-        }
-
-        deferred.When(
-            dialogs.SaveFileAsync(
-                new FileDialogOptions {
-                    Title = "Export Package",
-                    InitialDirectory = project.Paths.Root,
-                    SuggestedFileName = Path.GetFileName(project.Paths.Root.TrimEnd(Path.DirectorySeparatorChar))
-                        + ContentLibrary.PackageExtension,
-                    Filters = [new FileFilter("Vixen package", ContentLibrary.PackageExtension.TrimStart('.'))]
-                }
-            ),
-            path => {
-                if (path is { Length: > 0 }) {
-                    library.ExportPackage(path, assets);
-                }
-            },
-            failure => Shell.Notifications.Show("Could not export", NotificationSeverity.Error, failure.Message)
-        );
-    }
-
     /// <summary>Renames the selected asset, in place in the browser's own tree.</summary>
     /// <remarks>
     ///     Through the tree's inline editor rather than a dialog, so the menu line, F2 and a
@@ -1006,306 +813,6 @@ sealed partial class EditorApplication {
     void RenameSelectedAsset() {
         if (project.Selection.Count > 0) {
             Browser?.BeginRename(project.Selection[0]);
-        }
-    }
-
-    /// <summary>Bakes the selected model's mesh maps into the project.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         <b>⚠ The caller <c>MapBaker.Bake</c> did not have.</b> Doc 48 § D12's seven
-    ///         measurements were built on <c>BakedMaps</c> and nothing in the repository outside
-    ///         <c>MapBakerTests</c> called the bake — not an importer, not a content build, not the
-    ///         editor. This line and <c>ContentTasks.BakeMeshMaps</c> behind it are what makes them
-    ///         reachable by a person.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The source and the target are the same mesh, and that is the ordinary case
-    ///         rather than a simplification.</b> A separate high-poly belongs to the retopology
-    ///         flow; asking for the occlusion, curvature and thickness <i>of the mesh you are
-    ///         texturing</i> is what every generator in § 4.8 reads, and it is what Painter's bake
-    ///         does when nobody supplies a high-poly. A high-poly picker is a bake panel's job.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The first mesh with an atlas, and it says which.</b> A model file can hold
-    ///         several, the bake is one at a time because it writes one named set, and a verb that
-    ///         silently picked one of four would be a verb whose output nobody can account for.
-    ///     </para>
-    /// </remarks>
-    void BakeSelectedMeshMaps() {
-        if (project.Selection.Count != 1 || !project.Assets.TryGetByGuid(project.Selection[0], out var entry)) {
-            return;
-        }
-
-        var absolute = project.Paths.Absolute(entry.Path);
-
-        try {
-            if (BakeableMesh(entry, absolute, out var name, out var refusal) is not { } mesh) {
-                Shell.Notifications.Show("Nothing to bake into", NotificationSeverity.Warning, refusal);
-
-                return;
-            }
-
-            var kernel = ModelGeometry.ToEditMesh(mesh);
-
-            // ⚠ The model's own asset id goes with the name, and it is what keys the set rather
-            // than decorating it. The name is whatever the artist called the object in Blender,
-            // which is `Cube` in every file nobody renamed — see `MeshMapNaming.ModelKey`.
-            content.BakeMeshMaps(
-                meshMaps,
-                entry.Guid,
-                name,
-                kernel,
-                kernel,
-                MeshMapBakeOptions.ToBake(),
-                MeshMapBakeOptions.Overwrite
-            );
-        } catch (Exception failure) when (failure
-            is IOException
-            or UnauthorizedAccessException
-            or ModelFormatException
-            or ArgumentException) {
-            Shell.Notifications.Show("Could not bake mesh maps", NotificationSeverity.Error, failure.Message);
-        }
-    }
-
-    /// <summary>The first mesh of a model that has an atlas to bake into, and what to call the set.</summary>
-    /// <param name="entry">The selected asset.</param>
-    /// <param name="absolute">Where its file is.</param>
-    /// <param name="name">What the set is named after, or empty when there is nothing to bake.</param>
-    /// <param name="refusal">Why there is nothing, or empty.</param>
-    /// <returns>The mesh, or <see langword="null" />.</returns>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>The imported chunks first, and the file only for a model this project has never
-    ///         imported</b> — the same seam <c>LayerStackMesh.Open</c> takes, and for the reason
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/934">#934</a> gives about painting:
-    ///         <c>ModelImportSettings.Unwrap</c> generates its coordinates inside
-    ///         <c>ModelRetopology.Run</c>, which the <em>importer</em> calls and <c>ModelReader</c>
-    ///         does not. Reading the file meant that a model unwrapped at import — the one thing
-    ///         somebody does before asking for maps of its atlas — was refused here with "none of its
-    ///         meshes carries texture coordinates", about a state they had already created.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>And the set takes the name the project gave the mesh</b>, which is what
-    ///         <c>SubAssetNames</c> may have changed and what <c>TextureSetAsset.Mesh</c> is matched
-    ///         against. A bake filed under the file's name beside a stack narrowed by the project's
-    ///         would be two names for one mesh, and a generator reading a map by usage would bind
-    ///         nothing with both of them present.
-    ///     </para>
-    /// </remarks>
-    MeshData? BakeableMesh(AssetEntry entry, string absolute, out string name, out string refusal) {
-        name = "";
-        refusal = "";
-
-        var declared = ProjectMeshSource.Declared(absolute);
-
-        if (declared.Count > 0) {
-            foreach (var mesh in declared) {
-                if (SceneGeometry.TryGet(new(entry.Guid, mesh.Id), out var imported) && HasAtlas(imported)) {
-                    name = mesh.Name.Length > 0 ? mesh.Name : Path.GetFileNameWithoutExtension(absolute);
-
-                    return imported;
-                }
-            }
-
-            refusal = "None of this model's imported meshes carries texture coordinates, and a mesh map is "
-                + "a picture of the atlas. Unwrap it — the model importer's Unwrap setting will — and "
-                + "import again.";
-
-            return null;
-        }
-
-        var read = ModelReader.Read(
-            File.ReadAllBytes(absolute),
-            Path.GetExtension(absolute),
-            Path.GetFileNameWithoutExtension(absolute),
-            ModelSettingsOf(absolute)
-        );
-
-        if (Array.Find(read.Meshes, HasAtlas) is { } found) {
-            name = found.Name.Length > 0 ? found.Name : Path.GetFileNameWithoutExtension(absolute);
-
-            return found;
-        }
-
-        refusal = read.Meshes.Length == 0
-            ? "That file has no meshes."
-            : "None of its meshes carries texture coordinates, and a mesh map is a picture of the atlas. "
-            + "This project has never imported it — import it, because the model importer's Unwrap "
-            + "setting generates the atlas — or unwrap it in the tool that made it.";
-
-        return null;
-    }
-
-    /// <summary>Whether a mesh has one texture coordinate per vertex, which is what a bake lands in.</summary>
-    /// <param name="mesh">The mesh.</param>
-    /// <returns>Whether it does.</returns>
-    /// <remarks>
-    ///     ⚠ <b>The lengths have to <em>match</em> and not merely both be non-zero.</b> A file that
-    ///     lied about its vertex count gives a short array, and <c>ModelGeometry.ToEditMesh</c> reads
-    ///     one coordinate per vertex — so a bake over one would land on coordinates belonging to other
-    ///     vertices rather than fail.
-    /// </remarks>
-    static bool HasAtlas(MeshData mesh) =>
-        mesh.TexCoords.Length == mesh.Positions.Length && mesh.TexCoords.Length > 0;
-
-    /// <summary>What the Bake Mesh Maps panel is called in an arrangement.</summary>
-    internal const string MeshMapBakePanel = "mesh-map-bake";
-
-    /// <summary>The panel while it is open, or <see langword="null" />.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Held for <c>buildView</c>'s reason and released the same way.</b> What it displays —
-    ///     which model is selected, whether a content task is running, what the last bake produced —
-    ///     changes for reasons that are not edits to the panel, so something has to be able to ask it
-    ///     again.
-    /// </remarks>
-    MeshMapBakeView? bakeView;
-
-    /// <summary>The one copy of what a bake is set to measure, which the verb and the panel share.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Exposed for a suite to read, and it is the assertion doc 20's A4 rule needs.</b>
-    ///         "The panel and the bake read one object" is not visible from either of them — a panel
-    ///         editing a copy looks identical from the panel's own tests, and the failure is a
-    ///         resolution somebody set being ignored by the button beside it.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Out of the settings store rather than a field</b> —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/701">#701</a>. <c>Get&lt;T&gt;</c>
-    ///         hands every caller the same instance, which is what keeps the sentence above true
-    ///         across the persistence: the panel edits what the verb reads and what
-    ///         <see cref="SaveMeshMapBakeSettings" /> writes, and none of the three is a copy.
-    ///     </para>
-    /// </remarks>
-    internal MeshMapBakeSettings MeshMapBakeOptions => project.Settings.Get<MeshMapBakeSettings>();
-
-    /// <summary>Writes the bake settings, which is what every control on the panel does.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Immediately rather than behind an Apply</b>, for the reason
-    ///     <c>PlayerDelivery.SaveSettings</c> gives: the Bake button reads these fields, so an edit
-    ///     that had not been committed would mean the button baking something other than what is on
-    ///     screen. Nothing here costs anything until a bake runs.
-    /// </remarks>
-    void SaveMeshMapBakeSettings() {
-        project.Settings.MarkChanged<MeshMapBakeSettings>();
-
-        try {
-            project.Settings.Save<MeshMapBakeSettings>();
-        } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
-            Shell.Notifications.Show(
-                "Could not save the mesh-map bake settings",
-                NotificationSeverity.Error,
-                failure.Message
-            );
-        }
-    }
-
-    /// <summary>Doc 48 § D12's bake panel.</summary>
-    void MeshMapPanels() =>
-        Shell.RegisterPanel(
-            new PanelDescriptor(
-                MeshMapBakePanel,
-                EditorStrings.PanelMeshMapBake,
-                panel => {
-                    var view = panel.Add<MeshMapBakeView>();
-
-                    // ⚠ Pulled, both, and `BuildSettingsView` says why: this factory runs again on
-                    // every reopen, so an answer captured once would be from a selection the user
-                    // has since changed.
-                    view.Chosen = MeshMapSubject;
-                    view.Refusal = MeshMapRefusal;
-
-                    view.BakeRequested += _ => BakeSelectedMeshMaps();
-
-                    // ⚠ Every control on the panel writes, and the panel is the only writer of these
-                    // settings — no inspector page over the same state, which is doc 20's A4 rule:
-                    // two writers is how a settings row and the panel beside it come to disagree.
-                    view.Changed = SaveMeshMapBakeSettings;
-                    view.Show(MeshMapBakeOptions);
-                    view.ShowResult(content.LastBake);
-
-                    bakeView = view;
-                }
-            ) {
-                Closed = () => bakeView = null
-            }
-        );
-
-    /// <summary>What the panel says would be baked.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The file, not the mesh inside it.</b> Naming the mesh means reading the model through
-    ///     Assimp, which is the bake's own first step and is far too much to do while a panel is
-    ///     restating itself — see <see cref="MeshMapRefusal" /> for what this surface may cost.
-    /// </remarks>
-    string? MeshMapSubject() =>
-        project.Selection.Count == 1 && project.Assets.TryGetByGuid(project.Selection[0], out var entry)
-            ? Path.GetFileName(entry.Path)
-            : null;
-
-    /// <summary>Why the panel's Bake button is greyed, or null when it is not.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Cheap enough to ask once a frame, which <c>BuildRefusal</c> is not.</b> That one
-    ///     enumerates the project root looking for a <c>.csproj</c> and is therefore asked only when
-    ///     something happens; this is a count, a dictionary lookup and a set lookup, and the
-    ///     selection it depends on has no change event to hang off — see
-    ///     <see cref="MeshMapBakeView.Refresh" />, which <c>Update</c> calls while the panel is open.
-    /// </remarks>
-    string? MeshMapRefusal() =>
-        content.IsBusy
-            ? "Something is already importing, building or baking."
-            : SelectedIsAModel()
-                ? null
-                : "Select one model in the project browser — "
-                + string.Join(", ", ModelExtensions.Order(StringComparer.Ordinal))
-                + ".";
-
-    /// <summary>Whether exactly one asset is selected and it is a model file.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The extension is checked here rather than discovered by failing.</b> A verb enabled
-    ///     for every selection and refusing most of them is doc 20's complaint in reverse: it reads
-    ///     as an editor that cannot bake, once, per texture the artist happened to have selected.
-    ///     The list is <c>ModelImporter</c>'s own <c>[Importer]</c> attribute rather than a second
-    ///     copy of it, so a format added there is a format this offers.
-    /// </remarks>
-    bool SelectedIsAModel() =>
-        project.Selection.Count == 1
-        && project.Assets.TryGetByGuid(project.Selection[0], out var entry)
-        && !entry.IsFolder
-        && ModelExtensions.Contains(Path.GetExtension(entry.Path));
-
-    /// <summary>What <c>ModelImporter</c> claims, read once from its own attribute.</summary>
-    static readonly HashSet<string> ModelExtensions =
-        new(new ModelImporter().Extensions, StringComparer.OrdinalIgnoreCase);
-
-    /// <summary>How the model is imported, so the bake reads the geometry the project uses.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Defaults where the sidecar cannot be read, rather than a refusal.</b> A model that
-    ///     has never been imported has no importer block at all, and that is the commonest moment to
-    ///     want a bake — the file has just been dropped in.
-    /// </remarks>
-    static ModelImportSettings ModelSettingsOf(string absolute) {
-        var sidecar = AssetMetaFile.PathFor(absolute);
-
-        try {
-            return File.Exists(sidecar) && AssetMetaFile.ReadFile(sidecar).Importer is ModelImportSettings settings
-                ? settings
-                : new();
-        } catch (Exception failure)
-            when (failure is IOException or YamlParseException or YamlBindingException or MetaVersionException) {
-            return new();
-        }
-    }
-
-    /// <summary>Throws away the import cache and the artefacts, so the next build starts clean.</summary>
-    void CleanLibrary() {
-        try {
-            if (Directory.Exists(project.Paths.Library)) {
-                Directory.Delete(project.Paths.Library, recursive: true);
-            }
-
-            Shell.Notifications.Success("Library cleared");
-        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
-            Shell.Notifications.Show("Could not clear Library", NotificationSeverity.Error, exception.Message);
         }
     }
 
@@ -1441,40 +948,11 @@ sealed partial class EditorApplication {
         }
 
         // Before the notification, so the line saying what play mode does is the first thing in the
-        // console rather than the last thing before it was emptied.
+        // console rather than the last thing before it was emptied. The notification and the report
+        // of what the session runs are `PlayModule`'s (#1296), which subscribes after this does.
         if (console.ClearsOnPlay) {
             console.Clear();
         }
-
-        // ⚠ Said before it matters rather than after it has cost something. Doc 20 calls this the one
-        // place where being different from Unity is better: the rule is that play-mode edits are
-        // discarded, and an editor that says so on the way in is honest where a silent loss is the
-        // single most complained-about behaviour in that editor.
-        Shell.Notifications.Show(
-            "Play mode",
-            NotificationSeverity.Info,
-            "Changes made while playing are discarded when you stop."
-        );
-
-        ReportPlayGaps();
-    }
-
-    /// <summary>Says what this session runs, and names anything it is not running.</summary>
-    /// <remarks>
-    ///     The wording is the session's — <see cref="EditorPlaySession.DescribeRunning" /> and
-    ///     <see cref="EditorPlaySession.DescribeMissing" /> carry the reasons — and where it is said
-    ///     is this editor's: its log and its notifications.
-    /// </remarks>
-    void ReportPlayGaps() {
-        log.Write(LogLevel.Information, play.DescribeRunning());
-
-        if (play.DescribeMissing(session.Code.Loaded) is not { } said) {
-            return;
-        }
-
-        log.Write(LogLevel.Warning, said);
-
-        Shell.Notifications.Show("Play mode is not running everything", NotificationSeverity.Warning, said);
     }
 
     /// <summary>What leaving play does to the rest of the editor, after the scene has been restored.</summary>

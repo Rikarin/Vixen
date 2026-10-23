@@ -70,9 +70,55 @@ sealed class SceneEditing : ISceneEditing {
 
         active = first;
         scenes.Add(first);
+        Watch(first);
 
         this.view = view ?? (static () => null);
         this.probe = probe ?? (static () => null);
+    }
+
+    /// <summary>Follows a scene's structure and names, so the outliner redraws on an edit to any open scene.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Here and not in the application (#1293)</b>, which subscribed the first scene in its
+    ///     constructor and each additive one in <c>OpenSceneAdditively</c> — two copies of one rule about
+    ///     every scene this service holds. Taken back off in <see cref="Close" />.
+    /// </remarks>
+    void Watch(SceneDocument scene) {
+        scene.StructureChanged += Followed;
+        scene.Renamed += Followed;
+    }
+
+    void Followed(SceneDocument _) => Restructured();
+
+    void Followed(SceneDocument _, Entity __) => Restructured();
+
+    /// <summary>Follows a play session: every open scene's behaviours play, and a restore re-keys the active scene.</summary>
+    /// <param name="play">The editor's session.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every open scene's store, read at every Play</b>, because the controller is built over
+    ///         the <i>first</i> document's — and a behaviour authored into an additively opened scene used
+    ///         to be named in <c>Unsupported</c> rather than run. A scene opened after this still plays.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every entity gets a new handle when a play-mode snapshot is restored</b>, so the
+    ///         document's name and stable-id tables — both keyed by handle — name nothing afterwards.
+    ///         <see cref="SceneDocument.Remap" /> was written for exactly this and nothing called it: the
+    ///         outliner came back from play mode as a list of blank rows. Subscribed to the controller
+    ///         rather than to <c>Left</c> so that it also covers a restore made for any other reason.
+    ///     </para>
+    ///     <para>
+    ///         Moved out of the application's constructor (#1293): both are facts about the scenes this
+    ///         service holds, not about the composition.
+    ///     </para>
+    /// </remarks>
+    internal void Follow(EditorPlaySession play) {
+        ArgumentNullException.ThrowIfNull(play);
+
+        play.Controller.Stores = () => scenes.Select(static document => document.Behaviors);
+        play.Controller.Restored += (_, translation) => {
+            active.Remap(translation);
+            Restructured();
+        };
     }
 
     /// <inheritdoc />
@@ -132,6 +178,7 @@ sealed class SceneEditing : ISceneEditing {
         }
 
         scenes.Add(scene);
+        Watch(scene);
         ScenesChanged?.Invoke(this);
 
         return true;
@@ -168,6 +215,9 @@ sealed class SceneEditing : ISceneEditing {
 
         scene.Delete([.. scene.Roots]);
         scene.Close();
+
+        scene.StructureChanged -= Followed;
+        scene.Renamed -= Followed;
 
         Restructured();
         ScenesChanged?.Invoke(this);
@@ -416,12 +466,9 @@ sealed class SceneEditing : ISceneEditing {
     public bool SetParent(IReadOnlyList<Entity> entities, Entity parent) {
         ArgumentNullException.ThrowIfNull(entities);
 
-        if (!Active.Reparent(entities, parent)) {
-            return false;
-        }
-
-        HierarchyChanged?.Invoke(this);
-        return true;
+        // ⚠ No raise of its own: the reparent raises `StructureChanged`, which every held scene's watch
+        // turns into one `HierarchyChanged` (#1293). Raising here as well was a second one in the editor.
+        return Active.Reparent(entities, parent);
     }
 
     /// <inheritdoc />

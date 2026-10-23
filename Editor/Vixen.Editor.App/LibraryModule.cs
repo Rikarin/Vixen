@@ -3,11 +3,13 @@
 
 using Vixen.Core;
 using Vixen.Editor.Assets;
+using Vixen.Editor.Assets.MeshMaps;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
 using Vixen.Editor.Ui.Documents;
+using Vixen.Rendering.Ecs;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 
@@ -175,6 +177,18 @@ sealed class LibraryModule : IEditorPlugin {
                 Enablement = () => !library.IsImporting
             }
         );
+
+        // And the four that ask something first (#1296).
+        LibraryQuestions.Register(context, library);
+
+        // And doc 48 § D12's mesh-map bake: its line, its panel and its settings (#1296).
+        new MeshMapBaking(
+            context.Shell,
+            library.Project,
+            context.Services.Require<ContentTasks>(),
+            context.Services.Require<IMeshMapBaker>(),
+            context.Services.Require<IMeshSource>()
+        ).Register(context);
     }
 
     /// <summary>Opens the selected asset's folder in the platform's file manager.</summary>

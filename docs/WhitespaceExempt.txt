@@ -364,7 +364,6 @@ Editor/Vixen.Editor.App.Tests/TerrainViewportTests.cs
 Editor/Vixen.Editor.App.Tests/ThumbnailTests.cs
 Editor/Vixen.Editor.App.Tests/VegetationViewportTests.cs
 Editor/Vixen.Editor.App/DeclaredContributions.cs
-Editor/Vixen.Editor.App/EditorProjects.cs
 Editor/Vixen.Editor.App/EditorWorlds.cs
 Editor/Vixen.Editor.App/ProjectAsset.cs
 Editor/Vixen.Editor.App/ScenePresenter.cs

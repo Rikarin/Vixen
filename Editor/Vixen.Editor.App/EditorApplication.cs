@@ -528,10 +528,8 @@ sealed partial class EditorApplication : IDisposable {
 
         project = session.Project;
 
-        // One scene per project until there is a file dialog to choose another. The path is decided
-        // here rather than by the document, because where a scene lives is the shell's answer and a
-        // document only knows how to write itself.
-        scenePath = Path.Combine(project.Paths.Assets, "Scenes", "Main" + SceneSerializer.Extension);
+        // One scene per project until there is a file dialog to choose another — see `MainScene`.
+        scenePath = MainScene.PathIn(project.Paths);
 
         scene = new SceneDocument(project, world, AssetId.Empty, "Main") {
             Writer = new SceneFileWriter(scenePath)
@@ -581,28 +579,15 @@ sealed partial class EditorApplication : IDisposable {
         sceneEditing.ActiveChanged += _ => Followed();
         sceneEditing.ScenesChanged += _ => ForgetClosedScenes();
 
-        // ⚠ And every other open scene's, because the store above is the *first* document's and a
-        // behaviour authored into an additively opened scene used to be named in `Unsupported`
-        // rather than run. Honest, and not whole: a designer was told about something the editor
-        // should be able to do. Read at every Play, so a scene opened after this line still plays.
-        play.Controller.Stores = () => sceneEditing.Scenes.Select(document => document.Behaviors);
+        // ⚠ Every open scene's behaviours play, and a restore re-keys the active scene — the service's
+        // facts about the scenes it holds (#1293). See `SceneEditing.Follow`.
+        sceneEditing.Follow(play);
 
         // The editor's passes for the frame a session runs — diagnostics, physics, animation, the
         // agents, the keyboard — are `PlayModule`'s contributions (#1293). The keyboard's object is
         // built here: every pane's input goes through it ahead of the active mode, and the panes are
         // this class's — see `PlayInput` and `Configure`. #470.
         playInput = new PlayInput(modeInput = new ModeInput(Shell.Modes));
-
-        // ⚠ Every entity gets a *new handle* when a play-mode snapshot is restored, so the
-        // document's name and stable-id tables — both keyed by handle — name nothing at all
-        // afterwards. `SceneDocument.Remap` was written for exactly this and nothing called it: the
-        // outliner came back from play mode as a list of blank rows, which reads as the scene having
-        // been lost. Subscribed here rather than in `PlayLeft` so that it also covers a restore the
-        // controller performs for any other reason.
-        play.Controller.Restored += (_, translation) => {
-            scene.Remap(translation);
-            sceneEditing.Restructured();
-        };
 
         // ⚠ Not only after this panel's own commands. An *undo* of "remove component" puts the
         // column back with nothing having been clicked, so a view that rebuilt only on its own
@@ -632,23 +617,8 @@ sealed partial class EditorApplication : IDisposable {
             subsystem.Touch();
         }
 
-        if (SceneSerializer.Load(scene, scenePath) == 0) {
-            Seed();
-
-            // ⚠ Written immediately, which is the one time the editor saves without being asked. A
-            // new project should contain the scene you are looking at rather than something that
-            // exists only until the window closes — and it makes the *second* launch take the load
-            // path, which is otherwise reachable only by remembering to press Save first.
-            scene.Save();
-
-            // ⚠ And scanned again, because the file was written *after* `Open` indexed the project.
-            // Without this a first run shows a project browser with no scene in it — the one file the
-            // editor is certain exists, because it just made it.
-            project.Assets.Scan();
-        }
-
-        scene.StructureChanged += _ => sceneEditing.Restructured();
-        scene.Renamed += (_, _) => sceneEditing.Restructured();
+        // Read, or — on a first run — seeded, written and indexed (#1293).
+        MainScene.LoadOrSeed(scene, scenePath, project);
 
         // ⚠ Empty here: every kind and view is a module's contribution (#1297), registered through
         // `PluginServices` — the asset editors module registers this build's twenty-six. The
@@ -800,12 +770,6 @@ sealed partial class EditorApplication : IDisposable {
         // build panel; this is the same event reaching the thing that greys the button. #430.
         content.BusyChanged += Shell.Document.InvalidateCommands;
 
-        // ⚠ And the bake panel's result list, which is the one surface a finished bake changes that
-        // a rescan does not. Assigned after the initializer rather than in it, because the hook
-        // reads the object being initialized back — `LastBake` is pulled rather than handed over, so
-        // that a panel opened *after* a bake can still ask what it produced.
-        content.Baked = () => bakeView?.ShowResult(content.LastBake);
-
         // ⚠ Doc 50 § P2c: import, package export, collections and saved filters as one service, built
         // after the tasks because its import is theirs and before `PluginPoints`, which publishes it.
         // The preferences are asked for through a lambda on every call — the settings window's Revert
@@ -896,9 +860,6 @@ sealed partial class EditorApplication : IDisposable {
 
         SettingsPanels();
 
-        // And doc 48 § D12's, which is where a mesh-map bake is set up and where what it produced is
-        // read afterwards.
-        MeshMapPanels();
 
         // And E5's four, for the same reason: the Sequencing preset names the scene list.
         WorldPanels();
@@ -1219,13 +1180,6 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ And the thumbnails, on the frame thread because the device is not thread-safe. The
         // decode happened on the pool; this is the upload.
         thumbnails.Pump();
-
-        // ⚠ Pulled, and it is the one panel in this loop that has to be. What it says depends on the
-        // project *selection*, and `Selection<T>` raises nothing when it changes — so a panel opened
-        // before a model was clicked would sit greyed with "select a model" for ever. The read is a
-        // count and two lookups and the panel writes nothing when the answer has not moved; compare
-        // `BuildRefusal`, which enumerates the project root and is therefore asked on events only.
-        bakeView?.Refresh();
 
         // ⚠ Pulled rather than subscribed to — see `EditorConsole.Tick` for the threading reason.
         console.Tick();
@@ -1742,59 +1696,6 @@ sealed partial class EditorApplication : IDisposable {
         Shell.Describe(shown.Title.Peek(), shown.HasUnsavedChanges.Value, ProductName, shown.IsStale.Value);
     }
 
-    /// <summary>A scene with something in it, for a project that has none yet.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Only when there is no file to open.</b> A first run in an empty project opens
-    ///     something rather than an empty tree and a viewport with nothing to look at; the moment
-    ///     that scene is saved, this never runs again for that project.
-    /// </remarks>
-    void Seed() {
-        var root = scene.Add("Scene Root", LocalTransform.Identity);
-
-        // ⚠ Both carry the component their name claims, and until the component panel existed
-        // neither did. A first run showing a "Directional Light" that is not a light and a "Main
-        // Camera" that is not a camera was invisible while nothing drew what was on an entity; it is
-        // the first thing somebody clicking those two rows now sees.
-        var sun = scene.Add("Directional Light", LocalTransform.At(new Vector3(0f, 3f, 0f)) with {
-            Rotation = SceneEditing.Aimed.Rotation
-        }, root);
-
-        Lights.Attach(world, sun, LightKind.Directional);
-
-        var camera = scene.Add("Main Camera", LocalTransform.At(new Vector3(0f, 1.5f, 6f)), root);
-
-        world.Add(camera, new Camera());
-
-        var ground = scene.Add("Ground", LocalTransform.Identity, root);
-
-        // ⚠ Two of these carry a shape, so a first run shows geometry rather than a grid and four
-        // crosses — which is also the only exercise the mesh path gets without somebody having used
-        // the menu, and so the way a broken one shows up on launch rather than on a click.
-        Shape("Crate", PrimitiveKind.Cube, new Vector3(1.5f, 0.5f, 0f), Vector3.One, ground);
-        Shape("Barrel", PrimitiveKind.Cylinder, new Vector3(-2f, 0.5f, 1f), new Vector3(0.8f, 1f, 0.8f), ground);
-
-        // ⚠ Ground stays an empty, and the temptation is a scaled Plane. Two things go wrong with
-        // one. Its children inherit the scale, so a crate at 1.5 metres under a ground scaled
-        // twelvefold is eighteen metres away and twelve times too big; and the plane sits at exactly
-        // the height the floor grid does, so it wins the depth test and the grid vanishes underneath
-        // it. Both are correct behaviour and neither is what a first run should be a picture of.
-        //
-        // The stack starts empty: seeding is not an edit somebody made, and an editor that opened
-        // with five undo steps already on it is one where Ctrl+Z does something inexplicable.
-        scene.Stack.Clear();
-        scene.Stack.MarkClean();
-
-        void Shape(string name, PrimitiveKind kind, Vector3 position, Vector3 scale, Entity parent) {
-            var entity = scene.Add(
-                name,
-                new LocalTransform { Position = position, Rotation = Quaternion.Identity, Scale = scale },
-                parent
-            );
-
-            PrimitiveShapes.Attach(world, entity, kind);
-        }
-    }
-
     /// <summary>The overlays' world geometry, and what the panes drew it into.</summary>
     /// <remarks>
     ///     Internal for the suite that asserts a switched-on overlay reaches a pane. Empty is the
@@ -2011,7 +1912,15 @@ sealed partial class EditorApplication : IDisposable {
             // `Core/Vixen.Ui.HotReload` and nothing in the editor had ever created one — the
             // declarative path was reloadable in principle and not in this application, which is F7
             // with an extra step.
-            .Add(hotReload);
+            .Add(hotReload)
+
+            // ⚠ And the frame queue a native picker's answer comes back through, for the modules in
+            // this assembly that ask one — `WorkspaceModule`'s project chooser (#1296).
+            .Add(deferred)
+
+            // ⚠ And the content tasks, for `LibraryModule`'s mesh-map bake: it runs on their queue, behind
+            // their busy flag, and reports through their `Baked` (#1296).
+            .Add(content);
 
         // And the OS's pickers where there are any — a module that writes a file asks for them (#1298).
         if (services.Dialogs is { } pickers) {

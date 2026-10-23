@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Microsoft.Extensions.Logging;
+using Vixen.Core.Diagnostics;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
@@ -153,11 +155,65 @@ sealed class PlayModule : IEditorPlugin {
             );
         }
 
+        // ── What entering play says (#1296) ──────────────────────────────────────────────────────
+        // ⚠ After the application's own `Entered` handler — it subscribed in the constructor, before any
+        // module activated — so the console has been cleared before the first line about play lands.
+        var logger = context.Services.Require<RingBufferSink>().CreateLogger(EditorLog.Category);
+        var project = context.Services.Require<IProjectSession>();
+
+        void Entered(IPlaySession _) => Announce(context.Shell, logger, play, project);
+
+        play.Entered += Entered;
+        context.OnUnload(() => play.Entered -= Entered);
+
         context.AddDefaultBinding("play.play", new KeyChord(InputKey.F5, ModifierKeys.None));
         context.AddDefaultBinding("play.pause", new KeyChord(InputKey.P, ModifierKeys.Control | ModifierKeys.Shift));
         context.AddDefaultBinding("play.step", new KeyChord(InputKey.F10, ModifierKeys.None));
         context.AddDefaultBinding("play.stop", new KeyChord(InputKey.F5, ModifierKeys.Shift));
     }
+
+    /// <summary>Says that play-mode edits are discarded, what the session runs, and anything it is not running.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Said before it matters rather than after it has cost something.</b> Doc 20 calls this
+    ///         the one place where being different from Unity is better: the rule is that play-mode
+    ///         edits are discarded, and an editor that says so on the way in is honest where a silent
+    ///         loss is the single most complained-about behaviour in that editor.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the gaps are not decoration on that.</b> The graph is the engine's default set
+    ///         and a game's own is not declarable anywhere, so a session that said nothing would make the
+    ///         systems it is not running read as the user's bug. The wording is the session's —
+    ///         <see cref="EditorPlaySession.DescribeRunning" /> and
+    ///         <see cref="EditorPlaySession.DescribeMissing" />; where it is said is the editor's log and
+    ///         notifications. Moved from the application's <c>PlayEntered</c> (#1296).
+    ///     </para>
+    /// </remarks>
+    static void Announce(EditorShell shell, ILogger logger, IPlaySession play, IProjectSession project) {
+        shell.Notifications.Show(
+            "Play mode",
+            NotificationSeverity.Info,
+            "Changes made while playing are discarded when you stop."
+        );
+
+        if (play is not EditorPlaySession session) {
+            return;
+        }
+
+        Log(logger, LogLevel.Information, session.DescribeRunning());
+
+        if (session.DescribeMissing(project.Code.Loaded) is not { } said) {
+            return;
+        }
+
+        Log(logger, LogLevel.Warning, said);
+
+        shell.Notifications.Show("Play mode is not running everything", NotificationSeverity.Warning, said);
+    }
+
+    /// <summary>Writes a sentence the way <see cref="EditorLog.Write(LogLevel, string)" /> does, under its category.</summary>
+    static void Log(ILogger logger, LogLevel level, string message) =>
+        logger.Log(level, default, message, null, static (state, _) => state);
 
     /// <summary>The Play menu's lines that are declared and not yet built.</summary>
     static readonly (string Id, StringId Title)[] PlannedLines = [

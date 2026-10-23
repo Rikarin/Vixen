@@ -1,0 +1,3 @@
+# Doc 50 § D6's ServiceReachTest: context service verbs nothing outside the service names yet.
+# Shrink-only. Regenerate with VIXEN_REGENERATE=1 on ServiceReachTests, and read the diff.
+

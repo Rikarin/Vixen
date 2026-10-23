@@ -85,6 +85,35 @@ public sealed class SceneEditingTests : IDisposable {
         Assert.Equal(new Vector3(1f, 5f, 2f), world.Read<LocalTransform>(crate).Position);
     }
 
+    /// <summary>
+    ///     An edit to any held scene redraws the outliner, and a closed one is let go (#1293): the watch is
+    ///     the service's, where the application used to subscribe the first and each additive scene itself.
+    /// </summary>
+    [Fact]
+    public void Every_held_scene_is_watched_until_it_is_closed() {
+        var other = new SceneDocument(document.Project, world, AssetId.Empty, "Other");
+        var kept = other.Create("Kept", LocalTransform.Identity);
+
+        var changed = 0;
+        editing.HierarchyChanged += _ => changed++;
+
+        // Whether doing something raised the event at all; a create raises more than one structure change.
+        bool Raised(Action edit) {
+            var before = changed;
+            edit();
+            return changed > before;
+        }
+
+        Assert.True(Raised(() => document.Create("First", LocalTransform.Identity)));
+        Assert.False(Raised(() => other.Create("Before", LocalTransform.Identity)));
+
+        Assert.True(editing.Open(other));
+        Assert.True(Raised(() => other.Rename(kept, "Renamed")));
+
+        Assert.True(editing.Close(other));
+        Assert.False(Raised(() => other.Create("After", LocalTransform.Identity)));
+    }
+
     [Fact]
     public void A_parent_that_is_inside_what_is_moving_is_refused_with_a_reason() {
         var parent = document.Create("Parent", LocalTransform.Identity);
