@@ -129,12 +129,19 @@ sealed partial class EditorApplication {
 
 /// <summary>The scene the editor is showing, which is the prefab when one is being inspected.</summary>
 /// <remarks>
-///     ⚠ <b>A small adapter rather than <c>EditorApplication</c> implementing the interface.</b> The
-///     application is several partials wide and implements nothing; a member called <c>Current</c> on
-///     it would be one more name in a class that already has too many.
+///     <para>
+///         ⚠ <b>A small adapter rather than <c>EditorApplication</c> implementing the interface.</b> The
+///         application is several partials wide and implements nothing; a member called <c>Current</c> on
+///         it would be one more name in a class that already has too many.
+///     </para>
+///     <para>
+///         ⚠ <b>Over the question, not the application (#1294).</b> Which scene is shown is the
+///         application's arbitration — <c>FollowSelection</c> decides when a prefab is being inspected —
+///         so the answer is handed in as a delegate; the adapter held the whole application to read one
+///         property, which is what made every reader of the contract a reader of the editor.
+///     </para>
 /// </remarks>
-sealed class ShownScene(EditorApplication editor) : IActiveScene {
+sealed class ShownScene(Func<SceneDocument> shown) : IActiveScene {
     /// <inheritdoc />
-    public SceneDocument Current => editor.Shown;
+    public SceneDocument Current => shown();
 }
-

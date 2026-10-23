@@ -2040,7 +2040,7 @@ sealed partial class EditorApplication : IDisposable {
             // open: a panel counting entities while a prefab is inspected has to count the prefab. A
             // contract rather than the document itself, because the answer moves and a module handed
             // one at activation would hold the scene that was open when it loaded.
-            .Add<IActiveScene>(new ShownScene(this))
+            .Add<IActiveScene>(new ShownScene(() => Shown))
 
             // ⚠ And the play session, if one is running — the service itself under the
             // contract, so what is published once outlives every session and the answer moves under
