@@ -76,6 +76,14 @@ static class LibraryQuestions {
             }
         );
 
+        // Reimport of the selection is declared and disabled, with the reason (moved from the application).
+        context.AddCommand(
+            new EditorCommand("assets.reimport", EditorStrings.CommandAssetsReimport, () => { }) {
+                Category = EditorStrings.CategoryAssets,
+                Unavailable = EditorStrings.PlannedReasons["assets.reimport"]
+            }
+        );
+
         // ⚠ Behind the same busy flag as Reimport All: deleting the cache under a running import is
         // deleting the files it is writing.
         context.AddCommand(

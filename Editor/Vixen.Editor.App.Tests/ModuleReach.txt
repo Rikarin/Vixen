@@ -8,11 +8,9 @@ editor menu editor.menu.assets assets.build
 editor menu editor.menu.assets assets.import
 editor menu editor.menu.assets assets.move-to
 editor menu editor.menu.assets assets.refresh
-editor menu editor.menu.assets assets.reimport
 editor menu editor.menu.assets assets.rename
 editor menu editor.menu.assets/editor.menu.create assets.new-folder
 editor menu editor.menu.build assets.build
-editor menu editor.menu.build build.rebuild-shaders
 editor menu editor.menu.edit edit.redo
 editor menu editor.menu.edit edit.search-everywhere
 editor menu editor.menu.edit edit.undo
@@ -159,6 +157,7 @@ vixen.blockout menu editor.menu.window/editor.menu.panels view.panel.blockout.uv
 vixen.blockout mode blockout
 vixen.blockout panel blockout.panel
 vixen.blockout panel blockout.uv
+vixen.delivery menu editor.menu.build build.rebuild-shaders
 vixen.delivery menu editor.menu.build build.run
 vixen.delivery menu editor.menu.build build.settings
 vixen.delivery menu editor.menu.build/editor.menu.build-configuration build.configuration-debug
@@ -228,6 +227,7 @@ vixen.library create assets.create-vfx
 vixen.library menu editor.menu.assets assets.delete
 vixen.library menu editor.menu.assets assets.find-references
 vixen.library menu editor.menu.assets assets.open
+vixen.library menu editor.menu.assets assets.reimport
 vixen.library menu editor.menu.assets assets.reimport-all
 vixen.library menu editor.menu.assets assets.select-dependencies
 vixen.library menu editor.menu.assets assets.show-in-explorer

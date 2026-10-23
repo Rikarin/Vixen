@@ -64,6 +64,19 @@ sealed class DeliveryModule : IEditorPlugin {
         Panel(context);
         Commands(context);
 
+        // ⚠ Still declared-and-disabled, and the reason has moved rather than gone away (moved here
+        // from the application, #1296). The ahead-of-time shader bundle is `ShaderBuildRunner`'s, which
+        // links Raven's compiler — a build-time library the editor deliberately does not carry, for the
+        // reason Tools/Vixen.ShaderCompiler's README gives. So a player built from here has no bundle,
+        // the build log says so for a project that has a manifest, and `vixen build` is what compiles
+        // one. What would close this is a compiler service the editor talks to rather than links.
+        context.AddCommand(
+            new EditorCommand("build.rebuild-shaders", EditorStrings.CommandBuildRebuildShaders, () => { }) {
+                Category = EditorStrings.CategoryBuild,
+                Unavailable = EditorStrings.PlannedReasons["build.rebuild-shaders"]
+            }
+        );
+
         // ⚠ Through the context, so an unload takes the subscription back with the panel — a
         // handler left on a service the application outlives would keep this module reachable.
         context.With<IPlayerDelivery>(

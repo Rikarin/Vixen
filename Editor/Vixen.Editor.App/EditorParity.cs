@@ -209,7 +209,7 @@ sealed partial class EditorApplication {
         );
 
         // Revert and Show History are `SourceControlModule`'s (#1505), over the published `ISourceControl`.
-        Planned("assets.reimport", EditorStrings.CommandAssetsReimport, EditorStrings.CategoryAssets);
+        // Reimport (declared, disabled) is `LibraryModule`'s (#1296).
 
         // Find References and Select Dependencies are `LibraryModule`'s now (#1292): names for
         // `IContentLibrary.Referrers` and `Dependencies`, registered through `PluginContext`.
@@ -335,13 +335,7 @@ sealed partial class EditorApplication {
 
         // Clean Library is `LibraryModule`'s (#1296): it deletes the import cache, behind the library's busy flag.
 
-        // ⚠ Still declared-and-disabled, and the reason has moved rather than gone away. The
-        // ahead-of-time shader bundle is `ShaderBuildRunner`'s, which links Raven's compiler — a
-        // build-time library the editor deliberately does not carry, for the reason
-        // Tools/Vixen.ShaderCompiler's README gives. So a player built from here has no bundle, the
-        // build log says so for a project that has a manifest, and `vixen build` is what compiles
-        // one. What would close this is a compiler service the editor talks to rather than links.
-        Planned("build.rebuild-shaders", EditorStrings.CommandBuildRebuildShaders, EditorStrings.CategoryBuild);
+        // Rebuild Shaders (declared, disabled) is `DeliveryModule`'s (#1296): it is the player build's shader bundle.
 
         Verb(
             "tools.plugins",
