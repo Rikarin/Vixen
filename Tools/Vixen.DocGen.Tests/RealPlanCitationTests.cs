@@ -882,7 +882,7 @@ public class RealPlanCitationTests {
             "\"refuse a mismatch\": the refusal in prose, the comparison in code"),
         ("Raven/Vixen.Raven.Tests/DepthTextureTests.cs", "WebGpuDevice.Resources.cs:653", "if (declared.Kind == DescriptorKind.Sampler && sampler.Compares != declared.IsComparisonSampler) {",
             "\"refuse a mismatch\": the refusal in prose, the comparison in code"),
-        ("Samples/02-HelloUi/Shell.vxml", "Vixen.Editor.App/WorkspaceModule.cs:245", "static void RecentProjects(PluginContext context) {",
+        ("Samples/02-HelloUi/Shell.vxml", "Vixen.Editor.App/WorkspaceModule.cs:285", "static void RecentProjects(PluginContext context) {",
             "an XML comment describing what the method builds — a recent list — and not naming it"),
         ("Core/Vixen.Ui.Controls/SegmentedControl.cs", "EditorTheme.vcss:289@e57dfa401", "⚠ A segmented control is one box with the seams *inside* it, which is the",
             "a sheet's own comment cited for what it says, which is prose on both sides")
