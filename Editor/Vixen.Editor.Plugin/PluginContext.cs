@@ -184,6 +184,25 @@ public sealed class PluginContext {
         return mode;
     }
 
+    /// <summary>Adds somewhere for Search Everywhere to look, and takes it back out on unload.</summary>
+    /// <param name="source">The source. Sources added earlier win a tie between equal scores.</param>
+    /// <returns>The source.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Rather than <c>Shell.Search.AddSource</c>, which records nothing (#1518).</b> A source a
+    ///     switched-off module left behind would go on offering rows whose actions run the module's code
+    ///     — and would keep the module's assembly loaded besides.
+    /// </remarks>
+    public IPaletteSource AddSearchSource(IPaletteSource source) {
+        ArgumentNullException.ThrowIfNull(source);
+
+        var search = Shell.Search;
+
+        search.AddSource(source);
+        Registrations.Add(() => search.RemoveSource(source));
+
+        return source;
+    }
+
     /// <summary>Adds a named arrangement and the command that applies it.</summary>
     /// <param name="name">What it is called.</param>
     /// <param name="title">What the menu line says.</param>

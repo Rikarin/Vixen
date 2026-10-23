@@ -172,3 +172,4 @@ static Vixen.Editor.Plugin.EditorApi.Version.get -> System.Version
 static Vixen.Editor.Plugin.PluginCatalog.Empty.get -> Vixen.Editor.Plugin.PluginCatalog
 static Vixen.Editor.Plugin.PluginDiscovery.Scan(params System.Collections.Generic.IEnumerable<string> roots) -> Vixen.Editor.Plugin.PluginCatalog
 static Vixen.Editor.Plugin.PluginReport.Empty.get -> Vixen.Editor.Plugin.PluginReport
+Vixen.Editor.Plugin.PluginContext.AddSearchSource(Vixen.Editor.Ui.IPaletteSource source) -> Vixen.Editor.Ui.IPaletteSource

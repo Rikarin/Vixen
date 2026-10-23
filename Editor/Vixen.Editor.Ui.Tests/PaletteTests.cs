@@ -62,6 +62,38 @@ public class PaletteTests {
         Assert.True(shell.Palette.Results[0].Score > shell.Palette.Results[^1].Score);
     }
 
+    /// <summary>#1518: a source taken back out is asked nothing more, and only the one given is taken.</summary>
+    [Fact]
+    public void A_removed_source_is_asked_nothing_more() {
+        using var shell = new EditorShell(900f, 600f);
+
+        var asked = 0;
+        var source = new DelegatePaletteSource("Asset", () => { asked++; return ["Water.vxmat"]; }, _ => { });
+        // Equal by value to `source` — a record — and still not the one that was added.
+        var stranger = source with { };
+
+        shell.Search.AddSource(source);
+
+        Assert.False(shell.Search.RemoveSource(stranger));
+        Assert.Single(shell.Search.Sources);
+
+        shell.Search.OpenPalette();
+        shell.Search.Field.Value = "water";
+        shell.Search.Refresh();
+
+        Assert.Single(shell.Search.Results);
+
+        var before = asked;
+
+        Assert.True(shell.Search.RemoveSource(source));
+        Assert.Empty(shell.Search.Results);
+
+        shell.Search.Refresh();
+
+        Assert.Equal(before, asked);
+        Assert.False(shell.Search.RemoveSource(source));
+    }
+
     [Fact]
     public void Choosing_a_result_closes_the_palette_before_it_runs() {
         using var shell = new EditorShell(900f, 600f);
