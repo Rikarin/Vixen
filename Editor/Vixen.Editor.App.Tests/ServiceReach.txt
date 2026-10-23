@@ -1,3 +1,6 @@
-# Doc 50 § D6's ServiceReachTest: context service verbs nothing outside the service names yet.
+# Doc 50 § D6's ServiceReachTest: context service verbs nothing outside the service calls yet.
 # Shrink-only. Regenerate with VIXEN_REGENERATE=1 on ServiceReachTests, and read the diff.
 
+IDocumentHost.TryGetByName
+IDocumentHost.TryGetForFile
+ISourceControl.Sweep
