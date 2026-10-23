@@ -51,6 +51,7 @@ static class VulkanLoader {
     static readonly Lock Gate = new();
 
     static Vk? loaded;
+    static nint library;
     static string? failure;
 
     /// <summary>Where the loader was found, for logging at boot.</summary>
@@ -78,6 +79,7 @@ static class VulkanLoader {
 
             // Nothing to load where nothing can be loaded. See LinkedIntoTheProcess.
             if (StaticallyLinked && LinkedIntoTheProcess() is { } linked) {
+                library = NativeLibrary.GetMainProgramHandle();
                 loaded = linked;
                 ResolvedPath = StaticDescription;
                 api = loaded;
@@ -90,6 +92,7 @@ static class VulkanLoader {
                     continue;
                 }
 
+                library = handle;
                 loaded = FromHandle(handle);
                 ResolvedPath = candidate;
                 api = loaded;
@@ -101,6 +104,40 @@ static class VulkanLoader {
             api = null;
             reason = failure;
             return false;
+        }
+    }
+
+    /// <summary>A <c>Vk</c> of its own for one instance, over the library <see cref="TryLoad" /> found.</summary>
+    /// <param name="api">The API <see cref="TryLoad" /> returned, which proves the library is loaded.</param>
+    /// <returns>A new API object that shares the library and nothing else.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The <c>Vk</c> <see cref="TryLoad" /> returns is for questions about the loader, not
+    ///         about an instance</b> (#1515). Silk.NET's <c>Vk.GetPhysicalDevices(instance)</c> — which
+    ///         every <c>TryGetDeviceExtension</c> calls — caches its answer in a dictionary keyed by the
+    ///         instance handle's <em>value</em> and never evicts it. A <c>VkInstance</c> is a heap
+    ///         address and the loader reuses them, so while one <c>Vk</c> served every instance in the
+    ///         process, a new instance at a dead one's address was answered with the dead one's freed
+    ///         <c>VkPhysicalDevice</c> handles: 3 of the first 5 devices in
+    ///         <c>InstanceApiLifetimeTests</c>, and 92 of 100 in the probe that found it. Any of those
+    ///         Silk had not yet asked about went to <c>vkEnumerateDeviceExtensionProperties</c> as a
+    ///         use-after-free.
+    ///     </para>
+    ///     <para>
+    ///         Giving each instance its own <c>Vk</c> makes the cache die with the instance, which is
+    ///         the eviction Silk does not do. <c>PurgeExtensionCache()</c> on destroy was the other
+    ///         way, and it would have raced every other thread's instance on the shared object. The
+    ///         copy is cheap: its context resolves exports lazily from the same handle, and it does not
+    ///         own the library, so nothing is unloaded when it is collected.
+    ///     </para>
+    /// </remarks>
+    public static Vk ForInstance(Vk api) {
+        lock (Gate) {
+            if (!ReferenceEquals(api, loaded) || library == 0) {
+                throw new InvalidOperationException("ForInstance takes the Vk TryLoad returned.");
+            }
+
+            return FromHandle(library);
         }
     }
 
