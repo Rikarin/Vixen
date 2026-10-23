@@ -480,7 +480,7 @@ sealed partial class EditorApplication {
         // Every panel that follows the active scene is pointed at it here rather than each of them
         // watching a signal, because "which scene is active" is this class's arbitration in exactly
         // the way "which selection the inspector follows" already is.
-        if (viewports is { } layout) {
+        if (scenePanes.Layout is { } layout) {
             layout.Document = open.Document;
         }
 

@@ -276,7 +276,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     plain class over two elements rather than an element itself, so a walk of the panel's tree
     ///     finds the tree and the grid and nothing that knows which of the two is showing.
     /// </remarks>
-    internal ProjectBrowser? Browser => browser;
+    internal ProjectBrowser? Browser => browsing.Browser;
 
     /// <summary>Where the open scene is written, which Save As moves.</summary>
     string scenePath;
@@ -311,9 +311,6 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>The one system the editor runs, and <see cref="ResolveTransforms" /> says why.</summary>
     readonly TransformSystem transforms = new();
-
-    /// <summary>The panes the scene is drawn in, or <see langword="null" /> while the panel is closed.</summary>
-    ViewportLayout? viewports => scenePanes.Layout;
 
     /// <summary>The scene panel and its panes (#1294) — the panel model, not this class's state.</summary>
     readonly ScenePanes scenePanes;
@@ -437,9 +434,6 @@ sealed partial class EditorApplication : IDisposable {
     ///     have. This is the counter that tells the two apart.
     /// </remarks>
     internal IReadOnlyList<ReloadReport> StyleReloads => styleReloads;
-
-    /// <summary>The content browser while the Project panel is open, or <see langword="null" />.</summary>
-    ProjectBrowser? browser => browsing.Browser;
 
     /// <summary>The Project panel and its browser (#1294) — the panel model, not this class's state.</summary>
     readonly ContentBrowsing browsing;
@@ -777,7 +771,7 @@ sealed partial class EditorApplication : IDisposable {
             // The build panel goes with it: its scene picker is a view of the same database, so a
             // scene that arrived in an import belongs in the list of what can be put in a build.
             Rescan = () => {
-                browser?.Rescan();
+                Browser?.Rescan();
                 delivery?.Restate();
 
                 // ⚠ And the viewport's own content, which is the frame-thread half of what
@@ -837,12 +831,12 @@ sealed partial class EditorApplication : IDisposable {
             ),
             () => content.IsBusy
         );
-        library.CollectionsChanged += () => browser?.Recollect();
+        library.CollectionsChanged += () => Browser?.Recollect();
 
         // ⚠ A rename, move or delete has already reindexed; the browser redraws from what it found.
-        library.Rearranged += () => browser?.Rescan();
+        library.Rearranged += () => Browser?.Rescan();
 
-        library.Arrived += () => browser?.Rescan();
+        library.Arrived += () => Browser?.Rescan();
 
         // ⚠ Sweeps on the session's rescans, not the browser's presence (#1505); the browser only reads it.
         sourceControl = new ProjectSourceControl(
@@ -850,8 +844,8 @@ sealed partial class EditorApplication : IDisposable {
             (message, severity, detail) => Shell.Notifications.Show(message, severity, detail),
             message => log.Write(LogLevel.Debug, message)
         );
-        sourceControl.Swept += () => browser?.Restated();
-        sourceControl.Reverted += () => browser?.Rebuild();
+        sourceControl.Swept += () => Browser?.Restated();
+        sourceControl.Reverted += () => Browser?.Rebuild();
 
         // ⚠ What a double-click, a drop outside and a press-and-drag mean stay this class's: each one
         // decides between the browser and another panel.
@@ -1086,14 +1080,14 @@ sealed partial class EditorApplication : IDisposable {
     ///         is one the user chose, and the host renders nothing for it.
     ///     </para>
     /// </remarks>
-    public SceneViewport? Viewport => viewports?.Focused;
+    public SceneViewport? Viewport => scenePanes.Focused;
 
     /// <summary>Every pane the scene is drawn in, in reading order.</summary>
     /// <remarks>
     ///     What the host renders: one <c>ScenePresenter</c> per entry, each with its own render
     ///     target and its own image id. Empty while the panel is closed.
     /// </remarks>
-    public IReadOnlyList<SceneViewport> Viewports => viewports?.Panes ?? [];
+    public IReadOnlyList<SceneViewport> Viewports => scenePanes.Panes;
 
     /// <summary>How the scene panel is split.</summary>
     public ViewportArrangement Arrangement {
@@ -1112,8 +1106,8 @@ sealed partial class EditorApplication : IDisposable {
             // throw the record away.
             SceneViewState.ForgetCameras();
 
-            if (viewports is not null) {
-                viewports.Arrangement = value;
+            if (scenePanes.Layout is { } layout) {
+                layout.Arrangement = value;
             }
         }
     }
@@ -1264,7 +1258,7 @@ sealed partial class EditorApplication : IDisposable {
 
         // ⚠ After the step, so the panel's numbers are this frame's, and against the focused pane's
         // size into an accumulator of its own — never `play.Debug`, which every pane draws (#1264).
-        scenePanes.Overlays.Update(play, viewports?.Focused);
+        scenePanes.Overlays.Update(play, scenePanes.Focused);
 
         // ⚠ Immediately after them and not later in this method. Both extraction queries want
         // `WorldTransform` and neither writes one — in a game the phase and the declared access are
@@ -1283,7 +1277,7 @@ sealed partial class EditorApplication : IDisposable {
         // is a module's now (#1290) and rebuilds and re-highlights in here — `SceneOutliner.Update`.
         plugins.Update(delta);
 
-        browser?.SyncSelection();
+        Browser?.SyncSelection();
 
         // ⚠ Drained here rather than raised from the platform thread, which is the whole shape of
         // `IFileWatcher`: a rescan clears and repopulates the database's dictionaries, and doing
@@ -1458,7 +1452,7 @@ sealed partial class EditorApplication : IDisposable {
         // `FileSystemWatcher` is a handle the runtime will not shut down over.
         styleWatcher?.Dispose();
 
-        viewports?.Dispose();
+        scenePanes.Dispose();
 
         // ⚠ Before the world, because the extraction holds a residency claim per entity and a claim
         // is released by looking the entity up. The host normally gets here first by setting
@@ -1655,7 +1649,7 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ The session has rescanned whether or not the panel is open; an open one redraws what it
         // found. This used to be `browser.Rescan()` when open and `session.Rescan()` when not — one
         // scan either way, and still one.
-        browser?.Rebuild();
+        Browser?.Rebuild();
 
         // The source-control sweep follows the session's rescan, which raised this (#1505).
         delivery.Restate();
@@ -2204,7 +2198,7 @@ sealed partial class EditorApplication : IDisposable {
                 RefreshAssets
             ) {
                 Category = EditorStrings.CategoryFile,
-                Enablement = () => browser is not null
+                Enablement = () => Browser is not null
             }
         );
 
@@ -2839,7 +2833,7 @@ sealed partial class EditorApplication : IDisposable {
             return;
         }
 
-        if (browser is { } open) {
+        if (Browser is { } open) {
             open.Deselect();
         } else {
             project.Selection.Clear();
@@ -3296,7 +3290,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     from <c>git status</c>.
     /// </remarks>
     void RefreshAssets() {
-        if (browser is not { } open) {
+        if (Browser is not { } open) {
             return;
         }
 

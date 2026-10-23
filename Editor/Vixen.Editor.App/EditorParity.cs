@@ -279,7 +279,7 @@ sealed partial class EditorApplication {
             EditorStrings.CommandAssetsRename,
             EditorStrings.CategoryAssets,
             RenameSelectedAsset,
-            enabled: () => browser is not null && project.Selection.Count == 1
+            enabled: () => Browser is not null && project.Selection.Count == 1
         );
 
         // ⚠ Through a drawn folder chooser rather than a native one, and that is the whole point of
@@ -292,7 +292,7 @@ sealed partial class EditorApplication {
             EditorStrings.CommandAssetsMoveTo,
             EditorStrings.CategoryAssets,
             MoveSelectedAssets,
-            enabled: () => browser is not null && project.Selection.Count > 0
+            enabled: () => Browser is not null && project.Selection.Count > 0
         );
 
         // Revert and Show History are `SourceControlModule`'s (#1505), over the published `ISourceControl`.
@@ -925,7 +925,7 @@ sealed partial class EditorApplication {
         // navigated to `Textures/` and asked to import has already said where; putting the files at
         // the root anyway is a move they then have to undo by hand, and the affordance that told
         // them nothing was the one they used.
-        var folder = browser?.Folder ?? AssetTree.RootName;
+        var folder = Browser?.Folder ?? AssetTree.RootName;
 
         deferred.When(
             dialogs.OpenFilesAsync(new FileDialogOptions { Title = "Import Assets", AllowsMultipleSelection = true }),
@@ -1005,7 +1005,7 @@ sealed partial class EditorApplication {
     /// </remarks>
     void RenameSelectedAsset() {
         if (project.Selection.Count > 0) {
-            browser?.BeginRename(project.Selection[0]);
+            Browser?.BeginRename(project.Selection[0]);
         }
     }
 
