@@ -125,7 +125,7 @@ public sealed unsafe class VulkanInstance : IDisposable {
         }
     }
 
-    /// <summary>The loaded Vulkan API.</summary>
+    /// <summary>The loaded Vulkan API — this instance's own, so nothing Silk caches on it outlives the instance.</summary>
     public Vk Api { get; }
 
     /// <summary>The instance handle.</summary>
@@ -300,8 +300,13 @@ public sealed unsafe class VulkanInstance : IDisposable {
                 create.PNext = &messengerCreate;
             }
 
+            // The instance gets a Vk of its own rather than the loader's: Silk caches physical devices
+            // by instance handle on the Vk and never evicts them, and handles are reused addresses.
+            // See VulkanLoader.ForInstance (#1515).
+            var own = VulkanLoader.ForInstance(api);
+
             Instance handle;
-            var result = api.CreateInstance(&create, null, &handle);
+            var result = own.CreateInstance(&create, null, &handle);
 
             if (result == Result.ErrorLayerNotPresent && validation) {
                 // The layer was enumerated and then would not load. On macOS this is a packaging
@@ -321,7 +326,7 @@ public sealed unsafe class VulkanInstance : IDisposable {
                 create.EnabledLayerCount = 0;
                 create.PpEnabledLayerNames = null;
                 create.PNext = null;
-                result = api.CreateInstance(&create, null, &handle);
+                result = own.CreateInstance(&create, null, &handle);
             }
 
             if (result != Result.Success) {
@@ -334,7 +339,7 @@ public sealed unsafe class VulkanInstance : IDisposable {
                 return false;
             }
 
-            instance = new(api, handle, options.Logger, validation) {
+            instance = new(own, handle, options.Logger, validation) {
                 PortabilityEnabled = portability,
                 ApiVersion = instanceVersion
             };
@@ -363,10 +368,11 @@ public sealed unsafe class VulkanInstance : IDisposable {
 
         Api.DestroyInstance(handle, null);
 
-        // The instance is ours; the API is not. VulkanLoader loads libvulkan once and hands the same
-        // Vk to every instance in the process, and Vk.Dispose() unloads the library — so disposing it
-        // here leaves every cached entry point in that Vk pointing into unmapped memory, and the next
-        // instance created jumps to a stale address and takes the process with it.
+        // The Vk is not disposed, although it is this instance's own (VulkanLoader.ForInstance). Its
+        // context does not own libvulkan, so there is nothing to release — and the history is why
+        // that matters: when the loader handed one Vk to every instance, disposing it unloaded the
+        // library, left every cached entry point in it pointing into unmapped memory, and the next
+        // instance created jumped to a stale address and took the process with it.
         //
         // This was latent for as long as the loader had to fall back to probing explicit paths, whose
         // native context does not own the handle and whose Dispose does nothing. The moment
