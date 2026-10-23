@@ -118,11 +118,48 @@ sealed class ContentBrowsing {
     /// <param name="asset">Which asset — a file or a folder.</param>
     /// <returns>Whether an editor opened.</returns>
     /// <remarks>
-    ///     ⚠ <b>What Rename and New Folder are names for (#1292, #1516)</b>, and the reason this model is
-    ///     published to <c>LibraryModule</c>: the rename itself is <see cref="IContentLibrary.Rename" />,
-    ///     reached from the tree's commit, and only the in-place editor is this panel's.
+    ///     <para>
+    ///         ⚠ <b>What Rename and New Folder are names for (#1292, #1516)</b>, and the reason this model
+    ///         is published to <c>LibraryModule</c>: the rename itself is <see cref="IContentLibrary.Rename" />,
+    ///         reached from the tree's commit, and only the in-place editor is this panel's.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>In tiles, a folder is renamed in the folders column beside them (#1516).</b> The
+    ///         browsing tree is hidden while the grid shows, so an editor opened in it is a text box nobody
+    ///         can see or type into — and tiles are what the panel opens in. The column is the tree on
+    ///         screen, and its commit (subscribed in <see cref="Describe" />) goes to the same
+    ///         <see cref="IContentLibrary.Rename" />. A file in tiles has no row anywhere, and the grid has
+    ///         no editor of its own: that is #1519.
+    ///     </para>
     /// </remarks>
-    public bool BeginRename(AssetId asset) => Browser?.BeginRename(asset) ?? false;
+    public bool BeginRename(AssetId asset) {
+        if (Browser is not { } browser) {
+            return false;
+        }
+
+        if (!browser.IsGrid) {
+            return browser.BeginRename(asset);
+        }
+
+        foreach (var node in Descendants(browser.Folders.Root)) {
+            if (node.Tag is AssetTreeNode { IsIndexed: true } found && found.Guid == asset) {
+                browser.Folders.BeginRename(node);
+                return true;
+            }
+        }
+
+        return false;
+
+        static IEnumerable<TreeNode> Descendants(TreeNode node) {
+            foreach (var child in node.Children) {
+                yield return child;
+
+                foreach (var found in Descendants(child)) {
+                    yield return found;
+                }
+            }
+        }
+    }
 
     /// <summary>Describes the panel.</summary>
     /// <returns>The descriptor.</returns>
@@ -162,6 +199,14 @@ sealed class ContentBrowsing {
                 Contextualise(browser.Grid, menu);
 
                 browser.CollectionCreateRequested += MakeCollection;
+
+                // ⚠ The folders column's commit, for the rename `BeginRename` opens there while tiles
+                // show (#1516). Its rows are folders and collections, and only a folder has an identity.
+                browser.Folders.Renamed += (_, node, name) => {
+                    if (node.Tag is AssetTreeNode { IsIndexed: true } folder) {
+                        library.Rename(folder.Guid, name);
+                    }
+                };
 
                 Browser = browser;
             }
