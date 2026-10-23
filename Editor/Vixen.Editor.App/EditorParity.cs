@@ -270,7 +270,7 @@ sealed partial class EditorApplication {
             () => Shell.Workspace.Open(MeshMapBakePanel)
         );
 
-        // Show in Explorer, Delete and Reimport All are `LibraryModule`'s now (#1292): names for
+        // Show in Explorer, New Folder, Delete and Reimport All are `LibraryModule`'s now (#1292): names for
         // `IContentLibrary` verbs, registered through `PluginContext`. Rename and Move To stay here —
         // the first starts the browser panel's inline editor and the second asks through this
         // editor's drawn chooser — and both end in `IContentLibrary.Rename`/`Move`.
@@ -279,15 +279,7 @@ sealed partial class EditorApplication {
             EditorStrings.CommandAssetsRename,
             EditorStrings.CategoryAssets,
             RenameSelectedAsset,
-            enabled: () => browser is not null && project.Selection.Count == 1
-        );
-
-        Verb(
-            "assets.new-folder",
-            EditorStrings.CommandAssetsNewFolder,
-            EditorStrings.CategoryAssets,
-            NewAssetFolder,
-            enabled: () => browser is not null
+            enabled: () => Browser is not null && project.Selection.Count == 1
         );
 
         // ⚠ Through a drawn folder chooser rather than a native one, and that is the whole point of
@@ -300,7 +292,7 @@ sealed partial class EditorApplication {
             EditorStrings.CommandAssetsMoveTo,
             EditorStrings.CategoryAssets,
             MoveSelectedAssets,
-            enabled: () => browser is not null && project.Selection.Count > 0
+            enabled: () => Browser is not null && project.Selection.Count > 0
         );
 
         // Revert and Show History are `SourceControlModule`'s (#1505), over the published `ISourceControl`.
@@ -933,7 +925,7 @@ sealed partial class EditorApplication {
         // navigated to `Textures/` and asked to import has already said where; putting the files at
         // the root anyway is a move they then have to undo by hand, and the affordance that told
         // them nothing was the one they used.
-        var folder = browser?.Folder ?? AssetTree.RootName;
+        var folder = Browser?.Folder ?? AssetTree.RootName;
 
         deferred.When(
             dialogs.OpenFilesAsync(new FileDialogOptions { Title = "Import Assets", AllowsMultipleSelection = true }),
@@ -1013,30 +1005,8 @@ sealed partial class EditorApplication {
     /// </remarks>
     void RenameSelectedAsset() {
         if (project.Selection.Count > 0) {
-            browser?.BeginRename(project.Selection[0]);
+            Browser?.BeginRename(project.Selection[0]);
         }
-    }
-
-    /// <summary>Makes a folder beside whatever is selected, and starts renaming it.</summary>
-    /// <remarks>
-    ///     Inside the selected folder, or beside the selected file — which is what every browser does
-    ///     and what somebody who has just clicked a folder means.
-    /// </remarks>
-    void NewAssetFolder() {
-        var parent = "Assets";
-
-        if (project.Selection.Count > 0 && project.Assets.TryGetByGuid(project.Selection[0], out var entry)) {
-            parent = entry.IsFolder ? entry.Path : Path.GetDirectoryName(entry.Path)?.Replace('\\', '/') ?? "Assets";
-        }
-
-        var result = AssetOperations.CreateFolder(project, parent, "New Folder");
-
-        if (!result.Ok) {
-            Shell.Notifications.Show("Could not create the folder", NotificationSeverity.Error, result.Message);
-            return;
-        }
-
-        browser?.Rescan();
     }
 
     /// <summary>Bakes the selected model's mesh maps into the project.</summary>

@@ -5,13 +5,11 @@
 
 editor menu editor.menu.assets assets.bake-mesh-maps
 editor menu editor.menu.assets assets.build
-editor menu editor.menu.assets assets.import
 editor menu editor.menu.assets assets.move-to
 editor menu editor.menu.assets assets.refresh
 editor menu editor.menu.assets assets.reimport
 editor menu editor.menu.assets assets.rename
 editor menu editor.menu.assets/editor.menu.create assets.create
-editor menu editor.menu.assets/editor.menu.create assets.new-folder
 editor menu editor.menu.build assets.build
 editor menu editor.menu.build build.clean-library
 editor menu editor.menu.build build.rebuild-shaders
@@ -64,7 +62,6 @@ editor menu editor.menu.window/editor.menu.panels view.panel.preferences
 editor menu editor.menu.window/editor.menu.panels view.panel.project
 editor menu editor.menu.window/editor.menu.panels view.panel.project-settings
 editor menu editor.menu.window/editor.menu.panels view.panel.scene
-editor menu editor.menu.window/editor.menu.panels view.panel.ui-diagnostics
 editor menu editor.menu.window/editor.menu.panels view.panel.world-settings
 editor mode select
 editor panel console
@@ -81,7 +78,6 @@ editor panel preferences
 editor panel project
 editor panel project-settings
 editor panel scene
-editor panel ui-diagnostics
 editor panel world-settings
 editor scene-menu edit.delete
 editor scene-menu edit.duplicate
@@ -202,6 +198,7 @@ vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.network
 vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.profiler
 vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.remote-inspector
 vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.statistics
+vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.ui-diagnostics
 vixen.diagnostics panel devices
 vixen.diagnostics panel frame-debugger
 vixen.diagnostics panel gpu
@@ -210,6 +207,7 @@ vixen.diagnostics panel network
 vixen.diagnostics panel profiler
 vixen.diagnostics panel remote-inspector
 vixen.diagnostics panel statistics
+vixen.diagnostics panel ui-diagnostics
 vixen.help menu editor.menu.help help.about
 vixen.help menu editor.menu.help help.api-reference
 vixen.help menu editor.menu.help help.documentation
@@ -237,6 +235,7 @@ vixen.library create assets.create-spline
 vixen.library create assets.create-vfx
 vixen.library menu editor.menu.assets assets.delete
 vixen.library menu editor.menu.assets assets.find-references
+vixen.library menu editor.menu.assets assets.import
 vixen.library menu editor.menu.assets assets.open
 vixen.library menu editor.menu.assets assets.reimport-all
 vixen.library menu editor.menu.assets assets.select-dependencies
@@ -260,6 +259,7 @@ vixen.library menu editor.menu.assets/editor.menu.create assets.create-shader-gr
 vixen.library menu editor.menu.assets/editor.menu.create assets.create-shape-vocabulary
 vixen.library menu editor.menu.assets/editor.menu.create assets.create-spline
 vixen.library menu editor.menu.assets/editor.menu.create assets.create-vfx
+vixen.library menu editor.menu.assets/editor.menu.create assets.new-folder
 vixen.library menu editor.menu.edit edit.find-references
 vixen.play menu editor.menu.play play.pause
 vixen.play menu editor.menu.play play.play

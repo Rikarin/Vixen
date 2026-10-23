@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Editor.Diagnostics;
 using Vixen.Editor.Testing;
 using Vixen.Ui.Controls;
 using Xunit;
@@ -25,7 +26,7 @@ public class UiDiagnosticsPanelTests {
         // start would be doing the work in every session that never opened it.
         Assert.Null(fixture.Shell.Diagnostics);
 
-        fixture.Open(EditorApplication.UiDiagnosticsPanel);
+        fixture.Open(DiagnosticsModule.UiDiagnosticsPanel);
 
         var panel = fixture.Shell.Diagnostics;
         Assert.NotNull(panel);
@@ -46,10 +47,10 @@ public class UiDiagnosticsPanelTests {
     public void Closing_the_panel_stops_the_shell_refreshing_a_torn_out_element() {
         using var fixture = EditorSession.Start();
 
-        fixture.Open(EditorApplication.UiDiagnosticsPanel);
+        fixture.Open(DiagnosticsModule.UiDiagnosticsPanel);
         Assert.NotNull(fixture.Shell.Diagnostics);
 
-        fixture.Close(EditorApplication.UiDiagnosticsPanel);
+        fixture.Close(DiagnosticsModule.UiDiagnosticsPanel);
 
         // ⚠ Not tidiness. The shell's tick holds the only reference left, so without the clear it
         // would keep writing rows into a panel that is out of the tree, sixty times a second, for
@@ -66,7 +67,7 @@ public class UiDiagnosticsPanelTests {
     public void The_reading_is_of_the_shells_own_document_and_moves_with_it() {
         using var fixture = EditorSession.Start();
 
-        fixture.Open(EditorApplication.UiDiagnosticsPanel);
+        fixture.Open(DiagnosticsModule.UiDiagnosticsPanel);
 
         var panel = fixture.Shell.Diagnostics!;
 
@@ -92,7 +93,7 @@ public class UiDiagnosticsPanelTests {
 
         Assert.Null(Overlay(fixture));
 
-        fixture.Open(EditorApplication.UiDiagnosticsPanel);
+        fixture.Open(DiagnosticsModule.UiDiagnosticsPanel);
 
         var overlay = Overlay(fixture);
 
@@ -106,7 +107,7 @@ public class UiDiagnosticsPanelTests {
         Assert.Equal(fixture.Document.Root.Bounds, overlay.Bounds);
         Assert.False(overlay.IsHitTestVisible, "the overlay catches the pointer, so it would outline itself for ever");
 
-        fixture.Close(EditorApplication.UiDiagnosticsPanel);
+        fixture.Close(DiagnosticsModule.UiDiagnosticsPanel);
 
         Assert.Null(Overlay(fixture));
     }

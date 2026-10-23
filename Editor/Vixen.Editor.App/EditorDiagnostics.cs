@@ -129,23 +129,19 @@ sealed partial class EditorApplication {
 
 /// <summary>The scene the editor is showing, which is the prefab when one is being inspected.</summary>
 /// <remarks>
-///     ⚠ <b>A small adapter rather than <c>EditorApplication</c> implementing the interface.</b> The
-///     application is several partials wide and implements nothing; a member called <c>Current</c> on
-///     it would be one more name in a class that already has too many.
+///     <para>
+///         ⚠ <b>A small adapter rather than <c>EditorApplication</c> implementing the interface.</b> The
+///         application is several partials wide and implements nothing; a member called <c>Current</c> on
+///         it would be one more name in a class that already has too many.
+///     </para>
+///     <para>
+///         ⚠ <b>Over the question, not the application (#1294).</b> Which scene is shown is the
+///         application's arbitration — <c>FollowSelection</c> decides when a prefab is being inspected —
+///         so the answer is handed in as a delegate; the adapter held the whole application to read one
+///         property, which is what made every reader of the contract a reader of the editor.
+///     </para>
 /// </remarks>
-sealed class ShownScene(EditorApplication editor) : IActiveScene {
+sealed class ShownScene(Func<SceneDocument> shown) : IActiveScene {
     /// <inheritdoc />
-    public SceneDocument Current => editor.Shown;
+    public SceneDocument Current => shown();
 }
-
-/// <summary>The view the focused pane draws through.</summary>
-/// <remarks>
-///     ⚠ <b><see cref="ShownScene" />'s twin, and asked every time for the same reason.</b> The
-///     focused pane changes as somebody clicks between four of them, so a panel handed a view at
-///     activation would keep answering for whichever pane happened to have focus when it loaded.
-/// </remarks>
-sealed class ShownView(EditorApplication editor) : IActiveView {
-    /// <inheritdoc />
-    public RenderView? Current => editor.Viewport?.View;
-}
-

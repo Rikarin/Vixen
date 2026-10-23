@@ -480,7 +480,7 @@ sealed partial class EditorApplication {
         // Every panel that follows the active scene is pointed at it here rather than each of them
         // watching a signal, because "which scene is active" is this class's arbitration in exactly
         // the way "which selection the inspector follows" already is.
-        if (viewports is { } layout) {
+        if (scenePanes.Layout is { } layout) {
             layout.Document = open.Document;
         }
 
@@ -615,7 +615,7 @@ sealed partial class EditorApplication {
     ///     registers and never appears. That is one tier working and another silently not, from the
     ///     same declaration in the same words.
     /// </remarks>
-    void RefreshOverlays(Type kind) => chrome?.Refreshed(kind);
+    void RefreshOverlays(Type kind) => scenePanes.Refreshed(kind);
 
     /// <summary>Puts a kind's command in the registry, if it is not already there.</summary>
     /// <remarks>

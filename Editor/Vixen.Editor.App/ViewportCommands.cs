@@ -389,7 +389,7 @@ sealed partial class EditorApplication {
                     // ⚠ Enabled from the panel rather than from a pane, unlike everything else here.
                     // Splitting a closed panel is meaningless, and a pane count is a property of the
                     // panel — so this is the one viewport command that does not go through `Pane`.
-                    Enablement = () => viewports is not null,
+                    Enablement = () => scenePanes.Layout is not null,
                     Checked = () => Arrangement == value
                 }
             );

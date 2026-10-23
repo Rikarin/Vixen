@@ -70,6 +70,9 @@ public static class DiagnosticsStrings {
     /// <summary>The <c>Devices</c> panel.</summary>
     public static StringId PanelDevices { get; } = new("editor.panel.devices", "Devices");
 
+    /// <summary>The <c>UI Diagnostics</c> panel, which reads the shell's own document.</summary>
+    public static StringId PanelUiDiagnostics { get; } = new("editor.panel.ui-diagnostics", "UI Diagnostics");
+
     /// <summary>The <c>Profiling</c> workspace layout, which is made of this toolset's panels.</summary>
     public static StringId LayoutProfiling { get; } = new("editor.layout.profiling", "Profiling");
 
@@ -84,6 +87,7 @@ public static class DiagnosticsStrings {
         PanelNetwork,
         PanelFrameDebugger,
         PanelRemoteInspector,
-        PanelDevices
+        PanelDevices,
+        PanelUiDiagnostics
     ];
 }
