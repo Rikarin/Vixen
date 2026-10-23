@@ -78,6 +78,39 @@ public sealed class ContentAnnounceTests {
         Assert.Null(listener.LastPath);
     }
 
+    /// <summary>A finished import redraws the open Project panel from the rescanned database.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The browser follows the content tasks itself now (#1293)</b>, through
+    ///     <c>ContentTasks.Stale</c>, where the application used to assign one delegate that called it.
+    ///     Nothing else in the suite noticed when that subscription was emptied: the file is written
+    ///     behind the editor's back (a test session watches nothing), so the browser's rescan after the
+    ///     import is the only thing that can put its row on screen.
+    /// </remarks>
+    [Fact]
+    public void A_finished_import_redraws_the_open_browser() {
+        using var session = EditorSession.Start();
+
+        File.WriteAllText(session.Project.Paths.Absolute("Assets/arrived.png"), "pixels");
+
+        session.ExpandAll(session.Assets);
+        Assert.DoesNotContain("arrived.png", EditorSession.Labels(session.Assets));
+
+        session.Editor.Content.Import();
+
+        // ⚠ A hang check and not a budget, as `BuildStepContributionTests.Until` says: a working import
+        // of an empty project finishes in a few frames and a broken one never does.
+        for (var frame = 0; frame < 400 && session.Editor.Content.IsBusy; frame++) {
+            session.Frame();
+            Thread.Sleep(1);
+        }
+
+        Assert.False(session.Editor.Content.IsBusy, "the import never finished.");
+        session.Settle();
+
+        session.ExpandAll(session.Assets);
+        Assert.Contains("arrived.png", EditorSession.Labels(session.Assets));
+    }
+
     /// <summary>A document that does nothing but count being told a project file changed.</summary>
     sealed class Listener : EditorDocument {
         public Listener(EditorProject project)
