@@ -125,7 +125,7 @@ sealed class ViewportChrome {
 
     /// <summary>Puts the chrome over one pane.</summary>
     /// <param name="pane">The pane.</param>
-    /// <param name="editor">The application, for what the buttons ask about.</param>
+    /// <param name="registry">The editor's registry, which is where the contributed overlays are.</param>
     /// <remarks>
     ///     ⚠ <b>The transform modes are a segmented control and the rest are not.</b> Doc 20's
     ///     objection to the old flat strip is precise: Translate, Rotate and Scale drawn as three
@@ -133,9 +133,9 @@ sealed class ViewportChrome {
     ///     they are the only set on the bar that is genuinely exclusive — space, snap and grid are
     ///     three independent toggles and drawing them boxed together would claim otherwise.
     /// </remarks>
-    public void Attach(SceneViewport pane, EditorApplication editor) {
+    public void Attach(SceneViewport pane, IEditorRegistry registry) {
         ArgumentNullException.ThrowIfNull(pane);
-        ArgumentNullException.ThrowIfNull(editor);
+        ArgumentNullException.ThrowIfNull(registry);
 
         var overlay = pane.Control.Overlay;
 
@@ -187,8 +187,8 @@ sealed class ViewportChrome {
         // siblings there and would be swept up by anything that cleared it.
         var overlays = overlay.Add<UiElement>();
 
-        extensions = editor.Extensions;
-        Contributed(overlays, pane, editor.Extensions);
+        extensions = registry;
+        Contributed(overlays, pane, registry);
 
         attached.Add(new Attached(pane, bar, toolbar, stats, readout, overlays));
     }

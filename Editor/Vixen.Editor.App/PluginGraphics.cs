@@ -16,7 +16,7 @@ namespace Vixen.Editor.App;
 ///         <c>PluginServices.Add</c> throws on a second publish of a type, so publishing the device
 ///         itself was never available — <a href="https://github.com/Rikarin/Vixen/issues/737">#737</a>
 ///         called it a one-line fix and it is not one. This is the same shape
-///         <see cref="ShownScene" /> and <see cref="ShownView" /> already take beside it.
+///         <see cref="ShownScene" /> and <see cref="ScenePanes" />' <c>IActiveView</c> already take beside it.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The upload is the thumbnail surface's, deliberately, and not a second uploader.</b>

@@ -615,7 +615,7 @@ sealed partial class EditorApplication {
     ///     registers and never appears. That is one tier working and another silently not, from the
     ///     same declaration in the same words.
     /// </remarks>
-    void RefreshOverlays(Type kind) => chrome?.Refreshed(kind);
+    void RefreshOverlays(Type kind) => scenePanes.Refreshed(kind);
 
     /// <summary>Puts a kind's command in the registry, if it is not already there.</summary>
     /// <remarks>

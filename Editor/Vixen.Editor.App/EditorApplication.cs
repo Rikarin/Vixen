@@ -313,7 +313,10 @@ sealed partial class EditorApplication : IDisposable {
     readonly TransformSystem transforms = new();
 
     /// <summary>The panes the scene is drawn in, or <see langword="null" /> while the panel is closed.</summary>
-    ViewportLayout? viewports;
+    ViewportLayout? viewports => scenePanes.Layout;
+
+    /// <summary>The scene panel and its panes (#1294) — the panel model, not this class's state.</summary>
+    readonly ScenePanes scenePanes;
 
     /// <summary>How the scene panel is split, and each pane's camera and saved views, kept across a panel rebuild.</summary>
     /// <remarks>
@@ -731,6 +734,30 @@ sealed partial class EditorApplication : IDisposable {
             () => presets,
             WritePresets,
             ShowSelection
+        );
+
+        // ⚠ The picker, the probe, the scene and the preferences are asked for, not handed: the first
+        // three are replaced when the active scene changes and the last by a Revert.
+        scenePanes = new ScenePanes(
+            Shell,
+            SceneContext,
+            world,
+            () => scene,
+            () => SceneViewState,
+            () => picker,
+            () => probe,
+            () => SceneGeometry,
+            () => play.DiagnosticLines,
+            Extensions,
+            snap,
+            plane,
+            editing,
+            playInput,
+            bridges,
+            () => preferences,
+            () => WritePreferences(),
+            () => RenderScale,
+            RegisterViewModes
         );
 
         // ⚠ Before the tasks, because one of their hooks closes over it. A project that has never
@@ -1216,7 +1243,7 @@ sealed partial class EditorApplication : IDisposable {
 
         // ⚠ After the step, so the panel's numbers are this frame's, and against the focused pane's
         // size into an accumulator of its own — never `play.Debug`, which every pane draws (#1264).
-        paneOverlays.Update(play, viewports?.Focused);
+        scenePanes.Overlays.Update(play, viewports?.Focused);
 
         // ⚠ Immediately after them and not later in this method. Both extraction queries want
         // `WorldTransform` and neither writes one — in a game the phase and the declared access are
@@ -1249,37 +1276,9 @@ sealed partial class EditorApplication : IDisposable {
         // coalesced changes are applied and this is the only place it is called.
         styleWatcher?.Poll();
 
-        if (viewports is not { } layout) {
-            return;
-        }
-
-        // ⚠ Every pane, not only the focused one. A pane nobody has clicked in still has a camera
-        // that has to be brought up to date before its render view is read, and a four-pane layout
-        // where three of the panes only redraw once somebody has clicked in them is one where the
-        // other three look frozen. Which pane *flies* is decided by the focus, inside the pane.
-        for (var index = 0; index < layout.Panes.Count; index++) {
-            var pane = layout.Panes[index];
-
-            pane.Update(delta);
-            pane.Stats.Sample(delta);
-            chrome?.Refresh(pane, ReferenceEquals(pane, layout.Focused));
-
-            // ⚠ Kept every frame, not on the way out. A panel's factory runs again when it is
-            // reopened and the SceneViewport goes with the old one, so there is no teardown hook to
-            // read the camera in — and a bookmark taken once at startup would restore the origin
-            // every time.
-            if (index < SceneViewState.MaxPanes) {
-                SceneViewState.Panes[index].Camera = pane.Camera.Bookmark("current");
-            }
-
-            if (preferences.RememberView(index, pane)) {
-                WritePreferences();
-            }
-        }
-
         // The inspector follows the gizmo. Reload rather than Inspect, because the rows and their
         // handlers already exist and rebuilding would take the focus out of whatever is being typed.
-        if (layout.Panes.Any(static pane => pane.Gizmo.IsDragging)) {
+        if (scenePanes.Update(delta)) {
             inspectorPanels.Reload(sections: false);
         }
     }
@@ -1797,140 +1796,6 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     internal DiagnosticOverlays PlayOverlays => play.Overlays;
 
-    /// <summary>Gives every pane of a rearranged layout what only this application can supply.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         <b>Run on every rearrangement, because a rearrangement makes new panes.</b>
-    ///         <c>ViewportLayout</c> pushes the document and the target factory into new panes itself
-    ///         — they are its own properties — and everything here is something it has no business
-    ///         knowing about: the picker, the probe, the display scale, where the camera was, and the
-    ///         chrome drawn over the top.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The focus handler is added per pane and captures that pane.</b> A handler that
-    ///         read the loop variable would give every pane the last one, which is a four-pane layout
-    ///         where clicking any pane focuses the fourth — and the symptom is that three of the four
-    ///         ignore the keyboard.
-    ///     </para>
-    /// </remarks>
-    void Configure(ViewportLayout layout) {
-        chrome ??= new ViewportChrome(Shell);
-        chrome.Forget();
-        paneOverlays.Forget();
-
-        for (var index = 0; index < layout.Panes.Count; index++) {
-            var pane = layout.Panes[index];
-
-            pane.Control.RenderScale = RenderScale;
-
-            // ⚠ Without the picker a click in the viewport selects nothing — the picking stage wants
-            // a target driven by a render system the editor's viewport does not have, so the only way
-            // to select an entity would be the hierarchy panel. Shared across panel rebuilds and
-            // across panes, because its cache of shapes is worth keeping and a scene has one answer.
-            pane.Picker = picker;
-            pane.Surfaces = probe;
-
-            // ⚠ The same source the scene's mesh components already resolve through, so the selection
-            // cage cannot disagree with the surface it is drawn round about how big that surface is.
-            // Read by `SceneLines` and therefore by both presenters — see `SceneViewport.Meshes`.
-            pane.Meshes = SceneGeometry;
-
-            // ⚠ The one list, handed to every pane. What a play session's overlays drew is produced
-            // once per frame by the loop, which does not know how many panes there are — so four
-            // panes each asking a producer would draw a frame apiece. See `SceneViewport.Diagnostics`.
-            pane.Diagnostics = play.DiagnosticLines;
-
-            // ⚠ This editor's registry, not the process-wide default the pane falls back to. A pane
-            // reading a different registry from the one plugins were handed is a pane whose tool
-            // list is empty however many tools were contributed — which is what this line was
-            // written for, after exactly that.
-            pane.Extensions = Extensions;
-
-            // ⚠ The same instance in both, and the same one every other pane has. A drop and a drag
-            // onto the same ramp cannot disagree about whether the thing landing on it stands up,
-            // because there is one answer — see `SnapContext`.
-            pane.Gizmo.Snap = snap;
-            pane.Placement.Snap = snap;
-
-            // The grid is a view of the plane and the plane is the editor's, so a pane rebuilt by a
-            // rearrangement comes up drawing the wall the designer was working on rather than the
-            // ground.
-            pane.Grid.Plane = plane;
-
-            // The same object as the picker and a separate property on purpose — see
-            // `ISubObjectPicker`. What it caches is per shape kind, so sharing it across panes is
-            // what stops a four-pane layout welding a torus four times.
-            pane.SubObjects = picker;
-
-            // Doc 24's P2: which mesh's elements are being selected, shared for the reason above.
-            pane.Editing = editing;
-
-            // ⚠ The mode's first refusal on this pane's input, and the adapter is what joins two
-            // assemblies that cannot see each other: `IEditorMode` is the shell's and `IViewportInput`
-            // is the pane's, and the application is the only thing that knows about both. Shared
-            // across panes and across rebuilds, because it holds nothing but the mode registry.
-            // ⚠ Behind the play session's keyboard, which takes a key first while a session runs and
-            // the pane has not let go of it with Escape, and hands everything else to the mode (#470).
-            pane.Input = playInput;
-
-            // ⚠ Restored, because this runs again every time the panel is reopened and a fresh
-            // SceneViewport starts at the origin looking down −Z. Absent for a pane of an
-            // arrangement nobody has looked at yet, which is what leaves the quad presets alone.
-            if (index < SceneViewState.MaxPanes) {
-                var remembered = SceneViewState.Panes[index];
-
-                if (remembered.Camera is { } saved) {
-                    pane.Camera.Restore(saved);
-                }
-
-                // ⚠ The workspace's slots, not the pane's own: a pane is rebuilt with the panel, and the
-                // nine views saved in the last one went with it (#1303).
-                pane.Bookmarks = remembered.Bookmarks;
-            }
-
-            // ⚠ And what it was drawing, which is the same restore one shelf along: the camera
-            // survives a panel being reopened because it is kept in this class, and the show flags
-            // survive a *restart* because they are kept in the preferences file. Both are read here
-            // because this is the one place a freshly built pane passes through.
-            preferences.RestoreView(index, pane);
-
-            var focused = pane;
-
-            pane.Control.AddHandler<FocusEvent>(
-                (_, args) => {
-                    if (args.Gained) {
-                        layout.Focus(focused);
-                    }
-
-                    // ⚠ Both ways: a key held as the focus leaves is released where the game never
-                    // hears it, so losing the focus has to let go of it here (#470).
-                    playInput.Focus(args.Gained);
-                },
-                handledEventsToo: true
-            );
-
-            // ⚠ One `ComponentGizmos` per pane, sharing the one bridge list. The bridges are the
-            // expensive half and they are the same for every pane; what is per-pane is the show flag
-            // and the line list, both of which live on the pane already.
-            pane.Gizmos = new(bridges, Extensions);
-
-            chrome.Attach(pane, this);
-
-            // ⚠ After the chrome, so a play session's overlay panel is stroked over the toolbar as a
-            // game's HUD is over its picture. Every pane gets one and only the focused pane's paints
-            // — see `PaneOverlays` (#1264).
-            paneOverlays.Attach(pane);
-        }
-
-        // ⚠ After the loop and not inside it, because the panes are what it walks. A rearrangement
-        // builds new `SceneViewport`s and therefore new `ViewModes`, which know nothing about the
-        // trees the renderer built before they existed — see `RegisterViewModes`.
-        RegisterViewModes();
-    }
-
-    /// <summary>The toolbar, the stats readout and the rubber-band drawn over each pane.</summary>
-    ViewportChrome? chrome;
-
     /// <summary>What gives the active editor mode first refusal on every pane's input.</summary>
     readonly ModeInput modeInput;
 
@@ -1939,9 +1804,7 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>A play session's overlay panels, laid out against the focused pane.</summary>
     /// <remarks>Internal for the suite that asserts the panel reaches the focused pane and no other.</remarks>
-    internal PaneOverlays PaneOverlays => paneOverlays;
-
-    readonly PaneOverlays paneOverlays = new();
+    internal PaneOverlays PaneOverlays => scenePanes.Overlays;
 
     void Panels() {
         Shell.RegisterPanel(
@@ -1996,66 +1859,7 @@ sealed partial class EditorApplication : IDisposable {
             }
         );
 
-        Shell.RegisterPanel(
-            new PanelDescriptor(
-                "scene",
-                EditorStrings.PanelScene,
-                panel => {
-                    // ⚠ The panel must not scroll, and this is the case that would be a bug rather
-                    // than an annoyance. A viewport sizes its render target from its own laid-out box
-                    // and turns a pointer into a pick with `(x - AbsoluteLeft) * RenderScale` — so an
-                    // offset the panel applied and the viewport knew nothing about would move every
-                    // click a scroll's worth away from what the user aimed at, on a panel that never
-                    // needed to scroll because the viewport fills it by construction.
-                    panel.Scrolls = false;
-
-                    // ⚠ The one panel that does not report a constant, and the editor mode is why. A
-                    // mode is "a statement about what the viewport's input means right now" — doc
-                    // 20's A1 — and the way Blockout claims 1, 2, 3 and 4 from view-bookmark recall
-                    // without taking them from anywhere else is by being the context the pane reports
-                    // while it is active. A mode with no context of its own — Select — leaves the
-                    // pane reporting `SceneContext`, which is the editor exactly as it was. That is
-                    // why `WhenPressedIn` reads the claim on every press rather than capturing one.
-                    //
-                    // The other half is `RegisterModes`: entering a mode claims the context without
-                    // waiting for a press, because somebody who has just pressed the Blockout button
-                    // has aimed at the viewport and should not have to click it as well.
-                    panel.WhenPressedIn(() => Shell.Context = Shell.Modes.Context ?? SceneContext);
-
-                    // ⚠ A layout rather than a control, and every pane in it is a whole
-                    // `SceneViewport`. Doc 11 asks for "multiple simultaneous viewports with
-                    // independent cameras and render modes", and the second half of that is what
-                    // forces it: a view mode is stage state, so a pane that wanted its own would
-                    // silently change its neighbour's.
-                    viewports = new ViewportLayout(panel, scene.Selection) {
-                        Document = scene,
-                        // ⚠ The element modes take the gizmo over, and the factory is where that
-                        // happens rather than in the pane: what a gizmo drags is exactly what a mode
-                        // says is selected, and doc 24's P2 is that inside a mesh that is a set of
-                        // its corners rather than the entity round them.
-                        TargetsFactory = () =>
-                            editing.IsActive && !editing.Selection.IsEmpty
-                                ? [new MeshGizmoTarget(scene, editing)]
-                                : EntityGizmoTarget.For(world, scene.Selection),
-                        Arrangement = SceneViewState.Arrangement
-                    };
-
-                    // ⚠ Subscribed after the constructor and then called by hand, because the
-                    // constructor's own `Rebuild` raises this before there is anything to hear it —
-                    // and the panes it made are the ones that need configuring.
-                    viewports.Rearranged += Configure;
-                    Configure(viewports);
-                }
-            ) {
-                // ⚠ The other half of the factory. A closed Scene tab takes every pane's control
-                // with it, and `Update` walking them on the next frame asks a removed element for
-                // its width — see `PanelDescriptor.Closed`.
-                Closed = () => {
-                    viewports?.Dispose();
-                    viewports = null;
-                }
-            }
-        );
+        Shell.RegisterPanel(scenePanes.Describe());
 
         // ⚠ Two of them, which is doc 20 § B1's "multiple inspector windows" — and the reason it is
         // two registrations rather than a loop over a number is that an arrangement names panels by
@@ -2264,7 +2068,7 @@ sealed partial class EditorApplication : IDisposable {
             // answer: doc 39's resolved volume stack is per camera, because the volume fold weighs
             // every volume by how far the camera is from it. A panel with the scene and no view can
             // only answer for the origin, which is a place nobody is standing.
-            .Add<IActiveView>(new ShownView(this))
+            .Add<IActiveView>(scenePanes)
 
             // And building a player (#1295): what `DeliveryModule` and Deploy are names for.
             .Add<IPlayerDelivery>(delivery)

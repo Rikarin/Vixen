@@ -138,14 +138,3 @@ sealed class ShownScene(EditorApplication editor) : IActiveScene {
     public SceneDocument Current => editor.Shown;
 }
 
-/// <summary>The view the focused pane draws through.</summary>
-/// <remarks>
-///     ⚠ <b><see cref="ShownScene" />'s twin, and asked every time for the same reason.</b> The
-///     focused pane changes as somebody clicks between four of them, so a panel handed a view at
-///     activation would keep answering for whichever pane happened to have focus when it loaded.
-/// </remarks>
-sealed class ShownView(EditorApplication editor) : IActiveView {
-    /// <inheritdoc />
-    public RenderView? Current => editor.Viewport?.View;
-}
-

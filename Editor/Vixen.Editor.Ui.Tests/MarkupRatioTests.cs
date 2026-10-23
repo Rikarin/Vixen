@@ -34,9 +34,9 @@ public class MarkupRatioTests {
     /// <summary>A top-level class or record whose name ends the way a view's does.</summary>
     /// <remarks>
     ///     ⚠ Anchored at column zero, so a nested helper is not a view. <c>ImportPipeline</c>
-    ///     declares a <c>SequentialView</c> and <c>EditorDiagnostics</c> a <c>ShownView</c>; both are
-    ///     implementation details of the type around them, and a sweep that counted them would ask
-    ///     for a <c>.vxml</c> beside a file that draws nothing.
+    ///     declares a <c>SequentialView</c>, an implementation detail of the type around it, and a
+    ///     sweep that counted it would ask for a <c>.vxml</c> beside a file that draws nothing. A
+    ///     top-level one is counted, and needs a ledger line if it draws nothing.
     /// </remarks>
     static readonly Regex ViewShaped = new(
         @"^(?:public\s+|internal\s+)?(?:sealed\s+|abstract\s+|static\s+|partial\s+)*(?:class|record)\s+(?<name>\w+(?:View|Panel|Inspector|Popup))\b",
