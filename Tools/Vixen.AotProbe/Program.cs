@@ -116,8 +116,8 @@ class ProbeBase : UiElement {
         typeof(ProbeBase),
         typeof(int),
         false,
-        static element => ((ProbeBase) element).Weight,
-        static (element, value) => ((ProbeBase) element).Weight = (int) value!
+        static element => ((ProbeBase)element).Weight,
+        static (element, value) => ((ProbeBase)element).Weight = (int)value!
     );
 
     /// <summary>Explicit, so the class is not <c>beforefieldinit</c> — the generator's reason.</summary>
