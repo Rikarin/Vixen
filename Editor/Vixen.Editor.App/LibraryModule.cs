@@ -149,6 +149,9 @@ sealed class LibraryModule : IEditorPlugin {
                 Enablement = () => !library.IsImporting
             }
         );
+
+        // And the four that ask something first (#1296).
+        LibraryQuestions.Register(context, library);
     }
 
     /// <summary>Opens the selected asset's folder in the platform's file manager.</summary>

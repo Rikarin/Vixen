@@ -128,26 +128,7 @@ sealed partial class EditorApplication {
                 && (document.HasUnsavedChanges.Value || document.IsStale.Value)
         );
 
-        Verb(
-            "assets.import-files",
-            EditorStrings.CommandAssetsImportFiles,
-            EditorStrings.CategoryFile,
-            ImportFiles,
-            enabled: () => services.CanPick && !content.IsBusy
-        );
-
-        // ⚠ The walk this waited on is `assets.select-dependencies`, and it has been a real verb
-        // since E5. What a package needs over that verb is the *closure* rather than one step of it:
-        // Select Dependencies answers "what does this point at" for a person about to look at the
-        // answer, and an archive that carried only that would unpack a material whose textures are
-        // missing.
-        Verb(
-            "file.export-package",
-            EditorStrings.CommandFileExportPackage,
-            EditorStrings.CategoryFile,
-            ExportPackage,
-            enabled: () => services.CanPick && project.Selection.Count > 0
-        );
+        // Import Files and Export Package are `LibraryModule`'s (#1296) — see `LibraryQuestions`.
 
         Shell.Keys.SetDefault("file.new-scene", new KeyChord(InputKey.N, ModifierKeys.Control));
         Shell.Keys.SetDefault("file.open-scene", new KeyChord(InputKey.O, ModifierKeys.Control));
@@ -187,17 +168,7 @@ sealed partial class EditorApplication {
     // ── Assets ──────────────────────────────────────────────────────────────────────────────────
 
     void AssetCommands() {
-        // ⚠ Not a template gallery, and it never needed to be. Eighteen `assets.create-*` verbs
-        // exist and each writes a sensible empty file of its kind — see `BuiltInAssetKinds` — so the
-        // general line's whole job is asking *which one*, over the same registry the Create submenu
-        // is built from. A kind a plugin contributed is in the dialog for free, which is the half a
-        // literal list of templates would have got wrong.
-        Verb(
-            "assets.create",
-            EditorStrings.CommandAssetsCreate,
-            EditorStrings.CategoryAssets,
-            ChooseAssetKind
-        );
+        // Create (the kind chooser) is `LibraryModule`'s (#1296) — see `LibraryQuestions`.
 
         // Open is `LibraryModule`'s now (#1292): a name for the published `IWorkspace.Open`, which is
         // this application's open and asks `IDocumentHost.TryOpen` for the document.
@@ -382,13 +353,7 @@ sealed partial class EditorApplication {
         // Deploy is the diagnostics module's, because it opens the device manager E4 built. It is
         // still a Build-menu line — Part C puts it there — and the window is the Tools one.
 
-        Verb(
-            "build.clean-library",
-            EditorStrings.CommandBuildCleanLibrary,
-            EditorStrings.CategoryBuild,
-            CleanLibrary,
-            enabled: () => !content.IsBusy
-        );
+        // Clean Library is `LibraryModule`'s (#1296): it deletes the import cache, behind the library's busy flag.
 
         // ⚠ Still declared-and-disabled, and the reason has moved rather than gone away. The
         // ahead-of-time shader bundle is `ShaderBuildRunner`'s, which links Raven's compiler — a
@@ -872,93 +837,6 @@ sealed partial class EditorApplication {
         }
     }
 
-    /// <summary>Copies files chosen from the OS into the project, then imports.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Copied rather than referenced.</b> An asset outside the project tree is one the
-    ///     content build cannot find, the reference index cannot name and a colleague does not have —
-    ///     every engine that allowed it spent years telling people why their build was broken.
-    /// </remarks>
-    void ImportFiles() {
-        if (services.Dialogs is not { } dialogs) {
-            return;
-        }
-
-        // ⚠ Into the folder the browser is showing rather than into `Assets/`, which is what this
-        // did and is the smaller half of doc 20 § B3's "choose a destination". A person who has
-        // navigated to `Textures/` and asked to import has already said where; putting the files at
-        // the root anyway is a move they then have to undo by hand, and the affordance that told
-        // them nothing was the one they used.
-        var folder = browser?.Folder ?? AssetTree.RootName;
-
-        deferred.When(
-            dialogs.OpenFilesAsync(new FileDialogOptions { Title = "Import Assets", AllowsMultipleSelection = true }),
-            paths => library.Import(paths, folder),
-            failure => Shell.Notifications.Show("Could not import", NotificationSeverity.Error, failure.Message)
-        );
-    }
-
-    /// <summary>Asks which kind of asset to make, and runs that kind's own verb.</summary>
-    /// <remarks>
-    ///     ⚠ <b>It runs the command rather than calling <c>CreateAsset</c> itself.</b> Each kind's
-    ///     verb is what the Create submenu, the palette and a key binding all reach, and a second
-    ///     path into the same file would be a second place the folder, the naming and the "does it
-    ///     open" answer are decided — which is how two ways of making an animation graph come to
-    ///     produce two different files.
-    /// </remarks>
-    void ChooseAssetKind() {
-        var kinds = AssetKinds;
-
-        if (kinds.Count == 0) {
-            return;
-        }
-
-        _ = Ask();
-
-        async Task Ask() {
-            var chosen = await Shell.ChooseAsync(
-                "What kind of asset?",
-                kinds,
-                static kind => kind.Title.Text,
-                static kind => kind.Extension
-            ).ConfigureAwait(true);
-
-            if (chosen is not null) {
-                Shell.Commands.Execute(chosen.Id);
-            }
-        }
-    }
-
-    /// <summary>Asks where to put a package of the selection, and writes one there.</summary>
-    void ExportPackage() {
-        if (services.Dialogs is not { } dialogs) {
-            return;
-        }
-
-        var assets = library.Closure(project.Selection);
-
-        if (assets.Count == 0) {
-            return;
-        }
-
-        deferred.When(
-            dialogs.SaveFileAsync(
-                new FileDialogOptions {
-                    Title = "Export Package",
-                    InitialDirectory = project.Paths.Root,
-                    SuggestedFileName = Path.GetFileName(project.Paths.Root.TrimEnd(Path.DirectorySeparatorChar))
-                        + ContentLibrary.PackageExtension,
-                    Filters = [new FileFilter("Vixen package", ContentLibrary.PackageExtension.TrimStart('.'))]
-                }
-            ),
-            path => {
-                if (path is { Length: > 0 }) {
-                    library.ExportPackage(path, assets);
-                }
-            },
-            failure => Shell.Notifications.Show("Could not export", NotificationSeverity.Error, failure.Message)
-        );
-    }
-
     /// <summary>Renames the selected asset, in place in the browser's own tree.</summary>
     /// <remarks>
     ///     Through the tree's inline editor rather than a dialog, so the menu line, F2 and a
@@ -1278,19 +1156,6 @@ sealed partial class EditorApplication {
         } catch (Exception failure)
             when (failure is IOException or YamlParseException or YamlBindingException or MetaVersionException) {
             return new();
-        }
-    }
-
-    /// <summary>Throws away the import cache and the artefacts, so the next build starts clean.</summary>
-    void CleanLibrary() {
-        try {
-            if (Directory.Exists(project.Paths.Library)) {
-                Directory.Delete(project.Paths.Library, recursive: true);
-            }
-
-            Shell.Notifications.Success("Library cleared");
-        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
-            Shell.Notifications.Show("Could not clear Library", NotificationSeverity.Error, exception.Message);
         }
     }
 
