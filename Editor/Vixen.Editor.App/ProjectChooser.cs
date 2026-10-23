@@ -207,9 +207,9 @@ sealed class ProjectChooser {
 
         return elapsed switch {
             { TotalMinutes: < 2 } => "just now",
-            { TotalHours: < 1 } => string.Create(CultureInfo.CurrentCulture, $"{(int) elapsed.TotalMinutes} minutes ago"),
-            { TotalDays: < 1 } => string.Create(CultureInfo.CurrentCulture, $"{(int) elapsed.TotalHours} hours ago"),
-            { TotalDays: < 30 } => string.Create(CultureInfo.CurrentCulture, $"{(int) elapsed.TotalDays} days ago"),
+            { TotalHours: < 1 } => string.Create(CultureInfo.CurrentCulture, $"{(int)elapsed.TotalMinutes} minutes ago"),
+            { TotalDays: < 1 } => string.Create(CultureInfo.CurrentCulture, $"{(int)elapsed.TotalHours} hours ago"),
+            { TotalDays: < 30 } => string.Create(CultureInfo.CurrentCulture, $"{(int)elapsed.TotalDays} days ago"),
             _ => when.ToLocalTime().ToString("d MMM yyyy", CultureInfo.CurrentCulture)
         };
     }

@@ -68,7 +68,7 @@ public class PlayModuleTests {
 
         var play = editor.Plugins.Services.Require<IPlaySession>();
         var log = editor.Plugins.Services.Require<RingBufferSink>();
-        var session = (EditorPlaySession) play;
+        var session = (EditorPlaySession)play;
 
         int Said() => editor.Shell.Notifications.History.Count(static note => note.Message == "Play mode");
 
