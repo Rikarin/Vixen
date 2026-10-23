@@ -587,28 +587,15 @@ sealed partial class EditorApplication : IDisposable {
         sceneEditing.ActiveChanged += _ => Followed();
         sceneEditing.ScenesChanged += _ => ForgetClosedScenes();
 
-        // ⚠ And every other open scene's, because the store above is the *first* document's and a
-        // behaviour authored into an additively opened scene used to be named in `Unsupported`
-        // rather than run. Honest, and not whole: a designer was told about something the editor
-        // should be able to do. Read at every Play, so a scene opened after this line still plays.
-        play.Controller.Stores = () => sceneEditing.Scenes.Select(document => document.Behaviors);
+        // ⚠ Every open scene's behaviours play, and a restore re-keys the active scene — the service's
+        // facts about the scenes it holds (#1293). See `SceneEditing.Follow`.
+        sceneEditing.Follow(play);
 
         // The editor's passes for the frame a session runs — diagnostics, physics, animation, the
         // agents, the keyboard — are `PlayModule`'s contributions (#1293). The keyboard's object is
         // built here: every pane's input goes through it ahead of the active mode, and the panes are
         // this class's — see `PlayInput` and `Configure`. #470.
         playInput = new PlayInput(modeInput = new ModeInput(Shell.Modes));
-
-        // ⚠ Every entity gets a *new handle* when a play-mode snapshot is restored, so the
-        // document's name and stable-id tables — both keyed by handle — name nothing at all
-        // afterwards. `SceneDocument.Remap` was written for exactly this and nothing called it: the
-        // outliner came back from play mode as a list of blank rows, which reads as the scene having
-        // been lost. Subscribed here rather than in `PlayLeft` so that it also covers a restore the
-        // controller performs for any other reason.
-        play.Controller.Restored += (_, translation) => {
-            scene.Remap(translation);
-            sceneEditing.Restructured();
-        };
 
         // ⚠ Not only after this panel's own commands. An *undo* of "remove component" puts the
         // column back with nothing having been clicked, so a view that rebuilt only on its own
@@ -652,9 +639,6 @@ sealed partial class EditorApplication : IDisposable {
             // editor is certain exists, because it just made it.
             project.Assets.Scan();
         }
-
-        scene.StructureChanged += _ => sceneEditing.Restructured();
-        scene.Renamed += (_, _) => sceneEditing.Restructured();
 
         // ⚠ Empty here: every kind and view is a module's contribution (#1297), registered through
         // `PluginServices` — the asset editors module registers this build's twenty-six. The

@@ -449,8 +449,6 @@ sealed partial class EditorApplication {
 
         document.Stack.Clear();
         document.Stack.MarkClean();
-        document.StructureChanged += _ => sceneEditing.Restructured();
-        document.Renamed += (_, _) => sceneEditing.Restructured();
 
         sceneFiles[document] = new(document, path) { Settings = WorldSettings.Load(path) };
         sceneEditing.Open(document);
