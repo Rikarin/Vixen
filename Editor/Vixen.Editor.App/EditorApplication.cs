@@ -1052,25 +1052,8 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>How the scene panel is split.</summary>
     public ViewportArrangement Arrangement {
-        get => SceneViewState.Arrangement;
-
-        set {
-            if (SceneViewState.Arrangement == value) {
-                return;
-            }
-
-            SceneViewState.Arrangement = value;
-
-            // ⚠ Forgotten before the rebuild, not after. `ViewportLayout` raises `Rearranged` from
-            // inside the setter below, and the handler is what restores these — so clearing
-            // afterwards would restore last arrangement's cameras into this one's panes and then
-            // throw the record away.
-            SceneViewState.ForgetCameras();
-
-            if (scenePanes.Layout is { } layout) {
-                layout.Arrangement = value;
-            }
-        }
+        get => scenePanes.Arrangement;
+        set => scenePanes.Arrangement = value;
     }
 
     /// <summary>Whether the editor has been asked to close.</summary>
