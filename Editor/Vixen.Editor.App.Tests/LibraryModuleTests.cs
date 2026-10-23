@@ -68,6 +68,7 @@ public class LibraryModuleTests {
         Assert.Null(editor.Shell.Commands["assets.reimport-all"]);
         Assert.Null(editor.Shell.Commands["assets.open"]);
         Assert.Null(editor.Shell.Commands["assets.new-folder"]);
+        Assert.Null(editor.Shell.Commands["assets.import"]);
 
         editor.Plugins.Enable(LibraryModule.ModuleId);
 

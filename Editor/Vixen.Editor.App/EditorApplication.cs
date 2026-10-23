@@ -2210,19 +2210,10 @@ sealed partial class EditorApplication : IDisposable {
 
         Shell.Keys.SetDefault("assets.refresh", new KeyChord(InputKey.R, ModifierKeys.Control));
 
-        // Both greyed out while either is running: they write the same sidecars, artefact store and
-        // cache file, and two at once corrupts `Library/` rather than merely producing a worse build.
-        Shell.Commands.Add(
-            new EditorCommand(
-                "assets.import",
-                EditorStrings.CommandImportAssets,
-                content.Import
-            ) {
-                Category = EditorStrings.CategoryFile,
-                Enablement = () => !content.IsBusy
-            }
-        );
-
+        // Greyed out while an import or a build is running: they write the same sidecars, artefact
+        // store and cache file, and two at once corrupts `Library/` rather than merely producing a
+        // worse build. Import Assets is `LibraryModule`'s (#1292), greyed by the same counter through
+        // `IContentLibrary.IsImporting`.
         Shell.Commands.Add(
             new EditorCommand(
                 "assets.build",

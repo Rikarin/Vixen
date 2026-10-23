@@ -163,6 +163,16 @@ sealed class LibraryModule : IEditorPlugin {
                 Enablement = () => !library.IsImporting
             }
         );
+
+        // ⚠ The File-category name for the same run (#1292): `ContentTasks.Import`, which is what
+        // `ReimportAll` is, behind the same busy counter. It was the application's, registered over the
+        // tasks object directly — the one content-task door the library had not taken.
+        context.AddCommand(
+            new EditorCommand("assets.import", EditorStrings.CommandImportAssets, library.ReimportAll) {
+                Category = EditorStrings.CategoryFile,
+                Enablement = () => !library.IsImporting
+            }
+        );
     }
 
     /// <summary>Opens the selected asset's folder in the platform's file manager.</summary>
