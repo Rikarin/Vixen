@@ -136,6 +136,20 @@ sealed class LibraryModule : IEditorPlugin {
             }
         );
 
+        // ⚠ Greyed while the Project panel is closed, as it was in the application (#1292): the row
+        // appearing in the browser is the verb's only answer, and a folder made where nobody can see
+        // it is a click that seemed to do nothing.
+        context.AddCommand(
+            new EditorCommand(
+                "assets.new-folder",
+                EditorStrings.CommandAssetsNewFolder,
+                () => library.CreateFolder(FolderBeside(library.Project), "New Folder")
+            ) {
+                Category = EditorStrings.CategoryAssets,
+                Enablement = () => context.Shell.Workspace.IsOpen(ProjectBrowser.PanelId)
+            }
+        );
+
         context.AddCommand(
             new EditorCommand("assets.delete", EditorStrings.CommandAssetsDelete, () => Delete(context, library)) {
                 Category = EditorStrings.CategoryAssets,
@@ -164,6 +178,24 @@ sealed class LibraryModule : IEditorPlugin {
         // The folder rather than the file: every desktop opens a directory URI in its file manager
         // and none of them agree on how to ask for a file to be revealed.
         links.Open(new Uri(Path.GetDirectoryName(full) ?? project.Paths.Root).AbsoluteUri);
+    }
+
+    /// <summary>Where New Folder makes its folder: inside the selected folder, or beside the selected file.</summary>
+    /// <param name="project">The project, whose selection decides.</param>
+    /// <returns>The project-relative folder; <c>Assets</c> when nothing is selected.</returns>
+    /// <remarks>
+    ///     What every browser does and what somebody who has just clicked a folder means. Moved from
+    ///     <c>EditorApplication.NewAssetFolder</c>, whose summary also said it "starts renaming it" — ⚠ it
+    ///     never did: nothing called the browser's <c>BeginRename</c> on the new row.
+    /// </remarks>
+    static string FolderBeside(EditorProject project) {
+        var parent = "Assets";
+
+        if (project.Selection.Count > 0 && project.Assets.TryGetByGuid(project.Selection[0], out var entry)) {
+            parent = entry.IsFolder ? entry.Path : Path.GetDirectoryName(entry.Path)?.Replace('\\', '/') ?? "Assets";
+        }
+
+        return parent;
     }
 
     /// <summary>Deletes the selected assets, having said what would break.</summary>

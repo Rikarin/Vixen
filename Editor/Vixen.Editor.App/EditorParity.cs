@@ -270,7 +270,7 @@ sealed partial class EditorApplication {
             () => Shell.Workspace.Open(MeshMapBakePanel)
         );
 
-        // Show in Explorer, Delete and Reimport All are `LibraryModule`'s now (#1292): names for
+        // Show in Explorer, New Folder, Delete and Reimport All are `LibraryModule`'s now (#1292): names for
         // `IContentLibrary` verbs, registered through `PluginContext`. Rename and Move To stay here —
         // the first starts the browser panel's inline editor and the second asks through this
         // editor's drawn chooser — and both end in `IContentLibrary.Rename`/`Move`.
@@ -280,14 +280,6 @@ sealed partial class EditorApplication {
             EditorStrings.CategoryAssets,
             RenameSelectedAsset,
             enabled: () => browser is not null && project.Selection.Count == 1
-        );
-
-        Verb(
-            "assets.new-folder",
-            EditorStrings.CommandAssetsNewFolder,
-            EditorStrings.CategoryAssets,
-            NewAssetFolder,
-            enabled: () => browser is not null
         );
 
         // ⚠ Through a drawn folder chooser rather than a native one, and that is the whole point of
@@ -1015,28 +1007,6 @@ sealed partial class EditorApplication {
         if (project.Selection.Count > 0) {
             browser?.BeginRename(project.Selection[0]);
         }
-    }
-
-    /// <summary>Makes a folder beside whatever is selected, and starts renaming it.</summary>
-    /// <remarks>
-    ///     Inside the selected folder, or beside the selected file — which is what every browser does
-    ///     and what somebody who has just clicked a folder means.
-    /// </remarks>
-    void NewAssetFolder() {
-        var parent = "Assets";
-
-        if (project.Selection.Count > 0 && project.Assets.TryGetByGuid(project.Selection[0], out var entry)) {
-            parent = entry.IsFolder ? entry.Path : Path.GetDirectoryName(entry.Path)?.Replace('\\', '/') ?? "Assets";
-        }
-
-        var result = AssetOperations.CreateFolder(project, parent, "New Folder");
-
-        if (!result.Ok) {
-            Shell.Notifications.Show("Could not create the folder", NotificationSeverity.Error, result.Message);
-            return;
-        }
-
-        browser?.Rescan();
     }
 
     /// <summary>Bakes the selected model's mesh maps into the project.</summary>

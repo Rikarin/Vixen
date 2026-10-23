@@ -120,6 +120,19 @@ internal sealed class ContentLibrary : IContentLibrary {
     }
 
     /// <inheritdoc />
+    /// <remarks>Moved from <c>EditorApplication.NewAssetFolder</c> (#1292), with its refusal's wording.</remarks>
+    public AssetOperation CreateFolder(string parent, string name) {
+        var result = AssetOperations.CreateFolder(project, parent, name);
+
+        if (!result.Ok) {
+            notify("Could not create the folder", NotificationSeverity.Error, result.Message);
+        }
+
+        Rearranged?.Invoke();
+        return result;
+    }
+
+    /// <inheritdoc />
     /// <remarks>
     ///     ⚠ <b>One body for the two doors</b> — a drop on a folder row and Assets ▸ Move To — which
     ///     were two loops in the application. The success line names the folder rather than its path,

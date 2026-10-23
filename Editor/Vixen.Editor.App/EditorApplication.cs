@@ -1809,7 +1809,7 @@ sealed partial class EditorApplication : IDisposable {
     void Panels() {
         Shell.RegisterPanel(
             new PanelDescriptor(
-                "project",
+                ProjectBrowser.PanelId,
                 EditorStrings.PanelProject,
                 panel => {
                     panel.WhenPressedIn(() => Shell.Context = AssetContext);

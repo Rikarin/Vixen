@@ -67,6 +67,7 @@ public class LibraryModuleTests {
         Assert.Null(editor.Shell.Commands["assets.show-in-explorer"]);
         Assert.Null(editor.Shell.Commands["assets.reimport-all"]);
         Assert.Null(editor.Shell.Commands["assets.open"]);
+        Assert.Null(editor.Shell.Commands["assets.new-folder"]);
 
         editor.Plugins.Enable(LibraryModule.ModuleId);
 
@@ -165,5 +166,39 @@ public class LibraryModuleTests {
         Assert.Equal(1, rearranged);
         Assert.False(editor.Project.Assets.TryGetByGuid(crate.Guid, out _));
         Assert.False(File.Exists(editor.Project.Paths.Absolute("Assets/crate.png.meta")));
+    }
+
+    /// <summary>New Folder makes its folder inside the selected one, through the published service.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Counted on the published object</b>, for Delete's reason: a New Folder left registered in
+    ///     the application would make the folder just as well. And greyed while the Project panel is
+    ///     closed, which is what the application's <c>browser is not null</c> meant.
+    /// </remarks>
+    [Fact]
+    public void New_folder_makes_it_inside_the_selected_folder_through_the_published_service() {
+        using var editor = EditorSession.Start();
+
+        editor.Close(ProjectBrowser.PanelId);
+        Assert.False(editor.CanRun("assets.new-folder"));
+
+        editor.Open(ProjectBrowser.PanelId);
+        Assert.True(editor.CanRun("assets.new-folder"));
+
+        var library = editor.Plugins.Services.Require<IContentLibrary>();
+        var rearranged = 0;
+
+        library.Rearranged += () => rearranged++;
+
+        Directory.CreateDirectory(editor.Project.Paths.Absolute("Assets/Props"));
+        editor.Run("assets.refresh");
+
+        Assert.True(editor.Project.Assets.TryGetByPath("Assets/Props", out var props));
+
+        editor.Project.Selection.Set([props.Guid]);
+        editor.Run("assets.new-folder");
+
+        Assert.Equal(1, rearranged);
+        Assert.True(editor.Project.Assets.TryGetByPath("Assets/Props/New Folder", out var made));
+        Assert.True(made.IsFolder);
     }
 }

@@ -11,7 +11,6 @@ editor menu editor.menu.assets assets.refresh
 editor menu editor.menu.assets assets.reimport
 editor menu editor.menu.assets assets.rename
 editor menu editor.menu.assets/editor.menu.create assets.create
-editor menu editor.menu.assets/editor.menu.create assets.new-folder
 editor menu editor.menu.build assets.build
 editor menu editor.menu.build build.clean-library
 editor menu editor.menu.build build.rebuild-shaders
@@ -260,6 +259,7 @@ vixen.library menu editor.menu.assets/editor.menu.create assets.create-shader-gr
 vixen.library menu editor.menu.assets/editor.menu.create assets.create-shape-vocabulary
 vixen.library menu editor.menu.assets/editor.menu.create assets.create-spline
 vixen.library menu editor.menu.assets/editor.menu.create assets.create-vfx
+vixen.library menu editor.menu.assets/editor.menu.create assets.new-folder
 vixen.library menu editor.menu.edit edit.find-references
 vixen.play menu editor.menu.play play.pause
 vixen.play menu editor.menu.play play.play

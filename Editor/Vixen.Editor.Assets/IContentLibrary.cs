@@ -61,6 +61,17 @@ public interface IContentLibrary {
     /// </remarks>
     AssetOperation Rename(AssetId asset, string name);
 
+    /// <summary>Makes an empty folder inside another one, and says why not if it could not.</summary>
+    /// <param name="parent">Where, relative to the project root — <c>Assets</c> or a folder under it.</param>
+    /// <param name="name">What it is called. A name already taken there is numbered rather than refused.</param>
+    /// <returns>What happened. A refusal has already been reported.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Over the project, not the browser (#1292).</b> Assets ▸ New Folder was the application's
+    ///     and read nothing of the browser panel but whether it was open; the browser follows the
+    ///     folder in through <see cref="Rearranged" />, as it follows a rename.
+    /// </remarks>
+    AssetOperation CreateFolder(string parent, string name);
+
     /// <summary>Moves assets into a folder of the project, each with its sidecar.</summary>
     /// <param name="assets">What to move.</param>
     /// <param name="folder">The destination, relative to the project root — <c>Assets/Props</c>.</param>
@@ -141,8 +152,8 @@ public interface IContentLibrary {
     event Action? Arrived;
 
     /// <summary>
-    ///     Raised after a <see cref="Rename" />, <see cref="Move" /> or <see cref="Delete" /> — refused or
-    ///     not — once the database agrees with the disk.
+    ///     Raised after a <see cref="Rename" />, <see cref="CreateFolder" />, <see cref="Move" /> or
+    ///     <see cref="Delete" /> — refused or not — once the database agrees with the disk.
     /// </summary>
     /// <remarks>
     ///     Raised on a refusal too: the browser's tree has already shown the name that was typed or the
