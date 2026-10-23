@@ -615,6 +615,79 @@ public sealed class ComposedPaneTests : IDisposable {
         Assert.Equal(first, second);
     }
 
+    // ------------------------------------------------------------------ level of detail
+
+    /// <summary>A LOD group in a pane shows one level, and which one follows the pane's distance.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The end-to-end half of <a href="https://github.com/Rikarin/Vixen/issues/1271">#1271</a>.</b>
+    ///         <c>EditorWorldRenderer.Aim</c> never gave a pane's view its
+    ///         <c>ScreenHeightScale</c>, whose zero means "this view does no screen-size work", so
+    ///         <c>LodRenderFeature.Prepare</c> skipped every pane and <em>every</em> level of a group
+    ///         drew at once in the editor. <c>EditorWorldRendererTests</c> asserts the field; this
+    ///         asserts the consequence, through the host's own loop — of a group's two levels the pane's
+    ///         view sees exactly one, and which one moves with the camera.
+    ///     </para>
+    ///     <para>
+    ///         Closed form: both levels are unit primitives, whose sphere is <c>√3⁄2</c>, and the
+    ///         pane's 60° gives <c>ScreenHeightScale = √3</c> — so the group covers <c>1.5 / d</c> of
+    ///         the screen at distance <c>d</c>, and <c>entity.group-lod</c>'s threshold of ½ puts the
+    ///         switch at 3 m. A pane at 1.5 m must show level 0 and one at 12 m level 1. The far frame
+    ///         is the instrument check: a feature that hid level 1 for ever would pass the near one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_lod_group_in_a_pane_shows_one_level_and_switches_with_the_panes_distance() {
+        var session = Quad();
+        var world = session.Application.Frame!;
+        var scene = session.Application.Scene;
+        var presenters = Presenters(session);
+        var at = new Vector3(0f, 0.5f, 20f);
+
+        var fine = scene.CreateShape(PrimitiveKind.Sphere, Engine.Transforms.LocalTransform.At(at));
+        var coarse = scene.CreateShape(PrimitiveKind.Cube, Engine.Transforms.LocalTransform.At(at));
+
+        scene.Selection.Set([fine, coarse]);
+        session.Run("entity.group-lod");
+        session.Settle();
+
+        // ⚠ The quad's one perspective pane. The other three are plan views, whose scale is zero on
+        // purpose — an orthographic projection has no cone — and which choose no level at all.
+        var panes = session.Application.Viewports;
+        var index = Enumerable.Range(0, panes.Count).Single(candidate => !panes[candidate].Camera.IsOrthographic);
+        var pane = panes[index];
+
+        pane.Camera.Pivot = at;
+        pane.Camera.Distance = 1.5f;
+
+        Settled(session, presenters);
+
+        var view = world.ViewOf(index);
+
+        // One group registered and both of its levels given a membership — the producer half, which
+        // is asserted so that the visibility below cannot be explained by there being no group.
+        Assert.Equal(2, world.Renderer.Lods.Groups.Count);
+        Assert.True(view.ScreenHeightScale > 0f, "the pane opted out of screen-size work");
+        Assert.Equal(0, world.Renderer.Lods.LevelOf(1, view.Index));
+        Assert.True(Visible(fine), "level 0 is hidden from a pane standing 1.5 m from it");
+        Assert.False(Visible(coarse), "level 1 is drawn on top of level 0, so the pane chose no level");
+
+        pane.Camera.Distance = 12f;
+
+        Settled(session, presenters);
+
+        Assert.Equal(1, world.Renderer.Lods.LevelOf(1, view.Index));
+        Assert.False(Visible(fine), "level 0 is still drawn from 12 m");
+        Assert.True(Visible(coarse), "level 1 is hidden from a pane standing 12 m from it");
+
+        // Through the entity's own render object, which is what the work list is built from.
+        bool Visible(global::Vixen.Core.Entity entity) =>
+            world.Renderer.Host.System.Visibility.IsVisible(
+                view.Index,
+                scene.World.Read<Rendering.Ecs.RenderHandle>(entity).Object
+            );
+    }
+
     // ------------------------------------------------------------------ helpers
 
     static void AssertClose(Matrix4x4 expected, Matrix4x4 actual, int pane) {
