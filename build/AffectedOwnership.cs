@@ -44,12 +44,15 @@ public static class AffectedOwnership {
     /// </summary>
     /// <param name="Prefix">
     ///     The repository-relative directory, <c>/</c>-separated, with a trailing slash — or one
-    ///     file, exactly, when a reader reads that file and nothing beside it.
+    ///     file, exactly, when a reader reads that file and nothing beside it — or a glob in
+    ///     <see cref="Matches" />' dialect, for a sweep that selects by extension or name across the
+    ///     tree rather than by directory (#1506).
     /// </param>
     /// <param name="Project">The reading project, repository-relative.</param>
     /// <param name="Evidence">
-    ///     A repository-relative source file of that project which spells the directory, so that a
-    ///     reader which stopped reading is noticed rather than trusted.
+    ///     A repository-relative source file that project compiles — its own, or one it links —
+    ///     which spells the path, so that a reader which stopped reading is noticed rather than
+    ///     trusted.
     /// </param>
     public sealed record DeclaredReader(string Prefix, string Project, string Evidence);
 
@@ -85,13 +88,82 @@ public static class AffectedOwnership {
     ///         <c>Tools/Vixen.BcnOracle/</c> is C a script compiles into the oracle that
     ///         <c>BcnReferenceDecoderTests</c> runs, so an edit to it selects that suite.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The rest are #1506: test suites reading a projectless file by name.</b>
+    ///         <c>NOTICE</c>, <c>ci.yml</c>, the root <c>README.md</c>, the exemption lists under
+    ///         <c>docs/</c> and a handful of plan documents are each read off disk through
+    ///         <c>RepositoryRoot()</c> or a linked build rule's constant, and every one of them narrowed
+    ///         <c>AffectedTests --since</c> to no tests, silently. So did the four <c>build/</c> data
+    ///         files <c>Vixen.ApiCheck.Tests</c> reads, one step over: their container is
+    ///         <c>_build.csproj</c>, which the solution does not hold. They are not found by hand and
+    ///         are not kept by hand: <c>EveryRepositoryFileATestReadsSelectsThatTest</c> sweeps every test
+    ///         project's sources for a read and fails on one with no line here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The two globs are the reads that census cannot see, because they name no path:
+    ///         <c>RefusalExpiry</c> sweeps every <c>.md</c> for prose refusal clauses, and
+    ///         <c>RealPlanCitationTests</c> every <c>README.md</c> (beside <c>docs/</c>, which its
+    ///         suite reads whole) for citations. Each is held to a literal in its evidence instead.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Deliberately absent: the whole-tree sweeps that read every file for one property</b>
+    ///         — <c>PathCaseRuleTests</c> (every text file's path literals) and the doc-comment rules
+    ///         (every <c>.cs</c> and <c>.rvn</c>). Declared, they would select their suite for every
+    ///         change in the tree, which is the unnarrowed run under another name; their own gates
+    ///         (<c>CheckPathCase</c>, <c>CheckDocComments</c>) are what sees them, as CLAUDE.md says of
+    ///         "a test that walks the repository".
+    ///     </para>
     /// </remarks>
     public static IReadOnlyList<DeclaredReader> DeclaredReaders { get; } = [
         new("Raven/Library/", "Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj", "Raven/Vixen.Raven.Tests/LibraryReflectionTests.cs"),
         new("Raven/README.md", "Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj", "Raven/Vixen.Raven.Tests/ReadmeExampleTests.cs"),
         new("Testing/ContentDeterminism/", "build/_build.csproj", "build/Build.ContentBytes.cs"),
-        new("Tools/Vixen.BcnOracle/", "Core/Vixen.Core.Imaging.Tests/Vixen.Core.Imaging.Tests.csproj", "Core/Vixen.Core.Imaging.Tests/BcnReferenceDecoderTests.cs")
+        new("Tools/Vixen.BcnOracle/", "Core/Vixen.Core.Imaging.Tests/Vixen.Core.Imaging.Tests.csproj", "Core/Vixen.Core.Imaging.Tests/BcnReferenceDecoderTests.cs"),
+
+        // #1506, one file each.
+        new("NOTICE", "Core/Vixen.Ui.Layout.Tests/Vixen.Ui.Layout.Tests.csproj", "Core/Vixen.Ui.Layout.Tests/ConformanceCorpusNoticeTests.cs"),
+        new("docs/plan/04-ecs-and-scripting.md", "Core/Vixen.Engine.Tests/Vixen.Engine.Tests.csproj", "Core/Vixen.Engine.Tests/BehaviorScaleTests.cs"),
+        new("docs/DocsExempt.txt", "Core/Vixen.Shaders.Tests/Vixen.Shaders.Tests.csproj", "Core/Vixen.Shaders.Tests/ExemptedGeneratedTypeTests.cs"),
+        new("docs/plan/49-responder-chain-and-appkit-parity.md", "Core/Vixen.Ui.Tests/Vixen.Ui.Tests.csproj", "Core/Vixen.Ui.Tests/ResponderReachTests.cs"),
+        new("docs/plan/08-asset-pipeline-and-addressables.md", "Editor/Vixen.Editor.Assets.Tests/Vixen.Editor.Assets.Tests.csproj", "Editor/Vixen.Editor.Assets.Tests/Doc08ImporterSetTests.cs"),
+        new("docs/MarkupPending.txt", "Editor/Vixen.Editor.Ui.Tests/Vixen.Editor.Ui.Tests.csproj", "Editor/Vixen.Editor.Ui.Tests/MarkupRatioTests.cs"),
+        new("docs/plan/43-web-styling-parity.tsv", "Editor/Vixen.Editor.Ui.Tests/Vixen.Editor.Ui.Tests.csproj", "Editor/Vixen.Editor.Ui.Tests/UtilityFamilySupportTests.cs"),
+        new("docs/DocCommentExempt.txt", "Editor/Vixen.Editor.Texturing.Tests/Vixen.Editor.Texturing.Tests.csproj", "build/DocCommentRule.cs"),
+        new("docs/RavenDocCommentExempt.txt", "Editor/Vixen.Editor.Texturing.Tests/Vixen.Editor.Texturing.Tests.csproj", "build/RavenDocCommentRule.cs"),
+        new("docs/overview.md", "Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj", "Raven/Vixen.Raven.Tests/DiagnosticCoverageTests.cs"),
+        new(".github/workflows/ci.yml", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/CiConcurrencyTests.cs"),
+        new("README.md", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/WorkflowAndTargetInventoryTests.cs"),
+        new("docs/plan/12-build-ci-and-testing.md", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/WorkflowAndTargetInventoryTests.cs"),
+        new("Vixen.slnx", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/ApiCoverageTests.cs"),
+        new("Directory.Build.props", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/PackageValidationTests.cs"),
+        new("Directory.Build.targets", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/UiGeneratorWiringTests.cs"),
+        new(".runsettings", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/RunSettingsTests.cs"),
+        new(".gitignore", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/RepositoryFilesTests.cs"),
+        new("docs/api-history/index.json", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/PackageValidationTests.cs"),
+        new("docs/DocsExempt.txt", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/PublicApiTypeNamesTests.cs"),
+        new("docs/manual/third-party.md", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/TrxReporterPinTests.cs"),
+        new("docs/ComponentGeneratorExempt.txt", ApiCheckTests, "build/ComponentGeneratorRule.cs"),
+        new("docs/DataContractGeneratorExempt.txt", ApiCheckTests, "build/DataContractGeneratorRule.cs"),
+        new("docs/FeatureNameExempt.txt", ApiCheckTests, "build/FeatureNameRule.cs"),
+        new("docs/GeneratorPackagingExempt.txt", ApiCheckTests, "build/GeneratorPackagingRule.cs"),
+        new("docs/ModuleRegistrationExempt.txt", ApiCheckTests, "build/ModuleRegistrationRule.cs"),
+        new("docs/PathCaseExempt.txt", ApiCheckTests, "build/PathCaseRule.cs"),
+        new("Tools/Vixen.AotProbe.iOS/Vixen.AotProbe.iOS.csproj", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/AotProbeProjectFileTests.cs"),
+        new("build/ApiUncovered.txt", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/ApiCoverageTests.cs"),
+        new("build/ApplicationSizeCeilings.txt", ApiCheckTests, "build/ApplicationSizeRule.cs"),
+        new("build/Build.Api.cs", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/ApiCoverageTests.cs"),
+        new("build/Build.cs", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/GoldenImagesGuardTests.cs"),
+        new("build/test-cost.txt", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/TestCostDriftTests.cs"),
+        new("docs/", DocGenTests, "Tools/Vixen.DocGen.Tests/RealGuideTests.cs"),
+        new(".gitignore", DocGenTests, "Tools/Vixen.DocGen.Tests/RealPlanCitationTests.cs"),
+
+        // #1506, the sweeps that name no path.
+        new("**/README.md", DocGenTests, "Tools/Vixen.DocGen.Tests/RealPlanCitationTests.cs"),
+        new("**/*.md", "Core/Vixen.Ui.Styling.Utilities.Tests/Vixen.Ui.Styling.Utilities.Tests.csproj", "Core/Vixen.Ui.Styling.Utilities.Tests/RefusalExpiry.cs")
     ];
+
+    const string ApiCheckTests = "Tools/Vixen.ApiCheck.Tests/Vixen.ApiCheck.Tests.csproj";
+    const string DocGenTests = "Tools/Vixen.DocGen.Tests/Vixen.DocGen.Tests.csproj";
 
     /// <summary>
     ///     Item kinds whose <c>Include</c> is not a file this project reads.
@@ -301,9 +373,11 @@ public static class AffectedOwnership {
     public static IReadOnlyList<string> ReadersOf(string relative, IReadOnlyDictionary<string, IReadOnlyList<string>> patternsByProject) {
         var readers = new SortedSet<string>(StringComparer.Ordinal);
 
-        foreach (var reader in DeclaredReaders.Where(reader => reader.Prefix.EndsWith('/')
-                     ? relative.StartsWith(reader.Prefix, StringComparison.Ordinal)
-                     : relative == reader.Prefix)) {
+        foreach (var reader in DeclaredReaders.Where(reader => reader.Prefix.Contains('*', StringComparison.Ordinal)
+                     ? Matches(reader.Prefix, relative)
+                     : reader.Prefix.EndsWith('/')
+                         ? relative.StartsWith(reader.Prefix, StringComparison.Ordinal)
+                         : relative == reader.Prefix)) {
             readers.Add(reader.Project);
         }
 
