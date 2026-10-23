@@ -182,9 +182,25 @@ foreach (var assemblyPath in assemblies) {
         continue;
     }
 
+    // ⚠ Before the diff, and as its own sentence (#1340): a line in PublicApiAnalyzers' dialect
+    // describes no member, so the diff below reports it as a removal beside an addition of the
+    // same member — which is also exactly what a rename looks like.
+    var dialect = new[] { shippedPath, unshippedPath }
+        .Where(File.Exists)
+        .SelectMany(path => ApiDialect.Errors(File.ReadAllLines(path)).Select(error => error.Describe(path)))
+        .ToList();
+
+    foreach (var error in dialect) {
+        Console.Error.WriteLine(error);
+    }
+
     var difference = ApiBaseline.Compare(surface, shipped, ApiBaseline.Read(unshippedPath));
 
     if (difference.IsEmpty) {
+        if (dialect.Count > 0) {
+            differing++;
+        }
+
         continue;
     }
 

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using System.Text;
 
 namespace Vixen.ApiCheck;
@@ -157,6 +158,82 @@ public static class ApiBaseline {
 
         return [.. unshipped];
     }
+}
+
+/// <summary>
+///     A baseline line written in <c>Microsoft.CodeAnalysis.PublicApiAnalyzers</c>' dialect rather
+///     than this tool's (#1340).
+/// </summary>
+/// <param name="Line">The 1-based line number in the file.</param>
+/// <param name="Entry">The line as written.</param>
+internal sealed record ApiDialectError(int Line, string Entry) {
+    /// <summary>What a reader needs to hear: that the line is in the other dialect, and what to change.</summary>
+    /// <param name="file">The baseline's path, for the message.</param>
+    /// <returns>One line, <c>file:line</c> first.</returns>
+    public string Describe(string file) =>
+        file + ":" + Line.ToString(CultureInfo.InvariantCulture) + ": '" + Entry
+        + "' is in PublicApiAnalyzers' dialect — a '!' after a type marks a non-nullable reference there, "
+        + "and this tool writes a non-nullable reference bare and a nullable one with '?'. Delete the '!'. "
+        + "Left in, the line describes no member and the gate reports it as one removal beside one "
+        + "addition of the same member.";
+}
+
+/// <summary>The one dialect check a baseline line gets without a Release build.</summary>
+internal static class ApiDialect {
+    /// <summary>
+    ///     Every line of a baseline that carries the analyzer's non-nullable <c>!</c>.
+    /// </summary>
+    /// <param name="lines">The file's lines, as written, comments and all.</param>
+    /// <returns>The offending lines, in order.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The two formats are not one, whatever this tool's project file used to say.</b>
+    ///         <see cref="ApiSurfaceReader" /> writes with
+    ///         <c>SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier</c>, which
+    ///         puts <c>?</c> on a nullable reference and has no <c>!</c> counterpart; the analyzer's own
+    ///         writer puts <c>!</c> on every non-nullable reference. The analyzer is referenced
+    ///         nowhere in this repository, so a line in its dialect was read by one thing — a
+    ///         Release-configured <c>CheckApi</c> — and reported as an addition and a removal of the
+    ///         same member, which is also what a rename looks like (#650's <c>KeyMap! keys</c>).
+    ///     </para>
+    ///     <para>
+    ///         A <c>!</c> straight after an identifier character, <c>&gt;</c>, <c>]</c> or <c>)</c> —
+    ///         the end of a type — and not followed by <c>=</c>. That keeps <c>operator !=</c> and
+    ///         <c>operator !</c>, the only other <c>!</c> this tool can write, and a <c>!</c> inside a
+    ///         constant's string or character value is not looked at.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlyList<ApiDialectError> Errors(IEnumerable<string> lines) {
+        ArgumentNullException.ThrowIfNull(lines);
+
+        var errors = new List<ApiDialectError>();
+        var number = 0;
+
+        foreach (var line in lines) {
+            number++;
+
+            if (line.TrimStart().StartsWith('#')) {
+                continue;
+            }
+
+            if (NonNullableMarker.IsMatch(Literal.Replace(line, string.Empty))) {
+                errors.Add(new(number, line.Trim()));
+            }
+        }
+
+        return errors;
+    }
+
+    static readonly System.Text.RegularExpressions.Regex NonNullableMarker = new(
+        """[\w>\])]!(?!=)""",
+        System.Text.RegularExpressions.RegexOptions.CultureInvariant
+    );
+
+    /// <summary>A C# string or character literal, as a constant's value is displayed.</summary>
+    static readonly System.Text.RegularExpressions.Regex Literal = new(
+        @"""(?:[^""\\]|\\.)*""|'(?:[^'\\]|\\.)*'",
+        System.Text.RegularExpressions.RegexOptions.CultureInvariant
+    );
 }
 
 /// <summary>What a reading of the surface has that the baseline does not, and the reverse.</summary>
