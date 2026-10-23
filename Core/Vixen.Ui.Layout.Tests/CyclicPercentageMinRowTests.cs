@@ -167,11 +167,14 @@ public class CyclicPercentageMinRowTests {
 
         Assert.Equal(50f, tree.GetWidth(item));
 
-        // Measured: from depth two on, each level adds three re-entries and sixteen flex runs. Without
+        // Measured: from depth two on, each level adds four re-entries and twenty flex runs. Without
         // the skip an inner row also re-enters inside every pass in which its parent measures it
         // withheld — 6, 13 and 20 re-entries at depths two to four, work thrown away because the
         // parent lays it out again.
-        Assert.Equal(depth == 1 ? 2 : (3 * depth) - 2, tree.MainSizeReentries);
-        Assert.Equal(depth == 1 ? 5 : (16 * depth) - 17, tree.FlexAlgorithmRuns);
+        // ⚠ It was three and sixteen until #1510: every inner row is `flex-shrink: 0`, and an
+        // unshrinkable item of a row now has its §9.2 step 3E max-content base measured as a
+        // shrinkable one always did, which is one more pass per nested row. Still linear.
+        Assert.Equal((4 * depth) - 2, tree.MainSizeReentries);
+        Assert.Equal(depth == 1 ? 5 : (20 * depth) - 19, tree.FlexAlgorithmRuns);
     }
 }

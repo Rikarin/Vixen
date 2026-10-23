@@ -603,7 +603,7 @@ public sealed partial class LayoutTree {
             // declared basis or a declared main size never reaches this branch, and one whose offer
             // is a stretch or a max-content constraint already answers the question being asked.
             //
-            // ⚠ <b>AND ONLY AN ITEM THAT CAN SHRINK, WHICH IS A WORKAROUND AND NOT THE RULE.</b>
+            // ⚠ <b>ON A COLUMN, ONLY AN ITEM THAT CAN SHRINK, WHICH WAS A WORKAROUND AND NOT THE RULE.</b>
             // §9.2 asks this of every item; the reason it could not be asked of every item HERE was
             // that `flex-shrink`'s initial value in this store is Yoga's 0 and not CSS's 1 — see
             // `LayoutStyle.Default` and `TaffyStyleMap.ApplyCssInitialValues`, which resets it per
@@ -620,8 +620,28 @@ public sealed partial class LayoutTree {
             // unconstrained answer for a stricter question (`CanUseCachedMeasurement`), the declared
             // flex basis being memoised by a branch that would not overwrite it
             // (`ComputeFlexBasisForChild`, above), and §4.5's cap reading this max-content basis
-            // where it meant the offer-measured one (`ComputeAutoMinMainSize`). The gate stays as
-            // written because it is now inert rather than because it is still load-bearing.
+            // where it meant the offer-measured one (`ComputeAutoMinMainSize`).
+            //
+            // ⚠ <b>"Inert" was REFUTED by #1510, and on a ROW the gate is gone.</b> It excluded every
+            // item a stylesheet marks `flex-shrink: 0`, and for those the offer-measured answer stood
+            // in for the max-content one. That was harmless while a content-sized row offered "at
+            // most" W came out at its content width anyway; #1448 made it a fit-content box, capped
+            // at max(W, min-content) with its own items shrunk into that — so an unshrinkable row's
+            // BASE became its squeezed size, and the line, unable to shrink it, kept the squeeze. The
+            // editor's dock strip is that shape (a `flex-shrink: 0` list of tabs in a clipping
+            // viewport) and its two-word titles wrapped to min-content. `UnshrinkableFlexBaseTests`
+            // is green at ebb5f96c8^ and red at ebb5f96c8.
+            //
+            // ⚠ <b>So the pass is owed exactly where #1448 changed the offer's answer: an
+            // unshrinkable CONTAINER on a row.</b> Before #1448 such a container measured at the
+            // offer overflowed to its items' bases, which is this pass's number, so asking it
+            // restores what the store answered rather than inventing a new answer. An unshrinkable
+            // LEAF keeps the offer: its measurer's "at most" answer is untouched by #1448, and
+            // giving it a max-content base moves `width: min-content` around a Yoga-default
+            // `flex-shrink: 0` text from the sum of min-content contributions, 10, to the 30 that
+            // §9.9.1's flooring by the flex base gives (LayoutStyleBridgeTests; no browser measured)
+            // — a question about intrinsic sizes that #1510 does not get to settle. On a
+            // COLUMN the gate stays too: #1448 caps only the inline axis.
             //
             // ⚠ The seventh was not repairable here and is a real behaviour change: a `ScrollView`
             // with no width filled its flex row only while its base was the width it was OFFERED,
@@ -638,7 +658,8 @@ public sealed partial class LayoutTree {
             var contentBase = float.NaN;
 
             if (mainSizingMode == SizingMode.FitContent
-                && StyleResolution.ResolveFlexShrink(in styles[child], links[child].Parent < 0) != 0f) {
+                && ((isMainAxisRow && (flags[child] & LayoutNodeState.HasMeasureFunction) == 0)
+                    || StyleResolution.ResolveFlexShrink(in styles[child], links[child].Parent < 0) != 0f)) {
                 CalculateLayoutInternal(
                     child,
                     isMainAxisRow ? float.NaN : childWidth,
