@@ -46,7 +46,11 @@ sealed class EditorConsole {
     public ConsoleView? View { get; private set; }
 
     /// <summary>Whether the open console throws itself away when play mode is entered.</summary>
-    /// <remarks>The view owns the preference — its toggle writes it — and the application owns the moment.</remarks>
+    /// <remarks>
+    ///     The model keeps the preference — the view's toggle writes it there, so a reopened console still has
+    ///     it (#1511) — and the application owns the moment. Read through the view, so a closed console
+    ///     neither clears nor shows a tick.
+    /// </remarks>
     public bool ClearsOnPlay => View is { ClearsOnPlay: true };
 
     /// <summary>Describes the panel.</summary>

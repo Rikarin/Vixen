@@ -136,6 +136,9 @@ public sealed class ConsoleModel {
     /// </remarks>
     readonly Signal<long> generation = new(0);
 
+    /// <summary>Whether the console clears on play. See <see cref="ClearsOnPlay" />.</summary>
+    readonly Signal<bool> clearsOnPlay = new(false);
+
     /// <summary>Watches a sink.</summary>
     /// <param name="sink">The ring the editor's logging goes into.</param>
     /// <param name="capacity">How many records to keep.</param>
@@ -216,6 +219,24 @@ public sealed class ConsoleModel {
                 Refilter();
             }
         }
+    }
+
+    /// <summary>Whether the console throws itself away when play mode is entered.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The model's and not the view's, because a reopen builds a new view (#1511).</b> It was an
+    ///         auto-property on <c>ConsoleView</c>, so closing and reopening the console turned it off — the
+    ///         one piece of the console's state that did not survive, beside a buffer, filters and a collapse
+    ///         that did. Doc 50 § D2: a panel's durable state is its model's.
+    ///     </para>
+    ///     <para>
+    ///         A signal of its own rather than a reading of the visible set's generation: flipping it changes
+    ///         no row, and announcing it as a change would rebuild every one.
+    ///     </para>
+    /// </remarks>
+    public bool ClearsOnPlay {
+        get => clearsOnPlay.Value;
+        set => clearsOnPlay.Value = value;
     }
 
     /// <summary>How many rows are visible.</summary>
