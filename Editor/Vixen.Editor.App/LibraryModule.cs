@@ -25,9 +25,10 @@ namespace Vixen.Editor.App;
 ///         <see cref="IContentLibrary.Dependencies" /> rather than a closure inside the application.
 ///     </para>
 ///     <para>
-///         <b>And the Assets-menu verbs that only touch content</b> (#1292): Show in Explorer, Delete
-///         and Reimport All are names for <see cref="IContentLibrary" /> and <see cref="IExternalLinks" />,
-///         and Delete asks through the shell's own confirmation, which a module is handed.
+///         <b>And the Assets-menu verbs that only touch content</b> (#1292): Show in Explorer, New
+///         Folder, Delete, Reimport All and Import Assets are names for <see cref="IContentLibrary" /> and
+///         <see cref="IExternalLinks" />, and Delete asks through the shell's own confirmation, which a
+///         module is handed.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Not yet the whole Assets menu the issue names.</b> Open is here, over the published
@@ -36,8 +37,9 @@ namespace Vixen.Editor.App;
 ///         (#1505) — the document host was never what History needed. Rename starts the browser panel's inline editor and Move To asks through this
 ///         editor's drawn chooser, so both still register in the application — and both end in
 ///         <see cref="IContentLibrary.Rename" /> and <see cref="IContentLibrary.Move" />. The menu layout — which lines appear where — is the application's
-///         too; a line naming a command nobody registered is skipped, so switching this module off
-///         takes these lines off the bar.
+///         too, and ⚠ stays so: the Assets menu carries five contexts' lines, and a module that owned
+///         the menu would take the others' off the bar when it was switched off. A line naming a
+///         command nobody registered is skipped, so switching this module off takes only its lines.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Inside <c>Vixen.Editor.App</c> on purpose, as doc 50 § D3 says modules start.</b> The
