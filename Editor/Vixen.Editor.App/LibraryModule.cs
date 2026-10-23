@@ -148,7 +148,7 @@ sealed class LibraryModule : IEditorPlugin {
                 () => library.CreateFolder(FolderBeside(library.Project), "New Folder")
             ) {
                 Category = EditorStrings.CategoryAssets,
-                Enablement = () => context.Shell.Workspace.IsOpen(ProjectBrowser.PanelId)
+                Enablement = () => context.Shell.Workspace.IsOpen(ContentBrowsing.PanelId)
             }
         );
 

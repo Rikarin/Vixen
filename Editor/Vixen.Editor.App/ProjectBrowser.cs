@@ -50,9 +50,6 @@ namespace Vixen.Editor.App;
 ///     </para>
 /// </remarks>
 sealed class ProjectBrowser {
-    /// <summary>The Project panel's id, which a saved arrangement carries it back by.</summary>
-    public const string PanelId = "project";
-
     /// <summary>What the type filter offers when nothing is chosen.</summary>
     const string AnyType = "All types";
 

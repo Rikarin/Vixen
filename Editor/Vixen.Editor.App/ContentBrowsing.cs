@@ -29,6 +29,9 @@ namespace Vixen.Editor.App;
 ///     </para>
 /// </remarks>
 sealed class ContentBrowsing {
+    /// <summary>The Project panel's id, which a saved arrangement carries it back by.</summary>
+    public const string PanelId = "project";
+
     readonly EditorShell shell;
     readonly string context;
     readonly IProjectSession session;
@@ -97,7 +100,7 @@ sealed class ContentBrowsing {
     /// <returns>The descriptor.</returns>
     public PanelDescriptor Describe() =>
         new(
-            ProjectBrowser.PanelId,
+            PanelId,
             EditorStrings.PanelProject,
             panel => {
                 panel.WhenPressedIn(() => shell.Context = context);

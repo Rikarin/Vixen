@@ -179,10 +179,10 @@ public class LibraryModuleTests {
     public void New_folder_makes_it_inside_the_selected_folder_through_the_published_service() {
         using var editor = EditorSession.Start();
 
-        editor.Close(ProjectBrowser.PanelId);
+        editor.Close(ContentBrowsing.PanelId);
         Assert.False(editor.CanRun("assets.new-folder"));
 
-        editor.Open(ProjectBrowser.PanelId);
+        editor.Open(ContentBrowsing.PanelId);
         Assert.True(editor.CanRun("assets.new-folder"));
 
         var library = editor.Plugins.Services.Require<IContentLibrary>();
