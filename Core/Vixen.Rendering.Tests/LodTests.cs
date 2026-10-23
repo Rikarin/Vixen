@@ -240,6 +240,64 @@ public class LodTests : IDisposable {
         Assert.Equal(1, h.Lods.LevelOf(group, h.Camera.Index));
     }
 
+    /// <summary>
+    ///     A chain whose levels differ in size switches at the same distance whichever order its
+    ///     levels were added in.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>It did not — <a href="https://github.com/Rikarin/Vixen/issues/1273">#1273</a>.</b>
+    ///         The group's height was overwritten per visible member, so the level was chosen from
+    ///         whichever member had the highest render-object index: the extraction's order, which is
+    ///         the order the entities appeared. Here level 0 has radius 1 and level 1 radius ½, so at
+    ///         three quarters of level 0's switch distance the fine bound says 0.67 of the screen and
+    ///         the coarse one 0.33 — either side of the 0.5 threshold.
+    ///     </para>
+    ///     <para>
+    ///         Closed form: the group switches where <em>level 0's</em> sphere covers the threshold,
+    ///         <c>1 × scale / 0.5</c>, in both orders. The far frame is the instrument check — a
+    ///         feature that measured by level 0 and never changed level would pass the near one.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_chain_whose_levels_differ_in_size_switches_where_level_zero_does_in_either_order(bool fineFirst) {
+        using var h = Build();
+        var group = h.Lods.Add([0.5f]);
+        var boundary = h.Camera.ScreenHeightScale / 0.5f;
+
+        RenderObjectId fine;
+        RenderObjectId coarse;
+
+        if (fineFirst) {
+            fine = AddLevel(h, Vector3.Zero, group, 0, radius: 1f);
+            coarse = AddLevel(h, Vector3.Zero, group, 1, radius: 0.5f);
+        } else {
+            coarse = AddLevel(h, Vector3.Zero, group, 1, radius: 0.5f);
+            fine = AddLevel(h, Vector3.Zero, group, 0, radius: 1f);
+        }
+
+        Sized(h, fine, coarse, boundary * 0.75f);
+
+        Assert.Equal(0, h.Lods.LevelOf(group, h.Camera.Index));
+        Assert.True(h.System.Visibility.IsVisible(h.Camera.Index, fine));
+        Assert.False(h.System.Visibility.IsVisible(h.Camera.Index, coarse));
+
+        Sized(h, fine, coarse, boundary * 1.5f);
+
+        Assert.Equal(1, h.Lods.LevelOf(group, h.Camera.Index));
+        Assert.False(h.System.Visibility.IsVisible(h.Camera.Index, fine));
+        Assert.True(h.System.Visibility.IsVisible(h.Camera.Index, coarse));
+    }
+
+    /// <summary>Moves a fine level of radius 1 and a coarse one of radius ½ to a distance, and draws.</summary>
+    static void Sized(Harness h, RenderObjectId fine, RenderObjectId coarse, float distance) {
+        h.System.Objects[fine].Bounds = new(new Vector3(0f, 0f, -distance), 1f);
+        h.System.Objects[coarse].Bounds = new(new Vector3(0f, 0f, -distance), 0.5f);
+        h.System.Draw();
+    }
+
     static void Move(Harness h, RenderObjectId[] levels, float distance) {
         foreach (var id in levels) {
             h.System.Objects[id].Bounds = new(new Vector3(0f, 0f, -distance), 1f);

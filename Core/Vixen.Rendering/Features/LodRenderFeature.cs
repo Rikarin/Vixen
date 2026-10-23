@@ -49,10 +49,12 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
     // the number of LOD groups a level has unloaded and not yet replaced — single digits.
     readonly List<int> free = [];
 
-    // One view's measuring walk: the screen height last measured for each group, NaN for a group no
-    // visible member named, and the groups that did get one. Fields rather than locals so a frame
-    // allocates nothing, and cleared at the top of every `Select` because they mean one view's pass.
+    // One view's measuring walk: the screen height each group is measured by, NaN for a group no
+    // visible member named; the level that height belongs to (see `Select`); and the groups that did
+    // get one. Fields rather than locals so a frame allocates nothing, and cleared at the top of every
+    // `Select` because they mean one view's pass.
     readonly List<float> heights = [];
+    readonly List<int> finest = [];
     readonly List<int> measured = [];
     int viewStride;
 
@@ -305,10 +307,29 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
     /// <remarks>
     ///     <para>
     ///         Two passes over the view's visible objects rather than one, because a level cannot be
-    ///         hidden until the group's choice is known and the choice is made from whichever member
-    ///         happens to be seen last. The alternative — an index of groups to their members — is a
+    ///         hidden until the group's choice is known, and the choice cannot be known until every
+    ///         member has been walked. The alternative — an index of groups to their members — is a
     ///         structure rebuilt every frame to save a second walk of a list that culling already
     ///         shortened.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A group is measured by its finest visible level, and among that level's objects by
+    ///         the largest</b> — <a href="https://github.com/Rikarin/Vixen/issues/1273">#1273</a>. It
+    ///         used to be measured by whichever member the walk reached <em>last</em>, which is
+    ///         render-object index order and so the order the extraction met the entities: a chain
+    ///         whose coarse level is smaller than its fine one (a decimation usually is, an impostor
+    ///         card always is) switched at a distance that moved with an order nobody could see, and
+    ///         two identical groups could switch at different distances. Level 0 is the canonical
+    ///         shape and the one an author is looking at while typing a threshold, and it is the bound
+    ///         the editor's threshold rings (<c>SceneLines.LodRanges</c>) already measure. The largest
+    ///         of a level's objects rather than the first, so that a level made of several objects is
+    ///         not order-dependent in its turn.
+    ///     </para>
+    ///     <para>
+    ///         Visible, not merely alive: a member outside this view's frustum is not measured, which
+    ///         keeps the cost one height per <em>visible</em> member. The levels of a group share a
+    ///         place, so the finest level is culled only when the group is at the frustum's edge — and
+    ///         there the next level's bound stands in for one frame rather than nothing deciding.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The measuring walk decides nothing; the group's transition is advanced once,
@@ -329,9 +350,11 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
         ReadOnlySpan<LodMembership> membership
     ) {
         heights.Clear();
+        finest.Clear();
 
         while (heights.Count < groups.Count) {
             heights.Add(float.NaN);
+            finest.Add(int.MaxValue);
         }
 
         measured.Clear();
@@ -365,7 +388,19 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
             // was rearranged to stop, in the one case nobody would think to look at. Zero is what a
             // NaN already chose anyway: no threshold compares true against it, so both take the
             // coarsest level.
-            heights[member.Group] = float.IsNaN(height) ? 0f : height;
+            if (float.IsNaN(height)) {
+                height = 0f;
+            }
+
+            // The finest level wins outright and a tie within it goes to the larger, so the answer is
+            // the same whichever order the members arrive in. See the remarks.
+            var level = Math.Max(member.Level, 0);
+            var best = finest[member.Group];
+
+            if (level < best || (level == best && height > heights[member.Group])) {
+                finest[member.Group] = level;
+                heights[member.Group] = height;
+            }
         }
 
         // One advance per (group, view) pair, which is what a transition belongs to. A group with no

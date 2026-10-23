@@ -413,11 +413,12 @@ public sealed class SceneLines {
     ///         plumbing the render object's sphere into the editor.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Measured on the finest level, and the runtime measures whichever member it walked
-    ///         last</b> — <c>LodRenderFeature.Select</c> overwrites the group's height per visible
-    ///         member, so the ring is exact for a group whose levels share a bound and differs by the
-    ///         ratio of their radii for one whose levels do not. That order dependence is the
-    ///         runtime's rather than this drawing's; it is filed rather than approximated over.
+    ///         ⚠ <b>Measured on the finest level, which is what the runtime measures too</b> —
+    ///         <c>LodRenderFeature.Select</c> decides a group from its finest visible level and, among
+    ///         that level's objects, the largest
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1273">#1273</a>). It used to take
+    ///         whichever member it walked last, so a ring drawn here was exact only for a group whose
+    ///         levels share a bound; now it is exact for every group the camera can see whole.
     ///     </para>
     ///     <para>
     ///         Nothing for an orthographic pane, which is not a gap: a plan view has no cone, its own
@@ -475,17 +476,24 @@ public sealed class SceneLines {
         foreach (var child in Hierarchy.ChildrenOf(document.World, group)) {
             if (!document.World.Has<LodLevel>(child)
                 || !document.World.Has<WorldTransform>(child)
-                || document.World.Read<LodLevel>(child).Level >= level
+                || Math.Max(document.World.Read<LodLevel>(child).Level, 0) > level
                 || !Extent(document, viewport, child, out var box)) {
                 continue;
             }
 
-            level = document.World.Read<LodLevel>(child).Level;
-
-            bounds = MeshExtractionSystem.Transformed(
+            var sphere = MeshExtractionSystem.Transformed(
                 BoundingSphere.FromBox(box),
                 document.World.Read<WorldTransform>(child).Value
             );
+
+            // The runtime's tie-break: two objects on the finest level and the larger one decides,
+            // so the ring does not depend on the order the children were parented in either.
+            var candidate = Math.Max(document.World.Read<LodLevel>(child).Level, 0);
+
+            if (candidate < level || sphere.Radius > bounds.Radius) {
+                level = candidate;
+                bounds = sphere;
+            }
         }
 
         return level != int.MaxValue && bounds.Radius > 0f;
