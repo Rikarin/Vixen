@@ -62,8 +62,17 @@ this probe writes 51 managed assemblies, `Vixen.Shaders`, `Vixen.Vfx`, `Vixen.Fo
 they do not get is the *rooted* question this file exists to ask. Reading the publish output as
 coverage is exactly the mistake the section below warns about.
 
-What *is* rooted publishes with **zero** trim or AOT warnings, and the resulting binary runs. The
-rooted set is every `net10.0` non-test assembly under `Core/` and `Platform/` except the four in
+What *is* rooted publishes with **zero** trim or AOT warnings, and the resulting binary runs —
+which, until [#1255](https://github.com/Rikarin/Vixen/issues/1255), nothing checked: `CheckAot`
+asserted the output's shape and never started it. It now runs the binary with `--smoke` and fails
+unless it exits 0 having printed `SmokePassed`, which `Program.cs` prints only after each of its
+closed-form checks held. The first is [#1240](https://github.com/Rikarin/Vixen/issues/1240)'s exact
+shape — `UiPropertyRegistry.Of` on a leaf that declares nothing must answer its base's property and
+`UiElement`'s — declared in this assembly because the entry assembly is the one ILC does *not* root
+(`RootMode="EntryPoint"`). Removing the registry's `RunClassConstructor` publishes cleanly and reds
+the run. ⚠ The first publish of that check also found
+[#1524](https://github.com/Rikarin/Vixen/issues/1524): `Of`'s `All` annotation is `IL3050` at every
+ahead-of-time caller, which no rooted publish could attribute to anything. The rooted set is every `net10.0` non-test assembly under `Core/` and `Platform/` except the four in
 [`NotRooted.txt`](NotRooted.txt) — written once, as a complement, rather than as a second list that
 can disagree with the first.
 

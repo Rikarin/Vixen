@@ -130,6 +130,8 @@
         <Compile Include="..\..\build\ApplicationSizeRule.cs" Link="ApplicationSizeRule.cs" />
         <!-- CheckAot's vswhere lookup (#1354): the half of the gate that is about the machine. -->
         <Compile Include="..\..\build\VswhereLocation.cs" Link="VswhereLocation.cs" />
+        <!-- Which diffs AffectedTests runs CheckAot for (#1352): the analyzer cannot see them. -->
+        <Compile Include="..\..\build\TrimAnnotationDiff.cs" Link="TrimAnnotationDiff.cs" />
         <Compile Include="..\..\build\FeatureNameRule.cs" Link="FeatureNameRule.cs" />
         <Compile Include="..\..\build\ModuleRegistrationRule.cs" Link="ModuleRegistrationRule.cs" />
 
