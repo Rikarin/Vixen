@@ -688,6 +688,62 @@ public sealed class ComposedPaneTests : IDisposable {
             );
     }
 
+    /// <summary>The pane's readout says whether the LOD route is live, and reads differently in each state.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>LodExtractionSystem.GroupCount</c> and <c>.Assigned</c> had no reader</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1268">#1268</a>. They are the pair
+    ///         that tells a frame hiding levels from one that registered its groups and is still
+    ///         waiting on every level's mesh, in which every level draws and nothing says so.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Three states in one run, and that is the instrument.</b> A reader that only ever
+    ///         prints zero is what existed before, and a reader that prints the pair whatever the
+    ///         scene is the same defect louder. So the seeded scene with no group must say nothing
+    ///         about LOD; a group with no levels under it must say one group and no levels — the
+    ///         failure the pair exists for — and the same group given two levels must say two.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_panes_readout_says_whether_the_lod_route_is_live() {
+        var session = Quad();
+        var scene = session.Application.Scene;
+        var presenters = Presenters(session);
+        var pane = session.Application.Viewports[0];
+
+        Settled(session, presenters);
+
+        Assert.Equal(0, pane.Stats.LodGroups);
+        Assert.DoesNotContain("LOD", ViewportChrome.Describe(pane), StringComparison.Ordinal);
+
+        // A group whose levels have not arrived: registered, and nothing assigned.
+        var group = scene.Add("LOD Group", Engine.Transforms.LocalTransform.Identity);
+
+        scene.World.Add(group, new Rendering.Ecs.LodGroupComponent { Thresholds = [0.5f] });
+
+        // The editor's update is what extracts; the compose below only reads what it left.
+        session.Settle();
+        Settled(session, presenters);
+
+        Assert.Equal(1, pane.Stats.LodGroups);
+        Assert.Equal(0, pane.Stats.LodLevels);
+        Assert.Contains("1 LOD (0 levels)", ViewportChrome.Describe(pane), StringComparison.Ordinal);
+
+        // And given its two levels.
+        for (var level = 0; level < 2; level++) {
+            var member = scene.CreateShape(PrimitiveKind.Cube, Engine.Transforms.LocalTransform.Identity, group);
+
+            scene.World.Add(member, new Rendering.Ecs.LodLevel { Level = level });
+        }
+
+        session.Settle();
+        Settled(session, presenters);
+
+        Assert.Equal(1, pane.Stats.LodGroups);
+        Assert.Equal(2, pane.Stats.LodLevels);
+        Assert.Contains("1 LOD (2 levels)", ViewportChrome.Describe(pane), StringComparison.Ordinal);
+    }
+
     // ------------------------------------------------------------------ helpers
 
     static void AssertClose(Matrix4x4 expected, Matrix4x4 actual, int pane) {
