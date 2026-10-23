@@ -106,6 +106,48 @@ public class DeferredTests {
         Assert.Equal(0, failed);
     }
 
+    /// <summary>A cancelled call runs the cancelled handler, once, on both paths, and neither of the others (#1512).</summary>
+    /// <remarks>
+    ///     ⚠ <b>For a caller whose handlers release a latch.</b> <c>ProjectSourceControl</c>'s sweep is
+    ///     released only by a handler, so a cancellation that ran none of them stopped every later sweep.
+    ///     The asynchronous half spins to a hang check, as
+    ///     <see cref="A_call_that_answers_later_still_reaches_the_frame_thread" /> does.
+    /// </remarks>
+    [Fact]
+    public void A_cancelled_call_runs_the_cancelled_handler_on_both_paths() {
+        var deferred = new Deferred();
+        var answered = 0;
+        var failed = 0;
+        var cancelled = 0;
+
+        deferred.When(ValueTask.FromCanceled<int>(new(canceled: true)), _ => answered++, _ => failed++, () => cancelled++);
+
+        Assert.Equal(0, cancelled);
+        deferred.Pump();
+        Assert.Equal(1, cancelled);
+
+        var source = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        deferred.When(new ValueTask<int>(source.Task), _ => answered++, _ => failed++, () => cancelled++);
+        deferred.Pump();
+        Assert.Equal(1, cancelled);
+
+        source.SetCanceled(TestContext.Current.CancellationToken);
+
+        var hung = Stopwatch.StartNew();
+
+        while (cancelled == 1 && hung.Elapsed < TimeSpan.FromSeconds(30)) {
+            deferred.Pump();
+            Thread.Yield();
+        }
+
+        deferred.Pump();
+
+        Assert.Equal(2, cancelled);
+        Assert.Equal(0, answered);
+        Assert.Equal(0, failed);
+    }
+
     /// <summary>
     ///     A call that had not answered yet still arrives, which is what stops the fast path being
     ///     the whole implementation.

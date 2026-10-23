@@ -122,6 +122,50 @@ public class ConsolePanelTests {
         Assert.True(command.IsChecked);
     }
 
+    /// <summary>
+    ///     ⚠ <b>Clear on Play and Collapse survive the console being closed and reopened (#1511).</b> Clear
+    ///     on Play was an auto-property on the view, and a reopen builds a new view, so it came back off;
+    ///     Collapse was kept on the model but its toggle was never seeded from it, so it came back drawn
+    ///     off over a list that was still collapsed.
+    /// </summary>
+    /// <remarks>Both halves of each: the menu's tick and the strip's toggle, after the reopen.</remarks>
+    [Fact]
+    public void Clear_on_play_and_collapse_survive_the_console_being_reopened() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Open("console");
+        Assert.True(fixture.Shell.Commands.Execute("play.clear-console"));
+        fixture.Click(Toggle(Console(fixture), EditorStrings.ConsoleCollapse.Text));
+        fixture.Frames(2);
+
+        Assert.True(Console(fixture).Model!.Collapse);
+
+        fixture.Shell.Workspace.Close("console");
+        fixture.Frames(2);
+        fixture.Open("console");
+        fixture.Frames(2);
+
+        var view = Console(fixture);
+
+        Assert.True(fixture.Shell.Commands["play.clear-console"]!.IsChecked, "Play > Clear on Play lost its tick when the console reopened");
+        Assert.True(view.ClearsOnPlay);
+        Assert.True(Toggle(view, EditorStrings.ConsoleClearOnPlay.Text).IsChecked, "the strip's Clear on Play came back off");
+        Assert.True(Toggle(view, EditorStrings.ConsoleCollapse.Text).IsChecked, "the strip's Collapse came back off over a collapsed list");
+
+        static ToggleButton Toggle(UiElement root, string label) =>
+            Descendants(root).OfType<ToggleButton>().Single(toggle => toggle.Label == label);
+
+        static IEnumerable<UiElement> Descendants(UiElement element) {
+            foreach (var child in element.Children) {
+                yield return child;
+
+                foreach (var found in Descendants(child)) {
+                    yield return found;
+                }
+            }
+        }
+    }
+
     [Fact]
     public void Entering_play_mode_empties_the_console_when_it_was_asked_to() {
         using var fixture = EditorSession.Start();

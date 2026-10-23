@@ -215,6 +215,7 @@
     IDisposable? title;
     DialogService? dialogs;
     IDisposable? closePrompt;
+    IDisposable? quitPrompt;
 
     /// <summary>The one table the drawn chord and the pressed chord are both read from.</summary>
     /// <remarks>
@@ -360,8 +361,21 @@
         // the element that holds the document and the head is never asked. That is exactly what a
         // tab shutting while its neighbours stay open needs, and this sample is the smallest thing
         // that has the shape.
+        //
+        // ⚠ **Two prompts, one per question (#1509).** This used to be the window's form, `Install`, with
+        // `Reopen` as its action — and `Install` answers a quit too, so ⌘Q over a dirty material asked
+        // Save / Don't Save / Cancel and then reopened an empty material and stayed open. The document's
+        // form answers File ▸ Close alone and lets a quit pass; the window's form asks about every dirty
+        // document and then calls the head's quit, which `Program.cs` hands over as `ShellModel.Quit`.
+        //
+        // ⚠ **And the window's form is on the document's root, not on this component's.** A quit is
+        // raised from the focus outwards, or from the document's root when nothing has the focus — which
+        // is above `Root`, so a prompt listening here never heard a quit with nothing focused and the
+        // edits went with the window. It also makes the two independent of the order they are installed
+        // in: a File ▸ Close the document's form has refused is cancelled by the time it gets up there.
         dialogs = new DialogService(Root.Document);
-        closePrompt = DocumentClosePrompt.Install(Root, dialogs, Reopen);
+        closePrompt = DocumentClosePrompt.InstallOnDocument(Root, dialogs, Reopen);
+        quitPrompt = DocumentClosePrompt.Install(Root.Document.Root, dialogs, () => Model.Quit());
 
         // ⚠ **⌘S is dispatched, and it is the first chord any sample has ever dispatched.** The
         // keymap holds the portable spelling, Ctrl+S; the row shows what this machine's user will
@@ -435,6 +449,11 @@
         // instance, and the service owns an overlay on the document. Both are this component's.
         closePrompt?.Dispose();
         closePrompt = null;
+
+        // ⚠ And the quit's, which is on the document's root and so outlives the build region: a hot
+        // reload that left it would ask twice and quit through a model the rebuilt shell no longer reads.
+        quitPrompt?.Dispose();
+        quitPrompt = null;
 
         dialogs?.Dispose();
         dialogs = null;

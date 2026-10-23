@@ -152,6 +152,111 @@ public class SourceControlModuleTests {
         return entry.Path;
     }
 
+    /// <summary>A sweep that comes back cancelled releases the latch, so the next sweep is taken (#1512).</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>Deferred.When</c> runs neither of its handlers for a cancelled call</b>, and the sweep's
+    ///         latch was cleared only by them — so one cancelled status left <c>sweeping</c> set for good and
+    ///         every later sweep folded into <c>again</c>, which is the column that never drew that the
+    ///         status-read race produced, by the other door.
+    ///     </para>
+    ///     <para>
+    ///         Both of <c>When</c>'s paths: a status already cancelled when it is asked for, and one cancelled
+    ///         later from the pool. The ceiling is a hang check.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_cancelled_sweep_does_not_stop_the_next_one(bool later) {
+        using var editor = EditorSession.Start();
+
+        var sourceControl = SourceControlHarness.Of(editor);
+
+        for (var frame = 0; frame < 2000 && !sourceControl.IsSought; frame++) {
+            editor.Frame();
+        }
+
+        var provider = new Cancelling(later);
+
+        sourceControl.Use(provider);
+        sourceControl.Sweep();
+
+        for (var frame = 0; frame < 2000 && provider.Asked == 0; frame++) {
+            editor.Frame();
+        }
+
+        Assert.Equal(1, provider.Asked);
+        editor.Settle();
+        Assert.False(sourceControl.IsKnown);
+
+        // The provider answers from now on; a latch the cancellation left set would take no sweep at all.
+        Swept(editor, sourceControl);
+        Assert.Equal(SourceControlStatus.Modified, sourceControl.Status(Fixed.Path));
+    }
+
+    /// <summary>A revert that comes back cancelled still counts, so the rescan after the last answer runs (#1512).</summary>
+    [Fact]
+    public void A_cancelled_revert_still_lets_the_rescan_run() {
+        using var editor = EditorSession.Start();
+
+        var sourceControl = SourceControlHarness.Of(editor);
+        var reverted = 0;
+
+        sourceControl.Reverted += () => reverted++;
+        sourceControl.Use(new Cancelling(later: false, cancelsStatus: false));
+
+        sourceControl.Revert([Fixed.Path, "Assets/Other.txt"]);
+
+        for (var frame = 0; frame < 2000 && reverted == 0; frame++) {
+            editor.Frame();
+        }
+
+        Assert.Equal(1, reverted);
+    }
+
+    /// <summary>A provider whose first status, and every revert, comes back cancelled.</summary>
+    sealed class Cancelling(bool later, bool cancelsStatus = true) : ISourceControlProvider {
+        public int Asked;
+
+        public string Name => "Cancelling";
+
+        public ValueTask<IReadOnlyDictionary<string, SourceControlStatus>> StatusAsync() {
+            if (Interlocked.Increment(ref Asked) == 1 && cancelsStatus) {
+                return Cancelled<IReadOnlyDictionary<string, SourceControlStatus>>();
+            }
+
+            return new((IReadOnlyDictionary<string, SourceControlStatus>)new Dictionary<string, SourceControlStatus>(StringComparer.Ordinal) {
+                [Fixed.Path] = SourceControlStatus.Modified
+            });
+        }
+
+        public ValueTask<string?> RevertAsync(string requested) => Cancelled<string?>();
+
+        public ValueTask<IReadOnlyList<SourceControlRevision>> HistoryAsync(string requested, int limit) =>
+            new((IReadOnlyList<SourceControlRevision>)[]);
+
+        public ValueTask<SourceControlDiff> DiffAsync(string requested, string revision) =>
+            new(new SourceControlDiff(true, string.Empty));
+
+        public ValueTask<string?> RestoreAsync(string requested, string revision) => new((string?)null);
+
+        ValueTask<T> Cancelled<T>() {
+            if (!later) {
+                return ValueTask.FromCanceled<T>(new CancellationToken(canceled: true));
+            }
+
+            var source = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            _ = Task.Run(async () => {
+                await Task.Delay(20, TestContext.Current.CancellationToken).ConfigureAwait(false);
+                source.SetCanceled(TestContext.Current.CancellationToken);
+            }, TestContext.Current.CancellationToken);
+
+            return new(source.Task);
+        }
+    }
+
     static void Swept(EditorSession editor, ProjectSourceControl sourceControl) {
         sourceControl.Sweep();
 

@@ -85,7 +85,14 @@ static class Program {
                 // numbers are self-consistent — is the loop's, and `UiApplication.Diagnostics` is
                 // where the loop is told. Until this line existed no `UiApplication` in the
                 // repository assigned one, so the hook was reachable and never taken.
-                Started = app => model.Diagnostics = panel => app.Diagnostics = panel,
+                //
+                // ⚠ **And the quit the window's close prompt calls once it has been answered (#1509).**
+                // `Quit` and not `Stop`: it asks again, and the prompt's latch lets that second request
+                // through, so the head's own listeners still have their say.
+                Started = app => {
+                    model.Diagnostics = panel => app.Diagnostics = panel;
+                    model.Quit = () => app.Quit();
+                },
 
                 Stopping = _ => Report(model)
             },

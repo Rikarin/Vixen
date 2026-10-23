@@ -506,24 +506,14 @@ sealed class GitSourceControl : ISourceControlProvider {
         }
 
         try {
-            using var process = Process.Start(start);
-
-            if (process is null) {
+            // ⚠ Both streams at once, through `ChildProcess` (#1512). They were read one after the
+            // other before the wait — stdout to the end, then stderr — so git filling the stderr pipe
+            // first was a deadlock, and the patience below could not fire behind the reads.
+            if (ChildProcess.Run(start, Patience) is not { } ran) {
                 return (-1, string.Empty, "git could not be started.");
             }
 
-            // ⚠ Read before waiting, and both streams. A process whose pipe fills blocks writing to
-            // it, so a wait-then-read over a working tree with a few thousand changed files is a
-            // deadlock rather than a slow answer.
-            var output = process.StandardOutput.ReadToEnd();
-            var error = process.StandardError.ReadToEnd();
-
-            if (!process.WaitForExit(Patience)) {
-                process.Kill(entireProcessTree: true);
-                return (-1, string.Empty, "git did not answer.");
-            }
-
-            return (process.ExitCode, output, error);
+            return ran.Finished ? (ran.Code, ran.Output, ran.Error) : (-1, string.Empty, "git did not answer.");
         } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException
             or System.ComponentModel.Win32Exception or InvalidOperationException) {
             // ⚠ A machine with no git is the ordinary case, not a failure: `Win32Exception` is what

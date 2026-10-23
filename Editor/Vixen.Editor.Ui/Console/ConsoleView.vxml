@@ -53,8 +53,8 @@
 
 <console-toolbar ref="@Toolbar">
     <Button Label="@ClearLabel" Variant="Subtle" Size="Small" on:click="@Clear" />
-    <ToggleButton ref="@CollapseToggle" Label="@CollapseLabel" Size="Small" />
-    <ToggleButton ref="@ClearOnPlayToggle" Label="@ClearOnPlayLabel" Size="Small" />
+    <ToggleButton ref="@CollapseToggle" Label="@CollapseLabel" Size="Small" IsChecked="@Collapsed" />
+    <ToggleButton ref="@ClearOnPlayToggle" Label="@ClearOnPlayLabel" Size="Small" IsChecked="@ClearsOnPlay" />
     <SearchBox ref="@Search" Placeholder="@SearchPlaceholder" change:Value="@(value => Filter(value))" />
     <Select ref="@Categories" Placeholder="@AllCategories" Size="Small" />
 
@@ -165,11 +165,29 @@
 
     /// <summary>Whether the console throws itself away when play mode is entered.</summary>
     /// <remarks>
-    ///     ⚠ <b>The console owns the preference and the application owns the moment.</b> This class
-    ///     has no idea what play mode is; what it can say is whether the user asked, which is what
-    ///     the toggle on the strip records. <c>EditorApplication</c> reads it when it enters play.
+    ///     <para>
+    ///         ⚠ <b>The console owns the preference and the application owns the moment.</b> This class
+    ///         has no idea what play mode is; what it can say is whether the user asked, which is what
+    ///         the toggle on the strip records. <c>EditorApplication</c> reads it when it enters play.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Kept on the model, read and written through here (#1511).</b> It was an auto-property
+    ///         on this view, and a reopen builds a new one, so it came back off. With no model shown there
+    ///         is nowhere to keep it, and it reads false.
+    ///     </para>
     /// </remarks>
-    public bool ClearsOnPlay { get; set; }
+    public bool ClearsOnPlay {
+        get => model.Value is { ClearsOnPlay: true };
+
+        set {
+            if (model.Value is { } shown) {
+                shown.ClearsOnPlay = value;
+            }
+        }
+    }
+
+    /// <summary>Whether the model folds identical lines — what seeds the Collapse toggle on a reopen (#1511).</summary>
+    bool Collapsed => model.Value is { Collapse: true };
 
     /// <summary>Which record the detail pane is showing, or <see langword="null" />.</summary>
     public LogRecord? Selected {

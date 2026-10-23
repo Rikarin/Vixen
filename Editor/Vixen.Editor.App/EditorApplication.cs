@@ -1163,6 +1163,9 @@ sealed partial class EditorApplication : IDisposable {
             }
         }
 
+        // ⚠ Every build after the first (#1508), before anything steps a behaviour; see `FollowCode`.
+        session.FollowCode(hold: play.IsPlaying);
+
         // What a finished import or build had to say, on the thread that owns the panels it is about
         // to rebuild. See `ContentTasks` for why nothing crosses back except a queued value.
         content.Pump();
@@ -1184,9 +1187,6 @@ sealed partial class EditorApplication : IDisposable {
 
         // ⚠ Pulled rather than subscribed to — see `EditorConsole.Tick` for the threading reason.
         console.Tick();
-
-        // ⚠ Beside the console's pull and for the same reason: a capture drains the sample rings,
-        // and the rings are written from every thread the editor runs work on.
 
         // ⚠ And E5's two moving surfaces, pulled rather than self-driving. A VFX preview and a
         // sequencer transport both advance with time, and a timer either of them started would

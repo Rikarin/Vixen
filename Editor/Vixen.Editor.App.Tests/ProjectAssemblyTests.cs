@@ -630,6 +630,115 @@ public sealed class ProjectAssemblyTests : IDisposable {
         static T Read<T>(Behavior behavior, string member) => (T)behavior.GetType().GetProperty(member)!.GetValue(behavior)!;
     }
 
+    /// <summary>
+    ///     ⚠ <b>A script saved on disk rebuilds the project's code through the editor's own frame loop,
+    ///     with the scene's behaviours carried — and not while the game is playing (#1508).</b>
+    ///     <c>BuildCode</c>'s only production caller was the first frame, so the whole rebuild path —
+    ///     #1490, #1496, #1502, #1503 — was reachable from tests and from nothing a user could do.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The real watcher, the real compiler and the real frame loop: nothing here calls
+    ///         <c>BuildCode</c> after the first build, which stands in for the first frame's (the harness
+    ///         does not greet). What is asserted is a count of builds and the values on the rebuilt type;
+    ///         the clocks are hang checks on the watcher's debounce and the compiler, not bounds.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Play holds a rebuild back rather than dropping it.</b> Unloading the assembly under a
+    ///         running game would take its behaviours out from under the step, so an edit saved while
+    ///         playing waits for the game to stop, and is built then — once.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_script_saved_on_disk_rebuilds_the_projects_code_with_its_behaviours_carried() {
+        Write(Declaring("WatchedPatrol"));
+
+        using var editor = Testing.EditorSession.Start(new() { ProjectRoot = root, WatchAssets = true });
+
+        var session = editor.Plugins.Services.Require<IProjectSession>();
+        var built = 0;
+
+        session.CodeBuilt += () => built++;
+
+        // The first frame's build, which the harness does not run for itself.
+        Assert.True(session.BuildCode());
+        Assert.Equal(1, built);
+
+        var scene = editor.Scene;
+        var entity = scene.Add("Guard", LocalTransform.Identity);
+
+        Assert.True(SceneBehaviorRegistry.TryGet("WatchedPatrol", out var first));
+
+        var authored = first.Create();
+
+        first.BehaviorType.GetProperty("Speed")!.SetValue(authored, 41.5f);
+        first.AttachTo(scene.Behaviors, entity, authored);
+
+        // The build's own writes under `bin/` and `obj/` are drained before anything is counted: an
+        // editor that rebuilt on its own output would rebuild for ever.
+        Pump(editor, () => false, TimeSpan.FromSeconds(1.5));
+        Assert.Equal(1, built);
+
+        // An ordinary edit — a new member — saved by another program.
+        File.WriteAllText(
+            Path.Combine(root, "GameCode.cs"),
+            Declaring("WatchedPatrol").Replace("Speed { get; set; } = 1f;", "Speed { get; set; } = 1f; public int Laps { get; set; } = 3;", StringComparison.Ordinal)
+        );
+
+        Assert.True(Pump(editor, () => built == 2, TimeSpan.FromMinutes(2)), "a script saved on disk never rebuilt the project's code");
+
+        Assert.True(SceneBehaviorRegistry.TryGet("WatchedPatrol", out var second));
+        Assert.NotSame(first.BehaviorType, second.BehaviorType);
+
+        var kept = Assert.Single(scene.Behaviors.AllOn(entity).ToArray());
+
+        Assert.Same(second.BehaviorType, kept.GetType());
+        Assert.Equal(41.5f, (float)kept.GetType().GetProperty("Speed")!.GetValue(kept)!);
+        Assert.Equal(3, (int)kept.GetType().GetProperty("Laps")!.GetValue(kept)!);
+
+        // And the build's own output again: still exactly one rebuild for one edit.
+        Pump(editor, () => false, TimeSpan.FromSeconds(1.5));
+        Assert.Equal(2, built);
+
+        // ⚠ While playing, an edit is held, not built.
+        var play = editor.Plugins.Services.Require<IPlaySession>();
+
+        Assert.True(play.Enter());
+
+        File.WriteAllText(
+            Path.Combine(root, "GameCode.cs"),
+            Declaring("WatchedPatrol").Replace("Speed { get; set; } = 1f;", "Speed { get; set; } = 1f; public int Laps { get; set; } = 4;", StringComparison.Ordinal)
+        );
+
+        Pump(editor, () => false, TimeSpan.FromSeconds(2));
+        Assert.Equal(2, built);
+
+        play.Leave();
+
+        Assert.True(Pump(editor, () => built == 3, TimeSpan.FromMinutes(2)), "an edit saved during play was never built after it");
+
+        Pump(editor, () => false, TimeSpan.FromSeconds(1.5));
+        Assert.Equal(3, built);
+    }
+
+    /// <summary>Frames until a condition holds or the budget runs out, sleeping between so the watcher's debounce can pass.</summary>
+    static bool Pump(Testing.EditorSession editor, Func<bool> until, TimeSpan budget) {
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+
+        while (clock.Elapsed < budget) {
+            editor.Frames(1);
+
+            if (until()) {
+                return true;
+            }
+
+            // ⚠ Real time, because the thing being waited on is a debounce measured in it.
+            Thread.Sleep(25);
+        }
+
+        return until();
+    }
+
     /// <summary>A weak handle on the load context the alias's current type was loaded into.</summary>
     /// <remarks>
     ///     ⚠ Not inlined, so neither the binder nor the type is a live local of the caller's frame when

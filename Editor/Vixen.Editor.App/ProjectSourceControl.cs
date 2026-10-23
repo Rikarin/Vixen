@@ -162,6 +162,18 @@ sealed class ProjectSourceControl : ISourceControl {
                 if (again) {
                     Sweep();
                 }
+            },
+
+            // ⚠ And a cancelled sweep releases the latch too (#1512). `When` runs neither handler above
+            // for one, so a provider whose status came back cancelled left `sweeping` set for good and
+            // every later sweep folded into `again` — a column that never drew again.
+            () => {
+                sweeping = false;
+                debug("Source control status was cancelled before it answered.");
+
+                if (again) {
+                    Sweep();
+                }
             }
         );
     }
@@ -217,6 +229,14 @@ sealed class ProjectSourceControl : ISourceControl {
                 failure => {
                     failures++;
                     notify("Could not revert", NotificationSeverity.Error, failure.Message);
+                    Answered();
+                },
+
+                // ⚠ Counted as well (#1512): a cancelled revert ran neither handler above and left
+                // `remaining` above zero, so the rescan every other revert was waiting on never ran.
+                () => {
+                    failures++;
+                    notify("Could not revert", NotificationSeverity.Error, $"Reverting '{path}' was cancelled.");
                     Answered();
                 }
             );

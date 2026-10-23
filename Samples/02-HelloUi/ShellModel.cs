@@ -134,6 +134,19 @@ public sealed class ShellModel {
     /// </remarks>
     public Action<DiagnosticsPanel?> Diagnostics { get; set; } = static _ => { };
 
+    /// <summary>Quits the application — what the window's close prompt calls once a quit has been answered.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The head's, handed in, for <see cref="Diagnostics" />' reason (#1509).</b> The shell has no
+    ///     <c>UiApplication</c>, deliberately, and its close prompt answered a quit by reopening the material
+    ///     because a document close was the only action it had: Save or Don't Save, and the window stayed.
+    ///     <c>Program.cs</c> sets this to <c>UiApplication.Quit</c> from <c>Started</c>.
+    ///     <para>
+    ///         Defaulted to a no-op, so a shell mounted on its own in a test answers a quit by doing nothing
+    ///         rather than throwing — there is nothing there to quit.
+    ///     </para>
+    /// </remarks>
+    public Action Quit { get; set; } = static () => { };
+
     /// <summary>The arrangement the shell opens with.</summary>
     /// <remarks>
     ///     A hierarchy down the left at 22%, then the gallery and the inspector splitting what is
