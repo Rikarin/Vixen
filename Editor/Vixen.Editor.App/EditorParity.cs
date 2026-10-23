@@ -276,7 +276,8 @@ sealed partial class EditorApplication {
     ///         <c>WorldSnapshot.Restore</c>'s handle map rather than being lost.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And <see cref="ReportPlayGaps" /> is not decoration on that.</b> The graph is
+    ///         ⚠ <b>And the report of what a session runs is not decoration on that</b> — it is
+    ///         <c>PlayModule.Announce</c>'s now (#1296). The graph is
     ///         the engine's default set and a game's own is not declarable anywhere, so a session
     ///         that said nothing would make the systems it is not running read as the user's bug.
     ///     </para>
@@ -983,40 +984,11 @@ sealed partial class EditorApplication {
         }
 
         // Before the notification, so the line saying what play mode does is the first thing in the
-        // console rather than the last thing before it was emptied.
+        // console rather than the last thing before it was emptied. The notification and the report
+        // of what the session runs are `PlayModule`'s (#1296), which subscribes after this does.
         if (console.ClearsOnPlay) {
             console.Clear();
         }
-
-        // ⚠ Said before it matters rather than after it has cost something. Doc 20 calls this the one
-        // place where being different from Unity is better: the rule is that play-mode edits are
-        // discarded, and an editor that says so on the way in is honest where a silent loss is the
-        // single most complained-about behaviour in that editor.
-        Shell.Notifications.Show(
-            "Play mode",
-            NotificationSeverity.Info,
-            "Changes made while playing are discarded when you stop."
-        );
-
-        ReportPlayGaps();
-    }
-
-    /// <summary>Says what this session runs, and names anything it is not running.</summary>
-    /// <remarks>
-    ///     The wording is the session's — <see cref="EditorPlaySession.DescribeRunning" /> and
-    ///     <see cref="EditorPlaySession.DescribeMissing" /> carry the reasons — and where it is said
-    ///     is this editor's: its log and its notifications.
-    /// </remarks>
-    void ReportPlayGaps() {
-        log.Write(LogLevel.Information, play.DescribeRunning());
-
-        if (play.DescribeMissing(session.Code.Loaded) is not { } said) {
-            return;
-        }
-
-        log.Write(LogLevel.Warning, said);
-
-        Shell.Notifications.Show("Play mode is not running everything", NotificationSeverity.Warning, said);
     }
 
     /// <summary>What leaving play does to the rest of the editor, after the scene has been restored.</summary>

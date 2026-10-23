@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Diagnostics;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
@@ -55,6 +56,36 @@ public class PlayModuleTests {
         editor.Plugins.Enable(PlayModule.ModuleId);
 
         Assert.NotNull(editor.Shell.Commands["play.play"]);
+    }
+
+    /// <summary>
+    ///     What entering play says — the discard warning and the log line naming what the session runs —
+    ///     is the module's (#1296): said on a plugin's <c>Enter</c> as on F5, and not said once it is off.
+    /// </summary>
+    [Fact]
+    public void Entering_play_is_announced_by_the_module() {
+        using var editor = EditorSession.Start();
+
+        var play = editor.Plugins.Services.Require<IPlaySession>();
+        var log = editor.Plugins.Services.Require<RingBufferSink>();
+        var session = (EditorPlaySession) play;
+
+        int Said() => editor.Shell.Notifications.History.Count(static note => note.Message == "Play mode");
+
+        // What the running session describes, asked while it runs: the passes differ once the module is off.
+        int Logged() => log.Snapshot().Count(record => record.Message == session.DescribeRunning());
+
+        Assert.True(play.Enter());
+        Assert.Equal(1, Said());
+        Assert.Equal(1, Logged());
+        play.Leave();
+
+        editor.Plugins.Disable(PlayModule.ModuleId);
+
+        Assert.True(play.Enter());
+        Assert.Equal(1, Said());
+        Assert.Equal(0, Logged());
+        play.Leave();
     }
 
     /// <summary>
