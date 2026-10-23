@@ -243,7 +243,7 @@ public sealed class ServiceReachTests {
     sealed class Walk {
         static readonly Dictionary<short, OpCode> OpCodesByValue = typeof(OpCodes)
             .GetFields(BindingFlags.Public | BindingFlags.Static)
-            .Select(static field => (OpCode) field.GetValue(null)!)
+            .Select(static field => (OpCode)field.GetValue(null)!)
             .ToDictionary(static code => code.Value);
 
         const BindingFlags Everything = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance
@@ -304,7 +304,7 @@ public sealed class ServiceReachTests {
                 OpCode code;
 
                 if (il[offset] == 0xFE) {
-                    code = OpCodesByValue[unchecked((short) (0xFE00 | il[offset + 1]))];
+                    code = OpCodesByValue[unchecked((short)(0xFE00 | il[offset + 1]))];
                     offset += 2;
                 } else {
                     code = OpCodesByValue[il[offset]];
