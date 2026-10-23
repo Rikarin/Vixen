@@ -1292,6 +1292,115 @@ public static class EditorStrings {
         ]
     );
 
+    /// <summary>What each of the scene viewport's commands is called, by the command's own id.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Declared since #1513; until then every one of these was built at registration</b>
+    ///         by <c>ViewportCommands.Label</c> as <c>new StringId("editor.command." + id, text)</c>,
+    ///         which is an id no translator's template could contain. The ids are exactly the ones it
+    ///         built, so nothing keyed on them — a key binding, a saved layout, a menu recipe — moves.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The reason recorded for leaving it was false.</b> It was "one of its labels is
+    ///         <c>"Reference: " + placed.Name</c> — user data"; <c>placed</c> iterates
+    ///         <c>ReferenceVolumes.All</c>, four built-in volumes with literal names, so those four
+    ///         are below like every other line.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="CreateShapes" />' trade: spelled out rather than built from
+    ///         <c>ViewShading.All</c>, <c>ShowFlags.All</c> and <c>ReferenceVolumes.All</c>, because this
+    ///         assembly cannot see <c>Vixen.Editor.SceneView</c> and must not start to. A mode, flag or
+    ///         volume that joins those lists without a line here throws while the viewport registers
+    ///         its commands, which every editor test does; <c>ViewportTests</c> also holds each
+    ///         view mode's and show flag's line to the name the viewport's own toolbar shows.
+    ///     </para>
+    /// </remarks>
+    public static StringFamily ViewportCommandLabels { get; } = new(
+        "editor.command.",
+        [
+            new("scene.maximise", "Maximise Viewport"),
+
+            new("scene.view-mode-shaded", "Shaded"),
+            new("scene.view-mode-shaded-wireframe", "Shaded Wireframe"),
+            new("scene.view-mode-wireframe", "Wireframe"),
+            new("scene.view-mode-unlit", "Unlit"),
+            new("scene.view-mode-albedo", "Albedo"),
+            new("scene.view-mode-normal", "Normal"),
+            new("scene.view-mode-roughness", "Roughness"),
+            new("scene.view-mode-overdraw", "Overdraw"),
+            new("scene.view-mode-light-complexity", "Light Complexity"),
+
+            // The grid's show flag is `scene.toggle-grid`, declared above, and is not registered twice.
+            new("scene.show-markers", "Entity Markers"),
+            new("scene.show-parents", "Parent Links"),
+            new("scene.show-lights", "Light Shapes"),
+            new("scene.show-meshes", "Meshes"),
+            new("scene.show-gizmos", "Gizmos"),
+            new("scene.show-bounds", "Bounds"),
+            new("scene.show-volumes", "Post-process Volumes"),
+            new("scene.show-component-gizmos", "Component Gizmos"),
+
+            new("scene.panes-single", "Single"),
+            new("scene.panes-side-by-side", "Side by Side"),
+            new("scene.panes-stacked", "Stacked"),
+            new("scene.panes-quad", "Four Panes"),
+
+            new("scene.speed-slowest", "Slowest (0.25×)"),
+            new("scene.speed-slow", "Slow (0.5×)"),
+            new("scene.speed-normal", "Normal (1×)"),
+            new("scene.speed-fast", "Fast (2×)"),
+            new("scene.speed-fastest", "Fastest (4×)"),
+
+            new("scene.snap-vertex", "Snap to Vertex"),
+            new("scene.snap-edge", "Snap to Edge"),
+            new("scene.snap-edge-centre", "Snap to Edge Centre"),
+            new("scene.snap-surface", "Snap to Surface"),
+            new("scene.snap-from-origin", "Snap from Origin"),
+            new("scene.snap-from-centre", "Snap from Centre"),
+            new("scene.snap-from-active", "Snap from Active"),
+            new("scene.snap-from-pointer", "Snap from Grabbed Point"),
+            new("scene.snap-align", "Align to Target"),
+            new("scene.snap-project", "Search from the View"),
+            new("scene.snap-ignore-self", "Ignore What Is Being Dragged"),
+
+            new("scene.work-plane-to-face", "Work Plane to Face"),
+            new("scene.work-plane-to-selection", "Work Plane to Selection"),
+            new("scene.work-plane-to-world", "Work Plane to World"),
+            new("scene.work-plane-raise", "Raise Work Plane"),
+            new("scene.work-plane-lower", "Lower Work Plane"),
+            new("scene.grid-step-double", "Double Grid Step"),
+            new("scene.grid-step-halve", "Halve Grid Step"),
+            new("scene.grid-step-auto", "Grid Step Follows the Camera"),
+
+            new("scene.measure", "Measure"),
+            new("scene.measure-clear", "Clear Measurement"),
+            new("scene.reference-person", "Reference: Person"),
+            new("scene.reference-door", "Reference: Door"),
+            new("scene.reference-corridor", "Reference: Corridor"),
+            new("scene.reference-vehicle", "Reference: Vehicle"),
+            new("scene.reference-clear", "Clear References"),
+
+            new("scene.bookmark-set-1", "Set View 1"),
+            new("scene.bookmark-set-2", "Set View 2"),
+            new("scene.bookmark-set-3", "Set View 3"),
+            new("scene.bookmark-set-4", "Set View 4"),
+            new("scene.bookmark-set-5", "Set View 5"),
+            new("scene.bookmark-set-6", "Set View 6"),
+            new("scene.bookmark-set-7", "Set View 7"),
+            new("scene.bookmark-set-8", "Set View 8"),
+            new("scene.bookmark-set-9", "Set View 9"),
+            new("scene.bookmark-go-1", "View 1"),
+            new("scene.bookmark-go-2", "View 2"),
+            new("scene.bookmark-go-3", "View 3"),
+            new("scene.bookmark-go-4", "View 4"),
+            new("scene.bookmark-go-5", "View 5"),
+            new("scene.bookmark-go-6", "View 6"),
+            new("scene.bookmark-go-7", "View 7"),
+            new("scene.bookmark-go-8", "View 8"),
+            new("scene.bookmark-go-9", "View 9")
+        ]
+    );
+
     /// <summary>Every string above, for a translator to start from.</summary>
     public static IReadOnlyList<StringId> All { get; } = [
         MenuFile,
@@ -1611,7 +1720,8 @@ public static class EditorStrings {
         .. CreateShapes.All,
         .. CreateLights.All,
         .. BuildConfigurations.All,
-        .. CreateAssetKinds.All
+        .. CreateAssetKinds.All,
+        .. ViewportCommandLabels.All
     ];
 
     /// <summary>A catalog holding every string the editor declares, for a translator to start from.</summary>

@@ -17,5 +17,5 @@ EditorSettingsPanels.cs  1001
 EditorWorlds.cs          762
 ProjectBrowser.cs        1438
 SceneMenus.cs            271
-ViewportCommands.cs      715
-(total)                  7809
+ViewportCommands.cs      702
+(total)                  7796

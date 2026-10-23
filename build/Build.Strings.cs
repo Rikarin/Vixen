@@ -435,15 +435,14 @@ partial class Build {
     ///         piece of work.
     ///     </para>
     ///     <para>
-    ///         <b>What the nine are.</b> Every one needs a decision rather than a migration:
+    ///         <b>What the eight are.</b> Every one needs a decision rather than a migration:
     ///         <c>DeclaredMenus</c> in <c>Vixen.Editor.Plugin</c> (3, a plugin's command, its top
     ///         menu and an undeclared submenu — moved out of <c>DeclaredContributions</c> by #1283,
     ///         where they were the same three, so both readers of the attributes share them), <c>EditorApplication</c> (1, a panel titled by a document — user
     ///         data), <c>EditorParity</c> (1, a recent project's directory name — user data),
     ///         <c>EditorBuilds</c> (2, "This Machine (rid)" — machine data — and
     ///         <c>PlayerBuild.WhyNotPublishable</c>'s prose, which another assembly owns) and
-    ///         <c>EditorWorlds</c> (1, a <c>NewAssetKind</c>'s title, which a plugin can contribute)
-    ///         and <c>ViewportCommands.Label</c> (1, the label of every viewport command).
+    ///         <c>EditorWorlds</c> (1, a <c>NewAssetKind</c>'s title, which a plugin can contribute).
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The ninth was always there; the census could not see it</b>
@@ -457,8 +456,10 @@ partial class Build {
     ///         ⚠ <b>It was left here "because one of its labels is <c>"Reference: " + placed.Name</c>
     ///         — user data", and that was false.</b> <c>placed</c> iterates <c>ReferenceVolumes.All</c>,
     ///         four built-in volumes with literal names, so every label behind the helper is a word a
-    ///         declaration can hold. The migration is owed, not a decision
-    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1513">#1513</a>).
+    ///         declaration can hold. So it was migrated rather than decided
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1513">#1513</a>): its seventy-one
+    ///         labels are <c>EditorStrings.ViewportCommandLabels</c>, keyed by the ids it used to
+    ///         build, and the ceiling came down from nine to eight.
     ///         ⚠ The viewport helper's twenty-three labels, its two-state captions and the shape,
     ///         light and build-configuration families went to <c>EditorStrings</c>; the captions
     ///         were a translation bug and not only a census entry, because they reused the title's
@@ -493,7 +494,7 @@ partial class Build {
     ///         initialisers in this repository that build something else.
     ///     </para>
     /// </remarks>
-    const int ConstructedCeiling = 9;
+    const int ConstructedCeiling = 8;
 
     /// <summary>Applies <see cref="ConstructedCeiling" />.</summary>
     /// <param name="text">Every source file, by path.</param>

@@ -171,13 +171,15 @@ sealed partial class EditorApplication {
     ///     multiplier on top of that — the thing somebody reaches for when a level turns out to be ten
     ///     times bigger than the last one. A linear slider of thirty values is a control nobody can
     ///     aim; five steps a factor of two apart cover three orders of magnitude.
+    ///     Each line's words are <c>EditorStrings.ViewportCommandLabels</c>' under the command's id
+    ///     (#1513), so a factor changed here changes its label there too.
     /// </remarks>
-    static readonly (string Name, string Label, float Factor)[] Speeds = [
-        ("slowest", "Slowest (0.25×)", 0.25f),
-        ("slow", "Slow (0.5×)", 0.5f),
-        ("normal", "Normal (1×)", 1f),
-        ("fast", "Fast (2×)", 2f),
-        ("fastest", "Fastest (4×)", 4f)
+    static readonly (string Name, float Factor)[] Speeds = [
+        ("slowest", 0.25f),
+        ("slow", 0.5f),
+        ("normal", 1f),
+        ("fast", 2f),
+        ("fastest", 4f)
     ];
 
     /// <summary>What <c>EditorCamera.FlySpeed</c> is at a factor of one.</summary>
@@ -231,7 +233,7 @@ sealed partial class EditorApplication {
         Shell.Commands.Add(
             new EditorCommand(
                 "scene.maximise",
-                Label("scene.maximise", "Maximise Viewport"),
+                Label("scene.maximise"),
                 ToggleMaximised
             ) {
                 Category = EditorStrings.CategoryScene,
@@ -323,7 +325,7 @@ sealed partial class EditorApplication {
             if (!ViewShading.IsSupported(mode)) {
                 Planned(
                     ViewportIds.ViewMode(mode),
-                    Label(ViewportIds.ViewMode(mode), ViewShading.NameOf(mode)),
+                    Label(ViewportIds.ViewMode(mode)),
                     EditorStrings.CategoryScene
                 );
 
@@ -332,7 +334,6 @@ sealed partial class EditorApplication {
 
             Pane(
                 ViewportIds.ViewMode(mode),
-                ViewShading.NameOf(mode),
                 pane => pane.Modes.Current = mode,
                 on: pane => pane.Modes.Current == mode,
                 radioGroup: "scene.view-mode"
@@ -364,7 +365,6 @@ sealed partial class EditorApplication {
 
             Pane(
                 ViewportIds.Show(flag),
-                ShowFlags.NameOf(flag),
                 pane => pane.Show ^= flag,
                 on: pane => (pane.Show & flag) != 0
             );
@@ -373,16 +373,16 @@ sealed partial class EditorApplication {
 
     /// <summary>One ticked command per pane count.</summary>
     void ArrangementCommands() {
-        Split("Single", ViewportArrangement.Single, InputKey.Number1);
-        Split("Side by Side", ViewportArrangement.SideBySide, InputKey.Number2);
-        Split("Stacked", ViewportArrangement.Stacked, InputKey.Number3);
-        Split("Four Panes", ViewportArrangement.Quad, InputKey.Number4);
+        Split(ViewportArrangement.Single, InputKey.Number1);
+        Split(ViewportArrangement.SideBySide, InputKey.Number2);
+        Split(ViewportArrangement.Stacked, InputKey.Number3);
+        Split(ViewportArrangement.Quad, InputKey.Number4);
 
-        void Split(string label, ViewportArrangement value, InputKey key) {
+        void Split(ViewportArrangement value, InputKey key) {
             var id = ViewportIds.Arrangement(value);
 
             Shell.Commands.Add(
-                new EditorCommand(id, Label(id, label), () => Arrangement = value) {
+                new EditorCommand(id, Label(id), () => Arrangement = value) {
                     Category = EditorStrings.CategoryScene,
                     RadioGroup = "scene.panes",
 
@@ -401,12 +401,10 @@ sealed partial class EditorApplication {
     /// <summary>One ticked command per camera speed.</summary>
     void SpeedCommands() {
         for (var index = 0; index < Speeds.Length; index++) {
-            var (_, label, factor) = Speeds[index];
-            var wanted = BaseFlySpeed * factor;
+            var wanted = BaseFlySpeed * Speeds[index].Factor;
 
             Pane(
                 ViewportIds.Speed(index),
-                label,
                 pane => pane.Camera.FlySpeed = wanted,
 
                 // ⚠ Compared with a tolerance rather than for equality. The speed is a float a
@@ -435,43 +433,40 @@ sealed partial class EditorApplication {
     ///     </para>
     /// </remarks>
     void SnapCommands() {
-        Element(SnapElements.Vertex, "Snap to Vertex");
-        Element(SnapElements.Edge, "Snap to Edge");
-        Element(SnapElements.EdgeCentre, "Snap to Edge Centre");
-        Element(SnapElements.Face, "Snap to Surface");
+        Element(SnapElements.Vertex);
+        Element(SnapElements.Edge);
+        Element(SnapElements.EdgeCentre);
+        Element(SnapElements.Face);
 
-        Base(SnapBase.Origin, "Snap from Origin");
-        Base(SnapBase.Centre, "Snap from Centre");
-        Base(SnapBase.Active, "Snap from Active");
-        Base(SnapBase.Pointer, "Snap from Grabbed Point");
+        Base(SnapBase.Origin);
+        Base(SnapBase.Centre);
+        Base(SnapBase.Active);
+        Base(SnapBase.Pointer);
 
-        Modifier(SnapModifiers.AlignToTarget, "Align to Target");
-        Modifier(SnapModifiers.ProjectFromView, "Search from the View");
-        Modifier(SnapModifiers.IgnoreSelf, "Ignore What Is Being Dragged");
+        Modifier(SnapModifiers.AlignToTarget);
+        Modifier(SnapModifiers.ProjectFromView);
+        Modifier(SnapModifiers.IgnoreSelf);
 
-        void Element(SnapElements element, string label) =>
+        void Element(SnapElements element) =>
             Pane(
                 ViewportIds.SnapElement(element),
-                label,
                 pane => pane.Gizmo.Snap.Toggle(element, !pane.Gizmo.Snap.Has(element)),
                 on: pane => pane.Gizmo.Snap.Has(element)
             );
 
         // ⚠ A radio group, because the base is a choice of one and three ticks is not how a choice
         // reads. See `EditorCommand.RadioGroup`.
-        void Base(SnapBase value, string label) =>
+        void Base(SnapBase value) =>
             Pane(
                 ViewportIds.SnapBase(value),
-                label,
                 pane => pane.Gizmo.Snap.Base = value,
                 on: pane => pane.Gizmo.Snap.Base == value,
                 radioGroup: "scene.snap-base"
             );
 
-        void Modifier(SnapModifiers modifier, string label) =>
+        void Modifier(SnapModifiers modifier) =>
             Pane(
                 ViewportIds.SnapModifier(modifier),
-                label,
                 pane => pane.Gizmo.Snap.Toggle(modifier, !pane.Gizmo.Snap.Is(modifier)),
                 on: pane => pane.Gizmo.Snap.Is(modifier)
             );
@@ -496,7 +491,6 @@ sealed partial class EditorApplication {
     void WorkPlaneCommands() {
         Pane(
             "scene.work-plane-to-face",
-            "Work Plane to Face",
             pane => {
                 if (pane.Surfaces is { } probe && probe.Raycast(pane.PointerRay(), [], out var hit)) {
                     pane.Grid.Plane.SetTo(hit.Point, hit.Normal);
@@ -509,14 +503,12 @@ sealed partial class EditorApplication {
 
         Pane(
             "scene.work-plane-to-selection",
-            "Work Plane to Selection",
             pane => pane.Grid.Plane.SetTo(SelectionCentre(), Vector3.UnitY),
             enabled: _ => !scene.Selection.IsEmpty
         );
 
         Pane(
             "scene.work-plane-to-world",
-            "Work Plane to World",
             pane => pane.Grid.Plane.Reset(),
             enabled: pane => !pane.Grid.Plane.IsGround
         );
@@ -526,7 +518,6 @@ sealed partial class EditorApplication {
         // thing one wall-thickness out when the plane is on a wall.
         Pane(
             "scene.work-plane-raise",
-            "Raise Work Plane",
             pane => pane.Grid.Plane.Offset(Step(pane)),
             key: InputKey.Equals,
             modifiers: ModifierKeys.Shift
@@ -534,7 +525,6 @@ sealed partial class EditorApplication {
 
         Pane(
             "scene.work-plane-lower",
-            "Lower Work Plane",
             pane => pane.Grid.Plane.Offset(-Step(pane)),
             key: InputKey.Minus,
             modifiers: ModifierKeys.Shift
@@ -542,21 +532,18 @@ sealed partial class EditorApplication {
 
         Pane(
             "scene.grid-step-double",
-            "Double Grid Step",
             pane => pane.Grid.Plane.Coarsen(Spacing(pane)),
             key: InputKey.RightBracket
         );
 
         Pane(
             "scene.grid-step-halve",
-            "Halve Grid Step",
             pane => pane.Grid.Plane.Refine(Spacing(pane)),
             key: InputKey.LeftBracket
         );
 
         Pane(
             "scene.grid-step-auto",
-            "Grid Step Follows the Camera",
             pane => pane.Grid.Plane.Auto(),
             on: pane => pane.Grid.Plane.Step is null
         );
@@ -590,7 +577,6 @@ sealed partial class EditorApplication {
     void PrecisionCommands() {
         Pane(
             "scene.measure",
-            "Measure",
             pane => {
                 pane.Measure.IsActive = !pane.Measure.IsActive;
 
@@ -605,7 +591,6 @@ sealed partial class EditorApplication {
 
         Pane(
             "scene.measure-clear",
-            "Clear Measurement",
             pane => pane.Measure.Clear(),
             enabled: pane => pane.Measure.Points.Count > 0
         );
@@ -615,7 +600,6 @@ sealed partial class EditorApplication {
 
             Pane(
                 ViewportIds.Reference(placed),
-                "Reference: " + placed.Name,
 
                 // On the work plane under the pointer, which is where the designer is building — and
                 // the reason a reference volume knows where its own box sits relative to that point:
@@ -626,7 +610,6 @@ sealed partial class EditorApplication {
 
         Pane(
             "scene.reference-clear",
-            "Clear References",
             pane => pane.References.Clear(),
             enabled: pane => !pane.References.IsEmpty
         );
@@ -647,17 +630,15 @@ sealed partial class EditorApplication {
     void BookmarkCommands() {
         for (var index = 0; index < SceneViewport.BookmarkSlots; index++) {
             var slot = index;
-            var number = (slot + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
             // ⚠ The number row, not the keypad, and counted from `Number1` because the nine are
             // consecutive there. `Keypad1..9` are the six axis views and the four orbit steps, which
             // is the whole reason the bookmarks are on the other set of digits.
             var key = (InputKey) ((ushort) InputKey.Number1 + slot);
 
-            Pane(ViewportIds.SetBookmark(slot), "Set View " + number, pane => pane.SaveBookmark(slot));
+            Pane(ViewportIds.SetBookmark(slot), pane => pane.SaveBookmark(slot));
 
             Pane(
                 ViewportIds.GoBookmark(slot),
-                "View " + number,
                 pane => pane.RestoreBookmark(slot),
                 enabled: pane => pane.HasBookmark(slot)
             );
@@ -667,12 +648,19 @@ sealed partial class EditorApplication {
         }
     }
 
-    /// <summary>A localisation id for a viewport command's label, from its own id.</summary>
-    static StringId Label(string id, string text) => new("editor.command." + id, text);
+    /// <summary>A viewport command's declared label, by the command's own id.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Looked up, not built</b> (#1513). This was
+    ///     <c>new("editor.command." + id, text)</c>, which made seventy-one ids that existed only
+    ///     while the editor ran and so reached no translator's template. The family throws on an id
+    ///     it does not declare, so a command added here without its line in
+    ///     <see cref="EditorStrings.ViewportCommandLabels" /> fails registration in every editor test
+    ///     rather than shipping an untranslatable word.
+    /// </remarks>
+    static StringId Label(string id) => EditorStrings.ViewportCommandLabels[id];
 
     /// <summary>Registers a command that acts on the focused pane.</summary>
-    /// <param name="id">Its id.</param>
-    /// <param name="label">What it is called.</param>
+    /// <param name="id">Its id, which is also how its label is found.</param>
     /// <param name="action">What it does to the pane.</param>
     /// <param name="on">Whether it is ticked, or null when it is not a toggle.</param>
     /// <param name="enabled">An extra condition beyond there being a pane.</param>
@@ -686,7 +674,6 @@ sealed partial class EditorApplication {
     /// </remarks>
     void Pane(
         string id,
-        string label,
         Action<SceneViewport> action,
         Func<SceneViewport, bool>? on = null,
         Func<SceneViewport, bool>? enabled = null,
@@ -695,7 +682,7 @@ sealed partial class EditorApplication {
         ModifierKeys modifiers = ModifierKeys.None
     ) {
         Shell.Commands.Add(
-            new EditorCommand(id, Label(id, label), () => {
+            new EditorCommand(id, Label(id), () => {
                     if (Viewport is { } pane) {
                         action(pane);
                     }
