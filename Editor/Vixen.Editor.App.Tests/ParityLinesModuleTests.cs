@@ -29,6 +29,8 @@ public class ParityLinesModuleTests {
     [InlineData(PlayModule.ModuleId, "play.mute-audio")]
     [InlineData(PlayModule.ModuleId, "play.overlay.physics")]
     [InlineData(WorkspaceModule.ModuleId, "file.no-recent")]
+    [InlineData(WorkspaceModule.ModuleId, "file.new-project")]
+    [InlineData(WorkspaceModule.ModuleId, "file.open-project")]
     public void Disabling_the_module_takes_its_lines_away(string module, string command) {
         using var session = EditorSession.Start();
 

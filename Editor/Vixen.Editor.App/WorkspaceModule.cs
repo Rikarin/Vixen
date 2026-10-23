@@ -7,6 +7,8 @@ using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Editor.Ui.Documents;
+using Vixen.Input;
+using Vixen.Platform;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 
@@ -144,6 +146,41 @@ sealed class WorkspaceModule : IEditorPlugin {
 
         RecentDocuments(context, workspace);
         RecentProjects(context);
+        ProjectVerbs(context);
+    }
+
+    /// <summary>File ▸ New Project and Open Project, over the drawn chooser and the session (#1296).</summary>
+    /// <remarks>
+    ///     ⚠ <b>They do not swap a project under a live editor.</b> The editor is rebuilt over the new
+    ///     root by the host — see <see cref="IProjectSession.RequestProject" /> — which is the path every
+    ///     restart already takes. Open Project is the chooser (recents, Browse, New) and not a bare
+    ///     folder picker, so it works on a head with none; New Project needs one and greys without it.
+    /// </remarks>
+    static void ProjectVerbs(PluginContext context) {
+        context.Services.TryGet(out INativeDialogs? dialogs);
+
+        var chooser = new ProjectChooser(
+            context.Shell,
+            context.Services.Require<IProjectSession>(),
+            dialogs,
+            context.Services.Require<Deferred>(),
+            context.Services.Require<EditorDataDirectory>().Path
+        );
+
+        context.AddCommand(
+            new EditorCommand("file.new-project", EditorStrings.CommandNewProject, chooser.Create) {
+                Category = EditorStrings.CategoryFile,
+                Enablement = () => chooser.CanPick
+            }
+        );
+
+        context.AddCommand(
+            new EditorCommand("file.open-project", EditorStrings.CommandOpenProject, chooser.Show) {
+                Category = EditorStrings.CategoryFile
+            }
+        );
+
+        context.AddDefaultBinding("file.open-project", new KeyChord(InputKey.O, ModifierKeys.Control | ModifierKeys.Shift));
     }
 
     /// <summary>What an empty Open Recent submenu shows.</summary>

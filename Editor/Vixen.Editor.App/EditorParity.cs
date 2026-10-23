@@ -74,24 +74,7 @@ sealed partial class EditorApplication {
     // ── File ────────────────────────────────────────────────────────────────────────────────────
 
     void FileCommands() {
-        // ⚠ The two the shell's default menu has named since it was written, and doc 20 filed both
-        // behind "swapping a project underneath a live editor". They do not swap one: the editor is
-        // rebuilt over the new root by the host, which is the path every restart already takes. See
-        // `RequestProject`.
-        Verb(
-            "file.new-project",
-            EditorStrings.CommandNewProject,
-            EditorStrings.CategoryFile,
-            () => PickProjectDirectory("New Project", session.CreateProject),
-            enabled: () => services.CanPick
-        );
-
-        Verb(
-            "file.open-project",
-            EditorStrings.CommandOpenProject,
-            EditorStrings.CategoryFile,
-            ShowProjectBrowser
-        );
+        // File ▸ New Project and Open Project are `WorkspaceModule`'s (#1296), over `ProjectChooser`.
 
         Verb(
             "file.new-scene",
@@ -175,7 +158,6 @@ sealed partial class EditorApplication {
 
         Shell.Keys.SetDefault("file.new-scene", new KeyChord(InputKey.N, ModifierKeys.Control));
         Shell.Keys.SetDefault("file.open-scene", new KeyChord(InputKey.O, ModifierKeys.Control));
-        Shell.Keys.SetDefault("file.open-project", new KeyChord(InputKey.O, ModifierKeys.Control | ModifierKeys.Shift));
         Shell.Keys.SetDefault("file.save-as", new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Shift));
         Shell.Keys.SetDefault("file.save-all", new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Alt));
 

@@ -2294,7 +2294,11 @@ sealed partial class EditorApplication : IDisposable {
             // `Core/Vixen.Ui.HotReload` and nothing in the editor had ever created one — the
             // declarative path was reloadable in principle and not in this application, which is F7
             // with an extra step.
-            .Add(hotReload);
+            .Add(hotReload)
+
+            // ⚠ And the frame queue a native picker's answer comes back through, for the modules in
+            // this assembly that ask one — `WorkspaceModule`'s project chooser (#1296).
+            .Add(deferred);
 
         // And the OS's pickers where there are any — a module that writes a file asks for them (#1298).
         if (services.Dialogs is { } pickers) {
