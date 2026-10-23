@@ -262,7 +262,7 @@ The feature-name audit (`.cs` and `.vxml`, code only, comments excluded):
 | `Vixen.Editor.Ui` | 38 | **35 string ids in `EditorStrings.cs` that belong to a feature which already has its own `*Strings` class** (Terrain 9, Blockout 10, Water 4, Texturing 4, Diagnostics 8); `ModeArt` has a static icon per mode; `EditorIcons["profiler"]` |
 | `Vixen.Editor.Assets` | 14 | `BuiltInImporters.cs:57-99@3e9f7e5d9` is a hand list of **34** importers naming Vfx, ShaderGraph, Terrain ×2, Water, Ai ×4, Animation ×7, Gameplay, Net; `VfxImporter` and `ShaderGraphSources` construct the two graph compilers, which is the `ShaderGraph`/`VfxGraph` reference |
 | `Vixen.Editor.Host` | 8 | builds `ShaderGraphPreviewRenderer` itself (`EditorHost.cs:581`), loads the terrain stages' SPIR-V (`:1033-1047`), a stale `using Vixen.Editor.Profiler` (`:8`) |
-| `Vixen.Editor.SceneView` | 2 | `SceneLines.LightShapes` still walks entities for one component (`SceneLines.cs:901`); five seams named for one feature each (`IVegetationScene`, `IWaterScene`, `SplineOverlay`, `SplineEdit`, `MeshExport`'s `"Blockout"` default) |
+| `Vixen.Editor.SceneView` | 2 | `SceneLines.LightShapes` still walks entities for one component (`SceneLines.cs:909`); five seams named for one feature each (`IVegetationScene`, `IWaterScene`, `SplineOverlay`, `SplineEdit`, `MeshExport`'s `"Blockout"` default) |
 | `Vixen.Editor.Core`, `Vixen.Editor.Inspector` | **0** | the two assemblies whose READMEs promised it |
 
 ⚠ **`Core` and `Inspector` being clean is the finding that makes the rest tractable**: the domain

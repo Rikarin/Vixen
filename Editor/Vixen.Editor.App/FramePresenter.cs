@@ -384,6 +384,11 @@ sealed class FramePresenter : IDisposable {
         stats.Entities = world.ObjectCount;
         stats.Segments = (geometry.World.Count + geometry.Overlay.Count) / 2;
 
+        // ⚠ The pair that says the LOD route is live (#1268), and the frame's rather than this
+        // pane's for the reason the draws below give: one extraction serves every pane.
+        stats.LodGroups = world.LodGroups;
+        stats.LodLevels = world.LodLevels;
+
         // ⚠ Differences, because `MeshRenderFeature` counts across the renderer's whole life rather
         // than per frame. Read as totals they are a triangle count that climbs for ever — an overlay
         // that says "125 720 tris" over two crates, which reads as a scene far heavier than it is and

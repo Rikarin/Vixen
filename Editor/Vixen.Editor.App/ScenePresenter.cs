@@ -451,6 +451,11 @@ sealed class ScenePresenter : IDisposable {
 
         stats.Entities = surfaces.Count;
 
+        // The tool renderer has no LOD route — it draws every level — so it has nothing to report,
+        // and leaving the composed path's last numbers here would claim one.
+        stats.LodGroups = 0;
+        stats.LodLevels = 0;
+
         // ⚠ The renderer's counts rather than the collector's, and the difference is the truncation. A
         // frame that produced more entities than the instance ring holds drops whole batches, and a
         // stats overlay whose triangle count silently stops rising is the one readout that would hide

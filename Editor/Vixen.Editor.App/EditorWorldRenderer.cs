@@ -627,6 +627,32 @@ sealed class EditorWorldRenderer : IDisposable {
     /// </remarks>
     public int MalformedLodGroups => lods.Malformed;
 
+    /// <summary>How many LOD groups are registered with the frame right now.</summary>
+    /// <remarks>
+    ///     <c>LodExtractionSystem.GroupCount</c>, read by <c>FramePresenter.Upload</c> into the pane's
+    ///     readout beside <see cref="LodLevels" /> — see that member for why the pair is shown rather
+    ///     than warned about (<see href="https://github.com/Rikarin/Vixen/issues/1268" />).
+    /// </remarks>
+    public int LodGroups => lods.GroupCount;
+
+    /// <summary>How many LOD levels the last <see cref="Extract" /> gave a group membership.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>LodExtractionSystem.Assigned</c>: the number that is zero on the frame the LOD route
+    ///         is doing nothing. A scene whose groups are registered and whose levels are all still
+    ///         waiting on their meshes reads <see cref="LodGroups" /> healthy and this zero — and in
+    ///         that frame no level is ever hidden, which looks like an unoptimised scene and not
+    ///         like a fault.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A row in the readout, not a warning.</b> Both numbers are healthy at zero in a
+    ///         scene with no LOD groups in it, which is most scenes, so "warn when zero" would fire on
+    ///         every project that does not use LOD chains. The readout shows the pair only when there
+    ///         is a group, and a group with no levels is then visible at a glance.
+    ///     </para>
+    /// </remarks>
+    public int LodLevels => lods.Assigned;
+
     /// <summary>
     ///     Drops and destroys every pipeline and shader module the session has compiled.
     /// </summary>

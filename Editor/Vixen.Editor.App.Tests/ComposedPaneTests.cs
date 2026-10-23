@@ -615,6 +615,135 @@ public sealed class ComposedPaneTests : IDisposable {
         Assert.Equal(first, second);
     }
 
+    // ------------------------------------------------------------------ level of detail
+
+    /// <summary>A LOD group in a pane shows one level, and which one follows the pane's distance.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The end-to-end half of <a href="https://github.com/Rikarin/Vixen/issues/1271">#1271</a>.</b>
+    ///         <c>EditorWorldRenderer.Aim</c> never gave a pane's view its
+    ///         <c>ScreenHeightScale</c>, whose zero means "this view does no screen-size work", so
+    ///         <c>LodRenderFeature.Prepare</c> skipped every pane and <em>every</em> level of a group
+    ///         drew at once in the editor. <c>EditorWorldRendererTests</c> asserts the field; this
+    ///         asserts the consequence, through the host's own loop — of a group's two levels the pane's
+    ///         view sees exactly one, and which one moves with the camera.
+    ///     </para>
+    ///     <para>
+    ///         Closed form: both levels are unit primitives, whose sphere is <c>√3⁄2</c>, and the
+    ///         pane's 60° gives <c>ScreenHeightScale = √3</c> — so the group covers <c>1.5 / d</c> of
+    ///         the screen at distance <c>d</c>, and <c>entity.group-lod</c>'s threshold of ½ puts the
+    ///         switch at 3 m. A pane at 1.5 m must show level 0 and one at 12 m level 1. The far frame
+    ///         is the instrument check: a feature that hid level 1 for ever would pass the near one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_lod_group_in_a_pane_shows_one_level_and_switches_with_the_panes_distance() {
+        var session = Quad();
+        var world = session.Application.Frame!;
+        var scene = session.Application.Scene;
+        var presenters = Presenters(session);
+        var at = new Vector3(0f, 0.5f, 20f);
+
+        var fine = scene.CreateShape(PrimitiveKind.Sphere, Engine.Transforms.LocalTransform.At(at));
+        var coarse = scene.CreateShape(PrimitiveKind.Cube, Engine.Transforms.LocalTransform.At(at));
+
+        scene.Selection.Set([fine, coarse]);
+        session.Run("entity.group-lod");
+        session.Settle();
+
+        // ⚠ The quad's one perspective pane. The other three are plan views, whose scale is zero on
+        // purpose — an orthographic projection has no cone — and which choose no level at all.
+        var panes = session.Application.Viewports;
+        var index = Enumerable.Range(0, panes.Count).Single(candidate => !panes[candidate].Camera.IsOrthographic);
+        var pane = panes[index];
+
+        pane.Camera.Pivot = at;
+        pane.Camera.Distance = 1.5f;
+
+        Settled(session, presenters);
+
+        var view = world.ViewOf(index);
+
+        // One group registered and both of its levels given a membership — the producer half, which
+        // is asserted so that the visibility below cannot be explained by there being no group.
+        Assert.Equal(2, world.Renderer.Lods.Groups.Count);
+        Assert.True(view.ScreenHeightScale > 0f, "the pane opted out of screen-size work");
+        Assert.Equal(0, world.Renderer.Lods.LevelOf(1, view.Index));
+        Assert.True(Visible(fine), "level 0 is hidden from a pane standing 1.5 m from it");
+        Assert.False(Visible(coarse), "level 1 is drawn on top of level 0, so the pane chose no level");
+
+        pane.Camera.Distance = 12f;
+
+        Settled(session, presenters);
+
+        Assert.Equal(1, world.Renderer.Lods.LevelOf(1, view.Index));
+        Assert.False(Visible(fine), "level 0 is still drawn from 12 m");
+        Assert.True(Visible(coarse), "level 1 is hidden from a pane standing 12 m from it");
+
+        // Through the entity's own render object, which is what the work list is built from.
+        bool Visible(global::Vixen.Core.Entity entity) =>
+            world.Renderer.Host.System.Visibility.IsVisible(
+                view.Index,
+                scene.World.Read<Rendering.Ecs.RenderHandle>(entity).Object
+            );
+    }
+
+    /// <summary>The pane's readout says whether the LOD route is live, and reads differently in each state.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>LodExtractionSystem.GroupCount</c> and <c>.Assigned</c> had no reader</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1268">#1268</a>. They are the pair
+    ///         that tells a frame hiding levels from one that registered its groups and is still
+    ///         waiting on every level's mesh, in which every level draws and nothing says so.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Three states in one run, and that is the instrument.</b> A reader that only ever
+    ///         prints zero is what existed before, and a reader that prints the pair whatever the
+    ///         scene is the same defect louder. So the seeded scene with no group must say nothing
+    ///         about LOD; a group with no levels under it must say one group and no levels — the
+    ///         failure the pair exists for — and the same group given two levels must say two.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_panes_readout_says_whether_the_lod_route_is_live() {
+        var session = Quad();
+        var scene = session.Application.Scene;
+        var presenters = Presenters(session);
+        var pane = session.Application.Viewports[0];
+
+        Settled(session, presenters);
+
+        Assert.Equal(0, pane.Stats.LodGroups);
+        Assert.DoesNotContain("LOD", ViewportChrome.Describe(pane), StringComparison.Ordinal);
+
+        // A group whose levels have not arrived: registered, and nothing assigned.
+        var group = scene.Add("LOD Group", Engine.Transforms.LocalTransform.Identity);
+
+        scene.World.Add(group, new Rendering.Ecs.LodGroupComponent { Thresholds = [0.5f] });
+
+        // The editor's update is what extracts; the compose below only reads what it left.
+        session.Settle();
+        Settled(session, presenters);
+
+        Assert.Equal(1, pane.Stats.LodGroups);
+        Assert.Equal(0, pane.Stats.LodLevels);
+        Assert.Contains("1 LOD (0 levels)", ViewportChrome.Describe(pane), StringComparison.Ordinal);
+
+        // And given its two levels.
+        for (var level = 0; level < 2; level++) {
+            var member = scene.CreateShape(PrimitiveKind.Cube, Engine.Transforms.LocalTransform.Identity, group);
+
+            scene.World.Add(member, new Rendering.Ecs.LodLevel { Level = level });
+        }
+
+        session.Settle();
+        Settled(session, presenters);
+
+        Assert.Equal(1, pane.Stats.LodGroups);
+        Assert.Equal(2, pane.Stats.LodLevels);
+        Assert.Contains("1 LOD (2 levels)", ViewportChrome.Describe(pane), StringComparison.Ordinal);
+    }
+
     // ------------------------------------------------------------------ helpers
 
     static void AssertClose(Matrix4x4 expected, Matrix4x4 actual, int pane) {

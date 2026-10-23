@@ -213,6 +213,63 @@ public class LodRangeTests : IDisposable {
         Assert.Empty(lines.World);
     }
 
+    /// <summary>
+    ///     A finest level made of two objects is measured by the larger, whichever was parented first.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The runtime's tie-break, so the ring and the switch agree</b> —
+    ///         <c>LodRenderFeature.Select</c> measures a group by its finest visible level and, within
+    ///         it, by the largest object (<a href="https://github.com/Rikarin/Vixen/issues/1273">#1273</a>).
+    ///         This drawing took the first child it met on that level, so a level of two objects drew
+    ///         its ring at a distance that depended on the order they were parented in.
+    ///     </para>
+    ///     <para>
+    ///         Closed form: the larger cube is scaled 2, so its sphere is twice the unit cube's and the
+    ///         shell is at <c>2 × 1.5 / 0.5 = 6</c>. A coarse level, scaled 4, is there to be ignored
+    ///         — it is the bigger sphere of all three and is not the finest level.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_finest_level_of_two_objects_is_measured_by_the_larger_in_either_order(bool smallFirst) {
+        var lines = new SceneLines();
+        var group = scene.Add("LOD Group", LocalTransform.Identity);
+
+        void Level(int level, float scale) {
+            var member = scene.CreateShape(
+                PrimitiveKind.Cube,
+                LocalTransform.Identity with { Scale = new Vector3(scale) },
+                group
+            );
+
+            world.Add(member, new LodLevel { Level = level });
+        }
+
+        if (smallFirst) {
+            Level(0, 1f);
+            Level(0, 2f);
+        } else {
+            Level(0, 2f);
+            Level(0, 1f);
+        }
+
+        Level(1, 4f);
+
+        world.Add(group, new LodGroupComponent { Thresholds = [0.5f] });
+        transforms.Resolve(world);
+        world.AdvanceVersion();
+
+        scene.Selection.Set(group);
+        Viewport.Show = SceneShow.None;
+
+        lines.Build(scene, Viewport, Height);
+
+        Assert.Equal(RingVertices, lines.World.Count);
+        Assert.Equal(6f, lines.World.Max(Reach), 3);
+    }
+
     // ── Fixtures ────────────────────────────────────────────────────────────────────────────────
 
     /// <summary>The pane under test, whose camera is the perspective default.</summary>

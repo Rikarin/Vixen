@@ -112,6 +112,13 @@ that being indistinguishable from working.
 reflection-probe face and an orthographic camera, and it is deliberate: a shadow drawn from a
 different mesh than its caster stops matching it.
 
+**Which bound is measured.** A group is measured by **its finest visible level** — level 0 whenever
+the camera can see it — and among several objects on that level by the largest. Level 0 is the shape
+an author is looking at while typing a threshold, and measuring it makes the switch distance
+independent of the coarser levels' sizes: a decimation is usually a little smaller than the mesh it
+came from and an impostor card is a different shape altogether. Decision (made on Jiu's behalf, at
+Jiu's request, 2026-10-23), [#1273](https://github.com/Rikarin/Vixen/issues/1273).
+
 **Hysteresis** — `LodRenderFeature.Hysteresis`, a tenth of the threshold by default — is what keeps an
 object drifting across a boundary from changing mesh every frame. A level change is a different
 silhouette, so the flicker is far more visible than the detail the switch was protecting.
@@ -120,9 +127,9 @@ silhouette, so the flicker is far more visible than the detail the switch was pr
 pushed a weight a material turns into a dithered discard, so a fade doubles the draws for the objects
 crossing a threshold. Setting the duration is now the whole of turning it on: `LodExtractionSystem`
 hands the feature the frame's unscaled delta, in a game from the loop's `SystemContext.Time` and in the
-editor from `EditorWorldRenderer.Extract`. ⚠ It advances faster than the duration says — see
-[#1183](https://github.com/Rikarin/Vixen/issues/1183) — because the feature accumulates once per
-visible member of the group and a fade is exactly the state in which two members are visible.
+editor from `EditorWorldRenderer.Extract`. The fade advances once per group per view per frame — it
+used to advance once per visible *member*, and so ran at double speed while fading
+([#1183](https://github.com/Rikarin/Vixen/issues/1183), fixed).
 
 ## Examples
 
@@ -172,10 +179,11 @@ pane draws one ring on the ground per threshold, at the distance the runtime act
 drawn in an orthographic pane, and that is the drawing agreeing with the frame rather than a gap — a
 plan view's `ScreenHeightScale` is zero and `LodRenderFeature` chooses no level for it.
 
-⚠ **The ring is measured on the finest level and the runtime measures whichever member it walked
-last** (`LodRenderFeature.Select` overwrites the group's height per visible member), so the two agree
-exactly for a group whose levels share a bound and differ by the ratio of their radii for one whose
-levels do not. That order dependence is the runtime's and is filed separately.
+⚠ **The ring is measured on the finest level, and so is the runtime.** `LodRenderFeature.Select`
+decides a group from its finest visible level — and, among several objects on that level, the largest
+— so the ring and the switch agree for every group, whatever the sizes of its coarser levels. Until
+[#1273](https://github.com/Rikarin/Vixen/issues/1273) the runtime took whichever member it walked last,
+which is the extraction's order, and the two agreed only for a group whose levels share a bound.
 
 ⚠ **It lives in `SceneLines` and not in a contributed gizmo, and that is not a preference.**
 `GizmoDrawer` is handed a draw, a component and a placement and **no view**, and without the

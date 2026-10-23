@@ -42,6 +42,17 @@ public sealed class ViewportStats {
     /// <summary>How many draw calls the pane issued.</summary>
     public int Draws { get; set; }
 
+    /// <summary>How many LOD groups the frame has registered.</summary>
+    /// <remarks>
+    ///     Zero in a scene with no LOD groups, which is healthy, and zero on a presenter that draws
+    ///     without the frame's LOD route. Read with <see cref="LodLevels" />: a non-zero count of
+    ///     groups beside no levels is the frame in which nothing is ever hidden.
+    /// </remarks>
+    public int LodGroups { get; set; }
+
+    /// <summary>How many LOD levels the frame gave a group membership.</summary>
+    public int LodLevels { get; set; }
+
     /// <summary>How long a frame takes, smoothed, in milliseconds.</summary>
     public float FrameMilliseconds { get; private set; }
 
@@ -78,5 +89,7 @@ public sealed class ViewportStats {
         Triangles = 0;
         Segments = 0;
         Draws = 0;
+        LodGroups = 0;
+        LodLevels = 0;
     }
 }

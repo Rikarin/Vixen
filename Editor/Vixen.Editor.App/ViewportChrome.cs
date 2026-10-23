@@ -301,17 +301,31 @@ sealed class ViewportChrome {
 
     /// <summary>The readout in the corner of a pane.</summary>
     /// <remarks>
-    ///     ⚠ <b>Frame time and frames a second together, because neither answers on its own.</b>
-    ///     Sixteen milliseconds is the number a budget is expressed in and sixty is the number people
-    ///     recognise, and a readout with only the second cannot say how much room is left.
+    ///     <para>
+    ///         ⚠ <b>Frame time and frames a second together, because neither answers on its own.</b>
+    ///         Sixteen milliseconds is the number a budget is expressed in and sixty is the number
+    ///         people recognise, and a readout with only the second cannot say how much room is left.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The LOD pair only when there is a group</b>
+    ///         (<see href="https://github.com/Rikarin/Vixen/issues/1268" />). Both numbers are healthy
+    ///         at zero in a scene without LOD chains, which is most scenes, so showing them always
+    ///         would be noise and warning on zero would be wrong. What the pair answers at a glance is
+    ///         whether the route is live: groups beside no levels is the frame in which every level
+    ///         draws.
+    ///     </para>
     /// </remarks>
-    static string Describe(SceneViewport pane) {
+    internal static string Describe(SceneViewport pane) {
         var stats = pane.Stats;
         var culture = CultureInfo.InvariantCulture;
 
+        var lods = stats.LodGroups > 0
+            ? string.Create(culture, $"  {stats.LodGroups} LOD ({stats.LodLevels} levels)")
+            : string.Empty;
+
         return string.Create(
             culture,
-            $"{stats.Entities} obj  {stats.Triangles} tris  {stats.Draws} draws  {stats.FrameMilliseconds:0.0} ms ({stats.FramesPerSecond:0} fps)"
+            $"{stats.Entities} obj  {stats.Triangles} tris  {stats.Draws} draws{lods}  {stats.FrameMilliseconds:0.0} ms ({stats.FramesPerSecond:0} fps)"
         );
     }
 
