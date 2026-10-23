@@ -231,6 +231,12 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     readonly ProjectMeshMapBaker meshMaps;
 
+    /// <summary>Doc 48 § D12's bake: its line, its panel and its settings (#1296).</summary>
+    readonly MeshMapBaking meshMapBake;
+
+    /// <inheritdoc cref="meshMapBake" />
+    internal MeshMapBaking MeshMapBake => meshMapBake;
+
     /// <summary>The project's own content, opened the way a player opens a build.</summary>
     /// <remarks>
     ///     ⚠ <b><see cref="EditorContent" /> had no caller outside its own tests.</b> It is what turns
@@ -776,12 +782,6 @@ sealed partial class EditorApplication : IDisposable {
         // build panel; this is the same event reaching the thing that greys the button. #430.
         content.BusyChanged += Shell.Document.InvalidateCommands;
 
-        // ⚠ And the bake panel's result list, which is the one surface a finished bake changes that
-        // a rescan does not. Assigned after the initializer rather than in it, because the hook
-        // reads the object being initialized back — `LastBake` is pulled rather than handed over, so
-        // that a panel opened *after* a bake can still ask what it produced.
-        content.Baked = () => bakeView?.ShowResult(content.LastBake);
-
         // ⚠ Doc 50 § P2c: import, package export, collections and saved filters as one service, built
         // after the tasks because its import is theirs and before `PluginPoints`, which publishes it.
         // The preferences are asked for through a lambda on every call — the settings window's Revert
@@ -854,9 +854,8 @@ sealed partial class EditorApplication : IDisposable {
 
         SettingsPanels();
 
-        // And doc 48 § D12's, which is where a mesh-map bake is set up and where what it produced is
-        // read afterwards.
-        MeshMapPanels();
+        // And doc 48 § D12's bake, which registers its panel and line and follows the tasks itself.
+        (meshMapBake = new MeshMapBaking(Shell, project, content, meshMaps, SceneGeometry)).Register();
 
         // And E5's four, for the same reason: the Sequencing preset names the scene list.
         WorldPanels();
@@ -1175,12 +1174,9 @@ sealed partial class EditorApplication : IDisposable {
         // decode happened on the pool; this is the upload.
         thumbnails.Pump();
 
-        // ⚠ Pulled, and it is the one panel in this loop that has to be. What it says depends on the
-        // project *selection*, and `Selection<T>` raises nothing when it changes — so a panel opened
-        // before a model was clicked would sit greyed with "select a model" for ever. The read is a
-        // count and two lookups and the panel writes nothing when the answer has not moved; compare
-        // `BuildRefusal`, which enumerates the project root and is therefore asked on events only.
-        bakeView?.Refresh();
+        // ⚠ Pulled, and it is the one panel in this loop that has to be — see `MeshMapBaking.Refresh`.
+        // Compare `BuildRefusal`, which enumerates the project root and is therefore asked on events only.
+        meshMapBake.Refresh();
 
         // ⚠ Pulled rather than subscribed to — see `EditorConsole.Tick` for the threading reason.
         console.Tick();
