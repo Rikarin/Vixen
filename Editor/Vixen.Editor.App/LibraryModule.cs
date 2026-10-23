@@ -36,11 +36,13 @@ namespace Vixen.Editor.App;
 ///         ⚠ <b>Not yet the whole Assets menu the issue names.</b> Open is here, over the published
 ///         <see cref="IWorkspace" /> (whose open asks <see cref="IDocumentHost" />). History and Revert are not
 ///         this module's but <see cref="SourceControlModule" />'s, over the published <see cref="ISourceControl" />
-///         (#1505) — the document host was never what History needed. Rename starts the browser panel's inline editor and Move To asks through this
-///         editor's drawn chooser, so both still register in the application — and both end in
-///         <see cref="IContentLibrary.Rename" /> and <see cref="IContentLibrary.Move" />. The menu layout — which lines appear where — is the application's
-///         too, and ⚠ stays so: the Assets menu carries five contexts' lines, and a module that owned
-///         the menu would take the others' off the bar when it was switched off. A line naming a
+///         (#1505) — the document host was never what History needed. Rename and Move To are here too
+///         (#1292): the first starts the Project panel's inline editor, which <see cref="ContentBrowsing" />
+///         is published to this module for, and the second asks through the shell's drawn chooser — and both
+///         end in <see cref="IContentLibrary.Rename" /> and <see cref="IContentLibrary.Move" />. The menu
+///         layout — which lines appear where — is the application's, and ⚠ stays so: the Assets menu
+///         carries five contexts' lines, and a module that owned the menu would take the others' off the
+///         bar when it was switched off. A line naming a
 ///         command nobody registered is skipped, so switching this module off takes only its lines.
 ///     </para>
 ///     <para>
@@ -156,15 +158,50 @@ sealed class LibraryModule : IEditorPlugin {
 
         // ⚠ Greyed while the Project panel is closed, as it was in the application (#1292): the row
         // appearing in the browser is the verb's only answer, and a folder made where nobody can see
-        // it is a click that seemed to do nothing.
+        // it is a click that seemed to do nothing. And it leaves that row being renamed (#1516) —
+        // the panel's inline editor, on the identity the library returns rather than the name asked
+        // for, which a taken one has numbered.
+        var browsing = context.Services.Require<ContentBrowsing>();
+
         context.AddCommand(
             new EditorCommand(
                 "assets.new-folder",
                 EditorStrings.CommandAssetsNewFolder,
-                () => library.CreateFolder(FolderBeside(library.Project), "New Folder")
+                () => {
+                    if (library.CreateFolder(FolderBeside(library.Project), "New Folder") is { } made) {
+                        browsing.BeginRename(made);
+                    }
+                }
             ) {
                 Category = EditorStrings.CategoryAssets,
                 Enablement = () => context.Shell.Workspace.IsOpen(ContentBrowsing.PanelId)
+            }
+        );
+
+        // ⚠ In place, in the panel's own tree, rather than in a dialog — so the menu line, F2 and a
+        // second click on a selected row all do the same thing, and the commit goes through the one
+        // handler that calls `IContentLibrary.Rename`. The outliner renames an entity the same way.
+        // Moved from the application (#1292), enablement and all: there is nothing to rename in while
+        // the Project panel is closed.
+        context.AddCommand(
+            new EditorCommand(
+                "assets.rename",
+                EditorStrings.CommandAssetsRename,
+                () => {
+                    if (selection.Count > 0) {
+                        browsing.BeginRename(selection[0]);
+                    }
+                }
+            ) {
+                Category = EditorStrings.CategoryAssets,
+                Enablement = () => browsing.Browser is not null && selection.Count == 1
+            }
+        );
+
+        context.AddCommand(
+            new EditorCommand("assets.move-to", EditorStrings.CommandAssetsMoveTo, () => MoveTo(context, library)) {
+                Category = EditorStrings.CategoryAssets,
+                Enablement = () => browsing.Browser is not null && selection.Count > 0
             }
         );
 
@@ -226,7 +263,8 @@ sealed class LibraryModule : IEditorPlugin {
     /// <remarks>
     ///     What every browser does and what somebody who has just clicked a folder means. Moved from
     ///     <c>EditorApplication.NewAssetFolder</c>, whose summary also said it "starts renaming it" — ⚠ it
-    ///     never did: nothing called the browser's <c>BeginRename</c> on the new row.
+    ///     never did: nothing called the browser's <c>BeginRename</c> on the new row, until the command
+    ///     was given the new folder's identity to call it with (#1516).
     /// </remarks>
     static string FolderBeside(EditorProject project) {
         var parent = "Assets";
@@ -236,6 +274,58 @@ sealed class LibraryModule : IEditorPlugin {
         }
 
         return parent;
+    }
+
+    /// <summary>Asks which of the project's folders to move the selection into, then moves it there.</summary>
+    /// <param name="context">Where the question is asked.</param>
+    /// <param name="library">What moves them.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Through the shell's drawn chooser rather than a native one, and that is the whole
+    ///         point of the distinction <c>DialogService</c> draws.</b> A native picker is about the
+    ///         user's disk; this is a question about the <i>project</i>, whose folders carry GUIDs and
+    ///         whose paths are relative — and a native dialog would happily answer with a directory
+    ///         outside the project, which is the one answer <see cref="IContentLibrary.Move" /> cannot take.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every folder in the project, flat, by path.</b> A tree would be prettier and would
+    ///         need the browser's own tree in a dialog; a sorted list of relative paths is searchable by
+    ///         eye, is what the operation actually takes, and cannot express a destination outside the
+    ///         project. Moved from <c>EditorApplication.MoveSelectedAssets</c> (#1292): the chooser is
+    ///         the shell's, which a module is handed, so nothing of it was the application's.
+    ///     </para>
+    /// </remarks>
+    static void MoveTo(PluginContext context, IContentLibrary library) {
+        var project = library.Project;
+        List<AssetId> assets = [.. project.Selection];
+
+        if (assets.Count == 0) {
+            return;
+        }
+
+        var folders = project.Assets.Entries
+            .Where(entry => entry.IsFolder)
+            .Select(entry => entry.Path)
+            .Append("Assets")
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        _ = Ask();
+
+        async Task Ask() {
+            var destination = await context.Shell.ChooseAsync(
+                assets.Count == 1 ? "Move to which folder?" : $"Move {assets.Count} assets to which folder?",
+                folders,
+                folder => folder
+            ).ConfigureAwait(true);
+
+            if (destination is not { Length: > 0 } folder) {
+                return;
+            }
+
+            library.Move(assets, folder);
+        }
     }
 
     /// <summary>Deletes the selected assets, having said what would break.</summary>

@@ -4,9 +4,7 @@
 # left behind on unload. Regenerate with VIXEN_REGENERATE=1 on that test, and read the diff.
 
 editor menu editor.menu.assets assets.build
-editor menu editor.menu.assets assets.move-to
 editor menu editor.menu.assets assets.refresh
-editor menu editor.menu.assets assets.rename
 editor menu editor.menu.build assets.build
 editor menu editor.menu.edit edit.redo
 editor menu editor.menu.edit edit.search-everywhere
@@ -214,9 +212,11 @@ vixen.library menu editor.menu.assets assets.bake-mesh-maps
 vixen.library menu editor.menu.assets assets.delete
 vixen.library menu editor.menu.assets assets.find-references
 vixen.library menu editor.menu.assets assets.import
+vixen.library menu editor.menu.assets assets.move-to
 vixen.library menu editor.menu.assets assets.open
 vixen.library menu editor.menu.assets assets.reimport
 vixen.library menu editor.menu.assets assets.reimport-all
+vixen.library menu editor.menu.assets assets.rename
 vixen.library menu editor.menu.assets assets.select-dependencies
 vixen.library menu editor.menu.assets assets.show-in-explorer
 vixen.library menu editor.menu.assets/editor.menu.create assets.create

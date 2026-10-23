@@ -64,13 +64,19 @@ public interface IContentLibrary {
     /// <summary>Makes an empty folder inside another one, and says why not if it could not.</summary>
     /// <param name="parent">Where, relative to the project root — <c>Assets</c> or a folder under it.</param>
     /// <param name="name">What it is called. A name already taken there is numbered rather than refused.</param>
-    /// <returns>What happened. A refusal has already been reported.</returns>
+    /// <returns>
+    ///     The new folder, or <see langword="null" /> when it was refused — which has already been
+    ///     reported. Starting a rename on it is the caller's, as opening a <see cref="Create" />d asset is.
+    /// </returns>
     /// <remarks>
     ///     ⚠ <b>Over the project, not the browser (#1292).</b> Assets ▸ New Folder was the application's
     ///     and read nothing of the browser panel but whether it was open; the browser follows the
     ///     folder in through <see cref="Rearranged" />, as it follows a rename.
+    ///     ⚠ <b>The identity is returned because the name is not the caller's to know (#1516)</b>: one
+    ///     already taken is numbered, so "New Folder" asked for may be "New Folder 2" made, and the menu
+    ///     line that renames the new row in place needs to know which row it is.
     /// </remarks>
-    AssetOperation CreateFolder(string parent, string name);
+    AssetId? CreateFolder(string parent, string name);
 
     /// <summary>Moves assets into a folder of the project, each with its sidecar.</summary>
     /// <param name="assets">What to move.</param>

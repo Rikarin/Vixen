@@ -6,6 +6,8 @@ using Vixen.Editor.Assets;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Testing;
+using Vixen.Ui;
+using Vixen.Ui.Controls;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -69,6 +71,8 @@ public class LibraryModuleTests {
         Assert.Null(editor.Shell.Commands["assets.open"]);
         Assert.Null(editor.Shell.Commands["assets.new-folder"]);
         Assert.Null(editor.Shell.Commands["assets.import"]);
+        Assert.Null(editor.Shell.Commands["assets.rename"]);
+        Assert.Null(editor.Shell.Commands["assets.move-to"]);
 
         editor.Plugins.Enable(LibraryModule.ModuleId);
 
@@ -201,5 +205,114 @@ public class LibraryModuleTests {
         Assert.Equal(1, rearranged);
         Assert.True(editor.Project.Assets.TryGetByPath("Assets/Props/New Folder", out var made));
         Assert.True(made.IsFolder);
+    }
+
+    /// <summary>New Folder leaves the browser renaming the folder it made — the numbered one, when the name was taken.</summary>
+    /// <param name="tiles">Whether the panel shows tiles, which is what it opens in, or the tree.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>#1516: the summary said "and starts renaming it" and nothing ever did.</b> The folder
+    ///         appeared and the focus stayed where it was. Made twice so the second is "New Folder 2": a
+    ///         rename started on a row found by the name asked for, rather than the identity
+    ///         <see cref="IContentLibrary.CreateFolder" /> returns, would open on the first folder.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both views, because the harness's <c>Assets</c> switches to the tree</b> and tiles are
+    ///         what a person sees first. In tiles the browsing tree is hidden, and an editor opened in it
+    ///         is one nobody can see; the folders column beside the grid is where it has to open.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void New_folder_starts_renaming_the_folder_it_made(bool tiles) {
+        using var editor = EditorSession.Start();
+
+        editor.Open(ContentBrowsing.PanelId);
+        editor.Plugins.Services.Require<ContentBrowsing>().Browser!.IsGrid = tiles;
+        editor.Settle();
+        editor.Project.Selection.Set([]);
+
+        Assert.NotNull(editor.Plugins.Services.Require<IContentLibrary>().CreateFolder("Assets", "New Folder"));
+
+        editor.Run("assets.new-folder");
+        editor.Settle();
+
+        var box = Descendants(editor.Panel(ContentBrowsing.PanelId))
+            .OfType<TextBox>()
+            .SingleOrDefault(candidate => candidate.HasClass("tree-editor") && OnScreen(candidate))
+            ?? throw editor.Fail("New Folder did not open an editor on the new row.");
+
+        Assert.Equal("New Folder 2", box.Value);
+
+        box.Value = "Props";
+        editor.Ui.Get("textbox").Where(element => ReferenceEquals(element, box), "the rename box").PressKey(Vixen.Input.InputKey.Enter);
+        editor.Settle();
+
+        Assert.True(editor.Project.Assets.TryGetByPath("Assets/Props", out var renamed));
+        Assert.True(renamed.IsFolder);
+        Assert.False(editor.Project.Assets.TryGetByPath("Assets/New Folder 2", out _));
+        Assert.True(editor.Project.Assets.TryGetByPath("Assets/New Folder", out _));
+    }
+
+    /// <summary>Move To asks which folder through the shell's chooser, then moves through the published service.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Counted on the published object</b>, for Delete's reason, and greyed while the Project panel
+    ///     is closed, which is the enablement it had in the application (#1292).
+    /// </remarks>
+    [Fact]
+    public void Move_to_asks_which_folder_and_moves_through_the_published_service() {
+        using var editor = EditorSession.Start();
+
+        var library = editor.Plugins.Services.Require<IContentLibrary>();
+        var rearranged = 0;
+
+        library.Rearranged += () => rearranged++;
+
+        Directory.CreateDirectory(editor.Project.Paths.Absolute("Assets/Props"));
+        File.WriteAllText(editor.Project.Paths.Absolute("Assets/crate.png"), "pixels");
+        editor.Run("assets.refresh");
+
+        Assert.True(editor.Project.Assets.TryGetByPath("Assets/crate.png", out var crate));
+
+        editor.Project.Selection.Set([crate.Guid]);
+
+        editor.Close(ContentBrowsing.PanelId);
+        Assert.False(editor.CanRun("assets.move-to"));
+
+        editor.Open(ContentBrowsing.PanelId);
+        Assert.True(editor.CanRun("assets.move-to"));
+
+        editor.Run("assets.move-to");
+
+        Assert.True(editor.IsAsking, "Move To did not ask which folder");
+        Assert.Equal(0, rearranged);
+
+        editor.Answer("Assets/Props");
+
+        Assert.Equal(1, rearranged);
+        Assert.True(editor.Project.Assets.TryGetByGuid(crate.Guid, out var moved));
+        Assert.Equal("Assets/Props/crate.png", moved.Path);
+    }
+
+    /// <summary>Whether nothing between an element and the root is hidden — an editor in a hidden tree is one nobody can type into.</summary>
+    static bool OnScreen(UiElement element) {
+        for (var walk = element; walk is not null; walk = walk.Parent) {
+            if (walk.HasClass("hidden")) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    static IEnumerable<UiElement> Descendants(UiElement element) {
+        foreach (var child in element.Children) {
+            yield return child;
+
+            foreach (var found in Descendants(child)) {
+                yield return found;
+            }
+        }
     }
 }

@@ -25,7 +25,7 @@ namespace Vixen.Editor.App;
 ///         a press holds off the inspector's selection-following for the length of a drag — each one
 ///         decides between this panel and another, which is the composition root's job under § D2.
 ///         What the panel reads of the library, the source-control column and the thumbnails is
-///         handed in as the objects themselves.
+///         handed in as the objects themselves — and what they say happened, it subscribes to itself (#1293).
 ///     </para>
 /// </remarks>
 sealed class ContentBrowsing {
@@ -38,7 +38,7 @@ sealed class ContentBrowsing {
     readonly EditorProject project;
     readonly IContentLibrary library;
     readonly IEditorRegistry extensions;
-    readonly Func<string, SourceControlStatus> status;
+    readonly ISourceControl sourceControl;
     readonly ThumbnailCache thumbnails;
     readonly Func<IEnumerable<string>> creatable;
     readonly Action<AssetId> open;
@@ -56,7 +56,8 @@ sealed class ContentBrowsing {
     /// <param name="project">The project, whose selection a right-click on a tile writes.</param>
     /// <param name="library">The content library the browser and the two prompts act through.</param>
     /// <param name="extensions">This editor's registry.</param>
-    /// <param name="status">Doc 20 § B7's column, asked per path.</param>
+    /// <param name="sourceControl">Doc 20 § B7's column, asked per path, and the sweeps and reverts that change it.</param>
+    /// <param name="content">The content tasks, whose finished import or bake leaves the browser stale.</param>
     /// <param name="thumbnails">The pictures the grid draws.</param>
     /// <param name="creatable">The Create ▸ kinds, asked when the menu is built.</param>
     /// <param name="open">What a double-click on an asset does — the application's tab opener.</param>
@@ -70,7 +71,8 @@ sealed class ContentBrowsing {
         EditorProject project,
         IContentLibrary library,
         IEditorRegistry extensions,
-        Func<string, SourceControlStatus> status,
+        ISourceControl sourceControl,
+        ContentTasks content,
         ThumbnailCache thumbnails,
         Func<IEnumerable<string>> creatable,
         Action<AssetId> open,
@@ -84,17 +86,80 @@ sealed class ContentBrowsing {
         this.project = project;
         this.library = library;
         this.extensions = extensions;
-        this.status = status;
+        this.sourceControl = sourceControl;
         this.thumbnails = thumbnails;
         this.creatable = creatable;
         this.open = open;
         this.dropped = dropped;
         this.dragging = dragging;
         this.grabbing = grabbing;
+
+        // ⚠ The browser hears what changed the project's files and their status itself (#1293), where
+        // the application used to forward each event to it. Null-checked because the browser exists
+        // only while its panel is open; a closed panel has nothing to redraw.
+        library.CollectionsChanged += () => Browser?.Recollect();
+
+        // A rename, move, new folder or delete has already reindexed: the browser redraws from what it found.
+        library.Rearranged += () => Browser?.Rescan();
+        library.Arrived += () => Browser?.Rescan();
+
+        // And an import or a bake on the content tasks' worker, which repaired or wrote files the
+        // browser is showing: the browser's rescan is what brings the editor's own index up to date.
+        content.Stale += () => Browser?.Rescan();
+
+        sourceControl.Swept += () => Browser?.Restated();
+        sourceControl.Reverted += () => Browser?.Rebuild();
     }
 
     /// <summary>The browser while the Project panel is open, or <see langword="null" />.</summary>
     public ProjectBrowser? Browser { get; private set; }
+
+    /// <summary>Opens the browser's inline editor on an asset's row, if the panel is open and the row is there.</summary>
+    /// <param name="asset">Which asset — a file or a folder.</param>
+    /// <returns>Whether an editor opened.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What Rename and New Folder are names for (#1292, #1516)</b>, and the reason this model
+    ///         is published to <c>LibraryModule</c>: the rename itself is <see cref="IContentLibrary.Rename" />,
+    ///         reached from the tree's commit, and only the in-place editor is this panel's.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>In tiles, a folder is renamed in the folders column beside them (#1516).</b> The
+    ///         browsing tree is hidden while the grid shows, so an editor opened in it is a text box nobody
+    ///         can see or type into — and tiles are what the panel opens in. The column is the tree on
+    ///         screen, and its commit (subscribed in <see cref="Describe" />) goes to the same
+    ///         <see cref="IContentLibrary.Rename" />. A file in tiles has no row anywhere, and the grid has
+    ///         no editor of its own: that is #1519.
+    ///     </para>
+    /// </remarks>
+    public bool BeginRename(AssetId asset) {
+        if (Browser is not { } browser) {
+            return false;
+        }
+
+        if (!browser.IsGrid) {
+            return browser.BeginRename(asset);
+        }
+
+        foreach (var node in Descendants(browser.Folders.Root)) {
+            if (node.Tag is AssetTreeNode { IsIndexed: true } found && found.Guid == asset) {
+                browser.Folders.BeginRename(node);
+                return true;
+            }
+        }
+
+        return false;
+
+        static IEnumerable<TreeNode> Descendants(TreeNode node) {
+            foreach (var child in node.Children) {
+                yield return child;
+
+                foreach (var found in Descendants(child)) {
+                    yield return found;
+                }
+            }
+        }
+    }
 
     /// <summary>Describes the panel.</summary>
     /// <returns>The descriptor.</returns>
@@ -113,7 +178,7 @@ sealed class ContentBrowsing {
 
                 // ⚠ Doc 20 § B7's column, given to the panel as a value. The sweep that fills it
                 // follows the session's rescans and the startup, not this panel (#1505).
-                browser.Status = status;
+                browser.Status = sourceControl.Status;
                 browser.Grabbing += grabbing;
                 browser.Thumbnails = thumbnails;
 
@@ -134,6 +199,14 @@ sealed class ContentBrowsing {
                 Contextualise(browser.Grid, menu);
 
                 browser.CollectionCreateRequested += MakeCollection;
+
+                // ⚠ The folders column's commit, for the rename `BeginRename` opens there while tiles
+                // show (#1516). Its rows are folders and collections, and only a folder has an identity.
+                browser.Folders.Renamed += (_, node, name) => {
+                    if (node.Tag is AssetTreeNode { IsIndexed: true } folder) {
+                        library.Rename(folder.Guid, name);
+                    }
+                };
 
                 Browser = browser;
             }

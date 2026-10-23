@@ -383,7 +383,7 @@ previous import's artefacts — a build that succeeds and ships yesterday's cont
 
 ⚠ **The workspace has its own `AssetDatabase`.** `Scan` clears and repopulates its dictionaries and
 the import runs on a pool thread, so sharing the one the panels read would be a race. The editor
-rescans afterwards, on the frame thread, which is what `ContentTasks.Rescan` is for.
+rescans afterwards, on the frame thread, which is what `ContentTasks.Stale` is for.
 
 ⚠ **The progress bar fills at the end.** `ImportAllAsync` returns when it is finished, so what drives
 the bar is a walk over what happened rather than a live feed. Honest, and fixed by giving the import

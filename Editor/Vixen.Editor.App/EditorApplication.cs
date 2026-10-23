@@ -689,6 +689,7 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ The preferences and presets are asked for, not handed: `LoadPreferences` below replaces both.
         inspectorPanels = new InspectorPanels(
             Shell,
+            session,
             Extensions,
             bridges,
             () => scene,
@@ -730,34 +731,12 @@ sealed partial class EditorApplication : IDisposable {
         meshMaps = new(project);
 
         content = new(project, Shell) {
-            // The panel's own rescan, so the browser shows what an import repaired rather than what
-            // was there before it ran. Assigned rather than called by the tasks directly, because
-            // the browser exists only while its panel is open.
-            //
-            // The build panel goes with it: its scene picker is a view of the same database, so a
-            // scene that arrived in an import belongs in the list of what can be put in a build.
-            Rescan = () => {
-                Browser?.Rescan();
-                delivery?.Restate();
-
-                // ⚠ And the viewport's own content, which is the frame-thread half of what
-                // `Cataloged` began on the pool. A mount hands the renderer a whole new material and
-                // texture source, so it belongs where the panels are touched rather than beside the
-                // planner that wrote the catalog.
-                MountContent();
-
-                // ⚠ And the pictures — #1187. A bake writes PNGs into `Assets/` and an import can
-                // repair a sidecar under a file the grid has already drawn, so "the panels are
-                // stale" includes the thumbnails. Nothing invalidated them at all before this.
-                thumbnails.Forget();
-            },
-
             // ⚠ On the pool. See the property: writing a catalog plans the whole project.
             Cataloged = () => projectContent.Rebuild()
         };
 
         // Doc 50 § P2f: built before `PluginPoints` publishes it; it follows `BusyChanged` itself.
-        delivery = new PlayerDelivery(project, content, Shell.Notifications, log, Extensions);
+        delivery = new PlayerDelivery(project, session, content, Shell.Notifications, log, Extensions);
 
         // ⚠ And the toolbar, which is the other half of doc 45 step 4. `assets.build`'s enablement
         // reads `content.IsBusy` — a counter a worker thread moves, with no notification of its own —
@@ -791,12 +770,6 @@ sealed partial class EditorApplication : IDisposable {
             ),
             () => content.IsBusy
         );
-        library.CollectionsChanged += () => Browser?.Recollect();
-
-        // ⚠ A rename, move or delete has already reindexed; the browser redraws from what it found.
-        library.Rearranged += () => Browser?.Rescan();
-
-        library.Arrived += () => Browser?.Rescan();
 
         // ⚠ Sweeps on the session's rescans, not the browser's presence (#1505); the browser only reads it.
         sourceControl = new ProjectSourceControl(
@@ -804,11 +777,10 @@ sealed partial class EditorApplication : IDisposable {
             (message, severity, detail) => Shell.Notifications.Show(message, severity, detail),
             message => log.Write(LogLevel.Debug, message)
         );
-        sourceControl.Swept += () => Browser?.Restated();
-        sourceControl.Reverted += () => Browser?.Rebuild();
 
         // ⚠ What a double-click, a drop outside and a press-and-drag mean stay this class's: each one
-        // decides between the browser and another panel.
+        // decides between the browser and another panel. What the library and source control say
+        // happened, the panel's model hears itself (#1293).
         browsing = new ContentBrowsing(
             Shell,
             AssetContext,
@@ -816,7 +788,8 @@ sealed partial class EditorApplication : IDisposable {
             project,
             library,
             Extensions,
-            sourceControl.Status,
+            sourceControl,
+            content,
             thumbnails,
             () => CreatableIds,
             asset => Open(asset),
@@ -825,14 +798,28 @@ sealed partial class EditorApplication : IDisposable {
             down => grabbingAssets = down
         );
 
-        // ⚠ What the session's disk watch and code build mean to the panels, which are this
-        // application's: the session rescans and builds, and these are the readers that follow.
-        session.ChangedOnDisk += FollowedDisk;
-        session.CodeBuilt += () => {
-            inspectorPanels.Rebuild();
-
+        // ⚠ After the browser's own rescan, which `ContentBrowsing` subscribed above, and the order is
+        // the point: the build panel's scene picker is a view of the database that rescan refreshes,
+        // so a scene that arrived in an import belongs in the list of what can be put in a build.
+        content.Stale += () => {
             delivery.Restate();
+
+            // ⚠ And the viewport's own content, which is the frame-thread half of what `Cataloged`
+            // began on the pool. A mount hands the renderer a whole new material and texture source,
+            // so it belongs where the panels are touched rather than beside the planner that wrote
+            // the catalog.
+            MountContent();
+
+            // ⚠ And the pictures — #1187. A bake writes PNGs into `Assets/` and an import can repair a
+            // sidecar under a file the grid has already drawn, so "the panels are stale" includes the
+            // thumbnails. Nothing invalidated them at all before this.
+            thumbnails.Forget();
         };
+
+        // ⚠ What the session's disk watch means to the panels, which are this application's: the
+        // session rescans, and this is the reader that follows. A code build is followed by the
+        // inspector and the build panel themselves (#1293).
+        session.ChangedOnDisk += FollowedDisk;
 
         // ⚠ Before the panels, because the inspector's asset fields are built by drawers that have
         // to be pointed at a project first. `AssetDrawer` has raised `PickRequested` since it was
@@ -1796,6 +1783,10 @@ sealed partial class EditorApplication : IDisposable {
             // menus do — not by re-implementing the copy, the scan and the save beside them.
             .Add<IContentLibrary>(library)
             .Add<ISourceControl>(sourceControl)
+
+            // ⚠ And the Project panel's model, for `LibraryModule`'s Rename and New Folder: the rename is
+            // the library's, and the in-place editor that asks for the name is this panel's (#1516).
+            .Add(browsing)
 
             // ⚠ And the project's: the rescan every panel and module used to repeat for itself, and
             // the request to open another project.

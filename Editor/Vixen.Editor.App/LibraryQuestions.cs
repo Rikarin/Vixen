@@ -21,10 +21,9 @@ namespace Vixen.Editor.App;
 ///         verbs that ask nothing, the way <c>SceneQuestions</c> sits beside <c>SceneModule</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Not here: Rename and Move To.</b> Both are enabled only while the content browser is
-///         open and the first starts its inline editor — they are the browser panel's, which is still
-///         the application's. New Folder asks nothing, so it is <c>LibraryModule</c>'s own line over
-///         <see cref="IContentLibrary.CreateFolder" /> (#1292).
+///         ⚠ <b>Not here: Rename, Move To and New Folder.</b> They are <c>LibraryModule</c>'s own lines
+///         (#1292): Rename and New Folder ask through the Project panel's inline editor rather than a
+///         dialog, and Move To's chooser is a pick from the project's folders rather than a typed name.
 ///     </para>
 /// </remarks>
 static class LibraryQuestions {

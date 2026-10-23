@@ -289,8 +289,8 @@ sealed class ContentTasks {
             LastBake = set;
 
             // The browser is showing the folder these landed in and does not know they are there.
-            // Rescan is the frame-thread half of "something changed on disk" — see Pump.
-            Rescan?.Invoke();
+            // Stale is the frame-thread half of "something changed on disk" — see Pump.
+            Stale?.Invoke();
 
             var wrote = string.Create(CultureInfo.InvariantCulture, $"{set.Files.Count} maps for {set.Mesh}");
 
@@ -562,7 +562,7 @@ sealed class ContentTasks {
             // of its own — see `ProjectWorkspace` for why it is not the editor's — so the panels are
             // showing what was true before it ran until the editor's own index is rebuilt, which has
             // to happen on the thread that owns them.
-            Rescan?.Invoke();
+            Stale?.Invoke();
 
             // ⚠ And the geometry and the materials the viewport is holding, for the same reason and on
             // the same thread: a re-imported asset is a new chunk id under the same reference, so
@@ -605,14 +605,20 @@ sealed class ContentTasks {
     /// <summary>Whether work was running the last time <see cref="Pump" /> looked.</summary>
     bool wasBusy;
 
-    /// <summary>What to do when a task has finished and the panels are stale.</summary>
-    public Action? Rescan { get; set; }
+    /// <summary>Raised on the frame thread when a task has finished and the panels are stale.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An event rather than one delegate the application assigned (#1293)</b>, so each reader
+    ///     follows it itself: the content browser rescans, and the application's handler — subscribed
+    ///     after the browser's, so the database is rescanned before it runs — restates the build panel,
+    ///     remounts the viewport's content and forgets the thumbnails.
+    /// </remarks>
+    public event Action? Stale;
 
     /// <summary>What rewrites the catalog a viewport draws through. ⚠ Called on a pool thread.</summary>
     /// <remarks>
     ///     <para>
     ///         <b>The half of "an import finished" that must not touch a panel.</b>
-    ///         <see cref="Rescan" /> is the frame-thread half and runs from <see cref="Pump" />; this
+    ///         <see cref="Stale" /> is the frame-thread half and runs from <see cref="Pump" />; this
     ///         one runs inside the task, because writing a catalog is a plan over every asset in the
     ///         project and <c>EditorContent.Rebuild</c> says plainly that conflating the write with
     ///         the reopen "would put the planner on the frame thread".

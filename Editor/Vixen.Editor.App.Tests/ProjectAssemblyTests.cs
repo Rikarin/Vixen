@@ -756,6 +756,72 @@ public sealed class ProjectAssemblyTests : IDisposable {
         return new WeakReference(context);
     }
 
+    /// <summary>A code build redraws the inspector over the rebuilt type and restates the build panel, which follow it themselves.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The two readers subscribe to <c>IProjectSession.CodeBuilt</c> themselves (#1293)</b>, where
+    ///         the constructor used to forward it to both. A behaviour already on the inspected entity is the
+    ///         case that needs the inspector's half: the section's rows were built over the first build's
+    ///         binder, so a member the second build added is invisible until something rebuilds them.
+    ///     </para>
+    ///     <para>
+    ///         Counted on the published <c>IPlayerDelivery.Changed</c> straight after each build, before a
+    ///         frame runs, so a restate from the content tasks' busy flag cannot stand in for it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_code_build_rebuilds_the_inspector_and_restates_the_build_panel() {
+        Write(Declaring("InspectedPatrol"));
+
+        using var editor = Testing.EditorSession.Start(new() { ProjectRoot = root });
+
+        var session = editor.Plugins.Services.Require<IProjectSession>();
+        var delivery = editor.Plugins.Services.Require<IPlayerDelivery>();
+        var restated = 0;
+
+        delivery.Changed += () => restated++;
+
+        Assert.True(session.BuildCode());
+        Assert.Equal(1, restated);
+
+        var scene = editor.Scene;
+        var entity = scene.Add("Guard", LocalTransform.Identity);
+
+        Assert.True(SceneBehaviorRegistry.TryGet("InspectedPatrol", out var first));
+        first.AttachTo(scene.Behaviors, entity, first.Create());
+
+        editor.ClickRow(editor.Hierarchy, "Guard");
+        _ = editor.Inspector;
+        editor.Settle();
+
+        Assert.Contains("Speed", Texts(editor.Panel("inspector")));
+        Assert.DoesNotContain("Laps", Texts(editor.Panel("inspector")));
+
+        File.WriteAllText(
+            Path.Combine(root, "GameCode.cs"),
+            Declaring("InspectedPatrol").Replace("Speed { get; set; } = 1f;", "Speed { get; set; } = 1f; public int Laps { get; set; } = 3;", StringComparison.Ordinal)
+        );
+
+        Assert.True(session.BuildCode());
+        Assert.Equal(2, restated);
+
+        editor.Settle();
+
+        Assert.Contains("Laps", Texts(editor.Panel("inspector")));
+    }
+
+    static IEnumerable<string> Texts(Vixen.Ui.UiElement element) {
+        if (element.Text is { Length: > 0 } text) {
+            yield return text;
+        }
+
+        foreach (var child in element.Children) {
+            foreach (var found in Texts(child)) {
+                yield return found;
+            }
+        }
+    }
+
     static string Declaring(string alias) =>
         $$"""
           using Vixen.Core;

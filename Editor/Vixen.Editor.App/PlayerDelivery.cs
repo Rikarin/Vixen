@@ -48,12 +48,14 @@ internal sealed class PlayerDelivery : IPlayerDelivery {
 
     /// <summary>Builds the service over the open project and the one queue builds run on.</summary>
     /// <param name="project">The open project.</param>
+    /// <param name="session">The project session, whose code build can change whether a player builds.</param>
     /// <param name="content">The task queue, which knows an import and a build must not run at once.</param>
     /// <param name="notifications">Where a refusal is said.</param>
     /// <param name="log">The editor's log, which is the build log.</param>
     /// <param name="extensions">Where a plugin's <see cref="BuildStep" /> comes from.</param>
     public PlayerDelivery(
         EditorProject project,
+        IProjectSession session,
         ContentTasks content,
         NotificationCenter notifications,
         EditorLog log,
@@ -68,6 +70,10 @@ internal sealed class PlayerDelivery : IPlayerDelivery {
         // And its two buttons are greyed while anything is running, which is a fact about the task
         // rather than about anything a panel did.
         content.BusyChanged += Restate;
+
+        // And after a code build, which is the other fact about the project the refusal reads — the
+        // application used to forward it (#1293).
+        session.CodeBuilt += Restate;
     }
 
     /// <inheritdoc />

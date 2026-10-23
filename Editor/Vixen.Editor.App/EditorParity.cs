@@ -65,7 +65,9 @@ sealed partial class EditorApplication {
     /// <summary>Everything Part C names that this application owns.</summary>
     void ParityCommands() {
         FileCommands();
-        AssetCommands();
+
+        // ⚠ No asset verbs left here (#1292): the Assets menu's lines are `LibraryModule`'s and
+        // `SourceControlModule`'s (#1505), and only its layout is this application's.
         BuildAndToolCommands();
     }
 
@@ -114,85 +116,10 @@ sealed partial class EditorApplication {
 
     // ── Assets ──────────────────────────────────────────────────────────────────────────────────
 
-    void AssetCommands() {
-        // Create (the kind chooser) is `LibraryModule`'s (#1296) — see `LibraryQuestions`.
-
-        // Open is `LibraryModule`'s now (#1292): a name for the published `IWorkspace.Open`, which is
-        // this application's open and asks `IDocumentHost.TryOpen` for the document.
-
-        // Bake Mesh Maps — the verb, its panel and its settings — is `MeshMapBaking`'s (#1296).
-
-        // Show in Explorer, New Folder, Delete and Reimport All are `LibraryModule`'s now (#1292): names for
-        // `IContentLibrary` verbs, registered through `PluginContext`. Rename and Move To stay here —
-        // the first starts the browser panel's inline editor and the second asks through this
-        // editor's drawn chooser — and both end in `IContentLibrary.Rename`/`Move`.
-        Verb(
-            "assets.rename",
-            EditorStrings.CommandAssetsRename,
-            EditorStrings.CategoryAssets,
-            RenameSelectedAsset,
-            enabled: () => Browser is not null && project.Selection.Count == 1
-        );
-
-        // ⚠ Through a drawn folder chooser rather than a native one, and that is the whole point of
-        // the distinction `DialogService` draws. A native picker is about the user's disk; this is a
-        // question about the *project*, whose folders carry GUIDs and whose paths are relative — and
-        // a native dialog would happily answer with a directory outside the project, which is the
-        // one answer `AssetOperations.Move` cannot take.
-        Verb(
-            "assets.move-to",
-            EditorStrings.CommandAssetsMoveTo,
-            EditorStrings.CategoryAssets,
-            MoveSelectedAssets,
-            enabled: () => Browser is not null && project.Selection.Count > 0
-        );
-
-        // Revert and Show History are `SourceControlModule`'s (#1505), over the published `ISourceControl`.
-        // Reimport (declared, disabled) is `LibraryModule`'s (#1296).
-
-        // Find References and Select Dependencies are `LibraryModule`'s now (#1292): names for
-        // `IContentLibrary.Referrers` and `Dependencies`, registered through `PluginContext`.
-    }
-
-    /// <summary>Asks which of the project's folders to move the selection into.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Every folder in the project, flat, by path.</b> A tree would be prettier and would
-    ///     need the browser's own tree in a dialog; a sorted list of relative paths is searchable by
-    ///     eye, is what the operation actually takes, and cannot express a destination outside the
-    ///     project — which is the one answer <c>AssetOperations.Move</c> refuses. The move itself is
-    ///     <c>IContentLibrary.Move</c>; the question is this editor's dialog.
-    /// </remarks>
-    void MoveSelectedAssets() {
-        List<AssetId> assets = [.. project.Selection];
-
-        if (assets.Count == 0) {
-            return;
-        }
-
-        var folders = project.Assets.Entries
-            .Where(entry => entry.IsFolder)
-            .Select(entry => entry.Path)
-            .Append("Assets")
-            .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal)
-            .ToList();
-
-        _ = Ask();
-
-        async Task Ask() {
-            var destination = await Shell.ChooseAsync(
-                assets.Count == 1 ? "Move to which folder?" : $"Move {assets.Count} assets to which folder?",
-                folders,
-                folder => folder
-            ).ConfigureAwait(true);
-
-            if (destination is not { Length: > 0 } folder) {
-                return;
-            }
-
-            library.Move(assets, folder);
-        }
-    }
+    // Nothing on the Assets menu is this application's any more (#1292). Create, Open, Show in
+    // Explorer, New Folder, Rename, Move To, Delete, Reimport, Reimport All, Find References and
+    // Select Dependencies are `LibraryModule`'s, over `IContentLibrary` and `ContentBrowsing`; Bake
+    // Mesh Maps is `MeshMapBaking`'s; Revert and Show History are `SourceControlModule`'s (#1505).
 
     // ── Play ────────────────────────────────────────────────────────────────────────────────────
 
@@ -543,19 +470,6 @@ sealed partial class EditorApplication {
             Shell.Notifications.Success($"{written} document(s) saved");
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             Shell.Notifications.Show("Could not save everything", NotificationSeverity.Error, exception.Message);
-        }
-    }
-
-    /// <summary>Renames the selected asset, in place in the browser's own tree.</summary>
-    /// <remarks>
-    ///     Through the tree's inline editor rather than a dialog, so the menu line, F2 and a
-    ///     double-click on a folder all do the same thing — and so the commit goes through the one
-    ///     handler that calls <c>AssetOperations.Rename</c>. It is the same arrangement the outliner
-    ///     uses for an entity, for the same reason.
-    /// </remarks>
-    void RenameSelectedAsset() {
-        if (project.Selection.Count > 0) {
-            Browser?.BeginRename(project.Selection[0]);
         }
     }
 
