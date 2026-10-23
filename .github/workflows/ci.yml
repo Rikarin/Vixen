@@ -1034,6 +1034,17 @@ jobs:
   # faster than a run finishes — twelve consecutive, having burned 47 min to 3 h 46 min each. So the
   # `test` legs this job needs do not fail here so much as never end, and "read one green run" is
   # blocked on #862 rather than on anybody's attention. Check that before re-reading this block.
+  #
+  # ⚠ AS OF 2026-10-23 THERE ARE RUNS TO READ, AND THEY DISAGREE — WHICH IS WHY `continue-on-error`
+  # STAYS. Three green master runs on 2026-09-22 (35713007472, 35737813948, 35741783798) reached
+  # this compare with all three manifests, and all three printed the same diff: macos-14 and
+  # ubuntu-latest agree (390dec15…) and windows-latest differs (602df97c…) at EVERY worker count,
+  # calling thread included. Per the rule above that is a portable arithmetic difference in the
+  # pipeline and not a threading one, it is stable run to run, and arm64 macOS agreeing with x64
+  # Linux puts it on the operating system rather than the ISA. It is the finding this job was
+  # written to produce, so it is an issue (#1526) rather than a relaxed threshold — and taking
+  # `continue-on-error` off now would turn every run red on a known, filed defect, which is how a
+  # gate becomes one people read past. Take it off when #1526 lands and one run reads green here.
   remesh-bytes:
     name: remesh-bytes
     runs-on: ubuntu-latest
@@ -1109,7 +1120,13 @@ jobs:
             # Which worker counts moved, not only that the files differ. Every leg on one runner
             # differing is a portable arithmetic difference in the pipeline; one leg differing is a
             # threading difference that the other runner's thread sweep did not reach.
-            differing="$(diff --unchanged-group-format='' --old-group-format='%<' --new-group-format='' --changed-group-format='%<' "$reference" "$manifest" | awk '{ print $2 }' | tr '\n' ' ')"
+            #
+            # ⚠ `|| true`, because Actions runs this `bash -e -o pipefail` and `set -uo pipefail`
+            # above does not take the `-e` away: `diff` exits 1 on exactly the input this line is
+            # for, pipefail hands that to the assignment, and the step died here with no ::error::
+            # line. Every run that disagreed (2026-09-22, three of them) printed a diff and
+            # "exit code 1" and never said which counts moved (#772).
+            differing="$(diff --unchanged-group-format='' --old-group-format='%<' --new-group-format='' --changed-group-format='%<' "$reference" "$manifest" | awk '{ print $2 }' | tr '\n' ' ' || true)"
 
             echo "::error::$leg and $reference_leg remeshed the same fixture into different bytes at: ${differing:-every leg}."
           done
