@@ -49,7 +49,13 @@ public sealed class AffectedOwnershipTests {
         var ownership = AffectedOwnership.Classify([ForwardPlus], NoContainer, NoPatterns);
 
         Assert.Empty(ownership.Orphans);
-        Assert.Equal([RavenTests], ownership.Projects);
+        Assert.Contains(RavenTests, ownership.Projects);
+
+        // ⚠ And by every other suite that compiles library shaders it finds off disk (#1514): an
+        // edit to one used to select the Raven suite alone.
+        Assert.Contains("Core/Vixen.Rendering.Terrain.Tests/Vixen.Rendering.Terrain.Tests.csproj", ownership.Projects);
+        Assert.Contains("Platform/Vixen.Raven.Gpu.Tests/Vixen.Raven.Gpu.Tests.csproj", ownership.Projects);
+        Assert.Contains("Platform/Vixen.Graphics.Golden.Tests/Vixen.Graphics.Golden.Tests.csproj", ownership.Projects);
     }
 
     /// <summary>
@@ -625,11 +631,11 @@ public sealed class AffectedOwnershipTests {
             var text = File.ReadAllText(Path.Combine(root, source.Replace('/', Path.DirectorySeparatorChar)));
 
             foreach (var read in RepositoryReads(Path.GetDirectoryName(project)!.Replace('\\', '/'), text).Distinct(StringComparer.Ordinal)) {
-                // A directory counts only when it is itself projectless — `docs/guide`, `.github/workflows`.
-                // A walk to `Core` or `Raven/Library` is a repository sweep, the blind spot named above.
+                // A directory counts when no project contains it — `docs/guide`, `.github/workflows`,
+                // and `Raven/Library`, which #1514 found was being skipped as "a repository sweep".
                 List<string> targets = files.Contains(read)
                     ? [read]
-                    : AffectedOwnership.OwnedByNoProject(read + "/")
+                    : AffectedOwnership.OwnedByNoProject(read + "/") || Containing(root, read + "/-", containers) is null
                         ? [.. committed.Where(path => path.StartsWith(read + "/", StringComparison.Ordinal))]
                         : [];
 
@@ -645,9 +651,12 @@ public sealed class AffectedOwnershipTests {
 
                 // Projectless, or contained by a project the solution does not hold (`build/`): the two
                 // places a narrowed run cannot reach through the reverse reference closure.
-                var outside = targets.Where(target => Containing(root, target, containers) is { } container
-                        ? !solution.Contains(container)
-                        : AffectedOwnership.OwnedByNoProject(target))
+                //
+                // ⚠ "No container" and not "projectless" (#1514): `Raven/Library` is in no project and
+                // is not OwnedByNoProject either — it is owned only by its declared readers and by the
+                // item patterns of the projects that include it. Filtered on OwnedByNoProject, every
+                // suite reading a shader off disk by path was invisible here.
+                var outside = targets.Where(target => Containing(root, target, containers) is not { } container || !solution.Contains(container))
                     .ToList();
 
                 if (outside.Count == 0) {
@@ -686,6 +695,9 @@ public sealed class AffectedOwnershipTests {
     [InlineData("""Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "README.md")""", "Raven/README.md")]
     [InlineData("""const string Ledger = "docs/MarkupPending.txt";""", "docs/MarkupPending.txt")]
     [InlineData("""Path.Combine(root, "docs/guide")""", "docs/guide")]
+    // #1514: a walk that ends in an expression reads under its literal prefix.
+    [InlineData("""Path.Combine(root, "Raven", "Library", package, file)""", "Raven/Library")]
+    [InlineData("""File.ReadAllText(Path.Combine(root, "Raven", "Library", "Terrain", file))""", "Raven/Library/Terrain")]
     public void A_repository_read_resolves_to_the_path_it_spells(string source, string expected) {
         Assert.Equal([expected], RepositoryReads("Raven/Vixen.Raven.Tests", source));
     }
@@ -696,10 +708,12 @@ public sealed class AffectedOwnershipTests {
     [InlineData("x = \"docs/plan/41 § D14 asks for the same bits.\";")]
     [InlineData("""File.Exists(Path.Combine(directory, "Vixen.slnx"))""")]
     [InlineData("""Path.Combine(AppContext.BaseDirectory, "InertProperties.txt")""")]
+    // #1514: the root marker a dozen Ui suites climb to, reading nothing under it.
+    [InlineData("""if (Directory.Exists(Path.Combine(directory.FullName, "Raven", "Library"))) {""")]
     public void A_non_read_is_not_recognised_as_one(string source) {
         Assert.DoesNotContain(
             RepositoryReads("Core/Vixen.Ui.Styling.Utilities.Tests", source),
-            path => path is "Vixen.slnx" or "InertProperties.txt" || path.StartsWith("docs/", StringComparison.Ordinal)
+            path => path is "Vixen.slnx" or "InertProperties.txt" or "Raven/Library" || path.StartsWith("docs/", StringComparison.Ordinal)
         );
     }
 
@@ -719,7 +733,23 @@ public sealed class AffectedOwnershipTests {
         // A scratch tree's `docs/`, created to hold a fixture exemption list. The real lists these
         // suites read are declared through the linked rules' constants.
         ("Tools/Vixen.ApiCheck.Tests/ComponentGeneratorRuleTests.cs", "docs", "a scratch tree's docs/"),
-        ("Tools/Vixen.ApiCheck.Tests/GeneratorPackagingRuleTests.cs", "docs", "a scratch tree's docs/")
+        ("Tools/Vixen.ApiCheck.Tests/GeneratorPackagingRuleTests.cs", "docs", "a scratch tree's docs/"),
+
+        // #1514's widening counts a walk's literal prefix, and these prefixes are a top-level
+        // directory whose next segment is an expression. Each was read before it was listed.
+        // `library` is Raven/Library, which the golden suite is declared to read whole.
+        ("Platform/Vixen.Graphics.Golden.Tests/BufferTransferDeviceTests.cs", "Core", "Raven/Library/Core, walked from the library"),
+        ("Platform/Vixen.Graphics.Golden.Tests/ClusterCullingDeviceTests.cs", "Core", "Raven/Library/Core, walked from the library"),
+        ("Platform/Vixen.Graphics.Golden.Tests/ViewCullingDeviceTests.cs", "Core", "Raven/Library/Core, walked from the library"),
+        // Core/<project>/<project>.csproj: a solution project's own file, which the closure owns.
+        ("Core/Vixen.Geometry.Remeshing.Tests/RemeshingLayeringTests.cs", "Core", "a solution project's own .csproj"),
+        ("Core/Vixen.Geometry.Uv.Tests/UvLayeringTests.cs", "Core", "a solution project's own .csproj"),
+        ("Tools/Vixen.Sdk.Tests/PackagedAnalyzerTests.cs", "Core", "the packages' own .csproj files"),
+        ("Editor/Vixen.Editor.App.Tests/ProjectAssemblyTests.cs", "Core", "a project's bin/, which is build output"),
+        // ⚠ Real reads, of three out-of-solution web bindings, that this cannot declare at the
+        // prefix it resolves — `Platform/` would select the web suite for every platform edit. #1523.
+        ("Platform/Vixen.Platform.Web.Tests/BrowserModuleUrlTests.cs", "Platform", "three web bindings' files — a real gap, #1523"),
+        ("Platform/Vixen.Platform.Web.Tests/InteropSurfaceTests.cs", "Platform", "three web bindings' files — a real gap, #1523")
     ];
 
     /// <summary>
@@ -761,7 +791,15 @@ public sealed class AffectedOwnershipTests {
             var resolved = string.Join('/', path);
             var probe = source[..walk.Index].TrimEnd().EndsWith("Exists(", StringComparison.Ordinal);
 
-            if (!escaped && resolved.Length > 0 && !(probe && resolved == "Vixen.slnx")) {
+            // ⚠ `Raven/Library` is the other marker a root search climbs to: `Directory.Exists(…, "Raven",
+            // "Library")` in a dozen Ui suites that read nothing under it (#1514), exactly as a
+            // `Vixen.slnx` probe is. A suite that does read under it spells that read too — a walk
+            // whose literal prefix is the library — and the read is what is counted. Named rather
+            // than every directory probe, because `docs/guide` is RealGuideTests' probe *and* the
+            // only spelling of the guide it reads.
+            var marker = probe && resolved is "Vixen.slnx" or "Raven/Library";
+
+            if (!escaped && resolved.Length > 0 && !marker) {
                 reads.Add(resolved);
             }
         }
@@ -771,9 +809,18 @@ public sealed class AffectedOwnershipTests {
         return [.. reads.Distinct(StringComparer.Ordinal)];
     }
 
-    /// <summary>A <c>Path.Combine</c> whose first argument is an expression and the rest are literals.</summary>
+    /// <summary>
+    ///     A <c>Path.Combine</c> whose first argument is an expression and whose next are literals —
+    ///     all the rest, or a run of them followed by an expression.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The literal prefix of a walk that ends in an expression is still a read</b> (#1514).
+    ///     <c>Path.Combine(root, "Raven", "Library", package, file)</c> reads a shader under
+    ///     <c>Raven/Library</c>, and while this demanded a closing parenthesis after the literals the
+    ///     census saw only the suite's root-marker probe beside it, which is not a read.
+    /// </remarks>
     static readonly System.Text.RegularExpressions.Regex CombineWalk = new(
-        """Path\.Combine\(\s*(?<head>[\w.]+(?:\(\))?)(?<segments>(?:\s*,\s*"[^"]*")+)\s*\)""",
+        """Path\.Combine\(\s*(?<head>[\w.]+(?:\(\))?)(?<segments>(?:\s*,\s*"[^"]*")+)\s*[,)]""",
         System.Text.RegularExpressions.RegexOptions.CultureInvariant
     );
 

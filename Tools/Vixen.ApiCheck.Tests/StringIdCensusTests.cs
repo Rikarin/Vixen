@@ -238,7 +238,7 @@ public class StringIdCensusTests {
     ///     <c>new(…)</c> in every position whose <c>StringId</c> is only in a declaration.
     /// </summary>
     /// <remarks>
-    ///     The first line is <c>ViewportCommands.Label</c> verbatim, which built the id of every
+    ///     The first line is what <c>ViewportCommands.Label</c> was until #1513, verbatim: it built the id of every
     ///     viewport command's label at run time for as long as the census existed and was in no
     ///     count. The argument line is the shape #1492 measured: <c>DeclaredContributions</c>
     ///     written that way made the census report one construction fewer.

@@ -972,38 +972,44 @@ partial class Build : NukeBuild {
     Target CheckAot => definition => definition
         .Description("Fails if any runtime assembly cannot be published ahead of time")
         .DependsOn(Restore)
-        .Executes(() => {
-                AssertProbeRootsEveryAssemblyItReferences(AotProbeProject, atLeast: 25);
-                AssertEveryRuntimeAssemblyIsRootedOrWrittenDown();
-                AssertProbePublishesAheadOfTime(AotProbeProject);
+        .Executes(RunCheckAot);
 
-                // ⚠ Before the publish, not after its failure: without vswhere.exe on PATH the link
-                // dies as MSB3073 exit 123 with no ILC output at all, which reads as the code's fault
-                // (#1354, VswhereLocation). Set and restored around the publish, like Configuration
-                // around CheckFormat's passes.
-                var path = Environment.GetEnvironmentVariable("PATH");
+    /// <summary>
+    ///     <see cref="CheckAot" />'s whole body, which <see cref="AffectedTests" /> also runs when the
+    ///     diff touches what only it can check (#1352, <see cref="TrimAnnotationDiff" />).
+    /// </summary>
+    void RunCheckAot() {
+        AssertProbeRootsEveryAssemblyItReferences(AotProbeProject, atLeast: 25);
+        AssertEveryRuntimeAssemblyIsRootedOrWrittenDown();
+        AssertProbePublishesAheadOfTime(AotProbeProject);
 
-                if (OperatingSystem.IsWindows()) {
-                    var linkable = VswhereLocation.PathFor(path, Environment.GetEnvironmentVariable("ProgramFiles(x86)"), File.Exists);
+        // ⚠ Before the publish, not after its failure: without vswhere.exe on PATH the link
+        // dies as MSB3073 exit 123 with no ILC output at all, which reads as the code's fault
+        // (#1354, VswhereLocation). Set and restored around the publish, like Configuration
+        // around CheckFormat's passes.
+        var path = Environment.GetEnvironmentVariable("PATH");
 
-                    Assert.True(linkable != null, VswhereLocation.Missing);
-                    Environment.SetEnvironmentVariable("PATH", linkable);
-                }
+        if (OperatingSystem.IsWindows()) {
+            var linkable = VswhereLocation.PathFor(path, Environment.GetEnvironmentVariable("ProgramFiles(x86)"), File.Exists);
 
-                try {
-                    DotNetPublish(settings => settings
-                        .SetProject(RootDirectory / "Tools" / "Vixen.AotProbe" / "Vixen.AotProbe.csproj")
-                        .SetConfiguration(Configuration.Release)
-                        .SetRuntime(RuntimeInformation.RuntimeIdentifier)
-                        .SetOutput(ArtifactsDirectory / "aot")
-                    );
-                } finally {
-                    Environment.SetEnvironmentVariable("PATH", path);
-                }
+            Assert.True(linkable != null, VswhereLocation.Missing);
+            Environment.SetEnvironmentVariable("PATH", linkable);
+        }
 
-                AssertAotOutput();
-            }
-        );
+        try {
+            DotNetPublish(settings => settings
+                .SetProject(RootDirectory / "Tools" / "Vixen.AotProbe" / "Vixen.AotProbe.csproj")
+                .SetConfiguration(Configuration.Release)
+                .SetRuntime(RuntimeInformation.RuntimeIdentifier)
+                .SetOutput(ArtifactsDirectory / "aot")
+            );
+        } finally {
+            Environment.SetEnvironmentVariable("PATH", path);
+        }
+
+        AssertAotOutput();
+        AssertProbeRuns();
+    }
 
     AbsolutePath AotProbeProject => RootDirectory / "Tools" / "Vixen.AotProbe" / "Vixen.AotProbe.csproj";
 
@@ -1071,6 +1077,57 @@ partial class Build : NukeBuild {
         );
 
         Log.Information("AOT output is a {Size:F1} MB native binary with no managed assemblies beside it.", megabytes);
+    }
+
+    /// <summary>
+    ///     Runs the native probe with <c>--smoke</c> and fails unless it exits 0 having printed the
+    ///     probe's pass line exactly (#1255).
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>"And the resulting binary runs" was a claim nothing checked</b> — the probe's
+    ///         README said it, <c>Program.cs</c>'s own comment said the gate "proves the result
+    ///         executes", and until this nothing ever started the file. <see cref="AssertAotOutput" />
+    ///         proves ILC ran; it cannot tell a binary that works from one that answers a reflective
+    ///         question wrongly, which is what #1240 measured: a publish that warned once and then
+    ///         returned a derived type's UI property and nothing above it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both the exit code and the line, because each alone is an instrument that can
+    ///         report success.</b> A <c>Main</c> that forgot the argument prints the banner and exits
+    ///         0; a check that threw before printing would exit non-zero with nothing said about why.
+    ///         The probe prints <c>SmokePassed</c> only after every closed-form check held, and
+    ///         <c>SmokeFailed: …</c> on stderr for each that did not.
+    ///     </para>
+    ///     <para>
+    ///         Run from the publish directory, so what is exercised is the published layout and its
+    ///         native neighbours. The run is milliseconds; the timeout is a hang check and not a
+    ///         budget.
+    ///     </para>
+    /// </remarks>
+    void AssertProbeRuns() {
+        var output = ArtifactsDirectory / "aot";
+        var binary = output.GlobFiles("vixen-aot-probe", "vixen-aot-probe.exe").First();
+
+        var process = ProcessTasks.StartProcess(binary, "--smoke", output, timeout: 120_000, logOutput: true);
+        process.WaitForExit();
+
+        var lines = process.Output.Select(line => line.Text.Trim()).ToList();
+
+        Assert.True(
+            process.ExitCode == 0,
+            $"the native probe exited {process.ExitCode} under --smoke, so it publishes and does not work: "
+            + string.Join(" | ", lines.Where(line => line.StartsWith("SmokeFailed", StringComparison.Ordinal)))
+        );
+
+        Assert.True(
+            lines.Contains("SmokePassed"),
+            "the native probe exited 0 under --smoke without printing SmokePassed, so none of its "
+            + "checks is known to have run. Tools/Vixen.AotProbe/Program.cs prints it last, after every "
+            + "check held; a Main that ignores the argument prints the banner instead."
+        );
+
+        Log.Information("The native probe ran under --smoke and every closed-form check held.");
     }
 
     /// <summary>

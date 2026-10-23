@@ -88,6 +88,26 @@ partial class Build {
     }
 
     /// <summary>
+    ///     What in the diff since <paramref name="since" /> only <c>CheckAot</c> can check — see
+    ///     <see cref="TrimAnnotationDiff" />, which carries the decision (#1352).
+    /// </summary>
+    /// <remarks>
+    ///     Changed lines, not changed files, and the untracked files whole, for
+    ///     <see cref="ChangedFiles" />' reason: a new file is the likeliest to carry a new annotation.
+    /// </remarks>
+    IReadOnlyList<string> TrimFindingsSince(string since) {
+        var diff = GitTasks.Git($"diff -U0 {since}", RootDirectory, logOutput: false, logInvocation: false);
+        var untracked = GitTasks.Git("ls-files --others --exclude-standard", RootDirectory, logOutput: false, logInvocation: false);
+
+        return [
+            .. TrimAnnotationDiff.Findings(string.Join('\n', diff.Select(line => line.Text))),
+            .. untracked.Select(line => line.Text.Trim())
+                .Where(line => line.Length > 0 && (RootDirectory / line).FileExists())
+                .SelectMany(line => TrimAnnotationDiff.FindingsInNewFile(line, File.ReadAllText(RootDirectory / line)))
+        ];
+    }
+
+    /// <summary>
     ///     The nearest <c>.csproj</c> at or above <paramref name="file" />, or <c>null</c> when the
     ///     walk reaches the repository root without finding one.
     /// </summary>
@@ -240,6 +260,10 @@ partial class Build {
 
                 foreach (var project in AffectedTestProjectsSince(Since)) {
                     Log.Information("  test:    {Project}", RootDirectory.GetRelativePathTo(project).ToUnixRelativePath());
+                }
+
+                foreach (var finding in TrimFindingsSince(Since)) {
+                    Log.Information("  aot:     {Finding} — AffectedTests runs CheckAot for this", finding);
                 }
             }
         );
@@ -415,6 +439,23 @@ partial class Build {
                     if (problems.Count > 0) {
                         red.Add((relative, problems));
                         Log.Error("{Project} is red — carrying on with the rest: {Problems}", relative, string.Join(" ", problems));
+                    }
+                }
+
+                // ⚠ The one gate here that is not a test project (#1352): an edit to a trim
+                // annotation or a `Type.BaseType` flow is invisible to the analyzer every build runs
+                // and visible only to an ahead-of-time publish, so a narrowed run that touches one
+                // runs that publish rather than reporting success it did not measure.
+                var trim = TrimFindingsSince(Since);
+
+                if (trim.Count > 0) {
+                    Log.Information("The diff touches what only CheckAot can check, so it runs: {Findings}", string.Join("; ", trim));
+
+                    try {
+                        RunCheckAot();
+                    } catch (Exception exception) {
+                        red.Add(("CheckAot", [exception.Message]));
+                        Log.Error("CheckAot is red — {Message}", exception.Message);
                     }
                 }
 

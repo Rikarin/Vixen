@@ -382,10 +382,15 @@ public static class UiPropertyRegistry {
     ///         this was left unproved.</b> <c>./build.sh CheckAot</c> publishes
     ///         <c>Tools/Vixen.AotProbe</c> with <c>ILLinkTreatWarningsAsErrors</c> and
     ///         <c>Vixen.Ui</c> among its <c>TrimmerRootAssembly</c> entries, and <c>ci.yml</c> runs
-    ///         it per platform. #1255 is about not <em>executing</em> the binary it produces, which
-    ///         is a narrower thing. ⚠ <c>CheckAot</c> is not in the default <c>./build.sh</c> chain,
-    ///         so an edit here that passes <c>Test</c> and <c>CheckFormat</c> is still owed that
-    ///         target before it is believed.
+    ///         it per platform. ⚠ Since #1255 it also runs the binary it produces, and the first
+    ///         check that binary makes is this method's answer for a declaration-less leaf whose base
+    ///         is reached only through this walk — removing the <c>RunClassConstructor</c> below
+    ///         publishes cleanly and reds that run. ⚠ <c>CheckAot</c> is still not in the default
+    ///         <c>./build.sh</c> chain, by decision (#1352, recorded on
+    ///         <c>Vixen.Build.TrimAnnotationDiff</c>): <c>AffectedTests --since</c> runs it whenever
+    ///         the diff adds or removes a line naming an annotation, <c>RunClassConstructor</c> or
+    ///         <c>.BaseType</c> in a published assembly, and CI's three <c>aot</c> legs run it on
+    ///         every push.
     ///     </para>
     /// </remarks>
     static void Collect(

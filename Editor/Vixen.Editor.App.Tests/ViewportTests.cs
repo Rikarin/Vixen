@@ -4,6 +4,7 @@
 using Vixen.Core.Mathematics;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
+using Vixen.Editor.Ui;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -145,6 +146,43 @@ public class ViewportTests {
 
         Assert.True(fixture.Shell.Commands.TryGet("scene.view-mode-overdraw", out var command));
         Assert.False(string.IsNullOrWhiteSpace(command!.Unavailable.Text));
+    }
+
+    /// <summary>
+    ///     Every viewport command's title is a declared word, and the view-mode and show-flag lines say
+    ///     what the viewport's own names for them say.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Until #1513 every one of these titles was built at registration</b> —
+    ///     <c>new("editor.command." + id, text)</c> — so none was in <see cref="EditorStrings.All" />
+    ///     and no translator's template held the word. The lookup that replaced it throws on an id
+    ///     the family does not declare, which fails this fixture's start; what that cannot see is a
+    ///     declared line that disagrees with <c>ViewShading.NameOf</c> or <c>ShowFlags.NameOf</c>,
+    ///     because <c>Vixen.Editor.Ui</c> cannot reference the scene view and so spells them out.
+    /// </remarks>
+    [Fact]
+    public void Every_viewport_command_title_is_declared_and_agrees_with_the_viewports_own_names() {
+        using var fixture = EditorSession.Start();
+
+        var declared = EditorStrings.All.Select(id => id.Id).ToHashSet(StringComparer.Ordinal);
+
+        foreach (var label in EditorStrings.ViewportCommandLabels.All) {
+            var id = label.Id["editor.command.".Length..];
+
+            Assert.True(fixture.Shell.Commands.TryGet(id, out var command), $"{id} is declared and not registered.");
+            Assert.Equal(label, command!.Title);
+            Assert.Contains(command.Title.Id, declared);
+        }
+
+        foreach (var mode in ViewShading.All) {
+            Assert.True(fixture.Shell.Commands.TryGet("scene.view-mode-" + ViewShading.SlugOf(mode), out var command));
+            Assert.Equal(ViewShading.NameOf(mode), command!.Title.Source);
+        }
+
+        foreach (var flag in ShowFlags.All.Where(flag => flag != SceneShow.Grid)) {
+            Assert.True(fixture.Shell.Commands.TryGet("scene.show-" + ShowFlags.SlugOf(flag), out var command));
+            Assert.Equal(ShowFlags.NameOf(flag), command!.Title.Source);
+        }
     }
 
     [Fact]
