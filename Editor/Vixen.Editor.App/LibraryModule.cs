@@ -9,8 +9,8 @@ using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
 using Vixen.Editor.Ui.Documents;
-using Vixen.Ui;
 using Vixen.Rendering.Ecs;
+using Vixen.Ui;
 using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.App;

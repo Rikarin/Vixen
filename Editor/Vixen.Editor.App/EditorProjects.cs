@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Core;
-using Vixen.Platform;
 using Vixen.Editor.Ui;
+using Vixen.Platform;
 using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.App;

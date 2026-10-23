@@ -4,8 +4,8 @@
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Content;
-using Vixen.Editor.Assets.Models;
 using Vixen.Editor.Assets.MeshMaps;
+using Vixen.Editor.Assets.Models;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
