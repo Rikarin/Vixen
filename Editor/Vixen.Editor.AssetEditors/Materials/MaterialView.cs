@@ -44,12 +44,12 @@ public enum MaterialPreviewShape {
 ///         subscribes <c>PreviewChanged</c>, so the image is never given a texture number and the
 ///         preview is blank in every editor built so far</b>
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/1204">#1204</a>). The texture editor's
-///         equivalent is wired — <c>TexturePreviewImages</c>, from <c>EditorApplication.Joined</c> —
-///         and it uploads decoded texels, which is a far smaller job than rendering a lit shape; a
+///         equivalent is wired — <c>TexturePreviewFeed</c>, from <c>AssetEditorsModule.Joins</c>
+///         since #1297 — and it uploads decoded texels, which is a far smaller job than rendering a lit shape; a
 ///         material has no picture that is not a render of it, which is doc 20's E5 preview work.
 ///         ⚠ <b>The graph button is <em>not</em> in that state</b>, and an audit that said so was
-///         wrong: <c>Joined</c> subscribes <c>OpenGraphRequested</c>, so "Open shader graph" opens
-///         the graph.
+///         wrong: <c>AssetEditorsModule.LinkGraph</c> subscribes <c>OpenGraphRequested</c>, so "Open
+///         shader graph" opens the graph.
 ///     </para>
 ///     <para>
 ///         <b>The shader-graph link is a button and a state.</b> A material naming a graph offers

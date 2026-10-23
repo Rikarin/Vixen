@@ -212,9 +212,10 @@
     ///         decision in this panel — the shape picker, the parameter rows, <see cref="Rebuild" />,
     ///         the header — is correct bookkeeping for a consumer that does not exist yet: drawing a
     ///         lit sphere needs a device, a compositor and a compiled effect, and the assembly that
-    ///         has all three has no arm for this event. <c>EditorApplication.Joined</c> is where it
-    ///         will go, beside <c>TexturePreviewImages.Follow</c> and the
-    ///         <see cref="OpenGraphRequested" /> subscription that is already there. ⚠ Whoever
+    ///         has all three has no arm for this event. <c>AssetEditorsModule.Joins</c> is where it
+    ///         will go (it was <c>EditorApplication.Joined</c> until #1297), beside
+    ///         <c>TexturePreviewFeed.Follow</c> and the <see cref="OpenGraphRequested" /> subscription
+    ///         that is already there. ⚠ Whoever
     ///         writes it should know the oracle question is a pixel: a preview that is merely blank
     ///         is what a material with nothing on it looks like, so "the image has a number" is
     ///         satisfied by any placeholder.
