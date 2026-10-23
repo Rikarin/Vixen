@@ -453,9 +453,12 @@ partial class Build {
     ///         target-types its <c>new</c> off the return type, which no textual shape carries, so
     ///         the ceiling read eight with nine sites in the tree. Raising it is the measurement
     ///         being corrected, not a regression admitted: the site is the one helper behind the label
-    ///         of every viewport command, and it needs a decision rather than a migration because one of
-    ///         its labels is <c>"Reference: " + placed.Name</c> — user data, like
-    ///         <c>EditorParity</c>'s.
+    ///         of every viewport command.
+    ///         ⚠ <b>It was left here "because one of its labels is <c>"Reference: " + placed.Name</c>
+    ///         — user data", and that was false.</b> <c>placed</c> iterates <c>ReferenceVolumes.All</c>,
+    ///         four built-in volumes with literal names, so every label behind the helper is a word a
+    ///         declaration can hold. The migration is owed, not a decision
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1513">#1513</a>).
     ///         ⚠ The viewport helper's twenty-three labels, its two-state captions and the shape,
     ///         light and build-configuration families went to <c>EditorStrings</c>; the captions
     ///         were a translation bug and not only a census entry, because they reused the title's
