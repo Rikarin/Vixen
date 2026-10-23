@@ -65,9 +65,7 @@ sealed partial class EditorApplication {
     /// <summary>Everything Part C names that this application owns.</summary>
     void ParityCommands() {
         FileCommands();
-        EditingCommands();
         AssetCommands();
-        PlayCommands();
         BuildAndToolCommands();
     }
 
@@ -76,29 +74,12 @@ sealed partial class EditorApplication {
     void FileCommands() {
         // File ▸ New Project and Open Project are `WorkspaceModule`'s (#1296), over `ProjectChooser`.
 
-        Verb(
-            "file.new-scene",
-            EditorStrings.CommandFileNewScene,
-            EditorStrings.CategoryFile,
-            NewScene
-        );
+        // New Scene, Open Scene and Save As are `SceneModule`'s (#1296), over `SceneFiles` — see
+        // `SceneFileQuestions`. File ▸ Revert and `document.revert` are `WorkspaceModule`'s, over
+        // `Discarding.Revert`.
 
-        Verb(
-            "file.open-scene",
-            EditorStrings.CommandFileOpenScene,
-            EditorStrings.CategoryFile,
-            OpenScene,
-            enabled: () => services.CanPick
-        );
-
-        Verb(
-            "file.save-as",
-            EditorStrings.CommandFileSaveAs,
-            EditorStrings.CategoryFile,
-            SaveSceneAs,
-            enabled: () => services.CanPick
-        );
-
+        // ⚠ Save All stays: it applies the settings window's document after the write, which is this
+        // application's (`ApplyProjectSettings`), and the close prompt's Save is the same method.
         Verb(
             "file.save-all",
             EditorStrings.CommandSaveAll,
@@ -107,32 +88,8 @@ sealed partial class EditorApplication {
             enabled: () => project.HasUnsavedChanges.Value
         );
 
-        Verb(
-            "file.revert",
-            EditorStrings.CommandFileRevert,
-            EditorStrings.CategoryFile,
-            Revert,
-            enabled: () => project.ActiveDocument.Value is { CanReload: true } document
-                && (document.HasUnsavedChanges.Value || document.IsStale.Value)
-        );
-
-        // ⚠ The route's id with `file.revert` as its fallback (#1494): an asset tab answers
-        // `document.revert` itself — see `Open`, which hands it `Revert(EditorDocument)` so the
-        // question is still asked — and this runs only when the focus is in no document's panel.
-        Verb(
-            DocumentCommands.Revert,
-            EditorStrings.CommandDocumentRevert,
-            EditorStrings.CategoryFile,
-            Revert,
-            enabled: () => project.ActiveDocument.Value is { CanReload: true } document
-                && (document.HasUnsavedChanges.Value || document.IsStale.Value)
-        );
-
         // Import Files and Export Package are `LibraryModule`'s (#1296) — see `LibraryQuestions`.
 
-        Shell.Keys.SetDefault("file.new-scene", new KeyChord(InputKey.N, ModifierKeys.Control));
-        Shell.Keys.SetDefault("file.open-scene", new KeyChord(InputKey.O, ModifierKeys.Control));
-        Shell.Keys.SetDefault("file.save-as", new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Shift));
         Shell.Keys.SetDefault("file.save-all", new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Alt));
 
         // File ▸ Open Recent's projects are `WorkspaceModule`'s (#1296), over `IProjectSession.Recent`.
@@ -140,30 +97,20 @@ sealed partial class EditorApplication {
 
     // ── Edit ────────────────────────────────────────────────────────────────────────────────────
 
-    void EditingCommands() {
-        // Undo History, Preferences, Keybindings and File ▸ Project Settings are `WorkspaceModule`'s
-        // (#1296): lines that open a workspace panel, over `Shell.Workspace`.
-
-        // Delete, Rename, Duplicate, the clipboard lines and the selection verbs are `SceneModule`'s
-        // (#1296), over `ISceneEditing` and the outliner it builds.
-
-        // ⚠ `edit.search-everywhere` is registered by the shell rather than here, because the
-        // overlay is the shell's. What this application adds is the sources — see `SearchSources` —
-        // and the command greys itself out where nothing has added any.
-        Shell.Search.AddSource(new AssetSearchSource(project, RevealAsset));
-        Shell.Search.AddSource(new EntitySearchSource(() => inspected ?? scene, RevealEntity));
-
-        Shell.Search.AddSource(
-            new CommandPaletteSource(Shell.Commands, Shell.Keys) {
-                // ⚠ Its own category so the block reads "Command" rather than being scattered across
-                // File, Edit and Scene. In the palette the command's own category is the useful
-                // answer; in a search across four kinds of thing, which *kind* it is comes first.
-                Uniform = true
-            }
-        );
-
-        // `edit.find-references` is `LibraryModule`'s (#1292), over the same walk as the Assets menu's.
-    }
+    // Nothing on the Edit menu is this application's any more.
+    //
+    // Undo History, Preferences, Keybindings and File ▸ Project Settings are `WorkspaceModule`'s
+    // (#1296): lines that open a workspace panel, over `Shell.Workspace`.
+    //
+    // Delete, Rename, Duplicate, the clipboard lines and the selection verbs are `SceneModule`'s
+    // (#1296), over `ISceneEditing` and the outliner it builds.
+    //
+    // ⚠ `edit.search-everywhere` is registered by the shell, because the overlay is the shell's, and
+    // greys itself out where nothing has added a source. The three sources are the modules' (#1518),
+    // through `PluginContext.AddSearchSource`: assets `LibraryModule`'s, entities `SceneModule`'s and
+    // commands `WorkspaceModule`'s, so switching one off takes its rows with it.
+    //
+    // `edit.find-references` is `LibraryModule`'s (#1292), over the same walk as the Assets menu's.
 
     // ── Assets ──────────────────────────────────────────────────────────────────────────────────
 
@@ -205,12 +152,6 @@ sealed partial class EditorApplication {
 
         // Find References and Select Dependencies are `LibraryModule`'s now (#1292): names for
         // `IContentLibrary.Referrers` and `Dependencies`, registered through `PluginContext`.
-    }
-
-    /// <summary>Selects some assets and puts the editor in the browser's context.</summary>
-    void Select(IReadOnlyList<AssetId> assets) {
-        project.Selection.Set(assets);
-        Shell.Context = AssetContext;
     }
 
     /// <summary>Asks which of the project's folders to move the selection into.</summary>
@@ -255,65 +196,12 @@ sealed partial class EditorApplication {
 
     // ── Play ────────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>The four transport verbs, over the controller that already exists.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>This used to read "entering play mode snapshots the world and leaving it restores
-    ///         the snapshot, and that is <i>all</i> it does today" — and it was accurate.</b> Nothing
-    ///         moved while it was playing, because <c>ShouldTick</c> had no caller outside its own
-    ///         tests. Since 2026-08-21 <c>PlayModeController.Tick</c> steps an <c>EngineLoop</c> and
-    ///         <c>EditorApplication.Update</c> calls it. What is still real from before is the part
-    ///         doc 20 calls out as better than Unity's: the restore is honest, it says so before
-    ///         entering, and a selection made in play mode is translated back through
-    ///         <c>WorldSnapshot.Restore</c>'s handle map rather than being lost.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>And the report of what a session runs is not decoration on that</b> — it is
-    ///         <c>PlayModule.Announce</c>'s now (#1296). The graph is
-    ///         the engine's default set and a game's own is not declarable anywhere, so a session
-    ///         that said nothing would make the systems it is not running read as the user's bug.
-    ///     </para>
-    /// </remarks>
-    void PlayCommands() {
-        // ⚠ Play, Pause, Step and Stop are not here any more (#1289). They are names for
-        // `IPlaySession`'s verbs and `PlayModule` registers them through `PluginContext`, the door a
-        // third party uses — so a plugin reaches the same four verbs the transport does. What is left
-        // here is the Play menu's options, which are this editor's preferences rather than the
-        // session's verbs.
-        // The three play modes, Mute Audio and the Overlays submenu are `PlayModule`'s (#1296): the
-        // first four are declared lines and the last is `IPlaySession.SwitchOverlay`.
-
-        // ⚠ A preference rather than an action, which is what the tick says. It changes what the
-        // *next* Play does; pressing it while the game is running would be a second, differently
-        // spelled maximise, and the one on the Scene menu is that.
-        Verb(
-            "play.maximise",
-            EditorStrings.CommandPlayMaximise,
-            EditorStrings.CategoryPlay,
-            () => maximiseOnPlay = !maximiseOnPlay,
-            on: () => maximiseOnPlay
-        );
-
-        // ⚠ A tick over the console's own preference rather than a second copy of it. Doc 20's rule
-        // for the three navigation preferences applies here for the same reason: two writers to one
-        // setting is how a menu tick and a panel's toggle come to disagree.
-        Verb(
-            "play.clear-console",
-            EditorStrings.CommandPlayClearConsole,
-            EditorStrings.CategoryPlay,
-            console.ToggleClearsOnPlay,
-            enabled: () => console.View is not null,
-            on: () => console.ClearsOnPlay
-        );
-
-        Verb(
-            "view.clear-console",
-            EditorStrings.CommandViewClearConsole,
-            EditorStrings.CategoryPlay,
-            console.Clear,
-            enabled: () => console.View is not null
-        );
-    }
+    // Nothing on the Play menu is this application's any more (#1289, #1296). Play, Pause, Step and
+    // Stop are names for `IPlaySession`'s verbs, and `PlayModule` registers them through
+    // `PluginContext`, the door a third party uses. The three play modes, Mute Audio and the Overlays
+    // submenu are its too; so are Options ▸ Maximise (over `ScenePanes.Arrangement`, see
+    // `PlayMaximise`) and Options ▸ Clear Console (over `EditorConsole`'s preference), and what
+    // entering play says (`PlayModule.Announce`). Tools ▸ Clear Console is `WorkspaceModule`'s.
 
     // ── Build and Tools ─────────────────────────────────────────────────────────────────────────
 
@@ -636,151 +524,6 @@ sealed partial class EditorApplication {
 
     // ── What the verbs do ───────────────────────────────────────────────────────────────────────
 
-    /// <summary>Empties the scene and starts again, asking first if there is anything to lose.</summary>
-    void NewScene() =>
-        Confirm(
-            scene.HasUnsavedChanges.Value,
-            "Discard unsaved changes?",
-            Path.GetFileName(scenePath) + " has changes that have not been written.",
-            () => {
-                scene.Delete([.. scene.Roots]);
-                scene.Stack.Clear();
-                scene.Stack.MarkClean();
-
-                scene.Add("Scene Root", LocalTransform.Identity);
-                sceneEditing.Restructured();
-            },
-            confirm: "Discard"
-        );
-
-    /// <summary>Picks a scene file and loads it over the open one.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Into the same document, and the path moves with it.</b> The scene panel, the gizmo,
-    ///     the inspector and the picker all hold this document; swapping the object would leave four
-    ///     panels looking at the old one until each was rebuilt. What changes is the contents and the
-    ///     writer — which is also what makes the next Save write where the file came from.
-    /// </remarks>
-    void OpenScene() {
-        if (services.Dialogs is not { } dialogs) {
-            return;
-        }
-
-        Confirm(
-            scene.HasUnsavedChanges.Value,
-            "Discard unsaved changes?",
-            Path.GetFileName(scenePath) + " has changes that have not been written.",
-            () => deferred.When(
-                dialogs.OpenFileAsync(
-                    new FileDialogOptions {
-                        Title = "Open Scene",
-                        InitialDirectory = project.Paths.Assets,
-                        Filters = [new FileFilter("Vixen scene", SceneSerializer.Extension.TrimStart('.'))]
-                    }
-                ),
-                path => {
-                    if (path is null) {
-                        return;
-                    }
-
-                    LoadScene(path);
-                },
-                failure => Shell.Notifications.Show("Could not open the scene", NotificationSeverity.Error, failure.Message)
-            ),
-            confirm: "Discard"
-        );
-    }
-
-    /// <summary>Loads a scene file over the open scene, which then writes there.</summary>
-    /// <param name="path">The chosen file.</param>
-    /// <remarks>
-    ///     What Open Scene's answer does, named so a test can give the answer without a dialog. Refused,
-    ///     like <see cref="SaveSceneAs(string)" />, onto a file another document edits, and it closes the
-    ///     tab named after the file the scene leaves.
-    /// </remarks>
-    internal void LoadScene(string path) {
-        if (EditedElsewhere(path, scene) is { } holder) {
-            RefuseSecondDocument(path, holder, "Could not open the scene");
-
-            return;
-        }
-
-        try {
-            scene.Selection.Clear();
-            scene.Delete([.. scene.Roots]);
-
-            if (SceneSerializer.Load(scene, path) == 0) {
-                Shell.Notifications.Show(
-                    "Nothing was loaded",
-                    NotificationSeverity.Warning,
-                    Path.GetFileName(path) + " has no entities in it."
-                );
-            }
-
-            scenePath = path;
-            scene.Writer = new SceneFileWriter(path);
-            scene.SetTitle(Path.GetFileNameWithoutExtension(path));
-
-            scene.Stack.Clear();
-            scene.Stack.MarkClean();
-
-            sceneEditing.Restructured();
-            CloseTabsTheSceneLeft();
-            Shell.Notifications.Success(Path.GetFileName(path));
-        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
-            Shell.Notifications.Show("Could not open the scene", NotificationSeverity.Error, exception.Message);
-        }
-    }
-
-    /// <summary>Asks where to put the scene, and writes it there from now on.</summary>
-    void SaveSceneAs() {
-        if (services.Dialogs is not { } dialogs) {
-            return;
-        }
-
-        deferred.When(
-            dialogs.SaveFileAsync(
-                new FileDialogOptions {
-                    Title = "Save Scene As",
-                    InitialDirectory = Path.GetDirectoryName(scenePath) ?? project.Paths.Assets,
-                    SuggestedFileName = Path.GetFileName(scenePath),
-                    Filters = [new FileFilter("Vixen scene", SceneSerializer.Extension.TrimStart('.'))]
-                }
-            ),
-            path => {
-                if (path is null) {
-                    return;
-                }
-
-                SaveSceneAs(path);
-            },
-            failure => Shell.Notifications.Show("Could not save the scene", NotificationSeverity.Error, failure.Message)
-        );
-    }
-
-    /// <summary>Writes the scene to a file of the user's choosing, and writes it there from now on.</summary>
-    /// <param name="path">The chosen file.</param>
-    /// <remarks>
-    ///     What the dialog's answer does, named so a test can give the answer without a dialog. ⚠
-    ///     <b>Refused onto a file another document edits</b> — see <see cref="EditedElsewhere" /> for
-    ///     which ones count — and it closes any tab named after the file the scene leaves (#1416), see
-    ///     <see cref="CloseTabsTheSceneLeft" />.
-    /// </remarks>
-    internal void SaveSceneAs(string path) {
-        if (EditedElsewhere(path, scene) is { } holder) {
-            RefuseSecondDocument(path, holder, "Could not save the scene");
-
-            return;
-        }
-
-        scenePath = path;
-        scene.Writer = new SceneFileWriter(path);
-        scene.SetTitle(Path.GetFileNameWithoutExtension(path));
-
-        SaveScene();
-        project.Assets.Scan();
-        CloseTabsTheSceneLeft();
-    }
-
     /// <summary>Writes every open document that has changes.</summary>
     void SaveAll() {
         try {
@@ -907,22 +650,6 @@ sealed partial class EditorApplication {
         }
     }
 
-    /// <summary>Shows an asset in the project browser, which is what a search result means.</summary>
-    void RevealAsset(AssetId asset) {
-        Shell.Workspace.Open("project");
-        Select([asset]);
-    }
-
-    /// <summary>Selects an entity and frames it, which is what a search result for one means.</summary>
-    void RevealEntity(Entity entity) {
-        Shell.Workspace.Open("hierarchy");
-
-        (inspected ?? scene).Selection.Set([entity]);
-        Shell.Context = SceneContext;
-
-        sceneEditing.Restructured();
-    }
-
     // ── Selection and hierarchy verbs ───────────────────────────────────────────────────────────
 
     // ⚠ The verbs that were here are `SceneEditing`'s now (#1290) — `ISceneEditing`, published to
@@ -931,39 +658,12 @@ sealed partial class EditorApplication {
 
     // ── Play mode ───────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>What entering play does to the rest of the editor, after the session has started.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The verb is <see cref="EditorPlaySession.Enter" /> (#1289); this is what follows it.</b>
-    ///     The arrangement, the console and the notification are the workspace's and the
-    ///     diagnostics' concerns, and until those are services of their own the composition root is
-    ///     where they meet — doc 50 § P2a's "a callback the composition root supplies".
-    /// </remarks>
-    void PlayEntered() {
-        // ⚠ Through the same pair maximise itself uses, so stopping restores whatever arrangement the
-        // user had rather than an arrangement this remembered separately. Skipped when the panel is
-        // already single, because `Remember` would then record Single and stopping would leave the
-        // toggle claiming the viewport is maximised when nothing was ever changed.
-        if (maximiseOnPlay && Arrangement != ViewportArrangement.Single) {
-            Arrangement = Remember();
-        }
-
-        // Before the notification, so the line saying what play mode does is the first thing in the
-        // console rather than the last thing before it was emptied. The notification and the report
-        // of what the session runs are `PlayModule`'s (#1296), which subscribes after this does.
-        if (console.ClearsOnPlay) {
-            console.Clear();
-        }
-    }
-
     /// <summary>What leaving play does to the rest of the editor, after the scene has been restored.</summary>
     void PlayLeft() {
         sceneEditing.Restructured();
 
-        // Whatever the panel was split into before Play maximised it. Null when it was not, which is
-        // every session where the preference is off.
-        if (restore is { } previous) {
-            Arrangement = Take(previous);
-        }
+        // The arrangement play maximised, and the console it cleared, are `PlayModule`'s (#1296), which
+        // subscribes after this does — see `PlayMaximise`.
     }
 
     // ── Save on close ───────────────────────────────────────────────────────────────────────────
@@ -1029,65 +729,6 @@ sealed partial class EditorApplication {
         }
     }
 
-    /// <summary>Throws away what the active document holds and reads its file again.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         <b>The other half of the stale-document answer, as a gesture.</b>
-    ///         <c>ExternalEdits</c> declines to reload a document with unsaved edits and says so;
-    ///         Ctrl+S is how a person keeps theirs, and this is how they take the file's. Without it
-    ///         the notification's only advice would be to close the tab and open it again, which is
-    ///         the same operation spelled as a workaround.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>It asks, and only when there is something to lose.</b> A revert of a document
-    ///         whose file merely moved on discards nothing and is not worth a modal; a revert of one
-    ///         with unsaved edits discards the only copy of them, which is exactly the case
-    ///         <see cref="Confirm" /> exists for. That is also why the command is enabled for a
-    ///         merely-dirty document with no external edit at all: "put it back the way it was
-    ///         saved" is the same operation and has always been a thing people want.
-    ///     </para>
-    /// </remarks>
-    void Revert() {
-        if (project.ActiveDocument.Value is { } document) {
-            Revert(document);
-        }
-    }
-
-    /// <summary>Reads one document's file again, asking first when that throws edits away.</summary>
-    /// <param name="document">The document.</param>
-    /// <remarks>
-    ///     ⚠ <b>What an asset tab answers <c>document.revert</c> with (#1494)</b> — the workspace's
-    ///     <c>Reverting</c> — in place of the document's own revert, which does not ask: right for a
-    ///     framework that has no dialog, and a regression here, where Revert to Saved has always asked
-    ///     before it threw away the only copy of somebody's edits.
-    /// </remarks>
-    void Revert(EditorDocument document) {
-        if (!document.CanReload) {
-            return;
-        }
-
-        var title = document.Title.Peek();
-
-        Confirm(
-            document.HasUnsavedChanges.Value,
-            $"Revert '{title}'?",
-            "Its unsaved changes and its undo history are discarded, and the file on disk is read "
-            + "again. This cannot be undone.",
-            () => {
-                if (document.Reload()) {
-                    return;
-                }
-
-                Shell.Notifications.Show(
-                    $"'{title}' could not be read again",
-                    NotificationSeverity.Warning,
-                    "What is on screen is what was there before."
-                );
-            },
-            "Revert"
-        );
-    }
-
     /// <summary>What has changes in it, named, for the prompt to show.</summary>
     string Unsaved() {
         var names = project.Documents
@@ -1109,21 +750,5 @@ sealed partial class EditorApplication {
             _ => string.Join(", ", names.Take(4)) + (names.Count > 4 ? ", and more" : string.Empty)
                 + " have unsaved changes."
         };
-    }
-
-    /// <summary>Runs something, asking first if there is unsaved work to lose.</summary>
-    void Confirm(bool ask, string title, string message, Action then, string confirm) {
-        if (!ask) {
-            then();
-            return;
-        }
-
-        _ = Run();
-
-        async Task Run() {
-            if (await Shell.Dialogs.ConfirmAsync(title, message, confirm, danger: true).ConfigureAwait(true)) {
-                then();
-            }
-        }
     }
 }

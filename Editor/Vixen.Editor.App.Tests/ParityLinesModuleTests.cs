@@ -25,9 +25,19 @@ public class ParityLinesModuleTests {
     [InlineData(SceneModule.ModuleId, "edit.duplicate")]
     [InlineData(SceneModule.ModuleId, "edit.cut")]
     [InlineData(SceneModule.ModuleId, "edit.deselect-all")]
+    [InlineData(SceneModule.ModuleId, "file.new-scene")]
+    [InlineData(SceneModule.ModuleId, "file.open-scene")]
+    [InlineData(SceneModule.ModuleId, "file.save-as")]
+    [InlineData(SceneModule.ModuleId, "file.save")]
+    [InlineData(SceneModule.ModuleId, "document.save")]
+    [InlineData(WorkspaceModule.ModuleId, "file.revert")]
+    [InlineData(WorkspaceModule.ModuleId, "document.revert")]
     [InlineData(PlayModule.ModuleId, "play.mode-in-editor")]
     [InlineData(PlayModule.ModuleId, "play.mute-audio")]
     [InlineData(PlayModule.ModuleId, "play.overlay.physics")]
+    [InlineData(PlayModule.ModuleId, "play.maximise")]
+    [InlineData(PlayModule.ModuleId, "play.clear-console")]
+    [InlineData(WorkspaceModule.ModuleId, "view.clear-console")]
     [InlineData(WorkspaceModule.ModuleId, "file.no-recent")]
     [InlineData(WorkspaceModule.ModuleId, "file.new-project")]
     [InlineData(WorkspaceModule.ModuleId, "file.open-project")]
@@ -54,6 +64,29 @@ public class ParityLinesModuleTests {
         session.Plugins.Enable(module);
 
         Assert.NotNull(session.Shell.Commands[command]);
+    }
+
+    /// <summary>Search Everywhere's three sources are the modules', and leave with them (#1518).</summary>
+    /// <remarks>
+    ///     Red against the pre-move files, where the application added all three and nothing could take
+    ///     one back: the category survived its module being switched off.
+    /// </remarks>
+    [Theory]
+    [InlineData(LibraryModule.ModuleId, "Asset")]
+    [InlineData(SceneModule.ModuleId, "Entity")]
+    [InlineData(WorkspaceModule.ModuleId, "Command")]
+    public void Disabling_the_module_takes_its_search_source_away(string module, string category) {
+        using var session = EditorSession.Start();
+
+        var search = session.Shell.Search;
+
+        Assert.Single(search.Sources, source => source.Category == category);
+
+        Assert.True(session.Plugins.Disable(module));
+        Assert.DoesNotContain(search.Sources, source => source.Category == category);
+
+        session.Plugins.Enable(module);
+        Assert.Single(search.Sources, source => source.Category == category);
     }
 
     /// <summary>File ▸ Open Recent is the workspace module's, and leaves with it rather than naming lines it took away.</summary>

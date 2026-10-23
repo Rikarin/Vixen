@@ -66,39 +66,19 @@ sealed partial class EditorApplication {
     /// <summary>What the editor knows about each open scene's file, keyed by its document.</summary>
     /// <remarks>
     ///     ⚠ <b>Which scenes are open, in what order, and which is active are
-    ///     <see cref="ISceneEditing" />'s (#1290)</b> — <see cref="SceneEditing.Scenes" /> is the list
-    ///     and this is only the file beside each entry: its path and its world settings. The view marks
-    ///     the Scenes panel toggles are the panel's, <see cref="ScenesPanel" />. The application follows
-    ///     the service's <see cref="ISceneEditing.ActiveChanged" /> rather than assigning <c>scene</c>
-    ///     itself, and its <see cref="ISceneEditing.ScenesChanged" /> to forget a closed scene's file.
+    ///     <see cref="ISceneEditing" />'s (#1290)</b> — this is only the file beside each entry: its path
+    ///     and its world settings, and the verbs that point the active scene at another file (#1296).
+    ///     The application follows the service's <see cref="ISceneEditing.ActiveChanged" /> rather than
+    ///     assigning <c>scene</c> itself, and its <see cref="ISceneEditing.ScenesChanged" /> to forget a
+    ///     closed scene's file.
     /// </remarks>
-    readonly Dictionary<SceneDocument, EditorScene> sceneFiles = [];
-
-    /// <summary>One scene open in the editor: its document, its file, and its settings.</summary>
-    /// <param name="Document">The document.</param>
-    /// <param name="Path">Where it is written, absolute.</param>
-    /// <remarks>
-    ///     ⚠ <b>The path is here rather than on the document, because a document does not know where
-    ///     it is written</b> — it has an <c>ISceneWriter</c>, which is deliberately an interface so
-    ///     that a test can write into memory. The editor is what knows about files.
-    /// </remarks>
-    internal sealed record EditorScene(SceneDocument Document, string Path) {
-        /// <summary>The file the scene writes now, which is not always <see cref="Path" />.</summary>
-        /// <remarks>
-        ///     ⚠ <b>Save As and Open Scene move the writer and leave <see cref="Path" /> where it
-        ///     was</b>, so anything asking "is this file open" asks this and not that (#1416).
-        /// </remarks>
-        public string Writes => Document.Writer is SceneFileWriter writer ? writer.Path : Path;
-
-        /// <summary>Its world settings.</summary>
-        public WorldSettings Settings { get; set; } = new();
-    }
+    readonly SceneFiles sceneFiles;
 
     /// <summary>The scene commands and the outliner act on: the one new entities go into.</summary>
-    internal EditorScene ActiveScene => sceneFiles.TryGetValue(scene, out var open) ? open : new(scene, scenePath);
+    internal EditorScene ActiveScene => sceneFiles.Of(scene);
 
     /// <summary>Every scene open in this editor, in the service's order.</summary>
-    internal IReadOnlyList<EditorScene> Scenes => [.. sceneEditing.Scenes.Select(document => sceneFiles[document])];
+    internal IReadOnlyList<EditorScene> Scenes => sceneFiles.Scenes;
 
     /// <summary>The active scene's world settings.</summary>
     internal WorldSettings World => world0;
@@ -220,9 +200,7 @@ sealed partial class EditorApplication {
     /// <summary>Reads the active scene's settings, which is what loading a scene does.</summary>
     void LoadWorld() {
         world0 = WorldSettings.Load(ActiveScene.Path);
-        if (sceneFiles.TryGetValue(scene, out var open)) {
-            open.Settings = world0;
-        }
+        sceneFiles.Of(scene).Settings = world0;
     }
 
     /// <summary>What the lighting settings cost, derived and labelled as derived.</summary>
@@ -450,7 +428,7 @@ sealed partial class EditorApplication {
         document.Stack.Clear();
         document.Stack.MarkClean();
 
-        sceneFiles[document] = new(document, path) { Settings = WorldSettings.Load(path) };
+        sceneFiles.Track(document, path);
         sceneEditing.Open(document);
 
         sceneEditing.Restructured();
@@ -468,9 +446,9 @@ sealed partial class EditorApplication {
     ///     does.
     /// </remarks>
     void Followed() {
-        var open = sceneFiles[sceneEditing.Active];
+        var open = sceneFiles.Of(sceneEditing.Active);
 
-        SetActiveScene(open.Document, open.Path);
+        SetActiveScene(open.Document);
         world0 = open.Settings;
 
         project.Activate(open.Document);
@@ -494,9 +472,7 @@ sealed partial class EditorApplication {
     ///     settings beside it are what only this class held.
     /// </remarks>
     void ForgetClosedScenes() {
-        foreach (var closed in sceneFiles.Keys.Where(document => !sceneEditing.Scenes.Contains(document)).ToList()) {
-            sceneFiles.Remove(closed);
-        }
+        sceneFiles.ForgetClosed();
     }
 
     /// <summary>Points every field that holds the active scene at another one.</summary>
@@ -506,9 +482,8 @@ sealed partial class EditorApplication {
     ///     <see cref="EditorApplication" />'s own remarks say they are held for — so pointing one at
     ///     a different scene would answer clicks with the previous scene's geometry.
     /// </remarks>
-    void SetActiveScene(SceneDocument document, string path) {
+    void SetActiveScene(SceneDocument document) {
         scene = document;
-        scenePath = path;
 
         picker = new ScenePicker(document);
         probe = new SceneProbe(document);

@@ -134,6 +134,35 @@ sealed class ScenePanes : IActiveView, IDisposable {
     /// <summary>A play session's overlay panels, laid out against the focused pane.</summary>
     public PaneOverlays Overlays { get; } = new();
 
+    /// <summary>How the scene panel is split.</summary>
+    /// <remarks>
+    ///     The workspace's per-view state's, so it outlives the panel; the open panes follow it.
+    ///     Moved from the application (#1296), so play's maximise can set it without the application.
+    /// </remarks>
+    public ViewportArrangement Arrangement {
+        get => viewState().Arrangement;
+
+        set {
+            var state = viewState();
+
+            if (state.Arrangement == value) {
+                return;
+            }
+
+            state.Arrangement = value;
+
+            // ⚠ Forgotten before the rebuild, not after. `ViewportLayout` raises `Rearranged` from
+            // inside the setter below, and the handler is what restores these — so clearing
+            // afterwards would restore last arrangement's cameras into this one's panes and then
+            // throw the record away.
+            state.ForgetCameras();
+
+            if (Layout is { } layout) {
+                layout.Arrangement = value;
+            }
+        }
+    }
+
     /// <inheritdoc />
     /// <remarks>
     ///     ⚠ <b>Asked every time.</b> The focused pane changes as somebody clicks between four of them,

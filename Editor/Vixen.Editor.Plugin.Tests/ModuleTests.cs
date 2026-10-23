@@ -148,6 +148,38 @@ public class ModuleTests {
     }
 
     /// <summary>
+    ///     #1518: a module's Search Everywhere source leaves with it, and a reload adds no second copy.
+    ///     Oracle: the open search's rows from that source, before, during and after the unload.
+    /// </summary>
+    [Fact]
+    public void A_modules_search_source_leaves_with_it_and_comes_back_once() {
+        using var shell = new EditorShell(1280f, 800f);
+        var host = new PluginHost(shell);
+        var search = shell.Search;
+
+        host.Activate(
+            "terrain",
+            "Terrain",
+            new Module(context => context.AddSearchSource(new DelegatePaletteSource("Brush", () => ["Sculpt Brush"], _ => { })))
+        );
+
+        host.Reload("terrain");
+
+        search.OpenPalette();
+        search.Field.Value = "sculpt";
+        search.Refresh();
+
+        Assert.Single(search.Results, item => item.Category == "Brush");
+
+        Assert.True(host.Unload("terrain"));
+
+        // ⚠ Without a refresh here: the palette is open, and a row it already shows from a source that
+        // has gone is a row whose action runs code nobody stands behind any more.
+        Assert.DoesNotContain(search.Results, item => item.Category == "Brush");
+        Assert.DoesNotContain(search.Sources, source => source.Category == "Brush");
+    }
+
+    /// <summary>
     ///     #1288: the user's switch means the same thing for a module the editor ships as for a plugin
     ///     off a disk. It used to be consulted by <c>Load</c> alone, so a built-in disabled in the
     ///     manager came back on at the next launch.

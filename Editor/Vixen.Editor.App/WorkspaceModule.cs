@@ -62,6 +62,46 @@ sealed class WorkspaceModule : IEditorPlugin {
 
         var workspace = context.Services.Require<IWorkspace>();
 
+        // ⚠ Search Everywhere's commands (#1518), through the context so they leave with this module.
+        // `Uniform` gives them one category, so the block reads "Command" rather than being scattered
+        // across File, Edit and Scene: in the palette a command's own category is the useful answer; in a
+        // search across four kinds of thing, which *kind* it is comes first.
+        context.AddSearchSource(new CommandPaletteSource(context.Shell.Commands, context.Shell.Keys) { Uniform = true });
+
+        // ── File ▸ Revert, and the route's own id (#1296) ─────────────────────────────────────────
+        // ⚠ `document.revert` with `file.revert` as its fallback (#1494): an asset tab answers it itself,
+        // through the workspace's `Reverting` hook, which asks the same question — so this runs only when
+        // the focus is in no document's panel. Both act on the active document, and ask first when the
+        // revert throws edits away.
+        var project = context.Services.Require<EditorProject>();
+
+        foreach (var (id, title) in new[] { ("file.revert", EditorStrings.CommandFileRevert), (DocumentCommands.Revert, EditorStrings.CommandDocumentRevert) }) {
+            context.AddCommand(
+                new EditorCommand(
+                    id,
+                    title,
+                    () => {
+                        if (project.ActiveDocument.Value is { } document) {
+                            Discarding.Revert(context.Shell, document);
+                        }
+                    }
+                ) {
+                    Category = EditorStrings.CategoryFile,
+                    Enablement = () => Discarding.CanRevert(project.ActiveDocument.Value)
+                }
+            );
+        }
+
+        // Tools ▸ Clear Console (#1296): the console panel's own verb, over the model that outlives it.
+        var console = context.Services.Require<EditorConsole>();
+
+        context.AddCommand(
+            new EditorCommand("view.clear-console", EditorStrings.CommandViewClearConsole, console.Clear) {
+                Category = EditorStrings.CategoryPlay,
+                Enablement = () => console.View is not null
+            }
+        );
+
         context.AddCommand(
             new EditorCommand("view.save-layout", EditorStrings.CommandSaveLayout, () => workspace.SaveLayout()) {
                 Category = EditorStrings.CategoryView

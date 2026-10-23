@@ -40,7 +40,7 @@ internal sealed class AssetTabs(
     DocumentHost documents,
     EditorWorkspace views,
     SceneEditing sceneEditing,
-    Func<IReadOnlyList<EditorApplication.EditorScene>> scenes,
+    Func<IReadOnlyList<EditorScene>> scenes,
     Func<bool> restore
 ) {
     /// <summary>Every asset panel registered so far; a registration is never taken back.</summary>
@@ -178,7 +178,7 @@ internal sealed class AssetTabs(
     ///         history, and a writer of its own on the same path, whichever saved last winning.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The writer's path and not <see cref="EditorApplication.EditorScene.Path" />.</b> Save As and Open
+    ///         ⚠ <b>The writer's path and not <see cref="EditorScene.Path" />.</b> Save As and Open
     ///         Scene move the main scene's writer and leave the record's path where it was, so the
     ///         record can name a file this document no longer writes.
     ///     </para>

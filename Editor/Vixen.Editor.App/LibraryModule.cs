@@ -109,6 +109,20 @@ sealed class LibraryModule : IEditorPlugin {
         var selection = library.Project.Selection;
         var links = context.Services.Require<IExternalLinks>();
 
+        // ⚠ Search Everywhere's assets (#1518): through the context, so switching this module off takes
+        // its rows out of the overlay. Choosing one shows it in the browser — the panel is opened, the
+        // asset selected and the editor put in the browser's context, which is what a search result means.
+        context.AddSearchSource(
+            new AssetSearchSource(
+                library.Project,
+                asset => {
+                    context.Shell.Workspace.Open(ContentBrowsing.PanelId);
+                    selection.Set([asset]);
+                    context.Shell.Context = EditorApplication.AssetContext;
+                }
+            )
+        );
+
         context.AddCommand(
             new EditorCommand(
                 "assets.show-in-explorer",

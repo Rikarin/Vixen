@@ -85,7 +85,7 @@ public sealed class OpenEditorSceneTests {
         Assert.True(session.Shell.Workspace.IsOpen(tab));
 
         var other = Path.Combine(session.Project.Paths.Assets, "Other.vxscene");
-        session.Editor.SaveSceneAs(other);
+        session.Plugins.Services.Require<SceneFiles>().SaveAs(other);
         session.Frames(2);
 
         Assert.Equal(Path.GetFullPath(other), Path.GetFullPath(Writer(session).Path));
@@ -120,7 +120,7 @@ public sealed class OpenEditorSceneTests {
         session.Frames(2);
         Assert.True(session.Shell.Workspace.IsOpen(tab));
 
-        session.Editor.LoadScene(other);
+        session.Plugins.Services.Require<SceneFiles>().Load(other);
         session.Frames(2);
 
         Assert.Equal(Path.GetFullPath(other), Path.GetFullPath(Writer(session).Path));
@@ -142,7 +142,7 @@ public sealed class OpenEditorSceneTests {
         Assert.Equal(session.Project.Paths.Absolute(main.Path), scene.Location.Value);
 
         var other = Path.Combine(session.Project.Paths.Assets, "Elsewhere.vxscene");
-        session.Editor.SaveSceneAs(other);
+        session.Plugins.Services.Require<SceneFiles>().SaveAs(other);
 
         Assert.Equal(Path.GetFullPath(other), scene.Location.Value);
     }
@@ -168,7 +168,7 @@ public sealed class OpenEditorSceneTests {
         var theirs = Assert.IsType<SceneDocument>(session.Project.ActiveDocument.Peek());
         Assert.NotSame(session.Scene, theirs);
 
-        session.Editor.SaveSceneAs(other);
+        session.Plugins.Services.Require<SceneFiles>().SaveAs(other);
         session.Frames(2);
 
         Assert.Equal(before, Writer(session).Path);
@@ -178,7 +178,7 @@ public sealed class OpenEditorSceneTests {
         );
 
         // And Open Scene onto it is the same second document by another route.
-        session.Editor.LoadScene(other);
+        session.Plugins.Services.Require<SceneFiles>().Load(other);
         session.Frames(2);
 
         Assert.Equal(before, Writer(session).Path);
@@ -201,7 +201,7 @@ public sealed class OpenEditorSceneTests {
         var third = CopyOf(session, main, "Third.vxscene");
 
         var theirs = OpenAndClose(session, other);
-        session.Editor.SaveSceneAs(other);
+        session.Plugins.Services.Require<SceneFiles>().SaveAs(other);
         session.Frames(2);
 
         Assert.Equal(Path.GetFullPath(other), Path.GetFullPath(Writer(session).Path));
@@ -209,7 +209,7 @@ public sealed class OpenEditorSceneTests {
         Assert.DoesNotContain(theirs, session.Project.Documents);
 
         var thirds = OpenAndClose(session, third);
-        session.Editor.LoadScene(third);
+        session.Plugins.Services.Require<SceneFiles>().Load(third);
         session.Frames(2);
 
         Assert.Equal(Path.GetFullPath(third), Path.GetFullPath(Writer(session).Path));
@@ -240,7 +240,7 @@ public sealed class OpenEditorSceneTests {
         var other = CopyOf(session, main, "Other.vxscene");
 
         var theirs = OpenAndClose(session, other, dirty: true);
-        session.Editor.SaveSceneAs(other);
+        session.Plugins.Services.Require<SceneFiles>().SaveAs(other);
         session.Frames(2);
 
         Assert.Equal(before, Writer(session).Path);
@@ -251,7 +251,7 @@ public sealed class OpenEditorSceneTests {
         );
 
         theirs.Save();
-        session.Editor.SaveSceneAs(other);
+        session.Plugins.Services.Require<SceneFiles>().SaveAs(other);
         session.Frames(2);
 
         Assert.Equal(Path.GetFullPath(other), Path.GetFullPath(Writer(session).Path));
@@ -293,7 +293,7 @@ public sealed class OpenEditorSceneTests {
         var left = Writer(session).Path;
         var other = Path.Combine(session.Project.Paths.Assets, "Other.vxscene");
 
-        session.Editor.SaveSceneAs(other);
+        session.Plugins.Services.Require<SceneFiles>().SaveAs(other);
         session.Frames(2);
 
         Assert.Same(session.Scene, session.Editor.OpenSceneAdditively(other));

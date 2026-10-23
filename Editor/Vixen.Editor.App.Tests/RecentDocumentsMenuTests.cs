@@ -45,7 +45,7 @@ public sealed class RecentDocumentsMenuTests {
 
         var other = Path.Combine(session.Project.Paths.Assets, "Elsewhere.vxscene");
 
-        session.Editor.SaveSceneAs(other);
+        session.Plugins.Services.Require<SceneFiles>().SaveAs(other);
         session.Settle();
 
         var recent = session.Plugins.Services.Require<IWorkspace>().Recent;

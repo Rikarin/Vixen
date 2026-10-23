@@ -161,6 +161,35 @@
         sources.Add(source);
     }
 
+    /// <summary>Takes a source back out, so nothing asks it again.</summary>
+    /// <param name="source">The source <see cref="AddSource" /> was given.</param>
+    /// <returns>Whether it was there.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The withdrawal a module needs to own a source at all (#1518)</b> — one added by a module
+    ///     that is switched off would otherwise go on answering, with rows whose actions run code the
+    ///     module no longer stands behind. An open palette is asked again, so what it shows is never a
+    ///     row from a source that has gone.
+    /// </remarks>
+    public bool RemoveSource(IPaletteSource source) {
+        ArgumentNullException.ThrowIfNull(source);
+
+        // ⚠ By reference: a source may be a record, and `List.Remove` would take out an equal one
+        // somebody else added.
+        var index = sources.FindIndex(added => ReferenceEquals(added, source));
+
+        if (index < 0) {
+            return false;
+        }
+
+        sources.RemoveAt(index);
+
+        if (IsOpen) {
+            Refresh();
+        }
+
+        return true;
+    }
+
     /// <summary>Opens it in the middle of the top of the document, empty.</summary>
     /// <remarks>
     ///     ⚠ <b>The query is cleared every time.</b> A palette that remembered what was typed last

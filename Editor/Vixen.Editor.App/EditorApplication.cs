@@ -278,9 +278,6 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     internal ProjectBrowser? Browser => browsing.Browser;
 
-    /// <summary>Where the open scene is written, which Save As moves.</summary>
-    string scenePath;
-
     /// <summary>What each open scene had selected when the inspector was last brought up to date.</summary>
     /// <remarks>
     ///     One entry per open scene rather than one list, because the editor's own scene is not the
@@ -529,10 +526,10 @@ sealed partial class EditorApplication : IDisposable {
         project = session.Project;
 
         // One scene per project until there is a file dialog to choose another — see `MainScene`.
-        scenePath = MainScene.PathIn(project.Paths);
+        var mainPath = MainScene.PathIn(project.Paths);
 
         scene = new SceneDocument(project, world, AssetId.Empty, "Main") {
-            Writer = new SceneFileWriter(scenePath)
+            Writer = new SceneFileWriter(mainPath)
         };
 
         project.Activate(scene);
@@ -565,10 +562,9 @@ sealed partial class EditorApplication : IDisposable {
         // scene's and that is this class's answer — see `EditorPlaySession`.
         play = new EditorPlaySession(new PlayModeController(world, scene.Behaviors, Extensions), () => scene.Selection);
 
-        // ⚠ What play does to the rest of the editor — maximise, the console, the notification, the
-        // outliner, the arrangement — is the workspace's and the diagnostics' and not the session's,
-        // so it follows the session rather than living inside it. See `PlayEntered`, `PlayLeft`.
-        play.Entered += _ => PlayEntered();
+        // ⚠ What play does to the rest of the editor is not the session's, so it follows the session
+        // rather than living inside it. Leaving tells the outliner here — see `PlayLeft`; the
+        // arrangement, the console and the notice are `PlayModule`'s (#1296).
         play.Left += _ => PlayLeft();
 
         // ⚠ The active scene is the service's from here on and this class follows it (#1290): `scene`
@@ -618,7 +614,7 @@ sealed partial class EditorApplication : IDisposable {
         }
 
         // Read, or — on a first run — seeded, written and indexed (#1293).
-        MainScene.LoadOrSeed(scene, scenePath, project);
+        MainScene.LoadOrSeed(scene, mainPath, project);
 
         // ⚠ Empty here: every kind and view is a module's contribution (#1297), registered through
         // `PluginServices` — the asset editors module registers this build's twenty-six. The
@@ -630,7 +626,7 @@ sealed partial class EditorApplication : IDisposable {
             // ⚠ #1494: `document.revert` in a tab is Revert to Saved, which asks first.
             Reverting = document => {
                 if (document is EditorDocument edited) {
-                    Revert(edited);
+                    Discarding.Revert(Shell, edited);
                 }
             }
         };
@@ -669,8 +665,8 @@ sealed partial class EditorApplication : IDisposable {
         // than a special case beside it. Everything that walks the open scenes — the panel, Save All
         // Scenes, the active-scene switch — would otherwise have to remember that one of them is not
         // in the list, which is exactly the kind of exception that goes wrong once and quietly.
-        sceneFiles[scene] = new(scene, scenePath) { Settings = WorldSettings.Load(scenePath) };
-        world0 = sceneFiles[scene].Settings;
+        sceneFiles = new SceneFiles(Shell, project, sceneEditing, tabs);
+        world0 = sceneFiles.Track(scene, mainPath).Settings;
 
         // ⚠ With the registry, which is doc 36 § D4's `AddPreview` row: a module or a plugin owning
         // its own file format is the one thing that can draw a picture of it, and without this the
@@ -1052,25 +1048,8 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>How the scene panel is split.</summary>
     public ViewportArrangement Arrangement {
-        get => SceneViewState.Arrangement;
-
-        set {
-            if (SceneViewState.Arrangement == value) {
-                return;
-            }
-
-            SceneViewState.Arrangement = value;
-
-            // ⚠ Forgotten before the rebuild, not after. `ViewportLayout` raises `Rearranged` from
-            // inside the setter below, and the handler is what restores these — so clearing
-            // afterwards would restore last arrangement's cameras into this one's panes and then
-            // throw the record away.
-            SceneViewState.ForgetCameras();
-
-            if (scenePanes.Layout is { } layout) {
-                layout.Arrangement = value;
-            }
-        }
+        get => scenePanes.Arrangement;
+        set => scenePanes.Arrangement = value;
     }
 
     /// <summary>Whether the editor has been asked to close.</summary>
@@ -1920,7 +1899,16 @@ sealed partial class EditorApplication : IDisposable {
 
             // ⚠ And the content tasks, for `LibraryModule`'s mesh-map bake: it runs on their queue, behind
             // their busy flag, and reports through their `Baked` (#1296).
-            .Add(content);
+            .Add(content)
+
+            // ⚠ And the scene panel's and the console's models, for `PlayModule`'s Play ▸ Options and
+            // `WorkspaceModule`'s Clear Console (#1296). App-internal like the two above: the panel
+            // registrations stay here, the lines and what entering play does to them are the modules'.
+            .Add(scenePanes)
+            .Add(console)
+
+            // ⚠ And the file behind each open scene, for `SceneModule`'s New, Open and Save As Scene (#1296).
+            .Add(sceneFiles);
 
         // And the OS's pickers where there are any — a module that writes a file asks for them (#1298).
         if (services.Dialogs is { } pickers) {
@@ -2042,28 +2030,8 @@ sealed partial class EditorApplication : IDisposable {
             }
         );
 
-        // Enabled only when there is something to write, so the menu item greys itself out from the
-        // document's own dirty signal rather than from anything here deciding when.
-        Shell.Commands.Add(
-            new EditorCommand("file.save", EditorStrings.CommandSave, SaveScene) {
-                Category = EditorStrings.CategoryFile,
-                Enablement = () => scene.HasUnsavedChanges.Value
-            }
-        );
-
-        // ⚠ **Ctrl+S is `document.save`'s and not `file.save`'s (#1494).** Every asset tab answers
-        // `document.save` on the route — `IWorkspace.Show` installs `DocumentCommands` on its panel —
-        // and the dispatcher asks the focus before it asks this registry, so the chord saves the
-        // document whose tab the focus is in. This registration is the fallback for a focus in no
-        // document's panel, and there it is the scene's save, which is what Ctrl+S always did.
-        Shell.Commands.Add(
-            new EditorCommand(DocumentCommands.Save, EditorStrings.CommandDocumentSave, SaveScene) {
-                Category = EditorStrings.CategoryFile,
-                Enablement = () => scene.HasUnsavedChanges.Value
-            }
-        );
-
-        Shell.Keys.SetDefault(DocumentCommands.Save, new KeyChord(InputKey.S, ModifierKeys.Control));
+        // File ▸ Save and its route's id `document.save` are `SceneModule`'s (#1296), over `SceneFiles.Save`
+        // — see `SceneFileQuestions`.
 
         // ⚠ And Ctrl+W is `document.close`'s, for the same reason: an asset tab answers the route's
         // id with its own close (`Open` closes the tab on it), and with the focus in no document's
@@ -3169,26 +3137,6 @@ sealed partial class EditorApplication : IDisposable {
         }
 
         return any ? new BoundingBox(low, high) : new BoundingBox(new Vector3(-1f), new Vector3(1f));
-    }
-
-    /// <summary>Writes the scene, and says so.</summary>
-    /// <remarks>
-    ///     ⚠ <b>A failed save is a notification and not an exception.</b> A full disk or a read-only
-    ///     working tree is an ordinary thing to meet, and an editor that took the process down with
-    ///     the unsaved work still in it would be the worst possible response to it.
-    /// </remarks>
-    void SaveScene() {
-        try {
-            // ⚠ The sidecars go with it, and they are not named here any more. A scene names a
-            // heightfield and a foliage file beside itself; whoever owns those subscribes to
-            // `EditorDocument.Saved`, which throws through so a sidecar that could not be written is
-            // a failed save rather than a silent half of one.
-            scene.Save();
-
-            Shell.Notifications.Success(Path.GetFileName(scenePath));
-        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
-            Shell.Notifications.Show("Could not save the scene", NotificationSeverity.Error, exception.Message);
-        }
     }
 
     /// <summary>Rescans the project and says what changed.</summary>
