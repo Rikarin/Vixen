@@ -285,26 +285,20 @@ public sealed class ProjectAssemblies : IProjectCode {
         start.ArgumentList.Add(project);
 
         try {
-            using var process = Process.Start(start);
-
-            if (process is null) {
+            // ⚠ Both streams at once, through `ChildProcess` (#1512). They were read one after the
+            // other before the wait — the same shape as `GitSourceControl.Run` — so a build filling the
+            // stderr pipe first deadlocked, and the timeout could not fire behind the reads.
+            if (ChildProcess.Run(start, Timeout) is not { } ran) {
                 return (false, "Could not start `dotnet`. The SDK has to be on PATH for a project's own code to build.");
             }
 
-            // ⚠ Read before the wait, not after. A child that fills the pipe buffer blocks writing to
-            // it while the parent blocks waiting for the child, which is a deadlock that only shows
-            // up on the build with enough warnings to fill four kilobytes.
-            var output = process.StandardOutput.ReadToEnd();
-            var errors = process.StandardError.ReadToEnd();
-
-            if (!process.WaitForExit((int) Timeout.TotalMilliseconds)) {
-                process.Kill(entireProcessTree: true);
+            if (!ran.Finished) {
                 return (false, $"The build did not finish within {Timeout.TotalMinutes:0} minutes and was stopped.");
             }
 
-            var text = string.IsNullOrWhiteSpace(errors) ? output : output + Environment.NewLine + errors;
+            var text = string.IsNullOrWhiteSpace(ran.Error) ? ran.Output : ran.Output + Environment.NewLine + ran.Error;
 
-            return (process.ExitCode == 0, text);
+            return (ran.Code == 0, text);
         } catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or IOException) {
             return (false, $"Could not run `dotnet`: {exception.Message}");
         }
