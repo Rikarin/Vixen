@@ -42,10 +42,10 @@ open rows where there is one.
 | `UiElement.AddCommandHandler` (`Commands.cs:784`) | how an element *becomes* a responder | **0** | 5 — `Documents.cs:289`, `Undo.cs:217`, `TextField.cs:391`, `CodeEditor.cs:639`, `Hierarchy.vxml:96` |
 | `UiElement.RemoveCommandHandler` (`Commands.cs:848`) | — | **0** | **0**, and correctly so — see the remark on the method |
 | `UiElement.CommandScope` (`Commands.cs:699`) | the derived scope 45 § G2 was written to build | **0** | 2 — `Hierarchy.vxml:84`, `Inspector.vxml:63` |
-| `CommandRoute.ScopeOf` (`Commands.cs:418`) | reads it | **0** | 1 — `Shell.vxml:311` |
-| `UiDocument.CommandResponder` (`Commands.cs:537`) | `NSDocument`'s slot | **0** | 1 — `Shell.vxml:323` |
-| `UiElement.AccessKey` (`UiElement.cs:813`) | Alt-mnemonics | **0** | 1 — `Shell.vxml:591` |
-| `UiDocument.MoveFocus(NavigationDirection)` (`Vixen.Ui/Navigation.cs:48`) | arrow/D-pad navigation | **0** | 1 — `Shell.vxml:549` |
+| `CommandRoute.ScopeOf` (`Commands.cs:418`) | reads it | **0** | 1 — `Shell.vxml:312` |
+| `UiDocument.CommandResponder` (`Commands.cs:537`) | `NSDocument`'s slot | **0** | 1 — `Shell.vxml:324` |
+| `UiElement.AccessKey` (`UiElement.cs:813`) | Alt-mnemonics | **0** | 1 — `Shell.vxml:610` |
+| `UiDocument.MoveFocus(NavigationDirection)` (`Vixen.Ui/Navigation.cs:48`) | arrow/D-pad navigation | **0** | 1 — `Shell.vxml:568` |
 
 ⚠ **Two halves of the "now" column are gated and a third is not, and the difference matters to a
 reader deciding what to trust.** `Core/Vixen.Ui.Tests/ResponderReachTests.cs` sweeps `*.cs` **and**
@@ -469,7 +469,7 @@ SwiftUI's `App`/`Scene`/`WindowGroup`/`DocumentGroup` all start one level above 
 | Answerable modal | `DialogService.cs` (465 lines) — doc 46 § A4 landed and the editor's copy is gone | **present** |
 | Sheets (window-attached modals) | `runModal` on purpose (`MacOSDialogs.cs:20-23`) | **absent by decision** |
 | Document model (dirty, save, revert, proxy title) | `IEditableDocument` (`Documents.cs:36`) in `Core/Vixen.Ui`: `Location` and `IsDirty` as signals, `Save` and `Revert`; `UiWindowTitle.Bind` (`Documents.cs:404`) puts the name and the dirty mark in the title, and the sample's `MaterialDocument` (`Samples/02-HelloUi/MaterialDocument.cs:37`) is the first implementation. No proxy title: a represented file is a path, and `IUiWindow` has no member for one — the path exists now (`EditorDocument`, and the editor's scenes since #1493), the seam does not. ⚠ It is four pieces, not one: an `IWindow` member, the SDL2 desktop window's macOS branch (its `NSWindow` from `SDL_GetWindowWMInfo`), a public `setRepresentedURL:` in `Vixen.Platform.MacOS` (whose Objective-C bridge is internal), and the `IUiWindow` member `PlatformUiWindow` forwards and `UiWindowTitle.Bind` writes — and only macOS has anything to show (`IEditableDocument.Location`'s remarks). The editor's window says a file changed on disk apart from the asterisk (#656), from `EditorDocument.IsStale`; `IEditableDocument` still has no signal for it. As audited only `EditorDocument.cs:91,187,355` — one assembly no application can reference | **present** since `e57dfa401` ([#656](https://github.com/Rikarin/Vixen/issues/656)) except the proxy title; **absent below the editor** as audited |
-| Quit / close with unsaved changes | `UiApplication.Quit` (`UiApplication.cs:685`) asks `Document.RequestClose` first and stops the loop only if nothing refuses; `Pump` asks it on a platform Quit and clears the latch with `CancelQuit` (`UiApplication.cs:934-936`) when refused, as `EditorHost.cs:477-482` does; `DocumentClosePrompt` (`DocumentClose.cs:49`) is the Save / Don't Save / Cancel, installed by `Samples/02-HelloUi/Shell.vxml:364`. ⚠ As audited `Pump` set `running = false` outright and the framework host was the copy that still had the bug | **present** since `a1935a308` ([#653](https://github.com/Rikarin/Vixen/issues/653)); **absent** as audited. Proxy icon, recent documents and external modification are still owed on [#656](https://github.com/Rikarin/Vixen/issues/656) |
+| Quit / close with unsaved changes | `UiApplication.Quit` (`UiApplication.cs:685`) asks `Document.RequestClose` first and stops the loop only if nothing refuses; `Pump` asks it on a platform Quit and clears the latch with `CancelQuit` (`UiApplication.cs:934-936`) when refused, as `EditorHost.cs:477-482` does; `DocumentClosePrompt` (`DocumentClose.cs:49`) is the Save / Don't Save / Cancel, installed by `Samples/02-HelloUi/Shell.vxml:377-378`. ⚠ As audited `Pump` set `running = false` outright and the framework host was the copy that still had the bug | **present** since `a1935a308` ([#653](https://github.com/Rikarin/Vixen/issues/653)); **absent** as audited. Proxy icon, recent documents and external modification are still owed on [#656](https://github.com/Rikarin/Vixen/issues/656) |
 | Activation / deactivation into the UI | As audited, consumed only by the game host (`Core/Vixen.App.Hosting/PlatformInput.cs:109`). At HEAD a window's activation reaches the UI: `PlatformInput` sets `UiDocument.KeySurface` on `WindowFocusGained` and clears it on `WindowFocusLost` (`Vixen.Platform.Ui/PlatformInput.cs:592-601`), `null` meaning the application is in the background; `IsKey` (`UiWindows.cs:92`) and `KeySurfaceChanged` (`Surfaces.cs:116`) carry it to an application, and the command route falls back on it (`Vixen.Ui/Commands.cs:407`). `Suspending` releases the host's GPU resources (`UiApplication.cs:974-975`). No stylesheet state follows it — a sweep of `Vixen.Ui*` finds no inactive-window variant | **present** for a window since `92c554e54` ([#644](https://github.com/Rikarin/Vixen/issues/644)); **present-but-unwired** as audited |
 | Reopen, Settings/preferences scene, status item, services, printing | — | **absent** |
 | Window placement autosave | editor-only (`Docking/EditorUserStore.cs:142`) | **absent** |
@@ -547,7 +547,7 @@ be provided as a `Signal<T>` and read through `.Value`.
 > carries a parameter emits `Create` … the assignments … `Compose` now (`ComponentEmitter.cs:482`,
 > `:502`), so the child is built with the caller's values; the old order survives only in
 > `Child<T>` (`BuildContext.cs:533`) for hand-written callers. Signal-backing is still what makes a
-> prop *track*, and `Samples/02-HelloUi/Shell.vxml:252-263` now says so and names the reason that went.
+> prop *track*, and `Samples/02-HelloUi/Shell.vxml:253-264` now says so and names the reason that went.
 > The paragraph below is the audit as written, with its two emitter citations removed (#1388): they
 > named the post-mount assignment, which no longer exists.
 
@@ -584,7 +584,7 @@ silent. This is the same defect class the language already fixed twice, for `sty
 | `.task` / `.onAppear` | `partial void OnComposed()` — sync, no cancellation, no async | ⚠ partial |
 | `.focusable` | real on component tags; inert on `<div>` (§ 6.3) | ⚠ partial |
 | `.accessibilityLabel` | `AccessibleName=` compiles on a capitalised tag, is inert on a lowercase one; **zero `.vxml` in the repo sets it either way** | ⚠ accidental |
-| `.keyboardShortcut` | ❌ `Shell.vxml:274` says it outright: *a keyboard shortcut is a method call with two enum arguments and no attribute spelling* | ❌ |
+| `.keyboardShortcut` | ❌ `Shell.vxml:275` says it outright: *a keyboard shortcut is a method call with two enum arguments and no attribute spelling* | ❌ |
 | `.contextMenu` | `ContextMenu.Attach` is a C# call | ❌ |
 | `.help` (tooltip) | `Tooltip.Attach` is a C# call | ❌ |
 | `.alert` / `.confirmationDialog` / `.sheet` / `.popover` | `DialogService`/`Overlay` exist; nothing binds a presentation to state | ❌ markup |

@@ -147,6 +147,11 @@ public sealed class RepositoryFilesTests {
             // in a directory that is not this repository and need not be a git checkout at all.
             "Editor/Vixen.Editor.Scripts/ScriptCompiler.cs",
 
+            // The same user project, from the other end: which saved file is the project's code and
+            // so rebuilds it (#1508). Its bin/, obj/ and Library/ are output, in a directory that is
+            // not this repository.
+            "Editor/Vixen.Editor.App/ProjectSession.cs",
+
             // One project's directory, and DataContractGeneratorRuleTests hands it synthetic ones
             // written to a temp folder, which are not checkouts either.
             "build/DataContractGeneratorRule.cs",

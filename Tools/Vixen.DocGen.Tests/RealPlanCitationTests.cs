@@ -1105,7 +1105,7 @@ public class RealPlanCitationTests {
                                             && cited.Text == ":557" && cited.File.EndsWith("DockingHost.cs", StringComparison.Ordinal));
 
         // A .vxml citation is a citation.
-        Assert.Contains(citations, cited => cited.File == "Shell.vxml" && cited.Lines.SequenceEqual([591]));
+        Assert.Contains(citations, cited => cited.File == "Shell.vxml" && cited.Lines.SequenceEqual([610]));
 
         // `Symbol` (`File:N`) binds the symbol; a list and a range are read as such.
         Assert.Contains(citations, cited => cited.Symbol == "UiElement.AccessKey" && cited.File == "UiElement.cs");
