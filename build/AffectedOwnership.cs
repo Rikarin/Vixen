@@ -157,6 +157,21 @@ public static class AffectedOwnership {
         new("docs/", DocGenTests, "Tools/Vixen.DocGen.Tests/RealGuideTests.cs"),
         new(".gitignore", DocGenTests, "Tools/Vixen.DocGen.Tests/RealPlanCitationTests.cs"),
 
+        // #1514: suites that compile library shaders they find off disk. Each named the library in
+        // no item, so an edit to a shader narrowed past it; the census could not see them while it
+        // filtered on OwnedByNoProject, which Raven/Library is not.
+        new("Raven/Library/", "Core/Vixen.Rendering.Terrain.Tests/Vixen.Rendering.Terrain.Tests.csproj", "Core/Vixen.Rendering.Terrain.Tests/TerrainShaderParityTests.cs"),
+        new("Raven/Library/", "Editor/Vixen.Editor.ShaderGraph.Tests/Vixen.Editor.ShaderGraph.Tests.csproj", "Editor/Vixen.Editor.ShaderGraph.Tests/SurfaceGraphTests.cs"),
+        new("Raven/Library/", "Platform/Vixen.Graphics.Golden.Tests/Vixen.Graphics.Golden.Tests.csproj", "Platform/Vixen.Graphics.Golden.Tests/RavenEffects.cs"),
+        new("Raven/Library/", "Platform/Vixen.Raven.Gpu.Tests/Vixen.Raven.Gpu.Tests.csproj", "Platform/Vixen.Raven.Gpu.Tests/ShaderRun.cs"),
+        new("Raven/Library/", "Platform/Vixen.Vfx.Gpu.Tests/Vixen.Vfx.Gpu.Tests.csproj", "Platform/Vixen.Vfx.Gpu.Tests/VfxSortTests.cs"),
+        new("Raven/Library/", "Raven/Vixen.Raven.Transpile.Tests/Vixen.Raven.Transpile.Tests.csproj", "Raven/Vixen.Raven.Transpile.Tests/CrossCompilationTests.cs"),
+
+        // #1514, found by the same widening: a workflow read by its file name, and every sample's
+        // sources swept for one call.
+        new(".github/workflows/", ApiCheckTests, "Tools/Vixen.ApiCheck.Tests/WorkflowAndTargetInventoryTests.cs"),
+        new("Samples/", "Tools/Vixen.App.Tests/Vixen.App.Tests.csproj", "Tools/Vixen.App.Tests/HeadlessFlagTests.cs"),
+
         // #1506, the sweeps that name no path.
         new("**/README.md", DocGenTests, "Tools/Vixen.DocGen.Tests/RealPlanCitationTests.cs"),
         new("**/*.md", "Core/Vixen.Ui.Styling.Utilities.Tests/Vixen.Ui.Styling.Utilities.Tests.csproj", "Core/Vixen.Ui.Styling.Utilities.Tests/RefusalExpiry.cs")
