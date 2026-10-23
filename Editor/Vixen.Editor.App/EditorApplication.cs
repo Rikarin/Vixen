@@ -629,7 +629,7 @@ sealed partial class EditorApplication : IDisposable {
             // ⚠ #1494: `document.revert` in a tab is Revert to Saved, which asks first.
             Reverting = document => {
                 if (document is EditorDocument edited) {
-                    Revert(edited);
+                    Discarding.Revert(Shell, edited);
                 }
             }
         };

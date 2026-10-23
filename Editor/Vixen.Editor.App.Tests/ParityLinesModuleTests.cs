@@ -25,6 +25,8 @@ public class ParityLinesModuleTests {
     [InlineData(SceneModule.ModuleId, "edit.duplicate")]
     [InlineData(SceneModule.ModuleId, "edit.cut")]
     [InlineData(SceneModule.ModuleId, "edit.deselect-all")]
+    [InlineData(WorkspaceModule.ModuleId, "file.revert")]
+    [InlineData(WorkspaceModule.ModuleId, "document.revert")]
     [InlineData(PlayModule.ModuleId, "play.mode-in-editor")]
     [InlineData(PlayModule.ModuleId, "play.mute-audio")]
     [InlineData(PlayModule.ModuleId, "play.overlay.physics")]

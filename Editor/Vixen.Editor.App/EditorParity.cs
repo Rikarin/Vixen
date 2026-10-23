@@ -105,26 +105,7 @@ sealed partial class EditorApplication {
             enabled: () => project.HasUnsavedChanges.Value
         );
 
-        Verb(
-            "file.revert",
-            EditorStrings.CommandFileRevert,
-            EditorStrings.CategoryFile,
-            Revert,
-            enabled: () => project.ActiveDocument.Value is { CanReload: true } document
-                && (document.HasUnsavedChanges.Value || document.IsStale.Value)
-        );
-
-        // ⚠ The route's id with `file.revert` as its fallback (#1494): an asset tab answers
-        // `document.revert` itself — see `Open`, which hands it `Revert(EditorDocument)` so the
-        // question is still asked — and this runs only when the focus is in no document's panel.
-        Verb(
-            DocumentCommands.Revert,
-            EditorStrings.CommandDocumentRevert,
-            EditorStrings.CategoryFile,
-            Revert,
-            enabled: () => project.ActiveDocument.Value is { CanReload: true } document
-                && (document.HasUnsavedChanges.Value || document.IsStale.Value)
-        );
+        // File ▸ Revert and `document.revert` are `WorkspaceModule`'s (#1296), over `Discarding.Revert`.
 
         // Import Files and Export Package are `LibraryModule`'s (#1296) — see `LibraryQuestions`.
 
@@ -913,65 +894,6 @@ sealed partial class EditorApplication {
                     break;
             }
         }
-    }
-
-    /// <summary>Throws away what the active document holds and reads its file again.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         <b>The other half of the stale-document answer, as a gesture.</b>
-    ///         <c>ExternalEdits</c> declines to reload a document with unsaved edits and says so;
-    ///         Ctrl+S is how a person keeps theirs, and this is how they take the file's. Without it
-    ///         the notification's only advice would be to close the tab and open it again, which is
-    ///         the same operation spelled as a workaround.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>It asks, and only when there is something to lose.</b> A revert of a document
-    ///         whose file merely moved on discards nothing and is not worth a modal; a revert of one
-    ///         with unsaved edits discards the only copy of them, which is exactly the case
-    ///         <see cref="Confirm" /> exists for. That is also why the command is enabled for a
-    ///         merely-dirty document with no external edit at all: "put it back the way it was
-    ///         saved" is the same operation and has always been a thing people want.
-    ///     </para>
-    /// </remarks>
-    void Revert() {
-        if (project.ActiveDocument.Value is { } document) {
-            Revert(document);
-        }
-    }
-
-    /// <summary>Reads one document's file again, asking first when that throws edits away.</summary>
-    /// <param name="document">The document.</param>
-    /// <remarks>
-    ///     ⚠ <b>What an asset tab answers <c>document.revert</c> with (#1494)</b> — the workspace's
-    ///     <c>Reverting</c> — in place of the document's own revert, which does not ask: right for a
-    ///     framework that has no dialog, and a regression here, where Revert to Saved has always asked
-    ///     before it threw away the only copy of somebody's edits.
-    /// </remarks>
-    void Revert(EditorDocument document) {
-        if (!document.CanReload) {
-            return;
-        }
-
-        var title = document.Title.Peek();
-
-        Confirm(
-            document.HasUnsavedChanges.Value,
-            $"Revert '{title}'?",
-            "Its unsaved changes and its undo history are discarded, and the file on disk is read "
-            + "again. This cannot be undone.",
-            () => {
-                if (document.Reload()) {
-                    return;
-                }
-
-                Shell.Notifications.Show(
-                    $"'{title}' could not be read again",
-                    NotificationSeverity.Warning,
-                    "What is on screen is what was there before."
-                );
-            },
-            "Revert"
-        );
     }
 
     /// <summary>What has changes in it, named, for the prompt to show.</summary>
