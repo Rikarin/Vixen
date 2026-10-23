@@ -62,6 +62,12 @@ sealed class WorkspaceModule : IEditorPlugin {
 
         var workspace = context.Services.Require<IWorkspace>();
 
+        // ⚠ Search Everywhere's commands (#1518), through the context so they leave with this module.
+        // `Uniform` gives them one category, so the block reads "Command" rather than being scattered
+        // across File, Edit and Scene: in the palette a command's own category is the useful answer; in a
+        // search across four kinds of thing, which *kind* it is comes first.
+        context.AddSearchSource(new CommandPaletteSource(context.Shell.Commands, context.Shell.Keys) { Uniform = true });
+
         context.AddCommand(
             new EditorCommand("view.save-layout", EditorStrings.CommandSaveLayout, () => workspace.SaveLayout()) {
                 Category = EditorStrings.CategoryView

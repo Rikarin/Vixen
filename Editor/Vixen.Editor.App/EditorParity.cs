@@ -65,7 +65,6 @@ sealed partial class EditorApplication {
     /// <summary>Everything Part C names that this application owns.</summary>
     void ParityCommands() {
         FileCommands();
-        EditingCommands();
         AssetCommands();
         PlayCommands();
         BuildAndToolCommands();
@@ -140,30 +139,20 @@ sealed partial class EditorApplication {
 
     // ── Edit ────────────────────────────────────────────────────────────────────────────────────
 
-    void EditingCommands() {
-        // Undo History, Preferences, Keybindings and File ▸ Project Settings are `WorkspaceModule`'s
-        // (#1296): lines that open a workspace panel, over `Shell.Workspace`.
-
-        // Delete, Rename, Duplicate, the clipboard lines and the selection verbs are `SceneModule`'s
-        // (#1296), over `ISceneEditing` and the outliner it builds.
-
-        // ⚠ `edit.search-everywhere` is registered by the shell rather than here, because the
-        // overlay is the shell's. What this application adds is the sources — see `SearchSources` —
-        // and the command greys itself out where nothing has added any.
-        Shell.Search.AddSource(new AssetSearchSource(project, RevealAsset));
-        Shell.Search.AddSource(new EntitySearchSource(() => inspected ?? scene, RevealEntity));
-
-        Shell.Search.AddSource(
-            new CommandPaletteSource(Shell.Commands, Shell.Keys) {
-                // ⚠ Its own category so the block reads "Command" rather than being scattered across
-                // File, Edit and Scene. In the palette the command's own category is the useful
-                // answer; in a search across four kinds of thing, which *kind* it is comes first.
-                Uniform = true
-            }
-        );
-
-        // `edit.find-references` is `LibraryModule`'s (#1292), over the same walk as the Assets menu's.
-    }
+    // Nothing on the Edit menu is this application's any more.
+    //
+    // Undo History, Preferences, Keybindings and File ▸ Project Settings are `WorkspaceModule`'s
+    // (#1296): lines that open a workspace panel, over `Shell.Workspace`.
+    //
+    // Delete, Rename, Duplicate, the clipboard lines and the selection verbs are `SceneModule`'s
+    // (#1296), over `ISceneEditing` and the outliner it builds.
+    //
+    // ⚠ `edit.search-everywhere` is registered by the shell, because the overlay is the shell's, and
+    // greys itself out where nothing has added a source. The three sources are the modules' (#1518),
+    // through `PluginContext.AddSearchSource`: assets `LibraryModule`'s, entities `SceneModule`'s and
+    // commands `WorkspaceModule`'s, so switching one off takes its rows with it.
+    //
+    // `edit.find-references` is `LibraryModule`'s (#1292), over the same walk as the Assets menu's.
 
     // ── Assets ──────────────────────────────────────────────────────────────────────────────────
 
@@ -205,12 +194,6 @@ sealed partial class EditorApplication {
 
         // Find References and Select Dependencies are `LibraryModule`'s now (#1292): names for
         // `IContentLibrary.Referrers` and `Dependencies`, registered through `PluginContext`.
-    }
-
-    /// <summary>Selects some assets and puts the editor in the browser's context.</summary>
-    void Select(IReadOnlyList<AssetId> assets) {
-        project.Selection.Set(assets);
-        Shell.Context = AssetContext;
     }
 
     /// <summary>Asks which of the project's folders to move the selection into.</summary>
@@ -905,22 +888,6 @@ sealed partial class EditorApplication {
                 exception.Message + " — check Preferences ▸ General."
             );
         }
-    }
-
-    /// <summary>Shows an asset in the project browser, which is what a search result means.</summary>
-    void RevealAsset(AssetId asset) {
-        Shell.Workspace.Open("project");
-        Select([asset]);
-    }
-
-    /// <summary>Selects an entity and frames it, which is what a search result for one means.</summary>
-    void RevealEntity(Entity entity) {
-        Shell.Workspace.Open("hierarchy");
-
-        (inspected ?? scene).Selection.Set([entity]);
-        Shell.Context = SceneContext;
-
-        sceneEditing.Restructured();
     }
 
     // ── Selection and hierarchy verbs ───────────────────────────────────────────────────────────

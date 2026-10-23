@@ -108,6 +108,10 @@ sealed class SceneOutliner : IDisposable {
 
     void Restructured(ISceneEditing _) => stale = true;
 
+    /// <summary>Rebuilds the rows on the next <see cref="Update" />, as a change to the hierarchy does.</summary>
+    /// <remarks>What Search Everywhere's entity result asks for after selecting one (#1518).</remarks>
+    public void Invalidate() => stale = true;
+
     void Remarked(ISceneEditing _) => RefreshMarks();
 
     /// <summary>Brings the tree up to date, once a frame: the rows when the scene's shape changed, the highlight always.</summary>

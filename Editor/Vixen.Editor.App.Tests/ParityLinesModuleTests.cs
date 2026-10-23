@@ -56,6 +56,29 @@ public class ParityLinesModuleTests {
         Assert.NotNull(session.Shell.Commands[command]);
     }
 
+    /// <summary>Search Everywhere's three sources are the modules', and leave with them (#1518).</summary>
+    /// <remarks>
+    ///     Red against the pre-move files, where the application added all three and nothing could take
+    ///     one back: the category survived its module being switched off.
+    /// </remarks>
+    [Theory]
+    [InlineData(LibraryModule.ModuleId, "Asset")]
+    [InlineData(SceneModule.ModuleId, "Entity")]
+    [InlineData(WorkspaceModule.ModuleId, "Command")]
+    public void Disabling_the_module_takes_its_search_source_away(string module, string category) {
+        using var session = EditorSession.Start();
+
+        var search = session.Shell.Search;
+
+        Assert.Single(search.Sources, source => source.Category == category);
+
+        Assert.True(session.Plugins.Disable(module));
+        Assert.DoesNotContain(search.Sources, source => source.Category == category);
+
+        session.Plugins.Enable(module);
+        Assert.Single(search.Sources, source => source.Category == category);
+    }
+
     /// <summary>File ▸ Open Recent is the workspace module's, and leaves with it rather than naming lines it took away.</summary>
     [Fact]
     public void Open_recent_is_offered_by_the_workspace_module_and_withdrawn_with_it() {
