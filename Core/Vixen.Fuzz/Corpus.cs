@@ -203,8 +203,25 @@ public sealed class Corpus {
     ///     <em>is</em> the fingerprint of its content, so a file already there is already this
     ///     finding: it is kept, and a write that loses the race to a file that then exists is the
     ///     same outcome rather than an error.
+    ///     <para>
+    ///         ⚠ <b>And a reader raced the writer the same way</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1431">#1431</a>). The watchdog writes
+    ///         while the case is still running, so anything polling the folder — a test target that
+    ///         stops once its finding appears, a replay reading <see cref="ReadRegressions" /> — could
+    ///         see the <c>.bin</c> between its creation and the end of the write. On Windows the read
+    ///         then fails with "being used by another process"; elsewhere it returns a short input.
+    ///         So the bytes are written under a staging name no reader looks for and published with a
+    ///         rename, which is atomic on both: a <c>.bin</c> that exists is complete and closed.
+    ///     </para>
     /// </remarks>
-    public static string WriteRegression(string directory, string target, byte[] input) {
+    public static string WriteRegression(string directory, string target, byte[] input) =>
+        WriteRegression(directory, target, input, staged: null);
+
+    /// <summary>
+    ///     <see cref="WriteRegression(string, string, byte[])" />, with a hook between writing the
+    ///     staged bytes and publishing them, so a test can look at the folder in that window.
+    /// </summary>
+    internal static string WriteRegression(string directory, string target, byte[] input, Action<string>? staged) {
         ArgumentNullException.ThrowIfNull(directory);
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(input);
@@ -212,16 +229,30 @@ public sealed class Corpus {
         var folder = Path.Combine(directory, target);
         Directory.CreateDirectory(folder);
 
-        var path = Path.Combine(folder, string.Create(CultureInfo.InvariantCulture, $"{Fingerprint(input):x16}.bin"));
+        var name = string.Create(CultureInfo.InvariantCulture, $"{Fingerprint(input):x16}");
+        var path = Path.Combine(folder, name + ".bin");
 
         if (File.Exists(path)) {
             return path;
         }
 
+        // Unique per writer, because two writers of one finding are the case the remarks above are
+        // about, and not `*.bin`, because that is the pattern every reader enumerates.
+        var staging = Path.Combine(folder, $"{name}.{Guid.NewGuid():N}.staging");
+
         try {
-            File.WriteAllBytes(path, input);
-        } catch (IOException) when (File.Exists(path)) {
-            // The other writer got there first, with these bytes.
+            File.WriteAllBytes(staging, input);
+            staged?.Invoke(staging);
+
+            try {
+                File.Move(staging, path, overwrite: false);
+            } catch (IOException) when (File.Exists(path)) {
+                // The other writer published first, with these bytes.
+            }
+        } finally {
+            if (File.Exists(staging)) {
+                File.Delete(staging);
+            }
         }
 
         return path;

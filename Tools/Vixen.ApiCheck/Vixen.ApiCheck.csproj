@@ -17,10 +17,16 @@
     <ItemGroup>
         <!--
             Roslyn reads the metadata and formats the signatures. The alternative — System.Reflection
-            over a MetadataLoadContext — would mean writing a C# signature formatter by hand, and the
-            output has to agree with what Microsoft.CodeAnalysis.PublicApiAnalyzers writes, because
-            the baseline files this tool maintains are that analyzer's file format. Using the same
-            library that produces those files is the cheapest way to keep the two in agreement.
+            over a MetadataLoadContext — would mean writing a C# signature formatter by hand.
+
+            ⚠ The baseline format is *derived from* Microsoft.CodeAnalysis.PublicApiAnalyzers' and is
+            not the same: this tool's own output is the definition (#1340). The analyzer writes `!` on
+            every non-nullable reference and this tool never does; it adds lines the analyzer has no
+            notion of (a base type, a `Requires*` contract); and the analyzer is referenced nowhere in
+            this repository, so nothing reads these files but CheckApi. This comment used to say the
+            two formats were one, and a baseline line written in the analyzer's dialect was the result.
+            ApiDialect reports that line by name, and ApiDialectTests checks every committed baseline
+            for it without a Release build.
         -->
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     </ItemGroup>

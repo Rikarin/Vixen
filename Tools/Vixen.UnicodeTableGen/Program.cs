@@ -1079,8 +1079,18 @@ static class Program {
     ///     indent, leaving the newline it came with. <c>ExtendedPictographicTable.g.cs</c> and
     ///     <c>ScriptTable.g.cs</c> carried that blank line twice each; both are corrected in the
     ///     same commit, so the committed tables are what a regeneration would now write.
+    ///     <para>
+    ///         ⚠ <b>An empty sequence appends nothing, and that is the decision, not an oversight</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1361">#1361</a>). The earlier shape
+    ///         wrote a bare newline for it — eight spaces, unwound, then <c>'\n'</c> — which every
+    ///         caller wraps as <c>[\n</c> … <c>    ];</c>, so an empty table would have been
+    ///         <c>[</c>, a blank line, <c>];</c>: the same stray blank line the paragraph above
+    ///         removes from a full one. No table the committed UCD produces is empty, so no
+    ///         generated file differs either way; <c>AppendNumbersTests</c> holds the shape on this
+    ///         method directly, with no UCD at all.
+    ///     </para>
     /// </remarks>
-    static void AppendNumbers(StringBuilder builder, IEnumerable<int> values) {
+    internal static void AppendNumbers(StringBuilder builder, IEnumerable<int> values) {
         var count = 0;
 
         foreach (var value in values) {

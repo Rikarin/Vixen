@@ -331,8 +331,8 @@ public static class ApiSurfaceReader {
     ///     </para>
     ///     <para>
     ///         A line of its own rather than a suffix on the member's, for the reason a base type gets
-    ///         one: the member line stays exactly the format
-    ///         <c>Microsoft.CodeAnalysis.PublicApiAnalyzers</c> reads, and an annotation changing is
+    ///         one: the member line stays exactly what it was (a format derived from
+    ///         <c>Microsoft.CodeAnalysis.PublicApiAnalyzers</c>', not the same one — #1340), and an annotation changing is
     ///         one line out and one in beside a member line that did not move. ⚠ The line carries no
     ///         <c>" -&gt; "</c> and always carries a parenthesis, which is what keeps the two other
     ///         readers of these files — <c>BaselineAgreement.ReadTypes</c> in DocGen and

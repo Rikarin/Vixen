@@ -51,9 +51,14 @@ At a release the second is folded into the first. Until the first release both a
 stand: `Shipped` is empty everywhere but one, because nothing has shipped, and writing 22 000 entries
 into it would claim a compatibility promise nobody has made. ⚠ The one is `Vixen.Editor.Plugin`, whose
 stable core — `IEditorPlugin`, `PluginContext`, `PluginServices`, `PluginHost` — was shipped by
-decision before any release (#1311), because that promise *has* been made, to plugin authors. The file format is the one
-`Microsoft.CodeAnalysis.PublicApiAnalyzers` uses, deliberately — if the analyzer is ever turned on
-for the IDE experience, these files are what it reads.
+decision before any release (#1311), because that promise *has* been made, to plugin authors. The file format is
+*derived from* the one `Microsoft.CodeAnalysis.PublicApiAnalyzers` uses, and is not the same one: this
+tool's own output is the definition. ⚠ The analyzer writes `!` on every non-nullable reference —
+`KeyMap! keys` — and this tool never does, so a line copied in that dialect describes no member and
+used to surface as an addition beside a removal, which is what a rename looks like (#650, #1340).
+`ApiDialect` now names such a line by file and line number, and `ApiDialectTests` checks every
+committed baseline for one in `dotnet test`, without the Release build `CheckApi` needs. The analyzer
+is referenced nowhere; turning it on would mean choosing which of the two writers owns the format.
 
 The gate fails in **both** directions. An entry the assembly has and no baseline approves is an
 unapproved addition; an entry a baseline approves and the assembly no longer has is a break, and it
@@ -96,7 +101,7 @@ target an event itself, and an indexer's parameters through its getter. ⚠ **Th
 `UiPropertyRegistry.Of`'s requirement was widened from `NonPublicConstructors` to `All` — which roots
 every member of whatever a trimmed caller passes — and the gate reported no difference, and a
 *narrowing*, which silently withdraws what a caller was relying on, would have read the same way.
-A separate line rather than a suffix keeps the member's line in the analyzer's format and makes an
+A separate line rather than a suffix keeps the member's line in the format it always had and makes an
 annotation change one line out and one in. The line never carries ` -> ` and always carries a
 parenthesis — hence `RequiresUnreferencedCode()` with an empty argument list — which is what keeps
 `PublicApiTypeNames.DocumentationId` and DocGen's `BaselineAgreement` from reading it as a type that

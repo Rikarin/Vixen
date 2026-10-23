@@ -977,12 +977,29 @@ partial class Build : NukeBuild {
                 AssertEveryRuntimeAssemblyIsRootedOrWrittenDown();
                 AssertProbePublishesAheadOfTime(AotProbeProject);
 
-                DotNetPublish(settings => settings
-                    .SetProject(RootDirectory / "Tools" / "Vixen.AotProbe" / "Vixen.AotProbe.csproj")
-                    .SetConfiguration(Configuration.Release)
-                    .SetRuntime(RuntimeInformation.RuntimeIdentifier)
-                    .SetOutput(ArtifactsDirectory / "aot")
-                );
+                // ⚠ Before the publish, not after its failure: without vswhere.exe on PATH the link
+                // dies as MSB3073 exit 123 with no ILC output at all, which reads as the code's fault
+                // (#1354, VswhereLocation). Set and restored around the publish, like Configuration
+                // around CheckFormat's passes.
+                var path = Environment.GetEnvironmentVariable("PATH");
+
+                if (OperatingSystem.IsWindows()) {
+                    var linkable = VswhereLocation.PathFor(path, Environment.GetEnvironmentVariable("ProgramFiles(x86)"), File.Exists);
+
+                    Assert.True(linkable != null, VswhereLocation.Missing);
+                    Environment.SetEnvironmentVariable("PATH", linkable);
+                }
+
+                try {
+                    DotNetPublish(settings => settings
+                        .SetProject(RootDirectory / "Tools" / "Vixen.AotProbe" / "Vixen.AotProbe.csproj")
+                        .SetConfiguration(Configuration.Release)
+                        .SetRuntime(RuntimeInformation.RuntimeIdentifier)
+                        .SetOutput(ArtifactsDirectory / "aot")
+                    );
+                } finally {
+                    Environment.SetEnvironmentVariable("PATH", path);
+                }
 
                 AssertAotOutput();
             }
