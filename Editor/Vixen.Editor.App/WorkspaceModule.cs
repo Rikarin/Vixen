@@ -147,7 +147,42 @@ sealed class WorkspaceModule : IEditorPlugin {
         RecentDocuments(context, workspace);
         RecentProjects(context);
         ProjectVerbs(context);
+        PanelLines(context);
     }
+
+    /// <summary>The menu lines that open a workspace panel: Undo History, Preferences, Keybindings, Project Settings (#1296).</summary>
+    /// <remarks>
+    ///     ⚠ <b>The lines and not the panels.</b> The settings window and the undo history are still
+    ///     registered by the application and the keybindings editor by the shell; a line here is a name
+    ///     for <c>Shell.Workspace.Open</c>, which is the workspace's verb, and a panel nobody registered
+    ///     makes it do nothing rather than throw. Every panel also has its Window ▸ toggle, which is the
+    ///     shell's, so switching this module off takes these four names away and leaves the panels
+    ///     reachable.
+    /// </remarks>
+    static void PanelLines(PluginContext context) {
+        var shell = context.Shell;
+
+        foreach (var (id, title, category, panel) in OpenedPanels) {
+            context.AddCommand(
+                new EditorCommand(id, title, () => shell.Workspace.Open(panel)) { Category = category }
+            );
+        }
+
+        context.AddDefaultBinding("edit.preferences", new KeyChord(InputKey.Comma, ModifierKeys.Control));
+    }
+
+    /// <summary>Each panel line: its id, title, category, and the panel it opens.</summary>
+    static readonly (string Id, StringId Title, StringId Category, string Panel)[] OpenedPanels = [
+        ("edit.undo-history", EditorStrings.CommandEditUndoHistory, EditorStrings.CategoryEdit, EditorApplication.HistoryPanel),
+        ("edit.preferences", EditorStrings.CommandPreferences, EditorStrings.CategoryEdit, EditorApplication.PreferencesPanel),
+        ("edit.keybindings", EditorStrings.CommandEditKeybindings, EditorStrings.CategoryEdit, EditorShell.KeyBindingsPanel),
+        (
+            "file.project-settings",
+            EditorStrings.CommandFileProjectSettings,
+            EditorStrings.CategoryFile,
+            EditorApplication.ProjectSettingsPanel
+        )
+    ];
 
     /// <summary>File ▸ New Project and Open Project, over the drawn chooser and the session (#1296).</summary>
     /// <remarks>

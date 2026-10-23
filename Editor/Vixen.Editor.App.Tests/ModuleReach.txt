@@ -15,12 +15,9 @@ editor menu editor.menu.assets/editor.menu.create assets.new-folder
 editor menu editor.menu.build assets.build
 editor menu editor.menu.build build.clean-library
 editor menu editor.menu.build build.rebuild-shaders
-editor menu editor.menu.edit edit.keybindings
-editor menu editor.menu.edit edit.preferences
 editor menu editor.menu.edit edit.redo
 editor menu editor.menu.edit edit.search-everywhere
 editor menu editor.menu.edit edit.undo
-editor menu editor.menu.edit edit.undo-history
 editor menu editor.menu.entity scene.focus
 editor menu editor.menu.file assets.import-files
 editor menu editor.menu.file document.close
@@ -30,7 +27,6 @@ editor menu editor.menu.file file.exit
 editor menu editor.menu.file file.export-package
 editor menu editor.menu.file file.new-scene
 editor menu editor.menu.file file.open-scene
-editor menu editor.menu.file file.project-settings
 editor menu editor.menu.file file.save
 editor menu editor.menu.file file.save-all
 editor menu editor.menu.file file.save-as
@@ -510,8 +506,12 @@ vixen.water menu editor.menu.window/editor.menu.panels view.panel.water.zone
 vixen.water mode water
 vixen.water panel water.panel
 vixen.water panel water.zone
+vixen.workspace menu editor.menu.edit edit.keybindings
+vixen.workspace menu editor.menu.edit edit.preferences
+vixen.workspace menu editor.menu.edit edit.undo-history
 vixen.workspace menu editor.menu.file file.new-project
 vixen.workspace menu editor.menu.file file.open-project
+vixen.workspace menu editor.menu.file file.project-settings
 vixen.workspace menu editor.menu.file/editor.menu.recent file.no-recent
 vixen.workspace menu editor.menu.file/editor.menu.recent-documents file.recent-document.*
 vixen.workspace menu editor.menu.tools tools.reload-styles

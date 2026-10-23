@@ -149,13 +149,6 @@ sealed partial class EditorApplication {
             enabled: () => services.CanPick && project.Selection.Count > 0
         );
 
-        Verb(
-            "file.project-settings",
-            EditorStrings.CommandFileProjectSettings,
-            EditorStrings.CategoryFile,
-            () => Shell.Workspace.Open(ProjectSettingsPanel)
-        );
-
         Shell.Keys.SetDefault("file.new-scene", new KeyChord(InputKey.N, ModifierKeys.Control));
         Shell.Keys.SetDefault("file.open-scene", new KeyChord(InputKey.O, ModifierKeys.Control));
         Shell.Keys.SetDefault("file.save-as", new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Shift));
@@ -167,12 +160,8 @@ sealed partial class EditorApplication {
     // ── Edit ────────────────────────────────────────────────────────────────────────────────────
 
     void EditingCommands() {
-        Verb(
-            "edit.undo-history",
-            EditorStrings.CommandEditUndoHistory,
-            EditorStrings.CategoryEdit,
-            () => Shell.Workspace.Open(HistoryPanel)
-        );
+        // Undo History, Preferences, Keybindings and File ▸ Project Settings are `WorkspaceModule`'s
+        // (#1296): lines that open a workspace panel, over `Shell.Workspace`.
 
         // Delete, Rename, Duplicate, the clipboard lines and the selection verbs are `SceneModule`'s
         // (#1296), over `ISceneEditing` and the outliner it builds.
@@ -193,22 +182,6 @@ sealed partial class EditorApplication {
         );
 
         // `edit.find-references` is `LibraryModule`'s (#1292), over the same walk as the Assets menu's.
-
-        Verb(
-            "edit.preferences",
-            EditorStrings.CommandPreferences,
-            EditorStrings.CategoryEdit,
-            () => Shell.Workspace.Open(PreferencesPanel)
-        );
-
-        Verb(
-            "edit.keybindings",
-            EditorStrings.CommandEditKeybindings,
-            EditorStrings.CategoryEdit,
-            () => Shell.Workspace.Open(EditorShell.KeyBindingsPanel)
-        );
-
-        Shell.Keys.SetDefault("edit.preferences", new KeyChord(InputKey.Comma, ModifierKeys.Control));
     }
 
     // ── Assets ──────────────────────────────────────────────────────────────────────────────────
