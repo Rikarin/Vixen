@@ -75,7 +75,9 @@ public interface IProjectSession {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>It runs a compiler</b>, which takes seconds on a cold restore — the editor calls it on its
-    ///         first frame, not while it is starting.
+    ///         first frame, not while it is starting, and again whenever a code file under the project's root
+    ///         is saved — once the edit settles, at the top of a frame, and never while the game is playing
+    ///         (#1508). The frame blocks for the build.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>No build removes an authored behaviour the author did not remove (#1490).</b> A failed

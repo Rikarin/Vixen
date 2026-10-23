@@ -96,6 +96,29 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     /// <summary>The project's own code. See <see cref="Code" />.</summary>
     readonly ProjectAssemblies code;
 
+    /// <summary>What tells the editor that the project's code changed on disk (#1508).</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A second watcher, on the root, because the code is not under <c>Assets/</c>.</b> The
+    ///         template writes <c>Program.cs</c> and the game class beside the <c>.csproj</c>, and the
+    ///         assets watcher never hears them. It hears the whole tree and keeps only what the compiler
+    ///         reads — see <see cref="IsCode" /> — so a script under <c>Assets/</c> counts too.
+    ///     </para>
+    ///     <para>
+    ///         Null when <see cref="Watch" /> was told not to watch, and in a harness that never asked.
+    ///     </para>
+    /// </remarks>
+    IFileWatcher? codeWatcher;
+
+    /// <summary>What the code watcher had to say this frame, reused so that a quiet frame allocates nothing.</summary>
+    readonly List<FileChange> codeChanges = [];
+
+    /// <summary>Whether a change to the code has been heard that no build has covered yet.</summary>
+    bool codeStale;
+
+    /// <summary>The code files as the last build saw them, to tell an overflow that lost an edit from one that lost only the build's output.</summary>
+    string? codeFingerprint;
+
     /// <summary>Builds the session over the open project.</summary>
     /// <param name="project">The open project.</param>
     /// <param name="notify">Where a refusal is reported.</param>
@@ -391,6 +414,11 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     ///     </para>
     /// </remarks>
     public bool BuildCode() {
+        // Whatever was waiting on the watcher is covered by this build, whoever called it — the first
+        // frame's build must not be followed by a second for the edits made before the editor started.
+        codeStale = false;
+        codeFingerprint = FingerprintCode();
+
         // ⚠ Taken off before the assembly goes and put back after it returns. A behaviour somebody
         // authored is an instance of a type that is about to stop existing — leaving it attached
         // would hold the old context alive *and* lose the values, which is both failures at once.
@@ -628,6 +656,9 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         if (assets) {
             watcher?.Dispose();
             watcher = Start(project);
+
+            codeWatcher?.Dispose();
+            codeWatcher = StartCode(project);
         }
 
         external?.Dispose();
@@ -744,6 +775,154 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
         return true;
     }
 
+    /// <summary>Whether the session is watching the project's code for edits.</summary>
+    internal bool IsWatchingCode => codeWatcher is not null;
+
+    /// <summary>Rebuilds the project's code once an edit to it has settled, unless the caller holds it back.</summary>
+    /// <param name="hold">
+    ///     Whether a rebuild must wait — while the game is playing. ⚠ Held, not dropped: the edit is
+    ///     still owed, and is built on the first frame this is false.
+    /// </param>
+    /// <returns>Whether this call rebuilt.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The caller that makes <see cref="BuildCode" /> reachable after the first frame (#1508).</b>
+    ///         Before it, the rebuild path — every open scene's behaviours off, the context unloaded, the
+    ///         code rebuilt and the behaviours put back on the new types — ran only in tests, and an author
+    ///         who edited a script had to restart the editor to see it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Debounced twice.</b> The watcher waits for a quarter of a second of quiet on each path,
+    ///         and this waits for a frame on which nothing new was heard, so a Save All that writes six
+    ///         files in a burst is one build and not six.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Called at the top of the frame, never from inside a step.</b> A rebuild unloads the
+    ///         types the scene's behaviours are instances of; one that ran inside a behaviour's update would
+    ///         take the object out from under the call. And never while playing, which is the same hazard
+    ///         spread over a whole session — hence <paramref name="hold" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The build's own output is not an edit.</b> <c>dotnet build</c> writes hundreds of files
+    ///         under <c>obj/</c> — some of them <c>.cs</c> — and an editor that heard those would rebuild for
+    ///         ever. See <see cref="IsCode" />. An overflow lost the events that would say which, so it is
+    ///         answered by comparing the code files against the last build's rather than by building.
+    ///     </para>
+    /// </remarks>
+    internal bool FollowCode(bool hold) {
+        if (codeWatcher is { } listening) {
+            codeChanges.Clear();
+            listening.Drain(codeChanges);
+
+            var heard = false;
+
+            foreach (var change in codeChanges) {
+                if (IsCode(change.Path) || (!change.OldPath.IsEmpty && IsCode(change.OldPath))) {
+                    heard = true;
+                    break;
+                }
+            }
+
+            if (listening.HasOverflowed) {
+                listening.ClearOverflow();
+                heard |= !string.Equals(FingerprintCode(), codeFingerprint, StringComparison.Ordinal);
+            }
+
+            if (heard) {
+                // Not yet: the frame that heard it may be the middle of a burst.
+                codeStale = true;
+                return false;
+            }
+        }
+
+        if (!codeStale || hold) {
+            return false;
+        }
+
+        BuildCode();
+        return true;
+    }
+
+    /// <summary>Whether a changed path is one the project's compiler reads.</summary>
+    /// <remarks>
+    ///     Source, the project file and the MSBuild files beside it — anywhere under the root except the
+    ///     build's own output, the editor's cache and a hidden folder such as <c>.git</c> or <c>.vs</c>.
+    /// </remarks>
+    static bool IsCode(VirtualPath path) {
+        var value = path.Value;
+
+        if (!(value.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+                || value.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)
+                || value.EndsWith(".props", StringComparison.OrdinalIgnoreCase)
+                || value.EndsWith(".targets", StringComparison.OrdinalIgnoreCase))) {
+            return false;
+        }
+
+        foreach (var segment in path.EnumerateSegments()) {
+            if (IsSkipped(segment)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>A folder whose contents are never the project's code: build output, the cache, or hidden.</summary>
+    static bool IsSkipped(ReadOnlySpan<char> folder) =>
+        folder.Equals("bin", StringComparison.OrdinalIgnoreCase)
+        || folder.Equals("obj", StringComparison.OrdinalIgnoreCase)
+        || folder.Equals("Library", StringComparison.OrdinalIgnoreCase)
+        || (folder.Length > 0 && folder[0] == '.');
+
+    /// <summary>The code files' names, sizes and write times, as one string to compare.</summary>
+    string FingerprintCode() {
+        var text = new System.Text.StringBuilder();
+
+        Walk(project.Paths.Root);
+        return text.ToString();
+
+        void Walk(string directory) {
+            try {
+                foreach (var file in Directory.EnumerateFiles(directory).Order(StringComparer.Ordinal)) {
+                    if (VirtualPath.TryCreate("/" + Path.GetFileName(file), out var name) && IsCode(name)) {
+                        var info = new FileInfo(file);
+
+                        text.Append(file).Append('|').Append(info.Length).Append('|').Append(info.LastWriteTimeUtc.Ticks).Append('\n');
+                    }
+                }
+
+                foreach (var folder in Directory.EnumerateDirectories(directory).Order(StringComparer.Ordinal)) {
+                    if (!IsSkipped(Path.GetFileName(folder))) {
+                        Walk(folder);
+                    }
+                }
+            } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+                // A folder that went, or one that cannot be read, is not code this build could see either.
+            }
+        }
+    }
+
+    /// <summary>Starts watching the project's root for edits to its code.</summary>
+    IFileWatcher? StartCode(EditorProject open) {
+        if (!Directory.Exists(open.Paths.Root)) {
+            return null;
+        }
+
+        try {
+            return new FileWatcher(open.Paths.Root, VirtualPath.Root) {
+                Debounce = TimeSpan.FromMilliseconds(250)
+            };
+        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+            log(
+                LogLevel.Warning,
+                $"Could not watch '{open.Paths.Root}' for edits to the project's code, so a script saved "
+                + $"outside the editor is built only when the editor next starts. {exception.Message}"
+            );
+
+            return null;
+        }
+    }
+
     /// <summary>Stops watching the disk.</summary>
     /// <remarks>
     ///     ⚠ <b>Early in the editor's shutdown, so that nothing arrives during the rest of it.</b> A
@@ -753,6 +932,9 @@ internal sealed class ProjectSession : IProjectSession, IDisposable {
     public void Dispose() {
         watcher?.Dispose();
         watcher = null;
+
+        codeWatcher?.Dispose();
+        codeWatcher = null;
 
         // And the subscription on the project's saves with it, so that the documents closing after
         // this do not announce writes to a watcher that has gone.
