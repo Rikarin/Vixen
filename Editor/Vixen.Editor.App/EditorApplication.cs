@@ -565,10 +565,9 @@ sealed partial class EditorApplication : IDisposable {
         // scene's and that is this class's answer — see `EditorPlaySession`.
         play = new EditorPlaySession(new PlayModeController(world, scene.Behaviors, Extensions), () => scene.Selection);
 
-        // ⚠ What play does to the rest of the editor — maximise, the console, the notification, the
-        // outliner, the arrangement — is the workspace's and the diagnostics' and not the session's,
-        // so it follows the session rather than living inside it. See `PlayEntered`, `PlayLeft`.
-        play.Entered += _ => PlayEntered();
+        // ⚠ What play does to the rest of the editor is not the session's, so it follows the session
+        // rather than living inside it. Leaving tells the outliner here — see `PlayLeft`; the
+        // arrangement, the console and the notice are `PlayModule`'s (#1296).
         play.Left += _ => PlayLeft();
 
         // ⚠ The active scene is the service's from here on and this class follows it (#1290): `scene`
@@ -1903,7 +1902,13 @@ sealed partial class EditorApplication : IDisposable {
 
             // ⚠ And the content tasks, for `LibraryModule`'s mesh-map bake: it runs on their queue, behind
             // their busy flag, and reports through their `Baked` (#1296).
-            .Add(content);
+            .Add(content)
+
+            // ⚠ And the scene panel's and the console's models, for `PlayModule`'s Play ▸ Options and
+            // `WorkspaceModule`'s Clear Console (#1296). App-internal like the two above: the panel
+            // registrations stay here, the lines and what entering play does to them are the modules'.
+            .Add(scenePanes)
+            .Add(console);
 
         // And the OS's pickers where there are any — a module that writes a file asks for them (#1298).
         if (services.Dialogs is { } pickers) {

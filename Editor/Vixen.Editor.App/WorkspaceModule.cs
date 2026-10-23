@@ -68,6 +68,16 @@ sealed class WorkspaceModule : IEditorPlugin {
         // search across four kinds of thing, which *kind* it is comes first.
         context.AddSearchSource(new CommandPaletteSource(context.Shell.Commands, context.Shell.Keys) { Uniform = true });
 
+        // Tools ▸ Clear Console (#1296): the console panel's own verb, over the model that outlives it.
+        var console = context.Services.Require<EditorConsole>();
+
+        context.AddCommand(
+            new EditorCommand("view.clear-console", EditorStrings.CommandViewClearConsole, console.Clear) {
+                Category = EditorStrings.CategoryPlay,
+                Enablement = () => console.View is not null
+            }
+        );
+
         context.AddCommand(
             new EditorCommand("view.save-layout", EditorStrings.CommandSaveLayout, () => workspace.SaveLayout()) {
                 Category = EditorStrings.CategoryView

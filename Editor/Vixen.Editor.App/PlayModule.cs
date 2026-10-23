@@ -155,16 +155,62 @@ sealed class PlayModule : IEditorPlugin {
             );
         }
 
-        // ── What entering play says (#1296) ──────────────────────────────────────────────────────
-        // ⚠ After the application's own `Entered` handler — it subscribed in the constructor, before any
-        // module activated — so the console has been cleared before the first line about play lands.
+        // ── Play ▸ Options: Maximise and Clear Console (#1296) ───────────────────────────────────
+        // ⚠ Preferences rather than actions, which is what the ticks say: each changes what the *next*
+        // Play does. Pressing Maximise while the game runs would be a second, differently spelled
+        // maximise, and the one on the Scene menu is that.
+        var maximise = new PlayMaximise(context.Services.Require<ScenePanes>());
+
+        context.AddCommand(
+            new EditorCommand("play.maximise", EditorStrings.CommandPlayMaximise, maximise.Toggle) {
+                Category = EditorStrings.CategoryPlay,
+                Checked = () => maximise.IsOn
+            }
+        );
+
+        // ⚠ A tick over the console's own preference rather than a second copy of it — two writers to
+        // one setting is how a menu tick and a panel's toggle come to disagree. Read through the open
+        // view, so a closed console neither clears nor shows a tick.
+        var console = context.Services.Require<EditorConsole>();
+
+        context.AddCommand(
+            new EditorCommand("play.clear-console", EditorStrings.CommandPlayClearConsole, console.ToggleClearsOnPlay) {
+                Category = EditorStrings.CategoryPlay,
+                Enablement = () => console.View is not null,
+                Checked = () => console.ClearsOnPlay
+            }
+        );
+
+        // ── What entering and leaving play do to the rest of the editor (#1296) ────────────────
+        // ⚠ In the order the application did them: the arrangement, then Clear on Play — so the line
+        // saying what play mode does is the first thing in the console rather than the last thing
+        // before it was emptied — then the notice and the report.
         var logger = context.Services.Require<RingBufferSink>().CreateLogger(EditorLog.Category);
         var project = context.Services.Require<IProjectSession>();
 
-        void Entered(IPlaySession _) => Announce(context.Shell, logger, play, project);
+        void Entered(IPlaySession _) {
+            maximise.Entered();
+
+            if (console.ClearsOnPlay) {
+                console.Clear();
+            }
+
+            Announce(context.Shell, logger, play, project);
+        }
+
+        // After the application's own `Left`, which subscribed before any module activated: the outliner
+        // hears of the restored scene before the panes are rearranged, as it did.
+        void Left(IPlaySession _) => maximise.Left();
 
         play.Entered += Entered;
-        context.OnUnload(() => play.Entered -= Entered);
+        play.Left += Left;
+
+        context.OnUnload(() => {
+            play.Entered -= Entered;
+            play.Left -= Left;
+
+            maximise.Left();
+        });
 
         context.AddDefaultBinding("play.play", new KeyChord(InputKey.F5, ModifierKeys.None));
         context.AddDefaultBinding("play.pause", new KeyChord(InputKey.P, ModifierKeys.Control | ModifierKeys.Shift));

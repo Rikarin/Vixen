@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Microsoft.Extensions.Logging;
 using Vixen.Core.Diagnostics;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
@@ -56,6 +57,79 @@ public class PlayModuleTests {
         editor.Plugins.Enable(PlayModule.ModuleId);
 
         Assert.NotNull(editor.Shell.Commands["play.play"]);
+    }
+
+    /// <summary>
+    ///     Play ▸ Options ▸ Maximise is the module's (#1296): with it ticked, entering play gives the scene
+    ///     panel one pane and leaving gives back the arrangement it had — and once the module is off, the
+    ///     preference and what it does to the panes are gone with it.
+    /// </summary>
+    /// <remarks>
+    ///     There was no test of this before it moved; removing either half of <see cref="PlayMaximise" />
+    ///     turns it red.
+    /// </remarks>
+    [Fact]
+    public void Maximise_on_play_follows_the_session_and_leaves_with_the_module() {
+        using var editor = EditorSession.Start();
+
+        var play = editor.Plugins.Services.Require<IPlaySession>();
+        var panes = editor.Plugins.Services.Require<ScenePanes>();
+
+        panes.Arrangement = ViewportArrangement.SideBySide;
+
+        // Off, it leaves the panes alone.
+        Assert.True(play.Enter());
+        Assert.Equal(ViewportArrangement.SideBySide, panes.Arrangement);
+        play.Leave();
+
+        editor.Run("play.maximise");
+        Assert.True(editor.Shell.Commands["play.maximise"]!.IsChecked);
+
+        Assert.True(play.Enter());
+        Assert.Equal(ViewportArrangement.Single, panes.Arrangement);
+        play.Leave();
+        Assert.Equal(ViewportArrangement.SideBySide, panes.Arrangement);
+
+        // Switched off mid-session, it gives the panes back on the way out.
+        Assert.True(play.Enter());
+        Assert.Equal(ViewportArrangement.Single, panes.Arrangement);
+        Assert.True(editor.Plugins.Disable(PlayModule.ModuleId));
+        Assert.Equal(ViewportArrangement.SideBySide, panes.Arrangement);
+        play.Leave();
+
+        Assert.Null(editor.Shell.Commands["play.maximise"]);
+        Assert.True(play.Enter());
+        Assert.Equal(ViewportArrangement.SideBySide, panes.Arrangement);
+        play.Leave();
+    }
+
+    /// <summary>
+    ///     Clear on Play is the module's (#1296), and it empties the console <i>before</i> the module says
+    ///     what the session runs — so that line is the first thing in it rather than the last thing
+    ///     before it was emptied.
+    /// </summary>
+    /// <remarks>There was no test that entering play clears anything; removing the clear turns this red.</remarks>
+    [Fact]
+    public void Clear_on_play_empties_the_console_before_the_module_says_what_play_does() {
+        using var editor = EditorSession.Start();
+
+        var play = editor.Plugins.Services.Require<IPlaySession>();
+        var log = editor.Plugins.Services.Require<RingBufferSink>();
+        var session = (EditorPlaySession)play;
+
+        editor.Open("console");
+        editor.Run("play.clear-console");
+
+        log.CreateLogger("test").Log(LogLevel.Warning, default, "said before play", null, static (text, _) => text);
+
+        Assert.Contains(log.Snapshot(), static record => record.Message == "said before play");
+
+        Assert.True(play.Enter());
+
+        Assert.DoesNotContain(log.Snapshot(), static record => record.Message == "said before play");
+        Assert.Contains(log.Snapshot(), record => record.Message == session.DescribeRunning());
+
+        play.Leave();
     }
 
     /// <summary>

@@ -66,7 +66,6 @@ sealed partial class EditorApplication {
     void ParityCommands() {
         FileCommands();
         AssetCommands();
-        PlayCommands();
         BuildAndToolCommands();
     }
 
@@ -238,65 +237,12 @@ sealed partial class EditorApplication {
 
     // ── Play ────────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>The four transport verbs, over the controller that already exists.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>This used to read "entering play mode snapshots the world and leaving it restores
-    ///         the snapshot, and that is <i>all</i> it does today" — and it was accurate.</b> Nothing
-    ///         moved while it was playing, because <c>ShouldTick</c> had no caller outside its own
-    ///         tests. Since 2026-08-21 <c>PlayModeController.Tick</c> steps an <c>EngineLoop</c> and
-    ///         <c>EditorApplication.Update</c> calls it. What is still real from before is the part
-    ///         doc 20 calls out as better than Unity's: the restore is honest, it says so before
-    ///         entering, and a selection made in play mode is translated back through
-    ///         <c>WorldSnapshot.Restore</c>'s handle map rather than being lost.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>And the report of what a session runs is not decoration on that</b> — it is
-    ///         <c>PlayModule.Announce</c>'s now (#1296). The graph is
-    ///         the engine's default set and a game's own is not declarable anywhere, so a session
-    ///         that said nothing would make the systems it is not running read as the user's bug.
-    ///     </para>
-    /// </remarks>
-    void PlayCommands() {
-        // ⚠ Play, Pause, Step and Stop are not here any more (#1289). They are names for
-        // `IPlaySession`'s verbs and `PlayModule` registers them through `PluginContext`, the door a
-        // third party uses — so a plugin reaches the same four verbs the transport does. What is left
-        // here is the Play menu's options, which are this editor's preferences rather than the
-        // session's verbs.
-        // The three play modes, Mute Audio and the Overlays submenu are `PlayModule`'s (#1296): the
-        // first four are declared lines and the last is `IPlaySession.SwitchOverlay`.
-
-        // ⚠ A preference rather than an action, which is what the tick says. It changes what the
-        // *next* Play does; pressing it while the game is running would be a second, differently
-        // spelled maximise, and the one on the Scene menu is that.
-        Verb(
-            "play.maximise",
-            EditorStrings.CommandPlayMaximise,
-            EditorStrings.CategoryPlay,
-            () => maximiseOnPlay = !maximiseOnPlay,
-            on: () => maximiseOnPlay
-        );
-
-        // ⚠ A tick over the console's own preference rather than a second copy of it. Doc 20's rule
-        // for the three navigation preferences applies here for the same reason: two writers to one
-        // setting is how a menu tick and a panel's toggle come to disagree.
-        Verb(
-            "play.clear-console",
-            EditorStrings.CommandPlayClearConsole,
-            EditorStrings.CategoryPlay,
-            console.ToggleClearsOnPlay,
-            enabled: () => console.View is not null,
-            on: () => console.ClearsOnPlay
-        );
-
-        Verb(
-            "view.clear-console",
-            EditorStrings.CommandViewClearConsole,
-            EditorStrings.CategoryPlay,
-            console.Clear,
-            enabled: () => console.View is not null
-        );
-    }
+    // Nothing on the Play menu is this application's any more (#1289, #1296). Play, Pause, Step and
+    // Stop are names for `IPlaySession`'s verbs, and `PlayModule` registers them through
+    // `PluginContext`, the door a third party uses. The three play modes, Mute Audio and the Overlays
+    // submenu are its too; so are Options ▸ Maximise (over `ScenePanes.Arrangement`, see
+    // `PlayMaximise`) and Options ▸ Clear Console (over `EditorConsole`'s preference), and what
+    // entering play says (`PlayModule.Announce`). Tools ▸ Clear Console is `WorkspaceModule`'s.
 
     // ── Build and Tools ─────────────────────────────────────────────────────────────────────────
 
@@ -898,39 +844,12 @@ sealed partial class EditorApplication {
 
     // ── Play mode ───────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>What entering play does to the rest of the editor, after the session has started.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The verb is <see cref="EditorPlaySession.Enter" /> (#1289); this is what follows it.</b>
-    ///     The arrangement, the console and the notification are the workspace's and the
-    ///     diagnostics' concerns, and until those are services of their own the composition root is
-    ///     where they meet — doc 50 § P2a's "a callback the composition root supplies".
-    /// </remarks>
-    void PlayEntered() {
-        // ⚠ Through the same pair maximise itself uses, so stopping restores whatever arrangement the
-        // user had rather than an arrangement this remembered separately. Skipped when the panel is
-        // already single, because `Remember` would then record Single and stopping would leave the
-        // toggle claiming the viewport is maximised when nothing was ever changed.
-        if (maximiseOnPlay && Arrangement != ViewportArrangement.Single) {
-            Arrangement = Remember();
-        }
-
-        // Before the notification, so the line saying what play mode does is the first thing in the
-        // console rather than the last thing before it was emptied. The notification and the report
-        // of what the session runs are `PlayModule`'s (#1296), which subscribes after this does.
-        if (console.ClearsOnPlay) {
-            console.Clear();
-        }
-    }
-
     /// <summary>What leaving play does to the rest of the editor, after the scene has been restored.</summary>
     void PlayLeft() {
         sceneEditing.Restructured();
 
-        // Whatever the panel was split into before Play maximised it. Null when it was not, which is
-        // every session where the preference is off.
-        if (restore is { } previous) {
-            Arrangement = Take(previous);
-        }
+        // The arrangement play maximised, and the console it cleared, are `PlayModule`'s (#1296), which
+        // subscribes after this does — see `PlayMaximise`.
     }
 
     // ── Save on close ───────────────────────────────────────────────────────────────────────────

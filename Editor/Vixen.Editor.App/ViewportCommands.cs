@@ -188,14 +188,6 @@ sealed partial class EditorApplication {
     /// </remarks>
     const float BaseFlySpeed = 4f;
 
-    /// <summary>What arrangement play mode's maximise goes back to.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Held rather than assumed to be Quad.</b> Maximise-on-play is a toggle, and one that
-    ///     came back to a fixed arrangement would turn somebody's two-pane layout into four panes the
-    ///     first time they pressed Play.
-    /// </remarks>
-    ViewportArrangement? restore;
-
     /// <summary>The window's arrangement while the Scene panel is maximised over it.</summary>
     /// <remarks>
     ///     ⚠ <b>The saved YAML rather than a flag, because a maximise throws the arrangement away.</b>
@@ -205,9 +197,6 @@ sealed partial class EditorApplication {
     ///     the command's tick reads.
     /// </remarks>
     string? unmaximised;
-
-    /// <summary>Whether entering play mode maximises the scene panel.</summary>
-    bool maximiseOnPlay;
 
     void ViewportCommands() {
         ViewModeCommands();
@@ -281,23 +270,6 @@ sealed partial class EditorApplication {
         }
 
         Shell.Workspace.Show(LayoutPresets.Single(ScenePanel));
-    }
-
-    /// <summary>Records what to come back to, and answers Single.</summary>
-    ViewportArrangement Remember() {
-        restore = Arrangement;
-        return ViewportArrangement.Single;
-    }
-
-    /// <summary>Answers what was recorded, and forgets it.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Forgotten on the way back, so the tick goes off.</b> A maximise that stayed "on" after
-    ///     it had been undone is a toggle whose state is a lie, and the next press would come back to
-    ///     the arrangement it was already in.
-    /// </remarks>
-    ViewportArrangement Take(ViewportArrangement previous) {
-        restore = null;
-        return previous;
     }
 
     /// <summary>One command per view mode, ticked, with the unsupported two declared and disabled.</summary>
