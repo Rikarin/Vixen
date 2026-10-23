@@ -37,7 +37,7 @@ public sealed class CaseGuardTests {
     [Fact]
     public void ACaseOverTheWallClockCapIsCaughtInFlight() {
         var directory = Fresh(nameof(ACaseOverTheWallClockCapIsCaughtInFlight));
-        var target = new StallingTarget(() => Written(directory, "stall") is not null);
+        var target = new StallingTarget(() => Appeared(directory, "stall"));
 
         var session = new FuzzSession(target, 1) {
             HardCaseCap = TimeSpan.FromMilliseconds(50),
@@ -75,7 +75,7 @@ public sealed class CaseGuardTests {
     [Fact]
     public void ACaseOverTheRetentionCeilingIsCaughtInFlight() {
         var directory = Fresh(nameof(ACaseOverTheRetentionCeilingIsCaughtInFlight));
-        var target = new HoardingTarget(() => Written(directory, "hoard") is not null);
+        var target = new HoardingTarget(() => Appeared(directory, "hoard"));
 
         var session = new FuzzSession(target, 1) {
             HardCaseCap = Safety + Safety,
@@ -104,7 +104,7 @@ public sealed class CaseGuardTests {
     [Fact]
     public void ACaseOverTheAllocationCeilingIsCaughtInFlight() {
         var directory = Fresh(nameof(ACaseOverTheAllocationCeilingIsCaughtInFlight));
-        var target = new ChurningTarget(() => Written(directory, "churn") is not null);
+        var target = new ChurningTarget(() => Appeared(directory, "churn"));
 
         var session = new FuzzSession(target, 1) {
             HardCaseCap = Safety + Safety,
@@ -154,6 +154,21 @@ public sealed class CaseGuardTests {
         Directory.CreateDirectory(directory);
 
         return directory;
+    }
+
+    /// <summary>Whether the guard has published a finding for a target — the targets' predicate.</summary>
+    /// <remarks>
+    ///     ⚠ Existence, not the bytes (#1431). This runs on the case's own thread while the watchdog
+    ///     is writing, and reading the file there is what made one runaway into two findings: the read
+    ///     hit a sharing violation, the case threw, and the session recorded that too.
+    ///     <see cref="Corpus.WriteRegression(string, string, byte[])" /> now publishes by rename, so a
+    ///     <c>.bin</c> that exists is complete — but a predicate that only has to know a finding exists
+    ///     has no reason to open it, and the bytes are checked after the run instead.
+    /// </remarks>
+    static bool Appeared(string directory, string target) {
+        var folder = Path.Combine(directory, target);
+
+        return Directory.Exists(folder) && Directory.EnumerateFiles(folder, "*.bin").Any();
     }
 
     /// <summary>The bytes the guard wrote out for a target, or null if it has not written any.</summary>

@@ -13,6 +13,11 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <!-- The staging hook in Corpus.WriteRegression, which is how a test sees the publish window (#1431). -->
+        <InternalsVisibleTo Include="Vixen.Fuzz.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
         <!--
             Vixen.Net for the decoders themselves, and Vixen.Net.Engine for SyncList — which reads
             an index off the wire and is therefore part of the same untrusted surface even though it
