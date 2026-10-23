@@ -64,7 +64,6 @@ editor menu editor.menu.window/editor.menu.panels view.panel.preferences
 editor menu editor.menu.window/editor.menu.panels view.panel.project
 editor menu editor.menu.window/editor.menu.panels view.panel.project-settings
 editor menu editor.menu.window/editor.menu.panels view.panel.scene
-editor menu editor.menu.window/editor.menu.panels view.panel.ui-diagnostics
 editor menu editor.menu.window/editor.menu.panels view.panel.world-settings
 editor mode select
 editor panel console
@@ -81,7 +80,6 @@ editor panel preferences
 editor panel project
 editor panel project-settings
 editor panel scene
-editor panel ui-diagnostics
 editor panel world-settings
 editor scene-menu edit.delete
 editor scene-menu edit.duplicate
@@ -202,6 +200,7 @@ vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.network
 vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.profiler
 vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.remote-inspector
 vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.statistics
+vixen.diagnostics menu editor.menu.window/editor.menu.panels view.panel.ui-diagnostics
 vixen.diagnostics panel devices
 vixen.diagnostics panel frame-debugger
 vixen.diagnostics panel gpu
@@ -210,6 +209,7 @@ vixen.diagnostics panel network
 vixen.diagnostics panel profiler
 vixen.diagnostics panel remote-inspector
 vixen.diagnostics panel statistics
+vixen.diagnostics panel ui-diagnostics
 vixen.help menu editor.menu.help help.about
 vixen.help menu editor.menu.help help.api-reference
 vixen.help menu editor.menu.help help.documentation

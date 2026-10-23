@@ -1039,9 +1039,6 @@ public static class EditorStrings {
     /// <summary>The <c>Scenes</c> panel.</summary>
     public static StringId PanelScenes { get; } = new("editor.panel.scenes", "Scenes");
 
-    /// <summary>The <c>UI Diagnostics</c> panel.</summary>
-    public static StringId PanelUiDiagnostics { get; } = new("editor.panel.ui-diagnostics", "UI Diagnostics");
-
     /// <summary>The <c>World Settings</c> panel.</summary>
     public static StringId PanelWorld { get; } = new("editor.panel.world", "World Settings");
 
@@ -1589,7 +1586,6 @@ public static class EditorStrings {
         PanelProject,
         PanelScene,
         PanelScenes,
-        PanelUiDiagnostics,
         PanelWorld,
         SettingsAppearance,
         SettingsContent,

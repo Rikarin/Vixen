@@ -1874,59 +1874,7 @@ sealed partial class EditorApplication : IDisposable {
         Shell.RegisterPanel(inspectorPanels.Describe("inspector-2", EditorStrings.PanelInspector2));
 
         Shell.RegisterPanel(console.Describe(Shell, ConsoleContext, Reveal));
-
-        Shell.RegisterPanel(
-            new PanelDescriptor(
-                UiDiagnosticsPanel,
-                EditorStrings.PanelUiDiagnostics,
-                panel => {
-                    // ⚠ **The first caller this control has had, and that is the point of the
-                    // registration rather than a side effect of it.** `DiagnosticsPanel`,
-                    // `UiDiagnostics` and `UiApplication.Diagnostics` all landed with tests and
-                    // nothing in the tree assigned one — which is exactly what this repository calls
-                    // "a finished thing nothing calls". The editor is the host that draws the
-                    // biggest `UiDocument` in the tree and is where doc 13's UI-debug reading is
-                    // actually wanted.
-                    //
-                    // ⚠ No `Subject`, deliberately, and it is a decision rather than an omission.
-                    // Pointed at another document the readings would be exact; pointed at its own
-                    // they are the shell's, which is the document somebody debugging the editor's
-                    // interface is asking about. The panel's own remarks name the cost — it is an
-                    // element of what it measures — and the alternative here is a panel that
-                    // reports a document nobody is looking at.
-                    Shell.Diagnostics = panel.Add<DiagnosticsPanel>();
-
-                    // ⚠ **The drawn half, over the shell rather than in the panel.** The panel's
-                    // element rows are in the shell's coordinates and the overlay draws them there
-                    // — four outlines round whatever the pointer is over, and a wash over what the
-                    // last pass invalidated — so it has to be a child of the document it describes,
-                    // which the panel is not the right parent for: a docked tab clips. A root child
-                    // over the whole surface and transparent to the pointer, by the theme rule.
-                    uiDiagnosticsOverlay?.Remove();
-                    uiDiagnosticsOverlay = Shell.Document.Root.Add<DiagnosticsOverlay>();
-                }
-            ) {
-                // ⚠ Cleared on close, or the shell keeps refreshing rows in a panel that has been
-                // torn out of the tree — sixty times a second, for the rest of the session. And the
-                // overlay is taken out of the tree with it, or the outlines outlive the rows.
-                Closed = () => {
-                    Shell.Diagnostics = null;
-                    uiDiagnosticsOverlay?.Remove();
-                    uiDiagnosticsOverlay = null;
-                }
-            }
-        );
     }
-
-    /// <summary>The picture half of the <see cref="UiDiagnosticsPanel" />, while it is open.</summary>
-    /// <remarks>
-    ///     Held so that a close can take it out of the tree; a test finds it by walking the shell's
-    ///     root, which is where a reader of the document would look for it too.
-    /// </remarks>
-    DiagnosticsOverlay? uiDiagnosticsOverlay;
-
-    /// <summary>The panel that reads <c>UiDocument.Diagnostics</c> for the shell's own document.</summary>
-    public const string UiDiagnosticsPanel = "ui-diagnostics";
 
     /// <summary>The asset editors this editor registered, for a caller outside this class.</summary>
     /// <remarks>

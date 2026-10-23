@@ -2090,7 +2090,7 @@ which is what makes the read path still allocate nothing.
 `Diagnostics` panel and refreshes it first in `Tick` — which is the whole of that method's position:
 `EditorHost` calls `Tick` before `Document.Update`, so any point in it is the top of the frame for
 the layout pass, and everything after that first line writes elements the reading would then be
-describing after the fact. `EditorApplication` registers it as the `ui-diagnostics` panel, so it is a
+describing after the fact. `DiagnosticsModule` registers it as the `ui-diagnostics` panel, so it is a
 tab in the Window menu like every other, and clears the shell's reference when the panel closes —
 without which the tick writes rows into an element that is out of the tree for the rest of the
 session.

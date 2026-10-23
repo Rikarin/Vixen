@@ -44,6 +44,7 @@ public class ShellVocabularyTests {
         "texture", "layer-stack",
         // Vixen.Editor.Diagnostics
         "profiler", "gpu", "memory", "statistics", "network", "frame-debugger", "remote-inspector", "devices",
+        "ui-diagnostics",
         // Vixen.Editor.Scripts
         "scripts",
         // Vixen.Editor.AssetEditors
@@ -83,7 +84,7 @@ public class ShellVocabularyTests {
     [InlineData("editor.layout.profiling", false)]
     [InlineData("editor.status.frame-time", false)]
     [InlineData("editor.command.build.rebuild-shaders", false)]
-    [InlineData("editor.panel.ui-diagnostics", false)]
+    [InlineData("editor.panel.ui-diagnostics", true)]
     public void The_vocabulary_tells_a_toolsets_id_from_the_shells(string id, bool toolset) =>
         Assert.Equal(toolset, Owned.IsMatch(id));
 }
