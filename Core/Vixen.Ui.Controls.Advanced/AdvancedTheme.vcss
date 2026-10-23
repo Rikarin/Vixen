@@ -146,12 +146,15 @@ dock-tabs {
 dock-tabstrip > icon-button { flex-shrink: 0; align-self: center; }
 
 /* ⚠ `white-space: nowrap` because a tab's title is one line or it is a different strip.
-   The list is measured fit-content against the viewport before it overflows, so a
-   two-word title is squeezed to its min-content and wraps — and every tab in the row then
+   A two-word title squeezed to its min-content wraps, and every tab in the row then
    stretches to the two-line one's height. That is how the inspector's strip came to sit ten
    pixels below its neighbours' once "Build Settings" joined its group (#1477). The strip
    scrolls; the title must not wrap to save it from scrolling. Inherited, so it reaches the
-   label without a combinator. */
+   label without a combinator.
+   ⚠ The squeeze itself was an engine defect, not this list's answer: the layout took an
+   unshrinkable item's flex base at the room offered rather than at max-content (#1510), and
+   `DockTabTitleTests` is green without this line since that was fixed. It stays as the
+   statement that a title is one line. */
 dock-tab {
     flex-direction: row;
     align-items: center;

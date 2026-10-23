@@ -76,9 +76,20 @@ answer.
 of these inside a `ScrollView` needs no rule of its own:
 
 ```vcss
-slider, range-slider, scrollbar, split-bar { touch-action: none; }
+scrollbar, split-bar { touch-action: none; }
+slider, range-slider { touch-action: pan-y; }
+slider.vertical, range-slider.vertical { touch-action: pan-x; }
 numeric-input { touch-action: pan-y; }
 ```
+
+⚠ **A slider gives the list the axis it does not read, and that needed the control to change
+first.** It said `none` until #1507, so a list of sliders scrolled only from the gaps between them.
+`pan-y` alone would have been wrong while a slider set its value on the press: a finger landing on
+one to scroll would have jumped the thumb to where it landed. So a slider now decides on the drag, as
+a browser's range input does — under a finger or a pen the press moves and captures nothing; a drag
+*along* the track scrubs and is handled before the view sees it; a drag *across* it is not handled,
+bubbles, and is the view's under `pan-y`; and a tap sets the value where it landed. A mouse still
+sets the value on the press.
 
 ⚠ **Capturing the pointer is not enough, which is why these rules have to exist.** A capture
 redirects the raw pointer events; the `DragEvent` the recogniser reads out of them is raised on the

@@ -1085,7 +1085,16 @@ scrollbar.horizontal { left: 0px; right: 0px; bottom: 0px; height: 10px; }
    the thumb and scrolled the list, and a finger on a scrollbar moved the same offset twice.
    `touch-action` is the declaration that settles it, and until now nothing authored wrote it:
    the family parsed, resolved and governed nothing. See `TouchAction` and doc `ui/touch-action`. */
-slider, range-slider, scrollbar, split-bar { touch-action: none; }
+scrollbar, split-bar { touch-action: none; }
+
+/* ⚠ A slider gives the list the axis it does not read (#1507). It used to say `none` with the
+   others, and a list of sliders could only be scrolled by a finger landing between them. `pan-y`
+   alone would have been wrong while the slider still decided on the press — the value jumped to
+   wherever a scrolling finger landed — so it now decides on the drag, as a browser's range input
+   does: a finger's press moves nothing, a drag along the track scrubs and is handled before the
+   view sees it, a drag across it is the view's, and a tap sets the value. See `Slider.Dragged`. */
+slider, range-slider { touch-action: pan-y; }
+slider.vertical, range-slider.vertical { touch-action: pan-x; }
 
 /* ⚠ `pan-y` and not `none`, because the scrub is one axis. `NumericInput.Scrub` reads
    `args.X` alone, so the horizontal half of a finger's travel is the field's and the vertical

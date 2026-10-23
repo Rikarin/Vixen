@@ -266,20 +266,151 @@ public class TouchActionTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>The property's own worked example, and it was never written down.</b> A
-    ///     <see cref="Slider" /> captures the pointer on the press and moves its thumb — but a
-    ///     capture redirects the raw pointer events only, and the <see cref="DragEvent" /> the
-    ///     recogniser reads out of them is raised on the slider and bubbles to the view above it.
-    ///     So a finger dragging a slider inside a list moved the thumb <i>and</i> scrolled the list,
-    ///     and the one declaration that fixes it — <c>touch-action: none</c> — existed, parsed and
-    ///     resolved with nothing in the tree writing it.
+    ///     ⚠ <b>The property's own worked example, inverted by #1507.</b> A <see cref="Slider" />
+    ///     used to capture the pointer and move its thumb on the press, and the theme answered the
+    ///     drag that bubbled to the list with <c>touch-action: none</c> — so a list of sliders could
+    ///     be scrolled only from the gaps between them. The slider now decides on the drag, and the
+    ///     theme gives the list the axis the slider does not read: a finger dragging ACROSS a
+    ///     horizontal slider scrolls the view, and the value is exactly what it was, not merely close.
     /// </summary>
-    [Fact]
-    public void A_finger_dragging_a_slider_never_reaches_the_view_around_it() {
-        var (fixture, view, control) = Themed(static (document, parent) => document.Create<Slider>(null, parent, "knob"));
+    /// <remarks>
+    ///     The starting value is a quarter, not the default zero, so a press that jumped the thumb to
+    ///     where the finger landed — the view's middle, well inside the knob — reads as a change.
+    /// </remarks>
+    [Theory]
+    [InlineData(PointerType.Touch)]
+    [InlineData(PointerType.Pen)]
+    public void A_finger_dragging_across_a_slider_scrolls_the_view_and_leaves_its_value_alone(PointerType device) {
+        var (fixture, view, control) = Themed(static (document, parent) => {
+            var slider = document.Create<Slider>(null, parent, "knob");
+            slider.Value = 0.25f;
+            return slider;
+        });
         using var _ = fixture;
 
-        Assert.Equal(0f, DragAcross(fixture, view, 0f, -Step).Top);
+        var slider = (Slider)control;
+
+        Assert.True(DragAcross(fixture, view, 0f, -Step, type: device).Top > 0f, "the view did not scroll");
+        Assert.Equal(0.25f, slider.Value);
+    }
+
+    /// <summary>The same one axis over: a vertical slider says <c>pan-x</c>, and a sideways finger is the list's.</summary>
+    [Fact]
+    public void A_finger_dragging_across_a_vertical_slider_scrolls_the_view_sideways() {
+        var (fixture, view, control) = Themed(static (document, parent) => {
+            var slider = document.Create<Slider>(null, parent, "knob");
+            slider.Orientation = Orientation.Vertical;
+            slider.Value = 0.25f;
+            return slider;
+        });
+        using var _ = fixture;
+
+        var slider = (Slider)control;
+
+        Assert.True(DragAcross(fixture, view, -Step, 0f).Left > 0f, "the view did not scroll");
+        Assert.Equal(0.25f, slider.Value);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The pair to the scroll: the thumb still gets a finger that drags along the track,
+    ///     and the list does not.</b> Rightwards past the knob's far end, so the value is closed-form
+    ///     — the maximum, clamped — rather than "it moved".
+    /// </summary>
+    /// <remarks>
+    ///     The view overflows both ways, so <c>ScrollLeft</c> is the offset that would have moved had
+    ///     the drag reached it; the slider handles the drag before it can bubble that far.
+    /// </remarks>
+    [Fact]
+    public void A_finger_dragging_along_a_slider_moves_its_thumb_and_not_the_view() {
+        var (fixture, view, control) = Themed(static (document, parent) => {
+            var slider = document.Create<Slider>(null, parent, "knob");
+            slider.Value = 0.25f;
+            return slider;
+        });
+        using var _ = fixture;
+
+        var slider = (Slider)control;
+        var (top, left) = DragAcross(fixture, view, Step, 0f);
+
+        Assert.Equal(slider.Maximum, slider.Value);
+        Assert.Equal(0f, top);
+        Assert.Equal(0f, left);
+    }
+
+    /// <summary>
+    ///     A finger's tap sets the value where it landed, as a press of the mouse does — the oracle is
+    ///     the mouse's own answer for the same point, read from a second fixture of the same shape.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>And the mouse path is unchanged</b>: its press sets the value at once, before any
+    ///     release, which is the half a finger no longer does.
+    /// </remarks>
+    [Fact]
+    public void A_finger_tap_sets_the_value_where_a_mouse_press_would() {
+        Slider Make(UiDocument document, UiElement parent) {
+            var slider = document.Create<Slider>(null, parent, "knob");
+            slider.Value = 0.25f;
+            return slider;
+        }
+
+        var (mouseFixture, mouseView, mouseControl) = Themed(Make);
+        using var mouseScope = mouseFixture;
+        var (x, y) = Middle(mouseView);
+
+        mouseFixture.Press(x - 7f, y, type: PointerType.Mouse);
+        var pressed = ((Slider)mouseControl).Value;
+        mouseFixture.Release(x - 7f, y, type: PointerType.Mouse);
+
+        Assert.NotEqual(0.25f, pressed);
+
+        var (fingerFixture, fingerView, fingerControl) = Themed(Make);
+        using var fingerScope = fingerFixture;
+
+        fingerFixture.Press(x - 7f, y, type: PointerType.Touch);
+        Assert.Equal(0.25f, ((Slider)fingerControl).Value);
+
+        fingerFixture.Release(x - 7f, y, type: PointerType.Touch);
+        Assert.Equal(pressed, ((Slider)fingerControl).Value);
+        Assert.Equal(0f, fingerView.ScrollTop);
+    }
+
+    /// <summary>
+    ///     <see cref="RangeSlider" /> on the same terms: a drag across it is the list's and moves
+    ///     neither end; a drag along it moves the end nearer the press, to the clamp, and not the list.
+    /// </summary>
+    /// <remarks>
+    ///     A fixture each, because the first gesture scrolls the knob out from under the view's middle.
+    ///     The press lands at about 0.6 of the track, nearer the high end.
+    /// </remarks>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_finger_on_a_range_slider_scrolls_across_it_and_scrubs_along_it(bool along) {
+        var (fixture, view, control) = Themed(static (document, parent) => {
+            var range = document.Create<RangeSlider>(null, parent, "knob");
+            range.Low = 0.25f;
+            range.High = 0.75f;
+            return range;
+        });
+        using var _ = fixture;
+
+        var range = (RangeSlider)control;
+        var (top, left) = DragAcross(fixture, view, along ? Step : 0f, along ? 0f : -Step);
+
+        Assert.Equal(0.25f, range.Low);
+        if (along) {
+            Assert.Equal(range.Maximum, range.High);
+            Assert.Equal(0f, top);
+            Assert.Equal(0f, left);
+        } else {
+            Assert.Equal(0.75f, range.High);
+            Assert.True(top > 0f, "the view did not scroll");
+        }
+    }
+
+    static (float X, float Y) Middle(ScrollView view) {
+        var bounds = view.Bounds;
+        return (bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
     }
 
     /// <summary>The same for a scrollbar, where the double movement is the same gesture counted twice.</summary>
@@ -313,48 +444,6 @@ public class TouchActionTests {
         var (top, left) = DragAcross(fixture, view, dx * Step, dy * Step);
 
         Assert.True(scrolls == (top != 0f || left != 0f), $"top {top}, left {left}");
-    }
-
-    /// <summary>
-    ///     ⚠ <b>A refusal is only half the property: the control still has to get the finger.</b> The
-    ///     two theories above assert that the <i>view</i> stayed put, which a change that made
-    ///     <c>touch-action: none</c> disarm the control's own drag would also satisfy — and the pair
-    ///     that closes it is one gesture: the thumb moved <b>and</b> the list did not.
-    /// </summary>
-    /// <remarks>
-    ///     ⚠ <b>Horizontal, because a horizontal slider's value cannot answer a vertical drag.</b>
-    ///     The vertical cases above are the right axis for the view's own scroll; the knob only
-    ///     reports having been dragged along its own track, so the closed-form version of the pair
-    ///     has to run along it. The view overflows both ways, so <c>ScrollLeft</c> is the offset that
-    ///     would have moved had the declaration not been read.
-    /// </remarks>
-    [Fact]
-    public void A_slider_that_takes_the_finger_still_moves_its_own_thumb() {
-        var (fixture, view, control) = Themed(static (document, parent) => document.Create<Slider>(null, parent, "knob"));
-        using var _ = fixture;
-
-        var slider = (Slider)control;
-        var bounds = view.Bounds;
-        var x = bounds.X + (bounds.Width * 0.5f);
-        var y = bounds.Y + (bounds.Height * 0.5f);
-
-        fixture.Press(x, y, type: PointerType.Touch);
-        fixture.Advance(Frame);
-
-        var pressed = slider.Value;
-        var top = view.ScrollTop;
-        var left = view.ScrollLeft;
-
-        for (var step = 1; step <= 3; step++) {
-            fixture.MovePointer(x - (Step * step), y, type: PointerType.Touch);
-            fixture.Advance(Frame);
-        }
-
-        Assert.True(slider.Value < pressed, $"the thumb did not move: {pressed} -> {slider.Value}");
-        Assert.Equal(top, view.ScrollTop);
-        Assert.Equal(left, view.ScrollLeft);
-
-        fixture.Release(x - (Step * 3), y, type: PointerType.Touch);
     }
 
     /// <summary>A text field of each tag with enough text that a drag across it would select something.</summary>
