@@ -103,6 +103,10 @@ sealed class Deferred {
     /// <param name="work">The call.</param>
     /// <param name="next">What to do with the answer.</param>
     /// <param name="failed">What to do if it threw.</param>
+    /// <param name="cancelled">
+    ///     What to do if it was cancelled — on the frame thread, at the next pump, like the other two — or
+    ///     <see langword="null" /> to do nothing.
+    /// </param>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>A call that has already answered is queued from here, and until it was, this
@@ -124,12 +128,15 @@ sealed class Deferred {
     ///         fast path removes a pool hop and changes nothing else about when the work runs.
     ///     </para>
     ///     <para>
-    ///         A cancelled call runs neither callback, on both paths. That was already the behaviour:
-    ///         the continuation below tests <c>IsFaulted</c> and <c>IsCompletedSuccessfully</c> and
-    ///         does nothing when neither holds.
+    ///         ⚠ <b>A cancelled call runs <paramref name="cancelled" />, and only that (#1512).</b> It
+    ///         used to run neither handler, which is a hazard for a caller whose handlers release
+    ///         something: <c>ProjectSourceControl</c>'s sweep latch stayed set for good after one, and
+    ///         every later sweep folded into "again" — the column that never drew which the
+    ///         status-read race produced, by a door that race's fix did not close. A caller holding a
+    ///         latch or a count passes it; for the rest a cancellation is still nothing.
     ///     </para>
     /// </remarks>
-    public void When<T>(ValueTask<T> work, Action<T> next, Action<Exception> failed) {
+    public void When<T>(ValueTask<T> work, Action<T> next, Action<Exception> failed, Action? cancelled = null) {
         ArgumentNullException.ThrowIfNull(next);
         ArgumentNullException.ThrowIfNull(failed);
 
@@ -151,6 +158,8 @@ sealed class Deferred {
                 var failure = thrown.GetBaseException();
 
                 Post(() => failed(failure));
+            } else if (cancelled is not null) {
+                Post(cancelled);
             }
 
             return;
@@ -164,6 +173,8 @@ sealed class Deferred {
                 } else if (finished.IsCompletedSuccessfully) {
                     var result = finished.Result;
                     Post(() => next(result));
+                } else if (cancelled is not null) {
+                    Post(cancelled);
                 }
             },
             CancellationToken.None,
