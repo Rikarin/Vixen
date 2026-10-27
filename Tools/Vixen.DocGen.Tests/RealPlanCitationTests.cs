@@ -109,7 +109,7 @@ public class RealPlanCitationTests {
     const string PlanPath = "docs/plan";
 
     /// <summary>What the sweep reads, for the failure messages: every document in the tree that describes it.</summary>
-    const string Swept = "docs/**/*.md and every README.md";
+    const string Swept = "docs/**/*.md, every README.md and CONTRIBUTING.md";
 
     /// <summary>Citations that record a file as it was, one per line: document, citation, reason.</summary>
     const string ExemptPath = "docs/PlanCitationExempt.txt";
@@ -1896,7 +1896,9 @@ public class RealPlanCitationTests {
         index.Values
             .SelectMany(paths => paths)
             .Where(path => path.EndsWith(".md", StringComparison.Ordinal)
-                           && (path.StartsWith("docs/", StringComparison.Ordinal) || Path.GetFileName(path) == "README.md"))
+                           && (path.StartsWith("docs/", StringComparison.Ordinal)
+                               || Path.GetFileName(path) == "README.md"
+                               || path == "CONTRIBUTING.md"))
             .Order(StringComparer.Ordinal);
 
     /// <summary>Every file of the checkout at <paramref name="root" />, indexed by file name.</summary>

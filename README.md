@@ -5,148 +5,149 @@ SPDX-License-Identifier: Apache-2.0
 
 # Vixen
 
-A .NET 10 / C# 14 game engine **and** application framework: the same stack that ships a game also
-ships Photoshop- or Blender-class desktop tooling. The editor is written in the engine, in the
-engine's own UI framework, and is the primary proof that the framework is general-purpose.
+Vixen is a game engine and application framework for .NET 10 and C# 14. The same stack that ships a
+game also ships desktop tools: Vixen's own editor is written in the engine, using the engine's own
+UI framework.
+
+> **Preview.** Vixen is at 0.1.0 and nothing is published to nuget.org yet. You build the packages
+> from this repository and restore them from a local folder. The steps are below.
+
+## What you get
+
+- **An engine that boots on Windows, Linux and macOS**, plus the iOS Simulator and the Android
+  emulator, with a WebAssembly head for the browser. Graphics run on Vulkan, OpenGL/GLES/WebGL2 or
+  WebGPU, and a Null backend runs headless servers and tests.
+- **A data-driven renderer.** It does forward+ physically based rendering with shadows, image-based
+  lighting, reflection probes and post-processing. A frame is an asset you configure, not code you
+  write.
+- **An ECS** with Roslyn source generators in place of reflection, so games trim and compile ahead of
+  time (NativeAOT).
+- **`Vixen.Ui`**, a reactive UI framework with markup (`.vxml`) and styles (`.vcss`). It passes the
+  full Yoga layout and Unicode conformance suites, and it works without the engine, so you can build
+  ordinary desktop applications with it.
+- **The editor.** It opens a project, imports assets, builds content, edits scenes and runs the game.
+- **Raven**, a shader language that compiles to SPIR-V and GLSL.
+- **Networking.** A server-authoritative stack with replication, prediction, lag compensation and
+  voice chat. The `Gameplay` and `Live` libraries cover everything up to MMO-scale realms.
+- **Asset pipeline and addressables.** Content builds into bundles you can update remotely.
+- **Audio, physics, animation, navigation, video and XR.**
+
+[`docs/overview.md`](docs/overview.md) lists every feature with its status, including what is not
+finished yet.
+
+## Requirements
+
+- The .NET SDK named in [`global.json`](global.json) (10.0.301 or a later 10.0.3xx).
+- A GPU with Vulkan or OpenGL drivers to open a window. macOS runs Vulkan through MoltenVK.
+
+A desktop build needs no workloads and no native SDKs. Only the Android, iOS and Web heads need the
+.NET workloads for their platforms.
+
+## Getting started
+
+1. **Clone the repository and build the packages:**
+
+   ```bash
+   git clone https://github.com/Rikarin/Vixen.git
+   cd Vixen
+   ./build.sh Pack        # build.cmd Pack on Windows; writes artifacts/packages/*.nupkg
+   ```
+
+2. **Point NuGet at those packages.** Put a `nuget.config` next to your project that maps `Vixen.*`
+   to `artifacts/packages` and everything else to nuget.org.
+   [Getting started](docs/guide/engine/getting-started.md) has the file ready to copy.
+
+3. **Install the templates and create a game:**
+
+   ```bash
+   dotnet new install artifacts/packages/Vixen.Templates.<version>.nupkg
+   dotnet new vixen-game -n MyGame -o MyGame
+   cd MyGame
+   dotnet run
+   ```
+
+   A 1280 × 720 window opens and draws your game's frame.
+
+There are six templates:
+
+| Template | What it creates |
+|---|---|
+| `vixen-game` | A game, with an `Assets/` folder, a project the editor opens, and a dedicated-server variant |
+| `vixen-app` | A desktop application on `Vixen.Ui` alone, with no engine |
+| `vixen-lib` | A library |
+| `vixen-tool` | A command-line tool |
+| `vixen-plugin` | An editor plugin |
+| `vixen-mmo` | A multi-project MMO starting point, built from the `Gameplay` and `Live` libraries |
+
+Next, read [Building a game and a dedicated server](docs/manual/building-a-game-and-a-server.md).
+
+## The editor
+
+Run it from a clone of the repository:
+
+```bash
+dotnet run --project Editor/Vixen.Editor.Host
+```
+
+## Samples
+
+Each sample in [`Samples/`](Samples/) is a runnable project with a README that explains what it shows.
+
+| Sample | What it shows |
+|---|---|
+| [`01-HelloTriangle`](Samples/01-HelloTriangle/) | The smallest program that opens a window and draws, with Android and iOS versions |
+| [`02-HelloUi`](Samples/02-HelloUi/) | A small editor shell: menus, docking panels, a tree, a property grid and the control gallery |
+| [`03-PbrShowcase`](Samples/03-PbrShowcase/) | Materials across the metallic and roughness range, terrain, and blend-shaped heads |
+| [`04-EcsStressTest`](Samples/04-EcsStressTest/) | The ECS under load, with its performance targets measured |
+| [`07-AddressablesRemote`](Samples/07-AddressablesRemote/) | A remote content update: build, serve, download, change one asset, download again |
+| [`08-Multiplayer`](Samples/08-Multiplayer/) | Eight players and one authoritative server |
+| [`09-NetworkSoak`](Samples/09-NetworkSoak/) | A hundred connections and five thousand entities, held to their budgets |
+| [`10-VoiceChat`](Samples/10-VoiceChat/) | Two players talking over UDP: capture, Opus, jitter buffer and mixing |
+| [`11-VideoPlayback`](Samples/11-VideoPlayback/) | Video decoded and drawn on screen |
+| [`12-VirtualGeometry`](Samples/12-VirtualGeometry/) | A mesh streamed and culled cluster by cluster |
+| [`13-ThirdPersonShooter`](Samples/13-ThirdPersonShooter/) | A complete project in the shape `vixen new` creates, which the editor opens |
+| [`14-Mmo`](Samples/14-Mmo/) | An MMO vertical slice: maps, classes, a dungeon, a battleground and guilds |
+| [`15-AiVillage`](Samples/15-AiVillage/) | Three AI agents, one per planner type, reacting to an intruder |
+
+Run one with `dotnet run --project Samples/01-HelloTriangle`.
+
+## Documentation
+
+- **[The guide](docs/guide/)**: how to use each feature, grouped by area. Start with
+  [Getting started](docs/guide/engine/getting-started.md), or with
+  [Coming from Unity](docs/guide/engine/unity-migration.md) if that is where you are coming from.
+- **[The manual](docs/manual/)**: shipping a game and a server, diagnostic codes, log events, and
+  third-party licences.
+- **[What works today](docs/overview.md)**: the status of every feature.
+- **[The design record](docs/plan/README.md)**: why Vixen is built the way it is.
+
+Each library also has a `README.md` beside its code that explains how it works and what it
+deliberately does not do.
+
+## Building from source
 
 ```bash
 ./build.sh Compile      # or build.cmd on Windows
 ./build.sh Test
 ```
 
-The SDK version is pinned in [`global.json`](global.json); nothing else is required to build the
-solution. `./build.sh` is the entry point CI and developers share. There are forty targets:
+`./build.sh` is the one entry point, shared by CI and developers. There are forty targets:
 `Clean Restore RestoreNativeDeps Compile CompileRelease Test Coverage Pack CheckPackages CheckTemplates
 GoldenImages Benchmark CheckBenchmarks CheckArchitecture CheckApi CheckFormat CheckWhitespace
 CheckAttribution CheckStrings CheckShaders CheckDocComments CheckDocs CheckDocsCoverage CheckPathCase Docs
 CheckAot CheckAotIos CompileMobile CompileWeb PublishWeb BrowserSmoke PublishEditor Release
-ContentBytes RemeshBytes SampleFrame AffectedProjects AffectedTests TestOrder PruneWorktrees` — with
-[`docs/plan/12`](docs/plan/12-build-ci-and-testing.md) saying what each does and which are gates.
+ContentBytes RemeshBytes SampleFrame AffectedProjects AffectedTests TestOrder PruneWorktrees`.
+[`docs/plan/12`](docs/plan/12-build-ci-and-testing.md) says what each one does and which are gates.
 
-`--workers <n>` bounds how many projects compile and how many test assemblies run at once. It
-defaults to 4 locally and to unbounded in CI, which has the machine to itself; `--workers 0` asks for
-unbounded anywhere. It is what keeps the run from taking the machine away from everything else on
-it, and it costs less than it reads: measured from the 178 TRX of the 2026-09-05 sweep, a capped
-`Test` reached a 3.93× speed-up on four lanes — 98% of the ideal, nine seconds off the optimal
-packing of the same assemblies. ⚠ Raising the cap **cannot** buy more than two and a half minutes and
-buys nothing at all above six, because the floor is one 412-second assembly and not the fan-out.
-
-The second multiplier is `xunit.runner.json`'s `maxParallelThreads`, which sizes each assembly's own
-collection pool and which `--workers` cannot reach. It is `0.5x` — five threads on a ten-core box —
-and that number is now measured by the same interval arithmetic over the same 178 TRX. ⚠ **No
-assembly in that sweep ever ran more than five collections at once**, which is the instrument check
-rather than a curiosity: a run where the file failed to be copied beside the assembly would look
-identical in every other respect and would report ten. Doubling the pool to `1.0x` is worth **36
-seconds spread over six assemblies** and nothing at all to the other 172, because every large one is
-floored by its longest *collection* rather than by the pool. ⚠ And the long pole is not on that list
-whatever the arithmetic says: `Vixen.Editor.App.Tests` disables collection parallelism outright, so
-neither multiplier can touch the 382 seconds it contributes. It was disabled over a real data race on
-the process-wide `Strings` signal (#365); since #1413 that node is per thread and the race is gone, but
-the language is still process-wide and one class there changes it, so re-enabling is its own change.
-
-⚠ **A multiplier truncates, so `0.5x` is the wrong value for a small machine and CI runs on small
-machines.** xunit computes it as `(int)(m × ProcessorCount)`, a cast that rounds toward zero: ten
-cores give the five that was measured, four give two, and **three give one** — not a halved pool but
-collection parallelism switched off. `macos-14` is a three-core M1 runner. So the file is chosen
-rather than fixed: `xunit.runner.ci.json` (`1.0x`, which is what CI ran at for its whole history
-before the cap existed) under `GITHUB_ACTIONS`, and the measured `xunit.runner.json` everywhere else.
-`Tools/Vixen.ApiCheck.Tests/TestParallelismTests.cs` holds both to that arithmetic, and checks the
-copy beside its own assembly — which is the only evidence anywhere that the link works at all.
-
-Agent worktrees under `.claude/worktrees` are never cleaned up by anything, and each carries its own
-`bin`/`obj` — about 25 GB apiece once the solution has been built in both configurations.
-`./build.sh PruneWorktrees` lists which of them are merged into master, clean, unlocked and unwritten
-for `--idle-minutes` (30 by default), and `--remove-merged` removes those and only those; anything
-failing one of the four conditions, and any directory in there that is not a registered worktree at
-all, is reported and left alone. ⚠ The fourth condition is there because the lock is the runner's
-habit and not its promise — two of thirteen live agent worktrees carried none on 2026-09-05, and
-merged-and-clean is exactly what a live agent looks like between its branch being merged and its
-process ending. It costs the merge-then-prune sweep nothing but a delay: `--idle-minutes 0` reclaims
-the disk immediately for an operator who knows what else is running.
-
-Some backends need a native binary that no package ships. `./build.sh RestoreNativeDeps` fetches each
-one pinned and SHA-256-verified from [`build/native-dependencies.json`](build/native-dependencies.json),
-and commits nothing.
-
-## What is in here
-
-| | |
-|---|---|
-| `Core/` | The engine: math, memory, jobs, VFS, serialization, ECS, the RHI, rendering, assets, audio, physics, animation, navigation, networking, video, XR, and the `Vixen.Ui` framework |
-| `Platform/` | Per-target implementations of `Core/`'s contracts — Windows, Linux, macOS, Android, iOS, Web — and the graphics backends: Vulkan, OpenGL/GLES/WebGL2, WebGPU, Null |
-| `Editor/` | The editor, built on `Vixen.Ui` and nothing else |
-| `Raven/` | The shader language: a hand-written parser over a Roslyn-shaped syntax tree, a semantic phase, an IR, and GLSL + SPIR-V emitters |
-| `Tools/` | The `vixen` CLI, the MSBuild SDK, the asset and shader compilers, the content server, the templates |
-| `Samples/` | Eleven runnable samples, each the proof for one phase of the plan |
-| `Benchmarks/` | The performance gates |
-| `docs/` | The design record, the state of it, and the manual |
-
-Every project keeps its tests as a sibling (`Vixen.Ecs` / `Vixen.Ecs.Tests`) rather than in a mirror
-tree, and its own `README.md` — which is where the reasoning behind that subsystem lives, including
-what it deliberately does not do. Those READMEs are the best entry point into any one area.
-
-## Documentation
-
-Three kinds, kept apart on purpose, because three places recording the same thing is how they come to
-disagree.
-
-| | |
-|---|---|
-| [`docs/plan/`](docs/plan/) | **The design record** — what Vixen is meant to be and why each decision was taken, in 25 documents plus the ADR register. It does not say what is built |
-| [`docs/overview.md`](docs/overview.md) | **The state** — every feature and library with a status, a dependency tree over what is left, and one table of what is owed. Reconciled against the code, and it wins where a design document disagrees |
-| [`docs/manual/`](docs/manual/) | **Reader-facing** — building a game and a server, the diagnostic-code and log-event registers, and the [third-party attribution manifest](docs/manual/third-party.md) |
-
-Start with [`docs/plan/README.md`](docs/plan/README.md) for the index, or
-[`docs/overview.md`](docs/overview.md) if the question is "what works today".
-
-## The non-negotiables
-
-Stated because each one shapes code you will read, and each is enforced by the build rather than by
-convention. The reasoning is in [`docs/plan/00`](docs/plan/00-vision-and-principles.md) and the ADR
-register in [`docs/plan/01`](docs/plan/01-technology-decisions.md).
-
-- **All metaprogramming is Roslyn source generators.** No IL weaving, no `Mono.Cecil`, no
-  post-processing — so NativeAOT and full trimming work, and generated code is ordinary steppable C#.
-  `CheckArchitecture` fails the build if an IL rewriter appears in the restore graph (ADR-002).
-- **iOS is NativeAOT-only, and that is gated.** `CheckAotIos` publishes the 21 assemblies a phone
-  links, *rooted*, and fails on any trim or AOT warning. Reflection debt is caught before it is
-  expensive. ⚠ The gate now also asserts, before publishing, that the probe still roots every
-  assembly it references and still declares `PublishAot` — but it does **not** yet read the output,
-  so a publish that quietly stopped being ahead-of-time for a reason outside the project file would
-  still pass ([#634](https://github.com/Rikarin/Vixen/issues/634)), and no workflow runs it
-  ([#327](https://github.com/Rikarin/Vixen/issues/327)).
-- **`Vixen.Ui` never references `Vixen.Engine`.** The moment it does, the application-framework claim
-  is dead. Checked from Phase 0.
-- **`internal` by default.** `public` needs a reason and a `PublicAPI.Unshipped.txt` entry, and
-  `CheckApi` fails on an unapproved addition *and* on a silent removal.
-- **Warnings are errors**, at `AnalysisLevel=latest-recommended`. A rule that conflicts with a
-  deliberate decision is disabled **by name with a written reason** in `.editorconfig`; the level
-  itself is never lowered, because an exclusion is reviewable and a lowered level is not.
-- **Correctness is judged by something other than us where possible** — the Yoga conformance suite,
-  the Unicode Consortium's test data, `spirv-val`, golden images, Arch's benchmarks. And gates are
-  themselves checked by sabotage: break the thing on purpose and confirm the suite goes red.
-
-## Status
-
-The engine boots on three desktops, the iOS Simulator and the Android emulator; renders a forward+ PBR
-pipeline with shadows and post FX; runs a UI framework that passes the full Yoga and UAX conformance
-suites; hosts an editor that opens a project, imports assets, builds content, edits a scene and runs
-the game; and carries a server-authoritative networking stack that meets all five of its exit criteria.
-What is unfinished, and what blocks it, is in [`docs/overview.md`](docs/overview.md) — including a
-dependency tree so independent work can be scheduled in parallel.
+To change the engine itself, read [CONTRIBUTING.md](CONTRIBUTING.md) first. It covers the repository
+layout, the test setup and the rules the build enforces.
 
 ## Licence
 
-Apache-2.0 — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE). Apache's express patent grant is the
-reason over MIT: a studio shipping a commercial title on a third-party engine cares about patent peace,
-and legal review is materially easier (ADR-015). The design-time audit is in
-[`docs/plan/01`](docs/plan/01-technology-decisions.md) § ADR-015; **what is actually depended on** is
-[`docs/manual/third-party.md`](docs/manual/third-party.md), where every licence names the artefact it
-was read from and a build gate keeps the inventory honest.
+Apache-2.0. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
 
-⚠ That page **corrects** a claim this section used to make — that every dependency is permissive and
-"no shipped game links anything that is not". `Silk.NET.OpenAL.Soft.Native` declares
-**LGPL-2.0-or-later** and ships `libopenal` in every build with sound. Dynamically linked against a
-separately-shipped library, which is what it is, that is dischargeable — but it is copyleft, its
-obligations are not discharged today, and four further packages ship no licence statement at all.
-Read the page before making a binary distribution.
+⚠ **Not every dependency is permissive.** `Silk.NET.OpenAL.Soft.Native` is licensed
+**LGPL-2.0-or-later** and ships `libopenal` in every build that has sound. It is dynamically linked,
+so its terms can be met, but they are not met for you today, and four further packages ship no
+licence statement at all. Read [`docs/manual/third-party.md`](docs/manual/third-party.md) before you
+distribute a binary.

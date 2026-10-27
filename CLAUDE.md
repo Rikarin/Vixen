@@ -2,7 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-`README.md` covers the layout, the documentation split and the non-negotiables — read it first. This
+`CONTRIBUTING.md` covers the layout, the documentation split and the non-negotiables — read it
+first. (`README.md` is for people using the engine, and carries the build target list a test reads.) This
 file is what the README does not say: how to run things, how this codebase decides a claim is proved,
 and the architecture that only emerges from reading several files at once.
 

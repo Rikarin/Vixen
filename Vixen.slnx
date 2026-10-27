@@ -1,22 +1,379 @@
 <Solution>
 
   <Folder Name="/_root/">
-    <File Path="Directory.Build.props" />
-    <File Path="global.json" />
-    <File Path=".editorconfig" />
-    <File Path=".gitattributes" />
-    <File Path="nuget.config" />
+    <File Path="README.md" />
+    <File Path="CONTRIBUTING.md" />
+    <File Path="CHANGELOG.md" />
+    <File Path="CLAUDE.md" />
     <File Path="LICENSE" />
     <File Path="NOTICE" />
-    <File Path="README.md" />
+    <File Path="global.json" />
+    <File Path="nuget.config" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Build.targets" />
+    <File Path="Directory.Packages.props" />
+    <File Path=".editorconfig" />
+    <File Path=".gitattributes" />
+    <File Path=".gitignore" />
+    <File Path=".runsettings" />
+    <File Path="xunit.runner.json" />
+    <File Path="xunit.runner.ci.json" />
+    <File Path="build.sh" />
+    <File Path="build.cmd" />
   </Folder>
 
+  <Folder Name="/_root/.github/">
+    <File Path=".github/workflows/ci.yml" />
+    <File Path=".github/workflows/docs.yml" />
+    <File Path=".github/workflows/nightly.yml" />
+  </Folder>
+
+  <!--
+    docs — mirrored directory by directory, because a solution folder is the only way an IDE shows
+    a file that no project owns. The spike .csproj files are left out: each was a one-off
+    experiment, recorded by its RESULT.md, and is deliberately not a project of this solution.
+  -->
   <Folder Name="/docs/">
+    <File Path="docs/ComponentGeneratorExempt.txt" />
+    <File Path="docs/DataContractGeneratorExempt.txt" />
+    <File Path="docs/DocCommentExempt.txt" />
+    <File Path="docs/DocsExempt.txt" />
+    <File Path="docs/FeatureNameExempt.txt" />
+    <File Path="docs/GeneratorPackagingExempt.txt" />
+    <File Path="docs/MarkupPending.txt" />
+    <File Path="docs/ModuleRegistrationExempt.txt" />
+    <File Path="docs/overview.md" />
+    <File Path="docs/PathCaseExempt.txt" />
+    <File Path="docs/PlanCitationExempt.txt" />
+    <File Path="docs/PlanCitationUnbound.txt" />
+    <File Path="docs/RavenDocCommentExempt.txt" />
     <!--
       ADR-001 measure 4: every RHI concept against every backend, reviewed whenever the RHI surface
       changes, so D3D12 mappability is checked by inspection rather than discovered when it lands.
     -->
     <File Path="docs/rhi-backend-mapping.md" />
+    <File Path="docs/WhitespaceExempt.txt" />
+  </Folder>
+
+  <Folder Name="/docs/api-history/">
+    <File Path="docs/api-history/index.json" />
+  </Folder>
+
+  <Folder Name="/docs/api-history/0.1.0/">
+    <File Path="docs/api-history/0.1.0/changes.json" />
+  </Folder>
+
+  <Folder Name="/docs/guide/" />
+
+  <Folder Name="/docs/guide/ai/">
+    <File Path="docs/guide/ai/agents.md" />
+    <File Path="docs/guide/ai/authoring-a-tree.md" />
+    <File Path="docs/guide/ai/behaviour-trees.md" />
+    <File Path="docs/guide/ai/blackboard.md" />
+    <File Path="docs/guide/ai/debugger.md" />
+    <File Path="docs/guide/ai/declaring-agent-actions.md" />
+    <File Path="docs/guide/ai/environment-queries.md" />
+    <File Path="docs/guide/ai/goap.md" />
+    <File Path="docs/guide/ai/perception.md" />
+    <File Path="docs/guide/ai/sensors.md" />
+    <File Path="docs/guide/ai/utility.md" />
+    <File Path="docs/guide/ai/world-nodes.md" />
+  </Folder>
+
+  <Folder Name="/docs/guide/animation/">
+    <File Path="docs/guide/animation/move-sets.md" />
+    <File Path="docs/guide/animation/pose-constraints.md" />
+    <File Path="docs/guide/animation/replicating-a-pose.md" />
+    <File Path="docs/guide/animation/variation-harness.md" />
+  </Folder>
+
+  <Folder Name="/docs/guide/assets/">
+    <File Path="docs/guide/assets/content-in-a-game.md" />
+    <File Path="docs/guide/assets/importing-textures.md" />
+  </Folder>
+
+  <Folder Name="/docs/guide/core/">
+    <File Path="docs/guide/core/collections.md" />
+    <File Path="docs/guide/core/fuzzing.md" />
+    <File Path="docs/guide/core/gamut-mapping.md" />
+    <File Path="docs/guide/core/job-priorities.md" />
+    <File Path="docs/guide/core/recording-a-trace.md" />
+    <File Path="docs/guide/core/symbols.md" />
+    <File Path="docs/guide/core/triangle-tree.md" />
+  </Folder>
+
+  <Folder Name="/docs/guide/ecs/">
+    <File Path="docs/guide/ecs/component-defaults.md" />
+    <File Path="docs/guide/ecs/components.md" />
+    <File Path="docs/guide/ecs/queries.md" />
+    <File Path="docs/guide/ecs/structural-changes.md" />
+    <File Path="docs/guide/ecs/system-order.md" />
+  </Folder>
+
+  <Folder Name="/docs/guide/editor/">
+    <File Path="docs/guide/editor/booleans.md" />
+    <File Path="docs/guide/editor/collections.md" />
+    <File Path="docs/guide/editor/content-library.md" />
+    <File Path="docs/guide/editor/documents-and-views.md" />
+    <File Path="docs/guide/editor/editing-pipeline.md" />
+    <File Path="docs/guide/editor/editor-scripts.md" />
+    <File Path="docs/guide/editor/element-selection.md" />
+    <File Path="docs/guide/editor/external-edits.md" />
+    <File Path="docs/guide/editor/external-links.md" />
+    <File Path="docs/guide/editor/face-materials.md" />
+    <File Path="docs/guide/editor/foliage-mode.md" />
+    <File Path="docs/guide/editor/frame-panel.md" />
+    <File Path="docs/guide/editor/graph-diagnostics.md" />
+    <File Path="docs/guide/editor/icons.md" />
+    <File Path="docs/guide/editor/importer-contributions.md" />
+    <File Path="docs/guide/editor/index.md" />
+    <File Path="docs/guide/editor/inspectors-in-markup.md" />
+    <File Path="docs/guide/editor/material-baking.md" />
+    <File Path="docs/guide/editor/mesh-editing.md" />
+    <File Path="docs/guide/editor/mesh-map-assets.md" />
+    <File Path="docs/guide/editor/modes.md" />
+    <File Path="docs/guide/editor/network-panel.md" />
+    <File Path="docs/guide/editor/node-port-editing.md" />
+    <File Path="docs/guide/editor/play-mode-systems.md" />
+    <File Path="docs/guide/editor/player-delivery.md" />
+    <File Path="docs/guide/editor/precision.md" />
+    <File Path="docs/guide/editor/prefab-overrides.md" />
+    <File Path="docs/guide/editor/project-session.md" />
+    <File Path="docs/guide/editor/retopology-and-uv-surfaces.md" />
+    <File Path="docs/guide/editor/saved-filters.md" />
+    <File Path="docs/guide/editor/scene-editing.md" />
+    <File Path="docs/guide/editor/scene-menus.md" />
+    <File Path="docs/guide/editor/selection-cage.md" />
+    <File Path="docs/guide/editor/shader-graph-materials.md" />
+    <File Path="docs/guide/editor/shader-graph-previews.md" />
+    <File Path="docs/guide/editor/shader-graph-procedural.md" />
+    <File Path="docs/guide/editor/shape-tool.md" />
+    <File Path="docs/guide/editor/snapping.md" />
+    <File Path="docs/guide/editor/source-control.md" />
+    <File Path="docs/guide/editor/sub-graph-values.md" />
+    <File Path="docs/guide/editor/sub-object-picking.md" />
+    <File Path="docs/guide/editor/terrain-mode.md" />
+    <File Path="docs/guide/editor/terrain-sculpt-collision.md" />
+    <File Path="docs/guide/editor/texture-graph-compiling.md" />
+    <File Path="docs/guide/editor/texture-graph-evaluation.md" />
+    <File Path="docs/guide/editor/texture-graph-generators.md" />
+    <File Path="docs/guide/editor/texture-graph-plugin.md" />
+    <File Path="docs/guide/editor/texture-graph-previews.md" />
+    <File Path="docs/guide/editor/utility-styles.md" />
+    <File Path="docs/guide/editor/vfx-graph.md" />
+    <File Path="docs/guide/editor/water-mode.md" />
+    <File Path="docs/guide/editor/writing-a-plugin.md" />
+  </Folder>
+
+  <Folder Name="/docs/guide/engine/">
+    <File Path="docs/guide/engine/attribute-transfer.md" />
+    <File Path="docs/guide/engine/binding-controls.md" />
+    <File Path="docs/guide/engine/blockout-shapes.md" />
+    <File Path="docs/guide/engine/booting-an-application.md" />
+    <File Path="docs/guide/engine/buoyancy.md" />
+    <File Path="docs/guide/engine/character-movement.md" />
+    <File Path="docs/guide/engine/declaring-a-frame.md" />
+    <File Path="docs/guide/engine/edit-meshes.md" />
+    <File Path="docs/guide/engine/foliage-growth.md" />
+    <File Path="docs/guide/engine/foliage.md" />
+    <File Path="docs/guide/engine/getting-started.md" />
+    <File Path="docs/guide/engine/grass.md" />
+    <File Path="docs/guide/engine/handshake-traces.md" />
+    <File Path="docs/guide/engine/host-logging.md" />
+    <File Path="docs/guide/engine/input-actions.md" />
+    <File Path="docs/guide/engine/lag-compensation.md" />
+    <File Path="docs/guide/engine/map-baking.md" />
+    <File Path="docs/guide/engine/measuring-loss.md" />
+    <File Path="docs/guide/engine/mesh-booleans.md" />
+    <File Path="docs/guide/engine/mesh-operations.md" />
+    <File Path="docs/guide/engine/mesh-surfaces.md" />
+    <File Path="docs/guide/engine/network-rules.md" />
+    <File Path="docs/guide/engine/network-sessions.md" />
+    <File Path="docs/guide/engine/networked-players.md" />
+    <File Path="docs/guide/engine/networked-prefabs.md" />
+    <File Path="docs/guide/engine/parent-relative-transforms.md" />
+    <File Path="docs/guide/engine/players-and-possession.md" />
+    <File Path="docs/guide/engine/pose-precision.md" />
+    <File Path="docs/guide/engine/quad-remeshing.md" />
+    <File Path="docs/guide/engine/remesh-debug-dumps.md" />
+    <File Path="docs/guide/engine/replicating-behaviour-state.md" />
+    <File Path="docs/guide/engine/retopology.md" />
+    <File Path="docs/guide/engine/round-trip-and-jitter.md" />
+    <File Path="docs/guide/engine/smoothing-received-motion.md" />
+    <File Path="docs/guide/engine/splines.md" />
+    <File Path="docs/guide/engine/swimming.md" />
+    <File Path="docs/guide/engine/terrain-brushes.md" />
+    <File Path="docs/guide/engine/terrain-collision.md" />
+    <File Path="docs/guide/engine/terrain-heightfield.md" />
+    <File Path="docs/guide/engine/terrain-painting.md" />
+    <File Path="docs/guide/engine/terrain-sculpting.md" />
+    <File Path="docs/guide/engine/unity-migration.md" />
+    <File Path="docs/guide/engine/uv-charting.md" />
+    <File Path="docs/guide/engine/uv-flattening.md" />
+    <File Path="docs/guide/engine/uv-packing.md" />
+    <File Path="docs/guide/engine/uv-stacking.md" />
+    <File Path="docs/guide/engine/uv-texel-density.md" />
+    <File Path="docs/guide/engine/water-surface.md" />
+    <File Path="docs/guide/engine/world-serialisation.md" />
+  </Folder>
+
+  <Folder Name="/docs/guide/gameplay/">
+    <File Path="docs/guide/gameplay/ai.md" />
+    <File Path="docs/guide/gameplay/attributes.md" />
+    <File Path="docs/guide/gameplay/chat.md" />
+    <File Path="docs/guide/gameplay/collections.md" />
+    <File Path="docs/guide/gameplay/combat.md" />
+    <File Path="docs/guide/gameplay/definitions.md" />
+    <File Path="docs/guide/gameplay/dynamic-events.md" />
+    <File Path="docs/guide/gameplay/economy.md" />
+    <File Path="docs/guide/gameplay/effects.md" />
+    <File Path="docs/guide/gameplay/events.md" />
+    <File Path="docs/guide/gameplay/housing.md" />
+    <File Path="docs/guide/gameplay/instances.md" />
+    <File Path="docs/guide/gameplay/interaction.md" />
+    <File Path="docs/guide/gameplay/inventory.md" />
+    <File Path="docs/guide/gameplay/items.md" />
+    <File Path="docs/guide/gameplay/loot-editor.md" />
+    <File Path="docs/guide/gameplay/loot.md" />
+    <File Path="docs/guide/gameplay/modules.md" />
+    <File Path="docs/guide/gameplay/movement.md" />
+    <File Path="docs/guide/gameplay/progression.md" />
+    <File Path="docs/guide/gameplay/pvp.md" />
+    <File Path="docs/guide/gameplay/quest-editor.md" />
+    <File Path="docs/guide/gameplay/quests.md" />
+    <File Path="docs/guide/gameplay/randomness.md" />
+    <File Path="docs/guide/gameplay/requirements.md" />
+    <File Path="docs/guide/gameplay/shooting.md" />
+    <File Path="docs/guide/gameplay/social.md" />
+    <File Path="docs/guide/gameplay/tags.md" />
+    <File Path="docs/guide/gameplay/travel.md" />
+  </Folder>
+
+  <Folder Name="/docs/guide/live/">
+    <File Path="docs/guide/live/admission-and-health.md" />
+    <File Path="docs/guide/live/durable-state.md" />
+    <File Path="docs/guide/live/gameplay-bridge.md" />
+    <File Path="docs/guide/live/matchmaking.md" />
+    <File Path="docs/guide/live/placing-players.md" />
+    <File Path="docs/guide/live/placing-realms.md" />
+    <File Path="docs/guide/live/shards-and-specs.md" />
+    <File Path="docs/guide/live/the-cluster.md" />
+    <File Path="docs/guide/live/the-live-verbs.md" />
+    <File Path="docs/guide/live/the-service-plane.md" />
+    <File Path="docs/guide/live/transfer-tickets.md" />
+    <File Path="docs/guide/live/transferring-players.md" />
+    <File Path="docs/guide/live/upgrading-a-fleet.md" />
+    <File Path="docs/guide/live/writing-a-realm.md" />
+  </Folder>
+
+  <Folder Name="/docs/guide/raven/">
+    <File Path="docs/guide/raven/compiled-artefacts.md" />
+    <File Path="docs/guide/raven/compiling-a-shader.md" />
+    <File Path="docs/guide/raven/ir.md" />
+    <File Path="docs/guide/raven/library-ir.md" />
+    <File Path="docs/guide/raven/shader-reflection.md" />
+    <File Path="docs/guide/raven/symbols.md" />
+    <File Path="docs/guide/raven/syntax.md" />
+  </Folder>
+
+  <Folder Name="/docs/guide/rendering/">
+    <File Path="docs/guide/rendering/async-compute.md" />
+    <File Path="docs/guide/rendering/blend-shapes.md" />
+    <File Path="docs/guide/rendering/capturing-a-frame.md" />
+    <File Path="docs/guide/rendering/choosing-a-frame.md" />
+    <File Path="docs/guide/rendering/device-deny-list.md" />
+    <File Path="docs/guide/rendering/diagnostic-overlays.md" />
+    <File Path="docs/guide/rendering/foliage-rendering.md" />
+    <File Path="docs/guide/rendering/global-illumination.md" />
+    <File Path="docs/guide/rendering/grass-rendering.md" />
+    <File Path="docs/guide/rendering/impostors.md" />
+    <File Path="docs/guide/rendering/instance-culling.md" />
+    <File Path="docs/guide/rendering/lit-path.md" />
+    <File Path="docs/guide/rendering/lod-groups.md" />
+    <File Path="docs/guide/rendering/look-profiles.md" />
+    <File Path="docs/guide/rendering/mesh-and-material.md" />
+    <File Path="docs/guide/rendering/msaa.md" />
+    <File Path="docs/guide/rendering/particles.md" />
+    <File Path="docs/guide/rendering/physical-lighting.md" />
+    <File Path="docs/guide/rendering/post-process-volumes.md" />
+    <File Path="docs/guide/rendering/post-processing.md" />
+    <File Path="docs/guide/rendering/ray-tracing.md" />
+    <File Path="docs/guide/rendering/reading-the-frame.md" />
+    <File Path="docs/guide/rendering/render-quality.md" />
+    <File Path="docs/guide/rendering/shadows.md" />
+    <File Path="docs/guide/rendering/smaa.md" />
+    <File Path="docs/guide/rendering/standard-frame.md" />
+    <File Path="docs/guide/rendering/terrain-rendering.md" />
+    <File Path="docs/guide/rendering/texture-streaming.md" />
+    <File Path="docs/guide/rendering/timing-the-frame.md" />
+    <File Path="docs/guide/rendering/volumetric-fog.md" />
+  </Folder>
+
+  <Folder Name="/docs/guide/ui/">
+    <File Path="docs/guide/ui/accessibility.md" />
+    <File Path="docs/guide/ui/ambient-values.md" />
+    <File Path="docs/guide/ui/application-bars.md" />
+    <File Path="docs/guide/ui/async-loading.md" />
+    <File Path="docs/guide/ui/background-tasks.md" />
+    <File Path="docs/guide/ui/box-alignment.md" />
+    <File Path="docs/guide/ui/cascade-layers.md" />
+    <File Path="docs/guide/ui/clipboard.md" />
+    <File Path="docs/guide/ui/commands.md" />
+    <File Path="docs/guide/ui/compositing.md" />
+    <File Path="docs/guide/ui/containment.md" />
+    <File Path="docs/guide/ui/cursors.md" />
+    <File Path="docs/guide/ui/date-picker.md" />
+    <File Path="docs/guide/ui/desktop-application.md" />
+    <File Path="docs/guide/ui/diagnostics-overlay.md" />
+    <File Path="docs/guide/ui/diagnostics-panel.md" />
+    <File Path="docs/guide/ui/dialogs.md" />
+    <File Path="docs/guide/ui/docking-panels.md" />
+    <File Path="docs/guide/ui/document-diagnostics.md" />
+    <File Path="docs/guide/ui/documents.md" />
+    <File Path="docs/guide/ui/drag-and-drop.md" />
+    <File Path="docs/guide/ui/exit-animations.md" />
+    <File Path="docs/guide/ui/floats.md" />
+    <File Path="docs/guide/ui/form.md" />
+    <File Path="docs/guide/ui/gauge.md" />
+    <File Path="docs/guide/ui/generated-content.md" />
+    <File Path="docs/guide/ui/gradients.md" />
+    <File Path="docs/guide/ui/grid-layout.md" />
+    <File Path="docs/guide/ui/group-box.md" />
+    <File Path="docs/guide/ui/inline-layout.md" />
+    <File Path="docs/guide/ui/key-value-list.md" />
+    <File Path="docs/guide/ui/labeled-content.md" />
+    <File Path="docs/guide/ui/level-indicator.md" />
+    <File Path="docs/guide/ui/markup-panels.md" />
+    <File Path="docs/guide/ui/markup-project-setup.md" />
+    <File Path="docs/guide/ui/media-queries.md" />
+    <File Path="docs/guide/ui/pointer-devices.md" />
+    <File Path="docs/guide/ui/reactive-collections.md" />
+    <File Path="docs/guide/ui/section.md" />
+    <File Path="docs/guide/ui/secure-text-input.md" />
+    <File Path="docs/guide/ui/shortcut-formatting.md" />
+    <File Path="docs/guide/ui/split-view.md" />
+    <File Path="docs/guide/ui/stepper.md" />
+    <File Path="docs/guide/ui/strings.md" />
+    <File Path="docs/guide/ui/stylesheet-diagnostics.md" />
+    <File Path="docs/guide/ui/tables.md" />
+    <File Path="docs/guide/ui/text-decoration.md" />
+    <File Path="docs/guide/ui/text-input.md" />
+    <File Path="docs/guide/ui/text-transform.md" />
+    <File Path="docs/guide/ui/text-wrapping.md" />
+    <File Path="docs/guide/ui/touch-action.md" />
+    <File Path="docs/guide/ui/tutorial.md" />
+    <File Path="docs/guide/ui/undo.md" />
+    <File Path="docs/guide/ui/utility-composition.md" />
+  </Folder>
+
+  <Folder Name="/docs/manual/">
+    <File Path="docs/manual/building-a-game-and-a-server.md" />
+    <File Path="docs/manual/diagnostic-codes.md" />
+    <File Path="docs/manual/log-events.md" />
+    <File Path="docs/manual/third-party.md" />
+  </Folder>
+
+  <Folder Name="/docs/plan/">
     <File Path="docs/plan/README.md" />
     <File Path="docs/plan/00-vision-and-principles.md" />
     <File Path="docs/plan/01-technology-decisions.md" />
@@ -37,8 +394,75 @@
     <File Path="docs/plan/16-networking.md" />
     <File Path="docs/plan/17-app-heads-and-shipping.md" />
     <File Path="docs/plan/18-raven-parser-migration.md" />
-    <File Path="docs/plan/spikes/web-webgl2/RESULT.md" />
+    <File Path="docs/plan/19-lighting-and-global-illumination.md" />
+    <File Path="docs/plan/20-editor-parity.md" />
+    <File Path="docs/plan/21-realtime-collaboration.md" />
+    <File Path="docs/plan/22-virtualized-geometry.md" />
+    <File Path="docs/plan/23-bindless-materials.md" />
+    <File Path="docs/plan/24-blockout-tools.md" />
+    <File Path="docs/plan/25-documentation-generator-and-site.md" />
+    <File Path="docs/plan/26-virtual-cameras.md" />
+    <File Path="docs/plan/27-mmo-framework.md" />
+    <File Path="docs/plan/28-gameplay-framework.md" />
+    <File Path="docs/plan/29-players-and-possession.md" />
+    <File Path="docs/plan/30-post-processing-parity.md" />
+    <File Path="docs/plan/31-terrain-grass-and-trees.md" />
+    <File Path="docs/plan/32-post-process-volumes.md" />
+    <File Path="docs/plan/33-character-creator.md" />
+    <File Path="docs/plan/34-move-sets-and-pose-constraints.md" />
+    <File Path="docs/plan/35-water.md" />
+    <File Path="docs/plan/36-an-extensible-editor.md" />
+    <File Path="docs/plan/37-ai-behaviour-trees-utility-and-goap.md" />
+    <File Path="docs/plan/38-learned-terrain-generation.md" />
+    <File Path="docs/plan/39-standard-frame-and-render-presets.md" />
+    <File Path="docs/plan/40-ai-assisted-material-generation.md" />
+    <File Path="docs/plan/41-automatic-retopology.md" />
+    <File Path="docs/plan/42-uv-unwrapping.md" />
+    <File Path="docs/plan/43-web-styling-parity.md" />
+    <File Path="docs/plan/43-web-styling-parity.tsv" />
+    <File Path="docs/plan/43-web-styling-unlisted.txt" />
+    <File Path="docs/plan/43-web-styling-variants-unsupported.txt" />
+    <File Path="docs/plan/44-lore-integration.md" />
+    <File Path="docs/plan/45-commands-and-focus-scope.md" />
+    <File Path="docs/plan/46-what-an-application-needs.md" />
+    <File Path="docs/plan/47-prefab-overrides-and-nested-prefabs.md" />
+    <File Path="docs/plan/48-material-authoring.md" />
+    <File Path="docs/plan/49-responder-chain-and-appkit-parity.md" />
+    <File Path="docs/plan/50-the-editor-as-bounded-contexts.md" />
+    <File Path="docs/plan/tailwind-registry.json" />
+  </Folder>
+
+  <Folder Name="/docs/plan/spikes/" />
+
+  <Folder Name="/docs/plan/spikes/docs-graph/">
+    <File Path="docs/plan/spikes/docs-graph/Program.cs" />
+    <File Path="docs/plan/spikes/docs-graph/RESULT.md" />
+  </Folder>
+
+  <Folder Name="/docs/plan/spikes/text-glyph-outlines/">
+    <File Path="docs/plan/spikes/text-glyph-outlines/Probe.cs" />
+    <File Path="docs/plan/spikes/text-glyph-outlines/RESULT.md" />
+  </Folder>
+
+  <Folder Name="/docs/plan/spikes/text-harfbuzz/">
+    <File Path="docs/plan/spikes/text-harfbuzz/Probe.cs" />
+    <File Path="docs/plan/spikes/text-harfbuzz/RESULT.md" />
+  </Folder>
+
+  <Folder Name="/docs/plan/spikes/vcss-excss/">
+    <File Path="docs/plan/spikes/vcss-excss/Probe.cs" />
     <File Path="docs/plan/spikes/vcss-excss/RESULT.md" />
+  </Folder>
+
+  <Folder Name="/docs/plan/spikes/web-head/">
+    <File Path="docs/plan/spikes/web-head/RESULT.md" />
+  </Folder>
+
+  <Folder Name="/docs/plan/spikes/web-webgl2/">
+    <File Path="docs/plan/spikes/web-webgl2/index.html" />
+    <File Path="docs/plan/spikes/web-webgl2/main.js" />
+    <File Path="docs/plan/spikes/web-webgl2/Program.cs" />
+    <File Path="docs/plan/spikes/web-webgl2/RESULT.md" />
   </Folder>
 
   <!--
@@ -747,35 +1171,42 @@
     <File Path="Testing/Vixen.Testing.props" />
     <File Path="Testing/Measured.cs" />
   </Folder>
-  <Project Path="Samples/01-HelloTriangle/HelloTriangle.csproj" />
-  <Project Path="Samples/02-HelloUi/HelloUi.csproj" />
-  <Project Path="Samples/02-HelloUi/HelloUi.Tests/HelloUi.Tests.csproj" />
-  <Project Path="Samples/03-PbrShowcase/PbrShowcase.csproj" />
-  <Project Path="Samples/03-PbrShowcase/PbrShowcase.Frame.Tests/PbrShowcase.Frame.Tests.csproj" />
-  <Project Path="Samples/04-EcsStressTest/EcsStressTest.csproj" />
-  <Project Path="Samples/07-AddressablesRemote/AddressablesRemote.csproj" />
-  <Project Path="Samples/08-Multiplayer/Multiplayer.csproj" />
-  <Project Path="Samples/09-NetworkSoak/NetworkSoak.csproj" />
-  <Project Path="Samples/10-VoiceChat/VoiceChat.csproj" />
-  <Project Path="Samples/11-VideoPlayback/VideoPlayback.csproj" />
-  <Project Path="Samples/12-VirtualGeometry/VirtualGeometry.csproj" />
-  <Project Path="Samples/13-ThirdPersonShooter/ThirdPersonShooter.csproj" />
-  <Project Path="Samples/13-ThirdPersonShooter/ThirdPersonShooter.Frame.Tests/ThirdPersonShooter.Frame.Tests.csproj" />
-  <Project Path="Samples/15-AiVillage/AiVillage.csproj" />
-  <Project Path="Samples/15-AiVillage/AiVillage.Agent.Tests/AiVillage.Agent.Tests.csproj" />
-  <Project Path="Samples/14-Mmo/Mmo.Contracts/Mmo.Contracts.csproj" />
-  <Project Path="Samples/14-Mmo/Mmo.Shared/Mmo.Shared.csproj" />
-  <Project Path="Samples/14-Mmo/Mmo.Cluster/Mmo.Cluster.csproj" />
-  <Project Path="Samples/14-Mmo/Mmo.Realm/Mmo.Realm.csproj" />
-  <Project Path="Samples/14-Mmo/Mmo.Gate/Mmo.Gate.csproj" />
-  <Project Path="Samples/14-Mmo/Mmo.Orchestrator/Mmo.Orchestrator.csproj" />
-  <Project Path="Samples/14-Mmo/Mmo.Client/Mmo.Client.csproj" />
-  <Project Path="Samples/14-Mmo/Mmo.Ui/Mmo.Ui.csproj" />
-  <Project Path="Samples/14-Mmo/Mmo.Content.Tests/Mmo.Content.Tests.csproj" />
-  <Project Path="Samples/14-Mmo/Mmo.Realm.Tests/Mmo.Realm.Tests.csproj" />
-  <Project Path="Samples/14-Mmo/Mmo.Ui.Tests/Mmo.Ui.Tests.csproj" />
-  <Project Path="Samples/14-Mmo/Mmo.Soak/Mmo.Soak.csproj" />
-  <Project Path="Samples/14-Mmo/Mmo.Content.Authoring/Mmo.Content.Authoring.csproj" />
 
+  <!--
+    Samples — each the proof for one part of the plan. 01-HelloTriangle.Android and .iOS are
+    deliberately absent, for the same reason as Vixen.Platform.Android and .iOS: they need a
+    workload to evaluate, and `nuke CompileMobile` builds them.
+  -->
+  <Folder Name="/Samples/">
+    <Project Path="Samples/01-HelloTriangle/HelloTriangle.csproj" />
+    <Project Path="Samples/02-HelloUi/HelloUi.csproj" />
+    <Project Path="Samples/02-HelloUi/HelloUi.Tests/HelloUi.Tests.csproj" />
+    <Project Path="Samples/03-PbrShowcase/PbrShowcase.csproj" />
+    <Project Path="Samples/03-PbrShowcase/PbrShowcase.Frame.Tests/PbrShowcase.Frame.Tests.csproj" />
+    <Project Path="Samples/04-EcsStressTest/EcsStressTest.csproj" />
+    <Project Path="Samples/07-AddressablesRemote/AddressablesRemote.csproj" />
+    <Project Path="Samples/08-Multiplayer/Multiplayer.csproj" />
+    <Project Path="Samples/09-NetworkSoak/NetworkSoak.csproj" />
+    <Project Path="Samples/10-VoiceChat/VoiceChat.csproj" />
+    <Project Path="Samples/11-VideoPlayback/VideoPlayback.csproj" />
+    <Project Path="Samples/12-VirtualGeometry/VirtualGeometry.csproj" />
+    <Project Path="Samples/13-ThirdPersonShooter/ThirdPersonShooter.csproj" />
+    <Project Path="Samples/13-ThirdPersonShooter/ThirdPersonShooter.Frame.Tests/ThirdPersonShooter.Frame.Tests.csproj" />
+    <Project Path="Samples/15-AiVillage/AiVillage.csproj" />
+    <Project Path="Samples/15-AiVillage/AiVillage.Agent.Tests/AiVillage.Agent.Tests.csproj" />
+    <Project Path="Samples/14-Mmo/Mmo.Contracts/Mmo.Contracts.csproj" />
+    <Project Path="Samples/14-Mmo/Mmo.Shared/Mmo.Shared.csproj" />
+    <Project Path="Samples/14-Mmo/Mmo.Cluster/Mmo.Cluster.csproj" />
+    <Project Path="Samples/14-Mmo/Mmo.Realm/Mmo.Realm.csproj" />
+    <Project Path="Samples/14-Mmo/Mmo.Gate/Mmo.Gate.csproj" />
+    <Project Path="Samples/14-Mmo/Mmo.Orchestrator/Mmo.Orchestrator.csproj" />
+    <Project Path="Samples/14-Mmo/Mmo.Client/Mmo.Client.csproj" />
+    <Project Path="Samples/14-Mmo/Mmo.Ui/Mmo.Ui.csproj" />
+    <Project Path="Samples/14-Mmo/Mmo.Content.Tests/Mmo.Content.Tests.csproj" />
+    <Project Path="Samples/14-Mmo/Mmo.Realm.Tests/Mmo.Realm.Tests.csproj" />
+    <Project Path="Samples/14-Mmo/Mmo.Ui.Tests/Mmo.Ui.Tests.csproj" />
+    <Project Path="Samples/14-Mmo/Mmo.Soak/Mmo.Soak.csproj" />
+    <Project Path="Samples/14-Mmo/Mmo.Content.Authoring/Mmo.Content.Authoring.csproj" />
+  </Folder>
 
 </Solution>
