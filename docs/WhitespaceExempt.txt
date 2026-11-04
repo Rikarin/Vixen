@@ -393,12 +393,12 @@ Editor/Vixen.Editor.AssetEditors/Importing/TexturePreview.cs
 Editor/Vixen.Editor.AssetEditors/Sequencing/SequenceView.cs
 Editor/Vixen.Editor.AssetEditors/Vfx/VfxPreviewView.cs
 Editor/Vixen.Editor.Assets.Tests/EveryAttributedImporterTests.cs
-Editor/Vixen.Editor.Assets.Tests/ModelGeometryIslandTests.cs
+Tools/Vixen.Interchange.Tests/ModelGeometryIslandTests.cs
 Editor/Vixen.Editor.Assets.Tests/ModelRetopologyTests.cs
 Editor/Vixen.Editor.Assets.Tests/SpriteSlicerTests.cs
 Editor/Vixen.Editor.Assets/Content/ContentPipeline.cs
-Editor/Vixen.Editor.Assets/Models/ModelGeometry.cs
-Editor/Vixen.Editor.Assets/Models/ModelWriter.cs
+Tools/Vixen.Interchange/ModelGeometry.cs
+Tools/Vixen.Interchange/ModelWriter.cs
 Editor/Vixen.Editor.Blockout/BlockoutCubeGrid.cs
 Editor/Vixen.Editor.Blockout/BlockoutSelection.cs
 Editor/Vixen.Editor.Core.Tests/EditPipelineTests.cs

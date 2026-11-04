@@ -30,7 +30,6 @@ Editor/Vixen.Editor.Assets/BuiltInImporters.cs .vxfont 1
 Editor/Vixen.Editor.Assets/BuiltInImporters.cs .vxseq 1
 Editor/Vixen.Editor.Assets/Compositors/CompositorImporter.cs .vxcompositor 1 pipeline-owned (#1499): the import writes Vixen.Rendering's GraphicsCompositorAsset, the frame the renderer reads, so the importer stays in BuiltInImporters
 Editor/Vixen.Editor.Assets/EditorOnlyImporter.cs .vxlayers 1
-Editor/Vixen.Editor.Assets/EditorOnlyImporter.cs .vxtexgraph 1
 Editor/Vixen.Editor.Assets/Materials/MaterialImporter.cs .vxmat 1
 Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.adapter 1
 Editor/Vixen.Editor.Assets/Materials/MaterialProvenance.cs texturing.at 1
