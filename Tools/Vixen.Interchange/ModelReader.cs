@@ -11,6 +11,7 @@ using AssimpNode = Silk.NET.Assimp.Node;
 using AssimpScene = Silk.NET.Assimp.Scene;
 using NumericsMatrix = System.Numerics.Matrix4x4;
 using NumericsVector = System.Numerics.Vector3;
+using NumericsVector4 = System.Numerics.Vector4;
 
 namespace Vixen.Interchange;
 
@@ -28,7 +29,25 @@ public sealed record ReadModel(
     MeshData[] Meshes,
     SkeletonData? Skeleton,
     AnimationClipData[] Animations
-);
+) {
+    /// <summary>What each of <see cref="ModelData.Materials" /> says about its surface, in the same order.</summary>
+    /// <remarks>
+    ///     Beside the record's positional members rather than among them, so that nothing that
+    ///     deconstructs a <see cref="ReadModel" /> changes. <see cref="ModelData" /> stays a list of
+    ///     names, because a model asset binds its slots to material assets and a factor in a file is
+    ///     not one of those. A viewer with no material assets reads the file's own answer here.
+    /// </remarks>
+    public ModelMaterialFactors[] MaterialFactors { get; init; } = [];
+}
+
+/// <summary>The metallic-roughness factors one material in a file asks for.</summary>
+/// <param name="BaseColor">The linear base colour, with alpha.</param>
+/// <param name="Metallic">How metallic it is, from 0 to 1.</param>
+/// <param name="Roughness">Its perceptual roughness, from 0 to 1.</param>
+public readonly record struct ModelMaterialFactors(Vector4 BaseColor, float Metallic, float Roughness) {
+    /// <summary>What a material that names none of the factors gets: glTF's own defaults.</summary>
+    public static ModelMaterialFactors Default => new(new(1f, 1f, 1f, 1f), 1f, 1f);
+}
 
 /// <summary>Reads a model file through Assimp and converts what comes out into engine data.</summary>
 /// <remarks>
@@ -193,11 +212,13 @@ public static class ModelReader {
         Flatten(scene->MRootNode, parent: -1, name, settings.Scale, nodes, world, parts, scene);
 
         var materials = new string[scene->MNumMaterials];
+        var factors = new ModelMaterialFactors[scene->MNumMaterials];
 
         for (var index = 0u; index < scene->MNumMaterials; index++) {
             AssimpString material = default;
             assimp.GetMaterialString(scene->MMaterials[index], AssimpApi.MaterialNameBase, 0, 0, ref material);
             materials[index] = material.AsString;
+            factors[index] = Factors(assimp, scene->MMaterials[index]);
         }
 
         var joints = Joints(scene, settings.Scale);
@@ -230,7 +251,40 @@ public static class ModelReader {
             Bounds = Bounds(meshes, parts, world)
         };
 
-        return new(model, meshes, skeleton, animations);
+        return new(model, meshes, skeleton, animations) { MaterialFactors = factors };
+    }
+
+    /// <summary>A material's metallic-roughness factors, from whichever keys its format fills.</summary>
+    /// <remarks>
+    ///     <c>$clr.base</c> is what glTF's importer writes. <c>$clr.diffuse</c> is the fallback for the
+    ///     formats that predate metallic-roughness, whose colour is still the right base colour; their
+    ///     metallic and roughness have no equivalent, so those keep glTF's defaults rather than a
+    ///     guess converted from a specular exponent.
+    /// </remarks>
+    static unsafe ModelMaterialFactors Factors(AssimpApi assimp, Silk.NET.Assimp.Material* material) {
+        var factors = ModelMaterialFactors.Default;
+        var colour = new NumericsVector4(1f, 1f, 1f, 1f);
+        var read = 4u;
+
+        if (assimp.GetMaterialFloatArray(material, "$clr.base", 0, 0, ref colour.X, ref read) == Return.Success
+            || assimp.GetMaterialColor(material, "$clr.diffuse", 0, 0, ref colour) == Return.Success) {
+            factors = factors with { BaseColor = new(colour.X, colour.Y, colour.Z, colour.W) };
+        }
+
+        var value = 0f;
+        var one = 1u;
+
+        if (assimp.GetMaterialFloatArray(material, "$mat.metallicFactor", 0, 0, ref value, ref one) == Return.Success) {
+            factors = factors with { Metallic = value };
+        }
+
+        one = 1u;
+
+        if (assimp.GetMaterialFloatArray(material, "$mat.roughnessFactor", 0, 0, ref value, ref one) == Return.Success) {
+            factors = factors with { Roughness = value };
+        }
+
+        return factors;
     }
 
     /// <summary>Walks the node tree into a flat array, parents before children.</summary>

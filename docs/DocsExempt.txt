@@ -1239,6 +1239,7 @@ T:Vixen.Editor.Assets.Models.ModelCompiler sweep-pending
 T:Vixen.Interchange.ModelFormatException sweep-pending
 T:Vixen.Editor.Assets.Models.ModelImportSettings sweep-pending
 T:Vixen.Editor.Assets.Models.ModelImporter sweep-pending
+T:Vixen.Interchange.ModelMaterialFactors sweep-pending
 T:Vixen.Interchange.ModelReader sweep-pending
 T:Vixen.Interchange.ReadModel sweep-pending
 T:Vixen.Editor.Assets.NativeFormatImportSettings sweep-pending

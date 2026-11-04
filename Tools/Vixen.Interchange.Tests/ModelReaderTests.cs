@@ -30,6 +30,44 @@ public sealed class ModelReaderTests {
         Assert.False(mesh.IsSkinned);
     }
 
+    /// <summary>A viewer with no material assets reads the file's own metallic-roughness answer.</summary>
+    [Fact]
+    public void AGltfMaterialArrivesWithItsMetallicRoughnessFactors() {
+        var json = Encoding.UTF8.GetString(Gltf(0f, 0f, 0f))
+            .Replace(
+                "\"primitives\": [{ \"attributes\": { \"POSITION\": 0 }, \"indices\": 1 }]",
+                "\"primitives\": [{ \"attributes\": { \"POSITION\": 0 }, \"indices\": 1, \"material\": 0 }]",
+                StringComparison.Ordinal
+            )
+            .Replace(
+                "\"asset\": { \"version\": \"2.0\" },",
+                """
+                "asset": { "version": "2.0" },
+                "materials": [{
+                  "name": "Gold",
+                  "pbrMetallicRoughness": {
+                    "baseColorFactor": [1.0, 0.75, 0.25, 0.5],
+                    "metallicFactor": 0.8,
+                    "roughnessFactor": 0.3
+                  }
+                }],
+                """,
+                StringComparison.Ordinal
+            );
+
+        var read = ModelReader.Read(Encoding.UTF8.GetBytes(json), ".gltf", "Shape", Default);
+
+        // Through the mesh rather than Assert.Single: Assimp appends a default material of its own.
+        var material = read.Meshes[0].MaterialIndex;
+        Assert.Equal("Gold", read.Model.Materials[material]);
+        Assert.Equal(read.Model.Materials.Length, read.MaterialFactors.Length);
+
+        var factors = read.MaterialFactors[material];
+        Assert.Equal(new Vector4(1f, 0.75f, 0.25f, 0.5f), factors.BaseColor);
+        Assert.Equal(0.8f, factors.Metallic, 3);
+        Assert.Equal(0.3f, factors.Roughness, 3);
+    }
+
     [Fact]
     public void TheModelNamesItsPartsRatherThanNumberingThem() {
         var read = ModelReader.Read(Obj(Triangle), ".obj", "Shape", Default);
