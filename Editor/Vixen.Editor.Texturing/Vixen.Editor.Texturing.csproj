@@ -28,7 +28,7 @@
             `SmartMaterial.Install` is what writes them onto a project's shelf, and it is called from
             `TexturingModule.Activate`.
         -->
-        <EmbeddedResource Include="SmartMaterials\**\*.vxsmartmat" />
+        
     </ItemGroup>
 
     <ItemGroup>
@@ -73,6 +73,7 @@
             third party. The `[Node]` classes stay `internal`.
         -->
         <ProjectReference Include="..\..\Tools\Vixen.TextureGraph\Vixen.TextureGraph.csproj" />
+        <ProjectReference Include="..\..\Tools\Vixen.Texturing\Vixen.Texturing.csproj" />
         <ProjectReference Include="..\Vixen.Editor.TextureGraph\Vixen.Editor.TextureGraph.csproj" />
 
         <!--

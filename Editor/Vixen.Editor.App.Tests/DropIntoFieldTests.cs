@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Geometry;
 using Vixen.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.Inspector.Drawers;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
+using Vixen.Geometry;
 using Vixen.Rendering.Ecs;
 using Vixen.Ui;
 using Xunit;

@@ -1,13 +1,13 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Geometry;
 using Vixen.Animation;
 using Vixen.Animation.Constraints;
 using Vixen.Core;
 using Vixen.Core.Curves;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
+using Vixen.Geometry;
 using Vixen.Rendering;
 
 namespace Vixen.Editor.Assets.Animation;

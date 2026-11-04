@@ -1,13 +1,13 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Interchange;
 using System.Collections.Immutable;
 using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Gameplay;
 using Vixen.Gameplay;
+using Vixen.Interchange;
 using Vixen.Samples.Mmo.Rules;
 
 namespace Vixen.Samples.Mmo.Content.Tests;

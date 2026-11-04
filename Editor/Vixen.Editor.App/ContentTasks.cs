@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Interchange;
 using System.Collections.Concurrent;
 using System.Globalization;
 using Vixen.Core;
@@ -12,6 +11,7 @@ using Vixen.Editor.Core;
 using Vixen.Editor.Ui;
 using Vixen.Geometry;
 using Vixen.Geometry.Remeshing;
+using Vixen.Interchange;
 using Vixen.Ui;
 
 namespace Vixen.Editor.App;

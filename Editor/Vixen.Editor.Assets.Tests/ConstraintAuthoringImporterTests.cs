@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Interchange;
 using Vixen.Animation;
 using Vixen.Animation.Constraints;
 using Vixen.Core;
@@ -10,6 +9,7 @@ using Vixen.Core.Reflection;
 using Vixen.Core.Serialization;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Animation;
+using Vixen.Interchange;
 using Xunit;
 
 namespace Tests;

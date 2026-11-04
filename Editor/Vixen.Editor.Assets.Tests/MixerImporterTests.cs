@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Interchange;
 using Vixen.Audio;
 using Vixen.Audio.Assets;
 using Vixen.Audio.Devices;
@@ -10,6 +9,7 @@ using Vixen.Core.IO;
 using Vixen.Core.Serialization;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Audio;
+using Vixen.Interchange;
 using Xunit;
 
 namespace Tests;

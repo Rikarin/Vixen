@@ -8,6 +8,7 @@ using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Ui;
 using Vixen.Editor.Ui.Documents;
 using Vixen.Graphics;
+using Vixen.Texturing.Layers;
 using Vixen.Ui;
 using Vixen.Ui.Styling;
 using Xunit;

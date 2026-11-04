@@ -15,6 +15,8 @@ using Vixen.Editor.Ui.Documents;
 using Vixen.Graphics;
 using Vixen.Rendering.Ecs;
 using Vixen.TextureGraph;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 
 namespace Vixen.Editor.Texturing;
 
@@ -1161,7 +1163,7 @@ public sealed partial class TexturingModule : IEditorPlugin, ITexturing, IDispos
     ///         still here and why its position no longer matters.
     ///     </para>
     /// </remarks>
-    void Recorded(IEditorCommand command) {
+    void Recorded(IAuthoringCommand command) {
         if (stack is null || surface is null) {
             return;
         }

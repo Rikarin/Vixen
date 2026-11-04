@@ -5,6 +5,8 @@ using Vixen.Core.Yaml;
 using Vixen.Editor.Assets.Materials;
 using Vixen.Rendering.Materials;
 using Vixen.TextureGraph;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;

@@ -5,6 +5,7 @@ using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.Models;
 using Vixen.Editor.Texturing.Layers;
+using Vixen.Texturing.Layers;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;

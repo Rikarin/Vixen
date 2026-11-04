@@ -3,6 +3,9 @@
 
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using Vixen.Texturing;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -41,6 +44,13 @@ public class TexturingDiagnosticIdTests {
     static string Here([CallerFilePath] string path = "") => path;
 
     /// <summary>The production project's directory, beside this test project's.</summary>
+    static string HeadlessSources() =>
+        Path.Combine(
+            Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(Here())!)!)!,
+            "Tools",
+            "Vixen.Texturing"
+        );
+
     static string Sources() =>
         Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(Here())!)!, "Vixen.Editor.Texturing");
 
@@ -56,7 +66,8 @@ public class TexturingDiagnosticIdTests {
     ///     <c>AssetEditorDiagnosticIdTests</c> is where the same walk is not hypothetical.
     /// </remarks>
     static (string Name, string Text)[] Production() =>
-        Directory.GetFiles(Sources(), "*.*", SearchOption.AllDirectories)
+        new[] { Sources(), HeadlessSources() }
+            .SelectMany(static directory => Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
             .Where(path => path.EndsWith(".cs", StringComparison.Ordinal)
                 || path.EndsWith(".vxml", StringComparison.Ordinal))
             .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",

@@ -3,6 +3,8 @@
 
 using Vixen.Core.Imaging;
 using Vixen.Editor.Texturing.Painting;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 
 namespace Vixen.Editor.Texturing;
 

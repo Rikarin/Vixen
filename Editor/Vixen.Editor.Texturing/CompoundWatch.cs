@@ -1,6 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Texturing;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
+
 namespace Vixen.Editor.Texturing;
 
 /// <summary>Whether the node library a document published has been overtaken by a compound.</summary>

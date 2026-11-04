@@ -4,6 +4,8 @@
 using Vixen.Core.Imaging;
 using Vixen.Editor.Texturing.Painting;
 using Vixen.Graphics;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;

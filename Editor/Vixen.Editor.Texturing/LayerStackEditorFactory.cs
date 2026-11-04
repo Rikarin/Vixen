@@ -4,6 +4,7 @@
 using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Ui.Documents;
+using Vixen.Texturing.Layers;
 using Vixen.Ui;
 
 namespace Vixen.Editor.Texturing;

@@ -4,6 +4,8 @@
 using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Painting;
 using Vixen.Input;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Xunit;

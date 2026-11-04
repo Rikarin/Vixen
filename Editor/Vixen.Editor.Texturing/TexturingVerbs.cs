@@ -6,6 +6,8 @@ using Vixen.Core.Yaml;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
 using Vixen.Editor.Ui;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 
 namespace Vixen.Editor.Texturing;
 

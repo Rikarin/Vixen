@@ -3,6 +3,8 @@
 
 using Vixen.Graphics;
 using Vixen.TextureGraph;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 
 namespace Vixen.Editor.Texturing.Tests;
 

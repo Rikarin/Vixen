@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
+
 namespace Vixen.Editor.Texturing;
 
 /// <summary>Doc 48's texturing verbs, as a service: what the Tools menu runs and a plugin can call.</summary>

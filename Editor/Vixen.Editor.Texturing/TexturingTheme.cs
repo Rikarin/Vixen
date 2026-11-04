@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 using Vixen.Ui.Styling;
 
 namespace Vixen.Editor.Texturing;

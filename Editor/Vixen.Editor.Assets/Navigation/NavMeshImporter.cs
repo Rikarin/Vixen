@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Interchange;
-using Vixen.Geometry;
 using System.Globalization;
 using Vixen.Core;
 using Vixen.Core.IO;
@@ -10,6 +8,8 @@ using Vixen.Core.Mathematics;
 using Vixen.Core.Serialization;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Assets.Models;
+using Vixen.Geometry;
+using Vixen.Interchange;
 using Vixen.Navigation;
 using Vixen.Navigation.Baking;
 using Vixen.Rendering;

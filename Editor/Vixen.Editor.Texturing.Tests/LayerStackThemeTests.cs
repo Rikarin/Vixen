@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Editor.Texturing.Layers;
+using Vixen.Texturing.Layers;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Styling;

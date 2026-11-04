@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Interchange;
-using Vixen.Geometry;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml.Meta;
@@ -10,8 +8,12 @@ using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.Models;
 using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Painting;
+using Vixen.Geometry;
+using Vixen.Interchange;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 
 namespace Vixen.Editor.Texturing.Layers;
 

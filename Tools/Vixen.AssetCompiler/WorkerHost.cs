@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Interchange;
 using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Core.Serialization;
@@ -12,6 +11,7 @@ using Vixen.Editor.ShaderGraph;
 using Vixen.Editor.Terrain;
 using Vixen.Editor.VfxGraph;
 using Vixen.Editor.Water;
+using Vixen.Interchange;
 
 namespace Vixen.AssetCompiler;
 

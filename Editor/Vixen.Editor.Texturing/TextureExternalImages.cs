@@ -1,14 +1,16 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Interchange;
 using System.Collections.Immutable;
 using Vixen.Core.Imaging;
 using Vixen.Editor.Assets.Textures;
 using Vixen.Editor.Core;
 using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Painting;
+using Vixen.Interchange;
 using Vixen.TextureGraph;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 
 namespace Vixen.Editor.Texturing;
 

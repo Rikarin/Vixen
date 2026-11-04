@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Geometry;
 using Vixen.Animation;
 using Vixen.Animation.Constraints;
 using Vixen.Animation.Ecs;
@@ -12,9 +11,9 @@ using Vixen.Editor.AssetEditors;
 using Vixen.Editor.AssetEditors.Animation;
 using Vixen.Editor.Core;
 using Vixen.Editor.Testing;
+using Vixen.Geometry;
 using Vixen.Rendering;
 using Xunit;
-
 using ShapeKind = Vixen.Animation.Constraints.ShapeKind;
 
 namespace Vixen.Editor.App.Tests;

@@ -4,6 +4,8 @@
 using System.Collections;
 using System.Reflection;
 using Vixen.Editor.Texturing.Layers;
+using Vixen.Texturing;
+using Vixen.Texturing.Layers;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -296,7 +298,7 @@ public class LayerStackShapeTests {
                     continue;
                 }
 
-                if (element.Namespace?.StartsWith("Vixen.Editor.Texturing", StringComparison.Ordinal) == true) {
+                if (element.Namespace?.StartsWith("Vixen.Texturing", StringComparison.Ordinal) == true) {
                     Walk(element, seen, refused);
 
                     continue;
@@ -307,7 +309,7 @@ public class LayerStackShapeTests {
                 continue;
             }
 
-            if (member.Namespace?.StartsWith("Vixen.Editor.Texturing", StringComparison.Ordinal) == true) {
+            if (member.Namespace?.StartsWith("Vixen.Texturing", StringComparison.Ordinal) == true) {
                 Walk(member, seen, refused);
 
                 continue;

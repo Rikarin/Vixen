@@ -5,6 +5,8 @@ using System.Globalization;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Plugin;
 using Vixen.NodeGraph;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;

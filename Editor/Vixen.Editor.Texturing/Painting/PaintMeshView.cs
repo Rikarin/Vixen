@@ -5,6 +5,8 @@ using Vixen.Authoring;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 using Vixen.Input;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -267,7 +269,7 @@ sealed class PaintMeshView {
     public Action? Reverted { get; set; }
 
     /// <summary>Told at pointer-up what the drag was, for a caller to put on the undo stack.</summary>
-    public Action<IEditorCommand>? Finished { get; set; }
+    public Action<IAuthoringCommand>? Finished { get; set; }
 
     /// <summary>Told there is a whole new picture, for a caller to upload.</summary>
     /// <remarks>

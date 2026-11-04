@@ -5,6 +5,8 @@ using Vixen.Authoring;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 using Vixen.Input;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 
@@ -288,7 +290,7 @@ sealed class PaintUvView {
     ///     Not raised for a drag that painted nothing — <see cref="PaintSession.End" /> answers null
     ///     for one, and pushing an empty entry makes the artist's next undo do nothing visible.
     /// </remarks>
-    public Action<IEditorCommand>? Finished { get; set; }
+    public Action<IAuthoringCommand>? Finished { get; set; }
 
     /// <summary>Puts a picture and a sentence in the pane.</summary>
     /// <param name="image">The renderer's name for the texture, or zero for none.</param>

@@ -5,6 +5,8 @@ using Vixen.Core.Imaging;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.TextureGraph;
 using Vixen.TextureGraph;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 
 namespace Vixen.Editor.Texturing;
 

@@ -3,6 +3,8 @@
 
 using System.Runtime.CompilerServices;
 using Vixen.Build;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;

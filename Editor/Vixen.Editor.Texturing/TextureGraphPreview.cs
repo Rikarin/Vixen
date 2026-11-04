@@ -7,6 +7,8 @@ using Vixen.Editor.Plugin;
 using Vixen.Graphics;
 using Vixen.NodeGraph;
 using Vixen.TextureGraph;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 
 namespace Vixen.Editor.Texturing;
 
@@ -106,7 +108,7 @@ sealed class TextureGraphPreview : IDisposable {
 
     readonly IEditorGraphics graphics;
     readonly TextureEvaluatorLease evaluators;
-    readonly Painting.PaintCanvasStore canvases;
+    readonly global::Vixen.Texturing.Painting.PaintCanvasStore canvases;
 
     IEditorImage? shown;
 
@@ -124,7 +126,7 @@ sealed class TextureGraphPreview : IDisposable {
     public TextureGraphPreview(
         IEditorGraphics graphics,
         TextureEvaluatorLease evaluators,
-        Painting.PaintCanvasStore canvases
+        global::Vixen.Texturing.Painting.PaintCanvasStore canvases
     ) {
         ArgumentNullException.ThrowIfNull(graphics);
         ArgumentNullException.ThrowIfNull(evaluators);

@@ -8,6 +8,8 @@ using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
 using Vixen.Editor.Ui;
 using Vixen.Input;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 using Xunit;
@@ -590,7 +592,7 @@ public class PaintUvViewTests {
         PaintUvView view = new(host, tool);
 
         PaintImage layer = new(128, 128);
-        List<IEditorCommand> entries = [];
+        List<IAuthoringCommand> entries = [];
 
         tool.SetRadius(3f);
         view.Target = () => new(layer, PaintCoverage.Everywhere(128, 128), new EmptyStack(128), Gutter: 0);
@@ -654,7 +656,7 @@ public class PaintUvViewTests {
         PaintUvView view = new(host, tool);
 
         PaintImage layer = new(64, 64);
-        List<IEditorCommand> entries = [];
+        List<IAuthoringCommand> entries = [];
 
         tool.SetRadius(2f);
         view.Target = () => new(layer, PaintCoverage.Everywhere(64, 64), new EmptyStack(64), Gutter: 0);
@@ -850,13 +852,13 @@ public class PaintUvViewTests {
     /// <param name="layer">The canvas a laid path paints into.</param>
     /// <param name="entries">Where a laid path's undo entry goes.</param>
     /// <returns>The view.</returns>
-    static PaintUvView Pen(TexturingFixture fixture, out PaintImage layer, out List<IEditorCommand> entries) {
+    static PaintUvView Pen(TexturingFixture fixture, out PaintImage layer, out List<IAuthoringCommand> entries) {
         var host = fixture.ThemedHost();
         PaintTool tool = new() { Mode = PaintToolMode.Path };
         PaintUvView view = new(host, tool);
 
         PaintImage canvas = new(128, 128);
-        List<IEditorCommand> laid = [];
+        List<IAuthoringCommand> laid = [];
 
         tool.SetRadius(3f);
         view.Target = () => new(canvas, PaintCoverage.Everywhere(128, 128), new EmptyStack(128), Gutter: 0);

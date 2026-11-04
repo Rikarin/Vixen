@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Interchange;
 using Vixen.Animation.Moves;
 using Vixen.Core;
 using Vixen.Core.IO;
@@ -10,6 +9,7 @@ using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Animation;
 using Vixen.Editor.Assets.Compositors;
 using Vixen.Editor.Assets.Materials;
+using Vixen.Interchange;
 using Vixen.Rendering.Materials;
 using Xunit;
 

@@ -6,6 +6,8 @@ using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.NodeGraph;
 using Vixen.TextureGraph;
+using Vixen.Texturing;
+using Vixen.Texturing.Layers;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Xunit;

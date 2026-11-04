@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Core;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -37,7 +39,7 @@ public class TexturingClaimTests {
         // layer inside one had to apply it to a scratch stack, edit there and save over it.
         Assert.True(
             fixture.Editors.TryGetForFile(
-                "Assets/" + Layers.SmartMaterial.ShelfFolder + "/Rust" + Layers.SmartMaterial.Extension,
+                "Assets/" + global::Vixen.Texturing.Layers.SmartMaterial.ShelfFolder + "/Rust" + global::Vixen.Texturing.Layers.SmartMaterial.Extension,
                 out var shelf
             )
         );
@@ -53,7 +55,7 @@ public class TexturingClaimTests {
         Assert.Equal(
             [
                 Layers.LayerStackDocument.Extension,
-                Layers.SmartMaterial.Extension,
+                global::Vixen.Texturing.Layers.SmartMaterial.Extension,
                 TextureGraphDocument.Extension
             ],
             fixture.Editors.Kinds

@@ -9,6 +9,9 @@ using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
 using Vixen.NodeGraph;
 using Vixen.TextureGraph;
+using Vixen.Texturing;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 
 namespace Vixen.Editor.Texturing;
 
@@ -22,7 +25,7 @@ namespace Vixen.Editor.Texturing;
 ///     why this exists</b> — <a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>. It
 ///     carries the plan and the diagnostics and drops <c>TextureGraphCompiler.Outputs</c> and
 ///     <c>.Externals</c> on the floor, so a caller had the ops and no way to know which image is the
-///     base colour or which bitmap wants a file. <see cref="Vixen.Editor.Texturing.Layers.LayerStackCompilation" /> is this same
+///     base colour or which bitmap wants a file. <see cref="global::Vixen.Texturing.Layers.LayerStackCompilation" /> is this same
 ///     shape one type over, and for the same reason.
 /// </remarks>
 sealed record TextureGraphCompilation(

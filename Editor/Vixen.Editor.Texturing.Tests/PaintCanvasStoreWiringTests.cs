@@ -4,6 +4,7 @@
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Ui;
+using Vixen.Texturing.Layers;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 using Xunit;
@@ -107,7 +108,7 @@ public class PaintCanvasStoreWiringTests {
 
         using var stream = File.OpenRead(file);
 
-        Assert.NotEqual(0u, Vixen.Editor.Texturing.Painting.PaintCanvas.Read(stream).Channel("baseColor").At(16, 16));
+        Assert.NotEqual(0u, global::Vixen.Texturing.Painting.PaintCanvas.Read(stream).Channel("baseColor").At(16, 16));
     }
 
     /// <summary>⚠ And the map redraws with a stroke that is in no file, while the pointer is down.</summary>

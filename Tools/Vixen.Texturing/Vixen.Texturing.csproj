@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Texturing</RootNamespace>
+        <Description>
+            The headless half of material painting: the layer stack and the compiler that turns it into
+            a texture graph, smart materials, strokes, brushes and projection onto a mesh. Nothing here
+            draws: Vixen.Editor.Texturing is the panels over it.
+        </Description>
+        <PackageTags>texture;material;painting;vixen</PackageTags>
+        <!-- CA1711: a layer stack is a stack, and the word is the domain's. -->
+        <NoWarn>$(NoWarn);CA1051;CA1711</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <EmbeddedResource Include="SmartMaterials\**\*.vxsmartmat" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Authoring\Vixen.Authoring.csproj" />
+        <ProjectReference Include="..\Vixen.NodeGraph\Vixen.NodeGraph.csproj" />
+        <ProjectReference Include="..\Vixen.TextureGraph\Vixen.TextureGraph.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Geometry\Vixen.Geometry.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
+        <!-- The brush maths. Vixen.Terrain references Mathematics and Reflection and nothing that draws. -->
+        <ProjectReference Include="..\..\Core\Vixen.Terrain\Vixen.Terrain.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Texturing.Tests" />
+        <InternalsVisibleTo Include="Vixen.Editor.Texturing" />
+        <InternalsVisibleTo Include="Vixen.Editor.Texturing.Tests" />
+    </ItemGroup>
+
+</Project>

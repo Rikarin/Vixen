@@ -1,13 +1,13 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Interchange;
 using Vixen.Core;
 using Vixen.Core.Imaging;
 using Vixen.Core.Imaging.BlockCompression;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Serialization;
 using Vixen.Graphics;
+using Vixen.Interchange;
 using Vixen.Rendering.Sprites;
 
 namespace Vixen.Editor.Assets.Textures;

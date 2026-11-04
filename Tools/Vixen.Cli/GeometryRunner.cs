@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Interchange;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Assets.Models;
 using Vixen.Geometry;
 using Vixen.Geometry.Remeshing;
 using Vixen.Geometry.Uv;
+using Vixen.Interchange;
 using Vixen.Rendering;
 
 namespace Vixen.Cli;

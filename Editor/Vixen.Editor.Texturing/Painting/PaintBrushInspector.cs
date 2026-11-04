@@ -3,6 +3,8 @@
 
 using System.Globalization;
 using Vixen.Terrain;
+using Vixen.Texturing.Layers;
+using Vixen.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 

@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Geometry;
 using Vixen.Core;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Content;
@@ -9,6 +8,7 @@ using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.Inspector.Drawers;
 using Vixen.Editor.Ui;
+using Vixen.Geometry;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 

@@ -1,13 +1,13 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Interchange;
 using System.Globalization;
 using System.Text;
 using Vixen.Core.IO;
 using Vixen.Core.Serialization.Storage;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Core;
+using Vixen.Interchange;
 using Vixen.Testing;
 using Xunit;
 
