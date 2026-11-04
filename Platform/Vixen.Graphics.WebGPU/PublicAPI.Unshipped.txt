@@ -38,7 +38,6 @@ Vixen.Graphics.WebGPU.IWebGpuBinding.HasFeature(Vixen.Graphics.WebGPU.WgpuFeatur
 Vixen.Graphics.WebGPU.IWebGpuBinding.HasSurface.get -> bool
 Vixen.Graphics.WebGPU.IWebGpuBinding.Limits.get -> Vixen.Graphics.WebGPU.WebGpuLimits
 Vixen.Graphics.WebGPU.IWebGpuBinding.PreferredSurfaceFormat.get -> Vixen.Graphics.WebGPU.WgpuTextureFormat
-Vixen.Graphics.WebGPU.IWebGpuBinding.SurfaceUsages.get -> Vixen.Graphics.WebGPU.WgpuTextureUsage
 Vixen.Graphics.WebGPU.IWebGpuBinding.PresentSurface() -> void
 Vixen.Graphics.WebGPU.IWebGpuBinding.ReadBuffer(Vixen.Graphics.WebGPU.WebGpuObject buffer, long offset, System.Span<byte> destination) -> bool
 Vixen.Graphics.WebGPU.IWebGpuBinding.Release(Vixen.Graphics.WebGPU.WebGpuObjectKind kind, Vixen.Graphics.WebGPU.WebGpuObject handle) -> void
@@ -57,6 +56,7 @@ Vixen.Graphics.WebGPU.IWebGpuBinding.RenderPassSetStencilReference(Vixen.Graphic
 Vixen.Graphics.WebGPU.IWebGpuBinding.RenderPassSetVertexBuffer(Vixen.Graphics.WebGPU.WebGpuObject pass, uint slot, Vixen.Graphics.WebGPU.WebGpuObject buffer, long offset, long size) -> void
 Vixen.Graphics.WebGPU.IWebGpuBinding.RenderPassSetViewport(Vixen.Graphics.WebGPU.WebGpuObject pass, float x, float y, float width, float height, float minDepth, float maxDepth) -> void
 Vixen.Graphics.WebGPU.IWebGpuBinding.Submit(System.ReadOnlySpan<Vixen.Graphics.WebGPU.WebGpuObject> commands) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.SurfaceUsages.get -> Vixen.Graphics.WebGPU.WgpuTextureUsage
 Vixen.Graphics.WebGPU.IWebGpuBinding.Tick() -> void
 Vixen.Graphics.WebGPU.IWebGpuBinding.WaitIdle() -> bool
 Vixen.Graphics.WebGPU.IWebGpuBinding.WriteBuffer(Vixen.Graphics.WebGPU.WebGpuObject buffer, long offset, System.ReadOnlySpan<byte> data) -> void
@@ -101,7 +101,6 @@ Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.HasFeature(Vixen.Graphics.WebGP
 Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.HasSurface.get -> bool
 Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.Limits.get -> Vixen.Graphics.WebGPU.WebGpuLimits
 Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.PreferredSurfaceFormat.get -> Vixen.Graphics.WebGPU.WgpuTextureFormat
-Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.SurfaceUsages.get -> Vixen.Graphics.WebGPU.WgpuTextureUsage
 Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.PresentSurface() -> void
 Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.ReadBuffer(Vixen.Graphics.WebGPU.WebGpuObject buffer, long offset, System.Span<byte> destination) -> bool
 Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.Release(Vixen.Graphics.WebGPU.WebGpuObjectKind kind, Vixen.Graphics.WebGPU.WebGpuObject handle) -> void
@@ -120,6 +119,7 @@ Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.RenderPassSetStencilReference(V
 Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.RenderPassSetVertexBuffer(Vixen.Graphics.WebGPU.WebGpuObject pass, uint slot, Vixen.Graphics.WebGPU.WebGpuObject buffer, long offset, long size) -> void
 Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.RenderPassSetViewport(Vixen.Graphics.WebGPU.WebGpuObject pass, float x, float y, float width, float height, float minDepth, float maxDepth) -> void
 Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.Submit(System.ReadOnlySpan<Vixen.Graphics.WebGPU.WebGpuObject> commands) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.SurfaceUsages.get -> Vixen.Graphics.WebGPU.WgpuTextureUsage
 Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.Tick() -> void
 Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.WaitIdle() -> bool
 Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.WriteBuffer(Vixen.Graphics.WebGPU.WebGpuObject buffer, long offset, System.ReadOnlySpan<byte> data) -> void

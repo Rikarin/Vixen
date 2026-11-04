@@ -25,8 +25,8 @@ Vixen.Animation.AnimationClipContent.Bake(Vixen.Animation.Skeleton skeleton, Vix
 Vixen.Animation.AnimationClipContent.Bake(Vixen.Animation.Skeleton skeleton, string? rootJoint = null) -> Vixen.Animation.AnimationClip
 Vixen.Animation.AnimationClipContent.Constraints.get -> System.Collections.Generic.List<Vixen.Animation.Constraints.ConstraintTagRecord>
 Vixen.Animation.AnimationClipContent.Constraints.set -> System.Collections.Generic.List<Vixen.Animation.Constraints.ConstraintTagRecord>
-Vixen.Animation.AnimationClipContent.Data.get -> Vixen.Rendering.AnimationClipData
-Vixen.Animation.AnimationClipContent.Data.set -> Vixen.Rendering.AnimationClipData
+Vixen.Animation.AnimationClipContent.Data.get -> Vixen.Geometry.AnimationClipData
+Vixen.Animation.AnimationClipContent.Data.set -> Vixen.Geometry.AnimationClipData
 Vixen.Animation.AnimationClipContent.Events.get -> Vixen.Animation.AnimationEvent[]
 Vixen.Animation.AnimationClipContent.Events.set -> Vixen.Animation.AnimationEvent[]
 Vixen.Animation.AnimationClipContent.Extensions.get -> System.Collections.Generic.Dictionary<string, string>
@@ -2392,11 +2392,11 @@ required Vixen.Animation.Constraints.ProxyShape.Kind.init -> Vixen.Animation.Con
 required Vixen.Animation.Constraints.ProxyShape.Name.get -> Vixen.Core.Symbol
 required Vixen.Animation.Constraints.ProxyShape.Name.init -> Vixen.Core.Symbol
 static Vixen.Animation.AnimationClip.Advance(float time, float delta, Vixen.Animation.WrapMode mode, float length, out int loops) -> float
-static Vixen.Animation.AnimationClip.Create(Vixen.Rendering.AnimationClipData data, Vixen.Animation.Skeleton skeleton, System.Collections.Generic.IEnumerable<Vixen.Animation.AnimationEvent>? events = null, string? rootJoint = null, Vixen.Animation.Constraints.ConstraintTrack? constraints = null) -> Vixen.Animation.AnimationClip
+static Vixen.Animation.AnimationClip.Create(Vixen.Geometry.AnimationClipData data, Vixen.Animation.Skeleton skeleton, System.Collections.Generic.IEnumerable<Vixen.Animation.AnimationEvent>? events = null, string? rootJoint = null, Vixen.Animation.Constraints.ConstraintTrack? constraints = null) -> Vixen.Animation.AnimationClip
 static Vixen.Animation.AnimationClipCache.Forget(Vixen.Animation.AnimationClipContent content) -> bool
 static Vixen.Animation.AnimationClipCache.Get(Vixen.Animation.AnimationClipContent content, Vixen.Animation.Skeleton skeleton, string? rootJoint = null) -> Vixen.Animation.AnimationClip
-static Vixen.Animation.AnimationCurveCompressor.Compress(Vixen.Rendering.AnimationClipData data) -> Vixen.Rendering.AnimationClipData
-static Vixen.Animation.AnimationCurveCompressor.Compress(Vixen.Rendering.AnimationClipData data, Vixen.Animation.CurveCompressionSettings settings, out Vixen.Animation.CurveCompressionReport report) -> Vixen.Rendering.AnimationClipData
+static Vixen.Animation.AnimationCurveCompressor.Compress(Vixen.Geometry.AnimationClipData data) -> Vixen.Geometry.AnimationClipData
+static Vixen.Animation.AnimationCurveCompressor.Compress(Vixen.Geometry.AnimationClipData data, Vixen.Animation.CurveCompressionSettings settings, out Vixen.Animation.CurveCompressionReport report) -> Vixen.Geometry.AnimationClipData
 static Vixen.Animation.BoneMask.Excluding(Vixen.Animation.Skeleton skeleton) -> Vixen.Animation.BoneMask.Builder
 static Vixen.Animation.BoneMask.Full(Vixen.Animation.Skeleton skeleton) -> Vixen.Animation.BoneMask
 static Vixen.Animation.BoneMask.Including(Vixen.Animation.Skeleton skeleton) -> Vixen.Animation.BoneMask.Builder
@@ -2540,8 +2540,8 @@ static Vixen.Animation.RootMotionDelta.Between(in Vixen.Animation.BoneTransform 
 static Vixen.Animation.RootMotionDelta.Chain(in Vixen.Animation.RootMotionDelta first, in Vixen.Animation.RootMotionDelta second) -> Vixen.Animation.RootMotionDelta
 static Vixen.Animation.RootMotionDelta.Lerp(in Vixen.Animation.RootMotionDelta from, in Vixen.Animation.RootMotionDelta to, float amount) -> Vixen.Animation.RootMotionDelta
 static Vixen.Animation.RootMotionDelta.None.get -> Vixen.Animation.RootMotionDelta
-static Vixen.Animation.Skeleton.Create(Vixen.Rendering.SkeletonData data) -> Vixen.Animation.Skeleton
-static Vixen.Animation.Skeleton.TryCreate(Vixen.Rendering.SkeletonData data, out Vixen.Animation.Skeleton? skeleton, out string? error) -> bool
+static Vixen.Animation.Skeleton.Create(Vixen.Geometry.SkeletonData data) -> Vixen.Animation.Skeleton
+static Vixen.Animation.Skeleton.TryCreate(Vixen.Geometry.SkeletonData data, out Vixen.Animation.Skeleton? skeleton, out string? error) -> bool
 static Vixen.Animation.SkeletonPose.ComputeLocalSpace(Vixen.Animation.Skeleton skeleton, System.ReadOnlySpan<Vixen.Animation.BoneTransform> model, System.Span<Vixen.Animation.BoneTransform> destination) -> void
 static Vixen.Animation.SkeletonPose.ComputeModelSpace(Vixen.Animation.Skeleton skeleton, System.ReadOnlySpan<Vixen.Animation.BoneTransform> local, System.Span<Vixen.Animation.BoneTransform> destination) -> void
 static Vixen.Animation.StateMachine.AnimationCondition.On(Vixen.Animation.AnimationParameters parameters, string parameter, Vixen.Animation.StateMachine.AnimationConditionMode mode, float threshold = 0) -> Vixen.Animation.StateMachine.AnimationCondition

@@ -12,8 +12,27 @@ Vixen.Core.Imaging.Bitmap.Width.get -> int
 Vixen.Core.Imaging.Bitmap.Width.init -> int
 Vixen.Core.Imaging.BlockCompression.BlockCompressor -> static class
 Vixen.Core.Imaging.BrdfLut -> static class
+Vixen.Core.Imaging.CubeFace -> enum : int
+Vixen.Core.Imaging.CubeFace.CubeFace() -> void
+Vixen.Core.Imaging.CubeFace.NegativeX = 1 -> Vixen.Core.Imaging.CubeFace
+Vixen.Core.Imaging.CubeFace.NegativeY = 3 -> Vixen.Core.Imaging.CubeFace
+Vixen.Core.Imaging.CubeFace.NegativeZ = 5 -> Vixen.Core.Imaging.CubeFace
+Vixen.Core.Imaging.CubeFace.PositiveX = 0 -> Vixen.Core.Imaging.CubeFace
+Vixen.Core.Imaging.CubeFace.PositiveY = 2 -> Vixen.Core.Imaging.CubeFace
+Vixen.Core.Imaging.CubeFace.PositiveZ = 4 -> Vixen.Core.Imaging.CubeFace
+Vixen.Core.Imaging.CubeImage -> sealed class
+Vixen.Core.Imaging.CubeImage.At(Vixen.Core.Imaging.CubeFace face, int x, int y) -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Imaging.CubeImage.CubeImage(int size) -> void
+Vixen.Core.Imaging.CubeImage.DirectionOf(Vixen.Core.Imaging.CubeFace face, int x, int y) -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Imaging.CubeImage.Face(Vixen.Core.Imaging.CubeFace face) -> System.Span<Vixen.Core.Mathematics.Vector3>
+Vixen.Core.Imaging.CubeImage.Pixels.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3>
+Vixen.Core.Imaging.CubeImage.Sample(Vixen.Core.Mathematics.Vector3 direction) -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Imaging.CubeImage.Size.get -> int
+Vixen.Core.Imaging.CubeImage.SolidAngleOf(int x, int y) -> float
 Vixen.Core.Imaging.CubeMap -> static class
+Vixen.Core.Imaging.CubeMapping -> static class
 Vixen.Core.Imaging.DataFormatDescriptor -> static class
+Vixen.Core.Imaging.EnvironmentBaker -> static class
 Vixen.Core.Imaging.EnvironmentPrefilter -> static class
 Vixen.Core.Imaging.Ktx2 -> static class
 Vixen.Core.Imaging.Ktx2Exception -> sealed class
@@ -134,6 +153,7 @@ static Vixen.Core.Imaging.BlockCompression.BlockCompressor.IsHighDynamicRange(Vi
 static Vixen.Core.Imaging.BrdfLut.Generate(int size = 128, int samples = 1024) -> Vixen.Core.Imaging.TextureData
 static Vixen.Core.Imaging.BrdfLut.Integrate(float cosine, float roughness, int samples) -> (float Scale, float Bias)
 static Vixen.Core.Imaging.BrdfLut.Read(Vixen.Core.Imaging.TextureData table, int x, int y) -> (float Scale, float Bias)
+static Vixen.Core.Imaging.CubeImage.Uniform(int size, Vixen.Core.Mathematics.Vector3 radiance) -> Vixen.Core.Imaging.CubeImage
 static Vixen.Core.Imaging.CubeMap.DirectionOf(int face, float u, float v) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Core.Imaging.CubeMap.DirectionOfTexel(int face, int x, int y, int size) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Core.Imaging.CubeMap.FaceOf(Vixen.Core.Mathematics.Vector3 direction) -> (int Face, float U, float V)
@@ -142,7 +162,14 @@ static Vixen.Core.Imaging.CubeMap.Require(Vixen.Core.Imaging.TextureData cube, s
 static Vixen.Core.Imaging.CubeMap.Sample(Vixen.Core.Imaging.TextureData cube, int level, Vixen.Core.Mathematics.Vector3 direction) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Core.Imaging.CubeMap.SolidAngleOfTexel(int x, int y, int size) -> float
 static Vixen.Core.Imaging.CubeMap.WriteTexel(Vixen.Core.Imaging.TextureData cube, int level, int face, int x, int y, Vixen.Core.Mathematics.Vector3 radiance) -> void
+static Vixen.Core.Imaging.CubeMapping.Cube(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Imaging.CubeFace face, float range, float near = 0.05) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Core.Imaging.CubeMapping.CubeAxes(Vixen.Core.Imaging.CubeFace face) -> (Vixen.Core.Mathematics.Vector3 Forward, Vixen.Core.Mathematics.Vector3 Up)
+static Vixen.Core.Imaging.CubeMapping.Direction(Vixen.Core.Imaging.CubeFace face, float u, float v) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Imaging.CubeMapping.Locate(Vixen.Core.Mathematics.Vector3 direction) -> (Vixen.Core.Imaging.CubeFace Face, float U, float V)
+static Vixen.Core.Imaging.CubeMapping.SolidAngle(float u, float v, float size) -> float
 static Vixen.Core.Imaging.DataFormatDescriptor.Build(Vixen.Graphics.PixelFormat format) -> byte[]
+static Vixen.Core.Imaging.EnvironmentBaker.Prefilter(Vixen.Core.Imaging.CubeImage source, int mipCount, int samples = 64) -> Vixen.Core.Imaging.CubeImage[]
+static Vixen.Core.Imaging.EnvironmentBaker.RoughnessOf(int mip, int mipCount) -> float
 static Vixen.Core.Imaging.EnvironmentPrefilter.RoughnessOf(int level, int levelCount) -> float
 static Vixen.Core.Imaging.EnvironmentPrefilter.Specular(Vixen.Core.Imaging.TextureData cube, int levelCount = 0, int samples = 128) -> Vixen.Core.Imaging.TextureData
 static Vixen.Core.Imaging.Ktx2.Identifier.get -> System.ReadOnlySpan<byte>
@@ -180,3 +207,4 @@ static Vixen.Core.Imaging.SphericalHarmonicsL2.Project(Vixen.Core.Imaging.Textur
 static Vixen.Core.Imaging.VkFormats.From(Vixen.Graphics.PixelFormat format) -> uint
 static Vixen.Core.Imaging.VkFormats.Supported.get -> System.Collections.Generic.IEnumerable<Vixen.Graphics.PixelFormat>
 static Vixen.Core.Imaging.VkFormats.To(uint vkFormat) -> Vixen.Graphics.PixelFormat
+static readonly Vixen.Core.Imaging.CubeMapping.Faces -> Vixen.Core.Imaging.CubeFace[]

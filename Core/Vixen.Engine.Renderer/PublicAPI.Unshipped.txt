@@ -25,7 +25,7 @@ Vixen.Engine.Renderer.AssetMeshSource.AssetMeshSource(Vixen.Assets.AssetManager 
 Vixen.Engine.Renderer.AssetMeshSource.Failed.get -> int
 Vixen.Engine.Renderer.AssetMeshSource.Loaded.get -> int
 Vixen.Engine.Renderer.AssetMeshSource.Requested.get -> int
-Vixen.Engine.Renderer.AssetMeshSource.TryGet(Vixen.Core.AssetReference reference, out Vixen.Rendering.MeshData mesh) -> bool
+Vixen.Engine.Renderer.AssetMeshSource.TryGet(Vixen.Core.AssetReference reference, out Vixen.Geometry.MeshData mesh) -> bool
 Vixen.Engine.Renderer.AssetTerrainSource -> sealed class
 Vixen.Engine.Renderer.AssetTerrainSource : Vixen.Rendering.Terrain.ITerrainAssetSource
 Vixen.Engine.Renderer.AssetTerrainSource.AssetTerrainSource(Vixen.Assets.AssetManager assets) -> void

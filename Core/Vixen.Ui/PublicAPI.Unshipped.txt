@@ -1688,7 +1688,6 @@ Vixen.Ui.UiDocument.Reparent(Vixen.Ui.UiElement element, Vixen.Ui.UiElement pare
 Vixen.Ui.UiDocument.RequestClose(Vixen.Ui.UiCloseReason reason = Vixen.Ui.UiCloseReason.Quit) -> bool
 Vixen.Ui.UiDocument.Resize(Vixen.Ui.UiSurface surface, float width, float height, float dpiScale) -> void
 Vixen.Ui.UiDocument.Resize(float width, float height) -> void
-Vixen.Ui.UiDocument.Unload(int sheet) -> void
 Vixen.Ui.UiDocument.Restyler.get -> Vixen.Ui.Styling.StyleUpdater
 Vixen.Ui.UiDocument.Root.get -> Vixen.Ui.UiElement
 Vixen.Ui.UiDocument.RootFontSize.get -> float
@@ -1715,6 +1714,7 @@ Vixen.Ui.UiDocument.TryInject<T>(out T? value) -> bool
 Vixen.Ui.UiDocument.UiDocument(float width, float height, float rootFontSize = 16, Microsoft.Extensions.Logging.ILogger? logger = null) -> void
 Vixen.Ui.UiDocument.UndoManager.get -> Vixen.Ui.IUndoManager?
 Vixen.Ui.UiDocument.UndoManager.set -> Vixen.Ui.IUndoManager?
+Vixen.Ui.UiDocument.Unload(int sheet) -> void
 Vixen.Ui.UiDocument.Unprovide<T>() -> bool
 Vixen.Ui.UiDocument.Update() -> bool
 Vixen.Ui.UiDocument.Viewport.get -> Vixen.Ui.LengthContext

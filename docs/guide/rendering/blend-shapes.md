@@ -4,7 +4,7 @@ slug: rendering/blend-shapes
 kind: concept
 area: Rendering
 summary: Sparse quantised vertex deltas, imported off a mesh's morph targets and applied by a compute pre-pass into a per-instance vertex buffer — or, for a virtualized mesh, gathered per vertex where a page is decoded — so that every pass agrees about where a vertex is, driven by hand, by an imported clip, or by a weight curve typed into a .vxanim.
-api: [T:Vixen.Rendering.MorphTargetData, T:Vixen.Rendering.MorphKernel, T:Vixen.Rendering.MorphIndex, T:Vixen.Rendering.Features.MorphRenderFeature, T:Vixen.Rendering.Features.MorphInstance, T:Vixen.Rendering.Ecs.BlendShapeWeights, T:Vixen.Rendering.Ecs.MorphWeightSystem, T:Vixen.Animation.MorphWeightBuffer, T:Vixen.Animation.AnimationClipContent, T:Vixen.Animation.Ecs.BlendShapeAnimationSystem, R:Pipeline/MorphScatter]
+api: [T:Vixen.Geometry.MorphTargetData, T:Vixen.Rendering.MorphKernel, T:Vixen.Rendering.MorphIndex, T:Vixen.Rendering.Features.MorphRenderFeature, T:Vixen.Rendering.Features.MorphInstance, T:Vixen.Rendering.Ecs.BlendShapeWeights, T:Vixen.Rendering.Ecs.MorphWeightSystem, T:Vixen.Animation.MorphWeightBuffer, T:Vixen.Animation.AnimationClipContent, T:Vixen.Animation.Ecs.BlendShapeAnimationSystem, R:Pipeline/MorphScatter]
 tags: [rendering, animation, meshes, characters, morph-targets]
 since: 0.2
 status: preview

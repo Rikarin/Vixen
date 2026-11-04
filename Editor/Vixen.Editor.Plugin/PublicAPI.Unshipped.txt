@@ -35,20 +35,20 @@ Vixen.Editor.Plugin.EditorSubmenuAttribute.Title.get -> string
 Vixen.Editor.Plugin.EditorSubmenuAttribute.Title.init -> string
 Vixen.Editor.Plugin.IContributionScanner -> interface
 Vixen.Editor.Plugin.IContributionScanner.Scan(Vixen.Editor.Plugin.PluginContext context, System.Reflection.Assembly assembly) -> void
-Vixen.Editor.Plugin.IEffectSourceProvider -> interface
-Vixen.Editor.Plugin.IEffectSourceProvider.Collect(string assets, System.Collections.Generic.ICollection<(string Path, string Text)> sources, System.Collections.Generic.ICollection<string> refusals) -> void
 Vixen.Editor.Plugin.IEditorGraphics -> interface
 Vixen.Editor.Plugin.IEditorGraphics.Device.get -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Editor.Plugin.IEditorGraphics.Frame.get -> Vixen.Graphics.GpuFrame
+Vixen.Editor.Plugin.IEditorGraphics.Show(Vixen.Graphics.TextureViewHandle view) -> Vixen.Editor.Plugin.IEditorImage?
 Vixen.Editor.Plugin.IEditorGraphics.SurfaceChanged -> System.Action?
 Vixen.Editor.Plugin.IEditorGraphics.Update(Vixen.Editor.Plugin.IEditorImage image, int x, int y, int width, int height, System.ReadOnlySpan<byte> rgba) -> bool
-Vixen.Editor.Plugin.IEditorGraphics.Show(Vixen.Graphics.TextureViewHandle view) -> Vixen.Editor.Plugin.IEditorImage?
 Vixen.Editor.Plugin.IEditorGraphics.Upload(int width, int height, System.ReadOnlySpan<byte> rgba) -> Vixen.Editor.Plugin.IEditorImage?
 Vixen.Editor.Plugin.IEditorImage -> interface
 Vixen.Editor.Plugin.IEditorImage : System.IDisposable
 Vixen.Editor.Plugin.IEditorImage.Height.get -> int
 Vixen.Editor.Plugin.IEditorImage.Image.get -> ulong
 Vixen.Editor.Plugin.IEditorImage.Width.get -> int
+Vixen.Editor.Plugin.IEffectSourceProvider -> interface
+Vixen.Editor.Plugin.IEffectSourceProvider.Collect(string assets, System.Collections.Generic.ICollection<(string Path, string Text)> sources, System.Collections.Generic.ICollection<string> refusals) -> void
 Vixen.Editor.Plugin.LoadedPlugin -> sealed class
 Vixen.Editor.Plugin.LoadedPlugin.Descriptor.get -> Vixen.Editor.Plugin.PluginDescriptor
 Vixen.Editor.Plugin.LoadedPlugin.Failure.get -> System.Exception?
@@ -65,6 +65,7 @@ Vixen.Editor.Plugin.PluginCatalog.Find(string id) -> Vixen.Editor.Plugin.PluginD
 Vixen.Editor.Plugin.PluginCatalog.PluginCatalog(System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDescriptor> Plugins, System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDiagnostic> Diagnostics) -> void
 Vixen.Editor.Plugin.PluginCatalog.Plugins.get -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDescriptor>
 Vixen.Editor.Plugin.PluginCatalog.Plugins.init -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDescriptor>
+Vixen.Editor.Plugin.PluginContext.AddSearchSource(Vixen.Editor.Ui.IPaletteSource source) -> Vixen.Editor.Ui.IPaletteSource
 Vixen.Editor.Plugin.PluginContext.OnFrame(System.Action<Vixen.Graphics.IGraphicsDevice> record) -> void
 Vixen.Editor.Plugin.PluginDescriptor -> sealed record
 Vixen.Editor.Plugin.PluginDescriptor : System.IEquatable<Vixen.Editor.Plugin.PluginDescriptor>
@@ -172,4 +173,3 @@ static Vixen.Editor.Plugin.EditorApi.Version.get -> System.Version
 static Vixen.Editor.Plugin.PluginCatalog.Empty.get -> Vixen.Editor.Plugin.PluginCatalog
 static Vixen.Editor.Plugin.PluginDiscovery.Scan(params System.Collections.Generic.IEnumerable<string> roots) -> Vixen.Editor.Plugin.PluginCatalog
 static Vixen.Editor.Plugin.PluginReport.Empty.get -> Vixen.Editor.Plugin.PluginReport
-Vixen.Editor.Plugin.PluginContext.AddSearchSource(Vixen.Editor.Ui.IPaletteSource source) -> Vixen.Editor.Ui.IPaletteSource

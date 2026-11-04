@@ -461,8 +461,10 @@ Vixen.Ui.Styling.StyleEngine.ContainerScopes.get -> Vixen.Ui.Styling.ContainerSc
 Vixen.Ui.Styling.StyleEngine.Containers.get -> Vixen.Ui.Styling.ContainerConditions
 Vixen.Ui.Styling.StyleEngine.InlineStyles.get -> Vixen.Ui.Styling.InlineStyleStore
 Vixen.Ui.Styling.StyleEngine.Interning.get -> Vixen.Ui.Styling.ComputedStyleCache
+Vixen.Ui.Styling.StyleEngine.IsRemoved(int sheet) -> bool
 Vixen.Ui.Styling.StyleEngine.Keyframes.get -> Vixen.Ui.Styling.KeyframesTable
 Vixen.Ui.Styling.StyleEngine.Load(string css, Vixen.Ui.Styling.StyleOrigin origin = Vixen.Ui.Styling.StyleOrigin.Author, Vixen.Ui.Styling.MediaContext? media = null) -> int
+Vixen.Ui.Styling.StyleEngine.LoadedSheetCount.get -> int
 Vixen.Ui.Styling.StyleEngine.Loader.get -> Vixen.Ui.Styling.StyleSheetLoader
 Vixen.Ui.Styling.StyleEngine.Matcher.get -> Vixen.Ui.Styling.SelectorMatcher
 Vixen.Ui.Styling.StyleEngine.Media.get -> Vixen.Ui.Styling.MediaContext
@@ -470,11 +472,9 @@ Vixen.Ui.Styling.StyleEngine.Names.get -> Vixen.Ui.Styling.NameTable
 Vixen.Ui.Styling.StyleEngine.Preprocessor.get -> System.Func<string, string>?
 Vixen.Ui.Styling.StyleEngine.Preprocessor.set -> System.Func<string, string>?
 Vixen.Ui.Styling.StyleEngine.Properties.get -> Vixen.Ui.Styling.NameTable
-Vixen.Ui.Styling.StyleEngine.IsRemoved(int sheet) -> bool
-Vixen.Ui.Styling.StyleEngine.LoadedSheetCount.get -> int
 Vixen.Ui.Styling.StyleEngine.Reload() -> void
-Vixen.Ui.Styling.StyleEngine.Replace(int sheet, string css) -> void
 Vixen.Ui.Styling.StyleEngine.Remove(int sheet) -> void
+Vixen.Ui.Styling.StyleEngine.Replace(int sheet, string css) -> void
 Vixen.Ui.Styling.StyleEngine.ResolveAll() -> Vixen.Ui.Styling.ComputedStyle[]
 Vixen.Ui.Styling.StyleEngine.Resolver.get -> Vixen.Ui.Styling.StyleResolver
 Vixen.Ui.Styling.StyleEngine.Rules.get -> Vixen.Ui.Styling.StyleRuleSet

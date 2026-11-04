@@ -1,4 +1,36 @@
 #nullable enable
+Vixen.Geometry.AnimationChannel -> sealed record
+Vixen.Geometry.AnimationChannel : System.IEquatable<Vixen.Geometry.AnimationChannel>
+Vixen.Geometry.AnimationChannel.AnimationChannel() -> void
+Vixen.Geometry.AnimationChannel.PositionTimes.get -> float[]
+Vixen.Geometry.AnimationChannel.PositionTimes.set -> float[]
+Vixen.Geometry.AnimationChannel.Positions.get -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Geometry.AnimationChannel.Positions.set -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Geometry.AnimationChannel.RotationTimes.get -> float[]
+Vixen.Geometry.AnimationChannel.RotationTimes.set -> float[]
+Vixen.Geometry.AnimationChannel.Rotations.get -> Vixen.Core.Mathematics.Quaternion[]
+Vixen.Geometry.AnimationChannel.Rotations.set -> Vixen.Core.Mathematics.Quaternion[]
+Vixen.Geometry.AnimationChannel.ScaleTimes.get -> float[]
+Vixen.Geometry.AnimationChannel.ScaleTimes.set -> float[]
+Vixen.Geometry.AnimationChannel.Scales.get -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Geometry.AnimationChannel.Scales.set -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Geometry.AnimationChannel.Shape.get -> string
+Vixen.Geometry.AnimationChannel.Shape.set -> string
+Vixen.Geometry.AnimationChannel.Target.get -> string
+Vixen.Geometry.AnimationChannel.Target.set -> string
+Vixen.Geometry.AnimationChannel.WeightTimes.get -> float[]
+Vixen.Geometry.AnimationChannel.WeightTimes.set -> float[]
+Vixen.Geometry.AnimationChannel.Weights.get -> float[]
+Vixen.Geometry.AnimationChannel.Weights.set -> float[]
+Vixen.Geometry.AnimationClipData -> sealed record
+Vixen.Geometry.AnimationClipData : System.IEquatable<Vixen.Geometry.AnimationClipData>
+Vixen.Geometry.AnimationClipData.AnimationClipData() -> void
+Vixen.Geometry.AnimationClipData.Channels.get -> Vixen.Geometry.AnimationChannel[]
+Vixen.Geometry.AnimationClipData.Channels.set -> Vixen.Geometry.AnimationChannel[]
+Vixen.Geometry.AnimationClipData.Duration.get -> float
+Vixen.Geometry.AnimationClipData.Duration.set -> float
+Vixen.Geometry.AnimationClipData.Name.get -> string
+Vixen.Geometry.AnimationClipData.Name.set -> string
 Vixen.Geometry.BooleanOperation -> enum : byte
 Vixen.Geometry.BooleanOperation.BooleanOperation() -> void
 Vixen.Geometry.BooleanOperation.Difference = 1 -> Vixen.Geometry.BooleanOperation
@@ -50,6 +82,40 @@ Vixen.Geometry.KnifeCut.To.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Geometry.KnifeCut.To.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Geometry.MeshBoolean -> static class
 Vixen.Geometry.MeshCollision -> static class
+Vixen.Geometry.MeshData -> sealed record
+Vixen.Geometry.MeshData : System.IEquatable<Vixen.Geometry.MeshData>
+Vixen.Geometry.MeshData.BoneIndices.get -> int[]
+Vixen.Geometry.MeshData.BoneIndices.set -> int[]
+Vixen.Geometry.MeshData.BoneWeights.get -> float[]
+Vixen.Geometry.MeshData.BoneWeights.set -> float[]
+Vixen.Geometry.MeshData.Bounds.get -> Vixen.Core.Mathematics.BoundingBox
+Vixen.Geometry.MeshData.Bounds.set -> Vixen.Core.Mathematics.BoundingBox
+Vixen.Geometry.MeshData.ClusterPages.get -> Vixen.Core.AssetReference
+Vixen.Geometry.MeshData.ClusterPages.set -> Vixen.Core.AssetReference
+Vixen.Geometry.MeshData.Clusters.get -> Vixen.Core.AssetReference
+Vixen.Geometry.MeshData.Clusters.set -> Vixen.Core.AssetReference
+Vixen.Geometry.MeshData.Indices.get -> int[]
+Vixen.Geometry.MeshData.Indices.set -> int[]
+Vixen.Geometry.MeshData.IsClustered.get -> bool
+Vixen.Geometry.MeshData.IsMorphed.get -> bool
+Vixen.Geometry.MeshData.IsSkinned.get -> bool
+Vixen.Geometry.MeshData.MaterialIndex.get -> int
+Vixen.Geometry.MeshData.MaterialIndex.set -> int
+Vixen.Geometry.MeshData.MeshData() -> void
+Vixen.Geometry.MeshData.MorphTargets.get -> Vixen.Geometry.MorphTargetData[]
+Vixen.Geometry.MeshData.MorphTargets.set -> Vixen.Geometry.MorphTargetData[]
+Vixen.Geometry.MeshData.Name.get -> string
+Vixen.Geometry.MeshData.Name.set -> string
+Vixen.Geometry.MeshData.Normals.get -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Geometry.MeshData.Normals.set -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Geometry.MeshData.Positions.get -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Geometry.MeshData.Positions.set -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Geometry.MeshData.Tangents.get -> Vixen.Core.Mathematics.Vector4[]
+Vixen.Geometry.MeshData.Tangents.set -> Vixen.Core.Mathematics.Vector4[]
+Vixen.Geometry.MeshData.TexCoords.get -> Vixen.Core.Mathematics.Vector2[]
+Vixen.Geometry.MeshData.TexCoords.set -> Vixen.Core.Mathematics.Vector2[]
+Vixen.Geometry.MeshData.TriangleCount.get -> int
+Vixen.Geometry.MeshData.VertexCount.get -> int
 Vixen.Geometry.MeshEdge -> readonly struct
 Vixen.Geometry.MeshEdge : System.IEquatable<Vixen.Geometry.MeshEdge>
 Vixen.Geometry.MeshEdge.A.get -> int
@@ -138,8 +204,64 @@ Vixen.Geometry.MeshSelection.Union(System.Collections.Generic.IEnumerable<int> v
 Vixen.Geometry.MeshSelection.Validate(Vixen.Geometry.EditMesh mesh) -> bool
 Vixen.Geometry.MeshSelection.Version.get -> int
 Vixen.Geometry.MeshShapes -> static class
+Vixen.Geometry.MeshSimplifier -> static class
 Vixen.Geometry.MeshSurfaces -> static class
 Vixen.Geometry.MeshTopology -> static class
+Vixen.Geometry.ModelData -> sealed record
+Vixen.Geometry.ModelData : System.IEquatable<Vixen.Geometry.ModelData>
+Vixen.Geometry.ModelData.Animations.get -> string[]
+Vixen.Geometry.ModelData.Animations.set -> string[]
+Vixen.Geometry.ModelData.Bounds.get -> Vixen.Core.Mathematics.BoundingBox
+Vixen.Geometry.ModelData.Bounds.set -> Vixen.Core.Mathematics.BoundingBox
+Vixen.Geometry.ModelData.Materials.get -> string[]
+Vixen.Geometry.ModelData.Materials.set -> string[]
+Vixen.Geometry.ModelData.ModelData() -> void
+Vixen.Geometry.ModelData.Name.get -> string
+Vixen.Geometry.ModelData.Name.set -> string
+Vixen.Geometry.ModelData.Nodes.get -> Vixen.Geometry.ModelNode[]
+Vixen.Geometry.ModelData.Nodes.set -> Vixen.Geometry.ModelNode[]
+Vixen.Geometry.ModelData.Parts.get -> Vixen.Geometry.ModelPart[]
+Vixen.Geometry.ModelData.Parts.set -> Vixen.Geometry.ModelPart[]
+Vixen.Geometry.ModelData.Skeleton.get -> string
+Vixen.Geometry.ModelData.Skeleton.set -> string
+Vixen.Geometry.ModelNode -> sealed record
+Vixen.Geometry.ModelNode : System.IEquatable<Vixen.Geometry.ModelNode>
+Vixen.Geometry.ModelNode.ModelNode() -> void
+Vixen.Geometry.ModelNode.Name.get -> string
+Vixen.Geometry.ModelNode.Name.set -> string
+Vixen.Geometry.ModelNode.Parent.get -> int
+Vixen.Geometry.ModelNode.Parent.set -> int
+Vixen.Geometry.ModelNode.Transform.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Geometry.ModelNode.Transform.set -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Geometry.ModelPart -> sealed record
+Vixen.Geometry.ModelPart : System.IEquatable<Vixen.Geometry.ModelPart>
+Vixen.Geometry.ModelPart.Material.get -> int
+Vixen.Geometry.ModelPart.Material.set -> int
+Vixen.Geometry.ModelPart.Mesh.get -> string
+Vixen.Geometry.ModelPart.Mesh.set -> string
+Vixen.Geometry.ModelPart.ModelPart() -> void
+Vixen.Geometry.ModelPart.Node.get -> int
+Vixen.Geometry.ModelPart.Node.set -> int
+Vixen.Geometry.MorphTargetData -> sealed record
+Vixen.Geometry.MorphTargetData : System.IEquatable<Vixen.Geometry.MorphTargetData>
+Vixen.Geometry.MorphTargetData.Count.get -> int
+Vixen.Geometry.MorphTargetData.HasNormals.get -> bool
+Vixen.Geometry.MorphTargetData.Indices.get -> int[]
+Vixen.Geometry.MorphTargetData.Indices.set -> int[]
+Vixen.Geometry.MorphTargetData.MorphTargetData() -> void
+Vixen.Geometry.MorphTargetData.Name.get -> string
+Vixen.Geometry.MorphTargetData.Name.set -> string
+Vixen.Geometry.MorphTargetData.NormalDelta(int entry) -> Vixen.Core.Mathematics.Vector3
+Vixen.Geometry.MorphTargetData.NormalScale.get -> float
+Vixen.Geometry.MorphTargetData.NormalScale.set -> float
+Vixen.Geometry.MorphTargetData.Normals.get -> short[]
+Vixen.Geometry.MorphTargetData.Normals.set -> short[]
+Vixen.Geometry.MorphTargetData.PositionDelta(int entry) -> Vixen.Core.Mathematics.Vector3
+Vixen.Geometry.MorphTargetData.PositionScale.get -> float
+Vixen.Geometry.MorphTargetData.PositionScale.set -> float
+Vixen.Geometry.MorphTargetData.Positions.get -> short[]
+Vixen.Geometry.MorphTargetData.Positions.set -> short[]
+Vixen.Geometry.MorphTargetData.SizeInBytes.get -> long
 Vixen.Geometry.ShapeKind -> enum : byte
 Vixen.Geometry.ShapeKind.Arch = 9 -> Vixen.Geometry.ShapeKind
 Vixen.Geometry.ShapeKind.Box = 0 -> Vixen.Geometry.ShapeKind
@@ -169,6 +291,40 @@ Vixen.Geometry.ShapeParameters.Steps.get -> int
 Vixen.Geometry.ShapeParameters.Steps.set -> int
 Vixen.Geometry.ShapeParameters.Thickness.get -> float
 Vixen.Geometry.ShapeParameters.Thickness.set -> float
+Vixen.Geometry.SimplifyResult -> readonly struct
+Vixen.Geometry.SimplifyResult : System.IEquatable<Vixen.Geometry.SimplifyResult>
+Vixen.Geometry.SimplifyResult.Corners.get -> int[]
+Vixen.Geometry.SimplifyResult.Corners.init -> int[]
+Vixen.Geometry.SimplifyResult.Error.get -> float
+Vixen.Geometry.SimplifyResult.Error.init -> float
+Vixen.Geometry.SimplifyResult.SimplifyResult() -> void
+Vixen.Geometry.SimplifyResult.SimplifyResult(int[] Corners, float Error, (int Vertex, float Error)[] Updates) -> void
+Vixen.Geometry.SimplifyResult.Updates.get -> (int Vertex, float Error)[]
+Vixen.Geometry.SimplifyResult.Updates.init -> (int Vertex, float Error)[]
+Vixen.Geometry.SkeletonData -> sealed record
+Vixen.Geometry.SkeletonData : System.IEquatable<Vixen.Geometry.SkeletonData>
+Vixen.Geometry.SkeletonData.Joints.get -> Vixen.Geometry.SkeletonJoint[]
+Vixen.Geometry.SkeletonData.Joints.set -> Vixen.Geometry.SkeletonJoint[]
+Vixen.Geometry.SkeletonData.Name.get -> string
+Vixen.Geometry.SkeletonData.Name.set -> string
+Vixen.Geometry.SkeletonData.SkeletonData() -> void
+Vixen.Geometry.SkeletonJoint -> sealed record
+Vixen.Geometry.SkeletonJoint : System.IEquatable<Vixen.Geometry.SkeletonJoint>
+Vixen.Geometry.SkeletonJoint.InverseBindPose.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Geometry.SkeletonJoint.InverseBindPose.set -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Geometry.SkeletonJoint.Limited.get -> bool
+Vixen.Geometry.SkeletonJoint.Limited.set -> bool
+Vixen.Geometry.SkeletonJoint.Name.get -> string
+Vixen.Geometry.SkeletonJoint.Name.set -> string
+Vixen.Geometry.SkeletonJoint.Parent.get -> int
+Vixen.Geometry.SkeletonJoint.Parent.set -> int
+Vixen.Geometry.SkeletonJoint.SkeletonJoint() -> void
+Vixen.Geometry.SkeletonJoint.Swing.get -> float
+Vixen.Geometry.SkeletonJoint.Swing.set -> float
+Vixen.Geometry.SkeletonJoint.Twist.get -> float
+Vixen.Geometry.SkeletonJoint.Twist.set -> float
+Vixen.Geometry.SkeletonJoint.TwistAxis.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Geometry.SkeletonJoint.TwistAxis.set -> Vixen.Core.Mathematics.Vector3
 Vixen.Geometry.UvProjection -> enum : byte
 Vixen.Geometry.UvProjection.Box = 1 -> Vixen.Geometry.UvProjection
 Vixen.Geometry.UvProjection.Planar = 2 -> Vixen.Geometry.UvProjection
@@ -190,6 +346,7 @@ const Vixen.Geometry.MeshShapes.GroupTop = 0 -> int
 const Vixen.Geometry.MeshSurfaces.DefaultScale = 1 -> float
 const Vixen.Geometry.MeshSurfaces.DefaultSmoothingAngle = 0.5235988 -> float
 const Vixen.Geometry.MeshTopology.DefaultCoplanarTolerance = 0.9994 -> float
+const Vixen.Geometry.MorphTargetData.Quantum = 32767 -> int
 const Vixen.Geometry.ShapeParameters.MaximumDivisions = 256 -> int
 const Vixen.Geometry.ShapeParameters.MaximumSize = 1000000 -> float
 const Vixen.Geometry.ShapeParameters.MinimumSize = 0.0001 -> float
@@ -224,6 +381,8 @@ static Vixen.Geometry.MeshShapes.Create(Vixen.Geometry.ShapeKind kind) -> Vixen.
 static Vixen.Geometry.MeshShapes.Create(in Vixen.Geometry.ShapeParameters parameters) -> Vixen.Geometry.EditMesh
 static Vixen.Geometry.MeshShapes.StairProfile(float run, float rise, int steps, System.Collections.Generic.List<Vixen.Core.Mathematics.Vector2> into) -> void
 static Vixen.Geometry.MeshShapes.Sweep(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector2> outline, Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 across, Vixen.Core.Mathematics.Vector3 up, Vixen.Core.Mathematics.Vector3 along, int capGroup = 0, System.ReadOnlySpan<int> sides = default(System.ReadOnlySpan<int>)) -> Vixen.Geometry.EditMesh
+static Vixen.Geometry.MeshSimplifier.EdgeKey(int left, int right) -> long
+static Vixen.Geometry.MeshSimplifier.Simplify(Vixen.Core.Mathematics.Vector3[] positions, int[] welded, bool[] seam, float[] vertexError, System.ReadOnlySpan<int> corners, System.Collections.Generic.HashSet<long> lockedEdges, int targetTriangles) -> Vixen.Geometry.SimplifyResult
 static Vixen.Geometry.MeshSurfaces.AutoSmooth(Vixen.Geometry.EditMesh mesh, float angle = 0.5235988) -> int
 static Vixen.Geometry.MeshSurfaces.Fit(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.IReadOnlyCollection<int>? faces) -> int
 static Vixen.Geometry.MeshSurfaces.Normals(Vixen.Geometry.EditMesh mesh) -> Vixen.Core.Mathematics.Vector3[]
@@ -236,4 +395,6 @@ static Vixen.Geometry.MeshTopology.EdgeLoop(Vixen.Geometry.EditMesh mesh, int ed
 static Vixen.Geometry.MeshTopology.EdgeRing(Vixen.Geometry.EditMesh mesh, int edge, System.Collections.Generic.List<int> into) -> void
 static Vixen.Geometry.MeshTopology.Group(Vixen.Geometry.EditMesh mesh, int group, System.Collections.Generic.List<int> into) -> void
 static Vixen.Geometry.MeshTopology.Shell(Vixen.Geometry.EditMesh mesh, int face, System.Collections.Generic.List<int> into) -> void
+static Vixen.Geometry.MorphTargetData.Encode(string name, System.ReadOnlySpan<int> indices, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> positions, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> normals) -> Vixen.Geometry.MorphTargetData
+static Vixen.Geometry.MorphTargetData.Sparsify(string name, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> positions, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> normals, float threshold) -> Vixen.Geometry.MorphTargetData
 static Vixen.Geometry.ShapeParameters.Default(Vixen.Geometry.ShapeKind kind) -> Vixen.Geometry.ShapeParameters

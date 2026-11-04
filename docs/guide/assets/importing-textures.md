@@ -4,7 +4,7 @@ slug: assets/importing-textures
 kind: guide
 area: Assets
 summary: Which image formats the pipeline reads, what each decoder decides, and the two settings that are not cosmetic.
-api: [T:Vixen.Editor.Assets.Textures.TextureImporter, T:Vixen.Editor.Assets.Textures.TextureImportSettings, T:Vixen.Editor.Assets.Textures.TextureContent, T:Vixen.Editor.Assets.Textures.TextureCompression, T:Vixen.Editor.Assets.Textures.IImageDecoder, T:Vixen.Editor.Assets.Textures.ImageDecoders, T:Vixen.Editor.Assets.Textures.StbImageDecoder, T:Vixen.Editor.Assets.Textures.Ktx2Decoder, T:Vixen.Editor.Assets.Textures.DdsDecoder]
+api: [T:Vixen.Editor.Assets.Textures.TextureImporter, T:Vixen.Editor.Assets.Textures.TextureImportSettings, T:Vixen.Editor.Assets.Textures.TextureContent, T:Vixen.Editor.Assets.Textures.TextureCompression, T:Vixen.Interchange.IImageDecoder, T:Vixen.Interchange.ImageDecoders, T:Vixen.Interchange.StbImageDecoder, T:Vixen.Interchange.Ktx2Decoder, T:Vixen.Interchange.DdsDecoder]
 tags: [assets, textures, importers, ktx2, dds]
 since: 0.2
 status: preview
